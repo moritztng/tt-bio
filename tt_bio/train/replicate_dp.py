@@ -23,18 +23,24 @@ meet, so this module does not add a collective beside it. What it does add is
 :func:`reduce_cut`, for the cotangent at the cut, which has to be summed BEFORE the prefix
 backward rather than after it.
 
-**Rank 0 owns the prefix backward, and that is the honest cap on this axis.** The trunk
-backward is ~20 s at crop 384 and no amount of replicate sharding divides it, so running it
-on every rank would either N-count the trunk's gradient in the final sum or need the
-cotangent scaled by 1/N, which is exact only at N=2. One rank does it, the others wait, and
-the wait is visible in the step table rather than folded into a scaling number.
+**Rank 0 owns the prefix backward, and that is the honest cap on this axis.** No amount of
+replicate sharding divides it, so running it on every rank would either N-count the trunk's
+gradient in the final sum or need the cotangent scaled by 1/N, which is exact only at N=2.
+One rank does it, the others wait, and the wait is visible in the step table rather than
+folded into a scaling number. How big that cap is, measured rather than projected: at 48
+replicates on OpenFold3 crop 384 the trunk is 89.6 % of a 1035.31 s step (`of3t-p10wall`,
+taped cycle 233.808 s plus trunk backward 687.661 s, qb2 card 1, AICLK 1350 median DURING
+n=834) against a replicate loop of 102.32 s. An earlier 20 s reading for the trunk backward
+was taken at 4 replicates and is 34x low at 48. **Sharding a term that is 9.9 % of the step
+cannot pay**, so this module waits on the trunk defect (`of3t-p10trunk`) before it is worth
+a chip.
 """
 
 from __future__ import annotations
 
 from typing import List, Sequence
 
-__all__ = ["shard", "reduce_cut", "PREFIX_RANK"]
+__all__ = ["shard", "replicate_noise", "reduce_cut", "PREFIX_RANK"]
 
 
 #: The rank that differentiates the shared prefix. Fixed rather than elected: every rank has
@@ -60,6 +66,33 @@ def shard(n: int, world: int, rank: int) -> List[int]:
     if not 0 <= rank < world:
         raise ValueError(f"rank {rank} is not in range(world={world})")
     return list(range(rank, n, world))
+
+
+def replicate_noise(seed: int, index: int, shape, dtype="float32"):
+    """Standard normal noise for the replicate at GLOBAL ``index``, independent of draw order.
+
+    The obvious implementation -- one generator per step, drawn once per replicate inside the
+    loop -- makes a replicate's noise a function of its POSITION IN THE DRAW ORDER rather than
+    of its index. On one chip running the replicates in order the two coincide, which is why a
+    chunked-against-unchunked test passes against it and why the defect survives a card-free
+    suite.
+
+    Under :func:`shard` they come apart. Rank ``r`` executes global indices ``r, r+world, ...``
+    and draws from position 0, so every rank gets the SAME noise sequence paired with a
+    DIFFERENT set of sigmas: the structures differentiated are no longer the ones a single
+    chip differentiates, and several are duplicates of each other. Nothing crashes, the draw
+    count and every tensor shape are unchanged, and the step time is exactly right -- which is
+    the dangerous part, because the arm then publishes a correct speed for a computation that
+    is not the one being measured.
+
+    Keying the generator on ``(seed, index)`` makes the noise a pure function of the global
+    index. Replicate ``i`` is the same structure whoever owns it, at any ``world`` and any
+    chunk size, so an N-chip arm and its N=1 control are the same computation and a gradient
+    comparison between them means something. It is timing-neutral -- same draw count, same
+    shapes, same device ops -- so it does not move a banked baseline.
+    """
+    import numpy as np
+    return np.random.default_rng([seed, index]).standard_normal(shape).astype(dtype, copy=False)
 
 
 def reduce_cut(axis, leaves: Sequence, device) -> int:

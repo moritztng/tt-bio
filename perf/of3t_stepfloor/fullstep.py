@@ -284,14 +284,21 @@ def cut_tree(v, pairs):
     return v
 
 
-def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
-                    cache=None):
+def diffusion_chunk(sampler, pre, sigmas, noise_seed, out, first=0, si_trunk=None,
+                    zij_pad=None, cache=None):
     """One chunk of replicates: `dc.single` plus the denoiser, once per noised structure.
 
     Every denoised structure stays on the card as a tape root; there is no EDM update
     chaining one to the next and no host download between them. `si_trunk` / `zij_pad`
     override the invariants with the CUT leaves when the step is chunked, so this chunk's
     tape ends at them instead of running on into the trunk.
+
+    `first` is the GLOBAL index of `sigmas[0]`, and the noise is keyed on it rather than
+    drawn from a shared generator in loop order. See `replicate_dp.replicate_noise`: a
+    position-ordered draw ties a replicate's noise to where it runs, which is identical on one
+    chip and wrong under a shard, and wrong in a way that leaves the step time exactly right.
+    It also makes the chunk count irrelevant to the structures by construction instead of by
+    the loop happening to run in order.
 
     `cache` is the replicate loop's deep invariant, the DiT per-block pair bias. Rebuilding
     it per chunk costs 3.75 s of forward per chunk (measured: sample 0 of each chunk reads
@@ -304,6 +311,7 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
     import torch
     import ttnn
     from tt_bio.openfold3_sample_diffusion import fourier_noise_emb, pad_dim
+    from tt_bio.train import replicate_dp as rdp
 
     (xl_init_dev, si_trunk_cap, si_input_dev, zij_trunk_cap, relpos_dev,
      token_mask_dev, pair_mask_dev, tok_mask_dev, cl0_dev, plm0_dev,
@@ -324,8 +332,8 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
     roots, per_sample = [], []
     for k, t in enumerate(sigmas):
         t0 = time.perf_counter()
-        noise = torch.from_numpy(
-            rng.standard_normal((n_atom, 3)).astype("float32")) * t
+        gi = first + k
+        noise = torch.from_numpy(rdp.replicate_noise(noise_seed, gi, (n_atom, 3))) * t
         xl_noisy = xl_host + noise
         n_emb = fourier_noise_emb(t, sampler.sigma_data, sampler.fourier_w, sampler.fourier_b)
         si_dev = dc.single(si_dev_trunk, si_input_dev,
@@ -344,8 +352,12 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
         ttnn.synchronize_device(dm.device if hasattr(dm, "device") else dc.device)
         roots.append(xl_denoised_dev)
         per_sample.append(round(time.perf_counter() - t0, 3))
-        print(f"  [diffusion] sample {k} sigma {t:8.3f}  {per_sample[-1]:7.3f}s", flush=True)
+        print(f"  [diffusion] replicate {gi} sigma {t:8.3f}  {per_sample[-1]:7.3f}s",
+              flush=True)
     out.setdefault("per_sample_s", []).extend(per_sample)
+    # The reach stamp a sharded arm is graded on: the union over ranks must be exactly the
+    # replicate set one chip runs, with no index twice and none missing.
+    out.setdefault("replicate_index", []).extend(range(first, first + len(sigmas)))
     return roots
 
 
@@ -695,7 +707,8 @@ def main() -> int:
                    "diffusion_samples": a.samples, "stage": a.stage,
                    "taped": not a.no_tape, "chunk": a.chunk or None,
                    "loss_shape": a.loss_shape,
-                   "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so "
+                   "rng": "replicate noise keyed on the GLOBAL replicate index, loss "
+                          "fixture from its own stream, so "
                           "a chunked arm and an unchunked one noise the same structures"}}
     a.out.parent.mkdir(parents=True, exist_ok=True)
 
@@ -820,6 +833,7 @@ def main() -> int:
                     # are chunked, so `dc.pair` is differentiated exactly once either way.
                     t0 = time.perf_counter()
                     pre = diffusion_pre(sampler, sargs, s_tr, z_tr, a.samples, rng_diff, d_out)
+                    noise_seed = SEED + seed_rep
                     diff_s = time.perf_counter() - t0
                     rep_atom = pre["rep"]
                     roots = prime_roots = None
@@ -833,13 +847,15 @@ def main() -> int:
                         # final walk rather than skipped.
                         t0 = time.perf_counter()
                         prime_roots = diffusion_chunk(sampler, pre, pre["sigmas"][:1],
-                                                      rng_diff, d_out, cache=prime_cache)
+                                                      noise_seed, d_out, first=0,
+                                                      cache=prime_cache)
                         ttnn.synchronize_device(dev)
                         row["prime_replicate_s"] = round(time.perf_counter() - t0, 3)
                         diff_s += row["prime_replicate_s"]
                     if not chunk:
                         t0 = time.perf_counter()
-                        roots = diffusion_chunk(sampler, pre, pre["sigmas"], rng_diff, d_out)
+                        roots = diffusion_chunk(sampler, pre, pre["sigmas"], noise_seed,
+                                                d_out, first=0)
                         diff_s += time.perf_counter() - t0
                         row["dram_after_diffusion"] = _dram(dev)
                         peak_dram = row["dram_after_diffusion"]
@@ -881,8 +897,8 @@ def main() -> int:
                         c = {"first": ci, "n": len(part)}
                         t0 = time.perf_counter()
                         with ag.tape():
-                            roots = diffusion_chunk(sampler, pre, part, rng_diff, d_out,
-                                                    si_trunk=s_det, zij_pad=z_det,
+                            roots = diffusion_chunk(sampler, pre, part, noise_seed, d_out,
+                                                    first=ci, si_trunk=s_det, zij_pad=z_det,
                                                     cache=cut_cache)
                         ttnn.synchronize_device(dev)
                         c["diffusion_s"] = round(time.perf_counter() - t0, 3)
