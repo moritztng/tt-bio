@@ -1827,7 +1827,16 @@ def straight_through(value, x: Tensor) -> Tensor:
     weights on the card. Consumers read the precise value; the weights get the gradient of the
     device computation, evaluated where that computation landed. ``value`` is a raw ttnn tensor
     of ``x``'s shape and dtype.
+
+    ``x`` is WRAPPED rather than assumed: the device leg is only a `Tensor` when something on
+    it is registered, and in an inference pass over the same forward it comes back as a raw
+    handle. `_tape` then reads `.value` off a parent that has none -- `AttributeError` on a
+    raw ttnn tensor, in the evaluation of a run that had just finished training. Wrapping is a
+    no-op when it is already a `Tensor`, and it is what makes `add_grad` below well defined
+    either way.
     """
+    x = _wrap(x)
+
     def make():
         def bw(g):
             x.add_grad(g)

@@ -97,10 +97,36 @@ def _evaluate(fwd, corpus, stage, seed, tokens=None):
     ds = OpenFold3Dataset(corpus, tokens=tokens)
     row = objectives.objective("af3")
     weights = of3_loss_weights(stage)
+    # RE-ARM THE REGISTRATION WALK for this corpus. A forward at a token size the run has not
+    # seen materialises fused weights lazily -- the trimul in-projections build per chunk
+    # width -- and `OpenFold3Forward` registers the walk once, behind a latch. The held-out
+    # targets are 13 to 87 tokens against a 384 training crop, so the evaluation forward built
+    # 4049 device tensors the latch had already closed over and `check_registered` refused the
+    # forward. Re-arming makes the walk cover them; a tensor already registered re-keys to the
+    # same leaf, so this is a no-op for everything the run was training.
+    fwd._registered = False
     prev_seed, fwd.seed = fwd.seed, seed
     out = []
     try:
-        with ag.no_grad():
+        # THE INSTRUMENT IS OFF HERE, in both arms. The metric has to be one instrument
+        # applied to two sets of weights, and the shipped inference path is the one a user
+        # gets; scoring arm A with the device softmax and arm B with a host float64 one would
+        # make the number a property of the instrument. `without_exact` rather than
+        # `exact_training(False)`: the second changes what the switch reports and leaves an
+        # installed op installed.
+        # BOTH, and they are not redundant. `without_exact` takes out anything an enclosing
+        # run already installed; `exact_training(False)` stops `tape()` re-installing it for
+        # its own extent, which is what `_training_exact` does on every tape opened outside an
+        # explicit scope. With only the first, the after-evaluation ran the host float64 layer
+        # norm and died in the diffusion decoder -- the default of `exact_training` is ON.
+        with ag.no_grad(), ag.exact_training(False), ag.without_exact():
+            from tt_bio import taped_ttnn as _tt
+            print(f"    [eval] instrument off: softmax {ag.exact_softmax_installed()}, "
+                  f"layer_norm {ag.exact_layer_norm_installed()}, "
+                  f"ops {ag.exact_training_ops()}, "
+                  f"verb {getattr(_tt.VERBS.get('layer_norm'), '__name__', '?')}, "
+                  f"raw {getattr(__import__('ttnn').layer_norm, '__name__', type(__import__('ttnn').layer_norm).__name__)}",
+                  flush=True)
             for i in range(len(ds)):
                 data = ds.batch([i])
                 t0 = time.perf_counter()
@@ -120,7 +146,9 @@ def _evaluate(fwd, corpus, stage, seed, tokens=None):
     finally:
         fwd.seed = prev_seed
     mean = sum(o["loss"] for o in out) / len(out) if out else float("nan")
-    return {"mean_loss": mean, "n": len(out), "seed": seed, "stage": stage, "targets": out}
+    return {"mean_loss": mean, "n": len(out), "seed": seed, "stage": stage,
+            "instrument": "shipped inference path, exact ops uninstalled for the block",
+            "targets": out}
 
 
 def main() -> int:
@@ -239,6 +267,10 @@ def main() -> int:
                                  checkpoint_every=a.checkpoint_every, on_step=on_step,
                                  displacement_band=band)
             if a.eval_corpus:
+                # The trainable set STAYS registered. `OpenFold3Forward.check_registered`
+                # audits every device tensor the forward reaches against it and refuses a
+                # forward whose weights would train as constants; dropping the registry to
+                # make the evaluation look like inference tripped that guard on 4049 tensors.
                 print("[eval] after the last step", flush=True)
                 rec["eval_after"] = _evaluate(fwd, a.eval_corpus, a.stage, a.eval_seed)
                 rec["eval_delta"] = (rec["eval_after"]["mean_loss"]
