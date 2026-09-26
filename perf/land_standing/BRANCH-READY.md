@@ -6,7 +6,6 @@ the branch now flips a shipped default. A merge handover that understates its ow
 worse than none, so this is the corrected one.
 
     0 behind origin/main        merging is a fast-forward; main afterwards IS this tree
-    tree                        a957974ce071145c22e8a12eed30558b3b646959
     109 files, +6221 / -46
     non-perf files              exactly one: tt_bio/tenstorrent.py
     NON-COMMENT lines changed   exactly one, in the whole tree:
@@ -15,6 +14,17 @@ worse than none, so this is the corrected one.
         +_TRIATT_HIFI_DIVIDING_K_DEFAULT = True
 
 Everything else is comment or lives under `perf/land_standing/`.
+
+**Deliberately no tree hash here.** The gate below ran at tree `a957974ce0`; writing this file
+moved the tree to `a993616c87`, and the next doc commit will move it again — a handover that pins
+a hash invalidates itself every time anyone writes to it
+(`a-doc-commit-after-the-verification-run-moves-the-tree-the-claim-names`). The claim that
+survives is the invariant: re-run
+
+    git diff -U0 origin/main...HEAD -- tt_bio/ | grep -E '^[+-]' | grep -vE '^[+-]#|^(\+\+\+|---)'
+
+and it must print exactly the two lines above. Every commit since the gate has touched only
+`perf/land_standing/*.md`.
 
 ## What that one line buys
 
