@@ -440,14 +440,30 @@ class OF3DiffusionModule(Module):
             ql.append(q)
             ai.append(self._pre_dit(q, si_k, atom_to_token_mean_tt, n_token, n_tok_pad)[0])
 
-        a_b = ai[0] if S == 1 else stack_samples(ai)               # [S, n_tok_pad, 768]
-        s_b = samples[0][0] if S == 1 else stack_samples([x[0] for x in samples])
+        # At S=1 nothing is stacked and nothing is sliced, so the control arm allocates
+        # exactly what the per-replicate loop allocates. Above 1 the parts are freed as soon
+        # as the axis they were stacked into exists: an open tape declines the deallocate and
+        # evicts instead, so this costs a taped step nothing and gives an inference one back
+        # S-1 copies of the largest tensor on the token path.
+        if S == 1:
+            a_b, s_b = ai[0], samples[0][0]
+        else:
+            a_b, s_b = stack_samples(ai), stack_samples([x[0] for x in samples])
+            for t in ai:
+                ttnn.deallocate(t)
         a_b = self.dit(a_b, s_b, zij, token_mask_pad_tt, tok_mask_col_pad_tt, cache=cache)
+        if S > 1:
+            ttnn.deallocate(s_b)
 
+        # Every slice before any decoder runs, so the batched result is freed once rather than
+        # held across S atom-decoder calls.
+        parts = [a_b] if S == 1 else [a_b[k:k + 1] for k in range(S)]
+        if S > 1:
+            ttnn.deallocate(a_b)
         out = []
         for k, (_si_k, _rl_k, xl_k, t_k) in enumerate(samples):
             out.append(self._post_dit(
-                a_b if S == 1 else a_b[k:k + 1], ql[k], None, None, None, cl_pad, plm, xl_k,
+                parts[k], ql[k], None, None, None, cl_pad, plm, xl_k,
                 atom_mask_col, atom_mask_col_na, atom_to_token_idx_tt,
                 enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
                 n_atom, NP, nb, t_k, sigma_data, False, cache))
