@@ -1,15 +1,15 @@
 {
  "evo": {
   "by_site": {
-   "1 add_grad fan-in: two gradients widened to fp32 and summed": {
-    "GB_lo": 1.442,
-    "GB_hi": 5.736,
-    "exponent": 1.992,
+   "3 layer-norm backward": {
+    "GB_lo": 1.009,
+    "GB_hi": 3.914,
+    "exponent": 1.956,
     "at": {
-     "224": 4.396,
-     "256": 5.736,
-     "512": 22.817,
-     "1536": 203.548
+     "224": 3.014,
+     "256": 3.914,
+     "512": 15.183,
+     "1536": 130.156
     }
    },
    "7 residual eltwise": {
@@ -23,15 +23,26 @@
      "1536": 95.872
     }
    },
-   "0 recompute: the checkpoint re-running the forward": {
-    "GB_lo": 2.264,
-    "GB_hi": 11.039,
-    "exponent": 2.286,
+   "1 add_grad fan-in: two gradients widened to fp32 and summed": {
+    "GB_lo": 1.442,
+    "GB_hi": 5.736,
+    "exponent": 1.992,
     "at": {
-     "224": 8.135,
-     "256": 11.039,
-     "512": 53.825,
-     "1536": 663.013
+     "224": 4.396,
+     "256": 5.736,
+     "512": 22.817,
+     "1536": 203.548
+    }
+   },
+   "6 other typecasts": {
+    "GB_lo": 0.231,
+    "GB_hi": 0.922,
+    "exponent": 1.997,
+    "at": {
+     "224": 0.706,
+     "256": 0.922,
+     "512": 3.68,
+     "1536": 33.007
     }
    },
    "2 softmax backward on the score tensor": {
@@ -45,17 +56,6 @@
      "1536": 1910.561
     }
    },
-   "3 layer-norm backward": {
-    "GB_lo": 1.009,
-    "GB_hi": 3.914,
-    "exponent": 1.956,
-    "at": {
-     "224": 3.014,
-     "256": 3.914,
-     "512": 15.183,
-     "1536": 130.156
-    }
-   },
    "5 the arithmetic itself": {
     "GB_lo": 0.59,
     "GB_hi": 2.863,
@@ -67,6 +67,17 @@
      "1536": 169.835
     }
    },
+   "0 recompute: the checkpoint re-running the forward": {
+    "GB_lo": 2.264,
+    "GB_hi": 11.039,
+    "exponent": 2.286,
+    "at": {
+     "224": 8.135,
+     "256": 11.039,
+     "512": 53.825,
+     "1536": 663.013
+    }
+   },
    "4 layout moves": {
     "GB_lo": 0.544,
     "GB_hi": 2.001,
@@ -76,17 +87,6 @@
      "256": 2.001,
      "512": 7.36,
      "1536": 58.0
-    }
-   },
-   "6 other typecasts": {
-    "GB_lo": 0.231,
-    "GB_hi": 0.922,
-    "exponent": 1.997,
-    "at": {
-     "224": 0.706,
-     "256": 0.922,
-     "512": 3.68,
-     "1536": 33.007
     }
    }
   },
@@ -123,15 +123,15 @@
  },
  "extra": {
   "by_site": {
-   "1 add_grad fan-in: two gradients widened to fp32 and summed": {
-    "GB_lo": 1.091,
-    "GB_hi": 4.664,
-    "exponent": 2.096,
+   "3 layer-norm backward": {
+    "GB_lo": 0.829,
+    "GB_hi": 3.318,
+    "exponent": 2.001,
     "at": {
-     "224": 3.525,
-     "256": 4.664,
-     "512": 19.938,
-     "1536": 199.388
+     "224": 2.54,
+     "256": 3.318,
+     "512": 13.28,
+     "1536": 119.634
     }
    },
    "7 residual eltwise": {
@@ -145,15 +145,26 @@
      "1536": 102.108
     }
    },
-   "0 recompute: the checkpoint re-running the forward": {
-    "GB_lo": 1.77,
-    "GB_hi": 9.29,
-    "exponent": 2.392,
+   "1 add_grad fan-in: two gradients widened to fp32 and summed": {
+    "GB_lo": 1.091,
+    "GB_hi": 4.664,
+    "exponent": 2.096,
     "at": {
-     "224": 6.75,
-     "256": 9.29,
-     "512": 48.759,
-     "1536": 674.992
+     "224": 3.525,
+     "256": 4.664,
+     "512": 19.938,
+     "1536": 199.388
+    }
+   },
+   "6 other typecasts": {
+    "GB_lo": 0.215,
+    "GB_hi": 0.859,
+    "exponent": 1.998,
+    "at": {
+     "224": 0.658,
+     "256": 0.859,
+     "512": 3.432,
+     "1536": 30.831
     }
    },
    "2 softmax backward on the score tensor": {
@@ -167,17 +178,6 @@
      "1536": 1964.397
     }
    },
-   "3 layer-norm backward": {
-    "GB_lo": 0.829,
-    "GB_hi": 3.318,
-    "exponent": 2.001,
-    "at": {
-     "224": 2.54,
-     "256": 3.318,
-     "512": 13.28,
-     "1536": 119.634
-    }
-   },
    "5 the arithmetic itself": {
     "GB_lo": 0.448,
     "GB_hi": 2.358,
@@ -189,6 +189,17 @@
      "1536": 172.579
     }
    },
+   "0 recompute: the checkpoint re-running the forward": {
+    "GB_lo": 1.77,
+    "GB_hi": 9.29,
+    "exponent": 2.392,
+    "at": {
+     "224": 6.75,
+     "256": 9.29,
+     "512": 48.759,
+     "1536": 674.992
+    }
+   },
    "4 layout moves": {
     "GB_lo": 0.321,
     "GB_hi": 1.285,
@@ -198,17 +209,6 @@
      "256": 1.285,
      "512": 5.144,
      "1536": 46.353
-    }
-   },
-   "6 other typecasts": {
-    "GB_lo": 0.215,
-    "GB_hi": 0.859,
-    "exponent": 1.998,
-    "at": {
-     "224": 0.658,
-     "256": 0.859,
-     "512": 3.432,
-     "1536": 30.831
     }
    }
   },
@@ -242,5 +242,63 @@
    "512": 191.296,
    "1536": 3310.282
   }
+ },
+ "seconds": {
+  "roof_GB_s": 424.7,
+  "note": "achieved is a LOWER bound: the census sees depth-0 only",
+  "evo": {
+   "GB_n256": 39.395,
+   "device_ms_n256": 131.9,
+   "achieved_GB_s_lower_bound": 298.7,
+   "share_of_roof_lower_bound": 0.703
+  },
+  "extra": {
+   "GB_n256": 34.497,
+   "device_ms_n256": 115.9,
+   "achieved_GB_s_lower_bound": 297.6,
+   "share_of_roof_lower_bound": 0.701
+  }
+ },
+ "step": {
+  "n": 224,
+  "blocks": [
+   4,
+   48
+  ],
+  "device_ms_modelled": 4983.4,
+  "removed_ms": 673.1,
+  "device_speedup": 1.1562,
+  "with_fused_softmax": {
+   "removed_ms": 1686.4,
+   "device_speedup": 1.5115
+  }
+ },
+ "round": {
+  "0.20": 1.0278,
+  "0.40": 1.0571,
+  "0.70": 1.1044
+ },
+ "fused_softmax_ceiling": {
+  "passes_now": 10,
+  "passes_fused_bf16_equiv": 1.5,
+  "removed_GB": {
+   "evo": {
+    "224": 5.822,
+    "256": 8.604,
+    "512": 65.331,
+    "1536": 1623.977
+   },
+   "extra": {
+    "224": 5.777,
+    "256": 8.558,
+    "512": 65.821,
+    "1536": 1669.737
+   }
+  }
+ },
+ "round_fused": {
+  "0.20": 1.0726,
+  "0.40": 1.1566,
+  "0.70": 1.3104
  }
 }

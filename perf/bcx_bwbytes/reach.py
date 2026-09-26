@@ -187,6 +187,34 @@ def scale(a, b, ns, at):
     return out
 
 
+def seconds(evo_gb, extra_gb, args):
+    """Bytes into seconds, and the ceiling that puts on every byte lever on this page.
+
+    Three measured inputs, none of them this row's:
+
+      424.7 GB/s   the Blackhole DRAM roof `bcx-intensity` measured, and the roof it showed every
+                   part of the gradient step is bound by -- machine balance 272.4 FLOP/byte
+                   against the most arithmetically intense part's AI of 47.7
+      131.9 ms     device kernels per AF2 Evoformer block backward at n=256, and 115.9 for
+                   extra-MSA, `bcx-bytes` `psum_prof_arms.json`, Tracy build, AICLK 1350
+      4 + 48       the blocks in one checkpointed BC2 gradient step
+
+    The first thing the division says is the important one, and it is a bound rather than an
+    estimate. The census counts depth-0 calls only, so its byte figure is a LOWER bound on DRAM
+    traffic; dividing a lower bound on bytes by a measured time gives a LOWER bound on achieved
+    bandwidth. If that already sits near the roof there is no efficiency win hiding under these
+    kernels, and the most any byte lever can return is the share of bytes it removes.
+    """
+    roof = args.roof
+    out = {"roof_GB_s": roof, "note": "achieved is a LOWER bound: the census sees depth-0 only"}
+    for name, gb, ms in (("evo", evo_gb, args.evo_ms), ("extra", extra_gb, args.extra_ms)):
+        ach = gb / (ms / 1e3)
+        out[name] = {"GB_n256": round(gb, 3), "device_ms_n256": ms,
+                     "achieved_GB_s_lower_bound": round(ach, 1),
+                     "share_of_roof_lower_bound": round(ach / roof, 3)}
+    return out
+
+
 def cmd_scale(args):
     """The reach map at the size BindCraft 2 actually runs, from the two sizes that were traced."""
     import json as _json
@@ -230,6 +258,67 @@ def cmd_scale(args):
             tot = blob[stack]["totals"][str(n)]
             print(f"   -> at n={n}: the precision stack removes {st:.3f} of {tot:.3f} GB, "
                   f"{st / tot * 100:.1f} %")
+    sec = seconds(blob["evo"]["totals"]["256"], blob["extra"]["totals"]["256"], args)
+    blob["seconds"] = sec
+    print("\nbytes into seconds, against bcx-intensity's measured DRAM roof")
+    for k in ("evo", "extra"):
+        v = sec[k]
+        print(f"   {k:6s} {v['GB_n256']:7.3f} GB / {v['device_ms_n256']:.1f} ms = "
+              f">= {v['achieved_GB_s_lower_bound']:.1f} GB/s, "
+              f">= {v['share_of_roof_lower_bound'] * 100:.1f} % of the {sec['roof_GB_s']} GB/s roof")
+    print("   so there is no efficiency win under these kernels: a byte lever returns at most the")
+    print("   share of bytes it removes, and no more.")
+
+    n = str(args.step_n)
+    ev = sum(blob["evo"]["levers"][k]["at"][n] for k in blob["evo"]["levers"])
+    ex = sum(blob["extra"]["levers"][k]["at"][n] for k in blob["extra"]["levers"])
+    evt, ext = blob["evo"]["totals"][n], blob["extra"]["totals"][n]
+    dev_ms = (args.evo_blocks * args.evo_ms * (evt / blob["evo"]["totals"]["256"])
+              + args.extra_blocks * args.extra_ms * (ext / blob["extra"]["totals"]["256"]))
+    cut = (args.evo_blocks * args.evo_ms * (ev / blob["evo"]["totals"]["256"])
+           + args.extra_blocks * args.extra_ms * (ex / blob["extra"]["totals"]["256"]))
+    blob["step"] = {"n": args.step_n, "blocks": [args.extra_blocks, args.evo_blocks],
+                    "device_ms_modelled": round(dev_ms, 1), "removed_ms": round(cut, 1),
+                    "device_speedup": round(dev_ms / (dev_ms - cut), 4)}
+    print(f"\none {args.extra_blocks}+{args.evo_blocks} gradient step at n={args.step_n}: "
+          f"{dev_ms:.0f} ms of device, of which the precision stack removes {cut:.0f} ms "
+          f"= {dev_ms / (dev_ms - cut):.3f}x on the DEVICE side")
+    print("   and end to end, as a function of the device share of the round -- NOT inherited,")
+    print("   because the two shares on the record were measured on two different trees:")
+    for share in [float(x) for x in args.shares.split(",")]:
+        r = 1.0 / ((1 - share) + share / (dev_ms / (dev_ms - cut)))
+        blob.setdefault("round", {})[f"{share:.2f}"] = round(r, 4)
+        print(f"     device {share * 100:4.1f} % of the round  ->  {r:.3f}x")
+
+    # The ceiling of the kernel programme on the one bucket worth a kernel. Pass counts, not a
+    # guess: the shipped expression touches the score-sized tensor ten times --
+    #   multiply(g,y) 2r+1w, sum(.,-1) 1r, sum(y,-1) 1r, subtract(g,inner) 1r+1w,
+    #   multiply(y,.) 2r+1w  = 10, all fp32, the divide being O(n^2) and negligible
+    # A single fused kernel with the renorm folded in reads y, reads g and writes dx: 3 passes,
+    # or 1.5 fp32-equivalents in bf16. So the bucket falls to 15 % of itself, and unlike the
+    # smbf16 lever it pays no narrowing cast, because the narrowing happens inside the kernel.
+    fused = {}
+    for stack in ("evo", "extra"):
+        b = blob[stack]["by_site"]
+        sm = next((v for k, v in b.items() if k.startswith("2 ")), None)
+        fused[stack] = {str(n): round(sm["at"][str(n)] * (1 - 1.5 / 10), 3) for n in at} if sm else {}
+    blob["fused_softmax_ceiling"] = {"passes_now": 10, "passes_fused_bf16_equiv": 1.5,
+                                     "removed_GB": fused}
+    ev2 = ev + fused["evo"][n]
+    ex2 = ex + fused["extra"][n]
+    cut2 = (args.evo_blocks * args.evo_ms * (ev2 / blob["evo"]["totals"]["256"])
+            + args.extra_blocks * args.extra_ms * (ex2 / blob["extra"]["totals"]["256"]))
+    blob["step"]["with_fused_softmax"] = {
+        "removed_ms": round(cut2, 1), "device_speedup": round(dev_ms / (dev_ms - cut2), 4)}
+    print(f"\nand with the softmax backward FUSED as well -- 10 passes of the score tensor today,")
+    print(f"   3 in one kernel, 1.5 fp32-equivalents in bf16, and no narrowing cast to pay:")
+    print(f"     removes {cut2:.0f} of {dev_ms:.0f} ms = {dev_ms / (dev_ms - cut2):.3f}x "
+          f"on the DEVICE side at n={args.step_n}")
+    for share in [float(x) for x in args.shares.split(",")]:
+        r = 1.0 / ((1 - share) + share / (dev_ms / (dev_ms - cut2)))
+        blob.setdefault("round_fused", {})[f"{share:.2f}"] = round(r, 4)
+        print(f"     device {share * 100:4.1f} % of the round  ->  {r:.3f}x")
+
     pathlib.Path(args.out).write_text(_json.dumps(blob, indent=1))
     print(f"\nwrote {args.out}")
 
@@ -239,6 +328,18 @@ def main():
     ap.add_argument("--traces", default="trace_bwd-fix_evo_n256,trace_bwd-fix_extra_n256")
     ap.add_argument("--scale", action="store_true",
                     help="per-bucket power law from the two traced sizes, evaluated at --at")
+    ap.add_argument("--roof", type=float, default=424.7,
+                    help="measured Blackhole DRAM roof, bcx-intensity")
+    ap.add_argument("--evo-ms", type=float, default=131.9,
+                    help="device ms per Evoformer block backward at n=256, bcx-bytes psum")
+    ap.add_argument("--extra-ms", type=float, default=115.9)
+    ap.add_argument("--evo-blocks", type=int, default=48)
+    ap.add_argument("--extra-blocks", type=int, default=4)
+    ap.add_argument("--step-n", type=int, default=224)
+    ap.add_argument("--shares", default="0.20,0.40,0.70",
+                    help="device share of the round to evaluate the end-to-end ratio at; the two "
+                         "on the record (bcx-round 20.1 %%, bcx-tmplseam ~70 %%) were measured on "
+                         "two different trees, so both are shown and neither is adopted")
     ap.add_argument("--at", default="224,256,512,1536",
                     help="224 is what a BindCraft 2 round runs (211 tokens bucketed); 1536 is the "
                          "MGX size target")
