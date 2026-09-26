@@ -173,10 +173,50 @@ def test_every_rank_ends_the_step_with_identical_gradients(world):
             np.testing.assert_array_equal(got[name], first[name], err_msg=f"rank {r} {name}")
 
 
-def test_reduce_grads_over_a_name_set_leaves_the_rest_untouched():
+def _named_rank(rank, world, run, q):
+    axis = ProcessAxis(name="dp", device_ids=tuple(range(world)),
+                       mesh=Mesh({"dp": list(range(world))}), dp_rank=rank, run=run)
+    params = {
+        # the replicate half: rank-dependent, must be summed
+        "diffusion.w": _P(np.array([rank + 1.0], np.float32)),
+        # the prefix half: every rank computed the identical value from the summed cotangent,
+        # so it must come back untouched rather than multiplied by the world
+        "trunk.w": _P(np.array([9.0], np.float32)),
+        "trunk.b": _P(None),
+    }
+    moved = rdp.reduce_grads(axis, params, names=["diffusion.w"])
+    q.put((rank, {k: (None if v.grad is None else np.asarray(v.grad).tolist())
+                  for k, v in params.items()}, moved))
+
+
+def test_reduce_grads_over_a_name_set_leaves_the_prefix_untouched():
     """The prefix's weights must not cross the wire, and `names` is how. A parameter outside
-    the set keeps whatever the rank computed, which is the whole point: every rank computed
-    the same thing."""
+    the set keeps what the rank computed, which is the point: every rank computed the same
+    thing. Summing it instead would multiply the prefix gradient by the world."""
+    ctx = mp.get_context("spawn")
+    for world in (2, 4):
+        with tempfile.TemporaryDirectory() as run:
+            q = ctx.Queue()
+            ps = [ctx.Process(target=_named_rank, args=(r, world, run, q))
+                  for r in range(world)]
+            for p in ps:
+                p.start()
+            got = {r: (g, moved) for r, g, moved in
+                   (q.get(timeout=120) for _ in range(world))}
+            for p in ps:
+                p.join(timeout=30)
+                assert p.exitcode == 0
+        total = float(sum(r + 1 for r in range(world)))
+        for r in range(world):
+            g, moved = got[r]
+            assert g["diffusion.w"] == [total], (world, r, g)
+            assert g["trunk.w"] == [9.0], f"world {world} rank {r} summed the prefix: {g}"
+            assert g["trunk.b"] is None
+            # only the named parameter's bytes moved
+            assert moved == 4, (world, r, moved)
+
+
+def test_reduce_grads_still_covers_every_parameter_when_no_names_are_given():
     assert "names" in inspect.signature(rdp.reduce_grads).parameters
 
 
