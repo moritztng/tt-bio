@@ -71,7 +71,7 @@ def main():
     ap.add_argument("--sdpa-own-forward", dest="sdpa_own_forward", type=int, default=1,
                     help="TT_BIO_SDPA_OWN_FORWARD; the `agtri` arm. 1 lets "
                          "autograd.triangle_attention compute its own chunked forward, which "
-                         "is 1.135x slower on device than the kernel forward and within 0.1 % "
+                         "is 1.135x slower on device than the kernel forward and within 0.1 %% "
                          "of the shipped path on every gradient reading, against the kernel "
                          "arm's 1.30-1.34x of the torch bf16 envelope. Only read when "
                          "--triatt-sdpa is on")
@@ -157,6 +157,7 @@ def main():
     stopped = None
     evo = None
     extra = None
+    tmpl = None
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation="device",
                                            checkpoints=args.params,
@@ -165,6 +166,7 @@ def main():
                                            exact=bool(args.exact)) as build:
             evo = build.evoformer
             extra = build.extra_msa
+            tmpl = build.template
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -173,7 +175,7 @@ def main():
         stopped = str(stop)
     finally:
         M.CLOCK.stop()
-        from tt_bio import autograd
+        from tt_bio import autograd, taped_ttnn, tenstorrent
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
@@ -181,6 +183,9 @@ def main():
                       "extra_msa_calls": dict(extra.calls) if extra else None,
                       "extra_msa_swapped": list(extra.swapped) if extra else None,
                       "extra_msa_mask_seen": dict(extra.mask_seen) if extra else None,
+                      "template_calls": dict(tmpl.calls) if tmpl else None,
+                      "triatt_sdpa_stats": dict(tenstorrent.TRIATT_TAPED_SDPA_STATS),
+                      "sdpa_own_forward_stats": dict(taped_ttnn.SDPA_OWN_FORWARD_STATS),
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
