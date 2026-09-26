@@ -254,3 +254,96 @@ def chunked_recompute_bytes(p, passes=48, elem=2):
     invocations at the shipped shape, which is 48.4 score-tensor passes per call.
     """
     return int(passes * p["B"] * p["H"] * p["N"] * p["N"] * elem)
+
+
+def _bf16_bits(x: float) -> int:
+    """The top 16 bits of the float32 pattern, which is what a bf16 tile element holds."""
+    return (_f32_bits(x) >> 16) & 0xFFFF
+
+
+def _packed_bf16(x: float) -> int:
+    """`pack_two_bfloat16_into_uint32({x, x})`, the form the bcast-scalar generators take."""
+    b = _bf16_bits(x)
+    return (b << 16) | b
+
+
+def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
+    """The ProgramDescriptor for one triangle-attention backward.
+
+    Deliberately its own program rather than an arm of `sdpa_generic.build`. The forward's reader
+    carries chain-forwarding, multicast, paging and MLA arguments that are all dead at this call,
+    and the backward's work split is a different shape anyway: it owns a group of the leading axis
+    rather than a chunk of the query axis, because that is the axis `dbias` reduces over.
+    """
+    gx, gy = p["gx"], p["gy"]
+    Nt, Dt, H = p["Nt"], p["Dt"], p["H"]
+    num_cores = p["num_cores"]
+    core_grid = ttnn.CoreRangeSet(
+        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+
+    cbs = [ttnn.CBDescriptor(
+        total_size=n * page, core_ranges=core_grid,
+        format_descriptors=[ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt,
+                                                    page_size=page)])
+        for idx, n, page, fmt in cb_table(p)]
+
+    def acc(t):
+        return list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+
+    qkv_tb = SG.tile_bytes(q.dtype)
+    bias_tb = SG.tile_bytes(bias.dtype)
+    part_tb = SG.tile_bytes(dbias_partial.dtype)
+
+    reader_ct = [H, Nt, Dt, qkv_tb, bias_tb] + acc(q) + acc(k) + acc(v) + acc(do) + acc(bias)
+    writer_ct = ([H, Nt, Dt, qkv_tb, part_tb, SG._packed_identity_scalar(), _packed_bf16(scale)]
+                 + acc(dq) + acc(dk) + acc(dv) + acc(dbias_partial))
+
+    # Subblocks are what keep a result inside DST. A [Nt, Nt] score block and a [Nt, Dt] gradient
+    # column have different aspect ratios, so they get different ones.
+    sq_h, sq_w = SG.largest_subblock(Nt, Nt, p["dst_size"])
+    col_h, col_w = SG.largest_subblock(Nt, Dt, p["dst_size"])
+    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w]
+
+    kd = _kdir()
+    rr, wr, cr = [], [], []
+    addrs = (q.buffer_address(), k.buffer_address(), v.buffer_address(), do.buffer_address(),
+             bias.buffer_address(), dq.buffer_address(), dk.buffer_address(),
+             dv.buffer_address(), dbias_partial.buffer_address())
+    for i in range(num_cores):
+        core = ttnn.CoreCoord(i % gx, i // gx)
+        # Heads on the fast index, so the cores sharing a head are adjacent and each of them reads
+        # that head's bias once. Groups on the slow index own contiguous leading-axis rows.
+        head, group = i % H, i // H
+        r0 = min(group * p["rows_per_core"], p["B"])
+        r1 = min(r0 + p["rows_per_core"], p["B"])
+        rr.append((core, [addrs[0], addrs[1], addrs[2], addrs[3], addrs[4], head, r0, r1]))
+        wr.append((core, [addrs[5], addrs[6], addrs[7], addrs[8], head, group, r0, r1]))
+        cr.append((core, [r0, r1]))
+
+    kernels = [
+        ttnn.KernelDescriptor(
+            kernel_source=str(kd / "dataflow/reader.cpp"),
+            source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+            core_ranges=core_grid, compile_time_args=reader_ct, defines=[], runtime_args=rr,
+            config=ttnn.ReaderConfigDescriptor()),
+        ttnn.KernelDescriptor(
+            kernel_source=str(kd / "dataflow/writer.cpp"),
+            source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+            core_ranges=core_grid, compile_time_args=writer_ct, defines=[], runtime_args=wr,
+            config=ttnn.WriterConfigDescriptor()),
+        ttnn.KernelDescriptor(
+            kernel_source=str(kd / "compute/triatt_bw.cpp"),
+            source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+            core_ranges=core_grid, compile_time_args=compute_ct,
+            defines=[("REDUCE_GRANULARITY", "1"), ("ADD_BLOCK_GRANULARITY", "1"),
+                     ("STATS_GRANULARITY", "1"), ("SUB_EXP_GRANULARITY", "1"),
+                     ("MUL_BCAST_GRANULARITY", "1"), ("DHT_GRANULARITY", "1"),
+                     ("EXP_APPROX_MODE", "0")],
+            runtime_args=cr,
+            config=ttnn.ComputeConfigDescriptor(
+                math_fidelity=ckc[0], math_approx_mode=False,
+                fp32_dest_acc_en=True, dst_full_sync_en=False)),
+    ]
+    pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
+    return {"pd": pd, "kernels": kernels, "cbs": cbs, "plan": p, "rt": (rr, wr, cr),
+            "addrs": addrs}
