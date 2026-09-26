@@ -1215,21 +1215,33 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
 
     def make():
         def bw(g):
+            # ttnn broadcasts a rank-3+ operand whose leading axis is 1 against a taller one, so
+            # the forward accepts (S, N, K) @ (1, K, M) and the backward hands that operand back a
+            # gradient of the OUTPUT's shape. Summing it over the stretched axis is the same
+            # correction `_binary` already applies, and `_reduce_to` returns `g` untouched when the
+            # shapes already agree -- which is every call that was passing before, including the
+            # `_via2d` path against a 2-D weight, where the flattening does the reduction inside
+            # the matmul. Without it a sample axis on a taped matmul raises in `add_grad` rather
+            # than training, which is how it was found (of3t-p10batch, card 2, 2026-09-26).
             if a.requires_grad:
                 if not transpose_a:
                     # dA = g @ op(b)^T
-                    a.add_grad(rows(g, lambda v: bmm(v, b.value, False, not transpose_b,
-                                                     compute_kernel_config=cfg)))
+                    a.add_grad(_reduce_to(rows(g, lambda v: bmm(v, b.value, False, not transpose_b,
+                                                                compute_kernel_config=cfg)),
+                                          a.value.shape))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
-                    a.add_grad(bmm(b.value, g, transpose_b, True, compute_kernel_config=cfg))
+                    a.add_grad(_reduce_to(bmm(b.value, g, transpose_b, True,
+                                              compute_kernel_config=cfg), a.value.shape))
             if b.requires_grad:
                 if not transpose_b:
                     # dB = op(a)^T @ g
-                    b.add_grad(bmm(a.value, g, not transpose_a, compute_kernel_config=cfg))
+                    b.add_grad(_reduce_to(bmm(a.value, g, not transpose_a,
+                                              compute_kernel_config=cfg), b.value.shape))
                 else:
                     # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
-                    b.add_grad(bmm(g, a.value, True, transpose_a, compute_kernel_config=cfg))
+                    b.add_grad(_reduce_to(bmm(g, a.value, True, transpose_a,
+                                              compute_kernel_config=cfg), b.value.shape))
         return bw
 
     return _tape(out_v, [a, b], make)
