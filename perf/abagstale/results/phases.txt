@@ -1,0 +1,3 @@
+a1024    trunk cadence med   126 s (min 126, max 135) | last trunk -> diffusion 0   197 s | diffusion loop    62 s | steps all present
+a1024b   trunk cadence med   126 s (min 126, max 127) | last trunk -> diffusion 0   196 s | diffusion loop    62 s | steps all present
+a1536    trunk cadence med   328 s (min 327, max 349) | last trunk -> diffusion 0   697 s | diffusion loop   123 s | steps all present
