@@ -1286,6 +1286,16 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     return _tape(out_v, parents, make)
 
 
+# Whether `_row_mean` divides the row sum by K or calls `ttnn.mean`. A module switch so a step
+# A/B can flip it between reps of ONE warm process, the way `SOFTMAX_BW_RENORM` already is: the
+# 384-token step's own rep-to-rep spread is 2.551 s
+# (`perf/of3t_stepfloor/out/step_fp32bw_48_384.json`), and four extra scalar divides per
+# layer-norm backward do not live at that resolution across two separate runs. Default on.
+# `ttnn.mean` is the measured-wrong path; the switch exists to PRICE the fix, not to offer it.
+ROW_MEAN_DIVIDE = True
+ROW_MEAN_STATS = {"divide": 0, "mean": 0}
+
+
 def _row_mean(v, cfg, K: int):
     """Mean over the last axis, as ``sum`` then an explicit multiply by ``1/K``.
 
@@ -1301,6 +1311,10 @@ def _row_mean(v, cfg, K: int):
     ``c_s = 384`` and ``c_z = 128``, so this is the single track's bias and not the pair
     track's, and it is a function of the channel width rather than of the crop.
     """
+    if not ROW_MEAN_DIVIDE:
+        ROW_MEAN_STATS["mean"] += 1
+        return ttnn.mean(v, dim=-1, keepdim=True, compute_kernel_config=cfg)
+    ROW_MEAN_STATS["divide"] += 1
     return ttnn.divide(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg), float(K))
 
 

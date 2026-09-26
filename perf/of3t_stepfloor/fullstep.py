@@ -813,6 +813,10 @@ def main() -> int:
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
+    ap.add_argument("--rowmean-per-rep", default="",
+                    help="per-rep plan for autograd.ROW_MEAN_DIVIDE, e.g. 1,0,1,0. The layer-norm "
+                         "backward's four row means as sum/K (1) or as ttnn.mean (0). One warm "
+                         "process, because the step's rep-to-rep spread is larger than the lever.")
     ap.add_argument("--renorm-per-rep", default="",
                     help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
                          "THIS process. The lever is a module global read inside the "
@@ -911,6 +915,9 @@ def main() -> int:
             out["renorm"] = {"flag": bool(ag.SOFTMAX_BW_RENORM),
                              "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
             plan = [bool(int(x)) for x in a.renorm_per_rep.split(",") if x != ""]
+            rmplan = [bool(int(x)) for x in a.rowmean_per_rep.split(",") if x != ""]
+            out["row_mean"] = {"flag": bool(ag.ROW_MEAN_DIVIDE), "per_rep_plan": rmplan or None,
+                               "stats_before": dict(ag.ROW_MEAN_STATS)}
             cplan = [int(x) for x in a.chunk_per_rep.split(",") if x != ""]
             out["chunk_per_rep_plan"] = cplan or None
             out["renorm"]["per_rep_plan"] = plan or None
@@ -932,6 +939,12 @@ def main() -> int:
                 if plan:
                     ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
                 row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
+                if rmplan:
+                    ag.ROW_MEAN_DIVIDE = rmplan[rep % len(rmplan)]
+                row["row_mean_divide"] = bool(ag.ROW_MEAN_DIVIDE)
+                # Differenced per rep, not read once: a switch that is set and never fires is
+                # this fleet's standing failure and the counter is what tells the two apart.
+                rm0 = dict(ag.ROW_MEAN_STATS)
                 rs0 = dict(ag.SOFTMAX_BW_RENORM_STATS)
                 ex0 = (dict(ag.EXACT_SOFTMAX_STATS), dict(ag.EXACT_LAYER_NORM_STATS))
                 # The host resident set, phase by phase, and this rep's own peak. Host
@@ -1236,6 +1249,8 @@ def main() -> int:
                                          - rs0["applied"])
                 row["renorm_declined"] = (ag.SOFTMAX_BW_RENORM_STATS["declined"]
                                           - rs0["declined"])
+                row["row_mean_fired"] = {k: ag.ROW_MEAN_STATS[k] - rm0[k]
+                                         for k in ag.ROW_MEAN_STATS}
                 print(f"[rep {rep}] trunk {row['trunk_s']:.2f}s  "
                       f"diffusion {row['diffusion_s']:.2f}s  "
                       f"losses {row['losses_s']:.2f}s  "
