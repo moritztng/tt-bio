@@ -200,6 +200,30 @@ def check_fired(count, rows, precision, moreh=False):
     return served, off
 
 
+def require_fresh_project(project, reuse=False):
+    """Refuse a project directory a campaign has already finished in.
+
+    `run_campaign` resumes from `.campaign_state.json`, so pointing a second A/B at the same
+    `--out` runs ZERO rounds: the campaign reports "1 trajectories ran and none were accepted",
+    exits 0, and the harness gets an empty `lever_counts` and an empty summary. Measured on
+    2026-09-26 at 04:28Z -- a card window claimed after a six-minute wait was spent on a 17 s run
+    that collected nothing, and the only reason it was noticed is that `check_fired` raised on
+    the emptiness afterwards.
+
+    Checked BEFORE the weights load and the JAX compile, because the point is to give the card
+    back in a second rather than in a minute.
+    """
+    if reuse:
+        return
+    stale = [n for n in (".campaign_state.json", "1_Trajectories")
+             if pathlib.Path(project, n).exists()]
+    if stale:
+        raise SystemExit(
+            f"{project} already carries campaign state ({', '.join(stale)}). run_campaign would "
+            f"resume it and run no rounds at all. Point --out at a fresh directory, or pass "
+            f"--reuse-project if resuming is what you meant.")
+
+
 class ABMeter(M.Meter):
     def __init__(self, rounds, apply):
         super().__init__(rounds)
@@ -326,10 +350,15 @@ def main():
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--no-extra-msa", action="store_true")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--reuse-project", action="store_true",
+                    help="run into a project directory that already has campaign state. Only "
+                         "honest use is resuming a campaign deliberately; it produces NO rounds "
+                         "if that campaign already finished.")
     args = ap.parse_args()
 
     project = args.out
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
+    require_fresh_project(project, args.reuse_project)
     overrides = [f"campaign_seed={args.seed}", "max_trajectories=1",
                  "validation_model=monomer", 'design_models=["model_1_ptm"]',
                  'validation_models=["model_2_ptm"]', f"project_folder={project}",
