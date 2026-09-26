@@ -1,52 +1,53 @@
-{
- "arm": "reference",
- "seed": 2,
- "trajectories": 10,
- "length_bucket_size": 32,
- "length_bucket_flag": 0,
- "shipped_model_pool": true,
- "resolved_design_models": [
-  "model_1_multimer_v3",
-  "model_2_multimer_v3",
-  "model_3_multimer_v3",
-  "model_4_multimer_v3",
-  "model_5_multimer_v3"
- ],
- "resolved_validation_models": [
-  "model_1_ptm",
-  "model_2_ptm"
- ],
- "settings_file": "/home/ttuser/bcx_e2e/bc2/examples/pdl1.json",
- "bc2": "/home/ttuser/bcx_e2e/bc2",
- "predictor": "AlphaFoldDesignModel",
- "host": "tt-quietbox",
- "started_utc": "2026-09-26T00:50:18Z",
- "loadavg_start": [
-  12.74755859375,
-  15.19580078125,
-  14.21630859375
- ],
- "stage_plan": {
-  "per_stage": {
-   "screen": 50,
-   "refine": 25,
-   "anneal": 45,
-   "harden": 5,
-   "mutate": 15
-  },
-  "gradient_steps": 125,
-  "mutate_steps": 15
- },
- "threads": "--xla_gpu_enable_triton_gemm=false",
- "project": "/home/ttuser/bcx_shipped_qb1/ref_s2"
-}
-BindCraft 2 (unreleased)
-campaign pdl1
-binder length 60 to 180, drawn per trajectory
-target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
-losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
-filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
-results /home/ttuser/bcx_shipped_qb1/ref_s2 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
-
-=== trajectory 1 | pdl1_denovo_l135_7ae5d04ea7edaf5a | accepted 0/10 ===
-  passed screen design stage  i_pTM=0.76    pLDDT=0.91  
+2026-09-26T00:52:20Z {
+2026-09-26T00:52:20Z  "arm": "reference",
+2026-09-26T00:52:20Z  "seed": 2,
+2026-09-26T00:52:20Z  "trajectories": 10,
+2026-09-26T00:52:20Z  "length_bucket_size": 32,
+2026-09-26T00:52:20Z  "length_bucket_flag": 0,
+2026-09-26T00:52:20Z  "shipped_model_pool": true,
+2026-09-26T00:52:20Z  "resolved_design_models": [
+2026-09-26T00:52:20Z   "model_1_multimer_v3",
+2026-09-26T00:52:20Z   "model_2_multimer_v3",
+2026-09-26T00:52:20Z   "model_3_multimer_v3",
+2026-09-26T00:52:20Z   "model_4_multimer_v3",
+2026-09-26T00:52:20Z   "model_5_multimer_v3"
+2026-09-26T00:52:20Z  ],
+2026-09-26T00:52:20Z  "resolved_validation_models": [
+2026-09-26T00:52:20Z   "model_1_ptm",
+2026-09-26T00:52:20Z   "model_2_ptm"
+2026-09-26T00:52:20Z  ],
+2026-09-26T00:52:20Z  "settings_file": "/home/ttuser/bcx_e2e/bc2/examples/pdl1.json",
+2026-09-26T00:52:20Z  "bc2": "/home/ttuser/bcx_e2e/bc2",
+2026-09-26T00:52:20Z  "predictor": "AlphaFoldDesignModel",
+2026-09-26T00:52:20Z  "host": "tt-quietbox",
+2026-09-26T00:52:20Z  "started_utc": "2026-09-26T00:50:18Z",
+2026-09-26T00:52:20Z  "loadavg_start": [
+2026-09-26T00:52:20Z   12.74755859375,
+2026-09-26T00:52:20Z   15.19580078125,
+2026-09-26T00:52:20Z   14.21630859375
+2026-09-26T00:52:20Z  ],
+2026-09-26T00:52:20Z  "stage_plan": {
+2026-09-26T00:52:20Z   "per_stage": {
+2026-09-26T00:52:20Z    "screen": 50,
+2026-09-26T00:52:20Z    "refine": 25,
+2026-09-26T00:52:20Z    "anneal": 45,
+2026-09-26T00:52:20Z    "harden": 5,
+2026-09-26T00:52:20Z    "mutate": 15
+2026-09-26T00:52:20Z   },
+2026-09-26T00:52:20Z   "gradient_steps": 125,
+2026-09-26T00:52:20Z   "mutate_steps": 15
+2026-09-26T00:52:20Z  },
+2026-09-26T00:52:20Z  "threads": "--xla_gpu_enable_triton_gemm=false",
+2026-09-26T00:52:20Z  "project": "/home/ttuser/bcx_shipped_qb1/ref_s2"
+2026-09-26T00:52:20Z }
+2026-09-26T00:52:20Z BindCraft 2 (unreleased)
+2026-09-26T00:52:20Z campaign pdl1
+2026-09-26T00:52:20Z binder length 60 to 180, drawn per trajectory
+2026-09-26T00:52:20Z target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+2026-09-26T00:52:20Z losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+2026-09-26T00:52:20Z filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+2026-09-26T00:52:20Z results /home/ttuser/bcx_shipped_qb1/ref_s2 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+2026-09-26T00:52:20Z 
+2026-09-26T00:52:20Z === trajectory 1 | pdl1_denovo_l135_7ae5d04ea7edaf5a | accepted 0/10 ===
+2026-09-26T04:52:11Z   passed screen design stage  i_pTM=0.76    pLDDT=0.91  
+2026-09-26T06:50:39Z   passed refine design stage  i_pTM=0.38    pLDDT=0.78  

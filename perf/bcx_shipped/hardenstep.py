@@ -24,6 +24,7 @@ import csv
 import itertools
 import math
 import pathlib
+import random
 import statistics
 import sys
 
@@ -91,6 +92,49 @@ def rho(xs, ys):
     return num / den if den else float("nan")
 
 
+
+def perm_p(stat, labels, exact_cap=1_000_000, draws=200_000, seed=20260926):
+    """Two-sided permutation p for `stat(labels)`, exact when n! fits, else Monte Carlo.
+
+    n! is 3,628,800 at n=10 and 5.1e19 at n=21, so an "exact over all orderings" test
+    silently stops being computable exactly when this campaign's sample got useful.
+    Monte Carlo keeps the same null -- relabelings are equally likely -- and its own
+    error is reported rather than hidden: the standard error of a proportion, and the
+    +1/+1 estimator (Davison & Hinkley) so a p is never reported as 0.
+    """
+    obs = stat(labels)
+    n = len(labels)
+    if math.factorial(n) <= exact_cap:
+        perms = itertools.permutations(labels)
+        hits = sum(abs(stat(list(q))) >= abs(obs) - 1e-12 for q in perms)
+        total = math.factorial(n)
+        return obs, hits / total, total, "exact", 0.0
+    rng = random.Random(seed)
+    shuf, hits = list(labels), 0
+    for _ in range(draws):
+        rng.shuffle(shuf)
+        hits += abs(stat(shuf)) >= abs(obs) - 1e-12
+    pv = (hits + 1) / (draws + 1)
+    return obs, pv, draws, "monte-carlo", math.sqrt(max(pv, 1e-9) * (1 - pv) / draws)
+
+
+def mann_whitney_u(a, b):
+    """U for group `a` against `b`, ties averaged. Rank-based, so no threshold is chosen."""
+    allv = list(a) + list(b)
+    order = sorted(range(len(allv)), key=lambda i: allv[i])
+    ranks = [0.0] * len(allv)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and allv[order[j + 1]] == allv[order[i]]:
+            j += 1
+        for t in range(i, j + 1):
+            ranks[order[t]] = (i + j) / 2 + 1
+        i = j + 1
+    ra = sum(ranks[: len(a)])
+    return ra - len(a) * (len(a) + 1) / 2
+
+
 def main():
     specs = [a.split("=", 1) for a in sys.argv[1:]]
     if not specs:
@@ -107,12 +151,9 @@ def main():
                  r["terminated"], r["accepted"] or ""))
     xs = [r["spread"] for r in table]
     ys = [r["step"] for r in table]
-    obs = rho(xs, ys)
-    perms = list(itertools.permutations(range(len(ys))))
-    hits = sum(abs(rho(xs, [ys[i] for i in p])) >= abs(obs) - 1e-12 for p in perms)
-    p = hits / len(perms)
-    print("\n  n = %d   Spearman rho = %+.3f   exact two-sided p = %.4f over %d permutations"
-          % (len(table), obs, p, len(perms)))
+    obs, p, total, how, se = perm_p(lambda perm: rho(xs, perm), ys)
+    print("\n  n = %d   Spearman rho = %+.3f   two-sided p = %.4f  (%s, %d relabelings%s)"
+          % (len(table), obs, p, how, total, "" if how == "exact" else ", se %.4f" % se))
     print("  premise: anneal spread predicts the harden STEP -- %s"
           % ("SUPPORTED" if p < 0.05 else "NOT SUPPORTED at this n"))
 
@@ -123,26 +164,39 @@ def main():
     # placed at random, take the a lowest ranks.
     n_acc = sum(1 for r in table if r["accepted"])
     if n_acc and n_acc < len(table):
-        pe = 1 / math.comb(len(table), n_acc)
+        n_rej = len(table) - n_acc
         print("\n  separation of the %d accepted from the %d rejected, per candidate variable."
-              % (n_acc, len(table) - n_acc))
-        print("  An exact one-sided p of %.4f is 1/C(%d,%d) -- the chance the accepted "
-              "trajectories\n  take the extreme ranks by accident. A variable that does NOT "
-              "separate is the useful\n  half of this table: it is the one the accepted "
-              "trajectories do not share.\n" % (pe, len(table), n_acc))
-        print("  %-14s %-4s %-22s %-22s  separates" % ("variable", "dir", "accepted", "rejected"))
+              % (n_acc, n_rej))
+        print("  Mann-Whitney U on RANKS, so no threshold is chosen after seeing the data, with a\n"
+              "  two-sided permutation p under the same null the earlier version used: the accepted\n"
+              "  labels are exchangeable. PERFECT is the stricter all-or-nothing question the n=9\n"
+              "  read could still ask -- at %d and %d it has floor p = %.4g, so a variable can be a\n"
+              "  real separator and still not be perfect.\n"
+              % (n_acc, n_rej, 1 / math.comb(len(table), n_acc)))
+        print("  %-14s %-4s %8s %8s %9s %8s  %s"
+              % ("variable", "dir", "acc med", "rej med", "U", "p", "perfect"))
         for name, key, direction in (("anneal spread", "spread", "low"),
                                      ("anneal median", "median", "high"),
                                      ("anneal->harden", "step", "high"),
                                      ("binder length", "len", "low")):
-            acc = sorted(r[key] for r in table if r["accepted"])
-            rej = sorted(r[key] for r in table if not r["accepted"])
-            sep = max(acc) < min(rej) if direction == "low" else min(acc) > max(rej)
-            fmt = "%d" if key == "len" else "%.2f"
-            print("  %-14s %-4s %-22s %-22s  %s"
-                  % (name, direction, "/".join(fmt % v for v in acc),
-                     "/".join(fmt % v for v in rej),
-                     ("YES p=%.4f" % pe) if sep else "no"))
+            acc = [r[key] for r in table if r["accepted"]]
+            rej = [r[key] for r in table if not r["accepted"]]
+            flags = [bool(r["accepted"]) for r in table]
+            vals = [r[key] for r in table]
+
+            def stat(lab, vals=vals, n_acc=n_acc):
+                a = [v for v, f in zip(vals, lab) if f]
+                b = [v for v, f in zip(vals, lab) if not f]
+                # centre U so the two-sided |.| test is symmetric under the null
+                return mann_whitney_u(a, b) - len(a) * len(b) / 2
+
+            obs, pv, total, how, se = perm_p(stat, flags)
+            perfect = (max(acc) < min(rej)) if direction == "low" else (min(acc) > max(rej))
+            fmt = "%8.0f" if key == "len" else "%8.2f"
+            print(("  %-14s %-4s " + fmt + fmt + " %9.1f %8.4f  %s")
+                  % (name, direction, statistics.median(acc), statistics.median(rej),
+                     obs + n_acc * (len(table) - n_acc) / 2, pv, "yes" if perfect else "no"))
+        print("\n  p is %s over %d relabelings." % (how, total))
 
 
 if __name__ == "__main__":

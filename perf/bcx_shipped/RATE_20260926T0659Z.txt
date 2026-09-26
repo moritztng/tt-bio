@@ -1,0 +1,46 @@
+RATE ledger, read 2026-09-26T06:59Z. Seconds are CONTENDED wall on one chip, upper bounds, and they DO NOT POOL across hosts (qb1 p150a, qb2 p300c, pc CPU).
+
+############ DEVICE, qb1 (p150a) ############
+
+# Completed-trajectory ledger -- CONTENDED wall seconds on one chip, upper bound
+
+arm         draw   terminal                  seconds   ended
+--------------------------------------------------------------------------
+qb1_s10     l78    anneal [i_pTM]               2537   00:29:59Z
+qb1_s10     l180   ACCEPTED                     7056   02:27:36Z
+qb1_s10     l68    anneal [pLDDT]               7259   04:28:35Z
+qb1_s10     l109   final [pLDDT]                4877   05:49:52Z
+qb1_s10     l69    in flight                       .   (excluded, in flight)
+qb1_s12     l144   screen [pLDDT]               1740   00:36:50Z
+qb1_s12     l95    harden [i_pTM, pLDDT]        3080   01:28:10Z
+qb1_s12     l94    final [i_pTM, pLDDT]         3881   02:32:51Z
+qb1_s12     l111   ACCEPTED                     5618   04:06:29Z
+qb1_s12     l129   harden [i_pTM]               6885   06:01:14Z
+qb1_s12     l87    in flight                       .   (excluded, in flight)
+qb1_s13     l70    final [i_pTM]                4189   02:53:00Z
+qb1_s13     l163   harden [i_pTM, pLDDT]        7767   05:02:27Z
+qb1_s13     l113   ACCEPTED                     4967   06:25:14Z
+qb1_s13     l113   in flight                       .   (excluded, in flight)
+--------------------------------------------------------------------------
+                   12 completed, 3 accepted                     59858
+
+rate 3/12 = 0.250   Clopper-Pearson 95 % CI 0.0549 - 0.5719
+19,953 s per accepted design, upper bound = 75.5x BoltzGen's 264.3 chip-s/design
+CI on the ratio: 33.0x - 344x
+0.180 designs/h/chip, upper bound on the chip's cost
+
+############ REFERENCE, BindCraft 2 own JAX on CPU ############
+
+# Completed-trajectory ledger -- CONTENDED wall seconds on one chip, upper bound
+
+arm         draw   terminal                  seconds   ended
+--------------------------------------------------------------------------
+ref_s1      l111   harden [i_pTM, pLDDT]       26619   20:57:47Z
+ref_s1      l142   mutate [i_pTM]              33287   06:12:34Z
+ref_s1      l109   in flight                       .   (excluded, in flight)
+--------------------------------------------------------------------------
+                   2 completed, 0 accepted                     59905
+
+0 accepted over 2 completed -- lower bound 59,905 s per accepted design, resting on 2 trajectories. Not a rate.
+  shipped_pc  l146   ACCEPTED   45850 s   14:18:00Z   (pc, 16 cores, loadavg 1.2 at start)
+  -> reference 1 accepted / 3 completed

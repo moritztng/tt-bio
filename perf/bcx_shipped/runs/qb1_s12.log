@@ -1,0 +1,87 @@
+2026-09-26 00:07:53.262 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "exact_training": false,
+ "exact_training_ops": [
+  "softmax",
+  "layer_norm"
+ ],
+ "seed": 12,
+ "trajectories": 6,
+ "settings": "/home/ttuser/bcx_e2e/bc2/examples/pdl1.json",
+ "settings_edited": false,
+ "resident": 1,
+ "length_bucket_size": 32,
+ "multimer_pool": [
+  "model_1_multimer_v3",
+  "model_2_multimer_v3",
+  "model_3_multimer_v3",
+  "model_4_multimer_v3",
+  "model_5_multimer_v3"
+ ],
+ "host": "tt-quietbox",
+ "card": "3",
+ "pci": "0000:c1:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "643cabcf9ed31b4ec23f82913bc083c3531884b7",
+ "omp": "8",
+ "nproc": 32,
+ "started_utc": "2026-09-26T00:07:54Z",
+ "loadavg_start": [
+  6.8740234375,
+  7.38525390625,
+  5.59375
+ ],
+ "project": "/home/ttuser/bcx_accept_art/qb1/qb1_s12"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 60 to 180, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/bcx_accept_art/qb1/qb1_s12 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l144_c6eba2a18b782acd | accepted 0/10 ===
+/home/ttuser/bcx_accept_art/qb1tree/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+  rejected at screen design stage  i_pTM=0.81    pLDDT=0.58   due to [pLDDT]
+
+=== trajectory 2 | pdl1_denovo_l95_cb9e3e2fa5a00010 | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.85    pLDDT=0.9   
+  passed refine design stage  i_pTM=0.8     pLDDT=0.9   
+  passed anneal design stage  i_pTM=0.84    pLDDT=0.9   
+  rejected at harden design stage  i_pTM=0.22    pLDDT=0.58   due to [i_pTM, pLDDT]
+
+=== trajectory 3 | pdl1_denovo_l94_cb7294601f4ed8a7 | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.81    pLDDT=0.78  
+  passed refine design stage  i_pTM=0.8     pLDDT=0.85  
+  passed anneal design stage  i_pTM=0.83    pLDDT=0.92  
+  passed harden design stage  i_pTM=0.81    pLDDT=0.89  
+  passed mutate design stage  i_pTM=0.69    pLDDT=0.69  
+  trajectory rejected  i_pTM=0.69    pLDDT=0.69   due to [i_pTM, pLDDT]
+
+=== trajectory 4 | pdl1_denovo_l111_908458a35b672516 | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.87    pLDDT=0.95  
+  passed refine design stage  i_pTM=0.88    pLDDT=0.94  
+  passed anneal design stage  i_pTM=0.88    pLDDT=0.94  
+  passed harden design stage  i_pTM=0.87    pLDDT=0.93  
+2026-09-26 04:03:03.773 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 1269 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1110016 and static circular buffer region ends at 1176064 (assert.hpp:104)
+[tt-bio] trimul L1/circular-buffer clash at chunk width 64 (seq 256, 11x10 grid): retrying narrower. The tt-metal 'critical' line above is expected and handled; the result is unchanged.
+  passed mutate design stage  i_pTM=0.84    pLDDT=0.88  
+  binder hallucination successful
+  binder optimization, 10 MPNN redesigns
+   1/10  ACCEPTED  Binder_RMSD=2.7     Hotspot_Contact_Fraction=1.0     Interface_Residues=14   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.92    i_pAE=0.19    i_pTM=0.79    pLDDT=0.9     pTM=0.85  
+   2/10  ACCEPTED  Binder_RMSD=0.66    Hotspot_Contact_Fraction=1.0     Interface_Residues=17   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.93    i_pAE=0.17    i_pTM=0.84    pLDDT=0.93    pTM=0.88  
+   3/10  ACCEPTED  Binder_RMSD=0.21    Hotspot_Contact_Fraction=1.0     Interface_Residues=18   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.93    i_pAE=0.17    i_pTM=0.83    pLDDT=0.93    pTM=0.87  
+  3 of 10 redesigns passed, keeping the best 1 by i_pDAE: candidate 2 (0.37)
+
+=== trajectory 5 | pdl1_denovo_l129_8ad1c300f1181f72 | accepted 1/10 ===
+  passed screen design stage  i_pTM=0.55    pLDDT=0.78  
+  passed refine design stage  i_pTM=0.44    pLDDT=0.68  
+  passed anneal design stage  i_pTM=0.71    pLDDT=0.82  
+  rejected at harden design stage  i_pTM=0.27    pLDDT=0.71   due to [i_pTM]
+
+=== trajectory 6 | pdl1_denovo_l87_37f02fa10029f138 | accepted 1/10 ===
+  passed screen design stage  i_pTM=0.61    pLDDT=0.79  
+  passed refine design stage  i_pTM=0.17    pLDDT=0.73  
