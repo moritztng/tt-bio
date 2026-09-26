@@ -771,7 +771,12 @@ def grad_snapshot(params, held, row, bankdir):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tokens", type=int, default=384)
+    ap.add_argument("--tokens", default="384",
+                    help="one crop, or a comma list. A list builds an arm per crop up front "
+                         "and alternates them rep by rep inside ONE process against one "
+                         "clock: comparing two runs of a host-bound phase compares two host "
+                         "loads. of3t-p10batch measured a 1.83x spread on IDENTICAL work "
+                         "across five reps of one warm process")
     ap.add_argument("--cycles", type=int, default=4,
                     help="trunk cycles to PIN; their training draws it from U{1..4} per step")
     ap.add_argument("--samples", type=int, default=4,
@@ -814,6 +819,7 @@ def main() -> int:
                          "flag is the only way to reach it from a command line")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
+    a.crops = [int(x) for x in str(a.tokens).split(",") if x != ""]
     if a.grad_ab:
         # One process, one weight set, no step between the two arms: anything else compares
         # two different models rather than two ways of summing one gradient.
@@ -827,7 +833,8 @@ def main() -> int:
         "branch": os.popen(f"git -C {REPO} rev-parse --abbrev-ref HEAD").read().strip(),
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "loadavg_start": os.getloadavg()},
-        "config": {"crop": a.tokens, "batch": 1, "cards": 1, "cycles_pinned": a.cycles,
+        "config": {"crop": a.crops[0] if len(a.crops) == 1 else a.crops,
+                   "batch": 1, "cards": 1, "cycles_pinned": a.cycles,
                    "diffusion_samples": a.samples, "stage": a.stage,
                    "taped": not a.no_tape, "chunk": a.chunk or None,
                    "loss_shape": a.loss_shape,
@@ -876,17 +883,36 @@ def main() -> int:
                   f"run {out['exact']['ops_a_tape_would_run_exact'] or 'NO ops'} exact",
                   flush=True)
 
-            held, _meta = S.capture(a.tokens, out)
-            trunk = held["trunk"][0]
-            if "sampler" not in held:
-                raise SystemExit("the fold never reached the sampler; no diffusion half")
-            sampler, sargs, _skw = held["sampler"]
             dev = get_device()
             out["env"]["arch"] = str(dev.arch())
-            params = declare_all(trunk, sampler, out)
             weights = of3_loss_weights(a.stage)
             out["loss_weights"] = weights
-            opt = None if a.no_optimizer else AdamW(params, lr=3e-4)
+            # One arm per DISTINCT crop, every one built before the first rep, so the rep loop
+            # alternates them warm instead of the campaign comparing two runs. Each arm keeps
+            # its own capture record; a single-crop run still writes them at the top level so
+            # every artifact already banked keeps its shape.
+            arms, per_crop = {}, {}
+            for c in dict.fromkeys(a.crops):
+                cout = {}
+                held_c, _meta = S.capture(c, cout)
+                if "sampler" not in held_c:
+                    raise SystemExit(f"crop {c}: the fold never reached the sampler")
+                params_c = declare_all(held_c["trunk"][0], held_c["sampler"][0], cout)
+                arms[c] = {"held": held_c, "params": params_c, "out": cout,
+                           "opt": None if a.no_optimizer else AdamW(params_c, lr=3e-4)}
+                per_crop[str(c)] = cout
+                dump()
+            if len(arms) > 1:
+                out["per_crop"] = per_crop
+            for k in ("build_fold_s", "prep_to_sampler_s", "capture", "params"):
+                if k in arms[a.crops[0]]["out"]:
+                    out[k] = arms[a.crops[0]]["out"][k]
+            rep_crops = [a.crops[i % len(a.crops)] for i in range(a.reps)]
+            out["rep_crops"] = rep_crops
+            arm0 = arms[a.crops[0]]
+            held, params, opt = arm0["held"], arm0["params"], arm0["opt"]
+            trunk = held["trunk"][0]
+            sampler, sargs, _skw = held["sampler"]
             out["optimizer"] = {"class": "tt_bio.train.optim.AdamW", "lr": 3e-4,
                                 "clip_norm": None if opt is None else opt.clip_norm,
                                 "params": 0 if opt is None else len(opt.params)}
@@ -912,7 +938,15 @@ def main() -> int:
                 seed_rep = 0 if a.grad_ab else rep
                 rng_diff = np.random.default_rng(SEED + seed_rep)
                 rng_loss = np.random.default_rng(SEED + 10_000 + seed_rep)
-                row = {"rep": rep, "cold": rep == 0}
+                # THE INTERLEAVE. Rebound here rather than captured once above, so the rep
+                # loop below is the same code at every crop and the only thing that changes
+                # between two reps is which arm they read.
+                crop = rep_crops[rep]
+                arm = arms[crop]
+                held, params, opt = arm["held"], arm["params"], arm["opt"]
+                trunk = held["trunk"][0]
+                sampler, sargs, _skw = held["sampler"]
+                row = {"rep": rep, "crop": crop, "cold": rep < len(arms)}
                 # In `reps` from the start, so the per-chunk `dump()` inside a 12-chunk step
                 # lands in the artifact instead of in a local nobody has written out yet.
                 reps.append(row)

@@ -1,0 +1,1580 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--no-exact",
+  "--tokens",
+  "256,384",
+  "--cycles",
+  "4",
+  "--samples",
+  "2",
+  "--reps",
+  "8",
+  "--out",
+  "perf/of3t_p10optim/out/cropinterleave.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "1",
+  "renorm": null,
+  "commit": "eb0c1cc8e9252ca2d27c1f8926ca3ec299521a7d",
+  "branch": "wk/of3t-p10optim",
+  "started_utc": "2026-09-26T17:05:20Z",
+  "loadavg_start": [
+   9.82568359375,
+   9.40673828125,
+   8.60205078125
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 92
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 92 samples, polled DURING the work",
+  "loadavg_end": [
+   9.21484375,
+   8.93115234375,
+   8.583984375
+  ]
+ },
+ "config": {
+  "crop": [
+   256,
+   384
+  ],
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 2,
+  "stage": "initial_training",
+  "taped": true,
+  "chunk": null,
+  "loss_shape": "model",
+  "exact_training": false,
+  "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so a chunked arm and an unchunked one noise the same structures"
+ },
+ "exact": {
+  "requested": "OFF",
+  "ops_a_tape_would_run_exact": [],
+  "softmax_stats_before": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "layer_norm_stats_before": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "softmax_stats_after": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "layer_norm_stats_after": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "softmax_delta": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "layer_norm_delta": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "counters_all_zero": true,
+  "installed_in_any_tape": false,
+  "off_proven": true
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "per_crop": {
+  "256": {
+   "build_fold_s": 4.17,
+   "prep_to_sampler_s": 5.73,
+   "capture": {
+    "trunk_inputs_snapshotted": true,
+    "trunk_inputs_dead_at_capture": 0,
+    "trunk_forward_s": 2.906,
+    "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+    "trunk_cycles": 4,
+    "reached_sampler": true
+   },
+   "params": {
+    "declared": 3152,
+    "slots": 3152,
+    "slots_unwritable": 0,
+    "elements": 381302188,
+    "per_root": {
+     "trunk": {
+      "found": 2531,
+      "walk_depth": 9,
+      "truncated": 8
+     },
+     "diffusion": {
+      "found": 891,
+      "walk_depth": 6,
+      "truncated": 0
+     }
+    },
+    "duplicate_handles_dropped": 270,
+    "pairformer_weights": 2256,
+    "diffusion_weights": 621
+   }
+  },
+  "384": {
+   "build_fold_s": 3.82,
+   "prep_to_sampler_s": 6.95,
+   "capture": {
+    "trunk_inputs_snapshotted": true,
+    "trunk_inputs_dead_at_capture": 0,
+    "trunk_forward_s": 5.072,
+    "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+    "trunk_cycles": 4,
+    "reached_sampler": true
+   },
+   "params": {
+    "declared": 3152,
+    "slots": 3152,
+    "slots_unwritable": 0,
+    "elements": 381302188,
+    "per_root": {
+     "trunk": {
+      "found": 2531,
+      "walk_depth": 9,
+      "truncated": 8
+     },
+     "diffusion": {
+      "found": 891,
+      "walk_depth": 6,
+      "truncated": 0
+     }
+    },
+    "duplicate_handles_dropped": 270,
+    "pairformer_weights": 2256,
+    "diffusion_weights": 621
+   }
+  }
+ },
+ "build_fold_s": 4.17,
+ "prep_to_sampler_s": 5.73,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 2.906,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "rep_crops": [
+  256,
+  384,
+  256,
+  384,
+  256,
+  384,
+  256,
+  384
+ ],
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "per_rep_plan": null,
+  "stats_after": {
+   "applied": 1752,
+   "declined": 0
+  },
+  "applied_during_reps": 1752,
+  "declined_during_reps": 0
+ },
+ "chunk_per_rep_plan": null,
+ "reps": [
+  {
+   "rep": 0,
+   "crop": 256,
+   "cold": true,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 10.396,
+    "after_trunk": 10.428,
+    "after_diffusion": 10.444,
+    "after_backward": 10.604,
+    "after_optimizer": 13.475
+   },
+   "mem_available_gib": {
+    "rep_start": 191.284,
+    "after_trunk": 190.61,
+    "after_diffusion": 192.892,
+    "after_backward": 189.919,
+    "after_optimizer": 189.086
+   },
+   "loadavg_rep_start": [
+    10.69,
+    9.61,
+    8.69
+   ],
+   "trunk_nograd_prefix_s": 1.782,
+   "chunk": null,
+   "trunk_taped_cycle_s": 1.745,
+   "trunk_s": 3.527,
+   "dram_after_trunk": 4078667776,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 10883885056,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3206.1709,
+     2.8337
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "n_atom": 2059,
+    "n_token": 256,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     1.11,
+     0.063
+    ]
+   },
+   "losses": {
+    "labels_s": 0.006,
+    "fixture_logits_s": 0.172,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.001,
+    "replicate_loss_s": 0.007,
+    "replicates_scored": 2,
+    "step_loss_s": 0.325,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "tape_nodes": 6717,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 1.246,
+   "losses_s": 0.515,
+   "seed_upload_s": 0.001,
+   "backward_s": 9.478,
+   "dram_peak": 10883885056,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4977229824,
+   "rebind_moved": 2684,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 6.368,
+   "adamw_step_s": 6.3503,
+   "adamw_split": {
+    "grad_read": 1.4249,
+    "device_write": 1.201,
+    "device_cast": 1.1255,
+    "arith": 2.5988,
+    "total": 6.3503
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 468,
+   "loadavg_rep_end": [
+    10.66,
+    9.69,
+    8.74
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 13.475,
+   "step_s": 21.135,
+   "step_wall_s": 21.175,
+   "unaccounted_s": 0.04,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 219,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 1,
+   "crop": 384,
+   "cold": true,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 13.475,
+    "after_trunk": 13.511,
+    "after_diffusion": 13.512,
+    "after_backward": 13.692,
+    "after_optimizer": 16.552
+   },
+   "mem_available_gib": {
+    "rep_start": 189.086,
+    "after_trunk": 191.308,
+    "after_diffusion": 190.995,
+    "after_backward": 195.352,
+    "after_optimizer": 192.928
+   },
+   "loadavg_rep_start": [
+    10.66,
+    9.69,
+    8.74
+   ],
+   "trunk_nograd_prefix_s": 3.679,
+   "chunk": null,
+   "trunk_taped_cycle_s": 4.263,
+   "trunk_s": 7.942,
+   "dram_after_trunk": 8344698880,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 20110406656,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     8.4748,
+     0.0092
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.602,
+     0.065
+    ]
+   },
+   "losses": {
+    "labels_s": 0.021,
+    "fixture_logits_s": 0.314,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.001,
+    "replicate_loss_s": 0.022,
+    "replicates_scored": 2,
+    "step_loss_s": 0.557,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "tape_nodes": 6717,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.729,
+   "losses_s": 0.917,
+   "seed_upload_s": 0.001,
+   "backward_s": 21.774,
+   "dram_peak": 20110406656,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 7487985664,
+   "rebind_moved": 2684,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 3.622,
+   "adamw_step_s": 3.6083,
+   "adamw_split": {
+    "grad_read": 0.8379,
+    "device_write": 0.9283,
+    "device_cast": 0.2002,
+    "arith": 1.642,
+    "total": 3.6083
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 468,
+   "loadavg_rep_end": [
+    8.98,
+    9.37,
+    8.67
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 16.552,
+   "step_s": 34.985,
+   "step_wall_s": 35.031,
+   "unaccounted_s": 0.046,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 219,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 2,
+   "crop": 256,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 16.552,
+    "after_trunk": 16.583,
+    "after_diffusion": 16.583,
+    "after_backward": 16.44,
+    "after_optimizer": 17.812
+   },
+   "mem_available_gib": {
+    "rep_start": 192.928,
+    "after_trunk": 192.906,
+    "after_diffusion": 192.903,
+    "after_backward": 193.071,
+    "after_optimizer": 192.032
+   },
+   "loadavg_rep_start": [
+    8.98,
+    9.37,
+    8.67
+   ],
+   "trunk_nograd_prefix_s": 1.769,
+   "chunk": null,
+   "trunk_taped_cycle_s": 1.537,
+   "trunk_s": 3.306,
+   "dram_after_trunk": 7752292352,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 13603065856,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3306.9691,
+     0.0109
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "n_atom": 2059,
+    "n_token": 256,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.071,
+     0.034
+    ]
+   },
+   "losses": {
+    "labels_s": 0.004,
+    "fixture_logits_s": 0.111,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.0,
+    "replicate_loss_s": 0.005,
+    "replicates_scored": 2,
+    "step_loss_s": 0.13,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "tape_nodes": 6717,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.114,
+   "losses_s": 0.251,
+   "seed_upload_s": 0.001,
+   "backward_s": 8.323,
+   "dram_peak": 13603065856,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 7645747200,
+   "rebind_moved": 2801,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 3.695,
+   "adamw_step_s": 3.6862,
+   "adamw_split": {
+    "grad_read": 1.2046,
+    "device_write": 0.6927,
+    "device_cast": 0.4003,
+    "arith": 1.3886,
+    "total": 3.6862
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 351,
+   "loadavg_rep_end": [
+    8.44,
+    9.23,
+    8.63
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 17.812,
+   "step_s": 15.69,
+   "step_wall_s": 15.76,
+   "unaccounted_s": 0.07,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 219,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 3,
+   "crop": 384,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 17.812,
+    "after_trunk": 17.812,
+    "after_diffusion": 17.812,
+    "after_backward": 17.749,
+    "after_optimizer": 17.934
+   },
+   "mem_available_gib": {
+    "rep_start": 192.03,
+    "after_trunk": 192.091,
+    "after_diffusion": 192.06,
+    "after_backward": 192.116,
+    "after_optimizer": 191.851
+   },
+   "loadavg_rep_start": [
+    8.44,
+    9.23,
+    8.63
+   ],
+   "trunk_nograd_prefix_s": 3.505,
+   "chunk": null,
+   "trunk_taped_cycle_s": 4.158,
+   "trunk_s": 7.663,
+   "dram_after_trunk": 8968869888,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 20725318656,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3108.0177,
+     353.028
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.121,
+     0.053
+    ]
+   },
+   "losses": {
+    "labels_s": 0.026,
+    "fixture_logits_s": 0.258,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.001,
+    "replicate_loss_s": 0.009,
+    "replicates_scored": 2,
+    "step_loss_s": 0.238,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "tape_nodes": 6717,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.195,
+   "losses_s": 0.534,
+   "seed_upload_s": 0.0,
+   "backward_s": 21.273,
+   "dram_peak": 20725318656,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 8005687296,
+   "rebind_moved": 2772,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 3.218,
+   "adamw_step_s": 3.2022,
+   "adamw_split": {
+    "grad_read": 1.0193,
+    "device_write": 0.6474,
+    "device_cast": 0.2316,
+    "arith": 1.3039,
+    "total": 3.2022
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 380,
+   "loadavg_rep_end": [
+    7.42,
+    8.92,
+    8.55
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 17.934,
+   "step_s": 32.883,
+   "step_wall_s": 32.988,
+   "unaccounted_s": 0.105,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 219,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 4,
+   "crop": 256,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 17.934,
+    "after_trunk": 17.934,
+    "after_diffusion": 17.934,
+    "after_backward": 17.934,
+    "after_optimizer": 17.934
+   },
+   "mem_available_gib": {
+    "rep_start": 191.851,
+    "after_trunk": 191.942,
+    "after_diffusion": 191.943,
+    "after_backward": 191.899,
+    "after_optimizer": 191.948
+   },
+   "loadavg_rep_start": [
+    7.42,
+    8.92,
+    8.55
+   ],
+   "trunk_nograd_prefix_s": 1.804,
+   "chunk": null,
+   "trunk_taped_cycle_s": 1.562,
+   "trunk_s": 3.366,
+   "dram_after_trunk": 7752292352,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 13603065856,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     4.275,
+     1732.0952
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "n_atom": 2059,
+    "n_token": 256,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.238,
+     0.037
+    ]
+   },
+   "losses": {
+    "labels_s": 0.006,
+    "fixture_logits_s": 0.117,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.001,
+    "replicate_loss_s": 0.006,
+    "replicates_scored": 2,
+    "step_loss_s": 0.243,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "tape_nodes": 6717,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.283,
+   "losses_s": 0.373,
+   "seed_upload_s": 0.001,
+   "backward_s": 8.325,
+   "dram_peak": 13603065856,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 7645747200,
+   "rebind_moved": 2688,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 3.154,
+   "adamw_step_s": 3.1305,
+   "adamw_split": {
+    "grad_read": 0.8149,
+    "device_write": 0.6351,
+    "device_cast": 0.2563,
+    "arith": 1.4242,
+    "total": 3.1305
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 464,
+   "loadavg_rep_end": [
+    7.14,
+    8.79,
+    8.51
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 17.934,
+   "step_s": 15.502,
+   "step_wall_s": 15.6,
+   "unaccounted_s": 0.098,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 219,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 5,
+   "crop": 384,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 17.934,
+    "after_trunk": 17.934,
+    "after_diffusion": 17.934,
+    "after_backward": 17.934,
+    "after_optimizer": 17.934
+   },
+   "mem_available_gib": {
+    "rep_start": 191.948,
+    "after_trunk": 188.855,
+    "after_diffusion": 188.986,
+    "after_backward": 175.768,
+    "after_optimizer": 174.304
+   },
+   "loadavg_rep_start": [
+    7.14,
+    8.79,
+    8.51
+   ],
+   "trunk_nograd_prefix_s": 3.519,
+   "chunk": null,
+   "trunk_taped_cycle_s": 4.162,
+   "trunk_s": 7.681,
+   "dram_after_trunk": 8968869888,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 20725318656,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     0.5249,
+     0.0077
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.131,
+     0.059
+    ]
+   },
+   "losses": {
+    "labels_s": 0.015,
+    "fixture_logits_s": 0.305,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.002,
+    "replicate_loss_s": 0.021,
+    "replicates_scored": 2,
+    "step_loss_s": 0.651,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "tape_nodes": 6717,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.21,
+   "losses_s": 0.997,
+   "seed_upload_s": 0.002,
+   "backward_s": 21.287,
+   "dram_peak": 20725318656,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 8005687296,
+   "rebind_moved": 2672,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 3.381,
+   "adamw_step_s": 3.3714,
+   "adamw_split": {
+    "grad_read": 0.5686,
+    "device_write": 0.7474,
+    "device_cast": 0.4484,
+    "arith": 1.607,
+    "total": 3.3714
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 480,
+   "loadavg_rep_end": [
+    8.14,
+    8.81,
+    8.53
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 17.934,
+   "step_s": 33.558,
+   "step_wall_s": 33.741,
+   "unaccounted_s": 0.183,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 219,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 6,
+   "crop": 256,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 17.934,
+    "after_trunk": 17.934,
+    "after_diffusion": 17.934,
+    "after_backward": 17.934,
+    "after_optimizer": 17.934
+   },
+   "mem_available_gib": {
+    "rep_start": 174.304,
+    "after_trunk": 171.49,
+    "after_diffusion": 171.398,
+    "after_backward": 169.079,
+    "after_optimizer": 167.771
+   },
+   "loadavg_rep_start": [
+    8.14,
+    8.81,
+    8.53
+   ],
+   "trunk_nograd_prefix_s": 1.767,
+   "chunk": null,
+   "trunk_taped_cycle_s": 1.603,
+   "trunk_s": 3.37,
+   "dram_after_trunk": 7752292352,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 13603065856,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     2571.463,
+     69.917
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "n_atom": 2059,
+    "n_token": 256,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.085,
+     0.465
+    ]
+   },
+   "losses": {
+    "labels_s": 0.005,
+    "fixture_logits_s": 0.108,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.001,
+    "replicate_loss_s": 0.005,
+    "replicates_scored": 2,
+    "step_loss_s": 0.117,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "tape_nodes": 6717,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.562,
+   "losses_s": 0.236,
+   "seed_upload_s": 0.0,
+   "backward_s": 8.272,
+   "dram_peak": 13603065856,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 7645747200,
+   "rebind_moved": 2736,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 4.981,
+   "adamw_step_s": 4.9642,
+   "adamw_split": {
+    "grad_read": 0.8693,
+    "device_write": 0.9566,
+    "device_cast": 0.758,
+    "arith": 2.3803,
+    "total": 4.9642
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 416,
+   "loadavg_rep_end": [
+    8.49,
+    8.84,
+    8.54
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 17.934,
+   "step_s": 17.421,
+   "step_wall_s": 17.601,
+   "unaccounted_s": 0.18,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 219,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 7,
+   "crop": 384,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 17.934,
+    "after_trunk": 17.934,
+    "after_diffusion": 17.934,
+    "after_backward": 17.934,
+    "after_optimizer": 17.935
+   },
+   "mem_available_gib": {
+    "rep_start": 167.771,
+    "after_trunk": 164.265,
+    "after_diffusion": 164.277,
+    "after_backward": 155.147,
+    "after_optimizer": 152.763
+   },
+   "loadavg_rep_start": [
+    8.49,
+    8.84,
+    8.54
+   ],
+   "trunk_nograd_prefix_s": 3.602,
+   "chunk": null,
+   "trunk_taped_cycle_s": 4.136,
+   "trunk_s": 7.738,
+   "dram_after_trunk": 8968869888,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 20725318656,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     1268.2158,
+     73.7505
+    ],
+    "distinct_sigmas": 2,
+    "n_samples": 2,
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.123,
+     0.061
+    ]
+   },
+   "losses": {
+    "labels_s": 0.011,
+    "fixture_logits_s": 0.318,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.002,
+    "replicate_loss_s": 0.019,
+    "replicates_scored": 2,
+    "step_loss_s": 0.506,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 2,
+   "tape_nodes": 6717,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.205,
+   "losses_s": 0.857,
+   "seed_upload_s": 0.001,
+   "backward_s": 21.365,
+   "dram_peak": 20725318656,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 8005687296,
+   "rebind_moved": 2795,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 5.211,
+   "adamw_step_s": 5.1759,
+   "adamw_split": {
+    "grad_read": 1.0427,
+    "device_write": 0.974,
+    "device_cast": 0.8586,
+    "arith": 2.3005,
+    "total": 5.1759
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 357,
+   "loadavg_rep_end": [
+    9.21,
+    8.93,
+    8.58
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 17.935,
+   "step_s": 35.377,
+   "step_wall_s": 35.516,
+   "unaccounted_s": 0.139,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 219,
+   "renorm_declined": 0
+  }
+ ],
+ "peak_rss_gib_run": 17.935,
+ "cold_s": 21.135,
+ "steady": {
+  "n": 7,
+  "values_s": [
+   34.985,
+   15.69,
+   32.883,
+   15.502,
+   33.558,
+   17.421,
+   35.377
+  ],
+  "median_s": 32.883,
+  "min_s": 15.502,
+  "max_s": 35.377,
+  "spread_s": 19.875
+ },
+ "cold_wall_s": 21.175,
+ "steady_wall": {
+  "n": 7,
+  "values_s": [
+   35.031,
+   15.76,
+   32.988,
+   15.6,
+   33.741,
+   17.601,
+   35.516
+  ],
+  "median_s": 32.988,
+  "unaccounted_s": [
+   0.04,
+   0.046,
+   0.07,
+   0.105,
+   0.098,
+   0.183,
+   0.18,
+   0.139
+  ]
+ }
+}
