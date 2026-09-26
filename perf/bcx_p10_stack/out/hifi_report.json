@@ -1,0 +1,113 @@
+{
+ "(0,0,off)": {
+  "n": 10,
+  "wall": 36.631603717803955,
+  "host": 23.823228999999998,
+  "dev": 11.6620945,
+  "lo": 33.8089714050293,
+  "hi": 39.94882583618164,
+  "aiclk": 1350,
+  "aiclk_min": 1350,
+  "load1": 16.711104910714283,
+  "reach": [
+   {
+    "msa": 0,
+    "tmpl": 0,
+    "agtri_served": 0,
+    "hifi_served": 0,
+    "hifi_taped": 0,
+    "hifi_declined": 0,
+    "entry": null,
+    "fp32_softmax": 2592,
+    "rounds": 5
+   },
+   {
+    "msa": 0,
+    "tmpl": 0,
+    "agtri_served": 0,
+    "hifi_served": 0,
+    "hifi_taped": 0,
+    "hifi_declined": 0,
+    "entry": null,
+    "fp32_softmax": 2592,
+    "rounds": 5
+   }
+  ]
+ },
+ "(1,1,agtri)": {
+  "n": 10,
+  "wall": 15.088557958602905,
+  "host": 3.8990370000000008,
+  "dev": 10.809163999999999,
+  "lo": 13.948341608047485,
+  "hi": 18.43411898612976,
+  "aiclk": 1350,
+  "aiclk_min": 1350,
+  "load1": 18.202021001459478,
+  "reach": [
+   {
+    "msa": 4,
+    "tmpl": 12,
+    "agtri_served": 1944,
+    "hifi_served": 0,
+    "hifi_taped": 0,
+    "hifi_declined": 0,
+    "entry": null,
+    "fp32_softmax": 864,
+    "rounds": 5
+   },
+   {
+    "msa": 4,
+    "tmpl": 12,
+    "agtri_served": 1944,
+    "hifi_served": 0,
+    "hifi_taped": 0,
+    "hifi_declined": 0,
+    "entry": null,
+    "fp32_softmax": 864,
+    "rounds": 5
+   }
+  ]
+ },
+ "(1,1,hifi)": {
+  "n": 10,
+  "wall": 12.753020644187927,
+  "host": 3.600210500000001,
+  "dev": 9.107171000000001,
+  "lo": 12.299646139144897,
+  "hi": 16.114208459854126,
+  "aiclk": 1350,
+  "aiclk_min": 1350,
+  "load1": 16.880613054547993,
+  "reach": [
+   {
+    "msa": 4,
+    "tmpl": 12,
+    "agtri_served": 0,
+    "hifi_served": 1944,
+    "hifi_taped": 0,
+    "hifi_declined": 0,
+    "entry": [
+     1944,
+     0
+    ],
+    "fp32_softmax": 864,
+    "rounds": 5
+   },
+   {
+    "msa": 4,
+    "tmpl": 12,
+    "agtri_served": 0,
+    "hifi_served": 1944,
+    "hifi_taped": 0,
+    "hifi_declined": 0,
+    "entry": [
+     1944,
+     0
+    ],
+    "fp32_softmax": 864,
+    "rounds": 5
+   }
+  ]
+ }
+}

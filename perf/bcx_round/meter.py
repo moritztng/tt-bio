@@ -135,10 +135,18 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
     #    `_backward` is the taped backward, `_primal` is a forward-only fold (a validation
     #    or reference refold). Both device-side stacks carry the same three seams, so the
     #    `module` field is what separates the 48-block Evoformer from the 4-block extra-MSA
-    #    stack. `analyze.py` sums device time across both, which is what makes `host_in_sg`
-    #    right on either arm without knowing the extra-MSA swap exists.
+    #    stack. `analyze.py` sums device time across all of them, which is what makes
+    #    `host_in_sg` right on any arm without knowing which swaps are on.
+    #
+    #    `TemplateOnDevice` was missing from this tuple until 2026-09-26 and the composed
+    #    arm runs three of its callbacks a round, so its card time was charged to the HOST
+    #    column of every reading taken with the template lever on. Enumerate the classes
+    #    the module actually defines rather than listing two of three by hand: a stack
+    #    that is on the card and not in this tuple reads as host time, and that is the
+    #    one failure mode this loop has.
     for module, cls in (("evoformer", splice_mod.EvoformerOnDevice),
-                        ("extra_msa", splice_mod.ExtraMsaOnDevice)):
+                        ("extra_msa", splice_mod.ExtraMsaOnDevice),
+                        ("template", splice_mod.TemplateOnDevice)):
         for name in ("_primal", "_taped", "_backward"):
             orig = getattr(cls, name)
 

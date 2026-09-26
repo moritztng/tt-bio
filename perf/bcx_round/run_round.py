@@ -58,6 +58,37 @@ def main():
                          "The stack is 13.77 s of the round's 20.831 host seconds "
                          "(state/perf10/bcx-HOSTMAP.md), so this is the campaign's "
                          "largest single lever")
+    ap.add_argument("--template", type=int, default=0,
+                    help="predictor(template=...); 1 runs the multimer template embedder's two "
+                         "c=64 pair blocks on card instead of in JAX. Off is origin/main's "
+                         "default. Measured at -3.78 s a round (state/perf10/bcx-TMPLEMB.md)")
+    ap.add_argument("--triatt-sdpa", dest="triatt_sdpa", type=int, default=0,
+                    help="TT_BIO_TRIATT_TAPED_SDPA; 1 routes the taped triangle attention "
+                         "through the stock fused SDPA verb, which puts "
+                         "autograd.triangle_attention's chunked-recompute backward behind it "
+                         "instead of the materialised score path. Measured at device "
+                         "11.653 -> 8.401 s (state/perf10/bcx-TRIATT.md)")
+    ap.add_argument("--sdpa-own-forward", dest="sdpa_own_forward", type=int, default=1,
+                    help="TT_BIO_SDPA_OWN_FORWARD; the `agtri` arm. 1 lets "
+                         "autograd.triangle_attention compute its own chunked forward, which "
+                         "is 1.135x slower on device than the kernel forward and within 0.1 %% "
+                         "of the shipped path on every gradient reading, against the kernel "
+                         "arm's 1.30-1.34x of the torch bf16 envelope. Only read when "
+                         "--triatt-sdpa is on")
+    ap.add_argument("--triatt-hifi", dest="triatt_hifi", type=int, default=0,
+                    help="the `hifi` arm: `bcx-p10-tapegen`'s per-kernel tape entry for "
+                         "tri_att_sdpa_hifi, so the persistent-mask fused HiFi kernel serves "
+                         "the forward under a tape and autograd.triangle_attention carries the "
+                         "backward. Needs all three of TT_BIO_TAPED_KERNELS, "
+                         "TT_BIO_TRIATT_FUSED_HIFI and TT_BIO_TRIATT_DIVIDING_K, which this "
+                         "sets together: the entry makes the arm reachable and dividing-k "
+                         "makes 288 servable, and opening one without the other measures the "
+                         "other. Mutually exclusive with --triatt-sdpa, which is the `agtri` "
+                         "arm through the STOCK fused verb")
+    ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V",
+                    help="extra BindCraft 2 setting override, repeatable. `--set "
+                         "save_design_frames=1` makes the recorder write one CIF a round, "
+                         "which is what the accuracy leg scores arm against arm")
     ap.add_argument("--shipped", action="store_true",
                     help="leave pdl1.json's own five multimer_v3 design models in place "
                          "instead of pinning one monomer trunk")
@@ -75,6 +106,7 @@ def main():
         overrides.append(f"length_bucket_size={args.bucket}")
     if args.binder:
         overrides.append(f"binder_lengths=[{args.binder},{args.binder}]")
+    overrides += args.sets
     settings = cleaned_campaign_settings(
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
@@ -98,10 +130,36 @@ def main():
     except Exception as exc:      # a pool BindCraft 2's own loader refuses is itself a finding
         pool = f"REFUSED: {exc}"
 
+    # Both flags are live reads (tenstorrent.py::_triatt_taped_sdpa, taped_ttnn::_sdpa_own_forward),
+    # so setting them here beats an import-order hazard, and stamping them is what lets a reader
+    # tell an arm that did not fire from an arm that did nothing.
+    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "1" if args.triatt_sdpa else "0"
+    os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1" if args.sdpa_own_forward else "0"
+
+    # The hifi arm. TT_BIO_TAPED_KERNELS and TT_BIO_TRIATT_DIVIDING_K are live reads
+    # (taped_ttnn.enabled_kernels, tenstorrent._triatt_hifi_dividing_k) so the environment is
+    # enough for those two, but `_TRIATT_FUSED_HIFI` is resolved at import and tt_bio is already
+    # imported by the time argparse runs, so that one is set on the module the way
+    # `perf/bcx_p10_tapegen/round_ab.py` sets it.
+    from tt_bio import tenstorrent as _tn
+    os.environ["TT_BIO_TAPED_KERNELS"] = "tri_att_sdpa_hifi" if args.triatt_hifi else ""
+    os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if args.triatt_hifi else "0"
+    _tn._TRIATT_FUSED_HIFI = bool(args.triatt_hifi)
+    if args.triatt_hifi and args.triatt_sdpa:
+        raise SystemExit("--triatt-hifi and --triatt-sdpa are two different routes for the same "
+                         "call; running both measures neither")
+
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "exact": bool(args.exact),
              "extra_msa_on_device": bool(args.extra_msa),
+             "template_on_device": bool(args.template),
+             "triatt_taped_sdpa": bool(args.triatt_sdpa),
+             "triatt_hifi": bool(args.triatt_hifi),
+             "taped_kernels": os.environ.get("TT_BIO_TAPED_KERNELS", ""),
+             "triatt_dividing_k": os.environ.get("TT_BIO_TRIATT_DIVIDING_K", ""),
+             "sdpa_own_forward": bool(args.sdpa_own_forward),
              "shipped_pool": bool(args.shipped), "binder_pinned": args.binder,
+             "sets": args.sets,
              "model_pool": pool,
              "pci": M.CLOCK.pci, "sysfs": node, "commit": git_head(),
              "seed": args.seed, "rounds_requested": args.rounds,
@@ -131,13 +189,16 @@ def main():
     stopped = None
     evo = None
     extra = None
+    tmpl = None
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation="device",
                                            checkpoints=args.params,
-                                           exact=bool(args.exact),
-                                           extra_msa=bool(args.extra_msa)) as build:
+                                           extra_msa=bool(args.extra_msa),
+                                           template=bool(args.template),
+                                           exact=bool(args.exact)) as build:
             evo = build.evoformer
             extra = build.extra_msa
+            tmpl = build.template
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -146,7 +207,7 @@ def main():
         stopped = str(stop)
     finally:
         M.CLOCK.stop()
-        from tt_bio import autograd
+        from tt_bio import autograd, taped_ttnn, tenstorrent
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
@@ -158,6 +219,17 @@ def main():
                       "extra_msa_calls": dict(extra.calls) if extra else None,
                       "extra_msa_swapped": list(extra.swapped) if extra else None,
                       "extra_msa_mask_seen": dict(extra.mask_seen) if extra else None,
+                      "template_calls": dict(tmpl.calls) if tmpl else None,
+                      "triatt_sdpa_stats": dict(tenstorrent.TRIATT_TAPED_SDPA_STATS),
+                      "sdpa_own_forward_stats": dict(taped_ttnn.SDPA_OWN_FORWARD_STATS),
+                      # The hifi arm's own reach. `served` is the kernel serving under a tape;
+                      # `taped` counts the calls that declined BECAUSE they were taped, which is
+                      # exactly what the tape entry removes, so a hifi round with taped > 0 and
+                      # served == 0 did not fire and its seconds mean nothing.
+                      "kernel_entry_stats": {k: list(v) for k, v in
+                                             taped_ttnn.KERNEL_STATS.items()},
+                      "fused_hifi_stats": dict(tenstorrent.TRIATT_FUSED_HIFI_STATS),
+                      "fp32_softmax_calls": tenstorrent.FP32_SOFTMAX_STATS.get("calls"),
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
