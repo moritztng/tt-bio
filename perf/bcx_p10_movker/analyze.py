@@ -54,6 +54,32 @@ def pct(dev, by):
     return f'{by / dev / ROOF * 100:6.1f} %' if dev > 0 else '     - '
 
 
+#: The three verbs one `_pair_transpose_impl` round trip issues, in order.
+PT_LEGS = (('to_layout', 'TILE->ROW_MAJOR', 'to_layout TILE->RM'),
+           ('permute', 'perm(1, 0, 2)', 'permute(1,0,2)'),
+           ('to_layout', 'ROW_MAJOR->TILE', 'to_layout RM->TILE'))
+
+
+def pair_transpose(rows):
+    """`z -> z^T` on `[N, N, C]`, rolled up over its three stock dispatches.
+
+    The round trip moves the tensor THREE times for a job whose floor is once in and once
+    out, so the kernel's win is a byte cut before it is a bandwidth win. Reported per leg,
+    then per round trip: 3 dispatches make one transpose, not 6 -- forward and backward are
+    separate transposes that each pay all three legs.
+    """
+    dev, byt, cal = collections.Counter(), collections.Counter(), collections.Counter()
+    for r in rows.values():
+        if '288x288x128' not in r['sig'] or not r['tag'].split('|')[-1].startswith('tri_att'):
+            continue
+        leg = next((n for v, g, n in PT_LEGS if r['verb'] == v and g in r['geom']), None)
+        if leg is None:
+            continue
+        k = (r['tag'].split('|')[2], leg)
+        dev[k] += r['dev']; byt[k] += r['bytes']; cal[k] += r['calls']
+    return dev, byt, cal
+
+
 def main():
     b0 = json.loads(open(sys.argv[1]).read())
     arms = b0.get('arms', ['-'])
@@ -82,6 +108,25 @@ def main():
         rr = tot[arms[0]] / tot[arms[1]] if tot[arms[1]] > 0 else float('inf')
         print(f"{'TOTAL':<12}" + ''.join(f'{c:>22}' for c in cells) + f'{rr:>9.2f}x')
         print()
+
+    print('=== the pair transpose `z -> z^T` on [288,288,128], per block step ===')
+    for a in arms:
+        _, rows = load(sys.argv[1], a)
+        dev, byt, cal = pair_transpose(rows)
+        if not dev:
+            print(f'  {a}: none'); continue
+        print(f'  --- {a} ---')
+        for k in sorted(dev):
+            print(f'    {k[0]:>3} {k[1]:<20}{cal[k]:5.0f} call{dev[k]*1e3:8.3f} ms'
+                  f'{byt[k]/1e6:8.1f} MB{pct(dev[k], byt[k]):>9}')
+        td, tb, tc = sum(dev.values()), sum(byt.values()), sum(cal.values())
+        n = tc / 3                      # 3 dispatches = 1 round trip
+        floor = tb / 3                  # one pass in and out, instead of three
+        print(f'    {"":>3} {"TOTAL":<20}{tc:5.0f} call{td*1e3:8.3f} ms{tb/1e6:8.1f} MB'
+              f'{pct(td, tb):>9}')
+        print(f'    {n:.0f} round trips, {td*1e3/n:.3f} ms each, and the kernel\'s byte '
+              f'floor is {floor/1e6:.1f} MB against {tb/1e6:.1f} MB moved today (3.0x)')
+    print()
 
     for arm in arms:
         b, rows = load(sys.argv[1], arm)
