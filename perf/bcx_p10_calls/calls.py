@@ -30,14 +30,21 @@ from perf.bcx_p10_devmap import analyze as AN                    # noqa: E402
 from perf.bcx_p10_devgap import gap as GAP                       # noqa: E402
 from perf.bcx_p10_shape import compare as CMP                    # noqa: E402
 
+#: Ops that rewrite a tensor's METADATA and move nothing. The operand-byte model charges them
+#: their operands anyway, so they are the ops that read ABOVE the DRAM roof -- reshape at 546 %
+#: of it, squeeze at 896 % -- and that over-reading is the proof they belong in their own class
+#: rather than a correction applied by hand. Counting them as movement inflates movement's byte
+#: share by 289 GB and its seconds by 0.181, so this row does not.
+VIEW = {"reshape", "squeeze", "unsqueeze", "experimental.view"}
+
 #: Ops that move bytes and do no arithmetic. A call in here pays full DRAM traffic for zero
 #: FLOPs and another launch gap, which is the whole thesis of this row. `clone`,
 #: `to_memory_config` and `reallocate` are copies; `fill_implicit_tile_padding` writes pad.
 MOVEMENT = {
-    "reshape", "permute", "transpose", "to_layout", "tilize", "untilize", "typecast",
+    "permute", "transpose", "to_layout", "tilize", "untilize", "typecast",
     "concat", "slice", "pad", "clone", "copy", "to_memory_config", "reallocate",
-    "fill_implicit_tile_padding", "repeat", "repeat_interleave", "unsqueeze", "squeeze",
-    "chunk", "split", "experimental.view", "experimental.nlp_concat_heads",
+    "fill_implicit_tile_padding", "repeat", "repeat_interleave",
+    "chunk", "split", "experimental.nlp_concat_heads",
     "experimental.nlp_create_qkv_heads", "transformer.concatenate_heads",
     "transformer.split_query_key_value_and_split_heads",
 }
@@ -50,6 +57,8 @@ ARITHMETIC = {
 
 
 def klass(verb):
+    if verb in VIEW:
+        return "view"
     if verb in MOVEMENT:
         return "movement"
     if verb in ARITHMETIC:
@@ -61,19 +70,21 @@ def scale_verbs(pbv, mult):
     """Per-block per-verb -> per-round, at the multiplicities the round measured."""
     rows = collections.defaultdict(lambda: collections.Counter())
     fam_of = collections.defaultdict(lambda: collections.Counter())
+    by_fam = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
     unscaled = set()
     for (stack, direction, family, verb), v in pbv.items():
         m = mult.get((stack, direction))
         if m is None:
             unscaled.add((stack, direction))
             continue
-        c = rows[verb]
-        c["device_s"] += v["device"] * m
-        c["dispatch_s"] += v["enqueue"] * m
-        c["calls"] += v["calls"] * m
-        c["GB"] += (v["read"] + v["written"]) * m / 1e9
-        fam_of[verb][CMP.FAMILY.get(family, family)] += v["device"] * m
-    return rows, fam_of, unscaled
+        name = CMP.FAMILY.get(family, family)
+        for c in (rows[verb], by_fam[name][verb]):
+            c["device_s"] += v["device"] * m
+            c["dispatch_s"] += v["enqueue"] * m
+            c["calls"] += v["calls"] * m
+            c["GB"] += (v["read"] + v["written"]) * m / 1e9
+        fam_of[verb][name] += v["device"] * m
+    return rows, fam_of, by_fam, unscaled
 
 
 def main():
@@ -87,6 +98,8 @@ def main():
     ap.add_argument("--devgap-column", type=float, default=9.538,
                     help="bcx-p10-devgap's device column, the number this must reconcile to")
     ap.add_argument("--top", type=int, default=28)
+    ap.add_argument("--family", default=None,
+                    help="also break this one family down by op name, e.g. leg 3's residual")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -124,7 +137,7 @@ def main():
     A_fam = sum(c["device_s"] for c in fam.values())
 
     pbv = AN.per_block(sub, by_verb=True)
-    verbs, fam_of, unscaled = scale_verbs(pbv, mult)
+    verbs, fam_of, by_fam, unscaled = scale_verbs(pbv, mult)
     if unscaled:
         print("UNSCALED (no multiplicity): %s" % sorted(unscaled))
     A = sum(c["device_s"] for c in verbs.values())
@@ -191,7 +204,7 @@ def main():
     print("\n== leg 2: movement against arithmetic ==")
     print("%-12s %5s %10s %7s %10s %7s %10s %7s"
           % ("class", "ops", "calls", "%calls", "GB", "%GB", "device_s", "%dev"))
-    for name in ("arithmetic", "eltwise", "movement"):
+    for name in ("arithmetic", "eltwise", "movement", "view"):
         c = cls[name]
         print("%-12s %5d %10d %6.1f%% %10.1f %6.1f%% %10.3f %6.1f%%"
               % (name, c["ops"], round(c["calls"]), 100 * c["calls"] / calls,
@@ -201,6 +214,22 @@ def main():
           "= %.1f %% of the %.3f s round"
           % (100 * mv["calls"] / calls, round(calls), 100 * mv["GB"] / GB, GB,
              mv["device_s"], 100 * mv["device_s"] / R["wall"], R["wall"]))
+
+    # ---- leg 3: one family, by op name ---------------------------------------------------
+    if args.family:
+        fv = by_fam[args.family]
+        fd = sum(c["device_s"] for c in fv.values())
+        fg = sum(c["GB"] for c in fv.values())
+        fc = sum(c["calls"] for c in fv.values())
+        print("\n== leg 3: '%s' by op name: %.3f s, %.1f GB, %d calls, %.1f %% of roof =="
+              % (args.family, fd, fg, round(fc), 100 * (fg / fd) / args.dram if fd else 0))
+        print("%-28s %7s %9s %9s %9s %7s"
+              % ("ttnn op", "class", "calls", "device_s", "GB", "%dram"))
+        for verb, c in sorted(fv.items(), key=lambda kv: -kv[1]["device_s"]):
+            d = c["device_s"]
+            print("%-28s %7s %9d %9.3f %9.1f %6.1f%%"
+                  % (verb, klass(verb), round(c["calls"]), d, c["GB"],
+                     100 * (c["GB"] / d) / args.dram if d else 0))
 
     print("\n== Amdahl on the %.3f s ROUND, not on a block ==" % R["wall"])
     print("%-46s %9s %9s %9s" % ("removing", "device_s", "p", "speedup if removed"))
@@ -221,6 +250,8 @@ def main():
              "verbs": {v: dict(c, klass=klass(v), called_from=dict(fam_of[v]))
                        for v, c in verbs.items()},
              "classes": {k: dict(v) for k, v in cls.items()},
+             "by_family_verb": {f: {v: dict(c) for v, c in d.items()}
+                                for f, d in by_fam.items()},
              "families": {k: dict(v) for k, v in fam.items()},
              "terms": {"C": C, "C_blocks": C_blocks, "C_template": C_tmpl, "A_verb": A,
                        "A_family": A_fam, "F": F, "G": G, "GB": GB, "calls": calls,

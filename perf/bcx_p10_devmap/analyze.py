@@ -29,16 +29,23 @@ def _split(tag):
     return stack, int(block), direction, family
 
 
-def per_block(blob, drop_first_block=True):
-    """{(stack, dir, family): {synced, enqueue, calls, read, written}} per ONE block."""
+def per_block(blob, drop_first_block=True, by_verb=False):
+    """{(stack, dir, family[, verb]): {synced, enqueue, calls, read, written}} per ONE block.
+
+    `by_verb` appends the ttnn op name as a second key beside the label context, off the
+    `verb_*` counters `OpTimer` already keeps. Same records, same subtraction, same medians,
+    so the verb table sums back to the family table by construction (`bcx-p10-calls`).
+    """
     lam = blob["sync_floor_s"]["median"]
+    pre = "verb_" if by_verb else ""
     acc = collections.defaultdict(lambda: collections.defaultdict(list))
     for rec in blob["records"]:
         if rec["K"] != max(blob["ks"]):
             continue
         k = rec["K"]
         per = collections.defaultdict(lambda: [0.0, 0, 0.0, 0.0])
-        for tag, w in rec["wall"].items():
+        for full, w in rec[pre + "wall"].items():
+            tag, verb = (full.split("||", 1) if by_verb else (full, None))
             stack, block, direction, family = _split(tag)
             if stack == "-":                      # the tape engine's own verbs, not a block
                 key = (rec["stack"], direction, "tape_engine")
@@ -48,11 +55,13 @@ def per_block(blob, drop_first_block=True):
                     continue
                 key = (stack, direction, family)
                 scale = 1.0 / (k - 1 if drop_first_block else k)
+            if by_verb:
+                key = key + (verb,)
             e = per[key]
             e[0] += w * scale
-            e[1] += rec["calls"][tag] * scale
-            e[2] += rec["read"][tag] * scale
-            e[3] += rec["written"][tag] * scale
+            e[1] += rec[pre + "calls"][full] * scale
+            e[2] += rec[pre + "read"][full] * scale
+            e[3] += rec[pre + "written"][full] * scale
         for key, (w, c, r, wr) in per.items():
             acc[key][rec["mode"]].append((w, c, r, wr))
     out = {}
