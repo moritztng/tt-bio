@@ -233,3 +233,29 @@ def test_no_shell_script_reads_tt_aiclk_without_the_helper():
         if re.search(r"(cat|<)\s+[\"']?[^\"'\s]*tt_aiclk", text):
             offenders.append(rel)
     assert offenders == [], f"direct tt_aiclk reads outside the helper: {offenders}"
+
+
+def test_every_shell_caller_can_actually_reach_the_helper():
+    """The census above passes just as happily if `aiclk` is an undefined command.
+
+    So run each converted script's own source line, at its own path, and call the function.
+    """
+    tracked = subprocess.run(["git", "ls-files", "--", "perf"], cwd=ROOT,
+                             capture_output=True, text=True)
+    if tracked.returncode != 0:
+        pytest.skip("not a git work tree")
+    checked, broken = 0, []
+    for rel in tracked.stdout.split():
+        p = ROOT / rel
+        if not rel.endswith(".sh") or p == HELPER or not p.exists():
+            continue
+        line = next((l for l in p.read_text().splitlines() if l.startswith("_L=")), None)
+        if line is None:
+            continue
+        checked += 1
+        r = subprocess.run(["sh", "-c", f"{line}\naiclk 99999", str(p)],
+                           capture_output=True, text=True, cwd=ROOT)
+        if r.returncode != 0 or r.stdout.strip() != "NA":
+            broken.append(f"{rel}: rc={r.returncode} out={r.stdout!r} err={r.stderr!r}")
+    assert checked >= 20, f"only {checked} scripts source the helper; conversion regressed"
+    assert broken == []
