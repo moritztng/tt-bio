@@ -984,7 +984,7 @@ def design_model_class():
 
 
 def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice | None = None,
-             extra_msa: "ExtraMsaOnDevice | None" = None):
+             extra_msa: "ExtraMsaOnDevice | None" = None, exact: bool = True):
     cls = design_model_class()
 
     def build(*args, **kwargs):
@@ -996,6 +996,9 @@ def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice
     #: The extra-MSA swap, or None when the stack stayed in BindCraft 2's JAX. Its `calls`,
     #: `swapped` and `mask_seen` counters are how a caller checks the on-card path ran.
     build.extra_msa = extra_msa
+    #: Whether the tape this factory's models open runs softmax and layer norm exact. Inert on
+    #: `trunk="jax"`, which opens no tt-bio tape at all.
+    build.exact = exact
     return build
 
 
@@ -1003,7 +1006,8 @@ def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice
 def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoints=None,
               resident: int | None = None, blocks: int = EVOFORMER_BLOCKS,
               recompute: bool = True,
-              extra_msa: bool = False) -> Iterator[Callable[..., object]]:
+              extra_msa: bool = False,
+              exact: bool = True) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -1023,6 +1027,18 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     independent of the Evoformer swap, so a comparison graded on the Evoformer alone keeps the
     program it was graded on. Read `build.extra_msa.calls` to check the on-card path ran.
 
+    `exact` runs softmax and layer norm on the host in float64 inside the tape, which is
+    tt-bio's default for a gradient and what reproduces AlphaFold 2's own gradient most closely.
+    It is expensive: one `sequence_gradients` call on a PD-L1 draw at n=192 takes 479.59 s with
+    it on against 19.285 s with it off, 24.87x (`perf/bcx_exact/ROUND_AB.json`). That is the
+    gradient call, not the whole design round, which also carries BindCraft 2's own JAX work.
+    `exact=False` runs both ops on the device, as inference does. It moves the worst gradient
+    tensor's distance from a float64 reference by 1.1 %, from 0.087998 to 0.088985, where
+    bfloat16 alone already carries 0.075483 of it (`perf/bcx_exact/grade/VJP_TRIARM_n192.json`),
+    and a PD-L1 design campaign on that setting still accepts binders
+    (`perf/bcx_exact/ACCEPT_GRADE.json`). It stays on by default because it is the more accurate
+    of the two. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one ran.
+
     `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
     this same class, which is the control arm every device result should be read against.
 
@@ -1032,16 +1048,22 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     misconfiguration, not a route.
     """
     if trunk == "jax":
-        yield _factory(trunk="jax", pool=None)
+        yield _factory(trunk="jax", pool=None, exact=exact)
         return
     if card is not None:
         pin_card(card)
+    # After `pin_card`: importing autograd imports ttnn, and a pin after that raises.
+    from tt_bio import autograd
+
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident)
     evo = EvoformerOnDevice(pool, blocks=blocks, recompute=recompute)
     extra = ExtraMsaOnDevice(pool, recompute=recompute) if extra_msa else None
-    with evoformer_on_device(evo, extra):
-        yield _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra)
+    # `_EXACT_TRAINING` is a process-wide stack, not thread-local, so this covers every tape
+    # opened for the duration -- both `_taped` calls and the backward's recompute -- without
+    # either swap having to know about it.
+    with autograd.exact_training(exact), evoformer_on_device(evo, extra):
+        yield _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra, exact=exact)
 
 
 @contextlib.contextmanager
@@ -1069,8 +1091,8 @@ def campaign_predictor(*, validation: str = "jax",
 
     The design model's checkpoints come from one pool, so `resident` caps the card across it.
 
-    Everything `predictor` takes passes through, `extra_msa` included, and the swap it builds is
-    re-exposed as `build.extra_msa` so a campaign can read its counters.
+    Everything `predictor` takes passes through, `extra_msa` and `exact` included, and the swap
+    it builds is re-exposed as `build.extra_msa` so a campaign can read its counters.
     """
     if validation not in ("jax", "device"):
         raise ValueError(f"validation must be 'jax' or 'device', not {validation!r}")
@@ -1094,6 +1116,7 @@ def campaign_predictor(*, validation: str = "jax",
         build_for_campaign.pool = build.pool
         build_for_campaign.evoformer = build.evoformer
         build_for_campaign.extra_msa = build.extra_msa
+        build_for_campaign.exact = build.exact
         build_for_campaign.validation = validation
         build_for_campaign.built = built
 

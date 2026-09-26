@@ -188,12 +188,13 @@ def _campaign_factory_trunks(monkeypatch, **kwargs):
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
     design.extra_msa = None
+    design.exact = True
 
     @contextlib.contextmanager
     def fake_predictor(**_):
         yield design
 
-    def fake_factory(*, trunk, pool, evoformer=None, extra_msa=None):
+    def fake_factory(*, trunk, pool, evoformer=None, extra_msa=None, exact=True):
         def build(*args, **kw):
             built.append(trunk)
             return object()
@@ -270,6 +271,82 @@ def test_the_campaign_path_can_ask_for_the_extra_msa_swap_too():
         assert build.extra_msa.pool is build.pool
     with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
         assert build.extra_msa is None
+
+
+def test_the_gradient_runs_softmax_and_layer_norm_exact_by_default():
+    """`exact` defaults on, and the check is the armed op tuple rather than the module global.
+
+    `tape()` and `backward()` each read `exact_training_ops()` for their own extent, so that
+    tuple is what a tape opened inside this scope would actually run. Reading
+    `autograd._EXACT_TRAINING` instead would test the variable, not the scope.
+    """
+    _bindcraft_root()
+    from tt_bio import autograd
+
+    params = _af2_params()
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params)) as build:
+        assert autograd.exact_training_ops() == autograd.EXACT_TRAINING_OPS
+        assert build.exact is True
+
+
+def test_the_exact_instrument_can_be_turned_off_through_the_predictor():
+    """`predictor(exact=False)` is the only route a BindCraft 2 caller has to the off switch.
+
+    Before this parameter the seam opened `trunk.taped.tape()` with no way out of it, so every
+    BindCraft 2 round paid a host float64 round trip per softmax and per layer norm -- 2,880
+    counted host entries a round at n=192, and 24.87x on the gradient call itself
+    (`perf/bcx_exact/ROUND_AB.json`). The lever has to be inert-proof: an armed tuple that does
+    not empty is a parameter that reaches nothing.
+    """
+    _bindcraft_root()
+    from tt_bio import autograd
+
+    params = _af2_params()
+    armed = autograd.exact_training_ops()
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params), exact=False) as build:
+        assert autograd.exact_training_ops() == ()
+        assert build.exact is False
+    # The scope is the predictor's, so it is gone with it and no later tape inherits it.
+    assert autograd.exact_training_ops() == armed
+
+
+def test_the_campaign_path_can_turn_the_exact_instrument_off_too():
+    """`campaign_predictor` takes `**kwargs`, so nothing in its signature says `exact` arrives.
+
+    A campaign is the entry point a real design run uses -- `campaign.run_campaign` -- and this
+    is what says the parameter reaches it rather than being swallowed.
+    """
+    _bindcraft_root()
+    from tt_bio import autograd
+
+    params = _af2_params()
+    with bindcraft2.campaign_predictor(checkpoints=str(params), exact=False) as build:
+        assert autograd.exact_training_ops() == ()
+        assert build.exact is False
+    with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
+        assert autograd.exact_training_ops() == autograd.EXACT_TRAINING_OPS
+        assert build.exact is True
+
+
+def test_a_multimer_checkpoint_is_detected_off_the_file_rather_than_its_name(tmp_path):
+    """`_Trunk` loaded every checkpoint at `load_af2_state_dict`'s `multimer=False` default, so
+    `tt_bio.bindcraft2` could not load the five-model `multimer_v3` pool the shipped
+    `examples/pdl1.json` designs on: the remap raises `KeyError` on `pair_activiations`.
+
+    The family is read off the array names, not the file name, so a renamed or re-exported
+    checkpoint cannot be loaded as the wrong one.
+    """
+    monomer = tmp_path / "params_model_1_ptm.npz"
+    np.savez(monomer, **{"alphafold/alphafold_iteration/evoformer/pair_activiations//weights":
+                         np.zeros(1, dtype=np.float32)})
+    assert bindcraft2._is_multimer(monomer) is False
+
+    # Named like a monomer on purpose: the file decides, not the name.
+    multimer = tmp_path / "params_model_1_ptm_copy.npz"
+    np.savez(multimer, **{"alphafold/alphafold_iteration/evoformer/"
+                          "~_relative_encoding/position_activations//weights":
+                          np.zeros(1, dtype=np.float32)})
+    assert bindcraft2._is_multimer(multimer) is True
 
 
 def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
