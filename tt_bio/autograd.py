@@ -1286,6 +1286,60 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     return _tape(out_v, parents, make)
 
 
+def _row_mean(v, cfg, K: int):
+    """Mean over the last axis, as ``sum`` then an explicit multiply by ``1/K``.
+
+    Not a style choice. ``ttnn.mean`` carries its own ``1/K`` and returns it short at a K that
+    is not a power of two: at K=384 the four means of the closure below all inherit the same
+    signed constant and ``dx`` reads 2.089e-03 relative L2 against a finite-difference-validated
+    float64 reference, a +2.08e-03 systematic at 11327 sigma over 32 draws, where the identical
+    closure at K=128 reads 1.481e-04 and is unbiased. 1/128 is a power of two and exact in any
+    float; 1/384 is not. Summing and scaling by the host's own fp32 constant takes K=384 to
+    1.399e-04 and leaves K=128 bit-identical, which is the control the explanation predicts
+    (``perf/of3t_p10grad/PEROP.md``, SUMSCALE arms).
+
+    ``c_s = 384`` and ``c_z = 128``, so this is the single track's bias and not the pair
+    track's, and it is a function of the channel width rather than of the crop.
+    """
+    return ttnn.multiply(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg), 1.0 / K)
+
+
+def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
+    """The layer-norm backward, shared by ``layer_norm`` and ``_taped_layer_norm``.
+
+    One definition, because the two sites carried verbatim copies of it and a fix to either
+    one was a fix to neither.
+
+    mean and rstd are recomputed here rather than retained from the forward: two reductions,
+    and it is what buys the production ``ttnn.layer_norm`` forward, which returns neither. The
+    two-pass ``E[(x - mean)^2]`` rather than tt-train's ``E[x^2] - E[x]^2``
+    (``ops/layernorm_op.cpp:144``), which cancels catastrophically once the mean dominates the
+    spread. ``x.value`` is read inside ``bw`` and not captured: ``Tensor.free`` may have evicted
+    it to DRAM since the forward, and a captured handle would be freed storage.
+    """
+    def bw(g):
+        xv = x.value
+        K = int(xv.shape[-1])
+        mean = _row_mean(xv, bwcfg, K)
+        centered = ttnn.subtract(xv, mean)
+        var = _row_mean(ttnn.multiply(centered, centered), bwcfg, K)
+        rstd = ttnn.rsqrt(ttnn.add(var, eps))
+        norm = ttnn.multiply(centered, rstd)
+        if gamma is not None and gamma.requires_grad:
+            gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
+        if beta is not None and beta.requires_grad:
+            beta.add_grad(_sum_leading(g, beta.value.shape))
+        if x.requires_grad:
+            dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
+            # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
+            dn_mean = _row_mean(dnorm, bwcfg, K)
+            dn_norm_mean = _row_mean(ttnn.multiply(dnorm, norm), bwcfg, K)
+            dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
+                               ttnn.multiply(norm, dn_norm_mean))
+            x.add_grad(ttnn.multiply(dx, rstd))
+    return bw
+
+
 def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor] = None,
                *, eps: float = 1e-6, config=None, backward_config=None,
                memory_config=None) -> Tensor:
@@ -1323,33 +1377,7 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
     parents = [p for p in (x, gamma, beta) if p is not None]
 
     def make():
-        def bw(g):
-            # Recomputed here, not retained from the forward: two reductions, and it is what
-            # buys the production kernel above. The two-pass E[(x - mean)^2] rather than
-            # tt-train's E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels
-            # catastrophically once the mean dominates the spread.
-            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
-            # DRAM since the forward, and the captured handle would be freed storage.
-            xv = x.value
-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
-            centered = ttnn.subtract(xv, mean)
-            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
-                            compute_kernel_config=bwcfg)
-            rstd = ttnn.rsqrt(ttnn.add(var, eps))
-            norm = ttnn.multiply(centered, rstd)
-            if gamma is not None and gamma.requires_grad:
-                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
-            if beta is not None and beta.requires_grad:
-                beta.add_grad(_sum_leading(g, beta.value.shape))
-            if x.requires_grad:
-                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
-                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
-                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                                   ttnn.multiply(norm, dn_norm_mean))
-                x.add_grad(ttnn.multiply(dx, rstd))
-        return bw
+        return _layer_norm_bw(x, gamma, beta, eps, bwcfg)
 
     return _tape(out_v, parents, make)
 
@@ -2751,33 +2779,7 @@ def _taped_layer_norm(shipped, args, kwargs):
     parents = [t for t in (x, gamma, beta) if t is not None]
 
     def make():
-        def bw(g):
-            # Recomputed here, not retained: two reductions, and it is what buys the
-            # production kernel above. Two-pass E[(x - mean)^2] rather than tt-train's
-            # E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels catastrophically
-            # once the mean dominates the spread.
-            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
-            # DRAM since the forward, and the captured handle would be freed storage.
-            xv = x.value
-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
-            centered = ttnn.subtract(xv, mean)
-            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
-                            compute_kernel_config=bwcfg)
-            rstd = ttnn.rsqrt(ttnn.add(var, eps))
-            norm = ttnn.multiply(centered, rstd)
-            if gamma is not None and gamma.requires_grad:
-                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
-            if beta is not None and beta.requires_grad:
-                beta.add_grad(_sum_leading(g, beta.value.shape))
-            if x.requires_grad:
-                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
-                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
-                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                                   ttnn.multiply(norm, dn_norm_mean))
-                x.add_grad(ttnn.multiply(dx, rstd))
-        return bw
+        return _layer_norm_bw(x, gamma, beta, eps, bwcfg)
 
     return _tape(out_v, parents, make)
 
