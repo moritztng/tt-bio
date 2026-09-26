@@ -7,7 +7,7 @@
 #
 # `cat .../tt_aiclk 2>/dev/null || echo NA` catches an unreadable node and NOT a lying one.
 # A Blackhole whose ARC firmware has died still enumerates, still opens and still computes;
-# it just answers every telemetry read with 4294967295 and raises nothing. On 2026-09-26 a
+# it just answers every telemetry read with a sentinel and raises nothing. On 2026-09-26 a
 # five-minute anchor on qb1 card 3 banked a whole run of those as MHz and nothing noticed.
 #
 #   NA    the node would not read at all: missing, permissions, no card.

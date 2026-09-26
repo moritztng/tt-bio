@@ -62,8 +62,8 @@ def _nodes() -> List[int]:
 def clocks() -> Dict[int, Optional[int]]:
     """Every card's AICLK in MHz, by device node. ``None`` for a node that would not read.
 
-    A node whose ARC has died reads 4294967295 and does not raise, so "would not read" has to
-    cover "read, and lied". :mod:`tt_bio.aiclk` owns that predicate; the contract here is
+    A node whose ARC has died answers with a sentinel and does not raise, so "would not read"
+    has to cover "read, and lied". :mod:`tt_bio.aiclk` owns that predicate; the contract is
     unchanged, which is why no caller has to know the sentinel exists.
     """
     return {n: aiclk.read(n, sysfs=_SYSFS) for n in _nodes()}

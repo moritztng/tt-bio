@@ -50,11 +50,11 @@ class Clock:
     clock it was measured at rather than a run-wide median.
 
     A sample that is not a clock is NOT banked. A dead ARC answers every read with
-    4294967295 and raises nothing, so the old `except Exception: pass` caught an unreadable
-    node and not a lying one: on 2026-09-26 `bcx-p10-devgap` wrote a `round_events.json` whose
-    every AICLK sample was the sentinel. Those reads are counted in `dead` instead, which is
-    what makes the run stop at the next round boundary rather than spend an hour producing
-    unstampable numbers.
+    `tt_bio.aiclk.ARC_DEAD` and raises nothing, so the old `except Exception: pass` caught an
+    unreadable node and not a lying one: on 2026-09-26 `bcx-p10-devgap` wrote a
+    `round_events.json` whose every AICLK sample was that sentinel. Those reads are counted in
+    `dead` instead, which is what stops the run at the next round boundary rather than letting
+    it spend an hour producing unstampable numbers.
     """
 
     def __init__(self, dt=1.0):

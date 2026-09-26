@@ -52,7 +52,7 @@ from tt_bio.aiclk import read as read_aiclk           # the sentinel predicate, 
 node, out = sys.argv[2], sys.argv[3]
 with open(out, "w") as f:
     while True:
-        # `int(open(src).read())` banked a dead ARC's 4294967295 as MHz. None covers both an
+        # `int(open(src).read())` banked a dead ARC's sentinel as MHz. None covers both an
         # unreadable node and one that answered without a clock; which it was is the card's
         # health, not this sampler's job.
         mhz = read_aiclk(int(node))

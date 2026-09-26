@@ -88,7 +88,7 @@ class Clock:
                 raw = open(self.path).read()
             except Exception:
                 raw = ""
-            # A dead ARC answers 4294967295 and raises nothing, so a node that lies has to
+            # A dead ARC answers ARC_DEAD and raises nothing, so a node that lies has to
             # be kept out of `samples` just as firmly as one that will not read.
             mhz = parse_aiclk(raw)
             if mhz is not None:
