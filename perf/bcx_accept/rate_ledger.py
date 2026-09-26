@@ -137,8 +137,12 @@ def terminal_map(log):
             out[cur] = f"{m.group(1)} [{m.group(2)}]"
         elif re.search(r"trajectory rejected.*?due to \[([^\]]*)\]", line):
             out[cur] = f"final [{re.search(r'due to .([^]]*)', line).group(1)}]"
-        elif re.search(r"\d+ of \d+ redesigns passed", line):
-            out[cur] = "ACCEPTED"
+        else:
+            m = re.search(r"(\d+) of (\d+) redesigns passed", line)
+            if m:
+                # "0 of 10 redesigns passed" is what BC2 prints for a trajectory the refold
+                # ensemble REJECTED. Read the count, never just the line -- see stage_profile.py.
+                out[cur] = "ACCEPTED" if int(m.group(1)) else f"validation [0 of {m.group(2)}]"
     return out
 
 

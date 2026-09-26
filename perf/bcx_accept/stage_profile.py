@@ -69,6 +69,7 @@ class Traj:
         self.failed = ""
         self.invalid = INVALID.get(self.draw, "")
         self.duplicate_of = None
+        self.kept = None
 
     @property
     def usable(self):
@@ -112,8 +113,18 @@ def parse(arm, side, path):
             cur.terminal, cur.verdict = "final", "rejected"
             cur.failed = m.group(3) or ""
             continue
-        if RE_KEPT.search(line):
-            cur.terminal, cur.verdict = "validation", "ACCEPTED"
+        m = RE_KEPT.search(line)
+        if m:
+            # BC2 prints this line whether the refold ensemble kept a candidate or not,
+            # and it prints "0 of 10 redesigns passed" for a trajectory it REJECTED there.
+            # Matching the line instead of reading the leading count turns every refold
+            # rejection into an acceptance: traj_off_s3 read 4 accepted against the 1 its
+            # own .campaign_state.json and 2_Refolded/!_Refolded.csv record.
+            kept = int(m.group(1))
+            cur.terminal = "validation"
+            cur.verdict = "ACCEPTED" if kept else "rejected"
+            cur.failed = "" if kept else f"0 of {m.group(2)} refolds"
+            cur.kept = kept
         elif line.startswith("Traceback") and cur.verdict == "in flight":
             cur.terminal, cur.verdict = "crash", "crashed"
     return out
