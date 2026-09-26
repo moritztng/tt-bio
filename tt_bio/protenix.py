@@ -33,7 +33,7 @@ import ttnn
 
 from . import protenix_weights as PW
 from .envflags import env_flag
-from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
+from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width, stack_samples
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
@@ -1332,11 +1332,17 @@ class DiffusionModule(_KeyedWeights):
         return biases
 
     def _token_dit_device(self, a_t, s_t, biases, NT):
-        """On-device 24-block token DiT (ttnn). a_t (1,NT,768), s_t (1,NT,384); biases = list
+        """On-device 24-block token DiT (ttnn). a_t (M,NT,768), s_t (M,NT,384); biases = list
         of per-block precomputed (1,n_heads,NT,NT) pair biases (from _dit_block_biases, fixed
         across steps). Mirrors host _token_dit; reuses AdaLN + AttentionPairBias. When
         PROTENIX_DIFFUSION_FP32_DEVICE=1 the full diffusion stack, including this DiT,
-        runs in ttnn fp32."""
+        runs in ttnn fp32.
+
+        **M is free here.** Every verb in the loop is a batched matmul against a 2-D weight or
+        a broadcasting binary, so a leading sample axis needs no case of its own; the biases
+        stay (1,n_heads,NT,NT) and broadcast over M in the QK-scale add rather than being
+        replicated, which at NT=1095 in fp32 is 1.9 GB per copy saved. `_denoise_multiplicity`
+        used to call a `_token_dit_device_m` whose body was byte-identical to this one."""
         ckc = self._dit_ckc
         if self._dit_fp32:   # inputs are already fp32; typecast is trace-safe and idempotent
             a_t = ttnn.typecast(a_t, self._dit_dtype)
@@ -1363,36 +1369,6 @@ class DiffusionModule(_KeyedWeights):
         return a_t
 
 
-    def _token_dit_device_m(self, a_t, s_t, biases, NT):
-        """M-aware on-device 24-block token DiT. a_t (M,NT,768), s_t (M,NT,384); biases = list
-        of (1,n_heads,NT,NT) precomputed pair biases (broadcast over M in the QK-scale add).
-        Mirrors _token_dit_device; AdaLN + AttentionPairBias handle a leading batch dim when
-        s_t is replicated to (M,NT,384). Used only by _denoise_multiplicity (gated)."""
-        ckc = self._dit_ckc
-        if self._dit_fp32:
-            a_t = ttnn.typecast(a_t, self._dit_dtype)
-            s_t = ttnn.typecast(s_t, self._dit_dtype)
-        wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
-
-        def linb(x, wk, bk=None, act=None):
-            return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
-                               compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
-        for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
-            b = adaln_a(a_t, s_t)
-            bias_dev = _T.host_unpark(bias)
-            attn = apb(b, bias_dev, bias_precomputed=True)
-            if bias_dev is not bias:
-                ttnn.deallocate(bias_dev)
-            dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
-            sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
-            ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
-            an2 = ctb_adaln(ao, s_t)
-            bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
-                               linb(an2, Cc + "linear_nobias_a2.weight"))
-            cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = ttnn.add(ttnn.multiply(cs, linb(bb, Cc + "linear_nobias_b.weight")), ao)
-        return a_t
-
     def _denoise_multiplicity(self, x_noisy, t_hat, cond):
         """M-aware batched denoise (gated by supports_multiplicity). Mirrors denoise() but
         carries the leading M batch dim through the atom encoder, token DiT, and atom
@@ -1415,8 +1391,7 @@ class DiffusionModule(_KeyedWeights):
         # A merged cond (protenix._merge_conds) already carries one entry per member, so
         # every replication below is a pass-through there; sample batching keeps its
         # leading dim of 1 and gets the copy.
-        rep = lambda t: t if t.shape[0] == M else ttnn.to_layout(
-            ttnn.concat([t] * M, dim=0), ttnn.TILE_LAYOUT)
+        rep = lambda t: t if t.shape[0] == M else stack_samples([t] * M)
         # c_la_dev is 2D (N,128) (see _atom_cond) and sample-invariant, so it is kept at
         # (1,N,128) and broadcast over M. Merged it is already (M,N,128).
         c_la_1 = c_la if len(c_la.shape) == 3 else ttnn.reshape(c_la, (1, N, 128))
@@ -1443,8 +1418,8 @@ class DiffusionModule(_KeyedWeights):
                           bias_cache=cond.get("atxE_bias"), multiplicity=M)   # (M,N,128)
         qo_lin = ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight"))   # (M,N,768)
         _smean = cond["Smean_dev"]
-        Smean_m = _smean if len(_smean.shape) == 3 else ttnn.to_layout(
-            ttnn.concat([ttnn.reshape(_smean, (1, NT, N))] * M, dim=0), ttnn.TILE_LAYOUT)
+        Smean_m = _smean if len(_smean.shape) == 3 else stack_samples(
+            [ttnn.reshape(_smean, (1, NT, N))] * M)
         a_tok = ttnn.matmul(Smean_m, qo_lin, compute_kernel_config=self.compute_kernel_config,
                            core_grid=CORE_GRID_MAIN)                          # (M,NT,768)
         _Ms = s_single.shape[0]                       # 1 when shared, M when merged
@@ -1463,8 +1438,8 @@ class DiffusionModule(_KeyedWeights):
             # broadcast over M in the QK-scale add. Replicating it (M copies of 24 x
             # (n_heads,NT,NT)) was the multiplicity path's dominant allocation: 1.9 GB per
             # copy at NT=1095 in fp32, i.e. ~9.6 GB at M=5.
-            a_t = self._token_dit_device_m(ttnn.reshape(a_tok, (M, NT, 768)), rep(s_single),
-                                           cond["dit_block_biases"], NT)
+            a_t = self._token_dit_device(ttnn.reshape(a_tok, (M, NT, 768)), rep(s_single),
+                                         cond["dit_block_biases"], NT)
             a_t = (self._ln_dit if self._dit_fp32 else self._ln)(a_t, "layernorm_a.weight")
         else:
             biases = cond.get("dit_biases") or self._dit_pair_biases(
@@ -1479,8 +1454,8 @@ class DiffusionModule(_KeyedWeights):
         DE = "atom_attention_decoder."
         a_lin = self._lin(ttnn.reshape(a_t, (M, NT, 768)), DE + "linear_no_bias_a.weight")
         _sdev = cond["S_dev"]
-        S_m = _sdev if len(_sdev.shape) == 3 else ttnn.to_layout(
-            ttnn.concat([ttnn.reshape(_sdev, (1, N, NT))] * M, dim=0), ttnn.TILE_LAYOUT)
+        S_m = _sdev if len(_sdev.shape) == 3 else stack_samples(
+            [ttnn.reshape(_sdev, (1, N, NT))] * M)
         q = ttnn.add(ttnn.matmul(S_m, a_lin, compute_kernel_config=self.compute_kernel_config,
                                  core_grid=CORE_GRID_MAIN), q_out)            # (M,N,128)
         qd = self.atxD(q, c_la_1, p, mt,

@@ -35,6 +35,20 @@ def resolve_sample_chunk_width(multiplicity, max_parallel_samples):
     return -(-m // n_chunks)
 
 
+def stack_samples(parts):
+    """``parts`` (each with a leading dim of 1) -> one device tensor with a sample axis.
+
+    ``ttnn.concat`` hands back a row-major result, so every sample-axis stack in the tree was
+    writing ``to_layout(concat(...), TILE_LAYOUT)`` by hand. One name for it instead: the
+    samplers that batch a sample axis all stack the same way, and a tiled result is what every
+    consumer of the axis wants.
+    """
+    import ttnn
+
+    out = ttnn.concat(list(parts), dim=0)
+    return out if out.layout == ttnn.TILE_LAYOUT else ttnn.to_layout(out, ttnn.TILE_LAYOUT)
+
+
 def denoise_in_chunks(x, width, run, *, reset=None, narrowest=1, tag="diffusion"):
     """One denoising step over the sample axis of ``x``, ``width`` samples per device call.
 

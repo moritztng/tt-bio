@@ -86,7 +86,7 @@ def _sub(sd: dict, prefix: str) -> dict:
 
 
 def _pad_single(t: ttnn.Tensor, padded_N: int, dtype=ttnn.bfloat16) -> ttnn.Tensor:
-    """Device [1, N, C] -> [1, padded_N, C] (zero-padded), logical width padded_N."""
+    """Device [S, N, C] -> [S, padded_N, C] (zero-padded), logical width padded_N."""
     N = t.shape[1]
     if padded_N == N:
         return t
@@ -270,13 +270,33 @@ class OF3DiffusionTransformer(Module):
     """OF3 ``DiffusionTransformer`` (Algorithm 23, non-cross path) on device.
 
     Inputs (device bf16):
-        a:        [1, N, 768]   token single (evolving)
-        s:        [1, N, 384]   conditioning single (si, fixed)
-        z:        [1, N, N, 128] conditioning pair (zij, fixed)
-        mask_bias:[1, 1, 1, N]  additive attention mask (inf*(token_mask-1))
-        tok_mask_col: [1, N, 1] token mask for transition masking
-    Returns [1, N, 768].
+        a:        [S, N, 768]   token single (evolving)
+        s:        [S, N, 384]   conditioning single (si, one per sample)
+        z:        [1, N, N, 128] conditioning pair (zij, shared by every sample)
+        token_mask:   [1, N]    shared
+        tok_mask_col: [1, N, 1] token mask for transition masking, shared
+    Returns [S, N, 768].
+
+    **S is the sample axis and the stack is written once for every S.** The two tensors
+    that differ between samples are ``a`` and ``s``; ``z`` and the masks are pure functions
+    of the trunk output, so they keep a leading dim of 1 and broadcast. The per-block pair
+    bias is the expensive shared term -- ``[1, 16, N, N]``, cached, and added to the
+    ``[S, 16, N, N]`` scores by broadcast, never replicated, which is what keeps the sample
+    axis nearly free on DRAM (Protenix measured 1.9 GB per replicated copy at 1095 tokens,
+    ``protenix.py:1462``).
+
+    The same is true of Protenix's token DiT, which has carried a sample axis since its
+    multiplicity path shipped, and of the AdaLN and matmul verbs underneath: a batched
+    matmul against a 2-D weight and a broadcasting binary both already reduce their
+    gradient over the leading axis (``taped_ttnn._v_matmul``, ``autograd._reduce_to``), so
+    the backward needs no sample-axis case either.
     """
+
+    #: The capability gate every AF3-family sampler on this fleet uses. OFF is the S=1 path,
+    #: which is bit-identical to what shipped before the axis existed; a caller that batches
+    #: must check the flag rather than assume, because a batched call that the hardware
+    #: refuses has to fall back to the loop rather than fail the fold.
+    supports_multiplicity = True
 
     def __init__(self, state_dict, compute_kernel_config, n_blocks=N_BLOCKS):
         super().__init__(state_dict, compute_kernel_config)
@@ -306,6 +326,7 @@ class OF3DiffusionTransformer(Module):
         # positions are unaffected (padded queries' outputs are stripped at readout,
         # padded keys are masked out of every valid query's softmax).
         N = token_mask.shape[-1]
+        S = a.shape[0]
         padded_N = bucketed_width(N, TILE)
         tok = ttnn.to_torch(token_mask).float().reshape(-1)  # [N]
         if padded_N == N:
@@ -331,5 +352,5 @@ class OF3DiffusionTransformer(Module):
         if padded_N == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
-        x = ttnn.slice(x, [0, 0, 0], [1, N, C_A])
+        x = ttnn.slice(x, [0, 0, 0], [S, N, C_A])
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
