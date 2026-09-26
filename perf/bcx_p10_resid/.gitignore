@@ -1,2 +1,5 @@
 out/resid_s100/1_Trajectories/
 out/resid_s100/.campaign_state.json
+out/ckpt_ab/1_Trajectories/
+out/ckpt_ab/.campaign_state.json
+out/ckpt_ab/run.log

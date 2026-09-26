@@ -1,0 +1,111 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": "3",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bcx-p10-resid/tt_bio/__init__.py",
+  "exact": false,
+  "extra_msa_on_device": true,
+  "shipped_pool": true,
+  "binder_pinned": 146,
+  "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+  "pci": "0000:04:00.0",
+  "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+  "commit": "ecedb9fed8edc367fc82c9c7a71302d0bd434f10",
+  "seed": 100,
+  "rounds_requested": 19,
+  "length_bucket_size": 32,
+  "stage_plan": {
+   "per_stage": {
+    "screen": 50,
+    "refine": 25,
+    "anneal": 45,
+    "harden": 5,
+    "mutate": 15
+   },
+   "gradient_steps": 125,
+   "mutate_steps": 15
+  },
+  "started_utc": "2026-09-26T12:20:12Z",
+  "loadavg_start": [
+   9.6943359375,
+   9.7548828125,
+   8.41650390625
+  ],
+  "nproc": 16,
+  "project": "perf/bcx_p10_resid/out/ckpt_ab",
+  "arms": {
+   "first_from_round_2": "nockpt"
+  },
+  "splices": 2,
+  "wall_seconds": 49.42,
+  "stopped": null,
+  "exact_softmax_stats": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "exact_layer_norm_stats": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "device_calls": {
+   "primal": 0,
+   "taped": 2,
+   "backward": 1
+  },
+  "extra_msa_calls": {
+   "primal": 0,
+   "taped": 3,
+   "backward": 1
+  },
+  "extra_msa_swapped": [
+   4
+  ],
+  "extra_msa_mask_seen": {
+   "calls": 3,
+   "abs_max": 0.0
+  },
+  "host_folds": {},
+  "loadavg_end": [
+   11.8603515625,
+   10.29931640625,
+   8.6689453125
+  ],
+  "finished_utc": "2026-09-26T12:21:01Z",
+  "state_shape": {
+   "1": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "2": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   }
+  },
+  "dumped_utc": "2026-09-26T12:21:01Z",
+  "rounds_dumped": 2
+ },
+ "summary": {},
+ "rounds": [
+  {
+   "round": 1,
+   "arm": "ckpt",
+   "wall": 41.478,
+   "sg": 40.288,
+   "device_col": 13.95,
+   "host_in_sg": 26.338,
+   "taped": 5.344,
+   "bwd": 8.606,
+   "dram_fwd_gb": 1.332,
+   "dram_max_gb": 1.332,
+   "aiclk_med": 1350,
+   "load1": 10.7
+  }
+ ]
+}

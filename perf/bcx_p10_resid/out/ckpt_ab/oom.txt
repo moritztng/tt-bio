@@ -1,0 +1,6 @@
+# recompute=False, round 2 of perf/bcx_p10_resid/recompute_ab.py, qb2 card 3, AICLK 1350.
+# The backtrace is dropped; run.log holds it and is gitignored.
+49:2026-09-26 12:21:01.733 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 42467328 B DRAM buffer across 8 banks, where each bank needs to store 5308416 B, but bank size is 4278190016 B (allocated: 4277936064 B, free: 253952 B, largest free block: 114624 B) (assert.hpp:104)
+50:jax.pure_callback failed
+88:RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+90:Out of Memory: Not enough space to allocate 42467328 B DRAM buffer across 8 banks, where each bank needs to store 5308416 B, but bank size is 4278190016 B (allocated: 4277936064 B, free: 253952 B, largest free block: 114624 B)
