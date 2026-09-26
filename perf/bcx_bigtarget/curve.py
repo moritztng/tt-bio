@@ -160,9 +160,16 @@ def main():
         if node:
             st["node_samples"] += 1
             if used > st["node_peak"]:
+                # "a named cause at a line" needs the line. The tape wrapper sees make_fn, not
+                # an op name, so the call stack is the only place the op is written down.
+                # Captured only when a new high is set, which is a few dozen times per block.
+                frames = [f"{f.filename.split(chr(47))[-1]}:{f.lineno} {f.name}"
+                          for f in traceback.extract_stack()
+                          if "/tt_bio/" in f.filename or "curve.py" in f.filename]
                 st.update(node_peak=used, node_peak_at=(st["phase"], st.get("cur")),
                           node_peak_free_gb=free / GB,
-                          node_peak_largest_free_per_bank_gb=lcf / GB)
+                          node_peak_largest_free_per_bank_gb=lcf / GB,
+                          node_peak_stack=frames[-14:])
             return
         st["trace"].append((st["phase"], where, round(used / GB, 4), round(free / GB, 4)))
         if used > st["resident_peak"]:
@@ -223,6 +230,7 @@ def main():
                      node_peak_free_gb=st.get("node_peak_free_gb"),
                      node_peak_largest_free_per_bank_gb=st.get("node_peak_largest_free_per_bank_gb"),
                      node_samples=st["node_samples"],
+                     node_peak_stack=st.get("node_peak_stack"),
                      in_block_transient_gb=(st["node_peak"] - st["resident_peak"]) / GB)
         return d
 
