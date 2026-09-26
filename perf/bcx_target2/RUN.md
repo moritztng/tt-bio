@@ -11,9 +11,11 @@ qb1 card 2 (PCI 0000:42:00.0, class node 3), launched 2026-09-26T01:53:18Z at co
 detached as pid 187751.
 
 BindCraft 2 took the target on the first try. The banner reads
-`target HEWL (target) | 129 residues | hotspots 35,52,62,101`, it drew a 111 aa binder, so n=240
-padding to bucket 256, and the design loop ran gradient steps on card at **AICLK 1350** sampled
-during, with 0 tracebacks through 29 minutes of the screen stage. `traj_live.json` reads
+`target HEWL (target) | 129 residues | hotspots 35,52,62,101`, it drew a 111 aa binder, and the
+design loop ran gradient steps on card at **AICLK 1350** sampled during, with 0 tracebacks.
+
+The binder chain is bucketed before the complex is, so the card sees `ceil32(111) + 129 = 257`
+rounded to **288 tokens**, not the 256 that adding the raw lengths gives. See `CEILING.md`. `traj_live.json` reads
 `arm_held: true` with 0 exact-path entries, so the OFF arm is the OFF arm.
 
 Host loadavg ran 27.9 to 39.1 on 32 cores carrying three other rows arms, so no per-round timing
