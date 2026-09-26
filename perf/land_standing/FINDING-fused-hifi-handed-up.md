@@ -314,3 +314,75 @@ Also worth recording for whoever reads the route: the hifi call sits **inside th
 branch** at `tenstorrent.py:9042`, so it is the alternative to the materialised path, never an
 addition to it. `rf3/remap.py:195` makes the same point for RF3 and warns against summing the two
 speedups.
+
+---
+
+# RESULT — the prediction above is FALSIFIED. Counted zero, and structurally so. 2026-09-26 09:34Z
+
+`capacity` re-run with counters, rc=0, **GATE PASS**, both legs green again:
+
+    capacity:9j4c_abag   7.23 GiB   50 CIFs  1 PAE  <=10.5 GiB   787s  PASS
+    capacity:9ivj        7.00 GiB    8 CIFs  1 PAE  <=12.0 GiB   343s  PASS
+
+Four counter lines, one per process:
+
+    pid 2059377   hifi {served 0, declined 0, too_short 0, taped 0}   route {fused 1600, stock 0}   1 shape
+    pid 2081499   hifi {served 0, declined 0, too_short 0, taped 0}   route {fused 1304, stock 0}   2 shapes
+    pid 2059274   hifi all zero, route all zero   "no triangle-attention pick recorded in this process"
+    pid 2081214   hifi all zero, route all zero   "no triangle-attention pick recorded in this process"
+
+## This is a real zero, not the wrong-process artifact
+
+That distinction is the whole reason the prediction was registered first. **Two of the four
+processes recorded substantial real work** — 1600 and 1304 SDPA calls, all on the fused route, with
+recorded chunk picks. The two that recorded nothing say so explicitly in their own note. So the
+fold was instrumented, the counters were live in the processes that did the folding, and
+`_tri_att_sdpa_hifi` was still **never entered**: `declined` and `too_short` are zero too, not just
+`served`.
+
+## Why — and the specific error in my prediction
+
+The hifi arm is reached at `tenstorrent.py:9042`, inside this branch:
+
+    def _attend_heads(q, k, v, bias, keep_heads=False, gate=None):
+        if _FP32_SOFTMAX or self.fp32_softmax:          # <- tenstorrent.py:9032
+            ...
+            if _fused_hifi_on(self.fused_hifi):
+                o = _tri_att_sdpa_hifi(...)
+
+**The gate is `_FP32_SOFTMAX or self.fp32_softmax`.** Neither `protenix-v2` nor `opendde-abag`
+sets `fp32_softmax` at its triangle-attention sites, so `_attend_heads` takes the other branch —
+which goes to the fused SDPA directly and reads `sdpa_hifi`, never `fused_hifi`. That is exactly
+what the counters show: 1600 and 1304 calls on the **fused** route, zero on stock, zero hifi.
+
+I predicted `served > 0` and was wrong. The error is precise and worth naming: I took
+`if att.biased or _FP32_SOFTMAX or att.fp32_softmax:` at `tenstorrent.py:2376` to be this branch's
+condition, and reasoned that triangle attention is always biased so the branch is always taken.
+**That line is not this branch.** It belongs to the gate-epilogue helper and its effect there is
+the opposite — `att.biased` sends it to `_gate_reject("site")`. Two predicates mentioning
+`fp32_softmax` a few thousand lines apart, and I matched the wrong one.
+
+This was the fourth falsifier listed above ("the models may not enter the `fp32_softmax` branch at
+all"), so the prediction failed in a way it had already written down rather than in a surprising
+one.
+
+## What this settles
+
+**"Unknown, not zero" is now COUNTED ZERO, for a structural reason, at 891 and 1095 tokens.**
+`TT_BIO_TRIATT_FUSED_HIFI` cannot reach `protenix-v2` or `opendde-abag` at all, at any length,
+because their sites do not take the `fp32_softmax` route.
+
+So the ten-arm gate says exactly what the conservative framing already said, and no more:
+**the lever breaks nothing, on every arm including the two long ones — and not one arm validates
+it.** The hoped-for upgrade to "exercised at real length" does not happen. The validation remains
+the PepN 3B34 evidence on OpenFold3, which passes `fp32_softmax=True` at all four sites and
+therefore does take this branch.
+
+One consequence worth carrying forward: **the lever's blast radius is narrower than the model list
+suggests.** It can only ever move a site that sets `fp32_softmax`. Of the sites enumerated earlier,
+that is OpenFold3's four — and of those, `openfold3.trunk` is already pinned on in shipped main, so
+the reachable surface is `openfold3.msa`, `openfold3.template` and `openfold3.confidence`.
+
+Not a perf measurement: no AICLK sampled, no timing claimed. Peak DRAM was identical to the byte
+against both earlier `capacity` runs (7.23 and 7.00 GiB), which is the controlled part; the wall
+times (787s / 343s here) are uncontrolled and are not offered as evidence.
