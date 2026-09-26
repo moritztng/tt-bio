@@ -157,10 +157,10 @@ class _Trunk:
         model = self.model
 
         # Built per execution, never captured. `_residual` DEALLOCATES its `update` operand
-        # (`af2.py:346,350`), and under `recompute` the checkpoint runs this same closure a
-        # second time in the backward, so a constant hoisted out of the loop body is a freed
-        # buffer by then and `ttnn.typecast` raises "Buffer is not allocated". The Evoformer
-        # loop above has no such operand, which is why only this stack broke.
+        # (`tt_bio/af2.py::_residual`), and under `recompute` the checkpoint runs this same
+        # closure a second time in the backward, so a constant hoisted out of the loop body is
+        # a freed buffer by then and `ttnn.typecast` raises "Buffer is not allocated". The
+        # Evoformer loop above has no such operand, which is why only this stack broke.
         def const(index):
             return model._up(model.opm_constant[index].reshape(1, 1, -1))
 

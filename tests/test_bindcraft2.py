@@ -456,12 +456,12 @@ def test_the_extra_msa_segment_survives_being_recomputed():
     """A checkpointed segment is run twice, so it may not capture anything it consumes.
 
     `_residual` consumes its `update` operand: it hands it to `ttnn.deallocate`
-    (`tt_bio/af2.py:346,350`). A constant hoisted out of the loop and captured by the checkpoint
-    closure is therefore a freed buffer by the time `autograd._recompute` re-enters the segment,
-    and the first real gradient round through `predictor(extra_msa=True)` died exactly there,
-    with TT_THROW "Buffer is not allocated". It got that far because the forward-only arm
-    (`recompute=False`) uses each constant once and never sees it, so the whole card-free suite
-    and the on-card forward passed while every backward was broken.
+    (`tt_bio/af2.py::_residual`). A constant hoisted out of the loop and captured by the
+    checkpoint closure is therefore a freed buffer by the time `autograd._recompute` re-enters
+    the segment, and the first real gradient round through `predictor(extra_msa=True)` died
+    exactly there, with TT_THROW "Buffer is not allocated". It got that far because the
+    forward-only arm (`recompute=False`) uses each constant once and never sees it, so the whole
+    card-free suite and the on-card forward passed while every backward was broken.
 
     Two stubs stand in for the card: a buffer that can be consumed once, and a `checkpoint` that
     runs the segment a second time the way a backward does.
