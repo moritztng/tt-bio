@@ -1,17 +1,17 @@
 {
  "stamp": {
   "host": "tt-quietbox",
-  "card": 0,
+  "card": 2,
   "subsystem_device": "0x0040",
-  "commit": "643cabcf9ed31b4ec23f82913bc083c3531884b7",
+  "commit": "006dff79a1b8ae3258fd0436ab03dc3f8f28b249",
   "tt_bio_dirty": false,
   "torch_threads": 8,
   "loadavg": [
-   4.9248046875,
-   2.26171875,
-   1.0087890625
+   20.23828125,
+   16.84326171875,
+   13.779296875
   ],
-  "utc": "2026-09-25T23:46:40Z"
+  "utc": "2026-09-26T00:44:11Z"
  },
  "n": 192,
  "seed": 0,
