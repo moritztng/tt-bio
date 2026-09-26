@@ -62,27 +62,35 @@ def pad_like_fold(m0, z0, n32):
     return m, z
 
 
-def fold_masks(dev, n32, n_real):
-    """The two things a padded fold hands every block: the MSA mask and `af2_pair_masks`.
+def cell_masks(dev, n32, n_real, depth, mode):
+    """What a block is handed: the MSA mask, and `af2_pair_masks` or nothing.
 
-    `n_real` is the residue count, not the host axis: the 14 tokens BindCraft 2 added to reach
-    160 are masked out before tt-bio ever sees them, so the card runs 288 tokens of which 261
-    are real. The device program is the same either way -- the mask is a tensor of a fixed
-    shape -- but writing the real count down is free and keeps the arm honest.
+    `mode="ones"` is the harness arm every PERF10 block number was taken on -- an all-ones MSA
+    mask and no pair mask at all. `mode="fold"` is what a padded fold passes: `n_real` is the
+    residue count rather than the host axis, because the 14 tokens BindCraft 2 added to reach
+    160 are already masked before tt-bio sees them, so the card runs 288 tokens of which 261
+    are real. `AF2EvoformerBlock._mask_biases` wants one mask row per MSA row, so the mask is
+    `[depth, n32]` and not `[1, n32]`.
     """
     from tt_bio.af2 import af2_pair_masks
+    if mode == "ones":
+        return dev.up(torch.ones(depth, n32)), (None, None)
     seq = torch.zeros(n32)
     seq[:n_real] = 1.0
-    msa_mask = dev.up(seq.reshape(1, n32))
     pair_masks = af2_pair_masks(seq[:, None] * seq[None, :], dev.device)
     assert pair_masks[0] is not None, "the pair mask collapsed to None: n_real == n32"
-    return msa_mask, pair_masks
+    return dev.up(seq.expand(depth, n32).contiguous()), pair_masks
 
 
+#: Each cell changes ONE thing from the one before it, so the chain decomposes the whole gap
+#: between `bcx-p10-devmap`s harness and the program BindCraft 2 runs:
+#:   A -> B  the token axis          B -> C  the folds masks and its checkpointing
+#:   C -> D  the multimer folds second MSA row
 CELLS = {
-    "A": {"n": N_HOST, "pad": 0, "masks": "ones", "ckpt": False, "ks": (2,)},
-    "B": {"n": N_HOST, "pad": 288, "masks": "ones", "ckpt": False, "ks": (2,)},
-    "C": {"n": N_HOST, "pad": 288, "masks": "fold", "ckpt": True, "ks": (2,)},
+    "A": {"n": N_HOST, "pad": 0, "masks": "ones", "ckpt": False, "depth": 1, "ks": (2,)},
+    "B": {"n": N_HOST, "pad": 288, "masks": "ones", "ckpt": False, "depth": 1, "ks": (2,)},
+    "C": {"n": N_HOST, "pad": 288, "masks": "fold", "ckpt": True, "depth": 1, "ks": (2,)},
+    "D": {"n": N_HOST, "pad": 288, "masks": "fold", "ckpt": True, "depth": 2, "ks": (2,)},
 }
 
 
@@ -104,16 +112,18 @@ def cmd_cells(args):
         spec = CELLS[name]
         n32 = spec["pad"] or spec["n"]
         m0, z0 = pad_like_fold(raw_m, raw_z, n32)
+        depth = spec.get("depth", 1)
+        if depth > 1:
+            m0 = m0.repeat(depth, 1, 1)          # the multimer folds extra MSA row
         torch.manual_seed(args.seed + 1)
         wm = torch.randn(m0.shape) / m0.numel() ** 0.5
         wz = torch.randn(z0.shape) / z0.numel() ** 0.5
-        masks = fold_masks(dev, n32, N_REAL) if spec["masks"] == "fold" else None
+        masks = cell_masks(dev, n32, N_REAL, depth, spec["masks"])
         prepared[name] = (m0, z0, wm, wz, masks, n32, spec)
         print(json.dumps({"cell": name, "device_axis": n32, "msa": list(m0.shape),
                           "pair": list(z0.shape), "masks": spec["masks"],
-                          "ckpt": spec["ckpt"]}), flush=True)
+                          "ckpt": spec["ckpt"], "depth": depth}), flush=True)
 
-    lv.mask = True                     # the design path always hands an MSA mask
     for name in cells:                 # warm every cell: JIT + program cache, untimed
         m0, z0, wm, wz, masks, n32, spec = prepared[name]
         for stack in args.stacks.split(","):
@@ -125,11 +135,13 @@ def cmd_cells(args):
 
     for name in cells:
         m0, z0, wm, wz, masks, n32, spec = prepared[name]
+        depth = spec.get("depth", 1)
         cell = {"n": spec["n"], "device_axis": n32, "masks": spec["masks"],
                 "ckpt": spec["ckpt"], "ks": list(spec["ks"]), "reps": args.reps,
+                "depth": depth,
                 "n_real": N_REAL if spec["masks"] == "fold" else n32,
-                "flops_fwd_analytic": D.analytic_flops(spec["n"], args.depth),
-                "flops_fwd_analytic_padded": D.analytic_flops(n32, args.depth),
+                "flops_fwd_analytic": D.analytic_flops(spec["n"], depth),
+                "flops_fwd_analytic_padded": D.analytic_flops(n32, depth),
                 "records": [], "verb": {}}
         verb_wall, verb_calls = collections.Counter(), collections.Counter()
         for rep in range(args.reps):
@@ -184,8 +196,7 @@ def main():
     ap.add_argument("cmd", choices=["cells"])
     ap.add_argument("--params", default=None)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
-    ap.add_argument("--cells", default="A,B,C")
-    ap.add_argument("--depth", type=int, default=1, help="MSA rows; see the doc on depth 2")
+    ap.add_argument("--cells", default="A,B,C,D")
     ap.add_argument("--stacks", default="evo,extra")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--seed", type=int, default=0)
