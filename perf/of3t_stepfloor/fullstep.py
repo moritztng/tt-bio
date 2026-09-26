@@ -234,13 +234,61 @@ def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
     return roots, (zij_pad, inv_cache), rep
 
 
-def host_losses(roots, rep, weights, rng, out):
+# The five terms whose inputs do NOT come from a diffusion replicate. `distogram` reads the
+# trunk's pair representation; `plddt`, `pde`, `pae` and `resolved` read the confidence head,
+# which `tt_bio/train/openfold3.py` runs ONCE on a rollout it has already detached. Only the
+# three diffusion-coupled terms are per-replicate, which is why `--loss-shape` exists.
+_ONCE_TERMS = ("distogram", "plddt", "pde", "pae", "resolved")
+
+
+def _mem():
+    """This process's RSS and the host's MemAvailable, in GiB. Both, because they answer
+    different questions: RSS says how big the step got, MemAvailable says whether the host
+    still has room to do the arithmetic in."""
+    rss = 0
+    try:
+        rss = int([l.split()[1] for l in open("/proc/self/status")
+                   if l.startswith("VmRSS")][0]) / 1048576
+    except (OSError, IndexError):
+        pass
+    avail = 0.0
+    try:
+        avail = int([l.split()[1] for l in open("/proc/meminfo")
+                     if l.startswith("MemAvailable")][0]) / 1048576
+    except (OSError, IndexError):
+        pass
+    return round(rss, 3), round(avail, 3)
+
+
+def host_losses(roots, rep, weights, rng, out, shape="per-root"):
     """`af3_loss` on host, at token scope, returning the per-root cotangent on `pred_xyz`.
 
     The loss is where it lives. `tt_bio.train.objectives.af3_loss` is numpy: a training step
     downloads the predicted coordinates, evaluates every term on host and hands the seeds
     back, so the "loss heads" part of a step is a PCIe round trip plus host arithmetic, and
     pricing it needs both halves timed together. They are.
+
+    `shape` is which of two things this prices, and they are not the same work:
+
+    `per-root` runs the WHOLE seven-term set once per diffusion replicate. That is what this
+    harness has always done and it is what every banked `losses_s` in this campaign measures,
+    so it stays the default -- changing it silently would move other rows' baselines under
+    them. It is not what the model does.
+
+    `model` runs the five non-diffusion terms ONCE and only `mse`, `smooth_lddt` and `bond`
+    per replicate, which is `tt_bio/train/openfold3.py`'s actual shape: the confidence heads
+    read a rollout that is produced once and detached, and the distogram head reads the
+    trunk's pair representation. Under `per-root` those five are recomputed per replicate on
+    logits this harness re-DRAWS from `rng.standard_normal` each time -- three
+    (n, n, 64) float64 arrays -- and then their gradients are discarded, because the only
+    seed this function returns is `mse`'s on `pred_xyz`. So at 48 replicates `per-root` prices
+    48x an arithmetic the step does once, on inputs it invented, for a backward that never
+    sees it.
+
+    Per-root and per-call seconds are recorded either way, with RSS and MemAvailable beside
+    them. That pair is not decoration: the same numpy reads 0.485 s per root at 17 GiB
+    MemAvailable and 1.44-1.69 s at 1 GiB (`perf/of3t_p10host/balloon.py`), so a slope taken
+    across a paging cliff is not a slope.
     """
     import numpy as np
     import ttnn
@@ -249,7 +297,13 @@ def host_losses(roots, rep, weights, rng, out):
     from tt_bio import autograd as ag
 
     dl_s, host_s, seeds_out, fired = 0.0, 0.0, [], None
-    print(f"  [losses] {len(roots)} roots, token scope n={len(rep)}", flush=True)
+    per_root_s, mem_trace = [], []
+    once_done, once_s, once_logits = None, 0.0, None
+    out["shape"] = shape
+    out["rss_gib_at_entry"], out["mem_available_gib_at_entry"] = _mem()
+    print(f"  [losses] {len(roots)} roots, token scope n={len(rep)}, shape={shape}, "
+          f"RSS {out['rss_gib_at_entry']:.2f} GiB, MemAvailable "
+          f"{out['mem_available_gib_at_entry']:.2f} GiB", flush=True)
     for k, r in enumerate(roots):
         t0 = time.perf_counter()
         raw = ag._unwrap(r) if isinstance(r, ag.Tensor) else r
@@ -273,7 +327,14 @@ def host_losses(roots, rep, weights, rng, out):
         lddt, lddt_w = L.atom_bespoke_lddt(pred, true_xyz, is_nuc, is_poly,
                                            coord_mask.astype(bool))
         idxs = np.arange(n)
-        lg = lambda *s: rng.standard_normal(s) * 0.5
+        # The confidence and distogram logits. Under `model` they are DRAWN ONCE and reused,
+        # because the heads that produce them run once: re-drawing three (n, n, 64) float64
+        # arrays per replicate is 0.22 s of fixture per root that the step never pays. Under
+        # `per-root` they are redrawn per root, as this harness always did.
+        if shape == "model" and once_logits is not None:
+            lg = lambda *sh: once_logits[sh]
+        else:
+            lg = lambda *sh: rng.standard_normal(sh) * 0.5
         labels = {"true_xyz": true_xyz, "coord_mask": coord_mask, "true_dist": true_dist,
                   "lddt_pair_mask": L.lddt_mask(true_dist, pair_mask, is_nuc),
                   "bond_mask": np.zeros((n, n)),
@@ -285,8 +346,27 @@ def host_losses(roots, rep, weights, rng, out):
                    "distogram_logits": lg(n, n, 64), "pde_logits": lg(n, n, 64),
                    "pae_logits": lg(n, n, 64), "plddt_logits": lg(n, 50),
                    "resolved_logits": lg(n, 2)}
-        total, breakdown, seeds = af3_loss(labels, outputs, weights)
+        if shape == "model" and once_logits is None:
+            # Keyed by shape, so the three (n, n, 64) heads share one array from root 1 on.
+            # That is safe because none of them FIRES after root 0 -- their weight is zeroed
+            # -- so the array is a placeholder of the right shape, never an input to a term.
+            once_logits = {(n, n, 64): outputs["distogram_logits"],
+                           (n, 50): outputs["plddt_logits"], (n, 2): outputs["resolved_logits"]}
+        w = dict(weights)
+        if shape == "model" and once_done:
+            # The five non-diffusion terms already ran on root 0. Zeroing their weight is how
+            # `af3_loss` skips a term, and it records the skip in the breakdown rather than
+            # reporting a silent zero -- so the artifact still says which terms fired.
+            for term in _ONCE_TERMS:
+                w[term] = 0.0
+        t_once = time.perf_counter()
+        total, breakdown, seeds = af3_loss(labels, outputs, w)
+        dt = time.perf_counter() - t_once
+        if shape == "model" and not once_done:
+            once_s, once_done = dt, True
         host_s += time.perf_counter() - t0
+        per_root_s.append(round(time.perf_counter() - t0, 4))
+        mem_trace.append(_mem())
         g = seeds.get("pred_xyz")
         # The cotangent goes back on the ATOM tensor the module returned: the loss touched
         # one atom per token, so every other atom's seed is a true zero, not a dropped term.
@@ -304,6 +384,14 @@ def host_losses(roots, rep, weights, rng, out):
     out["scope"] = "token, one representative atom per token"
     out["download_s"] = round(dl_s, 3)
     out["host_loss_s"] = round(host_s, 3)
+    out["per_root_s"] = per_root_s
+    out["mem_trace_gib"] = [{"rss": r, "avail": a} for r, a in mem_trace]
+    out["rss_gib_at_exit"], out["mem_available_gib_at_exit"] = _mem()
+    if shape == "model":
+        # What one MORE replicate costs, which is the number a 48-sample step is built out of.
+        out["once_terms_s"] = round(once_s, 4)
+        out["per_replicate_s"] = (round(sum(per_root_s[1:]) / len(per_root_s[1:]), 4)
+                                  if len(per_root_s) > 1 else None)
     out["value_claimed"] = False
     return seeds_out
 
@@ -321,6 +409,12 @@ def main() -> int:
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
+    ap.add_argument("--loss-shape", choices=("per-root", "model"), default="per-root",
+                    help="per-root: the whole seven-term set once per diffusion replicate, "
+                         "which is what every banked losses_s in this campaign measures and "
+                         "why it is the default. model: the five non-diffusion terms once and "
+                         "the three diffusion-coupled ones per replicate, which is what "
+                         "tt_bio/train/openfold3.py actually does.")
     ap.add_argument("--renorm-per-rep", default="",
                     help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
                          "THIS process. The lever is a module global read inside the "
@@ -421,7 +515,7 @@ def main() -> int:
                 # --- 3. loss heads --------------------------------------------------------
                 l_out = {}
                 t0 = time.perf_counter()
-                seeds = host_losses(roots, rep, weights, rng, l_out)
+                seeds = host_losses(roots, rep, weights, rng, l_out, shape=a.loss_shape)
                 row["losses_s"] = round(time.perf_counter() - t0, 3)
                 row["losses"] = l_out
 
