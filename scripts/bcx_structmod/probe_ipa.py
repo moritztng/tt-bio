@@ -32,21 +32,46 @@ def rep(name, got, want):
           f"|g|={np.linalg.norm(got):.5f} |w|={np.linalg.norm(want):.5f}")
 
 
+ROUND = [None]
+
+
+def mm(*operands):
+    """A matmul whose operands are optionally rounded to bfloat16 first.
+
+    This is the control the whole precision question turns on. ttnn's matmul truncates both
+    operands to bfloat16's eight mantissa bits at the default fidelity and to something close
+    to it at HiFi4, so a numpy arm that rounds the same way predicts what the card can do
+    WITHOUT the card being involved. If the device arm lands on this arm's number, the port is
+    right and the gap is the hardware; if it lands past it, something in the port is wrong.
+    """
+    if ROUND[0] == "bfloat16":
+        operands = [_bf16(o) for o in operands]
+    return operands
+
+
+def _bf16(a):
+    """Round-to-nearest-even into bfloat16, in numpy, without a torch import."""
+    x = np.asarray(a, np.float32).view(np.uint32)
+    x = ((x + 0x7FFF + ((x >> 16) & 1)) & 0xFFFF0000).astype(np.uint32)
+    return x.view(np.float32).astype(np.float64)
+
+
 def numpy_ipa(p, act, act_2d, mask, keep):
     """`folding_multimer.InvariantPointAttention.__call__` in float64, identity frame."""
     n = act.shape[0]
     g = lambda k: np.asarray(p[IPA + k], np.float64)
 
-    q = np.einsum("qc,chd->qhd", act, g("q_scalar_projection//weights")) * math.sqrt(1.0 / NSQK)
-    k = np.einsum("qc,chd->qhd", act, g("k_scalar_projection//weights"))
-    v = np.einsum("qc,chd->qhd", act, g("v_scalar_projection//weights"))
-    logits = np.einsum("qhc,khc->qkh", q, k)
+    q = np.einsum("qc,chd->qhd", *mm(act, g("q_scalar_projection//weights"))) \
+        * math.sqrt(1.0 / NSQK)
+    k = np.einsum("qc,chd->qhd", *mm(act, g("k_scalar_projection//weights")))
+    v = np.einsum("qc,chd->qhd", *mm(act, g("v_scalar_projection//weights")))
+    logits = np.einsum("qhc,khc->qkh", *mm(q, k))
     keep["scalar_logits"] = logits.copy()
 
     def points(scope, num):
         w = g(scope + "/point_projection//weights").reshape(C_S, H, 3 * num)
         b = g(scope + "/point_projection//bias").reshape(H, 3 * num)
-        loc = np.einsum("qc,chp->qhp", act, w) + b
+        loc = np.einsum("qc,chp->qhp", *mm(act, w)) + b
         return [loc[..., i * num:(i + 1) * num] for i in range(3)]   # identity frame
 
     qp = points("q_point_projection", NPQK)
@@ -59,7 +84,8 @@ def numpy_ipa(p, act, act_2d, mask, keep):
     keep["point_logits"] = point_logits.copy()
     logits = logits + point_logits
 
-    a2d = np.einsum("ijc,ch->ijh", act_2d, g("attention_2d//weights")) + g("attention_2d//bias")
+    a2d = np.einsum("ijc,ch->ijh", *mm(act_2d, g("attention_2d//weights"))) \
+        + g("attention_2d//bias")
     keep["attention_2d"] = a2d.copy()
     logits = logits + a2d
 
@@ -71,11 +97,11 @@ def numpy_ipa(p, act, act_2d, mask, keep):
     attn = attn / attn.sum(axis=-2, keepdims=True)
     keep["attn"] = attn.copy()
 
-    result_scalar = np.einsum("qkh,khc->qhc", attn, v)
+    result_scalar = np.einsum("qkh,khc->qhc", *mm(attn, v))
     vp = points("v_point_projection", NPV)
-    glob = [np.einsum("qkh,khp->qhp", attn, c) for c in vp]              # identity frame
+    glob = [np.einsum("qkh,khp->qhp", *mm(attn, c)) for c in vp]              # identity frame
     norms = np.sqrt(np.maximum(sum(c ** 2 for c in glob), 1e-16))
-    pair_out = np.einsum("ijh,ijc->ihc", attn, act_2d)
+    pair_out = np.einsum("ijh,ijc->ihc", *mm(attn, act_2d))
     keep["result_scalar"] = result_scalar.copy()
     keep["point_local_x"] = glob[0].copy()
     keep["point_norms"] = norms.copy()
@@ -85,7 +111,15 @@ def numpy_ipa(p, act, act_2d, mask, keep):
             [norms.reshape(n, -1), pair_out.reshape(n, -1)]
     final = np.concatenate(feats, axis=-1)
     keep["final_act"] = final.copy()
-    return final @ g("output_projection//weights") + g("output_projection//bias")
+    lhs, rhs = mm(final, g("output_projection//weights"))
+    return lhs @ rhs + g("output_projection//bias")
+
+
+def _ln(x, p, scope, eps=1e-5):
+    mu = x.mean(-1, keepdims=True)
+    var = ((x - mu) ** 2).mean(-1, keepdims=True)
+    return (x - mu) / np.sqrt(var + eps) * np.asarray(p[scope + "//scale"], np.float64) \
+        + np.asarray(p[scope + "//offset"], np.float64)
 
 
 def main() -> int:
@@ -96,20 +130,45 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--device-id", type=int, default=0)
     ap.add_argument("--skip-haiku", action="store_true")
+    ap.add_argument("--round", default=None, choices=("bfloat16",),
+                    help="round the numpy arm's matmul operands, as the card does")
+    ap.add_argument("--from-ref", default=None,
+                    help="take the IPA's inputs from a reference dump instead of drawing "
+                         "them standard normal: the module's own first-layer act is "
+                         "post-LayerNorm and an order of magnitude smaller, so a synthetic "
+                         "act drives the softmax to a hard argmax and overstates every "
+                         "downstream error")
     args = ap.parse_args()
 
     raw = np.load(args.params)
     params = {k: raw[k] for k in raw.files if "structure_module" in k}
-    n = args.n
-    rng = np.random.default_rng(args.seed)
-    act = rng.standard_normal((n, C_S))
-    act_2d = rng.standard_normal((n, n, C_Z))
-    mask = np.zeros(n)
-    mask[:args.n_real] = 1.0
+    if args.from_ref:
+        ref = np.load(args.from_ref)
+        single = np.asarray(ref["single"], np.float64)
+        pair = np.asarray(ref["pair"], np.float64)
+        mask = np.asarray(ref["seq_mask"], np.float64)
+        n = single.shape[0]
+        act = _ln(single, params, PREFIX + "single_layer_norm")
+        act = act @ np.asarray(params[PREFIX + "initial_projection//weights"], np.float64) \
+            + np.asarray(params[PREFIX + "initial_projection//bias"], np.float64)
+        act_2d = _ln(pair, params, PREFIX + "pair_layer_norm")
+    else:
+        n = args.n
+        rng = np.random.default_rng(args.seed)
+        act = rng.standard_normal((n, C_S))
+        act_2d = rng.standard_normal((n, n, C_Z))
+        mask = np.zeros(n)
+        mask[:args.n_real] = 1.0
+    print(f"n={n} act rms={np.sqrt((act ** 2).mean()):.4f} "
+          f"pair rms={np.sqrt((act_2d ** 2).mean()):.4f}")
 
+    ROUND[0] = args.round
     keep = {}
     want = numpy_ipa(params, act, act_2d, mask, keep)
 
+    if args.round and not args.skip_haiku:
+        print("the rounded numpy arm is not haiku's arm; --round implies --skip-haiku")
+        args.skip_haiku = True
     if not args.skip_haiku:
         os.environ["JAX_ENABLE_X64"] = "1"
         sys.path.insert(0, "/home/ttuser/bcx_e2e/bc2")
