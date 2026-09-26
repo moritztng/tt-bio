@@ -46,8 +46,16 @@ from .openfold3_weights import _sub
 
 
 def _free_cached(obj):
-    """Free a cache entry: tensors, and the tuples/lists of tensors the hoists store."""
-    if isinstance(obj, ttnn.Tensor):
+    """Free a cache entry: tensors, and the tuples/lists of tensors the hoists store.
+
+    A TAPED tensor is a leaf here, not a container. `tt_bio.autograd.Tensor` answers
+    `__getitem__` with a slice of ITSELF, so `for v in obj` on one never ends: it recursed 982
+    frames and raised `RecursionError` the first time the shipped sampler ran under the tape
+    shim, which is what `tt_bio.train` does on every step. The type is matched by module name
+    because nothing under `tt_bio/` imports `autograd`, and that is exactly what keeps an
+    inference fold from reaching the tape at all.
+    """
+    if isinstance(obj, ttnn.Tensor) or type(obj).__module__ == "tt_bio.autograd":
         ttnn.deallocate(obj)
     else:
         for v in obj:

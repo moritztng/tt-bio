@@ -1544,6 +1544,11 @@ def _v_exact_softmax(shipped, args, kwargs):
     The host path never writes the caller's buffer, so the in-place kernel's one advantage is
     gone and its one hazard with it.
     """
+    if not _GRAD_ENABLED:
+        # See `_v_exact_layer_norm` for why `no_grad` takes the raw form. Same arithmetic,
+        # no wrapper, no tape node.
+        ra, rk = _raw(args, kwargs)
+        return _exact_softmax_raw(*ra, **rk)
     x = _wrap(args[0])
     dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
     EXACT_SOFTMAX_STATS["verb"] += 1
@@ -1605,6 +1610,18 @@ def _exact_layer_norm_raw(*args, **kwargs):
 def _v_exact_layer_norm(shipped, args, kwargs):
     """The taped `layer_norm`: float64 forward, and dx, dgamma, dbeta in float64 from x re-read
     off the card. mean and rstd are re-derived in the backward, not held on the host."""
+    if not _GRAD_ENABLED:
+        # Inside `no_grad` there is no tape to pin a wrapper into and no backward to serve it,
+        # so the verb form buys nothing and costs the wrapper map: `_wrap` hands back whatever
+        # wrapper the handle's id already has, and in a `no_grad` census the shipped decoder
+        # frees its activations two lines after each call (`openfold3_diffusion_decoder.py:99`
+        # norms `ql_out_pad` and deallocates it immediately). The forward then read a dead
+        # handle and the reference arm died on `tensor.is_allocated()` in the discovery pass,
+        # before step 0. The raw form is the SAME float64 arithmetic, which matters: the
+        # discovery pass has to run the arithmetic the step will run, because the fused
+        # softmax tail learns its L1 row caps from whatever it sees first (`install`).
+        ra, rk = _raw(args, kwargs)
+        return _exact_layer_norm_raw(*ra, **rk)
     x, gamma, beta, eps, mc = _ln_args(args, kwargs)
     x, gamma, beta = _wrap(x), _wrap(gamma), _wrap(beta)
     EXACT_LAYER_NORM_STATS["verb"] += 1
@@ -1698,6 +1715,29 @@ def _uninstall_exact(ops, owner: Optional[str] = None) -> None:
         for n, fn in saved["raw"].items():
             setattr(ttnn, n, fn)
         tt.forget_shim_bindings(*_EXACT_OPS[op]["verbs"])
+
+
+@contextlib.contextmanager
+def without_exact():
+    """Take the exact ops OUT for the block, and put back exactly what was there.
+
+    `exact_training(False)` changes what `exact_training_ops()` returns; it does not uninstall
+    what an enclosing `install()` already put in, and `install()` reads that function once at
+    the start of a run. So a section that has to run on the device`s own arithmetic whatever
+    the run asked for needs the ops gone, not the answer changed.
+
+    The detached rollout is that section. Upstream detaches it, so nothing computed there
+    reaches a gradient and the instrument has nothing to make exact; leaving it installed also
+    fails outright, because `_ln_forward64` downloads its input to host float64 and the shipped
+    diffusion decoder has already deallocated that buffer.
+    """
+    taken = {op: owner for op, (owner, _saved) in _EXACT_SAVED.items()}
+    _uninstall_exact(list(taken))
+    try:
+        yield
+    finally:
+        for op, owner in taken.items():
+            _install_exact((op,), owner)
 
 
 def exact_softmax_installed() -> bool:
@@ -1815,7 +1855,16 @@ def straight_through(value, x: Tensor) -> Tensor:
     weights on the card. Consumers read the precise value; the weights get the gradient of the
     device computation, evaluated where that computation landed. ``value`` is a raw ttnn tensor
     of ``x``'s shape and dtype.
+
+    ``x`` is WRAPPED rather than assumed: the device leg is only a `Tensor` when something on
+    it is registered, and in an inference pass over the same forward it comes back as a raw
+    handle. `_tape` then reads `.value` off a parent that has none -- `AttributeError` on a
+    raw ttnn tensor, in the evaluation of a run that had just finished training. Wrapping is a
+    no-op when it is already a `Tensor`, and it is what makes `add_grad` below well defined
+    either way.
     """
+    x = _wrap(x)
+
     def make():
         def bw(g):
             x.add_grad(g)
