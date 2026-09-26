@@ -1,0 +1,30 @@
+jax.errors.JaxRuntimeError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 96, in pure_callback_impl
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+  File "/home/ttuser/bcx_merge_verify/perf/bcx_extrawire/round_ab.py", line 488, in wrapper
+  File "/home/ttuser/bcx_merge_verify/tt_bio/bindcraft2.py", line 638, in _backward
+  File "/home/ttuser/bcx_merge_verify/tt_bio/autograd.py", line 626, in backward
+  File "/home/ttuser/bcx_merge_verify/tt_bio/autograd.py", line 655, in _backward
+  File "/home/ttuser/bcx_merge_verify/tt_bio/autograd.py", line 2342, in <lambda>
+  File "/home/ttuser/bcx_merge_verify/tt_bio/autograd.py", line 2325, in _recompute
+  File "/home/ttuser/bcx_merge_verify/tt_bio/bindcraft2.py", line 142, in <lambda>
+  File "/home/ttuser/bcx_merge_verify/tt_bio/af2.py", line 350, in _residual
+  File "/home/ttuser/bcx_merge_verify/tt_bio/taped_ttnn.py", line 1168, in call
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 483, in __call__
+RuntimeError: TT_THROW @ /project/ttnn/core/tensor/storage.cpp:60: tt::exception
+info:
+Buffer is not allocated
+backtrace:
+--
+the campaign raised after 1 rounds; results for those rounds are banked in /tmp/fire4. JaxRuntimeError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 96, in pure_callback_impl
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+  File "/home/ttuser/bcx_merge_verify/perf/bcx_extrawire/round_ab.py", line 488, in wrapper
+  File "/home/ttuser/bcx_merge_verify/tt_bio/bindcraft2.py", line 638, in _backward
+  File "/home/ttuser/bcx_merge_verify/tt_bio/autograd.py", line 626, in backward
+  File "/home/ttuser/bcx_merge_verify/tt_bio/autograd.py", line 655, in _backward
+  File "/home/ttuser/bcx_merge_verify/tt_bio/autograd.py", line 2342, in <lambda>

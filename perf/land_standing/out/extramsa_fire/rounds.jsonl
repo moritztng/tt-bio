@@ -1,0 +1,2 @@
+{"kind": "arm", "phase": "round", "t0": 1790380147.694709, "round": 1, "extra_msa_on_device": false, "extra_calls_at_entry": {"primal": 0, "taped": 0, "backward": 0}, "utc": "2026-09-25T23:49:07Z", "load1": 12.87451171875}
+{"kind": "arm", "phase": "round", "t0": 1790380702.0138752, "round": 2, "extra_msa_on_device": true, "extra_calls_at_entry": {"primal": 0, "taped": 0, "backward": 0}, "utc": "2026-09-25T23:58:22Z", "load1": 17.626953125}
