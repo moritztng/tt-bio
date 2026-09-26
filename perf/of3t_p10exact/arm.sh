@@ -31,7 +31,7 @@ C_SHA=1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4
 
 TAG=${1:?usage: arm.sh TAG scopes}; SCOPES=${2:?usage: arm.sh TAG scopes}; shift 2
 LEVER=${LEVER:-none}
-[ "$SCOPES" = none ] && X=("$@") || X=(--exact "$SCOPES" "$@")
+[ "$SCOPES" = none ] && X=(--device-only "$@") || X=(--exact "$SCOPES" "$@")
 [ "$(sha256sum < "$B" | cut -d' ' -f1)" = "$B_SHA" ] || { echo "boundary digest mismatch"; exit 2; }
 [ "$(sha256sum < "$C" | cut -d' ' -f1)" = "$C_SHA" ] || { echo "cotangent digest mismatch (A42)"; exit 2; }
 
