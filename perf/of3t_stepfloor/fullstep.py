@@ -112,6 +112,47 @@ def _mem_available_gib():
     return None
 
 
+class _BackwardDram:
+    """DRAM read INSIDE the backward, which is the only place that answers this question.
+
+    Every `dram_*` field this harness had is sampled BETWEEN phases. `of3t-p10noexact` it1
+    read 31.15 GB as `dram_after_diffusion` and 17.01 GB as `dram_after_backward` on the same
+    chunk, so residency FALLS across the backward and neither number is its peak.
+    `TT_BIO_SOFTMAX_BW_FP32` allocates an fp32 copy of the attention probabilities inside
+    `softmax_bw` while the forward's saved tensors are still live, so the peak it has to fit
+    under is sampled here: on the softmax backward itself, under whatever phase is open.
+
+    Wrapping the module attribute works because `softmax_bw` recurses through the global
+    name; `_in` keeps the fp32 branch's inner call from counting twice.
+    """
+
+    def __init__(self, ag, dev):
+        self.ag, self.dev, self.real = ag, dev, ag.softmax_bw
+        self.phase, self.by_phase, self._in, self.calls = None, {}, False, 0
+        ag.softmax_bw = self
+
+    def __call__(self, y, g, dim=-1, config=None):
+        if self._in:
+            return self.real(y, g, dim=dim, config=config)
+        self._in = True
+        try:
+            out = self.real(y, g, dim=dim, config=config)
+        finally:
+            self._in = False
+        self.calls += 1
+        # Every 16th outer call: a memory-view read is a host round trip and this runs
+        # thousands of times per step, so sampling every call would time the instrument.
+        if self.phase and self.calls % 16 == 1:
+            d = _dram(self.dev)
+            s = self.by_phase.setdefault(self.phase, {"max": 0, "n": 0})
+            s["max"] = max(s["max"], d)
+            s["n"] += 1
+        return out
+
+    def restore(self):
+        self.ag.softmax_bw = self.real
+
+
 def _to_tokens(root, rep):
     """One denoised structure downloaded to host at token scope, detached."""
     import numpy as np
@@ -699,6 +740,12 @@ def main() -> int:
                          "measurement at the shipped shape has ever been taken in. There is "
                          "no environment variable for the switch (autograd.py:1491), so this "
                          "flag is the only way to reach it from a command line")
+    ap.add_argument("--fp32bw-per-rep", default="",
+                    help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_FP32 in THIS "
+                         "process. The flag is a module global read inside the backward "
+                         "closure (autograd.py:233), so a flag-ON rep and a flag-OFF rep "
+                         "share one warm process, one capture and one set of weights -- the "
+                         "only way to price it against a run-to-run spread this large")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     if a.grad_ab:
@@ -719,6 +766,7 @@ def main() -> int:
                    "taped": not a.no_tape, "chunk": a.chunk or None,
                    "loss_shape": a.loss_shape,
                    "exact_training": not a.no_exact,
+                   "fp32bw_per_rep": a.fp32bw_per_rep or None,
                    "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so "
                           "a chunked arm and an unchunked one noise the same structures"}}
     a.out.parent.mkdir(parents=True, exist_ok=True)
@@ -785,6 +833,17 @@ def main() -> int:
             # apart. Sampled again after the reps so the delta is the work's, not the import's.
             out["renorm"] = {"flag": bool(ag.SOFTMAX_BW_RENORM),
                              "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
+            fplan = [bool(int(x)) for x in a.fp32bw_per_rep.split(",") if x != ""]
+            out["fp32bw"] = {
+                "env": os.environ.get("TT_BIO_SOFTMAX_BW_FP32"),
+                "flag_at_import": bool(ag.SOFTMAX_BW_FP32),
+                "per_rep_plan": [int(x) for x in fplan] or None,
+                "stats_before": dict(ag.SOFTMAX_BW_FP32_STATS),
+            }
+            print(f"[fp32bw] env={out['fp32bw']['env']} flag_at_import="
+                  f"{out['fp32bw']['flag_at_import']} plan={out['fp32bw']['per_rep_plan']}",
+                  flush=True)
+            probe = _BackwardDram(ag, dev)
             plan = [bool(int(x)) for x in a.renorm_per_rep.split(",") if x != ""]
             cplan = [int(x) for x in a.chunk_per_rep.split(",") if x != ""]
             out["chunk_per_rep_plan"] = cplan or None
@@ -806,6 +865,11 @@ def main() -> int:
                 out["reps"] = reps
                 if plan:
                     ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
+                if fplan:
+                    ag.SOFTMAX_BW_FP32 = fplan[rep % len(fplan)]
+                row["fp32bw_flag"] = bool(ag.SOFTMAX_BW_FP32)
+                fs0 = dict(ag.SOFTMAX_BW_FP32_STATS)
+                probe.by_phase = {}
                 row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
                 rs0 = dict(ag.SOFTMAX_BW_RENORM_STATS)
                 ex0 = (dict(ag.EXACT_SOFTMAX_STATS), dict(ag.EXACT_LAYER_NORM_STATS))
@@ -944,9 +1008,12 @@ def main() -> int:
 
                         t0 = time.perf_counter()
                         c["tape_nodes"] = len(ag._reverse_topo(list(roots)))
+                        probe.phase = "chunk"
                         ag.backward(list(roots), cot)
+                        probe.phase = None
                         ttnn.synchronize_device(dev)
                         c["backward_s"] = round(time.perf_counter() - t0, 3)
+                        c["dram_in_backward"] = probe.by_phase.get("chunk")
                         bwd_s += c["backward_s"]
                         del roots, cot, seeds
                         roots = None
@@ -987,7 +1054,9 @@ def main() -> int:
                     troots.extend(prime_roots)
                     tcot.extend(prime_cot)
                     row["trunk_tape_nodes"] = len(ag._reverse_topo(troots))
+                    probe.phase = "trunk"
                     ag.backward(troots, tcot)
+                    probe.phase = None
                     ttnn.synchronize_device(dev)
                     row["trunk_backward_s"] = round(time.perf_counter() - t0, 3)
                     row["trunk_backward_entries"] = 1
@@ -1018,7 +1087,9 @@ def main() -> int:
                         seed_s = time.perf_counter() - t0
                         t0 = time.perf_counter()
                         row["tape_nodes"] = len(ag._reverse_topo(list(roots)))
+                        probe.phase = "trunk"
                         ag.backward(list(roots), cot)
+                        probe.phase = None
                         ttnn.synchronize_device(dev)
                         bwd_s = time.perf_counter() - t0
                         row["trunk_backward_entries"] = 1
@@ -1086,6 +1157,12 @@ def main() -> int:
                 if a.no_tape:
                     row["step_s_UNTAPED"] = row.pop("step_s")
                     row["step_s"] = None
+                row["fp32bw_fired"] = ag.SOFTMAX_BW_FP32_STATS["fired"] - fs0["fired"]
+                row["fp32bw_elements"] = (ag.SOFTMAX_BW_FP32_STATS["elements"]
+                                          - fs0["elements"])
+                row["dram_in_backward"] = dict(probe.by_phase)
+                row["dram_in_backward_max"] = max(
+                    [v["max"] for v in probe.by_phase.values()] or [0])
                 row["renorm_applied"] = (ag.SOFTMAX_BW_RENORM_STATS["applied"]
                                          - rs0["applied"])
                 row["renorm_declined"] = (ag.SOFTMAX_BW_RENORM_STATS["declined"]
@@ -1100,6 +1177,11 @@ def main() -> int:
                       f"renorm {'ON' if row['renorm_flag'] else 'OFF'} "
                       f"{row['renorm_applied']}a/{row['renorm_declined']}d, "
                       f"leaves {row.get('leaves_live_after_rebind')})",
+                      flush=True)
+                print(f"[rep {rep}] fp32bw {'ON' if row['fp32bw_flag'] else 'OFF'} "
+                      f"fired {row['fp32bw_fired']} ({row['fp32bw_elements'] / 1e9:.2f}G "
+                      f"elements)  dram-IN-backward max "
+                      f"{row['dram_in_backward_max'] / 1e9:.2f} GB  {row['dram_in_backward']}",
                       flush=True)
                 print(f"[rep {rep}] WALL {row['step_wall_s']:.2f}s  phases "
                       f"{row['step_s'] or row.get('step_s_UNTAPED'):.2f}s  unaccounted "
@@ -1128,6 +1210,11 @@ def main() -> int:
             out["exact"]["off_proven"] = bool(a.no_exact
                                               and out["exact"]["counters_all_zero"]
                                               and not out["exact"]["installed_in_any_tape"])
+            out["fp32bw"]["stats_after"] = dict(ag.SOFTMAX_BW_FP32_STATS)
+            out["fp32bw"]["fired_during_reps"] = (out["fp32bw"]["stats_after"]["fired"]
+                                                  - out["fp32bw"]["stats_before"]["fired"])
+            out["fp32bw"]["reached_the_kernel"] = out["fp32bw"]["fired_during_reps"] > 0
+            probe.restore()
             out["renorm"]["stats_after"] = dict(ag.SOFTMAX_BW_RENORM_STATS)
             out["renorm"]["applied_during_reps"] = (
                 out["renorm"]["stats_after"]["applied"]
