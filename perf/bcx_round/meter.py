@@ -96,6 +96,15 @@ def reach():
     return {k: triatt_bw.STATS.get(k, 0) for k in ("bw_calls", "served", "declined")}
 
 
+def _mm_reach():
+    """`TT_BIO_MM_LAYOUT`'s counters at a round boundary, same contract as `reach()`."""
+    try:
+        from tt_bio import mm_layout
+    except Exception as exc:
+        return {"error": repr(exc)}
+    return mm_layout.reach()
+
+
 class StopAfterRounds(BaseException):
     """Collection is complete. Raised from the round boundary, never mid-round.
 
@@ -123,11 +132,15 @@ class Meter:
             # Stamp the boundary BEFORE unwinding: it closes the last round's wall, and
             # the campaign's own finally blocks run between the raise and the dump.
             EVENTS.append({"kind": "round_stop", "phase": "round", "t0": time.time(),
-                           "round": self.entries, "triatt_bw": reach()})
+                           "round": self.entries, "triatt_bw": reach(),
+                           "mm_layout": _mm_reach()})
             raise StopAfterRounds(f"{self.rounds} rounds collected")
+        # The reach of TT_BIO_MM_LAYOUT at the boundary, cumulative. A per-round count is the
+        # difference of two of these, so an arm whose lever serves 0 calls says so per round
+        # and not only in a total that a compile round could have carried.
         EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
                        "round": self.entries, "load1": os.getloadavg()[0],
-                       "triatt_bw": reach()})
+                       "triatt_bw": reach(), "mm_layout": _mm_reach()})
         if DUMP:
             dump(*DUMP)
 
@@ -153,10 +166,18 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
     #    `_backward` is the taped backward, `_primal` is a forward-only fold (a validation
     #    or reference refold). Both device-side stacks carry the same three seams, so the
     #    `module` field is what separates the 48-block Evoformer from the 4-block extra-MSA
-    #    stack. `analyze.py` sums device time across both, which is what makes `host_in_sg`
-    #    right on either arm without knowing the extra-MSA swap exists.
+    #    stack. `analyze.py` sums device time across all of them, which is what makes
+    #    `host_in_sg` right on any arm without knowing which swaps are on.
+    #
+    #    `TemplateOnDevice` was missing from this tuple until 2026-09-26 and the composed
+    #    arm runs three of its callbacks a round, so its card time was charged to the HOST
+    #    column of every reading taken with the template lever on. Enumerate the classes
+    #    the module actually defines rather than listing two of three by hand: a stack
+    #    that is on the card and not in this tuple reads as host time, and that is the
+    #    one failure mode this loop has.
     for module, cls in (("evoformer", splice_mod.EvoformerOnDevice),
-                        ("extra_msa", splice_mod.ExtraMsaOnDevice)):
+                        ("extra_msa", splice_mod.ExtraMsaOnDevice),
+                        ("template", splice_mod.TemplateOnDevice)):
         for name in ("_primal", "_taped", "_backward"):
             orig = getattr(cls, name)
 

@@ -30,6 +30,7 @@ from typing import Optional, Sequence
 import ttnn
 
 from tt_bio.envflags import env_flag
+from tt_bio import mm_layout as _mm_layout
 
 #: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
 #: what this flag exists to avoid. It was introduced for trace capture, which refuses a host
@@ -904,6 +905,7 @@ def _matmul(a, b, **kw):
     `sampler.dc.w_lin_*` gradients. The narrower operand is promoted to fp32, which is exact,
     and nothing changes where the dtypes already agree.
     """
+    kw = _mm_layout.plan(a, b, kw)
     if not kw.get("transpose_a") or a.dtype == b.dtype:
         return ttnn.matmul(a, b, **kw)
     MIXED_TRANSPOSE_A["promoted"] += 1
@@ -1272,8 +1274,8 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     def make():
         def bw(g):
             if x.requires_grad:
-                x.add_grad(_via2d(g, lambda v: ttnn.matmul(v, w.value, transpose_b=True,
-                                                           compute_kernel_config=bwcfg)))
+                x.add_grad(_via2d(g, lambda v: _matmul(v, w.value, transpose_b=True,
+                                                      compute_kernel_config=bwcfg)))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
@@ -2720,7 +2722,7 @@ def _taped_linear(shipped, args, kwargs):
                 # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
-                x.add_grad(_reduce_to(_via2d(g, lambda v: ttnn.matmul(
+                x.add_grad(_reduce_to(_via2d(g, lambda v: _matmul(
                                           v, w.value, transpose_b=True,
                                           compute_kernel_config=bwcfg)),
                                       x.value.shape))

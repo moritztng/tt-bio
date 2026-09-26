@@ -227,7 +227,7 @@ def main():
         stopped = str(stop)
     finally:
         M.CLOCK.stop()
-        from tt_bio import autograd, taped_ttnn, tenstorrent
+        from tt_bio import autograd, mm_layout, taped_ttnn, tenstorrent
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
                       # Whether the fused triangle-attention backward was actually REACHED,
                       # counted rather than inferred from the flag being set.
@@ -254,6 +254,12 @@ def main():
                                              taped_ttnn.KERNEL_STATS.items()},
                       "fused_hifi_stats": dict(tenstorrent.TRIATT_FUSED_HIFI_STATS),
                       "fp32_softmax_calls": tenstorrent.FP32_SOFTMAX_STATS.get("calls"),
+                      # TT_BIO_MM_LAYOUT's own reach. `served` is a batched matmul that got a
+                      # core grid it did not have; every `declined:*` is a call the site saw
+                      # and left alone. served == 0 means this arm measured the lever nowhere.
+                      "mm_layout": mm_layout.reach(),
+                      "mm_layout_on": mm_layout.MM_LAYOUT,
+                      "mm_layout_side": mm_layout.MM_LAYOUT_SIDE,
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})

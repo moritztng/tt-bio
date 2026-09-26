@@ -39,6 +39,7 @@ all-ones mask still takes the None path, so every fold PXDesign runs today is un
 """
 from __future__ import annotations
 
+import collections
 import hashlib
 
 import torch
@@ -703,6 +704,76 @@ class AF2MaskedOuterProductMean(OuterProductMean):
         return out
 
 
+#: `_MaskBiasCache` bookkeeping, global so an A/B can read reach without a trunk handle.
+#: `build` counts the pairs actually computed, `hit` the calls served from the cache, and
+#: `verify_ok`/`verify_bad` the hits that were rebuilt and compared under `verify`.
+MASK_BIAS_CACHE_STATS = collections.Counter()
+
+
+class _MaskBiasCache:
+    """`msa_mask -> (row_bias, col_bias)`, shared by every block of a stack.
+
+    `AF2EvoformerBlock._mask_biases` is a pure function of `msa_mask`, and a fold hands the same
+    mask to all 48 Evoformer blocks and all 4 extra-MSA ones, so the trunk builds one pair of
+    tensors 52 times a forward and 52 more on the checkpoint recompute. This holds the first
+    pair and returns it.
+
+    Keyed on `id(msa_mask)`, which is sound here because the entry keeps a strong reference to
+    the key tensor: the object cannot be freed while it is a key, so its address cannot be
+    handed to a later tensor. A round has two live masks, one per stack; four entries leaves
+    room and the cache never grows past that.
+
+    Nothing downstream deallocates or writes a bias. The row attention sums it into a fresh
+    tensor (`AF2Attention.__call__`) and the column attention hands it to an out-of-place
+    `ttnn.add` (`AF2Attention._attend`). A hit still checks `is_allocated`, because a dangling
+    entry would be a wrong answer rather than a slow one.
+    """
+
+    def __init__(self, cap: int = 4, verify: bool = False):
+        self.cap, self.verify = cap, verify
+        self._d: collections.OrderedDict = collections.OrderedDict()
+
+    def get(self, key: ttnn.Tensor):
+        hit = self._d.get(id(key))
+        if hit is None:
+            return None
+        _, row, col = hit
+        if not (row.is_allocated() and col.is_allocated()):
+            del self._d[id(key)]
+            MASK_BIAS_CACHE_STATS["evicted_freed"] += 1
+            return None
+        MASK_BIAS_CACHE_STATS["hit"] += 1
+        return row, col
+
+    def put(self, key: ttnn.Tensor, row: ttnn.Tensor, col: ttnn.Tensor) -> None:
+        self._d[id(key)] = (key, row, col)
+        while len(self._d) > self.cap:
+            self._d.popitem(last=False)
+        MASK_BIAS_CACHE_STATS["build"] += 1
+
+    def check(self, fresh, cached) -> None:
+        """Compare a rebuilt pair against the cached one and count the verdict.
+
+        The lever's whole claim is that the rebuild is redundant, so this measures that claim at
+        the shapes the round runs instead of arguing it. `torch.equal` on both tensors of every
+        hit, which is expensive, which is why it is off for the timed rounds.
+        """
+        for f, c in zip(fresh, cached):
+            same = torch.equal(torch.Tensor(ttnn.to_torch(f)), torch.Tensor(ttnn.to_torch(c)))
+            MASK_BIAS_CACHE_STATS["verify_ok" if same else "verify_bad"] += 1
+            ttnn.deallocate(f)
+
+
+def set_mask_bias_cache(enabled: bool, verify: bool = False) -> None:
+    """Turn the shared mask-bias cache on or off. Default OFF; see `_MaskBiasCache`.
+
+    Set on the class, not per block, so an A/B can flip it at a round boundary without a handle
+    on the trunk. Two trunks in one process stay separate anyway: the key is the mask, and they
+    do not share one.
+    """
+    AF2EvoformerBlock.mask_bias_cache = _MaskBiasCache(verify=verify) if enabled else None
+
+
 class AF2EvoformerBlock(AF2PairBlock):
     """One `EvoformerIteration`: the MSA track, the outer product mean, then the pair track.
 
@@ -710,6 +781,9 @@ class AF2EvoformerBlock(AF2PairBlock):
     makes `evoformer.0.tri_mul_out` and `evoformer.0.opm` siblings, so a flat scope is the
     checkpoints own layout, and `outer_product_mean.first` is False so the MSA track runs first.
     """
+
+    #: Set by `set_mask_bias_cache`. `None` rebuilds the biases per block, which is the default.
+    mask_bias_cache: "_MaskBiasCache | None" = None
 
     def __init__(self, state_dict: Weights,
                  compute_kernel_config: ttnn.DeviceComputeKernelConfig,
@@ -732,7 +806,8 @@ class AF2EvoformerBlock(AF2PairBlock):
 
         Built once per block rather than once per attention: the two variants are the same
         numbers in different layouts, because the row attention's keys are residues and the
-        column attention's keys are rows.
+        column attention's keys are rows. `set_mask_bias_cache` shares one pair across a
+        whole stack, since the mask does not change between blocks either.
 
         Both reshapes move a tile row into tiles of their own and write only its logical
         elements, so the new tiles' padding is whatever the buffer last held, which after a
@@ -743,6 +818,10 @@ class AF2EvoformerBlock(AF2PairBlock):
         created: tracing every op of a block's forward, these two reshapes are the only ones
         whose output padding is not finite (perf/bcx_nan/optrace_pad.json).
         """
+        cache, key = self.mask_bias_cache, msa_mask
+        cached = cache.get(key) if cache is not None else None
+        if cached is not None and not cache.verify:
+            return cached
         if len(msa_mask.shape) == 3:
             msa_mask = ttnn.reshape(msa_mask, tuple(msa_mask.shape)[1:])
         rows, n = (int(d) for d in msa_mask.shape)
@@ -750,6 +829,11 @@ class AF2EvoformerBlock(AF2PairBlock):
         row_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(flat, (rows, 1, 1, n)), 0.0)
         transposed = ttnn.permute(flat, (1, 0))
         col_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(transposed, (n, 1, 1, rows)), 0.0)
+        if cached is not None:
+            cache.check((row_bias, col_bias), cached)
+            return cached
+        if cache is not None:
+            cache.put(key, row_bias, col_bias)
         return row_bias, col_bias
 
     def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor,
