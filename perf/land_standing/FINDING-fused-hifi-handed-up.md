@@ -277,3 +277,40 @@ Scoring tree asserted for both arms: `/home/ttuser/.coworker/wt/land-standing/tt
 `48bf63c2a`, which contains `origin/main` `29bc7d00c` and whose `tt_bio/` is byte-identical to the
 branch HEAD. Lever state verified at `gate_fusedhifi.sh:27` — every arm is invoked with
 `PYTHONPATH="$WT" TT_BIO_TRIATT_FUSED_HIFI=1`.
+
+## Which sites the lever actually controls — 2026-09-26 09:19Z
+
+Found while waiting on the counter run, and it **qualifies the gate table above**. The lever is
+read per attention block through `_fused_hifi_on(self.fused_hifi)`, and `TriangleAttention.__init__`
+stores `self.fused_hifi = fused_hifi or None` (`tenstorrent.py:8735`). Resolved on this tree:
+
+    site                   site flag   stored   follows TT_BIO_TRIATT_FUSED_HIFI?
+    openfold3.trunk        True        True     NO - already pinned ON
+    openfold3.msa          False       None     yes
+    openfold3.template     False       None     yes
+    openfold3.confidence   False       None     yes
+    boltz2.trunk           False       None     yes
+    rf3.tri_att            False       None     yes
+
+Two consequences, both of which make the earlier write-up **less** sweeping than it was:
+
+1. **`openfold3.trunk` is already on the fused-HiFi route in shipped `main`** —
+   `openfold3_trunk.py:193` passes `triatt_sdpa_hifi_site("openfold3.trunk", True)`. The lever
+   cannot turn that site on because it was never off. So for OpenFold3 the A/B moves the **msa,
+   template and confidence** sites only, and the PepN +4.700 s is attributable to those, not to
+   the trunk. I had not said this, and the earlier text reads as though the flag switched the
+   whole model.
+2. **A site flag of `False` does not pin the site off.** `False or None` is `None`, which follows
+   the process-wide variable per call. The source says so explicitly — "an explicit pin-off has no
+   caller" — and it checks out empirically with the env var set:
+
+       pinned False -> stored None -> _fused_hifi_on = True
+       pinned True  -> stored True -> _fused_hifi_on = True   (ignores the variable)
+
+   I briefly concluded the opposite from the `tri_att_sdpa_hifi: bool = False` default at
+   `tenstorrent.py:10448` and was wrong; `or None` neutralises it.
+
+Also worth recording for whoever reads the route: the hifi call sits **inside the `fp32_softmax`
+branch** at `tenstorrent.py:9042`, so it is the alternative to the materialised path, never an
+addition to it. `rf3/remap.py:195` makes the same point for RF3 and warns against summing the two
+speedups.
