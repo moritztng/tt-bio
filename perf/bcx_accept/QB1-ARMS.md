@@ -112,3 +112,26 @@ adding a fourth, and card 2 / `42:00.0` is left for `bcx-extrawire`'s sub-hour A
 Stamps now carry `commit` and a dirty-file count, which closes the "`arm_stamp.json` does not
 record the tree SHA" defect: attributing an arm to a tree cut no longer means reading a mutable
 worktree after the fact.
+
+## 4. The grader split resolved itself, 2026-09-26 04:2xZ
+
+Section 3 held the qb1 rows out of the acceptance ratio on two grounds: the grader differs from
+population A's, and no qb1 trajectory had yet reached validation, so the arm could not be shown to
+have an open success channel.
+
+**The second ground is gone.** `qb1_s10` trajectory 2 drew `pdl1_denovo_l180_88844f62a85998ff`,
+cleared all five design stages (screen 0.87/0.91, refine 0.84/0.90, anneal 0.83/0.92, harden
+0.83/0.87, mutate 0.82/0.77), went to the refold ensemble and **accepted** — 3 of 10 candidates
+kept, i_pTM 0.80-0.82, pLDDT 0.89-0.93, pTM 0.85-0.87, i_pAE 0.23-0.26, 0 backbone clashes,
+Binder_RMSD 0.17-0.24, 17-20 interface residues, Unbound_Binder_pLDDT 0.91-0.94, 833-850 A^2
+buried. `3_Ranked/pdl1_denovo_l180_88844f62a85998ff_seq0.cif`.
+
+At 180 aa it is the longest accepted design in the campaign and sits at the top of BindCraft 2's
+own 60-180 draw range, so the size question that `profile_s2_arm`'s l180 screen rejection raised
+is answered in the other direction: a 180 aa draw can accept on device.
+
+**The first ground stands and the two populations are still reported separately** — but they now
+agree exactly. Population A (device-pool grader) is 2/7, population B (JAX grader, the shipped
+configuration) is 2/11, Fisher exact two-sided **p = 1.000**, and their costs per accepted design
+are 20,742 / 21,028 / 22,472 s. Keeping them apart is still right methodologically; the split is
+no longer hiding a disagreement.
