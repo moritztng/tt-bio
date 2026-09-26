@@ -169,7 +169,7 @@ indicative of a real difference in kind, not a clean ratio between equally-place
 Direction at the trunk remains unknown; the only directional evidence is still per-call, where
 the fused route is 8.7-12.6 % closer to float64 than the fall-back it replaces.
 
-## Direction: attempted with two reachable references, and it is still not answerable at 832
+## Direction: two reachable references, neither conclusive (SUPERSEDED -- a reference-free instrument works, see the end of this file)
 
 Last pass said a reference needs a one-line site addition. That was wrong — both candidates are
 reachable by rebinding from the harness, no repo change
@@ -228,7 +228,7 @@ Everything except that last direction question is settled and reproducible from 
 `perf/land_standing/out/`. The decision now belongs to whoever owns the accuracy bar, with the
 one-line site above as the cheapest way to get the evidence it needs.
 
-## Recommendation
+## Recommendation (SUPERSEDED 2026-09-26 by the one at the end of this file)
 
 Keep it off by default, but the trade has changed and the note should say so. The gain is no
 longer "one length and an unpriced speed term": it is **51 seconds of an OpenFold3 fold**, 39x
@@ -318,3 +318,71 @@ kernel; it is the same kernel at a length that currently gets no kernel at all.
 (Read the `shipped_k` column of the source files before reusing them: this bench runs its own
 shape, batch 32 / 4 heads / head_dim 32, and its shipped k is 256 where the production trunk at
 704 picks 704. The n=256 null and the band are what transfer, not the per-length pick.)
+
+## Direction, finally readable: the model's own confidence, on an instrument with no floor
+
+`perf/land_standing/plddt832.sh` and the 704 legs above, both on qb2 card 3.
+
+Every earlier attempt at direction needed a reference more accurate than both arms, and all three
+candidates failed (the `one_k_chunk` reference does not fit at 832, a single-family reference
+flatters its own side, and the exact float64 softmax costs more than a turn). OpenFold3 carries
+its own quality estimate and it needs no reference at all. The reason it is usable here is the
+control: **at a fixed seed this pipeline is bit-deterministic end to end**, confirmed separately
+at both lengths, so a confidence difference has a floor of exactly zero.
+
+    832 tokens, the length the lever reaches
+      off1   pLDDT 0.369018   pTM 0.165383   confidence 0.328291
+      on     pLDDT 0.363566   pTM 0.166345   confidence 0.324121
+      off2   pLDDT 0.369018   pTM 0.165383   confidence 0.328291   <- control, exact
+
+      lever  pLDDT -0.005452 (-1.48 %)   pTM +0.000962 (+0.58 %)
+
+    704 tokens, where main already ships the fused route
+      fusedA pLDDT 0.357573   pTM 0.166659   confidence 0.319390
+      matB   pLDDT 0.355284   pTM 0.165942   confidence 0.317416
+      fusedC pLDDT 0.357573   pTM 0.166659   confidence 0.319390   <- control, exact
+
+      fused  pLDDT +0.002289 (+0.64 %)   pTM +0.000717 (+0.43 %)
+
+**At 704 the reading is clean and it favours the fused route on both heads.** That is the first
+unsplit directional result this lever has produced in six passes: where main already chooses the
+fused route over the materialised chain, the model agrees with main.
+
+**At 832 the two heads split** — pTM slightly up, pLDDT down by twice as much as pTM moved. A
+split is not a direction, and it is the same split-from-one-instrument problem as before, so do
+not read the pLDDT drop as a verdict on its own.
+
+**What the pair of readings does establish is which half of the change is unproven.** The two
+lengths differ in exactly one thing, the k ladder: 704 takes k=704 in one chunk and makes no
+running-max rescale, 832 takes k=416 in two chunks and does. The fused route with a single k
+chunk is directionally good. The fused route with a **chunked** k ladder is the part no
+measurement here supports, and at 832 it is the only form available, because `one_k_chunk` at 832
+is refused by the allocator.
+
+**The honest limit of this instrument, stated rather than buried.** Both fixtures are tiled CDK2
+apo folded single-sequence, where OpenFold3 returns pLDDT 0.37 and pTM 0.17 — the model has
+essentially no confidence in either structure. Confidence heads read near their floor there, so
+these are small differences on a weak fixture. They earn their place only because the measurement
+floor is exactly zero and the 704 leg gives an internal positive control, not because a 0.005
+pLDDT move on an unconfident target is important by itself.
+
+## Recommendation, superseding the one higher up this file
+
+**Keep `TT_BIO_TRIATT_DIVIDING_K` off by default, and the reason has changed from "unknown" to
+"named".** It is no longer that direction is unanswerable. It is that the change has two halves,
+and they do not have the same standing:
+
+- **Serving the fused route where the shipped k does not divide** is supported everywhere it can
+  be checked: per call it sits in the same 0.0208-0.0215 float64 band as the route main already
+  ships, at 704 it beats the fall-back on both confidence heads, and at n=256 it is provably
+  inert.
+- **Doing it through a two-chunk k ladder**, which is the only way 832 can be served, adds an
+  online-softmax rescale that main runs nowhere at this site today. That is the half the
+  evidence does not cover, and it is where 832's larger `s` divergence and its split confidence
+  reading both land.
+
+So the cheapest thing that would unblock the 51 seconds is not more folds and not an MSA. It is
+**a single-chunk k at 832** — finding out why `one_k_chunk` is refused there and whether the
+refusal is a real L1 ceiling or a precondition that could be met. If a single k chunk can be
+served at 832, this becomes the same change that is already good at 704 and the accuracy argument
+comes with it.
