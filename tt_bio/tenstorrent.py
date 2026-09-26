@@ -2179,9 +2179,22 @@ _SDPA_QK_OVER_L1: set = set()
 # 1024 to 2592 served fused. Raising the cap on its own moves 1 of the 50; this route moves 36 of
 # them on an 11x10 grid at 4 heads (`perf/ttx_a3/reach_h4_11x10.json`).
 #
-# Strictly ABOVE the cap, which is why nothing that folds today changes: at and below it the ladder
-# already lands on a fused pair (560 of 560 calls at both 512 and 1024 aa) and those numbers are
-# bit-exact and shipped. `triatt_sdpa.sdpa` therefore takes `q_split_cap=0` here and nowhere else.
+# Strictly ABOVE the cap. `triatt_sdpa.sdpa` therefore takes `q_split_cap=0` here and nowhere else.
+#
+# That used to be justified by "at and below the cap the ladder already lands on a fused pair
+# (560 of 560 calls at both 512 and 1024 aa)". Both those readings are real, and the general claim
+# is NOT: enumerated over all 48 tile-aligned lengths from 32 to 1536 with the budget model this
+# file already carries, six lengths below the cap land on no fused pair at all and fall to the
+# materialised fp32 softmax -- 544, 608, 736, 832, 928 and 992 (`perf/land_standing/capreach.py`,
+# validated against six device outcomes). 832 is the one of them OpenFold3 can present, since it
+# pads its pair axis to a multiple of 64.
+#
+# The reason to keep the cap is the one below, and it survives the correction: `fused_pairs`
+# orders its preferences for the regime above 1024 and degrades below it. At 704 it offers
+# (704, 32) first, k in 22 chunks, where the ladder is already serving (352, 704) in one. Lowering
+# the cap to 768 closes 832 and moves the pick at 896, 960 and 1024, trading one k chunk for four
+# at 896; lowering it to 32 closes four holes and moves twelve picks. `TT_BIO_TRIATT_DIVIDING_K`
+# reaches the same 832 and moves nothing, so that is the lever for this, not the cap.
 #
 # NOT bit-exact above the cap: k_chunk sets the online-softmax reduction order. It has no digest to
 # break -- no length above 1024 served fused before -- and the fold-level Angstrom evidence is in
