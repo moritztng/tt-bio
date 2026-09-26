@@ -67,6 +67,20 @@ def _precondition_slot_fix():
             "dirty": bool(_git("status", "--porcelain"))}
 
 
+def _dram(dev):
+    """Bytes allocated in the card's DRAM right now.
+
+    Beside every step, because a training arm that OOMs at step 6 and one that leaks are the
+    same reading until you have the series.
+    """
+    try:
+        import ttnn
+        mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
+        return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
+    except Exception:                                                  # noqa: BLE001
+        return None
+
+
 def _evaluate(fwd, corpus, stage, seed, tokens=None):
     """`af3_loss` on every target of a held-out corpus, with the weights as they are now.
 
@@ -192,13 +206,15 @@ def main() -> int:
 
                 def on_step(row):
                     row = {**row, "wall_s": round(time.perf_counter() - t0, 3),
-                           "aiclk": clk.summary().get(0)}
+                           "aiclk": clk.summary().get(0),
+                           "dram_gb": (lambda b: None if b is None
+                                       else round(b / 1e9, 3))(_dram(ds.device))}
                     rec["steps"].append(row)
                     if curve:
                         curve.write(json.dumps(row, default=str) + "\n")
                     print(f"[{row['wall_s']:8.1f}s] step {row['step']:3d}  "
                           f"loss {row['loss']:.6f}  lr {row['lr']:.3e}  "
-                          f"|g| {row['grad_norm']}", flush=True)
+                          f"|g| {row['grad_norm']}  dram {row['dram_gb']} GB", flush=True)
                     dump()
 
                 band = (tuple(float(x) for x in a.displacement_band.split(","))
