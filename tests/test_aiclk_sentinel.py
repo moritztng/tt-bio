@@ -259,3 +259,28 @@ def test_every_shell_caller_can_actually_reach_the_helper():
             broken.append(f"{rel}: rc={r.returncode} out={r.stdout!r} err={r.stderr!r}")
     assert checked >= 20, f"only {checked} scripts source the helper; conversion regressed"
     assert broken == []
+
+
+def test_nothing_we_ship_parses_a_clock_node_on_its_own():
+    """The shipped surface has exactly one AICLK reader and this keeps it that way.
+
+    perf/ is deliberately out of scope: 34 campaign scripts there still parse the node bare,
+    most of them in concluded rows, and converting them one by one is churn against archive
+    code. What must not happen is a NEW blind reader landing in tt_bio/ or scripts/.
+    """
+    hits = []
+    for top in ("tt_bio", "scripts"):
+        tracked = subprocess.run(["git", "ls-files", "--", top], cwd=ROOT,
+                                 capture_output=True, text=True)
+        if tracked.returncode != 0:
+            pytest.skip("not a git work tree")
+        for rel in tracked.stdout.split():
+            if not rel.endswith((".py", ".sh")) or rel == "tt_bio/aiclk.py":
+                continue
+            p = ROOT / rel
+            if not p.exists():
+                continue
+            for n, line in enumerate(p.read_text(errors="replace").splitlines(), 1):
+                if "tt_aiclk" in line and ("int(" in line or "cat " in line):
+                    hits.append(f"{rel}:{n}")
+    assert hits == [], f"clock nodes parsed outside tt_bio.aiclk: {hits}"
