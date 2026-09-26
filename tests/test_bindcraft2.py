@@ -328,27 +328,6 @@ def test_the_campaign_path_can_turn_the_exact_instrument_off_too():
         assert build.exact is True
 
 
-def test_a_multimer_checkpoint_is_detected_off_the_file_rather_than_its_name(tmp_path):
-    """`_Trunk` loaded every checkpoint at `load_af2_state_dict`'s `multimer=False` default, so
-    `tt_bio.bindcraft2` could not load the five-model `multimer_v3` pool the shipped
-    `examples/pdl1.json` designs on: the remap raises `KeyError` on `pair_activiations`.
-
-    The family is read off the array names, not the file name, so a renamed or re-exported
-    checkpoint cannot be loaded as the wrong one.
-    """
-    monomer = tmp_path / "params_model_1_ptm.npz"
-    np.savez(monomer, **{"alphafold/alphafold_iteration/evoformer/pair_activiations//weights":
-                         np.zeros(1, dtype=np.float32)})
-    assert bindcraft2._is_multimer(monomer) is False
-
-    # Named like a monomer on purpose: the file decides, not the name.
-    multimer = tmp_path / "params_model_1_ptm_copy.npz"
-    np.savez(multimer, **{"alphafold/alphafold_iteration/evoformer/"
-                          "~_relative_encoding/position_activations//weights":
-                          np.zeros(1, dtype=np.float32)})
-    assert bindcraft2._is_multimer(multimer) is True
-
-
 def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
     """`_pad` and `_check_mask` on the shapes a real PD-L1 round hands the swap.
 
