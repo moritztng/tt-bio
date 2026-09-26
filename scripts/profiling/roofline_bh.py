@@ -127,6 +127,14 @@ def main():
                    help="square matmul N values; extend upward until TFLOP/s saturates")
     args = p.parse_args()
 
+    # A lone P300 chip is a CUSTOM cluster and a bare open_device() is a TT_FATAL without a
+    # mesh graph descriptor. tt-bio sets it in `_open_and_init_device`; a script that opens
+    # ttnn itself has to ask for it, or this micro-benchmark cannot run on qb2 at all.
+    try:
+        from tt_bio.main import ensure_p300_mesh_descriptor
+        ensure_p300_mesh_descriptor()
+    except Exception:
+        pass
     device = ttnn.open_device(device_id=args.device_id)
     try:
         g = device.compute_with_storage_grid_size()
