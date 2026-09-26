@@ -209,6 +209,10 @@ def main():
         M.CLOCK.stop()
         from tt_bio import autograd, taped_ttnn, tenstorrent
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
+                      # Whether the fused triangle-attention backward was actually REACHED,
+                      # counted rather than inferred from the flag being set.
+                      "triatt_bw_stats": dict(__import__("tt_bio.triatt_bw",
+                                                         fromlist=["STATS"]).STATS),
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
                       "device_calls": dict(evo.calls) if evo else None,
