@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import json
 import math
 import os
@@ -1088,6 +1089,31 @@ def main() -> int:
                     row["leaves_live_after_rebind"] = f"{live} of {len(params.slots)}"
                     ttnn.synchronize_device(dev)
                     row["optimizer_s"] = round(time.perf_counter() - t0, 3)
+
+                    # The property that makes a DP claim auditable, asserted rather than
+                    # assumed: every rank holds the SAME fp32 masters, bit for bit, with no
+                    # broadcast. It holds because `reduce_all` sums in a fixed name order and
+                    # hands every rank the same array, and because the prefix backward runs
+                    # on every rank from the same summed cotangent. Compare these strings
+                    # across the ranks' artifacts; they must be identical.
+                    #
+                    # NOT a claim against N=1. `reduce_cut` and `reduce_grads` sum in host
+                    # fp32 where an N=1 step never leaves the card, so N=1 and N=2 masters
+                    # will differ and that is the reduce doing its job. The N=1/N=2 question
+                    # is cos / rel_l2 against the campaign bar, not a hash.
+                    #
+                    # Timed on its own line and taken AFTER `optimizer_s` is read, because
+                    # hashing 1.5 GB of master is real host work and folding it into a step
+                    # this row publishes would inflate the very number it is auditing.
+                    if dp_axis is not None and opt is not None:
+                        t0 = time.perf_counter()
+                        h = hashlib.blake2b(digest_size=16)
+                        for _n in sorted(opt.master):
+                            h.update(_n.encode())
+                            h.update(np.ascontiguousarray(opt.master[_n],
+                                                          dtype=np.float32).tobytes())
+                        row["master_hash"] = h.hexdigest()
+                        row["master_hash_s"] = round(time.perf_counter() - t0, 3)
                     row["optimizer_updated"] = len(upd) if hasattr(upd, "__len__") else None
                 else:
                     row["optimizer_s"] = 0.0
