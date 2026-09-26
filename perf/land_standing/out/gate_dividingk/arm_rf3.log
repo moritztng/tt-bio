@@ -1,0 +1,148 @@
+[release-gate] granted card(s) [3]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 064e5ad5a)
+
+======================================================================
+[rf3] folding prot.yaml (50 steps, 5 samples)
+======================================================================
+05:07:26  [tt-quietbox2:tt3] loading model…
+05:07:37  [tt-quietbox2:tt3] prot
+05:07:37  [tt-quietbox2:tt3]   prep
+05:08:11  [tt-quietbox2:tt3]   trunk 0/10
+05:08:35  [tt-quietbox2:tt3]   trunk 1/10
+05:08:35  [tt-quietbox2:tt3]   trunk 2/10
+05:08:36  [tt-quietbox2:tt3]   trunk 3/10
+05:08:36  [tt-quietbox2:tt3]   trunk 4/10
+05:08:36  [tt-quietbox2:tt3]   trunk 5/10
+05:08:36  [tt-quietbox2:tt3]   trunk 6/10
+05:08:36  [tt-quietbox2:tt3]   trunk 7/10
+05:08:37  [tt-quietbox2:tt3]   trunk 8/10
+05:08:37  [tt-quietbox2:tt3]   trunk 9/10
+05:08:42  [tt-quietbox2:tt3]   diffusion 0/49
+05:08:56  [tt-quietbox2:tt3]   diffusion 1/49
+05:08:56  [tt-quietbox2:tt3]   diffusion 2/49
+05:08:57  [tt-quietbox2:tt3]   diffusion 3/49
+05:08:57  [tt-quietbox2:tt3]   diffusion 4/49
+05:08:57  [tt-quietbox2:tt3]   diffusion 5/49
+05:08:57  [tt-quietbox2:tt3]   diffusion 6/49
+05:08:58  [tt-quietbox2:tt3]   diffusion 7/49
+05:08:58  [tt-quietbox2:tt3]   diffusion 8/49
+05:08:58  [tt-quietbox2:tt3]   diffusion 9/49
+05:08:58  [tt-quietbox2:tt3]   diffusion 10/49
+05:08:59  [tt-quietbox2:tt3]   diffusion 11/49
+05:08:59  [tt-quietbox2:tt3]   diffusion 12/49
+05:08:59  [tt-quietbox2:tt3]   diffusion 13/49
+05:08:59  [tt-quietbox2:tt3]   diffusion 14/49
+05:09:00  [tt-quietbox2:tt3]   diffusion 15/49
+05:09:00  [tt-quietbox2:tt3]   diffusion 16/49
+05:09:00  [tt-quietbox2:tt3]   diffusion 17/49
+05:09:01  [tt-quietbox2:tt3]   diffusion 18/49
+05:09:01  [tt-quietbox2:tt3]   diffusion 19/49
+05:09:01  [tt-quietbox2:tt3]   diffusion 20/49
+05:09:01  [tt-quietbox2:tt3]   diffusion 21/49
+05:09:01  [tt-quietbox2:tt3]   diffusion 22/49
+05:09:02  [tt-quietbox2:tt3]   diffusion 23/49
+05:09:02  [tt-quietbox2:tt3]   diffusion 24/49
+05:09:02  [tt-quietbox2:tt3]   diffusion 25/49
+05:09:03  [tt-quietbox2:tt3]   diffusion 26/49
+05:09:03  [tt-quietbox2:tt3]   diffusion 27/49
+05:09:03  [tt-quietbox2:tt3]   diffusion 28/49
+05:09:03  [tt-quietbox2:tt3]   diffusion 29/49
+05:09:03  [tt-quietbox2:tt3]   diffusion 30/49
+05:09:04  [tt-quietbox2:tt3]   diffusion 31/49
+05:09:04  [tt-quietbox2:tt3]   diffusion 32/49
+05:09:04  [tt-quietbox2:tt3]   diffusion 33/49
+05:09:05  [tt-quietbox2:tt3]   diffusion 34/49
+05:09:05  [tt-quietbox2:tt3]   diffusion 35/49
+05:09:05  [tt-quietbox2:tt3]   diffusion 36/49
+05:09:05  [tt-quietbox2:tt3]   diffusion 37/49
+05:09:06  [tt-quietbox2:tt3]   diffusion 38/49
+05:09:06  [tt-quietbox2:tt3]   diffusion 39/49
+05:09:06  [tt-quietbox2:tt3]   diffusion 40/49
+05:09:06  [tt-quietbox2:tt3]   diffusion 41/49
+05:09:06  [tt-quietbox2:tt3]   diffusion 42/49
+05:09:07  [tt-quietbox2:tt3]   diffusion 43/49
+05:09:07  [tt-quietbox2:tt3]   diffusion 44/49
+05:09:07  [tt-quietbox2:tt3]   diffusion 45/49
+05:09:07  [tt-quietbox2:tt3]   diffusion 46/49
+05:09:08  [tt-quietbox2:tt3]   diffusion 47/49
+05:09:08  [tt-quietbox2:tt3]   diffusion 48/49
+05:09:08  [tt-quietbox2:tt3]   confidence
+05:09:14  [tt-quietbox2:tt3]   saving
+05:09:14  [tt-quietbox2:tt3] ✓ prot — 97.2s
+
+Done: 1 ok, 0 failed — /home/ttuser/.coworker/wt/land-standing/rf3_results_prot/results.json
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 0
+RMSD: 1.2388 Å   TM-score: 0.9579
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 1
+RMSD: 1.3167 Å   TM-score: 0.9559
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 2
+RMSD: 1.3068 Å   TM-score: 0.9573
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 3
+RMSD: 1.3901 Å   TM-score: 0.9565
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 4
+RMSD: 1.3380 Å   TM-score: 0.9558
+==================================================
+
+############################################################
+GROUND-TRUTH ACCURACY — prot (5 samples)
+  model 0: RMSD  1.239 Å   TM 0.958 <- best confidence (gated)
+  model 1: RMSD  1.317 Å   TM 0.956
+  model 2: RMSD  1.307 Å   TM 0.957
+  model 3: RMSD  1.390 Å   TM 0.957
+  model 4: RMSD  1.338 Å   TM 0.956
+  oracle-best sample: model 0 RMSD 1.239 Å TM 0.958
+############################################################
+
+[rf3] geometry (5 sample(s), worst): in band 1.0 (A/protein), backbone gaps 0, clashes 0/899 (0.0000, worst contact 0.0 A)
+
+##############################################################################
+RELEASE GATE — prot.yaml (prot), 50 steps / 5 samples, seed 0
+##############################################################################
+model            RMSD (A)      TM           floor  in band  gaps        clash    wall  result
+rf3                 1.239   0.958    <=3.0/>=0.75   1.0000     0    0(0.0000)    560s  PASS
+##############################################################################
+geometry floors, check_structure.py's own bands: in band >= 0.9 (protein) / 0.85 (nucleic), zero backbone gaps beyond 5.0 / 9.5 A, clashes <= max(2, 0.02 x heavy atoms)
+GATE PASS — all models cleared parse + ground-truth floor + geometry

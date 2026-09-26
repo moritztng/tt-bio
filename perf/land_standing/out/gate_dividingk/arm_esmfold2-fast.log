@@ -1,0 +1,234 @@
+[release-gate] granted card(s) [3]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 064e5ad5a)
+
+======================================================================
+[esmfold2-fast] folding prot.yaml (200 steps, 5 samples)
+======================================================================
+05:15:22  [tt-quietbox2:tt3] loading model…
+05:15:50  [tt-quietbox2:tt3] prot
+05:15:50  [tt-quietbox2:tt3]   prep
+05:15:56  [tt-quietbox2:tt3]   trunk 0/11
+05:15:58  [tt-quietbox2:tt3]   trunk 1/11
+05:15:58  [tt-quietbox2:tt3]   trunk 2/11
+05:15:58  [tt-quietbox2:tt3]   trunk 3/11
+05:15:58  [tt-quietbox2:tt3]   trunk 4/11
+05:15:58  [tt-quietbox2:tt3]   trunk 5/11
+05:15:59  [tt-quietbox2:tt3]   trunk 6/11
+05:15:59  [tt-quietbox2:tt3]   trunk 7/11
+05:15:59  [tt-quietbox2:tt3]   trunk 8/11
+05:15:59  [tt-quietbox2:tt3]   trunk 9/11
+05:15:59  [tt-quietbox2:tt3]   trunk 10/11
+05:16:00  [tt-quietbox2:tt3]   diffusion 0/134
+05:16:01  [tt-quietbox2:tt3]   diffusion 1/134
+05:16:01  [tt-quietbox2:tt3]   diffusion 2/134
+05:16:01  [tt-quietbox2:tt3]   diffusion 3/134
+05:16:01  [tt-quietbox2:tt3]   diffusion 4/134
+05:16:01  [tt-quietbox2:tt3]   diffusion 5/134
+05:16:01  [tt-quietbox2:tt3]   diffusion 6/134
+05:16:01  [tt-quietbox2:tt3]   diffusion 7/134
+05:16:01  [tt-quietbox2:tt3]   diffusion 8/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 9/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 10/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 11/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 12/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 13/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 14/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 15/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 16/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 17/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 18/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 19/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 20/134
+05:16:02  [tt-quietbox2:tt3]   diffusion 21/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 22/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 23/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 24/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 25/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 26/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 27/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 28/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 29/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 30/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 31/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 32/134
+05:16:03  [tt-quietbox2:tt3]   diffusion 33/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 34/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 35/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 36/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 37/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 38/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 39/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 40/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 41/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 42/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 43/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 44/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 45/134
+05:16:04  [tt-quietbox2:tt3]   diffusion 46/134
+05:16:05  [tt-quietbox2:tt3]   diffusion 47/134
+05:16:05  [tt-quietbox2:tt3]   diffusion 48/134
+05:16:05  [tt-quietbox2:tt3]   diffusion 49/134
+05:16:05  [tt-quietbox2:tt3]   diffusion 50/134
+05:16:05  [tt-quietbox2:tt3]   diffusion 51/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 52/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 53/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 54/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 55/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 56/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 57/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 58/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 59/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 60/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 61/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 62/134
+05:16:06  [tt-quietbox2:tt3]   diffusion 63/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 64/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 65/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 66/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 67/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 68/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 69/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 70/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 71/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 72/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 73/134
+05:16:07  [tt-quietbox2:tt3]   diffusion 74/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 75/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 76/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 77/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 78/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 79/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 80/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 81/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 82/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 83/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 84/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 85/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 86/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 87/134
+05:16:08  [tt-quietbox2:tt3]   diffusion 88/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 89/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 90/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 91/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 92/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 93/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 94/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 95/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 96/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 97/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 98/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 99/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 100/134
+05:16:09  [tt-quietbox2:tt3]   diffusion 101/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 102/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 103/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 104/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 105/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 106/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 107/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 108/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 109/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 110/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 111/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 112/134
+05:16:10  [tt-quietbox2:tt3]   diffusion 113/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 114/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 115/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 116/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 117/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 118/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 119/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 120/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 121/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 122/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 123/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 124/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 125/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 126/134
+05:16:11  [tt-quietbox2:tt3]   diffusion 127/134
+05:16:12  [tt-quietbox2:tt3]   diffusion 128/134
+05:16:12  [tt-quietbox2:tt3]   diffusion 129/134
+05:16:12  [tt-quietbox2:tt3]   diffusion 130/134
+05:16:12  [tt-quietbox2:tt3]   diffusion 131/134
+05:16:12  [tt-quietbox2:tt3]   diffusion 132/134
+05:16:12  [tt-quietbox2:tt3]   diffusion 133/134
+05:16:12  [tt-quietbox2:tt3]   confidence
+05:16:14  [tt-quietbox2:tt3]   saving
+05:16:14  [tt-quietbox2:tt3] ✓ prot — 23.7s
+
+Done: 1 ok, 0 failed — /home/ttuser/.coworker/wt/land-standing/esmfold2_results_prot/results.json
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 0
+RMSD: 1.7079 Å   TM-score: 0.9183
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 1
+RMSD: 1.7732 Å   TM-score: 0.9195
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 2
+RMSD: 1.6481 Å   TM-score: 0.9221
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 3
+RMSD: 1.8669 Å   TM-score: 0.9111
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 4
+RMSD: 1.7896 Å   TM-score: 0.9118
+==================================================
+
+############################################################
+GROUND-TRUTH ACCURACY — prot (5 samples)
+  model 0: RMSD  1.708 Å   TM 0.918 <- best confidence (gated)
+  model 1: RMSD  1.773 Å   TM 0.919
+  model 2: RMSD  1.648 Å   TM 0.922
+  model 3: RMSD  1.867 Å   TM 0.911
+  model 4: RMSD  1.790 Å   TM 0.912
+  oracle-best sample: model 2 RMSD 1.648 Å TM 0.922
+############################################################
+
+[esmfold2-fast] geometry (5 sample(s), worst): in band 1.0 (A/protein), backbone gaps 0, clashes 1/899 (0.0011, worst contact 1.884 A)
+
+##############################################################################
+RELEASE GATE — prot.yaml (prot), 200 steps / 5 samples, seed 0
+##############################################################################
+model            RMSD (A)      TM           floor  in band  gaps        clash    wall  result
+esmfold2-fast       1.708   0.918     <=4.5/>=0.6   1.0000     0    1(0.0011)     67s  PASS
+##############################################################################
+geometry floors, check_structure.py's own bands: in band >= 0.9 (protein) / 0.85 (nucleic), zero backbone gaps beyond 5.0 / 9.5 A, clashes <= max(2, 0.02 x heavy atoms)
+GATE PASS — all models cleared parse + ground-truth floor + geometry
