@@ -2,3 +2,6 @@ trajectory,design,length,Binder_Sequence,i_pDAE,i_pTM,pLDDT,pTM,i_pAE,Target_pLD
 1,pdl1_denovo_l70_a0ee99180e3475e5,70,,,,,,,,BindCraft 2 (unreleased),,,,,,,,,,,,,,,,,,,,,,,,,,worker=0;start=1790387012.62;design=4167.85;compiled=1,a0ee99180e3475e5,final,
 2,pdl1_denovo_l163_3aa2df7922f3b238,163,,,,,,,,BindCraft 2 (unreleased),,,,,,,,,,,,,,,,,,,,,,,,,,worker=0;start=1790391181.92;design=7765.92;compiled=0,3aa2df7922f3b238,harden,
 3,pdl1_denovo_l113_bb573cebd6ca134a,113,SPVKEFKNFKVDANRMVHRMRTHPHIPQDDVIFVFKFIMRQTVHFMRVWHPELSTHLSMALDAGEPLHENPEFMAHWEQTMAKASKEERSTLMSAYDLAETMQTMIEGITISM,0.21,0.79,0.88,0.84,0.2,0.91,BindCraft 2 (unreleased),18.0,1.0,0.0,0.0,12.0,993.6,0.14,0.29,0.44,0.84,0.0,0.16,0.89,0.89,0.0,0.11,1.2,18.0,0.0,13.3,6.2,-2.7,0.0,12490.0,0.0,worker=0;start=1790398947.96;design=4977.34;compiled=0,bb573cebd6ca134a,,
+4,pdl1_denovo_l113_aa8314f415ec4a76,113,,,,,,,,BindCraft 2 (unreleased),,,,,,,,,,,,,,,,,,,,,,,,,,worker=0;start=1790404950.83;design=2845.08;compiled=0,aa8314f415ec4a76,refine,
+5,pdl1_denovo_l172_d556771cfbdc2a4f,172,,,,,,,,BindCraft 2 (unreleased),,,,,,,,,,,,,,,,,,,,,,,,,,worker=0;start=1790407796.89;design=4464.69;compiled=0,d556771cfbdc2a4f,refine,
+6,pdl1_denovo_l134_a2c4acc539e7ef6c,134,,,,,,,,BindCraft 2 (unreleased),,,,,,,,,,,,,,,,,,,,,,,,,,worker=0;start=1790412262.38;design=5479.26;compiled=0,a2c4acc539e7ef6c,harden,

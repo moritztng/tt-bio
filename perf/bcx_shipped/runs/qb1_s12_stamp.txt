@@ -1,0 +1,11 @@
+launched   2026-09-26T00:07:51Z
+host       tt-quietbox   board p150a
+tree       /home/ttuser/bcx_accept_art/qb1tree
+commit     643cabcf9ed31b4ec23f82913bc083c3531884b7
+dirty      0 files
+exact      off
+card       3   sysfs /sys/class/tenstorrent/tenstorrent!0
+seed       12   trajectories 6   omp 8
+loadavg    6.87 7.39 5.59
+arm pid    60764
+arm exit   0 2026-09-26T07:02:02Z

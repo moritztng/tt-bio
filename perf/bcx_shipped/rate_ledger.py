@@ -146,6 +146,80 @@ def terminal_map(log):
     return out
 
 
+def csv_terminal_map(artdir):
+    """draw hash -> terminal label, read off BindCraft 2's OWN csvs rather than the run log.
+
+    The log is not a durable record. `qb1_launch.sh:84` opens `$TAG.log` with a truncating
+    redirect, so re-running the launcher for a tag whose arm has already finished destroys
+    that arm's whole stage trace -- which is what happened to `qb1_s10` at 2026-09-26T09:14:14Z
+    and to `qb1_s11` at 01:39. Both logs are 73 bytes of `line 88: d: command not found`.
+
+    `!_Trajectories.csv` carries a `terminated` column that BC2 writes per trajectory, and
+    `!_Refolded.csv` carries one row per redesign with an `outcome`. Between them the terminal
+    is recoverable with no log at all. The csv loses the FILTER LIST, so the log is still
+    worth reading when it survives -- as an enrichment, not as the source of truth.
+
+    An empty `terminated` means the trajectory ran the full design path into the refold
+    ensemble. That is NOT acceptance: `terminated: completed` counts l69 and l180 alike and
+    only `!_Refolded.csv` separates them. Count the passing rows.
+    """
+    import csv as _csv
+    from collections import Counter
+    out = {}
+    tpath = os.path.join(artdir, "1_Trajectories", "!_Trajectories.csv")
+    if not os.path.exists(tpath):
+        return out
+    passed, scored = Counter(), Counter()
+    rpath = os.path.join(artdir, "2_Refolded", "!_Refolded.csv")
+    if os.path.exists(rpath):
+        for r in _csv.DictReader(open(rpath)):
+            m = RE_DRAW.search(re.sub(r"_candidate\d+$", "", r.get("design", "")))
+            if not m:
+                continue
+            scored[m.group(2)] += 1
+            if r.get("outcome", "").strip().lower() == "passed":
+                passed[m.group(2)] += 1
+    for r in _csv.DictReader(open(tpath)):
+        draw = (r.get("hash") or "").strip()
+        if not draw:
+            continue
+        stage = (r.get("terminated") or "").strip()
+        if stage:
+            out[draw] = stage
+        elif passed[draw]:
+            out[draw] = "ACCEPTED"
+        elif scored[draw]:
+            out[draw] = "validation [0 of %d]" % scored[draw]
+        else:
+            out[draw] = "in flight"
+    return out
+
+
+def merge_terminals(csv_term, log_term, label):
+    """csv is the source of truth; the log only supplies the filter list it carries.
+
+    Disagreement is reported rather than silently resolved -- the two are independent
+    records and a split between them means one of them is describing a different run.
+    """
+    out = dict(csv_term)
+    for draw, lt in log_term.items():
+        ct = csv_term.get(draw)
+        if ct is None:
+            out[draw] = lt
+            continue
+        if lt == "in flight" or ct == "in flight":
+            continue
+        base = lt.split(" [")[0]
+        if base == ct or (base == "final" and ct == "final") or (
+                lt == "ACCEPTED" and ct == "ACCEPTED") or (
+                lt.startswith("validation") and ct.startswith("validation")):
+            out[draw] = lt   # same verdict, log adds the filter list
+        else:
+            print("  ! %s %s: csv says %r, log says %r -- using the csv"
+                  % (label, draw[:8], ct, lt), file=sys.stderr)
+    return out
+
+
 def main(argv):
     rows, ref = [], None
     argv = list(argv)
@@ -169,7 +243,14 @@ def main(argv):
             log = os.path.join(os.path.dirname(artdir.rstrip("/")),
                                os.path.basename(artdir.rstrip("/")).replace("_arm", "")
                                + ".log")
-        term = terminal_map(log)
+        csv_term = csv_terminal_map(artdir)
+        if os.path.exists(log) and os.path.getsize(log) > 200:
+            term = merge_terminals(csv_term, terminal_map(log), label)
+        else:
+            # log lost or never written; BC2's own csvs still carry every terminal
+            print("  ! %s: no usable log at %s, reading terminals from the csvs only"
+                  % (label, log), file=sys.stderr)
+            term = csv_term
         order = json.load(open(os.path.join(artdir, ".campaign_state.json")))["attempted"]
         dirs = {}
         for d in os.listdir(os.path.join(artdir, "1_Trajectories")):

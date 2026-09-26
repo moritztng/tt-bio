@@ -1,0 +1,71 @@
+2026-09-26T00:52:20Z {
+2026-09-26T00:52:20Z  "arm": "reference",
+2026-09-26T00:52:20Z  "seed": 2,
+2026-09-26T00:52:20Z  "trajectories": 10,
+2026-09-26T00:52:20Z  "length_bucket_size": 32,
+2026-09-26T00:52:20Z  "length_bucket_flag": 0,
+2026-09-26T00:52:20Z  "shipped_model_pool": true,
+2026-09-26T00:52:20Z  "resolved_design_models": [
+2026-09-26T00:52:20Z   "model_1_multimer_v3",
+2026-09-26T00:52:20Z   "model_2_multimer_v3",
+2026-09-26T00:52:20Z   "model_3_multimer_v3",
+2026-09-26T00:52:20Z   "model_4_multimer_v3",
+2026-09-26T00:52:20Z   "model_5_multimer_v3"
+2026-09-26T00:52:20Z  ],
+2026-09-26T00:52:20Z  "resolved_validation_models": [
+2026-09-26T00:52:20Z   "model_1_ptm",
+2026-09-26T00:52:20Z   "model_2_ptm"
+2026-09-26T00:52:20Z  ],
+2026-09-26T00:52:20Z  "settings_file": "/home/ttuser/bcx_e2e/bc2/examples/pdl1.json",
+2026-09-26T00:52:20Z  "bc2": "/home/ttuser/bcx_e2e/bc2",
+2026-09-26T00:52:20Z  "predictor": "AlphaFoldDesignModel",
+2026-09-26T00:52:20Z  "host": "tt-quietbox",
+2026-09-26T00:52:20Z  "started_utc": "2026-09-26T00:50:18Z",
+2026-09-26T00:52:20Z  "loadavg_start": [
+2026-09-26T00:52:20Z   12.74755859375,
+2026-09-26T00:52:20Z   15.19580078125,
+2026-09-26T00:52:20Z   14.21630859375
+2026-09-26T00:52:20Z  ],
+2026-09-26T00:52:20Z  "stage_plan": {
+2026-09-26T00:52:20Z   "per_stage": {
+2026-09-26T00:52:20Z    "screen": 50,
+2026-09-26T00:52:20Z    "refine": 25,
+2026-09-26T00:52:20Z    "anneal": 45,
+2026-09-26T00:52:20Z    "harden": 5,
+2026-09-26T00:52:20Z    "mutate": 15
+2026-09-26T00:52:20Z   },
+2026-09-26T00:52:20Z   "gradient_steps": 125,
+2026-09-26T00:52:20Z   "mutate_steps": 15
+2026-09-26T00:52:20Z  },
+2026-09-26T00:52:20Z  "threads": "--xla_gpu_enable_triton_gemm=false",
+2026-09-26T00:52:20Z  "project": "/home/ttuser/bcx_shipped_qb1/ref_s2"
+2026-09-26T00:52:20Z }
+2026-09-26T00:52:20Z BindCraft 2 (unreleased)
+2026-09-26T00:52:20Z campaign pdl1
+2026-09-26T00:52:20Z binder length 60 to 180, drawn per trajectory
+2026-09-26T00:52:20Z target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+2026-09-26T00:52:20Z losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+2026-09-26T00:52:20Z filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+2026-09-26T00:52:20Z results /home/ttuser/bcx_shipped_qb1/ref_s2 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+2026-09-26T00:52:20Z 
+2026-09-26T00:52:20Z === trajectory 1 | pdl1_denovo_l135_7ae5d04ea7edaf5a | accepted 0/10 ===
+2026-09-26T04:52:11Z   passed screen design stage  i_pTM=0.76    pLDDT=0.91  
+2026-09-26T06:50:39Z   passed refine design stage  i_pTM=0.38    pLDDT=0.78  
+2026-09-26T10:11:28Z   passed anneal design stage  i_pTM=0.69    pLDDT=0.88  
+2026-09-26T10:29:24Z   passed harden design stage  i_pTM=0.68    pLDDT=0.87  
+2026-09-26T10:41:05Z   passed mutate design stage  i_pTM=0.72    pLDDT=0.88  
+2026-09-26T10:41:05Z   binder hallucination successful
+2026-09-26T10:41:15Z   binder optimization, 10 MPNN redesigns
+2026-09-26T10:44:00Z    1/10  rejected  Binder_RMSD=0.84    Hotspot_Contact_Fraction=0.75    Interface_Residues=11   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.92    i_pAE=0.33    i_pTM=0.63    pLDDT=0.89    pTM=0.77    failed [i_pTM]
+2026-09-26T10:46:15Z    2/10  rejected  Binder_RMSD=0.18    Hotspot_Contact_Fraction=0.75    Interface_Residues=11   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.92    i_pAE=0.3     i_pTM=0.65    pLDDT=0.9     pTM=0.77    failed [i_pTM]
+2026-09-26T10:48:10Z    3/10  rejected  Binder_RMSD=0.24    Hotspot_Contact_Fraction=0.75    Interface_Residues=13   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.91    i_pAE=0.35    i_pTM=0.6     pLDDT=0.9     pTM=0.75    failed [i_pTM]
+2026-09-26T10:50:15Z    4/10  rejected  Binder_RMSD=0.17    Hotspot_Contact_Fraction=0.75    Interface_Residues=11   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.92    i_pAE=0.33    i_pTM=0.62    pLDDT=0.9     pTM=0.76    failed [i_pTM]
+2026-09-26T10:52:15Z    5/10  rejected  Binder_RMSD=0.44    Hotspot_Contact_Fraction=1.0     Interface_Residues=13   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.92    i_pAE=0.32    i_pTM=0.64    pLDDT=0.86    pTM=0.76    failed [i_pTM]
+2026-09-26T10:54:16Z    6/10  rejected  Binder_RMSD=0.18    Hotspot_Contact_Fraction=1.0     Interface_Residues=9    Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.91    i_pAE=0.43    i_pTM=0.5     pLDDT=0.88    pTM=0.69    failed [i_pTM]
+2026-09-26T10:56:11Z    7/10  rejected  Binder_RMSD=0.24    Hotspot_Contact_Fraction=0.5     Interface_Residues=6    Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.91    i_pAE=0.69    i_pTM=0.24    pLDDT=0.85    pTM=0.57    failed [i_pTM]
+2026-09-26T10:58:01Z    8/10  rejected  Binder_RMSD=0.41    Hotspot_Contact_Fraction=1.0     Interface_Residues=12   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.92    i_pAE=0.29    i_pTM=0.69    pLDDT=0.88    pTM=0.79    failed [i_pTM]
+2026-09-26T11:00:01Z    9/10  rejected  Binder_RMSD=0.18    Hotspot_Contact_Fraction=0.75    Interface_Residues=13   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.92    i_pAE=0.29    i_pTM=0.67    pLDDT=0.88    pTM=0.78    failed [i_pTM]
+2026-09-26T11:01:56Z   10/10  rejected  Binder_RMSD=0.63    Hotspot_Contact_Fraction=0.75    Interface_Residues=11   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.92    i_pAE=0.31    i_pTM=0.66    pLDDT=0.87    pTM=0.77    failed [i_pTM]
+2026-09-26T11:01:56Z   0 of 10 redesigns passed
+2026-09-26T11:01:56Z 
+2026-09-26T11:01:56Z === trajectory 2 | pdl1_denovo_l166_82254b12a48c9e69 | accepted 0/10 ===

@@ -1,0 +1,167 @@
+MUTATE BAND, every trajectory in this campaign that REACHED mutate, read 2026-09-26T11:3xZ.
+The band is the min-max of interface_iptm over mutate 15 rounds, off each trajectory own losses.csv.
+
+############ REFERENCE (BC2 own JAX, CPU) ############
+
+pdl1_denovo_l146_747386c849de6b5b   140 rounds   runs/shipped_pc/1_Trajectories/pdl1_denovo_l146_747386c849de6b5b/pdl1_denovo_l146_747386c849de6b5b_losses.csv
+  screen   n= 50  iptm 0.05-0.87 final 0.2200   ptm 0.43-0.89 final 0.5100
+  refine   n= 25  iptm 0.11-0.84 final 0.8300   ptm 0.45-0.86 final 0.8500
+  anneal   n= 45  iptm 0.27-0.86 final 0.8500   ptm 0.53-0.87 final 0.8700
+  harden   n=  5  iptm 0.85-0.85 final 0.8500   ptm 0.87-0.88 final 0.8800
+  mutate   n= 15  iptm 0.65-0.86 final 0.7400   ptm 0.68-0.87 final 0.7000
+  mutate iptm  0.68  0.68  0.78  0.74  0.77  0.78  0.74  0.83  0.81  0.65  0.86  0.81  0.80  0.82  0.74
+  mutate ptm   0.68  0.68  0.74  0.69  0.73  0.72  0.71  0.84  0.74  0.70  0.87  0.75  0.74  0.82  0.70
+
+pdl1_denovo_l109_898157bd3db82d4f   125 rounds   runs/ref_s1/1_Trajectories/pdl1_denovo_l109_898157bd3db82d4f/pdl1_denovo_l109_898157bd3db82d4f_losses.csv
+  screen   n= 50  iptm 0.11-0.67 final 0.1500   ptm 0.50-0.78 final 0.5200
+  refine   n= 25  iptm 0.16-0.48 final 0.2300   ptm 0.52-0.69 final 0.5600
+  anneal   n= 45  iptm 0.18-0.52 final 0.1900   ptm 0.54-0.72 final 0.5400
+  harden   n=  5  iptm 0.33-0.50 final 0.5000   ptm 0.61-0.70 final 0.7000
+
+pdl1_denovo_l111_74f2afaeef24065e   125 rounds   runs/ref_s1/1_Trajectories/pdl1_denovo_l111_74f2afaeef24065e/pdl1_denovo_l111_74f2afaeef24065e_losses.csv
+  screen   n= 50  iptm 0.06-0.83 final 0.1800   ptm 0.48-0.87 final 0.5300
+  refine   n= 25  iptm 0.11-0.79 final 0.7700   ptm 0.50-0.84 final 0.8300
+  anneal   n= 45  iptm 0.12-0.83 final 0.7900   ptm 0.51-0.87 final 0.8500
+  harden   n=  5  iptm 0.13-0.15 final 0.1500   ptm 0.51-0.52 final 0.5200
+
+pdl1_denovo_l142_d47236314bff52ac   140 rounds   runs/ref_s1/1_Trajectories/pdl1_denovo_l142_d47236314bff52ac/pdl1_denovo_l142_d47236314bff52ac_losses.csv
+  screen   n= 50  iptm 0.08-0.81 final 0.7100   ptm 0.43-0.85 final 0.7900
+  refine   n= 25  iptm 0.13-0.75 final 0.1900   ptm 0.46-0.82 final 0.5000
+  anneal   n= 45  iptm 0.14-0.75 final 0.1900   ptm 0.48-0.83 final 0.5000
+  harden   n=  5  iptm 0.31-0.65 final 0.3100   ptm 0.55-0.75 final 0.5500
+  mutate   n= 15  iptm 0.24-0.72 final 0.5800   ptm 0.53-0.80 final 0.7200
+  mutate iptm  0.31  0.24  0.63  0.49  0.72  0.70  0.54  0.53  0.55  0.29  0.60  0.60  0.65  0.52  0.58
+  mutate ptm   0.55  0.53  0.74  0.67  0.80  0.79  0.69  0.67  0.70  0.56  0.73  0.74  0.76  0.69  0.72
+
+pdl1_denovo_l135_7ae5d04ea7edaf5a   140 rounds   runs/ref_s2/1_Trajectories/pdl1_denovo_l135_7ae5d04ea7edaf5a/pdl1_denovo_l135_7ae5d04ea7edaf5a_losses.csv
+  screen   n= 50  iptm 0.08-0.76 final 0.5700   ptm 0.45-0.82 final 0.7100
+  refine   n= 25  iptm 0.15-0.38 final 0.1900   ptm 0.48-0.60 final 0.4900
+  anneal   n= 45  iptm 0.12-0.71 final 0.1200   ptm 0.47-0.79 final 0.4700
+  harden   n=  5  iptm 0.30-0.68 final 0.6800   ptm 0.58-0.78 final 0.7800
+  mutate   n= 15  iptm 0.27-0.75 final 0.4700   ptm 0.56-0.82 final 0.6600
+  mutate iptm  0.68  0.68  0.66  0.69  0.27  0.58  0.67  0.72  0.56  0.75  0.35  0.46  0.70  0.70  0.47
+  mutate ptm   0.79  0.78  0.78  0.79  0.56  0.72  0.77  0.80  0.70  0.82  0.61  0.65  0.79  0.78  0.66
+
+############ DEVICE (qb1 p150a, three adopted arms) ############
+
+pdl1_denovo_l109_1c9afe5424be8ee7   140 rounds   runs/qb1_s10/1_Trajectories/pdl1_denovo_l109_1c9afe5424be8ee7/pdl1_denovo_l109_1c9afe5424be8ee7_losses.csv
+  screen   n= 50  iptm 0.11-0.87 final 0.2200   ptm 0.50-0.89 final 0.5500
+  refine   n= 25  iptm 0.12-0.56 final 0.4300   ptm 0.50-0.66 final 0.6600
+  anneal   n= 45  iptm 0.14-0.81 final 0.1900   ptm 0.52-0.81 final 0.5500
+  harden   n=  5  iptm 0.26-0.63 final 0.4300   ptm 0.58-0.75 final 0.6200
+  mutate   n= 15  iptm 0.19-0.82 final 0.5200   ptm 0.54-0.81 final 0.6800
+  mutate iptm  0.62  0.30  0.82  0.30  0.72  0.38  0.29  0.53  0.40  0.33  0.19  0.36  0.81  0.33  0.52
+  mutate ptm   0.75  0.60  0.81  0.59  0.76  0.62  0.60  0.67  0.64  0.60  0.54  0.62  0.81  0.62  0.68
+
+pdl1_denovo_l171_e0b159db66e8a5f5   140 rounds   runs/qb1_s10/1_Trajectories/pdl1_denovo_l171_e0b159db66e8a5f5/pdl1_denovo_l171_e0b159db66e8a5f5_losses.csv
+  screen   n= 50  iptm 0.10-0.79 final 0.3900   ptm 0.42-0.83 final 0.5600
+  refine   n= 25  iptm 0.14-0.80 final 0.1600   ptm 0.43-0.85 final 0.5400
+  anneal   n= 45  iptm 0.14-0.85 final 0.8300   ptm 0.44-0.88 final 0.8700
+  harden   n=  5  iptm 0.14-0.71 final 0.1700   ptm 0.44-0.74 final 0.5000
+  mutate   n= 15  iptm 0.11-0.69 final 0.3000   ptm 0.42-0.75 final 0.4900
+  mutate iptm  0.43  0.11  0.11  0.35  0.13  0.69  0.27  0.22  0.22  0.69  0.12  0.13  0.21  0.50  0.30
+  mutate ptm   0.52  0.42  0.43  0.50  0.43  0.73  0.50  0.51  0.49  0.75  0.42  0.43  0.48  0.55  0.49
+
+pdl1_denovo_l180_88844f62a85998ff   140 rounds   runs/qb1_s10/1_Trajectories/pdl1_denovo_l180_88844f62a85998ff/pdl1_denovo_l180_88844f62a85998ff_losses.csv
+  screen   n= 50  iptm 0.08-0.87 final 0.8300   ptm 0.40-0.90 final 0.8800
+  refine   n= 25  iptm 0.11-0.84 final 0.1600   ptm 0.41-0.86 final 0.4900
+  anneal   n= 45  iptm 0.15-0.86 final 0.8200   ptm 0.57-0.86 final 0.7300
+  harden   n=  5  iptm 0.12-0.83 final 0.8300   ptm 0.54-0.85 final 0.8500
+  mutate   n= 15  iptm 0.12-0.83 final 0.8200   ptm 0.53-0.84 final 0.7700
+  mutate iptm  0.12  0.83  0.83  0.82  0.12  0.83  0.12  0.78  0.83  0.12  0.82  0.82  0.82  0.83  0.82
+  mutate ptm   0.54  0.73  0.80  0.84  0.53  0.73  0.54  0.81  0.74  0.55  0.80  0.70  0.81  0.73  0.77
+
+pdl1_denovo_l68_284b22e63420a62a   120 rounds   runs/qb1_s10/1_Trajectories/pdl1_denovo_l68_284b22e63420a62a/pdl1_denovo_l68_284b22e63420a62a_losses.csv
+  screen   n= 50  iptm 0.12-0.61 final 0.3000   ptm 0.59-0.77 final 0.6600
+  refine   n= 25  iptm 0.15-0.46 final 0.4600   ptm 0.60-0.71 final 0.7100
+  anneal   n= 45  iptm 0.22-0.72 final 0.3900   ptm 0.62-0.82 final 0.6800
+
+pdl1_denovo_l69_ecc9c7054713b395   140 rounds   runs/qb1_s10/1_Trajectories/pdl1_denovo_l69_ecc9c7054713b395/pdl1_denovo_l69_ecc9c7054713b395_losses.csv
+  screen   n= 50  iptm 0.11-0.87 final 0.8700   ptm 0.59-0.89 final 0.8900
+  refine   n= 25  iptm 0.19-0.87 final 0.7800   ptm 0.61-0.89 final 0.8500
+  anneal   n= 45  iptm 0.20-0.87 final 0.8700   ptm 0.63-0.89 final 0.8900
+  harden   n=  5  iptm 0.85-0.87 final 0.8700   ptm 0.88-0.89 final 0.8900
+  mutate   n= 15  iptm 0.23-0.86 final 0.4000   ptm 0.63-0.89 final 0.6900
+  mutate iptm  0.78  0.86  0.23  0.64  0.78  0.85  0.76  0.68  0.75  0.77  0.65  0.77  0.68  0.80  0.40
+  mutate ptm   0.84  0.89  0.63  0.79  0.85  0.88  0.84  0.80  0.83  0.84  0.80  0.81  0.81  0.86  0.69
+
+pdl1_denovo_l78_9c89869a4c94fb70   120 rounds   runs/qb1_s10/1_Trajectories/pdl1_denovo_l78_9c89869a4c94fb70/pdl1_denovo_l78_9c89869a4c94fb70_losses.csv
+  screen   n= 50  iptm 0.11-0.62 final 0.2300   ptm 0.56-0.77 final 0.6100
+  refine   n= 25  iptm 0.14-0.36 final 0.1500   ptm 0.57-0.67 final 0.5700
+  anneal   n= 45  iptm 0.14-0.38 final 0.2500   ptm 0.57-0.67 final 0.6200
+
+pdl1_denovo_l111_908458a35b672516   140 rounds   runs/qb1_s12/1_Trajectories/pdl1_denovo_l111_908458a35b672516/pdl1_denovo_l111_908458a35b672516_losses.csv
+  screen   n= 50  iptm 0.09-0.88 final 0.1400   ptm 0.50-0.90 final 0.5100
+  refine   n= 25  iptm 0.13-0.88 final 0.8600   ptm 0.51-0.90 final 0.8900
+  anneal   n= 45  iptm 0.16-0.88 final 0.8200   ptm 0.53-0.90 final 0.8700
+  harden   n=  5  iptm 0.82-0.87 final 0.8400   ptm 0.86-0.89 final 0.8800
+  mutate   n= 15  iptm 0.15-0.87 final 0.8400   ptm 0.52-0.89 final 0.8800
+  mutate iptm  0.87  0.78  0.81  0.81  0.83  0.85  0.78  0.83  0.87  0.15  0.78  0.87  0.82  0.17  0.84
+  mutate ptm   0.89  0.83  0.85  0.85  0.87  0.88  0.83  0.88  0.89  0.52  0.81  0.89  0.86  0.53  0.88
+
+pdl1_denovo_l129_8ad1c300f1181f72   125 rounds   runs/qb1_s12/1_Trajectories/pdl1_denovo_l129_8ad1c300f1181f72/pdl1_denovo_l129_8ad1c300f1181f72_losses.csv
+  screen   n= 50  iptm 0.11-0.55 final 0.1500   ptm 0.47-0.70 final 0.4900
+  refine   n= 25  iptm 0.13-0.44 final 0.1800   ptm 0.48-0.63 final 0.5100
+  anneal   n= 45  iptm 0.14-0.71 final 0.4500   ptm 0.48-0.75 final 0.6500
+  harden   n=  5  iptm 0.23-0.27 final 0.2500   ptm 0.54-0.56 final 0.5500
+
+pdl1_denovo_l144_c6eba2a18b782acd   50 rounds   runs/qb1_s12/1_Trajectories/pdl1_denovo_l144_c6eba2a18b782acd/pdl1_denovo_l144_c6eba2a18b782acd_losses.csv
+  screen   n= 50  iptm 0.12-0.81 final 0.5100   ptm 0.45-0.84 final 0.6600
+
+pdl1_denovo_l87_37f02fa10029f138   120 rounds   runs/qb1_s12/1_Trajectories/pdl1_denovo_l87_37f02fa10029f138/pdl1_denovo_l87_37f02fa10029f138_losses.csv
+  screen   n= 50  iptm 0.11-0.65 final 0.2100   ptm 0.54-0.79 final 0.5900
+  refine   n= 25  iptm 0.14-0.26 final 0.1700   ptm 0.55-0.59 final 0.5700
+  anneal   n= 45  iptm 0.14-0.28 final 0.1500   ptm 0.56-0.62 final 0.5700
+
+pdl1_denovo_l94_cb7294601f4ed8a7   140 rounds   runs/qb1_s12/1_Trajectories/pdl1_denovo_l94_cb7294601f4ed8a7/pdl1_denovo_l94_cb7294601f4ed8a7_losses.csv
+  screen   n= 50  iptm 0.10-0.82 final 0.2100   ptm 0.53-0.83 final 0.5800
+  refine   n= 25  iptm 0.20-0.80 final 0.6700   ptm 0.57-0.85 final 0.7700
+  anneal   n= 45  iptm 0.11-0.83 final 0.8100   ptm 0.53-0.87 final 0.8500
+  harden   n=  5  iptm 0.79-0.81 final 0.8100   ptm 0.82-0.85 final 0.8500
+  mutate   n= 15  iptm 0.19-0.80 final 0.7500   ptm 0.57-0.83 final 0.7900
+  mutate iptm  0.75  0.77  0.79  0.78  0.80  0.75  0.79  0.76  0.79  0.60  0.63  0.73  0.19  0.75  0.75
+  mutate ptm   0.83  0.80  0.82  0.82  0.81  0.79  0.82  0.79  0.80  0.74  0.74  0.81  0.57  0.77  0.79
+
+pdl1_denovo_l95_cb9e3e2fa5a00010   125 rounds   runs/qb1_s12/1_Trajectories/pdl1_denovo_l95_cb9e3e2fa5a00010/pdl1_denovo_l95_cb9e3e2fa5a00010_losses.csv
+  screen   n= 50  iptm 0.10-0.85 final 0.7800   ptm 0.52-0.87 final 0.8300
+  refine   n= 25  iptm 0.18-0.81 final 0.7700   ptm 0.55-0.84 final 0.8200
+  anneal   n= 45  iptm 0.13-0.84 final 0.2600   ptm 0.54-0.86 final 0.6000
+  harden   n=  5  iptm 0.16-0.23 final 0.1600   ptm 0.56-0.59 final 0.5600
+
+pdl1_denovo_l113_aa8314f415ec4a76   75 rounds   runs/qb1_s13/1_Trajectories/pdl1_denovo_l113_aa8314f415ec4a76/pdl1_denovo_l113_aa8314f415ec4a76_losses.csv
+  screen   n= 50  iptm 0.09-0.57 final 0.2300   ptm 0.49-0.66 final 0.5600
+  refine   n= 25  iptm 0.14-0.52 final 0.1800   ptm 0.51-0.65 final 0.5300
+
+pdl1_denovo_l113_bb573cebd6ca134a   140 rounds   runs/qb1_s13/1_Trajectories/pdl1_denovo_l113_bb573cebd6ca134a/pdl1_denovo_l113_bb573cebd6ca134a_losses.csv
+  screen   n= 50  iptm 0.10-0.78 final 0.5000   ptm 0.49-0.84 final 0.6900
+  refine   n= 25  iptm 0.14-0.67 final 0.6400   ptm 0.51-0.74 final 0.7200
+  anneal   n= 45  iptm 0.18-0.82 final 0.6400   ptm 0.53-0.85 final 0.6700
+  harden   n=  5  iptm 0.75-0.79 final 0.7500   ptm 0.79-0.82 final 0.7900
+  mutate   n= 15  iptm 0.26-0.81 final 0.6400   ptm 0.57-0.84 final 0.7400
+  mutate iptm  0.78  0.77  0.81  0.66  0.26  0.63  0.79  0.81  0.79  0.72  0.78  0.68  0.64  0.66  0.64
+  mutate ptm   0.80  0.82  0.84  0.73  0.57  0.72  0.83  0.84  0.83  0.79  0.81  0.76  0.73  0.74  0.74
+
+pdl1_denovo_l134_a2c4acc539e7ef6c   125 rounds   runs/qb1_s13/1_Trajectories/pdl1_denovo_l134_a2c4acc539e7ef6c/pdl1_denovo_l134_a2c4acc539e7ef6c_losses.csv
+  screen   n= 50  iptm 0.10-0.83 final 0.6000   ptm 0.47-0.85 final 0.7400
+  refine   n= 25  iptm 0.18-0.83 final 0.7800   ptm 0.51-0.86 final 0.8300
+  anneal   n= 45  iptm 0.15-0.81 final 0.2600   ptm 0.49-0.85 final 0.5500
+  harden   n=  5  iptm 0.22-0.60 final 0.4500   ptm 0.54-0.72 final 0.6600
+
+pdl1_denovo_l163_3aa2df7922f3b238   125 rounds   runs/qb1_s13/1_Trajectories/pdl1_denovo_l163_3aa2df7922f3b238/pdl1_denovo_l163_3aa2df7922f3b238_losses.csv
+  screen   n= 50  iptm 0.08-0.90 final 0.8200   ptm 0.42-0.92 final 0.8600
+  refine   n= 25  iptm 0.12-0.89 final 0.8800   ptm 0.44-0.91 final 0.9000
+  anneal   n= 45  iptm 0.11-0.89 final 0.1200   ptm 0.43-0.92 final 0.4400
+  harden   n=  5  iptm 0.09-0.11 final 0.1100   ptm 0.42-0.43 final 0.4300
+
+pdl1_denovo_l172_d556771cfbdc2a4f   75 rounds   runs/qb1_s13/1_Trajectories/pdl1_denovo_l172_d556771cfbdc2a4f/pdl1_denovo_l172_d556771cfbdc2a4f_losses.csv
+  screen   n= 50  iptm 0.09-0.41 final 0.1800   ptm 0.40-0.69 final 0.5000
+  refine   n= 25  iptm 0.11-0.18 final 0.1700   ptm 0.42-0.47 final 0.4700
+
+pdl1_denovo_l70_a0ee99180e3475e5   140 rounds   runs/qb1_s13/1_Trajectories/pdl1_denovo_l70_a0ee99180e3475e5/pdl1_denovo_l70_a0ee99180e3475e5_losses.csv
+  screen   n= 50  iptm 0.12-0.85 final 0.8300   ptm 0.59-0.87 final 0.8600
+  refine   n= 25  iptm 0.14-0.84 final 0.8400   ptm 0.59-0.87 final 0.8600
+  anneal   n= 45  iptm 0.23-0.84 final 0.8200   ptm 0.63-0.88 final 0.8700
+  harden   n=  5  iptm 0.28-0.82 final 0.3100   ptm 0.64-0.87 final 0.6500
+  mutate   n= 15  iptm 0.20-0.77 final 0.3700   ptm 0.62-0.84 final 0.6800
+  mutate iptm  0.32  0.77  0.29  0.59  0.39  0.76  0.32  0.20  0.77  0.77  0.25  0.31  0.26  0.25  0.37
+  mutate ptm   0.66  0.84  0.65  0.77  0.69  0.84  0.67  0.62  0.84  0.84  0.63  0.65  0.64  0.64  0.68

@@ -1,0 +1,69 @@
+2026-09-25T14:15:18Z {
+2026-09-25T14:15:18Z  "arm": "reference",
+2026-09-25T14:15:18Z  "seed": 1,
+2026-09-25T14:15:18Z  "trajectories": 10,
+2026-09-25T14:15:18Z  "length_bucket_size": 32,
+2026-09-25T14:15:18Z  "length_bucket_flag": 0,
+2026-09-25T14:15:18Z  "multimer_pool": true,
+2026-09-25T14:15:18Z  "levers": true,
+2026-09-25T14:15:18Z  "design_models": [
+2026-09-25T14:15:18Z   "model_1_multimer_v3",
+2026-09-25T14:15:18Z   "model_2_multimer_v3",
+2026-09-25T14:15:18Z   "model_3_multimer_v3",
+2026-09-25T14:15:18Z   "model_4_multimer_v3",
+2026-09-25T14:15:18Z   "model_5_multimer_v3"
+2026-09-25T14:15:18Z  ],
+2026-09-25T14:15:18Z  "validation_models": [
+2026-09-25T14:15:18Z   "model_1_ptm",
+2026-09-25T14:15:18Z   "model_2_ptm"
+2026-09-25T14:15:18Z  ],
+2026-09-25T14:15:18Z  "predictor": "AlphaFoldDesignModel",
+2026-09-25T14:15:18Z  "host": "tt-quietbox2",
+2026-09-25T14:15:18Z  "started_utc": "2026-09-25T13:34:10Z",
+2026-09-25T14:15:18Z  "loadavg_start": [
+2026-09-25T14:15:18Z   3.2099609375,
+2026-09-25T14:15:18Z   3.892578125,
+2026-09-25T14:15:18Z   6.6923828125
+2026-09-25T14:15:18Z  ],
+2026-09-25T14:15:18Z  "stage_plan": {
+2026-09-25T14:15:18Z   "per_stage": {
+2026-09-25T14:15:18Z    "screen": 50,
+2026-09-25T14:15:18Z    "refine": 25,
+2026-09-25T14:15:18Z    "anneal": 45,
+2026-09-25T14:15:18Z    "harden": 5,
+2026-09-25T14:15:18Z    "mutate": 15
+2026-09-25T14:15:18Z   },
+2026-09-25T14:15:18Z   "gradient_steps": 125,
+2026-09-25T14:15:18Z   "mutate_steps": 15
+2026-09-25T14:15:18Z  },
+2026-09-25T14:15:18Z  "threads": "--xla_gpu_enable_triton_gemm=false",
+2026-09-25T14:15:18Z  "project": "/home/ttuser/bcx_accept_art/ref_s1"
+2026-09-25T14:15:18Z }
+2026-09-25T14:15:18Z BindCraft 2 (unreleased)
+2026-09-25T14:15:18Z campaign pdl1
+2026-09-25T14:15:18Z binder length 60 to 180, drawn per trajectory
+2026-09-25T14:15:18Z target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+2026-09-25T14:15:18Z losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+2026-09-25T14:15:18Z filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+2026-09-25T14:15:18Z results /home/ttuser/bcx_accept_art/ref_s1 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+2026-09-25T14:15:18Z 
+2026-09-25T14:15:18Z === trajectory 1 | pdl1_denovo_l111_74f2afaeef24065e | accepted 0/10 ===
+2026-09-25T16:34:29Z   passed screen design stage  i_pTM=0.82    pLDDT=0.93  
+2026-09-25T18:12:50Z   passed refine design stage  i_pTM=0.79    pLDDT=0.88  
+2026-09-25T20:45:16Z   passed anneal design stage  i_pTM=0.83    pLDDT=0.9   
+2026-09-25T20:57:51Z   rejected at harden design stage  i_pTM=0.13    pLDDT=0.38   due to [i_pTM, pLDDT]
+2026-09-25T20:57:51Z 
+2026-09-25T20:57:51Z === trajectory 2 | pdl1_denovo_l142_d47236314bff52ac | accepted 0/10 ===
+2026-09-26T00:52:13Z   passed screen design stage  i_pTM=0.81    pLDDT=0.88  
+2026-09-26T02:49:44Z   passed refine design stage  i_pTM=0.75    pLDDT=0.84  
+2026-09-26T05:36:45Z   passed anneal design stage  i_pTM=0.74    pLDDT=0.75  
+2026-09-26T05:54:40Z   passed harden design stage  i_pTM=0.65    pLDDT=0.76  
+2026-09-26T06:12:35Z   rejected at mutate design stage  i_pTM=0.32    pLDDT=0.8    due to [i_pTM]
+2026-09-26T06:12:35Z 
+2026-09-26T06:12:35Z === trajectory 3 | pdl1_denovo_l109_898157bd3db82d4f | accepted 0/10 ===
+2026-09-26T08:09:35Z   passed screen design stage  i_pTM=0.59    pLDDT=0.67  
+2026-09-26T09:03:31Z   passed refine design stage  i_pTM=0.39    pLDDT=0.79  
+2026-09-26T10:39:51Z   passed anneal design stage  i_pTM=0.52    pLDDT=0.7   
+2026-09-26T10:51:56Z   rejected at harden design stage  i_pTM=0.5     pLDDT=0.75   due to [i_pTM]
+2026-09-26T10:51:56Z 
+2026-09-26T10:51:56Z === trajectory 4 | pdl1_denovo_l151_2ce27ded7b7a2d54 | accepted 0/10 ===
