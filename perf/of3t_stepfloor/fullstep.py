@@ -260,6 +260,31 @@ def _mem():
     return round(rss, 3), round(avail, 3)
 
 
+def _peak_rss():
+    """`VmHWM` -- the high-water mark of this process's resident set, in GiB.
+
+    The kernel keeps it for free and it is the only honest answer to "how big did the step
+    get": sampling RSS at phase boundaries misses a peak that lives inside a phase, and the
+    step's peak is what decides whether the host has room left to do arithmetic in. Reset is
+    possible on Linux (`echo 5 > /proc/self/clear_refs`) so a PER-REP peak is readable too.
+    """
+    try:
+        return round(int([l.split()[1] for l in open("/proc/self/status")
+                          if l.startswith("VmHWM")][0]) / 1048576, 3)
+    except (OSError, IndexError):
+        return None
+
+
+def _reset_peak_rss():
+    """Reset `VmHWM` to the current RSS, so the next rep's peak is its own."""
+    try:
+        with open("/proc/self/clear_refs", "w") as f:
+            f.write("5\n")
+        return True
+    except OSError:
+        return False
+
+
 def host_losses(roots, rep, weights, rng, out, shape="per-root"):
     """`af3_loss` on host, at token scope, returning the per-root cotangent on `pred_xyz`.
 
@@ -480,6 +505,21 @@ def main() -> int:
                     ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
                 row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
                 rs0 = dict(ag.SOFTMAX_BW_RENORM_STATS)
+                # The host resident set, phase by phase, and this rep's own peak. Host
+                # memory is a perf variable here, not bookkeeping: the same loss arithmetic
+                # reads 1.925 s at 11.82 GiB MemAvailable and 4.999 s at 9.06 GiB
+                # (`perf/of3t_p10host/out/shape_per-root_s4.json`), so a phase time without
+                # the memory it ran in is not comparable to the same phase in another run.
+                row["peak_reset"] = _reset_peak_rss()
+                row["rss_gib"] = {}
+                row["mem_available_gib"] = {}
+
+                def _mark(where):
+                    r, a_ = _mem()
+                    row["rss_gib"][where] = r
+                    row["mem_available_gib"][where] = a_
+
+                _mark("rep_start")
                 for t in params.values():
                     t.grad = None
                 ttnn.synchronize_device(dev)
@@ -501,6 +541,7 @@ def main() -> int:
                     row["trunk_s"] = round(row["trunk_nograd_prefix_s"]
                                            + row["trunk_taped_cycle_s"], 3)
                     row["dram_after_trunk"] = _dram(dev)
+                    _mark("after_trunk")
 
                     # --- 2. diffusion ------------------------------------------------------
                     t0 = time.perf_counter()
@@ -510,6 +551,7 @@ def main() -> int:
                     row["diffusion"] = d_out
                     print("  [tape] leaving the tape context", flush=True)
                     row["dram_after_diffusion"] = _dram(dev)
+                    _mark("after_diffusion")
 
                 print("  [tape] left the tape context", flush=True)
                 # --- 3. loss heads --------------------------------------------------------
@@ -518,6 +560,7 @@ def main() -> int:
                 seeds = host_losses(roots, rep, weights, rng, l_out, shape=a.loss_shape)
                 row["losses_s"] = round(time.perf_counter() - t0, 3)
                 row["losses"] = l_out
+                _mark("after_losses")
 
                 # --- 4. backward ----------------------------------------------------------
                 row["roots_taped"] = sum(1 for r in roots if isinstance(r, ag.Tensor))
@@ -538,6 +581,7 @@ def main() -> int:
                     ag.backward(list(roots), cot)
                     ttnn.synchronize_device(dev)
                     row["backward_s"] = round(time.perf_counter() - t0, 3)
+                    _mark("after_backward")
                 else:
                     row["seed_upload_s"] = 0.0
                     row["tape_nodes"] = 0
@@ -573,6 +617,8 @@ def main() -> int:
                     ttnn.synchronize_device(dev)
                     row["optimizer_s"] = round(time.perf_counter() - t0, 3)
                     row["optimizer_updated"] = len(upd) if hasattr(upd, "__len__") else None
+                    row["writes_skipped"] = getattr(opt, "last_writes_skipped", None)
+                    _mark("after_optimizer")
                 else:
                     row["optimizer_s"] = 0.0
                     row["optimizer_note"] = ("no gradient reached a declared weight, so the "
@@ -580,6 +626,7 @@ def main() -> int:
                                              "--no-optimizer")
                 ag.release_pins()
 
+                row["peak_rss_gib"] = _peak_rss()
                 parts = ("trunk_s", "diffusion_s", "losses_s", "seed_upload_s",
                          "backward_s", "optimizer_s")
                 row["step_s"] = round(sum(row[p] for p in parts), 3)
@@ -612,6 +659,12 @@ def main() -> int:
             out["renorm"]["declined_during_reps"] = (
                 out["renorm"]["stats_after"]["declined"]
                 - out["renorm"]["stats_before"]["declined"])
+            # VmHWM is reset per rep, so this is the LAST rep's high-water mark, which is
+            # the steady one: the moments appear in rep 0's optimizer step and every rep
+            # after carries them. Assigned here rather than after the final dump(), where it
+            # printed correctly and never reached the artifact.
+            out["peak_rss_gib_run"] = _peak_rss()
+            print(f"PEAK RSS (last rep, VmHWM): {out['peak_rss_gib_run']} GiB", flush=True)
             key = "step_s_UNTAPED" if a.no_tape else "step_s"
             vals = [r[key] for r in reps if r.get(key) is not None]
             if vals:
