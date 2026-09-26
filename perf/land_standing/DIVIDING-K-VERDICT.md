@@ -56,24 +56,49 @@ falls from 19.6 to 9.9 A and stops. What is needed is a confident target at 832 
 with an MSA. There is no local ColabFold DB on this box and `~/.boltz/msa` is empty, so that
 needs a cached a3m via `RELEASE_GATE_MSA_DIR` or the online server.
 
-## Speed: about 1.5x on that one length, unpriced
+## Speed: PRICED, and it is large — +50.999 s, 1.635x at 832 tokens
 
-    lever on     86, 90, 94 s
-    lever off   137, 302 s
+Taken 2026-09-26 on qb2 card 3, p300c. Four legs alternating OFF, ON, OFF, ON so drift lands on
+both arms; clock sampled every second DURING each leg from
+`/sys/class/tenstorrent/tenstorrent!3/tt_aiclk`; board-pair sibling (card 2, BDF `0000:03:00.0`)
+watched on the same cadence.
 
-The 302 s reading was taken under contention; the same arm read 137 s later. Every fold in this
-record ran with loadavg 12-20 and with card 2, card 3's board-pair sibling, serving another row,
-and no AICLK was sampled during any of them. **Do not quote a speedup from this.** A real number
-needs interleaved arms in one process on one device open, the sibling verified idle, and AICLK
-sampled during each leg from `/sys/class/tenstorrent/tenstorrent!N/tt_aiclk` (note the
-`tenstorrent!` prefix, and that N is not the `TT_VISIBLE_DEVICES` index —
-`perf/bcx_stack/stack.py:sysfs_node` sorts by PCI address).
+    leg  arm   wall_s     AICLK med (n)   sibling max   load med   CIF
+     1   off   131.946    1350 (132)      800           10.47      dc66841144ce26c1
+     2   on     80.044    1350  (80)      800           11.43      7fcb245cef064658
+     3   off   130.640    1350 (130)      800           11.88      dc66841144ce26c1
+     4   on     80.545    1350  (80)      800           12.47      7fcb245cef064658
+
+    OFF median 131.293   ON median 80.294   delta +50.999 s   ratio 1.6351x
+    A/A floor (the two OFF legs) 1.306 s = 0.99 % of the OFF median
+    effect / A/A floor = 39.0x        ON-pair spread 0.501 s
+
+The sibling never left 800 MHz, so the board pair was idle for all four legs, and each arm
+reproduced its own CIF digest exactly.
+
+**This retires what this document previously said.** It called the speed term "~1.5x and
+unpriced" and repeated the branch comment's "1.009x-1.019x of a round" as if that described this
+lever; that figure is about the fused-forward bypass inside a BindCraft 2 round, a different
+measurement in a different loop. At the one length this lever reaches, it is worth **51 seconds
+on an OpenFold3 fold**.
+
+**One caveat that bounds the ratio, not the seconds.** These folds ran at
+`--sampling_steps 20`; production and the release gate use 200. Triangle attention is trunk work
+and runs per recycle, not per diffusion step, so the ~51 s absolute saving should carry to a
+200-step fold while the RATIO falls, because the extra diffusion steps are time the lever does
+not touch. Quote the seconds; re-measure before quoting 1.635x at production settings.
 
 ## Recommendation
 
-Keep it off by default until the structural question is answered on a fixture that could detect a
-problem. The gain is one length, the speed term is unpriced, and nothing is being lost meanwhile
-except consistency at 769-832 tokens.
+Keep it off by default, but the trade has changed and the note should say so. The gain is no
+longer "one length and an unpriced speed term": it is **51 seconds of an OpenFold3 fold**, 39x
+its own A/A floor, at every input that pads to 832 tokens. What still blocks it is the one thing
+this box cannot supply — a confident 832-token fixture on which the structural effect could be
+detected if it were harmful.
+
+So the cost of waiting is now known and it is not small. If someone wants this sooner, the
+cheapest unblocking step is a cached a3m for one real ~800-residue target, not more device
+time.
 
 If someone wants it on sooner, the honest minimum is one confident 832-token fold per arm with an
 MSA, showing the structures agree to within that fixture's own seed floor.
