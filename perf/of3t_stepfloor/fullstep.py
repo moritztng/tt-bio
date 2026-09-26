@@ -728,6 +728,12 @@ def main() -> int:
                          "once for the batch and the atom-level stages stay at batch 1. "
                          "Capped by --chunk, and the width is rebalanced so the widest "
                          "batch is as narrow as the batch count allows.")
+    ap.add_argument("--dit-batch-per-rep", default="",
+                    help="comma-separated sample-axis width per rep, one warm process. The "
+                         "A/B this row exists to take: width 1 IS the per-replicate loop, so "
+                         "`1,4,1,4` interleaves the two arms at the step boundary on one "
+                         "card against one clock, which is the only way to price a lever "
+                         "against a run-to-run spread this large")
     ap.add_argument("--chunk-per-rep", default="",
                     help="comma-separated C per rep, one warm process. The replicate "
                          "subgraph's backward is what the campaign's 5.6x projection rests "
@@ -848,7 +854,9 @@ def main() -> int:
                              "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
             plan = [bool(int(x)) for x in a.renorm_per_rep.split(",") if x != ""]
             cplan = [int(x) for x in a.chunk_per_rep.split(",") if x != ""]
+            bplan = [int(x) for x in a.dit_batch_per_rep.split(",") if x != ""]
             out["chunk_per_rep_plan"] = cplan or None
+            out["dit_batch_per_rep_plan"] = bplan or None
             out["renorm"]["per_rep_plan"] = plan or None
             reps = []
             grad_ab: dict = {}
@@ -863,7 +871,8 @@ def main() -> int:
                 seed_rep = 0 if a.grad_ab else rep
                 rng_diff = np.random.default_rng(SEED + seed_rep)
                 rng_loss = np.random.default_rng(SEED + 10_000 + seed_rep)
-                row = {"rep": rep, "cold": rep == 0, "dit_batch": a.dit_batch}
+                dbw = bplan[rep % len(bplan)] if bplan else a.dit_batch
+                row = {"rep": rep, "cold": rep == 0, "dit_batch": dbw}
                 # In `reps` from the start, so the per-chunk `dump()` inside a 12-chunk step
                 # lands in the artifact instead of in a local nobody has written out yet.
                 reps.append(row)
@@ -942,7 +951,7 @@ def main() -> int:
                     if not chunk:
                         t0 = time.perf_counter()
                         roots = diffusion_chunk(sampler, pre, range(a.samples), d_out,
-                                                batch=a.dit_batch)
+                                                batch=dbw)
                         diff_s += time.perf_counter() - t0
                         row["dram_after_diffusion"] = _dram(dev)
                         peak_dram = row["dram_after_diffusion"]
@@ -977,14 +986,14 @@ def main() -> int:
                     loss_s += time.perf_counter() - t0
                     for ci in range(1, a.samples, chunk):
                         part = range(ci, min(ci + chunk, a.samples))
-                        c = {"first": ci, "n": len(part), "dit_batch": a.dit_batch}
+                        c = {"first": ci, "n": len(part), "dit_batch": dbw}
                         t0 = time.perf_counter()
                         with ag.tape():
                             c["exact_in_chunk_tape"] = [ag.exact_softmax_installed(),
                                                         ag.exact_layer_norm_installed()]
                             roots = diffusion_chunk(sampler, pre, part, d_out,
                                                     si_trunk=s_det, zij_pad=z_det,
-                                                    cache=cut_cache, batch=a.dit_batch)
+                                                    cache=cut_cache, batch=dbw)
                         ttnn.synchronize_device(dev)
                         c["diffusion_s"] = round(time.perf_counter() - t0, 3)
                         diff_s += c["diffusion_s"]
