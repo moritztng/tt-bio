@@ -1,0 +1,12 @@
+worker: edge 1024, warm 0.0298 s, 24354 iterations over the 8 timed rounds
+  median iteration          1.93 ms
+  worker wall             90.323 s  (100.0 % of the 90.352 s span)
+  device-busy wall        64.602 s  (71.5 % of the span)
+
+  worker wall INSIDE a device-busy window     64.588 s
+    observed share of the worker's wall         71.5 %
+    expected if the worker is oblivious         71.5 %
+    ratio observed/expected                    1.000
+
+  => the worker is OBLIVIOUS to the device stream: independent host work DOES
+     run while a device callback is in flight. The seam is not the blocker.

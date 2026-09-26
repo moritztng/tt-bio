@@ -110,6 +110,22 @@ def main():
                     help="extra BindCraft 2 setting override, repeatable. `--set "
                          "save_design_frames=1` makes the recorder write one CIF a round, "
                          "which is what the accuracy leg scores arm against arm")
+    ap.add_argument("--hostload", type=float, default=0.0, metavar="CORES",
+                    help="leg 3's mechanism probe. Run a worker thread that does XLA:CPU work "
+                         "for the whole run and record every iteration's interval, so the "
+                         "analyzer can say how much of it landed INSIDE a device-busy window. "
+                         "The question the round cannot answer on its own is whether host work "
+                         "with no data dependence on the card can run while a device callback "
+                         "is in flight at all -- if the ttnn seam holds the GIL for its "
+                         "dispatch loop, nothing does, and every restructuring of the round "
+                         "loop is dead before it is designed. 0 is off. The value is the "
+                         "matmul edge in units of 1024, so it is a load size and not a promise "
+                         "about cores")
+    ap.add_argument("--hostload-duty", dest="hostload_duty", type=float, default=1.0,
+                    metavar="F",
+                    help="fraction of the time the --hostload worker computes. 1.0 saturates "
+                         "the box and answers the mechanism question only; size it to the term "
+                         "being stood in for when the question is what the lever costs")
     ap.add_argument("--timeline", type=float, default=0.0, metavar="MS",
                     help="sample the round at MS millisecond resolution and write "
                          "timeline.json beside round_events.json: for every sample, whether a "
@@ -148,6 +164,8 @@ def main():
     M.CLOCK.start()
     if args.timeline:
         M.TIMELINE = M.Timeline(args.timeline).start()
+    if args.hostload:
+        M.HOSTLOAD = M.HostLoad(args.hostload, args.hostload_duty).start()
 
     import tt_bio
     from bindcraft.settings import select_design_and_validation_models

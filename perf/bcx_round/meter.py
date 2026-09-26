@@ -173,6 +173,68 @@ class Timeline:
 TIMELINE = None
 
 
+class HostLoad:
+    """A worker thread doing XLA:CPU work that has NO data dependence on the round.
+
+    This is leg 3's mechanism probe and it answers one binary question: can host work run
+    while a device callback is in flight. The round itself cannot answer it, because every
+    host term in the round depends on the card's last answer -- so a round that does not
+    overlap proves a dependency, not an inability. This worker depends on nothing, so if its
+    iterations still refuse to land inside a device-busy window, the seam is the reason and
+    every restructuring of the round loop is dead before it is designed.
+
+    The load is jitted XLA:CPU, which is what the structure module is, rather than a numpy
+    spin: a probe that held the GIL itself would answer its own question wrong.
+    """
+
+    def __init__(self, edge_k=1.0, duty=1.0):
+        self.n = max(64, int(1024 * edge_k))
+        self.duty = min(1.0, max(0.01, duty))
+        self.iters = []
+        self.warm_s = None
+        self._stop = threading.Event()
+        self._th = threading.Thread(target=self._loop, daemon=True)
+
+    def _loop(self):
+        import jax
+        import jax.numpy as jnp
+        f = jax.jit(lambda a, b: (a @ b).sum())
+        a = jnp.ones((self.n, self.n), jnp.float32)
+        b = jnp.full((self.n, self.n), 0.5, jnp.float32)
+        t0 = time.time()
+        float(f(a, b))                                  # compile + warm, not an iteration
+        self.warm_s = round(time.time() - t0, 4)
+        it = self.iters
+        while not self._stop.is_set():
+            t0 = time.time()
+            float(f(a, b))
+            t1 = time.time()
+            it.append((t0, t1))
+            if self.duty < 1.0:
+                # Idle between iterations so the worker stands in for a term of a KNOWN size.
+                # At duty 1.0 it saturates the box, which answers the mechanism question and
+                # nothing else: a saturating probe's round-wall cost is a property of the
+                # probe, not a prediction about the lever.
+                self._stop.wait((t1 - t0) * (1.0 / self.duty - 1.0))
+
+    def start(self):
+        self._th.start()
+        return self
+
+    def stop(self):
+        self._stop.set()
+        self._th.join(timeout=10.0)
+
+    def blob(self):
+        n = len(self.iters)
+        return {"edge": self.n, "duty": self.duty, "warm_s": self.warm_s, "n": n,
+                "iters": [[round(x, 6), round(y, 6)] for x, y in self.iters[:n]]}
+
+
+#: Set by the runner when --hostload is on.
+HOSTLOAD = None
+
+
 def reach():
     """The fused triangle-attention backward's counters, snapshotted at a round boundary.
 
@@ -246,6 +308,18 @@ class Meter:
             EVENTS.append({"kind": "round_stop", "phase": "round", "t0": time.time(),
                            "round": self.entries, "triatt_bw": reach(),
                            "mm_layout": _mm_reach(), "reach": _reach()})
+            # Stop the instrument threads here, at the last round boundary, not at exit.
+            # A daemon thread still inside jax when the interpreter tears down frees a jax
+            # object off the main thread and segfaults in PyObject_GC_Del -- reproduced on
+            # q2_on, AFTER round_events.json was written, so the data survived and the
+            # process still died with a core. Stopping both here also gives Timeline its
+            # self_cpu_s, which is only written when its loop exits.
+            for th in (HOSTLOAD, TIMELINE):
+                if th is not None:
+                    try:
+                        th.stop()
+                    except Exception:
+                        pass
             raise StopAfterRounds(f"{self.rounds} rounds collected")
         # The reach of TT_BIO_MM_LAYOUT at the boundary, cumulative. A per-round count is the
         # difference of two of these, so an arm whose lever serves 0 calls says so per round
@@ -381,6 +455,10 @@ def dump(path, stamp):
         tl = os.path.join(os.path.dirname(path), "timeline.json")
         with open(tl, "w") as fh:
             json.dump(TIMELINE.blob(), fh, separators=(",", ":"))
+    if HOSTLOAD is not None:
+        hl = os.path.join(os.path.dirname(path), "hostload.json")
+        with open(hl, "w") as fh:
+            json.dump(HOSTLOAD.blob(), fh, separators=(",", ":"))
     with open(path, "w") as fh:
         json.dump({"stamp": {**stamp, "state_shape": dict(STATE),
                              "dumped_utc": time.strftime("%FT%TZ", time.gmtime()),

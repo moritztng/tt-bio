@@ -28,5 +28,7 @@ export TT_BIO_LEASE_CARDS=${TT_BIO_LEASE_CARDS:-1}
 export TT_BIO_LEASE_HOLDER=worker:bcx-p10-overlap
 export TT_BIO_MM_LAYOUT=1
 mkdir -p "$ARM_OUT_ROOT"
+hl=()
+[ "${HOSTLOAD:-0}" = 0 ] || hl=(--hostload "${HOSTLOAD_EDGE:-1.0}" --hostload-duty "${HOSTLOAD_DUTY:-1.0}")
 exec perf/bcx_p10_stack/arm.sh "$tag" "$rounds" 1 1 hifi \
-    --triatt-bw 1 --rne-kernel 1 --timeline "${TIMELINE_MS:-2}" "$@"
+    --triatt-bw 1 --rne-kernel 1 --timeline "${TIMELINE_MS:-2}" "${hl[@]}" "$@"
