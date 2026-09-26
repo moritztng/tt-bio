@@ -1,0 +1,187 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "c85a32622beaf513715bb8c6593704344758bc9a",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   9.3125,
+   10.37548828125,
+   10.88623046875
+  ],
+  "utc": "2026-09-26T13:38:31Z"
+ },
+ "n": 288,
+ "seed": 1,
+ "loss": "fixed random linear readout of (msa_out, pair_out)",
+ "rows": [
+  {
+   "block": "evo0",
+   "reach": 276,
+   "nodes": 201,
+   "dz": {
+    "rel_l2": 0.06744833648758658,
+    "cos": 0.9977261562299247,
+    "norm_ref": 3.3502009408001365,
+    "norm_ratio": 0.9998392936822267
+   },
+   "dz_torch_bf16": {
+    "rel_l2": 0.06162365851541789,
+    "cos": 0.9981038814566865,
+    "norm_ratio": 1.0010759964835596
+   },
+   "dz_torch_f32": {
+    "rel_l2": 0.000246677256875447,
+    "cos": 0.9999999695749998,
+    "norm_ratio": 0.9999999569844488
+   },
+   "dm": {
+    "rel_l2": 0.05654197970658356,
+    "cos": 0.9984003586724252,
+    "norm_ref": 71.85116169893182,
+    "norm_ratio": 0.9989238887835155
+   },
+   "dm_torch_bf16": {
+    "rel_l2": 0.05240334444546505,
+    "cos": 0.9986265587362927,
+    "norm_ratio": 0.9996821735144419
+   },
+   "dm_torch_f32": {
+    "rel_l2": 0.00014413249984137808,
+    "cos": 0.999999989617822,
+    "norm_ratio": 1.0000031269387446
+   },
+   "fwd_m": {
+    "rel_l2": 0.002873754173388203,
+    "cos": 0.9999959146217607
+   },
+   "fwd_z": {
+    "rel_l2": 0.01802786403862017,
+    "cos": 0.9998416397584762
+   },
+   "permuted": {
+    "dz": {
+     "rel_l2": 1.356245959711273,
+     "cos": 0.0014966925607786084
+    },
+    "dm": {
+     "rel_l2": 1.245908878485686,
+     "cos": -0.0015608968034423814
+    }
+   },
+   "zero_seed_max_abs": {
+    "dz": 0.0,
+    "dm": 0.0
+   },
+   "census": {
+    "reach": 276,
+    "nodes": 201,
+    "kinds": {
+     "_v_typecast": 36,
+     "_binary": 29,
+     "_v_reshape": 25,
+     "_taped_linear": 22,
+     "_v_permute": 18,
+     "_v_matmul": 17,
+     "_v_exact_layer_norm": 12,
+     "_v_create_qkv_heads": 12,
+     "_identity_grad": 8,
+     "_sliced": 8,
+     "_v_concat_heads": 4,
+     "host_f64_softmax": 4,
+     "_v_transpose": 4,
+     "relu": 2
+    },
+    "identity_plus_sliced": 16,
+    "identity_plus_sliced_share": 0.07960199004975124,
+    "all_shape_ops": 79,
+    "all_shape_ops_share": 0.39303482587064675
+   }
+  },
+  {
+   "block": "evo1",
+   "reach": 276,
+   "nodes": 201,
+   "dz": {
+    "rel_l2": 0.04886087849460381,
+    "cos": 0.9988064008960468,
+    "norm_ref": 1.183829463818164,
+    "norm_ratio": 0.9996481297998202
+   },
+   "dz_torch_bf16": {
+    "rel_l2": 0.04762851859898298,
+    "cos": 0.9988657489891298,
+    "norm_ratio": 0.9999883742703616
+   },
+   "dz_torch_f32": {
+    "rel_l2": 0.0005059852285942156,
+    "cos": 0.9999998719893253,
+    "norm_ratio": 1.0000001859384242
+   },
+   "dm": {
+    "rel_l2": 0.0896923572721611,
+    "cos": 0.9960076439094748,
+    "norm_ref": 6.411214287824943,
+    "norm_ratio": 1.004723299368649
+   },
+   "dm_torch_bf16": {
+    "rel_l2": 0.0964142071426532,
+    "cos": 0.9953867217746398,
+    "norm_ratio": 1.0048959396293977
+   },
+   "dm_torch_f32": {
+    "rel_l2": 0.0004442078459741969,
+    "cos": 0.9999999014808562,
+    "norm_ratio": 1.0000167048731972
+   },
+   "fwd_m": {
+    "rel_l2": 0.002292178577673267,
+    "cos": 0.9999974546788476
+   },
+   "fwd_z": {
+    "rel_l2": 0.008228142883741133,
+    "cos": 0.9999661493199624
+   },
+   "permuted": {
+    "dz": {
+     "rel_l2": 1.4190125655235177,
+     "cos": -0.003322415317876353
+    },
+    "dm": {
+     "rel_l2": 1.4141398497015367,
+     "cos": -0.029011976795559703
+    }
+   },
+   "zero_seed_max_abs": {
+    "dz": 0.0,
+    "dm": 0.0
+   },
+   "census": {
+    "reach": 276,
+    "nodes": 201,
+    "kinds": {
+     "_v_typecast": 36,
+     "_binary": 29,
+     "_v_reshape": 25,
+     "_taped_linear": 22,
+     "_v_permute": 18,
+     "_v_matmul": 17,
+     "_v_exact_layer_norm": 12,
+     "_v_create_qkv_heads": 12,
+     "_identity_grad": 8,
+     "_sliced": 8,
+     "_v_concat_heads": 4,
+     "host_f64_softmax": 4,
+     "_v_transpose": 4,
+     "relu": 2
+    },
+    "identity_plus_sliced": 16,
+    "identity_plus_sliced_share": 0.07960199004975124,
+    "all_shape_ops": 79,
+    "all_shape_ops_share": 0.39303482587064675
+   }
+  }
+ ]
+}
