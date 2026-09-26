@@ -185,9 +185,23 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                         opt.clip_and_accumulate()
                         opt.zero_grad()
                         total = total + loss / len(shard)
-                        for term in terms:
-                            breakdown[term] = (breakdown.get(term, 0.0)
-                                               + terms[term] / len(shard))
+                        # A term is a ROW, not a number: `af3_loss` reports
+                        # `{value, weight, contribution}` per term and `{value: None,
+                        # skipped: ...}` for one it could not run. Averaging the row field by
+                        # field keeps the skip reason legible and keeps `contribution`
+                        # summing to the loss; averaging the row itself was a `dict / int`
+                        # TypeError the first time a real objective met this loop.
+                        for term, row_ in terms.items():
+                            if not isinstance(row_, dict):
+                                breakdown[term] = (breakdown.get(term, 0.0)
+                                                   + row_ / len(shard))
+                                continue
+                            acc = breakdown.setdefault(term, {})
+                            for k, v in row_.items():
+                                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                                    acc[k] = v
+                                else:
+                                    acc[k] = acc.get(k, 0.0) + v / len(shard)
                     # The accumulated, per-sample-clipped gradient, summed across the axis
                     # inside step() together with the participation counts it divides by.
                     opt.step(replicas=launcher.replicas(params))
