@@ -1,0 +1,672 @@
+=== 2026-09-26T19:47:47Z acc_off_a (levers=0) ===
+2026-09-26 19:47:50.712 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/bcx_stack2_acc/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": false,
+ "rne_kernel": false,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [
+  "save_design_frames=1"
+ ],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "d29e4edf523668453c38fc49ca7af9ae7dfd5042",
+ "seed": 100,
+ "rounds_requested": 4,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:47:50Z",
+ "loadavg_start": [
+  17.37109375,
+  15.41650390625,
+  13.57421875
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_off_a"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_off_a | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_edd97eb588c9fab1 | accepted 0/10 ===
+/home/ttuser/bcx_stack2_acc/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/bcx_stack2_acc/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": false,
+ "rne_kernel": false,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [
+  "save_design_frames=1"
+ ],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "d29e4edf523668453c38fc49ca7af9ae7dfd5042",
+ "seed": 100,
+ "rounds_requested": 4,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:47:50Z",
+ "loadavg_start": [
+  17.37109375,
+  15.41650390625,
+  13.57421875
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_off_a",
+ "wall_seconds": 77.03,
+ "stopped": "4 rounds collected",
+ "triatt_bw_stats": {
+  "served": 0,
+  "declined": 0,
+  "bw_calls": 432
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 8,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "tri_att_sdpa_hifi": [
+   1296,
+   0
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 1296,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 0,
+  "declined": 0,
+  "rejects": {}
+ },
+ "fp32_softmax_calls": 576,
+ "mm_layout": {},
+ "mm_layout_on": false,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  11.796875,
+  14.2822265625,
+  13.33056640625
+ ],
+ "finished_utc": "2026-09-26T19:49:07Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "2": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "3": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "4": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "5": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> /home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_off_a/round_events.json
+=== 2026-09-26T19:49:11Z acc_off_b (levers=0) ===
+2026-09-26 19:49:13.930 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/bcx_stack2_acc/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": false,
+ "rne_kernel": false,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [
+  "save_design_frames=1"
+ ],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "d29e4edf523668453c38fc49ca7af9ae7dfd5042",
+ "seed": 100,
+ "rounds_requested": 4,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:49:13Z",
+ "loadavg_start": [
+  11.73291015625,
+  14.2275390625,
+  13.31787109375
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_off_b"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_off_b | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_edd97eb588c9fab1 | accepted 0/10 ===
+/home/ttuser/bcx_stack2_acc/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/bcx_stack2_acc/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": false,
+ "rne_kernel": false,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [
+  "save_design_frames=1"
+ ],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "d29e4edf523668453c38fc49ca7af9ae7dfd5042",
+ "seed": 100,
+ "rounds_requested": 4,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:49:13Z",
+ "loadavg_start": [
+  11.73291015625,
+  14.2275390625,
+  13.31787109375
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_off_b",
+ "wall_seconds": 76.89,
+ "stopped": "4 rounds collected",
+ "triatt_bw_stats": {
+  "served": 0,
+  "declined": 0,
+  "bw_calls": 432
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 8,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "tri_att_sdpa_hifi": [
+   1296,
+   0
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 1296,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 0,
+  "declined": 0,
+  "rejects": {}
+ },
+ "fp32_softmax_calls": 576,
+ "mm_layout": {},
+ "mm_layout_on": false,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  11.59375,
+  13.58740234375,
+  13.16748046875
+ ],
+ "finished_utc": "2026-09-26T19:50:30Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "2": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "3": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "4": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "5": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> /home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_off_b/round_events.json
+=== 2026-09-26T19:50:35Z acc_on (levers=1) ===
+2026-09-26 19:50:38.236 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/bcx_stack2_acc/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [
+  "save_design_frames=1"
+ ],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "d29e4edf523668453c38fc49ca7af9ae7dfd5042",
+ "seed": 100,
+ "rounds_requested": 4,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:50:38Z",
+ "loadavg_start": [
+  12.90771484375,
+  13.8271484375,
+  13.24755859375
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_on"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_on | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_edd97eb588c9fab1 | accepted 0/10 ===
+/home/ttuser/bcx_stack2_acc/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/bcx_stack2_acc/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [
+  "save_design_frames=1"
+ ],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "d29e4edf523668453c38fc49ca7af9ae7dfd5042",
+ "seed": 100,
+ "rounds_requested": 4,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:50:38Z",
+ "loadavg_start": [
+  12.90771484375,
+  13.8271484375,
+  13.24755859375
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_on",
+ "wall_seconds": 70.39,
+ "stopped": "4 rounds collected",
+ "triatt_bw_stats": {
+  "served": 432,
+  "declined": 0,
+  "bw_calls": 432
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 8,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 4
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "rne_add": [
+   5544,
+   0
+  ],
+  "tri_att_sdpa_hifi": [
+   1296,
+   0
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 1296,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 5544,
+  "declined": 48,
+  "rejects": {
+   "shape_mismatch|(1, 288, 288, 128)|(1, 1, 1, 128)": 48
+  }
+ },
+ "fp32_softmax_calls": 576,
+ "mm_layout": {
+  "declined: has a program config": 4944,
+  "declined: has a core grid": 1152,
+  "served": 2784,
+  "declined: not batched": 6144
+ },
+ "mm_layout_on": true,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  10.90576171875,
+  13.099609375,
+  13.03857421875
+ ],
+ "finished_utc": "2026-09-26T19:51:48Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "2": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "3": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "4": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "5": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> /home/ttuser/bcx_stack2_acc/perf/bcx_p10_stack2/out_acc/acc_on/round_events.json
+=== 2026-09-26T19:51:52Z accuracy legs complete ===

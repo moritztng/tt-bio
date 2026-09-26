@@ -37,13 +37,14 @@ import types
 import ttnn
 
 from . import autograd as ag
+from . import mm_layout as _mm_layout
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _via2d, _wrap)
 
-__all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn",
-           "forget_shim_bindings"]
+__all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn", "KERNELS",
+           "KERNEL_STATS", "enabled_kernels", "forget_shim_bindings"]
 
 # ---------------------------------------------------------------------------------------
 # The shipped forward, taped where it computes.
@@ -81,6 +82,72 @@ def _verb(*names):
     def register(fn):
         for n in names:
             _VERBS[n] = fn
+        return fn
+    return register
+
+
+# ---------------------------------------------------------------------------------------
+# The `generic_op` kernels, taped where each one says how its own output differentiates.
+#
+# `_verb` above cannot reach these. A verb entry is keyed on a ttnn name and computes its
+# value by calling that name on raw operands; a hand-written kernel is a `ttnn.generic_op`
+# call carrying a program descriptor, and the tape can see neither what the descriptor does
+# nor which of the operands it read. `ops.py::taping` says why unwrapping anyway is not an
+# option: it would drop the gradient of everything upstream, silently. So the entry is
+# per-kernel, the kernel declares its own VJP, and a kernel with no entry keeps declining.
+#
+# The shape is `_verb`'s deliberately -- `entry(shipped, args, kwargs)`, value from `shipped`
+# -- so `_v_sdpa` below reads as the worked example for both kinds. `ops.fused_kernel` hands
+# `shipped` in with the kernel's tape gate lifted, which is the one thing a verb entry does
+# not need.
+_KERNELS: dict = {}
+KERNELS = _KERNELS
+
+#: Reach, per kernel: `[served, declined]`. Declined is the kernel's own gate saying no on a
+#: shape it does not cover, which is a fall-through to the composed path and not a failure.
+#: An A/B whose arms agree is a lever that never fired, and this is where that shows.
+KERNEL_STATS: dict = {}
+
+
+#: Which kernels' entries are installed, read live at every tape entry. DEFAULT NONE, so a
+#: process that sets nothing behaves exactly like the one before this registry existed: every
+#: fused kernel declines under a tape and the composed path runs. Naming a kernel here is what
+#: opens it. `all` takes every entry in the registry.
+#:
+#: Release-gated on purpose. Each entry changes which program computes a forward inside a
+#: gradient round, so it moves both seconds and the last bits of the forward, and the grade is
+#: a round A/B plus the campaign's Angstrom bar -- not this file's say-so. Live read rather
+#: than resolved at import for the reason `_sdpa_wide_k` is: one process has to be able to A/B
+#: both arms at the round boundary.
+TAPED_KERNELS_DEFAULT = ""
+
+
+def enabled_kernels() -> dict:
+    """The entries this process wants installed for the tape it is about to open."""
+    want = os.environ.get("TT_BIO_TAPED_KERNELS", TAPED_KERNELS_DEFAULT).strip()
+    if not want:
+        return {}
+    if want == "all":
+        return dict(_KERNELS)
+    names = [n.strip() for n in want.split(",") if n.strip()]
+    unknown = [n for n in names if n not in _KERNELS]
+    if unknown:
+        raise ValueError(
+            f"TT_BIO_TAPED_KERNELS names {unknown}, which no kernel registers. Known: "
+            f"{sorted(_KERNELS)}. A typo here reads as a lever that measured nothing.")
+    return {n: _KERNELS[n] for n in names}
+
+
+def _kernel(name):
+    """Register the tape entry for the `generic_op` kernel that declares `ops.fused_kernel(name)`."""
+    def register(fn):
+        def counted(shipped, args, kwargs):
+            out = fn(shipped, args, kwargs)
+            c = KERNEL_STATS.setdefault(name, [0, 0])
+            c[0 if out is not None else 1] += 1
+            return out
+
+        _KERNELS[name] = counted
         return fn
     return register
 
@@ -146,6 +213,12 @@ def _v_matmul(shipped, args, kwargs):
             f"tape; do the same here rather than dropping it.")
     cfg = kw.get("compute_kernel_config") or precise_config()
     ra, rk = _raw(args, kwargs)
+    # The forward of a taped matmul is the shipped call verbatim, so the plan-less batched
+    # ones arrive here as the model wrote them. `experimental.minimal_matmul` takes its
+    # operands by keyword and has no `core_grid`, so only the positional `ttnn.matmul` form
+    # is in range; `mm_layout.plan` is the identity with the lever off.
+    if shipped is ttnn.matmul and len(ra) > 1:
+        rk = _mm_layout.plan(ra[0], ra[1], rk)
     out_v = shipped(*ra, **rk)
 
     def make():
@@ -681,7 +754,7 @@ def _v_permute(shipped, args, kwargs):
     for i, d in enumerate(dims):
         inv[d] = i
     ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
+    out_v = _permute_fwd(shipped, ra, rk, dims)
 
     def make():
         def bw(g):
@@ -694,6 +767,24 @@ def _v_permute(shipped, args, kwargs):
 # Whether a permute's backward goes through the reblock kernels where they serve its inverse.
 # A module switch so an A/B can flip it in one process.
 REBLOCK_PERMUTE_BW = True
+
+# The same question asked of the FORWARD, which is where the two channel moves actually are.
+#
+# `reblock_permute.eligible` refuses every caller while a tape is open, because the kernel is a
+# `generic_op` with no tape entry and a direct call would drop the gradient of everything above
+# it. So a taped forward runs the stock `ttnn.permute` and a taped BACKWARD runs the kernel
+# (`_permute_back`, above) -- the asymmetry `bcx-p10-trilay` measured as the triangle
+# multiplication at 31.7 % of the DRAM roof forward against 55.3 % backward.
+#
+# There is no reason for it. These two moves are pure index reorderings and they are each
+# other's inverse: `permute(0,3,1,2)` sends x[b,i,j,c] to y[b,c,i,j], so its VJP is
+# `permute(0,2,3,1)`, which is the other kernel in that file. Recording the node HERE, where
+# the shim already owns the permute, lets the forward take the kernel with a backward that is
+# exactly the kernel the backward already takes. Both are `torch.equal` against `ttnn.permute`,
+# so the arm is bit-exact by construction and is measured that way rather than argued.
+#
+# The switch is `reblock_permute.TAPED_MOVE`, next to the gates it opens and next to the
+# `_channel_move_back` caller that has to make the same decision, so there is one of it.
 
 
 def _permute_back(g, inv):
@@ -714,6 +805,29 @@ def _permute_back(g, inv):
         if inv == [0, 3, 1, 2] and R.eligible(g, mc):
             return R.reblock_permute(g, mc)
     return ttnn.permute(g, inv)
+
+
+def _permute_fwd(shipped, ra, rk, dims):
+    """The forward of a taped `ttnn.permute`, through the reblock kernel where it serves.
+
+    `ra[0]` is the raw operand, so the kernel's own `ttnn.generic_op` is never handed a taped
+    tensor and cannot try to tape itself. The node is `_v_permute`'s, and its backward is
+    `_permute_back` unchanged: for these two `dims` that is the inverse kernel.
+    """
+    if len(ra) and not rk.get("pad_value"):
+        from . import reblock_permute as R
+        if not R.TAPED_MOVE:
+            return shipped(*ra, **rk)
+        x = ra[0]
+        try:
+            mc = rk.get("memory_config") or x.memory_config()
+            if dims == [0, 3, 1, 2] and R.eligible(x, mc, taped_ok=True):
+                return R.reblock_permute(x, mc)
+            if dims == [0, 2, 3, 1] and R.eligible_back(x, mc, taped_ok=True):
+                return R.reblock_permute_back(x, mc)
+        except AttributeError:
+            pass
+    return shipped(*ra, **rk)
 
 
 @_verb("transpose")
@@ -892,13 +1006,38 @@ def _sdpa_chunking(B, H, n_q, n_k, itemsize, budget=None):
     return 1, max(1, min(n_q, budget // row))
 
 
+# Skip the shipped forward and let `autograd.triangle_attention` compute its own chunked one.
+#
+# The two forwards are different programs for the same maths. The kernel is an ONLINE softmax: it
+# chunks keys and carries a running max, in bf16, and `triatt_sdpa.py` measures its row sums
+# running a few parts in ten thousand short. `triangle_attention`'s own forward materialises one
+# score block per chunk and reduces each row in a SINGLE pass under `precise_config()` -- HiFi4,
+# math_approx off, fp32 destination accumulation -- which is the reduction order AF2's
+# `fp32_softmax=True` exists to get. The backward is the same either way: it recomputes the scores
+# from q, k, v and bias and never reads the forward output, which is why `value=` is optional at
+# all.
+#
+# So this is the accuracy arm of a speed/accuracy pair on ONE route, not a second implementation.
+# Off, the caller pays a flash forward and a chunked backward; on, both halves are chunked.
+# Default off, live read, and counted -- a lever nobody can see reaching is a lever nobody can
+# grade.
+SDPA_OWN_FORWARD_DEFAULT = False
+SDPA_OWN_FORWARD_STATS = {"own": 0, "kernel": 0}
+
+
+def _sdpa_own_forward() -> bool:
+    return os.environ.get("TT_BIO_SDPA_OWN_FORWARD",
+                          "1" if SDPA_OWN_FORWARD_DEFAULT else "0") == "1"
+
+
 @_verb("transformer.scaled_dot_product_attention")
 def _v_sdpa(shipped, args, kwargs):
     """The shipped fused SDPA, with the chunked-recompute backward behind it.
 
     The forward is the production kernel -- every rung of `_tri_att_sdpa`'s ladder, its
     program config, its L1 routing -- called here and handed to `autograd.triangle_attention`
-    as its value. There is no second attention implementation: that function's backward
+    as its value, unless `TT_BIO_SDPA_OWN_FORWARD` says to let that function compute its own
+    chunked forward instead (see `_sdpa_own_forward`). There is no second attention implementation: that function's backward
     reads q, k, v and bias and recomputes the scores per chunk, and never reads the forward
     output, so the production forward and the verified backward compose into one node.
 
@@ -937,8 +1076,13 @@ def _v_sdpa(shipped, args, kwargs):
             "tt_bio.autograd has no backward for a causal SDPA. No tt-bio caller sets "
             "is_causal, and applying the mask in the forward but not the backward would be "
             "a wrong gradient the forward agrees with.")
-    ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
+    own = _sdpa_own_forward()
+    SDPA_OWN_FORWARD_STATS["own" if own else "kernel"] += 1
+    if own:
+        out_v = None
+    else:
+        ra, rk = _raw(args, kwargs)
+        out_v = shipped(*ra, **rk)
     qs = [int(d) for d in q.value.shape]
     B, H, n_q, head_dim = qs
     n_k = int(k.value.shape[2])
@@ -951,6 +1095,121 @@ def _v_sdpa(shipped, args, kwargs):
     cB, cQ = _sdpa_chunking(B, H, n_q, n_k, itemsize)
     return ag.triangle_attention(q, k, v, bias, scale=scale, chunk=cB, q_chunk=cQ,
                                  value=out_v)
+
+
+@_kernel("tri_att_sdpa_hifi")
+def _k_tri_att_sdpa_hifi(shipped, args, kwargs):
+    """The persistent-mask fused triangle attention, with `_v_sdpa`'s backward behind it.
+
+    `tenstorrent._tri_att_sdpa_hifi` is the whole fused-HiFi arm: `_sdpa_masked`'s ragged
+    padding, the q x k x buffer-factor ladder, `triatt_sdpa.sdpa`'s hoisted mask fill and
+    `_tri_att_sdpa`'s rungs under it. Taping the ARM rather than the kernel is what makes one
+    entry cover all of them -- every rung computes the same function of the same operands, and
+    which one serves is a performance decision the gradient does not depend on.
+
+    The backward is `autograd.triangle_attention`'s and it is the same one `_v_sdpa` puts
+    behind the stock verb, for the same reason: it recomputes one score block per chunk from
+    q, k, v and bias and never reads the forward output, so a forward whose internals the tape
+    cannot see composes with it unchanged.
+
+    THE MASK IS ADDED BEFORE THE SCALE here too -- `sdpa_generic.plan` drives the same kernel
+    family `_v_sdpa` documents that against -- so the bias is scaled ON THE TAPE with
+    `autograd.scale` and the chain rule back to the caller's unscaled bias is the tape's own.
+
+    A None from `shipped` is the arm declining: too short, no legal rung, an L1 refusal. It is
+    returned unchanged so the caller falls through to the composed path it takes today, which
+    the tape follows verb by verb.
+    """
+    q, k, v = (_wrap(a) for a in args[:3])
+    a = list(args) + [None] * (5 - len(args))
+    bias = _wrap(kwargs.get("bias", a[3]))
+    scale = kwargs.get("scale", a[4])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    if out_v is None:
+        return None
+    if bias is not None:
+        bias = ag.scale(bias, scale)
+    B, H, n_q, head_dim = (int(d) for d in q.value.shape)
+    n_k = int(k.value.shape[2])
+    itemsize = 4 if q.value.dtype == ttnn.float32 else 2
+    cB, cQ = _sdpa_chunking(B, H, n_q, n_k, itemsize)
+    return ag.triangle_attention(q, k, v, bias, scale=scale, chunk=cB, q_chunk=cQ,
+                                 value=out_v)
+
+
+def _reblock_vjp(dims):
+    """A channel move's entry: the VJP of a permutation is the inverse permutation.
+
+    Through `ttnn.permute` and not back through the kernel. The kernel's gate is a measured
+    SHAPE WINDOW -- a buffer type and a band of N -- and a cotangent arrives in the output's
+    layout, which is the other side of the move and outside that window by construction. The
+    stock verb is correct at every shape and the gradient of a data movement is not where the
+    seconds are.
+
+    `reads=()` because the closure reads neither operand nor output: a permutation's gradient
+    is a function of the cotangent alone. That is what lets the tape drop the moved tensor
+    instead of pinning it, and these are the largest tensors the trunk moves.
+    """
+    def entry(shipped, args, kwargs):
+        x = _wrap(args[0])
+        ra, rk = _raw(args, kwargs)
+        out_v = shipped(*ra, **rk)
+
+        def make():
+            def bw(g):
+                x.add_grad(ttnn.permute(g, dims))
+            return bw
+
+        return ag._tape(out_v, [x], make, reads=())
+    return entry
+
+
+# `[1, N, N, C] -> [1, C, N, N]` and its inverse. Bit-exact both ways by the kernels' own
+# `torch.equal` evidence, so this leg is the mechanism's proof as well as a lever: if a round
+# with it on is not bit-identical to a round with it off, something other than the permutation
+# moved.
+_kernel("reblock_permute")(_reblock_vjp((0, 2, 3, 1)))
+_kernel("reblock_permute_back")(_reblock_vjp((0, 3, 1, 2)))
+
+
+@_kernel("rne_add")
+def _k_rne_add(shipped, args, kwargs):
+    """`tt_bio.rne_add`'s entry: the VJP of a sum is the cotangent, to both operands.
+
+    The kernel replaces four taped nodes -- two widening typecasts, an in-place add and a
+    narrowing typecast -- with one, so the graph loses three nodes per residual and the chain
+    of dtypes they carried. That is sound because every one of the four is its own identity on
+    a cotangent: a typecast's gradient passes straight through (`_identity_grad`) and an add's
+    goes to both parents unchanged (`_ADD`). What the kernel changes is the VALUE, and only in
+    the direction of the reference -- it computes `round_rne_bf16(exact_sum)` bit-exactly where
+    the four calls compute it too, so a round with this on is bit-identical to a round with it
+    off and the A/B measures seconds alone.
+
+    The two operands can disagree on RANK and still be the same tensor physically -- the MSA
+    track hands `_residual` an `[1, S, N, C]` activation and an `[S, N, C]` update -- so each
+    cotangent goes through `_reduce_to`, which is a reshape at equal volume and what every
+    binary verb here has always done. Without it the backward raises `gradient shape
+    (1, 2, 288, 256) does not match value shape (2, 288, 256)` from `add_grad`, far from the
+    residual that caused it. The kernel's own gate refuses a real broadcast, so equal volume is
+    the only case that reaches this.
+
+    `reads=()`: the sum's gradient is a function of the cotangent alone, and the two shapes are
+    captured here as plain tuples, so the tape drops both operands instead of pinning them.
+    These are pair-representation tensors, the largest the trunk carries.
+    """
+    a, b = _wrap(args[0]), _wrap(args[1])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    shapes = ([int(d) for d in args[0].shape], [int(d) for d in args[1].shape])
+
+    def make():
+        def bw(g):
+            a.add_grad(_reduce_to(g, shapes[0]))
+            b.add_grad(_reduce_to(g, shapes[1]))
+        return bw
+
+    return ag._tape(out_v, [a, b], make, reads=())
 
 
 # --- attention head packing ------------------------------------------------------------
@@ -1214,6 +1473,7 @@ def _swap(to_shim: bool) -> None:
     executes `_param_getitem`.
     """
     global _SHIMMED
+    from . import ops
     if to_shim:
         _SHIMMED = []
         for name, mod in list(sys.modules.items()):
@@ -1223,11 +1483,18 @@ def _swap(to_shim: bool) -> None:
                 mod.ttnn = _SHIM
                 _SHIMMED.append(mod)
         ttnn.Tensor.__getitem__ = _param_getitem
+        # The `generic_op` kernels go live with the shim and go away with it. Both call sites
+        # guard on `_SHIMMED` so this never nests, and installing here rather than in
+        # `tape()` covers `recompute_scope()` as well -- a checkpointed segment that rebuilt
+        # itself without the entries would take a different forward in the backward than it
+        # took in the forward, which is a wrong gradient nothing would report.
+        ops.set_kernel_entries(enabled_kernels())
     else:
         for mod in _SHIMMED:
             mod.ttnn = ttnn
         _SHIMMED = []
         ttnn.Tensor.__getitem__ = _SHIPPED_GETITEM
+        ops.set_kernel_entries(None)
 
 
 @contextlib.contextmanager

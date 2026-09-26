@@ -1,0 +1,1046 @@
+{
+ "stamp": {
+  "host": "pc",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "6cbd7651723aea451b0ca2e2842446f857268305",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   6.00537109375,
+   5.896484375,
+   4.55615234375
+  ],
+  "utc": "2026-09-26T18:53:50Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"
+ },
+ "roofs": {
+  "dram": 442.3,
+  "tflops": 85.9
+ },
+ "reps": 25,
+ "started_utc": "2026-09-26T18:53:50Z",
+ "shapes": {
+  "linear#288x288x128x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,bias,omc=DRAM": {
+   "round_row": {
+    "key": "linear#288x288x128x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,bias,omc=DRAM",
+    "device_s": 0.21843275571736692,
+    "GB": 39.787757567999996,
+    "calls": 936.0,
+    "GBs": 182.15105805597173,
+    "TFLOPs": 11.646434657463498,
+    "pct_dram": 41.18269456386428,
+    "pct_compute": 13.558131149550055,
+    "intensity": 63.938331084987475,
+    "verdict": "BELOW both roofs: placement + config",
+    "called_from": {
+     "triangle multiplication": 0.13410183714491128,
+     "triangle attention": 0.08433091857245564
+    },
+    "a": "DRAM/bf16/TILE/INTERLEAVED",
+    "b": "DRAM/bf16/TILE/INTERLEAVED",
+    "o": "DRAM/bf16/TILE/INTERLEAVED",
+    "flags": "-",
+    "extra": "pc,bias,omc=DRAM"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0002089879708364606,
+     "bytes": 42508288.0,
+     "GBs": 203.40064468717208,
+     "TFLOPs": 13.005097762908306,
+     "pct_dram": 45.9870324863604,
+     "pct_compute": 15.13981113260571,
+     "vs_base": 1.0,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "operand a -> L1 interleaved",
+     "s": 0.0002184659824706614,
+     "bytes": 42508288.0,
+     "GBs": 194.57623342210084,
+     "TFLOPs": 12.440879633812088,
+     "pct_dram": 43.99191350262284,
+     "pct_compute": 14.482979783250391,
+     "vs_base": 0.9566156180151587,
+     "aiclk": {
+      "n": 0
+     }
+    },
+    {
+     "point": "operand b -> L1 interleaved",
+     "s": 0.00021305499831214547,
+     "bytes": 42508288.0,
+     "GBs": 199.51791010188546,
+     "TFLOPs": 12.75684219347912,
+     "pct_dram": 45.10918157401887,
+     "pct_compute": 14.850805813130522,
+     "vs_base": 0.9809109032507827,
+     "aiclk": {
+      "n": 0
+     }
+    },
+    {
+     "point": "both operands -> L1 interleaved",
+     "s": 0.00021828495664522052,
+     "bytes": 42508288.0,
+     "GBs": 194.7375973741008,
+     "TFLOPs": 12.451196975600244,
+     "pct_dram": 44.02839642190839,
+     "pct_compute": 14.49499065844033,
+     "vs_base": 0.957408948598,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "output -> L1 interleaved",
+     "s": 0.00013130396837368608,
+     "bytes": 42508288.0,
+     "GBs": 323.73955278353077,
+     "TFLOPs": 20.699366711179167,
+     "pct_dram": 73.19456314346162,
+     "pct_compute": 24.097050886122428,
+     "vs_base": 1.5916348410863623,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "a, b and output -> L1",
+     "s": 0.0001124989939853549,
+     "bytes": 42508288.0,
+     "GBs": 377.8548277999155,
+     "TFLOPs": 24.15940708193192,
+     "pct_dram": 85.42953375535055,
+     "pct_compute": 28.125037347999907,
+     "vs_base": 1.8576874639756034,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "program config dropped: ttnn picks",
+     "s": 0.0012623320217244327,
+     "bytes": 42508288.0,
+     "GBs": 33.6744115402624,
+     "TFLOPs": 2.15308567415342,
+     "pct_dram": 7.613477626104996,
+     "pct_compute": 2.506502531028428,
+     "vs_base": 0.16555705411874808,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 10x13, no program config",
+     "s": 0.0002532299840822816,
+     "bytes": 42508288.0,
+     "GBs": 167.86435521864527,
+     "TFLOPs": 10.732966721337686,
+     "pct_dram": 37.95260122510633,
+     "pct_compute": 12.494722609240613,
+     "vs_base": 0.8252891994360134,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 8x8, no program config",
+     "s": 0.0002661640173755586,
+     "bytes": 42508288.0,
+     "GBs": 159.70711751025542,
+     "TFLOPs": 10.21140655599971,
+     "pct_dram": 36.10832410360737,
+     "pct_compute": 11.887551287543317,
+     "vs_base": 0.7851849130364517,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 7x7, no program config",
+     "s": 0.0003576439921744168,
+     "bytes": 42508288.0,
+     "GBs": 118.85642966223642,
+     "TFLOPs": 7.599481751323598,
+     "pct_dram": 26.87235579069329,
+     "pct_compute": 8.846893773368565,
+     "vs_base": 0.5843463763108336,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 5x5, no program config",
+     "s": 0.000270040996838361,
+     "bytes": 42508288.0,
+     "GBs": 157.41420190892077,
+     "TFLOPs": 10.064801359131645,
+     "pct_dram": 35.58991677796083,
+     "pct_compute": 11.716881675356976,
+     "vs_base": 0.7739120107068592,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 4x4, no program config",
+     "s": 0.00042947701876983047,
+     "bytes": 42508288.0,
+     "GBs": 98.97686288723509,
+     "TFLOPs": 6.328415429037446,
+     "pct_dram": 22.377766874798798,
+     "pct_compute": 7.3671890908468525,
+     "vs_base": 0.4866103695957326,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 2x2, no program config",
+     "s": 0.0010194510105066001,
+     "bytes": 42508288.0,
+     "GBs": 41.697234650712815,
+     "TFLOPs": 2.666051594425688,
+     "pct_dram": 9.42736483172345,
+     "pct_compute": 3.103668910856447,
+     "vs_base": 0.20500050388160124,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    }
+   ],
+   "aiclk": {
+    "n": 3,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   }
+  },
+  "experimental.minimal_matmul#288x288x128x512#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#bias,omc=DRAM": {
+   "round_row": {
+    "key": "experimental.minimal_matmul#288x288x128x512#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#bias,omc=DRAM",
+    "device_s": 0.15863091857245565,
+    "GB": 33.175633919999996,
+    "calls": 312.0,
+    "GBs": 209.1372490215192,
+    "TFLOPs": 21.38265637330156,
+    "pct_dram": 47.28402645749925,
+    "pct_compute": 24.892498688360373,
+    "intensity": 102.24221879815101,
+    "verdict": "BELOW both roofs: placement + config",
+    "called_from": {
+     "triangle multiplication": 0.15863091857245565
+    },
+    "a": "DRAM/bf16/TILE/INTERLEAVED",
+    "b": "DRAM/bf16/TILE/INTERLEAVED",
+    "o": "DRAM/bf16/TILE/INTERLEAVED",
+    "flags": "-",
+    "extra": "bias,omc=DRAM"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matm"
+    },
+    {
+     "point": "operand a -> L1 interleaved",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matm"
+    },
+    {
+     "point": "operand b -> L1 interleaved",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matm"
+    },
+    {
+     "point": "both operands -> L1 interleaved",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matm"
+    },
+    {
+     "point": "output -> L1 interleaved",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matm"
+    },
+    {
+     "point": "a, b and output -> L1",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matm"
+    },
+    {
+     "point": "program config dropped: ttnn picks",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minimal_matm"
+    },
+    {
+     "point": "core_grid 10x13, no program config",
+     "error": ""
+    },
+    {
+     "point": "core_grid 8x8, no program config",
+     "error": ""
+    },
+    {
+     "point": "core_grid 7x7, no program config",
+     "error": ""
+    },
+    {
+     "point": "core_grid 5x5, no program config",
+     "error": ""
+    },
+    {
+     "point": "core_grid 4x4, no program config",
+     "error": ""
+    },
+    {
+     "point": "core_grid 2x2, no program config",
+     "error": ""
+    }
+   ],
+   "aiclk": {
+    "n": 4,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   }
+  },
+  "matmul#288x128x32x288#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED": {
+   "round_row": {
+    "key": "matmul#288x128x32x288#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+    "device_s": 0.13315469406688213,
+    "GB": 6.800080896,
+    "calls": 288.0,
+    "GBs": 51.06902872372186,
+    "TFLOPs": 1.4696398710938974,
+    "pct_dram": 11.546242080877652,
+    "pct_compute": 1.7108729582001132,
+    "intensity": 28.77751756440281,
+    "verdict": "BELOW both roofs: placement + config",
+    "called_from": {
+     "outer product mean": 0.13315469406688213
+    },
+    "a": "DRAM/bf16/TILE/INTERLEAVED",
+    "b": "DRAM/bf16/TILE/INTERLEAVED",
+    "o": "DRAM/bf16/TILE/INTERLEAVED",
+    "flags": "-",
+    "extra": ""
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.00047882902435958385,
+     "bytes": 23611392.0,
+     "GBs": 49.310695047317495,
+     "TFLOPs": 1.41903939283709,
+     "pct_dram": 11.148698857634523,
+     "pct_compute": 1.6519666971328169,
+     "vs_base": 1.0,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "operand a -> L1 interleaved",
+     "s": 0.00046677503269165754,
+     "bytes": 23611392.0,
+     "GBs": 50.58409372036234,
+     "TFLOPs": 1.455684645517125,
+     "pct_dram": 11.436602695085314,
+     "pct_compute": 1.6946270611375145,
+     "vs_base": 1.0258239854827218,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "operand b -> L1 interleaved",
+     "s": 0.0004666660097427666,
+     "bytes": 23611392.0,
+     "GBs": 50.59591122356427,
+     "TFLOPs": 1.4560247239230861,
+     "pct_dram": 11.439274524884528,
+     "pct_compute": 1.6950229614936974,
+     "vs_base": 1.0260636394399534,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "both operands -> L1 interleaved",
+     "s": 0.0004514070460572839,
+     "bytes": 23611392.0,
+     "GBs": 52.306210561462294,
+     "TFLOPs": 1.505242893159833,
+     "pct_dram": 11.825957621854464,
+     "pct_compute": 1.752320015319945,
+     "vs_base": 1.060747785267889,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "output -> L1 interleaved",
+     "s": 0.00044689897913485765,
+     "bytes": 23611392.0,
+     "GBs": 52.83384635540855,
+     "TFLOPs": 1.520426941487729,
+     "pct_dram": 11.9452512673318,
+     "pct_compute": 1.7699964394502081,
+     "vs_base": 1.0714480155818187,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "a, b and output -> L1",
+     "s": 0.0004176949732936919,
+     "bytes": 23611392.0,
+     "GBs": 56.527833729514946,
+     "TFLOPs": 1.626730728028758,
+     "pct_dram": 12.780428154988682,
+     "pct_compute": 1.8937493923501256,
+     "vs_base": 1.1463605141901172,
+     "aiclk": {
+      "n": 0
+     }
+    },
+    {
+     "point": "program config dropped: ttnn picks",
+     "s": 0.0004835770232602954,
+     "bytes": 23611392.0,
+     "GBs": 48.82653820235515,
+     "TFLOPs": 1.4051065607272601,
+     "pct_dram": 11.039235406365624,
+     "pct_compute": 1.6357468692983237,
+     "vs_base": 0.9901815043471248,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 10x13, no program config",
+     "s": 0.00016213097842410207,
+     "bytes": 23611392.0,
+     "GBs": 145.6315889134854,
+     "TFLOPs": 4.190915607889715,
+     "pct_dram": 32.925975336532986,
+     "pct_compute": 4.87883074259571,
+     "vs_base": 2.953346911329082,
+     "aiclk": {
+      "n": 0
+     }
+    },
+    {
+     "point": "core_grid 8x8, no program config",
+     "s": 0.00016210100147873163,
+     "bytes": 23611392.0,
+     "GBs": 145.65852021030184,
+     "TFLOPs": 4.191690623756883,
+     "pct_dram": 32.93206425735968,
+     "pct_compute": 4.879732972941656,
+     "vs_base": 2.9538930666162995,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 7x7, no program config",
+     "s": 0.00017422297969460487,
+     "bytes": 23611392.0,
+     "GBs": 135.5239822059545,
+     "TFLOPs": 3.900043778329669,
+     "pct_dram": 30.64073755504284,
+     "pct_compute": 4.540213944504853,
+     "vs_base": 2.7483689304299714,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 5x5, no program config",
+     "s": 0.00018110597738996148,
+     "bytes": 23611392.0,
+     "GBs": 130.37334460341648,
+     "TFLOPs": 3.751821214254758,
+     "pct_dram": 29.47622532295195,
+     "pct_compute": 4.367661483416482,
+     "vs_base": 2.6439161824491215,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 4x4, no program config",
+     "s": 0.00018465198809280992,
+     "bytes": 23611392.0,
+     "GBs": 127.86968742590751,
+     "TFLOPs": 3.6797721758537505,
+     "pct_dram": 28.910171247096432,
+     "pct_compute": 4.283786002158033,
+     "vs_base": 2.593143075821715,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 2x2, no program config",
+     "s": 0.00044729997171089053,
+     "bytes": 23611392.0,
+     "GBs": 52.786482211675775,
+     "TFLOPs": 1.519063919009536,
+     "pct_dram": 11.934542665990453,
+     "pct_compute": 1.7684096845279815,
+     "vs_base": 1.0704874908176205,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    }
+   ],
+   "aiclk": {
+    "n": 3,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   }
+  },
+  "linear#288x288x512x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,bias,omc=DRAM": {
+   "round_row": {
+    "key": "linear#288x288x512x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,bias,omc=DRAM",
+    "device_s": 0.12827345928622783,
+    "GB": 16.583983103999998,
+    "calls": 156.0,
+    "GBs": 129.2861609586337,
+    "TFLOPs": 13.221559786764788,
+    "pct_dram": 29.23042300669991,
+    "pct_compute": 15.391804175511975,
+    "intensity": 102.2658549741851,
+    "verdict": "BELOW both roofs: placement + config",
+    "called_from": {
+     "pair transition": 0.12827345928622783
+    },
+    "a": "DRAM/bf16/TILE/INTERLEAVED",
+    "b": "DRAM/bf16/TILE/INTERLEAVED",
+    "o": "DRAM/bf16/TILE/INTERLEAVED",
+    "flags": "-",
+    "extra": "g13x10,bias,omc=DRAM"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0008460190147161484,
+     "bytes": 106307584.0,
+     "GBs": 125.65625848925835,
+     "TFLOPs": 12.85034470726121,
+     "pct_dram": 28.409735132095488,
+     "pct_compute": 14.959656236625387,
+     "vs_base": 1.0,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "operand a -> L1 interleaved",
+     "s": 0.0003522029728628695,
+     "bytes": 106307584.0,
+     "GBs": 301.8361348170418,
+     "TFLOPs": 30.86753038916818,
+     "pct_dram": 68.24239991341663,
+     "pct_compute": 35.93426122138322,
+     "vs_base": 2.402078005870628,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "operand b -> L1 interleaved",
+     "s": 0.0008440259844064713,
+     "bytes": 106307584.0,
+     "GBs": 125.95297533968308,
+     "TFLOPs": 12.880688709655141,
+     "pct_dram": 28.47682010845197,
+     "pct_compute": 14.99498103568701,
+     "vs_base": 1.002361337620522,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "both operands -> L1 interleaved",
+     "s": 0.0003592760185711086,
+     "bytes": 106307584.0,
+     "GBs": 295.89390469979116,
+     "TFLOPs": 30.259843145774187,
+     "pct_dram": 66.89891582631498,
+     "pct_compute": 35.22682554804911,
+     "vs_base": 2.3547884383736086,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "output -> L1 interleaved",
+     "s": 0.000751152983866632,
+     "bytes": 106307584.0,
+     "GBs": 141.5258759311206,
+     "TFLOPs": 14.473264703066494,
+     "pct_dram": 31.99771104027144,
+     "pct_compute": 16.848969386573334,
+     "vs_base": 1.1262938880455275,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "a, b and output -> L1",
+     "s": 0.0002580190193839371,
+     "bytes": 106307584.0,
+     "GBs": 412.0145261144968,
+     "TFLOPs": 42.13501777488272,
+     "pct_dram": 93.15273029945665,
+     "pct_compute": 49.05124304410095,
+     "vs_base": 3.278901752034242,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "program config dropped: ttnn picks",
+     "s": 0.0008686410146765411,
+     "bytes": 106307584.0,
+     "GBs": 122.38379515107991,
+     "TFLOPs": 12.515683446110716,
+     "pct_dram": 27.669860988261338,
+     "pct_compute": 14.570062218988026,
+     "vs_base": 0.9739570207045583,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 10x13, no program config",
+     "s": 0.0008449070155620575,
+     "bytes": 106307584.0,
+     "GBs": 125.82163722392696,
+     "TFLOPs": 12.867257304956643,
+     "pct_dram": 28.44712575716187,
+     "pct_compute": 14.979344941742307,
+     "vs_base": 1.0013161201571408,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 8x8, no program config",
+     "s": 0.0009300049860030413,
+     "bytes": 106307584.0,
+     "GBs": 114.30861726546955,
+     "TFLOPs": 11.689868475570139,
+     "pct_dram": 25.84413684500781,
+     "pct_compute": 13.608694383667215,
+     "vs_base": 0.9096929881549922,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 7x7, no program config",
+     "s": 0.0014873690088279545,
+     "bytes": 106307584.0,
+     "GBs": 71.47357741692512,
+     "TFLOPs": 7.309306502605456,
+     "pct_dram": 16.15952462512438,
+     "pct_compute": 8.509087895931845,
+     "vs_base": 0.5688023682722895,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 5x5, no program config",
+     "s": 0.0008718069875612855,
+     "bytes": 106307584.0,
+     "GBs": 121.93935758346612,
+     "TFLOPs": 12.470232658276045,
+     "pct_dram": 27.56937770370023,
+     "pct_compute": 14.517150940949993,
+     "vs_base": 0.970420089293762,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 4x4, no program config",
+     "s": 0.0015017259865999222,
+     "bytes": 106307584.0,
+     "GBs": 70.79026729815898,
+     "TFLOPs": 7.239427209097324,
+     "pct_dram": 16.005034433226086,
+     "pct_compute": 8.42773831093984,
+     "vs_base": 0.5633644368315363,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 2x2, no program config",
+     "s": 0.002538989996537566,
+     "bytes": 106307584.0,
+     "GBs": 41.870028690531356,
+     "TFLOPs": 4.281874281830849,
+     "pct_dram": 9.466431989719952,
+     "pct_compute": 4.984719769302501,
+     "vs_base": 0.3332108499324018,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    }
+   ],
+   "aiclk": {
+    "n": 5,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   }
+  },
+  "matmul#288x32x768x256#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED": {
+   "round_row": {
+    "key": "matmul#288x32x768x256#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+    "device_s": 0.12392044901114702,
+    "GB": 0.924844032,
+    "calls": 48.0,
+    "GBs": 7.463207560818372,
+    "TFLOPs": 1.4036922628673902,
+    "pct_dram": 1.6873632287629148,
+    "pct_compute": 1.6341004224300235,
+    "intensity": 188.08163265306123,
+    "verdict": "BELOW both roofs: placement + config",
+    "called_from": {
+     "MSA column attention": 0.12392044901114702
+    },
+    "a": "DRAM/bf16/TILE/INTERLEAVED",
+    "b": "DRAM/bf16/TILE/INTERLEAVED",
+    "o": "DRAM/bf16/TILE/INTERLEAVED",
+    "flags": "tb",
+    "extra": ""
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0026161029818467796,
+     "bytes": 19267584.0,
+     "GBs": 7.364994472197146,
+     "TFLOPs": 1.3852201848116101,
+     "pct_dram": 1.6651581442905596,
+     "pct_compute": 1.612596257056589,
+     "vs_base": 1.0,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "operand a -> L1 interleaved",
+     "s": 0.00048092304496094584,
+     "bytes": 19267584.0,
+     "GBs": 40.063756981253945,
+     "TFLOPs": 7.535256823249721,
+     "pct_dram": 9.058050414029832,
+     "pct_compute": 8.772126685971735,
+     "vs_base": 5.439753842653193,
+     "aiclk": {
+      "n": 0
+     }
+    },
+    {
+     "point": "operand b -> L1 interleaved",
+     "s": 0.00043361401185393333,
+     "bytes": 19267584.0,
+     "GBs": 44.434874042978244,
+     "TFLOPs": 8.357383656736479,
+     "pct_dram": 10.046320154415158,
+     "pct_compute": 9.729200997364934,
+     "vs_base": 6.033252870822903,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "both operands -> L1 interleaved",
+     "s": 0.0003543680068105459,
+     "bytes": 19267584.0,
+     "GBs": 54.37168037096796,
+     "TFLOPs": 10.226314414262054,
+     "pct_dram": 12.292941526332344,
+     "pct_compute": 11.904906186568166,
+     "vs_base": 7.3824468675735,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "output -> L1 interleaved",
+     "s": 0.0006943079642951488,
+     "bytes": 19267584.0,
+     "GBs": 27.75077485905,
+     "TFLOPs": 5.219411042877648,
+     "pct_dram": 6.274197345478183,
+     "pct_compute": 6.076147896248717,
+     "vs_base": 3.7679288102400044,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "a, b and output -> L1",
+     "s": 0.00035294494591653347,
+     "bytes": 19267584.0,
+     "GBs": 54.59090496384814,
+     "TFLOPs": 10.267546533608662,
+     "pct_dram": 12.34250620932583,
+     "pct_compute": 11.952906325504845,
+     "vs_base": 7.412212618750606,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "program config dropped: ttnn picks",
+     "s": 0.0026165040326304734,
+     "bytes": 19267584.0,
+     "GBs": 7.363865585419926,
+     "TFLOPs": 1.3850078619434703,
+     "pct_dram": 1.6649029132760402,
+     "pct_compute": 1.6123490825884403,
+     "vs_base": 0.9998467226579083,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 10x13, no program config",
+     "s": 0.0001930290018208325,
+     "bytes": 19267584.0,
+     "GBs": 99.81704209341542,
+     "TFLOPs": 18.77375224352891,
+     "pct_dram": 22.567723738054582,
+     "pct_compute": 21.85535767581945,
+     "vs_base": 13.552901155625408,
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 8x8, no program config",
+     "s": 0.00018780800746753812,
+     "bytes": 19267584.0,
+     "GBs": 102.59191958750921,
+     "TFLOPs": 19.295655733030305,
+     "pct_dram": 23.195098256276108,
+     "pct_compute": 22.46292867640315,
+     "vs_base": 13.929666882275841,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 7x7, no program config",
+     "s": 0.00018474302487447858,
+     "bytes": 19267584.0,
+     "GBs": 104.29397273911223,
+     "TFLOPs": 19.615780668646085,
+     "pct_dram": 23.57991696565956,
+     "pct_compute": 22.83560031274282,
+     "vs_base": 14.16076727997855,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    },
+    {
+     "point": "core_grid 5x5, no program config",
+     "s": 0.00019865797366946936,
+     "bytes": 19267584.0,
+     "GBs": 96.98872712785113,
+     "TFLOPs": 18.241798147148494,
+     "pct_dram": 21.928267494427118,
+     "pct_compute": 21.236086317984274,
+     "vs_base": 13.168879826588274,
+     "aiclk": {
+      "n": 0
+     }
+    },
+    {
+     "point": "core_grid 4x4, no program config",
+     "s": 0.00023985496954992414,
+     "bytes": 19267584.0,
+     "GBs": 80.33014298663338,
+     "TFLOPs": 15.108624444179862,
+     "pct_dram": 18.161913404167617,
+     "pct_compute": 17.588619841885752,
+     "vs_base": 10.90702013285681,
+     "aiclk": {
+      "n": 0
+     }
+    },
+    {
+     "point": "core_grid 2x2, no program config",
+     "s": 0.0007789749652147293,
+     "bytes": 19267584.0,
+     "GBs": 24.734535588943825,
+     "TFLOPs": 4.652111836483802,
+     "pct_dram": 5.592253128859105,
+     "pct_compute": 5.415729728153436,
+     "vs_base": 3.358391602643654,
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     }
+    }
+   ],
+   "aiclk": {
+    "n": 2,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   }
+  }
+ },
+ "finished_utc": "2026-09-26T18:54:22Z",
+ "loadavg_end": [
+  5.8720703125,
+  5.86376953125,
+  4.59326171875
+ ]
+}

@@ -51,18 +51,36 @@
 // device-wedge cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
 
+#include "../genq/genq_split.h"
+
 void kernel_main() {
+    // The cheap dispatch path. Under GENQ_COMPACT this kernel's slice of the group split is
+    // recomputed from its own logical coordinates, so the descriptor carries no per-core runtime
+    // args and the dispatch costs a third of what it costs with them (`tt_bio/genq.py`). The
+    // shape words and the walk constants are compile-time: with WALK="block" -- the only mode the
+    // host arms this for -- `_walk` returns (block, 1, NO_WRAP, 0), and `block` IS the slice.
+    //
+    // The block sits FIRST in the compile-time args, at a fixed offset, because these kernels
+    // read their runtime args above the line that declares the tensor accessor.
+    constexpr uint32_t GQ = 0;
+    constexpr uint32_t GQ_ON = get_compile_time_arg_val(GQ);
+    const genq::Slice gq = genq::slice<
+        get_compile_time_arg_val(GQ + 1), get_compile_time_arg_val(GQ + 2),
+        get_compile_time_arg_val(GQ + 3), get_compile_time_arg_val(GQ + 4),
+        get_compile_time_arg_val(GQ + 5), get_compile_time_arg_val(GQ + 6),
+        get_compile_time_arg_val(GQ + 7)>(get_absolute_logical_x(), get_absolute_logical_y());
+
     // See the reader: the destination address is the only per-call value, so it is a common
     // runtime arg and the descriptor above it is cacheable.
     uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
-    uint32_t first_group = get_arg_val<uint32_t>(0);
-    uint32_t num_groups = get_arg_val<uint32_t>(1);
-    uint32_t Nt = get_arg_val<uint32_t>(2);
+    uint32_t first_group = (GQ_ON ? (gq.first) : get_arg_val<uint32_t>(0));
+    uint32_t num_groups = (GQ_ON ? (gq.num) : get_arg_val<uint32_t>(1));
+    uint32_t Nt = (GQ_ON ? (get_compile_time_arg_val(GQ + 8)) : get_arg_val<uint32_t>(2));
     // Logical length of the permuted axis; see the reader. Rows at or above it are output tile
     // padding and must be ZERO, not a copy of row 0: this tensor is a matmul operand and the
     // padding sits on the contracted axis, so a non-zero there changes the product.
-    uint32_t D1 = get_arg_val<uint32_t>(3);
-    uint32_t Ct = get_arg_val<uint32_t>(4);
+    uint32_t D1 = (GQ_ON ? (get_compile_time_arg_val(GQ + 9)) : get_arg_val<uint32_t>(3));
+    uint32_t Ct = (GQ_ON ? (get_compile_time_arg_val(GQ + 10)) : get_arg_val<uint32_t>(4));
     // The group walk is (first, stride, wrap), not (start, +1), and that is a bandwidth decision.
     // Interleaved DRAM puts page p in bank p % 8 and every page of group g is congruent to g, so
     // the cores running their i-th group together land on banks {first_k + i*stride}. A plain
@@ -75,18 +93,20 @@ void kernel_main() {
     // A core walks `num_groups` steps of `group_stride` from `first_group`, folding back to
     // `group_wrap_lo` whenever it reaches `group_wrap_hi`. Blocked order is stride 1 and a wrap
     // that never fires, so all three modes are this one loop.
-    uint32_t group_stride = get_arg_val<uint32_t>(5);
-    uint32_t group_wrap_hi = get_arg_val<uint32_t>(6);
-    uint32_t group_wrap_lo = get_arg_val<uint32_t>(7);
+    uint32_t group_stride = (GQ_ON ? (1u) : get_arg_val<uint32_t>(5));
+    uint32_t group_wrap_hi = (GQ_ON ? (0xFFFFFFFFu) : get_arg_val<uint32_t>(6));
+    uint32_t group_wrap_lo = (GQ_ON ? (0u) : get_arg_val<uint32_t>(7));
 
-    constexpr uint32_t element_size = get_compile_time_arg_val(0);
-    constexpr uint32_t cb_id_in = get_compile_time_arg_val(1);     // c_16 (post-WH tiles)
-    constexpr uint32_t TILE_HEIGHT = get_compile_time_arg_val(2);  // 32
-    constexpr uint32_t TILE_WIDTH = get_compile_time_arg_val(3);   // 32
-    constexpr uint32_t FACE_HEIGHT = get_compile_time_arg_val(4);  // 16
-    constexpr uint32_t FACE_WIDTH = get_compile_time_arg_val(5);   // 16
-    constexpr uint32_t stage_cb_id = get_compile_time_arg_val(6);  // c_24
-    constexpr auto dst_args = TensorAccessorArgs<7>();
+    constexpr uint32_t element_size = get_compile_time_arg_val(11);
+    constexpr uint32_t cb_id_in = get_compile_time_arg_val(12);     // c_16 (post-WH tiles)
+    constexpr uint32_t TILE_HEIGHT = get_compile_time_arg_val(13);  // 32
+    constexpr uint32_t TILE_WIDTH = get_compile_time_arg_val(14);   // 32
+    constexpr uint32_t FACE_HEIGHT = get_compile_time_arg_val(15);  // 16
+    constexpr uint32_t FACE_WIDTH = get_compile_time_arg_val(16);   // 16
+    constexpr uint32_t stage_cb_id = get_compile_time_arg_val(17);  // c_24
+    constexpr auto dst_args = TensorAccessorArgs<7 + 11>();
+
+
 
     constexpr uint32_t NUM_FACES_W = TILE_WIDTH / FACE_WIDTH;                 // 2
     constexpr uint32_t face_height_width = FACE_HEIGHT * FACE_WIDTH;          // 256

@@ -1,0 +1,35 @@
+2026-09-26 15:50:23.993 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{"cell": "D", "device_axis": 288, "msa": [2, 288, 256], "pair": [288, 288, 128], "masks": "fold", "ckpt": true, "depth": 2}
+{"cell": "E", "device_axis": 288, "msa": [2, 288, 256], "pair": [288, 288, 128], "masks": "fold", "ckpt": true, "depth": 2}
+{"cell": "D", "warm_reach": {"kernel_entry": {}, "fused_hifi": {"served": 0, "declined": 0, "too_short": 0, "taped": 0}}}
+{"cell": "E", "warm_reach": {"kernel_entry": {"tri_att_sdpa_hifi": [16, 0]}, "fused_hifi": {"served": 16, "declined": 0, "too_short": 0, "taped": 0}}}
+{"sync_floor_median_s": 1.6704500012565404e-05}
+{"cell": "D", "rep": 0, "mode": "free", "stack": "evo", "K": 2, "fwd": 13.261, "bwd": 30.198, "op_wall": 0.092, "ops": 1666, "loadavg": 22.8, "aiclk": {"n": 115, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 0, "mode": "free", "stack": "extra", "K": 2, "fwd": 11.539, "bwd": 23.609, "op_wall": 0.047, "ops": 898, "loadavg": 19.3, "aiclk": {"n": 93, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 0, "mode": "sync", "stack": "evo", "K": 2, "fwd": 10.88, "bwd": 24.827, "op_wall": 0.468, "ops": 1666, "loadavg": 18.5, "aiclk": {"n": 97, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 0, "mode": "sync", "stack": "extra", "K": 2, "fwd": 10.476, "bwd": 23.935, "op_wall": 0.356, "ops": 898, "loadavg": 16.6, "aiclk": {"n": 92, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 0, "mode": "free", "stack": "evo", "K": 2, "fwd": 4.231, "bwd": 16.543, "op_wall": 0.091, "ops": 1694, "loadavg": 19.8, "aiclk": {"n": 67, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 0, "mode": "free", "stack": "extra", "K": 2, "fwd": 3.237, "bwd": 15.56, "op_wall": 0.045, "ops": 926, "loadavg": 18.9, "aiclk": {"n": 62, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 0, "mode": "sync", "stack": "evo", "K": 2, "fwd": 4.093, "bwd": 16.214, "op_wall": 0.391, "ops": 1694, "loadavg": 18.1, "aiclk": {"n": 68, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 0, "mode": "sync", "stack": "extra", "K": 2, "fwd": 3.22, "bwd": 15.776, "op_wall": 0.332, "ops": 926, "loadavg": 18.3, "aiclk": {"n": 61, "min": 1350, "median": 1350, "max": 1350}}
+wrote /home/ttuser/.coworker/wt/bcx-p10-devgap/perf/bcx_p10_shape/out/cells_devgap_DE.json through rep 0
+{"cell": "D", "rep": 1, "mode": "sync", "stack": "evo", "K": 2, "fwd": 10.767, "bwd": 26.927, "op_wall": 0.492, "ops": 1666, "loadavg": 19.2, "aiclk": {"n": 107, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 1, "mode": "sync", "stack": "extra", "K": 2, "fwd": 12.297, "bwd": 28.504, "op_wall": 0.479, "ops": 898, "loadavg": 23.5, "aiclk": {"n": 109, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 1, "mode": "free", "stack": "evo", "K": 2, "fwd": 12.925, "bwd": 25.362, "op_wall": 0.088, "ops": 1666, "loadavg": 23.3, "aiclk": {"n": 104, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 1, "mode": "free", "stack": "extra", "K": 2, "fwd": 10.196, "bwd": 23.299, "op_wall": 0.052, "ops": 898, "loadavg": 24.9, "aiclk": {"n": 90, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 1, "mode": "sync", "stack": "evo", "K": 2, "fwd": 4.059, "bwd": 15.945, "op_wall": 0.436, "ops": 1694, "loadavg": 26.1, "aiclk": {"n": 67, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 1, "mode": "sync", "stack": "extra", "K": 2, "fwd": 3.511, "bwd": 15.651, "op_wall": 0.336, "ops": 926, "loadavg": 23.9, "aiclk": {"n": 63, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 1, "mode": "free", "stack": "evo", "K": 2, "fwd": 3.897, "bwd": 16.87, "op_wall": 0.088, "ops": 1694, "loadavg": 22.5, "aiclk": {"n": 68, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 1, "mode": "free", "stack": "extra", "K": 2, "fwd": 3.215, "bwd": 15.378, "op_wall": 0.047, "ops": 926, "loadavg": 20.5, "aiclk": {"n": 59, "min": 1350, "median": 1350, "max": 1350}}
+wrote /home/ttuser/.coworker/wt/bcx-p10-devgap/perf/bcx_p10_shape/out/cells_devgap_DE.json through rep 1
+{"cell": "D", "rep": 2, "mode": "free", "stack": "evo", "K": 2, "fwd": 10.863, "bwd": 25.094, "op_wall": 0.083, "ops": 1666, "loadavg": 18.4, "aiclk": {"n": 97, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 2, "mode": "free", "stack": "extra", "K": 2, "fwd": 10.203, "bwd": 23.973, "op_wall": 0.064, "ops": 898, "loadavg": 19.4, "aiclk": {"n": 94, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 2, "mode": "sync", "stack": "evo", "K": 2, "fwd": 12.991, "bwd": 31.062, "op_wall": 0.566, "ops": 1666, "loadavg": 27.1, "aiclk": {"n": 122, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "D", "rep": 2, "mode": "sync", "stack": "extra", "K": 2, "fwd": 12.449, "bwd": 24.273, "op_wall": 0.381, "ops": 898, "loadavg": 23.7, "aiclk": {"n": 102, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 2, "mode": "free", "stack": "evo", "K": 2, "fwd": 4.106, "bwd": 16.701, "op_wall": 0.074, "ops": 1694, "loadavg": 19.3, "aiclk": {"n": 71, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 2, "mode": "free", "stack": "extra", "K": 2, "fwd": 3.325, "bwd": 15.321, "op_wall": 0.053, "ops": 926, "loadavg": 19.6, "aiclk": {"n": 60, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 2, "mode": "sync", "stack": "evo", "K": 2, "fwd": 3.911, "bwd": 16.599, "op_wall": 0.414, "ops": 1694, "loadavg": 20.5, "aiclk": {"n": 68, "min": 1350, "median": 1350, "max": 1350}}
+{"cell": "E", "rep": 2, "mode": "sync", "stack": "extra", "K": 2, "fwd": 3.177, "bwd": 15.785, "op_wall": 0.297, "ops": 926, "loadavg": 22.8, "aiclk": {"n": 60, "min": 1350, "median": 1350, "max": 1350}}
+wrote /home/ttuser/.coworker/wt/bcx-p10-devgap/perf/bcx_p10_shape/out/cells_devgap_DE.json through rep 2
+wrote /home/ttuser/.coworker/wt/bcx-p10-devgap/perf/bcx_p10_shape/out/cells_devgap_DE.json

@@ -1,0 +1,262 @@
+{
+ "stamp": {
+  "host": "pc",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "a8ea34540456a48193f055fae22c92a2e5a26540",
+  "tt_bio_dirty": true,
+  "torch_threads": 8,
+  "loadavg": [
+   5.625,
+   5.81298828125,
+   5.43798828125
+  ],
+  "utc": "2026-09-26T19:09:52Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"
+ },
+ "roofs": {
+  "dram": 442.3,
+  "tflops": 85.9
+ },
+ "reps": 25,
+ "started_utc": "2026-09-26T19:09:52Z",
+ "shapes": {
+  "matmul#16x288x32x288#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED": {
+   "round_row": {
+    "key": "matmul#16x288x32x288#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+    "device_s": 0.002000449011147022,
+    "GB": 0.155713536,
+    "calls": 48.0,
+    "GBs": 77.83929264496305,
+    "TFLOPs": 2.03797420743176,
+    "pct_dram": 17.598754837206208,
+    "pct_compute": 2.372496166975273,
+    "intensity": 26.181818181818183,
+    "verdict": "BELOW both roofs: placement + config",
+    "called_from": {
+     "MSA row attention": 0.002000449011147022
+    },
+    "a": "DRAM/bf16/TILE/INTERLEAVED",
+    "b": "DRAM/bf16/TILE/INTERLEAVED",
+    "o": "DRAM/bf16/TILE/INTERLEAVED",
+    "flags": "tb",
+    "extra": ""
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 4.786800127476454e-05,
+     "bytes": 3244032.0,
+     "GBs": 67.77036670863082,
+     "TFLOPs": 1.7743514192805159,
+     "pct_dram": 15.322262425645674,
+     "pct_compute": 2.0656011865896575,
+     "vs_base": 1.0,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 10x13, no program config",
+     "s": 4.053598968312144e-05,
+     "bytes": 3244032.0,
+     "GBs": 80.02843955110745,
+     "TFLOPs": 2.0952900537017225,
+     "pct_dram": 18.09370100635484,
+     "pct_compute": 2.439220085799444,
+     "vs_base": 1.1808765901353095,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 10x8, no program config",
+     "s": 4.005397204309702e-05,
+     "bytes": 3244032.0,
+     "GBs": 80.9915180574228,
+     "TFLOPs": 2.1205052000488878,
+     "pct_dram": 18.311444281578744,
+     "pct_compute": 2.4685741560522554,
+     "vs_base": 1.1950874990190692,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 8x13, no program config",
+     "s": 3.717798972502351e-05,
+     "bytes": 3244032.0,
+     "GBs": 87.2567888687249,
+     "TFLOPs": 2.2845413812902517,
+     "pct_dram": 19.72796492623217,
+     "pct_compute": 2.659535950279688,
+     "vs_base": 1.287536029484291,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 8x8, no program config",
+     "s": 3.7399004213511944e-05,
+     "bytes": 3244032.0,
+     "GBs": 86.74113303872296,
+     "TFLOPs": 2.2710405741047466,
+     "pct_dram": 19.61137984144765,
+     "pct_compute": 2.6438190618215907,
+     "vs_base": 1.2799271606667602,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 7x7, no program config",
+     "s": 3.723899135366082e-05,
+     "bytes": 3244032.0,
+     "GBs": 87.11385249915186,
+     "TFLOPs": 2.280799047250521,
+     "pct_dram": 19.69564831543112,
+     "pct_compute": 2.6551793332369273,
+     "vs_base": 1.2854269016085695,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 6x6, no program config",
+     "s": 3.434298560023308e-05,
+     "bytes": 3244032.0,
+     "GBs": 94.45981306814465,
+     "TFLOPs": 2.4731296512386964,
+     "pct_dram": 21.35650306763388,
+     "pct_compute": 2.8790799199519164,
+     "vs_base": 1.3938217786877467,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 5x5, no program config",
+     "s": 3.491499228402972e-05,
+     "bytes": 3244032.0,
+     "GBs": 92.91229319514514,
+     "TFLOPs": 2.4326127672910727,
+     "pct_dram": 21.006622924518457,
+     "pct_compute": 2.8319124182666733,
+     "vs_base": 1.3709870214308935,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 4x4, no program config",
+     "s": 3.3140997402369976e-05,
+     "bytes": 3244032.0,
+     "GBs": 97.88576851244716,
+     "TFLOPs": 2.5628273937804344,
+     "pct_dram": 22.131080378125063,
+     "pct_compute": 2.9835010404894464,
+     "vs_base": 1.4443741898770195,
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    },
+    {
+     "point": "core_grid 2x2, no program config",
+     "s": 6.647303234785795e-05,
+     "bytes": 3244032.0,
+     "GBs": 48.802226789109866,
+     "TFLOPs": 1.277731028660331,
+     "pct_dram": 11.033738817343401,
+     "pct_compute": 1.4874633628176146,
+     "vs_base": 0.7201115938907073,
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     }
+    }
+   ],
+   "aiclk": {
+    "n": 7,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   }
+  }
+ },
+ "finished_utc": "2026-09-26T19:09:52Z",
+ "loadavg_end": [
+  5.8955078125,
+  5.8662109375,
+  5.45751953125
+ ]
+}

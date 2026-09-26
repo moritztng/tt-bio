@@ -24,6 +24,8 @@ if str(_ROOT) not in sys.path:
 
 import meter as M                                                      # noqa: E402
 import bc2_state as B                                                  # noqa: E402
+from tt_bio import genq as _genq                                       # noqa: E402
+from tt_bio import reblock_permute as _reblock                         # noqa: E402
 import bindcraft.campaign as campaign                                  # noqa: E402
 import bindcraft.trajectory as trajectory                              # noqa: E402
 import bindcraft.sequence_optimization as seqopt                       # noqa: E402
@@ -33,6 +35,11 @@ from bindcraft.preflight import cleaned_campaign_settings              # noqa: E
 from tt_bio import bindcraft2                                          # noqa: E402
 
 MONOMER = ("model_1_ptm", "model_2_ptm")
+
+
+def taped_ttnn_stats():
+    from tt_bio import taped_ttnn
+    return taped_ttnn.KERNEL_STATS
 
 
 def git_head():
@@ -58,6 +65,53 @@ def main():
                          "The stack is 13.77 s of the round's 20.831 host seconds "
                          "(state/perf10/bcx-HOSTMAP.md), so this is the campaign's "
                          "largest single lever")
+    ap.add_argument("--template", type=int, default=0,
+                    help="predictor(template=...); 1 runs the multimer template embedder's two "
+                         "c=64 pair blocks on card instead of in JAX. Off is origin/main's "
+                         "default. Measured at -3.78 s a round (state/perf10/bcx-TMPLEMB.md)")
+    ap.add_argument("--triatt-sdpa", dest="triatt_sdpa", type=int, default=0,
+                    help="TT_BIO_TRIATT_TAPED_SDPA; 1 routes the taped triangle attention "
+                         "through the stock fused SDPA verb, which puts "
+                         "autograd.triangle_attention's chunked-recompute backward behind it "
+                         "instead of the materialised score path. Measured at device "
+                         "11.653 -> 8.401 s (state/perf10/bcx-TRIATT.md)")
+    ap.add_argument("--sdpa-own-forward", dest="sdpa_own_forward", type=int, default=1,
+                    help="TT_BIO_SDPA_OWN_FORWARD; the `agtri` arm. 1 lets "
+                         "autograd.triangle_attention compute its own chunked forward, which "
+                         "is 1.135x slower on device than the kernel forward and within 0.1 %% "
+                         "of the shipped path on every gradient reading, against the kernel "
+                         "arm's 1.30-1.34x of the torch bf16 envelope. Only read when "
+                         "--triatt-sdpa is on")
+    ap.add_argument("--triatt-hifi", dest="triatt_hifi", type=int, default=0,
+                    help="the `hifi` arm: `bcx-p10-tapegen`'s per-kernel tape entry for "
+                         "tri_att_sdpa_hifi, so the persistent-mask fused HiFi kernel serves "
+                         "the forward under a tape and autograd.triangle_attention carries the "
+                         "backward. Needs all three of TT_BIO_TAPED_KERNELS, "
+                         "TT_BIO_TRIATT_FUSED_HIFI and TT_BIO_TRIATT_DIVIDING_K, which this "
+                         "sets together: the entry makes the arm reachable and dividing-k "
+                         "makes 288 servable, and opening one without the other measures the "
+                         "other. Mutually exclusive with --triatt-sdpa, which is the `agtri` "
+                         "arm through the STOCK fused verb")
+    ap.add_argument("--triatt-bw", dest="triatt_bw", type=int, default=0,
+                    help="TT_BIO_TRIATT_BW_FUSED; 1 sends the BACKWARD of "
+                         "autograd.triangle_attention through the fused kernel that keeps the "
+                         "scores in L1 and never writes them, 238.88 MB a call against the "
+                         "chunked-recompute path's 9172.90 (state/perf10/bcx-TABWD.md). Only "
+                         "reachable on a route that calls autograd.triangle_attention at all, "
+                         "which means --triatt-hifi or --triatt-sdpa; on the materialised path "
+                         "it fires zero times. Refuses rather than approximates: anything "
+                         "outside its shape gate falls through to the chunked recompute")
+    ap.add_argument("--rne-kernel", dest="rne_kernel", type=int, default=0,
+                    help="AF2PairBlock.rne_kernel; 1 runs the wide residual add as ONE Tensix "
+                         "kernel instead of four ttnn calls. Same function, graded bit-exact "
+                         "against round_rne_bf16(exact_sum) in float64 including real ties "
+                         "(state/perf10/bcx-RNEKER.md), at 6 B/element instead of 30. The "
+                         "residual is 398 GB and ~1.41 s of the composed round. Needs the "
+                         "rne_add tape entry, which this adds to TT_BIO_TAPED_KERNELS")
+    ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V",
+                    help="extra BindCraft 2 setting override, repeatable. `--set "
+                         "save_design_frames=1` makes the recorder write one CIF a round, "
+                         "which is what the accuracy leg scores arm against arm")
     ap.add_argument("--shipped", action="store_true",
                     help="leave pdl1.json's own five multimer_v3 design models in place "
                          "instead of pinning one monomer trunk")
@@ -75,6 +129,7 @@ def main():
         overrides.append(f"length_bucket_size={args.bucket}")
     if args.binder:
         overrides.append(f"binder_lengths=[{args.binder},{args.binder}]")
+    overrides += args.sets
     settings = cleaned_campaign_settings(
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
@@ -98,10 +153,60 @@ def main():
     except Exception as exc:      # a pool BindCraft 2's own loader refuses is itself a finding
         pool = f"REFUSED: {exc}"
 
+    # Both flags are live reads (tenstorrent.py::_triatt_taped_sdpa, taped_ttnn::_sdpa_own_forward),
+    # so setting them here beats an import-order hazard, and stamping them is what lets a reader
+    # tell an arm that did not fire from an arm that did nothing.
+    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "1" if args.triatt_sdpa else "0"
+    os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1" if args.sdpa_own_forward else "0"
+
+    # The hifi arm. TT_BIO_TAPED_KERNELS and TT_BIO_TRIATT_DIVIDING_K are live reads
+    # (taped_ttnn.enabled_kernels, tenstorrent._triatt_hifi_dividing_k) so the environment is
+    # enough for those two, but `_TRIATT_FUSED_HIFI` is resolved at import and tt_bio is already
+    # imported by the time argparse runs, so that one is set on the module the way
+    # `perf/bcx_p10_tapegen/round_ab.py` sets it.
+    from tt_bio import tenstorrent as _tn
+    from tt_bio.af2 import AF2PairBlock
+    # Every taped kernel this run wants, in one list. Naming one and not the other measures the
+    # other: `tri_att_sdpa_hifi` and `rne_add` are independent entries on the same registry.
+    _kernels = ([n for n, on in (("tri_att_sdpa_hifi", args.triatt_hifi),
+                                 ("rne_add", args.rne_kernel)) if on])
+    AF2PairBlock.rne_kernel = bool(args.rne_kernel)
+    os.environ["TT_BIO_TAPED_KERNELS"] = ",".join(_kernels)
+    os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if args.triatt_hifi else "0"
+    _tn._TRIATT_FUSED_HIFI = bool(args.triatt_hifi)
+
+    # Resolved at import like `_TRIATT_FUSED_HIFI`, so set on the module rather than in the
+    # environment. Arming it on a route that never enters autograd.triangle_attention is an
+    # arm that measures nothing, and the counters below are what says which happened.
+    from tt_bio import triatt_bw as _tbw
+    _tbw.FUSED = bool(args.triatt_bw)
+    if args.triatt_bw and not (args.triatt_hifi or args.triatt_sdpa):
+        raise SystemExit("--triatt-bw needs a route that calls autograd.triangle_attention: "
+                         "--triatt-hifi or --triatt-sdpa. On the materialised path the fused "
+                         "backward is unreachable and the arm would measure nothing")
+    if args.triatt_hifi and args.triatt_sdpa:
+        raise SystemExit("--triatt-hifi and --triatt-sdpa are two different routes for the same "
+                         "call; running both measures neither")
+
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "exact": bool(args.exact),
              "extra_msa_on_device": bool(args.extra_msa),
+             "template_on_device": bool(args.template),
+             "triatt_taped_sdpa": bool(args.triatt_sdpa),
+             "triatt_hifi": bool(args.triatt_hifi),
+             "triatt_bw_fused": bool(args.triatt_bw),
+             "rne_kernel": bool(args.rne_kernel),
+             # An arm that silently declined would read like a null. `genq_compact` is the flag
+             # as the engine sees it and `genq_refused` names any split the cheap dispatch path
+             # could not reproduce, so a dump says which path it ran rather than which was asked
+             # for (`state/perf10/bcx-GENQ.md` leg 5).
+             "genq_compact": _genq.compact(),
+             "taped_channel_move": _reblock.TAPED_MOVE,
+             "taped_kernels": os.environ.get("TT_BIO_TAPED_KERNELS", ""),
+             "triatt_dividing_k": os.environ.get("TT_BIO_TRIATT_DIVIDING_K", ""),
+             "sdpa_own_forward": bool(args.sdpa_own_forward),
              "shipped_pool": bool(args.shipped), "binder_pinned": args.binder,
+             "sets": args.sets,
              "model_pool": pool,
              "pci": M.CLOCK.pci, "sysfs": node, "commit": git_head(),
              "seed": args.seed, "rounds_requested": args.rounds,
@@ -115,6 +220,16 @@ def main():
     # `meter.install` patches EvoformerOnDevice's three seams and the predictor's two entry
     # points, so it takes the module and the class rather than instances. Both now come from
     # tt_bio's shipped surface.
+    # Reach, sampled at every round boundary rather than once at the end. `served` is this
+    # kernel replacing four ttnn calls; `declined` is its own gate saying no on a shape it does
+    # not cover, which is a fall-through to the wide path and not a failure; `entry` is the tape
+    # entry firing, which is what makes it reachable under a gradient round at all.
+    from tt_bio import rne_add as _rne
+    M.REACH.append(lambda: {
+        "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
+        "rne_add_entry": list(taped_ttnn_stats().get("rne_add", [0, 0])),
+    })
+
     out = pathlib.Path(project) / "round_events.json"
     M.DUMP = (str(out), stamp)
     mt = M.Meter(args.rounds)
@@ -131,13 +246,16 @@ def main():
     stopped = None
     evo = None
     extra = None
+    tmpl = None
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation="device",
                                            checkpoints=args.params,
-                                           exact=bool(args.exact),
-                                           extra_msa=bool(args.extra_msa)) as build:
+                                           extra_msa=bool(args.extra_msa),
+                                           template=bool(args.template),
+                                           exact=bool(args.exact)) as build:
             evo = build.evoformer
             extra = build.extra_msa
+            tmpl = build.template
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -146,8 +264,12 @@ def main():
         stopped = str(stop)
     finally:
         M.CLOCK.stop()
-        from tt_bio import autograd
+        from tt_bio import autograd, mm_layout, rne_add, taped_ttnn, tenstorrent
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
+                      # Whether the fused triangle-attention backward was actually REACHED,
+                      # counted rather than inferred from the flag being set.
+                      "triatt_bw_stats": dict(__import__("tt_bio.triatt_bw",
+                                                         fromlist=["STATS"]).STATS),
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
                       "device_calls": dict(evo.calls) if evo else None,
@@ -158,6 +280,30 @@ def main():
                       "extra_msa_calls": dict(extra.calls) if extra else None,
                       "extra_msa_swapped": list(extra.swapped) if extra else None,
                       "extra_msa_mask_seen": dict(extra.mask_seen) if extra else None,
+                      "template_calls": dict(tmpl.calls) if tmpl else None,
+                      "triatt_sdpa_stats": dict(tenstorrent.TRIATT_TAPED_SDPA_STATS),
+                      "sdpa_own_forward_stats": dict(taped_ttnn.SDPA_OWN_FORWARD_STATS),
+                      # The hifi arm's own reach. `served` is the kernel serving under a tape;
+                      # `taped` counts the calls that declined BECAUSE they were taped, which is
+                      # exactly what the tape entry removes, so a hifi round with taped > 0 and
+                      # served == 0 did not fire and its seconds mean nothing.
+                      "kernel_entry_stats": {k: list(v) for k, v in
+                                             taped_ttnn.KERNEL_STATS.items()},
+                      "fused_hifi_stats": dict(tenstorrent.TRIATT_FUSED_HIFI_STATS),
+                      # The rne_add arm's own reach, process-total. The per-ROUND split is in
+                      # every `round_start` event: a process total cannot tell a round that
+                      # served 432 from two rounds that served 216 and 648.
+                      "rne_add_stats": {"served": rne_add.STATS[0],
+                                        "declined": rne_add.STATS[1],
+                                        "rejects": {"|".join(map(str, k)): v
+                                                    for k, v in rne_add.REJECTS.items()}},
+                      "fp32_softmax_calls": tenstorrent.FP32_SOFTMAX_STATS.get("calls"),
+                      # TT_BIO_MM_LAYOUT's own reach. `served` is a batched matmul that got a
+                      # core grid it did not have; every `declined:*` is a call the site saw
+                      # and left alone. served == 0 means this arm measured the lever nowhere.
+                      "mm_layout": mm_layout.reach(),
+                      "mm_layout_on": mm_layout.MM_LAYOUT,
+                      "mm_layout_side": mm_layout.MM_LAYOUT_SIDE,
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})

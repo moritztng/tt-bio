@@ -1,0 +1,108 @@
+{
+ "stamp": {
+  "host": "pc",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "57936ff9c7bffd41de4eaff14be5ca3b3a24d225",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   2.587890625,
+   2.42919921875,
+   2.68212890625
+  ],
+  "utc": "2026-09-26T20:20:18Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"
+ },
+ "reps": 300,
+ "drain": 20,
+ "aiclk": {
+  "n": 1,
+  "min": 1350,
+  "median": 1350,
+  "max": 1350
+ },
+ "probes": {
+  "A_1t": {
+   "median_ms": 0.00486,
+   "p25_ms": 0.00462,
+   "p75_ms": 0.00512,
+   "min_ms": 0.00398,
+   "load": 2.59,
+   "num_cores": 1,
+   "num_tiles": 1
+  },
+  "A_8t": {
+   "median_ms": 0.00838,
+   "p25_ms": 0.0065,
+   "p75_ms": 0.00904,
+   "min_ms": 0.00498,
+   "load": 2.59,
+   "num_cores": 8,
+   "num_tiles": 8
+  },
+  "A_64t": {
+   "median_ms": 0.03789,
+   "p25_ms": 0.03576,
+   "p75_ms": 0.05811,
+   "min_ms": 0.02073,
+   "load": 2.59,
+   "num_cores": 130,
+   "num_tiles": 16384
+  },
+  "A_2592t": {
+   "median_ms": 0.02249,
+   "p25_ms": 0.02198,
+   "p75_ms": 0.02372,
+   "min_ms": 0.01848,
+   "load": 2.59,
+   "num_cores": 130,
+   "num_tiles": 2592
+  },
+  "A_10368t": {
+   "median_ms": 0.03659,
+   "p25_ms": 0.03596,
+   "p75_ms": 0.03801,
+   "min_ms": 0.02133,
+   "load": 2.59,
+   "num_cores": 130,
+   "num_tiles": 10368
+  },
+  "B_fixed_dest": {
+   "median_ms": 0.04606,
+   "p25_ms": 0.03994,
+   "p75_ms": 0.05859,
+   "min_ms": 0.02508,
+   "load": 2.59
+  },
+  "B_rotating_dest": {
+   "median_ms": 0.03906,
+   "p25_ms": 0.03778,
+   "p75_ms": 0.0493,
+   "min_ms": 0.02273,
+   "load": 2.59
+  },
+  "C_preallocated_full": {
+   "median_ms": 0.05245,
+   "p25_ms": 0.03472,
+   "p75_ms": 0.06494,
+   "min_ms": 0.03061,
+   "load": 2.59
+  },
+  "C_fresh_alloc_full": {
+   "median_ms": 0.07777,
+   "p25_ms": 0.07508,
+   "p75_ms": 0.08443,
+   "min_ms": 0.0675,
+   "load": 2.59
+  },
+  "stock_add": {
+   "median_ms": 0.03023,
+   "p25_ms": 0.02826,
+   "p75_ms": 0.03519,
+   "min_ms": 0.02593,
+   "load": 2.59
+  }
+ }
+}

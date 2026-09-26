@@ -1,0 +1,139 @@
+{
+ "stamp": {
+  "host": "pc",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "22f7754e98acd645747cc0de7b14f06e825ab7d2",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   7.86279296875,
+   3.8310546875,
+   2.97216796875
+  ],
+  "utc": "2026-09-26T20:31:21Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"
+ },
+ "n": 288,
+ "c": 128,
+ "reps": 300,
+ "compact": false,
+ "compact_entry": false,
+ "genq_refused": {},
+ "num_cores": 130,
+ "drain": 20,
+ "addr_write_mode": "in_place",
+ "aiclk": {
+  "n": 3,
+  "min": 1350,
+  "median": 1350,
+  "max": 1350
+ },
+ "stages": {
+  "alloc_dest": {
+   "median_ms": 0.00332,
+   "p25_ms": 0.00302,
+   "p75_ms": 0.00354,
+   "min_ms": 0.00184,
+   "reps": 300,
+   "load": 7.85
+  },
+  "prepare": {
+   "median_ms": 0.00716,
+   "p25_ms": 0.0058,
+   "p75_ms": 0.0097,
+   "min_ms": 0.00543,
+   "reps": 300,
+   "load": 7.85
+  },
+  "prepare_accessor_args": {
+   "median_ms": 0.00138,
+   "p25_ms": 0.00093,
+   "p75_ms": 0.00154,
+   "min_ms": 0.00083,
+   "reps": 300,
+   "load": 7.85
+  },
+  "prepare_cache_key": {
+   "median_ms": 0.00735,
+   "p25_ms": 0.00708,
+   "p75_ms": 0.00786,
+   "min_ms": 0.00446,
+   "reps": 300,
+   "load": 7.85
+  },
+  "buffer_address_x3": {
+   "median_ms": 0.00037,
+   "p25_ms": 0.00035,
+   "p75_ms": 0.00041,
+   "min_ms": 0.00021,
+   "reps": 300,
+   "load": 7.85
+  },
+  "runtime_arg_mutation": {
+   "median_ms": 0.00133,
+   "p25_ms": 0.0011,
+   "p75_ms": 0.00179,
+   "min_ms": 0.00091,
+   "reps": 300,
+   "load": 7.85
+  },
+  "dispatch_only": {
+   "median_ms": 0.08929,
+   "p25_ms": 0.0687,
+   "p75_ms": 0.10583,
+   "min_ms": 0.03677,
+   "reps": 300,
+   "load": 7.86
+  },
+  "rne_add_full": {
+   "median_ms": 0.1012,
+   "p25_ms": 0.08833,
+   "p75_ms": 0.1165,
+   "min_ms": 0.04693,
+   "reps": 300,
+   "load": 7.86
+  },
+  "rne_add_preallocated": {
+   "median_ms": 0.08369,
+   "p25_ms": 0.07712,
+   "p75_ms": 0.09148,
+   "min_ms": 0.04157,
+   "reps": 300,
+   "load": 7.86
+  },
+  "reblock_permute_full": {
+   "median_ms": 0.10141,
+   "p25_ms": 0.09273,
+   "p75_ms": 0.11267,
+   "min_ms": 0.07138,
+   "reps": 300,
+   "load": 7.86
+  },
+  "stock_add": {
+   "median_ms": 0.02667,
+   "p25_ms": 0.02355,
+   "p75_ms": 0.03087,
+   "min_ms": 0.01602,
+   "reps": 300,
+   "load": 7.86
+  },
+  "stock_permute": {
+   "median_ms": 0.02711,
+   "p25_ms": 0.02311,
+   "p75_ms": 0.03125,
+   "min_ms": 0.0106,
+   "reps": 300,
+   "load": 7.86
+  },
+  "stock_transpose": {
+   "median_ms": 0.02526,
+   "p25_ms": 0.01928,
+   "p75_ms": 0.02981,
+   "min_ms": 0.00971,
+   "reps": 300,
+   "load": 7.86
+  }
+ }
+}
