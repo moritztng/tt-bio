@@ -800,21 +800,18 @@ def main() -> int:
                          "one process, one set of weights, the SAME replicate noise, no "
                          "optimizer between them. Reports per-parameter cos and rel_l2, "
                          "which is what says the chunked gradient IS the unchunked one")
-    ap.add_argument("--loss-shape", choices=("model", "harness"), default="model",
-                    help="model: the per-replicate terms per root and the five head terms "
-                         "once per step, which is what their step runs. harness: the whole "
-                         "7-term set per root, which is what this file did before "
-                         "of3t-p10host took it apart and is kept as the control")
+    ap.add_argument("--loss-shape", choices=("model", "per-root"), default="model",
+                    help="model: the five non-diffusion terms once per step and the three "
+                         "diffusion-coupled ones per replicate, which is what their step and "
+                         "tt_bio/train/openfold3.py both run. per-root: the whole seven-term "
+                         "set per replicate, what this file did before of3t-p10host took it "
+                         "apart, kept as the control. of3t-p10samples called per-root "
+                         "`harness`; one flag, one vocabulary, because two declarations of "
+                         "this name made argparse refuse to build the parser at all")
     ap.add_argument("--stage", default="initial_training")
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
-    ap.add_argument("--loss-shape", choices=("per-root", "model"), default="per-root",
-                    help="per-root: the whole seven-term set once per diffusion replicate, "
-                         "which is what every banked losses_s in this campaign measures and "
-                         "why it is the default. model: the five non-diffusion terms once and "
-                         "the three diffusion-coupled ones per replicate, which is what "
-                         "tt_bio/train/openfold3.py actually does.")
     ap.add_argument("--renorm-per-rep", default="",
                     help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
                          "THIS process. The lever is a module global read inside the "
@@ -1101,7 +1098,7 @@ def main() -> int:
                 else:
                     # --- 3. loss heads ----------------------------------------------------
                     t0 = time.perf_counter()
-                    if a.loss_shape == "harness":
+                    if a.loss_shape == "per-root":
                         seeds = host_losses(roots, rep_atom, weights, rng_loss, l_out)
                     else:
                         roll = _to_tokens(roots[0], rep_atom)
