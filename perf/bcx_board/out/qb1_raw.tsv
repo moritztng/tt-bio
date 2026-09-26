@@ -1,0 +1,18 @@
+qb1_s10	1	78	worker=0;start=1790380076.14;design=2523.8;compiled=1	anneal
+qb1_s10	2	180	worker=0;start=1790382600.5;design=7067.27;compiled=0	
+qb1_s10	3	68	worker=0;start=1790393345.24;design=3569.89;compiled=0	anneal
+qb1_s10	4	109	worker=0;start=1790396916.54;design=4875.76;compiled=0	final
+qb1_s10	5	69	worker=0;start=1790401793.0;design=3886.89;compiled=0	
+qb1_s10	6	171	worker=0;start=1790406502.02;design=7537.88;compiled=0	final
+qb1_s12	1	144	worker=0;start=1790381282.47;design=1727.82;compiled=1	screen
+qb1_s12	2	95	worker=0;start=1790383011.04;design=3079.54;compiled=0	harden
+qb1_s12	3	94	worker=0;start=1790386091.79;design=3879.97;compiled=0	final
+qb1_s12	4	111	worker=0;start=1790389973.12;design=5624.92;compiled=0	
+qb1_s12	5	129	worker=0;start=1790396618.54;design=5856.36;compiled=0	harden
+qb1_s12	6	87	worker=0;start=1790402476.24;design=3630.56;compiled=0	anneal
+qb1_s13	1	70	worker=0;start=1790387012.62;design=4167.85;compiled=1	final
+qb1_s13	2	163	worker=0;start=1790391181.92;design=7765.92;compiled=0	harden
+qb1_s13	3	113	worker=0;start=1790398947.96;design=4977.34;compiled=0	
+qb1_s13	4	113	worker=0;start=1790404950.83;design=2845.08;compiled=0	refine
+qb1_s13	5	172	worker=0;start=1790407796.89;design=4464.69;compiled=0	refine
+qb1_s13	6	134	worker=0;start=1790412262.38;design=5479.26;compiled=0	harden

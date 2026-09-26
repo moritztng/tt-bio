@@ -1,0 +1,68 @@
+arm          board  harness  commit     binder  n    stage      rounds  design_s   s/rnd k0  s/rnd k1
+qb1_s10      p150a  traj_arm 643cabcf9  78      224  anneal     120       2523.8     21.03     21.03
+qb1_s10      p150a  traj_arm 643cabcf9  68      224  anneal     120       3569.9     29.75     29.75
+qb1_s10      p150a  traj_arm 643cabcf9  69      224  completed  125       3886.9     31.10     27.76
+qb1_s12      p150a  traj_arm 643cabcf9  95      224  harden     125       3079.5     24.64     24.64
+qb1_s12      p150a  traj_arm 643cabcf9  94      224  final      125       3880.0     31.04     27.71
+qb1_s12      p150a  traj_arm 643cabcf9  87      224  anneal     120       3630.6     30.25     30.25
+qb1_s13      p150a  traj_arm 643cabcf9  70      224  final      125       4167.9     33.34     29.77
+accept_s4    p300c  run_arm  c014a2a7d  94      224  mutate     125       4021.4     32.17     28.72
+accept_s4    p300c  run_arm  c014a2a7d  85      224  mutate     125       4460.3     35.68     31.86
+traj_off_s3  p300c  traj_arm 17ec09261  73      224  screen     50        1438.8     28.78     28.78
+traj_off_s3  p300c  traj_arm 17ec09261  93      224  completed  125       3311.8     26.49     23.66
+traj_off_s3  p300c  traj_arm 17ec09261  73      224  completed  125       3011.8     24.09     21.51
+traj_off_s3  p300c  traj_arm 17ec09261  82      224  completed  125       3066.1     24.53     21.90
+qb1_s10      p150a  traj_arm 643cabcf9  109     256  final      125       4875.8     39.01     34.83
+qb1_s12      p150a  traj_arm 643cabcf9  111     256  completed  125       5624.9     45.00     40.18
+qb1_s13      p150a  traj_arm 643cabcf9  113     256  completed  125       4977.3     39.82     35.55
+qb1_s13      p150a  traj_arm 643cabcf9  113     256  refine     75        2845.1     37.93     37.93
+accept_s4    p300c  run_arm  c014a2a7d  97      256  mutate     125       5126.4     41.01     36.62
+accept_s4    p300c  run_arm  c014a2a7d  128     256  completed  125       5258.8     42.07     37.56
+traj_off_s3  p300c  traj_arm 17ec09261  119     256  completed  125       3784.5     30.28     27.03
+qb1_s12      p150a  traj_arm 643cabcf9  144     288  screen     50        1727.8     34.56     34.56
+qb1_s12      p150a  traj_arm 643cabcf9  129     288  harden     125       5856.4     46.85     46.85
+qb1_s13      p150a  traj_arm 643cabcf9  134     288  harden     125       5479.3     43.83     43.83
+accept_s4    p300c  run_arm  c014a2a7d  152     288  final      125       7130.0     57.04     50.93
+traj_off_s3  p300c  traj_arm 17ec09261  151     288  completed  125       5300.9     42.41     37.86
+qb1_s10      p150a  traj_arm 643cabcf9  180     320  completed  125       7067.3     56.54     50.48
+qb1_s10      p150a  traj_arm 643cabcf9  171     320  final      125       7537.9     60.30     53.84
+qb1_s13      p150a  traj_arm 643cabcf9  163     320  harden     125       7765.9     62.13     62.13
+qb1_s13      p150a  traj_arm 643cabcf9  172     320  refine     75        4464.7     59.53     59.53
+accept_s4    p300c  run_arm  c014a2a7d  173     320  harden     125       9037.2     72.30     72.30
+
+=== seconds per gradient round, by ARM and token axis (k=0 | k=1) ===
+arm          board  cores load1 n=224            n=256            n=288            n=320          
+qb1_s10      p150a  32    1.7   27.3|26.2 x3     39.0|34.8 x1     -                58.4|52.2 x2     
+qb1_s12      p150a  32    6.9   28.6|27.5 x3     45.0|40.2 x1     40.7|40.7 x2     -                
+qb1_s13      p150a  32    20.7  33.3|29.8 x1     38.9|36.7 x2     43.8|43.8 x1     60.8|60.8 x2     
+traj_off_s3  p300c  16    15.4  26.0|24.0 x4     30.3|27.0 x1     42.4|37.9 x1     -                
+accept_s4    p300c  16    14.9  33.9|30.3 x2     41.5|37.1 x2     57.0|50.9 x1     72.3|72.3 x1     
+
+=== the two controls, and the second one decides the question ===
+  n=224  p150a 27.27  (x7)  p300c 26.07  (x6)  BOARD p150a/p300c 1.046  | SAME-BOARD accept_s4/traj_off_s3 1.264
+  n=256  p150a 37.12  (x4)  p300c 33.74  (x3)  BOARD p150a/p300c 1.100  | SAME-BOARD accept_s4/traj_off_s3 1.372
+  n=288  p150a 41.75  (x3)  p300c 44.40  (x2)  BOARD p150a/p300c 0.940  | SAME-BOARD accept_s4/traj_off_s3 1.345
+  n=320  p150a 56.49  (x4)  p300c 72.30  (x1)  BOARD p150a/p300c 0.781  | SAME-BOARD accept_s4/traj_off_s3 -
+
+=== pooled across token axes, each trajectory against its own axis mean ===
+  p150a                  x18   1.001  sd 0.108
+  p300c                  x12   0.998  sd 0.162
+  traj_off_s3 (p300c)    x6    0.872  sd 0.112
+  accept_s4 (p300c)      x6    1.125  sd 0.082
+
+=== how tightly is the board factor bracketed ===
+  p150a / p300c, pooled over token axes  = 1.003
+  difference 0.0031, se 0.0533, Welch df 17.5
+  95 % interval on the board factor      = 0.899 to 1.107
+  -> the p150a is within +/-10 % of the p300c on this workload
+
+=== robustness: the one compile-carrying trajectory per arm dropped ===
+  p150a  x15   1.028
+  p300c  x10   0.958
+
+  board term,   p150a against p300c                  = 0.003
+  harness term, SAME BOARD, same host, same load     = 0.253
+  The harness term is the larger of the two, so no two arms here differ in the board
+  alone and the near-zero board term is a bracket, not a null result.
+
+WROTE perf/bcx_board/out/board.json
