@@ -48,27 +48,93 @@ def main():
                     help="length_bucket_size override; 0 leaves BindCraft 2's own 32")
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--exact", type=int, default=1,
+                    help="predictor(exact=...); 1 is what origin/main defaults to")
+    ap.add_argument("--binder", type=int, default=0,
+                    help="pin binder_lengths so n is fixed; 0 leaves pdl1.json's own 60-180 draw")
+    ap.add_argument("--extra-msa", dest="extra_msa", type=int, default=0,
+                    help="predictor(extra_msa=...); 1 runs BindCraft 2's 4-block extra-MSA "
+                         "stack on card instead of in JAX. Off is origin/main's default. "
+                         "The stack is 13.77 s of the round's 20.831 host seconds "
+                         "(state/perf10/bcx-HOSTMAP.md), so this is the campaign's "
+                         "largest single lever")
+    ap.add_argument("--template", type=int, default=0,
+                    help="predictor(template=...); 1 runs the multimer template embedder's two "
+                         "c=64 pair blocks on card instead of in JAX. Off is origin/main's "
+                         "default. Measured at -3.78 s a round (state/perf10/bcx-TMPLEMB.md)")
+    ap.add_argument("--triatt-sdpa", dest="triatt_sdpa", type=int, default=0,
+                    help="TT_BIO_TRIATT_TAPED_SDPA; 1 routes the taped triangle attention "
+                         "through the stock fused SDPA verb, which puts "
+                         "autograd.triangle_attention's chunked-recompute backward behind it "
+                         "instead of the materialised score path. Measured at device "
+                         "11.653 -> 8.401 s (state/perf10/bcx-TRIATT.md)")
+    ap.add_argument("--sdpa-own-forward", dest="sdpa_own_forward", type=int, default=1,
+                    help="TT_BIO_SDPA_OWN_FORWARD; the `agtri` arm. 1 lets "
+                         "autograd.triangle_attention compute its own chunked forward, which "
+                         "is 1.135x slower on device than the kernel forward and within 0.1 %% "
+                         "of the shipped path on every gradient reading, against the kernel "
+                         "arm's 1.30-1.34x of the torch bf16 envelope. Only read when "
+                         "--triatt-sdpa is on")
+    ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V",
+                    help="extra BindCraft 2 setting override, repeatable. `--set "
+                         "save_design_frames=1` makes the recorder write one CIF a round, "
+                         "which is what the accuracy leg scores arm against arm")
+    ap.add_argument("--shipped", action="store_true",
+                    help="leave pdl1.json's own five multimer_v3 design models in place "
+                         "instead of pinning one monomer trunk")
     args = ap.parse_args()
 
     project = args.out or str(HERE / "runs" / f"round_seed{args.seed}")
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
 
     overrides = [f"campaign_seed={args.seed}", "max_trajectories=1",
-                 "validation_model=monomer", 'design_models=["model_1_ptm"]',
-                 'validation_models=["model_2_ptm"]', f"project_folder={project}"]
+                 f"project_folder={project}"]
+    if not args.shipped:
+        overrides += ["validation_model=monomer", 'design_models=["model_1_ptm"]',
+                      'validation_models=["model_2_ptm"]']
     if args.bucket:
         overrides.append(f"length_bucket_size={args.bucket}")
+    if args.binder:
+        overrides.append(f"binder_lengths=[{args.binder},{args.binder}]")
+    overrides += args.sets
     settings = cleaned_campaign_settings(
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
-    campaign.MULTIMER_POOL = MONOMER
+    if not args.shipped:
+        campaign.MULTIMER_POOL = MONOMER
 
     node = None
     M.CLOCK = M.Clock(1.0)
     node = M.CLOCK.path
     M.CLOCK.start()
 
+    import tt_bio
+    from bindcraft.settings import select_design_and_validation_models
+    from bindcraft.af2 import MONOMER_POOL
+    try:
+        # Whatever BindCraft 2's own resolver returns, printed as it comes. It is a
+        # `PredictionModelSelection`, not a pair, and unpacking it was the first thing this
+        # stamp got wrong.
+        pool = repr(select_design_and_validation_models(
+            settings, campaign.MULTIMER_POOL, MONOMER_POOL))
+    except Exception as exc:      # a pool BindCraft 2's own loader refuses is itself a finding
+        pool = f"REFUSED: {exc}"
+
+    # Both flags are live reads (tenstorrent.py::_triatt_taped_sdpa, taped_ttnn::_sdpa_own_forward),
+    # so setting them here beats an import-order hazard, and stamping them is what lets a reader
+    # tell an arm that did not fire from an arm that did nothing.
+    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "1" if args.triatt_sdpa else "0"
+    os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1" if args.sdpa_own_forward else "0"
+
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
+             "tt_bio_file": tt_bio.__file__, "exact": bool(args.exact),
+             "extra_msa_on_device": bool(args.extra_msa),
+             "template_on_device": bool(args.template),
+             "triatt_taped_sdpa": bool(args.triatt_sdpa),
+             "sdpa_own_forward": bool(args.sdpa_own_forward),
+             "shipped_pool": bool(args.shipped), "binder_pinned": args.binder,
+             "sets": args.sets,
+             "model_pool": pool,
              "pci": M.CLOCK.pci, "sysfs": node, "commit": git_head(),
              "seed": args.seed, "rounds_requested": args.rounds,
              "length_bucket_size": campaign_length_bucket(settings),
@@ -81,6 +147,8 @@ def main():
     # `meter.install` patches EvoformerOnDevice's three seams and the predictor's two entry
     # points, so it takes the module and the class rather than instances. Both now come from
     # tt_bio's shipped surface.
+    out = pathlib.Path(project) / "round_events.json"
+    M.DUMP = (str(out), stamp)
     mt = M.Meter(args.rounds)
     M.install(mt, bindcraft2, bindcraft2.design_model_class(), trajectory, seqopt)
 
@@ -94,10 +162,17 @@ def main():
     t0 = time.time()
     stopped = None
     evo = None
+    extra = None
+    tmpl = None
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation="device",
-                                           checkpoints=args.params) as build:
+                                           checkpoints=args.params,
+                                           extra_msa=bool(args.extra_msa),
+                                           template=bool(args.template),
+                                           exact=bool(args.exact)) as build:
             evo = build.evoformer
+            extra = build.extra_msa
+            tmpl = build.template
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -106,12 +181,21 @@ def main():
         stopped = str(stop)
     finally:
         M.CLOCK.stop()
+        from tt_bio import autograd, taped_ttnn, tenstorrent
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
+                      "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
+                      "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
                       "device_calls": dict(evo.calls) if evo else None,
+                      "extra_msa_calls": dict(extra.calls) if extra else None,
+                      "extra_msa_swapped": list(extra.swapped) if extra else None,
+                      "extra_msa_mask_seen": dict(extra.mask_seen) if extra else None,
+                      "template_calls": dict(tmpl.calls) if tmpl else None,
+                      "triatt_sdpa_stats": dict(tenstorrent.TRIATT_TAPED_SDPA_STATS),
+                      "sdpa_own_forward_stats": dict(taped_ttnn.SDPA_OWN_FORWARD_STATS),
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
-        out = pathlib.Path(project) / "round_events.json"
+        stamp["state_shape"] = dict(M.STATE)
         M.dump(str(out), stamp)
         print(json.dumps(stamp, indent=1), flush=True)
         print(f"events -> {out}", flush=True)
