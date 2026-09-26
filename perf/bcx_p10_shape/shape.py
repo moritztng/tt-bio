@@ -85,6 +85,85 @@ CELLS = {
     "C": {"n": N_HOST, "pad": 288, "masks": "fold", "ckpt": True, "ks": (2,)},
 }
 
+# ------------------------------------------------------------------ the route arms
+
+# `bcx-p10-bytes` adds one dimension to the same cells: WHICH triangle-attention program runs.
+# Cells A-C hold the route fixed at the shipped `_fp32_softmax_attention` and move the shape;
+# these hold the shape fixed at 288 and move the route, so the two tables subtract. Every arm
+# names every switch, so a cell can never inherit the arm that ran before it -- an arm that
+# silently kept the previous route is the failure a byte census cannot tell from a null result.
+MAT = {"TT_BIO_TAPED_KERNELS": "", "TT_BIO_TRIATT_FUSED_HIFI": "0",
+       "TT_BIO_TRIATT_DIVIDING_K": "0", "TT_BIO_TRIATT_TAPED_SDPA": "0",
+       "TT_BIO_SDPA_OWN_FORWARD": "0"}
+#: `bcx-p10-triatt`s shippable arm: the taped call takes the stock fused SDPA verb and
+#: `autograd.triangle_attention` computes its own chunked forward and the backward.
+AGTRI = dict(MAT, TT_BIO_TRIATT_TAPED_SDPA="1", TT_BIO_SDPA_OWN_FORWARD="1")
+#: `bcx-p10-tapegen`s arm: the persistent-mask fused kernel serves the forward through its tape
+#: entry. Both gates, because opening one without the other measures the other.
+HIFI = dict(MAT, TT_BIO_TAPED_KERNELS="tri_att_sdpa_hifi", TT_BIO_TRIATT_FUSED_HIFI="1",
+            TT_BIO_TRIATT_DIVIDING_K="1")
+
+for _name, _env in (("mat", MAT), ("agtri", AGTRI), ("hifi", HIFI)):
+    CELLS[_name] = {"n": N_HOST, "pad": 288, "masks": "ones", "ckpt": False, "ks": (2,),
+                    "env": _env}
+
+
+def route(spec):
+    """Put the process on this cell's triangle-attention route.
+
+    Every switch below is a LIVE read -- `_triatt_taped_sdpa_on`, `_sdpa_own_forward`,
+    `enabled_kernels` at tape open, `_triatt_hifi_dividing_k` -- except the fused-HiFi flag,
+    which `tenstorrent` resolves at import, so that one is set on the module the way
+    `perf/bcx_p10_tapegen/round_ab.py` sets it.
+    """
+    env = spec.get("env")
+    if not env:
+        return
+    os.environ.update(env)
+    from tt_bio import tenstorrent as tn
+    tn._TRIATT_FUSED_HIFI = env["TT_BIO_TRIATT_FUSED_HIFI"] == "1"
+
+
+def reach():
+    """Every counter that says which route a cell actually took."""
+    from tt_bio import tenstorrent as tn
+    from tt_bio import taped_ttnn as TT
+    return {"fp32_softmax_calls": tn.FP32_SOFTMAX_STATS["calls"],
+            "fused_hifi": dict(tn.TRIATT_FUSED_HIFI_STATS),
+            "taped_sdpa": dict(tn.TRIATT_TAPED_SDPA_STATS),
+            "own_forward": dict(TT.SDPA_OWN_FORWARD_STATS),
+            "entries": {k: list(v) for k, v in TT.KERNEL_STATS.items()},
+            "picks": {str(k): v for k, v in tn.TRIATT_FUSED_HIFI_PICKS.items()}}
+
+
+def reach_delta(before, after):
+    """`after - before`, so a cell reports what IT served rather than the process total.
+
+    `picks` is a map of shape to plan, not a count, so it is taken as it stands.
+    """
+    def sub(a, b):
+        if isinstance(a, list):
+            return [x - y for x, y in zip(a, b or [0] * len(a))]
+        if isinstance(a, dict):
+            return {k: sub(v, (b or {}).get(k, 0)) for k, v in a.items()}
+        return a - (b or 0)
+    return {k: v if k == "picks" else sub(v, before.get(k)) for k, v in after.items()}
+
+
+def reach_add(total, delta):
+    """Accumulate one turn's reach delta onto a cell's running total."""
+    if total is None:
+        return delta
+
+    def add(a, b):
+        if isinstance(a, list):
+            return [x + y for x, y in zip(a, b)]
+        if isinstance(a, dict):
+            return {k: add(v, b.get(k, 0 if not isinstance(v, (list, dict)) else type(v)()))
+                    for k, v in a.items()}
+        return a + b
+    return {k: v if k == "picks" else add(v, total.get(k, 0)) for k, v in delta.items()}
+
 
 def cmd_cells(args):
     import ttnn
@@ -116,6 +195,7 @@ def cmd_cells(args):
     lv.mask = True                     # the design path always hands an MSA mask
     for name in cells:                 # warm every cell: JIT + program cache, untimed
         m0, z0, wm, wz, masks, n32, spec = prepared[name]
+        route(spec)
         for stack in args.stacks.split(","):
             for k in spec["ks"]:
                 S.block_step(dev, lv, m0, z0, wm, wz, stack, k=k, ckpt=spec["ckpt"],
@@ -123,16 +203,31 @@ def cmd_cells(args):
     blob["sync_floor_s"] = D.sync_floor(ttnn, dev.device)
     print(json.dumps({"sync_floor_median_s": blob["sync_floor_s"]["median"]}), flush=True)
 
+    # One cell dict per cell, then the REPS outermost: the cells take turns instead of
+    # running one after the other, so a drift in the box lands on every arm equally. Cells
+    # that differ only in shape do not need this; arms that differ in route do, because the
+    # whole result is a ratio between them.
+    tally = {}
     for name in cells:
-        m0, z0, wm, wz, masks, n32, spec = prepared[name]
-        cell = {"n": spec["n"], "device_axis": n32, "masks": spec["masks"],
-                "ckpt": spec["ckpt"], "ks": list(spec["ks"]), "reps": args.reps,
-                "n_real": N_REAL if spec["masks"] == "fold" else n32,
-                "flops_fwd_analytic": D.analytic_flops(spec["n"], args.depth),
-                "flops_fwd_analytic_padded": D.analytic_flops(n32, args.depth),
-                "records": [], "verb": {}}
-        verb_wall, verb_calls = collections.Counter(), collections.Counter()
-        for rep in range(args.reps):
+        spec = prepared[name][6]
+        tally[name] = [collections.Counter(), collections.Counter()]
+        blob["cells"][name] = {
+            "n": spec["n"], "device_axis": prepared[name][5], "masks": spec["masks"],
+            "ckpt": spec["ckpt"], "ks": list(spec["ks"]), "reps": args.reps,
+            "n_real": N_REAL if spec["masks"] == "fold" else prepared[name][5],
+            "flops_fwd_analytic": D.analytic_flops(spec["n"], args.depth),
+            "flops_fwd_analytic_padded": D.analytic_flops(prepared[name][5], args.depth),
+            "env": dict(spec.get("env") or {}), "records": [], "verb": {}}
+
+    for rep in range(args.reps):
+        for name in cells:
+            m0, z0, wm, wz, masks, n32, spec = prepared[name]
+            cell = blob["cells"][name]
+            verb_wall, verb_calls = tally[name]
+            route(spec)
+            # Snapped around THIS cell's turn. The arms interleave, so a baseline taken once
+            # per cell would charge it with every serve the other arms made in between.
+            reach_before = reach()
             modes = ["free", "sync"] if rep % 2 == 0 else ["sync", "free"]
             for mode in modes:
                 timer.sync = (mode == "sync")
@@ -164,12 +259,13 @@ def cmd_cells(args):
                                           "op_wall": round(sum(snap["wall"].values()), 3),
                                           "ops": sum(snap["calls"].values()),
                                           "aiclk": rec["aiclk"]}), flush=True)
-        cell["verb"] = {"wall": D._round(verb_wall), "calls": dict(verb_calls),
-                        "reps": args.reps, "note": "sync mode, K=max, summed over reps"}
-        blob["cells"][name] = cell
+            cell["reach"] = reach_add(cell.get("reach"),
+                                      reach_delta(reach_before, reach()))
+            cell["verb"] = {"wall": D._round(verb_wall), "calls": dict(verb_calls),
+                            "reps": rep + 1, "note": "sync mode, K=max, summed over reps"}
         OUT.mkdir(parents=True, exist_ok=True)
         (OUT / args.out).write_text(json.dumps(blob, indent=1, default=str))
-        print(f"wrote {OUT / args.out} through cell {name}", flush=True)
+        print(f"wrote {OUT / args.out} through rep {rep}", flush=True)
 
     blob["loadavg_end"] = os.getloadavg()
     blob["finished_utc"] = time.strftime("%FT%TZ", time.gmtime())
