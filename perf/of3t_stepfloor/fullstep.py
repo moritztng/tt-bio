@@ -537,7 +537,7 @@ def step_losses(roll, labels, logits, weights, out):
           f"{out['terms_fired']} of {len(out['terms'])} terms fired", flush=True)
 
 
-def grad_snapshot(params, held, row):
+def grad_snapshot(params, held, row, bankdir):
     """Bank the unchunked gradient, then grade the chunked one against it.
 
     Chunking changes the ORDER the per-replicate contributions are summed in, nothing else:
@@ -545,17 +545,27 @@ def grad_snapshot(params, held, row):
     the derivative of the sum is the sum of the per-chunk derivatives. That is an identity,
     and this is the measurement that says the code implements it -- per parameter, because a
     whole-model norm would hide one dead tensor among 3,152.
+
+    The bank goes to DISK, one `.npy` per parameter, and the comparison streams it back one
+    parameter at a time. Holding 381.3 M gradient elements in host memory beside a step whose
+    own resident set is ~10 GiB is what got the first attempt at this arm OOM-killed on a
+    30 GiB box.
     """
     import numpy as np
     import ttnn
+    bankdir = Path(bankdir)
     if not held:
-        bank = {}
-        for n, t in params.items():
+        bankdir.mkdir(parents=True, exist_ok=True)
+        names = {}
+        for i, (n, t) in enumerate(params.items()):
             g = getattr(t, "grad", None)
-            if g is not None:
-                bank[n] = ttnn.to_torch(g).float().numpy().ravel().astype(np.float32)
-        print(f"  [grad_ab] banked {len(bank)} unchunked gradients", flush=True)
-        return {"bank": bank}
+            if g is None:
+                continue
+            f = bankdir / f"{i}.npy"
+            np.save(f, ttnn.to_torch(g).float().numpy().ravel().astype(np.float32))
+            names[n] = f
+        print(f"  [grad_ab] banked {len(names)} unchunked gradients to {bankdir}", flush=True)
+        return {"bank": names}
 
     bank = held["bank"]
     worst_cos, worst_l2, worst_cos_n, worst_l2_n = 2.0, 0.0, None, None
@@ -569,7 +579,7 @@ def grad_snapshot(params, held, row):
         if n not in bank:
             extra.append(n)
             continue
-        b = bank[n]
+        b = np.load(bank[n])
         c = ttnn.to_torch(g).float().numpy().ravel().astype(np.float32)
         if c.shape != b.shape:
             missing.append(f"{n}:shape {b.shape}->{c.shape}")
@@ -587,6 +597,7 @@ def grad_snapshot(params, held, row):
             worst_cos, worst_cos_n = cos, n
         if l2 > worst_l2:
             worst_l2, worst_l2_n = l2, n
+        del b, c
     rep = {"compared": compared, "banked": len(bank),
            "grad_missing_in_chunked": missing[:8], "grad_only_in_chunked": extra[:8],
            "n_missing": len(missing), "n_extra": len(extra),
@@ -884,7 +895,8 @@ def main() -> int:
                 row["dram_after_backward"] = _dram(dev)
 
                 if a.grad_ab:
-                    grad_ab = grad_snapshot(params, grad_ab, row)
+                    grad_ab = grad_snapshot(params, grad_ab, row,
+                                            a.out.parent / f"gradbank_{a.out.stem}")
                     out["grad_ab"] = grad_ab.get("report", {"arm": "unchunked banked"})
                     dump()
 
