@@ -125,7 +125,20 @@ def predict(ops, rows, n):
     levers are predicted at zero or near it and that is the useful half of the exercise:
 
       perm    bit-identical index reordering over the same operands. Removes NO bytes. It was
-              routed on device milliseconds, which is a different and legitimate question.
+              routed on device milliseconds, which is a different and legitimate question -- and
+              on that question it is worth 5.9 ms per Evoformer block backward at n=256
+              (`bcx-bytes` `psum_prof_arms.json`, 131.9 -> 126.0 ms) and NOTHING at BC2's 224,
+              because `eligible_back`'s DRAM window opens at 256 and a BC2 round is 211 tokens
+              bucketed to 224. Whether the window could be widened is already answered on disk:
+              `perf/trix_layout/back_onepass_qb1c0.json` sweeps the same kernel by N at 9 reps
+              against an A/A floor of 1.0002-1.0039 and reads 0.9918 / 0.9903 at N=256, 1.0086 /
+              1.0092 at 288, 1.0135 / 1.0172 at 320, 1.0011 / 1.0003 at 352 and 1.0045 / 1.0018
+              at 512. It LOSES at the bottom of the band, peaks at 1.7 %, and is inside the A/A
+              floor at 352 and above. The mechanism the gate's own docstring gives -- below the
+              window there are fewer work groups than cores, so the per-call cost is not
+              amortised -- says 224 is further into the losing half, and no measurement exists
+              below 256 on either direction. So this lever is closed for BC2 unless someone
+              measures 224 and it opens.
       tree    unpredictable from this instrument. `ttnn.sum(dim=0)` permutes its operand before
               it reduces and the census only sees the depth-0 call, so the baseline it would be
               compared against is itself wrong here. Left unpredicted rather than guessed.
