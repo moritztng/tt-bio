@@ -186,9 +186,17 @@ def analyse(events, clock_samples):
         summary["ratio_device_evo_off_over_on"] = round(
             summary["off"]["device_evoformer_median"]
             / max(summary["on"]["device_evoformer_median"], 1e-9), 4)
-        summary["device_evo_separated"] = (
-            max(x["device_evoformer_s"] for x in timed if x["levers_on"])
-            < min(x["device_evoformer_s"] for x in timed if not x["levers_on"]))
+        # `is True` / `is False`, the SAME predicate the medians above use, and not truthiness.
+        # `levers_on` is None for a round with no arm marker -- a dropped event, or a round the
+        # meter ended early. Under truthiness such a round joins the OFF side here while landing
+        # in neither median, so one missing marker silently decides the separation flag the whole
+        # run reports. Pinned by tests/test_round_ab_analyse.py.
+        on_dev = [x["device_evoformer_s"] for x in timed if x["levers_on"] is True]
+        off_dev = [x["device_evoformer_s"] for x in timed if x["levers_on"] is False]
+        summary["device_evo_separated"] = bool(on_dev and off_dev
+                                               and max(on_dev) < min(off_dev))
+        summary["rounds_without_an_arm_marker"] = sum(
+            1 for x in timed if x["levers_on"] is None)
         summary["ratio_sg_off_over_on"] = round(summary["off"]["sg_median"]
                                                 / summary["on"]["sg_median"], 4)
         summary["ratio_round_off_over_on"] = round(summary["off"]["round_wall_median"]
