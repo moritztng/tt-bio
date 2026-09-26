@@ -33,6 +33,29 @@ cd "$WT" || exit 1
 mkdir -p "$RUNS"
 say() { echo "[chain $(date -u +%H:%M:%SZ)] $*"; }
 
+# PREFLIGHT, and it is not ceremony. Without it a chain launched onto a card that is still held
+# runs all seven steps in about one second, each refusing, and leaves a log that looks like a
+# session. The dry run on 2026-09-26 03:33Z did exactly that. A chain that cannot take the card
+# has not claimed anything, so it exits 3 and the grabber keeps polling rather than declaring
+# victory over a corpse.
+CLAIMED=$RUNS/chain.claimed
+rm -f "$CLAIMED"
+NODE=$(python3 - "$CARD" <<'PY'
+import os, sys
+root = "/sys/class/tenstorrent"
+nodes = sorted(os.listdir(root),
+               key=lambda n: os.path.basename(os.path.realpath(f"{root}/{n}/device")))
+print(nodes[int(sys.argv[1])].split("!")[-1])
+PY
+) || { say "cannot resolve the device node for CARD=$CARD"; exit 3; }
+CONFLICT=$(python3 "$L/lease_scan.py" "$HOME/.coworker/state/leases" "$CARD" "$(hostname)")
+if [ -n "$CONFLICT" ]; then say "NOT CLAIMING card $CARD -- leased:"; echo "$CONFLICT"; exit 3; fi
+if fuser -s "/dev/tenstorrent/$NODE" 2>/dev/null; then
+  say "NOT CLAIMING card $CARD -- /dev/tenstorrent/$NODE has a live holder"; exit 3
+fi
+date -u +%FT%TZ > "$CLAIMED"
+say "claimed card $CARD (node $NODE) on $(hostname)"
+
 step() {  # step <name> <script> <args...>
   local name=$1; shift
   say "START $name: $*"

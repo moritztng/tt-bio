@@ -41,10 +41,15 @@ for i in $(seq 1 "$TRIES"); do
 
   # The chain itself re-checks the lease and the device node before it opens anything, so this is
   # the first of two independent refusals rather than the only one.
+  # The success test is a marker the chain WRITES after its own preflight passes, not `pgrep`.
+  # A pgrep for the chain matches the launching command's own text -- that is how the dry run at
+  # 03:33Z reported LAUNCHED over a chain that had already refused all seven steps and exited,
+  # and it is the third time in one night that a pgrep on this fleet matched its own caller.
   if ssh -o BatchMode=yes -o ConnectTimeout=10 "ttuser@$host" \
-       "cd $WT && setsid nohup env CARD=$card $WT/perf/bcx_bwbytes/chain.sh \
-        > $WT/perf/bcx_bwbytes/runs/chain.log 2>&1 < /dev/null & sleep 6; \
-        pgrep -f 'bcx_bwbytes/chain.sh' >/dev/null"; then
+       "cd $WT && rm -f $WT/perf/bcx_bwbytes/runs/chain.claimed; \
+        setsid nohup env CARD=$card $WT/perf/bcx_bwbytes/chain.sh \
+        > $WT/perf/bcx_bwbytes/runs/chain.log 2>&1 < /dev/null & sleep 10; \
+        test -s $WT/perf/bcx_bwbytes/runs/chain.claimed"; then
     echo "$ts LAUNCHED on $short card $card; log $WT/perf/bcx_bwbytes/runs/chain.log"
     exit 0
   fi
