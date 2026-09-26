@@ -188,6 +188,17 @@ def main():
         raise SystemExit("--triatt-hifi and --triatt-sdpa are two different routes for the same "
                          "call; running both measures neither")
 
+    # What this process asked for, for the boundary check below. The three env-var levers are
+    # resolved at import and the three argv ones on the modules above, so both halves of the
+    # comparison are independent of each other: one is the request, the other is what the engine
+    # is running.
+    _expect = {"genq_compact": os.environ.get("TT_BIO_GENQ_COMPACT") == "1",
+               "taped_channel_move": os.environ.get("TT_BIO_TAPED_CHANNEL_MOVE") == "1",
+               "mm_layout": os.environ.get("TT_BIO_MM_LAYOUT") == "1",
+               "triatt_bw": bool(args.triatt_bw),
+               "triatt_hifi": bool(args.triatt_hifi),
+               "rne_kernel": bool(args.rne_kernel)}
+
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "exact": bool(args.exact),
              "extra_msa_on_device": bool(args.extra_msa),
@@ -200,6 +211,7 @@ def main():
              # as the engine sees it and `genq_refused` names any split the cheap dispatch path
              # could not reproduce, so a dump says which path it ran rather than which was asked
              # for (`state/perf10/bcx-GENQ.md` leg 5).
+             "levers_expected": _expect,
              "genq_compact": _genq.compact(),
              "taped_channel_move": _reblock.TAPED_MOVE,
              "taped_kernels": os.environ.get("TT_BIO_TAPED_KERNELS", ""),
@@ -229,6 +241,13 @@ def main():
         "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
         "rne_add_entry": list(taped_ttnn_stats().get("rne_add", [0, 0])),
     })
+
+    # The six levers, read back from the modules that own them at EVERY round boundary rather
+    # than trusted from the flag that asked for them (`meter.lever_reach`). Checked once here
+    # too, so a process that armed nothing dies before it spends a compile round.
+    _check = M.lever_reach(_expect)
+    _check()
+    M.REACH.append(_check)
 
     out = pathlib.Path(project) / "round_events.json"
     M.DUMP = (str(out), stamp)
