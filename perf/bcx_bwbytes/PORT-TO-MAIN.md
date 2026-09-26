@@ -49,6 +49,36 @@ and at the top of `softmax_bw`, ahead of its `ax = _last_axis(y, dim) if SOFTMAX
 That is the whole change. It needs no new call sites: main already routes all three callers
 through `softmax_bw`.
 
+## The upgrade path, and the hook for it already exists
+
+As written the lever pays two narrowing casts per call — one for y, one for the cotangent — and
+the reach map's 3.161 GB is already NET of them. Both are avoidable in principle, because the
+forward has already made the bf16 copy this lever reconstructs: `tenstorrent._fp32_softmax_tail`
+computes the softmax in fp32 and its next statement is
+`attn_bf = ttnn.typecast(attn, ttnn.bfloat16)`. The backward narrows a tensor whose narrowed form
+existed a line later in the forward and was thrown away.
+
+Main's `_v_softmax` already carries the mechanism that would fix it. It holds y indirectly:
+
+```python
+    box = [y0]
+    def bw(g):
+        y = box[0]                      # through the box, so `free` may evict y to DRAM
+    ...
+    out.box = box
+```
+
+The box is a redirection slot the Tensor machinery can rewrite — it exists so `free` can move y to
+DRAM without the closure noticing. Writing the bf16 copy into `box[0]` instead would give the
+backward bf16 y at zero cost AND let the fp32 `attn` be released one statement earlier, halving
+what the softmax node retains (268 MB -> 134 MB per call at n=256).
+
+It is deliberately NOT part of the graft above. It is cross-node plumbing: the narrowing happens
+in a different taped call (`_identity_grad`'s typecast) from the one that owns the box, so wiring
+it means one node reaching into another's lifetime, and a wrong guess there frees a buffer the
+backward still reads. Worth roughly +1.5 GB on a 3.16 GB lever — real, not transformative — and it
+should be measured with the simple version first so there is something to difference against.
+
 ## Two things that come with it and must not be dropped
 
 1. **`softmax_bw_inner`'s numerator reduce needs the compute kernel config.** On main, line 119's
