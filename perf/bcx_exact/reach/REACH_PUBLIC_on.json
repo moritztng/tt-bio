@@ -1,0 +1,117 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": "2",
+  "pci": "0000:42:00.0",
+  "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+  "commit": "c3d6158fbd68554dda492278a6f10910f833d77a",
+  "arm": "on",
+  "seed": 100,
+  "rounds_requested": 2,
+  "route": "bindcraft2.campaign_predictor(exact=True)",
+  "ops_armed_before_scope": [
+   "softmax",
+   "layer_norm"
+  ],
+  "length_bucket_size": 32,
+  "omp": "6",
+  "started_utc": "2026-09-26T01:24:33Z",
+  "loadavg_start": [
+   20.4072265625,
+   22.75146484375,
+   22.70947265625
+  ],
+  "nproc": 32,
+  "project": "/home/ttuser/bcx_exact_art/reach_on",
+  "wall_seconds": 1463.9,
+  "stopped": "2 rounds collected",
+  "evo_calls": {
+   "primal": 0,
+   "taped": 4,
+   "backward": 2
+  },
+  "aiclk_during": {
+   "median": 1350,
+   "min": 800,
+   "n": 1379
+  },
+  "loadavg_end": [
+   37.72314453125,
+   30.4560546875,
+   27.44970703125
+  ],
+  "finished_utc": "2026-09-26T01:48:57Z"
+ },
+ "inside_scope": {
+  "build_exact": true,
+  "ops_armed_inside_scope": [
+   "softmax",
+   "layer_norm"
+  ]
+ },
+ "ops_after_scope": [
+  "softmax",
+  "layer_norm"
+ ],
+ "rounds": [
+  {
+   "seconds": 731.572,
+   "armed_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "sm_verb": 576,
+   "sm_raw": 0,
+   "sm_raw_elements": 0,
+   "ln_verb": 1728,
+   "ln_raw": 0,
+   "ln_elements": 7464812544,
+   "ln_bw": 576
+  },
+  {
+   "seconds": 725.212,
+   "armed_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "sm_verb": 576,
+   "sm_raw": 0,
+   "sm_raw_elements": 0,
+   "ln_verb": 1728,
+   "ln_raw": 0,
+   "ln_elements": 7464812544,
+   "ln_bw": 576
+  },
+  {
+   "seconds": 0.0,
+   "armed_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "sm_verb": 0,
+   "sm_raw": 0,
+   "sm_raw_elements": 0,
+   "ln_verb": 0,
+   "ln_raw": 0,
+   "ln_elements": 0,
+   "ln_bw": 0
+  }
+ ],
+ "counter_totals": {
+  "sm_verb": 1152,
+  "sm_raw": 0,
+  "ln_verb": 3456,
+  "ln_raw": 0,
+  "ln_bw": 1152,
+  "ln_elements": 14929625088
+ },
+ "checks": {
+  "ops_empty_inside_off_scope": null,
+  "ops_armed_inside_on_scope": true,
+  "scope_restored_after": true,
+  "build_exact_matches": true,
+  "rounds_ran": 2,
+  "counters_exactly_zero": false,
+  "counters_moved": true
+ }
+}

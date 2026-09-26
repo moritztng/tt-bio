@@ -137,11 +137,15 @@ def main():
     stop = threading.Event()
     threading.Thread(target=witness, args=(project, exact, before, stop), daemon=True).start()
     try:
-        with bc2.campaign_predictor(checkpoints=args.params, resident=args.resident) as build:
-            with ag.exact_training(exact):
-                count = campaign.run_campaign(settings, project, af2_weights=args.params,
-                                              mpnn_weights=mpnn,
-                                              max_trajectories=args.trajectories)
+        # The arm is the shipped parameter, not a context manager wrapped around the call.
+        # `campaign_predictor(exact=...)` opens the same `exact_training` scope one frame out,
+        # around the predictor's own `evoformer_on_device` extent, so this arm now exercises
+        # the route a caller has rather than one only this harness could take.
+        with bc2.campaign_predictor(checkpoints=args.params, resident=args.resident,
+                                    exact=exact) as build:
+            count = campaign.run_campaign(settings, project, af2_weights=args.params,
+                                          mpnn_weights=mpnn,
+                                          max_trajectories=args.trajectories)
             stamp["device_calls"] = dict(build.evoformer.calls) if build.evoformer else None
             stamp["host_folds"] = dict(build.evoformer.host_folds) if build.evoformer else None
             stamp["pool_absent"] = dict(build.pool.absent) if build.pool else None
