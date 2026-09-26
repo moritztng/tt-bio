@@ -64,6 +64,7 @@ import numpy as np
 import torch
 
 from . import catalogue, lineage, losses
+from ..taped_ttnn import shim_scope
 
 __all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
 
@@ -444,11 +445,13 @@ class OpenFold3Forward:
 
         # ---- the taped forward, in two blocks with the rollout raw between them.
         #
-        # The rollout CANNOT be inside the tape, and `ag.no_grad()` is not enough to put it
-        # there. `no_grad` stops the tape differentiating, not wrapping: the hook still
-        # returns a `Tensor` because a registered parameter is on the tape whatever the
-        # activations are, and the sampler's own `ttnn.to_torch` -- the host EDM step it
-        # takes every rollout step -- then meets a taped tensor and refuses, correctly.
+        # The rollout CANNOT be inside the tape, and unwrapping its arguments with `_v` is not
+        # enough to keep it out: it re-enters `ops.linear` at every projection inside itself,
+        # the hook sees a registered parameter on the tape whatever the activations are, and
+        # hands back a `Tensor` again. One of those meets the raw `ttnn.layer_norm` beside it
+        # in `OF3DiffusionConditioning` and pybind refuses it; the next meets the sampler`s own
+        # per-step `ttnn.to_torch`. So the rollout runs under `ag.no_grad()`, where the hook
+        # returns the shipped result RAW instead of rewrapping it.
         #
         # Two blocks is the honest shape rather than a workaround. Upstream detaches the
         # rollout (`model.py:381`), so the gradient genuinely does not cross it, and the tape
@@ -488,26 +491,34 @@ class OpenFold3Forward:
             repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
             self.rollout_ran = False
         else:
-            schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
-            xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
-            xl_d = m.sampler(
-                ft(xl0.unsqueeze(0)), _v(s_trunk), _v(s_input_d), _v(z_trunk), _v(relpos_d),
-                ft(tok.reshape(1, n_token)), pair_mask_dm,
-                ft(tok.reshape(n_token, 1).unsqueeze(0)),
-                dm_aux["cl0_d"], dm_aux["plm0_d"], dm_aux["amc_d"], dm_aux["amc_na_d"],
-                dm_aux["idx_tt"], dm_aux["flat_tt"], dm_aux["zij_mask_d"], dm_aux["kidx_tt"],
-                dm_aux["valid_d"], dm_aux["mb_d"], dm_aux["pm_d"], dm_aux["mean_d"],
-                dm_aux["tok_pad_tt"], dm_aux["tok_col_pad_tt"],
-                n_atom, aux["NP"], aux["nb"], n_token, n_token,
-                schedule, rots, trans, noise, ts, ctau, m.step_scale)
-            xl = torch.Tensor(ttnn.to_torch(_v(xl_d))).float().reshape(n_atom, 3)
-            self.rollout_coords = xl
-            self.rollout_ran = True
-            # Atom scope -> token scope, on the CROP's axis. The representative index is the
-            # real tokens' first atoms; padded rows stay at the origin and the pair mask
-            # drops them.
-            repr_x = torch.zeros(n_token, 3)
-            repr_x[real] = xl[rep]
+            # `no_grad` for the arithmetic and the SHIM for the plumbing, because the two
+            # answer different halves. `no_grad` stops `_tape` building nodes the detached
+            # rollout would never use. The shim is what lets the sampler`s own raw `ttnn.`
+            # verbs accept the `Tensor` the hook hands back at every `ops.linear` inside it --
+            # unwrapping the ARGUMENTS with `_v` cannot reach those, which is why the rollout
+            # died on `ttnn.layer_norm` in `OF3DiffusionConditioning` and then on its own
+            # per-step `ttnn.to_torch`.
+            with ag.no_grad(), shim_scope():
+                schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
+                xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
+                xl_d = m.sampler(
+                    ft(xl0.unsqueeze(0)), _v(s_trunk), _v(s_input_d), _v(z_trunk), _v(relpos_d),
+                    ft(tok.reshape(1, n_token)), pair_mask_dm,
+                    ft(tok.reshape(n_token, 1).unsqueeze(0)),
+                    dm_aux["cl0_d"], dm_aux["plm0_d"], dm_aux["amc_d"], dm_aux["amc_na_d"],
+                    dm_aux["idx_tt"], dm_aux["flat_tt"], dm_aux["zij_mask_d"], dm_aux["kidx_tt"],
+                    dm_aux["valid_d"], dm_aux["mb_d"], dm_aux["pm_d"], dm_aux["mean_d"],
+                    dm_aux["tok_pad_tt"], dm_aux["tok_col_pad_tt"],
+                    n_atom, aux["NP"], aux["nb"], n_token, n_token,
+                    schedule, rots, trans, noise, ts, ctau, m.step_scale)
+                xl = torch.Tensor(ttnn.to_torch(_v(xl_d))).float().reshape(n_atom, 3)
+                self.rollout_coords = xl
+                self.rollout_ran = True
+                # Atom scope -> token scope, on the CROP's axis. The representative index is the
+                # real tokens' first atoms; padded rows stay at the origin and the pair mask
+                # drops them.
+                repr_x = torch.zeros(n_token, 3)
+                repr_x[real] = xl[rep]
         self.repr_coords = repr_x
 
         # ---- the one-step denoise. THIS is what trains the diffusion module.

@@ -599,16 +599,25 @@ def walked_weights(forward, cfg: Optional[LoraConfig], model, *args,
     ``no_grad`` keeps the arithmetic production's own either way.
     """
     from .. import ops
+    from ..taped_ttnn import shim_scope
     from ..tenstorrent import walk_device_weights
     # `ops.taping()` is `grad_hook() is not None`, and that ONE predicate is what the fused
     # kernels consult to decline. Installing the hook is therefore the whole of what makes the
     # discovery forward take the training forward's route; opening a tape as well would swap the
     # ttnn proxy and route MORE than a training step does, which is the same error mirrored.
+    #
+    # The SHIM goes in with the hook, and that is the third ordering finding. The hook makes
+    # `ops.linear` hand back an `autograd.Tensor`; the shim is what makes the raw `ttnn.` verbs
+    # beside it in the same module accept one. `OF3DiffusionConditioning._pair` mixes both, so
+    # hook-on/shim-off died on `ttnn.layer_norm(autograd.Tensor)` in the discovery pass, before
+    # step 0 -- the first time anything ran `train_loop` against the shipped OpenFold3 forward.
+    # `shim_scope` opens no tape and changes nothing about what is differentiated, so the
+    # census this pass takes is still the training forward's route and not a wider one.
     installed = ops.grad_hook() is not None
     if not installed:
         ag.install()
     try:
-        with ag.no_grad():
+        with ag.no_grad(), shim_scope():
             forward(*args, **kwargs)
     finally:
         if not installed:
