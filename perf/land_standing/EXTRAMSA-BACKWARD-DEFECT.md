@@ -71,3 +71,38 @@ forbids. Everything needed to fix it is above, and the obvious shape of the fix 
 the recompute gets its own copy.
 
 Evidence: `perf/land_standing/out/extramsa_fire/rounds.jsonl` and `traceback.txt`.
+
+## Confirmed by a model-free reproduction, and it is the mechanism rather than the model
+
+`perf/land_standing/checkpoint_capture_repro.py`, qb2 card 3, **seconds**, no AF2 weights, no
+BindCraft 2, no JAX. Two arms, same shapes, one variable — whether the checkpointed callable
+frees the tensor it closed over:
+
+    control, keeps it                          -> OK, grad arrived=True
+    frees its capture (the extra-MSA shape)    -> RAISED RuntimeError: TT_THROW @
+                                                  /project/ttnn/core/tensor/storage.cpp:60
+
+**The same throw site as the BC2 crash**, reached with `autograd.matmul` and a two-line stand-in
+for `_residual`. So the defect is `checkpoint`'s contract meeting a consuming callable, not
+anything about the extra-MSA blocks, the pool, the pair masks or the model.
+
+It also matters for the fix's cost: a BC2 round is ~10 minutes a try because round 1 is the JAX
+compile, and this is a seconds-long red/green the owning row can iterate against.
+
+## The contract, stated exactly
+
+`autograd.checkpoint`'s own docstring says parameters `fn` closes over "need no duplication: they
+are LEAVES". `_recompute` (`autograd.py:2322-2325`) duplicates only the declared `inputs`:
+
+    inner = [Tensor(t.value, requires_grad=t.requires_grad) ... for t in inputs]
+    with recompute_scope():
+        y = fn(*inner)
+
+so every captured value is reused as-is on the second call. That is correct for a leaf that
+survives the forward and wrong for one the forward frees. `af2._residual` frees both its
+arguments, and `ExtraMsaOnDevice.extra_msa` builds `const` per block with `model._up(...)` and
+hands it to `_residual` from OUTSIDE the checkpoint.
+
+**So either end can be fixed**: pass `const` in as a checkpointed input so the recompute gets its
+own duplicate, or keep `_residual` out of the checkpointed callable the way the Evoformer arm
+does. The repro's control arm shows the second shape already works.
