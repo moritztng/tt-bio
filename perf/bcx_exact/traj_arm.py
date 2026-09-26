@@ -20,6 +20,11 @@ round and every block without an edit to `tt_bio/bindcraft2.py` (`perf/bcx_exact
 The counters decide whether the arm was really the arm. `EXACT_SOFTMAX_STATS` and
 `EXACT_LAYER_NORM_STATS` are snapshotted at the start and dumped at the end, and an OFF arm whose
 counters moved is a failed run, not a fast one -- reported as such rather than quietly averaged.
+
+The counter delta is ALSO flushed to `traj_live.json` every 30 s while the campaign runs. A
+witness written only at campaign end is unreadable while the arm is alive, which is exactly
+when somebody needs it, and is lost outright if the run dies -- taking the whole arm-identity
+record with it. This fleet has paid for that shape once already.
 """
 from __future__ import annotations
 
@@ -29,6 +34,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import threading
 import time
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -54,6 +60,27 @@ def git_head():
                               capture_output=True, text=True, check=True).stdout.strip()
     except Exception as exc:                                           # noqa: BLE001
         return f"unknown: {exc}"
+
+
+def _flush(path, blob):
+    """Atomic write, so a reader never catches a half-written witness."""
+    tmp = pathlib.Path(f"{path}.tmp")
+    tmp.write_text(json.dumps(blob, indent=1))
+    tmp.replace(path)
+
+
+def witness(project, exact, before, stop):
+    """Flush the running counter delta until `stop` is set. Daemon, read-only on the counters."""
+    path = pathlib.Path(project) / "traj_live.json"
+    while True:
+        counters = moved(before, snap())
+        entered = sum(v for op in counters for k, v in counters[op].items() if k in ("verb", "raw"))
+        _flush(path, {"utc": time.strftime("%FT%TZ", time.gmtime()), "exact_training": exact,
+                      "exact_counters": counters, "entered": entered,
+                      "arm_held": (entered == 0) if not exact else (entered > 0),
+                      "loadavg": os.getloadavg()})
+        if stop.wait(30):
+            return
 
 
 def snap():
@@ -107,6 +134,8 @@ def main():
 
     mpnn = os.path.join(B.BC2, "bindcraft", "weights", "proteinmpnn", "weights_neutral")
     t0, count, failed = time.time(), None, None
+    stop = threading.Event()
+    threading.Thread(target=witness, args=(project, exact, before, stop), daemon=True).start()
     try:
         with bc2.campaign_predictor(checkpoints=args.params, resident=args.resident) as build:
             with ag.exact_training(exact):
@@ -121,6 +150,7 @@ def main():
         failed = f"{type(exc).__name__}: {exc}"
         raise
     finally:
+        stop.set()
         M.CLOCK.stop()
         clk = sorted(c for _t, c, _ld in M.CLOCK.samples)
         counters = moved(before, snap())
@@ -138,7 +168,7 @@ def main():
             "aiclk_max": clk[-1] if clk else None,
             "loadavg_end": os.getloadavg(),
             "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
-        (pathlib.Path(project) / "traj_stamp.json").write_text(json.dumps(stamp, indent=1))
+        _flush(pathlib.Path(project) / "traj_stamp.json", stamp)
         print(json.dumps(stamp, indent=1), flush=True)
 
 
