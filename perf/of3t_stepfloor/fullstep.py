@@ -111,6 +111,7 @@ def _cotangents(roots, seeds, dev):
         cot.append(ttnn.from_torch(h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=raw.dtype))
     return cot
 
+
 def _slot_rank(item):
     """Order the walk's names so the slot a weight gets is one the FORWARD reads.
 
