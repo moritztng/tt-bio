@@ -1,0 +1,96 @@
+{
+ "stamp": {
+  "host": "pc",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "218d0de715024a05dab9d5363b8d567348511df7",
+  "tt_bio_dirty": true,
+  "torch_threads": 8,
+  "loadavg": [
+   1.29541015625,
+   1.1083984375,
+   1.08056640625
+  ],
+  "utc": "2026-09-26T17:50:12Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": null
+ },
+ "grid": [
+  13,
+  10
+ ],
+ "l1_bank_bytes": 1461760,
+ "live": 6,
+ "share": 0.5,
+ "max_seq": 352,
+ "rows": [
+  {
+   "seq_len": 288,
+   "hidden": 128,
+   "batch": 1,
+   "chunk": 64,
+   "padded_seq": 288,
+   "head_MB": 40.5,
+   "tail_MB": 20.25,
+   "peak_MB": 60.75,
+   "banks_MB": 181.23,
+   "share_of_banks": 0.3352,
+   "budget_share": 0.5,
+   "below_max_seq": true,
+   "fits": true,
+   "memory_config": "BufferType.L1",
+   "verdict": "L1"
+  },
+  {
+   "seq_len": 352,
+   "hidden": 128,
+   "batch": 1,
+   "chunk": 32,
+   "padded_seq": 352,
+   "head_MB": 30.25,
+   "tail_MB": 15.12,
+   "peak_MB": 45.38,
+   "banks_MB": 181.23,
+   "share_of_banks": 0.2504,
+   "budget_share": 0.5,
+   "below_max_seq": true,
+   "fits": true,
+   "memory_config": "BufferType.L1",
+   "verdict": "L1"
+  },
+  {
+   "seq_len": 384,
+   "hidden": 128,
+   "batch": 1,
+   "chunk": 32,
+   "padded_seq": 384,
+   "head_MB": 36.0,
+   "tail_MB": 18.0,
+   "peak_MB": 54.0,
+   "banks_MB": 181.23,
+   "share_of_banks": 0.298,
+   "budget_share": 0.5,
+   "below_max_seq": false,
+   "fits": true,
+   "memory_config": "BufferType.DRAM",
+   "verdict": "L1"
+  },
+  {
+   "seq_len": 512,
+   "hidden": 128,
+   "batch": 1,
+   "chunk": 32,
+   "padded_seq": 512,
+   "head_MB": 64.0,
+   "tail_MB": 32.0,
+   "peak_MB": 96.0,
+   "banks_MB": 181.23,
+   "share_of_banks": 0.5297,
+   "budget_share": 0.5,
+   "below_max_seq": false,
+   "fits": false,
+   "memory_config": "BufferType.DRAM",
+   "verdict": "DRAM"
+  }
+ ]
+}

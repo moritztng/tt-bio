@@ -56,7 +56,11 @@ def main():
     ap.add_argument('--reps', type=int, default=3)
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--threads', type=int, default=8)
-    ap.add_argument('--arms', default='', help='alternate the taped chunk width in one process')
+    ap.add_argument('--arms', default='', help='alternate one lever in one process')
+    ap.add_argument('--lever', default='chunk', choices=('chunk', 'l1'),
+                    help="'chunk' is TT_BIO_TRIMUL_TAPED_FULL_CHUNK (measured inert, "
+                         "state/perf10/bcx-TRILAY.md); 'l1' is TT_BIO_TRIMUL_TAPED_L1, the "
+                         "residency budget bcx-p10-tril1 built")
     ap.add_argument('--out', default='census_n288.json')
     args = ap.parse_args()
     args.card = int(os.environ.get('TT_VISIBLE_DEVICES', '0'))
@@ -88,7 +92,11 @@ def main():
     for rep in range(args.reps):
         for arm in (arms if rep % 2 == 0 else arms[::-1]):
             if args.arms:
-                T.set_trimul_taped_full_chunk(arm == 'on')
+                if args.lever == 'l1':
+                    T.set_trimul_taped_l1(arm == 'on')
+                    T.TRIMUL_TAPED_L1_STATS.update({'l1': 0, 'dram': 0, 'clash': 0})
+                else:
+                    T.set_trimul_taped_full_chunk(arm == 'on')
             for mode in (['free', 'sync'] if rep % 2 == 0 else ['sync', 'free']):
                 timer.sync = (mode == 'sync')
                 widths.clear()
@@ -97,6 +105,9 @@ def main():
                 timer.on = False
                 snap = timer.take()
                 reach[arm].update(widths)
+                if args.lever == 'l1':
+                    reach[arm].update({'taped_' + k: v
+                                       for k, v in T.TRIMUL_TAPED_L1_STATS.items()})
                 aiclks.append(clock.window(r['spans']))
                 loads.append(round(os.getloadavg()[0], 2))
                 for f in ('wall', 'calls', 'read', 'written'):
@@ -104,10 +115,11 @@ def main():
                 print(json.dumps({'rep': rep, 'arm': arm, 'mode': mode,
                                   'fwd': round(r['fwd'], 3), 'bwd': round(r['bwd'], 3),
                                   'aiclk': aiclks[-1], 'load': loads[-1],
-                                  'widths': dict(widths)}), flush=True)
+                                  'widths': dict(widths),
+                                  'taped_l1': dict(T.TRIMUL_TAPED_L1_STATS)}), flush=True)
     clock.stop()
     timer.uninstall()
-    blob = {'stamp': S.stamp(args, clock), 'n': args.n, 'pad': args.pad, 'stack': args.stack,
+    blob = {'stamp': S.stamp(args, clock), 'lever': args.lever, 'n': args.n, 'pad': args.pad, 'stack': args.stack,
             'k': args.k, 'reps': args.reps, 'sync_floor_s': floor, 'aiclk': aiclks,
             'load': loads, 'pair_masks': False, 'arms': arms,
             'reach': {a: dict(c) for a, c in reach.items()},

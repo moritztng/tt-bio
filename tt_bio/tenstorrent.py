@@ -740,6 +740,55 @@ def set_trimul_taped_full_chunk(on: bool) -> bool:
     prev, _TRIMUL_TAPED_FULL_CHUNK = _TRIMUL_TAPED_FULL_CHUNK, bool(on)
     return prev
 
+# RELEASE-GATED, default OFF. The same fold at the same size takes L1 for inference and DRAM for
+# a gradient round, and the only thing that changed is that a tape is open: at a 288 token axis
+# `TRIANGLE_MULT_L1_MAX_SEQ` is 352, so `_triangle_mul_memory_config`'s `ops.taping()` arm is what
+# puts 331.3 GB of this family on the DRAM bus (state/perf10/bcx-TRILAY.md). The gate is real --
+# the comment on that function names the circular-buffer clash it avoids -- but it is a REFUSAL of
+# a whole loop where `_trimul_tail_memory_config` next door prices a buffer on its own bytes. This
+# is the same pricing, applied to the loop.
+#
+# What the tape actually retains is smaller than the gate assumes. `autograd.Tensor.evict` gives
+# an L1 value its PLACE back on the free the shipped forward already issues: the bytes move to
+# DRAM, the backward still reads them, and the next kernel lays out against the room inference
+# left. So the retained set is not "everything the forward frees" -- it is what the loop holds
+# live at its own peak, which is countable at the call site:
+#
+#     head   the fused in-projection    4 * chunk * group * batch * Ht^2 * elem
+#     tail   a_chunk and b_chunk        2 * chunk * batch * Ht^2 * elem
+#
+# and the two overlap, because the gated move reads the head and writes both operands before the
+# head is freed. `group` is 1 on the L1 route (`_trimul_inproj_group` only widens on the DRAM
+# path), so the peak is `_TRIMUL_TAPED_L1_LIVE` chunk-multiples of [batch, chunk, Ht, Ht].
+#
+# The budget is not the whole of the safety, and it is not meant to be: the clash is a program-
+# VALIDATION throw, before any kernel runs, so the channel loop's existing retry catches it. Under
+# this lever that retry demotes the shape to DRAM outright rather than walking the width down --
+# the DRAM route is the one that was shipping, and a taped L1 loop narrowed to a half-width is not
+# a trade anybody measured. The demotion is keyed on the call shape and is TAPE-ONLY, so a fold in
+# the same process keeps the L1 residency inference has always had.
+_TRIMUL_TAPED_L1 = env_flag("TT_BIO_TRIMUL_TAPED_L1", False)
+# 4 head + 2 tail. Not a tuning knob: it is the count above, named so the budget reads as the
+# arithmetic it is.
+_TRIMUL_TAPED_L1_LIVE = 6
+# Share of each bank the taped loop may claim. Lower than the untaped path's implicit 1.0 because
+# every eviction allocates its DRAM copy while the L1 source is still live, and the triangle
+# matmul's circular buffers sit under all of it.
+_TRIMUL_TAPED_L1_SHARE = float(os.environ.get("TT_BIO_TRIMUL_TAPED_L1_SHARE", "0.5"))
+#: Census: taped trimul calls the budget put in L1, and calls it refused. Read by the A/B harness,
+#: so a reading that claims the lever fired has to show the count.
+TRIMUL_TAPED_L1_STATS = {"l1": 0, "dram": 0, "clash": 0}
+#: Call shapes whose taped L1 loop threw the circular-buffer clash. Tape-only; inference is never
+#: demoted by it. Value of the set is the key `_trimul_chunk_key` builds.
+_TRIMUL_TAPED_L1_CLASH: set = set()
+
+
+def set_trimul_taped_l1(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_TAPED_L1
+    prev, _TRIMUL_TAPED_L1 = _TRIMUL_TAPED_L1, bool(on)
+    return prev
+
 # Seq lengths whose trimul does not fit in L1 even at the minimum width take the DRAM
 # path instead: same ops, same arithmetic, the residency threshold's other side.
 _TRIMUL_DRAM_SHAPES: set = set()
@@ -1159,16 +1208,20 @@ def _trimul_l1_max_seq() -> int:
     return TRIANGLE_MULT_L1_MAX_SEQ
 
 
-def _trimul_l1_fits(batch: int, chunk_c: int, H: int, elem_bytes: int, tensors: int) -> bool:
+def _trimul_l1_fits(batch: int, chunk_c: int, H: int, elem_bytes: int, tensors: int,
+                    share: float | None = None) -> bool:
     """Do `tensors` copies of one [batch, chunk_c, H, H] chunk fit the share of L1 the loop may take?
 
     Priced on the chunk's own bytes, per bank, the way `_FP32_SOFTMAX_L1_BYTES_PER_CORE` and
-    `_TRIMUL_INPROJ_FUSED_BYTES` are -- never on a sequence length.
+    `_TRIMUL_INPROJ_FUSED_BYTES` are -- never on a sequence length. `share` lets the taped-loop
+    budget ask the same question against its own margin instead of copying the arithmetic.
     """
     ht = -(-int(H) // 32) * 32
     gx, gy = COMPUTE_GRID_MAIN
+    if share is None:
+        share = _TRIMUL_TAIL_L1_SHARE
     return (tensors * batch * chunk_c * ht * ht * elem_bytes
-            <= _TRIMUL_TAIL_L1_SHARE * _l1_bank_bytes() * gx * gy)
+            <= share * _l1_bank_bytes() * gx * gy)
 
 
 def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int,
@@ -1183,17 +1236,77 @@ def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int
     return None
 
 
-def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
+def _trimul_l1_chunk_budget() -> float:
+    """`TRIANGLE_MULT_L1_CHUNK_BUDGET` scaled to this grid: the area one chunk may occupy."""
+    gx, gy = COMPUTE_GRID_MAIN
+    budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
+    return budget * SMALL_GRID_TRIMUL_BUDGET_SCALE if _IS_SMALL_GRID else budget
+
+
+def _trimul_chunk_l1_area(seq_len: int, chunk: int, batch: int) -> int:
+    """The area one [batch, chunk, seq, seq] chunk tensor occupies, as the budget counts it.
+
+    The chunk tensors are TILE tensors, so both seq dims round up to 32 and a logical seq
+    understates the real footprint by (tile(seq)/seq)^2 -- 29 % at 225 aa, where 256^2 against
+    225^2 is the difference between one doubling and none. That is what still crashed the
+    confidence Pairformer's trimul (minimal_matmul, the `gp_in_fused` in `_multiply`) after the
+    Transition's own tile-padding fix landed: at 225 aa the logical arithmetic bought chunk 64 for
+    a footprint of 4,194,304 against a 3,629,908 budget, while 205 aa sits at 3,211,264 padded and
+    folds. Small grid only, so Blackhole keeps its measured widths byte-for-byte. Narrowing is
+    bit-exact -- the chunk width is a partition of an independent-channel sum -- so this cannot
+    move an output.
+    """
+    sq = (-(-int(seq_len) // 32) * 32) if _IS_SMALL_GRID else int(seq_len)
+    return int(batch) * int(chunk) * sq * sq
+
+
+def _trimul_taped_l1_fits(seq_len: int, hidden: int, batch: int) -> bool:
+    """Does the channel loop's own L1 peak still fit once a tape is open?
+
+    Two questions, both of them about bytes. The width the L1 budget buys has to be a width this
+    shape can reach at all -- `hidden % chunk` -- and `_TRIMUL_TAPED_L1_LIVE` copies of one chunk
+    at that width have to fit the share of the banks the loop may claim. The constant above says
+    what the six copies are and why the tape does not add a seventh.
+
+    A shape whose taped L1 loop has already thrown the circular-buffer clash is refused here
+    rather than re-probed once per pairformer block, the same bargain `_trimul_inproj_chunk_cap`
+    makes for the DRAM path's byte budget.
+    """
+    if not _TRIMUL_TAPED_L1 or not hidden:
+        return False
+    if _trimul_chunk_key(seq_len, hidden, batch) in _TRIMUL_TAPED_L1_CLASH:
+        return False
+    budget = _trimul_l1_chunk_budget()
+    chunk = TRIANGLE_MULT_CHUNK_SIZE
+    while (hidden % (chunk * 2) == 0
+           and _trimul_chunk_l1_area(seq_len, chunk * 2, batch) <= budget):
+        chunk *= 2
+    elem = 4 if _dtype() == ttnn.float32 else 2
+    return _trimul_l1_fits(batch, chunk, seq_len, elem, _TRIMUL_TAPED_L1_LIVE,
+                           _TRIMUL_TAPED_L1_SHARE)
+
+
+def _triangle_mul_memory_config(seq_len: int, hidden: int | None = None,
+                                batch: int = 1) -> ttnn.MemoryConfig:
     # The trimul's whole chunk loop inherits this one config, so it is the second place the
-    # L1-residency lever is decided and `_l1_fits` never sees it. Under a tape it must be
+    # L1-residency lever is decided and `_l1_fits` never sees it. Under a tape the default is
     # DRAM for `_l1_fits`'s reason: a tape keeps what the forward frees, so every chunk's
     # split, both channel moves, the input projection and the chunk matmul stay resident
     # and the next program cannot lay out its circular buffers. Measured on openfold3's MSA
     # module at 76 tokens, 214 MB of L1 held across six sites in this module, and the
     # fourth block's attention QKV projection then refuses.
+    #
+    # `_TRIMUL_TAPED_L1` prices that instead of refusing it, and only a caller that can name the
+    # channel width -- `hidden` -- may ask: every other site keeps the refusal it has today.
     from . import ops
-    if seq_len in _TRIMUL_DRAM_SHAPES or ops.taping():
+    if seq_len in _TRIMUL_DRAM_SHAPES:
         return ttnn.DRAM_MEMORY_CONFIG
+    if ops.taping():
+        if not _trimul_taped_l1_fits(seq_len, hidden or 0, batch):
+            if hidden:
+                TRIMUL_TAPED_L1_STATS["dram"] += 1
+            return ttnn.DRAM_MEMORY_CONFIG
+        TRIMUL_TAPED_L1_STATS["l1"] += 1
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
 
 
@@ -1225,27 +1338,14 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     """
     if seq_len > _trimul_l1_max_seq():
         return TRIANGLE_MULT_CHUNK_SIZE
-    gx, gy = COMPUTE_GRID_MAIN
-    budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
-    if _IS_SMALL_GRID:
-        budget *= SMALL_GRID_TRIMUL_BUDGET_SCALE
+    budget = _trimul_l1_chunk_budget()
     if (_TRIMUL_TAPED_FULL_CHUNK
-            and _triangle_mul_memory_config(seq_len).buffer_type == ttnn.BufferType.DRAM):
+            and _triangle_mul_memory_config(seq_len, hidden, batch).buffer_type
+            == ttnn.BufferType.DRAM):
         # Nothing this loop holds is in L1, so the L1 budget is not the binding constraint.
         budget = float("inf")
     c = TRIANGLE_MULT_CHUNK_SIZE
-    # Price the chunk on the width it actually occupies. The chunk tensors are
-    # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical
-    # seq understates the real footprint by (tile(seq)/seq)^2 -- 29% at 225 aa, where 256^2
-    # against 225^2 is the difference between one doubling and none. That is what still
-    # crashed the confidence Pairformer's trimul (minimal_matmul, the `gp_in_fused` below)
-    # after the Transition's own tile-padding fix landed: at 225 aa the logical arithmetic
-    # bought chunk 64 for a footprint of 4,194,304 against a 3,629,908 budget, while 205 aa
-    # sits at 3,211,264 padded and folds. Small grid only, so Blackhole keeps its measured
-    # widths byte-for-byte. Narrowing is bit-exact -- the chunk width is a partition of an
-    # independent-channel sum, as the note above says -- so this cannot move an output.
-    _sq = (-(-int(seq_len) // 32) * 32) if _IS_SMALL_GRID else seq_len
-    while hidden % (c * 2) == 0 and batch * (c * 2) * _sq * _sq <= budget:
+    while hidden % (c * 2) == 0 and _trimul_chunk_l1_area(seq_len, c * 2, batch) <= budget:
         c *= 2
     while _TRIMUL_CHUNK_CAP and c > _TRIMUL_CHUNK_CAP and c > TRIANGLE_MULT_CHUNK_SIZE:
         c //= 2
@@ -7776,7 +7876,7 @@ class TriangleMultiplication(Module):
         The (chunk_size, group) pair is computed exactly as `__call__` computes it, from the
         same inputs, so the entry warmed is the entry used.
         """
-        memory_config = _triangle_mul_memory_config(H)
+        memory_config = _triangle_mul_memory_config(H, self._hidden, batch)
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         if large_seq:
@@ -7817,10 +7917,12 @@ class TriangleMultiplication(Module):
             compute_kernel_config=self.compute_kernel_config,
         )
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
-        memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
-        # budget has to see the batch a confidence head arrives with, not just H.
+        # budget has to see the batch a confidence head arrives with, not just H -- and so does
+        # the taped-residency budget, which is why it is read before the memory config and not
+        # after it.
         batch = prod(shp[:-3])
+        memory_config = _triangle_mul_memory_config(H, self._hidden, batch)
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         chunk_size = _trimul_chunk_size(H, self._hidden, batch)
         if large_seq:
@@ -7917,6 +8019,9 @@ class TriangleMultiplication(Module):
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
         # refusal; the loop then holds at most one chunk on device (concat_host_bytes()).
         host_acc = large_seq and _host_concat(x_in)
+        # Whether this loop is in L1 only because the taped budget let it be. The retry below
+        # treats that clash differently from an inference one.
+        taped_l1 = not large_seq and _TRIMUL_TAPED_L1 and ops.taping()
         # The channel loop's L1 footprint is set by chunk_size, and the budget that
         # picked it is a 130-core calibration: on a tighter grid (110-core p300/p300c)
         # the picked width can clash at program creation (issue #11). The clash throws
@@ -8126,7 +8231,13 @@ class TriangleMultiplication(Module):
                 mask_clash = (large_seq and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
-                if not oom and not mask_clash and (large_seq or "clash with L1 buffers" not in msg):
+                # A taped L1 loop that clashes takes the DRAM route whole rather than the width
+                # walk below: DRAM is the arm that was shipping, and a taped loop narrowed to half
+                # its width is a trade nobody measured. Recorded per call shape and TAPE-ONLY, so
+                # a fold later in the same process keeps the residency inference has always had.
+                taped_clash = (taped_l1 and not oom and "clash with L1 buffers" in msg)
+                if not oom and not mask_clash and not taped_clash and (
+                        large_seq or "clash with L1 buffers" not in msg):
                     raise
                 if mask_clash:
                     _TRIMUL_MASK_DRAM_SHAPES.add(mask_key)
@@ -8181,6 +8292,24 @@ class TriangleMultiplication(Module):
                           file=sys.stderr, flush=True)
                     continue
                 if mask_clash:
+                    continue
+                if taped_clash:
+                    _TRIMUL_TAPED_L1_CLASH.add(_trimul_chunk_key(H, self._hidden, batch))
+                    TRIMUL_TAPED_L1_STATS["clash"] += 1
+                    memory_config = _triangle_mul_memory_config(H, self._hidden, batch)
+                    large_seq = True
+                    taped_l1 = False
+                    host_acc = _host_concat(x_in)
+                    chunk_size = _trimul_inproj_chunk_cap(
+                        H, self._hidden, batch, _trimul_chunk_size(H, self._hidden, batch))
+                    n_pairs = self._hidden // chunk_size
+                    group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
+                    gp_in_chunks = self._gp_in_chunks(chunk_size, group)
+                    print(f"[tt-bio] taped trimul L1/circular-buffer clash at seq {H} hidden "
+                          f"{self._hidden} batch {batch}: this shape's taped channel loop takes "
+                          f"DRAM for the rest of the process. The tt-metal 'critical' line above "
+                          f"is expected and handled; the result is unchanged.",
+                          file=sys.stderr, flush=True)
                     continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a

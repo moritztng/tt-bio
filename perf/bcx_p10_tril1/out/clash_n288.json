@@ -1,0 +1,47 @@
+{
+ "stamp": {
+  "host": "pc",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "218d0de715024a05dab9d5363b8d567348511df7",
+  "tt_bio_dirty": true,
+  "torch_threads": 8,
+  "loadavg": [
+   4.42041015625,
+   2.1240234375,
+   1.4404296875
+  ],
+  "utc": "2026-09-26T17:52:07Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": null
+ },
+ "n": 288,
+ "share": 1.0,
+ "chunk_budget": 16000000,
+ "dram_stats": {
+  "l1": 0,
+  "dram": 2,
+  "clash": 0
+ },
+ "inflated_stats": {
+  "l1": 1,
+  "dram": 2,
+  "clash": 1
+ },
+ "clashed": true,
+ "grads": [
+  {
+   "which": "m",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_l2": 0.0
+  },
+  {
+   "which": "z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_l2": 0.0
+  }
+ ],
+ "survived": true
+}
