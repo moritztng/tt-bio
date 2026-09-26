@@ -422,7 +422,23 @@ def block_step(dev, lv, m0, z0, wm, wz, stack_name, k=1, ckpt=False):
     return {"fwd": t1 - t0, "bwd": t3 - t2, "bwd_cpu": c3 - c2, "spans": [(t0, t1), (t2, t3)]}, g
 
 
-def inputs(ref, n, seed):
+#: A harness that is free to pick its own `n` will pick one the card never runs. BindCraft 2
+#: pads the token axis to a multiple of 32 and masks what it added BEFORE anything is uploaded
+#: (`tt_bio.bindcraft2.EvoformerOnDevice._pad`), so the shape on the card is `_pad32(n)`, never
+#: `n`. The host hands 275 across the seam and the card executes 288. Two rows measured a block
+#: at 275 -- `bcx-p10-devmap`'s whole per-family table and `bcx-p10-trimul`'s census, which
+#: inherited the default -- and at 275 three fast paths that are open in production decline on
+#: `% 32`, so the table was inflated and a root cause was found that the fold does not have.
+#: Refusing here is the cheapest place to stop it: every harness in this campaign funnels
+#: through `inputs`.
+def inputs(ref, n, seed, ragged: bool = False):
+    if n % 32 and not ragged:
+        raise ValueError(
+            f"n={n} is not a multiple of 32, so it is not a shape a BindCraft 2 round puts on "
+            f"the card: bindcraft2.EvoformerOnDevice._pad rounds the token axis up and masks "
+            f"the padding, so a complex of {n} residues executes at {-(-n // 32) * 32}. Pass "
+            f"ragged=True only to measure the pre-pad host shape on purpose, and say so in the "
+            f"write-up -- a number taken at a ragged n is not a round contribution.")
     torch.manual_seed(seed)
     m0, z0 = A.embed(ref["bf16"], torch.randn(n, 20), torch.arange(n))
     m0, z0 = m0.detach(), z0.detach()
