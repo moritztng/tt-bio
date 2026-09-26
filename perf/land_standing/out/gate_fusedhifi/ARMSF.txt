@@ -6,3 +6,4 @@ ARM protenix-v2 rc=0 secs=49 scored=[release-gate] scoring tt_bio from /home/ttu
 ARM esmfold2 rc=0 secs=62 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
 ARM esmfold2-fast rc=0 secs=55 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
 ARM rf3 rc=0 secs=56 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+ARM batch-position rc=0 secs=274 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
