@@ -1,0 +1,16 @@
+cdk2x2_1536_d16384.cif: 712 clashing heavy-atom pairs
+  |i-j| within +- 0 of a multiple of 298:   232  ( 32.6 %)
+  |i-j| within +- 5 of a multiple of 298:   436  ( 61.2 %)
+  |i-j| within +-15 of a multiple of 298:   499  ( 70.1 %)
+  |i-j| within +-30 of a multiple of 298:   529  ( 74.3 %)
+  |i-j| < 30 (local, within one copy)      :     5  (  0.7 %)
+  most common |i-j|: [(1490, 232), (1491, 81), (1489, 64), (359, 29), (1488, 18), (179, 18), (178, 18), (360, 14)]
+  |i-j| median 1489, min 3, max 1507
+cdk2x2_1024_d16384.cif: 107 clashing heavy-atom pairs
+  |i-j| within +- 0 of a multiple of 298:     0  (  0.0 %)
+  |i-j| within +- 5 of a multiple of 298:     2  (  1.9 %)
+  |i-j| within +-15 of a multiple of 298:    17  ( 15.9 %)
+  |i-j| within +-30 of a multiple of 298:    18  ( 16.8 %)
+  |i-j| < 30 (local, within one copy)      :     7  (  6.5 %)
+  most common |i-j|: [(838, 17), (964, 10), (956, 7), (220, 5), (213, 5), (75, 4), (957, 4), (837, 4)]
+  |i-j| median 838, min 3, max 965
