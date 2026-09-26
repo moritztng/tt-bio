@@ -60,22 +60,35 @@ separate runs cannot resolve it: the A/B has to be two reps of ONE warm process,
 `--fp32bw-per-rep` and `--renorm-per-rep` already do it. Wiring `--rowmean-per-rep` is the next
 thing in.
 
-ABPROOF: in flight, three device-native two-step arms on card 0 with the fix (D1, D2, D3), seed 0,
-same corpus and order as of3t-p10trainout's ten. **Replicates, not one run**: that row's finding is
-that the held-out metric is BIMODAL (7vus lands at ~2.48 or ~5.64, 7ohe at ~10.8 or ~18.9, nothing
-between) and its ten device-native runs split 6 blown / 3 fine / 1 mixed, so a single arm measures
-a coin, not the arm.
+ABPROOF: three arms in, six more and the step A/B queued behind them on card 0. Device-native
+two-step arms with the fix, seed 0, same corpus and order as of3t-p10trainout's ten.
+**Replicates, not one run**: that row's finding is that the held-out metric is BIMODAL (7vus lands
+at ~2.48 or ~5.64, 7ohe at ~10.8 or ~18.9, nothing between) and its ten device-native runs split
+6 blown-both / 3 fine-both / 1 mixed, so a single arm measures a coin.
 
-| arm | 7ohe | 7vus | 7kud | 7fb8 | mean | step 0 | step 1 |
-|---|---|---|---|---|---|---|---|
-| start checkpoint | 10.762624 | 2.451977 | 9.277909 | 4.717251 | 6.802440 | — | — |
-| exact trunk (34x) | 10.829831 | 2.479054 | 9.220225 | 4.713989 | 6.810775 | — | — |
-| device-native, 10 runs | 10.79–18.95 | 2.46–5.65 | ~9.24 | ~4.72 | 6.813708–9.635149 | 1.7992572181478035 | all different |
-| **D1, fix** | **10.788486** | **2.469938** | 9.221039 | 4.715689 | **6.798788** | 1.7992572181478035 | 1.2376639465563595 |
+| arm | 7ohe | 7vus | 7kud | 7fb8 | mean | step 1 |
+|---|---|---|---|---|---|---|
+| start checkpoint | 10.762624 | 2.451977 | 9.277909 | 4.717251 | 6.802440 | — |
+| exact trunk, 34x | 10.829831 | 2.479054 | 9.220225 | 4.713989 | 6.810775 | — |
+| device-native x10 | 10.79 or 18.9 | 2.46 or 5.64 | ~9.24 | 4.706–4.719 | 6.813708–9.635149 | all ten differ |
+| **D1** | 10.788486 | **2.469938** | 9.221039 | 4.715689 | 6.798788 | 1.2376639465563595 |
+| **D2** | 10.824212 | **2.464245** | 9.245464 | 2.153862 | 6.171946 | 1.2293438986258850 |
+| **D3** | 10.870706 | **2.468330** | 9.228852 | 2.736508 | 6.326099 | 1.2341772071383170 |
 
-D1 draws the fine mode on both targets. Step 0 is bit-identical to every device-native run, which
-is the instrument check: the forward is untouched. One arm is one draw of a coin; D2 and D3 say
-whether it is still a coin.
+**3 of 3 fine on both damaged targets**, against 3 of 10 for the device-native arm. 7vus reads
+2.464–2.470 where the brief's damaged value is 5.645047 and the start is 2.451977, so it lands
+nearer the start than the exact trunk's own 2.479054 does. At n=3 against n=10 that is p=0.08 by
+Fisher, suggestive and not yet significant; D4–D9 are queued for exactly that reason.
+
+`eval_before` is 6.8024402513580124 on all three, digit for digit with every arm of every previous
+row, and step 0 is 1.7992572181478035, bit-identical to all ten device-native runs. The forward is
+untouched, which is what a backward-only change has to show before any of the rest is readable.
+
+**7fb8 is a new finding and it is not obviously good.** All ten device-native runs and both exact
+arms put it in 4.706–4.719; D1/D2/D3 read 4.715689, 2.153862 and 2.736508. So the fix appears to
+move 7fb8 off a value it was pinned to, and to move it by a different amount each run. That is
+what drags the means below the start checkpoint. It needs replicates before anyone reads a
+direction into it.
 
 ## What this row does not claim yet
 
@@ -84,12 +97,13 @@ instruments named above.
 
 `of3t-p10trainout`'s later finding is that the device layer-norm backward is NONDETERMINISTIC run
 to run — step 0 bit-identical on all ten runs, step 1 different on every one — and that the
-bimodality is downstream of that, not of precision. **This fix is an accuracy fix and it is not
-obviously a determinism fix.** Both spellings are bit-exact on repeat at the op
-(`bitexact_repeat` true on all 36 graded gradients in all three arms), so whatever varies at step
-scope is not the arithmetic of this closure at these shapes. If D1/D2/D3 come back bit-identical
-to each other that is a stronger result than the accuracy table and it needs saying explicitly;
-if they do not, the determinism defect is still open and belongs to whoever takes it.
+bimodality is downstream of that, not of precision. **This fix is an accuracy fix and it is NOT a
+determinism fix — measured, not assumed.** D1, D2 and D3 read step 1 at 1.2376639465563595,
+1.2293438986258850 and 1.2341772071383170: three different values from one seed, one corpus, one
+order, on one card. The weights after a single step are still not reproducible. Both spellings are
+bit-exact on repeat at the op (`bitexact_repeat` true on all 36 graded gradients in all three
+arms), so whatever varies at step scope is not the arithmetic of this closure at these shapes, and
+this row does not close that defect.
 
 ## Shared `tt_bio/` code changed here
 
