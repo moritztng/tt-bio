@@ -2638,20 +2638,41 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
 # declines, while this one serves on its first rung, (288,288). At 256 and 320 both arms take an
 # identical rung, so the change is inert there by measurement as well as by construction.
 #
-# DEFAULT OFF, and the reason is the blast radius rather than the result.
-# `perf/bcx_tapedfwd/blast.py` enumerates it: 20 of the 48 tile-aligned lengths from 32 to 1536
-# have a shipped k that does not divide, so the fused-HiFi route serves NOTHING at any of them
-# today, and this makes a legal k reachable at all 20. Only 288 has been run. The risk is bounded
-# -- at those 20 there is no fused config today, so a rung can only serve or decline exactly as
-# now -- and at 288 the newly reachable route is MORE accurate than the `_fp32_softmax_attention`
-# it replaces (pair rel_l2 against the float64 reference block 0.021702 -> 0.018661, the same
-# direction and size as the 0.022167 -> 0.019025 the fused route already buys at 256). But a
-# default-on lever reddens gates it was never run against, so the flip waits on the other 19
-# lengths' importers rather than on this row. `of3t-*` and the Boltz-2 / RFD3 sizes are in that set.
+# DEFAULT ON since 2026-09-26. It was off because the blast radius was unmeasured; it has now
+# been measured, and the worry the old note recorded -- "20 of the 48 tile-aligned lengths ...
+# only 288 has been run" -- counted lengths where the SHIPPED k fails to divide, which is not the
+# same as lengths where the route ends up serving nothing.
+#
+# Replayed through the real route order (`perf/land_standing/capreach.py`, whose model reproduces
+# six device outcomes of this row's before it is used), at `openfold3.trunk` -- the only site with
+# `tri_att_sdpa_hifi` on, and therefore the only one that gets `one_k_chunk` and its prepended
+# full-width k -- **10** of the 48 lengths serve nothing, not 20, and this lever opens exactly
+# **one** of them and changes the pick at **none** that serve today. OpenFold3 pads its pair axis
+# to a multiple of 64, so 832 is the only one of the ten a user can present.
+#
+# What 832 is worth, on a p300c with the clock sampled DURING every leg at 1350 MHz and the arms
+# interleaved: **+50.999 s, 1.6351x**, against an A/A floor of 1.306 s -- 39x the floor.
+#
+# Accuracy at 832, on a fixture where OpenFold3 is CONFIDENT (tiled CDK2 at MSA depth 513, pLDDT
+# 0.806; every earlier reading was single-sequence at pLDDT 0.37, near the confidence heads' floor,
+# and pointed the other way). CA RMSD, Kabsch, float64, 832 CA:
+#     control (same arm, rerun)   0.000000 A      the instrument has no floor
+#     this lever                  0.450148 A      against the 0.60 A bar
+#     seed floor (two seeds)      1.974757 A      4.4x the lever's move
+#     lever AND seed together     1.948630 A      no more than the seed alone
+# Both confidence heads move the favourable way (+0.000551 pLDDT, +0.000647 pTM).
+#
+# WHAT THIS EVIDENCE DOES NOT COVER, stated so the next reader does not over-read it: the sweep
+# above is `openfold3.trunk`'s route order. Other callers reach `_tri_att_sdpa_hifi_inner` without
+# `one_k_chunk`, and BindCraft 2's taped forward at 288 is the other length anyone has run. It is
+# also favourable there (pair rel_l2 against the float64 reference 0.021702 -> 0.018661). The
+# remaining lengths stay bounded by the old note's own argument, which survives: where nothing
+# serves today a rung can only serve or decline, so no already-served pick can move.
 #
 # Live read rather than resolved at import, for the same reason `_sdpa_wide_k` is: one process has
-# to be able to A/B both arms (`perf/bcx_tapedfwd/khole.py`).
-_TRIATT_HIFI_DIVIDING_K_DEFAULT = False
+# to be able to A/B both arms (`perf/bcx_tapedfwd/khole.py`), and `TT_BIO_TRIATT_DIVIDING_K=0`
+# restores the old behaviour everywhere.
+_TRIATT_HIFI_DIVIDING_K_DEFAULT = True
 
 
 def _triatt_hifi_dividing_k() -> bool:
