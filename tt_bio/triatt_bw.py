@@ -44,6 +44,15 @@ in L1 while the batch streams past it.
 
 Default OFF behind `TT_BIO_TRIATT_BW_FUSED`. Gated in `tt_bio/autograd.py::triangle_attention`,
 which keeps its chunked-recompute backward as the fallback for every shape this refuses.
+
+REACHING IT IS A SEPARATE SWITCH, and on its own the flag above measures nothing. This hooks
+`autograd.triangle_attention`'s backward, and a taped AF2 round does not call that function:
+`tenstorrent.py` computes triangle attention through `_fp32_softmax_attention`. Something has to
+put the backward there first, and a per-kernel tape entry for the fused HiFi forward
+(`TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi`, see `taped_ttnn._k_tri_att_sdpa_hifi`) does it. With
+that route open the kernel serves 108 calls a BindCraft 2 round; without it, zero. `STATS` is
+what says which: `bw_calls` counts every entry into the backward before any gate, so `bw_calls`
+at zero is a routing problem and `declined` above zero is a shape gate.
 """
 
 from __future__ import annotations
