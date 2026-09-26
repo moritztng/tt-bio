@@ -252,6 +252,9 @@ def census(ops):
         ins = o["ins"]
         if slice_ and o["outs"]:
             ins = [dict(ins[0], padded=o["outs"][0]["padded"], shape=o["outs"][0]["shape"])] + ins[1:]
+        if cls == "other" and o["op"].split(".")[-1] == "generic_op" \
+                and any("reblock_permute.py" in x for x in (o.get("stack") or [])):
+            cls = "layout"                 # a reblock move is a layout kernel, not an unknown one
         io = ins + o["outs"]
         src = {d["addr"] for d in o["ins"] if d["addr"] is not None}
         view = (bool(o["outs"]) and all(d["addr"] in src for d in o["outs"])) or cls == "free"
@@ -464,9 +467,12 @@ def cmd_join(args):
 class Arms:
     """This row's levers as switches, installed BEFORE any taped call (the shim caches verbs).
 
-      perm  a permute's backward goes through `_channel_move` / `_channel_move_back` when its
-            inverse is one of their two index moves: the reblock kernels, bit-exact against
-            `ttnn.permute`, which the generic tape backward never reaches
+      perm  a permute's backward goes through the reblock kernels when its inverse is one of
+            their two index moves: bit-exact against `ttnn.permute`, and what the generic tape
+            backward never reached. `bcx-bwbytes` moved this into the engine as
+            `taped_ttnn.PERMUTE_BW_REBLOCK`, so the arm is now that flag and not a second copy
+      tree  a leading-axis sum served by `autograd._pairwise_sum0` instead of `ttnn.sum(dim=0)`,
+            above `--tree-rows` rows (also `bcx-bwbytes`)
       chunk the shipped taped triangle-attention blocking: the L1 plan's rows, which
             `tenstorrent.py` no longer applies under a tape (`shard_for` refuses the shard there),
             pinned back through `_FP32_SOFTMAX_DRAM_ROW_CAP`, which does apply
@@ -482,39 +488,20 @@ class Arms:
         self.served = collections.Counter()
         arms = self
 
-        from tt_bio import reblock_permute as R
+        from tt_bio import autograd as _ag, reblock_permute as R
 
-        def fast(g, inv):
-            # Only where the kernel's own gate says yes: outside it `_channel_move_back` falls
-            # back to two transposes, which is slower than the one stock permute it replaces.
-            mc = g.memory_config()
-            if inv == [0, 2, 3, 1] and R.eligible_back(g, mc):
-                arms.served["perm:back"] += 1
-                return R.reblock_permute_back(g, mc)
-            if inv == [0, 3, 1, 2] and R.eligible(g, mc):
-                arms.served["perm:fwd"] += 1
-                return R.reblock_permute(g, mc)
-            arms.served[f"perm:stock {[int(d) for d in g.shape]} {inv}"] += 1
-            return ttnn.permute(g, inv)
+        # The permute arm is the ENGINE's path, counted here rather than reimplemented: a second
+        # copy of a lever is a second thing to keep in step with the one that ships.
+        self.ag, self.tree_rows = _ag, 256
+        for mod, name, tag in ((R, "reblock_permute_back", "perm:back"),
+                               (R, "reblock_permute", "perm:fwd"),
+                               (_ag, "_pairwise_sum0", "tree")):
+            real_fn = getattr(mod, name)
 
-        def _v_permute(shipped, args, kwargs):
-            x = T._wrap(args[0])
-            dims = [int(d) for d in (kwargs.get("dims") if len(args) < 2 else args[1])]
-            inv = [0] * len(dims)
-            for i, d in enumerate(dims):
-                inv[d] = i
-            ra, rk = T._raw(args, kwargs)
-            out_v = shipped(*ra, **rk)
-
-            def make():
-                def bw(g):
-                    x.add_grad(fast(g, inv) if arms.perm else ttnn.permute(g, inv))
-                return bw
-
-            return T._tape(out_v, [x], make)
-
-        assert "permute" not in vars(T._SHIM), "taped_ttnn shim already cached permute"
-        T._VERBS["permute"] = _v_permute
+            def counted(*a, _f=real_fn, _t=tag, **k):
+                arms.served[_t] += 1
+                return _f(*a, **k)
+            setattr(mod, name, counted)
         real = tn._fp32_softmax_l1_plan
         self.tn, self.pinned = tn, set()
 
@@ -530,9 +517,12 @@ class Arms:
         tn._fp32_softmax_l1_plan = plan
 
     def set(self, name):
+        from tt_bio import taped_ttnn as T
         sw = set(name.split("+")) - {"base"}
         self.perm = "perm" in sw
         self.chunk = "chunk" in sw
+        T.PERMUTE_BW_REBLOCK = self.perm
+        self.ag.LEADING_SUM_TREE_ROWS = self.tree_rows if "tree" in sw else 1 << 30
         from tt_bio import af2
         af2.AF2PairBlock.rne_residual = "bf16res" not in sw
         for key in self.pinned:
@@ -742,6 +732,15 @@ def cmd_whole(args):
     print("served", dict(arms_.served), flush=True)
 
 
+def set_levers(args):
+    from tt_bio import autograd as ag, taped_ttnn as T
+    on = args.levers == "on"
+    T.PERMUTE_BW_REBLOCK = on
+    ag.LEADING_SUM_TREE_ROWS = args.tree_rows if on else 1 << 30
+    print(f"levers {args.levers}: PERMUTE_BW_REBLOCK={T.PERMUTE_BW_REBLOCK} "
+          f"LEADING_SUM_TREE_ROWS={ag.LEADING_SUM_TREE_ROWS}", flush=True)
+
+
 def main():
     from perf.bcx_afgrad import afgrad as A
     ap = argparse.ArgumentParser()
@@ -771,7 +770,13 @@ def main():
     ap.add_argument("--top", type=int, default=15)
     ap.add_argument("--report", default="/dev/shm/bcx-rc-out/ops_perf_results_n256.csv")
     ap.add_argument("--threads", type=int, default=8)
+    ap.add_argument("--levers", default="off", choices=["off", "on"],
+                    help="bcx-bwbytes' two byte levers: the reblock permute backward and the "
+                         "pairwise leading sum. `off` reproduces the tree this branch forked from")
+    ap.add_argument("--tree-rows", type=int, default=256)
     args = ap.parse_args()
+    if args.cmd not in ("census", "join", "psum"):
+        set_levers(args)
     {"trace": cmd_trace, "census": cmd_census, "chunk": cmd_chunk, "join": cmd_join, "arms": cmd_arms, "psum": cmd_psum, "whole": cmd_whole}[args.cmd](args)
 
 

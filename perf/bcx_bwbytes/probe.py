@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""bcx-bwbytes: the two routed byte levers at the shapes BindCraft 2 actually runs.
+
+Both were measured by `bcx-bytes` at n=256 and both are gated above it, so on a real BC2 round
+-- 211 tokens bucketed to 224 -- neither one fires. This sweeps the gate instead of assuming it.
+
+  sum0    `ttnn.sum(dim=0)` against `autograd._pairwise_sum0` on the triangle attention's
+          broadcast-bias gradient [rows, heads, N, N] fp32, timing and distance from float64.
+  permute `ttnn.permute(g, (0, 2, 3, 1))` against `reblock_permute_back` on the channel move's
+          gradient [1, C, N, N] bf16, timing and `torch.equal`.
+
+Every arm is interleaved rep by rep against its control so a drift in the box cannot land on one
+of them, and the AICLK is sampled throughout and reported over each timed window.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+import statistics as st
+import sys
+import time
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+OUT = pathlib.Path(__file__).resolve().parent
+HERE = OUT
+
+
+def _head():
+    import subprocess
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
+                          text=True).stdout.strip()
+
+
+def timed(fn, reps, clock, free):
+    """Median/min ms over `reps`, and the clock window that covers them."""
+    import ttnn
+    y = fn()
+    ttnn.synchronize_device(y.device())
+    free(y)
+    ts, spans = [], []
+    for _ in range(reps):
+        t0 = time.time()
+        y = fn()
+        ttnn.synchronize_device(y.device())
+        t1 = time.time()
+        ts.append((t1 - t0) * 1e3)
+        spans.append((t0, t1))
+        free(y)
+    ts.sort()
+    return {"min_ms": round(ts[0], 4), "median_ms": round(ts[len(ts) // 2], 4),
+            "max_ms": round(ts[-1], 4), "aiclk": clock.window(spans)}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--reps", type=int, default=9)
+    ap.add_argument("--rows", default="64,128,160,192,224,256,288")
+    ap.add_argument("--ns", default="224,256")
+    ap.add_argument("--chans", default="64,128")
+    ap.add_argument("--heads", type=int, default=4)
+    ap.add_argument("--out", default=str(HERE / "probe.json"))
+    args = ap.parse_args()
+
+    import torch
+    import ttnn
+    from perf.bcx_stack import stack as S
+    from tt_bio import autograd as ag, reblock_permute as R
+    from tt_bio.tenstorrent import get_device
+
+    dev = get_device()
+    clock = S.Clock(0.2)
+    node, pci = S.sysfs_node()
+    cfg = ag.precise_config()
+    gen = torch.Generator().manual_seed(0)
+    free = ttnn.deallocate
+
+    stamp = {"host": __import__("os").uname().nodename, "pci": pci, "sysfs": node,
+             "card": __import__("os").environ.get("TT_VISIBLE_DEVICES"),
+             "commit": _head(),
+             "started_utc": time.strftime("%FT%TZ", time.gmtime()),
+             "loadavg_start": __import__("os").getloadavg(), "reps": args.reps}
+    print(json.dumps(stamp), flush=True)
+
+    sum_rows, perm_rows = [], []
+    for N in [int(x) for x in args.ns.split(",")]:
+        for rows in [int(x) for x in args.rows.split(",")]:
+            x = torch.randn(rows, args.heads, N, N, generator=gen) * 1e-3
+            ref = x.double().sum(0, keepdim=True)
+            g = ttnn.from_torch(x, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+            rec = {"shape": [rows, args.heads, N, N],
+                   "torch_f32_rel_l2_vs_f64":
+                       float((x.sum(0, keepdim=True).double() - ref).norm() / ref.norm())}
+            arms = {"sum": lambda: ttnn.sum(g, dim=0, keepdim=True, compute_kernel_config=cfg),
+                    "tree": lambda: ag._pairwise_sum0(g)}
+            for name, fn in arms.items():
+                y = fn()
+                yt = ttnn.to_torch(y).reshape(ref.shape)
+                free(y)
+                rec[name] = {"rel_l2_vs_f64":
+                             float((yt.double() - ref).norm() / ref.norm())}
+                rec[name].update(timed(fn, args.reps, clock, free))
+            rec["tree_over_sum"] = round(rec["sum"]["median_ms"] / rec["tree"]["median_ms"], 3)
+            free(g)
+            print(json.dumps(rec), flush=True)
+            sum_rows.append(rec)
+
+    for N in [int(x) for x in args.ns.split(",")]:
+        for C in [int(x) for x in args.chans.split(",")]:
+            x = torch.randn(1, C, N, N, generator=gen)
+            g = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            mc = ttnn.DRAM_MEMORY_CONFIG
+            rec = {"shape": [1, C, N, N], "eligible_back": bool(R.eligible_back(g, mc))}
+            arms = {"permute": lambda: ttnn.permute(g, [0, 2, 3, 1], memory_config=mc),
+                    "reblock": lambda: R.reblock_permute_back(g, mc)}
+            base = None
+            ok = True
+            for name, fn in arms.items():
+                try:
+                    y = fn()
+                    yt = ttnn.to_torch(y)
+                    free(y)
+                except Exception as e:
+                    rec[name] = {"error": str(e).splitlines()[0][:200]}
+                    ok = False
+                    continue
+                if base is None:
+                    base = yt
+                rec[name] = {"bits_eq_permute": bool(torch.equal(yt, base))}
+                rec[name].update(timed(fn, args.reps, clock, free))
+            if ok:
+                rec["reblock_over_permute"] = round(
+                    rec["permute"]["median_ms"] / rec["reblock"]["median_ms"], 3)
+            free(g)
+            print(json.dumps(rec), flush=True)
+            perm_rows.append(rec)
+
+    clock.stop()
+    stamp["loadavg_end"] = __import__("os").getloadavg()
+    blob = {"stamp": stamp, "sum0": sum_rows, "permute": perm_rows}
+    pathlib.Path(args.out).write_text(json.dumps(blob, indent=1))
+    print(f"wrote {args.out}", flush=True)
+
+    def band(rs, key, ratio):
+        wins = [r for r in rs if r.get(ratio, 0) > 1.0]
+        print(f"{key}: wins at " + ", ".join(str(r["shape"]) for r in wins) or f"{key}: no wins")
+    band(sum_rows, "tree", "tree_over_sum")
+    band(perm_rows, "reblock", "reblock_over_permute")
+
+
+if __name__ == "__main__":
+    main()
