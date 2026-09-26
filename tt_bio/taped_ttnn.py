@@ -207,6 +207,29 @@ def _v_matmul(shipped, args, kwargs):
 _SOFTMAX_BW_RENORM = ag.SOFTMAX_BW_RENORM
 
 
+#: `ttnn.softmax`'s default SFPU path runs `math_approx_mode=True`, and that single field is the
+#: whole of the forward's error: at the trunk's own shapes the rows come back summing to 0.9954
+#: and the output reads 1.8e-02 to 2.0e-02 relative L2 from a float64 softmax, against 5.2e-04 to
+#: 5.9e-04 with the field cleared, while HiFi4, `fp32_dest_acc_en` and `packer_l1_acc` are all
+#: bit-exactly inert (`perf/of3t_d116_verify/APPROX.json`, four shape/seed cases, 31x).
+#:
+#: The backward `dx = y (g - sum_j g_j y_j)` carries `y` multiplicatively, so it inherits that
+#: error whole: `of3t-p10grad` grades the shipped taped softmax `dx` at 2.201e-02 against float64
+#: while the backward CLOSURE alone reads 9.750e-05, and giving the FORWARD a precise config takes
+#: `dx` to 9.086e-04. The row-sum renorm below repairs the inner product, not the leading `y`.
+#:
+#: `autograd.softmax` has defaulted to `precise_config()` since it was written. This is the same
+#: rule at the shipped verb, and it applies ONLY where a gradient is at stake: with taping off the
+#: config is untouched, so every inference path -- including an evaluation inside a training run --
+#: is bit-identical to shipped. That is what keeps this off the `TT_BIO_SOFTMAX_CKC` release gate,
+#: which is a process-wide switch that does move shipped inference numbers on four models.
+def _softmax_fw_config(kwargs):
+    """The compute kernel config the taped softmax forward should run, or None to leave it."""
+    if not ag.is_grad_enabled():
+        return None
+    return kwargs.get("compute_kernel_config") or precise_config()
+
+
 @_verb("softmax", "softmax_in_place")
 def _v_softmax(shipped, args, kwargs):
     """`softmax_in_place` is taped out of place. The backward reads y, which the in-place
@@ -215,6 +238,9 @@ def _v_softmax(shipped, args, kwargs):
     x = _wrap(args[0])
     dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
     ra, rk = _raw(args, kwargs)
+    cfg = _softmax_fw_config(rk)
+    if cfg is not None:
+        rk = dict(rk, compute_kernel_config=cfg)
     y0 = ttnn.softmax(*ra, **rk) if shipped is ttnn.softmax_in_place else shipped(*ra, **rk)
     box = [y0]
 
@@ -224,7 +250,7 @@ def _v_softmax(shipped, args, kwargs):
             # The same expression as `autograd.softmax` and `triangle_attention`; the helper
             # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline, and the
             # fused `moreh_softmax_backward` route all three now share.
-            x.add_grad(ag.softmax_bw(y, g, dim=dim))
+            x.add_grad(ag.softmax_bw(y, g, dim=dim, config=cfg))
         return bw
 
     # The backward reads y and only y, so x is not pinned. Under `softmax_in_place` the
