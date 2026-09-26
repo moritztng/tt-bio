@@ -128,6 +128,32 @@ def _slot_rank(item):
     return ("._wc." in n or n.endswith("._wc"), n)
 
 
+def _dedupe_slots(found):
+    """One entry per tensor IDENTITY, under the name whose owner the forward reads.
+
+    `tape()` keys a trainable weight on the raw handle, so declaring one tensor under two
+    paths would put the same leaf in twice and the optimizer would step it twice. WHICH name
+    survives is not cosmetic -- it decides where `Parameters.rebind` writes the new weight
+    after `AdamW.step`, and a slot the forward never reads freezes that weight. See
+    `_slot_rank`.
+
+    Returns `(kept, unwritable)`: `{name: (owner, key, tensor)}` and the names whose owner is
+    a tuple, which `rebind` cannot write back to.
+    """
+    by_id, kept, unwritable = {}, {}, []
+    for n, (o, k, t) in sorted(found.items(), key=_slot_rank):
+        if id(t) in by_id:
+            continue
+        by_id[id(t)] = n
+        kept[n] = (o, k, t)
+        if isinstance(o, tuple):
+            # rebind refuses a tuple slot, correctly: there is nowhere to write the new
+            # weight back to. Counted here rather than raised mid-arm, because a timing run
+            # that dies ten minutes into its backward tells you nothing about the timing.
+            unwritable.append(n)
+    return kept, unwritable
+
+
 def declare_all(trunk, sampler, out):
     """Every device weight of the trunk AND the diffusion half, as one tape-leaf set.
 
@@ -151,19 +177,9 @@ def declare_all(trunk, sampler, out):
     # replaces t.value, and the engine value setter re-keys the TAPE registry for it
     # (autograd.py:220), but the MODEL still holds the handle the walk saw, and only writing
     # it back closes that half.
-    by_id, flat, slots, unwritable = {}, {}, {}, []
-    for n, (o, k, t) in sorted(found.items(), key=_slot_rank):
-        if id(t) in by_id:
-            continue
-        by_id[id(t)] = n
-        flat[n] = ag.parameter(t)
-        if isinstance(o, tuple):
-            # rebind refuses a tuple slot, correctly: there is nowhere to write the new
-            # weight back to. Counted here rather than raised mid-arm, because a timing run
-            # that dies ten minutes into its backward tells you nothing about the timing.
-            unwritable.append(n)
-            continue
-        slots[n] = (o, k)
+    kept, unwritable = _dedupe_slots(found)
+    flat = {n: ag.parameter(t) for n, (_o, _k, t) in kept.items()}
+    slots = {n: (o, k) for n, (o, k, _t) in kept.items() if not isinstance(o, tuple)}
     params = Parameters(flat, slots=slots)
     out["params"] = {
         "declared": len(params),
