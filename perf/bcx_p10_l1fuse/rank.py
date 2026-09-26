@@ -91,11 +91,17 @@ def main():
     for k, n in edges.items():
         pverb, ptag, cverb, ctag, shape, dt, buf = k.split("||")
         pk, ck = f"{ptag}||{pverb}", f"{ctag}||{cverb}"
+        # tag is stack|block|dir|family; the block index is the K-difference's own bookkeeping
+        # and is not part of what the edge IS, so it is dropped from the printed site.
+        pst, pdir, pfam = ptag.split("|")[0], ptag.split("|")[2], ptag.split("|")[3]
+        cst, cdir, cfam = ctag.split("|")[0], ctag.split("|")[2], ctag.split("|")[3]
         pshare = (n / calls_verb[pk]) if calls_verb.get(pk) else 0.0
         cshare = (n / calls_verb[ck]) if calls_verb.get(ck) else 0.0
         rows.append({
             "producer": pverb, "producer_site": ptag,
             "consumer": cverb, "consumer_site": ctag,
+            "dir": pdir if pdir == cdir else f"{pdir}->{cdir}",
+            "stack": pst, "producer_family": pfam, "consumer_family": cfam,
             "shape": shape, "dtype": dt, "buffer": buf,
             "n_round": round(n, 1),
             "gb_round": round(ebytes[k] / 1e9, 4),
@@ -112,19 +118,32 @@ def main():
            "dram_edge_gb_round": round(
                sum(v for k, v in ebytes.items() if k.split("||")[6] == "DRAM") / 1e9, 3),
            "rows": rows}
-    pathlib.Path(args.out).write_text(json.dumps(out, indent=1))
-
     print(f"lambda {lam*1e6:.1f} us   edges/round {sum(edges.values()):.0f}   "
           f"bytes/round {out['edge_gb_round_total']:.2f} GB "
           f"(DRAM {out['dram_edge_gb_round']:.2f} GB)")
-    hdr = (f"{'GB/rd':>7} {'n/rd':>7} {'adj':>5} {'gap':>6} {'devP':>7} {'devC':>7}  "
-           f"{'shape':<22} {'producer -> consumer'}")
-    print(hdr)
-    for r in rows[:args.top]:
-        print(f"{r['gb_round']:7.3f} {r['n_round']:7.0f} {r['adjacent_frac']:5.2f} "
-              f"{r['mean_gap']:6.1f} {r['dev_s_producer']:7.4f} {r['dev_s_consumer']:7.4f}  "
-              f"{r['shape']+' '+r['dtype']:<22} "
-              f"{r['producer_site']}/{r['producer']} -> {r['consumer_site']}/{r['consumer']}")
+    hdr = (f"{'GB/rd':>7} {'n/rd':>7} {'adj':>5} {'gap':>6} {'devP':>7} {'devC':>7} {'dir':>4} "
+           f"{'buf':>4} {'shape':<20} {'producer -> consumer'}")
+
+    def show(rs, title):
+        print("\n" + title)
+        print(hdr)
+        for r in rs:
+            print(f"{r['gb_round']:7.3f} {r['n_round']:7.0f} {r['adjacent_frac']:5.2f} "
+                  f"{r['mean_gap']:6.1f} {r['dev_s_producer']:7.4f} {r['dev_s_consumer']:7.4f} "
+                  f"{r['dir']:>4} {r['buffer'][:4]:>4} {r['shape']+' '+r['dtype'][:4]:<20} "
+                  f"{r['producer_family']}/{r['producer']} -> "
+                  f"{r['consumer_family']}/{r['consumer']}")
+
+    show(rows[:args.top], "ALL EDGES, by bytes written then re-read per round")
+    bwd = [r for r in rows if r["dir"] == "bwd" and r["buffer"] == "DRAM"]
+    fwd = [r for r in rows if r["dir"] == "fwd" and r["buffer"] == "DRAM"]
+    show(bwd[:args.top], "BACKWARD DRAM edges -- no tape holds these, so no evict tax")
+    show(fwd[:args.top], "FORWARD DRAM edges -- `Tensor.evict` taxes any the backward reads")
+    out["bwd_dram_gb_round"] = round(sum(r["gb_round"] for r in bwd), 3)
+    out["fwd_dram_gb_round"] = round(sum(r["gb_round"] for r in fwd), 3)
+    print(f"\nDRAM edge bytes/round: backward {out['bwd_dram_gb_round']:.2f} GB, "
+          f"forward {out['fwd_dram_gb_round']:.2f} GB")
+    pathlib.Path(args.out).write_text(json.dumps(out, indent=1))
     print(f"wrote {args.out}")
 
 

@@ -31,6 +31,7 @@ import ttnn
 
 from tt_bio.envflags import env_flag
 from tt_bio import mm_layout as _mm_layout
+from tt_bio import fanin_l1 as _fanin_l1
 
 #: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
 #: what this flag exists to avoid. It was introduced for trace capture, which refuses a host
@@ -519,10 +520,17 @@ class Tensor:
         if FANIN_MIXED:
             self._grad = ttnn.add(self._grad, grad, dtype=ttnn.float32)
             return
+        # The promoted contribution is written and read straight back by the ttnn.add on the
+        # next line: 576 instances and 24.46 GB a round, the largest write-then-reread edge in
+        # bcx-p10-l1fuse's chain census. `fanin_l1.typecast` puts it in L1 where the grid's own
+        # budget takes it and leaves it in DRAM where it does not. Nothing here is taped, so
+        # `Tensor.evict` never turns the placement back into a DRAM copy the way it does in a
+        # forward. The accumulator and the sum stay where they are: all three in L1 would be
+        # 79.2 % of qb2's aggregate L1 against 26.4 % for the transient alone.
         if self._grad.dtype != ttnn.float32:
-            self._grad = ttnn.typecast(self._grad, ttnn.float32)
+            self._grad = _fanin_l1.typecast(self._grad, ttnn.float32)
         self._grad = ttnn.add(self._grad, grad if grad.dtype == ttnn.float32
-                              else ttnn.typecast(grad, ttnn.float32))
+                              else _fanin_l1.typecast(grad, ttnn.float32))
 
     def add_grad_slice(self, grad, starts, ends) -> None:
         """Accumulate the gradient of the slice ``[starts, ends)`` of this value.
