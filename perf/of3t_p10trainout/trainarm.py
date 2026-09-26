@@ -195,6 +195,9 @@ def main() -> int:
                          "the card -- no checkpoint round trip to get wrong. The before score "
                          "is the movement control: two arms that never moved agree perfectly, "
                          "so a grade is only readable if the arm moved further than its floor")
+    ap.add_argument("--pin-watch", action="store_true",
+                    help="record the engine's handle registries every step. Microseconds: "
+                         "four len() calls, no GC pass, so a timing arm can carry it")
     ap.add_argument("--leak-census", action="store_true",
                     help="after every step, name the containers that hold device DRAM and "
                          "what they gained since the step before. perf/of3t_p10leak/census.py")
@@ -262,6 +265,8 @@ def main() -> int:
                            "aiclk": clk.summary().get(0),
                            "dram_gb": (lambda b: None if b is None
                                        else round(b / 1e9, 3))(_dram(ds.device))}
+                    if a.pin_watch and not a.leak_census:
+                        row["registries"] = CZ.registries()
                     if a.leak_census:
                         import time as _t
                         _c0 = _t.perf_counter()
