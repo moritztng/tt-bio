@@ -55,6 +55,21 @@ def _beta_inv(p, a, b):
     return (lo + hi) / 2
 
 
+def fisher_exact_two_sided(a, b, c, d):
+    """Two-sided p for the 2x2 table [[a, b], [c, d]], by summing every table at or below the
+    observed probability. This lives here because the campaign kept computing it by hand: on
+    2026-09-26 four pages -- NUMBERS.md, ACCEPTED.md, VALIDATION-POOL.md and state/cmp/LOAD.md --
+    carried p = 0.432 against a reference of 1/2 for hours after bcx-shipped had closed the
+    reference at 1/5, where the p is 1.0000. A comparison recomputed by whoever quotes it next
+    goes stale silently; one recomputed by the instrument that owns the counts cannot."""
+    n, r1, c1 = a + b + c + d, a + b, a + c
+    def prob(x):
+        return comb(r1, x) * comb(n - r1, c1 - x) / comb(n, c1)
+    observed = prob(a)
+    return sum(prob(x) for x in range(max(0, c1 - (n - r1)), min(r1, c1) + 1)
+               if prob(x) <= observed * (1 + 1e-9))
+
+
 def clopper_pearson(k, n, alpha=0.05):
     """Exact two-sided interval for k successes in n trials."""
     lo = 0.0 if k == 0 else _beta_inv(alpha / 2, k, n - k + 1)
@@ -157,6 +172,9 @@ def main(argv=None):
                         help="chip-s per design to compare against (default: BoltzGen funnel)")
     parser.add_argument("--include-live", action="store_true",
                         help="count arms that have not exited (their numbers will keep moving)")
+    parser.add_argument("--against", metavar="K/N",
+                        help="a comparator rate (e.g. the BindCraft 2 JAX reference's 1/5); "
+                             "prints the Fisher exact two-sided p of this reading against it")
     args = parser.parse_args(argv)
 
     arms = [read_arm(p) for p in args.projects]
@@ -200,6 +218,7 @@ def main(argv=None):
         print(f"\nrate 0 / {n}, 95% CI {lo:.4f} - {hi:.4f}")
         print(f"cost per accepted design is unbounded above; at the interval's upper rate it is "
               f"at least {total / n / hi:,.0f} chip-s")
+        _print_comparator(args.against, accepted, n)
         return
 
     rate = accepted / n
@@ -214,11 +233,27 @@ def main(argv=None):
     print(f"against reference    {cost / args.reference:.1f}x"
           f"   95% CI {mean / hi / args.reference:.1f}x - {mean / lo / args.reference:,.0f}x")
     print(f"designs/h/chip       {3600 / cost:.4f}")
+    _print_comparator(args.against, accepted, n)
 
     if n < 10:
         print("\nAll trajectories here are pre-autotune. BindCraft 2 reviews and nudges its own "
               "stage thresholds\nevery AUTOTUNE_REVIEW_TRAJECTORIES = 10 attempts, so a ledger "
               "that crosses ten must be split there.")
+
+
+def _print_comparator(spec, accepted, n):
+    if not spec:
+        return
+    k, _, m = spec.partition("/")
+    k, m = int(k), int(m)
+    if not 0 <= k <= m or m == 0:
+        sys.exit(f"--against {spec}: K must be between 0 and N, and N must be positive")
+    lo, hi = clopper_pearson(k, m)
+    p = fisher_exact_two_sided(accepted, n - accepted, k, m - k)
+    print(f"\ncomparator           {k}/{m} = {k / m:.3f}   95% CI {lo:.4f} - {hi:.4f}")
+    print(f"Fisher exact 2-sided p = {p:.4f}"
+          + ("   -- nothing separates the two arms at this resolution" if p > 0.05 else
+             "   -- the two arms differ"))
 
 
 if __name__ == "__main__":
