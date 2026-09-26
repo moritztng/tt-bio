@@ -20,6 +20,14 @@ import time
 EVENTS = []
 _T0 = time.time()
 
+#: The campaign's own residue counts, per round, read off the `protein_states` the predictor is
+#: actually handed. A top-level `initialize_design_trajectory` draw is NOT this: the campaign
+#: advances its key per trajectory, so probing the settings gave binder 148 for a run whose
+#: trajectory 1 was binder 71. Nor is the FIRST call this: the first entry of the exact arm read
+#: binder 160 and was followed by a 0.002 s boundary, so something before the first round is
+#: handed a different length. n has to come from each round, like every other number here.
+STATE = {}
+
 
 def ev(kind, phase, t0, t1, **kw):
     EVENTS.append({"kind": kind, "phase": phase, "t0": t0, "t1": t1,
@@ -79,6 +87,13 @@ class StopAfterRounds(BaseException):
     """
 
 
+#: `(path, stamp)` once the caller has somewhere to write. Set it and every round boundary
+#: flushes the whole event log, so a run that dies at round 40 of 100 -- or one that aborts in
+#: ttnn's close_device at teardown, which qb2 does -- still leaves every round it finished.
+#: A dump at the end of main() is lost by every death there is.
+DUMP = None
+
+
 class Meter:
     def __init__(self, rounds):
         self.rounds = rounds
@@ -95,6 +110,21 @@ class Meter:
             raise StopAfterRounds(f"{self.rounds} rounds collected")
         EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
                        "round": self.entries, "load1": os.getloadavg()[0]})
+        if DUMP:
+            dump(*DUMP)
+
+
+def _shapes(args):
+    """The shapes of whatever tensor-like positional arguments a seam was handed."""
+    out = []
+    for a in args:
+        shape = getattr(a, "shape", None)
+        if shape is not None:
+            try:
+                out.append(list(shape))
+            except TypeError:
+                out.append(str(shape))
+    return out
 
 
 def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
@@ -113,7 +143,8 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
                 try:
                     return orig(self, *a, **kw)
                 finally:
-                    ev("device", name.lstrip("_"), t0, time.time())
+                    ev("device", name.lstrip("_"), t0, time.time(),
+                       round=meter.entries, shapes=_shapes(a))
             return wrapper
         setattr(splice_mod.EvoformerOnDevice, name, make(name, orig))
 
@@ -121,11 +152,17 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
     #    `predict` inside a round is a fold BindCraft 2 asked for on top of it.
     sg = predictor_cls.sequence_gradients
 
-    def sequence_gradients(self, *a, **kw):
+    def sequence_gradients(self, protein_states, *a, **kw):
+        try:
+            STATE[str(meter.entries + 1)] = {
+                state: {chain: len(protein) for chain, protein in complex_.items()}
+                for state, complex_ in protein_states.items()}
+        except Exception as exc:
+            STATE[str(meter.entries + 1)] = repr(exc)
         meter.on_sequence_gradients_enter()
         t0 = time.time()
         try:
-            return sg(self, *a, **kw)
+            return sg(self, protein_states, *a, **kw)
         finally:
             ev("predictor", "sequence_gradients", t0, time.time(),
                round=meter.entries)
@@ -180,6 +217,10 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
 
 def dump(path, stamp):
     with open(path, "w") as fh:
-        json.dump({"stamp": stamp, "events": EVENTS,
+        json.dump({"stamp": {**stamp, "state_shape": dict(STATE),
+                             "dumped_utc": time.strftime("%FT%TZ", time.gmtime()),
+                             "rounds_dumped": sum(1 for e in EVENTS
+                                                  if e["kind"] == "round_start")},
+                   "state_shape": STATE, "events": EVENTS,
                    "aiclk": [[t, c, l] for t, c, l in (CLOCK.samples if CLOCK else [])]},
                   fh)
