@@ -16,8 +16,10 @@
 #   3 bytes trace+census the before/after byte count from the same instrument as the prediction
 #   4 bytes arms --f64   the block VJP graded as a STACK, because these perturbations are
 #                        strongly sub-additive and summing single readings overstates them
-#   5 probe              the two gate sweeps. Last because both levers are predicted INERT at the
-#                        n a BC2 round runs, so this confirms a prediction rather than deciding
+#   5 probe              the three gate sweeps: the leading-axis tree, and BOTH directions of the
+#                        reblock permute against `ttnn.permute` at N=224 and 256. The forward
+#                        window is the same literal 256 and sits on every model's INFERENCE path,
+#                        so it is measured here rather than inferred from the back direction
 #
 # Step 2 is GATED on step 1: if the moreh arms do not clear the bar at bf16, `--moreh` is dropped
 # and the A/B runs the precision stack alone. A lever that moves the gradient past the bar is not
@@ -73,8 +75,15 @@ step softmax_probe perf/bcx_bwbytes/softmax_bw_probe.py
 MOREH=$(python3 "$L/moreh_verdict.py" "$RUNS/softmax_probe/softmax_bw_probe.json" "$BAR") || MOREH=""
 say "moreh gate: ${MOREH:-DROPPED}"
 
+# `--back-n-min 224` is the difference between this A/B and the 04:04Z one. That run measured a
+# flat 0.9943 with an ON arm that served ZERO reblock calls: `eligible_back` rejects N < 256 and
+# a BC2 round is 211 aa bucketed to 224, so the permute lever was declined by its own gate on
+# every call. probe.py measured that same kernel torch.equal to `ttnn.permute` and 5.16x / 6.16x
+# faster at exactly [1, 64, 224, 224] and [1, 128, 224, 224]. 224 opens the window on the ON arm
+# only; the shipped default stays 256 until a round says otherwise.
 # shellcheck disable=SC2086
-step ab perf/bcx_bwbytes/round_ab.py --rounds "$ROUNDS" --seed 100 --precision $MOREH
+step ab perf/bcx_bwbytes/round_ab.py --rounds "$ROUNDS" --seed 100 --precision \
+     --back-n-min "${BACK_N_MIN:-224}" $MOREH
 
 # `bytes.py` writes every trace to a MODULE-level directory, `perf/bcx_bytes/`, not to --out, and
 # `census` globs `trace_*.json` there. So the two arms co-locate on their own and the census sees

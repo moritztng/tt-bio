@@ -90,7 +90,7 @@ def main():
              "loadavg_start": __import__("os").getloadavg(), "reps": args.reps}
     print(json.dumps(stamp), flush=True)
 
-    sum_rows, perm_rows = [], []
+    sum_rows, perm_rows, fwd_rows = [], [], []
 
     def _save():
         """After EVERY shape, not at the end. A probe that writes its artifact once, after the
@@ -98,7 +98,8 @@ def main():
         reclaims the card -- and the shapes most likely to raise are the big ones, which run
         last. (`a-harness-that-writes-its-clock-at-the-end-of-main-loses-it-on-every-death`.)"""
         pathlib.Path(args.out).write_text(json.dumps(
-            {"stamp": stamp, "sum0": sum_rows, "permute": perm_rows}, indent=1))
+            {"stamp": stamp, "sum0": sum_rows, "permute": perm_rows,
+             "permute_fwd": fwd_rows}, indent=1))
     for N in [int(x) for x in args.ns.split(",")]:
         for rows in [int(x) for x in args.rows.split(",")]:
             x = torch.randn(rows, args.heads, N, N, generator=gen) * 1e-3
@@ -137,7 +138,8 @@ def main():
             g = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
             mc = ttnn.DRAM_MEMORY_CONFIG
-            rec = {"shape": [1, C, N, N], "eligible_back": bool(R.eligible_back(g, mc))}
+            rec = {"shape": [1, C, N, N], "eligible_back": bool(R.eligible_back(g, mc)),
+                   "back_n_min": R.BACK_N_MIN}
             arms = {"permute": lambda: ttnn.permute(g, [0, 2, 3, 1], memory_config=mc),
                     "reblock": lambda: R.reblock_permute_back(g, mc)}
             base = None
@@ -163,6 +165,40 @@ def main():
             perm_rows.append(rec)
             _save()
 
+    for N in [int(x) for x in args.ns.split(",")]:
+        for C in [int(x) for x in args.chans.split(",")]:
+            # The forward move's operand is [1, N, N, C] -- the channel axis last -- and it goes
+            # to [1, C, N, N]. `eligible` reads N off shape[1], so the layout matters.
+            x = torch.randn(1, N, N, C, generator=gen)
+            g = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            mc = ttnn.DRAM_MEMORY_CONFIG
+            rec = {"shape": [1, N, N, C], "eligible_fwd": bool(R.eligible(g, mc))}
+            arms = {"permute": lambda: ttnn.permute(g, [0, 3, 1, 2], memory_config=mc),
+                    "reblock": lambda: R.reblock_permute(g, mc)}
+            base = None
+            ok = True
+            for name, fn in arms.items():
+                try:
+                    y = fn()
+                    yt = ttnn.to_torch(y)
+                    free(y)
+                except Exception as e:
+                    rec[name] = {"error": str(e).splitlines()[0][:200]}
+                    ok = False
+                    continue
+                if base is None:
+                    base = yt
+                rec[name] = {"bits_eq_permute": bool(torch.equal(yt, base))}
+                rec[name].update(timed(fn, args.reps, clock, free))
+            if ok and all("median_ms" in rec.get(a, {}) for a in arms):
+                rec["reblock_over_permute"] = round(
+                    rec["permute"]["median_ms"] / rec["reblock"]["median_ms"], 3)
+            free(g)
+            print(json.dumps(rec), flush=True)
+            fwd_rows.append(rec)
+            _save()
+
     clock.stop()
     stamp["loadavg_end"] = __import__("os").getloadavg()
     _save()
@@ -180,6 +216,7 @@ def main():
             print(f"{key}: NO WINS at any measured shape")
     band(sum_rows, "tree", "tree_over_sum")
     band(perm_rows, "reblock", "reblock_over_permute")
+    band(fwd_rows, "reblock_fwd", "reblock_over_permute")
 
 
 if __name__ == "__main__":
