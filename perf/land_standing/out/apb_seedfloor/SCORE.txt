@@ -1,0 +1,45 @@
+==============================================================================
+1. RMSD vs 7ROA by confidence rank. Rank 0 is the structure the user receives.
+==============================================================================
+  run         rank0    rank1    rank2    rank3    rank4   delivered
+  off:s0      1.658    2.929    1.652    1.700    3.620      1.658
+  on:s0       2.912    1.657    1.640    1.691    3.876      2.912
+  off:s1      3.091    1.655    1.714    1.697    3.590      3.091
+  on:s1       3.109    1.708    1.636    3.832    1.670      3.109
+  off:s2      2.638    2.580    1.752    1.605    3.559      2.638
+  off:s3      2.584    1.632    1.727    1.665    3.805      2.584
+  control: off:s0 must read 1.658 2.929 1.652 1.700 3.620 (the gate's own table)
+
+==============================================================================
+2. off vs on at the same seed: does every on-sample have a near-zero off twin?
+==============================================================================
+  seed 0  (rows: off rank -> nearest on rank)
+    off rank 0 -> on rank 1     0.0441 A   (next nearest 0.4969 A)
+    off rank 1 -> on rank 0     0.1036 A   (next nearest 2.1467 A)
+    off rank 2 -> on rank 2     0.0417 A   (next nearest 0.4647 A)
+    off rank 3 -> on rank 3     0.0837 A   (next nearest 0.6156 A)
+    off rank 4 -> on rank 4     2.1869 A   (next nearest 3.0814 A)
+    permutation: True   worst twin distance 2.1869 A
+    delivered off 1.658 A vs delivered on 2.912 A, the two delivered structures being 2.1344 A apart
+  seed 1  (rows: off rank -> nearest on rank)
+    off rank 0 -> on rank 0     0.0919 A   (next nearest 2.1886 A)
+    off rank 1 -> on rank 2     0.0620 A   (next nearest 0.5383 A)
+    off rank 2 -> on rank 1     0.0285 A   (next nearest 0.5625 A)
+    off rank 3 -> on rank 4     0.0783 A   (next nearest 0.6439 A)
+    off rank 4 -> on rank 3     1.3633 A   (next nearest 2.4988 A)
+    permutation: True   worst twin distance 1.3633 A
+    delivered off 3.091 A vs delivered on 3.109 A, the two delivered structures being 0.0919 A apart
+
+==============================================================================
+3. Seed floor, lever off, measured in this session
+==============================================================================
+    off:s0   vs off:s1      2.2232 A
+    off:s0   vs off:s2      1.7353 A
+    off:s0   vs off:s3      1.7219 A
+    off:s1   vs off:s2      1.2139 A
+    off:s1   vs off:s3      1.5378 A
+    off:s2   vs off:s3      0.8494 A
+  seed floor (delivered structure, seed to seed): n=6  0.8494..2.2232 A  mean 1.5469 A
+  delivered RMSD vs 7ROA across seeds, lever off: 1.658..3.091 A
+
+wrote /home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/apb_seedfloor/score.json

@@ -1,0 +1,17 @@
+[release-gate] granted card(s) [3]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+
+======================================================================
+[batch-position] 3 identical 256 aa targets + one 200 aa control, one process
+======================================================================
+
+##############################################################################
+RELEASE GATE — batch position (3 identical 256 aa CDK2 + SMILES-ligand targets, then one 200 aa control, one process)
+##############################################################################
+pos  target                  coords   affinity   p(bind)     wall
+1    t1.yaml       62d70c2c60b1ed75   0.643811  0.287798      68s
+2    t2.yaml       62d70c2c60b1ed75   0.643811  0.287798      66s
+3    t3.yaml       62d70c2c60b1ed75   0.643811  0.287798      64s
+4    x200.yaml     7cf1215e1d6da4e1   0.530447  0.275993      64s
+##############################################################################
+GATE PASS — identical targets are identical whatever their batch position, and the control target still differs

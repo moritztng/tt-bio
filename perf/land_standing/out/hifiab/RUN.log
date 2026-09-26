@@ -1,0 +1,7 @@
+LEG off1 up=0 rc=0 wall=83.356135708 aiclk_med=1350 sib_max=1350 load_med=12.26 cif=ef2c8b825f3925d7
+LEG on1 up=1 rc=0 wall=74.725614248 aiclk_med=1350 sib_max=1350 load_med=12.41 cif=23268f68847e0c44
+LEG off2 up=0 rc=0 wall=83.196756958 aiclk_med=1350 sib_max=1350 load_med=10.85 cif=ef2c8b825f3925d7
+LEG on2 up=1 rc=0 wall=73.358958345 aiclk_med=1350 sib_max=1350 load_med=10.54 cif=23268f68847e0c44
+LEG off3 up=0 rc=0 wall=82.527987099 aiclk_med=1350 sib_max=1350 load_med=10.76 cif=ef2c8b825f3925d7
+LEG on3 up=1 rc=0 wall=75.409814205 aiclk_med=1350 sib_max=1350 load_med=10.63 cif=23268f68847e0c44
+AB_DONE

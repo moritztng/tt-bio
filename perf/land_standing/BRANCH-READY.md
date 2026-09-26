@@ -1,47 +1,91 @@
-# `wk/land-standing` is ready to land, and one item on it is a correctness fix others can quote
+# `wk/land-standing` is ready to merge: one code line, +50.999 s
 
-As of 2026-09-26. **0 behind `origin/main`**, so merging is a fast-forward and `main` afterwards
-is exactly the tree the suite below scored.
+Rewritten 2026-09-26 06:5xZ. **The previous version of this file said the only shared-surface
+change was "comment-only". That is no longer true and was the most important thing on the page** —
+the branch now flips a shipped default. A merge handover that understates its own blast radius is
+worse than none, so this is the corrected one.
 
-    verified tree   6e33abef952d63f121ee248bed665bcb3425e163  (commit 74c13e5c3)
-    full suite      4722 passed, 282 skipped, 0 failed in 588 s, tree hash read after the run
-    tip             one commit later, adding THIS FILE and nothing else -- 1 file, +45, all
-                    markdown, so the suite result above covers every line of code on the branch
-    guards on tip   837 passed, 35 skipped, 0 failed
+    0 behind origin/main        merging is a fast-forward; main afterwards IS this tree
+    109 files, +6221 / -46
+    non-perf files              exactly one: tt_bio/tenstorrent.py
+    NON-COMMENT lines changed   exactly one, in the whole tree:
 
-45 files, +5427 / -43. **The only shared-surface file is `tt_bio/tenstorrent.py`, +10 lines, and
-it is comment-only** — verified by filtering the diff for non-comment additions and getting
-nothing.
+        -_TRIATT_HIFI_DIVIDING_K_DEFAULT = False
+        +_TRIATT_HIFI_DIVIDING_K_DEFAULT = True
 
-## The one item that should not wait
+Everything else is comment or lives under `perf/land_standing/`.
 
-**`perf/bcx_tapedfwd/khole.py` had two call errors and produced a plausible-looking accuracy
-column that was wrong on both board classes, for as long as the harness has existed.** It passed
-`scale ** -1` into a parameter that is a softmax MULTIPLIER, and called the fall-back with
-`bias_scale_inv=1.0` while the fused path reads the bias as pre-baked. So its two device arms
-were not computing the same function as each other (`fused_vs_fallback` 56.6 %) and neither
-computed the reference's. Any row reading that column would have taken a bogus grade.
+**Deliberately no tree hash here.** The gate below ran at tree `a957974ce0`; writing this file
+moved the tree to `a993616c87`, and the next doc commit will move it again — a handover that pins
+a hash invalidates itself every time anyone writes to it
+(`a-doc-commit-after-the-verification-run-moves-the-tree-the-claim-names`). The claim that
+survives is the invariant: re-run
 
-Fixed, and the corrected instrument now reports the fused route as **8.7-12.6 % closer to float64
-than the path it replaces** at six lengths. A row carries `reference_usable` /
-`reference_rms_ratio` and prints REFERENCE NOT USABLE when the shipped fall-back sits outside
-[0.5, 2] of the reference, so the same class of error announces itself next time.
+    git diff -U0 origin/main...HEAD -- tt_bio/ | grep -E '^[+-]' | grep -vE '^[+-]#|^(\+\+\+|---)'
 
-## Everything else, by what it is for
+and it must print exactly the two lines above. Every commit since the gate has touched only
+`perf/land_standing/*.md`.
 
-| file | what it settles |
-|---|---|
-| `DIVIDING-K-VERDICT.md` | `TT_BIO_TRIATT_DIVIDING_K`: reach is ONE length (832, a hole between 704 and 1088 which both serve), kernel accuracy favourable, structural accuracy not answerable on any fixture this box has, speed ~1.5x and unpriced. Recommendation: keep it off |
-| `BACKLOG-AUDIT.md` | every candidate the charter names, checked with `merge-base` and the real default in source: all landed, contained or closed |
-| `EXTRAMSA-BACKWARD-DEFECT.md` | `predictor(extra_msa=True)` raises `Buffer is not allocated`; root cause, a seconds-long repro, and an audit showing the blast radius is one of five checkpoint call sites |
-| `checkpoint_capture_repro.py` | model-free red/green for that defect — seconds, against ~10 min for a BC2 round |
-| `offsweep.py` | enumerates every default-OFF `env_flag` and asks whether the source says why. 31 flags, no landable inference win |
-| `gate_reach.py` | crosses the gate's declared rungs with a lever's changed lengths and the per-site defaults |
-| `obh_grid.py` | prices `out_block_h = 5` across four core grids; it transfers |
-| `run_arm.py` | `--binder-length`, `--no-levers`, `--shipped` / `--multimer-pool`, `--pool-resident` |
-| `hifi_dump_sitecustomize.py`, `mkapo.py`, `khole_summary.py`, `domain_rmsd.py`, `rmsd_matrix.py` | the instruments the above were taken with |
+## What that one line buys
 
-## What is NOT on it
+**+50.999 s, 1.6351x** on an OpenFold3 fold at 832 tokens. A/A floor 1.306 s, so the effect is
+**39x its own floor**. AICLK sampled DURING every leg at 1350 MHz, arms interleaved in one process
+on one device open, board-pair sibling verified idle.
 
-No default flips and no perf claims. Nothing here moves a shipped number, which is why the row's
-`TOTAL` is unchanged at 22.6335 s.
+**Reach is exactly one length.** Enumerated over all 48 tile-aligned lengths from 32 to 1536 with
+a model validated against six device outcomes (`capreach.py`): ten lengths serve no fused pair, the
+HiFi route is `openfold3.trunk` alone, and OpenFold3 pads to a multiple of 64 — so 832 is the only
+one a user can present. The lever opens that one and **changes the pick at no length that serves
+today**.
+
+## Accuracy: clears on every instrument
+
+CA RMSD, Kabsch, float64, over all 832 CA, on a fixture where OpenFold3 is confident (tiled CDK2
+at MSA depth 513, pLDDT 0.806):
+
+    control (same arm, rerun)    0.000000 A    the instrument has no floor
+    this lever                   0.450148 A    against the 0.60 A bar
+    seed floor (two seeds)       1.974757 A    4.4x the lever's move
+    lever AND seed together      1.948630 A    no more than the seed alone
+
+Both confidence heads move the favourable way (+0.000551 pLDDT, +0.000647 pTM).
+
+Worth knowing why this took so long: every earlier arm was folded `--single_sequence` and read
+pLDDT 0.37, near the confidence heads' floor, where the lever appeared to read the *other* way.
+Depth was the whole problem — 0.503 single-sequence, 0.602 at depth 36, **0.882 at depth 513**.
+
+## Gate: ten arms green at the tip, two re-green on the merge tree
+
+Every arm scored against this worktree and asserted per arm from the gate's own scoring-tree line.
+That guard exists because an earlier run silently imported `/home/ttuser/tt-bio-dev` and reported
+two green arms for a tree without the flip.
+
+    openfold3      1.658 / 0.902   <=3.5 / >=0.70    PASS      boltz2   1.827 / 0.902   PASS
+    rf3            1.239 / 0.958   <=3.0 / >=0.75    PASS      opendde  1.395 / 0.940   PASS
+    protenix-v2    1.999 / 0.867   <=6.0 / >=0.50    PASS      esmfold2 1.343 / 0.961   PASS
+    esmfold2-fast  1.708 / 0.918   <=4.5 / >=0.60    PASS      capacity 7.23 / 7.00 GiB PASS
+    batch-position PASS            l1-budget PASS, one digest across native / 8x8 / narrow
+
+`l1-budget` is the one that matters for a kernel-routing change: its three grid classes return the
+identical digest `c3073854d423570ae48cb8ce35ccb27e`, so the flip introduces **no card-dependence**
+— the hard stop this class of change risks, and the arm that caught exactly that for Region T.
+`rf3` lands on 1.239 / 0.958, to the digit the gate's own source comment records as its baseline.
+
+Re-run on the merge tree after merging main forward: `openfold3` and `l1-budget` both green with
+identical numbers, plus `tests/test_bindcraft2.py` (the tests main changed) at 9 passed / 14
+skipped.
+
+## One risk named and NOT closed
+
+Main added `tests/test_bindcraft2_hw.py`, a device test that differentiates AF2's 48 Evoformer
+blocks on card. That is the **taped** path, where this flip opens 288 — verified on this tree, not
+quoted (`bc288.py`: `n=288 off=None -> on=(ladder,288,288)`, 256/320/384 inert, reproducing
+`bcx-forward`'s own serves.json). **It cannot run on qb2: BindCraft2 is not installed.** So the
+interaction is identified, argued favourable from that path's own pre-existing measurement
+(0.021702 -> 0.018661), and not executed here.
+
+## What is deliberately NOT on this branch
+
+`TT_BIO_TRIATT_FUSED_HIFI`, worth a measured **+8.471 s** at 832 (1.1134x, 10.2x its A/A floor) —
+held because it moves the structure **2.602 A**, over both the 0.60 A bar and the 1.974757 A seed
+floor. Accuracy-failing levers are Moritz's call, so that one is handed up rather than landed.

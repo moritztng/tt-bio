@@ -65,7 +65,13 @@ for label, (lo, hi) in {"full 1-832": (0, 832), "copy1 1-298": (0, 298),
           f"across {mean(across):7.3f} ({min(across):6.3f}..{max(across):6.3f})   "
           f"sep {obs:+7.3f}  p={cnt / tot:.2f}")
 
-with open("/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/of3_832/"
-          "domain_rmsd.json", "w") as fh:
+# The output path is an ARGUMENT. It used to be hardcoded at out/of3_832/domain_rmsd.json,
+# so the second caller silently overwrote the first one's committed result: a fused-hifi
+# run destroyed the dividing-k seed-floor decomposition that lived there. A tool that
+# writes one fixed path can only ever be used once, and the second use looks like success.
+out_path = sys.argv[2] if len(sys.argv) > 2 else (
+    "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/of3_832/"
+    "domain_rmsd.json")
+with open(out_path, "w") as fh:
     json.dump({"runs": RUNS, "windows": out}, fh, indent=1)
-print("wrote domain_rmsd.json")
+print("wrote %s" % out_path)

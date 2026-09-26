@@ -1,0 +1,7 @@
+LEG d832_off1 dividing_k=0 rc=0 wall=187.086005073s
+[{"id":"cdk2_deep_832","status":"ok","complex_plddt":0.806239,"plddt":0.806239,"ptm":0.575602,"iptm":0.0,"confidence_score":0.760112,"n_residues":832,"n_chains":1,"n_tokens":832,"msa":true,"msa_depth":513,"n_atoms":6687,"samples":1,"runtime_s":150.7}]
+LEG d832_on dividing_k=1 rc=0 wall=91.897002461s
+[{"id":"cdk2_deep_832","status":"ok","complex_plddt":0.80679,"plddt":0.80679,"ptm":0.576249,"iptm":0.0,"confidence_score":0.760681,"n_residues":832,"n_chains":1,"n_tokens":832,"msa":true,"msa_depth":513,"n_atoms":6687,"samples":1,"runtime_s":56.0}]
+LEG d832_off2 dividing_k=0 rc=0 wall=144.872389876s
+[{"id":"cdk2_deep_832","status":"ok","complex_plddt":0.806239,"plddt":0.806239,"ptm":0.575602,"iptm":0.0,"confidence_score":0.760112,"n_residues":832,"n_chains":1,"n_tokens":832,"msa":true,"msa_depth":513,"n_atoms":6687,"samples":1,"runtime_s":108.3}]
+AB_DONE

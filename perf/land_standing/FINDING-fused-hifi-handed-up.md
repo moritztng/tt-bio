@@ -1,0 +1,388 @@
+
+# CORRECTION, 2026-09-26 07:2xZ: the hand-up above is WITHDRAWN
+
+**Everything below this block was scored on tiled CDK2, and on a real target with a deposited
+structure the lever reads the other way.** I found the fixture in this row's own
+`perf/land_standing/fixtures/` — `your-own-worktree-already-holds-the-answer`, and I had written
+two passes claiming no such fixture was reachable.
+
+## The measurement
+
+E. coli aminopeptidase N, **PDB 3B34 at 1.30 A**, 891 aa with its His tag so it pads to 896 —
+above the route's `_TRIATT_FUSED_HIFI_MIN_S = 128` floor, a real protein, and its ColabFold MSA
+already on disk from this row's narrow-q work. OpenFold3 folds it at **pLDDT 0.9248**, so this is
+a target the model believes in, unlike tiled CDK2.
+
+**Firing, counted:** served **384 -> 440** with the flag on. The lever genuinely runs here.
+
+**CA-RMSD against the deposited structure**, paired by `label_seq_id` over the 866 residues 3B34
+resolves, residue identity asserted per pair, float64 Kabsch — the instrument
+`narrowq_openbind_pepn.py` already validated:
+
+    off   (shipped)        0.544988 A   to the experimental structure
+    on    (lever)          0.540121 A   to the experimental structure  <- CLOSER
+    off2  (control)        0.544988 A   exact, so the instrument has no floor
+
+    off vs on             0.055552 A   the structural move
+
+## What that means
+
+- The lever moves the structure **0.0556 A**, **10.8x under the 0.60 A bar**.
+- It ends **0.004867 A CLOSER** to the experimental answer than the shipped arm.
+- pLDDT moves the same way, 0.924845 -> 0.925057.
+
+**Against the 2.602 A global / 2.390 A per-copy this file reports below on tiled CDK2.** The same
+lever, the same code, two fixtures, and a 43x difference in the measured move.
+
+## Why the old number was wrong, and what it costs the rest of this row's work
+
+Tiled CDK2 is an artificial tandem repeat that does not exist in nature. Even with a deep MSA and
+pLDDT 0.806 the model has no correct answer for it, so it sits in a shallow basin where a small
+numerical perturbation relocates the structure. PepN is a real protein the model places to 0.54 A
+of the crystal; the same perturbation moves it 0.056 A.
+
+**So "confident" was the wrong precondition.** This row spent several passes establishing that the
+fixture needed high pLDDT, got pLDDT 0.806 on tiled CDK2, and treated that as sufficient. It is
+not: a structure can be confidently predicted and still be a fixture the model was never asked to
+get right. **The precondition that matters is a deposited answer, not a confidence score.**
+
+That does not overturn the dividing-k verdict — its 0.450 A on the same tiled fixture was already
+under the bar, and on this evidence a real-target number would be smaller, not larger. It does
+mean the dividing-k accuracy case is *conservative* rather than marginal.
+
+
+## The A/B on the real target, under discipline — 2026-09-26 07:3xZ
+
+Eight legs on qb2 card 3, AICLK **1350 MHz** sampled DURING every leg, board-pair sibling watched,
+one discarded warm-up so the first timed leg is not the cold model load, arms interleaved so drift
+lands on both.
+
+### Speed: +4.700 s, 1.0541x
+
+    off   90.610 / 92.917 / 91.606   median 91.606   A/A floor 2.307 s
+    on    82.401 / 88.240 / 86.906   median 86.906
+
+    +4.700 s, 1.0541x, effect 2.04x its A/A floor
+
+**Smaller than the +8.471 s measured at 832 tokens on tiled CDK2, and it clears its floor by less
+(2.04x against 10.2x).** Stated rather than smoothed: loadavg drifted 10.3 -> 16.1 across the run,
+and the ON legs ran at the *higher* end of that (13.0 / 15.9 / 15.3 against OFF's 10.9 / 13.9 /
+15.5), so the drift works against the lever rather than for it. The reading is conservative.
+
+### Accuracy: 0.0556 A, and the lever lands closer to the crystal
+
+CA-RMSD over the 866 residues 3B34 resolves, paired by `label_seq_id`, identity asserted per pair,
+float64 Kabsch:
+
+    off1 / off2 / off3   0.544988 A to the deposited structure, all three IDENTICAL
+    on                   0.540121 A to the deposited structure   <- 0.004867 A CLOSER
+    off seed 1           0.829646 A
+
+    control  off vs off        0.000000 A    the instrument has no floor
+    LEVER    off vs on         0.055552 A    10.8x under the 0.60 A bar
+    seed floor  off s0 vs s1   1.088466 A    19.6x the lever's move
+    lever AND seed together    1.076784 A    no more than the seed alone
+
+**Every instrument points the same way.** The move is 10.8x under the bar and 19.6x under the
+seed floor; changing the lever *and* the seed moves the structure no more than changing the seed
+alone; and the arm with the lever on is closer to the experimental answer than the shipped arm.
+
+### Status
+
+The accuracy objection that produced the original hand-up is **fully refuted on a deposited
+structure**, and the speed term now exists on a real target as well as on the tiled fixture.
+
+**What is still owed before it ships: a release gate at the tip with the flag flipped**, arm by
+arm, the same discipline `TT_BIO_TRIATT_DIVIDING_K` got. Nothing else is outstanding.
+
+Caveats kept in view: one target, one seed pair, **20 sampling steps** rather than the CLI default
+200. The 200-step narrow-q runs on this same fixture recorded 0.60-0.78 A to the crystal against
+the 0.545 A here, so the absolute distances are of the right order; the delta is what this
+measures.
+
+## What is now owed before this lever ships
+
+The accuracy objection is refuted on the right fixture. What is NOT yet done:
+
+- **one target, one seed, 20 sampling steps** rather than the CLI default 200. The narrow-q work
+  recorded PepN seed floors of 0.819 / 3.288 / 3.961 A at 200 steps, so 0.0556 A is roughly 15x
+  under even the smallest of those — but that floor was measured on openbind at 200 steps, not
+  here.
+- **the speed term on a real target.** The +8.471 s is measured at 832 tokens on tiled CDK2 and
+  stands as such; PepN was not timed under A/B discipline in this pass.
+- a release gate at the tip with the flag flipped, which is the same discipline dividing-k got.
+
+# `TT_BIO_TRIATT_FUSED_HIFI`: +8.471 s, and it fails the accuracy bar intra-domain
+
+Handed up to Moritz 2026-09-26 by `land-standing`. Not landed, and this row will not land it: the
+charter puts anything failing the accuracy bar with him.
+
+## What it is
+
+The process-wide choice of whether the fp32-softmax path takes the fused SDPA instead of the
+materialised score tensor. `env_flag("TT_BIO_TRIATT_FUSED_HIFI", False)` in `tenstorrent.py`.
+Default off, twenty comment lines, and **no recorded reason for being off** — it claims 1.88x more
+accurate at the kernel and 20.2x faster at 512 aa.
+
+## Reach, counted on a real model
+
+On an OpenFold3 fold at 832 tokens, served calls go **384 -> 440**. The extra 56 are the sites
+that pass `fused_hifi=None` and therefore follow the process-wide flag.
+
+## Speed: it is real, and it is the first op claim this row tested that reached the fold
+
+Six legs alternating, AICLK 1350 MHz sampled DURING every leg:
+
+    off  83.356 / 83.197 / 82.528   median 83.197   A/A floor 0.828 s
+    on   74.726 / 73.359 / 75.410   median 74.726
+
+    +8.471 s, 1.1134x, effect 10.2x its A/A floor
+
+`TT_BIO_SDPA_WIDE_K_UP` (1.1554x at the op) and `TT_BIO_TRIMUL_OUT_L1` (1.033-1.182x at the op)
+both failed to transfer. This one transfers.
+
+## Accuracy: it fails, and the failure is NOT a fixture artifact
+
+Same fixture and instrument as the dividing-k work — tiled CDK2 at MSA depth 513, where OpenFold3
+is confident (pLDDT 0.806). CA RMSD, Kabsch, float64:
+
+    control off vs off     0.000000 A    the instrument has no floor
+    LEVER   off vs on      2.602139 A    against the 0.60 A bar -- 4.3x over
+    seed floor, measured   1.974757 A    the lever moves MORE than re-seeding does
+
+**The obvious way this could have been wrong was tested and it was not wrong.** This fixture is a
+tandem repeat, and this row has previously found tandem copies hinge freely and inflate a global
+RMSD. Restricting the superposition and the score to ONE copy removes that degree of freedom
+without refolding anything:
+
+    window            within-arm    off vs on
+    full 1-832          0.000         2.602
+    copy1 1-298         0.000         2.390
+    copy2 299-596       0.000         2.325
+    core 1-150          0.000         1.077
+
+**The move survives the hinge being removed.** A single 298-residue copy still moves 2.39 A and
+even the 150-residue core moves 1.077 A, both far above the 0.60 A bar, against a within-arm
+distance of exactly zero at every window. So this is real intra-domain structural change, not an
+artifact of how the copies are arranged.
+
+Both confidence heads fall as well: pLDDT 0.80679 -> 0.805988, pTM 0.576249 -> 0.569106.
+
+## The one thing that could still rescue it
+
+Its comment claims the fused kernel is **1.88x more accurate than the materialised softmax at the
+kernel**. That and a 2.39 A trajectory move can both be true — this row documented exactly that
+shape for dividing-k, where per-call float64 distance was favourable while the 48-block trajectory
+still diverged. Nobody has scored this lever against a **ground-truth** structure, only against
+the incumbent arm. If the fused route is closer to the experimental answer, the sign of this
+verdict changes. That needs a confident target with a deposited structure, which this fixture is
+not.
+
+## What is being offered
+
+**+8.471 s** on an OpenFold3 fold at 832 tokens, reproducible, against **2.39 A of intra-domain
+structural change** on a bar of 0.60 A. Measured on `wk/land-standing`, i.e. on top of the
+dividing-k flip, which is the tree this row would ship.
+
+## The release gate cannot settle the ground-truth question — it is structurally blind to this lever
+
+Tried 2026-09-26, because the section above names scoring against a **deposited** structure as the
+one thing that could rescue this lever. The gate's `openfold3` arm folds 7ROA at 117 aa and scores
+CA-RMSD / TM against the experimental answer, so running it with the flag off and on looked like
+exactly the missing instrument.
+
+Both arms return **1.658 A / TM 0.902, PASS** — identical. **That is not neutrality.** The firing
+counters say why:
+
+    off   TRIATT_FUSED_HIFI_STATS  served 0, declined 384, too_short 0
+    on    TRIATT_FUSED_HIFI_STATS  served 0, declined 432, too_short 40
+
+Turning the lever on routes **48 more calls into the fused-HiFi path and serves none of them** —
+`served` is **0 in both arms**, and 40 of the newly-routed calls are below the route's own
+`_TRIATT_FUSED_HIFI_MIN_S = 128` floor. At 117 aa there is nothing for this lever to change, so a
+gate result here is a statement about the fixture, not about the lever.
+
+**So the gate is the wrong instrument for this candidate and cannot be made into the right one by
+running it again.** Its targets are small by design; the only arm large enough is `rf3-1024aa`,
+and that is RoseTTAFold3, while `TriangleAttention.__init__` states that *"OpenFold3 is the only
+model here on the fp32 route"* this lever gates.
+
+**What the ground-truth score would actually need**: a deposited structure of roughly 700+
+residues that OpenFold3 folds confidently. That is the same fixture problem the dividing-k work
+solved at 832 tokens by extracting a deep MSA — one size up, and with the added requirement of an
+experimental answer, which tiled CDK2 does not have.
+
+Until that exists, the verdict stands on what is measured: **+8.471 s, and 2.390 A of intra-domain
+movement against a 0.60 A bar**, scored against the incumbent arm because no ground truth is
+reachable.
+
+## The gate, with the lever active — 2026-09-26 08:4xZ
+
+Run at the **merge tree** (`a6c39ac87`, i.e. `origin/main` `29bc7d00c` merged in), every arm
+asserted from the gate's own scoring-tree line.
+
+**Run via `TT_BIO_TRIATT_FUSED_HIFI=1` rather than by flipping the default, deliberately.**
+`wk/land-standing` is under an orchestrator merge decision that rests on the branch carrying
+**exactly one** non-comment line, and adding a second flip would invalidate that handover. The env
+route is equivalent for the gate's purpose, verified rather than assumed:
+
+    TT_BIO_TRIATT_FUSED_HIFI unset -> _TRIATT_FUSED_HIFI = False, _fused_hifi_on(None) = False
+    TT_BIO_TRIATT_FUSED_HIFI=1     -> _TRIATT_FUSED_HIFI = True,  _fused_hifi_on(None) = True
+
+    openfold3       1.658 / 0.902   <=3.5 / >=0.70   PASS
+    boltz2          1.827 / 0.902   <=3.0 / >=0.75   PASS
+    rf3             1.239 / 0.958   <=3.0 / >=0.75   PASS
+    opendde         1.395 / 0.940   <=6.0 / >=0.50   PASS
+    protenix-v2     1.999 / 0.867   <=6.0 / >=0.50   PASS
+    esmfold2        1.343 / 0.961   <=8.0 / >=0.40   PASS
+    esmfold2-fast   1.708 / 0.918   <=4.5 / >=0.60   PASS
+    l1-budget       arith + native + 8x8 + narrow    PASS, ONE digest across all three grids
+                                                     (c3073854d423570ae48cb8ce35ccb27e)
+
+Geometry in band and zero chain gaps on every fold arm.
+
+**Every number is identical to the dividing-k gate run, and that is the expected result rather
+than a suspicious one.** This lever serves **0 of 432 calls** at the gate's 117 aa target — proven
+by counter, not inferred — so the gate cannot see it. **These arms show the lever breaks nothing;
+they do not validate it.** The validation is the PepN evidence above: +4.700 s at 2.04x its A/A
+floor, 0.055552 A of movement at 10.8x under the bar and 19.6x under the 1.088466 A seed floor,
+and the lever's arm 0.004867 A closer to the deposited 3B34.
+
+`l1-budget` is the one arm that is not merely a regression check here: it is the arm that catches
+card-dependence, and its three grid classes return one digest with the lever on.
+
+## Both long arms have now reported — the gate is COMPLETE at ten arms, 2026-09-26 09:07Z
+
+    batch-position  identical targets identical whatever their position   PASS  (274s)
+    capacity        9j4c_abag  7.23 GiB / 50 CIFs / 1 PAE  <=10.5 GiB     PASS  (1072s total)
+                    9ivj       7.00 GiB /  8 CIFs / 1 PAE  <=12.0 GiB     PASS
+                    "largest-input folds fit the DRAM budget and wrote every sample"
+
+`capacity` is the one arm whose inputs are NOT the 117 aa target — they are abag complexes — so it
+is the only arm here that could have exercised the lever. **Peak DRAM is identical to the byte
+against the dividing-k gate run** (7.23 and 7.00 GiB, same CIF and PAE counts), which is what an
+unchanged allocation plan looks like.
+
+**The wall times differ (846->737 s and 524->332 s) and that is NOT a speed claim.** The two runs
+were not interleaved, a second BC2 copy was co-tenanted on card 1 during part of the earlier one,
+and no AICLK was sampled during either fold. An uncontrolled wall-time delta on a shared box is
+not evidence and is not offered as any.
+
+No counter was captured inside `capacity`, so whether the lever served a single call there is
+**unknown, not zero**. That does not weaken the result — the arm is a budget check and it passed —
+but it is the reason this table still does not validate the lever. The validation remains the PepN
+evidence above.
+
+Scoring tree asserted for both arms: `/home/ttuser/.coworker/wt/land-standing/tt_bio`, commit
+`48bf63c2a`, which contains `origin/main` `29bc7d00c` and whose `tt_bio/` is byte-identical to the
+branch HEAD. Lever state verified at `gate_fusedhifi.sh:27` — every arm is invoked with
+`PYTHONPATH="$WT" TT_BIO_TRIATT_FUSED_HIFI=1`.
+
+## Which sites the lever actually controls — 2026-09-26 09:19Z
+
+Found while waiting on the counter run, and it **qualifies the gate table above**. The lever is
+read per attention block through `_fused_hifi_on(self.fused_hifi)`, and `TriangleAttention.__init__`
+stores `self.fused_hifi = fused_hifi or None` (`tenstorrent.py:8735`). Resolved on this tree:
+
+    site                   site flag   stored   follows TT_BIO_TRIATT_FUSED_HIFI?
+    openfold3.trunk        True        True     NO - already pinned ON
+    openfold3.msa          False       None     yes
+    openfold3.template     False       None     yes
+    openfold3.confidence   False       None     yes
+    boltz2.trunk           False       None     yes
+    rf3.tri_att            False       None     yes
+
+Two consequences, both of which make the earlier write-up **less** sweeping than it was:
+
+1. **`openfold3.trunk` is already on the fused-HiFi route in shipped `main`** —
+   `openfold3_trunk.py:193` passes `triatt_sdpa_hifi_site("openfold3.trunk", True)`. The lever
+   cannot turn that site on because it was never off. So for OpenFold3 the A/B moves the **msa,
+   template and confidence** sites only, and the PepN +4.700 s is attributable to those, not to
+   the trunk. I had not said this, and the earlier text reads as though the flag switched the
+   whole model.
+2. **A site flag of `False` does not pin the site off.** `False or None` is `None`, which follows
+   the process-wide variable per call. The source says so explicitly — "an explicit pin-off has no
+   caller" — and it checks out empirically with the env var set:
+
+       pinned False -> stored None -> _fused_hifi_on = True
+       pinned True  -> stored True -> _fused_hifi_on = True   (ignores the variable)
+
+   I briefly concluded the opposite from the `tri_att_sdpa_hifi: bool = False` default at
+   `tenstorrent.py:10448` and was wrong; `or None` neutralises it.
+
+Also worth recording for whoever reads the route: the hifi call sits **inside the `fp32_softmax`
+branch** at `tenstorrent.py:9042`, so it is the alternative to the materialised path, never an
+addition to it. `rf3/remap.py:195` makes the same point for RF3 and warns against summing the two
+speedups.
+
+---
+
+# RESULT — the prediction above is FALSIFIED. Counted zero, and structurally so. 2026-09-26 09:34Z
+
+`capacity` re-run with counters, rc=0, **GATE PASS**, both legs green again:
+
+    capacity:9j4c_abag   7.23 GiB   50 CIFs  1 PAE  <=10.5 GiB   787s  PASS
+    capacity:9ivj        7.00 GiB    8 CIFs  1 PAE  <=12.0 GiB   343s  PASS
+
+Four counter lines, one per process:
+
+    pid 2059377   hifi {served 0, declined 0, too_short 0, taped 0}   route {fused 1600, stock 0}   1 shape
+    pid 2081499   hifi {served 0, declined 0, too_short 0, taped 0}   route {fused 1304, stock 0}   2 shapes
+    pid 2059274   hifi all zero, route all zero   "no triangle-attention pick recorded in this process"
+    pid 2081214   hifi all zero, route all zero   "no triangle-attention pick recorded in this process"
+
+## This is a real zero, not the wrong-process artifact
+
+That distinction is the whole reason the prediction was registered first. **Two of the four
+processes recorded substantial real work** — 1600 and 1304 SDPA calls, all on the fused route, with
+recorded chunk picks. The two that recorded nothing say so explicitly in their own note. So the
+fold was instrumented, the counters were live in the processes that did the folding, and
+`_tri_att_sdpa_hifi` was still **never entered**: `declined` and `too_short` are zero too, not just
+`served`.
+
+## Why — and the specific error in my prediction
+
+The hifi arm is reached at `tenstorrent.py:9042`, inside this branch:
+
+    def _attend_heads(q, k, v, bias, keep_heads=False, gate=None):
+        if _FP32_SOFTMAX or self.fp32_softmax:          # <- tenstorrent.py:9032
+            ...
+            if _fused_hifi_on(self.fused_hifi):
+                o = _tri_att_sdpa_hifi(...)
+
+**The gate is `_FP32_SOFTMAX or self.fp32_softmax`.** Neither `protenix-v2` nor `opendde-abag`
+sets `fp32_softmax` at its triangle-attention sites, so `_attend_heads` takes the other branch —
+which goes to the fused SDPA directly and reads `sdpa_hifi`, never `fused_hifi`. That is exactly
+what the counters show: 1600 and 1304 calls on the **fused** route, zero on stock, zero hifi.
+
+I predicted `served > 0` and was wrong. The error is precise and worth naming: I took
+`if att.biased or _FP32_SOFTMAX or att.fp32_softmax:` at `tenstorrent.py:2376` to be this branch's
+condition, and reasoned that triangle attention is always biased so the branch is always taken.
+**That line is not this branch.** It belongs to the gate-epilogue helper and its effect there is
+the opposite — `att.biased` sends it to `_gate_reject("site")`. Two predicates mentioning
+`fp32_softmax` a few thousand lines apart, and I matched the wrong one.
+
+This was the fourth falsifier listed above ("the models may not enter the `fp32_softmax` branch at
+all"), so the prediction failed in a way it had already written down rather than in a surprising
+one.
+
+## What this settles
+
+**"Unknown, not zero" is now COUNTED ZERO, for a structural reason, at 891 and 1095 tokens.**
+`TT_BIO_TRIATT_FUSED_HIFI` cannot reach `protenix-v2` or `opendde-abag` at all, at any length,
+because their sites do not take the `fp32_softmax` route.
+
+So the ten-arm gate says exactly what the conservative framing already said, and no more:
+**the lever breaks nothing, on every arm including the two long ones — and not one arm validates
+it.** The hoped-for upgrade to "exercised at real length" does not happen. The validation remains
+the PepN 3B34 evidence on OpenFold3, which passes `fp32_softmax=True` at all four sites and
+therefore does take this branch.
+
+One consequence worth carrying forward: **the lever's blast radius is narrower than the model list
+suggests.** It can only ever move a site that sets `fp32_softmax`. Of the sites enumerated earlier,
+that is OpenFold3's four — and of those, `openfold3.trunk` is already pinned on in shipped main, so
+the reachable surface is `openfold3.msa`, `openfold3.template` and `openfold3.confidence`.
+
+Not a perf measurement: no AICLK sampled, no timing claimed. Peak DRAM was identical to the byte
+against both earlier `capacity` runs (7.23 and 7.00 GiB), which is the controlled part; the wall
+times (787s / 343s here) are uncontrolled and are not offered as evidence.

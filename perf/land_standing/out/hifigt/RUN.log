@@ -1,0 +1,7 @@
+LEG off fused_hifi=0 rc=0 secs=174
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit efdff80f4)
+openfold3           1.658   0.902     <=3.5/>=0.7   1.0000     0    1(0.0011)    169s  PASS
+LEG on fused_hifi=1 rc=0 secs=174
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit efdff80f4)
+openfold3           1.658   0.902     <=3.5/>=0.7   1.0000     0    1(0.0011)    171s  PASS
+GT_DONE

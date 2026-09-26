@@ -1,0 +1,7 @@
+LEG off1 fuse=0 rc=0 wall=47.700361971 aiclk=1350 sib=1350 load=12.53 cif=54a73287fdb480ac
+LEG on1 fuse=1 rc=0 wall=56.959344808 aiclk=1350 sib=1350 load=14.39 cif=54a73287fdb480ac
+LEG off2 fuse=0 rc=0 wall=58.528718679 aiclk=1350 sib=1350 load=16.69 cif=54a73287fdb480ac
+LEG on2 fuse=1 rc=0 wall=38.455908478 aiclk=1350 sib=1350 load=15.94 cif=54a73287fdb480ac
+LEG off3 fuse=0 rc=0 wall=40.251739285 aiclk=1350 sib=1350 load=17.69 cif=54a73287fdb480ac
+LEG on3 fuse=1 rc=0 wall=37.213911727 aiclk=1350 sib=1350 load=16.68 cif=54a73287fdb480ac
+FUSE_DONE

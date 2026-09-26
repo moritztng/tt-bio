@@ -1,0 +1,14 @@
+{
+ "deposited": "3B34",
+ "gt_ca_rmsd_A": {
+  "off": 0.544988,
+  "off2": 0.544988,
+  "on": 0.540121
+ },
+ "n_matched": 866,
+ "pairwise_ca_rmsd_A": {
+  "off|off2": 0.0,
+  "off|on": 0.055552,
+  "off2|on": 0.055552
+ }
+}

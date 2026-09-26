@@ -1,0 +1,9 @@
+LEG off mask=0 ones=0 rc=0 secs=170 cif=0994550d718665d9
+"plddt": 0.777174 "ptm": 0.431129 
+LEG ones mask=1 ones=1 rc=0 secs=80 cif=0994550d718665d9
+"plddt": 0.777174 "ptm": 0.431129 
+LEG on mask=1 ones=0 rc=0 secs=76 cif=0994550d718665d9
+"plddt": 0.777174 "ptm": 0.431129 
+LEG off2 mask=0 ones=0 rc=0 secs=72 cif=0994550d718665d9
+"plddt": 0.777174 "ptm": 0.431129 
+MASK_DONE

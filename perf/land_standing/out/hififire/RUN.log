@@ -1,0 +1,5 @@
+LEG off fused_hifi=0 rc=0 secs=84
+"plddt": 0.80679
+LEG on fused_hifi=1 rc=0 secs=82
+"plddt": 0.805988
+HIFI_FIRE_DONE

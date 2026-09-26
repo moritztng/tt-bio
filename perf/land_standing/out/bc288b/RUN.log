@@ -1,0 +1,5 @@
+ARM on dividing_k=1 rc=0 secs=275
+=========== 1 passed, 1 deselected, 2 warnings in 272.47s (0:04:32) ============
+ARM off dividing_k=0 rc=0 secs=269
+=========== 1 passed, 1 deselected, 2 warnings in 266.65s (0:04:26) ============
+BC288_DONE

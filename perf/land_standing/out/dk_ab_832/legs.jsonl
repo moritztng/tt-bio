@@ -1,0 +1,4 @@
+{"leg": 1, "arm": "off", "wall_s": 131.946, "rc": 0, "cif16": "dc66841144ce26c1", "aiclk_n": 132, "aiclk_min": 800, "aiclk_med": 1350.0, "aiclk_max": 1350, "sibling_max": 800, "load_med": 10.47}
+{"leg": 2, "arm": "on", "wall_s": 80.044, "rc": 0, "cif16": "7fcb245cef064658", "aiclk_n": 80, "aiclk_min": 800, "aiclk_med": 1350.0, "aiclk_max": 1350, "sibling_max": 800, "load_med": 11.43}
+{"leg": 3, "arm": "off", "wall_s": 130.64, "rc": 0, "cif16": "dc66841144ce26c1", "aiclk_n": 130, "aiclk_min": 800, "aiclk_med": 1350.0, "aiclk_max": 1350, "sibling_max": 800, "load_med": 11.88}
+{"leg": 4, "arm": "on", "wall_s": 80.545, "rc": 0, "cif16": "7fcb245cef064658", "aiclk_n": 80, "aiclk_min": 800, "aiclk_med": 1350.0, "aiclk_max": 1350, "sibling_max": 800, "load_med": 12.47}

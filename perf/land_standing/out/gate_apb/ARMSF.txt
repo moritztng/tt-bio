@@ -1,0 +1,12 @@
+TREE 317725511  main-is-ancestor=yes  start=09:42:48Z
+ARM openfold3 rc=0 secs=144 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 317725511)
+ARM l1-budget rc=0 secs=152 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+ARM boltz2 rc=0 secs=41 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+ARM rf3 rc=0 secs=61 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+ARM opendde rc=0 secs=60 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+ARM protenix-v2 rc=0 secs=51 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+ARM esmfold2 rc=0 secs=63 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+ARM esmfold2-fast rc=0 secs=54 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+ARM batch-position rc=0 secs=279 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+ARM capacity rc=0 secs=1155 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 11daab7ae)
+GATE_CHAIN_END
