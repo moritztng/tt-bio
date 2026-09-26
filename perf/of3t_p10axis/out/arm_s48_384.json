@@ -1,0 +1,180 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--samples",
+  "48",
+  "--reps",
+  "1",
+  "--out",
+  "/home/moritz/.coworker/wt/of3t-p10axis/perf/of3t_p10axis/out/arm_s48_384.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "renorm": null,
+  "commit": "ce0f78d6098fdced94b973a97b14bcb327348fca",
+  "branch": "wk/of3t-p10axis",
+  "started_utc": "2026-09-26T09:27:40Z",
+  "loadavg_start": [
+   3.0791015625,
+   2.421875,
+   1.765625
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 1343,
+    "max": 1350,
+    "median": 1350,
+    "n": 3
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 3 samples, polled DURING the work",
+  "loadavg_end": [
+   3.21435546875,
+   2.47412109375,
+   1.7900390625
+  ]
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 48,
+  "stage": "initial_training",
+  "taped": true,
+  "cycles": 4
+ },
+ "build_fold_s": 4.78,
+ "prep_to_sampler_s": 12.18,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 9.503,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "capture_reused_from_arm": 1,
+ "params": {
+  "declared": 3506,
+  "slots": 3506,
+  "slots_unwritable": 0,
+  "elements": 510468300,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 975,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 0,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 975
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3506
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 2125,
+   "declined": 558
+  },
+  "per_rep_plan": null
+ },
+ "error": "Traceback (most recent call last):\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/perf/of3t_stepfloor/fullstep.py\", line 413, in main\n    trunk_forward(trunk, held, a.cycles - 1, taped=False)\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/perf/of3t_stepqb2/steprun.py\", line 158, in w\n    return real(*a, **k)\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/perf/of3t_restep/rssprofile.py\", line 94, in wrapper\n    return fn(*a, **k)\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/perf/of3t_stepfloor/fullstep.py\", line 206, in diffusion_train\n    out[\"sigmas\"] = [round(s, 4) for s in sigmas]\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/tt_bio/openfold3_diffusion_module.py\", line 383, in __call__\n    return self._post_encoder(\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/tt_bio/openfold3_diffusion_module.py\", line 432, in _post_encoder\n    ai_pad = self.dit(ai_pad, si, zij, token_mask_pad_tt, tok_mask_col_pad_tt,\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/tt_bio/openfold3_diffusion_transformer.py\", line 330, in __call__\n    x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache)\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/tt_bio/openfold3_diffusion_transformer.py\", line 264, in __call__\n    a = mask_add(a, out, tok_mask_col)\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/tt_bio/eltwise_fusion.py\", line 106, in mask_add\n    return ttnn.add(x, ttnn.multiply(y, mask), **kwargs)\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/tt_bio/taped_ttnn.py\", line 1175, in call\n    out = impl(shipped, args, kwargs)\n  File \"/home/moritz/.coworker/wt/of3t-p10axis/tt_bio/taped_ttnn.py\", line 570, in impl\n    out_v = shipped(a.value, b.value, **kw)\n  File \"/home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/decorators.py\", line 473, in __call__\n    result = self.function(*function_args, **function_kwargs)\nRuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 1179648 B DRAM buffer across 8 banks, where each bank needs to store 147456 B, but bank size is 4278190016 B (allocated: 4276110912 B, free: 2079104 B, largest free block: 98304 B)\nbacktrace:\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7fdd24cd2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x7fdd2631886f]\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorES5_NS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0xa4d) [0x7fdd2630a4bd]\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadd7c8) [0x7fdd262dd7c8]\n --- ttnn::multiply(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- ttnn::operations::binary::detail::multiply_fast_approx_tensor_tensor(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, bool, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional const&)\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x5b7375) [0x7fdd275b7375]\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x7fdd2726f895]\n --- /home/moritz/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0x96) [0x563f1e9fbbe6]\n --- /home/moritz/tt-bio/env/bin/python3(+0x3a2b46) [0x563f1ea2fb46]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0xa16c) [0x563f1e95d87c]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0x96) [0x563f1e9fbbe6]\n --- /home/moritz/tt-bio/env/bin/python3(+0x3a2b46) [0x563f1ea2fb46]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0xa16c) [0x563f1e95d87c]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(+0x2fd0b9) [0x563f1e98a0b9]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x4068) [0x563f1e957778]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0xa3df) [0x563f1e95daef]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(+0x2fd0b9) [0x563f1e98a0b9]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x4068) [0x563f1e957778]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x563f1e9fbc65]\n --- /home/moritz/tt-bio/env/bin/python3(+0x3a2b46) [0x563f1ea2fb46]\n --- /home/moritz/tt-bio/env/bin/python3(+0x2fd2a2) [0x563f1e98a2a2]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x3eef) [0x563f1e9575ff]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x563f1e9fbc65]\n --- /home/moritz/tt-bio/env/bin/python3(+0x3a2b46) [0x563f1ea2fb46]\n --- /home/moritz/tt-bio/env/bin/python3(+0x2fd2a2) [0x563f1e98a2a2]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x3eef) [0x563f1e9575ff]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x8924) [0x563f1e95c034]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyObject_Call_Prepend+0x115) [0x563f1e9fbc65]\n --- /home/moritz/tt-bio/env/bin/python3(+0x3a2b46) [0x563f1ea2fb46]\n --- /home/moritz/tt-bio/env/bin/python3(+0x2fd2a2) [0x563f1e98a2a2]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x3eef) [0x563f1e9575ff]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x8507) [0x563f1e95bc17]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x8507) [0x563f1e95bc17]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(+0x2fd0b9) [0x563f1e98a0b9]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x4068) [0x563f1e957778]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0xa3df) [0x563f1e95daef]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0xa3df) [0x563f1e95daef]\n --- /home/moritz/tt-bio/env/bin/python3(_PyFunction_Vectorcall+0x202) [0x563f1e8fe352]\n --- /home/moritz/tt-bio/env/bin/python3(+0x2fd0b9) [0x563f1e98a0b9]\n --- /home/moritz/tt-bio/env/bin/python3(_PyEval_EvalFrameDefault+0x4068) [0x563f1e957778]\n --- /home/moritz/tt-bio/env/bin/python3(+0x3d4a54) [0x563f1ea61a54]\n --- /home/moritz/tt-bio/env/bin/python3(+0x40a643) [0x563f1ea97643]\n --- /home/moritz/tt-bio/env/bin/python3(+0x1b35b2) [0x563f1e8405b2]\n --- /home/moritz/tt-bio/env/bin/python3(_PyRun_SimpleFileObject+0x109) [0x563f1e8400e9]\n --- /home/moritz/tt-bio/env/bin/python3(_PyRun_AnyFileObject+0xa5) [0x563f1e83fae5]\n --- /home/moritz/tt-bio/env/bin/python3(+0x1bcda9) [0x563f1e849da9]\n --- /home/moritz/tt-bio/env/bin/python3(+0x1bc912) [0x563f1e849912]\n --- /home/moritz/tt-bio/env/bin/python3(Py_RunMain+0x680) [0x563f1eaa3030]\n --- /home/moritz/tt-bio/env/bin/python3(+0x148028) [0x563f1e7d5028]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2724a) [0x7fdd2d6d824a]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x85) [0x7fdd2d6d8305]\n --- /home/moritz/tt-bio/env/bin/python3(+0x34616b) [0x563f1e9d316b]\n\n",
+ "arm": {
+  "name": "s48",
+  "exact_training": false,
+  "exact_training_ops": [
+   "softmax",
+   "layer_norm"
+  ],
+  "exact_softmax_installed_now": false,
+  "wall_s": 8.923,
+  "rc": 1,
+  "host_quiet_pre": {
+   "when_utc": "2026-09-26T09:27:40Z",
+   "rc": 1,
+   "green": false,
+   "loadavg": [
+    3.0791015625,
+    2.421875,
+    1.765625
+   ],
+   "report": [
+    "loadavg1 3.08 over ceiling 2.00",
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  },
+  "host_quiet_post": {
+   "when_utc": "2026-09-26T09:27:49Z",
+   "rc": 1,
+   "green": false,
+   "loadavg": [
+    3.21435546875,
+    2.47412109375,
+    1.7900390625
+   ],
+   "report": [
+    "loadavg1 3.21 over ceiling 2.00",
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  }
+ },
+ "scope": {
+  "contains": [
+   "trunk no_grad recycle prefix",
+   "one taped trunk cycle",
+   "diffusion module on N noised structures inside the same tape",
+   "af3_loss heads on host",
+   "backward over the whole tape",
+   "AdamW optimizer step"
+  ],
+  "omits": [
+   "upstream's 48 diffusion samples (this runs --samples)",
+   "upstream's per-step U{1..4} recycle draw (this PINS --cycles)"
+  ],
+  "note": "trunk_nograd_prefix_s is reported per rep, so the step with and without the no_grad prefix are both readable off this artifact."
+ },
+ "host_facts": {
+  "card": "0",
+  "board": "p150a",
+  "serial": "000004033191410F",
+  "fw_bundle": "19.8.1.0",
+  "aiclk_idle_mhz": "800",
+  "pci": {
+   "addr": "0000:01:00.0",
+   "current_link_speed": "16.0 GT/s PCIe",
+   "current_link_width": "8",
+   "max_link_speed": "32.0 GT/s PCIe",
+   "max_link_width": "16"
+  }
+ },
+ "avail_at_start_gib": 5.771,
+ "grad_census": []
+}
