@@ -75,7 +75,13 @@ STATS = [0, 0]
 #: Why calls were refused, keyed by (reason, shape). A gate that never fires has to say why.
 REJECTS: dict = {}
 
-_ENABLED = os.environ.get("TT_BIO_RNE_ADD_KERNEL", "0") == "1"
+# Whether the kernel exists at all, not whether a model uses it. The release gate is on the
+# model side -- `AF2PairBlock.rne_kernel` is False and the tape entry is out of
+# TT_BIO_TAPED_KERNELS -- and this is the switch a probe or an A/B flips to take the kernel out
+# of a process that has already asked for it. Two switches for one lever is how the first wiring
+# of this row measured a clean zero: `--rne-kernel 1` armed the model and the module was still
+# off, so `eligible` returned before it could even count a decline.
+_ENABLED = os.environ.get("TT_BIO_RNE_ADD_KERNEL", "1") == "1"
 
 
 def set_enabled(on: bool) -> bool:
@@ -94,15 +100,17 @@ def _gran() -> int:
     return min(GRAN or cap, cap)
 
 
-def _reject(reason, shape):
-    k = (reason, tuple(shape))
+def _reject(reason, shape, other=None):
+    """Count a decline and say what shape it was on. `other` is the second operand where the
+    two disagreeing shapes are the reason -- a table of one of them cannot be read."""
+    k = (reason, tuple(shape)) if other is None else (reason, tuple(shape), tuple(other))
     REJECTS[k] = REJECTS.get(k, 0) + 1
     STATS[1] += 1
     return False
 
 
-def _tile_count(t) -> int:
-    """The PADDED tile count, which is what the buffer holds and what the kernels index.
+def _tile_grid(t) -> tuple:
+    """The PADDED tile grid, which is what the buffer holds and what the kernels index.
 
     Tile padding is added and written like any other element: the wide path pads the same way and
     the padding of a residual's operands is the padding of its result.
@@ -111,9 +119,27 @@ def _tile_count(t) -> int:
     rows = 1
     for d in shape[:-1]:
         rows *= d
-    ht = (rows + TILE_H - 1) // TILE_H
-    wt = (shape[-1] + TILE_W - 1) // TILE_W
+    return ((rows + TILE_H - 1) // TILE_H, (shape[-1] + TILE_W - 1) // TILE_W)
+
+
+def _tile_count(t) -> int:
+    ht, wt = _tile_grid(t)
     return ht * wt
+
+
+def _core_shape(t) -> list:
+    """The shape with leading 1s dropped.
+
+    Two operands of one elementwise add can disagree on rank and still be the same tensor
+    physically: the MSA track hands `_residual` an `[1, S, N, C]` activation and an `[S, N, C]`
+    update, which is the same tile grid, the same element count and the same page order. A
+    LEADING 1 is the only difference this tolerates -- an interior one is a broadcast, which is
+    a different function and is declined.
+    """
+    shape = [int(d) for d in t.shape]
+    while len(shape) > 1 and shape[0] == 1:
+        shape.pop(0)
+    return shape
 
 
 def _split_plan(device, units):
@@ -271,8 +297,8 @@ def eligible(a, b, memory_config) -> bool:
         return _reject("dtype", shape_a)
     if a.layout != ttnn.TILE_LAYOUT or b.layout != ttnn.TILE_LAYOUT:
         return _reject("layout", shape_a)
-    if [int(d) for d in b.shape] != shape_a:
-        return _reject("shape_mismatch", shape_a)
+    if _core_shape(a) != _core_shape(b):
+        return _reject("shape_mismatch", shape_a, [int(d) for d in b.shape])
     # The kernels index both operands and the result with ONE page index, so a broadcast, a
     # different padded tile count or a sharded operand is not this op.
     for t in (a, b):
@@ -281,6 +307,6 @@ def eligible(a, b, memory_config) -> bool:
     if memory_config is not None and \
             memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("sharded_out", shape_a)
-    if _tile_count(a) != _tile_count(b):
-        return _reject("tile_count", shape_a)
+    if _tile_grid(a) != _tile_grid(b):
+        return _reject("tile_grid", shape_a, [int(d) for d in b.shape])
     return True

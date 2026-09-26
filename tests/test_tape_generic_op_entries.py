@@ -109,13 +109,18 @@ def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping
     # cotangent would land there instead of here.
     monkeypatch.setattr(TT, "_wrap", lambda t: t)
 
-    a, b = _Parent(), _Parent()
+    # The MSA track's own disagreement: an [1, S, N, C] activation and an [S, N, C] update.
+    a, b = _Parent([1, 2, 288, 256]), _Parent([2, 288, 256])
+    reduced = []
+    monkeypatch.setattr(TT, "_reduce_to", lambda g, shape: reduced.append(shape) or g)
     out, parents, bw, kw = TT.KERNELS["rne_add"](lambda *x, **k: "summed", (a, b), {})
     assert out == "summed"
     assert parents == [a, b]
     assert kw == {"reads": ()}, "a sum's gradient is a function of the cotangent alone"
     bw("cotangent")
     assert (a.got, b.got) == ("cotangent", "cotangent")
+    assert reduced == [[1, 2, 288, 256], [2, 288, 256]], \
+        "each operand's cotangent is reshaped to that operand's own shape"
 
 
 def test_the_wide_add_declines_under_a_tape_with_no_entry_installed(monkeypatch, taping):
@@ -153,6 +158,9 @@ class _Parent:
     """Something `_wrap` hands back unchanged and that records its cotangent."""
     requires_grad = False
     value = None
+
+    def __init__(self, shape=None):
+        self.shape = shape or [1, 1, 32, 32]
 
     def add_grad(self, g):
         self.got = g
