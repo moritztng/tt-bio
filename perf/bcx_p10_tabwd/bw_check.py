@@ -103,7 +103,8 @@ try:
     comp = {"dq": ttnn.to_torch(aq.grad).double(), "dk": ttnn.to_torch(ak.grad).double(),
             "dv": ttnn.to_torch(av.grad).double(), "dbias": ttnn.to_torch(ab.grad).double()}
 
-    res = {"shape": [B, H, N, D], "l1_bytes": p["l1_bytes"], "cores": p["num_cores"]}
+    res = {"shape": [B, H, N, D], "l1_bytes": p["l1_bytes"], "cores": p["num_cores"],
+           "fused_flag": T.FUSED, "stats": dict(T.STATS)}
     res["ratio_vs_shipped"] = {}
     for name, r in ref.items():
         mine = float((got[name] - r).norm() / r.norm())

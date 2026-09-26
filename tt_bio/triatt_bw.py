@@ -418,3 +418,34 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
     return {"pd": pd, "kernels": kernels, "cbs": cbs, "plan": p, "rt": (rr, wr, cr),
             "addrs": addrs}
+
+
+def run(device, q, k, v, bias, g, scale, ckc):
+    """The whole backward for one triangle-attention call. Returns (dq, dk, dv, dbias).
+
+    `q`, `k`, `v`, `bias` and `g` are raw ttnn tensors, not taped ones: the caller owns the tape.
+    Outputs are allocated here and written in full by the program -- every leading-axis row is
+    owned by exactly one core, and every `(group, head)` slab of the partial is written once -- so
+    they are allocated uninitialised rather than zeroed.
+    """
+    B, H, N, d = (int(x) for x in q.padded_shape)
+    grid = device.compute_with_storage_grid_size()
+    p = plan(B, H, N, d, (grid.x, grid.y))
+    if not fits_l1(p):
+        raise ValueError(f"does not fit L1: {p['l1_bytes']} bytes")
+
+    def like(t):
+        return ttnn.empty(t.padded_shape, t.dtype, ttnn.TILE_LAYOUT, device,
+                          ttnn.DRAM_MEMORY_CONFIG)
+
+    dq, dk, dv = like(q), like(k), like(v)
+    part = ttnn.empty(ttnn.Shape(partial_shape(p)), ttnn.float32, ttnn.TILE_LAYOUT, device,
+                      ttnn.DRAM_MEMORY_CONFIG)
+    e = build(device, q, k, v, g, bias, dq, dk, dv, part, p, ckc, scale)
+    ttnn.generic_op([q, k, v, g, bias, dq, dk, dv, part], e["pd"])
+    # The one reduction the host does. Every core accumulated its own group of the leading axis in
+    # its own L1; this sums the groups.
+    dbias = ttnn.sum(part, dim=0, keepdim=True)
+    ttnn.deallocate(part)
+    STATS["served"] += 1
+    return dq, dk, dv, dbias

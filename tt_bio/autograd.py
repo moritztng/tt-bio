@@ -2076,6 +2076,33 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
 
     def make():
         def bw(g):
+            # The fused backward, when it is on and the shape fits. It computes the same gradient
+            # over the same blocks with the score tensor never leaving L1: 238.88 MB a call at the
+            # shipped 288-token shape against 9172.90 for the loop below. Default off, and it
+            # refuses rather than approximates -- everything it declines falls through to the
+            # chunked recompute, which is correct at every shape.
+            from . import triatt_bw as _tbw
+            if _tbw.FUSED and bias is not None and bias_bcast:
+                _ok, _why = _tbw.eligible(q.value, k.value, v.value, bias.value)
+                if _ok:
+                    _dev = q.value.device()
+                    _p = _tbw.plan(*(int(x) for x in q.value.padded_shape),
+                                   grid=(_dev.compute_with_storage_grid_size().x,
+                                         _dev.compute_with_storage_grid_size().y))
+                    if _tbw.fits_l1(_p):
+                        _dq, _dk, _dv, _db = _tbw.run(
+                            _dev, q.value, k.value, v.value, bias.value, g, scale,
+                            (ttnn.MathFidelity.HiFi4,))
+                        for _t, _d in ((q, _dq), (k, _dk), (v, _dv), (bias, _db)):
+                            if _t.requires_grad:
+                                _t.add_grad(_d)
+                            else:
+                                ttnn.deallocate(_d)
+                        return
+                    _tbw.STATS["declined"] += 1
+                else:
+                    _tbw.STATS["declined"] += 1
+
             dq_blocks, dk_blocks, dv_blocks, dbias_rows = [], [], [], None
             dbias_blocks = []
             for b0 in range(0, B, cB):
