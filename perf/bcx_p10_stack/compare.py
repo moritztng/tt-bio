@@ -18,7 +18,12 @@ import pathlib
 import statistics as st
 import sys
 
-LEVERS = ("extra_msa_on_device", "template_on_device", "triatt_taped_sdpa")
+LEVERS = ("extra_msa_on_device", "template_on_device", "triatt_taped_sdpa", "triatt_hifi")
+
+#: The third lever has two routes and they are mutually exclusive, so an arm is named by which
+#: one it took rather than by a bit. Keying on `triatt_taped_sdpa` alone would pool a `hifi` arm
+#: with a triangle-attention-OFF arm, because hifi leaves that flag false.
+ROUTE = {(0, 0): "off", (1, 0): "agtri", (0, 1): "hifi"}
 
 
 def med(xs):
@@ -54,11 +59,27 @@ def rounds_of(path):
 
 
 def reach(stamp):
-    """(extra-MSA blocks spliced, template taped calls, triangle attentions served)."""
+    """(extra-MSA blocks spliced, template taped calls, triangle attentions served).
+
+    The third entry counts whichever route the arm took. A `hifi` arm that declined because the
+    call was taped is the failure this counter exists to catch, so it is surfaced separately.
+    """
     e = stamp.get("extra_msa_swapped") or []
     t = (stamp.get("template_calls") or {}).get("taped", 0)
-    tri = (stamp.get("triatt_sdpa_stats") or {}).get("served", 0)
+    fused = stamp.get("fused_hifi_stats") or {}
+    tri = ((stamp.get("triatt_sdpa_stats") or {}).get("served", 0)
+           + fused.get("served", 0))
     return (sum(e), t, tri)
+
+
+def dead_hifi(stamp):
+    """A hifi arm that served nothing and declined for being taped never fired."""
+    if not stamp.get("triatt_hifi"):
+        return None
+    f = stamp.get("fused_hifi_stats") or {}
+    if not f.get("served"):
+        return "hifi served 0, taped=%s declined=%s" % (f.get("taped"), f.get("declined"))
+    return None
 
 
 def main(root):
@@ -72,18 +93,24 @@ def main(root):
         a["rows"] += rows
         a["src"].append(p.parent.name)
         a["reach"].append(reach(stamp))
+        a.setdefault("dead", []).append(dead_hifi(stamp))
 
     base = arms.get((0, 0, 0))
-    print(f"{'arm (msa,tmpl,tri)':<20} {'n':>3} {'round s':>9} {'min':>7} {'max':>7} "
+    print(f"{'arm (msa,tmpl,route)':<24} {'n':>3} {'round s':>9} {'min':>7} {'max':>7} "
           f"{'host':>7} {'dev':>7} {'x':>6} {'AICLK':>6} {'load1':>6}  reach")
     ref = med([r["wall"] for r in base["rows"]]) if base else None
     for key in sorted(arms, key=lambda k: (-sum(k), k)):
         a = arms[key]
         w = med([r["wall"] for r in a["rows"]])
         clk = sorted(r["aiclk"] for r in a["rows"] if r["aiclk"])
-        dead = [i for i, on in enumerate(key) if on and all(r[i] == 0 for r in a["reach"])]
+        dead = [i for i, on in enumerate(key[:2]) if on
+                and all(r[i] == 0 for r in a["reach"])]
+        if sum(key[2:]) and all(r[2] == 0 for r in a["reach"]):
+            dead.append(2)
         tag = "  DEAD:" + ",".join(LEVERS[i] for i in dead) if dead else ""
-        print(f"{str(key):<20} {len(a['rows']):>3} {w:>9.3f} "
+        tag += "".join("  " + d for d in a.get("dead", []) if d)
+        name = "(%d,%d,%s)" % (key[0], key[1], ROUTE.get((key[2], key[3]), "BOTH?"))
+        print(f"{name:<24} {len(a['rows']):>3} {w:>9.3f} "
               f"{min(r['wall'] for r in a['rows']):>7.3f} "
               f"{max(r['wall'] for r in a['rows']):>7.3f} "
               f"{med([r['host'] for r in a['rows']]):>7.3f} "
