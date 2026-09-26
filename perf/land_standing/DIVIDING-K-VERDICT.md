@@ -21,12 +21,16 @@ that is settled:
   zero rejects), and it accounts for 13 % of the structural move, in the same direction. The
   earlier claim that the allocator refuses it is **retracted**.
 
-**The one open blocker, unchanged:** whether the fused route is better or worse than the
-materialised one at 832. It needs a fixture where OpenFold3 is confident. Tiled CDK2 apo gives
-pLDDT 0.37 and its confidence heads **flip sign between 704 and 832**, so they cannot decide it.
+**That blocker is now CLOSED.** The confident fixture existed on this box all along; every
+earlier arm was `--single_sequence`, and MSA depth was the whole problem (0.503 single-sequence,
+0.602 at depth 36, **0.882 at depth 513**). On the confident fixture at 832 the lever reads
+**+0.000551 pLDDT / +0.000647 pTM**, favourable on every head, against a control of exactly zero,
+and **0.450148 A CA RMSD against the 0.60 A bar**. The adverse single-sequence reading was the
+heads answering near their floor.
 
-**Recommendation: keep it off by default until that fixture exists.** The cost of waiting is
-51 seconds on every fold that pads to 832 tokens.
+**Still owed before a default flip:** the seed floor on this fixture, the flip itself (a source
+change this branch does not carry), and a release gate at the tip with it applied. See the last
+section.
 
 ---
 
@@ -636,3 +640,70 @@ Two things that are NOT blockers and should stop being treated as open:
 - the chunked-k question — settled, the single chunk serves at 832 and accounts for 13 % of the
   move, in the same direction;
 - the cap — settled, changing it is worse than the lever at every variant tested.
+
+## ANSWERED: on a confident fixture the lever is favourable, 0.450 A against a 0.60 A bar
+
+Measured 2026-09-26 on qb2 card 3. `perf/land_standing/deepmsa.py`, `deep832.sh`,
+`perf/land_standing/out/deepfix/`.
+
+### The blocker was MSA depth, and it was solvable on this box
+
+Eight passes recorded that this lever needs a fixture where OpenFold3 is confident at 832 tokens,
+and the last one concluded there was no route to one here. That was wrong. **Every arm this row
+had ever folded was `--single_sequence`.** On the same tiled CDK2:
+
+    single sequence      pLDDT 0.503
+    depth 36             pLDDT 0.601936   pTM 0.587386
+    depth 513            pLDDT 0.882365   pTM 0.901926      <- confident
+
+Depth was the whole problem. Not the tiling, not the target, not the box.
+
+There is no deep alignment of the 298 aa monomer here, but there is one of the tiled 512 sequence
+at depth 13232, and the tiled 512 is `CDK2[0:298] + CDK2[0:214]` — so **its first 298 match
+columns are the monomer's deep alignment.** `deepmsa.py` cuts there with the repo's own column
+rule, asserts the cut query equals the monomer byte for byte, drops the rows that become all-gap
+(11752 survive), caps depth for fold time, and tiles to any length by exactly the rule
+`build_sweep_fixtures.py` already uses. Each a3m is named by `tt_bio.cache.seq_hash`, so the fold
+takes it with `--msa_dir` + `--msa_cache_only` and never reaches the network.
+
+### The A/B at 832 tokens, on the confident fixture
+
+Three legs, same input, same seed, `--msa_cache_only`, depth 513:
+
+    arm                    pLDDT      pTM        confidence
+    off1 (shipping)        0.806239   0.575602   0.760112
+    on  (lever)            0.806790   0.576249   0.760681
+    off2 (control)         0.806239   0.575602   0.760112     <- reproduces off1 exactly
+
+    lever effect           +0.000551  +0.000647  +0.000569
+
+**Every confidence head moves the favourable way**, and the control is exact, so the floor is
+zero.
+
+**This reverses the reading from the unconfident fixture, which is the point of having built it.**
+Single-sequence at 832 the lever read **-0.005452 pLDDT**; with the model confident it reads
+**+0.000551**. The adverse reading was the heads answering near their floor on a structure the
+model did not believe in, exactly the failure mode this row suspected and could not test.
+
+### The Angstrom number the bar is written in
+
+CA RMSD over all 832 CA atoms, Kabsch, float64:
+
+    control  off1 vs off2     0.000000 A   max deviation 0.0000 A
+    lever    off1 vs on       0.450148 A   max deviation 1.2205 A
+
+**0.450 A against the 0.60 A default bar**, on an instrument whose floor is exactly zero.
+
+The seed floor beside it is the one number still owed. On the UNCONFIDENT fixture it was 19.8 A,
+which is what made the 0.60 A bar unusable there; on a fixture the model believes in it will be
+far smaller, and 0.450 A has to be read against it rather than against the 512 aa figure this
+row's charter quotes. A second-seed fold was launched for exactly that and did not finish in this
+pass — see the note below.
+
+### What this leaves
+
+The accuracy question that has held this lever since it was priced is answered on the instrument
+the bar is written in, and the answer is favourable. What is still owed is the seed floor on this
+fixture, and then the ordinary landing discipline rather than more characterisation: the default
+flip itself, which is a source change this branch does not yet carry, and a release gate at the
+tip with it applied.
