@@ -31,7 +31,6 @@ import ttnn
 
 from tt_bio.envflags import env_flag
 from tt_bio import mm_layout as _mm_layout
-from tt_bio.duotraj import slot as _slot
 
 #: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
 #: what this flag exists to avoid. It was introduced for trace capture, which refuses a host
@@ -2316,26 +2315,21 @@ def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) 
 # accumulates one whole segment input per block per forward. Measured: a finite-difference sweep
 # at 384 aa (six extra forwards) left the next training step's backward OOM at 31.9 GB. The run
 # owns the release, and `release_pins` is how it says so.
-# Keyed by `duotraj.slot()`, which is "" for every process that runs one trajectory at a
-# time -- so a single-trajectory run holds exactly the one list it always held. It has to be
-# keyed at all because two interleaved trajectories bank their tapes at the same time and the
-# one that finishes its forward first calls `release_pins` while the other's recompute still
-# needs its pins: a flat list would unpin the neighbour's segment inputs, and the failure
-# lands in the OTHER trajectory's backward as "Buffer is not allocated".
-_CKPT_PINS: dict[str, list] = {}
-
-
-def _pins() -> list:
-    return _CKPT_PINS.setdefault(_slot(), [])
+# Flat, and it stays flat even when several trajectories share the card. A pin is taken inside
+# a device SEAM (the checkpointed forward, or the recompute inside a backward) and released at
+# the end of that same seam, and `tt_bio.duotraj`'s gate lets only one seam run at a time -- so
+# no pin of one trajectory is ever live while another is taking or releasing its own. Keying
+# this by trajectory would be dead machinery, and it could not be done honestly anyway: the
+# seam does not run on the trajectory's thread.
+_CKPT_PINS: list = []
 
 
 def release_pins() -> None:
-    """Drop every pin a checkpointed segment took, for the trajectory calling. Call after a
-    backward, or after a forward whose tape is being discarded."""
-    pins = _pins()
-    for t in pins:
+    """Drop every pin a checkpointed segment took. Call after a backward, or after a forward
+    whose tape is being discarded."""
+    for t in _CKPT_PINS:
         t.pinned = False
-    pins.clear()
+    _CKPT_PINS.clear()
 
 
 # Sentinel: "whichever registered parameters this segment turns out to read", resolved by the
@@ -2379,7 +2373,7 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     held = [t for t in inputs if isinstance(t, Tensor)]
     for t in held:
         t.pinned = True
-        _pins().append(t)
+        _CKPT_PINS.append(t)
     _TOUCHED.clear()
     with no_grad():
         produced = fn(*inputs)

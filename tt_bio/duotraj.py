@@ -75,9 +75,13 @@ class DeviceGate:
         self.waited: dict[str, float] = {}
         self.held: dict[str, float] = {}
         self.entries: dict[str, int] = {}
+        #: `(slot, thread name)` seen at each seam, counted. The slot is only trustworthy if
+        #: the seam runs on the trajectory's own thread, and whether it does is a property of
+        #: the traced program rather than of jax, so it is recorded and not assumed.
+        self.threads: dict[str, int] = {}
 
     @contextlib.contextmanager
-    def held_for(self, tag: str = ""):
+    def held_for(self, tag: str = "", slot: str = ""):
         depth = getattr(self._depth, "n", 0)
         if depth:                       # already ours; count it once, at the outer seam
             self._depth.n = depth + 1
@@ -86,13 +90,15 @@ class DeviceGate:
             finally:
                 self._depth.n = depth
             return
-        s = slot()
+        s = slot
         t0 = time.perf_counter()
         self._lock.acquire()
         t1 = time.perf_counter()
         self._depth.n = 1
         self.waited[s] = self.waited.get(s, 0.0) + (t1 - t0)
         self.entries[s] = self.entries.get(s, 0) + 1
+        key = f"{s or '-'}@{threading.current_thread().name}"
+        self.threads[key] = self.threads.get(key, 0) + 1
         try:
             yield
         finally:
@@ -103,7 +109,7 @@ class DeviceGate:
     def report(self) -> dict:
         return {"waited_s": {k: round(v, 3) for k, v in self.waited.items()},
                 "held_s": {k: round(v, 3) for k, v in self.held.items()},
-                "seams": dict(self.entries)}
+                "seams": dict(self.entries), "slot_at_seam": dict(self.threads)}
 
 
 def serialize(gate: DeviceGate, *classes, methods=("_primal", "_taped", "_backward")):
@@ -122,9 +128,12 @@ def serialize(gate: DeviceGate, *classes, methods=("_primal", "_taped", "_backwa
                 continue
 
             def make(orig, tag):
-                def seam(self, *a, **kw):
-                    with gate.held_for(tag):
-                        return orig(self, *a, **kw)
+                def seam(self, traj, *a, **kw):
+                    # Every device seam takes its trajectory as its first argument, baked into
+                    # the traced program: the seam runs on one of XLA:CPU's pool threads, so
+                    # there is nothing on this thread that says whose work it is.
+                    with gate.held_for(tag, traj):
+                        return orig(self, traj, *a, **kw)
                 seam.__name__ = getattr(orig, "__name__", tag)
                 seam.__doc__ = getattr(orig, "__doc__", None)
                 seam.__wrapped__ = orig

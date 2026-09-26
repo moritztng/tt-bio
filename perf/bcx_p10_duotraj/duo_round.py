@@ -194,7 +194,11 @@ def main():
     _ev = M.ev
 
     def ev(kind, phase, t0, t1, **kw):
-        _ev(kind, phase, t0, t1, slot=duotraj.slot(), **kw)
+        # A "device" event fires at the seam, on one of XLA:CPU's own pool threads, where
+        # nothing on the thread says whose work it is -- so it gets no slot rather than a
+        # wrong one. The device column per trajectory is the gate's own `held_s`.
+        _ev(kind, phase, t0, t1,
+            slot=(None if kind == "device" else duotraj.slot()), **kw)
     M.ev = ev
 
     def one(name):
@@ -214,16 +218,16 @@ def main():
                                            checkpoints=args.params, extra_msa=True,
                                            template=True, exact=False) as build:
             evo = build.evoformer
-            gate = None
-            if args.interleave:
-                with duotraj.interleave(bindcraft2.EvoformerOnDevice,
-                                        bindcraft2.ExtraMsaOnDevice,
-                                        bindcraft2.TemplateOnDevice,
-                                        trajectories=2) as gate:
-                    _run_pair(one, stopped, threaded=True, ready=mt.ready)
-            else:
-                _run_pair(one, stopped, threaded=False, ready=None)
-            stamp["gate"] = gate.report() if gate is not None else None
+            # The gate goes on BOTH arms. On the serial arm it is one thread taking an
+            # uncontended lock, which costs nothing and is what makes the control able to say
+            # which thread the device seam runs on -- the one fact the slot design rests on.
+            with duotraj.interleave(bindcraft2.EvoformerOnDevice,
+                                    bindcraft2.ExtraMsaOnDevice,
+                                    bindcraft2.TemplateOnDevice,
+                                    trajectories=2 if args.interleave else 1) as gate:
+                _run_pair(one, stopped, threaded=bool(args.interleave),
+                          ready=mt.ready if args.interleave else None)
+            stamp["gate"] = gate.report()
     finally:
         M.CLOCK.stop()
         from tt_bio import autograd, mm_layout, rne_add, tenstorrent

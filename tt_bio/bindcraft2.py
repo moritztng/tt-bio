@@ -31,6 +31,7 @@ if it is importable.
 from __future__ import annotations
 
 import contextlib
+import functools
 import os
 import pathlib
 import sys
@@ -214,8 +215,13 @@ class _Tapes:
     neighbour would fail with "no live tape for token N" at a point where nothing is wrong
     with it.
 
-    `duotraj.slot()` is "" for a process running one trajectory, so an un-interleaved run
-    sweeps and banks exactly what it always did.
+    The slot is PASSED IN, never read off the calling thread. The device seam does not run on
+    the trajectory's thread: measured on this program, 36 seams landed on 11 different
+    `Dummy-N` threads, XLA:CPU's own pool. The slot reaches here as a constant captured when
+    the program was TRACED, which does happen on the trajectory's thread.
+
+    It is "" for a process running one trajectory, so an un-interleaved run sweeps and banks
+    exactly what it always did.
     """
 
     def __init__(self):
@@ -223,29 +229,27 @@ class _Tapes:
         self._next = 0
         self._lock = threading.Lock()
 
-    def sweep(self) -> None:
+    def sweep(self, slot: str) -> None:
         """Drop THIS trajectory's superseded tapes. AlphaFold 2 stops the gradient on every
         recycle but the last and JAX still routes all of them through the forward rule, so
         without this the superseded tapes accumulate at several GB an Evoformer block."""
-        mine = duotraj.slot()
         with self._lock:
-            for token in [t for t, e in self._live.items() if e["slot"] == mine]:
+            for token in [t for t, e in self._live.items() if e["slot"] == slot]:
                 del self._live[token]
 
-    def bank(self, entry: dict) -> int:
+    def bank(self, entry: dict, slot: str) -> int:
         with self._lock:
             token, self._next = self._next, self._next + 1
-            self._live[token] = {**entry, "slot": duotraj.slot()}
+            self._live[token] = {**entry, "slot": slot}
         return token
 
     def take(self, token) -> dict | None:
         with self._lock:
             return self._live.pop(int(token), None)
 
-    def count(self) -> int:
-        """How many tapes THIS trajectory has banked."""
-        mine = duotraj.slot()
-        return sum(1 for e in self._live.values() if e["slot"] == mine)
+    def count(self, slot: str = "") -> int:
+        """How many tapes trajectory `slot` has banked."""
+        return sum(1 for e in self._live.values() if e["slot"] == slot)
 
 
 class TrunkPool:
@@ -391,16 +395,26 @@ class TrunkPool:
 
     @property
     def selected(self) -> str | None:
-        """The checkpoint THIS trajectory last selected, or None."""
+        """The checkpoint THIS thread's trajectory last selected, or None. Only sound on the
+        trajectory's own thread, i.e. in the route selection -- never at a device seam."""
         return self._selected.get(duotraj.slot())
+
+    def trunk_for(self, slot: str) -> _Trunk:
+        """The trunk trajectory `slot` selected, loading it if this is the first fold to reach
+        it. Takes the slot rather than reading the thread, because a device seam runs on one of
+        XLA:CPU's pool threads and not on the trajectory's."""
+        name = self._selected.get(slot)
+        if name is None:
+            if not self.paths:
+                raise RuntimeError("the trunk pool is empty; nothing has asked it for a model")
+            with self._lock:
+                self._selected.setdefault(slot, self.names[0])
+            name = self._selected[slot]
+        return self._load(name)
 
     @property
     def current(self) -> _Trunk:
-        if self.selected is None:
-            if not self.paths:
-                raise RuntimeError("the trunk pool is empty; nothing has asked it for a model")
-            self.use(self.names[0])
-        return self._load(self.selected)
+        return self.trunk_for(duotraj.slot())
 
 
 # ----------------------------------------------------------------- the Evoformer on card
@@ -524,17 +538,17 @@ class EvoformerOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _trunk(self) -> _Trunk:
-        trunk = self.pool.current
+    def _trunk(self, slot: str) -> _Trunk:
+        trunk = self.pool.trunk_for(slot)
         if trunk.blocks != self.blocks:
-            raise ValueError(f"{self.pool.selected!r} holds {trunk.blocks} Evoformer blocks and "
-                             f"this splice was built for {self.blocks}")
+            raise ValueError(f"{self.pool._selected.get(slot)!r} holds {trunk.blocks} Evoformer "
+                             f"blocks and this splice was built for {self.blocks}")
         return trunk
 
-    def _primal(self, msa_np, pair_np, mask_np, pair_mask_np):
+    def _primal(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
         """No tape. `predict` is forward-only and a validation refold calls it once per model, so
         a primal that banks a tape is an out-of-memory bug."""
-        trunk = self._trunk()
+        trunk = self._trunk(slot)
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
         mo, zo = trunk.evoformer(trunk.up(m), trunk.up(z), self._msa_mask(trunk, mask),
                                  self._pair_masks(trunk, pair_mask), recompute=False)
@@ -543,8 +557,8 @@ class EvoformerOnDevice:
         return (trunk.down(mo, tuple(m.shape))[:, :n].numpy(),
                 trunk.down(zo, tuple(z.shape))[:n, :n].numpy())
 
-    def _taped(self, msa_np, pair_np, mask_np, pair_mask_np):
-        trunk = self._trunk()
+    def _taped(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
+        trunk = self._trunk(slot)
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
         ml, zl = trunk.leaf(m), trunk.leaf(z)
         with trunk.taped.tape():
@@ -555,19 +569,19 @@ class EvoformerOnDevice:
         # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
         # of them through the forward rule, so the superseded tapes are dropped here. At several
         # GB an Evoformer block, keeping them is fatal within one trajectory.
-        self._tapes.sweep()
+        self._tapes.sweep(slot)
         trunk.ag.release_pins()
         token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
-                                  "shapes": (tuple(m.shape), tuple(z.shape)), "n": n})
+                                  "shapes": (tuple(m.shape), tuple(z.shape)), "n": n}, slot)
         self.calls["taped"] += 1
         return (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
                 trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
-    def _backward(self, token, g_msa_np, g_pair_np):
+    def _backward(self, slot, token, g_msa_np, g_pair_np):
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live tape for token {int(token)}")
-        trunk = self.pool.current
+        trunk = self.pool.trunk_for(slot)
         mo, zo = entry["roots"]
         ml, zl = entry["leaves"]
         m_shape, z_shape = entry["shapes"]
@@ -582,13 +596,18 @@ class EvoformerOnDevice:
         self.calls["backward"] += 1
         return out
 
-    def live_tapes(self) -> int:
-        return self._tapes.count()
+    def live_tapes(self, slot: str = "") -> int:
+        return self._tapes.count(slot)
 
     # ------------------------------------------------------------------ the JAX face
 
-    def as_jax(self):
+    def as_jax(self, slot: str = ""):
         """`(msa, pair, msa_mask, pair_mask) -> (msa, pair)`, differentiable in the first two.
+
+        `slot` is the trajectory this PROGRAM belongs to, captured here and handed to every
+        callback as a constant. It cannot be read at the seam: the seam runs on one of
+        XLA:CPU's own pool threads (measured: 36 seams on 11 different `Dummy-N` threads), and
+        tracing is the last point on the trajectory's own thread.
 
         Both masks are arguments rather than captured host arrays: BindCraft 2 draws a new binder
         length per trajectory, so their shapes change under us. Neither is differentiable, so the
@@ -607,14 +626,15 @@ class EvoformerOnDevice:
 
         @jax.custom_vjp
         def stack(msa, pair, mask, pair_mask):
-            m, z = jax.pure_callback(self._primal, shapes(msa, pair),
+            m, z = jax.pure_callback(functools.partial(self._primal, slot), shapes(msa, pair),
                                      msa.astype(jnp.float32), pair.astype(jnp.float32),
                                      mask.astype(jnp.float32), pair_mask.astype(jnp.float32))
             return m.astype(msa.dtype), z.astype(pair.dtype)
 
         def fwd(msa, pair, mask, pair_mask):
             m, z, token = jax.pure_callback(
-                self._taped, shapes(msa, pair) + (jax.ShapeDtypeStruct((), jnp.int32),),
+                functools.partial(self._taped, slot),
+                shapes(msa, pair) + (jax.ShapeDtypeStruct((), jnp.int32),),
                 msa.astype(jnp.float32), pair.astype(jnp.float32), mask.astype(jnp.float32),
                 pair_mask.astype(jnp.float32))
             return (m.astype(msa.dtype), z.astype(pair.dtype)), (token, mask, pair_mask)
@@ -623,7 +643,7 @@ class EvoformerOnDevice:
             token, mask, pair_mask = res
             g_msa, g_pair = cotangents
             gm, gz = jax.pure_callback(
-                self._backward,
+                functools.partial(self._backward, slot),
                 (jax.ShapeDtypeStruct(g_msa.shape, jnp.float32),
                  jax.ShapeDtypeStruct(g_pair.shape, jnp.float32)),
                 token, g_msa.astype(jnp.float32), g_pair.astype(jnp.float32))
@@ -689,10 +709,11 @@ class ExtraMsaOnDevice:
         as_t = lambda a: torch.from_numpy(np.asarray(a).copy()).float()  # noqa: E731
         return self._pad(as_t(pair_np), as_t(pair_mask_np))
 
-    def _trunk(self) -> _Trunk:
-        trunk = self.pool.current
+    def _trunk(self, slot: str) -> _Trunk:
+        trunk = self.pool.trunk_for(slot)
         if trunk.extra_blocks == 0:
-            raise ValueError(f"{self.pool.selected!r} holds no extra-MSA blocks on card")
+            raise ValueError(f"{self.pool._selected.get(slot)!r} holds no extra-MSA blocks "
+                             f"on card")
         return trunk
 
     def _pair_masks(self, trunk, pair_mask):
@@ -707,16 +728,16 @@ class ExtraMsaOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _primal(self, pair_np, extra_mask_np, pair_mask_np):
-        trunk = self._trunk()
+    def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np):
+        trunk = self._trunk(slot)
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
         zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask), recompute=False)
         trunk.sync()
         self.calls["primal"] += 1
         return trunk.down(zo, tuple(z.shape))[:n, :n].numpy()
 
-    def _taped(self, pair_np, extra_mask_np, pair_mask_np):
-        trunk = self._trunk()
+    def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np):
+        trunk = self._trunk(slot)
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
         zl = trunk.leaf(z)
         with trunk.taped.tape():
@@ -725,17 +746,18 @@ class ExtraMsaOnDevice:
         trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
-        self._tapes.sweep()
+        self._tapes.sweep(slot)
         trunk.ag.release_pins()
-        token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n})
+        token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n},
+                                 slot)
         self.calls["taped"] += 1
         return trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token)
 
-    def _backward(self, token, g_pair_np):
+    def _backward(self, slot, token, g_pair_np):
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live extra-MSA tape for token {int(token)}")
-        trunk = self.pool.current
+        trunk = self.pool.trunk_for(slot)
         shape, n = entry["shape"], entry["n"]
         gz = torch.zeros(shape)
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
@@ -746,13 +768,15 @@ class ExtraMsaOnDevice:
         self.calls["backward"] += 1
         return out
 
-    def live_tapes(self) -> int:
-        return self._tapes.count()
+    def live_tapes(self, slot: str = "") -> int:
+        return self._tapes.count(slot)
 
     # ------------------------------------------------------------------ the JAX face
 
-    def as_jax(self):
-        """`(pair, extra_msa_mask, pair_mask) -> pair`, differentiable in `pair` alone."""
+    def as_jax(self, slot: str = ""):
+        """`(pair, extra_msa_mask, pair_mask) -> pair`, differentiable in `pair` alone.
+
+        `slot` is baked in at TRACE time; see `EvoformerOnDevice.as_jax`."""
         import jax
         import jax.numpy as jnp
 
@@ -765,18 +789,20 @@ class ExtraMsaOnDevice:
 
         @jax.custom_vjp
         def stack(pair, extra_mask, pair_mask):
-            z = jax.pure_callback(self._primal, f32(pair), *args(pair, extra_mask, pair_mask))
+            z = jax.pure_callback(functools.partial(self._primal, slot), f32(pair),
+                                  *args(pair, extra_mask, pair_mask))
             return z.astype(pair.dtype)
 
         def fwd(pair, extra_mask, pair_mask):
             z, token = jax.pure_callback(
-                self._taped, (f32(pair), jax.ShapeDtypeStruct((), jnp.int32)),
+                functools.partial(self._taped, slot),
+                (f32(pair), jax.ShapeDtypeStruct((), jnp.int32)),
                 *args(pair, extra_mask, pair_mask))
             return z.astype(pair.dtype), (token, extra_mask, pair_mask)
 
         def bwd(res, g_pair):
             token, extra_mask, pair_mask = res
-            gz = jax.pure_callback(self._backward, f32(g_pair), token,
+            gz = jax.pure_callback(functools.partial(self._backward, slot), f32(g_pair), token,
                                    g_pair.astype(jnp.float32))
             return (gz.astype(g_pair.dtype), jnp.zeros_like(extra_mask),
                     jnp.zeros_like(pair_mask))
@@ -834,12 +860,12 @@ class TemplateOnDevice:
         self.seen["n"], self.seen["channels"] = n, int(act.shape[-1])
         return act, pair_mask, n
 
-    def _trunk(self) -> _Trunk:
-        trunk = self.pool.current
+    def _trunk(self, slot: str) -> _Trunk:
+        trunk = self.pool.trunk_for(slot)
         if trunk.template_blocks == 0:
             raise ValueError(
-                f"{self.pool.selected!r} holds no template blocks on card; this swap needs "
-                f"TrunkPool(template=True), which predictor(template=True) sets")
+                f"{self.pool._selected.get(slot)!r} holds no template blocks on card; this "
+                f"swap needs TrunkPool(template=True), which predictor(template=True) sets")
         return trunk
 
     def _pair_masks(self, trunk, pair_mask):
@@ -852,8 +878,8 @@ class TemplateOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _primal(self, act_np, pair_mask_np):
-        trunk = self._trunk()
+    def _primal(self, slot, act_np, pair_mask_np):
+        trunk = self._trunk(slot)
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
         out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
                                    recompute=False)
@@ -861,8 +887,8 @@ class TemplateOnDevice:
         self.calls["primal"] += 1
         return trunk.down(out, tuple(act.shape))[:n, :n].numpy()
 
-    def _taped(self, act_np, pair_mask_np):
-        trunk = self._trunk()
+    def _taped(self, slot, act_np, pair_mask_np):
+        trunk = self._trunk(slot)
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
         leaf = trunk.leaf(act)
         with trunk.taped.tape():
@@ -871,17 +897,18 @@ class TemplateOnDevice:
         trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
-        self._tapes.sweep()
+        self._tapes.sweep(slot)
         trunk.ag.release_pins()
-        token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape), "n": n})
+        token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
+                                  "n": n}, slot)
         self.calls["taped"] += 1
         return trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(), np.int32(token)
 
-    def _backward(self, token, g_act_np):
+    def _backward(self, slot, token, g_act_np):
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live template tape for token {int(token)}")
-        trunk = self.pool.current
+        trunk = self.pool.trunk_for(slot)
         shape, n = entry["shape"], entry["n"]
         g = torch.zeros(shape)
         g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
@@ -892,13 +919,15 @@ class TemplateOnDevice:
         self.calls["backward"] += 1
         return out
 
-    def live_tapes(self) -> int:
-        return self._tapes.count()
+    def live_tapes(self, slot: str = "") -> int:
+        return self._tapes.count(slot)
 
     # ------------------------------------------------------------------ the JAX face
 
-    def as_jax(self):
-        """`(act, pair_mask) -> act`, differentiable in `act` alone."""
+    def as_jax(self, slot: str = ""):
+        """`(act, pair_mask) -> act`, differentiable in `act` alone.
+
+        `slot` is baked in at TRACE time; see `EvoformerOnDevice.as_jax`."""
         import jax
         import jax.numpy as jnp
 
@@ -910,18 +939,20 @@ class TemplateOnDevice:
 
         @jax.custom_vjp
         def stack(act, pair_mask):
-            out = jax.pure_callback(self._primal, f32(act), *args(act, pair_mask))
+            out = jax.pure_callback(functools.partial(self._primal, slot), f32(act),
+                                    *args(act, pair_mask))
             return out.astype(act.dtype)
 
         def fwd(act, pair_mask):
             out, token = jax.pure_callback(
-                self._taped, (f32(act), jax.ShapeDtypeStruct((), jnp.int32)),
+                functools.partial(self._taped, slot),
+                (f32(act), jax.ShapeDtypeStruct((), jnp.int32)),
                 *args(act, pair_mask))
             return out.astype(act.dtype), (token, pair_mask)
 
         def bwd(res, g_act):
             token, pair_mask = res
-            g = jax.pure_callback(self._backward, f32(g_act), token,
+            g = jax.pure_callback(functools.partial(self._backward, slot), f32(g_act), token,
                                   g_act.astype(jnp.float32))
             return g.astype(g_act.dtype), jnp.zeros_like(pair_mask)
 
@@ -976,8 +1007,6 @@ def template_on_device(tmpl: "TemplateOnDevice | None"):
         return
     from bindcraft.af.alphafold.model import modules_multimer
 
-    device_stack = tmpl.as_jax()
-
     class _Shim:
         def __init__(self, real):
             self._real = real
@@ -987,6 +1016,10 @@ def template_on_device(tmpl: "TemplateOnDevice | None"):
 
         def layer_stack(self, num_block):
             def build(fn):
+                # The jax face is built HERE, at trace time, rather than once for the whole
+                # block: this is the last point that runs on the trajectory's own thread, so
+                # it is where the slot can be read and baked into the callbacks.
+                device_stack = tmpl.as_jax(duotraj.slot())
                 mask = _template_stack_mask(fn)
                 if mask is None:
                     raise ValueError(
@@ -1102,11 +1135,11 @@ def evoformer_on_device(evo: EvoformerOnDevice,
     from bindcraft.af.alphafold.model import modules
 
     real = modules.layer_stack.layer_stack
-    device_stack = evo.as_jax()
-    extra_stack = extra_msa.as_jax() if extra_msa is not None else None
     swapped: list[int] = []
 
     def choose_extra(fn, made, num_layers):
+        # Built at TRACE time so the slot is readable; see `EvoformerOnDevice.as_jax`.
+        extra_stack = extra_msa.as_jax(duotraj.slot())
         blocks = extra_msa.pool.current.extra_blocks
         if num_layers != blocks:
             raise ValueError(f"extra_msa_stack_fn has {num_layers} blocks, tt-bio holds "
@@ -1134,7 +1167,7 @@ def evoformer_on_device(evo: EvoformerOnDevice,
 
         def choose(fn):
             name = getattr(fn, "__name__", None)
-            if extra_stack is not None and name in EXTRA_MSA_FN_NAMES:
+            if extra_msa is not None and name in EXTRA_MSA_FN_NAMES:
                 return choose_extra(fn, made, int(num_layers))
             if name != "evoformer_fn":
                 return made(fn)
@@ -1146,6 +1179,7 @@ def evoformer_on_device(evo: EvoformerOnDevice,
                 raise ValueError(f"evoformer_fn has {num_layers} blocks, tt-bio holds "
                                  f"{evo.blocks}")
             swapped.append(int(num_layers))
+            device_stack = evo.as_jax(duotraj.slot())
             masks = find_evoformer_masks(fn)
             if masks is None:
                 raise RuntimeError(
