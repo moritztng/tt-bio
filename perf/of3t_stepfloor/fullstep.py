@@ -111,6 +111,22 @@ def _cotangents(roots, seeds, dev):
         cot.append(ttnn.from_torch(h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=raw.dtype))
     return cot
 
+def _slot_rank(item):
+    """Order the walk's names so the slot a weight gets is one the FORWARD reads.
+
+    `_w_tt` (diffusion transformer, diffusion module, atom transformer) uploads a weight once
+    and keeps it in two places: `self._wc[key]` and the attribute the forward reads, e.g.
+    `self.w_la`. The walk finds one tensor under both paths, the dedupe keeps whichever name
+    sorts first, and `_` sorts before every letter -- so the cache path won and `rebind()` was
+    writing AdamW's new weight into a dict nothing reads after `__init__`. The model kept the
+    pre-step handle, which the value setter has already de-registered as a tape leaf, so from
+    the second rep on those weights took no gradient and were never trained: 270 of 3,152 at
+    crop 384, the whole `2,944 -> 2,674` drop of `step_exact_off_384.json` and the
+    `2,935 -> 2,660` drop of `step_rekey_b_384.json`. Cache path last, name second.
+    """
+    n = item[0]
+    return ("._wc." in n or n.endswith("._wc"), n)
+
 
 def declare_all(trunk, sampler, out):
     """Every device weight of the trunk AND the diffusion half, as one tape-leaf set.
@@ -136,7 +152,7 @@ def declare_all(trunk, sampler, out):
     # (autograd.py:220), but the MODEL still holds the handle the walk saw, and only writing
     # it back closes that half.
     by_id, flat, slots, unwritable = {}, {}, {}, []
-    for n, (o, k, t) in sorted(found.items()):
+    for n, (o, k, t) in sorted(found.items(), key=_slot_rank):
         if id(t) in by_id:
             continue
         by_id[id(t)] = n
