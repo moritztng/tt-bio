@@ -197,7 +197,11 @@ def main():
                "mm_layout": os.environ.get("TT_BIO_MM_LAYOUT") == "1",
                "triatt_bw": bool(args.triatt_bw),
                "triatt_hifi": bool(args.triatt_hifi),
-               "rne_kernel": bool(args.rne_kernel)}
+               "rne_kernel": bool(args.rne_kernel),
+               # Env-only, like mm_layout: `fanin_l1.FANIN_L1` is resolved at import, so the
+               # module read in `meter.levers` is the other half of this comparison and an arm
+               # that asked for the lever and did not get it dies before its compile round.
+               "grad_fanin_l1": os.environ.get("TT_BIO_GRAD_FANIN_L1") == "1"}
 
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "exact": bool(args.exact),
@@ -241,6 +245,14 @@ def main():
         "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
         "rne_add_entry": list(taped_ttnn_stats().get("rne_add", [0, 0])),
     })
+
+    # `TT_BIO_GRAD_FANIN_L1`'s reach, at every round boundary. `served` is a promoted cotangent
+    # that got L1; each `declined:*` is one the budget or the layout left in DRAM, named by the
+    # reason; `spilled:*` is one the allocator refused at runtime and that fell back. An on arm
+    # whose served count stops moving between two boundaries has gone inert mid-arm, which the
+    # per-round table makes visible instead of averaging away.
+    from tt_bio import fanin_l1 as _fanin
+    M.REACH.append(lambda: {f"fanin_l1_{k}": v for k, v in _fanin.reach().items()})
 
     # The six levers, read back from the modules that own them at EVERY round boundary rather
     # than trusted from the flag that asked for them (`meter.lever_reach`). Checked once here

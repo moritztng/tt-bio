@@ -131,9 +131,9 @@ def _reach():
     return out
 
 
-#: The names of the six levers the composed round arms, in the order they were measured.
+#: The names of the levers the composed round arms, in the order they were measured.
 LEVERS = ("genq_compact", "taped_channel_move", "mm_layout", "triatt_bw", "triatt_hifi",
-          "rne_kernel")
+          "rne_kernel", "grad_fanin_l1")
 
 
 def levers():
@@ -142,9 +142,10 @@ def levers():
     Not what the environment or the argv asked for: those are the other half of the comparison
     in `lever_reach`, and a check that reads the request twice checks nothing.
     """
-    from tt_bio import genq, mm_layout, reblock_permute, tenstorrent, triatt_bw
+    from tt_bio import fanin_l1, genq, mm_layout, reblock_permute, tenstorrent, triatt_bw
     from tt_bio.af2 import AF2PairBlock
     return {"genq_compact": genq.compact(),
+            "grad_fanin_l1": bool(fanin_l1.FANIN_L1),
             "taped_channel_move": bool(reblock_permute.TAPED_MOVE),
             "mm_layout": bool(mm_layout.MM_LAYOUT),
             "triatt_bw": bool(triatt_bw.FUSED),
@@ -153,7 +154,7 @@ def levers():
 
 
 def lever_reach(expect):
-    """A `REACH` callable that stamps all six levers and refuses a round that disagrees.
+    """A `REACH` callable that stamps every lever and refuses a round that disagrees.
 
     A lever that goes inert part-way through an arm blends two arms into one median and reads as
     a null, which is this campaign's most expensive recurring failure. Raising SystemExit rather
