@@ -53,8 +53,15 @@ say "moreh gate: ${MOREH:-DROPPED}"
 # shellcheck disable=SC2086
 step ab perf/bcx_bwbytes/round_ab.py --rounds "$ROUNDS" --seed 100 --precision $MOREH
 
-step bytes_off perf/bcx_bytes/bytes.py trace --levers off --tag bwbytes_off
-step bytes_on  perf/bcx_bytes/bytes.py trace --levers on  --precision --tag bwbytes_on
+# `bytes.py` writes every trace to a MODULE-level directory, `perf/bcx_bytes/`, not to --out, and
+# `census` globs `trace_*.json` there. So the two arms co-locate on their own and the census sees
+# both, plus bcx-bytes' own baseline traces already in that directory -- which is what makes this
+# a before/after from ONE instrument rather than two runs compared across a change of method. The
+# tag leads with a dash to match that row's `-fix` convention, and is passed as --tag=... because
+# argparse would read a bare leading dash as the next option.
+step bytes_off perf/bcx_bytes/bytes.py trace --levers off --tag=-lev_off
+step bytes_on  perf/bcx_bytes/bytes.py trace --levers on  --precision --tag=-lev_on
+step bytes_census perf/bcx_bytes/bytes.py census
 step bytes_f64 perf/bcx_bytes/bytes.py arms --arms base,smbf16,fanin,smbf16+fanin --f64
 
 step gates perf/bcx_bwbytes/probe.py
