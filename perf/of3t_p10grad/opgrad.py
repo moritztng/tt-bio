@@ -114,6 +114,39 @@ def _sm_device(dv, g):
     return {"dx": x.grad}, out.value
 
 
+def _sm_host_bw(ins, y, cot):
+    """The SHIPPED backward expression, evaluated in float64 on the device's own y.
+
+    `y (g - sum(g y) / sum(y))`, renorm included, because that is the expression
+    `autograd.softmax_bw` writes -- not the textbook `y (g - sum(g y))`. Grading the closure
+    against the textbook form would charge it for a deliberate repair (`of3t-d116`, up to
+    13.09x on ||dq||). What is left is the closure's ARITHMETIC.
+    """
+    inner = (cot * y).sum(dim=-1, keepdim=True) / y.sum(dim=-1, keepdim=True)
+    return {"dx": y * (cot - inner)}
+
+
+def _sm_diag(fwd_cfg, sum_cfg):
+    """DIAGNOSTIC, not shipped: the shipped softmax algebra with one knob moved at a time.
+
+    Two knobs, and they have to be separated or neither is measured. `taped_ttnn._v_softmax`
+    calls `ttnn.softmax(x, dim)` with NO `compute_kernel_config`, and
+    `autograd.softmax_bw_inner:166` runs `ttnn.sum(ttnn.multiply(g, y), dim, keepdim=True)`
+    with none either, while the renorm denominator one line below it gets `precise_config()`.
+    One arm per knob says which of the two the shipped error lives in.
+    """
+    def impl(dv, g):
+        cfg = ag.precise_config()
+        y = (ttnn.softmax(dv["x"], dim=-1, compute_kernel_config=cfg) if fwd_cfg
+             else ttnn.softmax(dv["x"], dim=-1))
+        num = ttnn.multiply(g, y)
+        inner = (ttnn.sum(num, dim=-1, keepdim=True, compute_kernel_config=cfg) if sum_cfg
+                 else ttnn.sum(num, dim=-1, keepdim=True))
+        inner = ttnn.divide(inner, ttnn.sum(y, dim=-1, keepdim=True, compute_kernel_config=cfg))
+        return {"dx": ttnn.multiply(y, ttnn.subtract(g, inner))}, y
+    return impl
+
+
 def _lin_host(ins):
     y = ins["x"] @ ins["w"].transpose(-1, -2)
     return y + ins["bias"]
@@ -186,17 +219,33 @@ CASES = [
               "(autograd.softmax_bw with TT_BIO_SOFTMAX_BW_RENORM on) "
               "-- NOT ttnn.moreh_softmax_backward, which is off by default",
          shapes=dict(x=(1, 4, 64, 64)),
-         host=_sm_host, device=_sm_device, diff="x"),
+         host=_sm_host, device=_sm_device, host_bw=_sm_host_bw, diff="x"),
     dict(key="softmax/apb_K64",
          site="AttentionPairBias scores [1,heads=16,N,N], 48 of the 240",
          verb="same closure as softmax/triatt_K64",
          shapes=dict(x=(1, 16, 64, 64)),
-         host=_sm_host, device=_sm_device, diff="x"),
+         host=_sm_host, device=_sm_device, host_bw=_sm_host_bw, diff="x"),
     dict(key="softmax/triatt_K384",
          site="TRI_ATT at the n384 scope: the longest softmax reduction the trunk runs",
          verb="same closure as softmax/triatt_K64",
          shapes=dict(x=(1, 4, 384, 384)),
-         host=_sm_host, device=_sm_device, diff="x"),
+         host=_sm_host, device=_sm_device, host_bw=_sm_host_bw, diff="x"),
+    dict(key="softmax/triatt_K64_CONTROL",
+         site="DIAGNOSTIC control: the shipped algebra rewritten here, both knobs left alone. "
+              "Must reproduce softmax/triatt_K64, or the two diagnostic arms measure nothing",
+         verb="ttnn.softmax(no cfg) + unconfigured numerator sum -- as shipped",
+         shapes=dict(x=(1, 4, 64, 64)),
+         host=_sm_host, device=_sm_diag(False, False), host_bw=_sm_host_bw, diff="x"),
+    dict(key="softmax/triatt_K64_SUMCFG",
+         site="DIAGNOSTIC: only the numerator reduction configured, forward as shipped",
+         verb="ttnn.softmax(no cfg) + precise_config() on the numerator sum",
+         shapes=dict(x=(1, 4, 64, 64)),
+         host=_sm_host, device=_sm_diag(False, True), host_bw=_sm_host_bw, diff="x"),
+    dict(key="softmax/triatt_K64_FWDCFG",
+         site="DIAGNOSTIC: only the FORWARD configured, both reductions as shipped",
+         verb="ttnn.softmax(precise_config()) + unconfigured numerator sum",
+         shapes=dict(x=(1, 4, 64, 64)),
+         host=_sm_host, device=_sm_diag(True, False), host_bw=_sm_host_bw, diff="x"),
     dict(key="linear/pair_128_128",
          site="the pair-track projections, x [1,N*N,128] w [128,128]",
          verb="ttnn.matmul(g, w, transpose_b) for dx; matmul(x^T, g, dtype=float32) for dw; "
@@ -291,6 +340,8 @@ def run_case(case, dtype_name, draws, want_det=True):
     rows = {}
     det = None
     fd = None
+    fwd = []
+    rowsum = []
     for i in range(draws):
         ins = draw(case, 1000 + i)
         dv = {k: to_card(t, tt) for k, t in ins.items()}
@@ -309,6 +360,16 @@ def run_case(case, dtype_name, draws, want_det=True):
 
         grads, out_v = case["device"](dv, gdev)
         got = {k: back(v) for k, v in grads.items() if v is not None}
+        y_dev = back(out_v).double()
+        fwd.append(relL2(y_dev, case["host"](exact)))
+        if case["key"].startswith("softmax"):
+            rs = y_dev.sum(dim=-1)
+            rowsum.append((rs.mean().item(), rs.min().item(), rs.max().item()))
+        # The forward/backward split. A closure that reads its own output carries the
+        # forward's error into dx, and the two are different defects with different owners:
+        # `ref` grades the op, `refbw` grades the backward closure alone on the y the card
+        # actually produced.
+        refbw = case["host_bw"](exact, y_dev, cot) if case.get("host_bw") else None
 
         if want_det and det is None:
             dv2 = {k: to_card(t, tt) for k, t in ins.items()}
@@ -320,13 +381,15 @@ def run_case(case, dtype_name, draws, want_det=True):
         for k, gv in got.items():
             r = ref[GRADMAP[k]].reshape(gv.shape)
             d = gv.double()
-            rows.setdefault(k, {"rel": [], "s": [], "mean_over_rms": []})
+            rows.setdefault(k, {"rel": [], "s": [], "mean_over_rms": [], "rel_bw": []})
             rows[k]["rel"].append(relL2(d, r))
             denom = (r * r).sum().item()
             rows[k]["s"].append(((d - r) * r).sum().item() / denom if denom > 0 else float("nan"))
             rms = math.sqrt((r * r).mean().item())
             rows[k]["mean_over_rms"].append((d - r).mean().item() / rms if rms > 0 else
                                             float("nan"))
+            if refbw is not None and k in refbw:
+                rows[k]["rel_bw"].append(relL2(d, refbw[k].reshape(gv.shape)))
         for v in list(dv.values()) + [gdev]:
             ttnn.deallocate(v)
 
@@ -348,7 +411,20 @@ def run_case(case, dtype_name, draws, want_det=True):
             "draws": len(rel),
             "bitexact_repeat": det.get(k) if det else None,
         }
-    return {"grads": out, "fd": fd}
+        if acc["rel_bw"]:
+            m2 = float(torch.tensor(acc["rel_bw"]).median().item())
+            out[k]["rel_l2_bw_only_median"] = m2
+            out[k]["grade_bw_only"] = grade(m2, dtype_name)
+    res = {"grads": out, "fd": fd,
+           "forward_rel_l2_median": float(torch.tensor(fwd).median().item()) if fwd else None}
+    if rowsum:
+        t = torch.tensor(rowsum, dtype=torch.float64)
+        # A softmax row must sum to 1. How far the card's does is the whole of the leading
+        # factor's error, because dx carries y multiplicatively.
+        res["device_row_sum"] = {"mean": t[:, 0].mean().item(), "min": t[:, 1].min().item(),
+                                 "max": t[:, 2].max().item(),
+                                 "mean_minus_one": t[:, 0].mean().item() - 1.0}
+    return res
 
 
 def aiclk(card):
