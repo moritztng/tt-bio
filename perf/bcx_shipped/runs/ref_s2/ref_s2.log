@@ -1,0 +1,52 @@
+{
+ "arm": "reference",
+ "seed": 2,
+ "trajectories": 10,
+ "length_bucket_size": 32,
+ "length_bucket_flag": 0,
+ "shipped_model_pool": true,
+ "resolved_design_models": [
+  "model_1_multimer_v3",
+  "model_2_multimer_v3",
+  "model_3_multimer_v3",
+  "model_4_multimer_v3",
+  "model_5_multimer_v3"
+ ],
+ "resolved_validation_models": [
+  "model_1_ptm",
+  "model_2_ptm"
+ ],
+ "settings_file": "/home/ttuser/bcx_e2e/bc2/examples/pdl1.json",
+ "bc2": "/home/ttuser/bcx_e2e/bc2",
+ "predictor": "AlphaFoldDesignModel",
+ "host": "tt-quietbox",
+ "started_utc": "2026-09-26T00:50:18Z",
+ "loadavg_start": [
+  12.74755859375,
+  15.19580078125,
+  14.21630859375
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/home/ttuser/bcx_shipped_qb1/ref_s2"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 60 to 180, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/bcx_shipped_qb1/ref_s2 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l135_7ae5d04ea7edaf5a | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.76    pLDDT=0.91  
