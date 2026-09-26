@@ -1,1 +1,3 @@
 census_n*.json
+out/*/1_Trajectories/
+out/*/.campaign_state.json
