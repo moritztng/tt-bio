@@ -45,6 +45,28 @@ def count_chunk_widths(T, widths):
     return real
 
 
+#: Arm `g1` pins the in-projection's fused group to 1, which is what the L1 route does implicitly.
+#: `group` is the number of channel chunks the in-projection matmul fuses across, and the shipped
+#: code takes it only on the DRAM path (`group = _trimul_inproj_group(...) if large_seq else 1`).
+#: So an arm that moves the loop into L1 also halves the fused width at 288, turns every
+#: downstream piece from 128 channels into 64, and tapes a different backward graph. That is a
+#: second lever riding the first. `g1` carries it alone, on the DRAM route, so what the residency
+#: itself is worth is what is left over.
+GROUP_ONE = [False]
+
+
+def count_groups(T, widths):
+    """Wrap `_trimul_inproj_group` so every arm records the fused width it actually ran, and
+    so the `g1` arm's pin is applied where the count can see it."""
+    real = T._trimul_inproj_group
+
+    def g(seq_len, chunk, batch, n_pairs):
+        v = 1 if GROUP_ONE[0] else real(seq_len, chunk, batch, n_pairs)
+        widths["g%d" % int(v)] += 1
+        return v
+    T._trimul_inproj_group = g
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--params', default=D.A.DEFAULT_PARAMS)
@@ -77,6 +99,7 @@ def main():
     from tt_bio import tenstorrent as T
     widths = collections.Counter()
     count_chunk_widths(T, widths)
+    count_groups(T, widths)
 
     for _ in range(2):
         S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)
@@ -94,6 +117,7 @@ def main():
             if args.arms:
                 if args.lever == 'l1':
                     T.set_trimul_taped_l1(arm == 'on')
+                    GROUP_ONE[0] = arm == 'g1'
                     T.TRIMUL_TAPED_L1_STATS.update({'l1': 0, 'dram': 0, 'clash': 0})
                 else:
                     T.set_trimul_taped_full_chunk(arm == 'on')
@@ -105,6 +129,9 @@ def main():
                 timer.on = False
                 snap = timer.take()
                 reach[arm].update(widths)
+                if args.lever == 'l1':
+                    reach[arm].update({'taped_' + k: v
+                                       for k, v in T.TRIMUL_TAPED_L1_STATS.items()})
                 if args.lever == 'l1':
                     reach[arm].update({'taped_' + k: v
                                        for k, v in T.TRIMUL_TAPED_L1_STATS.items()})

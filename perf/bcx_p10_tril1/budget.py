@@ -9,6 +9,11 @@ residency instead. Two subcommands, both on one card in one process:
   table  the budget itself, per token axis: the width the L1 budget buys, the six chunk-multiples
          the loop holds live at its peak, the share of the banks that is, and the verdict. This is
          the thing the next shape reads instead of re-deriving it.
+  bits   the composed arm's gradient against the shipped DRAM arm's, at the default budget and
+         with no clash anywhere. Moving a buffer between L1 and DRAM does not change the
+         arithmetic, so this should be bit-exact by construction -- which is a reason to CHECK it,
+         not a reason to assert it. It is the cheapest regression signal on this lever and it is
+         free.
   clash  the failure mode the gate exists for, made to happen. `--share` inflates the budget past
          what the grid can hold, so the channel loop throws "statically allocated circular buffers
          ... clash with L1 buffers" at program validation. The run must SURVIVE it: the retry
@@ -87,6 +92,43 @@ def cmd_table(args):
     print('wrote ' + str(OUT / args.out), flush=True)
 
 
+def cmd_bits(args):
+    """Both arms at the default budget: the residency must not move a single bit."""
+    lv, dev, ref = S.open_all(args)
+    lv.mask = True
+    from tt_bio import tenstorrent as T
+    m0, z0, wm, wz = S.inputs(ref, args.n, args.seed)
+
+    def arm(on):
+        T.set_trimul_taped_l1(on)
+        T.TRIMUL_TAPED_L1_STATS.update({'l1': 0, 'dram': 0, 'clash': 0})
+        _, g = S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)
+        return g, dict(T.TRIMUL_TAPED_L1_STATS)
+
+    S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)     # warm, dropped
+    off, off_stats = arm(False)
+    on, on_stats = arm(True)
+    T.set_trimul_taped_l1(False)
+    out = {'stamp': S.stamp(args), 'n': args.n, 'k': args.k,
+           'off_stats': off_stats, 'on_stats': on_stats,
+           'reached': on_stats['l1'] > 0 and on_stats['dram'] == 0,
+           'clashed': on_stats['clash'] > 0, 'grads': []}
+    for name, a, b in zip(('m', 'z'), off, on):
+        d = a.double() - b.double()
+        out['grads'].append({'which': name, 'equal': bool(torch.equal(a, b)),
+                             'max_abs': float(d.abs().max()),
+                             'rel_l2': float(d.norm() / a.double().norm())})
+    out['bit_exact'] = all(g['equal'] for g in out['grads'])
+    print(json.dumps(out, indent=1), flush=True)
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / args.out).write_text(json.dumps(out, indent=1, default=str))
+    print('wrote ' + str(OUT / args.out), flush=True)
+    if not out['reached']:
+        print('LEVER DID NOT REACH: the on arm took DRAM, so this compares nothing', flush=True)
+        return 1
+    return 0 if out['bit_exact'] else 1
+
+
 def cmd_clash(args):
     """Inflate the budget until the loop cannot lay out, and require the round to survive it."""
     lv, dev, ref = S.open_all(args)
@@ -135,7 +177,7 @@ def cmd_clash(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('cmd', choices=('table', 'clash'))
+    ap.add_argument('cmd', choices=('table', 'bits', 'clash'))
     ap.add_argument('--params', default=D.A.DEFAULT_PARAMS)
     ap.add_argument('--seqs', default='288,352,384,512')
     ap.add_argument('--hidden', default='128')
@@ -153,7 +195,7 @@ def main():
     args.card = int(os.environ.get('TT_VISIBLE_DEVICES', '0'))
     args.out = args.out or f'{args.cmd}.json'
     torch.set_num_threads(args.threads)
-    sys.exit(cmd_table(args) if args.cmd == 'table' else cmd_clash(args))
+    sys.exit({'table': cmd_table, 'bits': cmd_bits, 'clash': cmd_clash}[args.cmd](args))
 
 
 if __name__ == '__main__':
