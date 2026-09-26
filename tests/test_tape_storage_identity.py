@@ -43,10 +43,13 @@ def dev():
 
 def _linked(a, b) -> bool:
     """Whether the tape treats `a` and `b` as one buffer: both pinned in place, or, where the
-    tape keeps storage groups, one group."""
+    tape keeps storage groups, one group.
+
+    A storage group holds its members weakly, so its entries are `weakref.ref` objects and
+    comparing one to a tensor is always False. `ag._members` dereferences them."""
     group = getattr(a, "shares", None)
     if group is not None:
-        return any(t is b for t in group)
+        return any(t is b for t in ag._members(group))
     return not a.evictable and not b.evictable
 
 
