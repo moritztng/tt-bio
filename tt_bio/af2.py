@@ -875,8 +875,30 @@ class AF2DeviceModel(AF2Model):
     #: Off recomputes the template every pass. It must change no number anywhere, which is what
     #: `tap_gate.py --device --no-template-cache` checks against the same reference taps. On, the
     #: cache is keyed by `_template_key`, so it saves the three recycles of one design and is
-    #: invalidated by the next design rather than served to it.
+    #: invalidated by the next design rather than served to it. Only the monomer may take it --
+    #: see `template_cacheable`.
     template_cached = True
+
+    @property
+    def template_cacheable(self) -> bool:
+        """`template_cached`, and this variant's template embedding is constant in `pair`.
+
+        `_template_key` omits `pair` on purpose, and that is sound for `AF2Template`: with one
+        template its pointwise attention softmaxes over a single key, the weight is exactly 1.0
+        and the query drops out. `TemplateEmbeddingMultimer` has no pointwise attention. Its
+        `_features` ends with `(self.query_norm(pair), self.pair_embedding[8])`, so `pair` is
+        summed into the template act and run through the triangle-attention pair stack, and
+        there is nothing for a single-key softmax to collapse.
+
+        `pair = pair + template_embedding(pair, ...)` fires once per recycling pass, so on
+        multimer a key without `pair` serves recycle 1's embedding to recycles 2-4. Measured on
+        a 207-token multimer_v3 complex: **27-30 % relative L2 per served call, 35.7 % on the
+        trunk's pair output**, against 0.0 bit-for-bit on the same probe on the monomer
+        (`perf/bcx_p10_tmplemb/out/{mv3,m1ptm}_bg119/cachecheck.json`). So the cache is refused
+        here rather than at the knob: an explicit `template_cached = True` on a multimer costs
+        three template passes a fold and cannot be wrong.
+        """
+        return self.template_cached and not self.multimer
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1099,7 +1121,8 @@ class AF2DeviceModel(AF2Model):
 
         The cache is worth having because `AF2Template.forward` is constant in `pair`: with one
         template the pointwise attention softmaxes over a single key, so the weight is exactly
-        1.0 and the query drops out. It is NOT constant in the template features, and those
+        1.0 and the query drops out. That holds for the monomer only, and `template_cacheable`
+        is where the variant is checked. It is NOT constant in the template features, and those
         change with the design: `complex_features` masks the template sequence, so
         `template_aatype` is identical for every design and the whole design dependence sits in
         the coordinates. Two PXDesign backbones against the same target share their target block
@@ -1151,7 +1174,7 @@ class AF2DeviceModel(AF2Model):
         finally:
             # Removes the instance-dict entry and restores the bound class method.
             del self.template.run_pair_stack
-        if self.template_cached:
+        if self.template_cacheable:
             self._template_cache = (key, stack[-1], embedding)
         return embedding
 

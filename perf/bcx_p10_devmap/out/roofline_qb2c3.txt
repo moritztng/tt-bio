@@ -1,0 +1,28 @@
+2026-09-26 11:18:22.578 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+DEVICE arch=Arch.BLACKHOLE compute_grid=11x10 dram_grid=8x1 num_devices=1
+
+=== DRAM bandwidth (bf16, DRAM-interleaved, whole-chip) ===
+op           shape                 bytes_moved_MB    ms/iter      GB/s
+add          4096x4096                      100.7      0.231     435.2
+clone        4096x4096                       67.1      0.169     397.9
+add          8192x4096                      201.3      0.458     439.8
+clone        8192x4096                      134.2      0.339     396.4
+add          8192x8192                      402.7      0.910     442.3
+clone        8192x8192                      268.4      0.669     401.3
+PEAK_DRAM_BW_GBs 442.3  (op=add 8192x8192)
+
+=== BF16 square matmul FLOP/s ===
+N       fidelity       GFLOP    ms/iter   TFLOP/s
+4096    LoFi          137.44      1.017    135.15
+4096    HiFi2         137.44      1.209    113.64
+4096    HiFi4         137.44      1.674     82.10
+8192    LoFi         1099.51      7.351    149.58
+8192    HiFi2        1099.51      9.009    122.05
+8192    HiFi4        1099.51     12.800     85.90
+PEAK_BF16_TFLOPs 149.58  (N=8192 fidelity=LoFi)
+
+=== sync vs no-sync on the SAME workload ===
+matmul 2048^3  no trailing sync: 0.011 ms/iter
+matmul 2048^3  with sync       : 0.153 ms/iter
+UNSYNCED_UNDERREPORT_FACTOR 13.78x

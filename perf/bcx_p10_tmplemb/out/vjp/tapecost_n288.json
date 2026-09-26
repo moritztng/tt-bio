@@ -1,0 +1,163 @@
+{
+ "n": 288,
+ "pci": "0000:02:00.0",
+ "reps": 4,
+ "arms": {
+  "extra_msa/notape": {
+   "blocks": 4,
+   "c": 128,
+   "warm_s": 0.109,
+   "per_block_s": 0.0273,
+   "all_s": [
+    0.307,
+    0.109,
+    0.116,
+    0.107
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 7.16
+  },
+  "extra_msa/tape": {
+   "blocks": 4,
+   "c": 128,
+   "warm_s": 10.744,
+   "per_block_s": 2.6861,
+   "all_s": [
+    12.876,
+    11.291,
+    10.653,
+    10.744
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 7.8
+  },
+  "extra_msa/taped": {
+   "blocks": 4,
+   "c": 128,
+   "warm_s": 25.996,
+   "per_block_s": 6.4991,
+   "all_s": [
+    26.451,
+    26.19,
+    25.817,
+    25.996
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 8.29
+  },
+  "extra_msa/ckpt": {
+   "blocks": 4,
+   "c": 128,
+   "warm_s": 13.027,
+   "per_block_s": 3.2568,
+   "all_s": [
+    11.013,
+    13.204,
+    13.015,
+    13.027
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 8.26
+  },
+  "extra_msa/ckpt_bwd": {
+   "blocks": 4,
+   "c": 128,
+   "warm_s": 37.671,
+   "per_block_s": 9.4177,
+   "all_s": [
+    38.904,
+    37.671,
+    37.816,
+    37.215
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 7.26
+  },
+  "template/notape": {
+   "blocks": 2,
+   "c": 64,
+   "warm_s": 0.045,
+   "per_block_s": 0.0224,
+   "all_s": [
+    0.208,
+    0.045,
+    0.043,
+    0.048
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 7.26
+  },
+  "template/tape": {
+   "blocks": 2,
+   "c": 64,
+   "warm_s": 5.524,
+   "per_block_s": 2.762,
+   "all_s": [
+    4.551,
+    5.401,
+    5.524,
+    5.608
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 7.25
+  },
+  "template/taped": {
+   "blocks": 2,
+   "c": 64,
+   "warm_s": 11.605,
+   "per_block_s": 5.8023,
+   "all_s": [
+    13.206,
+    13.076,
+    11.605,
+    11.044
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 7.92
+  },
+  "template/ckpt": {
+   "blocks": 2,
+   "c": 64,
+   "warm_s": 4.551,
+   "per_block_s": 2.2755,
+   "all_s": [
+    4.933,
+    4.551,
+    4.456,
+    4.678
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 8.83
+  },
+  "template/ckpt_bwd": {
+   "blocks": 2,
+   "c": 64,
+   "warm_s": 16.001,
+   "per_block_s": 8.0005,
+   "all_s": [
+    15.8,
+    16.001,
+    15.594,
+    16.173
+   ],
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "load1": 7.7
+  }
+ },
+ "round_meter_reference": {
+  "extra_msa_s_per_round": 1.054,
+  "what_it_covers": "4 blocks, 2 taped forwards + 1 backward, n=288",
+  "source": "bcx-p10-resident, state/perf10/bcx-RESIDENT.md"
+ },
+ "finished_utc": "2026-09-26T11:35:07Z"
+}
