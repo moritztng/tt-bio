@@ -1,0 +1,429 @@
+{
+ "n": 576,
+ "k_extra": 4,
+ "k_evo": 48,
+ "ckpt": true,
+ "arm": "stack",
+ "seed": 0,
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": "3",
+  "commit": "917d0947b8385a0dda1f940b9bb804e2f9d2b6ee",
+  "tt_bio_dirty": false,
+  "torch_threads": 16,
+  "loadavg": [
+   22.69287109375,
+   27.64599609375,
+   29.45849609375
+  ],
+  "utc": "2026-09-26T09:10:49Z"
+ },
+ "pci": "0000:c1:00.0",
+ "completed": false,
+ "reps": [],
+ "node_blocks": [],
+ "open_and_load_s": 12.774835109710693,
+ "host_rss_after_load_gb": 2.818056192,
+ "dram_total_gb": 34.225520128,
+ "dram_weights_gb": 0.235208704,
+ "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 75497472 B DRAM buffer across 8 banks, where each bank needs to store 9437184 B, but bank size is 4278190016 B (allocated: 4270045184 B, free: 8144832 B, largest free block: 8130496 B)\nbacktrace:\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x74d6708d2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::operations::unary_ng::UnaryNgDeviceOperation::create_output_tensors(ttnn::operations::unary_ng::UnaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::unary_ng::UnaryNgDeviceOperation::tensor_args_t const&)\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations8unary_ng22UnaryNgDeviceOperationEEENT_21tensor_",
+ "error_type": "RuntimeError",
+ "oom": {
+  "buffer_type": "DRAM",
+  "request_b": 75497472,
+  "banks": 8,
+  "request_per_bank_b": 9437184,
+  "bank_size_b": 4278190016,
+  "allocated_per_bank_b": 4270045184,
+  "free_per_bank_b": 8144832,
+  "largest_free_block_per_bank_b": 8130496,
+  "free_total_b": 65158656,
+  "allocated_total_b": 34160361472,
+  "occupancy": 0.9980961967632248,
+  "free_total_exceeds_request": false,
+  "largest_free_block_fits_request": false,
+  "free_total_over_request": 0.8630574544270834
+ },
+ "frames": [
+  "curve.py:329 main",
+  "autograd.py:626 backward",
+  "autograd.py:666 _backward",
+  "autograd.py:2359 fire",
+  "autograd.py:2325 _recompute",
+  "afgrad.py:211 <lambda>",
+  "curve.py:257 evo",
+  "afgrad.py:195 evo",
+  "af2.py:789 __call__",
+  "af2.py:424 __call__",
+  "af2.py:411 _update",
+  "af2.py:234 __call__",
+  "af2.py:217 _rows",
+  "tenstorrent.py:6933 _lin",
+  "dispatch.py:67 call",
+  "autograd.py:2775 _hook",
+  "autograd.py:2687 _taped_linear",
+  "autograd.py:1778 relu",
+  "decorators.py:473 __call__"
+ ],
+ "frag_at_refusal": {
+  "banks": 8,
+  "free_per_bank_b": 60049344,
+  "largest_free_per_bank_b": 51904512,
+  "free_total_b": 480394752,
+  "largest_over_free": 0.8643643467612235
+ },
+ "view_at_refusal": {
+  "allocated_total_b": 33745125376,
+  "free_total_b": 480394752,
+  "largest_free_per_bank_b": 51904512
+ },
+ "failed_rep": {
+  "rep": 0,
+  "phase": "bwd",
+  "block": "evo47",
+  "resident_peak_gb": 4.77011968,
+  "resident_peak_at": [
+   "fwd",
+   "evo47",
+   "evo47"
+  ],
+  "resident_peak_free_gb": 29.455400448,
+  "resident_peak_largest_free_per_bank_gb": 3.653953472,
+  "resident_peak_frag": {
+   "banks": 8,
+   "free_per_bank_b": 3681925056,
+   "largest_free_per_bank_b": 3653953472,
+   "free_total_b": 29455400448,
+   "largest_over_free": 0.9924030001766554
+  },
+  "census": [],
+  "trace": [
+   [
+    "fwd",
+    "extra0",
+    0.4068,
+    33.8187
+   ],
+   [
+    "fwd",
+    "extra1",
+    0.4921,
+    33.7334
+   ],
+   [
+    "fwd",
+    "extra2",
+    0.5773,
+    33.6482
+   ],
+   [
+    "fwd",
+    "extra3",
+    0.6626,
+    33.5629
+   ],
+   [
+    "fwd",
+    "evo0",
+    0.7489,
+    33.4766
+   ],
+   [
+    "fwd",
+    "evo1",
+    0.8345,
+    33.391
+   ],
+   [
+    "fwd",
+    "evo2",
+    0.92,
+    33.3055
+   ],
+   [
+    "fwd",
+    "evo3",
+    1.0056,
+    33.2199
+   ],
+   [
+    "fwd",
+    "evo4",
+    1.0912,
+    33.1344
+   ],
+   [
+    "fwd",
+    "evo5",
+    1.1767,
+    33.0488
+   ],
+   [
+    "fwd",
+    "evo6",
+    1.2623,
+    32.9632
+   ],
+   [
+    "fwd",
+    "evo7",
+    1.3478,
+    32.8777
+   ],
+   [
+    "fwd",
+    "evo8",
+    1.4334,
+    32.7921
+   ],
+   [
+    "fwd",
+    "evo9",
+    1.5189,
+    32.7066
+   ],
+   [
+    "fwd",
+    "evo10",
+    1.6045,
+    32.621
+   ],
+   [
+    "fwd",
+    "evo11",
+    1.6901,
+    32.5355
+   ],
+   [
+    "fwd",
+    "evo12",
+    1.7756,
+    32.4499
+   ],
+   [
+    "fwd",
+    "evo13",
+    1.8612,
+    32.3643
+   ],
+   [
+    "fwd",
+    "evo14",
+    1.9467,
+    32.2788
+   ],
+   [
+    "fwd",
+    "evo15",
+    2.0323,
+    32.1932
+   ],
+   [
+    "fwd",
+    "evo16",
+    2.1178,
+    32.1077
+   ],
+   [
+    "fwd",
+    "evo17",
+    2.2034,
+    32.0221
+   ],
+   [
+    "fwd",
+    "evo18",
+    2.289,
+    31.9366
+   ],
+   [
+    "fwd",
+    "evo19",
+    2.3745,
+    31.851
+   ],
+   [
+    "fwd",
+    "evo20",
+    2.4601,
+    31.7654
+   ],
+   [
+    "fwd",
+    "evo21",
+    2.5456,
+    31.6799
+   ],
+   [
+    "fwd",
+    "evo22",
+    2.6312,
+    31.5943
+   ],
+   [
+    "fwd",
+    "evo23",
+    2.7167,
+    31.5088
+   ],
+   [
+    "fwd",
+    "evo24",
+    2.8023,
+    31.4232
+   ],
+   [
+    "fwd",
+    "evo25",
+    2.8879,
+    31.3377
+   ],
+   [
+    "fwd",
+    "evo26",
+    2.9734,
+    31.2521
+   ],
+   [
+    "fwd",
+    "evo27",
+    3.059,
+    31.1665
+   ],
+   [
+    "fwd",
+    "evo28",
+    3.1445,
+    31.081
+   ],
+   [
+    "fwd",
+    "evo29",
+    3.2301,
+    30.9954
+   ],
+   [
+    "fwd",
+    "evo30",
+    3.3156,
+    30.9099
+   ],
+   [
+    "fwd",
+    "evo31",
+    3.4012,
+    30.8243
+   ],
+   [
+    "fwd",
+    "evo32",
+    3.4868,
+    30.7388
+   ],
+   [
+    "fwd",
+    "evo33",
+    3.5723,
+    30.6532
+   ],
+   [
+    "fwd",
+    "evo34",
+    3.6579,
+    30.5676
+   ],
+   [
+    "fwd",
+    "evo35",
+    3.7434,
+    30.4821
+   ],
+   [
+    "fwd",
+    "evo36",
+    3.829,
+    30.3965
+   ],
+   [
+    "fwd",
+    "evo37",
+    3.9145,
+    30.311
+   ],
+   [
+    "fwd",
+    "evo38",
+    4.0001,
+    30.2254
+   ],
+   [
+    "fwd",
+    "evo39",
+    4.0857,
+    30.1399
+   ],
+   [
+    "fwd",
+    "evo40",
+    4.1712,
+    30.0543
+   ],
+   [
+    "fwd",
+    "evo41",
+    4.2568,
+    29.9687
+   ],
+   [
+    "fwd",
+    "evo42",
+    4.3423,
+    29.8832
+   ],
+   [
+    "fwd",
+    "evo43",
+    4.4279,
+    29.7976
+   ],
+   [
+    "fwd",
+    "evo44",
+    4.5134,
+    29.7121
+   ],
+   [
+    "fwd",
+    "evo45",
+    4.599,
+    29.6265
+   ],
+   [
+    "fwd",
+    "evo46",
+    4.6846,
+    29.541
+   ],
+   [
+    "fwd",
+    "evo47",
+    4.7701,
+    29.4554
+   ],
+   [
+    "fwd",
+    "end of forward",
+    4.7701,
+    29.4554
+   ]
+  ],
+  "load1": 22.4248046875,
+  "aiclk": {
+   "n": 3179,
+   "min": 1350,
+   "median": 1350,
+   "max": 1350
+  }
+ },
+ "host_rss_peak_gb": 21.58108672
+}
