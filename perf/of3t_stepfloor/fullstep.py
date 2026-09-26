@@ -766,6 +766,12 @@ def main() -> int:
                     t.grad = None
                 ttnn.synchronize_device(dev)
 
+                # One clock around the WHOLE step, started here and read after the
+                # optimizer. `step_s` below sums the phase timers; this catches what
+                # falls between them (gc, the pin release, the rebind census, the
+                # artifact dumps), so the step can be quoted rather than reconstructed.
+                t_wall = time.perf_counter()
+
                 # --- 1. trunk -------------------------------------------------------------
                 t0 = time.perf_counter()
                 if a.cycles > 1:
@@ -1004,10 +1010,13 @@ def main() -> int:
                                              "optimizer had nothing to step" if opt else
                                              "--no-optimizer")
                 ag.release_pins()
+                ttnn.synchronize_device(dev)
+                row["step_wall_s"] = round(time.perf_counter() - t_wall, 3)
 
                 parts = ("trunk_s", "diffusion_s", "losses_s", "seed_upload_s",
                          "backward_s", "optimizer_s")
                 row["step_s"] = round(sum(row[p] for p in parts), 3)
+                row["unaccounted_s"] = round(row["step_wall_s"] - row["step_s"], 3)
                 if a.no_tape:
                     row["step_s_UNTAPED"] = row.pop("step_s")
                     row["step_s"] = None
@@ -1020,7 +1029,8 @@ def main() -> int:
                       f"losses {row['losses_s']:.2f}s  "
                       f"backward {row['backward_s']:.2f}s  "
                       f"optimizer {row['optimizer_s']:.2f}s  = "
-                      f"{(row['step_s'] or row.get('step_s_UNTAPED')):.2f}s "
+                      f"{(row['step_s'] or row.get('step_s_UNTAPED')):.2f}s  "
+                      f"WALL {row['step_wall_s']:.2f}s "
                       f"({row['params_with_grad']} weights, {row['tape_nodes']} nodes, "
                       f"renorm {'ON' if row['renorm_flag'] else 'OFF'} "
                       f"{row['renorm_applied']}a/{row['renorm_declined']}d, "
@@ -1035,7 +1045,7 @@ def main() -> int:
             out["renorm"]["declined_during_reps"] = (
                 out["renorm"]["stats_after"]["declined"]
                 - out["renorm"]["stats_before"]["declined"])
-            key = "step_s_UNTAPED" if a.no_tape else "step_s"
+            key = "step_s_UNTAPED" if a.no_tape else "step_wall_s"
             vals = [r[key] for r in reps if r.get(key) is not None]
             if vals:
                 out["cold_s"] = vals[0]
