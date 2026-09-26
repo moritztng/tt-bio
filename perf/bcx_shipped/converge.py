@@ -7,10 +7,12 @@ is biased down whether or not anything changed (bcx-accept, STAGE-PROFILE.md).
 
 This reads every stage over its LAST k rounds, k = the shortest stage's length, so both
 stages and both arms are the same statistic. It also reports anneal's SPREAD over those
-rounds, which is what separates a trajectory that survives harden from one that does not:
-harden runs with dropout off on a discretized sequence, so it is the first deterministic
-read of the design. A trajectory whose anneal is still bimodal at round 45 has not
-converged, and its anneal max is an excursion rather than its design.
+rounds. That spread was written up here as what separates a trajectory that survives harden
+from one that does not. hardenstep.py then measured it on the nine trajectories this campaign
+has on disk and it does NOT predict the harden step: Spearman rho -0.487, exact two-sided
+p = 0.1869. What it does predict is ACCEPTANCE. The three accepted trajectories hold the three
+lowest spreads across both arms, 0.03/0.06/0.07 against 0.08 to 0.67, exact one-sided
+p = 0.0119. Read the spread as a read on the whole trajectory, not on harden.
 
 usage: converge.py <project> [<project> ...]
 """
