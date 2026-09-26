@@ -56,7 +56,7 @@ void kernel_main() {
     constexpr uint32_t score_tiles = Nt * Nt;
 
     generate_reduce_scaler(cb_scalar, identity_scalar_packed);
-    generate_bcast_scalar(cb_scale, scale_scalar_packed);
+    generate_bcast_unary_scalar(cb_scale, scale_scalar_packed);
     {
         // A genuine all-zero tile. The bcast-scalar generators only set the positions a broadcast
         // reads, and the accumulator is seeded by copying this tile whole.

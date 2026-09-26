@@ -199,15 +199,14 @@ void kernel_main() {
         reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Nt, (int)VectorMode::RC>(
             cb_row_a, cb_row_a, Nt, false);
         sub_exp_block_bcast_cols_inplace<cb_p, Nt, 0x3F800000 /*1.0f*/>(cb_row_a, cb_row_b, Nt);
-        cb_pop_front(cb_row_a, Nt);
+        cb_pop_front(cb_row_a, Nt);                      // reduce_c and sub_exp both keep in1
         reduce_c<PoolType::SUM, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Nt, (int)VectorMode::RC>(
             cb_row_b, cb_row_b, Nt, false);
-        // Keep the row sum: the softmax backward's row-sum correction divides by it, and it is
-        // 1.0 only in exact arithmetic. Dropping it is worth up to 13.09x on ||dq||.
-        copy_block(cb_row_b, cb_row_a, Nt);              // cb_row_a = rowsum(exp), cb_row_b free
-        recip_block_inplace(cb_row_a, Nt);
-        mul_block_bcast_cols<Nt, Nt, false, false>(cb_p, cb_row_a, cb_p);   // P = exp / rowsum
-        cb_pop_front(cb_row_a, Nt);
+        recip_block_inplace(cb_row_b, Nt);
+        // immediate_pop, and it has to be: the other arm of mul_block_bcast_cols reserves on
+        // out_cb BEFORE popping in0_cb, so with in0 and out the same CB sized to exactly its
+        // contents the reserve can never be satisfied and the kernel hangs on the first row.
+        mul_block_bcast_cols<Nt, Nt, true, false>(cb_p, cb_row_b, cb_p);    // P = exp / rowsum
 
         // ---- dV = P^T dO -------------------------------------------------------------------
         transpose_block<Nt, Nt>(cb_p, cb_t);
@@ -220,10 +219,14 @@ void kernel_main() {
         reduce_c<PoolType::SUM, ReduceDim::REDUCE_ROW, cb_t, cb_scalar, Nt, (int)VectorMode::RC>(
             cb_row_a, cb_row_a, Nt, false);              // cb_row_a = rowsum(dP * P)
         cb_pop_front(cb_t, score_tiles);
-        // P here is already normalised, so rowsum(P) is 1 up to bf16 rounding and this division is
-        // exactly the correction that removes that rounding rather than a no-op.
+        // The row-sum correction is carried, not dropped. P is normalised when it is formed, so
+        // rowsum(P) is 1 up to bf16 rounding and dividing by it is exactly what removes that
+        // rounding. Dropping it is worth up to 13.09x on the norm of dq, so it is taken fresh off
+        // the normalised P rather than reusing the pre-normalisation sum.
+        reduce_c<PoolType::SUM, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Nt, (int)VectorMode::RC>(
+            cb_row_b, cb_row_b, Nt, false);              // cb_row_b = rowsum(P)
         recip_block_inplace(cb_row_b, Nt);
-        mul_block_inplace(cb_row_a, cb_row_b, Nt);
+        mul_block_inplace(cb_row_a, cb_row_b, Nt);       // mul_block_inplace keeps in1
         cb_pop_front(cb_row_b, Nt);
 
         sub_block_bcast_cols_inplace<Nt, Nt>(cb_dp, cb_row_a);
