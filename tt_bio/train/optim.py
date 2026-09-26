@@ -39,6 +39,7 @@ a general one. The script reproduces the number, it does not store it: the run i
 from __future__ import annotations
 
 import math
+import time
 from typing import TYPE_CHECKING, Dict, Optional
 
 from .mesh import Axis, UnreducedGradients
@@ -214,6 +215,13 @@ class AdamW:
         self.schedule = schedule
         self.beta1, self.beta2 = float(betas[0]), float(betas[1])
         self.steps = 0
+        # Where the last step()'s seconds went. This phase is HOST-bound, so a total
+        # without the split is not actionable: grad_read and device_write are PCIe,
+        # device_cast is the host-side kept-ratio cast, and arith is the numpy update
+        # itself. ~20k perf_counter calls against a phase measured in seconds, so it is
+        # always on rather than behind a flag nobody sets.
+        self.last_phase_s: Dict[str, float] = {}
+        self._read_s = 0.0
         # Multiplicative beta powers rather than pow(beta, step): cheap, and exactly
         # reproducible across a reload because the powers themselves are checkpointed.
         self.beta1_pow, self.beta2_pow = 1.0, 1.0
@@ -327,8 +335,13 @@ class AdamW:
         # Under per-sample clipping every sample was already clipped as it arrived, so the
         # norm here is the accumulated one and is reported rather than applied -- clipping the
         # sum again would be a third algorithm, neither theirs nor ours.
+        _pc = time.perf_counter
+        _t_step0 = _pc()
+        self._read_s = 0.0
+        read_s = write_s = cast_s = 0.0
         gnorm = (math.sqrt(sum(float(v.ravel() @ v.ravel()) for v in self.accum.values()))
                  if per_sample else self.grad_norm(disabled))
+        read_s += self._read_s
         clip = 1.0 if per_sample else self.clip_coef(gnorm)
         report = {}
         writes_skipped = 0
@@ -365,10 +378,16 @@ class AdamW:
             # why `train_loop` ships `weight_decay=0.0`; at a non-zero decay ours applies it
             # decoupled, as `torch.optim.AdamW` does and `torch.optim.Adam(weight_decay=...)`
             # does not.
-            g = None if name in disabled else (
-                self.accum.get(name) if per_sample else (
-                    None if t.grad is None else
-                    to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)))
+            if name in disabled:
+                g = None
+            elif per_sample:
+                g = self.accum.get(name)
+            elif t.grad is None:
+                g = None
+            else:
+                _t = _pc()
+                g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+                read_s += _pc() - _t
             if g is None:
                 g = np.zeros_like(self.master[name])
             elif clip != 1.0:
@@ -403,7 +422,9 @@ class AdamW:
             # every update would read as rounded away, every write would be skipped, and a
             # float32 parameter would silently stop reaching the card while the report said
             # `kept: 0.0`. Identity is what separates the two regimes here, not equality.
+            _t = _pc()
             dev_before = round_to_device_dtype(theta, t.value.dtype)
+            cast_s += _pc() - _t
             identity_cast = dev_before is theta
             theta -= upd
             # `norm(upd)` IS `norm(theta - before)`: `theta -= upd` is the only thing that
@@ -412,18 +433,25 @@ class AdamW:
             want = float(np.linalg.norm(upd))
             if dev_before is None:
                 # A dtype torch cannot express. Pay the round trip rather than guess.
+                _t = _pc()
                 dev_before = to_host(t.value).astype(np.float32).reshape(theta.shape)
                 t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
                 dev_after = to_host(t.value).astype(np.float32).reshape(theta.shape)
+                write_s += _pc() - _t
                 kept = float(np.linalg.norm(dev_after - dev_before))
             elif identity_cast:
                 # Nothing can round away, so the device step is the master step exactly and
                 # the write always happens.
+                _t = _pc()
                 t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                write_s += _pc() - _t
                 kept = want
             else:
+                _t = _pc()
                 dev_after = round_to_device_dtype(theta, t.value.dtype)
-                if np.array_equal(dev_after, dev_before):
+                _eq = np.array_equal(dev_after, dev_before)
+                cast_s += _pc() - _t
+                if _eq:
                     # The whole update rounded away. The tensor already on the card is the
                     # one `to_device` would build, bit for bit, so the write is skipped
                     # rather than repeated -- an exactness, not an approximation. This is the
@@ -432,7 +460,9 @@ class AdamW:
                     # 0.810 for exactly this reason.
                     writes_skipped += 1
                 else:
+                    _t = _pc()
                     t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                    write_s += _pc() - _t
                 kept = float(np.linalg.norm(dev_after - dev_before))
             report[name] = {"master_step": want, "device_step": kept,
                             "kept": (kept / want) if want > 0 else float("nan"),
@@ -444,6 +474,12 @@ class AdamW:
         # warmup working as designed or an optimizer that has stopped, and the two are told
         # apart by `displacement()`, not by this counter.
         self.last_writes_skipped = writes_skipped
+        total = _pc() - _t_step0
+        self.last_phase_s = {"grad_read": round(read_s, 4),
+                             "device_write": round(write_s, 4),
+                             "device_cast": round(cast_s, 4),
+                             "arith": round(total - read_s - write_s - cast_s, 4),
+                             "total": round(total, 4)}
         self.last_report = report
         self.accum, self.participation, self.accum_count = {}, {}, 0
         return report
@@ -595,7 +631,9 @@ class AdamW:
         tot = 0.0
         for name, t in self.params.items():
             if t.grad is not None and name not in disabled:
+                _t = time.perf_counter()
                 gg = to_host(t.grad).astype(np.float32)
+                self._read_s += time.perf_counter() - _t
                 tot += float(gg.ravel() @ gg.ravel())
         return math.sqrt(tot)
 

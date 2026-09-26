@@ -942,6 +942,7 @@ def main() -> int:
                     row["mem_available_gib"][where] = a_
 
                 _mark("rep_start")
+                row["loadavg_rep_start"] = [round(x, 2) for x in os.getloadavg()]
                 ex0 = (dict(ag.EXACT_SOFTMAX_STATS), dict(ag.EXACT_LAYER_NORM_STATS))
                 for t in params.values():
                     t.grad = None
@@ -1203,6 +1204,13 @@ def main() -> int:
                     row["leaves_live_after_rebind"] = f"{live} of {len(params.slots)}"
                     ttnn.synchronize_device(dev)
                     row["optimizer_s"] = round(time.perf_counter() - t0, 3)
+                    # `optimizer_s` is the PHASE: step() plus the rebind, the liveness walk
+                    # and the sync above. `adamw_step_s` is step() alone and `adamw_split`
+                    # is where its seconds went. The phase minus the step is the boundary
+                    # cost, and this row exists because 10.967 s at crop 384 against 3.194 s
+                    # at crop 256 needs the two told apart before either is attributed.
+                    row["adamw_step_s"] = (getattr(opt, "last_phase_s", {}) or {}).get("total")
+                    row["adamw_split"] = getattr(opt, "last_phase_s", None)
                     row["optimizer_updated"] = len(upd) if hasattr(upd, "__len__") else None
                     row["writes_skipped"] = getattr(opt, "last_writes_skipped", None)
                     _mark("after_optimizer")
@@ -1213,6 +1221,8 @@ def main() -> int:
                                              "--no-optimizer")
                 ag.release_pins()
 
+                row["loadavg_rep_end"] = [round(x, 2) for x in os.getloadavg()]
+                row["ncpu"] = os.cpu_count()
                 row["peak_rss_gib"] = _peak_rss()
                 parts = ("trunk_s", "diffusion_s", "losses_s", "seed_upload_s",
                          "backward_s", "optimizer_s")
