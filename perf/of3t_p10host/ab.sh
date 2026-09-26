@@ -17,6 +17,6 @@ if [ "$ARM" = old ]; then
 fi
 echo "loadavg $(cut -d' ' -f1-3 /proc/loadavg)  MemAvailable $(awk '/MemAvailable/{printf "%.1f GiB", $2/1048576}' /proc/meminfo)"
 TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:of3t-p10host \
-  /home/moritz/tt-bio/env/bin/python perf/of3t_stepfloor/fullstep.py $ARGS --out "$OUT.json" \
-  > "$OUT.log" 2>&1
+  /home/moritz/tt-bio/env/bin/python perf/of3t_p10host/armrun.py "exact_off_$ARM" "$OUT.json" \
+  $ARGS > "$OUT.log" 2>&1
 echo "rc=$? -> $OUT.json"
