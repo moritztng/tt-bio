@@ -520,17 +520,29 @@ class Tensor:
         if FANIN_MIXED:
             self._grad = ttnn.add(self._grad, grad, dtype=ttnn.float32)
             return
-        # The promoted contribution is written and read straight back by the ttnn.add on the
-        # next line: 576 instances and 24.46 GB a round, the largest write-then-reread edge in
+        # The promoted CONTRIBUTION is written and read straight back by this ttnn.add: 576
+        # instances and 24.46 GB a round, the largest write-then-reread edge in
         # bcx-p10-l1fuse's chain census. `fanin_l1.typecast` puts it in L1 where the grid's own
         # budget takes it and leaves it in DRAM where it does not. Nothing here is taped, so
         # `Tensor.evict` never turns the placement back into a DRAM copy the way it does in a
-        # forward. The accumulator and the sum stay where they are: all three in L1 would be
-        # 79.2 % of qb2's aggregate L1 against 26.4 % for the transient alone.
+        # forward.
+        #
+        # ONLY the contribution, and the accumulator and the sum stay in DRAM by name. The
+        # contribution dies on the next line; `self._grad` lives until the whole backward is
+        # done, and an L1 buffer that outlives the op that made it is not this row's chain --
+        # it is a permanent 386 KB a bank that the next kernel's statically allocated circular
+        # buffers collide with. Measured, not guessed: routing the accumulator here too threw
+        # `Statically allocated circular buffers in program 209 clash with L1 buffers ... L1
+        # buffer allocated at 1378304 and static circular buffer region ends at 1427968` on the
+        # first backward. A budget that guards its own allocation does not guard the next
+        # program's CB region, so residency is only safe for a value whose lifetime ends inside
+        # the chain that reads it.
         if self._grad.dtype != ttnn.float32:
-            self._grad = _fanin_l1.typecast(self._grad, ttnn.float32)
-        self._grad = ttnn.add(self._grad, grad if grad.dtype == ttnn.float32
-                              else _fanin_l1.typecast(grad, ttnn.float32))
+            self._grad = ttnn.typecast(self._grad, ttnn.float32)
+        self._grad = ttnn.add(
+            self._grad,
+            grad if grad.dtype == ttnn.float32 else _fanin_l1.typecast(grad, ttnn.float32),
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
     def add_grad_slice(self, grad, starts, ends) -> None:
         """Accumulate the gradient of the slice ``[starts, ends)`` of this value.
