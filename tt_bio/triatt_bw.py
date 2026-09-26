@@ -71,6 +71,9 @@ PROGRAM_RESERVE = getattr(SG, "PROGRAM_RESERVE", 0)
 
 FUSED = env_flag("TT_BIO_TRIATT_BW_FUSED", False)
 
+# Carry the score block, its gradient and the transpose scratch in float32 instead of bfloat16.
+F32_SCORES = env_flag("TT_BIO_TRIATT_BW_F32_SCORES", False)
+
 STATS = {"served": 0, "declined": 0}
 
 
@@ -203,6 +206,7 @@ def cb_table(p):
     Nt, Dt, Qt = p["Nt"], p["Dt"], p["Qt"]
     bf16, f32 = ttnn.bfloat16, ttnn.float32
     b16, b32 = 2048, 4096
+    sf, sb = (f32, b32) if F32_SCORES else (bf16, b16)
     return [
         (CB_Q, Nt * Dt * 2, b16, bf16),
         (CB_K, Nt * Dt * 2, b16, bf16),
@@ -214,9 +218,13 @@ def cb_table(p):
         (CB_SCALE, 1, b16, bf16),
         (CB_ONES, Nt, b16, bf16),
         (CB_DONE, 1, b16, bf16),
-        (CB_P, Qt * Nt, b16, bf16),
-        (CB_DP, Qt * Nt, b16, bf16),
-        (CB_T, Qt * Nt, b16, bf16),
+        # The three score-sized intermediates. Float32 here is the other candidate for the
+        # accuracy gap against the composed path, whose softmax computes in float32 internally --
+        # and it is the expensive one, because these are exactly the buffers the L1 budget is
+        # tight on. Measured before it is bought.
+        (CB_P, Qt * Nt, sb, sf),
+        (CB_DP, Qt * Nt, sb, sf),
+        (CB_T, Qt * Nt, sb, sf),
         (CB_ROW_A, Qt, b16, bf16),
         (CB_ROW_B, Qt, b16, bf16),
         (CB_DBIAS, Nt * Nt, b32, f32),
