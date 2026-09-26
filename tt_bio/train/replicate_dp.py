@@ -141,8 +141,18 @@ def reduce_cut(axis, leaves: Sequence, device) -> int:
     return moved
 
 
-def reduce_grads(axis, params, names=None) -> int:
-    """Sum a parameter set's gradients across ``axis``, in place, on the host. Returns bytes.
+def reduce_grads(axis, params, names=None, device=None) -> int:
+    """Sum a parameter set's gradients across ``axis``, in place. Returns bytes exchanged.
+
+    The sum goes back ON THE DEVICE, like :func:`reduce_cut`'s. This function used to leave
+    it as the host float32 array it was summed in, on the argument that a gradient's next
+    reader is the fp32 master. **That argument is wrong for any weight a later backward also
+    writes**, and on OpenFold3 there is such a set: the replicate half has to meet before the
+    trunk walk (see below), and that walk differentiates the primed replicate, so it calls
+    ``Value.add_grad`` on diffusion weights that already hold the reduced gradient.
+    ``add_grad`` is ttnn all the way down -- ``ttnn.typecast(ndarray, ...)`` raises -- so a
+    host write-back turns the first two-chip step into a TypeError inside the trunk backward,
+    several hundred lines from the reduce that caused it.
 
     ``AdamW.step(replicas=...)`` is the shipped route and it is the right one when every rank
     holds the same set of gradients. Here they do not: the ranks that skip the prefix backward
@@ -170,9 +180,14 @@ def reduce_grads(axis, params, names=None) -> int:
     """
     if axis is None or axis.width == 1:
         return 0
+    import hashlib
     import numpy as np
-    from .tensors import to_host
+    import ttnn
+    from .tensors import to_host, to_device
+    from tt_bio import autograd as ag
 
+    if device is None:
+        raise ValueError("reduce_grads needs the device: the sum goes back on the card")
     names = sorted(params if names is None else names)
     per_param = {}
     present = np.zeros(len(names), np.float32)
@@ -190,11 +205,38 @@ def reduce_grads(axis, params, names=None) -> int:
     # '~' sorts after every name the model uses, so the flags land at the tail of the vector
     # on every rank without anyone agreeing on anything but ASCII.
     per_param["~present"] = [present]
+    # The name set itself crosses, as a checksum, because `reduce_all` flattens in NAME ORDER
+    # and a rank whose names differ therefore sums its parameters into someone else's slots.
+    # This is not hypothetical: OpenFold3 names four diffusion weights
+    # `diffusion.dm._wc.<id(obj)>`, and a CPython id is a memory address, so the two ranks of
+    # the first real two-chip step disagreed on exactly those four names. The shapes matched,
+    # the vector lengths matched, the byte counts matched and nothing raised -- the sum simply
+    # paired the wrong weights. A refusal is the only safe answer; the caller must give the
+    # axis names that do not move between processes.
+    _sum = hashlib.blake2b("\n".join(names).encode(), digest_size=8).digest()
+    per_param["~names"] = [np.frombuffer(_sum, np.uint8).astype(np.float32)]
     summed = axis.reduce_all(per_param)
+    seen = np.asarray(summed["~names"], np.float64).ravel()
+    mine = np.frombuffer(_sum, np.uint8).astype(np.float64) * float(axis.width)
+    if not np.array_equal(seen, mine):
+        raise ValueError(
+            "reduce_grads: the ranks do not agree on the parameter NAMES they are summing, "
+            "so `reduce_all`'s name-ordered flatten would pair different weights with each "
+            "other. Check for names built from `id()` or any other per-process value.")
     flags = np.asarray(summed["~present"]).ravel()
     moved = int(sum(np.asarray(summed[n]).nbytes for n in names))
     for i, n in enumerate(names):
-        params[n].grad = np.asarray(summed[n], np.float32) if flags[i] > 0 else None
+        if flags[i] <= 0:
+            # Not zeros. Adam moves a weight on a zero gradient through its momentum, so a
+            # parameter no rank touched has to come back None to match what one chip does.
+            params[n].grad = None
+            continue
+        # `reduce_all` flattens in name order, so what comes back is a vector and the shape
+        # has to be put back on. `reduce_cut` reshapes for the same reason.
+        shp = _shape(params[n])
+        a = np.asarray(summed[n], np.float32).reshape(shp)
+        params[n].grad = to_device(a, device, dtype=ttnn.float32,
+                                   layout=getattr(ag._unwrap(params[n]), "layout", None))
     return moved
 
 

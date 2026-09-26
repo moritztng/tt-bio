@@ -1,0 +1,365 @@
+{
+ "doc": "cross-process master-weight agreement; see state/perf10/of3t-p10dp.md D3",
+ "pairs": [
+  {
+   "a": "n2f_r0",
+   "b": "n2f_r1",
+   "what": "N=2 ranks, cards 1 and 3",
+   "reps": [
+    {
+     "rep": 0,
+     "names_a": 3152,
+     "names_b": 3152,
+     "names_only_a": [],
+     "names_only_b": [],
+     "shared": 3152,
+     "differing": 2919,
+     "differing_pct": 92.61,
+     "whole_set_hash_a": "cdf4ec3730c4ced0fe67f49f3f61ac35",
+     "whole_set_hash_b": "7f63c915ed16a1704ceef0b634c63175",
+     "sample_differing": [
+      "diffusion.dc.ln_n",
+      "diffusion.dc.ln_s",
+      "diffusion.dc.ln_z",
+      "diffusion.dc.tr_s.0.la",
+      "diffusion.dc.tr_s.0.lb",
+      "diffusion.dc.tr_s.0.ln_b",
+      "diffusion.dc.tr_s.0.ln_w",
+      "diffusion.dc.tr_s.0.lo",
+      "diffusion.dc.tr_s.1.la",
+      "diffusion.dc.tr_s.1.lb",
+      "diffusion.dc.tr_s.1.ln_b",
+      "diffusion.dc.tr_s.1.lo",
+      "diffusion.dc.tr_z.0.la",
+      "diffusion.dc.tr_z.0.lb",
+      "diffusion.dc.tr_z.0.ln_b",
+      "diffusion.dc.tr_z.0.ln_w",
+      "diffusion.dc.tr_z.0.lo",
+      "diffusion.dc.tr_z.1.la",
+      "diffusion.dc.tr_z.1.lb",
+      "diffusion.dc.tr_z.1.ln_b"
+     ]
+    },
+    {
+     "rep": 1,
+     "names_a": 3152,
+     "names_b": 3152,
+     "names_only_a": [],
+     "names_only_b": [],
+     "shared": 3152,
+     "differing": 2933,
+     "differing_pct": 93.05,
+     "whole_set_hash_a": "5f9fb836102c9f01b849669f6c9c8532",
+     "whole_set_hash_b": "14f6dca8e7da0e3d12a4b910fb899d19",
+     "sample_differing": [
+      "diffusion.dc.ln_n",
+      "diffusion.dc.ln_s",
+      "diffusion.dc.ln_z",
+      "diffusion.dc.tr_s.0.la",
+      "diffusion.dc.tr_s.0.lb",
+      "diffusion.dc.tr_s.0.ln_b",
+      "diffusion.dc.tr_s.0.ln_w",
+      "diffusion.dc.tr_s.0.lo",
+      "diffusion.dc.tr_s.1.la",
+      "diffusion.dc.tr_s.1.lb",
+      "diffusion.dc.tr_s.1.ln_b",
+      "diffusion.dc.tr_s.1.ln_w",
+      "diffusion.dc.tr_s.1.lo",
+      "diffusion.dc.tr_z.0.la",
+      "diffusion.dc.tr_z.0.lb",
+      "diffusion.dc.tr_z.0.ln_b",
+      "diffusion.dc.tr_z.0.ln_w",
+      "diffusion.dc.tr_z.0.lo",
+      "diffusion.dc.tr_z.1.la",
+      "diffusion.dc.tr_z.1.lb"
+     ]
+    }
+   ]
+  },
+  {
+   "a": "n2h_r0",
+   "b": "n2h_r1",
+   "what": "N=2 ranks before the naming fix, cards 1 and 3",
+   "reps": [
+    {
+     "rep": 0,
+     "names_a": 3152,
+     "names_b": 3152,
+     "names_only_a": [
+      "diffusion.dm._wc.139605121974048",
+      "diffusion.dm._wc.139605122039968",
+      "diffusion.dm._wc.139605122040288",
+      "diffusion.dm._wc.139605122517664"
+     ],
+     "names_only_b": [
+      "diffusion.dm._wc.131306178541312",
+      "diffusion.dm._wc.131306178541632",
+      "diffusion.dm._wc.131306178541952",
+      "diffusion.dm._wc.131306179084768"
+     ],
+     "shared": 3148,
+     "differing": 2926,
+     "differing_pct": 92.95,
+     "whole_set_hash_a": "75b8a513d59d830e29c9705acb50c6e0",
+     "whole_set_hash_b": "9f2fc488da8cad20fec9b37ace9324ee",
+     "sample_differing": [
+      "diffusion.dc.ln_n",
+      "diffusion.dc.ln_s",
+      "diffusion.dc.ln_z",
+      "diffusion.dc.tr_s.0.la",
+      "diffusion.dc.tr_s.0.lb",
+      "diffusion.dc.tr_s.0.ln_b",
+      "diffusion.dc.tr_s.0.ln_w",
+      "diffusion.dc.tr_s.0.lo",
+      "diffusion.dc.tr_s.1.la",
+      "diffusion.dc.tr_s.1.lb",
+      "diffusion.dc.tr_s.1.ln_b",
+      "diffusion.dc.tr_s.1.ln_w",
+      "diffusion.dc.tr_s.1.lo",
+      "diffusion.dc.tr_z.0.la",
+      "diffusion.dc.tr_z.0.lb",
+      "diffusion.dc.tr_z.0.ln_b",
+      "diffusion.dc.tr_z.0.ln_w",
+      "diffusion.dc.tr_z.0.lo",
+      "diffusion.dc.tr_z.1.la",
+      "diffusion.dc.tr_z.1.lb"
+     ]
+    },
+    {
+     "rep": 1,
+     "names_a": 3152,
+     "names_b": 3152,
+     "names_only_a": [
+      "diffusion.dm._wc.139605121974048",
+      "diffusion.dm._wc.139605122039968",
+      "diffusion.dm._wc.139605122040288",
+      "diffusion.dm._wc.139605122517664"
+     ],
+     "names_only_b": [
+      "diffusion.dm._wc.131306178541312",
+      "diffusion.dm._wc.131306178541632",
+      "diffusion.dm._wc.131306178541952",
+      "diffusion.dm._wc.131306179084768"
+     ],
+     "shared": 3148,
+     "differing": 2930,
+     "differing_pct": 93.07,
+     "whole_set_hash_a": "1192a28204867b439270f5c458f6b79e",
+     "whole_set_hash_b": "1ef14b5520306cc5d6aa185c95451aea",
+     "sample_differing": [
+      "diffusion.dc.ln_n",
+      "diffusion.dc.ln_s",
+      "diffusion.dc.ln_z",
+      "diffusion.dc.tr_s.0.la",
+      "diffusion.dc.tr_s.0.lb",
+      "diffusion.dc.tr_s.0.ln_b",
+      "diffusion.dc.tr_s.0.ln_w",
+      "diffusion.dc.tr_s.0.lo",
+      "diffusion.dc.tr_s.1.la",
+      "diffusion.dc.tr_s.1.lb",
+      "diffusion.dc.tr_s.1.ln_b",
+      "diffusion.dc.tr_s.1.ln_w",
+      "diffusion.dc.tr_s.1.lo",
+      "diffusion.dc.tr_z.0.la",
+      "diffusion.dc.tr_z.0.lb",
+      "diffusion.dc.tr_z.0.ln_b",
+      "diffusion.dc.tr_z.0.ln_w",
+      "diffusion.dc.tr_z.0.lo",
+      "diffusion.dc.tr_z.1.la",
+      "diffusion.dc.tr_z.1.lb"
+     ]
+    }
+   ]
+  },
+  {
+   "a": "ctlA",
+   "b": "ctlB",
+   "what": "world=1, DIFFERENT cards (1 and 3), concurrent",
+   "reps": [
+    {
+     "rep": 0,
+     "names_a": 3152,
+     "names_b": 3152,
+     "names_only_a": [
+      "diffusion.dm._wc.131690738351264",
+      "diffusion.dm._wc.131690738351584",
+      "diffusion.dm._wc.131690738351904",
+      "diffusion.dm._wc.131690738894800"
+     ],
+     "names_only_b": [
+      "diffusion.dm._wc.124405308011488",
+      "diffusion.dm._wc.124405308011808",
+      "diffusion.dm._wc.124405308012128",
+      "diffusion.dm._wc.124405308522192"
+     ],
+     "shared": 3148,
+     "differing": 2906,
+     "differing_pct": 92.31,
+     "whole_set_hash_a": "358018e5ede76d912e72763b82de8b41",
+     "whole_set_hash_b": "7847ceee2740bc592ef0f2ecdb105ce1",
+     "sample_differing": [
+      "diffusion.dc.ln_n",
+      "diffusion.dc.ln_s",
+      "diffusion.dc.ln_z",
+      "diffusion.dc.tr_s.0.la",
+      "diffusion.dc.tr_s.0.lb",
+      "diffusion.dc.tr_s.0.ln_b",
+      "diffusion.dc.tr_s.0.ln_w",
+      "diffusion.dc.tr_s.0.lo",
+      "diffusion.dc.tr_s.1.la",
+      "diffusion.dc.tr_s.1.lb",
+      "diffusion.dc.tr_s.1.ln_b",
+      "diffusion.dc.tr_s.1.ln_w",
+      "diffusion.dc.tr_s.1.lo",
+      "diffusion.dc.tr_z.0.la",
+      "diffusion.dc.tr_z.0.lb",
+      "diffusion.dc.tr_z.0.ln_b",
+      "diffusion.dc.tr_z.0.lo",
+      "diffusion.dc.tr_z.1.la",
+      "diffusion.dc.tr_z.1.lb",
+      "diffusion.dc.tr_z.1.ln_b"
+     ]
+    },
+    {
+     "rep": 1,
+     "names_a": 3152,
+     "names_b": 3152,
+     "names_only_a": [
+      "diffusion.dm._wc.131690738351264",
+      "diffusion.dm._wc.131690738351584",
+      "diffusion.dm._wc.131690738351904",
+      "diffusion.dm._wc.131690738894800"
+     ],
+     "names_only_b": [
+      "diffusion.dm._wc.124405308011488",
+      "diffusion.dm._wc.124405308011808",
+      "diffusion.dm._wc.124405308012128",
+      "diffusion.dm._wc.124405308522192"
+     ],
+     "shared": 3148,
+     "differing": 2930,
+     "differing_pct": 93.07,
+     "whole_set_hash_a": "fc1264b4d042fdf3e9b9004b80945e04",
+     "whole_set_hash_b": "adcd94b2b517478df2313b615202add1",
+     "sample_differing": [
+      "diffusion.dc.ln_n",
+      "diffusion.dc.ln_s",
+      "diffusion.dc.ln_z",
+      "diffusion.dc.tr_s.0.la",
+      "diffusion.dc.tr_s.0.lb",
+      "diffusion.dc.tr_s.0.ln_b",
+      "diffusion.dc.tr_s.0.ln_w",
+      "diffusion.dc.tr_s.0.lo",
+      "diffusion.dc.tr_s.1.la",
+      "diffusion.dc.tr_s.1.lb",
+      "diffusion.dc.tr_s.1.ln_b",
+      "diffusion.dc.tr_s.1.ln_w",
+      "diffusion.dc.tr_s.1.lo",
+      "diffusion.dc.tr_z.0.la",
+      "diffusion.dc.tr_z.0.lb",
+      "diffusion.dc.tr_z.0.ln_b",
+      "diffusion.dc.tr_z.0.ln_w",
+      "diffusion.dc.tr_z.0.lo",
+      "diffusion.dc.tr_z.1.la",
+      "diffusion.dc.tr_z.1.lb"
+     ]
+    }
+   ]
+  },
+  {
+   "a": "ctlA",
+   "b": "ctlC",
+   "what": "world=1, SAME card (1), two processes",
+   "reps": [
+    {
+     "rep": 0,
+     "names_a": 3152,
+     "names_b": 3152,
+     "names_only_a": [
+      "diffusion.dm._wc.131690738351264",
+      "diffusion.dm._wc.131690738351584",
+      "diffusion.dm._wc.131690738351904",
+      "diffusion.dm._wc.131690738894800"
+     ],
+     "names_only_b": [
+      "diffusion.dm._wc.134248180397584",
+      "diffusion.dm._wc.134248180397904",
+      "diffusion.dm._wc.134248180398224",
+      "diffusion.dm._wc.134248180957344"
+     ],
+     "shared": 3148,
+     "differing": 2900,
+     "differing_pct": 92.12,
+     "whole_set_hash_a": "358018e5ede76d912e72763b82de8b41",
+     "whole_set_hash_b": "a9c681ce0e13612fc1f301fae720b9c4",
+     "sample_differing": [
+      "diffusion.dc.ln_n",
+      "diffusion.dc.ln_s",
+      "diffusion.dc.ln_z",
+      "diffusion.dc.tr_s.0.la",
+      "diffusion.dc.tr_s.0.lb",
+      "diffusion.dc.tr_s.0.ln_b",
+      "diffusion.dc.tr_s.0.ln_w",
+      "diffusion.dc.tr_s.0.lo",
+      "diffusion.dc.tr_s.1.la",
+      "diffusion.dc.tr_s.1.lb",
+      "diffusion.dc.tr_s.1.ln_b",
+      "diffusion.dc.tr_s.1.ln_w",
+      "diffusion.dc.tr_s.1.lo",
+      "diffusion.dc.tr_z.0.la",
+      "diffusion.dc.tr_z.0.lb",
+      "diffusion.dc.tr_z.0.ln_b",
+      "diffusion.dc.tr_z.0.lo",
+      "diffusion.dc.tr_z.1.la",
+      "diffusion.dc.tr_z.1.lb",
+      "diffusion.dc.tr_z.1.ln_b"
+     ]
+    },
+    {
+     "rep": 1,
+     "names_a": 3152,
+     "names_b": 3152,
+     "names_only_a": [
+      "diffusion.dm._wc.131690738351264",
+      "diffusion.dm._wc.131690738351584",
+      "diffusion.dm._wc.131690738351904",
+      "diffusion.dm._wc.131690738894800"
+     ],
+     "names_only_b": [
+      "diffusion.dm._wc.134248180397584",
+      "diffusion.dm._wc.134248180397904",
+      "diffusion.dm._wc.134248180398224",
+      "diffusion.dm._wc.134248180957344"
+     ],
+     "shared": 3148,
+     "differing": 2925,
+     "differing_pct": 92.92,
+     "whole_set_hash_a": "fc1264b4d042fdf3e9b9004b80945e04",
+     "whole_set_hash_b": "f4846a5419f5d339f4b8c75a00a036a5",
+     "sample_differing": [
+      "diffusion.dc.ln_n",
+      "diffusion.dc.ln_s",
+      "diffusion.dc.ln_z",
+      "diffusion.dc.tr_s.0.la",
+      "diffusion.dc.tr_s.0.lb",
+      "diffusion.dc.tr_s.0.ln_b",
+      "diffusion.dc.tr_s.0.ln_w",
+      "diffusion.dc.tr_s.0.lo",
+      "diffusion.dc.tr_s.1.la",
+      "diffusion.dc.tr_s.1.lb",
+      "diffusion.dc.tr_s.1.ln_b",
+      "diffusion.dc.tr_s.1.ln_w",
+      "diffusion.dc.tr_s.1.lo",
+      "diffusion.dc.tr_z.0.la",
+      "diffusion.dc.tr_z.0.lb",
+      "diffusion.dc.tr_z.0.ln_b",
+      "diffusion.dc.tr_z.0.ln_w",
+      "diffusion.dc.tr_z.0.lo",
+      "diffusion.dc.tr_z.1.la",
+      "diffusion.dc.tr_z.1.lb"
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -184,9 +184,10 @@ def _named_rank(rank, world, run, q):
         "trunk.w": _P(np.array([9.0], np.float32)),
         "trunk.b": _P(None),
     }
-    moved = rdp.reduce_grads(axis, params, names=["diffusion.w"])
-    q.put((rank, {k: (None if v.grad is None else np.asarray(v.grad).tolist())
-                  for k, v in params.items()}, moved))
+    _stub_to_device()
+    moved = rdp.reduce_grads(axis, params, names=["diffusion.w"], device="stub")
+    vals, on_dev = _dump(params)
+    q.put((rank, vals, moved, on_dev))
 
 
 def test_reduce_grads_over_a_name_set_leaves_the_prefix_untouched():
@@ -201,15 +202,21 @@ def test_reduce_grads_over_a_name_set_leaves_the_prefix_untouched():
                   for r in range(world)]
             for p in ps:
                 p.start()
-            got = {r: (g, moved) for r, g, moved in
+            got = {r: (g, moved, on_dev) for r, g, moved, on_dev in
                    (q.get(timeout=120) for _ in range(world))}
             for p in ps:
                 p.join(timeout=30)
                 assert p.exitcode == 0
         total = float(sum(r + 1 for r in range(world)))
         for r in range(world):
-            g, moved = got[r]
+            g, moved, on_dev = got[r]
             assert g["diffusion.w"] == [total], (world, r, g)
+            # D1: the sum has to come back ON THE DEVICE. It used to come back as the host
+            # array it was summed in, and the trunk backward's `add_grad` -- which writes the
+            # same diffusion weights, via the primed replicate -- died on `ttnn.typecast` of
+            # a numpy array. A reduced gradient is not always destined for the fp32 master.
+            assert on_dev["diffusion.w"], (world, r, "reduced gradient stayed on the host")
+            assert not on_dev["trunk.w"], (world, r, "an unnamed weight was touched")
             assert g["trunk.w"] == [9.0], f"world {world} rank {r} summed the prefix: {g}"
             assert g["trunk.b"] is None
             # only the named parameter's bytes moved
@@ -233,6 +240,33 @@ def test_shard_rejects_a_rank_off_its_axis():
         rdp.shard(8, 2, 2)
 
 
+class _OnDevice:
+    """What a stubbed ``to_device`` hands back, so a card-free test can tell a device push
+    from a host array. The whole of D1 was that ``reduce_grads`` returned the latter."""
+
+    def __init__(self, arr, device, dtype=None, layout=None):
+        self.arr, self.device, self.dtype, self.layout = arr, device, dtype, layout
+
+
+def _stub_to_device():
+    """Point ``tensors.to_device`` at ``_OnDevice``. ``reduce_grads`` imports it inside the
+    function body, so patching the module is enough and no card is needed."""
+    from tt_bio.train import tensors
+    tensors.to_device = lambda arr, device, *, dtype=None, layout=None: _OnDevice(
+        arr, device, dtype, layout)
+
+
+def _dump(params):
+    """``(values, on_device)`` for a rank's parameter set, both picklable."""
+    vals, dev = {}, {}
+    for k, v in params.items():
+        g = v.grad
+        dev[k] = isinstance(g, _OnDevice)
+        vals[k] = None if g is None else np.asarray(
+            g.arr if isinstance(g, _OnDevice) else g).tolist()
+    return vals, dev
+
+
 class _P:
     """A parameter stand-in: something with `.grad`, which is all the reduce touches."""
 
@@ -253,9 +287,44 @@ def _rank(rank, world, run, n_leaves, q):
         "w2": _P(np.array([7.0], np.float32)) if rank == 0 else _P(None),
         "w3": _P(None),
     }
-    rdp.reduce_grads(axis, params)
-    q.put((rank, {k: (None if v.grad is None else np.asarray(v.grad).tolist())
-                  for k, v in params.items()}))
+    _stub_to_device()
+    rdp.reduce_grads(axis, params, device="stub")
+    vals, on_dev = _dump(params)
+    q.put((rank, vals, on_dev))
+
+
+def _mismatched_rank(rank, world, run, q):
+    """Rank `r` names its weight `w.<r>`, which is what an `id()`-derived name looks like."""
+    axis = ProcessAxis(name="dp", device_ids=tuple(range(world)),
+                       mesh=Mesh({"dp": list(range(world))}), dp_rank=rank, run=run)
+    params = {f"w.{rank}": _P(np.array([rank + 1.0], np.float32))}
+    _stub_to_device()
+    try:
+        rdp.reduce_grads(axis, params, device="stub")
+        q.put((rank, "no error"))
+    except ValueError as e:
+        q.put((rank, "refused" if "NAMES" in str(e) else f"wrong error: {e}"))
+
+
+def test_reduce_grads_refuses_when_the_ranks_name_different_parameters():
+    """D2, the defect that measured clean. `reduce_all` flattens in NAME ORDER, so two ranks
+    whose names differ sum different weights into each other. OpenFold3 hit this for real:
+    `OF3DiffusionModule._w_tt` caches on `id(w)`, a memory address, so four weights walked out
+    as `diffusion.dm._wc.<address>` and the two ranks disagreed on exactly those four. Same
+    count, same shapes, same vector length, same byte count, no exception -- the sum simply
+    paired the wrong weights. Silence is the bug; a refusal is the fix."""
+    ctx = mp.get_context("spawn")
+    world = 2
+    with tempfile.TemporaryDirectory() as run:
+        q = ctx.Queue()
+        ps = [ctx.Process(target=_mismatched_rank, args=(r, world, run, q))
+              for r in range(world)]
+        for p in ps:
+            p.start()
+        got = dict(q.get(timeout=120) for _ in range(world))
+        for p in ps:
+            p.join(timeout=30)
+    assert set(got.values()) == {"refused"}, got
 
 
 def test_reduce_grads_sums_across_ranks_and_keeps_an_absent_gradient_absent():
@@ -268,16 +337,21 @@ def test_reduce_grads_sums_across_ranks_and_keeps_an_absent_gradient_absent():
                   for r in range(world)]
             for p in ps:
                 p.start()
-            got = dict(q.get(timeout=120) for _ in range(world))
+            got = {r: (vals, on_dev) for r, vals, on_dev in
+                   (q.get(timeout=120) for _ in range(world))}
             for p in ps:
                 p.join(timeout=30)
                 assert p.exitcode == 0
         total = sum(i + 1 for i in range(n))
         for r in range(world):
-            assert got[r]["w0"] == [float(total)], (world, r, got[r])
-            assert got[r]["w1"] == [float(total * 2)]
+            g, on_dev = got[r]
+            assert g["w0"] == [float(total)], (world, r, g)
+            assert g["w1"] == [float(total * 2)]
             # present on one rank only, so it survives the sum at its own value
-            assert got[r]["w2"] == [7.0]
+            assert g["w2"] == [7.0]
             # present on NO rank: stays None. Adam with a zero gradient still moves a weight
             # through its momentum, so None and zeros are different updates.
-            assert got[r]["w3"] is None
+            assert g["w3"] is None
+            # D1 again, on the whole-set path: every summed gradient comes back on the card.
+            assert on_dev["w0"] and on_dev["w1"] and on_dev["w2"], (world, r, on_dev)
+            assert not on_dev["w3"], (world, r, "an absent gradient was pushed as zeros")

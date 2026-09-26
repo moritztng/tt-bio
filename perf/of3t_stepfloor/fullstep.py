@@ -42,6 +42,7 @@ constant this row has no business fixing. Timing reads the sample COUNT, not the
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gc
 import hashlib
 import json
@@ -113,6 +114,25 @@ def _cotangents(roots, seeds, dev):
     return cot
 
 
+def _stable_names(found: dict) -> dict:
+    """``found`` with every ``id()``-derived trailing segment replaced by a walk-order index.
+
+    A segment of ten or more digits is an address, not a name -- no model names a weight
+    `4` let alone `139605121974048`, and the shipped indices (`tr_s.0.la`) are one or two
+    digits. Entries sharing a parent are numbered in the order the walk produced them.
+    """
+    import collections
+    seen = collections.Counter()
+    out = {}
+    for n, v in found.items():                       # insertion order, not sorted
+        head, _, tail = n.rpartition(".")
+        if tail.isdigit() and len(tail) >= 10:
+            n = f"{head}.{seen[head]}"
+            seen[head] += 1
+        out[n] = v
+    return out
+
+
 def declare_all(trunk, sampler, out):
     """Every device weight of the trunk AND the diffusion half, as one tape-leaf set.
 
@@ -136,6 +156,18 @@ def declare_all(trunk, sampler, out):
     # replaces t.value, and the engine value setter re-keys the TAPE registry for it
     # (autograd.py:220), but the MODEL still holds the handle the walk saw, and only writing
     # it back closes that half.
+    # A weight whose name carries a CPython `id()` has a DIFFERENT name in every process.
+    # `OF3DiffusionModule._w_tt` caches on `key = id(w)` (openfold3_diffusion_module.py:322),
+    # so four diffusion weights walk out as `diffusion.dm._wc.<address>`. On one chip nothing
+    # notices. Across ranks it is silent corruption: `ProcessAxis.reduce_all` flattens in NAME
+    # ORDER, so rank 0's `_wc.139605121974048` and rank 1's `_wc.131306178541312` sort to
+    # different slots and the sum pairs different weights. Measured, not supposed -- the first
+    # two-chip step disagreed on exactly these four names and raised nothing, because the
+    # shapes, the vector lengths and the byte counts all matched.
+    #
+    # Renamed to the position in walk order, which is dict INSERTION order and therefore the
+    # construction order of the module: the same index for the same weight in every process.
+    found = _stable_names(found)
     by_id, flat, slots, unwritable = {}, {}, {}, []
     for n, (o, k, t) in sorted(found.items()):
         if id(t) in by_id:
@@ -673,6 +705,13 @@ def main() -> int:
                          "7-term set per root, which is what this file did before "
                          "of3t-p10host took it apart and is kept as the control")
     ap.add_argument("--stage", default="initial_training")
+    ap.add_argument("--exact-training", choices=("on", "off"), default="on",
+                    help="`off` runs the taped step inside `autograd.exact_training(False)`, "
+                         "so no softmax or layer norm makes a host float64 round trip. "
+                         "`of3t-p10exact` retired that instrument: TT_BIO_SOFTMAX_BW_FP32=1 "
+                         "clears the same accuracy clause on device (x_bar 0.99736, bar 1.0) "
+                         "and the instrument costs the taped backward 1541.3 s against 36.9. "
+                         "Default `on` keeps every banked arm reproducible.")
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
@@ -738,6 +777,21 @@ def main() -> int:
             from tt_bio.train.losses import of3_loss_weights
             from tt_bio.train.optim import AdamW
             from tt_bio.train import replicate_dp as rdp
+
+            # `_EXACT_TRAINING` defaults True, so a taped step runs its softmaxes and layer
+            # norms on the host in float64 unless something turns that off. It is an accuracy
+            # INSTRUMENT, not the model, and it dominates any step it is in. Entered here
+            # rather than around the rep loop because `tape()` and `backward()` read the scope
+            # at the moment they open.
+            _exact_scope = contextlib.ExitStack()
+            if a.exact_training == "off":
+                _exact_scope.enter_context(ag.exact_training(False))
+            out["exact_training"] = {
+                "scope": a.exact_training,
+                "ops": list(ag.exact_training_ops()),
+                "softmax_bw_fp32": bool(ag.SOFTMAX_BW_FP32),
+                "note": "both stats dicts all-zero after the reps is the only proof the host "
+                        "float64 path never ran; the flag alone does not prove it"}
 
             held, _meta = S.capture(a.tokens, out)
             trunk = held["trunk"][0]
@@ -982,8 +1036,8 @@ def main() -> int:
                     # are excluded from the message rather than sent: 660.7 MB a step.
                     if dp_axis is not None:
                         tg = time.perf_counter()
-                        row["grad_reduce_bytes"] = rdp.reduce_grads(dp_axis, params,
-                                                                    names=dp_reduce_names)
+                        row["grad_reduce_bytes"] = rdp.reduce_grads(
+                            dp_axis, params, names=dp_reduce_names, device=dev)
                         row["grad_reduce_s"] = round(time.perf_counter() - tg, 3)
                         row["grad_reduce_names"] = len(dp_reduce_names)
 
@@ -1105,7 +1159,7 @@ def main() -> int:
                     # Timed on its own line and taken AFTER `optimizer_s` is read, because
                     # hashing 1.5 GB of master is real host work and folding it into a step
                     # this row publishes would inflate the very number it is auditing.
-                    if dp_axis is not None and opt is not None:
+                    if opt is not None:
                         t0 = time.perf_counter()
                         h = hashlib.blake2b(digest_size=16)
                         for _n in sorted(opt.master):
@@ -1113,6 +1167,14 @@ def main() -> int:
                             h.update(np.ascontiguousarray(opt.master[_n],
                                                           dtype=np.float32).tobytes())
                         row["master_hash"] = h.hexdigest()
+                        # Per name as well as over the whole set. A single digest tells you
+                        # THAT two ranks disagree; diffing these tells you WHICH weights,
+                        # which is the difference between a finding and a mystery.
+                        row["master_hash_by_name"] = {
+                            _n: hashlib.blake2b(
+                                np.ascontiguousarray(opt.master[_n], dtype=np.float32
+                                                     ).tobytes(), digest_size=8).hexdigest()
+                            for _n in sorted(opt.master)}
                         row["master_hash_s"] = round(time.perf_counter() - t0, 3)
                     row["optimizer_updated"] = len(upd) if hasattr(upd, "__len__") else None
                 else:
@@ -1145,6 +1207,10 @@ def main() -> int:
                       flush=True)
                 dump()
 
+            _exact_scope.close()
+            out["exact_training"]["EXACT_SOFTMAX_STATS"] = dict(ag.EXACT_SOFTMAX_STATS)
+            out["exact_training"]["EXACT_LAYER_NORM_STATS"] = dict(ag.EXACT_LAYER_NORM_STATS)
+            out["exact_training"]["SOFTMAX_BW_FP32_STATS"] = dict(ag.SOFTMAX_BW_FP32_STATS)
             out["renorm"]["stats_after"] = dict(ag.SOFTMAX_BW_RENORM_STATS)
             out["renorm"]["applied_during_reps"] = (
                 out["renorm"]["stats_after"]["applied"]
