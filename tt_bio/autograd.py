@@ -218,9 +218,14 @@ class _Node:
 #:
 #: What the lever removes is the CAST, 50 of them and 2.26 GB per AF2 Evoformer block backward at
 #: n=256 (`perf/bcx_bytes` `census.json` `typecast_by_why`), inside the 5.736 GB `reach.json`
-#: charges to fan-in. `bcx-bytes` priced the accuracy on the real operands: mixed-dtype
-#: `ttnn.add` differs from the widened sum on 13.6 % of elements and moves the result from
-#: 1.9e-10 to 1.4e-4 against float64 (`dtype_probe.json`). 1.4e-4 is far under the campaign's
+#: charges to fan-in.
+#:
+#: The accuracy price, read off the arm this call actually makes. `bcx-bytes` quoted 13.6 % of
+#: elements differing and 1.9e-10 -> 1.4e-4, but that is `dtype_probe.json`'s `a+b f32 [mixed]`
+#: arm, where BOTH operands are bf16. The accumulator here is fp32, so the applicable arm is
+#: `c+b f32 [mixed dtype]` -- `ttnn.add(acc_f32, g_bf16, dtype=f32)`, this exact call -- and it
+#: reads mismatch_frac 0.99986 and rel L2 2.079e-4 against float64, next to 2.537e-8 for the
+#: widened reference. Effectively every element moves. 2.079e-4 is still 240x under the campaign's
 #: 5.0e-02 per-tensor bar, which makes this a lever to grade rather than one to refuse -- as a
 #: STACK against float64, because perturbations here are strongly sub-additive and summing the
 #: arms' individual readings would misprice it in both directions.
