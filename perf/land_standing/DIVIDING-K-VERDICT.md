@@ -242,3 +242,79 @@ time.
 
 If someone wants it on sooner, the honest minimum is one confident 832-token fold per arm with an
 MSA, showing the structures agree to within that fixture's own seed floor.
+
+## The control that was missing: what main ALREADY ships at the neighbouring length
+
+Measured 2026-09-26 on qb2 card 3, p300c, loadavg ~13 (an accuracy question, so a loud box is
+fine — nothing here is a timing claim). `perf/land_standing/neighbour704.sh`,
+`perf/land_standing/out/neighbour704/`.
+
+Every earlier pass asked *"is the route the lever unlocks closer to correct?"* and ran out of
+references. That was the wrong question to keep asking, because it treats 832 as if the fused
+route were a new proposal. **It is not.** OpenFold3's trunk serves the fused route by default at
+704, 1088, 1216 and 1472. 832 is the single length where it declines, and it declines because the
+shipped k does not divide 832, not because anyone judged it less accurate there. So the right
+question is: **how big is the fused-vs-materialised difference at a length main already ships, and
+how does 832 compare to it?**
+
+Three legs at 704 tokens, same fixture family, same seed: the shipped default, the same fold
+forced onto the materialised fall-back with `TT_BIO_TRIATT_SDPA_HIFI_AB=-openfold3.trunk`, and the
+shipped default again as the control.
+
+    leg     route                       fused-hifi stats            pick
+    fusedA  shipped default             384 served / 0 declined     (704,704) q352 k704
+    matB    -openfold3.trunk            0 served / 0 declined       none (never attempted)
+    fusedC  shipped default (control)   384 served / 0 declined     (704,704) q352 k704
+
+    tensor            control A vs C      route A vs B       same quantity at 832
+    s  [1,n,384]          0.000e+00         5.177e-02              2.152e-01
+    z  [1,n,n,128]        0.000e+00         1.041e-01              8.724e-02
+
+**The control is exactly zero at 704 as well**, so this instrument has no floor to clear here
+either.
+
+**On the pair representation the lever's effect at 832 is SMALLER than what main already ships at
+704** — 8.724e-02 against 1.041e-01. Whatever standard 704 passes, 832 passes by the same measure.
+
+**On the single representation 832 moves 4.2x further than 704 does, and there is a mechanical
+reason rather than a mystery.** The picks are in the table above: at 704 the fused route takes
+**k = 704 in one chunk**, so its online softmax makes no running-max rescale and reduces each row
+in a single pass. At 832 the lever's ladder picks **k = 416, two chunks**, which adds the rescale.
+That extra term is the `s` difference, and it is the thing to name when quoting these numbers.
+
+**Which also corrects something this document implied.** Main does not ship a chunked-k fused
+triangle attention anywhere at this site today: 704 picks k704, and 1088, 1216 and 1472 all pick
+k equal to the full length. So the lever does not merely extend a shipped route to a missing
+length — at 832 it is the only place the trunk would run a two-chunk k ladder. That is a real
+distinction and it belongs in the decision.
+
+## Per call against float64, read across lengths so the shipped route is its own reference
+
+Already on disk from an earlier pass and never tabulated this way
+(`perf/land_standing/khole_table.py` over `out/khole_fixed/`). Each row grades one call against a
+float64 reference, so a length where the **shipped** arm serves gives the distance main already
+accepts.
+
+    n     shipped serves?   shipped rel_vs_f64   dividing rel_vs_f64
+    256   yes               0.021430             0.021430   <- identical, the built-in null
+    288   no                      -              0.021305
+    352   no                      -              0.021290
+    416   no                      -              0.021187
+    704   no                      -              0.020839
+    832   no                      -              0.021481
+    864   no                      -              0.020889
+
+Two things fall out.
+
+**At n=256 the two arms agree to the last digit**, because the shipped k already divides 256 and
+the lever changes nothing. That is a negative control the experiment carries for free: where the
+lever should be inert it is exactly inert.
+
+**The route the lever unlocks sits in a 0.02084-0.02148 band across seven lengths, and the one
+length where the shipped route serves reads 0.021430 — inside that band.** 832's 0.021481 is
+0.24 % away from it. So per call, against float64, the lever's route is not a less accurate
+kernel; it is the same kernel at a length that currently gets no kernel at all.
+
+(Read the `shipped_k` column of the source files before reusing them: this bench runs its own
+shape, batch 32 / 4 heads / head_dim 32, and its shipped k is 256 where the production trunk at
+704 picks 704. The n=256 null and the band are what transfer, not the per-length pick.)

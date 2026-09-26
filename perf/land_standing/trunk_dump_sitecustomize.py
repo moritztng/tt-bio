@@ -30,7 +30,12 @@ def _summarise(obj, out, tag):
     import sys as _s
     _T = _s.modules.get("tt_bio.tenstorrent")
     rec = {"tag": tag, "n_tensors": len(vals), "tensors": [],
-           "host_f64_stats": dict(getattr(_T, "HOST_F64_SOFTMAX_STATS", {}) or {})}
+           "host_f64_stats": dict(getattr(_T, "HOST_F64_SOFTMAX_STATS", {}) or {}),
+           # The firing proof travels with the tensors it explains. A trunk comparison between
+           # two routes is only about those routes if each leg actually took the one it names.
+           "hifi_stats": dict(getattr(_T, "TRIATT_FUSED_HIFI_STATS", {}) or {}),
+           "hifi_picks": {str(k): v for k, v in
+                          (getattr(_T, "TRIATT_FUSED_HIFI_PICKS", {}) or {}).items()}}
     for i, t in enumerate(vals):
         try:
             h = ttnn.to_torch(t).double()
