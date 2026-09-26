@@ -1,18 +1,37 @@
 {
- "seed": 100,
- "chains": {
-  "binder": 148,
-  "target_hPDL1": 115
+ "campaign": {
+  "seed": 100,
+  "trajectory": 1,
+  "source": "bindcraft/campaign.py:162 -> trajectory.py:280-282",
+  "chains": {
+   "binder": 71,
+   "target_hPDL1": 115
+  },
+  "residues_that_exist": 186,
+  "bucket": 32,
+  "handed_to_the_model": 211,
+  "on_tile": 224,
+  "tile": 32
  },
- "residues_that_exist": 263,
- "bucket": 32,
- "handed_to_the_model": 275,
- "on_tile": 288,
- "tile": 32,
+ "reference": {
+  "seed": 100,
+  "trajectory": null,
+  "source": "bcx_predictor/bc2_state.py:design_state -> campaign.py:239",
+  "chains": {
+   "binder": 148,
+   "target_hPDL1": 115
+  },
+  "residues_that_exist": 263,
+  "bucket": 32,
+  "handed_to_the_model": 275,
+  "on_tile": 288,
+  "tile": 32
+ },
+ "same_complex": false,
  "cross_check": {
   "source": "perf/bcx_extrawire/runs/grade_hostarms/grade_host.json",
   "capture_width": 275,
   "region_from_mask_fraction": 263.0,
-  "agrees_with_residues_that_exist": true
+  "matches": "reference"
  }
 }
