@@ -48,7 +48,8 @@ __all__ = ["source", "names", "recipe", "train_loop"]
 def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
                betas=(0.9, 0.95), weight_decay=0.0, plateau_until=50000, checkpoint_every=100,
-               tokens=None, weights=None, model=None, on_step=None):
+               tokens=None, weights=None, model=None, on_step=None,
+               displacement_band=None):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -84,6 +85,12 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     None of the three could be left to a default. ``beta2`` is the sharpest: 0.999 against
     0.95 is a second-moment horizon twenty times longer, it moves no gradient and no loss
     curve, and over twenty steps it was the whole of a 0.9 % uniform excess in the update.
+
+    ``displacement_band`` is the step control's band, ``None`` for the optimizer's own. It is
+    an argument because a run can legitimately sit under it: at a rate whose step is below the
+    device dtype's spacing every update rounds away by design, and a grading arm needs to
+    RECORD that ratio rather than be stopped by it. Widening it is a pre-registration, not a
+    workaround -- the ratio is in the provenance either way.
 
     ``on_step(record)`` is called with each step's history row as soon as it exists, before
     the checkpoint. It is how a long run survives its own death: ``history`` is returned at
@@ -224,7 +231,9 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         # The step control, on the cumulative ratio over the whole run. Raises rather than
         # warns: a run whose updates never reached the weight the forward reads produced
         # nothing, and it produced nothing while every number above looked healthy.
-        prov.config["displacement"] = opt.check_displacement()
+        prov.config["displacement"] = (opt.check_displacement()
+                                       if displacement_band is None else
+                                       opt.check_displacement(band=displacement_band))
         # A rank's result leaves with the rank. The driver has no device and no optimizer, so
         # the masters it compares for divergence only exist inside this process. No-op when
         # nothing launched us as a rank.

@@ -83,6 +83,12 @@ def main() -> int:
                     help="train_loop defaults to 1000, which at N~30 leaves the rate at ~9e-6 "
                          "and both arms would agree by not training. 0 runs at lr from step 0")
     ap.add_argument("--global-batch", type=int, default=1)
+    ap.add_argument("--displacement-band", default="",
+                    help="lo,hi for the step control. The shipped band is (0.9, 1.1) and a "
+                         "device-resident bf16 arm can sit under it honestly: at 2 steps and "
+                         "lr 3e-4 the ratio read 0.7468, the master moving 2.9485 where the "
+                         "weight the forward reads moved 2.2021. The ratio is recorded "
+                         "whatever the band, and both arms carry the same one")
     ap.add_argument("--rollout", type=int, default=20)
     ap.add_argument("--num-cycles", type=int, default=1)
     ap.add_argument("--checkpoint-every", type=int, default=10)
@@ -134,10 +140,14 @@ def main() -> int:
                           f"|g| {row['grad_norm']}", flush=True)
                     dump()
 
+                band = (tuple(float(x) for x in a.displacement_band.split(","))
+                        if a.displacement_band else None)
+                rec["displacement_band"] = band
                 run = train_loop(fwd, ds, out_dir=a.out_dir, global_batch=a.global_batch,
                                  steps=a.steps, train="weights", seed=a.seed, lr=a.lr,
                                  warmup_steps=a.warmup_steps,
-                                 checkpoint_every=a.checkpoint_every, on_step=on_step)
+                                 checkpoint_every=a.checkpoint_every, on_step=on_step,
+                                 displacement_band=band)
             rec["displacement"] = run["displacement"]
             rec["provenance"] = run["provenance"].as_dict()
             rec["params_trained"] = len(run["params"])
