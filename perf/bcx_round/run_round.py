@@ -52,6 +52,8 @@ def main():
                     help="predictor(exact=...); 1 is what origin/main defaults to")
     ap.add_argument("--binder", type=int, default=0,
                     help="pin binder_lengths so n is fixed; 0 leaves pdl1.json's own 60-180 draw")
+    ap.add_argument("--extra-msa", dest="extra_msa", type=int, default=0,
+                    help="predictor(extra_msa=...); 1 runs the 4-block extra-MSA stack on card")
     ap.add_argument("--shipped", action="store_true",
                     help="leave pdl1.json's own five multimer_v3 design models in place "
                          "instead of pinning one monomer trunk")
@@ -94,6 +96,7 @@ def main():
 
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "exact": bool(args.exact),
+             "extra_msa_on_device": bool(args.extra_msa),
              "shipped_pool": bool(args.shipped), "binder_pinned": args.binder,
              "model_pool": pool,
              "pci": M.CLOCK.pci, "sysfs": node, "commit": git_head(),
@@ -123,11 +126,14 @@ def main():
     t0 = time.time()
     stopped = None
     evo = None
+    extra = None
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation="device",
                                            checkpoints=args.params,
+                                           extra_msa=bool(args.extra_msa),
                                            exact=bool(args.exact)) as build:
             evo = build.evoformer
+            extra = build.extra_msa
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -141,6 +147,9 @@ def main():
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
                       "device_calls": dict(evo.calls) if evo else None,
+                      "extra_msa_calls": dict(extra.calls) if extra else None,
+                      "extra_msa_swapped": list(extra.swapped) if extra else None,
+                      "extra_msa_mask_seen": dict(extra.mask_seen) if extra else None,
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})

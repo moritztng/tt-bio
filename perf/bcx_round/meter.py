@@ -130,23 +130,28 @@ def _shapes(args):
 def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
     """Patch the four surfaces a round is made of. All call through."""
 
-    # 1. the device seam: every Evoformer call the card runs, tagged by which of the
-    #    three entry points took it. `_taped` is the trunk forward under the tape and
-    #    runs once per recycle, `_backward` is the taped backward, `_primal` is a
-    #    forward-only fold (a validation or reference refold).
-    for name in ("_primal", "_taped", "_backward"):
-        orig = getattr(splice_mod.EvoformerOnDevice, name)
+    # 1. the device seam: every call the card runs, tagged by which of the three entry
+    #    points took it. `_taped` is a forward under the tape and runs once per recycle,
+    #    `_backward` is the taped backward, `_primal` is a forward-only fold (a validation
+    #    or reference refold). Both device-side stacks carry the same three seams, so the
+    #    `module` field is what separates the 48-block Evoformer from the 4-block extra-MSA
+    #    stack. `analyze.py` sums device time across both, which is what makes `host_in_sg`
+    #    right on either arm without knowing the extra-MSA swap exists.
+    for module, cls in (("evoformer", splice_mod.EvoformerOnDevice),
+                        ("extra_msa", splice_mod.ExtraMsaOnDevice)):
+        for name in ("_primal", "_taped", "_backward"):
+            orig = getattr(cls, name)
 
-        def make(name, orig):
-            def wrapper(self, *a, **kw):
-                t0 = time.time()
-                try:
-                    return orig(self, *a, **kw)
-                finally:
-                    ev("device", name.lstrip("_"), t0, time.time(),
-                       round=meter.entries, shapes=_shapes(a))
-            return wrapper
-        setattr(splice_mod.EvoformerOnDevice, name, make(name, orig))
+            def make(name, orig, module):
+                def wrapper(self, *a, **kw):
+                    t0 = time.time()
+                    try:
+                        return orig(self, *a, **kw)
+                    finally:
+                        ev("device", name.lstrip("_"), t0, time.time(),
+                           round=meter.entries, module=module, shapes=_shapes(a))
+                return wrapper
+            setattr(cls, name, make(name, orig, module))
 
     # 2. the predictor's two entry points. `sequence_gradients` is the round's own call;
     #    `predict` inside a round is a fold BindCraft 2 asked for on top of it.
