@@ -88,6 +88,9 @@ def main() -> int:
     ap.add_argument("--inputs", default=None,
                     help="npz carrying a real single/pair/aatype/seq_mask capture")
     ap.add_argument("--dtype", default="float64", choices=("float64", "float32"))
+    ap.add_argument("--num-layer", type=int, default=None,
+                    help="fewer fold iterations, to grade one layer of a device arm in "
+                         "isolation; the module is otherwise untouched")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -127,6 +130,9 @@ def main() -> int:
 
     cfg = af_config.model_config("model_1_multimer_v3")
     sm_config = cfg.model.heads.structure_module
+    if args.num_layer is not None:
+        with sm_config.unlocked():
+            sm_config.num_layer = args.num_layer
     gconfig = cfg.model.global_config
     # `bfloat16` here would cast the module's inputs down and defeat the whole point of a
     # float64 reference; `subbatch_size` is an inference chunking knob and changes no value.

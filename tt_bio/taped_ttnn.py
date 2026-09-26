@@ -308,6 +308,12 @@ _VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
 # exp(-60) = 8.8e-27, so on a live row this is the identity, and on a fully-masked row it
 # correctly stops the gradient of a value the forward replaced.
 _VERBS["clamp"] = _unary(lambda xv, y: ttnn.eq(xv, y))
+# The two roots. AlphaFold's structure module needs both and neither had an entry: the IPA
+# point norms are the square root of `eps + x*x + y*y + z*z`, and every quaternion in the frame
+# update is normalised by an `rsqrt`. Taken from the wheel's own backwards rather than composed,
+# which is what keeps a reciprocal off a tensor whose forward may have floored it to zero.
+_VERBS["sqrt"] = _unary(fused=lambda g, xv, y: ttnn.sqrt_bw(g, xv)[0])
+_VERBS["rsqrt"] = _unary(fused=lambda g, xv, y: ttnn.rsqrt_bw(g, xv)[0])
 
 
 # A fused eltwise activation, and its derivative from whichever of (input, output) is
