@@ -71,7 +71,7 @@ patch gives. Neither refuses the campaign, which is the whole claim.
 The 2 are the GB10 pair. `git merge origin/main` resolves clean at `e4f58043c`, and the four files
 this branch touches appear in none of the open PRs #10, #16, #21 or #22.
 
-**Re-measured 2026-09-26 17:1xZ against `main` as it is now**, because `martinpacesa` pushed
+**Re-measured 2026-09-26 17:0xZ against `main` as it is now**, because `martinpacesa` pushed
 `ce3150f8d` (14:57:13Z) and `e6d30f6ea` (15:12:12Z) after the table above was taken. Fresh clone,
 same eleven checks, `fix_check_at_head_20260926.out`:
 
@@ -173,7 +173,7 @@ git checkout 301efdd -- bindcraft/design_workers.py
 
 ## Who this repository merges, counted on a field rather than on a guess
 
-`write_access.py` / `.out`, read from the API 2026-09-26 17:2xZ. Two earlier counts of this tracker
+`write_access.py` / `.out`, read from the API 2026-09-26 17:0xZ. Two earlier counts of this tracker
 disagreed (0 of 5, then 3 of 5) and both partitioned PRs by whether the author *looked* like the
 lab. `head.repo.full_name` settles it: a branch cannot be pushed into `PacesaLab/BindCraft2` without
 write access to it.

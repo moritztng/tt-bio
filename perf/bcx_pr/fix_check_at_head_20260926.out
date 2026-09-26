@@ -1,4 +1,4 @@
-# perf/bcx_pr/fix_check.py re-run 2026-09-26 17:1xZ on pc against upstream main AS IT IS TODAY.
+# perf/bcx_pr/fix_check.py re-run 2026-09-26 17:0xZ on pc against upstream main AS IT IS TODAY.
 # The numbers in README under 'the branch did not fix the crash' were measured against main 3e3563894.
 # martinpacesa pushed ce3150f8d (14:57:13Z) and e6d30f6ea (15:12:12Z) since, so they are re-measured here.
 # jax 0.11.2 / jaxlib 0.11.2, python 3.12.12, CPU backend, no card and no device opened.
