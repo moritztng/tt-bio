@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 ttnn = pytest.importorskip("ttnn")
 
+from tt_bio.main import ensure_p300_mesh_descriptor                 # noqa: E402
 from tt_bio.train.optim import round_to_device_dtype                # noqa: E402
 from tt_bio.train.tensors import to_device, to_host                 # noqa: E402
 
@@ -52,6 +53,9 @@ def _cases(rng):
 
 @pytest.fixture(scope="module")
 def dev():
+    # This opens the device directly rather than through T.get_device(), so it has to
+    # apply the lone-P300 mesh-graph descriptor itself or open_device is a TT_FATAL.
+    ensure_p300_mesh_descriptor()
     d = ttnn.open_device(device_id=0)
     try:
         yield d
