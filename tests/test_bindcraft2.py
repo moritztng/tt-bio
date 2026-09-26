@@ -450,3 +450,79 @@ def test_the_checkpoint_family_is_read_off_the_file_not_the_name(tmp_path):
 
     assert bindcraft2._is_multimer(multimer) is True
     assert bindcraft2._is_multimer(monomer) is False
+
+
+def test_the_extra_msa_segment_survives_being_recomputed():
+    """A checkpointed segment is run twice, so it may not capture anything it consumes.
+
+    `_residual` consumes its `update` operand: it hands it to `ttnn.deallocate`
+    (`tt_bio/af2.py::_residual`). A constant hoisted out of the loop and captured by the
+    checkpoint closure is therefore a freed buffer by the time `autograd._recompute` re-enters
+    the segment, and the first real gradient round through `predictor(extra_msa=True)` died
+    exactly there, with TT_THROW "Buffer is not allocated". It got that far because the
+    forward-only arm (`recompute=False`) uses each constant once and never sees it, so the whole
+    card-free suite and the on-card forward passed while every backward was broken.
+
+    Two stubs stand in for the card: a buffer that can be consumed once, and a `checkpoint` that
+    runs the segment a second time the way a backward does.
+    """
+    class Buf:
+        def __init__(self):
+            self.alive = True
+
+    class Block:
+        @staticmethod
+        def _residual(x, update):
+            if not update.alive:
+                raise RuntimeError("Buffer is not allocated")
+            update.alive = False
+            return x
+
+        def __call__(self, z, *pair_masks):
+            return z
+
+    # The stub bites: consuming one buffer twice is what the shipped code did.
+    dead = Buf()
+    Block._residual(None, dead)
+    with pytest.raises(RuntimeError, match="not allocated"):
+        Block._residual(None, dead)
+
+    built = []
+
+    class Model:
+        device_extra_msa = [Block(), Block()]
+        opm_constant = [torch.zeros(3), torch.zeros(3)]
+
+        @staticmethod
+        def _up(_t):
+            built.append(Buf())
+            return built[-1]
+
+    def checkpoint(fn, z):
+        out = fn(z)     # the forward
+        fn(z)           # the recompute the backward performs on the same closure
+        return out
+
+    trunk = object.__new__(bindcraft2._Trunk)
+    trunk.model = Model()
+    trunk.ag = types.SimpleNamespace(checkpoint=checkpoint)
+
+    assert trunk.extra_msa("z", (), recompute=True) == "z"
+    # One constant per block PER EXECUTION, two blocks run twice. Hoisting it out of the loop
+    # body -- the shape that shipped -- builds 2 and reuses them, which is the failure above.
+    assert len(built) == 4, built
+
+    built.clear()
+    assert trunk.extra_msa("z", (), recompute=False) == "z"
+    assert len(built) == 2, built
+
+    # The control: the loop body as it shipped, hoisting the constant out and letting the closure
+    # capture it. Nothing above is production code, so without this the stubs could simply be
+    # blind and every assertion would still pass.
+    built.clear()
+    model, z = trunk.model, "z"
+    with pytest.raises(RuntimeError, match="not allocated"):
+        for index, block in enumerate(model.device_extra_msa):
+            const = model._up(model.opm_constant[index].reshape(1, 1, -1))
+            z = checkpoint(lambda t, blk=block, c=const: blk(blk._residual(t, c)), z)
+    assert len(built) == 1, built

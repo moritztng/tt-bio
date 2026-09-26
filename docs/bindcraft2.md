@@ -107,10 +107,16 @@ with bindcraft2.predictor(card=0, extra_msa=True) as build:
 ```
 
 Off by default, and switchable independently of the Evoformer, so a comparison graded on the
-Evoformer alone keeps the program it was graded on. What moving it wins has not been measured
-through this entry point. What has been measured is the stack's own cost, 22.2 s of host per
-gradient round (median of three, 6.1 s across two forwards and 16.1 s in the backward), and that
-bounds what moving it can win. Read `build.extra_msa.calls` to confirm the card ran it.
+Evoformer alone keeps the program it was graded on.
+
+Leave it off. On a real gradient round it makes things slower: the card runs the stack in 34.0 s
+where BindCraft 2's JAX runs it on the host in 10.3 s, so the round goes up about 4 %. Measured
+with both arms interleaved in one process on one card, 16 rounds, seven per arm.
+
+The reason is what the Evoformer swap already did. With the Evoformer on the card a round is 97 %
+device time and only 13 s of 454 s is left on the host, so even a free extra-MSA swap could win
+2 %. The two levers do not add up: the first one takes the host time the second one was going to
+save. Read `build.extra_msa.calls` to confirm the card ran it.
 
 BindCraft 2 feeds an all-zero extra-MSA mask, so there is no gradient into the extra MSA to lose:
 it measures exactly zero on BindCraft 2's own JAX, and the card's path returns zero by

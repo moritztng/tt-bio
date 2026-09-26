@@ -48,12 +48,21 @@ else:
 
 # A child that acquires card 0's lease, writes a "ready" marker, holds for `hold`
 # seconds, then releases (unless it is killed first).
+#
+# The marker is renamed into place, not written in place. `open(..., "w")` creates the
+# file before it writes the pid, and the parent polls for existence, so a plain write
+# hands back an empty read whenever the poll lands in between -- which it does on a
+# loaded box. `test_card_set_is_all_or_nothing` failed exactly that way in a merge
+# re-verify on 2026-09-26 ("invalid literal for int() with base 10: ''") and passed
+# three times running on the same tree afterwards. `os.replace` is atomic, so the
+# marker exists only once it has the pid in it.
 HOLDER = r"""
 import os, sys, time
 sys.path.insert(0, os.environ["REPO"])
 from tt_bio.device_lease import DeviceLease
 lease = DeviceLease(card="0").acquire()
-open(os.environ["READY"], "w").write(str(os.getpid()))
+open(os.environ["READY"] + ".part", "w").write(str(os.getpid()))
+os.replace(os.environ["READY"] + ".part", os.environ["READY"])
 time.sleep(float(os.environ["HOLD"]))
 lease.release()
 """
