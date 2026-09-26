@@ -1,0 +1,162 @@
+=== launch 2026-09-26T12:45:03Z ===
+MemTotal:       261425544 kB
+MemAvailable:   219571752 kB
+3.04 4.95 6.14 1/1009 2391689
+2026-09-26 12:45:03.182 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[weights] 3152 tensors (2256 pairformer, 621 diffusion), 381.3M elements
+  [diffusion] sample 0 sigma    3.350   26.461s
+  [tape] leaving the tape context
+  [tape] left the tape context
+  [losses] 1 replicates scored, 0.000s download 0.005s arithmetic
+  [diffusion] sample 0 sigma 1022.047    0.387s
+  [diffusion] sample 1 sigma    0.033    0.371s
+  [diffusion] sample 2 sigma   42.421    0.366s
+  [diffusion] sample 3 sigma    0.160    0.556s
+/home/ttuser/.coworker/wt/of3t-p10wall/tt_bio/train/losses.py:460: RuntimeWarning: overflow encountered in exp
+  sig = 1.0 / (1.0 + np.exp(-(th - a)))
+  [losses] 4 replicates scored, 0.001s download 0.018s arithmetic
+  [chunk 1] 4 replicates  fwd 1.68s  loss 0.02s  bwd 25.23s  6980 nodes  dram 28.54 GB  memavail 198.174 GiB
+  [diffusion] sample 0 sigma    0.226    0.362s
+  [diffusion] sample 1 sigma 4215.894    0.354s
+  [diffusion] sample 2 sigma   66.256    0.371s
+  [diffusion] sample 3 sigma   35.617    0.372s
+  [losses] 4 replicates scored, 0.001s download 0.019s arithmetic
+  [chunk 2] 4 replicates  fwd 1.46s  loss 0.02s  bwd 2.62s  6980 nodes  dram 29.83 GB  memavail 198.304 GiB
+  [diffusion] sample 0 sigma  164.621    0.369s
+  [diffusion] sample 1 sigma  512.404    0.370s
+  [diffusion] sample 2 sigma 1268.216    0.365s
+  [diffusion] sample 3 sigma    0.847    0.395s
+  [losses] 4 replicates scored, 0.001s download 0.019s arithmetic
+  [chunk 3] 4 replicates  fwd 1.50s  loss 0.02s  bwd 2.63s  6980 nodes  dram 29.83 GB  memavail 198.455 GiB
+  [diffusion] sample 0 sigma 1674.264    0.384s
+  [diffusion] sample 1 sigma 1563.551    0.355s
+  [diffusion] sample 2 sigma  702.338    0.358s
+  [diffusion] sample 3 sigma 2740.710    0.368s
+  [losses] 4 replicates scored, 0.001s download 0.020s arithmetic
+  [chunk 4] 4 replicates  fwd 1.47s  loss 0.02s  bwd 2.63s  6980 nodes  dram 29.83 GB  memavail 198.476 GiB
+  [diffusion] sample 0 sigma 2047.652    0.375s
+  [diffusion] sample 1 sigma 1510.589    0.375s
+  [diffusion] sample 2 sigma   31.621    0.365s
+  [diffusion] sample 3 sigma    0.349    0.359s
+  [losses] 4 replicates scored, 0.001s download 0.019s arithmetic
+  [chunk 5] 4 replicates  fwd 1.47s  loss 0.02s  bwd 2.65s  6980 nodes  dram 29.83 GB  memavail 198.474 GiB
+  [diffusion] sample 0 sigma 1852.909    0.378s
+  [diffusion] sample 1 sigma  324.080    0.363s
+  [diffusion] sample 2 sigma    0.099    0.355s
+  [diffusion] sample 3 sigma  729.856    0.382s
+  [losses] 4 replicates scored, 0.001s download 0.019s arithmetic
+  [chunk 6] 4 replicates  fwd 1.48s  loss 0.02s  bwd 2.64s  6980 nodes  dram 29.83 GB  memavail 198.46 GiB
+  [diffusion] sample 0 sigma    0.015    0.369s
+  [diffusion] sample 1 sigma   40.039    0.361s
+  [diffusion] sample 2 sigma   12.920    0.363s
+  [diffusion] sample 3 sigma   86.352    0.360s
+  [losses] 4 replicates scored, 0.001s download 0.019s arithmetic
+  [chunk 7] 4 replicates  fwd 1.45s  loss 0.02s  bwd 2.66s  6980 nodes  dram 29.83 GB  memavail 198.494 GiB
+  [diffusion] sample 0 sigma    0.429    0.371s
+  [diffusion] sample 1 sigma    0.525    0.366s
+  [diffusion] sample 2 sigma  492.100    0.365s
+  [diffusion] sample 3 sigma   47.551    0.363s
+  [losses] 4 replicates scored, 0.001s download 0.018s arithmetic
+  [chunk 8] 4 replicates  fwd 1.47s  loss 0.02s  bwd 2.62s  6980 nodes  dram 29.83 GB  memavail 198.569 GiB
+  [diffusion] sample 0 sigma  227.673    0.373s
+  [diffusion] sample 1 sigma    0.180    0.365s
+  [diffusion] sample 2 sigma  368.314    0.360s
+  [diffusion] sample 3 sigma 1313.822    0.363s
+  [losses] 4 replicates scored, 0.001s download 0.019s arithmetic
+  [chunk 9] 4 replicates  fwd 1.46s  loss 0.02s  bwd 2.63s  6980 nodes  dram 29.83 GB  memavail 198.542 GiB
+  [diffusion] sample 0 sigma  149.630    0.367s
+  [diffusion] sample 1 sigma  172.586    0.359s
+  [diffusion] sample 2 sigma    0.059    0.366s
+  [diffusion] sample 3 sigma    2.602    0.362s
+  [losses] 4 replicates scored, 0.001s download 0.018s arithmetic
+  [chunk 10] 4 replicates  fwd 1.46s  loss 0.02s  bwd 2.62s  6980 nodes  dram 29.83 GB  memavail 198.562 GiB
+  [diffusion] sample 0 sigma    0.018    0.378s
+  [diffusion] sample 1 sigma  881.749    0.357s
+  [diffusion] sample 2 sigma  310.386    0.363s
+  [diffusion] sample 3 sigma   11.257    0.356s
+  [losses] 4 replicates scored, 0.001s download 0.019s arithmetic
+  [chunk 11] 4 replicates  fwd 1.45s  loss 0.02s  bwd 2.64s  6980 nodes  dram 29.83 GB  memavail 198.532 GiB
+  [diffusion] sample 0 sigma 3516.737    0.379s
+  [diffusion] sample 1 sigma    0.579    0.356s
+  [diffusion] sample 2 sigma  400.595    0.358s
+  [losses] 3 replicates scored, 0.001s download 0.014s arithmetic
+  [chunk 12] 3 replicates  fwd 1.09s  loss 0.01s  bwd 1.95s  5390 nodes  dram 26.04 GB  memavail 198.556 GiB
+  [losses] step heads 0.193s, 7 of 8 terms fired
+[rep 0] trunk 237.33s  diffusion 48.13s  losses 0.68s  backward 741.17s  optimizer 5.03s  = 1032.33s  WALL 1035.31s (2944 of 3152 weights, 87297 nodes, renorm ON 1599a/0d, leaves 3152 of 3152)
+  [diffusion] sample 0 sigma   40.039    5.474s
+  [tape] leaving the tape context
+  [tape] left the tape context
+  [losses] 1 replicates scored, 0.000s download 0.005s arithmetic
+  [diffusion] sample 0 sigma  272.238    0.418s
+  [diffusion] sample 1 sigma    0.087    0.766s
+  [diffusion] sample 2 sigma 3012.451    0.817s
+  [diffusion] sample 3 sigma   95.741    0.403s
+  [losses] 4 replicates scored, 0.001s download 0.021s arithmetic
+  [chunk 1] 4 replicates  fwd 2.41s  loss 0.02s  bwd 4.15s  6980 nodes  dram 30.62 GB  memavail 197.865 GiB
+  [diffusion] sample 0 sigma    0.314    0.528s
+  [diffusion] sample 1 sigma  949.680    0.563s
+  [diffusion] sample 2 sigma    0.076    0.431s
+  [diffusion] sample 3 sigma  492.100    0.674s
+  [losses] 4 replicates scored, 0.002s download 0.051s arithmetic
+  [chunk 2] 4 replicates  fwd 2.20s  loss 0.05s  bwd 4.62s  6980 nodes  dram 31.90 GB  memavail 199.987 GiB
+  [diffusion] sample 0 sigma 4215.894    0.837s
+  [diffusion] sample 1 sigma   33.568    0.653s
+  [diffusion] sample 2 sigma   56.240    0.477s
+  [diffusion] sample 3 sigma   14.788    0.448s
+  [losses] 4 replicates scored, 0.001s download 0.019s arithmetic
+  [chunk 3] 4 replicates  fwd 2.42s  loss 0.02s  bwd 4.68s  6980 nodes  dram 31.90 GB  memavail 200.275 GiB
+  [diffusion] sample 0 sigma  156.972    0.467s
+  [diffusion] sample 1 sigma   29.771    0.529s
+  [diffusion] sample 2 sigma    5.007    0.931s
+  [diffusion] sample 3 sigma    7.880    0.584s
+  [losses] 4 replicates scored, 0.001s download 0.020s arithmetic
+  [chunk 4] 4 replicates  fwd 2.51s  loss 0.02s  bwd 4.17s  6980 nodes  dram 31.90 GB  memavail 199.833 GiB
+  [diffusion] sample 0 sigma    3.945    0.616s
+  [diffusion] sample 1 sigma    0.025    0.497s
+  [diffusion] sample 2 sigma  400.595    0.438s
+  [diffusion] sample 3 sigma    0.180    0.693s
+  [losses] 4 replicates scored, 0.002s download 0.052s arithmetic
+  [chunk 5] 4 replicates  fwd 2.25s  loss 0.05s  bwd 4.42s  6980 nodes  dram 31.90 GB  memavail 200.573 GiB
+  [diffusion] sample 0 sigma   62.760    0.694s
+  [diffusion] sample 1 sigma 1563.551    0.882s
+  [diffusion] sample 2 sigma    3.083    0.566s
+  [diffusion] sample 3 sigma    7.321    0.560s
+  [losses] 4 replicates scored, 0.001s download 0.020s arithmetic
+  [chunk 6] 4 replicates  fwd 2.70s  loss 0.02s  bwd 5.35s  6980 nodes  dram 31.90 GB  memavail 197.648 GiB
+  [diffusion] sample 0 sigma   50.309    0.538s
+  [diffusion] sample 1 sigma 1732.095    0.435s
+  [diffusion] sample 2 sigma    5.411    0.754s
+  [diffusion] sample 3 sigma  600.966    0.895s
+  [losses] 4 replicates scored, 0.002s download 0.030s arithmetic
+  [chunk 7] 4 replicates  fwd 2.62s  loss 0.03s  bwd 4.21s  6980 nodes  dram 31.90 GB  memavail 197.559 GiB
+  [diffusion] sample 0 sigma  758.293    0.925s
+  [diffusion] sample 1 sigma    2.602    0.429s
+  [diffusion] sample 2 sigma  111.461    0.527s
+  [diffusion] sample 3 sigma 3625.829    0.477s
+  [losses] 4 replicates scored, 0.001s download 0.025s arithmetic
+  [chunk 8] 4 replicates  fwd 2.36s  loss 0.03s  bwd 4.76s  6980 nodes  dram 31.90 GB  memavail 196.64 GiB
+  [diffusion] sample 0 sigma    0.387    0.461s
+  [diffusion] sample 1 sigma   31.621    0.569s
+  [diffusion] sample 2 sigma 3737.809    1.007s
+  [diffusion] sample 3 sigma 1268.216    0.531s
+  [losses] 4 replicates scored, 0.001s download 0.020s arithmetic
+  [chunk 9] 4 replicates  fwd 2.57s  loss 0.02s  bwd 9.22s  6980 nodes  dram 31.90 GB  memavail 195.331 GiB
+  [diffusion] sample 0 sigma    9.781    0.680s
+  [diffusion] sample 1 sigma    0.253    0.794s
+  [diffusion] sample 2 sigma   18.024    0.488s
+  [diffusion] sample 3 sigma   12.920    0.908s
+  [losses] 4 replicates scored, 0.003s download 0.047s arithmetic
+  [chunk 10] 4 replicates  fwd 2.87s  loss 0.05s  bwd 6.87s  6980 nodes  dram 31.90 GB  memavail 192.113 GiB
+  [diffusion] sample 0 sigma  985.294    0.757s
+  [diffusion] sample 1 sigma 3306.969    0.456s
+  [diffusion] sample 2 sigma    3.637    0.628s
+  [diffusion] sample 3 sigma   81.961    1.036s
+  [losses] 4 replicates scored, 0.003s download 0.033s arithmetic
+  [chunk 11] 4 replicates  fwd 2.88s  loss 0.04s  bwd 4.85s  6980 nodes  dram 31.90 GB  memavail 191.5 GiB
+  [diffusion] sample 0 sigma    2.187    0.582s
+  [diffusion] sample 1 sigma  164.621    0.450s
+  [diffusion] sample 2 sigma  198.497    0.463s
+  [losses] 3 replicates scored, 0.001s download 0.015s arithmetic
+  [chunk 12] 3 replicates  fwd 1.50s  loss 0.02s  bwd 3.17s  5390 nodes  dram 28.11 GB  memavail 191.473 GiB
+  [losses] step heads 0.828s, 7 of 8 terms fired
