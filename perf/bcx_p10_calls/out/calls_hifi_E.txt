@@ -1,0 +1,72 @@
+== the round ==
+{"host": "pc", "card": "0", "commit": "907808ceb07e5875ea6824d03837ca4cd8636c98", "triatt_hifi": true, "extra_msa_on_device": true, "template_on_device": true, "exact": false, "binder_pinned": 146, "seed": 100}
+reach: {"kernel_entry_stats": null, "fused_hifi_stats": null, "extra_msa_swapped": null, "template_calls": null}
+median over rounds 2..9 (round 1 = 22.751 s, dropped): wall 11.191 | host_in_sg 1.680 | DEVICE COLUMN 9.525 | evo 8.309 extra 0.813 template 0.291 | AICLK med 1350.0 min 1343 | load1 3.6
+multiplicities from the round: evo.bwd=48.0 evo.fwd=96.0 extra.bwd=4.0 extra.fwd=8.0
+
+== leg 1: the round's device column by ttnn op name, cell E (hifi True) ==
+ttnn op                                          class     calls  device_s      GB  %dram  called from
+typecast                                       movement      9552     1.689     438.2   58.7%  residual (rne_residual, fp32) 62%, triangle attention 16%, tape engine 9%
+matmul                                         arithmetic      4888     1.391     241.2   39.2%  triangle attention 33%, triangle multiplication 28%, MSA column attention 17%
+multiply                                       eltwise      3520     0.701     234.9   75.8%  triangle attention 73%, triangle multiplication 23%, MSA row attention 2%
+add                                            eltwise      2636     0.686     239.8   79.0%  triangle attention 69%, triangle multiplication 10%, outer product mean 9%
+permute                                        movement      3856     0.638      69.9   24.8%  triangle multiplication 59%, triangle attention 23%, outer product mean 10%
+linear                                         arithmetic      3144     0.578      91.7   35.9%  pair transition 40%, triangle multiplication 23%, triangle attention 21%
+slice                                          movement      2032     0.366      46.6   28.8%  triangle attention 99%, outer product mean 1%
+transpose                                      movement      1232     0.311      45.1   32.8%  triangle multiplication 90%, triangle attention 8%, MSA column attention 1%
+experimental.minimal_matmul                    arithmetic       936     0.300      73.0   55.0%  triangle multiplication 53%, triangle attention 47%
+sigmoid_bw                                     eltwise       512     0.240      27.2   25.7%  triangle multiplication 74%, triangle attention 24%, MSA column attention 2%
+to_layout                                      movement      1600     0.185      39.0   47.7%  triangle attention 81%, outer product mean 19%
+concat                                         movement      1008     0.181      66.3   82.9%  triangle attention 66%, tape engine 26%, MSA column attention 7%
+sum                                            arithmetic       672     0.180      64.3   80.7%  triangle attention 99%, MSA row attention 1%
+chunk                                          movement       312     0.176      53.0   67.9%  triangle multiplication 100%
+generic_op                                     arithmetic       520     0.130      46.6   81.3%  triangle attention 71%, triangle multiplication 29%
+experimental.nlp_create_qkv_heads              movement       600     0.124      44.1   80.5%  triangle attention 87%, MSA column attention 11%, MSA row attention 2%
+subtract                                       eltwise       352     0.111      42.0   85.3%  triangle attention 97%, mask bias 3%
+experimental.nlp_concat_heads                  movement      1200     0.102      29.4   65.4%  triangle attention 81%, MSA column attention 16%, MSA row attention 3%
+reshape                                           view      8720     0.093     225.3  546.2%  outer product mean 47%, triangle attention 27%, MSA row attention 7%
+unsqueeze                                         view      1344     0.084      49.0  132.4%  triangle attention 79%, MSA row attention 11%, triangle multiplication 9%
+divide                                         eltwise       400     0.055      15.8   65.2%  outer product mean 55%, triangle attention 45%
+relu_bw                                        eltwise       100     0.052      13.4   58.8%  pair transition 98%, MSA transition 2%
+clone                                          movement       600     0.046      14.7   72.6%  triangle attention 85%, MSA column attention 12%, MSA row attention 3%
+relu                                           eltwise       100     0.024       8.9   85.6%  pair transition 97%, MSA transition 3%
+fill_implicit_tile_padding                     movement       288     0.007       0.2    6.0%  mask bias 100%
+squeeze                                           view       600     0.004      14.7  896.0%  triangle attention 48%, MSA column attention 33%, MSA row attention 20%
+add_                                           eltwise       144     0.001       0.0    7.5%  outer product mean 100%
+TOTAL (A_verb)                                             50868     8.451    2234.4   59.8%
+
+== reconciliation, the rule that caught this campaign twice ==
+term                                                   seconds
+A_verb: card running an attributed op, by op name        8.451
+A_family: the same subtraction by family (devgap)        8.491
+  clamping difference A_verb - A_family, named          -0.040
+card not running an attributed op (C_blocks - A_verb)     0.671
+template seam, outside the block harness                 0.291
+residual                                                 0.111
+MEASURED DEVICE COLUMN (C), this row's round             9.525
+bcx-p10-devgap's device column                           9.538
+this round's C against devgap's 9.538 s: -0.1 %  -> AGREES
+residual 0.111 s = +1.2 % of C, bar 10 % -> FITS
+
+== leg 2: movement against arithmetic ==
+class          ops      calls  %calls         GB     %GB   device_s    %dev
+arithmetic       5      10160   20.0%      516.8   23.1%      2.578   30.5%
+eltwise          8       7764   15.3%      582.1   26.1%      1.869   22.1%
+movement        11      22280   43.8%      846.5   37.9%      3.823   45.2%
+view             3      10664   21.0%      289.0   12.9%      0.181    2.1%
+movement is 43.8 % of the 50868 ttnn calls, 37.9 % of the 2234 GB and 3.823 s = 34.2 % of the 11.191 s round
+
+== leg 3: 'residual (rne_residual, fp32)' by op name: 1.051 s, 239.1 GB, 5564 calls, 51.4 % of roof ==
+ttnn op                        class     calls  device_s        GB   %dram
+typecast                     movement      5468     1.051     239.0   51.4%
+reshape                         view        96     0.000       0.1  120.9%
+
+== Amdahl on the 11.191 s ROUND, not on a block ==
+removing                                        device_s         p speedup if removed
+typecast                                           1.689    0.1509    1.1778x
+matmul                                             1.391    0.1243    1.1419x
+multiply                                           0.701    0.0626    1.0668x
+top three together                                 3.781    0.3378    1.5102x
+all movement ops                                   3.823    0.3416    1.5189x
+(speedup = 1/((1-p)+p/s) at s -> inf, the ceiling; a real lever gets less)
+wrote perf/bcx_p10_calls/out/calls_hifi_E.json
