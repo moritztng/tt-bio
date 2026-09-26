@@ -548,51 +548,59 @@ class EvoformerOnDevice:
     def _primal(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
         """No tape. `predict` is forward-only and a validation refold calls it once per model, so
         a primal that banks a tape is an out-of-memory bug."""
-        trunk = self._trunk(slot)
+        # `_inputs` is numpy and torch padding and touches no card, so it runs OUTSIDE
+        # `duotraj.card`. Everything after it does touch the card and runs inside.
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
-        mo, zo = trunk.evoformer(trunk.up(m), trunk.up(z), self._msa_mask(trunk, mask),
-                                 self._pair_masks(trunk, pair_mask), recompute=False)
-        trunk.sync()
-        self.calls["primal"] += 1
-        return (trunk.down(mo, tuple(m.shape))[:, :n].numpy(),
-                trunk.down(zo, tuple(z.shape))[:n, :n].numpy())
+        with duotraj.card(slot, "evoformer._primal"):
+            trunk = self._trunk(slot)
+            mo, zo = trunk.evoformer(trunk.up(m), trunk.up(z), self._msa_mask(trunk, mask),
+                                     self._pair_masks(trunk, pair_mask), recompute=False)
+            trunk.sync()
+            self.calls["primal"] += 1
+            return (trunk.down(mo, tuple(m.shape))[:, :n].numpy(),
+                    trunk.down(zo, tuple(z.shape))[:n, :n].numpy())
 
     def _taped(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
-        trunk = self._trunk(slot)
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
-        ml, zl = trunk.leaf(m), trunk.leaf(z)
-        with trunk.taped.tape():
-            mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
-                                     self._pair_masks(trunk, pair_mask),
-                                     recompute=self.recompute)
-        trunk.sync()
+        with duotraj.card(slot, "evoformer._taped"):
+            trunk = self._trunk(slot)
+            ml, zl = trunk.leaf(m), trunk.leaf(z)
+            with trunk.taped.tape():
+                mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
+                                         self._pair_masks(trunk, pair_mask),
+                                         recompute=self.recompute)
+            trunk.sync()
         # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
         # of them through the forward rule, so the superseded tapes are dropped here. At several
         # GB an Evoformer block, keeping them is fatal within one trajectory.
-        self._tapes.sweep(slot)
-        trunk.ag.release_pins()
-        token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
-                                  "shapes": (tuple(m.shape), tuple(z.shape)), "n": n}, slot)
-        self.calls["taped"] += 1
-        return (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
-                trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
+            self._tapes.sweep(slot)
+            trunk.ag.release_pins()
+            token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
+                                      "shapes": (tuple(m.shape), tuple(z.shape)), "n": n},
+                                     slot)
+            self.calls["taped"] += 1
+            return (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
+                    trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
     def _backward(self, slot, token, g_msa_np, g_pair_np):
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live tape for token {int(token)}")
-        trunk = self.pool.trunk_for(slot)
         mo, zo = entry["roots"]
         ml, zl = entry["leaves"]
         m_shape, z_shape = entry["shapes"]
         n = entry["n"]
+        # Building the cotangent buffers is torch on the host; only the backward needs the card.
         gm, gz = torch.zeros(m_shape), torch.zeros(z_shape)
         gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
-        trunk.sync()
-        out = (trunk.grad(ml, m_shape)[:, :n].numpy(), trunk.grad(zl, z_shape)[:n, :n].numpy())
-        trunk.ag.release_pins()
+        with duotraj.card(slot, "evoformer._backward"):
+            trunk = self.pool.trunk_for(slot)
+            trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
+            trunk.sync()
+            out = (trunk.grad(ml, m_shape)[:, :n].numpy(),
+                   trunk.grad(zl, z_shape)[:n, :n].numpy())
+            trunk.ag.release_pins()
         self.calls["backward"] += 1
         return out
 
@@ -729,42 +737,46 @@ class ExtraMsaOnDevice:
     # ------------------------------------------------------------------ forward and backward
 
     def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np):
-        trunk = self._trunk(slot)
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
-        zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask), recompute=False)
-        trunk.sync()
-        self.calls["primal"] += 1
-        return trunk.down(zo, tuple(z.shape))[:n, :n].numpy()
+        with duotraj.card(slot, "extra_msa._primal"):
+            trunk = self._trunk(slot)
+            zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask),
+                                 recompute=False)
+            trunk.sync()
+            self.calls["primal"] += 1
+            return trunk.down(zo, tuple(z.shape))[:n, :n].numpy()
 
     def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np):
-        trunk = self._trunk(slot)
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
-        zl = trunk.leaf(z)
-        with trunk.taped.tape():
-            zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
-                                 recompute=self.recompute)
-        trunk.sync()
+        with duotraj.card(slot, "extra_msa._taped"):
+            trunk = self._trunk(slot)
+            zl = trunk.leaf(z)
+            with trunk.taped.tape():
+                zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
+                                     recompute=self.recompute)
+            trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
-        self._tapes.sweep(slot)
-        trunk.ag.release_pins()
-        token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n},
-                                 slot)
-        self.calls["taped"] += 1
-        return trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token)
+            self._tapes.sweep(slot)
+            trunk.ag.release_pins()
+            token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n},
+                                     slot)
+            self.calls["taped"] += 1
+            return (trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
     def _backward(self, slot, token, g_pair_np):
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live extra-MSA tape for token {int(token)}")
-        trunk = self.pool.trunk_for(slot)
         shape, n = entry["shape"], entry["n"]
         gz = torch.zeros(shape)
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
-        trunk.sync()
-        out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
-        trunk.ag.release_pins()
+        with duotraj.card(slot, "extra_msa._backward"):
+            trunk = self.pool.trunk_for(slot)
+            trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
+            trunk.sync()
+            out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
+            trunk.ag.release_pins()
         self.calls["backward"] += 1
         return out
 
@@ -879,43 +891,47 @@ class TemplateOnDevice:
     # ------------------------------------------------------------------ forward and backward
 
     def _primal(self, slot, act_np, pair_mask_np):
-        trunk = self._trunk(slot)
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
-        out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
-                                   recompute=False)
-        trunk.sync()
-        self.calls["primal"] += 1
-        return trunk.down(out, tuple(act.shape))[:n, :n].numpy()
+        with duotraj.card(slot, "template._primal"):
+            trunk = self._trunk(slot)
+            out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
+                                       recompute=False)
+            trunk.sync()
+            self.calls["primal"] += 1
+            return trunk.down(out, tuple(act.shape))[:n, :n].numpy()
 
     def _taped(self, slot, act_np, pair_mask_np):
-        trunk = self._trunk(slot)
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
-        leaf = trunk.leaf(act)
-        with trunk.taped.tape():
-            out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
-                                       recompute=self.recompute)
-        trunk.sync()
+        with duotraj.card(slot, "template._taped"):
+            trunk = self._trunk(slot)
+            leaf = trunk.leaf(act)
+            with trunk.taped.tape():
+                out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
+                                           recompute=self.recompute)
+            trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
-        self._tapes.sweep(slot)
-        trunk.ag.release_pins()
-        token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
-                                  "n": n}, slot)
-        self.calls["taped"] += 1
-        return trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(), np.int32(token)
+            self._tapes.sweep(slot)
+            trunk.ag.release_pins()
+            token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
+                                      "n": n}, slot)
+            self.calls["taped"] += 1
+            return (trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(),
+                    np.int32(token))
 
     def _backward(self, slot, token, g_act_np):
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live template tape for token {int(token)}")
-        trunk = self.pool.trunk_for(slot)
         shape, n = entry["shape"], entry["n"]
         g = torch.zeros(shape)
         g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
-        trunk.ag.backward([entry["root"]], [trunk.seed(g, entry["root"])])
-        trunk.sync()
-        out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
-        trunk.ag.release_pins()
+        with duotraj.card(slot, "template._backward"):
+            trunk = self.pool.trunk_for(slot)
+            trunk.ag.backward([entry["root"]], [trunk.seed(g, entry["root"])])
+            trunk.sync()
+            out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
+            trunk.ag.release_pins()
         self.calls["backward"] += 1
         return out
 

@@ -41,12 +41,13 @@ _LOCAL = threading.local()
 #: the shared floor, which is the most one of them can add.
 TRAJECTORY_BYTES = int(3.2 * 2**30)
 
-#: Bytes one in-flight trajectory takes on the HOST, and this is the one that binds. The first
-#: nine-round interleaved arm was OOM-KILLED by the host at 13.2 GB anon-rss on a 31 GB box
-#: while device DRAM never went past 3.75 GB of 31.9. A second trajectory is a second JAX
-#: program, a second set of host activations and a second design loop, and the card has an
-#: order of magnitude more headroom than the box does.
-TRAJECTORY_HOST_BYTES = int(6.0 * 2**30)
+#: Bytes one more in-flight trajectory takes on the HOST, and this is the one that binds. The
+#: first nine-round interleaved arm was OOM-KILLED by the host at 13.2 GB anon-rss on a 31 GB
+#: box while device DRAM never went past 3.75 GB of 31.9. Measured on the serial arm, where
+#: the two trajectories run in one process one after the other: trajectory 1 reaches 8.22 GB
+#: high-water over nine rounds and trajectory 2 adds 2.75 GB on top of that. 3.5 GB is that
+#: marginal figure with a margin, and it is per ADDITIONAL trajectory, not per trajectory.
+TRAJECTORY_HOST_BYTES = int(3.5 * 2**30)
 
 
 def slot() -> str:
@@ -119,39 +120,29 @@ class DeviceGate:
                 "seams": dict(self.entries), "slot_at_seam": dict(self.threads)}
 
 
-def serialize(gate: DeviceGate, *classes, methods=("_primal", "_taped", "_backward")):
-    """Put `gate` around every named method of every class. Returns an undo callable.
+#: The gate in force, or None when nothing is interleaved. A module global rather than an
+#: argument threaded through nine call sites, because `card()` has to be reachable from inside
+#: a model's own forward without that model taking a scheduler parameter.
+GATE: "DeviceGate | None" = None
 
-    The classes rather than a list of names, so a stack that grows a fourth seam is covered
-    by naming its class here and not by remembering to add a string. A method the class does
-    not define is skipped rather than raising: the three BindCraft 2 splices share the three
-    names, and a model that does not is not a reason to refuse.
+
+@contextlib.contextmanager
+def card(slot: str = "", tag: str = ""):
+    """Hold the card for the duration of this block. A no-op when nothing is interleaved.
+
+    Wrap the DEVICE region of a seam, not the whole seam. The difference is the whole lever:
+    measured on the composed BindCraft 2 round, wrapping whole seam methods held the gate for
+    8.6 s of a 9.1 s round -- 95 % -- because a seam also pads its inputs, builds its cotangent
+    buffers and slices its results, none of which touches the card. A gate held across that
+    serialises exactly the host seconds the interleave exists to overlap, and caps the lever at
+    1.05x before it starts.
     """
-    undo = []
-    for cls in classes:
-        for name in methods:
-            orig = cls.__dict__.get(name)
-            if orig is None:
-                continue
-
-            def make(orig, tag):
-                def seam(self, traj, *a, **kw):
-                    # Every device seam takes its trajectory as its first argument, baked into
-                    # the traced program: the seam runs on one of XLA:CPU's pool threads, so
-                    # there is nothing on this thread that says whose work it is.
-                    with gate.held_for(tag, traj):
-                        return orig(self, traj, *a, **kw)
-                seam.__name__ = getattr(orig, "__name__", tag)
-                seam.__doc__ = getattr(orig, "__doc__", None)
-                seam.__wrapped__ = orig
-                return seam
-            setattr(cls, name, make(orig, f"{cls.__name__}.{name}"))
-            undo.append((cls, name, orig))
-
-    def restore():
-        for cls, name, orig in undo:
-            setattr(cls, name, orig)
-    return restore
+    gate = GATE
+    if gate is None:
+        yield
+        return
+    with gate.held_for(tag, slot):
+        yield
 
 
 def free_device_bytes() -> int:
@@ -213,23 +204,23 @@ def refuse_if_it_will_not_fit(extra: int, *, per_trajectory: int = TRAJECTORY_BY
 
 
 @contextlib.contextmanager
-def interleave(*classes, trajectories: int = 2, per_trajectory: int = TRAJECTORY_BYTES):
-    """Serialise the device seams of `classes` so `trajectories` threads can share the card.
+def interleave(trajectories: int = 2, per_trajectory: int = TRAJECTORY_BYTES):
+    """Install the gate so `trajectories` threads can share one card.
 
-    The switch, and the whole of it. Outside this block nothing in tt-bio behaves
-    differently, which is what keeps a lever that changes the resident footprint off by
-    default.
+    The switch, and the whole of it. Outside this block `card()` is a no-op and nothing in
+    tt-bio behaves differently, which is what keeps a lever that changes the resident
+    footprint off by default.
 
-        with duotraj.interleave(EvoformerOnDevice, ExtraMsaOnDevice) as gate:
-            duotraj.run(gate, [lambda: design(0), lambda: design(1)])
+        with duotraj.interleave(trajectories=2) as gate:
+            duotraj.run([lambda: design(0), lambda: design(1)])
     """
     refuse_if_it_will_not_fit(trajectories - 1, per_trajectory=per_trajectory)
-    gate = DeviceGate()
-    restore = serialize(gate, *classes)
+    global GATE
+    was, GATE = GATE, DeviceGate()
     try:
-        yield gate
+        yield GATE
     finally:
-        restore()
+        GATE = was
 
 
 def run(runners, *, names=None, ready=None, ready_timeout=900.0) -> list:

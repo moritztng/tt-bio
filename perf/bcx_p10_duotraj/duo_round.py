@@ -246,10 +246,7 @@ def main():
             # The gate goes on BOTH arms. On the serial arm it is one thread taking an
             # uncontended lock, which costs nothing and is what makes the control able to say
             # which thread the device seam runs on -- the one fact the slot design rests on.
-            with duotraj.interleave(bindcraft2.EvoformerOnDevice,
-                                    bindcraft2.ExtraMsaOnDevice,
-                                    bindcraft2.TemplateOnDevice,
-                                    trajectories=2 if args.interleave else 1) as gate:
+            with duotraj.interleave(trajectories=2 if args.interleave else 1) as gate:
                 _run_pair(one, stopped, threaded=bool(args.interleave),
                           ready=mt.ready if args.interleave else None)
             stamp["gate"] = gate.report()
