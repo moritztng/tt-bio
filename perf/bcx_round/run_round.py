@@ -100,6 +100,7 @@ def main():
 
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "exact": bool(args.exact),
+             "extra_msa_on_device": bool(args.extra_msa),
              "shipped_pool": bool(args.shipped), "binder_pinned": args.binder,
              "model_pool": pool,
              "pci": M.CLOCK.pci, "sysfs": node, "commit": git_head(),
@@ -149,7 +150,7 @@ def main():
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
-                      "extra_msa": bool(args.extra_msa),
+                      "device_calls": dict(evo.calls) if evo else None,
                       # An extra-MSA swap that never fires costs nothing and reads as a clean
                       # 0 % result. `calls` proves the on-card path ran; `swapped` is the block
                       # count it replaced; `mask_seen` is the guard's own record of what the
@@ -157,7 +158,6 @@ def main():
                       "extra_msa_calls": dict(extra.calls) if extra else None,
                       "extra_msa_swapped": list(extra.swapped) if extra else None,
                       "extra_msa_mask_seen": dict(extra.mask_seen) if extra else None,
-                      "device_calls": dict(evo.calls) if evo else None,
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
