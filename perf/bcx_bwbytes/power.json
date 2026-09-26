@@ -58,6 +58,18 @@
     "device_evoformer_s": 1,
     "device_extra_msa_s": 2
    }
+  },
+  "plus_both_fused_kernels": {
+   "removed_GB_per_evo_block_n224": 12.316,
+   "share_of_backward_bytes": 0.4259,
+   "share_of_round_device_time": 0.2883,
+   "round_speedup": 1.2647,
+   "reps_per_arm": {
+    "round_wall": 2,
+    "sequence_gradients_s": 2,
+    "device_evoformer_s": 1,
+    "device_extra_msa_s": 1
+   }
   }
  }
 }

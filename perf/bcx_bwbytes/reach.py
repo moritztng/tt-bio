@@ -297,34 +297,67 @@ def cmd_scale(args):
           f"{dev_ms:.0f} ms of device, of which the precision stack removes {cut:.0f} ms "
           f"= {dev_ms / (dev_ms - cut):.3f}x on the DEVICE side")
     print("   and end to end, as a function of the device share of the round -- NOT inherited,")
-    print("   because the two shares on the record were measured on two different trees:")
+    print("   because the two shares on the record were measured on two different trees.")
+    print("   QUOTE perf/bcx_bwbytes/power.py INSTEAD for the headline: the sweep below applies")
+    print("   the lever to ALL of the round's device time, but these levers touch only the")
+    print("   BACKWARD, which is 67.7 % of what the card does per round. power.py uses the")
+    print("   measured 0.726 device share and that 67.7 %, and reads lower and right.")
     for share in [float(x) for x in args.shares.split(",")]:
         r = 1.0 / ((1 - share) + share / (dev_ms / (dev_ms - cut)))
         blob.setdefault("round", {})[f"{share:.2f}"] = round(r, 4)
         print(f"     device {share * 100:4.1f} % of the round  ->  {r:.3f}x")
 
-    # The ceiling of the kernel programme on the one bucket worth a kernel. Pass counts, not a
-    # guess: the shipped expression touches the score-sized tensor ten times --
+    # The ceiling of the kernel programme, on the two buckets worth a kernel. Pass counts of the
+    # bucket's own tensor, read off the shipped source, not guesses. Both are LOWER bounds on the
+    # traffic for the same reason the census is: `ttnn.sum(dim=0)` permutes before it reduces and
+    # the count below charges it one read.
+    #
+    # SOFTMAX BACKWARD, score-sized tensor, `autograd.softmax_bw_dx`:
     #   multiply(g,y) 2r+1w, sum(.,-1) 1r, sum(y,-1) 1r, subtract(g,inner) 1r+1w,
-    #   multiply(y,.) 2r+1w  = 10, all fp32, the divide being O(n^2) and negligible
-    # A single fused kernel with the renorm folded in reads y, reads g and writes dx: 3 passes,
-    # or 1.5 fp32-equivalents in bf16. So the bucket falls to 15 % of itself, and unlike the
-    # smbf16 lever it pays no narrowing cast, because the narrowing happens inside the kernel.
-    fused = {}
+    #   multiply(y,.) 2r+1w  = 10, all fp32; the divide is O(n^2) and negligible.
+    #   One fused kernel reads y, reads g, writes dx: 3 passes, 1.5 fp32-equivalents in bf16, and
+    #   unlike the smbf16 lever it pays no narrowing cast because the narrowing is inside.
+    #
+    # LAYER-NORM BACKWARD, activation-sized tensor, `autograd.layer_norm`'s closure at
+    # autograd.py:1146-1163. Twenty reads and ten writes:
+    #   mean(x) 1r; subtract(x,mean) 1r+1w; multiply(c,c) 2r+1w; mean(.) 1r;
+    #   multiply(c,rstd) 1r+1w; multiply(g,norm) 2r+1w; _sum_leading(.) 1r; _sum_leading(g) 1r;
+    #   multiply(g,gamma) 1r+1w; mean(dnorm) 1r; multiply(dnorm,norm) 2r+1w; mean(.) 1r;
+    #   subtract(dnorm,dn_mean) 1r+1w; multiply(norm,dn_norm_mean) 1r+1w; subtract(.,.) 2r+1w;
+    #   multiply(dx,rstd) 1r+1w   = 30.
+    #   `ttml::metal::layernorm_bw` returns {dx, dgamma, dbeta} and computes the per-row
+    #   dgamma/dbeta partials IN the kernel, leaving one reduction over rows: 3 passes plus a
+    #   small reduce, so 4 is the conservative figure used here. The mean/rstd it needs are
+    #   already recomputed by our own backward, which is the blocker that ruled out the moreh
+    #   route and does not bind here. It is Route B -- a tt-metal source build, two copies of the
+    #   runtime in one process -- so the cost is real and is NOT a kernel problem.
+    KERNELS = {"2 ": ("fused_softmax", 10, 1.5), "3 ": ("fused_layernorm", 30, 4.0)}
+    fused, detail = {}, {}
     for stack in ("evo", "extra"):
         b = blob[stack]["by_site"]
-        sm = next((v for k, v in b.items() if k.startswith("2 ")), None)
-        fused[stack] = {str(n): round(sm["at"][str(n)] * (1 - 1.5 / 10), 3) for n in at} if sm else {}
-    blob["fused_softmax_ceiling"] = {"passes_now": 10, "passes_fused_bf16_equiv": 1.5,
-                                     "removed_GB": fused}
+        tot = {str(x): 0.0 for x in at}
+        for prefix, (label, now_p, fused_p) in KERNELS.items():
+            v = next((vv for k, vv in b.items() if k.startswith(prefix)), None)
+            if not v:
+                continue
+            got = {str(x): round(v["at"][str(x)] * (1 - fused_p / now_p), 3) for x in at}
+            detail.setdefault(stack, {})[label] = {"passes_now": now_p, "passes_fused": fused_p,
+                                                   "removed_GB": got}
+            for x in at:
+                tot[str(x)] += got[str(x)]
+        fused[stack] = {k: round(v, 3) for k, v in tot.items()}
+    blob["fused_kernel_ceiling"] = {"per_kernel": detail, "removed_GB_total": fused}
+    for stack in ("evo", "extra"):
+        for label, d in detail.get(stack, {}).items():
+            print(f"   {stack:6s} {label:16s} {d['passes_now']:.0f} passes -> {d['passes_fused']}"
+                  f"  removes {d['removed_GB'][n]:7.3f} GB at n={n}")
     ev2 = ev + fused["evo"][n]
     ex2 = ex + fused["extra"][n]
     cut2 = (args.evo_blocks * args.evo_ms * (ev2 / blob["evo"]["totals"]["256"])
             + args.extra_blocks * args.extra_ms * (ex2 / blob["extra"]["totals"]["256"]))
-    blob["step"]["with_fused_softmax"] = {
+    blob["step"]["with_fused_kernels"] = {
         "removed_ms": round(cut2, 1), "device_speedup": round(dev_ms / (dev_ms - cut2), 4)}
-    print(f"\nand with the softmax backward FUSED as well -- 10 passes of the score tensor today,")
-    print(f"   3 in one kernel, 1.5 fp32-equivalents in bf16, and no narrowing cast to pay:")
+    print(f"\nand with BOTH fusable buckets given a real kernel, pass counts read off the source:")
     print(f"     removes {cut2:.0f} of {dev_ms:.0f} ms = {dev_ms / (dev_ms - cut2):.3f}x "
           f"on the DEVICE side at n={args.step_n}")
     for share in [float(x) for x in args.shares.split(",")]:

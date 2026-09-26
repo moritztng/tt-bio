@@ -91,9 +91,13 @@ def main():
     ev = sc["evo"]
     lev_gb = sum(ev["levers"][k]["at"]["224"] for k in ev["levers"])
     tot_gb = ev["totals"]["224"]
-    fused_gb = lev_gb + sc["fused_softmax_ceiling"]["removed_GB"]["evo"]["224"]
+    per = sc["fused_kernel_ceiling"]["per_kernel"]["evo"]
+    sm_gb = per["fused_softmax"]["removed_GB"]["224"]
+    ln_gb = per["fused_layernorm"]["removed_GB"]["224"]
     out["levers"] = {}
-    for name, gb in (("precision_stack", lev_gb), ("plus_fused_softmax", fused_gb)):
+    for name, gb in (("precision_stack", lev_gb),
+                     ("plus_fused_softmax", lev_gb + sm_gb),
+                     ("plus_both_fused_kernels", lev_gb + sm_gb + ln_gb)):
         f_bwd = gb / tot_gb                      # share of the backward's bytes
         f_dev = f_bwd * bwd_frac                 # share of the round's device time
         f_round = f_dev * st.median(share)       # share of the round
