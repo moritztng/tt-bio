@@ -1,0 +1,125 @@
+{
+ "host": "tt-quietbox2",
+ "when_utc": "2026-09-26T03:34:43Z",
+ "commit": "643cabcf9ed31b4ec23f82913bc083c3531884b7",
+ "loadavg": [
+  17.1591796875,
+  16.89111328125,
+  17.1181640625
+ ],
+ "nproc": 16,
+ "opened_a_device": false,
+ "EXACT_TRAINING_OPS": [
+  "softmax",
+  "layer_norm"
+ ],
+ "exact_training_ops()": [
+  "softmax",
+  "layer_norm"
+ ],
+ "module_default_EXACT_TRAINING": [
+  true
+ ],
+ "before_any_scope": {
+  "raw": {
+   "softmax": false,
+   "softmax_in_place": false,
+   "layer_norm": false
+  },
+  "verbs": {
+   "softmax": false,
+   "softmax_in_place": false,
+   "layer_norm": false
+  },
+  "softmax_installed": false,
+  "layer_norm_installed": false
+ },
+ "inside_tape_module_default": {
+  "raw": {
+   "softmax": true,
+   "softmax_in_place": true,
+   "layer_norm": true
+  },
+  "verbs": {
+   "softmax": true,
+   "softmax_in_place": true,
+   "layer_norm": true
+  },
+  "softmax_installed": true,
+  "layer_norm_installed": true
+ },
+ "after_tape": {
+  "raw": {
+   "softmax": false,
+   "softmax_in_place": false,
+   "layer_norm": false
+  },
+  "verbs": {
+   "softmax": false,
+   "softmax_in_place": false,
+   "layer_norm": false
+  },
+  "softmax_installed": false,
+  "layer_norm_installed": false
+ },
+ "inside_tape_exact_training_False": {
+  "raw": {
+   "softmax": false,
+   "softmax_in_place": false,
+   "layer_norm": false
+  },
+  "verbs": {
+   "softmax": false,
+   "softmax_in_place": false,
+   "layer_norm": false
+  },
+  "softmax_installed": false,
+  "layer_norm_installed": false
+ },
+ "innermost_wins": {
+  "raw": {
+   "softmax": true,
+   "softmax_in_place": true,
+   "layer_norm": true
+  },
+  "verbs": {
+   "softmax": true,
+   "softmax_in_place": true,
+   "layer_norm": true
+  },
+  "softmax_installed": true,
+  "layer_norm_installed": true
+ },
+ "counter": {
+  "binding_was_the_exact_one": true,
+  "raised": "AttributeError",
+  "raw_before": 0,
+  "raw_after": 1,
+  "counter_moved": true
+ },
+ "grep": {
+  "searched": [
+   "perf/bcx_predictor/",
+   "perf/bcx_round/",
+   "perf/bcx_stack/",
+   "perf/bcx_tapedfwd/",
+   "perf/bcx_trace/"
+  ],
+  "hits_in_bc2_harness": [],
+  "exact_training_call_sites_in_engine": [
+   "tt_bio/autograd.py:1416:# environment variable; `exact_training(False)` is the off switch.",
+   "tt_bio/autograd.py:1558:_EXACT_TRAINING = [True]    # innermost `exact_training()` block wins",
+   "tt_bio/autograd.py:1625:def exact_training(on: bool = True):",
+   "tt_bio/autograd.py:1626:    \"\"\"The training off switch. Inside `exact_training(False)`, `install()`, `tape()` and",
+   "tt_bio/autograd.py:1642:    `exact_training(False)`. What a run records in its provenance.\"\"\"",
+   "tt_bio/autograd.py:2761:    `exact_softmax` also arms the exact softmax inside `exact_training(False)`.",
+   "tt_bio/train/cli.py:251:    with exact_training(not device_ops):"
+  ]
+ },
+ "ANSWER": {
+  "bc2_round_is_armed": true,
+  "off_switch_works": true,
+  "counter_on_the_path": true,
+  "bc2_harness_calls_exact_training": false
+ }
+}
