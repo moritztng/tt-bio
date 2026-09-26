@@ -1,0 +1,2 @@
+ARM l1-budget rc=0 secs=154 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 52ebd357a)
+ARM openfold3 rc=0 secs=179 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 52ebd357a)

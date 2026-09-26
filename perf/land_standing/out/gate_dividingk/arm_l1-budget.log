@@ -1,5 +1,5 @@
 [release-gate] granted card(s) [3]
-[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 064e5ad5a)
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 52ebd357a)
 
 ======================================================================
 [l1-budget] folding affinity_fkg.yaml on protenix-v2, grid native
@@ -18,8 +18,8 @@ RELEASE GATE — L1 budgets vs part (affinity_fkg.yaml on protenix-v2, 4 part cl
 ##############################################################################
 leg                     clashes                             CIF md5     wall  result
 l1-budget:arith               -                165 checks / 4 parts       0s  PASS
-l1-budget:native              0    c3073854d423570ae48cb8ce35ccb27e     171s  PASS
-l1-budget:8x8                 0    c3073854d423570ae48cb8ce35ccb27e     220s  PASS
-l1-budget:narrow              0    c3073854d423570ae48cb8ce35ccb27e      39s  PASS
+l1-budget:native              0    c3073854d423570ae48cb8ce35ccb27e      47s  PASS
+l1-budget:8x8                 0    c3073854d423570ae48cb8ce35ccb27e      51s  PASS
+l1-budget:narrow              0    c3073854d423570ae48cb8ce35ccb27e      49s  PASS
 ##############################################################################
 GATE PASS — every part class can narrow out of a clash, and the ladder is numerics-neutral
