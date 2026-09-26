@@ -74,6 +74,29 @@ try:
         e_ = got[name] - r
         res[name] = {"rel_l2": float(e_.norm() / r.norm()), "max_abs": float(e_.abs().max()),
                      "ref_norm": float(r.norm())}
+
+    # When a gradient is wrong, say WHICH wrong thing it is. Each hypothesis below is a specific
+    # defect in the kernel, and a rel_l2 near zero against one of them names it outright; without
+    # this a wrong number only says "wrong" and the next step is guesswork.
+    S = (q @ k.transpose(-1, -2)) * scale + bias
+    E = torch.exp(S - S.amax(-1, keepdim=True))          # unnormalised softmax numerator
+    P = E / E.sum(-1, keepdim=True)
+    def vjp(Pm):
+        dV = Pm.transpose(-1, -2) @ g
+        dP = g @ v.transpose(-1, -2)
+        dS = Pm * (dP - (dP * Pm).sum(-1, keepdim=True))
+        return {"dq": (dS @ k) * scale, "dk": (dS.transpose(-1, -2) @ q) * scale,
+                "dv": dV, "dbias": dS.sum(0, keepdim=True)}
+    hyp = {
+        "no_softmax_normalise": vjp(E),                       # rowsum never divided out
+        "no_bias": vjp(torch.softmax(q @ k.transpose(-1, -2) * scale, -1)),
+        "bias_before_scale": vjp(torch.softmax((q @ k.transpose(-1, -2) + bias) * scale, -1)),
+        "no_scale": vjp(torch.softmax(q @ k.transpose(-1, -2) + bias, -1)),
+    }
+    res["hypotheses"] = {}
+    for hname, hv in hyp.items():
+        res["hypotheses"][hname] = {n: round(float((got[n] - hv[n]).norm() / hv[n].norm()), 5)
+                                    for n in ref}
     print(json.dumps(res, indent=2))
     if a.out:
         open(a.out, "w").write(json.dumps(res, indent=2))

@@ -173,11 +173,15 @@ def eligible(q, k, v, bias, *, taping=False):
 CB_Q, CB_K, CB_V, CB_DO = 0, 1, 2, 3
 CB_BIAS = 4                      # [Nt, Nt] for one head, fronted once and indexed, never popped
 CB_SCALAR = 5                    # the packed bf16 1.0 the row reductions scale by
+CB_ZERO = 6                      # one all-zero tile, what the dbias accumulator is seeded from
+CB_SCALE = 7                     # the attention scale, as a broadcast scalar
+CB_ONES = 8                      # Nt copies of the column identity: every row sum is a matmul
 CB_P = 24                        # S, then P, in place
 CB_DP = 25                       # dP, then dS, in place
 CB_T = 26                        # transpose scratch: P^T for dV, dS^T for dK
 CB_ROW_A, CB_ROW_B = 27, 28      # row max, then row sum, then its reciprocal
 CB_DBIAS = 29                    # float32 accumulator, [Nt, Nt], persistent across the whole group
+CB_DONE = 30                     # carries no data: the writer's handshake on the dbias accumulator
 CB_DQ, CB_DK, CB_DV = 16, 17, 18
 
 # There is deliberately no separate output buffer for `dbias`. The accumulator is read and written
@@ -188,7 +192,14 @@ CB_DQ, CB_DK, CB_DV = 16, 17, 18
 
 
 def cb_table(p):
-    """(buffer index, tiles, page bytes, data format), priced the same way `sdpa_generic` prices."""
+    """(buffer index, tiles, page bytes, data format), priced the same way `sdpa_generic` prices.
+
+    EVERY index the kernels name has to appear here. An index that does not is not an error
+    anywhere: tt-metal gives it zero length, `cb_reserve_back` on it waits for space that can never
+    appear, and the core sits in the watcher's `CRBW` state forever with no message. The three
+    single-tile buffers -- the zero seed, the scale scalar and the writer's handshake -- were
+    missing from this table for exactly that reason, and `check_cb_coverage` now tests it.
+    """
     Nt, Dt, Qt = p["Nt"], p["Dt"], p["Qt"]
     bf16, f32 = ttnn.bfloat16, ttnn.float32
     b16, b32 = 2048, 4096
@@ -199,6 +210,10 @@ def cb_table(p):
         (CB_DO, Nt * Dt * 2, b16, bf16),
         (CB_BIAS, Nt * Nt, b16, bf16),
         (CB_SCALAR, 1, b16, bf16),
+        (CB_ZERO, 1, b16, bf16),
+        (CB_SCALE, 1, b16, bf16),
+        (CB_ONES, Nt, b16, bf16),
+        (CB_DONE, 1, b16, bf16),
         (CB_P, Qt * Nt, b16, bf16),
         (CB_DP, Qt * Nt, b16, bf16),
         (CB_T, Qt * Nt, b16, bf16),
@@ -213,6 +228,26 @@ def cb_table(p):
 
 def cb_bytes(p) -> int:
     return sum(n * page for _i, n, page, _f in cb_table(p))
+
+
+# Every CB index the three kernels name, kept beside the table it has to agree with.
+KERNEL_CB_INDICES = {CB_Q, CB_K, CB_V, CB_DO, CB_BIAS, CB_SCALAR, CB_ZERO, CB_SCALE, CB_ONES,
+                     CB_P, CB_DP, CB_T, CB_ROW_A, CB_ROW_B, CB_DBIAS, CB_DONE,
+                     CB_DQ, CB_DK, CB_DV}
+
+
+def check_cb_coverage(p):
+    """Raise if the kernels name a circular buffer the host never allocated.
+
+    Card-free, and it is here because the failure mode it catches is silent: an undeclared CB is a
+    zero-length one, so the first `cb_reserve_back` against it hangs the core with no diagnostic
+    short of attaching the watcher.
+    """
+    declared = {idx for idx, _n, _pg, _f in cb_table(p)}
+    missing = sorted(KERNEL_CB_INDICES - declared)
+    extra = sorted(declared - KERNEL_CB_INDICES)
+    if missing or extra:
+        raise ValueError(f"CB table disagrees with the kernels: missing {missing}, extra {extra}")
 
 
 def partial_shape(p):
@@ -281,6 +316,7 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
 
+    check_cb_coverage(p)
     cbs = [ttnn.CBDescriptor(
         total_size=n * page, core_ranges=core_grid,
         format_descriptors=[ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt,

@@ -46,6 +46,7 @@ void kernel_main() {
     constexpr uint32_t cb_scalar = tt::CBIndex::c_5;
     constexpr uint32_t cb_zero = tt::CBIndex::c_6;
     constexpr uint32_t cb_scale = tt::CBIndex::c_7;
+    constexpr uint32_t cb_ones = tt::CBIndex::c_8;
     constexpr uint32_t cb_dbias = tt::CBIndex::c_29;
     constexpr uint32_t cb_done = tt::CBIndex::c_30;
     constexpr uint32_t cb_dq = tt::CBIndex::c_16;
@@ -57,6 +58,12 @@ void kernel_main() {
 
     generate_reduce_scaler(cb_scalar, identity_scalar_packed);
     generate_bcast_unary_scalar(cb_scale, scale_scalar_packed);
+    // Nt copies of the column identity. Every row sum in the compute kernel is a matmul against
+    // this rather than a reduce_c<SUM>: the shipped forward never uses a SUM reduce either, it
+    // finishes its row sums with matmul_reduce against exactly this tile.
+    for (uint32_t i = 0; i < Nt; ++i) {
+        generate_bcast_col_scalar(cb_ones, identity_scalar_packed);
+    }
     {
         // A genuine all-zero tile. The bcast-scalar generators only set the positions a broadcast
         // reads, and the accumulator is seeded by copying this tile whole.

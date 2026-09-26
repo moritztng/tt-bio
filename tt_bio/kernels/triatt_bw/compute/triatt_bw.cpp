@@ -24,6 +24,7 @@
 
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/transpose_wh.h"
+#include "api/debug/dprint.h"
 #include "../../triatt_sdpa/compute/compute_common.hpp"
 
 namespace {
@@ -38,6 +39,7 @@ template <uint32_t M, uint32_t N, uint32_t K, uint32_t SBH, uint32_t SBW, bool T
 ALWI void mm_keep(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb) {
     mm_block_init_short(in0_cb, in1_cb, TRANSPOSE, SBW /*ct_dim*/, SBH /*rt_dim*/, K /*kt_dim*/);
     reconfig_data_format(in1_cb, in0_cb);
+    pack_reconfig_data_format(out_cb);
     cb_wait_front(in0_cb, M * K);
     cb_wait_front(in1_cb, K * N);
     cb_reserve_back(out_cb, M * N);
@@ -92,6 +94,7 @@ ALWI void transpose_block(uint32_t in_cb, uint32_t out_cb) {
 // dP * P and then dS itself is P * (dP - correction), so P is live across both.
 ALWI void mul_block_to(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32_t num_tiles) {
     mul_tiles_init(in0_cb, in1_cb);
+    pack_reconfig_data_format(out_cb);
     cb_wait_front(in0_cb, num_tiles);
     cb_wait_front(in1_cb, num_tiles);
     cb_reserve_back(out_cb, num_tiles);
@@ -109,6 +112,7 @@ ALWI void mul_block_to(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32
 template <uint32_t rows, uint32_t cols>
 ALWI void sub_block_bcast_cols_inplace(uint32_t in0_cb, uint32_t in1_cb) {
     sub_bcast_cols_init_short(in0_cb, in1_cb);
+    pack_reconfig_data_format(in0_cb);
     cb_wait_front(in0_cb, rows * cols);
     cb_wait_front(in1_cb, rows);
     for (uint32_t i = 0; i < rows; ++i) {
@@ -119,6 +123,33 @@ ALWI void sub_block_bcast_cols_inplace(uint32_t in0_cb, uint32_t in1_cb) {
             release_dst();
         }
     }
+}
+
+// acc_cb (float32) += in_cb (bfloat16), with neither popped. This is the dbias accumulator.
+//
+// compute_common's add_block_inplace does the same arithmetic and would almost work, but it never
+// sets the PACK format: it is written for a kernel whose buffers are all one format. Here the
+// call immediately before this one packs bfloat16, so reusing it would write the float32
+// accumulator through a bfloat16 packer and silently round every partial sum to the precision the
+// accumulator exists to avoid.
+ALWI void accumulate_fp32(uint32_t acc_cb, uint32_t in_cb, uint32_t num_tiles) {
+    add_tiles_init(acc_cb, in_cb);
+    reconfig_data_format(acc_cb, in_cb);
+    pack_reconfig_data_format(acc_cb);
+    cb_wait_front(acc_cb, num_tiles);
+    cb_wait_front(in_cb, num_tiles);
+    // The accumulator is exactly full, so its write pointer and its read pointer are the same
+    // address and these packs land on the tiles they just read. The rotate afterwards restores
+    // that invariant for the next row.
+    for (uint32_t i = 0; i < num_tiles; ++i) {
+        acquire_dst();
+        add_tiles(acc_cb, in_cb, i, i, 0);
+        pack_tile(0, acc_cb);
+        release_dst();
+    }
+    cb_pop_front(acc_cb, num_tiles);
+    cb_reserve_back(acc_cb, num_tiles);
+    cb_push_back(acc_cb, num_tiles);
 }
 
 // Fill num_tiles of cb with copies of zero_cb's single tile, and push them.
@@ -162,6 +193,11 @@ void kernel_main() {
     constexpr uint32_t cb_scalar = tt::CBIndex::c_5;   // packed bf16 1.0, the reductions' scale
     constexpr uint32_t cb_zero = tt::CBIndex::c_6;
     constexpr uint32_t cb_scale = tt::CBIndex::c_7;    // the attention scale, as one bf16 tile
+    // Nt copies of the column identity. A [Nt, Nt] block matmul'd by this gives the row sums in
+    // one op: within a tile the ones-column sums the row, and the k loop sums across the tiles.
+    // reduce_c<SUM> is NOT the route -- the shipped forward never issues one, it reduces with
+    // matmul_reduce against this same tile, and a SUM reduce_c in this kernel hangs the core.
+    constexpr uint32_t cb_ones = tt::CBIndex::c_8;
     constexpr uint32_t cb_p = tt::CBIndex::c_24;
     constexpr uint32_t cb_dp = tt::CBIndex::c_25;
     constexpr uint32_t cb_t = tt::CBIndex::c_26;
@@ -186,64 +222,85 @@ void kernel_main() {
     cb_wait_front(cb_scalar, 1);
     cb_wait_front(cb_scale, 1);
 
+    DPRINT << "@CONST" << ENDL();
     seed_zeros(cb_dbias, cb_zero, score_tiles);
+    DPRINT << "@SEED" << ENDL();
 
     for (uint32_t row = row_start; row < row_end; ++row) {
         // ---- S = (Q K^T) * scale + bias, then P = softmax(S) --------------------------------
         // cb_k holds K's Nt tiles. Read as [Dt, Nt] with the faces transposed, those same tiles
         // are K^T's tile grid, which is why no second copy of k is read from DRAM.
         mm_keep<Nt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_q, cb_k, cb_p);
+        DPRINT << "@S" << ENDL();
         mul_block_bcast_scalar_inplace<cb_scale, score_tiles>(cb_p);
+        DPRINT << "@SCALE" << ENDL();
         add_block_inplace<false>(cb_p, cb_bias, score_tiles);
+        DPRINT << "@BIAS" << ENDL();
 
         reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Nt, (int)VectorMode::RC>(
             cb_row_a, cb_row_a, Nt, false);
-        sub_exp_block_bcast_cols_inplace<cb_p, Nt, 0x3F800000 /*1.0f*/>(cb_row_a, cb_row_b, Nt);
-        cb_pop_front(cb_row_a, Nt);                      // reduce_c and sub_exp both keep in1
-        reduce_c<PoolType::SUM, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Nt, (int)VectorMode::RC>(
-            cb_row_b, cb_row_b, Nt, false);
+        // `do_reduce` OFF, explicitly. Its default is true, and what it then produces is NOT the
+        // row sum: it is a partial, TILE-WISE sum across the key tiles accumulated in L1, which
+        // the shipped forward finishes with a separate row reduction after its k-chunk loop
+        // ("Partial reduce_sum is used to push the final row_reduction within a tile outside of
+        // the loop over K chunks", compute_common.hpp:2011). This kernel has exactly one k chunk,
+        // so the partial form buys nothing and a single reduce_c over cb_p is both the row sum
+        // and one fewer buffer to carry.
+        sub_exp_block_bcast_cols_inplace<cb_p, Nt, 0x3F800000 /*1.0f*/, true, false>(
+            cb_row_a, cb_row_b, Nt);
+        DPRINT << "@EXP" << ENDL();
+        cb_pop_front(cb_row_a, Nt);                      // sub_exp keeps in1, so pop it here
+        mm_keep<Nt, 1, Nt, col_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(exp)
         recip_block_inplace(cb_row_b, Nt);
         // immediate_pop, and it has to be: the other arm of mul_block_bcast_cols reserves on
         // out_cb BEFORE popping in0_cb, so with in0 and out the same CB sized to exactly its
         // contents the reserve can never be satisfied and the kernel hangs on the first row.
         mul_block_bcast_cols<Nt, Nt, true, false>(cb_p, cb_row_b, cb_p);    // P = exp / rowsum
+        DPRINT << "@P" << ENDL();
 
         // ---- dV = P^T dO -------------------------------------------------------------------
         transpose_block<Nt, Nt>(cb_p, cb_t);
+        DPRINT << "@PT" << ENDL();
         mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_t, cb_do, cb_dv);
+        DPRINT << "@DV" << ENDL();
         cb_pop_front(cb_t, score_tiles);
 
         // ---- dP = dO V^T, then dS = P * (dP - rowsum(dP * P) / rowsum(P)) --------------------
         mm_keep<Nt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_do, cb_v, cb_dp);      // cb_dp = dP
+        DPRINT << "@DP" << ENDL();
         mul_block_to(cb_dp, cb_p, cb_t, score_tiles);    // cb_t = dP * P, both inputs kept
-        reduce_c<PoolType::SUM, ReduceDim::REDUCE_ROW, cb_t, cb_scalar, Nt, (int)VectorMode::RC>(
-            cb_row_a, cb_row_a, Nt, false);              // cb_row_a = rowsum(dP * P)
+        DPRINT << "@DPP" << ENDL();
+        mm_keep<Nt, 1, Nt, col_sbh, 1, false>(cb_t, cb_ones, cb_row_a);   // rowsum(dP * P)
         cb_pop_front(cb_t, score_tiles);
         // The row-sum correction is carried, not dropped. P is normalised when it is formed, so
         // rowsum(P) is 1 up to bf16 rounding and dividing by it is exactly what removes that
         // rounding. Dropping it is worth up to 13.09x on the norm of dq, so it is taken fresh off
         // the normalised P rather than reusing the pre-normalisation sum.
-        reduce_c<PoolType::SUM, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Nt, (int)VectorMode::RC>(
-            cb_row_b, cb_row_b, Nt, false);              // cb_row_b = rowsum(P)
+        mm_keep<Nt, 1, Nt, col_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(P)
         recip_block_inplace(cb_row_b, Nt);
         mul_block_inplace(cb_row_a, cb_row_b, Nt);       // mul_block_inplace keeps in1
         cb_pop_front(cb_row_b, Nt);
 
         sub_block_bcast_cols_inplace<Nt, Nt>(cb_dp, cb_row_a);
+        DPRINT << "@SUB" << ENDL();
         cb_pop_front(cb_row_a, Nt);
         mul_block_inplace(cb_dp, cb_p, score_tiles);     // cb_dp = dS
+        DPRINT << "@DS" << ENDL();
         cb_pop_front(cb_p, score_tiles);
 
         // ---- dbias += dS, the only term that reduces across the leading axis ----------------
-        add_block_inplace<false>(cb_dbias, cb_dp, score_tiles);
+        accumulate_fp32(cb_dbias, cb_dp, score_tiles);
+        DPRINT << "@DBIAS" << ENDL();
 
         // ---- dQ = (dS K) * scale, dK = (dS^T Q) * scale --------------------------------------
         mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_dp, cb_k, cb_dq);
+        DPRINT << "@DQ" << ENDL();
         mul_block_bcast_scalar_inplace<cb_scale, col_tiles>(cb_dq);
 
         transpose_block<Nt, Nt>(cb_dp, cb_t);
         cb_pop_front(cb_dp, score_tiles);
         mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_t, cb_q, cb_dk);
+        DPRINT << "@DK" << ENDL();
         mul_block_bcast_scalar_inplace<cb_scale, col_tiles>(cb_dk);
         cb_pop_front(cb_t, score_tiles);
 
@@ -256,6 +313,7 @@ void kernel_main() {
     // The writer drains cb_dbias's L1 directly rather than through a second buffer, so this is the
     // handshake that says the accumulator is final. A copy would have cost 331.8 KB of L1, which
     // at the shipped shape is the difference between fitting and not.
+    DPRINT << "@ROWSDONE" << ENDL();
     cb_reserve_back(cb_done, 1);
     cb_push_back(cb_done, 1);
 }
