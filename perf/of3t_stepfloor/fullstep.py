@@ -669,6 +669,13 @@ def main() -> int:
                          "backward closure, so an ON rep and an OFF rep can share one warm "
                          "process and one set of weights, which is the only way to price it "
                          "against a run-to-run spread this large")
+    ap.add_argument("--dp-world", type=int, default=1,
+                    help="replicates sharded over this many chips, one process each. The "
+                         "shared trunk runs on every rank; only rank 0 differentiates it")
+    ap.add_argument("--dp-rank", type=int, default=0)
+    ap.add_argument("--dp-run", default="",
+                    help="/dev/shm directory the ranks exchange through. Required above "
+                         "world 1, and every rank must be given the same one")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     if a.grad_ab:
@@ -716,6 +723,7 @@ def main() -> int:
             from tt_bio.tenstorrent import get_device
             from tt_bio.train.losses import of3_loss_weights
             from tt_bio.train.optim import AdamW
+            from tt_bio.train import replicate_dp as rdp
 
             held, _meta = S.capture(a.tokens, out)
             trunk = held["trunk"][0]
@@ -727,6 +735,24 @@ def main() -> int:
             params = declare_all(trunk, sampler, out)
             weights = of3_loss_weights(a.stage)
             out["loss_weights"] = weights
+            # The replicate axis. At world 1 `dp_axis` is None and every branch below is the
+            # program this harness already was, rather than that program with a collective
+            # that no-ops -- a single-chip arm has to stay comparable to the banked ones.
+            dp_axis = None
+            if a.dp_world > 1:
+                from tt_bio.train.launcher import ProcessAxis
+                from tt_bio.train.mesh import Mesh
+                if not a.dp_run:
+                    raise SystemExit("--dp-world > 1 needs --dp-run <shared dir>")
+                Path(a.dp_run).mkdir(parents=True, exist_ok=True)
+                base = Mesh({"dp": list(range(a.dp_world))}).axis("dp")
+                dp_axis = ProcessAxis(name=base.name, device_ids=base.device_ids,
+                                      mesh=base.mesh, dp_rank=a.dp_rank, run=a.dp_run)
+            out["dp"] = {"world": a.dp_world, "rank": a.dp_rank,
+                         "prefix_backward_rank": rdp.PREFIX_RANK, "run": a.dp_run or None}
+            # data_parallel stays None and the reduce is explicit below: the optimizer's
+            # own guard wants one gradient per rank for the SAME parameter set, and the rank
+            # that skips the prefix backward does not have one.
             opt = None if a.no_optimizer else AdamW(params, lr=3e-4)
             out["optimizer"] = {"class": "tt_bio.train.optim.AdamW", "lr": 3e-4,
                                 "clip_norm": None if opt is None else opt.clip_norm,
@@ -846,7 +872,11 @@ def main() -> int:
                                                    l_out)
                     prime_cot = _cotangents(prime_roots, prime_seeds, dev)
                     loss_s += time.perf_counter() - t0
-                    for ci in range(1, a.samples, chunk):
+                    starts = list(range(1, a.samples, chunk))
+                    mine = rdp.shard(len(starts), a.dp_world, a.dp_rank)
+                    row["chunk_starts_all"] = len(starts)
+                    row["chunk_starts_mine"] = [starts[i] for i in mine]
+                    for ci in [starts[i] for i in mine]:
                         part = pre["sigmas"][ci:ci + chunk]
                         c = {"first": ci, "n": len(part)}
                         t0 = time.perf_counter()
@@ -905,6 +935,15 @@ def main() -> int:
                     # THE trunk backward, once. `chunk_backward_entries` above is how many
                     # times the REPLICATE subgraph was entered; this is how many times the
                     # trunk was, and it is the number that decides whether chunking paid.
+                    # The cut cotangent is a SUM over all 48 replicates, so it has to
+                    # meet before the trunk is differentiated -- not at the optimizer, where
+                    # the weight gradients meet. Every rank sends the same leaves in the same
+                    # order; a leaf with no gradient sends explicit zeros.
+                    t0 = time.perf_counter()
+                    cut_leaves = [s_det, z_det] + [lf for _o, lf in cache_pairs]
+                    row["cut_reduce_bytes"] = rdp.reduce_cut(dp_axis, cut_leaves, dev)
+                    row["cut_reduce_s"] = round(time.perf_counter() - t0, 3)
+
                     t0 = time.perf_counter()
                     troots = [s_tr, pre["zij_pad"]]
                     tcot = [s_det.grad, z_det.grad]
@@ -921,10 +960,20 @@ def main() -> int:
                     troots.extend(prime_roots)
                     tcot.extend(prime_cot)
                     row["trunk_tape_nodes"] = len(ag._reverse_topo(troots))
-                    ag.backward(troots, tcot)
-                    ttnn.synchronize_device(dev)
+                    if a.dp_rank == rdp.PREFIX_RANK:
+                        ag.backward(troots, tcot)
+                        ttnn.synchronize_device(dev)
+                        row["trunk_backward_entries"] = 1
+                    else:
+                        # Deliberately idle. The trunk's ~20 s does not divide by the
+                        # replicate axis, and running it here would count its gradient
+                        # world times in the optimizer's sum. The wait shows up as this
+                        # rank's own step term rather than disappearing into the ratio.
+                        row["trunk_backward_entries"] = 0
+                        row["trunk_backward_note"] = (
+                            "not this rank's: the shared prefix is differentiated once, on "
+                            f"rank {rdp.PREFIX_RANK}")
                     row["trunk_backward_s"] = round(time.perf_counter() - t0, 3)
-                    row["trunk_backward_entries"] = 1
                     bwd_s += row["trunk_backward_s"]
                     row["tape_nodes"] = (row["trunk_tape_nodes"]
                                          + sum(c["tape_nodes"] for c in chunks))
@@ -977,6 +1026,12 @@ def main() -> int:
                 # --- 5. optimizer ---------------------------------------------------------
                 if opt is not None and got:
                     t0 = time.perf_counter()
+                    if dp_axis is not None:
+                        tg = time.perf_counter()
+                        row["grad_reduce_bytes"] = rdp.reduce_grads(dp_axis, params)
+                        row["grad_reduce_s"] = round(time.perf_counter() - tg, 3)
+                        row["params_with_grad_reduced"] = sum(
+                            1 for t in params.values() if t.grad is not None)
                     upd = opt.step()
                     # Put the optimizer new weights back where the walk found them, which
                     # is the line tt_bio/train/recipes.py:185 runs after its own opt.step().
