@@ -16,7 +16,7 @@ split=$1; cache=$2; extra=${3:-}
 echo "=== featurise $split start $(date -u +%FT%TZ) ===" >> "$L/feat.log"
 nice -n 19 "$PY" perf/of3t_p10trainout/featurise.py \
     --data-dir "$D" --cache-file "$D/$cache" --split "$split" \
-    --stage initial_training --crop 384 --seed 20260926 \
+    --stage initial_training --crop ${CROP:-384} --seed 20260926 \
     --rank-template "$REF_BUNDLE/batch_step003.pt" \
     --out "$O/$split" $extra >> "$L/feat_$split.log" 2>&1
 echo "=== featurise $split done $(date -u +%FT%TZ) rc=$? ===" >> "$L/feat.log"

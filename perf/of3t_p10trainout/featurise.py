@@ -50,7 +50,13 @@ def main() -> int:
     ap.add_argument("--package", default="tt_bio._vendor.openfold3")
     ap.add_argument("--split", default="train")
     ap.add_argument("--stage", default="initial_training")
-    ap.add_argument("--crop", type=int, default=384)
+    ap.add_argument("--crop", type=int, default=384,
+                    help="token budget. 0 means NO budget, which is what the validation split "
+                         "needs: upstream enables cropping on ValidationPDBDataset when one is "
+                         "given and its own homology path then breaks on any structure smaller "
+                         "than the crop -- 7kud is 13 tokens and it raised `size of tensor a "
+                         "(13) must match tensor b (384)`. The 4 held-out targets are 13, 24, "
+                         "53 and 87 tokens, so none of them needs one")
     ap.add_argument("--seed", type=int, default=20260926)
     ap.add_argument("--indices", default="",
                     help="comma-separated datapoints to dump, in step order")
@@ -70,8 +76,8 @@ def main() -> int:
     t0 = time.time()
 
     BD.seed_everything(a.seed)
-    ds = BD.build_dataset(a.package, a.data_dir, 4, token_budget=a.crop, split=a.split,
-                          stage=a.stage, cache_file=a.cache_file)
+    ds = BD.build_dataset(a.package, a.data_dir, 4, token_budget=(a.crop or None),
+                          split=a.split, stage=a.stage, cache_file=a.cache_file)
     guard = BD.install_retry_guard(ds)
     dc = ds.datapoint_cache
     n = len(dc)
