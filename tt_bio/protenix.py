@@ -33,7 +33,7 @@ import ttnn
 
 from . import protenix_weights as PW
 from .envflags import env_flag
-from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width, stack_samples
+from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
@@ -41,7 +41,7 @@ from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
                           host_unpark, msa_embed, msa_update_chunks, pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
-                          softmax_ckc, host_f64_softmax_site, site_softmax)
+                          softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
 

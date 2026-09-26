@@ -40,12 +40,11 @@ import ttnn
 
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim, pair_row_blocks,
-                          row_block_after_refusal)
+                          row_block_after_refusal, stack_samples)
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
 from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
 from .eltwise_fusion import mask_add
-from .sample_chunks import stack_samples
 
 # Pair shapes whose single-pass NPE pair projection DRAM refused, and the block they settled at.
 _NPE_PAIR_ROWS_REFUSED: dict = {}

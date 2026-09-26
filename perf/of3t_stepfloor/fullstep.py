@@ -737,6 +737,8 @@ def main() -> int:
                          "against a run-to-run spread this large")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
+    if a.dit_batch < 1:
+        ap.error("--dit-batch is a sample-axis width, so 1 is the narrowest it can be")
     if a.grad_ab:
         # One process, one weight set, no step between the two arms: anything else compares
         # two different models rather than two ways of summing one gradient.

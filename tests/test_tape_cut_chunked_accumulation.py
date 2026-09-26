@@ -180,3 +180,83 @@ def test_dropping_the_accumulation_is_caught(dev):
     assert not torch.allclose(partial_w1, whole_w1, rtol=2e-3, atol=2e-3), (
         "dropping three quarters of the cut's cotangent changed nothing, so this file is not "
         "testing the accumulation")
+
+
+# --- the sample axis: S replicates through ONE call of the shared stage -----------------
+#
+# `of3t-p10batch`'s lever, at unit scale and in the same file, because it is the same question
+# about the same tape: a shape where several replicates read one shared node. The chunk cut
+# above splits the axis in TIME; this splits it in the BATCH DIMENSION. Both have to give the
+# per-replicate loop's gradient back, and the one that is easy to get wrong is the shared
+# weight's, because batching turns its gradient into a reduction over the sample axis.
+#
+# The graph mirrors `OF3DiffusionModule._denoise_samples`: a per-replicate stage before the
+# shared one (`_pre_dit`), the shared stage run once for the stack (the 24-block DiT), and a
+# per-replicate stage after it reading its own slice (`_post_dit`).
+
+
+def _pre(h, k):
+    """The per-replicate stage before the batched one."""
+    return ag.scale(h, 1.0 + 0.1 * k)
+
+
+def _post(o, k):
+    """The per-replicate stage after it. A distinct factor per k, so a slice that lands on the
+    wrong replicate is visible in the gradient rather than cancelling out."""
+    return ag.scale(o, 1.0 + 0.5 * k)
+
+
+def test_a_batched_sample_axis_matches_the_per_replicate_loop(dev):
+    ks = list(range(4))
+    x, w1, w2 = _build(dev, seed=3)
+
+    with ag.tape():
+        h = ag.matmul(x, w1)
+        roots = [_post(ag.matmul(_pre(h, k), w2), k) for k in ks]
+    ag.backward(roots, _seeds(dev, roots, ks))
+    loop_w1, loop_w2 = _grads(w1, w2)
+    loop_roots = [_host(r) for r in roots]
+    _clear(w1, w2)
+
+    with ag.tape():
+        h = ag.matmul(x, w1)
+        hb = T.stack_samples([_pre(h, k) for k in ks])     # [S, N, N]
+        ob = ag.matmul(hb, w2)                              # ONE matmul for the whole axis
+        roots_b = [_post(ob[k:k + 1], k) for k in ks]
+    ag.backward(roots_b, _seeds(dev, roots_b, ks))
+    batch_w1, batch_w2 = _grads(w1, w2)
+
+    for k in ks:
+        torch.testing.assert_close(_host(roots_b[k]), loop_roots[k], rtol=2e-3, atol=2e-3)
+    # w2 is the shared weight: batched, its gradient is a sum over the sample axis, which is
+    # `_reduce_to`'s job and the one thing a hand-written batched backward gets wrong.
+    torch.testing.assert_close(batch_w2, loop_w2, rtol=2e-3, atol=2e-3)
+    torch.testing.assert_close(batch_w1, loop_w1, rtol=2e-3, atol=2e-3)
+
+
+def test_every_replicate_must_read_its_own_slice(dev):
+    """The control. Give every replicate slice 0 and the gradient has to come out wrong --
+    otherwise the test above would pass on a graph where the sample axis never carried
+    anything, which is exactly how a batched port agrees with its control for the wrong
+    reason."""
+    ks = list(range(4))
+    x, w1, w2 = _build(dev, seed=3)
+
+    with ag.tape():
+        h = ag.matmul(x, w1)
+        roots = [_post(ag.matmul(_pre(h, k), w2), k) for k in ks]
+    ag.backward(roots, _seeds(dev, roots, ks))
+    loop_w2 = _grads(w1, w2)[1]
+    _clear(w1, w2)
+
+    with ag.tape():
+        h = ag.matmul(x, w1)
+        hb = T.stack_samples([_pre(h, k) for k in ks])
+        ob = ag.matmul(hb, w2)
+        roots_b = [_post(ob[0:1], k) for k in ks]           # every replicate reads slice 0
+    ag.backward(roots_b, _seeds(dev, roots_b, ks))
+    wrong_w2 = _grads(w1, w2)[1]
+
+    assert not torch.allclose(wrong_w2, loop_w2, rtol=2e-3, atol=2e-3), (
+        "reading one slice for all four replicates changed nothing, so the slice index is not "
+        "reaching the gradient and the test above proves nothing")

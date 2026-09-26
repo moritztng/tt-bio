@@ -3097,6 +3097,26 @@ def note_l1_clash(where: str, msg: object) -> dict | None:
 L1_CLASH_CENSUS: list = []
 
 
+def stack_samples(parts):
+    """``parts`` (each with a leading dim of 1) -> one device tensor with a sample axis.
+
+    ``ttnn.concat`` hands back a row-major result, so every sample-axis stack in the tree was
+    writing ``to_layout(concat(...), TILE_LAYOUT)`` by hand. One name for it instead: the
+    samplers that batch a sample axis all stack the same way, and a tiled result is what every
+    consumer of the axis wants.
+
+    It lives HERE, not in `sample_chunks.py` beside the chunk-width policy, and the reason is
+    the tape. `sample_chunks` has no module-scope `import ttnn` on purpose -- it runs on torch
+    tensors for Boltz-2 and Protenix and imports without the wheel -- so putting this there
+    meant a function-local `import ttnn`, which binds the REAL module and not
+    `taped_ttnn`'s shim. The concat would then have run outside the tape and the sample axis
+    would have had no gradient. `tests/test_tape_reach.py::test_no_new_function_local_ttnn_import`
+    caught exactly that.
+    """
+    out = ttnn.concat(list(parts), dim=0)
+    return out if out.layout == ttnn.TILE_LAYOUT else ttnn.to_layout(out, ttnn.TILE_LAYOUT)
+
+
 def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
                    dtype=None) -> ttnn.Tensor:
     """`ttnn.matmul` for a batched attention matmul, with the batch spread over the core grid.
