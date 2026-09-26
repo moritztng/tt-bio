@@ -33,6 +33,11 @@ def _dump():
         "picks": {str(k): v for k, v in (getattr(T, "SDPA_CHUNK_PICKS", {}) or {}).items()},
         "hifi_stats": dict(getattr(T, "TRIATT_FUSED_HIFI_STATS", {}) or {}),
         "mask_trans": dict(getattr(T, "MASK_TRANS_STATS", {}) or {}),
+        # triatt_sdpa carries its own counters: FUSE_REJECTS says why the fused-qkv arm declined,
+        # and an empty dict with the flag on is the firing proof that it did not.
+        "fuse_rejects": {str(k): v for k, v in
+                         (getattr(sys.modules.get("tt_bio.triatt_sdpa"), "FUSE_REJECTS", {}) or {}).items()},
+        "kernel_stats2": list(getattr(sys.modules.get("tt_bio.triatt_sdpa"), "STATS", []) or []),
     }
     if not rec["picks"] and not any(rec["k_chunk_stats"]):
         rec["note"] = "no triangle-attention pick recorded in this process"
