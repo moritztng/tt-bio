@@ -93,9 +93,15 @@ def main():
     tot_gb = ev["totals"]["224"]
     per = sc["fused_kernel_ceiling"]["per_kernel"]["evo"]
     sm_gb = per["fused_softmax"]["removed_GB"]["224"]
+    sm_wheel = per["fused_softmax"]["removed_GB_wheel"]["224"]
     ln_gb = per["fused_layernorm"]["removed_GB"]["224"]
+    # `plus_wheel_softmax` is the one a card can test TODAY: main's SOFTMAX_BW_FUSED turned on
+    # with bf16 operands, no kernel written. It writes bf16, so it also pays the widen-dx that
+    # `backward()` inserts, which is why it is below the custom-kernel line rather than equal to
+    # it. Ordered so the cheapest testable scenario reads first.
     out["levers"] = {}
     for name, gb in (("precision_stack", lev_gb),
+                     ("plus_wheel_softmax_no_kernel", lev_gb + sm_wheel),
                      ("plus_fused_softmax", lev_gb + sm_gb),
                      ("plus_both_fused_kernels", lev_gb + sm_gb + ln_gb)):
         f_bwd = gb / tot_gb                      # share of the backward's bytes

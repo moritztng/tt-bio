@@ -390,7 +390,17 @@ def cmd_scale(args):
     #   already recomputed by our own backward, which is the blocker that ruled out the moreh
     #   route and does not bind here. It is Route B -- a tt-metal source build, two copies of the
     #   runtime in one process -- so the cost is real and is NOT a kernel problem.
+    # The fused figures below are what the KERNEL costs. A kernel that writes bf16 -- which
+    # `moreh_softmax_backward` does, its output dtype following its input -- pays one more thing
+    # on the way out: `backward()` normalises every gradient to its VALUE's dtype before that
+    # value's closure fires (`autograd.py:621-622`), and the softmax's input is the fp32 score
+    # tensor, so a bf16 dx is read back (0.5) and written as fp32 (1.0), 1.5 more passes. A
+    # HAND-WRITTEN kernel can simply write fp32 and skip it, which is a design choice worth
+    # stating before anyone writes one. So Route A's ceiling is strictly lower than a custom
+    # kernel's at the same arithmetic, and `fused_softmax_wheel` below is the honest figure for
+    # the moreh route.
     KERNELS = {"2 ": ("fused_softmax", 10, 1.5), "3 ": ("fused_layernorm", 30, 4.0)}
+    WHEEL = {"fused_softmax": 1.5 + 1.5}
     fused, detail = {}, {}
     for stack in ("evo", "extra"):
         b = blob[stack]["by_site"]
@@ -400,8 +410,13 @@ def cmd_scale(args):
             if not v:
                 continue
             got = {str(x): round(v["at"][str(x)] * (1 - fused_p / now_p), 3) for x in at}
-            detail.setdefault(stack, {})[label] = {"passes_now": now_p, "passes_fused": fused_p,
-                                                   "removed_GB": got}
+            rec = {"passes_now": now_p, "passes_fused": fused_p, "removed_GB": got}
+            if label in WHEEL:
+                wp = WHEEL[label]
+                rec["passes_wheel_incl_widen_dx"] = wp
+                rec["removed_GB_wheel"] = {str(x): round(v["at"][str(x)] * (1 - wp / now_p), 3)
+                                           for x in at}
+            detail.setdefault(stack, {})[label] = rec
             for x in at:
                 tot[str(x)] += got[str(x)]
         fused[stack] = {k: round(v, 3) for k, v in tot.items()}
@@ -409,7 +424,10 @@ def cmd_scale(args):
     for stack in ("evo", "extra"):
         for label, d in detail.get(stack, {}).items():
             print(f"   {stack:6s} {label:16s} {d['passes_now']:.0f} passes -> {d['passes_fused']}"
-                  f"  removes {d['removed_GB'][n]:7.3f} GB at n={n}")
+                  f"  removes {d['removed_GB'][n]:7.3f} GB at n={n}"
+                  + (f"   | wheel (bf16 out, +widen dx) -> {d['passes_wheel_incl_widen_dx']}"
+                     f" removes {d['removed_GB_wheel'][n]:.3f} GB"
+                     if "removed_GB_wheel" in d else ""))
     ev2 = ev + fused["evo"][n]
     ex2 = ex + fused["extra"][n]
     cut2 = (args.evo_blocks * args.evo_ms * (ev2 / blob["evo"]["totals"]["256"])

@@ -47,6 +47,18 @@
     "device_extra_msa_s": 12
    }
   },
+  "plus_wheel_softmax_no_kernel": {
+   "removed_GB_per_evo_block_n224": 8.137,
+   "share_of_backward_bytes": 0.2814,
+   "share_of_round_device_time": 0.1905,
+   "round_speedup": 1.1605,
+   "reps_per_arm": {
+    "round_wall": 3,
+    "sequence_gradients_s": 3,
+    "device_evoformer_s": 1,
+    "device_extra_msa_s": 2
+   }
+  },
   "plus_fused_softmax": {
    "removed_GB_per_evo_block_n224": 9.165,
    "share_of_backward_bytes": 0.3169,
