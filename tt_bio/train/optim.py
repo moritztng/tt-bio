@@ -47,7 +47,7 @@ from .tensors import to_device, to_host
 if TYPE_CHECKING:
     from .. import autograd as ag
 
-__all__ = ["AdamW", "af3_lr", "DISPLACEMENT_BAND"]
+__all__ = ["AdamW", "af3_lr", "DISPLACEMENT_BAND", "round_to_device_dtype"]
 
 
 # The band the cumulative ratio has to stay inside. Wide enough that bf16 rounding of a
@@ -112,6 +112,32 @@ def _require_fp32_master(dtype) -> None:
         f"accumulated at {name} stops moving the weight while the gradient still reads "
         f"healthy. The device copy the forward reads stays bfloat16 -- that is the point of "
         f"having a master -- and it is written by casting the master down each step")
+
+
+def round_to_device_dtype(arr, dtype):
+    """``arr`` as the device would hold it, computed on the host. No PCIe.
+
+    ``to_device`` writes ``torch.from_numpy(arr).to(float32)`` through
+    ``ttnn.from_torch(dtype=...)``, so for a dtype torch can express the value that lands on
+    the card is exactly this cast. Returns ``None`` for a dtype it cannot reproduce
+    (``bfloat8_b`` is a block format with a shared exponent and has no torch scalar type),
+    and the caller falls back to reading the card.
+
+    This exists because ``step()`` used to read every weight back TWICE per step -- once
+    before the write and once after -- purely to report how much of the update survived the
+    cast. At OF3T's census (3,152 parameters, 381,302,188 elements) those two reads are
+    0.66 s of PCIe against 0.36 s for the same two casts on host
+    (``perf/of3t_p10host/out/optsplit.json``).
+    """
+    import torch
+    name = str(getattr(dtype, "name", dtype)).rsplit(".", 1)[-1].lower()
+    t = {"bfloat16": torch.bfloat16, "float32": torch.float32,
+         "uint32": None, "bfloat8_b": None}.get(name, None)
+    if t is None:
+        return None
+    if t is torch.float32:
+        return arr
+    return torch.from_numpy(arr).to(t).to(torch.float32).numpy()
 
 
 class _Moments(dict):
@@ -206,7 +232,15 @@ class AdamW:
         # array to its own shape. So they were a duplicate, and at the crop-384 census (3152
         # tensors, 381,302,188 elements) the duplicate was **1.40 GiB** measured, standing
         # for the whole run (`perf/of3t_optorder/out/`).
-        self.init = {n: v.copy() for n, v in self.master.items()}
+        # `init` is the master AT CONSTRUCTION, and the master at construction is the device
+        # weight promoted to fp32 -- `to_host` widens, it does not add information. So a
+        # bfloat16 parameter's `init` carries 8 mantissa bits in a 24-bit box, and holding it
+        # at the parameter's own dtype is LOSSLESS, not an approximation: `displacement()`
+        # widens it back and gets the same bytes. At the crop-384 census that is 1.42 GiB
+        # down to 0.71 GiB standing for the whole run, beside a master that cannot be
+        # narrowed because it is the accumulator.
+        self.init = {n: self._narrow(v, params[n].value.dtype)
+                     for n, v in self.master.items()}
         # `exp_avg` and `exp_avg_sq` are built at the FIRST STEP, not here. Only `step()`
         # reads or writes them, and `step()` runs after the backward, so eager construction
         # put 2.82 GiB of zeros under the forward and the backward for nothing. Eager is not
@@ -224,6 +258,26 @@ class AdamW:
         self.accum: Dict[str, "np.ndarray"] = {}
         self.participation: Dict[str, int] = {}
         self.accum_count = 0
+
+    @staticmethod
+    def _narrow(arr, dtype):
+        """``arr`` at the parameter's own device dtype, for storage. Lossless by construction.
+
+        Only ever called on the master at construction, which came from the device weight, so
+        there is nothing below `dtype` to lose. `_widen` is the inverse.
+        """
+        import torch
+        name = str(getattr(dtype, "name", dtype)).rsplit(".", 1)[-1].lower()
+        if name != "bfloat16":
+            return arr
+        return torch.from_numpy(arr).to(torch.bfloat16)
+
+    @staticmethod
+    def _widen(v):
+        import numpy as np
+        if isinstance(v, np.ndarray):
+            return v
+        return v.to(__import__("torch").float32).numpy()
 
     def zero_grad(self) -> None:
         for t in self.params.values():
@@ -277,6 +331,7 @@ class AdamW:
                  if per_sample else self.grad_norm(disabled))
         clip = 1.0 if per_sample else self.clip_coef(gnorm)
         report = {}
+        writes_skipped = 0
         for name, t in self.params.items():
             # EVERY parameter takes a step, including one no sample of this step activated.
             # That is upstream's behaviour and it is not incidental: `sync_and_average_grads`
@@ -327,21 +382,52 @@ class AdamW:
             theta = self.master[name]
             upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
                         + self.weight_decay * theta)
-            before = theta.copy()
-            theta -= upd
             # The control the brief demands, measured rather than asserted: the step the
             # weight the FORWARD reads actually took, after rounding to the device dtype.
             # A master update that vanishes in the cast is an expensive no-op.
-            dev_before = to_host(t.value).astype(np.float32).reshape(theta.shape)
-            t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
-            dev_after = to_host(t.value).astype(np.float32).reshape(theta.shape)
-            want = float(np.linalg.norm(theta - before))
+            #
+            # Both sides of it are computed HERE, on the host. `dev_before` is the master
+            # rounded down, which is what the card holds because the only writer of
+            # `t.value` is this line one step earlier; `dev_after` is the same cast of the
+            # updated master. Reading them back cost two PCIe traversals of the whole
+            # parameter set every step -- 0.66 s of 5.055 s at OF3T's census -- to learn
+            # something the host already knows. The CUMULATIVE control is unaffected and
+            # still reads the card: `displacement()` calls `to_host(t.value)`, so a device
+            # weight written by something other than this optimizer is still caught, by the
+            # control this module says is the real one.
+            dev_before = round_to_device_dtype(theta, t.value.dtype)
+            theta -= upd
+            dev_after = round_to_device_dtype(theta, t.value.dtype)
+            if dev_after is None or dev_before is None:
+                # A dtype torch cannot express. Pay the round trip rather than guess.
+                dev_before = to_host(t.value).astype(np.float32).reshape(theta.shape)
+                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                dev_after = to_host(t.value).astype(np.float32).reshape(theta.shape)
+            elif np.array_equal(dev_after, dev_before):
+                # The whole update rounded away. The tensor already on the card is the one
+                # `to_device` would build, bit for bit, so the write is skipped rather than
+                # repeated -- an exactness, not an approximation. This is the COMMON case
+                # during warmup, where `af3_lr` puts every step under bf16 spacing: the
+                # module's own 20-step arm measured a cumulative ratio of 0.810 for exactly
+                # this reason.
+                writes_skipped += 1
+            else:
+                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+            # `norm(upd)` IS `norm(theta - before)`: `theta -= upd` is the only thing that
+            # moved it. Taking it off the update drops a full-census copy of every parameter
+            # per step -- 1.42 GiB of allocation at OF3T's census, 0.361 s against 0.032 s.
+            want = float(np.linalg.norm(upd))
             kept = float(np.linalg.norm(dev_after - dev_before))
             report[name] = {"master_step": want, "device_step": kept,
                             "kept": (kept / want) if want > 0 else float("nan"),
                             "grad_norm": float(np.linalg.norm(g))}
         self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
         self.last_per_sample = per_sample
+        # How many parameters this step did not write back because the update rounded away
+        # entirely. Reported rather than silent: a step that skips every write is either a
+        # warmup working as designed or an optimizer that has stopped, and the two are told
+        # apart by `displacement()`, not by this counter.
+        self.last_writes_skipped = writes_skipped
         self.last_report = report
         self.accum, self.participation, self.accum_count = {}, {}, 0
         return report
@@ -460,9 +546,10 @@ class AdamW:
         import numpy as np
         m = d = 0.0
         for n, t in self.params.items():
-            m += float(np.sum((self.master[n] - self.init[n]) ** 2))
+            init = self._widen(self.init[n])
+            m += float(np.sum((self.master[n] - init) ** 2))
             cur = to_host(t.value).astype(np.float32).reshape(self.master[n].shape)
-            d += float(np.sum((cur - self.init[n]) ** 2))
+            d += float(np.sum((cur - init) ** 2))
         m, d = math.sqrt(m), math.sqrt(d)
         # The displacement the device copy CANNOT show. A change smaller than half an ulp of
         # the weight it is applied to rounds away entirely, so below this the ratio is
@@ -471,7 +558,7 @@ class AdamW:
         res = 0.0
         for n, t in self.params.items():
             u = 2.0 ** -8 if "bfloat16" in str(t.value.dtype) else 2.0 ** -24
-            res += float(np.sum((u * np.abs(self.init[n])) ** 2))
+            res += float(np.sum((u * np.abs(self._widen(self.init[n]))) ** 2))
         return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan"),
                 "resolution": math.sqrt(res)}
 

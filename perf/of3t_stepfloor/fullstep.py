@@ -42,6 +42,7 @@ constant this row has no business fixing. Timing reads the sample COUNT, not the
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import math
 import os
@@ -66,6 +67,49 @@ def _dram(dev):
     import ttnn
     mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
     return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
+
+
+def _mem_available_gib():
+    """Host MemAvailable, beside every timing that has a host half.
+
+    `of3t-p10host` measured the same loss arithmetic at 0.248 s with 17 GiB available and
+    1.03-1.21 s at ~1 GiB, so a host timing without this next to it is not comparable to
+    another host timing. A chunk loop's own resident set is a perf variable, which is why it
+    is recorded per chunk and not once per run.
+    """
+    try:
+        with open("/proc/meminfo") as fh:
+            for line in fh:
+                if line.startswith("MemAvailable:"):
+                    return round(int(line.split()[1]) / (1024 ** 2), 3)
+    except OSError:
+        pass
+    return None
+
+
+def _to_tokens(root, rep):
+    """One denoised structure downloaded to host at token scope, detached."""
+    import numpy as np
+    import ttnn
+    from tt_bio import autograd as ag
+    raw = ag._unwrap(root) if isinstance(root, ag.Tensor) else root
+    return ttnn.to_torch(raw).float().reshape(-1, 3).numpy().astype(np.float64)[rep]
+
+
+def _cotangents(roots, seeds, dev):
+    """The loss's seeds, back on the card as the roots' cotangents."""
+    import numpy as np
+    import torch
+    import ttnn
+    from tt_bio import autograd as ag
+    cot = []
+    for r, g in zip(roots, seeds):
+        raw = ag._unwrap(r)
+        shp = tuple(int(d) for d in raw.shape)
+        h = (torch.from_numpy(np.asarray(g, "float32")).reshape(shp)
+             if g is not None else torch.ones(shp))
+        cot.append(ttnn.from_torch(h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=raw.dtype))
+    return cot
 
 
 def declare_all(trunk, sampler, out):
@@ -138,22 +182,19 @@ def trunk_forward(trunk, held, cycles, taped):
         return trunk(*args, **kwargs)
 
 
-def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
-    """`_train_diffusion`'s shape: N independently noised structures, N distinct sigmas.
+def diffusion_pre(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
+    """Everything the replicate loop does NOT repeat: the pair branch and the sigma draw.
 
-    Their training differentiates `no_samples` noised structures (48 in initial_training, 32
-    in finetune_1/2) rather than walking a rollout, so the samples are INDEPENDENT: there is
-    no EDM update chaining one to the next and no host download between them. Every denoised
-    structure stays on the card as a tape root.
-
-    The pair branch is a loop invariant on their side as it is on ours, so `dc.pair` runs
-    once and the per-sample work is `dc.single` plus the module -- which is what makes the
-    per-sample rate a rate.
+    `_train_diffusion` differentiates `no_samples` independently noised structures at
+    `no_samples` distinct sigmas. The pair branch is a loop invariant on their side as on
+    ours, so `dc.pair` runs once and the per-replicate work is `dc.single` plus the module,
+    which is what makes the per-replicate rate a rate. Hoisting it into its own function is
+    also what makes the replicates CHUNKABLE: the invariants sit on the trunk's side of the
+    cut, so they are differentiated once whatever the chunk count is.
     """
     import numpy as np
-    import torch
     import ttnn
-    from tt_bio.openfold3_sample_diffusion import fourier_noise_emb, pad_dim
+    from tt_bio.openfold3_sample_diffusion import pad_dim
 
     (xl_init_dev, si_trunk_cap, si_input_dev, zij_trunk_cap, relpos_dev,
      token_mask_dev, pair_mask_dev, tok_mask_dev, cl0_dev, plm0_dev,
@@ -171,14 +212,12 @@ def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
     zij_trunk_dev = z_trunk if z_trunk is not None else zij_trunk_cap
     out["coupled_to_trunk"] = s_trunk is not None and z_trunk is not None
 
-    dc, dm = sampler.dc, sampler.dm
+    dc = sampler.dc
     dt = sampler._act_dtype
     atom_mask_host = ttnn.to_torch(atom_mask_col_na_dev).float().reshape(n_atom)
     xl_host = ttnn.to_torch(xl_init_dev).float().reshape(n_atom, 3)
-
     zij_dev = dc.pair(zij_trunk_dev, relpos_dev, pair_mask_dev)
     zij_pad = pad_dim(zij_dev, dt, n_token, n_tok_pad, dims=2)
-    inv_cache: dict = {}
 
     # N DISTINCT noise levels, drawn from the captured schedule without replacement.
     pool = sorted({float(x) for x in t_list}, reverse=True)
@@ -189,34 +228,9 @@ def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
     out["sigmas"] = [round(s, 4) for s in sigmas]
     out["distinct_sigmas"] = len(set(sigmas))
     out["n_samples"] = n_samples
-
-    roots, per_sample = [], []
-    for k, t in enumerate(sigmas):
-        t0 = time.perf_counter()
-        noise = torch.from_numpy(
-            rng.standard_normal((n_atom, 3)).astype("float32")) * t
-        xl_noisy = xl_host + noise
-        n_emb = fourier_noise_emb(t, sampler.sigma_data, sampler.fourier_w, sampler.fourier_b)
-        si_dev = dc.single(si_trunk_dev, si_input_dev,
-                           sampler._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev)
-        si_pad = pad_dim(si_dev, dt, n_token, n_tok_pad)
-        rl_noisy = xl_noisy * atom_mask_host[:, None] / math.sqrt(t * t + sampler.sigma_data ** 2)
-        rl_noisy_dev = sampler._to_dev(sampler._pad_atoms_host(rl_noisy, n_atom, NP))
-        xl_noisy_dev = sampler._to_dev((xl_noisy * atom_mask_host[:, None]).unsqueeze(0))
-        xl_denoised_dev = dm(
-            si_trunk_dev, si_pad, zij_pad, cl0_dev, plm0_dev, rl_noisy_dev, xl_noisy_dev,
-            atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
-            npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
-            enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
-            token_mask_pad_tt, tok_mask_col_pad_tt,
-            n_atom, NP, nb, n_token, n_tok_pad, t, sampler.sigma_data, cache=inv_cache)
-        ttnn.synchronize_device(dm.device if hasattr(dm, "device") else dc.device)
-        roots.append(xl_denoised_dev)
-        per_sample.append(round(time.perf_counter() - t0, 3))
-        print(f"  [diffusion] sample {k} sigma {t:8.3f}  {per_sample[-1]:7.3f}s", flush=True)
-    out["per_sample_s"] = per_sample
     out["n_atom"] = int(n_atom)
     out["n_token"] = int(n_token)
+
     # The representative atom per token, taken from the shipped atom->token map rather than
     # from a fixture field this harness does not have. `af3_loss` is a TOKEN-scope objective
     # -- `losses.distogram` documents its logits as "[N, N, 64] on representative atoms" --
@@ -231,7 +245,108 @@ def diffusion_train(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
     out["tokens_without_an_atom"] = int((rep < 0).sum())
     rep = np.clip(rep, 0, n_atom - 1)
     out["rep_atom_index"] = "first atom of each token, from atom_to_token_idx"
-    return roots, (zij_pad, inv_cache), rep
+    return {"sargs": sargs, "sigmas": sigmas, "rep": rep, "zij_pad": zij_pad,
+            "si_trunk": si_trunk_dev, "atom_mask_host": atom_mask_host, "xl_host": xl_host}
+
+
+def cut(t):
+    """A detached leaf over the trunk's own buffer: where a chunk's tape ends.
+
+    The trunk's ~20 s of backward is per backward ENTRY, not per replicate -- checkpointing
+    makes its 3,537 nodes get recomputed and traversed several times each while a replicate's
+    1,590 nodes are traversed once. So a chunk loop whose every backward reached the trunk
+    would pay that 20 s twelve times. Cutting here instead lets each chunk's cotangent
+    ACCUMULATE on this leaf, and the trunk is differentiated once, after the last chunk.
+
+    The buffer is the trunk's, so the leaf must never free it: `evictable` off is what stops
+    a chunk's backward from moving a handle the trunk tape still holds.
+    """
+    from tt_bio import autograd as ag
+    d = ag.Tensor(ag._unwrap(t), requires_grad=True)
+    d.evictable = False
+    return d
+
+
+def cut_tree(v, pairs):
+    """`cut` every taped tensor in a cache entry, recording (original, leaf) for the seeding.
+
+    A cache entry is a tensor or a tuple/list of them (`openfold3_sample_diffusion._free_cached`
+    says so), and an entry that is a raw handle has no node and is passed through: there is
+    nothing to differentiate and nothing to seed.
+    """
+    from tt_bio import autograd as ag
+    if isinstance(v, ag.Tensor):
+        leaf = cut(v)
+        pairs.append((v, leaf))
+        return leaf
+    if isinstance(v, (tuple, list)):
+        return type(v)(cut_tree(x, pairs) for x in v)
+    return v
+
+
+def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
+                    cache=None):
+    """One chunk of replicates: `dc.single` plus the denoiser, once per noised structure.
+
+    Every denoised structure stays on the card as a tape root; there is no EDM update
+    chaining one to the next and no host download between them. `si_trunk` / `zij_pad`
+    override the invariants with the CUT leaves when the step is chunked, so this chunk's
+    tape ends at them instead of running on into the trunk.
+
+    `cache` is the replicate loop's deep invariant, the DiT per-block pair bias. Rebuilding
+    it per chunk costs 3.75 s of forward per chunk (measured: sample 0 of each chunk reads
+    4.15-4.32 s against 0.39-0.51 s for the rest, `arm3_s48_c4_384`) and differentiates the
+    same subgraph once per chunk on the way back. So the caller primes it once on the TRUNK's
+    side of the cut and hands the cut copy in here; `cache=None` rebuilds, which is what an
+    unchunked step does anyway.
+    """
+    import math
+    import torch
+    import ttnn
+    from tt_bio.openfold3_sample_diffusion import fourier_noise_emb, pad_dim
+
+    (xl_init_dev, si_trunk_cap, si_input_dev, zij_trunk_cap, relpos_dev,
+     token_mask_dev, pair_mask_dev, tok_mask_dev, cl0_dev, plm0_dev,
+     atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
+     npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
+     enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
+     token_mask_pad_tt, tok_mask_col_pad_tt,
+     n_atom, NP, nb, n_token, n_tok_pad,
+     noise_schedule, rots_list, trans_list, noise_list, t_list, c_tau_list,
+     step_scale) = pre["sargs"][:35]
+
+    dc, dm = sampler.dc, sampler.dm
+    dt = sampler._act_dtype
+    si_dev_trunk = pre["si_trunk"] if si_trunk is None else si_trunk
+    zij = pre["zij_pad"] if zij_pad is None else zij_pad
+    atom_mask_host, xl_host = pre["atom_mask_host"], pre["xl_host"]
+    inv_cache = {} if cache is None else cache
+    roots, per_sample = [], []
+    for k, t in enumerate(sigmas):
+        t0 = time.perf_counter()
+        noise = torch.from_numpy(
+            rng.standard_normal((n_atom, 3)).astype("float32")) * t
+        xl_noisy = xl_host + noise
+        n_emb = fourier_noise_emb(t, sampler.sigma_data, sampler.fourier_w, sampler.fourier_b)
+        si_dev = dc.single(si_dev_trunk, si_input_dev,
+                           sampler._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev)
+        si_pad = pad_dim(si_dev, dt, n_token, n_tok_pad)
+        rl_noisy = xl_noisy * atom_mask_host[:, None] / math.sqrt(t * t + sampler.sigma_data ** 2)
+        rl_noisy_dev = sampler._to_dev(sampler._pad_atoms_host(rl_noisy, n_atom, NP))
+        xl_noisy_dev = sampler._to_dev((xl_noisy * atom_mask_host[:, None]).unsqueeze(0))
+        xl_denoised_dev = dm(
+            si_dev_trunk, si_pad, zij, cl0_dev, plm0_dev, rl_noisy_dev, xl_noisy_dev,
+            atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
+            npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
+            enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
+            token_mask_pad_tt, tok_mask_col_pad_tt,
+            n_atom, NP, nb, n_token, n_tok_pad, t, sampler.sigma_data, cache=inv_cache)
+        ttnn.synchronize_device(dm.device if hasattr(dm, "device") else dc.device)
+        roots.append(xl_denoised_dev)
+        per_sample.append(round(time.perf_counter() - t0, 3))
+        print(f"  [diffusion] sample {k} sigma {t:8.3f}  {per_sample[-1]:7.3f}s", flush=True)
+    out.setdefault("per_sample_s", []).extend(per_sample)
+    return roots
 
 
 def host_losses(roots, rep, weights, rng, out):
@@ -308,6 +423,214 @@ def host_losses(roots, rep, weights, rng, out):
     return seeds_out
 
 
+# The three terms of `af3_loss` whose input is the replicate's OWN structure. Everything else
+# reads the trunk pair representation and the detached rollout once per step, whatever the
+# replicate count is, so those five must not ride inside a chunk loop.
+REPLICATE_TERMS = ("mse", "smooth_lddt", "bond")
+
+
+def step_fixture(roll, rep, rng, out):
+    """One label set and one set of head logits per STEP, not per replicate.
+
+    The fixture is an inference target with no deposited structure, so the ground truth is
+    the model's own rollout plus noise at a fixed seed. Every term fires at the right shape
+    and the right term count, which is what a cost breakdown reads; the loss VALUE and the
+    gradient DIRECTION stay meaningless and neither is reported.
+
+    Drawn ONCE, because a training step has one ground truth and one rollout. `host_losses`
+    drew a fresh set per root and ran all seven terms against it, and the three compounding
+    errors in that -- whole set per root, fixture inside the stopwatch, host memory pressure
+    -- are what made a 0.248 s loss set read as 6.3 s and as the sample axis
+    (`of3t-p10host`, 2026-09-26).
+    """
+    import numpy as np
+    from tt_bio.train import losses as L
+
+    t0 = time.perf_counter()
+    n = roll.shape[0]
+    true_xyz = roll + rng.standard_normal(roll.shape) * 1.0
+    coord_mask = np.ones(n)
+    is_nuc = np.zeros(n, bool)
+    is_poly = np.ones(n, bool)
+    true_dist = L._pdist(true_xyz)
+    pair_mask = coord_mask[:, None] * coord_mask[None, :]
+    lddt, lddt_w = L.atom_bespoke_lddt(roll, true_xyz, is_nuc, is_poly, coord_mask.astype(bool))
+    idxs = np.arange(n)
+    labels = {"true_xyz": true_xyz, "coord_mask": coord_mask, "true_dist": true_dist,
+              "lddt_pair_mask": L.lddt_mask(true_dist, pair_mask, is_nuc),
+              "bond_mask": np.zeros((n, n)),
+              "per_atom_lddt": lddt, "per_atom_weight": lddt_w,
+              "frame_atom_index": np.stack(
+                  [np.clip(idxs - 1, 0, n - 1), idxs, np.clip(idxs + 1, 0, n - 1)], -1),
+              "is_dna": np.zeros(n), "is_rna": np.zeros(n), "is_ligand": np.zeros(n)}
+    out["labels_s"] = round(time.perf_counter() - t0, 3)
+
+    # The five head terms read logits the confidence module produces from the trunk pair
+    # representation and the DETACHED rollout. This harness draws them instead of computing
+    # them, so they cost a fixture draw and no device work -- and it is timed separately,
+    # because drawing three (n, n, 64) float64 arrays inside the stopwatch was 0.220 s of the
+    # 0.485 s that got priced as model cost.
+    t0 = time.perf_counter()
+    lg = lambda *s: rng.standard_normal(s) * 0.5
+    logits = {"distogram_logits": lg(n, n, 64), "pde_logits": lg(n, n, 64),
+              "pae_logits": lg(n, n, 64), "plddt_logits": lg(n, 50),
+              "resolved_logits": lg(n, 2)}
+    out["fixture_logits_s"] = round(time.perf_counter() - t0, 3)
+    return labels, logits
+
+
+def replicate_losses(roots, rep, labels, weights, out):
+    """The per-replicate half of `af3_loss`: mse, smooth_lddt, bond, per noised structure.
+
+    `bond` is at weight 0 in `initial_training`, so the two that fire are 0.003 s between
+    them plus the replicate's own `_pdist`. Returns the cotangent on each root's coordinates.
+    """
+    import numpy as np
+    import ttnn
+    from tt_bio.train import losses as L
+    from tt_bio.train.objectives import af3_loss
+    from tt_bio import autograd as ag
+
+    w = {k: v for k, v in weights.items() if k in REPLICATE_TERMS}
+    dl_s, host_s, seeds_out = 0.0, 0.0, []
+    for k, r in enumerate(roots):
+        t0 = time.perf_counter()
+        raw = ag._unwrap(r) if isinstance(r, ag.Tensor) else r
+        atoms = ttnn.to_torch(raw).float().reshape(-1, 3).numpy().astype(np.float64)
+        n_atom = atoms.shape[0]
+        pred = atoms[rep]                      # token scope, one atom per token
+        dl_s += time.perf_counter() - t0
+
+        t0 = time.perf_counter()
+        total, breakdown, seeds = af3_loss(
+            labels, {"pred_xyz": pred, "pred_dist": L._pdist(pred)}, w)
+        host_s += time.perf_counter() - t0
+        g = seeds.get("pred_xyz")
+        # The cotangent goes back on the ATOM tensor the module returned: the loss touched
+        # one atom per token, so every other atom's seed is a true zero, not a dropped term.
+        g_atom = np.zeros((n_atom, 3))
+        if g is not None:
+            np.add.at(g_atom, rep, np.asarray(g, np.float64))
+        seeds_out.append(g_atom)
+        if "terms" not in out:
+            out["terms"] = {}
+        out["terms"].update({t: {"weight": v["weight"], "skipped": v.get("skipped"),
+                                 "fired": bool(v["weight"] != 0.0 and v["value"] is not None),
+                                 "scope": "per replicate"}
+                             for t, v in breakdown.items()})
+    out["download_s"] = round(out.get("download_s", 0.0) + dl_s, 3)
+    out["replicate_loss_s"] = round(out.get("replicate_loss_s", 0.0) + host_s, 3)
+    out["replicates_scored"] = out.get("replicates_scored", 0) + len(roots)
+    print(f"  [losses] {len(roots)} replicates scored, {dl_s:.3f}s download "
+          f"{host_s:.3f}s arithmetic", flush=True)
+    return seeds_out
+
+
+def step_losses(roll, labels, logits, weights, out):
+    """The once-per-step half: distogram, plddt, pde, pae, resolved.
+
+    Their seeds land on the LOGITS (`objectives._SEED`), which upstream builds under
+    `no_grad` from the trunk pair representation and a detached rollout, so no cotangent from
+    these reaches the replicate graph. Running them once is the model's shape, not a saving
+    this harness invented.
+    """
+    from tt_bio.train import losses as L
+    from tt_bio.train.objectives import af3_loss
+
+    w = {k: v for k, v in weights.items() if k not in REPLICATE_TERMS}
+    t0 = time.perf_counter()
+    outputs = dict(logits)
+    outputs["pred_xyz"] = roll
+    outputs["pred_dist"] = L._pdist(roll)
+    total, breakdown, seeds = af3_loss(labels, outputs, w)
+    out["step_loss_s"] = round(time.perf_counter() - t0, 3)
+    out.setdefault("terms", {}).update(
+        {t: {"weight": v["weight"], "skipped": v.get("skipped"),
+             "fired": bool(v["weight"] != 0.0 and v["value"] is not None),
+             "scope": "once per step"} for t, v in breakdown.items()})
+    out["terms_fired"] = sum(1 for v in out["terms"].values() if v["fired"])
+    out["scope"] = "token, one representative atom per token"
+    out["shape"] = ("model: per-replicate terms per root, head terms once per step")
+    out["value_claimed"] = False
+    print(f"  [losses] step heads {out['step_loss_s']:.3f}s, "
+          f"{out['terms_fired']} of {len(out['terms'])} terms fired", flush=True)
+
+
+def grad_snapshot(params, held, row, bankdir):
+    """Bank the unchunked gradient, then grade the chunked one against it.
+
+    Chunking changes the ORDER the per-replicate contributions are summed in, nothing else:
+    the diffusion loss is a sum over independent noised structures given the trunk output, so
+    the derivative of the sum is the sum of the per-chunk derivatives. That is an identity,
+    and this is the measurement that says the code implements it -- per parameter, because a
+    whole-model norm would hide one dead tensor among 3,152.
+
+    The bank goes to DISK, one `.npy` per parameter, and the comparison streams it back one
+    parameter at a time. Holding 381.3 M gradient elements in host memory beside a step whose
+    own resident set is ~10 GiB is what got the first attempt at this arm OOM-killed on a
+    30 GiB box.
+    """
+    import numpy as np
+    import ttnn
+    bankdir = Path(bankdir)
+    if not held:
+        bankdir.mkdir(parents=True, exist_ok=True)
+        names = {}
+        for i, (n, t) in enumerate(params.items()):
+            g = getattr(t, "grad", None)
+            if g is None:
+                continue
+            f = bankdir / f"{i}.npy"
+            np.save(f, ttnn.to_torch(g).float().numpy().ravel().astype(np.float32))
+            names[n] = f
+        print(f"  [grad_ab] banked {len(names)} unchunked gradients to {bankdir}", flush=True)
+        return {"bank": names}
+
+    bank = held["bank"]
+    worst_cos, worst_l2, worst_cos_n, worst_l2_n = 2.0, 0.0, None, None
+    missing, extra, compared = [], [], 0
+    for n, t in params.items():
+        g = getattr(t, "grad", None)
+        if g is None:
+            if n in bank:
+                missing.append(n)
+            continue
+        if n not in bank:
+            extra.append(n)
+            continue
+        b = np.load(bank[n])
+        c = ttnn.to_torch(g).float().numpy().ravel().astype(np.float32)
+        if c.shape != b.shape:
+            missing.append(f"{n}:shape {b.shape}->{c.shape}")
+            continue
+        nb, nc = float(np.linalg.norm(b)), float(np.linalg.norm(c))
+        if nb == 0.0 and nc == 0.0:
+            cos, l2 = 1.0, 0.0
+        elif nb == 0.0 or nc == 0.0:
+            cos, l2 = 0.0, 1.0
+        else:
+            cos = float(np.dot(b, c) / (nb * nc))
+            l2 = float(np.linalg.norm(c - b) / nb)
+        compared += 1
+        if cos < worst_cos:
+            worst_cos, worst_cos_n = cos, n
+        if l2 > worst_l2:
+            worst_l2, worst_l2_n = l2, n
+        del b, c
+    rep = {"compared": compared, "banked": len(bank),
+           "grad_missing_in_chunked": missing[:8], "grad_only_in_chunked": extra[:8],
+           "n_missing": len(missing), "n_extra": len(extra),
+           "worst_cos": round(worst_cos, 9), "worst_cos_param": worst_cos_n,
+           "worst_rel_l2": round(worst_l2, 9), "worst_rel_l2_param": worst_l2_n,
+           "bar": "cos >= 0.9999 or rel_l2 <= 1e-2, per parameter",
+           "verdict": "PASS" if (compared and not missing and not extra
+                                 and (worst_cos >= 0.9999 or worst_l2 <= 1e-2)) else "FAIL"}
+    row["grad_ab"] = rep
+    print(f"  [grad_ab] {compared} parameters compared, worst cos {worst_cos:.7f} "
+          f"({worst_cos_n}), worst rel_l2 {worst_l2:.3e} -> {rep['verdict']}", flush=True)
+    return {"bank": bank, "report": rep}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tokens", type=int, default=384)
@@ -317,6 +640,25 @@ def main() -> int:
                     help="diffusion samples differentiated per step; theirs is 48 in "
                          "initial_training and 32 in finetune_1/2")
     ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--chunk", type=int, default=0,
+                    help="replicates per chunk. The chunk tape is cut at the trunk output, "
+                         "so the trunk backward still runs exactly ONCE per step whatever "
+                         "this is. 0 keeps every replicate in one tape")
+    ap.add_argument("--chunk-per-rep", default="",
+                    help="comma-separated C per rep, one warm process. The replicate "
+                         "subgraph's backward is what the campaign's 5.6x projection rests "
+                         "on and nobody has measured it past 4 replicates; four chunk sizes "
+                         "in one process against one clock is that measurement")
+    ap.add_argument("--grad-ab", type=int, default=0,
+                    help="the identity control: rep 0 unchunked, rep 1 chunked at this C, "
+                         "one process, one set of weights, the SAME replicate noise, no "
+                         "optimizer between them. Reports per-parameter cos and rel_l2, "
+                         "which is what says the chunked gradient IS the unchunked one")
+    ap.add_argument("--loss-shape", choices=("model", "harness"), default="model",
+                    help="model: the per-replicate terms per root and the five head terms "
+                         "once per step, which is what their step runs. harness: the whole "
+                         "7-term set per root, which is what this file did before "
+                         "of3t-p10host took it apart and is kept as the control")
     ap.add_argument("--stage", default="initial_training")
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
@@ -329,6 +671,10 @@ def main() -> int:
                          "against a run-to-run spread this large")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
+    if a.grad_ab:
+        # One process, one weight set, no step between the two arms: anything else compares
+        # two different models rather than two ways of summing one gradient.
+        a.reps, a.no_optimizer, a.chunk = 2, True, 0
 
     out = {"doc": __doc__.split("\n\n")[0], "argv": sys.argv[1:], "env": {
         "host": socket.gethostname(),
@@ -340,12 +686,29 @@ def main() -> int:
         "loadavg_start": os.getloadavg()},
         "config": {"crop": a.tokens, "batch": 1, "cards": 1, "cycles_pinned": a.cycles,
                    "diffusion_samples": a.samples, "stage": a.stage,
-                   "taped": not a.no_tape}}
+                   "taped": not a.no_tape, "chunk": a.chunk or None,
+                   "loss_shape": a.loss_shape,
+                   "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so "
+                          "a chunked arm and an unchunked one noise the same structures"}}
     a.out.parent.mkdir(parents=True, exist_ok=True)
-    dump = lambda: a.out.write_text(json.dumps(out, indent=1, default=str))
+
+    def dump():
+        """Write the artifact, clock included, every time.
+
+        The clock used to be written once, after the rep loop, from `during.__exit__`. A run
+        that is killed mid-step -- and on a 30 GiB host every 48-replicate arm so far has been
+        -- loses it, and a speed number without its DURING clock is not a measurement on this
+        fleet. `clk` is in scope from the first sample on, so there is no reason to hold it.
+        """
+        if _clk[0] is not None:
+            out.setdefault("env", {})["aiclk_during"] = _clk[0].summary()
+        a.out.write_text(json.dumps(out, indent=1, default=str))
+
+    _clk = [None]
     dump()
 
     with during() as clk:
+        _clk[0] = clk
         try:
             import numpy as np
             import ttnn
@@ -377,11 +740,24 @@ def main() -> int:
             out["renorm"] = {"flag": bool(ag.SOFTMAX_BW_RENORM),
                              "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
             plan = [bool(int(x)) for x in a.renorm_per_rep.split(",") if x != ""]
+            cplan = [int(x) for x in a.chunk_per_rep.split(",") if x != ""]
+            out["chunk_per_rep_plan"] = cplan or None
             out["renorm"]["per_rep_plan"] = plan or None
             reps = []
+            grad_ab: dict = {}
             for rep in range(a.reps):
-                rng = np.random.default_rng(SEED + rep)
+                # Two streams, not one. The replicate noise must be identical between a
+                # chunked arm and an unchunked one or the gradient A/B compares two different
+                # sets of structures; drawing the loss fixture from the same stream made the
+                # draw order depend on the loss SHAPE.
+                seed_rep = 0 if a.grad_ab else rep
+                rng_diff = np.random.default_rng(SEED + seed_rep)
+                rng_loss = np.random.default_rng(SEED + 10_000 + seed_rep)
                 row = {"rep": rep, "cold": rep == 0}
+                # In `reps` from the start, so the per-chunk `dump()` inside a 12-chunk step
+                # lands in the artifact instead of in a local nobody has written out yet.
+                reps.append(row)
+                out["reps"] = reps
                 if plan:
                     ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
                 row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
@@ -398,7 +774,12 @@ def main() -> int:
                 row["trunk_nograd_prefix_s"] = round(time.perf_counter() - t0, 3)
 
                 ctx = ag.no_grad() if a.no_tape else ag.tape()
-                d_out = {}
+                d_out, l_out = {}, {}
+                want = (a.grad_ab if (a.grad_ab and rep == 1)
+                        else cplan[rep % len(cplan)] if cplan else a.chunk)
+                chunk = want if (not a.no_tape and 0 < want < a.samples) else 0
+                row["chunk"] = chunk or None
+                peak_dram = 0
                 with ctx:
                     t0 = time.perf_counter()
                     s_tr, z_tr = trunk_forward(trunk, held, 1, taped=not a.no_tape)
@@ -409,51 +790,189 @@ def main() -> int:
                     row["dram_after_trunk"] = _dram(dev)
 
                     # --- 2. diffusion ------------------------------------------------------
+                    # The invariants are inside the TRUNK's tape whether or not the replicates
+                    # are chunked, so `dc.pair` is differentiated exactly once either way.
                     t0 = time.perf_counter()
-                    roots, keep, rep = diffusion_train(sampler, sargs, s_tr, z_tr,
-                                                       a.samples, rng, d_out)
-                    row["diffusion_s"] = round(time.perf_counter() - t0, 3)
-                    row["diffusion"] = d_out
+                    pre = diffusion_pre(sampler, sargs, s_tr, z_tr, a.samples, rng_diff, d_out)
+                    diff_s = time.perf_counter() - t0
+                    rep_atom = pre["rep"]
+                    roots = prime_roots = None
+                    prime_cache: dict = {}
+                    if chunk:
+                        # ONE replicate inside the trunk's tape, to build the deep invariant
+                        # (the DiT per-block pair bias) on the trunk's side of the cut. Its
+                        # rebuild costs 3.75 s of forward per chunk and is differentiated
+                        # once per chunk on the way back; primed here it is paid once. This
+                        # replicate is one of the 48 -- its backward is deferred into the
+                        # final walk rather than skipped.
+                        t0 = time.perf_counter()
+                        prime_roots = diffusion_chunk(sampler, pre, pre["sigmas"][:1],
+                                                      rng_diff, d_out, cache=prime_cache)
+                        ttnn.synchronize_device(dev)
+                        row["prime_replicate_s"] = round(time.perf_counter() - t0, 3)
+                        diff_s += row["prime_replicate_s"]
+                    if not chunk:
+                        t0 = time.perf_counter()
+                        roots = diffusion_chunk(sampler, pre, pre["sigmas"], rng_diff, d_out)
+                        diff_s += time.perf_counter() - t0
+                        row["dram_after_diffusion"] = _dram(dev)
+                        peak_dram = row["dram_after_diffusion"]
                     print("  [tape] leaving the tape context", flush=True)
-                    row["dram_after_diffusion"] = _dram(dev)
 
                 print("  [tape] left the tape context", flush=True)
-                # --- 3. loss heads --------------------------------------------------------
-                l_out = {}
-                t0 = time.perf_counter()
-                seeds = host_losses(roots, rep, weights, rng, l_out)
-                row["losses_s"] = round(time.perf_counter() - t0, 3)
+                row["diffusion"] = d_out
                 row["losses"] = l_out
+                loss_s = seed_s = bwd_s = 0.0
+                roll = labels = logits = None
 
-                # --- 4. backward ----------------------------------------------------------
-                row["roots_taped"] = sum(1 for r in roots if isinstance(r, ag.Tensor))
-                if row["roots_taped"] and not a.no_tape:
+                if chunk:
+                    # --- 2-4 chunked. The diffusion loss is a sum over independent noised
+                    # structures GIVEN the trunk output, so the derivative of the sum is the
+                    # sum of the per-chunk derivatives -- exact, not an approximation. Each
+                    # chunk forwards, scores its own replicates, backs up into the
+                    # accumulating weight gradients and into the CUT leaves, and drops its
+                    # tape. The trunk is entered once, after the last chunk.
+                    s_det, z_det = cut(s_tr), cut(pre["zij_pad"])
+                    cache_pairs: list = []
+                    cut_cache = {k: cut_tree(v, cache_pairs)
+                                 for k, v in prime_cache.items()}
+                    row["cut"] = ("si_trunk + zij_pad + %d cache entries (%d taped tensors) "
+                                  "-> detached leaves" % (len(cut_cache), len(cache_pairs)))
+                    chunks = []
                     t0 = time.perf_counter()
-                    cot = []
-                    for r, g in zip(roots, seeds):
-                        raw = ag._unwrap(r)
-                        shp = tuple(int(d) for d in raw.shape)
-                        import torch
-                        h = torch.from_numpy(np.asarray(g, "float32")).reshape(shp) \
-                            if g is not None else torch.ones(shp)
-                        cot.append(ttnn.from_torch(h, layout=ttnn.TILE_LAYOUT,
-                                                   device=dev, dtype=raw.dtype))
-                    row["seed_upload_s"] = round(time.perf_counter() - t0, 3)
+                    roll = _to_tokens(prime_roots[0], rep_atom)
+                    labels, logits = step_fixture(roll, rep_atom, rng_loss, l_out)
+                    prime_seeds = replicate_losses(prime_roots, rep_atom, labels, weights,
+                                                   l_out)
+                    prime_cot = _cotangents(prime_roots, prime_seeds, dev)
+                    loss_s += time.perf_counter() - t0
+                    for ci in range(1, a.samples, chunk):
+                        part = pre["sigmas"][ci:ci + chunk]
+                        c = {"first": ci, "n": len(part)}
+                        t0 = time.perf_counter()
+                        with ag.tape():
+                            roots = diffusion_chunk(sampler, pre, part, rng_diff, d_out,
+                                                    si_trunk=s_det, zij_pad=z_det,
+                                                    cache=cut_cache)
+                        ttnn.synchronize_device(dev)
+                        c["diffusion_s"] = round(time.perf_counter() - t0, 3)
+                        diff_s += c["diffusion_s"]
+                        c["dram_after_diffusion"] = _dram(dev)
+                        peak_dram = max(peak_dram, c["dram_after_diffusion"])
+
+                        t0 = time.perf_counter()
+                        if labels is None:
+                            # The rollout the head terms read: the first replicate's own
+                            # structure, downloaded and detached, which is the shape upstream
+                            # feeds its confidence heads.
+                            roll = _to_tokens(roots[0], rep_atom)
+                            labels, logits = step_fixture(roll, rep_atom, rng_loss, l_out)
+                        seeds = replicate_losses(roots, rep_atom, labels, weights, l_out)
+                        c["losses_s"] = round(time.perf_counter() - t0, 3)
+                        loss_s += c["losses_s"]
+
+                        t0 = time.perf_counter()
+                        cot = _cotangents(roots, seeds, dev)
+                        c["seed_upload_s"] = round(time.perf_counter() - t0, 3)
+                        seed_s += c["seed_upload_s"]
+
+                        t0 = time.perf_counter()
+                        c["tape_nodes"] = len(ag._reverse_topo(list(roots)))
+                        ag.backward(list(roots), cot)
+                        ttnn.synchronize_device(dev)
+                        c["backward_s"] = round(time.perf_counter() - t0, 3)
+                        bwd_s += c["backward_s"]
+                        del roots, cot, seeds
+                        roots = None
+                        gc.collect()
+                        c["dram_after_backward"] = _dram(dev)
+                        c["mem_available_gib"] = _mem_available_gib()
+                        chunks.append(c)
+                        print(f"  [chunk {len(chunks)}] {c['n']} replicates  "
+                              f"fwd {c['diffusion_s']:.2f}s  loss {c['losses_s']:.2f}s  "
+                              f"bwd {c['backward_s']:.2f}s  {c['tape_nodes']} nodes  "
+                              f"dram {c['dram_after_diffusion'] / 1e9:.2f} GB  "
+                              f"memavail {c['mem_available_gib']} GiB", flush=True)
+                        row["chunks"] = chunks
+                        dump()
+                    row["chunk_backward_s"] = round(bwd_s, 3)
+                    row["chunk_backward_entries"] = len(chunks)
+
                     t0 = time.perf_counter()
-                    row["tape_nodes"] = len(ag._reverse_topo(list(roots)))
-                    ag.backward(list(roots), cot)
+                    step_losses(roll, labels, logits, weights, l_out)
+                    loss_s += time.perf_counter() - t0
+
+                    # THE trunk backward, once. `chunk_backward_entries` above is how many
+                    # times the REPLICATE subgraph was entered; this is how many times the
+                    # trunk was, and it is the number that decides whether chunking paid.
+                    t0 = time.perf_counter()
+                    troots = [s_tr, pre["zij_pad"]]
+                    tcot = [s_det.grad, z_det.grad]
+                    row["cut_cotangent_present"] = [g is not None for g in tcot]
+                    seeded_cache = 0
+                    for orig, leaf in cache_pairs:
+                        if leaf.grad is not None:
+                            troots.append(orig)
+                            tcot.append(leaf.grad)
+                            seeded_cache += 1
+                    row["cache_leaves_seeded"] = f"{seeded_cache} of {len(cache_pairs)}"
+                    # The primed replicate rides the SAME walk, so it costs no extra trunk
+                    # entry: `backward` takes many roots and fires every node once.
+                    troots.extend(prime_roots)
+                    tcot.extend(prime_cot)
+                    row["trunk_tape_nodes"] = len(ag._reverse_topo(troots))
+                    ag.backward(troots, tcot)
                     ttnn.synchronize_device(dev)
-                    row["backward_s"] = round(time.perf_counter() - t0, 3)
+                    row["trunk_backward_s"] = round(time.perf_counter() - t0, 3)
+                    row["trunk_backward_entries"] = 1
+                    bwd_s += row["trunk_backward_s"]
+                    row["tape_nodes"] = (row["trunk_tape_nodes"]
+                                         + sum(c["tape_nodes"] for c in chunks))
+                    row["roots_taped"] = a.samples
                 else:
-                    row["seed_upload_s"] = 0.0
-                    row["tape_nodes"] = 0
-                    row["backward_s"] = 0.0
-                    row["backward_note"] = ("UNTAPED ARM -- no backward exists to run. Not a "
-                                            "zero cost and not a failure")
+                    # --- 3. loss heads ----------------------------------------------------
+                    t0 = time.perf_counter()
+                    if a.loss_shape == "harness":
+                        seeds = host_losses(roots, rep_atom, weights, rng_loss, l_out)
+                    else:
+                        roll = _to_tokens(roots[0], rep_atom)
+                        labels, logits = step_fixture(roll, rep_atom, rng_loss, l_out)
+                        seeds = replicate_losses(roots, rep_atom, labels, weights, l_out)
+                        step_losses(roll, labels, logits, weights, l_out)
+                    loss_s = time.perf_counter() - t0
+
+                    # --- 4. backward ------------------------------------------------------
+                    row["roots_taped"] = sum(1 for r in roots if isinstance(r, ag.Tensor))
+                    if row["roots_taped"] and not a.no_tape:
+                        t0 = time.perf_counter()
+                        cot = _cotangents(roots, seeds, dev)
+                        seed_s = time.perf_counter() - t0
+                        t0 = time.perf_counter()
+                        row["tape_nodes"] = len(ag._reverse_topo(list(roots)))
+                        ag.backward(list(roots), cot)
+                        ttnn.synchronize_device(dev)
+                        bwd_s = time.perf_counter() - t0
+                        row["trunk_backward_entries"] = 1
+                    else:
+                        row["tape_nodes"] = 0
+                        row["backward_note"] = ("UNTAPED ARM -- no backward exists to run. "
+                                                "Not a zero cost and not a failure")
+                row["diffusion_s"] = round(diff_s, 3)
+                row["losses_s"] = round(loss_s, 3)
+                row["seed_upload_s"] = round(seed_s, 3)
+                row["backward_s"] = round(bwd_s, 3)
+                row["dram_peak"] = peak_dram
+                row["mem_available_gib"] = _mem_available_gib()
                 got = sum(1 for t in params.values() if getattr(t, "grad", None) is not None)
                 row["params_with_grad"] = f"{got} of {len(params)}"
                 row["backward_valid"] = bool(got) or a.no_tape
                 row["dram_after_backward"] = _dram(dev)
+
+                if a.grad_ab:
+                    grad_ab = grad_snapshot(params, grad_ab, row,
+                                            a.out.parent / f"gradbank_{a.out.stem}")
+                    out["grad_ab"] = grad_ab.get("report", {"arm": "unchunked banked"})
+                    dump()
 
                 # --- 5. optimizer ---------------------------------------------------------
                 if opt is not None and got:
@@ -496,8 +1015,6 @@ def main() -> int:
                                          - rs0["applied"])
                 row["renorm_declined"] = (ag.SOFTMAX_BW_RENORM_STATS["declined"]
                                           - rs0["declined"])
-                reps.append(row)
-                out["reps"] = reps
                 print(f"[rep {rep}] trunk {row['trunk_s']:.2f}s  "
                       f"diffusion {row['diffusion_s']:.2f}s  "
                       f"losses {row['losses_s']:.2f}s  "
