@@ -163,7 +163,8 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
     first repair of this expression enumerated two callers and routed two, and the one it missed
     was `softmax` itself, which `__all__` exports.
     """
-    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True,
+                     compute_kernel_config=config)
     SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
     if not SOFTMAX_BW_RENORM:
         return inner
@@ -177,6 +178,28 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
 # renorm for speed, which would be the wrong trade in both directions (the renorm costs 1.32 s
 # and carries a repair worth up to 13.09x on ||dq||, `perf/of3t_d116/amplify.json`).
 SOFTMAX_BW_FUSED = env_flag("TT_BIO_SOFTMAX_BW_FUSED", False)
+
+# Whether the softmax backward runs in fp32. `dx = y (g - sum(g y) / sum(y))` is a cancellation:
+# at a converged row `sum(g y) / sum(y)` approaches `g`, so the subtraction keeps only the low
+# bits of two bf16 numbers, and the reduction feeding it is the one reduction in this file that
+# carried no `compute_kernel_config`. Casting both operands to fp32 and the result back costs two
+# typecasts and changes no algebra: the same expression runs, reached through the same function.
+#
+# Measured on the pre-registered OpenFold3 training clause (`perf/of3t_modelframe/clause.py`, bar
+# 0.15210099830945006, pre-registered 0425448d4). On the 48-block crop-384 model frame the
+# DEVICE-ONLY trunk reads clause 0.329774333 / x_bar 2.16813 with this off and 0.151699012 /
+# x_bar 0.99736 with it on. That is the whole gap, and it is what lets `_EXACT_TRAINING` -- a PCIe
+# round trip and a numpy float64 softmax and layer norm per call, 1541 s of one 48-block backward
+# against 41 s without it -- be turned off and still clear the bar. `perf/of3t_p10exact`.
+#
+# RELEASE-GATED, hence default off: it moves every trained gradient in the package, and it holds
+# an fp32 copy of the attention probabilities for the length of the backward, which is memory at
+# a crop nobody has run yet. Graded ON at crop 384.
+SOFTMAX_BW_FP32 = env_flag("TT_BIO_SOFTMAX_BW_FP32", False)
+
+# Reached only from a backward closure, like the renorm counter above, so which path ran is a
+# reading and not an argument.
+SOFTMAX_BW_FP32_STATS = {"fired": 0, "elements": 0}
 
 
 def _last_axis(y, dim: int):
@@ -207,6 +230,18 @@ def softmax_bw(y, g, dim=-1, config=None):
     `moreh(y/s, g) = (y/s)(g - sum(g y)/s)`. Four verbs against the composed six, and with
     the renorm off, one.
     """
+    if SOFTMAX_BW_FP32 and y.dtype != ttnn.float32:
+        SOFTMAX_BW_FP32_STATS["fired"] += 1
+        SOFTMAX_BW_FP32_STATS["elements"] += int(y.volume())
+        y32, g32 = ttnn.typecast(y, ttnn.float32), ttnn.typecast(g, ttnn.float32)
+        # Recursion, not a second copy of the expression: `y32` is fp32, so this branch is not
+        # taken twice and the arithmetic below stays the only definition of the backward.
+        dx32 = softmax_bw(y32, g32, dim=dim, config=config or precise_config())
+        ttnn.deallocate(y32)
+        ttnn.deallocate(g32)
+        dx = ttnn.typecast(dx32, g.dtype)
+        ttnn.deallocate(dx32)
+        return dx
     ax = _last_axis(y, dim) if SOFTMAX_BW_FUSED else None
     if ax is not None:
         SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1

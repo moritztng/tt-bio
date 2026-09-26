@@ -1,0 +1,78 @@
+{
+ "exact": [],
+ "device_only": true,
+ "sm_bw_fp32": {
+  "fired": 144,
+  "elements": 21856518144,
+  "installed": true
+ },
+ "ln_probe": {
+  "installed": false,
+  "returns_fp32": false,
+  "limit": 32
+ },
+ "installed": {
+  "exact_training_ops_in_scope": [],
+  "softmax_installed_inside_the_scope": false,
+  "softmax_bw_fp32_installed": true
+ },
+ "counters": {
+  "EXACT_SOFTMAX_STATS": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "EXACT_LAYER_NORM_STATS": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "exactln_scope": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "layer_norm_probe": {
+   "verb": 0,
+   "bw": 0,
+   "probed": 0,
+   "fp32_returned": 0
+  }
+ },
+ "why_counters": "EXACT_SOFTMAX_STATS / EXACT_LAYER_NORM_STATS are the package's own, and they are what proves which path ran: both all-zero is the only proof of a DEVICE-ONLY arm, because _EXACT_TRAINING defaults True. exactln_scope counts the ladder's host float64 layer norm. layer_norm_probe: `bw` backwards seen by the probe, `probed` of those measured against float64, `fp32_returned` handed back as fp32.",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-p10exact/perf/of3t_p10exact/CENSUS_SMX32B.json",
+  "--lever",
+  "all",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_recut/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_p10exact/dev_SMX32B.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-p10exact/perf/of3t_p10exact/DEV_SMX32B.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ],
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 1,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 24,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "loadavg1 6.14 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "a01ba1f0e15d294949af4c989be3ef22a44e4b09",
+  "boundary_version": "upstream OpenFold3 0.4.3 (boundary captured from of3pkg043; graded reference 0.4.3 bf16 autocast, contrast reference 0.4.3 float64)"
+ }
+}
