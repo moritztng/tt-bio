@@ -39,7 +39,9 @@ from .dispatch import OpSurface
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
            "set_recycle_hook", "recycle_region", "taping",
            "set_checkpoint_hook", "checkpoint_segment",
-           "set_host_softmax_hook", "host_softmax_hook"]
+           "set_host_softmax_hook", "host_softmax_hook",
+           "set_kernel_entries", "kernel_entry", "declines_under_tape",
+           "fused_kernel", "untaped_kernel"]
 
 
 # The slot, and the decorator that uses it, are `tt_bio/dispatch.py`'s -- shared with
@@ -80,8 +82,93 @@ def taping():
     unchanged. So while a tape is open they decline, and the training forward takes the
     composed path the tape can follow. It costs the fused kernel's win in training and nothing
     at all in inference, where `grad_hook()` is None.
+
+    A kernel with a tape ENTRY is the exception, and `_RAW_DEPTH` is how its own forward gets
+    to run. The entry's job is to call the kernel on unwrapped operands and register the node
+    itself, so inside that call a tape is open but THIS call is not on it -- the entry has
+    already taken responsibility for the gradient. Answering True there would make the kernel
+    decline inside its own tape entry and the lever would go silently inert, which is the one
+    failure mode a decline path cannot distinguish from a shape it does not cover.
     """
-    return grad_hook() is not None
+    return grad_hook() is not None and not _RAW_DEPTH
+
+
+# --- tape entries for the `generic_op` kernels ---------------------------------------------
+#
+# `generic_op` is opaque to the tape, so an entry cannot be generic: each kernel has to declare
+# how its own output is differentiated. `tt_bio/taped_ttnn.py` holds them, keyed by the name a
+# kernel registers under, and installs the mapping here for the duration of a tape -- injected
+# and not imported, exactly like the grad hook above, so importing `tt_bio` still cannot reach
+# the training stack.
+#
+# A kernel with no entry behaves as it always did: `taping()` is True, its own gate declines,
+# and the composed path the tape can follow runs instead. So this adds a route and removes none.
+_KERNEL_ENTRIES: dict = {}
+_RAW_DEPTH = 0
+
+
+def set_kernel_entries(entries) -> dict:
+    """Install the per-kernel tape entries. Returns the previous mapping."""
+    global _KERNEL_ENTRIES
+    prev, _KERNEL_ENTRIES = _KERNEL_ENTRIES, dict(entries or {})
+    return prev
+
+
+def kernel_entry(name):
+    """The tape entry registered for `name` while a tape is open, otherwise None."""
+    if not _RAW_DEPTH and grad_hook() is not None:
+        return _KERNEL_ENTRIES.get(name)
+    return None
+
+
+def declines_under_tape(name) -> bool:
+    """Does the kernel called `name` have to decline this call for want of a backward?
+
+    What a fused kernel's gate asks instead of `taping()`. True is the old unconditional
+    answer; False means either no tape at all, or a tape with an entry for this kernel.
+    """
+    return taping() and _KERNEL_ENTRIES.get(name) is None
+
+
+@contextlib.contextmanager
+def untaped_kernel():
+    """Run a kernel body on RAW operands from inside its own tape entry."""
+    global _RAW_DEPTH
+    _RAW_DEPTH += 1
+    try:
+        yield
+    finally:
+        _RAW_DEPTH -= 1
+
+
+def fused_kernel(name):
+    """Mark a `generic_op` kernel's entry point as taped through the entry called `name`.
+
+    The decorated function keeps its exact behaviour with no tape open and with a tape open
+    and no entry registered -- in the second case its own `declines_under_tape` gate answers
+    True and it returns None, which is what every one of these kernels did before there was
+    a registry. With an entry registered the entry is called instead, in `_verb`'s shape:
+    `entry(shipped, args, kwargs)`, where `shipped` is this kernel with the tape gate lifted
+    for the duration of the call.
+    """
+    def register(fn):
+        def call(*args, **kwargs):
+            entry = kernel_entry(name)
+            if entry is None:
+                return fn(*args, **kwargs)
+
+            def shipped(*a, **k):
+                with untaped_kernel():
+                    return fn(*a, **k)
+
+            return entry(shipped, args, kwargs)
+        call.__name__ = fn.__name__
+        call.__qualname__ = fn.__qualname__
+        call.__doc__ = fn.__doc__
+        call.__wrapped__ = fn
+        call.tape_entry_name = name
+        return call
+    return register
 
 
 # The host float64 softmax a construction site may ask for, injected the same way and for the
