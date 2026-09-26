@@ -70,6 +70,48 @@ def _patch():
 
     cls.__call__ = wrapped
     _state["patched"] = True
+    _force_reference_arms()
+
+
+def _force_reference_arms():
+    """Two higher-precision arms, each reachable by rebinding rather than by editing the repo.
+
+    Grading the dividing-k lever needs a reference more accurate than either arm. Neither is
+    exposed as an env flag, but both are reachable downstream:
+
+      TT_FORCE_ONE_K_CHUNK      TriangleAttention.tri_att_one_k_chunk is a constructor arg. One
+                                k chunk spans the whole key length, so the online softmax makes
+                                no running-max rescale and reduces each row in one pass -- the
+                                order the torch reference uses. Measured 4.91x smaller row-sum
+                                deficit at 320 (tenstorrent.py's own table).
+      TT_FORCE_ACCURATE_SOFTMAX _fp32_softmax_attention takes accurate_softmax, and the shipped
+                                fall-through passes False.
+
+    They are deliberately run as a PAIR. Each is the better version of one arm's own kernel
+    family, so either alone would flatter its own side.
+    """
+    import os, sys
+    T = sys.modules.get("tt_bio.tenstorrent")
+    if T is None:
+        return
+    if os.environ.get("TT_FORCE_ONE_K_CHUNK"):
+        ta = getattr(T, "TriangleAttention", None)
+        if ta is not None:
+            real_init = ta.__init__
+
+            def init(self, *a, **k):
+                real_init(self, *a, **k)
+                self.tri_att_one_k_chunk = True
+
+            ta.__init__ = init
+    if os.environ.get("TT_FORCE_ACCURATE_SOFTMAX"):
+        real_fp32 = T._fp32_softmax_attention
+
+        def fp32(*a, **k):
+            k["accurate_softmax"] = True
+            return real_fp32(*a, **k)
+
+        T._fp32_softmax_attention = fp32
 
 
 def _imp(name, *a, **k):

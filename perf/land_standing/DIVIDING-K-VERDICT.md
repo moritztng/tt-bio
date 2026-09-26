@@ -169,6 +169,35 @@ indicative of a real difference in kind, not a clean ratio between equally-place
 Direction at the trunk remains unknown; the only directional evidence is still per-call, where
 the fused route is 8.7-12.6 % closer to float64 than the fall-back it replaces.
 
+## Direction: attempted with two reachable references, and it is still not answerable at 832
+
+Last pass said a reference needs a one-line site addition. That was wrong — both candidates are
+reachable by rebinding from the harness, no repo change
+(`perf/land_standing/trunk_dump_sitecustomize.py`, `TT_FORCE_ONE_K_CHUNK` /
+`TT_FORCE_ACCURATE_SOFTMAX`). They were run as a **pair**, one from each arm's own kernel family,
+because either alone flatters its own side.
+
+               vs refFUSED (one_k_chunk)        vs refMAT (accurate_softmax)
+    s    OFF 2.1471e-01 / ON 0.0000e+00     OFF 6.1364e-02 / ON 2.0949e-01
+    z    OFF 8.6172e-02 / ON 0.0000e+00     OFF 8.4620e-02 / ON 5.0577e-02
+
+**`refFUSED` is DEGENERATE and must not be scored.** It came back **exactly 0** from the ON arm
+on both tensors. The patch did fire — `TriangleAttention.__init__` is provably wrapped — so the
+meaning is physical: **the one-chunk config does not fit at 832.** `one_k_chunk` prepends the
+padded k of 832, that config is refused, and the ladder falls back to the same `(416, 416)` pick
+the lever already takes. A reference that collapses onto the arm it was meant to grade measures
+nothing, and "closer to itself" is not a reading.
+
+**So there is no fused-family reference available at this size**, and the one usable reference,
+`refMAT`, **splits**: OFF closer on `s`, ON closer on `z`. A single-family reference flatters its
+own arm, so a split from one reference is not a direction either way.
+
+**Direction at 832 is therefore not answerable with what the engine exposes**, and the reason is
+now concrete rather than a missing hook: the more accurate fused variant *does not fit at the one
+length the lever reaches*. `perf/land_standing/direction.py` now refuses to score a reference at
+distance 0 rather than reporting it as agreement — it did report it that way on the first run,
+which is the mistake this paragraph exists to prevent repeating.
+
 ## What would finish this, and why this row stops here
 
 The remaining question is one sentence: **is the lever's larger `z` perturbation toward or away
