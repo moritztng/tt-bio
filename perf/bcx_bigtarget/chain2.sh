@@ -7,7 +7,7 @@
 cd /home/ttuser/.coworker/wt/bcx-bigtarget || exit 1
 export TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 TT_BIO_LEASE_HOLDER=worker:bcx-bigtarget
 PY=/home/ttuser/bcx_e2e_venv/bin/python3
-for n in 448 288 320 512; do
+for n in 448 512 288 320; do
   echo "=== n=$n start $(date -u +%FT%TZ) ==="
   $PY -u perf/bcx_bigtarget/curve.py --n $n --census-every 12 > perf/bcx_bigtarget/n$n.log 2>&1
   echo "=== n=$n rc=$? end $(date -u +%FT%TZ) ==="
