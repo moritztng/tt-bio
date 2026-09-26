@@ -186,10 +186,10 @@ class Dev:
     def sync(self):
         self.ttnn.synchronize_device(self.device)
 
-    def extra(self, i, z):
+    def extra(self, i, z, pair_masks=(None, None)):
         blk = self.dm.device_extra_msa[i]
         const = self.dm._up(self.dm.opm_constant[i].reshape(1, 1, -1))
-        return blk(blk._residual(z, const))
+        return blk(blk._residual(z, const), *pair_masks)
 
     def evo(self, i, m, z, msa_mask=None, pair_masks=(None, None)):
         return self.dm.device_evoformer[i](m, z, msa_mask, *pair_masks)
@@ -204,7 +204,8 @@ class Dev:
         (`perf/bcx_mono/masked_fold.json`).
         """
         for i in range(extra_first, extra_first + k_extra):
-            z = self.ag.checkpoint(lambda t, i=i: self.extra(i, t), z) if ckpt else self.extra(i, z)
+            z = (self.ag.checkpoint(lambda t, i=i: self.extra(i, t, pair_masks), z) if ckpt
+                 else self.extra(i, z, pair_masks))
         for i in range(evo_first, evo_first + k_evo):
             if ckpt:
                 m, z = self.ag.checkpoint(
