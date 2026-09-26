@@ -1,0 +1,3 @@
+LEG deep298 n=298 rc=0 wall=67.605864142s
+[{"id":"cdk2_deep_298","status":"ok","complex_plddt":0.882365,"plddt":0.882365,"ptm":0.901926,"iptm":0.0,"confidence_score":0.886277,"n_residues":298,"n_chains":1,"n_tokens":298,"msa":true,"msa_depth":513,"n_atoms":2397,"samples":1,"runtime_s":28.9}]
+PRECOND_DONE
