@@ -74,18 +74,19 @@ at ~2.48 or ~5.64, 7ohe at ~10.8 or ~18.9, nothing between) and its ten device-n
 | **D1** | 10.788486 | **2.469938** | 9.221039 | 4.715689 | 6.798788 | 1.2376639465563595 |
 | **D2** | 10.824212 | **2.464245** | 9.245464 | 2.153862 | 6.171946 | 1.2293438986258850 |
 | **D3** | 10.870706 | **2.468330** | 9.228852 | 2.736508 | 6.326099 | 1.2341772071383170 |
+| **D4** | 10.841912 | **2.463128** | 9.264436 | 2.160254 | 6.182432 | 1.2385116348459222 |
 
-**3 of 3 fine on both damaged targets**, against 3 of 10 for the device-native arm. 7vus reads
-2.464–2.470 where the brief's damaged value is 5.645047 and the start is 2.451977, so it lands
-nearer the start than the exact trunk's own 2.479054 does. At n=3 against n=10 that is p=0.08 by
-Fisher, suggestive and not yet significant; D4–D9 are queued for exactly that reason.
+**4 of 4 fine on both damaged targets**, against 3 of 10 for the device-native arm. 7vus reads
+2.463–2.470 where the brief's damaged value is 5.645047 and the start is 2.451977, so it lands
+nearer the start than the exact trunk's own 2.479054 does. At n=4 against n=10 that is p=0.03 by
+Fisher one-sided, which clears 0.05 but on four draws; D5–D9 are queued for exactly that reason.
 
-`eval_before` is 6.8024402513580124 on all three, digit for digit with every arm of every previous
+`eval_before` is 6.8024402513580124 on all four, digit for digit with every arm of every previous
 row, and step 0 is 1.7992572181478035, bit-identical to all ten device-native runs. The forward is
 untouched, which is what a backward-only change has to show before any of the rest is readable.
 
 **7fb8 is a new finding and it is not obviously good.** All ten device-native runs and both exact
-arms put it in 4.706–4.719; D1/D2/D3 read 4.715689, 2.153862 and 2.736508. So the fix appears to
+arms put it in 4.706–4.719; D1–D4 read 4.715689, 2.153862, 2.736508 and 2.160254. So the fix appears to
 move 7fb8 off a value it was pinned to, and to move it by a different amount each run. That is
 what drags the means below the start checkpoint. It needs replicates before anyone reads a
 direction into it.
@@ -98,11 +99,11 @@ instruments named above.
 `of3t-p10trainout`'s later finding is that the device layer-norm backward is NONDETERMINISTIC run
 to run — step 0 bit-identical on all ten runs, step 1 different on every one — and that the
 bimodality is downstream of that, not of precision. **This fix is an accuracy fix and it is NOT a
-determinism fix — measured, not assumed.** D1, D2 and D3 read step 1 at 1.2376639465563595,
-1.2293438986258850 and 1.2341772071383170: three different values from one seed, one corpus, one
+determinism fix — measured, not assumed.** D1–D4 read step 1 at 1.2376639465563595,
+1.2293438986258850, 1.2341772071383170 and 1.2385116348459222: four different values from one seed, one corpus, one
 order, on one card. The weights after a single step are still not reproducible. Both spellings are
 bit-exact on repeat at the op (`bitexact_repeat` true on all 36 graded gradients in all three
-arms), so whatever varies at step scope is not the arithmetic of this closure at these shapes, and
+sweep arms), so whatever varies at step scope is not the arithmetic of this closure at these shapes, and
 this row does not close that defect.
 
 ## Shared `tt_bio/` code changed here
@@ -112,3 +113,22 @@ this row does not close that defect.
 | `4ef77300d` | `autograd.py` | `_layer_norm_bw`, one closure where `layer_norm` and `_taped_layer_norm` carried verbatim copies |
 | `4770dae52` | `autograd.py` | `_row_mean` divides by K |
 | `2cfdf8193` | `perf/of3t_p10trainout/{armrun.sh,trainarm.py}` | the arm runs from the worktree it is in, and refuses a `tt_bio` resolved from anywhere else |
+
+## Where the next pass picks up
+
+Card 0 is running `/home/ttuser/of3t_p10lnbw/chain_c0b.sh` detached: arms D5–D9, then the step A/B.
+
+    /tmp/of3t/of3t-p10lnbw/arms.log        the chain's own ledger, one line per arm
+    /tmp/of3t/of3t-p10lnbw/steptime.log    the fullstep run
+    perf/of3t_p10trainout/out/arm_D*.json  the arms
+    perf/of3t_stepfloor/out/step_rowmean_48_384.json   the step A/B, 5 reps, --rowmean-per-rep 1,1,0,1,0
+
+`tests/test_perf_citations.py` is green (461 passed) and the card-free autograd/tape/train subset
+is 416 passed / 23 skipped / 1 fixed, the one failure having been this row's own uncited artifact.
+
+One trap paid for here, worth not paying twice: a `while pgrep -f "of3t_p10trainout/trainarm.py"`
+wait loop at the top of a chain script matched the ORPHANED ssh launcher whose argv contained the
+whole heredoc, including that pattern, so the chain sat in the loop forever while the card was
+free. Killed by explicit pid and the chain went straight through. Same shape as the known
+`a-pgrep-f-wait-loop-matches-its-own-command-line` case, reached from the launcher side rather
+than the watcher side.
