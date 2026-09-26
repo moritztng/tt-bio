@@ -20,10 +20,12 @@ import time
 EVENTS = []
 _T0 = time.time()
 
-#: The campaign's own residue counts, read off the first `protein_states` the predictor is
-#: handed. A top-level `initialize_design_trajectory` draw is NOT this: the campaign advances
-#: its key per trajectory, so probing the settings gave binder 148 for a run whose trajectory 1
-#: was binder 71. n has to come from the round, like every other number here.
+#: The campaign's own residue counts, per round, read off the `protein_states` the predictor is
+#: actually handed. A top-level `initialize_design_trajectory` draw is NOT this: the campaign
+#: advances its key per trajectory, so probing the settings gave binder 148 for a run whose
+#: trajectory 1 was binder 71. Nor is the FIRST call this: the first entry of the exact arm read
+#: binder 160 and was followed by a 0.002 s boundary, so something before the first round is
+#: handed a different length. n has to come from each round, like every other number here.
 STATE = {}
 
 
@@ -112,6 +114,19 @@ class Meter:
             dump(*DUMP)
 
 
+def _shapes(args):
+    """The shapes of whatever tensor-like positional arguments a seam was handed."""
+    out = []
+    for a in args:
+        shape = getattr(a, "shape", None)
+        if shape is not None:
+            try:
+                out.append(list(shape))
+            except TypeError:
+                out.append(str(shape))
+    return out
+
+
 def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
     """Patch the four surfaces a round is made of. All call through."""
 
@@ -128,7 +143,8 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
                 try:
                     return orig(self, *a, **kw)
                 finally:
-                    ev("device", name.lstrip("_"), t0, time.time())
+                    ev("device", name.lstrip("_"), t0, time.time(),
+                       round=meter.entries, shapes=_shapes(a))
             return wrapper
         setattr(splice_mod.EvoformerOnDevice, name, make(name, orig))
 
@@ -137,13 +153,12 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
     sg = predictor_cls.sequence_gradients
 
     def sequence_gradients(self, protein_states, *a, **kw):
-        if not STATE:
-            try:
-                STATE.update({state: {chain: len(protein)
-                                      for chain, protein in complex_.items()}
-                              for state, complex_ in protein_states.items()})
-            except Exception as exc:
-                STATE["error"] = repr(exc)
+        try:
+            STATE[str(meter.entries + 1)] = {
+                state: {chain: len(protein) for chain, protein in complex_.items()}
+                for state, complex_ in protein_states.items()}
+        except Exception as exc:
+            STATE[str(meter.entries + 1)] = repr(exc)
         meter.on_sequence_gradients_enter()
         t0 = time.time()
         try:
