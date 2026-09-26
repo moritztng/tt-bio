@@ -117,7 +117,7 @@ def main():
                                             f_dev if k.startswith("device") else f_round)
                              for k in metrics}}
 
-    pathlib.Path(args.out).write_text(json.dumps(out, indent=1))
+    pathlib.Path(args.out).write_text(json.dumps(out, indent=1, sort_keys=True))
 
     print(f"{out['n_timed_rounds']} timed rounds, AICLK {out['aiclk_med']}, "
           f"load {out['load1'][0]}-{out['load1'][1]}, n=211 bucketed to 224")

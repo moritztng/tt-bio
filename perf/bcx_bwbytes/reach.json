@@ -1,65 +1,72 @@
 {
  "trace_bwd-fix_evo_n256": {
-  "trace": "trace_bwd-fix_evo_n256",
-  "n": 256,
-  "stack": "evo",
-  "depth0_ops": 1033,
-  "moved_GB": 39.394,
   "avoidable_GB_bcx_bytes_reasons": 19.718,
-  "fp32_excess_GB": 7.037,
-  "fp32_excess_on_score_GB": 5.203,
   "by_site": {
    "0 recompute: the checkpoint re-running the forward": {
-    "ops": 276,
     "GB": 11.039,
+    "ops": 276,
     "share": 0.2802
    },
    "1 add_grad fan-in: two gradients widened to fp32 and summed": {
-    "ops": 87,
     "GB": 5.736,
+    "ops": 87,
     "share": 0.1456
    },
    "2 softmax backward on the score tensor": {
-    "ops": 30,
     "GB": 10.122,
+    "ops": 30,
     "share": 0.2569
    },
    "3 layer-norm backward": {
-    "ops": 180,
     "GB": 3.914,
+    "ops": 180,
     "share": 0.0994
    },
    "4 layout moves": {
-    "ops": 65,
     "GB": 2.001,
+    "ops": 65,
     "share": 0.0508
    },
    "5 the arithmetic itself": {
-    "ops": 56,
     "GB": 2.863,
+    "ops": 56,
     "share": 0.0727
    },
    "6 other typecasts": {
-    "ops": 32,
     "GB": 0.922,
+    "ops": 32,
     "share": 0.0234
    },
    "7 residual eltwise": {
-    "ops": 115,
     "GB": 2.798,
+    "ops": 115,
     "share": 0.071
    }
   },
-  "src_rev": "a5fa47832",
+  "closure_lines": {
+   "_taped_layer_norm": [
+    1888,
+    1950
+   ],
+   "layer_norm": [
+    898,
+    965
+   ],
+   "softmax": [
+    966,
+    981
+   ],
+   "triangle_attention": [
+    1174,
+    1320
+   ]
+  },
+  "depth0_ops": 1033,
+  "fp32_excess_GB": 7.037,
+  "fp32_excess_on_score_GB": 5.203,
+  "moved_GB": 39.394,
+  "n": 256,
   "predicted": {
-   "smbf16": {
-    "bucket_now_GB": 10.122,
-    "bucket_at_bf16_GB": 5.35,
-    "narrowing_cost_GB": 2.416,
-    "casts_per_call": 3,
-    "calls": 2,
-    "net_removed_GB": 2.356
-   },
    "fanin": {
     "net_removed_GB": 2.261
    },
@@ -67,12 +74,72 @@
     "net_removed_GB": 0.0,
     "why": "a faster kernel over the same operands moves the same bytes"
    },
+   "smbf16": {
+    "bucket_at_bf16_GB": 5.35,
+    "bucket_now_GB": 10.122,
+    "calls": 2,
+    "casts_per_call": 3,
+    "narrowing_cost_GB": 2.416,
+    "net_removed_GB": 2.356
+   },
    "tree": {
     "net_removed_GB": null,
     "why": "ttnn.sum(dim=0) permutes before it reduces and the census cannot see that, so the baseline this would be measured against is wrong"
    }
   },
+  "src_rev": "a5fa47832",
+  "stack": "evo",
+  "trace": "trace_bwd-fix_evo_n256"
+ },
+ "trace_bwd-fix_extra_n256": {
+  "avoidable_GB_bcx_bytes_reasons": 15.849,
+  "by_site": {
+   "0 recompute: the checkpoint re-running the forward": {
+    "GB": 9.29,
+    "ops": 205,
+    "share": 0.2693
+   },
+   "1 add_grad fan-in: two gradients widened to fp32 and summed": {
+    "GB": 4.664,
+    "ops": 49,
+    "share": 0.1352
+   },
+   "2 softmax backward on the score tensor": {
+    "GB": 10.068,
+    "ops": 22,
+    "share": 0.2919
+   },
+   "3 layer-norm backward": {
+    "GB": 3.318,
+    "ops": 105,
+    "share": 0.0962
+   },
+   "4 layout moves": {
+    "GB": 1.285,
+    "ops": 34,
+    "share": 0.0372
+   },
+   "5 the arithmetic itself": {
+    "GB": 2.358,
+    "ops": 34,
+    "share": 0.0684
+   },
+   "6 other typecasts": {
+    "GB": 0.859,
+    "ops": 19,
+    "share": 0.0249
+   },
+   "7 residual eltwise": {
+    "GB": 2.655,
+    "ops": 86,
+    "share": 0.077
+   }
+  },
   "closure_lines": {
+   "_taped_layer_norm": [
+    1888,
+    1950
+   ],
    "layer_norm": [
     898,
     965
@@ -84,74 +151,14 @@
    "triangle_attention": [
     1174,
     1320
-   ],
-   "_taped_layer_norm": [
-    1888,
-    1950
    ]
-  }
- },
- "trace_bwd-fix_extra_n256": {
-  "trace": "trace_bwd-fix_extra_n256",
-  "n": 256,
-  "stack": "extra",
+  },
   "depth0_ops": 687,
-  "moved_GB": 34.496,
-  "avoidable_GB_bcx_bytes_reasons": 15.849,
   "fp32_excess_GB": 6.851,
   "fp32_excess_on_score_GB": 5.203,
-  "by_site": {
-   "0 recompute: the checkpoint re-running the forward": {
-    "ops": 205,
-    "GB": 9.29,
-    "share": 0.2693
-   },
-   "1 add_grad fan-in: two gradients widened to fp32 and summed": {
-    "ops": 49,
-    "GB": 4.664,
-    "share": 0.1352
-   },
-   "2 softmax backward on the score tensor": {
-    "ops": 22,
-    "GB": 10.068,
-    "share": 0.2919
-   },
-   "3 layer-norm backward": {
-    "ops": 105,
-    "GB": 3.318,
-    "share": 0.0962
-   },
-   "4 layout moves": {
-    "ops": 34,
-    "GB": 1.285,
-    "share": 0.0372
-   },
-   "5 the arithmetic itself": {
-    "ops": 34,
-    "GB": 2.358,
-    "share": 0.0684
-   },
-   "6 other typecasts": {
-    "ops": 19,
-    "GB": 0.859,
-    "share": 0.0249
-   },
-   "7 residual eltwise": {
-    "ops": 86,
-    "GB": 2.655,
-    "share": 0.077
-   }
-  },
-  "src_rev": "a5fa47832",
+  "moved_GB": 34.496,
+  "n": 256,
   "predicted": {
-   "smbf16": {
-    "bucket_now_GB": 10.068,
-    "bucket_at_bf16_GB": 5.303,
-    "narrowing_cost_GB": 2.416,
-    "casts_per_call": 3,
-    "calls": 2,
-    "net_removed_GB": 2.35
-   },
    "fanin": {
     "net_removed_GB": 2.013
    },
@@ -159,28 +166,21 @@
     "net_removed_GB": 0.0,
     "why": "a faster kernel over the same operands moves the same bytes"
    },
+   "smbf16": {
+    "bucket_at_bf16_GB": 5.303,
+    "bucket_now_GB": 10.068,
+    "calls": 2,
+    "casts_per_call": 3,
+    "narrowing_cost_GB": 2.416,
+    "net_removed_GB": 2.35
+   },
    "tree": {
     "net_removed_GB": null,
     "why": "ttnn.sum(dim=0) permutes before it reduces and the census cannot see that, so the baseline this would be measured against is wrong"
    }
   },
-  "closure_lines": {
-   "layer_norm": [
-    898,
-    965
-   ],
-   "softmax": [
-    966,
-    981
-   ],
-   "triangle_attention": [
-    1174,
-    1320
-   ],
-   "_taped_layer_norm": [
-    1888,
-    1950
-   ]
-  }
+  "src_rev": "a5fa47832",
+  "stack": "extra",
+  "trace": "trace_bwd-fix_extra_n256"
  }
 }

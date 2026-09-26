@@ -198,7 +198,11 @@ def scale(a, b, ns, at):
     import math
     lo, hi = ns
     out = {}
-    for k in set(a) | set(b):
+    # SORTED, and it is not cosmetic: the artifact is committed, so a run-to-run key reordering
+    # makes `git diff` unable to tell a changed number from a shuffled dict. Python randomises
+    # string hashing per process, so an unsorted set iteration produced exactly that -- 91
+    # insertions and 91 deletions with every value identical.
+    for k in sorted(set(a) | set(b)):
         x, y = a.get(k, {}).get("GB", 0.0), b.get(k, {}).get("GB", 0.0)
         if x <= 0 or y <= 0:
             continue
@@ -283,7 +287,7 @@ def cmd_staleness(args):
           f"= {out['census_would_shift_share'] * 100:.1f} % on main's tree, and UPWARD, "
           f"while DRAM traffic does not rise")
     pathlib.Path(args.out.replace("reach.json", "staleness.json")).write_text(
-        _json.dumps(out, indent=1))
+        _json.dumps(out, indent=1, sort_keys=True))
     return out
 
 
@@ -442,7 +446,7 @@ def cmd_scale(args):
         blob.setdefault("round_fused", {})[f"{share:.2f}"] = round(r, 4)
         print(f"     device {share * 100:4.1f} % of the round  ->  {r:.3f}x")
 
-    pathlib.Path(args.out).write_text(_json.dumps(blob, indent=1))
+    pathlib.Path(args.out).write_text(_json.dumps(blob, indent=1, sort_keys=True))
     print(f"\nwrote {args.out}")
 
 
@@ -525,7 +529,7 @@ def main():
             print(f"     {k:8s} {('%7.3f GB' % net) if net is not None else '      n/a'}"
                   f"  {v.get('why', '')}")
 
-    pathlib.Path(args.out).write_text(json.dumps(blob, indent=1))
+    pathlib.Path(args.out).write_text(json.dumps(blob, indent=1, sort_keys=True))
     print(f"\nwrote {args.out}")
 
 

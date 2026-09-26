@@ -1,87 +1,87 @@
 {
- "source": "/home/ttuser/.coworker/wt/bcx-bwbytes/perf/bcx_tmplseam/runs/round_ab_artifacts/round_ab.json",
- "n_timed_rounds": 10,
  "aiclk_med": [
   1350
  ],
+ "backward_share_of_device": 0.6769,
+ "cv": {
+  "device_evoformer_s": 0.0327,
+  "device_extra_msa_s": 0.0675,
+  "round_wall": 0.058,
+  "sequence_gradients_s": 0.058
+ },
+ "device_seconds_per_round": 8.403,
+ "device_share_of_sg": {
+  "max": 0.8457,
+  "median": 0.7261,
+  "min": 0.6611
+ },
+ "levers": {
+  "plus_both_fused_kernels": {
+   "removed_GB_per_evo_block_n224": 11.777,
+   "reps_per_arm": {
+    "device_evoformer_s": 1,
+    "device_extra_msa_s": 1,
+    "round_wall": 2,
+    "sequence_gradients_s": 2
+   },
+   "round_speedup": 1.2502,
+   "share_of_backward_bytes": 0.4072,
+   "share_of_round_device_time": 0.2757
+  },
+  "plus_fused_softmax": {
+   "removed_GB_per_evo_block_n224": 9.165,
+   "reps_per_arm": {
+    "device_evoformer_s": 1,
+    "device_extra_msa_s": 2,
+    "round_wall": 3,
+    "sequence_gradients_s": 3
+   },
+   "round_speedup": 1.1845,
+   "share_of_backward_bytes": 0.3169,
+   "share_of_round_device_time": 0.2145
+  },
+  "plus_wheel_softmax_no_kernel": {
+   "removed_GB_per_evo_block_n224": 8.137,
+   "reps_per_arm": {
+    "device_evoformer_s": 1,
+    "device_extra_msa_s": 2,
+    "round_wall": 3,
+    "sequence_gradients_s": 3
+   },
+   "round_speedup": 1.1605,
+   "share_of_backward_bytes": 0.2814,
+   "share_of_round_device_time": 0.1905
+  },
+  "precision_stack": {
+   "removed_GB_per_evo_block_n224": 3.343,
+   "reps_per_arm": {
+    "device_evoformer_s": 3,
+    "device_extra_msa_s": 12,
+    "round_wall": 17,
+    "sequence_gradients_s": 17
+   },
+   "round_speedup": 1.0602,
+   "share_of_backward_bytes": 0.1156,
+   "share_of_round_device_time": 0.0783
+  }
+ },
  "load1": [
   16.0,
   19.1
  ],
- "device_share_of_sg": {
-  "median": 0.7261,
-  "min": 0.6611,
-  "max": 0.8457
- },
  "medians_s": {
-  "round_wall": 11.412,
-  "sequence_gradients_s": 11.409,
   "device_evoformer_s": 7.715,
-  "device_extra_msa_s": 0.688
+  "device_extra_msa_s": 0.688,
+  "round_wall": 11.412,
+  "sequence_gradients_s": 11.409
  },
- "spread_max_over_min": {
-  "round_wall": 1.246,
-  "sequence_gradients_s": 1.246,
-  "device_evoformer_s": 1.125,
-  "device_extra_msa_s": 1.24
- },
- "cv": {
-  "round_wall": 0.058,
-  "sequence_gradients_s": 0.058,
-  "device_evoformer_s": 0.0327,
-  "device_extra_msa_s": 0.0675
- },
- "backward_share_of_device": 0.6769,
- "device_seconds_per_round": 8.403,
+ "n_timed_rounds": 10,
  "sequence_gradients_s": 11.409,
- "levers": {
-  "precision_stack": {
-   "removed_GB_per_evo_block_n224": 3.343,
-   "share_of_backward_bytes": 0.1156,
-   "share_of_round_device_time": 0.0783,
-   "round_speedup": 1.0602,
-   "reps_per_arm": {
-    "round_wall": 17,
-    "sequence_gradients_s": 17,
-    "device_evoformer_s": 3,
-    "device_extra_msa_s": 12
-   }
-  },
-  "plus_wheel_softmax_no_kernel": {
-   "removed_GB_per_evo_block_n224": 8.137,
-   "share_of_backward_bytes": 0.2814,
-   "share_of_round_device_time": 0.1905,
-   "round_speedup": 1.1605,
-   "reps_per_arm": {
-    "round_wall": 3,
-    "sequence_gradients_s": 3,
-    "device_evoformer_s": 1,
-    "device_extra_msa_s": 2
-   }
-  },
-  "plus_fused_softmax": {
-   "removed_GB_per_evo_block_n224": 9.165,
-   "share_of_backward_bytes": 0.3169,
-   "share_of_round_device_time": 0.2145,
-   "round_speedup": 1.1845,
-   "reps_per_arm": {
-    "round_wall": 3,
-    "sequence_gradients_s": 3,
-    "device_evoformer_s": 1,
-    "device_extra_msa_s": 2
-   }
-  },
-  "plus_both_fused_kernels": {
-   "removed_GB_per_evo_block_n224": 11.777,
-   "share_of_backward_bytes": 0.4072,
-   "share_of_round_device_time": 0.2757,
-   "round_speedup": 1.2502,
-   "reps_per_arm": {
-    "round_wall": 2,
-    "sequence_gradients_s": 2,
-    "device_evoformer_s": 1,
-    "device_extra_msa_s": 1
-   }
-  }
+ "source": "/home/ttuser/.coworker/wt/bcx-bwbytes/perf/bcx_tmplseam/runs/round_ab_artifacts/round_ab.json",
+ "spread_max_over_min": {
+  "device_evoformer_s": 1.125,
+  "device_extra_msa_s": 1.24,
+  "round_wall": 1.246,
+  "sequence_gradients_s": 1.246
  }
 }
