@@ -133,6 +133,12 @@ def main() -> int:
                          "whatever the band, and both arms carry the same one")
     ap.add_argument("--stage", default="initial_training",
                     help="the loss weights the objective scores with, train and eval alike")
+    ap.add_argument("--exact-scope", choices=("all", "trunk"), default="all",
+                    help="where --exact on is allowed to reach. trunk keeps it to the taped "
+                         "trunk, the section the campaign tensor clause was measured on, and "
+                         "runs the diffusion half device-native in BOTH arms. The instrument "
+                         "cannot run the diffusion decoder today: it norms a buffer pad_dim "
+                         "has already deallocated, four arms dead at ~400 s")
     ap.add_argument("--rollout", type=int, default=20)
     ap.add_argument("--num-cycles", type=int, default=1)
     ap.add_argument("--checkpoint-every", type=int, default=10)
@@ -178,7 +184,9 @@ def main() -> int:
                     raise SystemExit(f"--exact {a.exact} but exact_training_ops() is "
                                      f"{rec['exact_ops']}; the arm is not the arm it claims")
                 fwd, ds = of3.adapter(a.corpus, checkpoint=a.checkpoint,
-                                      rollout=a.rollout, num_cycles=a.num_cycles, seed=a.seed)
+                                      rollout=a.rollout, num_cycles=a.num_cycles, seed=a.seed,
+                                      exact_scope=a.exact_scope)
+                rec["exact_scope"] = a.exact_scope
                 rec["dataset"] = {"n": len(ds), "files": [p.name for p in ds.paths]}
                 dump()
 
