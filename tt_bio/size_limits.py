@@ -957,13 +957,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "row refuses nothing"),
         "wormhole_b0": _unmeasured(
             "no ladder, but no longer a blank: 1024 tokens (944 target + 80 binder, the sum the "
-            "platform fences on) folded on a Galaxy chip in 487.9 s on 2026-09-25, GWH02 UMD 0, "
-            "AICLK 1000 MHz on all 49 samples taken during the fold, pLDDT 0.854, zero "
-            "backbone breaks (ws:cov-unproven-af2ig-whgalaxy, perf/af2ig/results/wh_galaxy). 848 "
-            "reads 334.0 s (UMD 1) and 207 reads 45.1 s on the same box: the exponent between "
-            "consecutive rungs rises 1.42 (207->848) then 2.01 (848->1024), smooth and under the "
-            "trunk's O(N^3), so nothing fast falls off between them. Nothing above 1024 has been "
-            "tried, so there is still no failing size to refuse on and this row refuses nothing"),
+            "platform fences on) folded on a Galaxy chip in 464.0 s on 2026-09-26, GWH02 UMD 3, "
+            "AICLK 1000 MHz on every one of the 47 samples taken during the fold, pLDDT 0.854, "
+            "zero backbone breaks (ws:cov-stale-af2ig-whgalaxy, "
+            "perf/af2ig/results/wh_galaxy/covstale_2026_09_26.jsonl). Same-card ladder beside it: "
+            "848 reads 337.1 s and 207 reads 54.7 s, so the exponent between consecutive rungs "
+            "rises 1.29 (207->848) then 1.69 (848->1024), smooth and under the trunk's O(N^3), so "
+            "nothing fast falls off between them. THE OUTPUT IS BYTE-IDENTICAL to the "
+            "ws:cov-unproven-af2ig-whgalaxy walk at bcb51cf11, sha256 to the byte at all three "
+            "rungs, and identical again at 1024 on a second card (UMD 0, 504.8 s): af2ig on this "
+            "engine depends on neither the chip nor the 196 commits between those trees. Nothing "
+            "above 1024 has been tried, so there is still no failing size to refuse on and this "
+            "row refuses nothing"),
     },
     "nesso1": {
         "wormhole_b0": _unmeasured(
