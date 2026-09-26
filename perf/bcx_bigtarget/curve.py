@@ -97,6 +97,11 @@ def main():
                          "the current block in the BACKWARD, sample DRAM at every tape node and "
                          "after every node's backward. Each sample drains the pipeline, so a run "
                          "with this on is not a timing")
+    ap.add_argument("--census-every", type=int, default=0,
+                    help="every K blocks in the BACKWARD, bucket every live allocated tt_bio "
+                         "Tensor by shape and report the top holders by bytes. This is what "
+                         "turns 'the resident line grows 0.0638 GB per block' into a shape and "
+                         "a count. gc.get_objects() is walked, so it is seconds per sample")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
     n = args.n
@@ -150,6 +155,50 @@ def main():
                 "free_total_b": free * nb,
                 "largest_over_free": largest / free if free else None}
 
+    def census():
+        """Every live allocated tt_bio Tensor, bucketed by shape. Values and gradients apart.
+
+        The DRAM total says how much is held. It does not say by what, and a growth of exactly
+        two (m, z) pairs per block is a claim about WHICH tensors, so it has to be counted
+        rather than matched against arithmetic.
+        """
+        from tt_bio.autograd import Tensor as _T
+        import gc as _gc
+        itemsize = {"BFLOAT16": 2, "FLOAT32": 4, "BFLOAT8_B": 1, "UINT32": 4, "UINT16": 2}
+        buckets, pinned, total_b = {}, 0, 0
+
+        def add(kind, v):
+            nonlocal total_b
+            try:
+                if v is None or not v.is_allocated():
+                    return
+                shp = tuple(int(d) for d in v.shape)
+                dt = str(v.dtype).rsplit(".", 1)[-1].upper()
+            except Exception:
+                return
+            nb = 1
+            for d in shp:
+                nb *= d
+            nb *= itemsize.get(dt, 2)
+            k = f"{kind}{list(shp)}:{dt}"
+            c, b = buckets.get(k, (0, 0))
+            buckets[k] = (c + 1, b + nb)
+            total_b += nb
+
+        for o in _gc.get_objects():
+            if type(o) is not _T:
+                continue
+            try:
+                if o.pinned:
+                    pinned += 1
+                add("v", o._value)
+                add("g", o._grad)
+            except Exception:
+                continue
+        top = sorted(buckets.items(), key=lambda kv: -kv[1][1])[:12]
+        return {"pinned_tensors": pinned, "counted_total_b": total_b,
+                "top": [{"what": k, "n": c, "bytes": b} for k, (c, b) in top]}
+
     base, _, total, _ = view()
     rec["dram_total_gb"], rec["dram_weights_gb"] = total / GB, base / GB
     st = {"phase": "fwd", "resident_peak": 0, "node_peak": 0, "trace": [], "node_samples": 0}
@@ -194,6 +243,10 @@ def main():
         set_cur(f"evo{i}")
         r = ev(i, *a, **k)
         sample(f"evo{i}")
+        if args.census_every and st["phase"] == "bwd" and i % args.census_every == 0:
+            used = view()[0]
+            st.setdefault("census", []).append(
+                {"block": f"evo{i}", "dram_gb": used / GB, **census()})
         return r
 
     dev.extra, dev.evo = extra, evo
@@ -224,7 +277,8 @@ def main():
              "resident_peak_free_gb": st.get("resident_peak_free_gb"),
              "resident_peak_largest_free_per_bank_gb":
                  st.get("resident_peak_largest_free_per_bank_gb"),
-             "resident_peak_frag": st.get("resident_peak_frag")}
+             "resident_peak_frag": st.get("resident_peak_frag"),
+             "census": st.get("census")}
         if node_blocks:
             d.update(node_peak_gb=st["node_peak"] / GB, node_peak_at=st.get("node_peak_at"),
                      node_peak_free_gb=st.get("node_peak_free_gb"),
@@ -243,7 +297,7 @@ def main():
     try:
         for rep in range(args.reps):
             st.update(phase="fwd", resident_peak=0, node_peak=0, trace=[], node_samples=0,
-                      node_on=False)
+                      node_on=False, census=[])
             gc.collect()
             lgt = logits.clone().float().requires_grad_(True)
             m0, z0 = A.embed(ref["bf16"], lgt, ridx)
@@ -285,8 +339,8 @@ def main():
             r["dram_after_release_gb"] = view()[0] / GB
             r["trace"] = list(st["trace"])
             rec["reps"].append(r)
-            print(json.dumps({k: v for k, v in r.items() if k != "trace"}, default=str),
-                  flush=True)
+            print(json.dumps({k: v for k, v in r.items()
+                              if k not in ("trace", "census")}, default=str), flush=True)
             save()
         rec["completed"] = True
     except Exception as e:                         # an allocation refusal is the answer
