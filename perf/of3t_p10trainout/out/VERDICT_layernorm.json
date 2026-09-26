@@ -1,0 +1,76 @@
+{
+  "verdict": "NO-GO",
+  "start_checkpoint_mean_loss": 6.8024402513580124,
+  "arm_a_mean_loss": 9.629875499825921,
+  "arm_b_mean_loss": 6.808552027243263,
+  "gap": 2.821323472582658,
+  "replicate_floor": 0.0005628516043341136,
+  "tolerance": 0.0005628516043341136,
+  "movement": 2.827435248467909,
+  "movement_control_cleared": true,
+  "movement_over_floor": 5023.411547015008,
+  "gap_over_floor": 5012.552955090976,
+  "gap_over_movement": 0.9978384028817061,
+  "steps": [
+    "--corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/train12",
+    "--checkpoint",
+    "/home/ttuser/of3-weights/of3-p2-155k.pt",
+    "--exact",
+    "on",
+    "--steps",
+    "2",
+    "--out-dir",
+    "/home/ttuser/of3t_p10trainout/runs/B2ln",
+    "--curve",
+    "/home/ttuser/of3t_p10trainout/runs/B2ln.jsonl",
+    "--out",
+    "/home/ttuser/.coworker/wt/of3t-p10trainout/perf/of3t_p10trainout/out/arm_B2ln.json",
+    "--checkpoint-every",
+    "9",
+    "--displacement-band",
+    "0.01,100",
+    "--exact-scope",
+    "trunk",
+    "--exact-ops",
+    "layer_norm",
+    "--eval-corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/val",
+    "--seed",
+    "0"
+  ],
+  "arm_a": {
+    "file": "perf/of3t_p10trainout/out/arm_A2s0c.json",
+    "exact_ops": [],
+    "exact_scope": "all",
+    "aiclk": "1350 MHz median sampled DURING, n=48 (min 800, max 1350)",
+    "per_target": {
+      "7kud": 9.24219345264237,
+      "7ohe": 18.92030941086507,
+      "7fb8": 4.71416235019527,
+      "7vus": 5.642836785600977
+    }
+  },
+  "arm_b": {
+    "file": "perf/of3t_p10trainout/out/arm_B2ln.json",
+    "exact_ops": [
+      "layer_norm"
+    ],
+    "exact_scope": "trunk",
+    "aiclk": "1350 MHz median sampled DURING, n=440 (min 800, max 1350)",
+    "per_target": {
+      "7kud": 9.230577180160644,
+      "7ohe": 10.815657521777938,
+      "7fb8": 4.7062075258513385,
+      "7vus": 2.4817658811831333
+    }
+  },
+  "commit": "7f11e8e47",
+  "slot_fix_is_ancestor": true,
+  "per_target_gap": {
+    "7kud": 0.011616272481726142,
+    "7ohe": 8.104651889087132,
+    "7fb8": 0.007954824343931577,
+    "7vus": 3.1610709044178438
+  }
+}

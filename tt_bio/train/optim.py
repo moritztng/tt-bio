@@ -84,7 +84,10 @@ def af3_lr(step: int, lr: float, *, warmup_steps: int = 1000,
     magnitude ~lr per element whatever the gradient is, so without it the first pass over the
     data moves every weight the full step size before the second moment has any history.
     """
-    if step <= warmup_steps:
+    # `warmup_steps=0` is "no warmup", not a division by zero. A short run has to be able to
+    # say it: at 30 steps the 1000-step default leaves the rate at 9e-6 of 3e-4, the weights
+    # barely move, and two arms compared over those steps agree because neither trained.
+    if warmup_steps and step <= warmup_steps:
         return base_lr + step / warmup_steps * lr
     if plateau_until is None:
         return lr * (decay_factor ** (step // decay_every_n_steps))
