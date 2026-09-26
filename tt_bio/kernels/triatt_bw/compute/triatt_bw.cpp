@@ -267,12 +267,10 @@ void kernel_main() {
         // the loop over K chunks", compute_common.hpp:2011). This kernel has exactly one k chunk,
         // so the partial form buys nothing and a single reduce_c over cb_p is both the row sum
         // and one fewer buffer to carry.
-        // approx_exp stays TRUE here, and it is the reason this kernel misses the accuracy bar.
-        // Switching it to false hangs the core: the helper pairs the exponential with
-        // InputClamping::None, which is only sound for the approximate form. Whoever takes this
-        // next has to change the clamping with it, not just the flag.
+        // The ACCURATE exponential. The forward keeps the fast approximate one by default; a
+        // gradient graded against a float64 VJP cannot afford it.
         sub_exp_block_bcast_cols_inplace<cb_p, Nt, 0x3F800000 /*1.0f*/, true, false,
-                                         (int)VectorMode::RC, true /*approx_exp*/>(
+                                         (int)VectorMode::RC, false /*approx_exp*/>(
             cb_row_a, cb_row_b, Nt);
         DPRINT << "@EXP" << ENDL();
         cb_pop_front(cb_row_a, Nt);                      // sub_exp keeps in1, so pop it here

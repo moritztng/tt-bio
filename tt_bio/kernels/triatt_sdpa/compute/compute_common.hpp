@@ -349,9 +349,15 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                 // so the difference between the two arms is the SFPU's exp and nothing else. The
                 // output is wrong by construction and the define is unreachable from any shipped
                 // path -- `tt_bio/triatt_sdpa.py` only sets it from TT_BIO_TRIATT_ABLATE.
+                // approx_exp drives BOTH this call and the exp_tile_init above, and it has to.
+                // Changing only the init leaves the LLK configured for one exponential while the
+                // op issues the other, and that does not come back wrong -- it hangs the core.
+                // The clamping is only consulted when approx && fast_and_approx, so it stays
+                // None: on the accurate path it is ignored, on the approximate path this is the
+                // behaviour the forward has always had.
                 exp_tile<
-                    true /* approx */,
-                    true /* fast+approx */,
+                    approx_exp /* approx */,
+                    approx_exp /* fast+approx */,
                     false /* scale_en */,
                     false /* skip +ve check */,
                     InputClamping::None,
