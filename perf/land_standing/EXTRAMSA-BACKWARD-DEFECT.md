@@ -106,3 +106,39 @@ hands it to `_residual` from OUTSIDE the checkpoint.
 **So either end can be fixed**: pass `const` in as a checkpointed input so the recompute gets its
 own duplicate, or keep `_residual` out of the checkpointed callable the way the Evoformer arm
 does. The repro's control arm shows the second shape already works.
+
+## Blast radius: five call sites, one defect, and the repo already contains the remedy
+
+The contract belongs to `autograd.checkpoint`, which is shared, so the question that matters more
+than one flag is whether anything else has the same shape. `ops.set_checkpoint_hook(
+_checkpoint_segment)` wires it, so the complete set of users on `origin/main` is:
+
+| call site | what it captures | why it is safe |
+|---|---|---|
+| `bindcraft2.py:119` Evoformer | `msa_mask`, `pair_masks` | hoisted outside the block loop and reused by every iteration |
+| `openfold3_msa_embedder.py:185` | `pair_mask`, `attn_mask` | same, reused across blocks |
+| `openfold3_template.py:144` | `pair_mask`, `attn_mask` | same, reused across blocks |
+| `tenstorrent.py:10721` Pairformer | masks + `trans_mask_z/s` | reused across 48 blocks, **and** its frees are gated `if ... and not ops.taping()` |
+| `bindcraft2.py:141` **extra-MSA** | `const`, **built fresh per block** | **nothing protects it** |
+
+**The discriminator is sharp and is worth more than the individual fix.** A capture hoisted
+outside the loop is proven to survive the forward *by the forward itself*: block 2 would already
+fail if block 1 freed it. The extra-MSA arm is the only site whose capture is created inside the
+loop (`const = model._up(model.opm_constant[index]...)`) and used exactly once, so nothing in the
+forward ever notices the free and only the recompute does.
+
+**And this is a known class in this repo with a house remedy, not a novel bug.**
+`tenstorrent.py:10008` carries it verbatim:
+
+    if not ops.taping():
+        # Under a tape the multiply's backward reads its operands (freeing `out` was a
+        # storage.cpp:60 TT_THROW); inference keeps the free, 48 MB at 384 aa.
+        ttnn.deallocate(out)
+
+Same throw site, already hit once, already fixed this way. `not ops.taping()` appears **6 times**
+in `tenstorrent.py` guarding exactly this. `af2._residual` frees unconditionally, so the guard
+that the rest of the engine applies is the one thing the extra-MSA path is missing.
+
+**So the merge that made the switch reachable did not widen any risk**: the defect is confined to
+the one site, default off, and every other checkpointed segment on main is safe for a reason that
+can be checked by reading.
