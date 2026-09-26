@@ -26,12 +26,16 @@ export ARM_OUT_ROOT=perf/bcx_p10_l1fuse/out
 export ARM_XLA_CACHE=$PWD/perf/bcx_p10_l1fuse/out/xlacache
 export TT_BIO_LEASE_HOLDER=worker:bcx-p10-l1fuse
 export TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0
+# Which env var the two arms toggle. Default is this rows own lever; the campaign also wants a
+# device-column reading on TT_BIO_TAPED_CHANNEL_MOVE, which was declined on a wall number, and
+# that is the same four processes with one name changed.
+LEVER=${LEVER:-TT_BIO_GRAD_FANIN_L1}
 mkdir -p perf/bcx_p10_l1fuse/out
 for arm in "${arms[@]}"; do
     tag=p_${arm}_${suffix}_$RANDOM
-    echo "=== $tag rounds=$rounds TT_BIO_GRAD_FANIN_L1=$arm $(date -u +%FT%TZ)" >&2
+    echo "=== $tag rounds=$rounds $LEVER=$arm $(date -u +%FT%TZ)" >&2
     env TT_BIO_MM_LAYOUT=1 \
-        "TT_BIO_GRAD_FANIN_L1=$([ "$arm" = on ] && echo 1 || echo 0)" \
+        "$LEVER=$([ "$arm" = on ] && echo 1 || echo 0)" \
         bash perf/bcx_p10_stack/arm.sh "$tag" "$rounds" 1 1 hifi \
             --triatt-bw 1 --rne-kernel 1 \
         > "perf/bcx_p10_l1fuse/out/$tag.log" 2>&1
