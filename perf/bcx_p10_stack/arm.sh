@@ -24,7 +24,10 @@ out=${ARM_OUT_ROOT:-perf/bcx_p10_stack/out}/$tag
 # already holds trajectory 1 returns in 5 s having measured nothing.
 rm -rf "$out"
 mkdir -p "$out"
-export PYTHONPATH=$PWD
+# ARM_PYTHON and ARM_PYTHONPATH exist because this arm also has to run on pc, where the round's
+# interpreter is not qb's and BindCraft 2 is a checkout rather than an installed package. Unset,
+# both are what qb has always used.
+export PYTHONPATH=${ARM_PYTHONPATH:+$ARM_PYTHONPATH:}$PWD
 # bindcraft/__init__.py setdefaults this to /tmp/bindcraft_xla_cache, and af2.py:27 takes a
 # host-global flock in it keyed on the program shape. A co-tenant BindCraft 2 process on the
 # same box then serialises with us for the whole compile. A private dir, shared across this
@@ -32,6 +35,6 @@ export PYTHONPATH=$PWD
 export JAX_COMPILATION_CACHE_DIR=${ARM_XLA_CACHE:-$PWD/perf/bcx_p10_stack/out/xlacache}
 export TT_VISIBLE_DEVICES=${TT_VISIBLE_DEVICES:-0} TT_BIO_LEASE_CARDS=${TT_BIO_LEASE_CARDS:-0}
 export TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:bcx-p10-stack}
-exec /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py \
+exec "${ARM_PYTHON:-/home/ttuser/bcx_e2e_venv/bin/python3}" -u perf/bcx_round/run_round.py \
     --rounds "$rounds" --exact 0 --extra-msa "$extra" --template "$tmpl" \
     $triflags --shipped --binder 146 --out "$out" "$@"
