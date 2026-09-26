@@ -871,12 +871,6 @@ def main() -> int:
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
-    ap.add_argument("--loss-shape", choices=("per-root", "model"), default="per-root",
-                    help="per-root: the whole seven-term set once per diffusion replicate, "
-                         "which is what every banked losses_s in this campaign measures and "
-                         "why it is the default. model: the five non-diffusion terms once and "
-                         "the three diffusion-coupled ones per replicate, which is what "
-                         "tt_bio/train/openfold3.py actually does.")
     ap.add_argument("--renorm-per-rep", default="",
                     help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
                          "THIS process. The lever is a module global read inside the "
