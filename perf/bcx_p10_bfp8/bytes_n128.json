@@ -1,0 +1,776 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "3c52d9e7c27e4626e124a5a19ec002323063e8c2",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   18.94091796875,
+   19.7001953125,
+   22.46435546875
+  ],
+  "utc": "2026-09-26T10:20:11Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": null
+ },
+ "n": 128,
+ "arms": {
+  "bf16": {
+   "evo": {
+    "K1": {
+     "fwd": {
+      "read": 559271936.0,
+      "written": 590979072.0,
+      "total": 1150251008.0,
+      "calls": 143,
+      "read_by_dtype": {
+       "BFLOAT16": 439865344.0,
+       "FLOAT32": 119406592.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 419799040.0,
+       "FLOAT32": 171180032.0
+      },
+      "read_by_verb": {
+       "reshape": 26501120.0,
+       "subtract": 8192.0,
+       "multiply": 1056768.0,
+       "permute": 46292992.0,
+       "linear": 77369344.0,
+       "add": 6832128.0,
+       "experimental.nlp_create_qkv_heads": 31653888.0,
+       "matmul": 85688320.0,
+       "typecast": 203423744.0,
+       "experimental.nlp_concat_heads": 10551296.0,
+       "relu": 17039360.0,
+       "to_layout": 18874368.0,
+       "add_": 32768.0,
+       "experimental.minimal_matmul": 17170432.0,
+       "transpose": 16777216.0
+      }
+     },
+     "bwd": {
+      "read": 2629935104.0,
+      "written": 2064080896.0,
+      "total": 4694016000.0,
+      "calls": 439,
+      "read_by_dtype": {
+       "BFLOAT16": 1382637568.0,
+       "FLOAT32": 1247297536.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 1004290048.0,
+       "BFLOAT16": 1059790848.0
+      },
+      "read_by_verb": {
+       "typecast": 565198848.0,
+       "reshape": 369197056.0,
+       "matmul": 325599232.0,
+       "add": 464519168.0,
+       "to_layout": 18874368.0,
+       "permute": 43655168.0,
+       "multiply": 213680128.0,
+       "transpose": 37879808.0,
+       "slice": 266338304.0,
+       "add_": 133169152.0,
+       "experimental.nlp_concat_heads": 31653888.0,
+       "clone": 31653888.0,
+       "concat": 128516096.0
+      }
+     },
+     "total": 5844267008.0
+    },
+    "K2": {
+     "fwd": {
+      "read": 1119330304.0,
+      "written": 1182744576.0,
+      "total": 2302074880.0,
+      "calls": 289,
+      "read_by_dtype": {
+       "BFLOAT16": 880517120.0,
+       "FLOAT32": 238813184.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 840384512.0,
+       "FLOAT32": 342360064.0
+      },
+      "read_by_verb": {
+       "reshape": 53264384.0,
+       "subtract": 16384.0,
+       "multiply": 2113536.0,
+       "permute": 92585984.0,
+       "linear": 154738688.0,
+       "add": 13664256.0,
+       "experimental.nlp_create_qkv_heads": 63307776.0,
+       "matmul": 171376640.0,
+       "typecast": 406847488.0,
+       "experimental.nlp_concat_heads": 21102592.0,
+       "relu": 34078720.0,
+       "to_layout": 38273024.0,
+       "add_": 65536.0,
+       "experimental.minimal_matmul": 34340864.0,
+       "transpose": 33554432.0
+      }
+     },
+     "bwd": {
+      "read": 5268193280.0,
+      "written": 4132225024.0,
+      "total": 9400418304.0,
+      "calls": 878,
+      "read_by_dtype": {
+       "BFLOAT16": 2765209600.0,
+       "FLOAT32": 2502983680.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 2008449024.0,
+       "BFLOAT16": 2123776000.0
+      },
+      "read_by_verb": {
+       "typecast": 1138720768.0,
+       "reshape": 738394112.0,
+       "matmul": 651198464.0,
+       "add": 929038336.0,
+       "to_layout": 37748736.0,
+       "permute": 87310336.0,
+       "multiply": 427360256.0,
+       "transpose": 75759616.0,
+       "slice": 532676608.0,
+       "add_": 266338304.0,
+       "experimental.nlp_concat_heads": 63307776.0,
+       "clone": 63307776.0,
+       "concat": 257032192.0
+      }
+     },
+     "total": 11702493184.0
+    },
+    "per_block": {
+     "fwd": {
+      "read": 560058368.0,
+      "written": 591765504.0,
+      "total": 1151823872.0,
+      "calls": 146,
+      "read_by_dtype": {
+       "FLOAT32": 119406592.0,
+       "BFLOAT16": 440651776.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 171180032.0,
+       "BFLOAT16": 420585472.0
+      },
+      "read_by_verb": {
+       "multiply": 1056768.0,
+       "reshape": 26763264.0,
+       "experimental.minimal_matmul": 17170432.0,
+       "linear": 77369344.0,
+       "add": 6832128.0,
+       "experimental.nlp_concat_heads": 10551296.0,
+       "subtract": 8192.0,
+       "relu": 17039360.0,
+       "matmul": 85688320.0,
+       "add_": 32768.0,
+       "experimental.nlp_create_qkv_heads": 31653888.0,
+       "permute": 46292992.0,
+       "typecast": 203423744.0,
+       "transpose": 16777216.0,
+       "to_layout": 19398656.0
+      }
+     },
+     "bwd": {
+      "read": 2638258176.0,
+      "written": 2068144128.0,
+      "total": 4706402304.0,
+      "calls": 439,
+      "read_by_dtype": {
+       "FLOAT32": 1255686144.0,
+       "BFLOAT16": 1382572032.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 1004158976.0,
+       "BFLOAT16": 1063985152.0
+      },
+      "read_by_verb": {
+       "multiply": 213680128.0,
+       "reshape": 369197056.0,
+       "to_layout": 18874368.0,
+       "add": 464519168.0,
+       "experimental.nlp_concat_heads": 31653888.0,
+       "concat": 128516096.0,
+       "transpose": 37879808.0,
+       "matmul": 325599232.0,
+       "add_": 133169152.0,
+       "typecast": 573521920.0,
+       "permute": 43655168.0,
+       "slice": 266338304.0,
+       "clone": 31653888.0
+      }
+     },
+     "total": 5858226176.0
+    }
+   },
+   "extra": {
+    "K1": {
+     "fwd": {
+      "read": 490586112.0,
+      "written": 519323648.0,
+      "total": 1009909760.0,
+      "calls": 75,
+      "read_by_dtype": {
+       "BFLOAT16": 372621312.0,
+       "FLOAT32": 117964800.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 160448512.0,
+       "BFLOAT16": 358875136.0
+      },
+      "read_by_verb": {
+       "typecast": 197402624.0,
+       "experimental.minimal_matmul": 17170432.0,
+       "permute": 35651584.0,
+       "matmul": 75497472.0,
+       "transpose": 16777216.0,
+       "linear": 63676416.0,
+       "reshape": 16777216.0,
+       "experimental.nlp_create_qkv_heads": 25165824.0,
+       "multiply": 524288.0,
+       "experimental.nlp_concat_heads": 8388608.0,
+       "to_layout": 16777216.0,
+       "relu": 16777216.0
+      }
+     },
+     "bwd": {
+      "read": 2333818880.0,
+      "written": 1813774336.0,
+      "total": 4147593216.0,
+      "calls": 265,
+      "read_by_dtype": {
+       "BFLOAT16": 1194541056.0,
+       "FLOAT32": 1139277824.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 897056768.0,
+       "BFLOAT16": 916717568.0
+      },
+      "read_by_verb": {
+       "typecast": 503840768.0,
+       "reshape": 306708480.0,
+       "matmul": 292503552.0,
+       "add": 385875968.0,
+       "to_layout": 16777216.0,
+       "permute": 33816576.0,
+       "multiply": 201850880.0,
+       "transpose": 33554432.0,
+       "slice": 266338304.0,
+       "add_": 133169152.0,
+       "experimental.nlp_concat_heads": 25165824.0,
+       "clone": 25165824.0,
+       "concat": 109051904.0
+      }
+     },
+     "total": 5157502976.0
+    },
+    "K2": {
+     "fwd": {
+      "read": 981172224.0,
+      "written": 1038647296.0,
+      "total": 2019819520.0,
+      "calls": 150,
+      "read_by_dtype": {
+       "BFLOAT16": 745242624.0,
+       "FLOAT32": 235929600.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 320897024.0,
+       "BFLOAT16": 717750272.0
+      },
+      "read_by_verb": {
+       "typecast": 394805248.0,
+       "experimental.minimal_matmul": 34340864.0,
+       "permute": 71303168.0,
+       "matmul": 150994944.0,
+       "transpose": 33554432.0,
+       "linear": 127352832.0,
+       "reshape": 33554432.0,
+       "experimental.nlp_create_qkv_heads": 50331648.0,
+       "multiply": 1048576.0,
+       "experimental.nlp_concat_heads": 16777216.0,
+       "to_layout": 33554432.0,
+       "relu": 33554432.0
+      }
+     },
+     "bwd": {
+      "read": 4667637760.0,
+      "written": 3627548672.0,
+      "total": 8295186432.0,
+      "calls": 530,
+      "read_by_dtype": {
+       "BFLOAT16": 2389082112.0,
+       "FLOAT32": 2278555648.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 1794113536.0,
+       "BFLOAT16": 1833435136.0
+      },
+      "read_by_verb": {
+       "typecast": 1007681536.0,
+       "reshape": 613416960.0,
+       "matmul": 585007104.0,
+       "add": 771751936.0,
+       "to_layout": 33554432.0,
+       "permute": 67633152.0,
+       "multiply": 403701760.0,
+       "transpose": 67108864.0,
+       "slice": 532676608.0,
+       "add_": 266338304.0,
+       "experimental.nlp_concat_heads": 50331648.0,
+       "clone": 50331648.0,
+       "concat": 218103808.0
+      }
+     },
+     "total": 10315005952.0
+    },
+    "per_block": {
+     "fwd": {
+      "read": 490586112.0,
+      "written": 519323648.0,
+      "total": 1009909760.0,
+      "calls": 75,
+      "read_by_dtype": {
+       "FLOAT32": 117964800.0,
+       "BFLOAT16": 372621312.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 160448512.0,
+       "BFLOAT16": 358875136.0
+      },
+      "read_by_verb": {
+       "multiply": 524288.0,
+       "reshape": 16777216.0,
+       "experimental.minimal_matmul": 17170432.0,
+       "linear": 63676416.0,
+       "experimental.nlp_concat_heads": 8388608.0,
+       "relu": 16777216.0,
+       "matmul": 75497472.0,
+       "typecast": 197402624.0,
+       "permute": 35651584.0,
+       "experimental.nlp_create_qkv_heads": 25165824.0,
+       "transpose": 16777216.0,
+       "to_layout": 16777216.0
+      }
+     },
+     "bwd": {
+      "read": 2333818880.0,
+      "written": 1813774336.0,
+      "total": 4147593216.0,
+      "calls": 265,
+      "read_by_dtype": {
+       "FLOAT32": 1139277824.0,
+       "BFLOAT16": 1194541056.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 897056768.0,
+       "BFLOAT16": 916717568.0
+      },
+      "read_by_verb": {
+       "multiply": 201850880.0,
+       "reshape": 306708480.0,
+       "to_layout": 16777216.0,
+       "add": 385875968.0,
+       "experimental.nlp_concat_heads": 25165824.0,
+       "concat": 109051904.0,
+       "transpose": 33554432.0,
+       "matmul": 292503552.0,
+       "add_": 133169152.0,
+       "typecast": 503840768.0,
+       "permute": 33816576.0,
+       "slice": 266338304.0,
+       "clone": 25165824.0
+      }
+     },
+     "total": 5157502976.0
+    }
+   }
+  },
+  "b8": {
+   "evo": {
+    "K1": {
+     "fwd": {
+      "read": 559271936.0,
+      "written": 590979072.0,
+      "total": 1150251008.0,
+      "calls": 143,
+      "read_by_dtype": {
+       "BFLOAT16": 439865344.0,
+       "FLOAT32": 119406592.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 419799040.0,
+       "FLOAT32": 171180032.0
+      },
+      "read_by_verb": {
+       "reshape": 26501120.0,
+       "subtract": 8192.0,
+       "multiply": 1056768.0,
+       "permute": 46292992.0,
+       "linear": 77369344.0,
+       "add": 6832128.0,
+       "experimental.nlp_create_qkv_heads": 31653888.0,
+       "matmul": 85688320.0,
+       "typecast": 203423744.0,
+       "experimental.nlp_concat_heads": 10551296.0,
+       "relu": 17039360.0,
+       "to_layout": 18874368.0,
+       "add_": 32768.0,
+       "experimental.minimal_matmul": 17170432.0,
+       "transpose": 16777216.0
+      }
+     },
+     "bwd": {
+      "read": 2629935104.0,
+      "written": 2064080896.0,
+      "total": 4694016000.0,
+      "calls": 439,
+      "read_by_dtype": {
+       "BFLOAT16": 1382637568.0,
+       "FLOAT32": 1247297536.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 1004290048.0,
+       "BFLOAT16": 1059790848.0
+      },
+      "read_by_verb": {
+       "typecast": 565198848.0,
+       "reshape": 369197056.0,
+       "matmul": 325599232.0,
+       "add": 464519168.0,
+       "to_layout": 18874368.0,
+       "permute": 43655168.0,
+       "multiply": 213680128.0,
+       "transpose": 37879808.0,
+       "slice": 266338304.0,
+       "add_": 133169152.0,
+       "experimental.nlp_concat_heads": 31653888.0,
+       "clone": 31653888.0,
+       "concat": 128516096.0
+      }
+     },
+     "total": 5844267008.0
+    },
+    "K2": {
+     "fwd": {
+      "read": 1118543872.0,
+      "written": 1181958144.0,
+      "total": 2300502016.0,
+      "calls": 286,
+      "read_by_dtype": {
+       "BFLOAT16": 879730688.0,
+       "FLOAT32": 238813184.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 839598080.0,
+       "FLOAT32": 342360064.0
+      },
+      "read_by_verb": {
+       "reshape": 53002240.0,
+       "subtract": 16384.0,
+       "multiply": 2113536.0,
+       "permute": 92585984.0,
+       "linear": 154738688.0,
+       "add": 13664256.0,
+       "experimental.nlp_create_qkv_heads": 63307776.0,
+       "matmul": 171376640.0,
+       "typecast": 406847488.0,
+       "experimental.nlp_concat_heads": 21102592.0,
+       "relu": 34078720.0,
+       "to_layout": 37748736.0,
+       "add_": 65536.0,
+       "experimental.minimal_matmul": 34340864.0,
+       "transpose": 33554432.0
+      }
+     },
+     "bwd": {
+      "read": 5268193280.0,
+      "written": 4132225024.0,
+      "total": 9400418304.0,
+      "calls": 878,
+      "read_by_dtype": {
+       "BFLOAT16": 2765209600.0,
+       "FLOAT32": 2502983680.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 2008449024.0,
+       "BFLOAT16": 2123776000.0
+      },
+      "read_by_verb": {
+       "typecast": 1138720768.0,
+       "reshape": 738394112.0,
+       "matmul": 651198464.0,
+       "add": 929038336.0,
+       "to_layout": 37748736.0,
+       "permute": 87310336.0,
+       "multiply": 427360256.0,
+       "transpose": 75759616.0,
+       "slice": 532676608.0,
+       "add_": 266338304.0,
+       "experimental.nlp_concat_heads": 63307776.0,
+       "clone": 63307776.0,
+       "concat": 257032192.0
+      }
+     },
+     "total": 11700920320.0
+    },
+    "per_block": {
+     "fwd": {
+      "read": 559271936.0,
+      "written": 590979072.0,
+      "total": 1150251008.0,
+      "calls": 143,
+      "read_by_dtype": {
+       "FLOAT32": 119406592.0,
+       "BFLOAT16": 439865344.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 171180032.0,
+       "BFLOAT16": 419799040.0
+      },
+      "read_by_verb": {
+       "multiply": 1056768.0,
+       "reshape": 26501120.0,
+       "experimental.minimal_matmul": 17170432.0,
+       "linear": 77369344.0,
+       "add": 6832128.0,
+       "experimental.nlp_concat_heads": 10551296.0,
+       "subtract": 8192.0,
+       "relu": 17039360.0,
+       "matmul": 85688320.0,
+       "add_": 32768.0,
+       "experimental.nlp_create_qkv_heads": 31653888.0,
+       "permute": 46292992.0,
+       "typecast": 203423744.0,
+       "transpose": 16777216.0,
+       "to_layout": 18874368.0
+      }
+     },
+     "bwd": {
+      "read": 2638258176.0,
+      "written": 2068144128.0,
+      "total": 4706402304.0,
+      "calls": 439,
+      "read_by_dtype": {
+       "FLOAT32": 1255686144.0,
+       "BFLOAT16": 1382572032.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 1004158976.0,
+       "BFLOAT16": 1063985152.0
+      },
+      "read_by_verb": {
+       "multiply": 213680128.0,
+       "reshape": 369197056.0,
+       "to_layout": 18874368.0,
+       "add": 464519168.0,
+       "experimental.nlp_concat_heads": 31653888.0,
+       "concat": 128516096.0,
+       "transpose": 37879808.0,
+       "matmul": 325599232.0,
+       "add_": 133169152.0,
+       "typecast": 573521920.0,
+       "permute": 43655168.0,
+       "slice": 266338304.0,
+       "clone": 31653888.0
+      }
+     },
+     "total": 5856653312.0
+    }
+   },
+   "extra": {
+    "K1": {
+     "fwd": {
+      "read": 490586112.0,
+      "written": 519323648.0,
+      "total": 1009909760.0,
+      "calls": 75,
+      "read_by_dtype": {
+       "BFLOAT16": 372621312.0,
+       "FLOAT32": 117964800.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 160448512.0,
+       "BFLOAT16": 358875136.0
+      },
+      "read_by_verb": {
+       "typecast": 197402624.0,
+       "experimental.minimal_matmul": 17170432.0,
+       "permute": 35651584.0,
+       "matmul": 75497472.0,
+       "transpose": 16777216.0,
+       "linear": 63676416.0,
+       "reshape": 16777216.0,
+       "experimental.nlp_create_qkv_heads": 25165824.0,
+       "multiply": 524288.0,
+       "experimental.nlp_concat_heads": 8388608.0,
+       "to_layout": 16777216.0,
+       "relu": 16777216.0
+      }
+     },
+     "bwd": {
+      "read": 2333818880.0,
+      "written": 1813774336.0,
+      "total": 4147593216.0,
+      "calls": 265,
+      "read_by_dtype": {
+       "BFLOAT16": 1194541056.0,
+       "FLOAT32": 1139277824.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 897056768.0,
+       "BFLOAT16": 916717568.0
+      },
+      "read_by_verb": {
+       "typecast": 503840768.0,
+       "reshape": 306708480.0,
+       "matmul": 292503552.0,
+       "add": 385875968.0,
+       "to_layout": 16777216.0,
+       "permute": 33816576.0,
+       "multiply": 201850880.0,
+       "transpose": 33554432.0,
+       "slice": 266338304.0,
+       "add_": 133169152.0,
+       "experimental.nlp_concat_heads": 25165824.0,
+       "clone": 25165824.0,
+       "concat": 109051904.0
+      }
+     },
+     "total": 5157502976.0
+    },
+    "K2": {
+     "fwd": {
+      "read": 981172224.0,
+      "written": 1038647296.0,
+      "total": 2019819520.0,
+      "calls": 150,
+      "read_by_dtype": {
+       "BFLOAT16": 745242624.0,
+       "FLOAT32": 235929600.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 320897024.0,
+       "BFLOAT16": 717750272.0
+      },
+      "read_by_verb": {
+       "typecast": 394805248.0,
+       "experimental.minimal_matmul": 34340864.0,
+       "permute": 71303168.0,
+       "matmul": 150994944.0,
+       "transpose": 33554432.0,
+       "linear": 127352832.0,
+       "reshape": 33554432.0,
+       "experimental.nlp_create_qkv_heads": 50331648.0,
+       "multiply": 1048576.0,
+       "experimental.nlp_concat_heads": 16777216.0,
+       "to_layout": 33554432.0,
+       "relu": 33554432.0
+      }
+     },
+     "bwd": {
+      "read": 4667637760.0,
+      "written": 3627548672.0,
+      "total": 8295186432.0,
+      "calls": 530,
+      "read_by_dtype": {
+       "BFLOAT16": 2389082112.0,
+       "FLOAT32": 2278555648.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 1794113536.0,
+       "BFLOAT16": 1833435136.0
+      },
+      "read_by_verb": {
+       "typecast": 1007681536.0,
+       "reshape": 613416960.0,
+       "matmul": 585007104.0,
+       "add": 771751936.0,
+       "to_layout": 33554432.0,
+       "permute": 67633152.0,
+       "multiply": 403701760.0,
+       "transpose": 67108864.0,
+       "slice": 532676608.0,
+       "add_": 266338304.0,
+       "experimental.nlp_concat_heads": 50331648.0,
+       "clone": 50331648.0,
+       "concat": 218103808.0
+      }
+     },
+     "total": 10315005952.0
+    },
+    "per_block": {
+     "fwd": {
+      "read": 490586112.0,
+      "written": 519323648.0,
+      "total": 1009909760.0,
+      "calls": 75,
+      "read_by_dtype": {
+       "FLOAT32": 117964800.0,
+       "BFLOAT16": 372621312.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 160448512.0,
+       "BFLOAT16": 358875136.0
+      },
+      "read_by_verb": {
+       "multiply": 524288.0,
+       "reshape": 16777216.0,
+       "experimental.minimal_matmul": 17170432.0,
+       "linear": 63676416.0,
+       "experimental.nlp_concat_heads": 8388608.0,
+       "relu": 16777216.0,
+       "matmul": 75497472.0,
+       "typecast": 197402624.0,
+       "permute": 35651584.0,
+       "experimental.nlp_create_qkv_heads": 25165824.0,
+       "transpose": 16777216.0,
+       "to_layout": 16777216.0
+      }
+     },
+     "bwd": {
+      "read": 2333818880.0,
+      "written": 1813774336.0,
+      "total": 4147593216.0,
+      "calls": 265,
+      "read_by_dtype": {
+       "FLOAT32": 1139277824.0,
+       "BFLOAT16": 1194541056.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 897056768.0,
+       "BFLOAT16": 916717568.0
+      },
+      "read_by_verb": {
+       "multiply": 201850880.0,
+       "reshape": 306708480.0,
+       "to_layout": 16777216.0,
+       "add": 385875968.0,
+       "experimental.nlp_concat_heads": 25165824.0,
+       "concat": 109051904.0,
+       "transpose": 33554432.0,
+       "matmul": 292503552.0,
+       "add_": 133169152.0,
+       "typecast": 503840768.0,
+       "permute": 33816576.0,
+       "slice": 266338304.0,
+       "clone": 25165824.0
+      }
+     },
+     "total": 5157502976.0
+    }
+   }
+  }
+ },
+ "loadavg": [
+  18.94091796875,
+  19.7001953125,
+  22.46435546875
+ ]
+}
