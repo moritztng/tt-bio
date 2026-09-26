@@ -20,6 +20,12 @@ import time
 EVENTS = []
 _T0 = time.time()
 
+#: The campaign's own residue counts, read off the first `protein_states` the predictor is
+#: handed. A top-level `initialize_design_trajectory` draw is NOT this: the campaign advances
+#: its key per trajectory, so probing the settings gave binder 148 for a run whose trajectory 1
+#: was binder 71. n has to come from the round, like every other number here.
+STATE = {}
+
 
 def ev(kind, phase, t0, t1, **kw):
     EVENTS.append({"kind": kind, "phase": phase, "t0": t0, "t1": t1,
@@ -121,11 +127,18 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
     #    `predict` inside a round is a fold BindCraft 2 asked for on top of it.
     sg = predictor_cls.sequence_gradients
 
-    def sequence_gradients(self, *a, **kw):
+    def sequence_gradients(self, protein_states, *a, **kw):
+        if not STATE:
+            try:
+                STATE.update({state: {chain: len(protein)
+                                      for chain, protein in complex_.items()}
+                              for state, complex_ in protein_states.items()})
+            except Exception as exc:
+                STATE["error"] = repr(exc)
         meter.on_sequence_gradients_enter()
         t0 = time.time()
         try:
-            return sg(self, *a, **kw)
+            return sg(self, protein_states, *a, **kw)
         finally:
             ev("predictor", "sequence_gradients", t0, time.time(),
                round=meter.entries)
@@ -180,6 +193,6 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
 
 def dump(path, stamp):
     with open(path, "w") as fh:
-        json.dump({"stamp": stamp, "events": EVENTS,
+        json.dump({"stamp": stamp, "state_shape": STATE, "events": EVENTS,
                    "aiclk": [[t, c, l] for t, c, l in (CLOCK.samples if CLOCK else [])]},
                   fh)
