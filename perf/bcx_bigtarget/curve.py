@@ -102,6 +102,11 @@ def main():
                          "Tensor by shape and report the top holders by bytes. This is what "
                          "turns 'the resident line grows 0.0638 GB per block' into a shape and "
                          "a count. gc.get_objects() is walked, so it is seconds per sample")
+    ap.add_argument("--leaky", action="store_true",
+                    help="LEAKY CONTROL: storage groups hold their members strongly again, "
+                         "patched at runtime (perf/bcx_bigtarget/leaky_control.py). Inverts "
+                         "a257dfbbc and nothing else. Never a default; this is the arm that "
+                         "attributes the flat resident line")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
     n = args.n
@@ -111,7 +116,7 @@ def main():
            "pci": S.sysfs_node()[1], "completed": False, "reps": [],
            "node_blocks": sorted(node_blocks)}
     rec["stamp"].pop("subsystem_device", None)     # afgrad reads the naive node, wrong on qb1
-    tag = args.tag or ("_nodes" if node_blocks else "")
+    tag = args.tag or ("_leaky" if args.leaky else "") + ("_nodes" if node_blocks else "")
     out = OUT / f"curve_n{n}{tag}.json"
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -120,6 +125,14 @@ def main():
         out.write_text(json.dumps(rec, indent=1, default=str))
 
     t_open = time.time()
+    if args.leaky:                                 # BEFORE any taped call, and before the load
+        from tt_bio import autograd as _ag
+        from perf.bcx_bigtarget import leaky_control as _leak
+        _leak.apply(_ag)
+        rec["leaky"] = _leak.verify(_ag)
+        print(json.dumps({"leaky_control": rec["leaky"]}), flush=True)
+        if not rec["leaky"]["strong"]:
+            raise SystemExit("leaky control did not take; refusing to report an inert arm")
     lv = S.Levers()
     dm, ref = A.load_models(args.params)
     dev = A.Dev(dm)

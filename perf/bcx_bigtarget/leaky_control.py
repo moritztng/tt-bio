@@ -1,72 +1,61 @@
 #!/usr/bin/env python3
-"""The leaky control: storage groups hold their members STRONGLY again.
+"""The leaky control: storage groups hold their members STRONGLY again, patched at RUNTIME.
 
 bcx-armtree's `27e000ff2`, on main as `a257dfbbc`, made `Tensor.shares` hold weak references so
 a view and its source stop owning each other. That commit is inside the range between the tree
 bcx-large measured the n=352 ceiling on (`68b7a49a0`) and main today, and main today shows no
-per-block growth at all where bcx-large measured 0.0638 GB. This inverts exactly that one change
-and nothing else, so a run under it attributes the flat line rather than merely coinciding with
-it. bcx-armtree ran the same control on its own tree at 320 tokens; this one runs on MAIN at 352,
-which is the size the campaign's ceiling is quoted at.
+per-block growth at all where bcx-large measured 0.0638 GB. Twenty commits touched `autograd.py`
+in that range, so the flat line is only CORRELATED with the fix until something moves it back.
 
-  python3 perf/bcx_bigtarget/leaky_control.py apply    # then run curve.py, then:
-  git checkout tt_bio/autograd.py
+This inverts that one change and nothing else.
 
-The tree is dirty while it is applied and `A.stamp` records that, which is the point: a control
-arm must be identifiable in its own artifact.
+Patched rather than edited. bcx-armtree applied its control as a diff to the file; this row
+cannot, because its two ladder arms share one worktree and a dirty `autograd.py` would silently
+become the tree the next rung measures. `_share` and `_members` are referenced only inside
+`tt_bio/autograd.py` and only by module-global name (`:456`, `:776`, `:912`, `:913`), so
+rebinding the two module attributes reaches every caller and nothing else in the process.
+
+Apply BEFORE the first taped call. Groups built under the weak implementation hold `weakref.ref`
+objects, and the strong `_members` would hand those back as if they were tensors.
 """
-import pathlib
-import sys
-
-P = pathlib.Path(__file__).resolve().parents[2] / "tt_bio" / "autograd.py"
-
-WEAK = '''    group = a.shares if a.shares is not None else [weakref.ref(a)]
-    have = _members(group)
-    for t in _members(b.shares) if b.shares is not None else [b]:
-        if not any(t is m for m in have):
-            group.append(weakref.ref(t))
-            have.append(t)
-    for t in have:
-        t.shares = group
 
 
-def _members(group) -> list:
-    """The live tensors of a storage group."""
-    return [t for t in (r() for r in group) if t is not None]'''
+def apply(autograd) -> dict:
+    """Rebind `_share` and `_members` on the live module. Returns what it replaced."""
+    old = {"_share": autograd._share, "_members": autograd._members}
 
-STRONG = '''    # LEAKY CONTROL (bcx-bigtarget). The group holds its members STRONGLY, which is what every
-    # tree before the weak-group fix did, bcx-large's 68b7a49a0 included. Nothing else in this
-    # file differs from main, so a ceiling measured here is the tape lifetime and not some other
-    # delta. Never commit this applied.
-    group = a.shares if a.shares is not None else [a]
-    for t in (b.shares if b.shares is not None else [b]):
-        if not any(t is m for m in group):
-            group.append(t)
-    for t in group:
-        t.shares = group
+    def _members(group) -> list:
+        """The live tensors of a storage group. Strong members under the leaky control."""
+        return list(group)
 
+    def _share(a, b) -> None:
+        group = a.shares if a.shares is not None else [a]
+        for t in (b.shares if b.shares is not None else [b]):
+            if not any(t is m for m in group):
+                group.append(t)
+        for t in group:
+            t.shares = group
 
-def _members(group) -> list:
-    """The live tensors of a storage group. Strong members under the leaky control."""
-    return list(group)'''
-
-
-def main():
-    mode = sys.argv[1] if len(sys.argv) > 1 else "check"
-    s = P.read_text()
-    if mode == "apply":
-        if STRONG in s:
-            print("already applied")
-            return 0
-        if WEAK not in s:
-            print("REFUSED: main's weak-group text is not where it was; re-read autograd.py")
-            return 2
-        P.write_text(s.replace(WEAK, STRONG))
-        print("applied -- tree is now dirty; git checkout tt_bio/autograd.py when done")
-        return 0
-    print("applied" if STRONG in s else ("clean" if WEAK in s else "UNKNOWN"))
-    return 0
+    autograd._members = _members
+    autograd._share = _share
+    return old
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+def verify(autograd) -> dict:
+    """Prove the patch is live rather than trusting that it was called.
+
+    The discriminator is what the GROUP LIST holds, not what `_members` returns. Under the weak
+    implementation `_members` dereferences, so it hands back the tensors either way and a check
+    written against it reads True on both arms -- a control gated like its subject, which tests
+    nothing. `a.shares[0]` is a `weakref.ref` under main and the tensor itself under the control,
+    and that is the thing that moves.
+    """
+    class _T:
+        shares = None
+
+    a, b = _T(), _T()
+    autograd._share(a, b)
+    held = type(a.shares[0]).__name__
+    return {"group_len": len(a.shares), "group_holds": held,
+            "strong": held != "ReferenceType",
+            "members_len": len(autograd._members(a.shares))}
