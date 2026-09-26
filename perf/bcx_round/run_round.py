@@ -24,6 +24,7 @@ if str(_ROOT) not in sys.path:
 
 import meter as M                                                      # noqa: E402
 import bc2_state as B                                                  # noqa: E402
+from tt_bio import genq as _genq                                       # noqa: E402
 import bindcraft.campaign as campaign                                  # noqa: E402
 import bindcraft.trajectory as trajectory                              # noqa: E402
 import bindcraft.sequence_optimization as seqopt                       # noqa: E402
@@ -174,6 +175,11 @@ def main():
              "triatt_taped_sdpa": bool(args.triatt_sdpa),
              "triatt_hifi": bool(args.triatt_hifi),
              "rne_kernel": bool(args.rne_kernel),
+             # An arm that silently declined would read like a null. `genq_compact` is the flag
+             # as the engine sees it and `genq_refused` names any split the cheap dispatch path
+             # could not reproduce, so a dump says which path it ran rather than which was asked
+             # for (`state/perf10/bcx-GENQ.md` leg 5).
+             "genq_compact": _genq.compact(),
              "taped_kernels": os.environ.get("TT_BIO_TAPED_KERNELS", ""),
              "triatt_dividing_k": os.environ.get("TT_BIO_TRIATT_DIVIDING_K", ""),
              "sdpa_own_forward": bool(args.sdpa_own_forward),

@@ -25,12 +25,16 @@ export TT_BIO_LEASE_HOLDER=worker:bcx-p10-genq
 # move to a quieter box with a different host.
 export ARM_PYTHON=/home/moritz/bcx_hostcut_venv/bin/python
 export ARM_PYTHONPATH=/home/moritz/bcx_shipped/bc2
+# bc2_state.py already reads this; without it the round loads pdl1.json from qb's checkout path.
+export BCX_BC2=/home/moritz/bcx_shipped/bc2
+# AF2 weights: qb keeps them under bcx_e2e, pc under bcx_shipped.
+export ARM_PARAMS=${ARM_PARAMS:-/home/moritz/bcx_shipped/af2_params}
 mkdir -p perf/bcx_p10_genq/out
 for arm in "${arms[@]}"; do
     tag=p_${arm}_${suffix}_$RANDOM
     echo "=== $tag  rounds=$rounds  genq-compact=$arm  $(date -u +%FT%TZ)" >&2
     TT_BIO_GENQ_COMPACT="$([ "$arm" = on ] && echo 1 || echo 0)" \
-    bash perf/bcx_p10_stack/arm.sh "$tag" "$rounds" 1 1 hifi --rne-kernel 1 \
+    bash perf/bcx_p10_stack/arm.sh "$tag" "$rounds" 1 1 hifi --rne-kernel 1 --params "$ARM_PARAMS" \
         > "perf/bcx_p10_genq/out/$tag.log" 2>&1
     echo "=== $tag done $(date -u +%FT%TZ)" >&2
 done
