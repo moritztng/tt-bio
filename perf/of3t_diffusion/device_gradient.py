@@ -886,6 +886,14 @@ def main() -> int:
            "tt_bio_softmax_ckc_flag": (
                __import__("tt_bio.tenstorrent", fromlist=["x"])._SOFTMAX_CKC
                if a.ckc_census else None),
+           # This row's flag, read off its own counter in every run rather than behind a
+           # census switch: an arm that cannot say whether TT_BIO_SOFTMAX_BW_FP32 fired here
+           # is not evidence either way. `fp32_softmax_stats` below is a different counter
+           # (tt_bio.tenstorrent's forward-softmax census), not this one.
+           "softmax_bw_fp32": {"flag": bool(ag.SOFTMAX_BW_FP32),
+                               **dict(ag.SOFTMAX_BW_FP32_STATS)},
+           "softmax_bw_renorm": {"flag": bool(ag.SOFTMAX_BW_RENORM),
+                                 **dict(ag.SOFTMAX_BW_RENORM_STATS)},
            "fp32_softmax_stats": (
                dict(__import__("tt_bio.tenstorrent", fromlist=["x"]).FP32_SOFTMAX_STATS)
                if a.ckc_census else None),

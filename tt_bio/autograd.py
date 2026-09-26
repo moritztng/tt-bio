@@ -199,7 +199,7 @@ SOFTMAX_BW_FP32 = env_flag("TT_BIO_SOFTMAX_BW_FP32", False)
 
 # Reached only from a backward closure, like the renorm counter above, so which path ran is a
 # reading and not an argument.
-SOFTMAX_BW_FP32_STATS = {"fired": 0, "elements": 0}
+SOFTMAX_BW_FP32_STATS = {"fired": 0, "elements": 0, "calls": 0, "y_fp32_at_entry": 0}
 
 
 def _last_axis(y, dim: int):
@@ -230,6 +230,12 @@ def softmax_bw(y, g, dim=-1, config=None):
     `moreh(y/s, g) = (y/s)(g - sum(g y)/s)`. Four verbs against the composed six, and with
     the renorm off, one.
     """
+    # Counted at entry, before the guard, so a null reading separates "the flag never ran"
+    # from "the flag ran and declined because y already arrived fp32". The fp32 branch
+    # re-enters this function, so one fire contributes two calls, the second fp32 at entry.
+    SOFTMAX_BW_FP32_STATS["calls"] += 1
+    if y.dtype == ttnn.float32:
+        SOFTMAX_BW_FP32_STATS["y_fp32_at_entry"] += 1
     if SOFTMAX_BW_FP32 and y.dtype != ttnn.float32:
         SOFTMAX_BW_FP32_STATS["fired"] += 1
         SOFTMAX_BW_FP32_STATS["elements"] += int(y.volume())
