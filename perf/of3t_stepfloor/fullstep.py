@@ -752,7 +752,7 @@ def step_losses(roll, labels, logits, weights, out):
           f"{out['terms_fired']} of {len(out['terms'])} terms fired", flush=True)
 
 
-def grad_snapshot(params, held, row, bankdir):
+def grad_snapshot(params, held, row, bankdir, table_out=None):
     """Bank the unchunked gradient, then grade the chunked one against it.
 
     Chunking changes the ORDER the per-replicate contributions are summed in, nothing else:
@@ -783,6 +783,7 @@ def grad_snapshot(params, held, row, bankdir):
         return {"bank": names}
 
     bank = held["bank"]
+    table = []
     worst_cos, worst_l2, worst_cos_n, worst_l2_n = 2.0, 0.0, None, None
     missing, extra, compared = [], [], 0
     for n, t in params.items():
@@ -808,11 +809,22 @@ def grad_snapshot(params, held, row, bankdir):
             cos = float(np.dot(b, c) / (nb * nc))
             l2 = float(np.linalg.norm(c - b) / nb)
         compared += 1
+        table.append({"name": n, "numel": int(b.size), "norm_a": nb, "norm_b": nc,
+                      "delta_l2": float(np.linalg.norm(c - b)), "rel_l2": l2, "cos": cos})
         if cos < worst_cos:
             worst_cos, worst_cos_n = cos, n
         if l2 > worst_l2:
             worst_l2, worst_l2_n = l2, n
         del b, c
+    if table_out is not None:
+        # The clause is MASS-WEIGHTED per section, so a worst-tensor line cannot answer it.
+        # The per-parameter norms go out whole and the section arithmetic is done on the host
+        # afterwards, off the card.
+        Path(table_out).parent.mkdir(parents=True, exist_ok=True)
+        Path(table_out).write_text(json.dumps(
+            {"what": "per-parameter A/B of one step's gradients, arm B against banked arm A",
+             "n": len(table), "rows": table}, indent=1))
+        print(f"  [grad_ab] per-parameter table -> {table_out}", flush=True)
     rep = {"compared": compared, "banked": len(bank),
            "grad_missing_in_chunked": missing[:8], "grad_only_in_chunked": extra[:8],
            "n_missing": len(missing), "n_extra": len(extra),
@@ -882,12 +894,26 @@ def main() -> int:
                          "closure (autograd.py:233), so a flag-ON rep and a flag-OFF rep "
                          "share one warm process, one capture and one set of weights -- the "
                          "only way to price it against a run-to-run spread this large")
+    ap.add_argument("--fp32bw-ab", action="store_true",
+                    help="the ACCURACY control at step scope: two reps, one process, one "
+                         "capture, ONE set of weights and the SAME replicate noise, with "
+                         "TT_BIO_SOFTMAX_BW_FP32 on in rep 0 and off in rep 1. Reports the "
+                         "per-parameter move the flag makes, which is what bounds how far "
+                         "the graded clause can shift when the flag reaches a scope the "
+                         "clause graded without it. Unlike --grad-ab the chunk size is KEPT, "
+                         "because C=4 is the shipped shape and a C=0 arm is a different step")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     if a.grad_ab:
         # One process, one weight set, no step between the two arms: anything else compares
         # two different models rather than two ways of summing one gradient.
         a.reps, a.no_optimizer, a.chunk = 2, True, 0
+    if a.fp32bw_ab:
+        # Same identity conditions, chunk left alone. The optimizer is the reason this needs
+        # its own switch: with AdamW in the loop rep 1 runs on weights rep 0 moved, so a
+        # gradient difference between them would be the step's, not the flag's.
+        a.reps, a.no_optimizer = 2, True
+        a.fp32bw_per_rep = a.fp32bw_per_rep or "1,0"
 
     out = {"doc": __doc__.split("\n\n")[0], "argv": sys.argv[1:], "env": {
         "host": socket.gethostname(),
@@ -991,7 +1017,7 @@ def main() -> int:
                 # chunked arm and an unchunked one or the gradient A/B compares two different
                 # sets of structures; drawing the loss fixture from the same stream made the
                 # draw order depend on the loss SHAPE.
-                seed_rep = 0 if a.grad_ab else rep
+                seed_rep = 0 if (a.grad_ab or a.fp32bw_ab) else rep
                 rng_diff = np.random.default_rng(SEED + seed_rep)
                 rng_loss = np.random.default_rng(SEED + 10_000 + seed_rep)
                 row = {"rep": rep, "cold": rep == 0}
@@ -1162,9 +1188,12 @@ def main() -> int:
                         t0 = time.perf_counter()
                         c["tape_nodes"] = len(ag._reverse_topo(list(roots)))
                         probe.phase = "chunk"
+                        _f0 = dict(ag.SOFTMAX_BW_FP32_STATS)
                         ag.backward(list(roots), cot)
                         probe.phase = None
                         ttnn.synchronize_device(dev)
+                        c["fp32bw_chunk_bwd"] = {
+                            k: ag.SOFTMAX_BW_FP32_STATS[k] - _f0[k] for k in _f0}
                         c["backward_s"] = round(time.perf_counter() - t0, 3)
                         c["dram_in_backward"] = probe.by_phase.get("chunk")
                         bwd_s += c["backward_s"]
@@ -1183,6 +1212,9 @@ def main() -> int:
                         dump()
                     row["chunk_backward_s"] = round(bwd_s, 3)
                     row["chunk_backward_entries"] = len(chunks)
+                    row["fp32bw_chunk_bwd"] = {
+                        k: sum(c["fp32bw_chunk_bwd"][k] for c in chunks)
+                        for k in (chunks[0]["fp32bw_chunk_bwd"] if chunks else {})}
 
                     t0 = time.perf_counter()
                     step_losses(roll, labels, logits, weights, l_out)
@@ -1208,9 +1240,16 @@ def main() -> int:
                     tcot.extend(prime_cot)
                     row["trunk_tape_nodes"] = len(ag._reverse_topo(troots))
                     probe.phase = "trunk"
+                    _f0 = dict(ag.SOFTMAX_BW_FP32_STATS)
                     ag.backward(troots, tcot)
                     probe.phase = None
                     ttnn.synchronize_device(dev)
+                    # WHERE the flag fires, not just how often. The clause graded the trunk
+                    # scope with the flag on and every other scope with it off, so a fire
+                    # outside the trunk backward is a fire in a scope the clause did not
+                    # grade this way, and is the only thing that can move the graded number.
+                    row["fp32bw_trunk_bwd"] = {
+                        k: ag.SOFTMAX_BW_FP32_STATS[k] - _f0[k] for k in _f0}
                     row["trunk_backward_s"] = round(time.perf_counter() - t0, 3)
                     row["trunk_backward_entries"] = 1
                     print(f"  [trunk bwd] {row['trunk_backward_s']:.2f}s over "
@@ -1262,10 +1301,12 @@ def main() -> int:
                 row["dram_after_backward"] = _dram(dev)
                 _mark("after_backward")
 
-                if a.grad_ab:
-                    grad_ab = grad_snapshot(params, grad_ab, row,
-                                            a.out.parent / f"gradbank_{a.out.stem}")
-                    out["grad_ab"] = grad_ab.get("report", {"arm": "unchunked banked"})
+                if a.grad_ab or a.fp32bw_ab:
+                    grad_ab = grad_snapshot(
+                        params, grad_ab, row, a.out.parent / f"gradbank_{a.out.stem}",
+                        table_out=(a.out.parent / f"gradtable_{a.out.stem}.json"
+                                   if a.fp32bw_ab else None))
+                    out["grad_ab"] = grad_ab.get("report", {"arm": "arm A banked"})
                     dump()
 
                 # --- 5. optimizer ---------------------------------------------------------
