@@ -91,6 +91,35 @@ should be measured with the simple version first so there is something to differ
    If main's copy is the older literal one, the transitive version is on this branch and should go
    with the graft, not be reverted into.
 
+## Preconditions for the 1.161x run, each checked against its source
+
+The wheel route is worth 1.161x of the 1.250x ceiling and needs no kernel. Six things must hold
+for it to even execute, and all six are verified card-free — so a run that fails does so for a
+REAL reason (wrong on Blackhole, or slow), not because a precondition was never checked.
+
+1. **All three callers reach the seam.** Main's `softmax`, `triangle_attention` and
+   `taped_ttnn._v_softmax` all call `autograd.softmax_bw`. Read on main.
+2. **The axis index is positive.** `moreh_softmax_backward` takes `dim` as a `uint32_t`
+   (`moreh_softmax_backward.hpp`), so `-1` does not name the last axis to it. Main's `_last_axis`
+   returns `rank - 1` when `dim` names the last axis and `None` otherwise, falling back to the
+   composed path — "the right answer slowly rather than the wrong one quickly".
+3. **The dtype is admitted.** `moreh_softmax_backward_device_operation.cpp:79-84` requires
+   `BFLOAT16` or `BFLOAT8_B` for BOTH `output_tensor` and `output_grad_tensor`. `SOFTMAX_BW_DTYPE
+   ="bf16"` narrows both. This is the one thing main does not have and the whole reason the flag
+   ships off.
+4. **The layout is TILE.** Same guard, and the score tensor is tiled throughout the trunk.
+5. **The shape is tile-aligned at BC2's size.** 224 = 7 x 32, and the tensor is
+   `[224, 4, 224, 224]`, so both reduced and non-reduced dims are whole tiles.
+6. **It is not chunked at that size.** `_fp32_softmax_attention`'s budget is
+   `_FP32_SOFTMAX_BLOCK_BYTES = 8 << 30` (`tenstorrent.py:3073`) per fp32 score copy, and the
+   tensor is **179.8 MB** — two orders under it — so the backward sees one whole tensor rather
+   than ragged chunks whose boundaries might not tile-align.
+
+What is NOT checked and cannot be without a card: whether the kernel computes the right thing on
+Blackhole, and whether it is faster. Its sibling `moreh_layer_norm_backward` is wrong there
+(dx 2.741e+06 rel L2 in bf16, upstream #12349), which is exactly why the probe grades every arm
+against float64 rather than against the composed path.
+
 ## How to grade it
 
 `perf/bcx_bwbytes/softmax_bw_probe.py`, six arms at n=224 and n=256, every one against a float64
