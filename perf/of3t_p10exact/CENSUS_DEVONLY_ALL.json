@@ -1,0 +1,207 @@
+{
+ "what": "the runtime lever census for this arm: counts taken at the call, not at the construction. A lever with 0 in every field did not reach the trunk.",
+ "argv": [
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_recut/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_p10exact/dev_DEVONLY_ALL.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-p10exact/perf/of3t_p10exact/DEV_DEVONLY_ALL.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ],
+ "env": {
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:of3t-p10exact",
+  "TT_BIO_SOFTMAX_BW_RENORM": "1"
+ },
+ "site_selectors": {
+  "TT_BIO_HOST_F64_SOFTMAX_AB:pairformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_HOST_F64_SOFTMAX_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_HOST_F64_SOFTMAX_AB:miniformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_ACCURATE_SOFTMAX_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_ACCURATE_SOFTMAX_AB:pairformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_SOFTMAX_PRECISE_AB:pairformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_SOFTMAX_PRECISE_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_TRIATT_SDPA_HIFI_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_SDPA_RAGGED_PAD_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  }
+ },
+ "wrapped_counters": {
+  "accurate_softmax_chain": 0,
+  "softmax_ckc_calls": 48,
+  "softmax_ckc_precise": 0
+ },
+ "package_stats": {
+  "FP32_SOFTMAX_STATS": {
+   "calls": 288,
+   "blocked": 0,
+   "blocks": 0,
+   "fused": 288,
+   "unfused": 0,
+   "l1": 0,
+   "l1_blocks": 0,
+   "l1_refused": 0,
+   "l1_cores": 0,
+   "l1_free_retired": 0,
+   "l1_free_walked": 0,
+   "l1_padded_diverged": 0,
+   "dram_narrowed": 0
+  },
+  "HOST_F64_SOFTMAX_STATS": {
+   "served": 0,
+   "declined": 288,
+   "refused": 0,
+   "elements": 0,
+   "selected": 3,
+   "tail": 288,
+   "served_taped": 0,
+   "served_raw": 0
+  },
+  "LATCH_STATS": {
+   "l1_out": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "narrow_l1_out": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "transpose_l1": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "transpose_stage": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "pair_bias_ln_l1": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "bmm_cfg": {
+    "served": 864,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "sdpa_q_chunk": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   }
+  },
+  "MASK_TRANS_STATS": {
+   "stacks": 0,
+   "blocks": 0,
+   "ones": 0,
+   "declined_rank": 0,
+   "declined_off": 2
+  },
+  "OPM_ROW_STATS": {
+   "whole": 0,
+   "blocked": 0,
+   "dram_narrowed": 0,
+   "join_split": 0
+  },
+  "PAIR_BIAS_STATS": {},
+  "PWA_DEPTH_STATS": {
+   "whole": 0,
+   "blocked": 0,
+   "dram_narrowed": 0
+  },
+  "TRIATT_FUSED_HIFI_STATS": {
+   "served": 0,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 288
+  },
+  "TRIMUL_MM_TRANSPOSE_STATS": {
+   "('four-way-split', 'defer')": 288
+  },
+  "TRIMUL_TAIL_L1_STATS": {
+   "l1": 0,
+   "dram": 0
+  },
+  "SOFTMAX_BW_RENORM_STATS": {
+   "applied": 144,
+   "declined": 0
+  }
+ },
+ "renorm_flag": true,
+ "trunk_math_fidelity": "hifi4",
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 1,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 22,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "loadavg1 5.38 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "a01ba1f0e15d294949af4c989be3ef22a44e4b09",
+  "boundary_version": "upstream OpenFold3 0.4.3 (boundary captured from of3pkg043; graded reference 0.4.3 bf16 autocast, contrast reference 0.4.3 float64)"
+ }
+}

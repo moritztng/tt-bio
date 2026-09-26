@@ -364,6 +364,39 @@ def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
         extra._check_mask(nonzero)
 
 
+def test_the_evoformer_path_pads_the_token_axis_before_anything_reaches_the_card():
+    """The shape a BindCraft 2 round executes is `_pad32(n)`, never `n`.
+
+    The swap's `_pad` is already pinned above; this is the Evoformer's, which is the path every
+    round takes whether or not the extra-MSA stack is on card. It is worth its own test because
+    the campaign's block harnesses were built at the PRE-PAD host shape and nothing caught it:
+    `bcx-p10-devmap` and `bcx-p10-trimul` timed blocks at n=275 while the card ran 288, which
+    inflated a per-family attribution table and produced a root cause the fold does not have
+    (three fast paths decline on `% 32` at 275 and are open at 288).
+    """
+    pad = bindcraft2.EvoformerOnDevice._pad
+
+    m = torch.arange(2 * 275 * 8, dtype=torch.float32).reshape(2, 275, 8)
+    z = torch.arange(275 * 275 * 4, dtype=torch.float32).reshape(275, 275, 4)
+    mask, pair_mask = torch.ones(2, 275), torch.ones(275, 275)
+    mp, zp, maskp, pmp, n = pad(m, z, mask, pair_mask)
+
+    assert n == 275, "the caller slices the result back with the LOGICAL length"
+    assert mp.shape == (2, 288, 8) and zp.shape == (288, 288, 4)
+    assert maskp.shape == (2, 288) and pmp.shape == (288, 288)
+    # the real region survives and the padding is zero, which is what makes the mask exact
+    assert torch.equal(zp[:275, :275], z) and torch.equal(mp[:, :275], m)
+    assert zp[275:].abs().sum() == 0 and zp[:, 275:].abs().sum() == 0
+    assert maskp[:, 275:].abs().sum() == 0
+    assert pmp[275:].abs().sum() == 0 and pmp[:, 275:].abs().sum() == 0
+
+    # already on a tile boundary: handed back untouched, same objects
+    on_tile = (torch.zeros(2, 288, 8), torch.zeros(288, 288, 4),
+               torch.zeros(2, 288), torch.zeros(288, 288))
+    out = pad(*on_tile)
+    assert out[4] == 288 and all(a is b for a, b in zip(out[:4], on_tile))
+
+
 def test_an_unknown_validation_trunk_is_refused():
     with pytest.raises(ValueError):
         with bindcraft2.campaign_predictor(validation="cuda"):

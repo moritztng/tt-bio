@@ -1,0 +1,14 @@
+{
+ "stats": {
+  "verb": 0,
+  "bw": 0,
+  "probed": 0,
+  "fp32_returned": 0
+ },
+ "cfg": {
+  "limit": 40,
+  "stride": 37,
+  "fp32": false
+ },
+ "calls": []
+}
