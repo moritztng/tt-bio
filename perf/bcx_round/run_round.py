@@ -212,6 +212,10 @@ def main():
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
                       "device_calls": dict(evo.calls) if evo else None,
+                      # An extra-MSA swap that never fires costs nothing and reads as a clean
+                      # 0 % result. `calls` proves the on-card path ran; `swapped` is the block
+                      # count it replaced; `mask_seen` is the guard's own record of what the
+                      # extra_msa_mask actually carried.
                       "extra_msa_calls": dict(extra.calls) if extra else None,
                       "extra_msa_swapped": list(extra.swapped) if extra else None,
                       "extra_msa_mask_seen": dict(extra.mask_seen) if extra else None,

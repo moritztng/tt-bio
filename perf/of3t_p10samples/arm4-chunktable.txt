@@ -1,0 +1,82 @@
+=== arm4 S=48 C=4 primed-cache start 2026-09-26T11:21:42Z loadavg 5.88 5.66 5.19 memavail 17.9861 GiB
+[weights] 3152 tensors (2256 pairformer, 621 diffusion), 381.3M elements
+  [diffusion] sample 0 sigma    3.350    4.511s
+  [tape] leaving the tape context
+  [tape] left the tape context
+  [losses] 1 replicates scored, 0.000s download 0.010s arithmetic
+  [diffusion] sample 0 sigma 1022.047    0.412s
+  [diffusion] sample 1 sigma    0.033    0.394s
+  [diffusion] sample 2 sigma   42.421    0.433s
+  [diffusion] sample 3 sigma    0.160    0.436s
+/home/moritz/.coworker/wt/of3t-p10samples/tt_bio/train/losses.py:460: RuntimeWarning: overflow encountered in exp
+  sig = 1.0 / (1.0 + np.exp(-(th - a)))
+  [losses] 4 replicates scored, 0.002s download 0.035s arithmetic
+  [chunk 1] 4 replicates  fwd 1.68s  loss 0.04s  bwd 3.92s  6980 nodes  dram 28.54 GB  memavail 8.586 GiB
+  [diffusion] sample 0 sigma    0.226    0.381s
+  [diffusion] sample 1 sigma 4215.894    0.381s
+  [diffusion] sample 2 sigma   66.256    0.397s
+  [diffusion] sample 3 sigma   35.617    0.396s
+  [losses] 4 replicates scored, 0.001s download 0.026s arithmetic
+  [chunk 2] 4 replicates  fwd 1.56s  loss 0.03s  bwd 3.03s  6980 nodes  dram 29.83 GB  memavail 8.344 GiB
+  [diffusion] sample 0 sigma  164.621    0.464s
+  [diffusion] sample 1 sigma  512.404    0.467s
+  [diffusion] sample 2 sigma 1268.216    0.456s
+  [diffusion] sample 3 sigma    0.847    0.433s
+  [losses] 4 replicates scored, 0.001s download 0.028s arithmetic
+  [chunk 3] 4 replicates  fwd 1.82s  loss 0.03s  bwd 3.00s  6980 nodes  dram 29.83 GB  memavail 8.565 GiB
+  [diffusion] sample 0 sigma 1674.264    0.401s
+  [diffusion] sample 1 sigma 1563.551    0.404s
+  [diffusion] sample 2 sigma  702.338    0.408s
+  [diffusion] sample 3 sigma 2740.710    0.415s
+  [losses] 4 replicates scored, 0.001s download 0.031s arithmetic
+  [chunk 4] 4 replicates  fwd 1.63s  loss 0.03s  bwd 2.96s  6980 nodes  dram 29.83 GB  memavail 8.264 GiB
+  [diffusion] sample 0 sigma 2047.652    0.469s
+  [diffusion] sample 1 sigma 1510.589    0.441s
+  [diffusion] sample 2 sigma   31.621    0.451s
+  [diffusion] sample 3 sigma    0.349    0.458s
+  [losses] 4 replicates scored, 0.001s download 0.029s arithmetic
+  [chunk 5] 4 replicates  fwd 1.82s  loss 0.03s  bwd 3.06s  6980 nodes  dram 29.83 GB  memavail 8.509 GiB
+  [diffusion] sample 0 sigma 1852.909    0.421s
+  [diffusion] sample 1 sigma  324.080    0.424s
+  [diffusion] sample 2 sigma    0.099    0.412s
+  [diffusion] sample 3 sigma  729.856    0.420s
+  [losses] 4 replicates scored, 0.002s download 0.027s arithmetic
+  [chunk 6] 4 replicates  fwd 1.68s  loss 0.03s  bwd 3.13s  6980 nodes  dram 29.83 GB  memavail 8.249 GiB
+  [diffusion] sample 0 sigma    0.015    0.451s
+  [diffusion] sample 1 sigma   40.039    0.439s
+  [diffusion] sample 2 sigma   12.920    0.429s
+  [diffusion] sample 3 sigma   86.352    0.419s
+  [losses] 4 replicates scored, 0.002s download 0.035s arithmetic
+  [chunk 7] 4 replicates  fwd 1.74s  loss 0.04s  bwd 2.93s  6980 nodes  dram 29.83 GB  memavail 8.695 GiB
+  [diffusion] sample 0 sigma    0.429    0.456s
+  [diffusion] sample 1 sigma    0.525    0.403s
+  [diffusion] sample 2 sigma  492.100    0.391s
+  [diffusion] sample 3 sigma   47.551    0.386s
+  [losses] 4 replicates scored, 0.002s download 0.026s arithmetic
+  [chunk 8] 4 replicates  fwd 1.64s  loss 0.03s  bwd 3.12s  6980 nodes  dram 29.83 GB  memavail 8.174 GiB
+  [diffusion] sample 0 sigma  227.673    0.520s
+  [diffusion] sample 1 sigma    0.180    0.423s
+  [diffusion] sample 2 sigma  368.314    0.386s
+  [diffusion] sample 3 sigma 1313.822    0.449s
+  [losses] 4 replicates scored, 0.001s download 0.027s arithmetic
+  [chunk 9] 4 replicates  fwd 1.78s  loss 0.03s  bwd 2.88s  6980 nodes  dram 29.83 GB  memavail 8.668 GiB
+  [diffusion] sample 0 sigma  149.630    0.390s
+  [diffusion] sample 1 sigma  172.586    0.423s
+  [diffusion] sample 2 sigma    0.059    0.385s
+  [diffusion] sample 3 sigma    2.602    0.407s
+  [losses] 4 replicates scored, 0.001s download 0.027s arithmetic
+  [chunk 10] 4 replicates  fwd 1.61s  loss 0.03s  bwd 3.07s  6980 nodes  dram 29.83 GB  memavail 8.115 GiB
+  [diffusion] sample 0 sigma    0.018    0.392s
+  [diffusion] sample 1 sigma  881.749    0.392s
+  [diffusion] sample 2 sigma  310.386    0.388s
+  [diffusion] sample 3 sigma   11.257    0.404s
+  [losses] 4 replicates scored, 0.001s download 0.026s arithmetic
+  [chunk 11] 4 replicates  fwd 1.58s  loss 0.03s  bwd 2.90s  6980 nodes  dram 29.83 GB  memavail 8.667 GiB
+  [diffusion] sample 0 sigma 3516.737    0.397s
+  [diffusion] sample 1 sigma    0.579    0.404s
+  [diffusion] sample 2 sigma  400.595    0.410s
+  [losses] 3 replicates scored, 0.001s download 0.020s arithmetic
+  [chunk 12] 3 replicates  fwd 1.21s  loss 0.02s  bwd 2.29s  5390 nodes  dram 26.04 GB  memavail 8.139 GiB
+  [losses] step heads 0.224s, 7 of 8 terms fired
+/tmp/of3t/p10samples/arm4_s48.sh: line 8: 138069 Killed                  timeout 1500 $PY perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 48 --chunk "$C" --reps 1 --no-optimizer --out "perf/of3t_p10samples/out/arm4_s48_c${C}_primed_384.json"
+=== arm4 rc=137 done 2026-09-26T11:27:12Z
