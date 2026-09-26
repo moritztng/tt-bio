@@ -1,0 +1,415 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--samples",
+  "4",
+  "--reps",
+  "3",
+  "--out",
+  "perf/of3t_p10bwd/out/stepbw_split_384_fullstep.json"
+ ],
+ "env": {
+  "host": "tt-quietbox",
+  "tt_visible_devices": "0",
+  "renorm": null,
+  "commit": "664b61740eebd9f0006682cb3fb9ee5a793c07c0",
+  "branch": "wk/of3t-p10bwd",
+  "started_utc": "2026-09-26T09:53:03Z",
+  "loadavg_start": [
+   28.408203125,
+   26.19287109375,
+   25.65380859375
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 1350,
+    "max": 1350,
+    "median": 1350,
+    "n": 56
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 56 samples, polled DURING the work",
+  "loadavg_end": [
+   25.91064453125,
+   24.95068359375,
+   25.20751953125
+  ]
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": true
+ },
+ "build_fold_s": 8.47,
+ "prep_to_sampler_s": 12.31,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 6.116,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "per_rep_plan": null,
+  "stats_after": {
+   "applied": 837,
+   "declined": 0
+  },
+  "applied_during_reps": 837,
+  "declined_during_reps": 0
+ },
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.79,
+   "trunk_taped_cycle_s": 4.781,
+   "trunk_s": 8.571,
+   "dram_after_trunk": 4310234112,
+   "diffusion_s": 2.49,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     42.4209,
+     3306.9691,
+     881.7492,
+     3.0826
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     1.93,
+     0.117,
+     0.118,
+     0.102
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 23728124928,
+   "losses_s": 4.636,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.004,
+    "host_loss_s": 4.623,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.001,
+   "tape_nodes": 9897,
+   "backward_s": 29.998,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4575472640,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 15.222,
+   "optimizer_updated": 3152,
+   "step_s": 60.918,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 1,
+   "cold": false,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.754,
+   "trunk_taped_cycle_s": 4.293,
+   "trunk_s": 8.047,
+   "dram_after_trunk": 6416296960,
+   "diffusion_s": 0.677,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     9.108,
+     0.1605,
+     0.013,
+     0.282
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.151,
+     0.186,
+     0.183,
+     0.139
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 25025397760,
+   "losses_s": 5.063,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.003,
+    "host_loss_s": 5.055,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.005,
+   "tape_nodes": 9897,
+   "backward_s": 25.579,
+   "params_with_grad": "2674 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4575505408,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 13.031,
+   "optimizer_updated": 3152,
+   "step_s": 52.402,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 2,
+   "cold": false,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.827,
+   "trunk_taped_cycle_s": 4.366,
+   "trunk_s": 8.193,
+   "dram_after_trunk": 6416296960,
+   "diffusion_s": 0.745,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3306.9691,
+     0.0153,
+     0.0987,
+     86.3515
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.226,
+     0.172,
+     0.156,
+     0.175
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 25025397760,
+   "losses_s": 5.212,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.005,
+    "host_loss_s": 5.197,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.005,
+   "tape_nodes": 9897,
+   "backward_s": 26.752,
+   "params_with_grad": "2674 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4575505408,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 15.641,
+   "optimizer_updated": 3152,
+   "step_s": 56.548,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  }
+ ],
+ "cold_s": 60.918,
+ "steady": {
+  "n": 2,
+  "values_s": [
+   52.402,
+   56.548
+  ],
+  "median_s": 54.475,
+  "min_s": 52.402,
+  "max_s": 56.548,
+  "spread_s": 4.146
+ }
+}

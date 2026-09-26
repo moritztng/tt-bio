@@ -58,7 +58,7 @@ sys.path.insert(0, str(REPO))
 from perf.of3t_bwattrib import bwprof as BW                              # noqa: E402
 
 CLASS = Path("/sys/class/tenstorrent")
-RECS: list = []          # (wall_s, drain_s, Rec, suspects_delta) per ag.backward call
+RECS: list = []          # one dict per ag.backward call
 _SUS_PREV: dict = {}
 
 
@@ -175,6 +175,12 @@ def install(ag, dev_box):
         prev = BW._use(rec)
         sus0 = dict(BW.SUS)
         IN_BW[0] = True
+        # Drain BEFORE the clock starts. For a nested call this is the recompute forward's
+        # device tail, which is the number that splits a checkpointed segment's cost into
+        # "run the block again" and "differentiate it"; without it both land in one drain at
+        # the end and the segment is one opaque number.
+        t_pre = time.perf_counter()
+        ttnn.synchronize_device(dev_box[0])
         t0 = t1 = time.perf_counter()
         rs = TT.recompute_scope()
         rs.__enter__()
@@ -189,10 +195,17 @@ def install(ag, dev_box):
             t2 = time.perf_counter()
             IN_BW[0] = False
             BW._use(prev)
-            RECS.append((t1 - t0, t2 - t1, rec,
-                         {kk: BW.SUS[kk] - sus0.get(kk, 0) for kk in BW.SUS}))
+            RECS.append({"wall_s": t1 - t0, "drain_s": t2 - t1, "pre_drain_s": t0 - t_pre,
+                         "rec": rec,
+                         "suspects": {kk: BW.SUS[kk] - sus0.get(kk, 0) for kk in BW.SUS}})
 
     ag.backward = backward
+
+    # NOT wrapped: `node.group`. A multi-output segment's members share ONE group callable
+    # and `_backward` fires it once after the last member on the walk. Wrapping it per member
+    # gives the members different objects, the group splits, and the segment recomputes twice
+    # -- measured: 105 nested backwards instead of 54, and a 45.18 s backward instead of
+    # 24.50 s. The pre-drain below gets the same split without touching the tape.
 
 
 def main() -> int:
@@ -257,9 +270,11 @@ def main() -> int:
         out["error"] = traceback.format_exc()[-6000:]
 
     reps = []
-    for i, (wall, drain, rec, sus) in enumerate(RECS):
+    for i, e in enumerate(RECS):
+        wall, drain, rec, sus = e["wall_s"], e["drain_s"], e["rec"], e["suspects"]
         reps.append({"rep": i, "cold": i == 0,
                      "backward_s": round(wall, 3), "drain_s": round(drain, 3),
+                     "pre_drain_s": round(e["pre_drain_s"], 3),
                      "verb_calls": rec.calls, "outer_verb_calls": rec.outer_calls,
                      "verb_self_s": round(rec.self_ns / 1e9, 3),
                      "verb_share": round(rec.self_ns / 1e9 / wall, 4) if wall else None,

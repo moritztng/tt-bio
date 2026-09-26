@@ -1,0 +1,1116 @@
+{
+ "doc": "The exactness-OFF backward's verb split, at STEP scope, per rep.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--reps",
+  "3",
+  "--out",
+  "perf/of3t_p10bwd/out/stepbw_split_384.json"
+ ],
+ "env": {
+  "host": "tt-quietbox",
+  "tt_visible_devices": "0",
+  "commit": "664b61740eebd9f0006682cb3fb9ee5a793c07c0",
+  "branch": "wk/of3t-p10bwd",
+  "started_utc": "2026-09-26T09:52:58Z",
+  "loadavg_start": [
+   27.31201171875,
+   25.94287109375,
+   25.57080078125
+  ],
+  "device_nodes_open": [
+   "1"
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "exact_training_ops": [],
+  "aiclk": {
+   "source": "sysfs tt_aiclk on the class node of the device node this process opened, 1 Hz, sampled DURING the work",
+   "whole_run": {
+    "n": 184,
+    "min": 1343,
+    "median": 1350.0,
+    "max": 1350
+   },
+   "during_backward": {
+    "n": 42,
+    "min": 1343,
+    "median": 1350.0,
+    "max": 1350
+   }
+  }
+ },
+ "config": {
+  "crop": 384,
+  "cycles": 4,
+  "samples": 4,
+  "reps": 3,
+  "exact_training": false,
+  "batch": 1
+ },
+ "fullstep_rc": 0,
+ "fullstep_wall_s": 197.14,
+ "step_reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "trunk_nograd_prefix_s": 3.79,
+   "trunk_taped_cycle_s": 4.781,
+   "trunk_s": 8.571,
+   "diffusion_s": 2.49,
+   "losses_s": 4.636,
+   "seed_upload_s": 0.001,
+   "tape_nodes": 9897,
+   "backward_s": 29.998,
+   "params_with_grad": "2944 of 3152",
+   "optimizer_s": 15.222,
+   "step_s": 60.918
+  },
+  {
+   "rep": 1,
+   "cold": false,
+   "trunk_nograd_prefix_s": 3.754,
+   "trunk_taped_cycle_s": 4.293,
+   "trunk_s": 8.047,
+   "diffusion_s": 0.677,
+   "losses_s": 5.063,
+   "seed_upload_s": 0.005,
+   "tape_nodes": 9897,
+   "backward_s": 25.579,
+   "params_with_grad": "2674 of 3152",
+   "optimizer_s": 13.031,
+   "step_s": 52.402
+  },
+  {
+   "rep": 2,
+   "cold": false,
+   "trunk_nograd_prefix_s": 3.827,
+   "trunk_taped_cycle_s": 4.366,
+   "trunk_s": 8.193,
+   "diffusion_s": 0.745,
+   "losses_s": 5.212,
+   "seed_upload_s": 0.005,
+   "tape_nodes": 9897,
+   "backward_s": 26.752,
+   "params_with_grad": "2674 of 3152",
+   "optimizer_s": 15.641,
+   "step_s": 56.548
+  }
+ ],
+ "note": "VALID. Pre-drain split added: each ag.backward syncs on entry as well as exit, so a checkpointed segment reports its recompute-forward device tail separately from its own. 54 nested calls per rep, matching the unsplit run.",
+ "backward_reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "outer_backward_s": 29.969,
+   "outer_final_drain_s": 0.016,
+   "outer_host_enqueue_s": 5.659,
+   "outer_verb_calls": 84639,
+   "nested_calls": 54,
+   "nested_wall_s": 6.552,
+   "recompute_forward_device_tail_s": 2.419,
+   "segment_backward_device_s": 12.617,
+   "nested_host_enqueue_s": 4.211,
+   "nested_verb_calls": 59731,
+   "total_verb_calls": 144370,
+   "total_host_enqueue_s": 9.831,
+   "host_crossing_calls": 0,
+   "by_verb": [
+    {
+     "verb": "matmul",
+     "n": 8784,
+     "host_enqueue_s": 2.717
+    },
+    {
+     "verb": "multiply",
+     "n": 12805,
+     "host_enqueue_s": 0.698
+    },
+    {
+     "verb": "slice",
+     "n": 15185,
+     "host_enqueue_s": 0.611
+    },
+    {
+     "verb": "linear",
+     "n": 1818,
+     "host_enqueue_s": 0.482
+    },
+    {
+     "verb": "reshape",
+     "n": 23457,
+     "host_enqueue_s": 0.473
+    },
+    {
+     "verb": "typecast",
+     "n": 5945,
+     "host_enqueue_s": 0.469
+    },
+    {
+     "verb": "mean",
+     "n": 5332,
+     "host_enqueue_s": 0.445
+    },
+    {
+     "verb": "concat",
+     "n": 1138,
+     "host_enqueue_s": 0.434
+    },
+    {
+     "verb": "sum",
+     "n": 2303,
+     "host_enqueue_s": 0.394
+    },
+    {
+     "verb": "add",
+     "n": 7263,
+     "host_enqueue_s": 0.34
+    },
+    {
+     "verb": "to_layout",
+     "n": 2585,
+     "host_enqueue_s": 0.332
+    },
+    {
+     "verb": "permute",
+     "n": 1948,
+     "host_enqueue_s": 0.273
+    },
+    {
+     "verb": "add_",
+     "n": 8327,
+     "host_enqueue_s": 0.267
+    },
+    {
+     "verb": "subtract",
+     "n": 4275,
+     "host_enqueue_s": 0.264
+    },
+    {
+     "verb": "rsqrt",
+     "n": 1336,
+     "host_enqueue_s": 0.206
+    },
+    {
+     "verb": "sigmoid_bw",
+     "n": 1128,
+     "host_enqueue_s": 0.185
+    },
+    {
+     "verb": "deallocate",
+     "n": 33680,
+     "host_enqueue_s": 0.164
+    },
+    {
+     "verb": "silu_bw",
+     "n": 499,
+     "host_enqueue_s": 0.162
+    },
+    {
+     "verb": "zeros",
+     "n": 9,
+     "host_enqueue_s": 0.142
+    },
+    {
+     "verb": "layer_norm",
+     "n": 799,
+     "host_enqueue_s": 0.108
+    },
+    {
+     "verb": "multiply_",
+     "n": 877,
+     "host_enqueue_s": 0.106
+    },
+    {
+     "verb": "relu_bw",
+     "n": 10,
+     "host_enqueue_s": 0.077
+    },
+    {
+     "verb": "transpose",
+     "n": 736,
+     "host_enqueue_s": 0.074
+    },
+    {
+     "verb": "chunk",
+     "n": 165,
+     "host_enqueue_s": 0.058
+    },
+    {
+     "verb": "mul_bw",
+     "n": 499,
+     "host_enqueue_s": 0.052
+    },
+    {
+     "verb": "divide",
+     "n": 279,
+     "host_enqueue_s": 0.049
+    },
+    {
+     "verb": "experimental.nlp_concat_heads",
+     "n": 860,
+     "host_enqueue_s": 0.046
+    },
+    {
+     "verb": "embedding_bw",
+     "n": 33,
+     "host_enqueue_s": 0.043
+    },
+    {
+     "verb": "clone",
+     "n": 919,
+     "host_enqueue_s": 0.041
+    },
+    {
+     "verb": "experimental.minimal_matmul",
+     "n": 324,
+     "host_enqueue_s": 0.04
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "n": 156,
+     "host_enqueue_s": 0.025
+    },
+    {
+     "verb": "softmax_in_place",
+     "n": 108,
+     "host_enqueue_s": 0.016
+    },
+    {
+     "verb": "sigmoid",
+     "n": 369,
+     "host_enqueue_s": 0.015
+    },
+    {
+     "verb": "unsqueeze",
+     "n": 264,
+     "host_enqueue_s": 0.012
+    },
+    {
+     "verb": "softmax",
+     "n": 51,
+     "host_enqueue_s": 0.007
+    },
+    {
+     "verb": "squeeze",
+     "n": 104,
+     "host_enqueue_s": 0.004
+    }
+   ],
+   "by_closure": [
+    {
+     "closure": "_taped_linear.<locals>.make.<locals>.bw",
+     "fired": 3320,
+     "s": 3.955,
+     "verbs": 48449,
+     "verbs_per_fire": 14.6
+    },
+    {
+     "closure": "_taped_layer_norm.<locals>.make.<locals>.bw",
+     "fired": 1336,
+     "s": 3.158,
+     "verbs": 41496,
+     "verbs_per_fire": 31.1
+    },
+    {
+     "closure": "checkpoint.<locals>.<lambda>.<locals>.<lambda>",
+     "fired": 105,
+     "s": 1.251,
+     "verbs": 372,
+     "verbs_per_fire": 3.5
+    },
+    {
+     "closure": "_binary.<locals>.impl.<locals>.make.<locals>.bw",
+     "fired": 3071,
+     "s": 1.152,
+     "verbs": 9191,
+     "verbs_per_fire": 3.0
+    },
+    {
+     "closure": "_v_matmul.<locals>.make.<locals>.bw",
+     "fired": 1016,
+     "s": 1.079,
+     "verbs": 3588,
+     "verbs_per_fire": 3.5
+    },
+    {
+     "closure": "_v_reshape.<locals>.make.<locals>.bw",
+     "fired": 1117,
+     "s": 0.409,
+     "verbs": 1456,
+     "verbs_per_fire": 1.3
+    },
+    {
+     "closure": "_v_create_qkv_heads.<locals>.slot.<locals>.make.<locals>.bw",
+     "fired": 756,
+     "s": 0.397,
+     "verbs": 4755,
+     "verbs_per_fire": 6.3
+    },
+    {
+     "closure": "_v_softmax.<locals>.make.<locals>.bw",
+     "fired": 279,
+     "s": 0.289,
+     "verbs": 1674,
+     "verbs_per_fire": 6.0
+    },
+    {
+     "closure": "_v_permute.<locals>.make.<locals>.bw",
+     "fired": 1193,
+     "s": 0.259,
+     "verbs": 1193,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_identity_grad.<locals>.make.<locals>.bw",
+     "fired": 1047,
+     "s": 0.216,
+     "verbs": 828,
+     "verbs_per_fire": 0.8
+    },
+    {
+     "closure": "silu.<locals>.make.<locals>.bw",
+     "fired": 499,
+     "s": 0.186,
+     "verbs": 499,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_typecast.<locals>.make.<locals>.bw",
+     "fired": 595,
+     "s": 0.119,
+     "verbs": 441,
+     "verbs_per_fire": 0.7
+    },
+    {
+     "closure": "_unary.<locals>.impl.<locals>.make.<locals>.bw",
+     "fired": 6,
+     "s": 0.06,
+     "verbs": 9,
+     "verbs_per_fire": 1.5
+    },
+    {
+     "closure": "_v_embedding.<locals>.make.<locals>.bw",
+     "fired": 33,
+     "s": 0.058,
+     "verbs": 198,
+     "verbs_per_fire": 6.0
+    },
+    {
+     "closure": "_v_transpose.<locals>.make.<locals>.bw",
+     "fired": 264,
+     "s": 0.042,
+     "verbs": 264,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_concat.<locals>.make.<locals>.bw",
+     "fired": 62,
+     "s": 0.04,
+     "verbs": 333,
+     "verbs_per_fire": 5.4
+    },
+    {
+     "closure": "_binary.<locals>.impl.<locals>.make_s.<locals>.bw",
+     "fired": 289,
+     "s": 0.023,
+     "verbs": 289,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "relu.<locals>.make.<locals>.bw",
+     "fired": 4,
+     "s": 0.019,
+     "verbs": 4,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_concat_heads.<locals>.make.<locals>.bw",
+     "fired": 104,
+     "s": 0.013,
+     "verbs": 312,
+     "verbs_per_fire": 3.0
+    },
+    {
+     "closure": "_sliced.<locals>.make.<locals>.bw",
+     "fired": 1018,
+     "s": 0.004,
+     "verbs": 16,
+     "verbs_per_fire": 0.0
+    }
+   ]
+  },
+  {
+   "rep": 1,
+   "cold": false,
+   "outer_backward_s": 25.556,
+   "outer_final_drain_s": 0.012,
+   "outer_host_enqueue_s": 3.217,
+   "outer_verb_calls": 69542,
+   "nested_calls": 54,
+   "nested_wall_s": 3.955,
+   "recompute_forward_device_tail_s": 2.32,
+   "segment_backward_device_s": 13.778,
+   "nested_host_enqueue_s": 1.838,
+   "nested_verb_calls": 59727,
+   "total_verb_calls": 129269,
+   "total_host_enqueue_s": 5.006,
+   "host_crossing_calls": 0,
+   "by_verb": [
+    {
+     "verb": "linear",
+     "n": 1818,
+     "host_enqueue_s": 0.735
+    },
+    {
+     "verb": "multiply",
+     "n": 12771,
+     "host_enqueue_s": 0.571
+    },
+    {
+     "verb": "matmul",
+     "n": 8080,
+     "host_enqueue_s": 0.458
+    },
+    {
+     "verb": "slice",
+     "n": 10945,
+     "host_enqueue_s": 0.418
+    },
+    {
+     "verb": "add",
+     "n": 6603,
+     "host_enqueue_s": 0.281
+    },
+    {
+     "verb": "typecast",
+     "n": 5945,
+     "host_enqueue_s": 0.244
+    },
+    {
+     "verb": "add_",
+     "n": 6095,
+     "host_enqueue_s": 0.219
+    },
+    {
+     "verb": "subtract",
+     "n": 4275,
+     "host_enqueue_s": 0.21
+    },
+    {
+     "verb": "mean",
+     "n": 5332,
+     "host_enqueue_s": 0.206
+    },
+    {
+     "verb": "deallocate",
+     "n": 29216,
+     "host_enqueue_s": 0.164
+    },
+    {
+     "verb": "sigmoid_bw",
+     "n": 1128,
+     "host_enqueue_s": 0.161
+    },
+    {
+     "verb": "permute",
+     "n": 1948,
+     "host_enqueue_s": 0.154
+    },
+    {
+     "verb": "reshape",
+     "n": 21149,
+     "host_enqueue_s": 0.147
+    },
+    {
+     "verb": "silu_bw",
+     "n": 499,
+     "host_enqueue_s": 0.123
+    },
+    {
+     "verb": "to_layout",
+     "n": 2137,
+     "host_enqueue_s": 0.113
+    },
+    {
+     "verb": "multiply_",
+     "n": 877,
+     "host_enqueue_s": 0.107
+    },
+    {
+     "verb": "concat",
+     "n": 1138,
+     "host_enqueue_s": 0.106
+    },
+    {
+     "verb": "layer_norm",
+     "n": 799,
+     "host_enqueue_s": 0.102
+    },
+    {
+     "verb": "sum",
+     "n": 2301,
+     "host_enqueue_s": 0.086
+    },
+    {
+     "verb": "rsqrt",
+     "n": 1336,
+     "host_enqueue_s": 0.061
+    },
+    {
+     "verb": "chunk",
+     "n": 165,
+     "host_enqueue_s": 0.061
+    },
+    {
+     "verb": "transpose",
+     "n": 736,
+     "host_enqueue_s": 0.049
+    },
+    {
+     "verb": "mul_bw",
+     "n": 499,
+     "host_enqueue_s": 0.047
+    },
+    {
+     "verb": "experimental.minimal_matmul",
+     "n": 324,
+     "host_enqueue_s": 0.042
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "n": 156,
+     "host_enqueue_s": 0.026
+    },
+    {
+     "verb": "experimental.nlp_concat_heads",
+     "n": 860,
+     "host_enqueue_s": 0.022
+    },
+    {
+     "verb": "clone",
+     "n": 919,
+     "host_enqueue_s": 0.021
+    },
+    {
+     "verb": "softmax_in_place",
+     "n": 108,
+     "host_enqueue_s": 0.017
+    },
+    {
+     "verb": "sigmoid",
+     "n": 369,
+     "host_enqueue_s": 0.016
+    },
+    {
+     "verb": "unsqueeze",
+     "n": 264,
+     "host_enqueue_s": 0.013
+    },
+    {
+     "verb": "divide",
+     "n": 279,
+     "host_enqueue_s": 0.011
+    },
+    {
+     "verb": "softmax",
+     "n": 51,
+     "host_enqueue_s": 0.008
+    },
+    {
+     "verb": "squeeze",
+     "n": 104,
+     "host_enqueue_s": 0.005
+    },
+    {
+     "verb": "embedding_bw",
+     "n": 33,
+     "host_enqueue_s": 0.001
+    },
+    {
+     "verb": "relu_bw",
+     "n": 10,
+     "host_enqueue_s": 0.001
+    }
+   ],
+   "by_closure": [
+    {
+     "closure": "_taped_layer_norm.<locals>.make.<locals>.bw",
+     "fired": 1336,
+     "s": 2.249,
+     "verbs": 38770,
+     "verbs_per_fire": 29.0
+    },
+    {
+     "closure": "_taped_linear.<locals>.make.<locals>.bw",
+     "fired": 3320,
+     "s": 1.851,
+     "verbs": 36083,
+     "verbs_per_fire": 10.9
+    },
+    {
+     "closure": "_binary.<locals>.impl.<locals>.make.<locals>.bw",
+     "fired": 3071,
+     "s": 0.844,
+     "verbs": 9191,
+     "verbs_per_fire": 3.0
+    },
+    {
+     "closure": "checkpoint.<locals>.<lambda>.<locals>.<lambda>",
+     "fired": 105,
+     "s": 0.689,
+     "verbs": 372,
+     "verbs_per_fire": 3.5
+    },
+    {
+     "closure": "_v_matmul.<locals>.make.<locals>.bw",
+     "fired": 1016,
+     "s": 0.317,
+     "verbs": 3588,
+     "verbs_per_fire": 3.5
+    },
+    {
+     "closure": "_v_create_qkv_heads.<locals>.slot.<locals>.make.<locals>.bw",
+     "fired": 756,
+     "s": 0.27,
+     "verbs": 4752,
+     "verbs_per_fire": 6.3
+    },
+    {
+     "closure": "silu.<locals>.make.<locals>.bw",
+     "fired": 499,
+     "s": 0.144,
+     "verbs": 499,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_softmax.<locals>.make.<locals>.bw",
+     "fired": 279,
+     "s": 0.142,
+     "verbs": 1674,
+     "verbs_per_fire": 6.0
+    },
+    {
+     "closure": "_v_permute.<locals>.make.<locals>.bw",
+     "fired": 1193,
+     "s": 0.123,
+     "verbs": 1193,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_reshape.<locals>.make.<locals>.bw",
+     "fired": 1117,
+     "s": 0.09,
+     "verbs": 1456,
+     "verbs_per_fire": 1.3
+    },
+    {
+     "closure": "_identity_grad.<locals>.make.<locals>.bw",
+     "fired": 1047,
+     "s": 0.066,
+     "verbs": 828,
+     "verbs_per_fire": 0.8
+    },
+    {
+     "closure": "_v_typecast.<locals>.make.<locals>.bw",
+     "fired": 595,
+     "s": 0.038,
+     "verbs": 441,
+     "verbs_per_fire": 0.7
+    },
+    {
+     "closure": "_v_concat.<locals>.make.<locals>.bw",
+     "fired": 62,
+     "s": 0.025,
+     "verbs": 333,
+     "verbs_per_fire": 5.4
+    },
+    {
+     "closure": "_binary.<locals>.impl.<locals>.make_s.<locals>.bw",
+     "fired": 289,
+     "s": 0.02,
+     "verbs": 289,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_transpose.<locals>.make.<locals>.bw",
+     "fired": 264,
+     "s": 0.017,
+     "verbs": 264,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_concat_heads.<locals>.make.<locals>.bw",
+     "fired": 104,
+     "s": 0.009,
+     "verbs": 312,
+     "verbs_per_fire": 3.0
+    },
+    {
+     "closure": "_v_embedding.<locals>.make.<locals>.bw",
+     "fired": 33,
+     "s": 0.009,
+     "verbs": 198,
+     "verbs_per_fire": 6.0
+    },
+    {
+     "closure": "_sliced.<locals>.make.<locals>.bw",
+     "fired": 1018,
+     "s": 0.002,
+     "verbs": 16,
+     "verbs_per_fire": 0.0
+    },
+    {
+     "closure": "_v_pad.<locals>.make.<locals>.bw",
+     "fired": 8,
+     "s": 0.001,
+     "verbs": 8,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "relu.<locals>.make.<locals>.bw",
+     "fired": 4,
+     "s": 0.001,
+     "verbs": 4,
+     "verbs_per_fire": 1.0
+    }
+   ]
+  },
+  {
+   "rep": 2,
+   "cold": false,
+   "outer_backward_s": 26.708,
+   "outer_final_drain_s": 0.032,
+   "outer_host_enqueue_s": 4.055,
+   "outer_verb_calls": 69542,
+   "nested_calls": 54,
+   "nested_wall_s": 4.975,
+   "recompute_forward_device_tail_s": 1.984,
+   "segment_backward_device_s": 12.844,
+   "nested_host_enqueue_s": 2.374,
+   "nested_verb_calls": 59727,
+   "total_verb_calls": 129269,
+   "total_host_enqueue_s": 6.406,
+   "host_crossing_calls": 0,
+   "by_verb": [
+    {
+     "verb": "linear",
+     "n": 1818,
+     "host_enqueue_s": 0.798
+    },
+    {
+     "verb": "multiply",
+     "n": 12771,
+     "host_enqueue_s": 0.744
+    },
+    {
+     "verb": "matmul",
+     "n": 8080,
+     "host_enqueue_s": 0.591
+    },
+    {
+     "verb": "slice",
+     "n": 10945,
+     "host_enqueue_s": 0.59
+    },
+    {
+     "verb": "add",
+     "n": 6603,
+     "host_enqueue_s": 0.379
+    },
+    {
+     "verb": "typecast",
+     "n": 5945,
+     "host_enqueue_s": 0.301
+    },
+    {
+     "verb": "add_",
+     "n": 6095,
+     "host_enqueue_s": 0.294
+    },
+    {
+     "verb": "subtract",
+     "n": 4275,
+     "host_enqueue_s": 0.285
+    },
+    {
+     "verb": "mean",
+     "n": 5332,
+     "host_enqueue_s": 0.271
+    },
+    {
+     "verb": "deallocate",
+     "n": 29216,
+     "host_enqueue_s": 0.206
+    },
+    {
+     "verb": "permute",
+     "n": 1948,
+     "host_enqueue_s": 0.2
+    },
+    {
+     "verb": "sigmoid_bw",
+     "n": 1128,
+     "host_enqueue_s": 0.197
+    },
+    {
+     "verb": "reshape",
+     "n": 21149,
+     "host_enqueue_s": 0.189
+    },
+    {
+     "verb": "to_layout",
+     "n": 2137,
+     "host_enqueue_s": 0.156
+    },
+    {
+     "verb": "silu_bw",
+     "n": 499,
+     "host_enqueue_s": 0.146
+    },
+    {
+     "verb": "multiply_",
+     "n": 877,
+     "host_enqueue_s": 0.133
+    },
+    {
+     "verb": "concat",
+     "n": 1138,
+     "host_enqueue_s": 0.131
+    },
+    {
+     "verb": "layer_norm",
+     "n": 799,
+     "host_enqueue_s": 0.13
+    },
+    {
+     "verb": "sum",
+     "n": 2301,
+     "host_enqueue_s": 0.113
+    },
+    {
+     "verb": "rsqrt",
+     "n": 1336,
+     "host_enqueue_s": 0.082
+    },
+    {
+     "verb": "transpose",
+     "n": 736,
+     "host_enqueue_s": 0.075
+    },
+    {
+     "verb": "chunk",
+     "n": 165,
+     "host_enqueue_s": 0.073
+    },
+    {
+     "verb": "mul_bw",
+     "n": 499,
+     "host_enqueue_s": 0.069
+    },
+    {
+     "verb": "experimental.minimal_matmul",
+     "n": 324,
+     "host_enqueue_s": 0.056
+    },
+    {
+     "verb": "clone",
+     "n": 919,
+     "host_enqueue_s": 0.042
+    },
+    {
+     "verb": "experimental.nlp_concat_heads",
+     "n": 860,
+     "host_enqueue_s": 0.037
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "n": 156,
+     "host_enqueue_s": 0.029
+    },
+    {
+     "verb": "sigmoid",
+     "n": 369,
+     "host_enqueue_s": 0.022
+    },
+    {
+     "verb": "softmax_in_place",
+     "n": 108,
+     "host_enqueue_s": 0.017
+    },
+    {
+     "verb": "unsqueeze",
+     "n": 264,
+     "host_enqueue_s": 0.016
+    },
+    {
+     "verb": "divide",
+     "n": 279,
+     "host_enqueue_s": 0.014
+    },
+    {
+     "verb": "softmax",
+     "n": 51,
+     "host_enqueue_s": 0.01
+    },
+    {
+     "verb": "squeeze",
+     "n": 104,
+     "host_enqueue_s": 0.006
+    },
+    {
+     "verb": "embedding_bw",
+     "n": 33,
+     "host_enqueue_s": 0.002
+    },
+    {
+     "verb": "relu_bw",
+     "n": 10,
+     "host_enqueue_s": 0.002
+    }
+   ],
+   "by_closure": [
+    {
+     "closure": "_taped_layer_norm.<locals>.make.<locals>.bw",
+     "fired": 1336,
+     "s": 2.908,
+     "verbs": 38770,
+     "verbs_per_fire": 29.0
+    },
+    {
+     "closure": "_taped_linear.<locals>.make.<locals>.bw",
+     "fired": 3320,
+     "s": 2.431,
+     "verbs": 36083,
+     "verbs_per_fire": 10.9
+    },
+    {
+     "closure": "_binary.<locals>.impl.<locals>.make.<locals>.bw",
+     "fired": 3071,
+     "s": 1.076,
+     "verbs": 9191,
+     "verbs_per_fire": 3.0
+    },
+    {
+     "closure": "checkpoint.<locals>.<lambda>.<locals>.<lambda>",
+     "fired": 105,
+     "s": 0.725,
+     "verbs": 372,
+     "verbs_per_fire": 3.5
+    },
+    {
+     "closure": "_v_matmul.<locals>.make.<locals>.bw",
+     "fired": 1016,
+     "s": 0.406,
+     "verbs": 3588,
+     "verbs_per_fire": 3.5
+    },
+    {
+     "closure": "_v_create_qkv_heads.<locals>.slot.<locals>.make.<locals>.bw",
+     "fired": 756,
+     "s": 0.352,
+     "verbs": 4752,
+     "verbs_per_fire": 6.3
+    },
+    {
+     "closure": "_v_softmax.<locals>.make.<locals>.bw",
+     "fired": 279,
+     "s": 0.179,
+     "verbs": 1674,
+     "verbs_per_fire": 6.0
+    },
+    {
+     "closure": "silu.<locals>.make.<locals>.bw",
+     "fired": 499,
+     "s": 0.178,
+     "verbs": 499,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_permute.<locals>.make.<locals>.bw",
+     "fired": 1193,
+     "s": 0.167,
+     "verbs": 1193,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_reshape.<locals>.make.<locals>.bw",
+     "fired": 1117,
+     "s": 0.095,
+     "verbs": 1456,
+     "verbs_per_fire": 1.3
+    },
+    {
+     "closure": "_identity_grad.<locals>.make.<locals>.bw",
+     "fired": 1047,
+     "s": 0.092,
+     "verbs": 828,
+     "verbs_per_fire": 0.8
+    },
+    {
+     "closure": "_v_typecast.<locals>.make.<locals>.bw",
+     "fired": 595,
+     "s": 0.056,
+     "verbs": 441,
+     "verbs_per_fire": 0.7
+    },
+    {
+     "closure": "_v_transpose.<locals>.make.<locals>.bw",
+     "fired": 264,
+     "s": 0.033,
+     "verbs": 264,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_concat.<locals>.make.<locals>.bw",
+     "fired": 62,
+     "s": 0.031,
+     "verbs": 333,
+     "verbs_per_fire": 5.4
+    },
+    {
+     "closure": "_v_concat_heads.<locals>.make.<locals>.bw",
+     "fired": 104,
+     "s": 0.023,
+     "verbs": 312,
+     "verbs_per_fire": 3.0
+    },
+    {
+     "closure": "_binary.<locals>.impl.<locals>.make_s.<locals>.bw",
+     "fired": 289,
+     "s": 0.022,
+     "verbs": 289,
+     "verbs_per_fire": 1.0
+    },
+    {
+     "closure": "_v_embedding.<locals>.make.<locals>.bw",
+     "fired": 33,
+     "s": 0.012,
+     "verbs": 198,
+     "verbs_per_fire": 6.0
+    },
+    {
+     "closure": "_sliced.<locals>.make.<locals>.bw",
+     "fired": 1018,
+     "s": 0.003,
+     "verbs": 16,
+     "verbs_per_fire": 0.0
+    },
+    {
+     "closure": "_unary.<locals>.impl.<locals>.make.<locals>.bw",
+     "fired": 6,
+     "s": 0.002,
+     "verbs": 9,
+     "verbs_per_fire": 1.5
+    },
+    {
+     "closure": "_v_pad.<locals>.make.<locals>.bw",
+     "fired": 8,
+     "s": 0.001,
+     "verbs": 8,
+     "verbs_per_fire": 1.0
+    }
+   ]
+  }
+ ]
+}
