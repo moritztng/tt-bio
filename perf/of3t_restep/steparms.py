@@ -67,15 +67,15 @@ def quiet(label):
 
 
 def arm(name, exact, argv, out_path):
+    """One arm. The OFF arm is driven by `fullstep.py --no-exact` rather than by a context
+    manager opened here, so the artifact records its own configuration under `config` and
+    `exact` instead of depending on a caller nobody reads it beside."""
     from tt_bio import autograd as ag
     pre = quiet(f"{name}/pre")
-    sys.argv = ["fullstep.py"] + argv + ["--out", str(out_path)]
+    sys.argv = (["fullstep.py"] + argv + ([] if exact else ["--no-exact"])
+                + ["--out", str(out_path)])
     t0 = time.perf_counter()
-    if exact:
-        rc = F.main()
-    else:
-        with ag.exact_training(False):
-            rc = F.main()
+    rc = F.main()
     wall = round(time.perf_counter() - t0, 3)
     post = quiet(f"{name}/post")
     # STAMP. fullstep writes env.commit and config.cycles_pinned itself; what it does not
@@ -108,19 +108,28 @@ def main():
     ap.add_argument("--tokens", type=int, default=384)
     ap.add_argument("--cycles", type=int, default=4)
     ap.add_argument("--samples", type=int, default=4)
+    ap.add_argument("--chunk", type=int, default=0,
+                    help="replicates per chunk, passed to both arms. 48 replicates need it, "
+                         "and of3t-p10wall OOMed the card at C=8, so C=4 is the shipped width")
+    ap.add_argument("--order", default="on,off",
+                    help="arm order. ON first banks the headline arm if the launch is cut "
+                         "short; OFF first banks the cheap arm when the ON arm may not fit")
     ap.add_argument("--reps-on", type=int, default=1)
     ap.add_argument("--reps-off", type=int, default=1)
     ap.add_argument("--tag", default="")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    base = [f"--tokens", str(a.tokens), "--cycles", str(a.cycles),
+    base = ["--tokens", str(a.tokens), "--cycles", str(a.cycles),
             "--samples", str(a.samples)]
+    if a.chunk:
+        base += ["--chunk", str(a.chunk)]
     tag = a.tag or f"{a.tokens}"
+    arms = {"on": ("exact_on", True, a.reps_on), "off": ("exact_off", False, a.reps_off)}
     rc = 0
-    rc |= arm("exact_on", True, base + ["--reps", str(a.reps_on)],
-              OUT / f"step_exact_on_{tag}.json")
-    rc |= arm("exact_off", False, base + ["--reps", str(a.reps_off)],
-              OUT / f"step_exact_off_{tag}.json")
+    for key in [x.strip() for x in a.order.split(",") if x.strip()]:
+        name, exact, reps = arms[key]
+        rc |= arm(name, exact, base + ["--reps", str(reps)],
+                  OUT / f"step_{name}_{tag}.json")
     return rc
 
 
