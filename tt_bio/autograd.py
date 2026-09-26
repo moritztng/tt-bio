@@ -1009,9 +1009,23 @@ def _via2d(x, fn, kw=None):
 # A module switch rather than an argument, because it exists for the same-process A/B that
 # prices it (`perf/bcx_p10_trimul/block_ab.py`); nothing else sets it.
 DGRAD_2D_MINIMAL = True
+#: The narrowest contraction the kernel is used on where  could collapse instead.
+#: Between the two widths measured, 128 (the kernel loses) and 512 (it wins 1.79x).
+DGRAD_2D_MIN_K = 256
 #: How many dX products each route served. The A/B stamps this, so a reading that claims the
 #: lever fired has to show the counter moved.
 DGRAD_2D_STATS = {"minimal": 0, "fallback": 0}
+#: The same split by shape, so a round's reach count can be turned into seconds. Keyed
+#: "<g padded shape>@<w padded shape>". Off by default: it is a dict write per product and the
+#: shapes are only interesting while a row is pricing the route.
+DGRAD_2D_SHAPES: dict = {}
+DGRAD_2D_SHAPE_CENSUS = False
+
+
+def _dgrad_2d_note(g, w, route):
+    key = ("x".join(str(int(d)) for d in g.padded_shape) + "@"
+           + "x".join(str(int(d)) for d in w.padded_shape))
+    DGRAD_2D_SHAPES.setdefault(key, {"minimal": 0, "fallback": 0})[route] += 1
 
 
 def _dgrad_2d_minimal_ok(g, w) -> bool:
@@ -1033,7 +1047,18 @@ def _dgrad_2d_minimal_ok(g, w) -> bool:
     sg, sw = [int(d) for d in g.shape], [int(d) for d in w.shape]
     if len(sw) != 2 or len(sg) < 2:
         return False
-    return not (sg[-1] % ttnn.TILE_SIZE or sw[0] % ttnn.TILE_SIZE or sw[1] % ttnn.TILE_SIZE)
+    if sg[-1] % ttnn.TILE_SIZE or sw[0] % ttnn.TILE_SIZE or sw[1] % ttnn.TILE_SIZE:
+        return False
+    # Where `_via2d` CAN collapse, the fallback is already the good 2-D plan and the kernel only
+    # wins on a wide contraction. MEASURED at a tile-aligned n=288, qb1 card 1, 1350 MHz, median
+    # of 15 warm synced reps (`perf/bcx_p10_trimul/micro_n288.json`): at K=512 the collapsed plan
+    # is 0.6756 ms against the kernel's 0.3768, and at K=128 it is 0.1960 against 0.2644 -- the
+    # kernel LOSES there, and the square shape is 768 of the 1344 products a shipped BindCraft 2
+    # round converts. Where `_via2d` declines the fallback is the rank-4 plan and the kernel wins
+    # at both widths (2.9212 -> 0.3659 and 1.2290 -> 0.2481 at a ragged n=275), so the narrow
+    # gate only applies to the collapsible case.
+    collapsible = not (len(sg) > 2 and sg[-2] % ttnn.TILE_SIZE and sg[-2] != 1)
+    return not (collapsible and sg[-1] < DGRAD_2D_MIN_K)
 
 
 def dgrad_2d(g, w, transpose_w: bool, **kw):
@@ -1063,8 +1088,12 @@ def dgrad_2d(g, w, transpose_w: bool, **kw):
     """
     if not _dgrad_2d_minimal_ok(g, w):
         DGRAD_2D_STATS["fallback"] += 1
+        if DGRAD_2D_SHAPE_CENSUS:
+            _dgrad_2d_note(g, w, "fallback")
         return _via2d(g, lambda v: bmm(v, w, False, transpose_w, **kw))
     DGRAD_2D_STATS["minimal"] += 1
+    if DGRAD_2D_SHAPE_CENSUS:
+        _dgrad_2d_note(g, w, "minimal")
     wt = ttnn.transpose(w, -2, -1) if transpose_w else w
     out = ttnn.experimental.minimal_matmul(
         g, wt, memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG,

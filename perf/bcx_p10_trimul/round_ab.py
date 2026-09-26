@@ -49,6 +49,7 @@ class ArmMeter(M.Meter):
 
 
 def main():
+    ag.DGRAD_2D_SHAPE_CENSUS = True
     M.Meter = ArmMeter
     R.M.Meter = ArmMeter
     real_dump = M.dump
@@ -57,6 +58,7 @@ def main():
         stamp["arms"] = list(ARMS)
         stamp["arm_order"] = "round 1 off, alternating"
         stamp["dgrad_2d_stats"] = dict(ag.DGRAD_2D_STATS)
+        stamp["dgrad_2d_shapes"] = dict(ag.DGRAD_2D_SHAPES)
         stamp["DEVICE_ZEROS"] = bool(ag.DEVICE_ZEROS)
         stamp["DGRAD_2D_MINIMAL_end"] = bool(ag.DGRAD_2D_MINIMAL)
         return real_dump(path, stamp)
