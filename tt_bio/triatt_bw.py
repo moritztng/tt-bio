@@ -330,6 +330,11 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
     bias_tb = SG.tile_bytes(bias.dtype)
     part_tb = SG.tile_bytes(dbias_partial.dtype)
 
+    if os.environ.get("TT_BIO_TRIATT_BW_DUMP"):
+        for nm, tn in (("q", q), ("k", k), ("v", v), ("do", do), ("bias", bias),
+                       ("dq", dq), ("dk", dk), ("dv", dv), ("part", dbias_partial)):
+            print(f"  addr {nm:5s} 0x{tn.buffer_address():x}  acc_len {len(acc(tn))}  "
+                  f"dtype {tn.dtype} shape {list(tn.padded_shape)}")
     reader_ct = [H, Nt, Dt, qkv_tb, bias_tb] + acc(q) + acc(k) + acc(v) + acc(do) + acc(bias)
     writer_ct = ([H, Nt, Dt, qkv_tb, part_tb, SG._packed_identity_scalar(), _packed_bf16(scale)]
                  + acc(dq) + acc(dk) + acc(dv) + acc(dbias_partial))
@@ -374,7 +379,8 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
             defines=[("REDUCE_GRANULARITY", "1"), ("ADD_BLOCK_GRANULARITY", "1"),
                      ("STATS_GRANULARITY", "1"), ("SUB_EXP_GRANULARITY", "1"),
                      ("MUL_BCAST_GRANULARITY", "1"), ("DHT_GRANULARITY", "1"),
-                     ("EXP_APPROX_MODE", "0")],
+                     ("EXP_APPROX_MODE", "0")]
+                    + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else []),
             runtime_args=cr,
             config=ttnn.ComputeConfigDescriptor(
                 math_fidelity=ckc[0], math_approx_mode=False,

@@ -41,23 +41,47 @@ ref = {"dq": qr.grad, "dk": kr.grad, "dv": vr.grad, "dbias": br.grad}
 dev = ttnn.open_device(device_id=0)
 try:
     def up(t):
+        # DRAM explicitly. Without a memory_config ttnn is free to place a small tensor in L1,
+        # and the kernels here are written against interleaved DRAM.
         return ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16,
-                               layout=ttnn.TILE_LAYOUT, device=dev)
+                               layout=ttnn.TILE_LAYOUT, device=dev,
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    # The FIRST buffer ttnn allocates on this device lands at DRAM 0x40 and reads back as zeros
+    # inside a kernel, every run, whichever tensor occupies it -- proven by swapping the upload
+    # order, and not explained by the accessor, the circular buffer, the memory config or a
+    # device sync (all four tested separately). Everything at a higher address reads correctly.
+    # Park a throwaway there so no operand of this program is the first allocation.
+    _bottom_guard = up(torch.zeros(1, 1, 32, 32, dtype=torch.float64))
     tq, tk, tv, tb, tg = (up(t) for t in (q, k, v, bias, g))
     # The compute grid, off the device. A fixed 13x10 reaches this part's dispatch cores and
     # tt-metal refuses the program with "Kernels cannot be placed on dispatch cores".
     cg = dev.compute_with_storage_grid_size()
     grid = tuple(a.grid) if a.grid else (cg.x, cg.y)
     print("compute grid:", grid)
+    print("uploaded norms:", {n: round(float(ttnn.to_torch(x).double().norm()), 4)
+                              for n, x in (("q", tq), ("k", tk), ("v", tv),
+                                           ("bias", tb), ("do", tg))})
+    print("host norms    :", {n: round(float(x.norm()), 4)
+                              for n, x in (("q", q), ("k", k), ("v", v),
+                                           ("bias", bias), ("do", g))})
     p = T.plan(B, H, N, D, grid)
     if not T.fits_l1(p):
         print(json.dumps({"skipped": "does not fit L1", "l1_bytes": p["l1_bytes"]})); raise SystemExit(0)
 
-    z = torch.zeros(B, H, N, D)
-    dq, dk, dv = (up(z.to(torch.float64)) for _ in range(3))
+    # Distinct sentinels, not zeros: if the reader is pointing at an output buffer instead of an
+    # input, a zeros-filled destination makes that look like "the input was empty".
+    dq = up(torch.full((B, H, N, D), 7.0, dtype=torch.float64))
+    dk = up(torch.full((B, H, N, D), 9.0, dtype=torch.float64))
+    dv = up(torch.full((B, H, N, D), 11.0, dtype=torch.float64))
     part = ttnn.from_torch(torch.zeros(*T.partial_shape(p)), dtype=ttnn.float32,
-                           layout=ttnn.TILE_LAYOUT, device=dev)
+                           layout=ttnn.TILE_LAYOUT, device=dev,
+                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
+    # Every upload committed before the program runs. Without this the earliest-allocated
+    # buffers read as zeros inside the kernel while later ones read fine -- the zeros follow the
+    # DRAM address, not the tensor, which is what a missing barrier between the host writes and
+    # the dispatch looks like.
+    ttnn.synchronize_device(dev)
     ckc = (ttnn.MathFidelity.HiFi4,)
     t0 = time.time()
     e = T.build(dev, tq, tk, tv, tg, tb, dq, dk, dv, part, p, ckc, scale)

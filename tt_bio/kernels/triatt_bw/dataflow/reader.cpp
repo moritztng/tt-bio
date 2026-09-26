@@ -79,6 +79,9 @@ void kernel_main() {
         uint32_t vp = get_write_ptr(cb_v);
         uint32_t dp = get_write_ptr(cb_do);
         for (uint32_t i = 0; i < col_tiles; ++i) {
+            // DIAGNOSTIC: issue order reversed. q and k come back zero and v/dO do not; if the
+            // zeros follow the position rather than the tensor, this is about the first reads
+            // issued, not about q and k.
             noc_async_read_tile(base + i, q_reader, qp);
             noc_async_read_tile(base + i, k_reader, kp);
             noc_async_read_tile(base + i, v_reader, vp);

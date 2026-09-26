@@ -170,6 +170,16 @@ ALWI void seed_zeros(uint32_t cb, uint32_t zero_cb, uint32_t num_tiles) {
     cb_push_back(cb, num_tiles);
 }
 
+#ifdef BW_DUMP
+// Row 0 of a tile, from the unpacker. Debug only.
+ALWI void dump_row0(const char* tag, uint32_t cb, uint32_t tile) {
+    DPRINT << tag << " ";
+    DPRINT << TileSlice(cb, tile, SliceRange{.h0 = 0, .h1 = 1, .hs = 1, .w0 = 0, .w1 = 8, .ws = 1},
+                        true, false)
+           << ENDL();
+}
+#endif
+
 }  // namespace
 
 void kernel_main() {
@@ -230,6 +240,17 @@ void kernel_main() {
         // ---- S = (Q K^T) * scale + bias, then P = softmax(S) --------------------------------
         // cb_k holds K's Nt tiles. Read as [Dt, Nt] with the faces transposed, those same tiles
         // are K^T's tile grid, which is why no second copy of k is read from DRAM.
+#ifdef BW_DUMP
+        cb_wait_front(cb_q, col_tiles);
+        cb_wait_front(cb_k, col_tiles);
+        cb_wait_front(cb_do, col_tiles);
+        dump_row0("q0 ", cb_q, 0);
+        dump_row0("k0 ", cb_k, 0);
+        cb_wait_front(cb_v, col_tiles);
+        dump_row0("v0 ", cb_v, 0);
+        dump_row0("do0", cb_do, 0);
+        dump_row0("bi0", cb_bias, 0);
+#endif
         mm_keep<Nt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_q, cb_k, cb_p);
         DPRINT << "@S" << ENDL();
         mul_block_bcast_scalar_inplace<cb_scale, score_tiles>(cb_p);
@@ -293,15 +314,38 @@ void kernel_main() {
         DPRINT << "@DBIAS" << ENDL();
 
         // ---- dQ = (dS K) * scale, dK = (dS^T Q) * scale --------------------------------------
+        //
+        // The scale goes on dS, once, BEFORE both matmuls, and it has to. Scaling cb_dq and cb_dk
+        // in place after mm_keep pushed them is a race with the writer and a corruption besides:
+        // the in-place helpers pop, reserve and push, which on a double-buffered output CB rotates
+        // the read pointer into the OTHER slot, and that slot was never written. The writer then
+        // reads it. dK came back exactly zero every run and dQ came back partly stale, which is
+        // the same defect caught at two different points in the rotation.
+        //
+        // dbias is accumulated above this line for the same reason it has to be: dbias is the
+        // gradient with respect to the bias, which is the UNSCALED score gradient.
+        // accumulate_fp32 just left the packer configured for float32. Anything that packs
+        // bfloat16 after it has to say so, or it writes float32 words into a bfloat16 buffer --
+        // which reads back as ~1e33, not as a small error.
+        reconfig_data_format_srca(cb_dp);
+        pack_reconfig_data_format(cb_dp);
+        mul_block_bcast_scalar_inplace<cb_scale, score_tiles>(cb_dp);
+
         mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_dp, cb_k, cb_dq);
         DPRINT << "@DQ" << ENDL();
-        mul_block_bcast_scalar_inplace<cb_scale, col_tiles>(cb_dq);
-
         transpose_block<Nt, Nt>(cb_dp, cb_t);
         cb_pop_front(cb_dp, score_tiles);
+#ifdef BW_DUMP
+        dump_row0("dSt", cb_t, 0);
+        dump_row0("q  ", cb_q, 0);
+#endif
         mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_t, cb_q, cb_dk);
         DPRINT << "@DK" << ENDL();
-        mul_block_bcast_scalar_inplace<cb_scale, col_tiles>(cb_dk);
+#ifdef BW_DUMP
+        dump_row0("dk ", cb_dk, 0);
+        dump_row0("dv ", cb_dv, 0);
+        dump_row0("dq ", cb_dq, 0);
+#endif
         cb_pop_front(cb_t, score_tiles);
 
         cb_pop_front(cb_q, col_tiles);
