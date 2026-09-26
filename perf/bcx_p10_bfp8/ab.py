@@ -309,6 +309,10 @@ def cmd_time(args):
                         "fwd": S.dist([r["fwd"] for r in rs]),
                         "bwd": S.dist([r["bwd"] for r in rs]),
                         "step": S.dist([r["fwd"] + r["bwd"] for r in rs]),
+                        # Host CPU of the backward beside its wall. A block-level wall on this
+                        # path is host-bound (5.57 s against a 0.23 s device proxy at n=256), so
+                        # a byte lever is invisible in it; the pair says so on its face.
+                        "bwd_host_cpu": S.dist([r["bwd_cpu"] for r in rs]),
                         "aiclk": clock.window([s for r in rs for s in r["spans"]])}
                 base = pt["arms"][arms[0]]
                 for arm in arms:
@@ -320,6 +324,7 @@ def cmd_time(args):
                                       "bwd": round(a["bwd"]["median"], 4),
                                       "bwd_p10_p90": [round(a["bwd"]["p10"], 4),
                                                       round(a["bwd"]["p90"], 4)],
+                                      "bwd_cpu": round(a["bwd_host_cpu"]["median"], 4),
                                       "x": a["x_vs_" + arms[0]], "aiclk": a["aiclk"],
                                       "loadavg1": pt["loadavg"][0]}), flush=True)
                 blob["points"].append(pt)
