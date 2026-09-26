@@ -392,8 +392,14 @@ class Tensor:
         `typecast`'s closure keeps the source dtype rather than the source, and `softmax`'s
         reads y. Those bytes go back to the card here and the `Tensor` stays exactly where
         it is, so the gradient still lands on it.
+
+        A value that is already released has nothing to free and nothing to move. That is the
+        input of a taped `ttnn.reallocate`, which the shipped trimul tail then deallocates, and
+        it must return here: `ttnn.to_memory_config` of a released L1 handle does not refuse,
+        it copies whatever now occupies that address -- the reallocated output -- into a new
+        DRAM buffer that the tape then holds.
         """
-        if not self.evictable:
+        if not self.evictable or not self.value.is_allocated():
             return
         if self.shares is not None:
             self._free_shared()
@@ -417,8 +423,12 @@ class Tensor:
         The backward needs the VALUE; the forward's tuning needs the PLACE. Moving to
         DRAM gives both, and it is the honest price of a gradient: one DRAM write per
         L1-resident activation that inference does not pay.
+
+        A released value has no place to give back and no bytes to move, so it returns here
+        for the same reason `free` does. `_evict_read_parents` reaches this method directly
+        and never through `free`, so the guard has to be on both.
         """
-        if not self.evictable:
+        if not self.evictable or not self.value.is_allocated():
             return
         if self.shares is not None:
             self._free_shared()                                  # a view moves with its group
@@ -740,6 +750,29 @@ def _reverse_topo(roots) -> list:
     return order
 
 
+def _storage(value):
+    """The live device buffer `value` reads, as (buffer type, address), or None if it has none.
+
+    This is what `_tape` compares to find a view, and each part of it is there because a bare
+    `buffer_address()` answered wrong without it (measured on a p300c):
+
+    - A view dies with its source: `ttnn.deallocate` of one frees the buffer under both. So a
+      parent that is no longer allocated cannot be the storage of a live output, and the
+      answer for it is None without asking. The address of a freed buffer is not a fact about
+      anything: `ttnn.reallocate`, which the trimul tail runs on each chunk when it chunks,
+      frees its input and hands the output back AT THAT SAME ADDRESS, so an address that
+      survived the free would call every move a view. ttnn refuses the question instead,
+      logging `TT_FATAL: Tensor is not allocated` at critical and throwing, about 1060 times
+      in one 4+48 AF2 gradient step at n=256.
+    - L1 and DRAM are separate address spaces over the same integers. L1 buffers sit near
+      1.5 MB and DRAM counts up from 64 per bank, so an L1 activation and its DRAM copy can
+      hold the same number and not a byte in common.
+    """
+    if value.storage_type() != ttnn.StorageType.DEVICE or not value.is_allocated():
+        return None
+    return value.memory_config().buffer_type, value.buffer_address()
+
+
 def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     """Wrap ``out_value`` and tape ``make_fn(out)`` if any parent wants a gradient.
 
@@ -760,19 +793,14 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     # Checked on EVERY op, not only the differentiated ones: a view whose own gradient
     # nobody wants still shares storage with one that somebody does, and it is the view
     # that the shipped code deallocates.
-    try:
-        addr = out_value.buffer_address() if out_value.is_allocated() else None
-    except Exception:                                       # host tensor, or no buffer yet
-        addr = None
-    # A parent the tape already freed shares nothing; asking `is_allocated()` first spares
-    # a TT_FATAL that ttnn logs before the except below can swallow it.
-    if addr is not None:
+    #
+    # The question is whether the two share STORAGE, and `_storage` explains why an address
+    # alone does not answer it: L1 and DRAM number their buffers over the same integers, and
+    # a freed parent's address is not a fact about anything.
+    here = _storage(out_value)
+    if here is not None:
         for p in parents:
-            try:
-                shared = p.value.is_allocated() and p.value.buffer_address() == addr
-            except Exception:
-                shared = False
-            if shared:
+            if _storage(p.value) == here:
                 _share(p, out)
     if needs:
         # `make_fn` takes no arguments and the closure it returns takes the output gradient,
