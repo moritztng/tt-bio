@@ -705,12 +705,14 @@ def main() -> int:
                     help="attribute the TRUNK backward's seconds to the op that taped each "
                          "node, by wrapping every node closure and every checkpoint group. "
                          "Costs a Python call per node; it does not change what runs.")
-    ap.add_argument("--node-prof-sync", action="store_true",
+    ap.add_argument("--node-prof-sync", type=int, default=-1, metavar="REP",
                     help="with --node-prof, drain the device after every closure. Attributes "
                          "device work to the node that issued it instead of to whichever "
                          "later node happens to block, and serialises what the plain arm "
                          "overlaps -- so this arm owns the SPLIT and the plain arm owns the "
-                         "TOTAL. Report both.")
+                         "TOTAL. Report both. This is a REP INDEX: the synced arm runs from "
+                         "that rep on, so one run banks a warm unsynced rep and a warm synced "
+                         "one against the same weights, the same clock and the same host.")
     ap.add_argument("--clk-bdf", default=os.environ.get("TT_BIO_CLK_BDF", ""),
                     help="PCI BDF of the card this process holds, e.g. 0000:42:00.0. The "
                          "sysfs AICLK node is resolved through it, because the lease card "
@@ -1005,7 +1007,7 @@ def main() -> int:
                     row["trunk_tape_nodes"] = len(ag._reverse_topo(troots))
                     if a.node_prof:
                         _sync = ((lambda: ttnn.synchronize_device(dev))
-                                 if a.node_prof_sync else None)
+                                 if 0 <= a.node_prof_sync <= rep else None)
                         _np = NodeProf(ag, sync=_sync)
                         _t = time.perf_counter()
                         with _np:
