@@ -32,6 +32,7 @@ def _dump():
         "fused_large_s": list(getattr(T, "SDPA_FUSED_LARGE_S_STATS", []) or []),
         "picks": {str(k): v for k, v in (getattr(T, "SDPA_CHUNK_PICKS", {}) or {}).items()},
         "hifi_stats": dict(getattr(T, "TRIATT_FUSED_HIFI_STATS", {}) or {}),
+        "mask_trans": dict(getattr(T, "MASK_TRANS_STATS", {}) or {}),
     }
     if not rec["picks"] and not any(rec["k_chunk_stats"]):
         rec["note"] = "no triangle-attention pick recorded in this process"
