@@ -75,6 +75,16 @@ def main():
                          "of the shipped path on every gradient reading, against the kernel "
                          "arm's 1.30-1.34x of the torch bf16 envelope. Only read when "
                          "--triatt-sdpa is on")
+    ap.add_argument("--triatt-hifi", dest="triatt_hifi", type=int, default=0,
+                    help="the `hifi` arm: `bcx-p10-tapegen`'s per-kernel tape entry for "
+                         "tri_att_sdpa_hifi, so the persistent-mask fused HiFi kernel serves "
+                         "the forward under a tape and autograd.triangle_attention carries the "
+                         "backward. Needs all three of TT_BIO_TAPED_KERNELS, "
+                         "TT_BIO_TRIATT_FUSED_HIFI and TT_BIO_TRIATT_DIVIDING_K, which this "
+                         "sets together: the entry makes the arm reachable and dividing-k "
+                         "makes 288 servable, and opening one without the other measures the "
+                         "other. Mutually exclusive with --triatt-sdpa, which is the `agtri` "
+                         "arm through the STOCK fused verb")
     ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V",
                     help="extra BindCraft 2 setting override, repeatable. `--set "
                          "save_design_frames=1` makes the recorder write one CIF a round, "
@@ -126,11 +136,27 @@ def main():
     os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "1" if args.triatt_sdpa else "0"
     os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1" if args.sdpa_own_forward else "0"
 
+    # The hifi arm. TT_BIO_TAPED_KERNELS and TT_BIO_TRIATT_DIVIDING_K are live reads
+    # (taped_ttnn.enabled_kernels, tenstorrent._triatt_hifi_dividing_k) so the environment is
+    # enough for those two, but `_TRIATT_FUSED_HIFI` is resolved at import and tt_bio is already
+    # imported by the time argparse runs, so that one is set on the module the way
+    # `perf/bcx_p10_tapegen/round_ab.py` sets it.
+    from tt_bio import tenstorrent as _tn
+    os.environ["TT_BIO_TAPED_KERNELS"] = "tri_att_sdpa_hifi" if args.triatt_hifi else ""
+    os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if args.triatt_hifi else "0"
+    _tn._TRIATT_FUSED_HIFI = bool(args.triatt_hifi)
+    if args.triatt_hifi and args.triatt_sdpa:
+        raise SystemExit("--triatt-hifi and --triatt-sdpa are two different routes for the same "
+                         "call; running both measures neither")
+
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "exact": bool(args.exact),
              "extra_msa_on_device": bool(args.extra_msa),
              "template_on_device": bool(args.template),
              "triatt_taped_sdpa": bool(args.triatt_sdpa),
+             "triatt_hifi": bool(args.triatt_hifi),
+             "taped_kernels": os.environ.get("TT_BIO_TAPED_KERNELS", ""),
+             "triatt_dividing_k": os.environ.get("TT_BIO_TRIATT_DIVIDING_K", ""),
              "sdpa_own_forward": bool(args.sdpa_own_forward),
              "shipped_pool": bool(args.shipped), "binder_pinned": args.binder,
              "sets": args.sets,
@@ -192,6 +218,14 @@ def main():
                       "template_calls": dict(tmpl.calls) if tmpl else None,
                       "triatt_sdpa_stats": dict(tenstorrent.TRIATT_TAPED_SDPA_STATS),
                       "sdpa_own_forward_stats": dict(taped_ttnn.SDPA_OWN_FORWARD_STATS),
+                      # The hifi arm's own reach. `served` is the kernel serving under a tape;
+                      # `taped` counts the calls that declined BECAUSE they were taped, which is
+                      # exactly what the tape entry removes, so a hifi round with taped > 0 and
+                      # served == 0 did not fire and its seconds mean nothing.
+                      "kernel_entry_stats": {k: list(v) for k, v in
+                                             taped_ttnn.KERNEL_STATS.items()},
+                      "fused_hifi_stats": dict(tenstorrent.TRIATT_FUSED_HIFI_STATS),
+                      "fp32_softmax_calls": tenstorrent.FP32_SOFTMAX_STATS.get("calls"),
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
