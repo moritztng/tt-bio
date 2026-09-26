@@ -1,0 +1,148 @@
+{
+ "affinity_cores": 16,
+ "backward_implied_s": 1.4051,
+ "dtype": "float32",
+ "forward": {
+  "max_wall_s": 0.5383,
+  "median_cores": 4.01,
+  "median_cpu_s": 0.9878,
+  "median_load1": 4.72,
+  "median_mhz": 5093.1,
+  "median_wall_s": 0.2466,
+  "min_wall_s": 0.1915,
+  "rows": [
+   {
+    "cores": 3.2509,
+    "cpu_s": 1.7498,
+    "load1": 4.7188,
+    "mhz": 5347.7,
+    "wall_s": 0.5383
+   },
+   {
+    "cores": 3.3196,
+    "cpu_s": 1.602,
+    "load1": 4.7188,
+    "mhz": 5315.0,
+    "wall_s": 0.4826
+   },
+   {
+    "cores": 3.9119,
+    "cpu_s": 1.1538,
+    "load1": 4.7188,
+    "mhz": 4932.5,
+    "wall_s": 0.295
+   },
+   {
+    "cores": 4.3711,
+    "cpu_s": 0.8856,
+    "load1": 4.7188,
+    "mhz": 4980.5,
+    "wall_s": 0.2026
+   },
+   {
+    "cores": 4.1938,
+    "cpu_s": 0.9245,
+    "load1": 4.7188,
+    "mhz": 5218.7,
+    "wall_s": 0.2205
+   },
+   {
+    "cores": 3.8533,
+    "cpu_s": 1.051,
+    "load1": 4.7188,
+    "mhz": 5196.9,
+    "wall_s": 0.2728
+   },
+   {
+    "cores": 4.1049,
+    "cpu_s": 0.8565,
+    "load1": 4.7188,
+    "mhz": 4989.4,
+    "wall_s": 0.2087
+   },
+   {
+    "cores": 4.4157,
+    "cpu_s": 0.8456,
+    "load1": 4.7188,
+    "mhz": 4943.3,
+    "wall_s": 0.1915
+   }
+  ]
+ },
+ "forward_and_backward": {
+  "max_wall_s": 2.1157,
+  "median_cores": 3.6,
+  "median_cpu_s": 5.8753,
+  "median_load1": 5.74,
+  "median_mhz": 5269.3,
+  "median_wall_s": 1.6517,
+  "min_wall_s": 1.1546,
+  "rows": [
+   {
+    "cores": 3.384,
+    "cpu_s": 5.892,
+    "load1": 4.7188,
+    "mhz": 5250.8,
+    "wall_s": 1.7411
+   },
+   {
+    "cores": 4.0356,
+    "cpu_s": 4.6597,
+    "load1": 5.062,
+    "mhz": 5290.6,
+    "wall_s": 1.1546
+   },
+   {
+    "cores": 3.5284,
+    "cpu_s": 6.1539,
+    "load1": 5.062,
+    "mhz": 5173.8,
+    "wall_s": 1.7441
+   },
+   {
+    "cores": 3.9399,
+    "cpu_s": 4.896,
+    "load1": 5.062,
+    "mhz": 5281.4,
+    "wall_s": 1.2427
+   },
+   {
+    "cores": 3.5171,
+    "cpu_s": 5.8585,
+    "load1": 6.4185,
+    "mhz": 5180.8,
+    "wall_s": 1.6657
+   },
+   {
+    "cores": 3.6685,
+    "cpu_s": 5.0877,
+    "load1": 6.4185,
+    "mhz": 5270.7,
+    "wall_s": 1.3869
+   },
+   {
+    "cores": 3.6952,
+    "cpu_s": 6.0514,
+    "load1": 6.4185,
+    "mhz": 5267.9,
+    "wall_s": 1.6377
+   },
+   {
+    "cores": 2.9571,
+    "cpu_s": 6.2563,
+    "load1": 6.5454,
+    "mhz": 5300.0,
+    "wall_s": 2.1157
+   }
+  ]
+ },
+ "host": "tt-quietbox2",
+ "jax": "0.11.2",
+ "n": 288,
+ "nproc": 16,
+ "reps": 8,
+ "tag": "tt-quietbox2-all",
+ "utc": "2026-09-26T15:39:27Z",
+ "warm": 3,
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false"
+}

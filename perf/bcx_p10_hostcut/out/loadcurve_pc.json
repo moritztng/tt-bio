@@ -1,0 +1,582 @@
+{
+ "affinity_cores": 12,
+ "arms": [
+  {
+   "forward": {
+    "max_wall_s": 0.2988,
+    "median_cores": 3.59,
+    "median_cpu_s": 0.9655,
+    "median_load1": 2.37,
+    "median_wall_s": 0.2635,
+    "min_wall_s": 0.2509,
+    "rows": [
+     {
+      "cores": 3.2938,
+      "cpu_s": 0.984,
+      "load1": 2.3721,
+      "wall_s": 0.2988
+     },
+     {
+      "cores": 3.5699,
+      "cpu_s": 0.9034,
+      "load1": 2.3721,
+      "wall_s": 0.2531
+     },
+     {
+      "cores": 3.8714,
+      "cpu_s": 0.9712,
+      "load1": 2.3721,
+      "wall_s": 0.2509
+     },
+     {
+      "cores": 3.7208,
+      "cpu_s": 0.9629,
+      "load1": 2.3721,
+      "wall_s": 0.2588
+     },
+     {
+      "cores": 3.6088,
+      "cpu_s": 0.9681,
+      "load1": 2.3721,
+      "wall_s": 0.2682
+     },
+     {
+      "cores": 3.4028,
+      "cpu_s": 0.9325,
+      "load1": 2.3721,
+      "wall_s": 0.274
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 1.1653,
+    "median_cores": 3.73,
+    "median_cpu_s": 4.189,
+    "median_load1": 2.32,
+    "median_wall_s": 1.1197,
+    "min_wall_s": 1.064,
+    "rows": [
+     {
+      "cores": 3.9545,
+      "cpu_s": 4.2078,
+      "load1": 1.3003,
+      "wall_s": 1.064
+     },
+     {
+      "cores": 3.7337,
+      "cpu_s": 4.1777,
+      "load1": 2.3174,
+      "wall_s": 1.1189
+     },
+     {
+      "cores": 3.7315,
+      "cpu_s": 4.2265,
+      "load1": 2.3174,
+      "wall_s": 1.1327
+     },
+     {
+      "cores": 3.7489,
+      "cpu_s": 4.2004,
+      "load1": 2.3174,
+      "wall_s": 1.1204
+     },
+     {
+      "cores": 3.5652,
+      "cpu_s": 3.9459,
+      "load1": 2.3174,
+      "wall_s": 1.1068
+     },
+     {
+      "cores": 3.3662,
+      "cpu_s": 3.9225,
+      "load1": 2.3721,
+      "wall_s": 1.1653
+     }
+    ]
+   },
+   "spinners": 0
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.4446,
+    "median_cores": 2.82,
+    "median_cpu_s": 0.8718,
+    "median_load1": 3.94,
+    "median_wall_s": 0.3257,
+    "min_wall_s": 0.229,
+    "rows": [
+     {
+      "cores": 3.1174,
+      "cpu_s": 0.9308,
+      "load1": 3.6738,
+      "wall_s": 0.2986
+     },
+     {
+      "cores": 3.7694,
+      "cpu_s": 0.8631,
+      "load1": 3.6738,
+      "wall_s": 0.229
+     },
+     {
+      "cores": 3.7547,
+      "cpu_s": 0.86,
+      "load1": 3.9404,
+      "wall_s": 0.2291
+     },
+     {
+      "cores": 1.9621,
+      "cpu_s": 0.8724,
+      "load1": 3.9404,
+      "wall_s": 0.4446
+     },
+     {
+      "cores": 2.1211,
+      "cpu_s": 0.8711,
+      "load1": 3.9404,
+      "wall_s": 0.4107
+     },
+     {
+      "cores": 2.5136,
+      "cpu_s": 0.8867,
+      "load1": 3.9404,
+      "wall_s": 0.3528
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 1.2919,
+    "median_cores": 3.11,
+    "median_cpu_s": 3.7756,
+    "median_load1": 3.67,
+    "median_wall_s": 1.2314,
+    "min_wall_s": 1.1813,
+    "rows": [
+     {
+      "cores": 3.08,
+      "cpu_s": 3.8075,
+      "load1": 3.5581,
+      "wall_s": 1.2362
+     },
+     {
+      "cores": 2.7746,
+      "cpu_s": 3.5845,
+      "load1": 3.5581,
+      "wall_s": 1.2919
+     },
+     {
+      "cores": 2.8672,
+      "cpu_s": 3.6555,
+      "load1": 3.6738,
+      "wall_s": 1.2749
+     },
+     {
+      "cores": 3.1309,
+      "cpu_s": 3.7436,
+      "load1": 3.6738,
+      "wall_s": 1.1957
+     },
+     {
+      "cores": 3.1455,
+      "cpu_s": 3.8583,
+      "load1": 3.6738,
+      "wall_s": 1.2266
+     },
+     {
+      "cores": 3.233,
+      "cpu_s": 3.8192,
+      "load1": 3.6738,
+      "wall_s": 1.1813
+     }
+    ]
+   },
+   "spinners": 3
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.3528,
+    "median_cores": 2.77,
+    "median_cpu_s": 0.7835,
+    "median_load1": 8.14,
+    "median_wall_s": 0.2758,
+    "min_wall_s": 0.2513,
+    "rows": [
+     {
+      "cores": 2.4593,
+      "cpu_s": 0.8676,
+      "load1": 8.1382,
+      "wall_s": 0.3528
+     },
+     {
+      "cores": 3.1704,
+      "cpu_s": 0.7968,
+      "load1": 8.1382,
+      "wall_s": 0.2513
+     },
+     {
+      "cores": 2.776,
+      "cpu_s": 0.7702,
+      "load1": 8.1382,
+      "wall_s": 0.2774
+     },
+     {
+      "cores": 2.7703,
+      "cpu_s": 0.7595,
+      "load1": 8.1382,
+      "wall_s": 0.2742
+     },
+     {
+      "cores": 2.6339,
+      "cpu_s": 0.8083,
+      "load1": 8.1382,
+      "wall_s": 0.3069
+     },
+     {
+      "cores": 2.8653,
+      "cpu_s": 0.7589,
+      "load1": 8.1382,
+      "wall_s": 0.2649
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 1.6198,
+    "median_cores": 2.16,
+    "median_cpu_s": 3.1411,
+    "median_load1": 8.06,
+    "median_wall_s": 1.4714,
+    "min_wall_s": 1.3858,
+    "rows": [
+     {
+      "cores": 2.0169,
+      "cpu_s": 3.2671,
+      "load1": 7.981,
+      "wall_s": 1.6198
+     },
+     {
+      "cores": 1.96,
+      "cpu_s": 3.0457,
+      "load1": 7.981,
+      "wall_s": 1.554
+     },
+     {
+      "cores": 2.1146,
+      "cpu_s": 3.0726,
+      "load1": 8.063,
+      "wall_s": 1.4531
+     },
+     {
+      "cores": 2.2124,
+      "cpu_s": 3.2957,
+      "load1": 8.063,
+      "wall_s": 1.4896
+     },
+     {
+      "cores": 2.2499,
+      "cpu_s": 3.118,
+      "load1": 8.063,
+      "wall_s": 1.3858
+     },
+     {
+      "cores": 2.1992,
+      "cpu_s": 3.1642,
+      "load1": 8.1382,
+      "wall_s": 1.4388
+     }
+    ]
+   },
+   "spinners": 6
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.4261,
+    "median_cores": 2.09,
+    "median_cpu_s": 0.767,
+    "median_load1": 12.24,
+    "median_wall_s": 0.3713,
+    "min_wall_s": 0.3326,
+    "rows": [
+     {
+      "cores": 1.9451,
+      "cpu_s": 0.8289,
+      "load1": 12.2432,
+      "wall_s": 0.4261
+     },
+     {
+      "cores": 2.18,
+      "cpu_s": 0.7426,
+      "load1": 12.2432,
+      "wall_s": 0.3406
+     },
+     {
+      "cores": 2.1847,
+      "cpu_s": 0.7267,
+      "load1": 12.2432,
+      "wall_s": 0.3326
+     },
+     {
+      "cores": 2.0021,
+      "cpu_s": 0.7646,
+      "load1": 12.2432,
+      "wall_s": 0.3819
+     },
+     {
+      "cores": 2.1985,
+      "cpu_s": 0.7928,
+      "load1": 12.2432,
+      "wall_s": 0.3606
+     },
+     {
+      "cores": 1.9219,
+      "cpu_s": 0.7694,
+      "load1": 12.2432,
+      "wall_s": 0.4003
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 1.8241,
+    "median_cores": 1.76,
+    "median_cpu_s": 2.9158,
+    "median_load1": 12.18,
+    "median_wall_s": 1.706,
+    "min_wall_s": 1.5042,
+    "rows": [
+     {
+      "cores": 1.8442,
+      "cpu_s": 3.1929,
+      "load1": 11.1475,
+      "wall_s": 1.7314
+     },
+     {
+      "cores": 1.7962,
+      "cpu_s": 2.8956,
+      "load1": 12.1768,
+      "wall_s": 1.6121
+     },
+     {
+      "cores": 1.6563,
+      "cpu_s": 2.8884,
+      "load1": 12.1768,
+      "wall_s": 1.7438
+     },
+     {
+      "cores": 1.6507,
+      "cpu_s": 3.0111,
+      "load1": 12.1768,
+      "wall_s": 1.8241
+     },
+     {
+      "cores": 1.717,
+      "cpu_s": 2.8855,
+      "load1": 12.2432,
+      "wall_s": 1.6806
+     },
+     {
+      "cores": 1.9519,
+      "cpu_s": 2.936,
+      "load1": 12.2432,
+      "wall_s": 1.5042
+     }
+    ]
+   },
+   "spinners": 9
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.5984,
+    "median_cores": 1.57,
+    "median_cpu_s": 0.7758,
+    "median_load1": 16.87,
+    "median_wall_s": 0.51,
+    "min_wall_s": 0.4298,
+    "rows": [
+     {
+      "cores": 1.4252,
+      "cpu_s": 0.8529,
+      "load1": 16.5991,
+      "wall_s": 0.5984
+     },
+     {
+      "cores": 1.4177,
+      "cpu_s": 0.7681,
+      "load1": 16.5991,
+      "wall_s": 0.5418
+     },
+     {
+      "cores": 1.8227,
+      "cpu_s": 0.7835,
+      "load1": 16.8716,
+      "wall_s": 0.4298
+     },
+     {
+      "cores": 1.2909,
+      "cpu_s": 0.7538,
+      "load1": 16.8716,
+      "wall_s": 0.5839
+     },
+     {
+      "cores": 1.706,
+      "cpu_s": 0.8158,
+      "load1": 16.8716,
+      "wall_s": 0.4782
+     },
+     {
+      "cores": 1.7336,
+      "cpu_s": 0.7655,
+      "load1": 16.8716,
+      "wall_s": 0.4416
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 2.6702,
+    "median_cores": 1.34,
+    "median_cpu_s": 3.0801,
+    "median_load1": 16.6,
+    "median_wall_s": 2.2849,
+    "min_wall_s": 2.1575,
+    "rows": [
+     {
+      "cores": 1.2509,
+      "cpu_s": 3.3403,
+      "load1": 15.5918,
+      "wall_s": 2.6702
+     },
+     {
+      "cores": 1.2234,
+      "cpu_s": 2.9326,
+      "load1": 15.5918,
+      "wall_s": 2.3971
+     },
+     {
+      "cores": 1.3671,
+      "cpu_s": 3.0588,
+      "load1": 16.8257,
+      "wall_s": 2.2375
+     },
+     {
+      "cores": 1.4375,
+      "cpu_s": 3.1013,
+      "load1": 16.8257,
+      "wall_s": 2.1575
+     },
+     {
+      "cores": 1.3481,
+      "cpu_s": 3.1443,
+      "load1": 16.5991,
+      "wall_s": 2.3323
+     },
+     {
+      "cores": 1.3354,
+      "cpu_s": 2.9432,
+      "load1": 16.5991,
+      "wall_s": 2.204
+     }
+    ]
+   },
+   "spinners": 12
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.5666,
+    "median_cores": 1.45,
+    "median_cpu_s": 0.7863,
+    "median_load1": 21.96,
+    "median_wall_s": 0.5354,
+    "min_wall_s": 0.4685,
+    "rows": [
+     {
+      "cores": 1.6204,
+      "cpu_s": 0.9181,
+      "load1": 21.9614,
+      "wall_s": 0.5666
+     },
+     {
+      "cores": 1.4378,
+      "cpu_s": 0.735,
+      "load1": 21.9614,
+      "wall_s": 0.5112
+     },
+     {
+      "cores": 1.4576,
+      "cpu_s": 0.8022,
+      "load1": 21.9614,
+      "wall_s": 0.5503
+     },
+     {
+      "cores": 1.4134,
+      "cpu_s": 0.772,
+      "load1": 21.9614,
+      "wall_s": 0.5462
+     },
+     {
+      "cores": 1.3803,
+      "cpu_s": 0.724,
+      "load1": 22.2051,
+      "wall_s": 0.5245
+     },
+     {
+      "cores": 1.709,
+      "cpu_s": 0.8007,
+      "load1": 22.2051,
+      "wall_s": 0.4685
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 3.0503,
+    "median_cores": 1.16,
+    "median_cpu_s": 2.9221,
+    "median_load1": 21.47,
+    "median_wall_s": 2.5648,
+    "min_wall_s": 2.2137,
+    "rows": [
+     {
+      "cores": 1.1541,
+      "cpu_s": 3.2119,
+      "load1": 20.6465,
+      "wall_s": 2.7829
+     },
+     {
+      "cores": 1.2021,
+      "cpu_s": 2.8802,
+      "load1": 21.1553,
+      "wall_s": 2.3959
+     },
+     {
+      "cores": 1.1682,
+      "cpu_s": 3.0046,
+      "load1": 21.1553,
+      "wall_s": 2.572
+     },
+     {
+      "cores": 0.9568,
+      "cpu_s": 2.9187,
+      "load1": 21.7837,
+      "wall_s": 3.0503
+     },
+     {
+      "cores": 1.1182,
+      "cpu_s": 2.8599,
+      "load1": 21.9614,
+      "wall_s": 2.5576
+     },
+     {
+      "cores": 1.3216,
+      "cpu_s": 2.9255,
+      "load1": 21.9614,
+      "wall_s": 2.2137
+     }
+    ]
+   },
+   "spinners": 18
+  }
+ ],
+ "host": "pc",
+ "n": 288,
+ "nproc": 12,
+ "reps": 6,
+ "settle_s": 90.0,
+ "utc": "2026-09-26T15:37:03Z",
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false"
+}

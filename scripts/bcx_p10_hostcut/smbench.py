@@ -82,8 +82,25 @@ def build(ref_path=REF, bc2=BC2, params_path=PARAMS, n_slice=None):
     return fwd, both, jnp.asarray(single), jnp.asarray(pair), n
 
 
+def cpu_mhz():
+    """Max `cpu MHz` across the visible cores, right now.
+
+    The device side of this campaign is not allowed to quote a second without the AICLK it was
+    taken at. The host side has the same hazard and nobody has been stamping it: the module
+    saturates at 3 cores, so its wall is set by how fast a core runs, and the fleet's three
+    boxes are a 2.45 GHz dense server part and two desktop parts near 5 GHz. Max rather than
+    mean, because 3 of 12 cores busy is the shape of this workload and the idle ones sit low.
+    """
+    try:
+        with open("/proc/cpuinfo") as fh:
+            vals = [float(line.split(":")[1]) for line in fh if line.startswith("cpu MHz")]
+        return round(max(vals), 1) if vals else None
+    except OSError:
+        return None
+
+
 def timed(fn, reps):
-    """One row per rep: wall, this process's CPU across all its threads, loadavg1."""
+    """One row per rep: wall, this process's CPU across all its threads, loadavg1, core MHz."""
     import jax
     rows = []
     for _ in range(reps):
@@ -91,8 +108,11 @@ def timed(fn, reps):
         out = fn()
         jax.block_until_ready(out)
         w = time.perf_counter() - w0
+        # Sampled DURING the timed window would perturb it; immediately after is the closest
+        # honest reading, and the module holds the core busy for the whole second before it.
         rows.append({"wall_s": w, "cpu_s": time.process_time() - c0,
-                     "cores": (time.process_time() - c0) / w, "load1": os.getloadavg()[0]})
+                     "cores": (time.process_time() - c0) / w, "load1": os.getloadavg()[0],
+                     "mhz": cpu_mhz()})
     return rows
 
 
@@ -103,4 +123,7 @@ def summary(rows):
             "median_cpu_s": round(statistics.median(r["cpu_s"] for r in rows), 4),
             "median_cores": round(statistics.median(r["cores"] for r in rows), 2),
             "median_load1": round(statistics.median(r["load1"] for r in rows), 2),
-            "rows": [{k: round(v, 4) for k, v in r.items()} for r in rows]}
+            "median_mhz": (round(statistics.median(r["mhz"] for r in rows), 1)
+                           if rows and rows[0]["mhz"] is not None else None),
+            "rows": [{k: (round(v, 4) if v is not None else None)
+                      for k, v in r.items()} for r in rows]}

@@ -20,7 +20,7 @@ run() {  # run <tag> <xla_flags> [taskset cpu spec]
 import json
 d=json.load(open('$OUT/$tag.json'))
 f,b=d['forward'],d['forward_and_backward']
-print('%-26s fwd %6.3f s %4.2f cores | fwd+bwd %6.3f s %4.2f cores | load1 %5.2f | aff %2d'
+print("%-26s fwd %6.3f s %4.2f cores | fwd+bwd %6.3f s %4.2f cores | load1 %5.2f | aff %2d'
       % (d['tag'], f['median_wall_s'], f['median_cores'],
          b['median_wall_s'], b['median_cores'], b['median_load1'], d['affinity_cores']))
 "

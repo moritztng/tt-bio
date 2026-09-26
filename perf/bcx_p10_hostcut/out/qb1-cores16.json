@@ -1,0 +1,120 @@
+{
+ "affinity_cores": 16,
+ "backward_implied_s": 1.4065,
+ "dtype": "float32",
+ "forward": {
+  "max_wall_s": 0.7206,
+  "median_cores": 3.08,
+  "median_cpu_s": 1.7469,
+  "median_load1": 12.18,
+  "median_mhz": 2999.7,
+  "median_wall_s": 0.5729,
+  "min_wall_s": 0.433,
+  "rows": [
+   {
+    "cores": 2.6424,
+    "cpu_s": 1.9039,
+    "load1": 12.373,
+    "mhz": 2899.8,
+    "wall_s": 0.7206
+   },
+   {
+    "cores": 3.3831,
+    "cpu_s": 1.4649,
+    "load1": 12.373,
+    "mhz": 2999.8,
+    "wall_s": 0.433
+   },
+   {
+    "cores": 3.3622,
+    "cpu_s": 1.5783,
+    "load1": 12.1826,
+    "mhz": 2999.8,
+    "wall_s": 0.4694
+   },
+   {
+    "cores": 3.0349,
+    "cpu_s": 1.5898,
+    "load1": 12.1826,
+    "mhz": 2949.8,
+    "wall_s": 0.5238
+   },
+   {
+    "cores": 3.0179,
+    "cpu_s": 2.0183,
+    "load1": 12.1826,
+    "mhz": 2999.8,
+    "wall_s": 0.6688
+   },
+   {
+    "cores": 3.1166,
+    "cpu_s": 1.9384,
+    "load1": 12.1826,
+    "mhz": 2999.5,
+    "wall_s": 0.6219
+   }
+  ]
+ },
+ "forward_and_backward": {
+  "max_wall_s": 2.3428,
+  "median_cores": 3.25,
+  "median_cpu_s": 6.4646,
+  "median_load1": 12.65,
+  "median_mhz": 2999.8,
+  "median_wall_s": 1.9794,
+  "min_wall_s": 1.7836,
+  "rows": [
+   {
+    "cores": 3.2725,
+    "cpu_s": 6.1298,
+    "load1": 12.1826,
+    "mhz": 2999.8,
+    "wall_s": 1.8731
+   },
+   {
+    "cores": 3.047,
+    "cpu_s": 7.1387,
+    "load1": 12.168,
+    "mhz": 2899.8,
+    "wall_s": 2.3428
+   },
+   {
+    "cores": 3.4525,
+    "cpu_s": 6.1577,
+    "load1": 12.168,
+    "mhz": 2999.8,
+    "wall_s": 1.7836
+   },
+   {
+    "cores": 2.963,
+    "cpu_s": 6.801,
+    "load1": 13.1157,
+    "mhz": 2995.5,
+    "wall_s": 2.2953
+   },
+   {
+    "cores": 3.2285,
+    "cpu_s": 6.0958,
+    "load1": 13.1157,
+    "mhz": 2999.8,
+    "wall_s": 1.8881
+   },
+   {
+    "cores": 3.2701,
+    "cpu_s": 6.7715,
+    "load1": 13.1157,
+    "mhz": 2999.8,
+    "wall_s": 2.0707
+   }
+  ]
+ },
+ "host": "tt-quietbox",
+ "jax": "0.11.2",
+ "n": 288,
+ "nproc": 32,
+ "reps": 6,
+ "tag": "qb1-cores16",
+ "utc": "2026-09-26T15:42:16Z",
+ "warm": 3,
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false"
+}

@@ -1,0 +1,565 @@
+{
+ "affinity_cores": 12,
+ "arms": [
+  {
+   "forward": {
+    "max_wall_s": 0.026,
+    "median_cores": 2.5,
+    "median_cpu_s": 0.0573,
+    "median_load1": 0.8,
+    "median_mhz": 3742.2,
+    "median_wall_s": 0.0227,
+    "min_wall_s": 0.0203,
+    "rows": [
+     {
+      "cores": 2.5104,
+      "cpu_s": 0.0652,
+      "load1": 0.8042,
+      "mhz": 3580.5,
+      "wall_s": 0.026
+     },
+     {
+      "cores": 2.5236,
+      "cpu_s": 0.0571,
+      "load1": 0.8042,
+      "mhz": 4987.9,
+      "wall_s": 0.0226
+     },
+     {
+      "cores": 2.4347,
+      "cpu_s": 0.0541,
+      "load1": 0.8042,
+      "mhz": 3374.2,
+      "wall_s": 0.0222
+     },
+     {
+      "cores": 2.4691,
+      "cpu_s": 0.0501,
+      "load1": 0.8042,
+      "mhz": 4648.5,
+      "wall_s": 0.0203
+     },
+     {
+      "cores": 2.4867,
+      "cpu_s": 0.0575,
+      "load1": 0.8042,
+      "mhz": 3904.0,
+      "wall_s": 0.0231
+     },
+     {
+      "cores": 2.5596,
+      "cpu_s": 0.0584,
+      "load1": 0.8042,
+      "mhz": 3178.7,
+      "wall_s": 0.0228
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 0.0573,
+    "median_cores": 2.77,
+    "median_cpu_s": 0.1464,
+    "median_load1": 0.8,
+    "median_mhz": 4317.8,
+    "median_wall_s": 0.0519,
+    "min_wall_s": 0.0459,
+    "rows": [
+     {
+      "cores": 2.7841,
+      "cpu_s": 0.1277,
+      "load1": 0.8042,
+      "mhz": 4673.6,
+      "wall_s": 0.0459
+     },
+     {
+      "cores": 2.7728,
+      "cpu_s": 0.1478,
+      "load1": 0.8042,
+      "mhz": 5027.8,
+      "wall_s": 0.0533
+     },
+     {
+      "cores": 2.8656,
+      "cpu_s": 0.145,
+      "load1": 0.8042,
+      "mhz": 4717.4,
+      "wall_s": 0.0506
+     },
+     {
+      "cores": 2.7551,
+      "cpu_s": 0.1314,
+      "load1": 0.8042,
+      "mhz": 3961.9,
+      "wall_s": 0.0477
+     },
+     {
+      "cores": 2.7073,
+      "cpu_s": 0.1507,
+      "load1": 0.8042,
+      "mhz": 2993.2,
+      "wall_s": 0.0557
+     },
+     {
+      "cores": 2.7611,
+      "cpu_s": 0.1583,
+      "load1": 0.8042,
+      "mhz": 2992.3,
+      "wall_s": 0.0573
+     }
+    ]
+   },
+   "n": 32,
+   "n_share_of_largest": 0.1111,
+   "wall_share_of_largest": 0.0444
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.0244,
+    "median_cores": 4.25,
+    "median_cpu_s": 0.0991,
+    "median_load1": 1.14,
+    "median_mhz": 4898.4,
+    "median_wall_s": 0.0234,
+    "min_wall_s": 0.0229,
+    "rows": [
+     {
+      "cores": 4.3081,
+      "cpu_s": 0.0993,
+      "load1": 0.8042,
+      "mhz": 4928.0,
+      "wall_s": 0.0231
+     },
+     {
+      "cores": 4.2606,
+      "cpu_s": 0.1002,
+      "load1": 1.1406,
+      "mhz": 4906.8,
+      "wall_s": 0.0235
+     },
+     {
+      "cores": 4.2912,
+      "cpu_s": 0.0982,
+      "load1": 1.1406,
+      "mhz": 4888.4,
+      "wall_s": 0.0229
+     },
+     {
+      "cores": 4.1621,
+      "cpu_s": 0.0989,
+      "load1": 1.1406,
+      "mhz": 4895.3,
+      "wall_s": 0.0238
+     },
+     {
+      "cores": 4.0805,
+      "cpu_s": 0.0994,
+      "load1": 1.1406,
+      "mhz": 4896.3,
+      "wall_s": 0.0244
+     },
+     {
+      "cores": 4.2362,
+      "cpu_s": 0.0989,
+      "load1": 1.1406,
+      "mhz": 4900.5,
+      "wall_s": 0.0234
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 0.0698,
+    "median_cores": 3.85,
+    "median_cpu_s": 0.2651,
+    "median_load1": 1.14,
+    "median_mhz": 4870.0,
+    "median_wall_s": 0.0679,
+    "min_wall_s": 0.066,
+    "rows": [
+     {
+      "cores": 4.1006,
+      "cpu_s": 0.2705,
+      "load1": 1.1406,
+      "mhz": 4901.6,
+      "wall_s": 0.066
+     },
+     {
+      "cores": 3.9296,
+      "cpu_s": 0.2704,
+      "load1": 1.1406,
+      "mhz": 4909.8,
+      "wall_s": 0.0688
+     },
+     {
+      "cores": 3.8179,
+      "cpu_s": 0.256,
+      "load1": 1.1406,
+      "mhz": 4858.9,
+      "wall_s": 0.0671
+     },
+     {
+      "cores": 3.8038,
+      "cpu_s": 0.2644,
+      "load1": 1.1406,
+      "mhz": 4879.5,
+      "wall_s": 0.0695
+     },
+     {
+      "cores": 3.8866,
+      "cpu_s": 0.2577,
+      "load1": 1.1406,
+      "mhz": 4860.2,
+      "wall_s": 0.0663
+     },
+     {
+      "cores": 3.8078,
+      "cpu_s": 0.2659,
+      "load1": 1.1406,
+      "mhz": 4860.5,
+      "wall_s": 0.0698
+     }
+    ]
+   },
+   "n": 64,
+   "n_share_of_largest": 0.2222,
+   "wall_share_of_largest": 0.0581
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.0702,
+    "median_cores": 6.09,
+    "median_cpu_s": 0.3483,
+    "median_load1": 1.14,
+    "median_mhz": 4868.6,
+    "median_wall_s": 0.057,
+    "min_wall_s": 0.0555,
+    "rows": [
+     {
+      "cores": 5.6456,
+      "cpu_s": 0.3963,
+      "load1": 1.1406,
+      "mhz": 4903.0,
+      "wall_s": 0.0702
+     },
+     {
+      "cores": 5.9859,
+      "cpu_s": 0.3422,
+      "load1": 1.1406,
+      "mhz": 4838.3,
+      "wall_s": 0.0572
+     },
+     {
+      "cores": 6.0232,
+      "cpu_s": 0.3474,
+      "load1": 1.1406,
+      "mhz": 4865.7,
+      "wall_s": 0.0577
+     },
+     {
+      "cores": 6.2935,
+      "cpu_s": 0.3493,
+      "load1": 1.1406,
+      "mhz": 4871.5,
+      "wall_s": 0.0555
+     },
+     {
+      "cores": 6.1819,
+      "cpu_s": 0.3455,
+      "load1": 1.1406,
+      "mhz": 4855.4,
+      "wall_s": 0.0559
+     },
+     {
+      "cores": 6.157,
+      "cpu_s": 0.3493,
+      "load1": 1.1406,
+      "mhz": 4875.1,
+      "wall_s": 0.0567
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 0.2288,
+    "median_cores": 4.84,
+    "median_cpu_s": 1.0261,
+    "median_load1": 1.14,
+    "median_mhz": 4920.7,
+    "median_wall_s": 0.2119,
+    "min_wall_s": 0.208,
+    "rows": [
+     {
+      "cores": 4.9374,
+      "cpu_s": 1.0272,
+      "load1": 1.1406,
+      "mhz": 4934.6,
+      "wall_s": 0.2081
+     },
+     {
+      "cores": 4.7491,
+      "cpu_s": 1.0052,
+      "load1": 1.1406,
+      "mhz": 4906.3,
+      "wall_s": 0.2117
+     },
+     {
+      "cores": 4.7404,
+      "cpu_s": 1.0169,
+      "load1": 1.1406,
+      "mhz": 4926.4,
+      "wall_s": 0.2145
+     },
+     {
+      "cores": 4.9283,
+      "cpu_s": 1.0455,
+      "load1": 1.1406,
+      "mhz": 4915.0,
+      "wall_s": 0.2121
+     },
+     {
+      "cores": 4.9283,
+      "cpu_s": 1.025,
+      "load1": 1.1289,
+      "mhz": 4939.0,
+      "wall_s": 0.208
+     },
+     {
+      "cores": 4.5976,
+      "cpu_s": 1.0521,
+      "load1": 1.1289,
+      "mhz": 4186.3,
+      "wall_s": 0.2288
+     }
+    ]
+   },
+   "n": 128,
+   "n_share_of_largest": 0.4444,
+   "wall_share_of_largest": 0.1813
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.1265,
+    "median_cores": 8.04,
+    "median_cpu_s": 0.9686,
+    "median_load1": 1.13,
+    "median_mhz": 4809.4,
+    "median_wall_s": 0.1184,
+    "min_wall_s": 0.1144,
+    "rows": [
+     {
+      "cores": 7.8119,
+      "cpu_s": 0.9842,
+      "load1": 1.1289,
+      "mhz": 4848.9,
+      "wall_s": 0.126
+     },
+     {
+      "cores": 7.7199,
+      "cpu_s": 0.9766,
+      "load1": 1.1289,
+      "mhz": 4806.5,
+      "wall_s": 0.1265
+     },
+     {
+      "cores": 7.9484,
+      "cpu_s": 0.9618,
+      "load1": 1.1289,
+      "mhz": 4809.8,
+      "wall_s": 0.121
+     },
+     {
+      "cores": 8.1293,
+      "cpu_s": 0.935,
+      "load1": 1.1289,
+      "mhz": 4797.5,
+      "wall_s": 0.115
+     },
+     {
+      "cores": 8.417,
+      "cpu_s": 0.9754,
+      "load1": 1.1289,
+      "mhz": 4809.0,
+      "wall_s": 0.1159
+     },
+     {
+      "cores": 8.3866,
+      "cpu_s": 0.9598,
+      "load1": 1.1289,
+      "mhz": 4831.3,
+      "wall_s": 0.1144
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 0.5013,
+    "median_cores": 4.79,
+    "median_cpu_s": 2.3599,
+    "median_load1": 1.2,
+    "median_mhz": 4873.2,
+    "median_wall_s": 0.4993,
+    "min_wall_s": 0.474,
+    "rows": [
+     {
+      "cores": 4.995,
+      "cpu_s": 2.3676,
+      "load1": 1.1289,
+      "mhz": 4874.3,
+      "wall_s": 0.474
+     },
+     {
+      "cores": 4.8786,
+      "cpu_s": 2.4375,
+      "load1": 1.1987,
+      "mhz": 4878.9,
+      "wall_s": 0.4996
+     },
+     {
+      "cores": 4.8563,
+      "cpu_s": 2.3585,
+      "load1": 1.1987,
+      "mhz": 4861.6,
+      "wall_s": 0.4857
+     },
+     {
+      "cores": 4.6875,
+      "cpu_s": 2.35,
+      "load1": 1.1987,
+      "mhz": 4872.2,
+      "wall_s": 0.5013
+     },
+     {
+      "cores": 4.732,
+      "cpu_s": 2.3614,
+      "load1": 1.1987,
+      "mhz": 4887.3,
+      "wall_s": 0.499
+     },
+     {
+      "cores": 4.7107,
+      "cpu_s": 2.3561,
+      "load1": 1.1987,
+      "mhz": 4852.4,
+      "wall_s": 0.5002
+     }
+    ]
+   },
+   "n": 192,
+   "n_share_of_largest": 0.6667,
+   "wall_share_of_largest": 0.4273
+  },
+  {
+   "forward": {
+    "max_wall_s": 0.2712,
+    "median_cores": 4.38,
+    "median_cpu_s": 1.0495,
+    "median_load1": 1.26,
+    "median_mhz": 4912.2,
+    "median_wall_s": 0.2376,
+    "min_wall_s": 0.2349,
+    "rows": [
+     {
+      "cores": 4.0572,
+      "cpu_s": 1.1004,
+      "load1": 1.2632,
+      "mhz": 5038.2,
+      "wall_s": 0.2712
+     },
+     {
+      "cores": 4.4164,
+      "cpu_s": 1.0569,
+      "load1": 1.2632,
+      "mhz": 4889.2,
+      "wall_s": 0.2393
+     },
+     {
+      "cores": 4.4224,
+      "cpu_s": 1.0422,
+      "load1": 1.2632,
+      "mhz": 4924.1,
+      "wall_s": 0.2357
+     },
+     {
+      "cores": 4.194,
+      "cpu_s": 1.0322,
+      "load1": 1.2632,
+      "mhz": 4913.6,
+      "wall_s": 0.2461
+     },
+     {
+      "cores": 4.5497,
+      "cpu_s": 1.0689,
+      "load1": 1.2632,
+      "mhz": 4910.9,
+      "wall_s": 0.2349
+     },
+     {
+      "cores": 4.3453,
+      "cpu_s": 1.0252,
+      "load1": 1.2632,
+      "mhz": 4866.5,
+      "wall_s": 0.2359
+     }
+    ]
+   },
+   "forward_and_backward": {
+    "max_wall_s": 1.2146,
+    "median_cores": 3.85,
+    "median_cpu_s": 4.4333,
+    "median_load1": 1.32,
+    "median_mhz": 4928.5,
+    "median_wall_s": 1.1686,
+    "min_wall_s": 1.0951,
+    "rows": [
+     {
+      "cores": 3.7023,
+      "cpu_s": 4.0909,
+      "load1": 1.2632,
+      "mhz": 4904.7,
+      "wall_s": 1.105
+     },
+     {
+      "cores": 3.6688,
+      "cpu_s": 4.3484,
+      "load1": 1.3223,
+      "mhz": 4924.8,
+      "wall_s": 1.1853
+     },
+     {
+      "cores": 3.8319,
+      "cpu_s": 4.6142,
+      "load1": 1.3223,
+      "mhz": 4929.6,
+      "wall_s": 1.2042
+     },
+     {
+      "cores": 3.8889,
+      "cpu_s": 4.7235,
+      "load1": 1.3223,
+      "mhz": 4930.3,
+      "wall_s": 1.2146
+     },
+     {
+      "cores": 3.8742,
+      "cpu_s": 4.4631,
+      "load1": 1.3223,
+      "mhz": 4927.3,
+      "wall_s": 1.152
+     },
+     {
+      "cores": 4.0213,
+      "cpu_s": 4.4035,
+      "load1": 1.377,
+      "mhz": 4935.3,
+      "wall_s": 1.0951
+     }
+    ]
+   },
+   "n": 288,
+   "n_share_of_largest": 1.0,
+   "wall_share_of_largest": 1.0
+  }
+ ],
+ "host": "pc",
+ "nproc": 12,
+ "reps": 6,
+ "utc": "2026-09-26T15:43:27Z",
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false"
+}
