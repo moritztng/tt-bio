@@ -41,6 +41,8 @@ def main():
     ap.add_argument('--reps', type=int, default=300)
     ap.add_argument('--drain', type=int, default=20)
     ap.add_argument('--out', default='decomp_n288.json')
+    ap.add_argument('--compact', type=int, default=0,
+                    help='arm tt_bio.genq\'s cheap dispatch path for this process')
     ap.add_argument('--params', default=D.A.DEFAULT_PARAMS)
     ap.add_argument('--threads', type=int, default=8)
     args = ap.parse_args()
@@ -50,6 +52,8 @@ def main():
     import ttnn
     from tt_bio import rne_add as RA
     from tt_bio import reblock_permute as RP
+    from tt_bio import genq
+    genq.set_compact(bool(args.compact))
     _lv, _dev, _ref = S.open_all(args)
     dev = _dev.device
     clock = S.Clock()
@@ -121,6 +125,11 @@ def main():
 
     # ---- the whole call, and the stock ops it is measured against ----
     res['rne_add_full'] = timed('rne_add full (5 stages)', lambda: RA.rne_add(a, b, mc))
+
+    def prealloc_full():
+        RA.rne_add(a, b, mc, out=out_t)    # the caller owns `out`; the allocator is off the path
+
+    res['rne_add_preallocated'] = timed('rne_add full, dest preallocated', prealloc_full)
     res['reblock_permute_full'] = timed('reblock_permute full',
                                         lambda: RP.reblock_permute(chan, mc))
     res['stock_add'] = timed('ttnn.add', lambda: ttnn.add(a, b, memory_config=mc))
@@ -131,6 +140,8 @@ def main():
 
     ttnn.deallocate(out_t)
     blob = {'stamp': S.stamp(args, clock), 'n': N, 'c': C, 'reps': args.reps,
+            'compact': bool(args.compact), 'compact_entry': entry['compact'],
+            'genq_refused': dict(genq.REFUSED), 'num_cores': entry['num_cores'],
             'drain': args.drain, 'addr_write_mode': RA.ADDR_WRITE_MODE,
             'aiclk': clock.window(spans), 'stages': res}
     clock.stop()

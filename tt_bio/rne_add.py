@@ -151,13 +151,27 @@ def _split_plan(device, units):
     return _SPLIT_CACHE[key]
 
 
-def _cache_key(a, out, device, reader_ct, writer_ct):
+def _cache_key(a, b, out, device):
+    """What decides which cached program serves this call, built only from cheap reads.
+
+    This runs on EVERY dispatch, so what it costs is what every call costs. The obvious spelling
+    -- `str(memory_config())` on both operands and the tuple of compile-time accessor args --
+    read 0.0079 ms a call at 130 cores, more than the dispatch it was guarding once the dispatch
+    got cheap (`state/perf10/bcx-GENQ.md` leg 4). Formatting a `MemoryConfig` into a string is
+    the bulk of it.
+
+    Enum members are hashable and compare by identity, so the buffer type and memory layout carry
+    the same distinction at the price of an attribute read. The accessor compile-time args are
+    NOT in the key: they are a pure function of the dtype, layout, shape and memory config that
+    are, so keying on them would be keying twice, and they are built only on a miss.
+    """
+    mca, mcb, mco = a.memory_config(), b.memory_config(), out.memory_config()
     g = device.compute_with_storage_grid_size()
     return (
-        device.id(), _tile_count(a), str(a.dtype), str(a.layout),
-        str(a.memory_config()), str(out.memory_config()),
-        g.x, g.y, tuple(reader_ct), tuple(writer_ct),
-        ADD_MODE, ROUND_MODE, _gran(), str(OUT_DTYPE), genq.compact(),
+        device.id(), _tile_count(a), a.dtype, a.layout, b.dtype, b.layout,
+        mca.buffer_type, mca.memory_layout, mcb.buffer_type, mcb.memory_layout,
+        mco.buffer_type, mco.memory_layout, g.x, g.y,
+        ADD_MODE, ROUND_MODE, _gran(), OUT_DTYPE, genq.compact(),
     )
 
 
@@ -254,15 +268,21 @@ def _build(a, out, device, reader_ct, writer_ct):
 
 
 def _prepare(a, b, out, device):
+    entry = _CACHE.get(_cache_key(a, b, out, device))
+    if entry is None:
+        entry = _build_entry(a, b, out, device)
+    return entry
+
+
+def _build_entry(a, b, out, device):
+    """The miss path. Everything here is built once per (shape, placement, mode), never per call."""
     reader_ct = [_gran()]
     reader_ct.extend(ttnn.TensorAccessorArgs(a).get_compile_time_args())
     reader_ct.extend(ttnn.TensorAccessorArgs(b).get_compile_time_args())
     writer_ct = [_gran()]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
-    key = _cache_key(a, out, device, reader_ct, writer_ct)
-    entry = _CACHE.get(key)
-    if entry is None:
-        entry = _CACHE[key] = _build(a, out, device, reader_ct, writer_ct)
+    entry = _build(a, out, device, reader_ct, writer_ct)
+    _CACHE[_cache_key(a, b, out, device)] = entry
     return entry
 
 
