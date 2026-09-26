@@ -28,6 +28,7 @@ from pathlib import Path
 import ttnn
 
 from . import core_split
+from . import genq
 from .envflags import env_flag
 from . import ops as _ops
 
@@ -147,6 +148,27 @@ WALK = os.environ.get("TT_BIO_REBLOCK_WALK", "block")
 _NO_WRAP = 0xFFFFFFFF
 
 
+def _index_of(assign, cx, cy):
+    """This core's position in the placement loop's own order."""
+    return list(assign).index((cx, cy))
+
+
+def _genq_ct(assign, core_grid, shape_words):
+    """The compile-time block the cheap dispatch path needs, or eleven zeros for the old path.
+
+    Refused unless ``WALK`` is ``block``. The other two walks make ``first_group`` depend on the
+    core's index in a way the slice alone does not carry, and both are measured, off by default
+    and documented above as staying off; a mode this cannot express keeps its per-core args.
+    """
+    if not genq.compact():
+        return [0] * 11
+    if WALK != "block":
+        genq.REFUSED["walk_" + WALK] = genq.REFUSED.get("walk_" + WALK, 0) + 1
+        return [0] * 11
+    plan = genq.compact_plan(assign, core_grid)
+    return ([1] + plan + shape_words) if plan else [0] * 11
+
+
 def _walk(mode, i, block, per_core, num_cores):
     """``(first_group, group_stride, group_wrap_hi, group_wrap_lo)`` for linear core index ``i``.
 
@@ -200,7 +222,7 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y, WALK,
+        g.x, g.y, WALK, genq.compact(),
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -235,36 +257,43 @@ def _build(x, out, device, reader_ct, writer_ct):
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
     # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
-    first, placed, block = 0, 0, 0
+    assign, first, placed, block = {}, 0, 0, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
-                    reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
-                    writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
+                    assign[(cx, cy)] = (block, per_core)
                     first += 1
                     block += per_core
                     placed += per_core
     assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
+    genq_ct = _genq_ct(assign, core_grid, [Nt, N, Ct])
+    if genq_ct[0] == 0:
+        for (cx, cy), (blk, per_core) in assign.items():
+            i = _index_of(assign, cx, cy)
+            g0, gs, ghi, glo = _walk(WALK, i, blk, per_core, num_cores)
+            reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
+            compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
+            writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
+    compute_ct = [IN_CB, OUT_CB] + genq_ct[:8] + [GROUP_TILES * Ct]
+
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=reader_ct + genq_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=writer_ct + genq_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=[IN_CB, OUT_CB], runtime_args=compute_rt,
+        core_ranges=core_grid, compile_time_args=compute_ct, runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=ttnn.MathFidelity.HiFi2, fp32_dest_acc_en=True
         ),
@@ -475,7 +504,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y, WALK,
+        g.x, g.y, WALK, genq.compact(),
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -513,30 +542,37 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
     # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
-    first, placed, block = 0, 0, 0
+    assign, first, placed, block = {}, 0, 0, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
-                    reader_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
+                    assign[(cx, cy)] = (block, per_core)
                     first += 1
                     block += per_core
                     placed += per_core
     assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
+    genq_ct = _genq_ct(assign, core_grid, [Nt, 0, Ct])
+    if genq_ct[0] == 0:
+        for (cx, cy), (blk, per_core) in assign.items():
+            i = _index_of(assign, cx, cy)
+            g0, gs, ghi, glo = _walk(WALK, i, blk, per_core, num_cores)
+            reader_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
+            compute_rt[cx][cy] = [per_core * GROUP_TILES]
+            writer_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
+    compute_ct = [IN_CB, OUT_CB] + genq_ct[:8] + [GROUP_TILES]
+
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "reader_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=reader_ct + genq_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=writer_ct + genq_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
@@ -544,7 +580,7 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=[IN_CB, OUT_CB], runtime_args=compute_rt,
+        core_ranges=core_grid, compile_time_args=compute_ct, runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=ttnn.MathFidelity.HiFi2, fp32_dest_acc_en=True
         ),
@@ -782,7 +818,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED / "reader_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=reader_ct + genq_ct, runtime_args=reader_rt,
         common_runtime_args=[0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
     )
     # The writer is a fork of the ungated one: same gather, same staging, same DRAM write, but the
@@ -790,7 +826,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED / "writer_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=writer_ct + genq_ct, runtime_args=writer_rt,
         common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(

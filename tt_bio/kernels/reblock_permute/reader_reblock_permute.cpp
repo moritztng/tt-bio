@@ -25,14 +25,16 @@
 // device-wedge cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
 
+#include "../genq/genq_split.h"
+
 void kernel_main() {
     // src_addr is the ONLY value that changes between calls at a fixed (N, C, buffer type, grid), so
     // it lives in the common runtime args: everything else is a pure function of the shape and the
     // work split, which lets the host cache the whole ProgramDescriptor and rewrite two scalars.
     const uint32_t src_addr = get_common_arg_val<uint32_t>(0);
-    const uint32_t first_group = get_arg_val<uint32_t>(0);
-    const uint32_t num_groups = get_arg_val<uint32_t>(1);
-    const uint32_t Nt = get_arg_val<uint32_t>(2);
+    const uint32_t first_group = (GQ_ON ? (gq.first) : get_arg_val<uint32_t>(0));
+    const uint32_t num_groups = (GQ_ON ? (gq.num) : get_arg_val<uint32_t>(1));
+    const uint32_t Nt = (GQ_ON ? (get_compile_time_arg_val(GQ + 8)) : get_arg_val<uint32_t>(2));
     // D1 is the LOGICAL length of the permuted axis. The fold runs this op at 298, not at a
     // multiple of 32, so the last row-group is ragged: rows [288, 298) are real and [298, 320) are
     // tile padding. Reading a real page for the padding rows keeps the group a fixed 32 pushes --
@@ -42,8 +44,8 @@ void kernel_main() {
     // The valid rows and the padding rows are two separate loops rather than one loop with a
     // per-row test: the same-shaped conditional in the writer's gather loop measured 10.7 us on a
     // 97 us op, and the page index is an induction variable (+Nt*Ct per row) once the test is gone.
-    const uint32_t D1 = get_arg_val<uint32_t>(3);
-    const uint32_t Ct = get_arg_val<uint32_t>(4);
+    const uint32_t D1 = (GQ_ON ? (get_compile_time_arg_val(GQ + 9)) : get_arg_val<uint32_t>(3));
+    const uint32_t Ct = (GQ_ON ? (get_compile_time_arg_val(GQ + 10)) : get_arg_val<uint32_t>(4));
     // The group walk is (first, stride, wrap), not (start, +1), and that is a bandwidth decision.
     // Interleaved DRAM puts page p in bank p % 8 and every page of group g is congruent to g, so
     // the cores running their i-th group together land on banks {first_k + i*stride}. A plain
@@ -56,14 +58,28 @@ void kernel_main() {
     // A core walks `num_groups` steps of `group_stride` from `first_group`, folding back to
     // `group_wrap_lo` whenever it reaches `group_wrap_hi`. Blocked order is stride 1 and a wrap
     // that never fires, so all three modes are this one loop.
-    const uint32_t group_stride = get_arg_val<uint32_t>(5);
-    const uint32_t group_wrap_hi = get_arg_val<uint32_t>(6);
-    const uint32_t group_wrap_lo = get_arg_val<uint32_t>(7);
+    const uint32_t group_stride = (GQ_ON ? (1u) : get_arg_val<uint32_t>(5));
+    const uint32_t group_wrap_hi = (GQ_ON ? (0xFFFFFFFFu) : get_arg_val<uint32_t>(6));
+    const uint32_t group_wrap_lo = (GQ_ON ? (0u) : get_arg_val<uint32_t>(7));
 
     constexpr uint32_t cb_id_in = 0;  // c_0
     constexpr uint32_t TILE_HEIGHT = 32;
 
     constexpr auto src_args = TensorAccessorArgs<0>();
+
+    // The cheap dispatch path. Under GENQ_COMPACT this kernel's slice of the group split is
+    // recomputed from its own logical coordinates, so the descriptor carries no per-core runtime
+    // args and the dispatch costs a third of what it costs with them (`tt_bio/genq.py`). The
+    // shape words and the walk constants are compile-time: with WALK="block" -- the only mode the
+    // host arms this for -- `_walk` returns (block, 1, NO_WRAP, 0), and `block` IS the slice.
+    constexpr uint32_t GQ = src_args.next_compile_time_args_offset();
+    constexpr uint32_t GQ_ON = get_compile_time_arg_val(GQ);
+    const genq::Slice gq = genq::slice<
+        get_compile_time_arg_val(GQ + 1), get_compile_time_arg_val(GQ + 2),
+        get_compile_time_arg_val(GQ + 3), get_compile_time_arg_val(GQ + 4),
+        get_compile_time_arg_val(GQ + 5), get_compile_time_arg_val(GQ + 6),
+        get_compile_time_arg_val(GQ + 7)>(get_absolute_logical_x(), get_absolute_logical_y());
+
     const auto s = TensorAccessor(src_args, src_addr);
 
     constexpr uint32_t onetile = 1;

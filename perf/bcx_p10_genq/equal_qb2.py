@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT))
 
 import ttnn                                                            # noqa: E402
 from tt_bio import rne_add as RA                                       # noqa: E402
+from tt_bio import reblock_permute as RP                               # noqa: E402
 from tt_bio import genq                                                # noqa: E402
 from tt_bio.main import ensure_p300_mesh_descriptor                    # noqa: E402
 
@@ -90,6 +91,44 @@ def main():
             print(f'{name:16s} {json.dumps(r)}', flush=True)
             for t in (a, b):
                 ttnn.deallocate(t)
+        # The movement family. `bcx-p10-trimove`'s lever is these two kernels, and leg 6 only
+        # means anything if the cheap path computes the same index move they already did.
+        RP.set_enabled(True) if hasattr(RP, 'set_enabled') else None
+        moves = {'move_n288_c128': ((1, 288, 288, 128), 'fwd'),
+                 'move_n320_c64': ((1, 320, 320, 64), 'fwd'),
+                 'moveback_n288_c128': ((1, 128, 288, 288), 'back'),
+                 'moveback_n320_c64': ((1, 64, 320, 320), 'back')}
+        for name, (shape, leg) in moves.items():
+            t = torch.randn(*shape)
+            x = up(t)
+            before = ttnn.to_torch(x).clone()
+            fn = RP.reblock_permute if leg == 'fwd' else RP.reblock_permute_back
+            got, reach = {}, {}
+            for tag, compact in (('off', False), ('on', True), ('off2', False)):
+                genq.set_compact(compact)
+                out = fn(x, mc)
+                ttnn.synchronize_device(dev)
+                got[tag] = ttnn.to_torch(out).clone()
+                reach[tag] = compact
+                ttnn.deallocate(out)
+            # The stock ttnn spelling of the same index move, as the reference neither arm is.
+            dims = (0, 3, 1, 2) if leg == 'fwd' else (0, 2, 3, 1)
+            ref = ttnn.permute(x, dims, memory_config=mc)
+            ttnn.synchronize_device(dev)
+            ref_t = ttnn.to_torch(ref).clone()
+            ttnn.deallocate(ref)
+            r = {'shape': list(shape), 'leg': leg,
+                 'on_equals_off': bool(torch.equal(got['on'], got['off'])),
+                 'aa_control_off_equals_off2': bool(torch.equal(got['off'], got['off2'])),
+                 'on_equals_ttnn_permute': bool(torch.equal(got['on'], ref_t)),
+                 'inputs_unchanged': [bool(torch.equal(before, ttnn.to_torch(x)))],
+                 'plan_taken': reach}
+            r['pass'] = (r['on_equals_off'] and r['aa_control_off_equals_off2']
+                         and r['on_equals_ttnn_permute'] and all(r['inputs_unchanged']))
+            ok = ok and r['pass']
+            res[name] = r
+            print(f'{name:20s} {json.dumps(r)}', flush=True)
+            ttnn.deallocate(x)
     finally:
         ttnn.close_device(dev)
 
