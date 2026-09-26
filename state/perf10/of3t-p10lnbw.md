@@ -103,7 +103,10 @@ device-native runs split 6 blown-both / 3 fine-both / 1 mixed, so a single arm m
 | **fixed, n=9** | **10.788–10.871** | **2.463–2.482** | 9.221–9.264 | 2.154–4.720 | 6.172–6.828 | nine values |
 
 **Nine of nine fine on both damaged targets**, against 3 of 10 for the device-native arm.
-Fisher one-sided **p = 0.0024**. 7vus reads 2.463–2.482 where the brief's damaged value is
+Fisher one-sided **p = 0.0024**. These arms carry **zero exact ops**: `exact_ops` reads `[]` in all
+nine records, which `trainarm.py:248` takes from `ag.exact_training_ops()` rather than from the
+argument and refuses the run if the two disagree. They cost **114.4-123.9 s** where the exact arm
+costs 3938 s, so the 34x is not paid, it is recovered. 7vus reads 2.463–2.482 where the brief's damaged value is
 5.645047 and the start is 2.451977, so the whole spread lands nearer the start than the exact
 trunk's own 2.479054 does. 7ohe reads 10.788–10.871 against a blown 18.9 and an exact 10.829.
 
@@ -117,6 +120,16 @@ untouched, which is what a backward-only change has to show before any of the re
 a target finding a better mode a third of the time, not damage. It is also the thing that drags
 the nine-arm mean (6.438) below the start checkpoint (6.802). 7fb8 is not one of the two targets
 this row was sent to heal and the row does not claim to have explained its trimodality.
+
+## What this enables, and who decides it
+
+`README.md:1022` and `docs/training.md:543` say a training step runs softmax and layer norm in
+float64 on the host by default. That default is the 34x, and it is still on: this row did not
+touch it, and the docs match the code as shipped. What the nine arms say is that the net it
+provides for layer norm is no longer catching anything, at n=9 on a two-step arm with a four-target
+held-out set. Turning it off is an accuracy-affecting default change, it is jointly held with
+softmax (`of3t-p10smbw`), and n=9 two-step arms are not a convergence proof, so the call belongs to
+the campaign and not to this row. Flagged, not flipped.
 
 ## What this row does not claim
 
@@ -141,6 +154,12 @@ with the constant fixed, the nondeterminism no longer reaches a mode that blows 
 | `2cfdf8193` | `perf/of3t_p10trainout/{armrun.sh,trainarm.py}` | the arm runs from the worktree it is in, and refuses a `tt_bio` resolved from anywhere else |
 | `b4b01f613` | `perf/of3t_stepfloor/fullstep.py` | a scalar write clobbered `row["mem_available_gib"]` one line before `_mark()` indexed it, so every run died with a `TypeError` after the first backward |
 | `d2d75496b` | `perf/of3t_stepfloor/out/` | the 13-rep step A/B |
+
+## Tests
+
+`tests/test_perf_citations.py` 461 passed. The card-pinned autograd/tape/training subset
+(`test_autograd_reference_gate`, `test_exact_training_default`, `test_of3_training_equivalence`,
+the five `test_tape_*`, `test_constraint_plumbing`) 109 passed on qb2 card 1, `d2d75496b`.
 
 ## Traps paid for here
 
