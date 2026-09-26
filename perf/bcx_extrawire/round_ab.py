@@ -41,14 +41,19 @@ import traceback
 
 HERE = pathlib.Path(__file__).resolve().parent
 _ROOT = HERE.parents[1]
+BC2 = os.environ.get("BCX_BC2", "/home/ttuser/bcx_e2e/bc2")
+# BC2 belongs here and not beside the first `import bindcraft` in main(): every other harness on
+# this campaign reaches BindCraft 2 through `bcx_predictor/bc2_state.py`, which inserts it at
+# import (`bc2_state.py:11-13`). This one imports only `meter`, so it inherited the path from
+# whatever shell ran it and died with ModuleNotFoundError in a clean detached environment -- after
+# --dry-run had passed, because that run had BC2 on PYTHONPATH already.
 for _p in (str(_ROOT / "perf" / "bcx_round"), str(_ROOT / "perf" / "bcx_predictor"),
-           str(_ROOT)):
+           str(_ROOT), BC2):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 import meter as M                                                       # noqa: E402
 
-BC2 = os.environ.get("BCX_BC2", "/home/ttuser/bcx_e2e/bc2")
 MONOMER = ("model_1_ptm", "model_2_ptm")
 
 #: Read at TRACE time by the layer_stack dispatcher, set at the round boundary.

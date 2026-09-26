@@ -155,13 +155,21 @@ class _Trunk:
         `proj_o.bias / eps` -- which is exactly the `opm_constant` injected here.
         """
         model = self.model
+
+        # Built per execution, never captured. `_residual` DEALLOCATES its `update` operand
+        # (`af2.py:346,350`), and under `recompute` the checkpoint runs this same closure a
+        # second time in the backward, so a constant hoisted out of the loop body is a freed
+        # buffer by then and `ttnn.typecast` raises "Buffer is not allocated". The Evoformer
+        # loop above has no such operand, which is why only this stack broke.
+        def const(index):
+            return model._up(model.opm_constant[index].reshape(1, 1, -1))
+
         for index, block in enumerate(model.device_extra_msa):
-            const = model._up(model.opm_constant[index].reshape(1, 1, -1))
             if recompute:
                 z = self.ag.checkpoint(
-                    lambda t, blk=block, c=const: blk(blk._residual(t, c), *pair_masks), z)
+                    lambda t, blk=block, i=index: blk(blk._residual(t, const(i)), *pair_masks), z)
             else:
-                z = block(block._residual(z, const), *pair_masks)
+                z = block(block._residual(z, const(index)), *pair_masks)
         return z
 
     def seed(self, t: torch.Tensor, like):
