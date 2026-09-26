@@ -70,6 +70,25 @@ def _dram(dev):
     return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
 
 
+def _dram_free(dev):
+    """(largest contiguous free, total free), both in bytes across all banks.
+
+    The peak allocation is NOT what an arm is refused on. `of3t-p10wall` died at 48 replicates
+    with 12,713,984 B refused while 115 MB was free and the largest block was 908 KB, so the
+    figure that decides whether the accurate configuration fits is the largest CONTIGUOUS block,
+    which is what an interleaved allocation is actually placed into. Same idiom as
+    `tenstorrent.py:5860`: the per-bank minimum times the banks, because a bank that cannot take
+    its share refuses the whole placement.
+    """
+    import ttnn
+    mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
+    lcf = mv.largest_contiguous_bytes_free_per_bank
+    lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+    tf = mv.total_bytes_free_per_bank
+    tf = min(tf) if isinstance(tf, (list, tuple)) else tf
+    return int(lcf) * int(mv.num_banks), int(tf) * int(mv.num_banks)
+
+
 def _mem_available_gib():
     """Host MemAvailable, beside every timing that has a host half.
 
@@ -871,6 +890,7 @@ def main() -> int:
                 seed_rep = 0 if a.grad_ab else rep
                 rng_diff = np.random.default_rng(SEED + seed_rep)
                 rng_loss = np.random.default_rng(SEED + 10_000 + seed_rep)
+                min_lcf = 1 << 62
                 dbw = bplan[rep % len(bplan)] if bplan else a.dit_batch
                 row = {"rep": rep, "cold": rep == 0, "dit_batch": dbw}
                 # In `reps` from the start, so the per-chunk `dump()` inside a 12-chunk step
@@ -955,6 +975,7 @@ def main() -> int:
                         diff_s += time.perf_counter() - t0
                         row["dram_after_diffusion"] = _dram(dev)
                         peak_dram = row["dram_after_diffusion"]
+                        min_lcf = min(min_lcf, _dram_free(dev)[0])
                     print("  [tape] leaving the tape context", flush=True)
 
                 print("  [tape] left the tape context", flush=True)
@@ -998,7 +1019,9 @@ def main() -> int:
                         c["diffusion_s"] = round(time.perf_counter() - t0, 3)
                         diff_s += c["diffusion_s"]
                         c["dram_after_diffusion"] = _dram(dev)
+                        c["dram_largest_free_after_diffusion"], c["dram_total_free_after_diffusion"] = _dram_free(dev)
                         peak_dram = max(peak_dram, c["dram_after_diffusion"])
+                        min_lcf = min(min_lcf, c["dram_largest_free_after_diffusion"])
 
                         t0 = time.perf_counter()
                         if labels is None:
@@ -1026,12 +1049,15 @@ def main() -> int:
                         roots = None
                         gc.collect()
                         c["dram_after_backward"] = _dram(dev)
+                        c["dram_largest_free_after_backward"], c["dram_total_free_after_backward"] = _dram_free(dev)
+                        min_lcf = min(min_lcf, c["dram_largest_free_after_backward"])
                         c["mem_available_gib"] = _mem_available_gib()
                         chunks.append(c)
                         print(f"  [chunk {len(chunks)}] {c['n']} replicates  "
                               f"fwd {c['diffusion_s']:.2f}s  loss {c['losses_s']:.2f}s  "
                               f"bwd {c['backward_s']:.2f}s  {c['tape_nodes']} nodes  "
                               f"dram {c['dram_after_diffusion'] / 1e9:.2f} GB  "
+                              f"lcf {c['dram_largest_free_after_backward'] / 1e6:.1f} MB  "
                               f"memavail {c['mem_available_gib']} GiB", flush=True)
                         row["chunks"] = chunks
                         dump()
@@ -1105,11 +1131,15 @@ def main() -> int:
                 row["seed_upload_s"] = round(seed_s, 3)
                 row["backward_s"] = round(bwd_s, 3)
                 row["dram_peak"] = peak_dram
+                # The low-water mark of the largest contiguous block over the whole step. This,
+                # not the peak, is what the accuracy-matched arm is refused on.
+                row["dram_largest_free_min"] = min_lcf
                 row["mem_available_gib"] = _mem_available_gib()
                 got = sum(1 for t in params.values() if getattr(t, "grad", None) is not None)
                 row["params_with_grad"] = f"{got} of {len(params)}"
                 row["backward_valid"] = bool(got) or a.no_tape
                 row["dram_after_backward"] = _dram(dev)
+                row["dram_largest_free_after_backward"], row["dram_total_free_after_backward"] = _dram_free(dev)
 
                 if a.grad_ab:
                     grad_ab = grad_snapshot(params, grad_ab, row,
