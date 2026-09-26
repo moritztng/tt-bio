@@ -39,7 +39,7 @@ def count_chunk_widths(T, widths):
 
     def w(seq_len, hidden, batch=1):
         c = real(seq_len, hidden, batch)
-        widths[(int(seq_len), int(hidden), int(c))] += 1
+        widths["%dx%d->c%d" % (int(seq_len), int(hidden), int(c))] += 1
         return c
     T._trimul_chunk_size = w
     return real
@@ -96,7 +96,7 @@ def main():
                 r, _ = S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)
                 timer.on = False
                 snap = timer.take()
-                reach[arm].update({'%dx%d->c%d' % k: v for k, v in widths.items()})
+                reach[arm].update(widths)
                 aiclks.append(clock.window(r['spans']))
                 loads.append(round(os.getloadavg()[0], 2))
                 for f in ('wall', 'calls', 'read', 'written'):
