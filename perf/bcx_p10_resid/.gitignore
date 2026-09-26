@@ -3,3 +3,8 @@ out/resid_s100/.campaign_state.json
 out/ckpt_ab/1_Trajectories/
 out/ckpt_ab/.campaign_state.json
 out/ckpt_ab/run.log
+out/host_swapped/1_Trajectories/
+out/host_swapped/.campaign_state.json
+out/host_swapped/run.log
+out/host_swapped/trace/
+out/host_swapped/hlo/
