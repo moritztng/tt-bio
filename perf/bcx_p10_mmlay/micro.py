@@ -102,10 +102,18 @@ def call(ttnn, path, args, kwargs):
 
 
 def timed(ttnn, dev, path, args, kwargs, reps):
-    """Median synced wall over `reps`, warm. Returns (seconds, bytes) or raises."""
+    """Median synced wall over `reps`, warm. Returns (seconds, bytes, result) or raises.
+
+    The result comes back as host tensors so every sweep point can be graded against the
+    baseline's answer. A core grid changes how the matmul is parallelised, which changes the
+    order the partial products accumulate in, so "it went faster" is not a result until the
+    number it produced is the same number.
+    """
     out = call(ttnn, path, args, kwargs)
     ttnn.synchronize_device(dev)
     nb = census_bytes(ttnn, args, kwargs, out)
+    host = [ttnn.to_torch(t) for t in (out if isinstance(out, (list, tuple)) else [out])
+            if isinstance(t, ttnn.Tensor)]
     _dealloc(ttnn, out)
     xs = []
     for _ in range(reps):
@@ -116,7 +124,22 @@ def timed(ttnn, dev, path, args, kwargs, reps):
         xs.append(time.perf_counter() - t0)
         _dealloc(ttnn, out)
     xs.sort()
-    return xs[len(xs) // 2], nb
+    return xs[len(xs) // 2], nb, host
+
+
+def grade(ref, got):
+    """Max absolute deviation and PCC of a sweep point's answer against the baseline's."""
+    if ref is None or len(ref) != len(got):
+        return None
+    worst, pcc = 0.0, 1.0
+    for a, b in zip(ref, got):
+        a, b = a.float().flatten(), b.float().flatten()
+        worst = max(worst, float((a - b).abs().max()))
+        va, vb = a - a.mean(), b - b.mean()
+        den = float(va.norm() * vb.norm())
+        if den > 0:
+            pcc = min(pcc, float((va * vb).sum()) / den)
+    return {"max_abs_dev": worst, "pcc": pcc}
 
 
 def _dealloc(ttnn, out):
@@ -183,7 +206,7 @@ def points(ttnn, dev):
         raise ValueError("no program config to drop")
     P.append(("program config dropped: ttnn picks", drop_pc))
 
-    for y, x in ((10, 13), (8, 8), (7, 7), (5, 5), (4, 4), (2, 2)):
+    for y, x in ((10, 13), (10, 8), (8, 13), (8, 8), (7, 7), (6, 6), (5, 5), (4, 4), (2, 2)):
         def grid(a, k, _y=y, _x=x):
             k = {key: v for key, v in k.items() if key not in ("program_config", "config")}
             k["core_grid"] = ttnn.CoreGrid(y=_y, x=_x)
@@ -196,6 +219,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rank", required=True, help="leg 1 report json, for the shape ranking")
     ap.add_argument("--top", type=int, default=3)
+    ap.add_argument("--only", default=None,
+                    help="regex on the shape key: sweep just these shapes")
+    ap.add_argument("--points", default=None,
+                    help="substring filter on the sweep point labels")
     ap.add_argument("--reps", type=int, default=25)
     ap.add_argument("--dram", type=float, default=442.3)
     ap.add_argument("--tflops", type=float, default=85.90)
@@ -213,7 +240,11 @@ def main():
 
     import ttnn
     rank = json.load(open(args.rank))
-    want = [r["key"] for r in rank["shapes"] if "#" in r["key"]][:args.top]
+    want = [r["key"] for r in rank["shapes"] if "#" in r["key"]]
+    if args.only:
+        import re
+        want = [k for k in want if re.search(args.only, k)]
+    want = want[:args.top]
     by_key = {r["key"]: r for r in rank["shapes"]}
 
     lv, dev, ref = S.open_all(args)
@@ -255,14 +286,18 @@ def main():
               % (p["op"], p["shape"], p["flags"], row["device_s"], round(row["calls"]),
                  row["pct_dram"], row["pct_compute"]), flush=True)
         print("   a %s | b %s | o %s" % (row["a"], row["b"], row["o"]), flush=True)
-        print("%-40s %10s %9s %8s %7s %9s %6s %8s"
-              % ("point", "ms", "GB", "GB/s", "%dram", "TFLOP/s", "%cmp", "vs base"), flush=True)
-        results, base = [], None
-        for label, tf in points(ttnn, dev.device):
+        print("%-40s %10s %9s %8s %7s %9s %6s %8s  %s"
+              % ("point", "ms", "GB", "GB/s", "%dram", "TFLOP/s", "%cmp", "vs base",
+                 "against the baseline's answer"), flush=True)
+        results, base, ref = [], None, None
+        pts = points(ttnn, dev.device)
+        if args.points:
+            pts = [(l, f) for l, f in pts if args.points in l or l.startswith("baseline")]
+        for label, tf in pts:
             try:
                 a, k = build(ttnn, dev.device, timer.repro[key], seed=args.seed)
                 a, k = tf(a, k)
-                sec, nb = timed(ttnn, dev.device, p["op"], a, k, args.reps)
+                sec, nb, host = timed(ttnn, dev.device, p["op"], a, k, args.reps)
             except Exception as e:
                 msg = str(e).split("\n")[0][:70]
                 print("%-40s %10s  %s" % (label, "UNSUPPORTED", msg), flush=True)
@@ -271,15 +306,18 @@ def main():
             fl = p["flop"]
             gbs, tf_s = nb / sec / 1e9, fl / sec / 1e12
             if base is None:
-                base = sec
+                base, ref = sec, host
+            g = grade(ref, host)
             aiclk = clock.window([(time.time() - 1.0, time.time())])
             r = {"point": label, "s": sec, "bytes": nb, "GBs": gbs, "TFLOPs": tf_s,
                  "pct_dram": 100 * gbs / args.dram, "pct_compute": 100 * tf_s / args.tflops,
-                 "vs_base": base / sec, "aiclk": aiclk}
+                 "vs_base": base / sec, "aiclk": aiclk, "grade": g}
             results.append(r)
-            print("%-40s %10.4f %9.4f %8.1f %6.1f%% %9.2f %5.1f%% %7.4fx"
+            print("%-40s %10.4f %9.4f %8.1f %6.1f%% %9.2f %5.1f%% %7.4fx  %s"
                   % (label, sec * 1e3, nb / 1e9, gbs, r["pct_dram"], tf_s,
-                     r["pct_compute"], r["vs_base"]), flush=True)
+                     r["pct_compute"], r["vs_base"],
+                     "" if g is None else "pcc %.6f maxdev %.2e" % (g["pcc"], g["max_abs_dev"])),
+                  flush=True)
         best = max((r for r in results if "s" in r), key=lambda r: r["vs_base"], default=None)
         if best:
             print("   BEST: %s at %.4fx  (the round row is %.3f s -> %.3f s if it transferred)"

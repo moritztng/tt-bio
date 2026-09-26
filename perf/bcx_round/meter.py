@@ -108,8 +108,13 @@ class Meter:
             EVENTS.append({"kind": "round_stop", "phase": "round", "t0": time.time(),
                            "round": self.entries})
             raise StopAfterRounds(f"{self.rounds} rounds collected")
+        # The reach of TT_BIO_MM_LAYOUT at the boundary, cumulative. A per-round count is the
+        # difference of two of these, so an arm whose lever serves 0 calls says so per round
+        # and not only in a total that a compile round could have carried.
+        from tt_bio import mm_layout
         EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
-                       "round": self.entries, "load1": os.getloadavg()[0]})
+                       "round": self.entries, "load1": os.getloadavg()[0],
+                       "mm_layout": mm_layout.reach()})
         if DUMP:
             dump(*DUMP)
 
