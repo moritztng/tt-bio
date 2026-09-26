@@ -97,7 +97,7 @@ def _is_multimer(path: pathlib.Path) -> bool:
 class _Trunk:
     """One AlphaFold 2 checkpoint's Evoformer blocks on the card, under tt-bio's tape."""
 
-    def __init__(self, path: pathlib.Path):
+    def __init__(self, path: pathlib.Path, *, template: bool = False):
         import ttnn
 
         from tt_bio import autograd, taped_ttnn
@@ -106,13 +106,17 @@ class _Trunk:
 
         self.ttnn, self.ag, self.taped = ttnn, autograd, taped_ttnn
         self.multimer = _is_multimer(path)
+        # `template` costs two more c=64 pair blocks of weights per checkpoint and is only
+        # wanted by `TemplateOnDevice`, so it stays off unless that swap is armed: five trunks
+        # already sit near the allocator's limit at n=288 (`TrunkPool.resident`).
         self.model = load_af2_device_model(load_af2_state_dict(str(path),
                                                                multimer=self.multimer),
-                                           template=False, multimer=self.multimer,
+                                           template=template, multimer=self.multimer,
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
         self.blocks = len(self.model.device_evoformer)
         self.extra_blocks = len(self.model.device_extra_msa)
+        self.template_blocks = len(self.model.device_template)
 
     def up(self, t: torch.Tensor):
         return self.ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
@@ -172,6 +176,21 @@ class _Trunk:
                 z = block(block._residual(z, const(index)), *pair_masks)
         return z
 
+    def template_stack(self, z, pair_masks, recompute: bool):
+        """The template embedder's two c=64 pair blocks, `act -> act`, left on card throughout.
+
+        `AF2DeviceModel`'s fold path runs these same blocks through
+        `AF2DeviceTemplatePairStack` under `torch.no_grad`. Here they run under tt-bio's tape,
+        which is what a gradient round needs. No `opm_constant`: the template stack has no MSA
+        track for an outer product mean to collapse, unlike `extra_msa` above.
+        """
+        for block in self.model.device_template:
+            if recompute:
+                z = self.ag.checkpoint(lambda t, blk=block: blk(t, *pair_masks), z)
+            else:
+                z = block(z, *pair_masks)
+        return z
+
     def seed(self, t: torch.Tensor, like):
         """A cotangent in the root's own device shape."""
         shape = [int(d) for d in like.value.shape]
@@ -204,9 +223,13 @@ class TrunkPool:
     refused, and the predictor folds it on BindCraft 2's own JAX trunk.
     """
 
-    def __init__(self, source=None, *, resident: int | None = None):
+    def __init__(self, source=None, *, resident: int | None = None,
+                 template: bool = False):
         self._source = source
         self.resident = int(resident) if resident else None
+        #: Whether the trunks this pool loads also bring their template pair stack on card.
+        #: Set by `predictor(template=True)`; see `_Trunk.__init__` for why it is not free.
+        self.template = bool(template)
         self.paths: dict[str, pathlib.Path] = {}
         self.absent: dict[str, str] = {}
         self.selections: dict[str, int] = {}
@@ -306,7 +329,8 @@ class TrunkPool:
         with self._lock:
             trunk = self._trunks.get(name)
             if trunk is None:
-                trunk = self._trunks[name] = _Trunk(self.paths[name])
+                trunk = self._trunks[name] = _Trunk(self.paths[name],
+                                                    template=self.template)
             if name in self._order:
                 self._order.remove(name)
             self._order.append(name)
@@ -709,6 +733,242 @@ class ExtraMsaOnDevice:
         return stack
 
 
+class TemplateOnDevice:
+    """BindCraft 2's multimer template pair stack, run on card, differentiable in `act` alone.
+
+    `EvoformerOnDevice` replaces the 48-block trunk and `ExtraMsaOnDevice` the 4-block
+    extra-MSA stack; this replaces the two c=64 blocks inside the template embedder. The cut is
+    the `template_stack((act, safe_subkey))` call in
+    `modules_multimer.SingleTemplateEmbedding.__call__`, between `construct_input` and
+    `output_layer_norm`: AlphaFold's own feature construction and output norm stay in JAX and
+    only the blocks move, which is where the seconds are (2.549 + 1.211 s of the 4.57 s
+    profiled, `state/perf10/bcx-HOSTMAP.md`).
+
+    Gradient flows back into `act` and nowhere else. The template features are the design's
+    target structure and are constant across a trajectory, and `pair_mask` is a mask.
+
+    Its tapes live in their own registry, for the reason `ExtraMsaOnDevice` gives: the stacks
+    run forward in sequence and backward in reverse, so a shared registry would have one
+    stack's stale-tape sweep drop another's live tape before its backward.
+    """
+
+    def __init__(self, pool: TrunkPool, *, recompute: bool = True):
+        self.pool = pool
+        self.recompute = recompute
+        self.calls = {"primal": 0, "taped": 0, "backward": 0}
+        #: What the JAX side handed over, so an inert swap cannot read as a working one.
+        self.seen = {"calls": 0, "n": None, "channels": None, "blocks_swapped": None}
+        self._pair_mask_dev: dict = {}
+        self._live: dict[int, dict] = {}
+        self._next = 0
+
+    # ------------------------------------------------------------------ inputs
+
+    @staticmethod
+    def _pad(act, pair_mask):
+        """`ExtraMsaOnDevice._pad`, at the template stack's own channel count."""
+        n = act.shape[0]
+        n32 = _pad32(n)
+        if n32 == n:
+            return act, pair_mask, n
+        pad = n32 - n
+        act = torch.nn.functional.pad(act, (0, 0, 0, pad, 0, pad))
+        pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
+        return act, pair_mask, n
+
+    def _inputs(self, act_np, pair_mask_np):
+        as_t = lambda a: torch.from_numpy(np.asarray(a).copy()).float()  # noqa: E731
+        act, pair_mask, n = self._pad(as_t(act_np), as_t(pair_mask_np))
+        self.seen["calls"] += 1
+        self.seen["n"], self.seen["channels"] = n, int(act.shape[-1])
+        return act, pair_mask, n
+
+    def _trunk(self) -> _Trunk:
+        trunk = self.pool.current
+        if trunk.template_blocks == 0:
+            raise ValueError(
+                f"{self.pool._current!r} holds no template blocks on card; this swap needs "
+                f"TrunkPool(template=True), which predictor(template=True) sets")
+        return trunk
+
+    def _pair_masks(self, trunk, pair_mask):
+        key = EvoformerOnDevice._key(pair_mask)
+        got = self._pair_mask_dev.get(key)
+        if got is None:
+            from tt_bio.af2 import af2_pair_masks
+            got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
+        return got
+
+    # ------------------------------------------------------------------ forward and backward
+
+    def _primal(self, act_np, pair_mask_np):
+        trunk = self._trunk()
+        act, pair_mask, n = self._inputs(act_np, pair_mask_np)
+        out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
+                                   recompute=False)
+        trunk.sync()
+        self.calls["primal"] += 1
+        return trunk.down(out, tuple(act.shape))[:n, :n].numpy()
+
+    def _taped(self, act_np, pair_mask_np):
+        trunk = self._trunk()
+        act, pair_mask, n = self._inputs(act_np, pair_mask_np)
+        leaf = trunk.leaf(act)
+        with trunk.taped.tape():
+            out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
+                                       recompute=self.recompute)
+        trunk.sync()
+        # Every recycle but the last is stop_gradient'ed and still goes through the forward
+        # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
+        self._live.clear()
+        trunk.ag.release_pins()
+        token, self._next = self._next, self._next + 1
+        self._live[token] = {"root": out, "leaf": leaf, "shape": tuple(act.shape), "n": n}
+        self.calls["taped"] += 1
+        return trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(), np.int32(token)
+
+    def _backward(self, token, g_act_np):
+        entry = self._live.pop(int(token), None)
+        if entry is None:
+            raise RuntimeError(f"no live template tape for token {int(token)}")
+        trunk = self.pool.current
+        shape, n = entry["shape"], entry["n"]
+        g = torch.zeros(shape)
+        g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
+        trunk.ag.backward([entry["root"]], [trunk.seed(g, entry["root"])])
+        trunk.sync()
+        out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
+        trunk.ag.release_pins()
+        self.calls["backward"] += 1
+        return out
+
+    def live_tapes(self) -> int:
+        return len(self._live)
+
+    # ------------------------------------------------------------------ the JAX face
+
+    def as_jax(self):
+        """`(act, pair_mask) -> act`, differentiable in `act` alone."""
+        import jax
+        import jax.numpy as jnp
+
+        def f32(act):
+            return jax.ShapeDtypeStruct(act.shape, jnp.float32)
+
+        def args(act, pair_mask):
+            return act.astype(jnp.float32), pair_mask.astype(jnp.float32)
+
+        @jax.custom_vjp
+        def stack(act, pair_mask):
+            out = jax.pure_callback(self._primal, f32(act), *args(act, pair_mask))
+            return out.astype(act.dtype)
+
+        def fwd(act, pair_mask):
+            out, token = jax.pure_callback(
+                self._taped, (f32(act), jax.ShapeDtypeStruct((), jnp.int32)),
+                *args(act, pair_mask))
+            return out.astype(act.dtype), (token, pair_mask)
+
+        def bwd(res, g_act):
+            token, pair_mask = res
+            g = jax.pure_callback(self._backward, f32(g_act), token,
+                                  g_act.astype(jnp.float32))
+            return g.astype(g_act.dtype), jnp.zeros_like(pair_mask)
+
+        stack.defvjp(fwd, bwd)
+        return stack
+
+
+def _template_stack_mask(fn, depth: int = 0, seen=None):
+    """`padding_mask_2d` off `template_iteration_fn`'s closure, however deep haiku wrapped it.
+
+    `gc.use_remat` puts `hk.remat` around the function before `layer_stack` ever sees it, so at
+    the seam the only free variable is remat's own `dec_stateful_fun`. Recursing is what
+    `_free_variable` does for the extra-MSA masks, for the same reason.
+    """
+    if depth > 6 or not callable(fn):
+        return None
+    seen = seen if seen is not None else set()
+    if id(fn) in seen:
+        return None
+    seen.add(id(fn))
+    code = getattr(fn, "__code__", None)
+    if code is None:
+        return None
+    inner = []
+    for name, cell in zip(code.co_freevars, fn.__closure__ or ()):
+        try:
+            value = cell.cell_contents
+        except ValueError:                      # a cell still being filled
+            continue
+        if name == "padding_mask_2d":
+            return value
+        inner.append(value)
+    for value in inner:
+        got = _template_stack_mask(value, depth + 1, seen)
+        if got is not None:
+            return got
+    return None
+
+
+@contextlib.contextmanager
+def template_on_device(tmpl: "TemplateOnDevice | None"):
+    """Route the multimer template pair stack through `tmpl` for the duration.
+
+    The two blocks are `template_stack((act, safe_subkey))`, inline in
+    `modules_multimer.SingleTemplateEmbedding.__call__`. Unlike `extra_msa_stack_fn` there is no
+    closure to rewrite, so this swaps the module-global `layer_stack` for a shim and does it
+    only while the template embedder is tracing -- the Evoformer builds its own layer stack
+    through the same name and must keep AlphaFold's.
+    """
+    if tmpl is None:
+        yield None
+        return
+    from bindcraft.af.alphafold.model import modules_multimer
+
+    device_stack = tmpl.as_jax()
+
+    class _Shim:
+        def __init__(self, real):
+            self._real = real
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+        def layer_stack(self, num_block):
+            def build(fn):
+                mask = _template_stack_mask(fn)
+                if mask is None:
+                    raise ValueError(
+                        "padding_mask_2d is not reachable from the template stack's closure; "
+                        "the splice point in SingleTemplateEmbedding.__call__ moved")
+                tmpl.seen["blocks_swapped"] = int(num_block)
+
+                def run(carry):
+                    act, key = carry
+                    return device_stack(act, mask), key
+
+                return run
+
+            return build
+
+    original = modules_multimer.SingleTemplateEmbedding.__call__
+
+    def patched(self, *args, **kwargs):
+        saved = modules_multimer.layer_stack
+        modules_multimer.layer_stack = _Shim(saved)
+        try:
+            return original(self, *args, **kwargs)
+        finally:
+            modules_multimer.layer_stack = saved
+
+    modules_multimer.SingleTemplateEmbedding.__call__ = patched
+    try:
+        yield tmpl
+    finally:
+        modules_multimer.SingleTemplateEmbedding.__call__ = original
+
+
 def find_evoformer_masks(fn):
     """Recover the Evoformer masks from the closure of AlphaFold 2's `evoformer_fn`.
 
@@ -992,7 +1252,8 @@ def design_model_class():
 
 
 def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice | None = None,
-             extra_msa: "ExtraMsaOnDevice | None" = None, exact: bool = True):
+             extra_msa: "ExtraMsaOnDevice | None" = None,
+             template: "TemplateOnDevice | None" = None, exact: bool = True):
     cls = design_model_class()
 
     def build(*args, **kwargs):
@@ -1004,6 +1265,9 @@ def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice
     #: The extra-MSA swap, or None when the stack stayed in BindCraft 2's JAX. Its `calls`,
     #: `swapped` and `mask_seen` counters are how a caller checks the on-card path ran.
     build.extra_msa = extra_msa
+    #: The template pair-stack swap, or None when it stayed in BindCraft 2's JAX. Its `calls`
+    #: and `seen` counters are how a caller checks the on-card path ran.
+    build.template = template
     #: Whether the tape this factory's models open runs softmax and layer norm exact. Inert on
     #: `trunk="jax"`, which opens no tt-bio tape at all.
     build.exact = exact
@@ -1015,6 +1279,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               resident: int | None = None, blocks: int = EVOFORMER_BLOCKS,
               recompute: bool = True,
               extra_msa: bool = False,
+              template: bool = False,
               exact: bool = True) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
@@ -1034,6 +1299,12 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     `extra_msa` additionally runs the 4-block extra-MSA stack on card. It is off by default and
     independent of the Evoformer swap, so a comparison graded on the Evoformer alone keeps the
     program it was graded on. Read `build.extra_msa.calls` to check the on-card path ran.
+
+    `template` additionally runs the multimer template embedder's two c=64 pair blocks on
+    card. Off by default and independent of the other two swaps. It brings two more blocks of
+    weights per checkpoint onto the card, so it is not free of allocator pressure; read
+    `build.template.calls` to check the on-card path ran. Monomer checkpoints are untouched:
+    the swap is installed on `modules_multimer` only.
 
     `exact` runs softmax and layer norm on the host in float64 inside the tape, which is
     tt-bio's default for a gradient and what reproduces AlphaFold 2's own gradient most closely.
@@ -1064,14 +1335,20 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     from tt_bio import autograd
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
-        checkpoints, resident=resident)
+        checkpoints, resident=resident, template=template)
+    if template and not pool.template:
+        raise ValueError("predictor(template=True) needs a TrunkPool built with template=True; "
+                         "the trunks it already loaded hold no template blocks on card")
     evo = EvoformerOnDevice(pool, blocks=blocks, recompute=recompute)
     extra = ExtraMsaOnDevice(pool, recompute=recompute) if extra_msa else None
+    tmpl = TemplateOnDevice(pool, recompute=recompute) if template else None
     # `_EXACT_TRAINING` is a process-wide stack, not thread-local, so this covers every tape
     # opened for the duration -- both `_taped` calls and the backward's recompute -- without
     # either swap having to know about it.
-    with autograd.exact_training(exact), evoformer_on_device(evo, extra):
-        yield _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra, exact=exact)
+    with autograd.exact_training(exact), evoformer_on_device(evo, extra), \
+            template_on_device(tmpl):
+        yield _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
+                       template=tmpl, exact=exact)
 
 
 @contextlib.contextmanager
@@ -1124,6 +1401,7 @@ def campaign_predictor(*, validation: str = "jax",
         build_for_campaign.pool = build.pool
         build_for_campaign.evoformer = build.evoformer
         build_for_campaign.extra_msa = build.extra_msa
+        build_for_campaign.template = build.template
         build_for_campaign.exact = build.exact
         build_for_campaign.validation = validation
         build_for_campaign.built = built
