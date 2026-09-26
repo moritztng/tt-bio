@@ -1301,7 +1301,7 @@ def _row_mean(v, cfg, K: int):
     ``c_s = 384`` and ``c_z = 128``, so this is the single track's bias and not the pair
     track's, and it is a function of the channel width rather than of the crop.
     """
-    return ttnn.multiply(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg), 1.0 / K)
+    return ttnn.divide(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg), float(K))
 
 
 def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
