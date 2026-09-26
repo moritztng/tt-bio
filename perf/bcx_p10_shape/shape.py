@@ -211,6 +211,14 @@ def cmd_cells(args):
                                "read": D._round(snap["read"], 1),
                                "written": D._round(snap["written"], 1),
                                "read_dtype": D._round(snap["read_dtype"], 1)}
+                        if args.verb_records:
+                            # `bcx-p10-calls`: the same tag with the ttnn op name appended as a
+                            # second key, in BOTH modes, so `device = synced - free - lambda *
+                            # calls` is available per op name and not only per family.
+                            rec["verb_wall"] = D._round(snap["verb_wall"])
+                            rec["verb_calls"] = snap["verb_calls"]
+                            rec["verb_read"] = D._round(snap["verb_read"], 1)
+                            rec["verb_written"] = D._round(snap["verb_written"], 1)
                         cell["records"].append(rec)
                         if mode == "sync" and k == max(spec["ks"]):
                             for key, v in snap["verb_wall"].items():
@@ -250,6 +258,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--out", default="cells.json")
+    ap.add_argument("--verb-records", action="store_true",
+                    help="also record per-ttnn-op-name wall/calls/bytes in every record")
     args = ap.parse_args()
     if args.params is None:
         from perf.bcx_afgrad import afgrad as A

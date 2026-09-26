@@ -206,6 +206,8 @@ class OpTimer:
         self.read_dtype = collections.Counter()
         self.verb_wall = collections.Counter()
         self.verb_calls = collections.Counter()
+        self.verb_read = collections.Counter()
+        self.verb_written = collections.Counter()
         self._saved = []
 
     def _walk(self, obj, out):
@@ -269,11 +271,14 @@ class OpTimer:
             self.wall[tag] += t1 - t0
             self.calls[tag] += 1
             self.read[tag] += rb
-            self.written[tag] += sum(_nbytes(t) for t in outs)
             for d, b in dts.items():
                 self.read_dtype[(tag, d)] += b
+            wb = sum(_nbytes(t) for t in outs)
+            self.written[tag] += wb
             self.verb_wall[(tag, path)] += t1 - t0
             self.verb_calls[(tag, path)] += 1
+            self.verb_read[(tag, path)] += rb
+            self.verb_written[(tag, path)] += wb
             return out
         w.__name__ = getattr(real, "__name__", path)
         return w
@@ -289,9 +294,11 @@ class OpTimer:
                 "written": dict(self.written),
                 "read_dtype": {f"{k}||{d}": v for (k, d), v in self.read_dtype.items()},
                 "verb_wall": {f"{k}||{p}": v for (k, p), v in self.verb_wall.items()},
-                "verb_calls": {f"{k}||{p}": v for (k, p), v in self.verb_calls.items()}}
+                "verb_calls": {f"{k}||{p}": v for (k, p), v in self.verb_calls.items()},
+                "verb_read": {f"{k}||{p}": v for (k, p), v in self.verb_read.items()},
+                "verb_written": {f"{k}||{p}": v for (k, p), v in self.verb_written.items()}}
         for c in (self.wall, self.calls, self.read, self.written, self.read_dtype,
-                  self.verb_wall, self.verb_calls):
+                  self.verb_wall, self.verb_calls, self.verb_read, self.verb_written):
             c.clear()
         return snap
 
