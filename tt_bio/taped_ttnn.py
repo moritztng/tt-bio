@@ -510,6 +510,14 @@ def _v_reshape(shipped, args, kwargs):
     return _tape(out_v, [x], make)
 
 
+#: Send a permute's backward through the reblock kernels where their own gates cover the inverse
+#: move. Bit-identical to `ttnn.permute` and measured at 5.9 ms of device per AF2 Evoformer block
+#: backward at n=256 (131.9 -> 126.0 ms) and 5.9 per extra-MSA block, `perf/bcx_bytes`
+#: `psum_prof_arms.json`. The forward already reaches these kernels through `_channel_move`; only
+#: the tape's generic inverse did not.
+PERMUTE_BW_REBLOCK = True
+
+
 @_verb("permute")
 def _v_permute(shipped, args, kwargs):
     x = _wrap(args[0])
@@ -522,7 +530,11 @@ def _v_permute(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.permute(g, inv))
+            if PERMUTE_BW_REBLOCK:
+                from . import reblock_permute as _reblock
+                x.add_grad(_reblock.permute_via_reblock(g, inv))
+            else:
+                x.add_grad(ttnn.permute(g, inv))
         return bw
 
     return _tape(out_v, [x], make)

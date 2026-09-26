@@ -782,6 +782,54 @@ def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
                        program_config=bmm_program_config(a, b, transpose_a, transpose_b), **kw)
 
 
+#: Rows above which a leading-axis sum goes through `_pairwise_sum0` instead of `ttnn.sum(dim=0)`.
+#: Set high to disable. On the 0.68 wheel `ttnn.sum(dim=0)` serves a leading reduce by permuting
+#: the whole tensor with dims (2, 1, 0, 3) and reducing the result, so it reads the operand three
+#: times; the tree reads it twice and does no permute at all. Measured on qb1 card 2 at 1350 MHz
+#: (`perf/bcx_bytes/reduce_probe.json`) on the frontier block's own fp32 [256, 4, 256, 256]:
+#: 7.07 ms and 8.3e-4 from float64 for `ttnn.sum` at `precise_config()`, 4.66 ms and 7.7e-8 for
+#: the tree. The threshold is a threshold because the win is not universal -- the same probe reads
+#: the tree slower at 81 rows, where the permute is cheap enough that log2(rows) dispatches cost
+#: more than they save.
+LEADING_SUM_TREE_ROWS = 256
+
+
+def _use_tree(t) -> bool:
+    return int(t.shape[0]) >= LEADING_SUM_TREE_ROWS and t.layout == ttnn.TILE_LAYOUT
+
+
+def _pairwise_sum0(t):
+    """Sum away a leading axis with a halving tree of full-width adds, keeping the axis at 1.
+
+    Pairwise rather than sequential for the accuracy: the error of a sequential sum grows with
+    the number of terms, a tree's with its log, which at 256 rows is the difference between
+    8.3e-4 and 7.7e-8 relative L2 from float64 on an fp32 operand.
+
+    An odd row count is carried rather than concatenated back in. `perf/bcx_bytes/reduce_probe.py`
+    built the odd level as `add` + `concat` and that arm reads 6.13 ms median at 81 rows against
+    1.64 for `ttnn.sum` -- the concat, not the tree, is what loses. The leftover row here is a
+    single [1, ...] slice accumulated on the side and added once at the end, so an odd level costs
+    one narrow add instead of a full-width copy.
+    """
+    cur, own, carry = t, False, None
+    while int(cur.shape[0]) > 1:
+        rows = int(cur.shape[0])
+        h = rows // 2
+        nxt = ttnn.add(cur[0:h], cur[h:2 * h])
+        if rows % 2:
+            odd = cur[2 * h:rows]
+            carry = odd if carry is None else ttnn.add(carry, odd)
+        if own:
+            ttnn.deallocate(cur)
+        cur, own = nxt, True
+    if carry is not None:
+        out = ttnn.add(cur, carry)
+        if own:
+            ttnn.deallocate(cur)
+        return out
+    return cur
+
+
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
 
@@ -808,7 +856,9 @@ def _reduce_to(g, shape):
     out = g
     for ax in range(len(gs)):
         if pad[ax] == 1 and gs[ax] != 1:
-            out = ttnn.sum(out, dim=ax, keepdim=True, compute_kernel_config=precise_config())
+            out = (_pairwise_sum0(out) if ax == 0 and _use_tree(out)
+                   else ttnn.sum(out, dim=ax, keepdim=True,
+                                 compute_kernel_config=precise_config()))
     return ttnn.reshape(out, ws)
 
 

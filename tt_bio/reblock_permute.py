@@ -627,6 +627,32 @@ def eligible_back(x, memory_config) -> bool:
     return True
 
 
+def permute_via_reblock(x, dims, memory_config=None):
+    """``ttnn.permute(x, dims)``, served by the reblock kernels when they cover the move.
+
+    The two kernels implement exactly two index moves, ``(0, 3, 1, 2)`` and ``(0, 2, 3, 1)``,
+    and their gates already encode where each beats the stock permute. Everything else falls
+    through to ``ttnn.permute`` unchanged, so this is safe to call on any 4-D permute.
+
+    The reason it exists is the backward. A taped ``ttnn.permute`` sends the inverse move back
+    up through ``ttnn.permute`` whatever the forward used, so a trunk whose forward channel
+    moves these kernels serve gets none of them on the way down. ``eligible``/``eligible_back``
+    decline while a tape is OPEN because ``generic_op`` has no backward, which is right and is
+    not in the way here: a backward closure runs after the tape has closed, and the gradient it
+    returns is a value, not something that gets differentiated again.
+
+    Bit-exact by construction -- a permute is a pure index reordering, and both kernels are
+    pinned to ``torch.equal`` against ``ttnn.permute`` across their windows (see ``eligible``).
+    """
+    mc = x.memory_config() if memory_config is None else memory_config
+    d = [int(v) for v in dims]
+    if d == [0, 2, 3, 1] and eligible_back(x, mc):
+        return reblock_permute_back(x, mc)
+    if d == [0, 3, 1, 2] and eligible(x, mc):
+        return reblock_permute(x, mc)
+    return ttnn.permute(x, d) if memory_config is None else ttnn.permute(x, d, memory_config=mc)
+
+
 # --- E6: the gate folded into the forward move ------------------------------------------------------
 #
 # The trimul's channel loop produces one wide projection [1, N, N, 4*Cg] and then spends three full
