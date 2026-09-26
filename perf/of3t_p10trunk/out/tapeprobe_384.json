@@ -1,0 +1,78 @@
+{
+ "doc": "Where the taped trunk cycle's seconds go: the op, the tape, or the eviction.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--out",
+  "perf/of3t_p10trunk/out/tapeprobe_384.json"
+ ],
+ "build_fold_s": 8.82,
+ "prep_to_sampler_s": 7.83,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.112,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "prefix_untaped_s": 3.429,
+ "taped_cycle_s": 257.314,
+ "split": {
+  "nodes": 9537,
+  "taped_nodes": 147,
+  "between_tape_calls_s": 257.233,
+  "inside_tape_s": 0.067,
+  "of_which_evict_s": 0.0,
+  "evict_calls": 147,
+  "tensors_evicted": 112,
+  "unaccounted_s": 0.013,
+  "mean_gap_ms": 26.975,
+  "worst_10_gaps_s": [
+   1.9,
+   1.872,
+   1.864,
+   1.839,
+   1.837,
+   1.834,
+   1.82,
+   1.811,
+   1.803,
+   1.802
+  ]
+ },
+ "dram": 533970560,
+ "env": {
+  "aiclk_during": {
+   "0": {
+    "min": 1350,
+    "max": 1350,
+    "median": 1350,
+    "n": 87
+   }
+  }
+ }
+}

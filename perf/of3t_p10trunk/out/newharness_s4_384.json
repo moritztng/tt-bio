@@ -1,0 +1,117 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--samples",
+  "4",
+  "--reps",
+  "3",
+  "--out",
+  "perf/of3t_p10trunk/out/newharness_s4_384.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "renorm": null,
+  "commit": "a8710d320b0d7bf76420e6eced09b22e03422f6b",
+  "branch": "wk/of3t-p10trunk",
+  "started_utc": "2026-09-26T13:53:29Z",
+  "loadavg_start": [
+   2.0458984375,
+   2.44482421875,
+   2.0576171875
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 1350,
+    "max": 1350,
+    "median": 1350,
+    "n": 99
+   }
+  }
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": true,
+  "chunk": null,
+  "loss_shape": "model",
+  "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so a chunked arm and an unchunked one noise the same structures"
+ },
+ "build_fold_s": 10.6,
+ "prep_to_sampler_s": 12.37,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 9.528,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "per_rep_plan": null
+ },
+ "chunk_per_rep_plan": null,
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.478,
+   "chunk": null,
+   "trunk_taped_cycle_s": 291.438,
+   "trunk_s": 294.916,
+   "dram_after_trunk": 4309808128
+  }
+ ]
+}

@@ -788,6 +788,16 @@ def main() -> int:
                     row["trunk_s"] = round(row["trunk_nograd_prefix_s"]
                                            + row["trunk_taped_cycle_s"], 3)
                     row["dram_after_trunk"] = _dram(dev)
+                    # Flush the trunk timing the instant the timer stops. Both versions of
+                    # this harness wrote the JSON and printed the rep line at the END of a
+                    # rep, so an arm that OOMs in the backward loses a number it had already
+                    # measured -- which is why no unchunked S=6 trunk reading exists.
+                    print(f"TRUNK rep {rep}: prefix {row['trunk_nograd_prefix_s']} s, "
+                          f"taped cycle {row['trunk_taped_cycle_s']} s, "
+                          f"dram_after_trunk {row['dram_after_trunk']}, "
+                          f"chunk {row['chunk']}, host_avail {_mem_available_gib()} GiB",
+                          flush=True)
+                    dump()
 
                     # --- 2. diffusion ------------------------------------------------------
                     # The invariants are inside the TRUNK's tape whether or not the replicates

@@ -1,0 +1,109 @@
+{
+ "doc": "The taped trunk cycle with the float64 host levers on and off, in one process.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--reps",
+  "2",
+  "--out",
+  "perf/of3t_p10trunk/out/exactab_384.json"
+ ],
+ "arms": [
+  {
+   "rep": 0,
+   "exact_training": false,
+   "taped_cycle_s": 4.306,
+   "exact_training_ops": [],
+   "exact_softmax_installed": false,
+   "exact_layer_norm_installed": false,
+   "host_f64_softmax_served": 0,
+   "exact_layer_norm_verb": 0,
+   "host_avail_gib": 13.492,
+   "dram": 6407843328
+  },
+  {
+   "rep": 1,
+   "exact_training": false,
+   "taped_cycle_s": 4.02,
+   "exact_training_ops": [],
+   "exact_softmax_installed": false,
+   "exact_layer_norm_installed": false,
+   "host_f64_softmax_served": 0,
+   "exact_layer_norm_verb": 0,
+   "host_avail_gib": 14.051,
+   "dram": 10623364608
+  },
+  {
+   "rep": 0,
+   "exact_training": true,
+   "taped_cycle_s": 231.122,
+   "exact_training_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "exact_softmax_installed": true,
+   "exact_layer_norm_installed": true,
+   "host_f64_softmax_served": 159,
+   "exact_layer_norm_verb": 803,
+   "host_avail_gib": 13.855,
+   "dram": 14838885888
+  },
+  {
+   "rep": 1,
+   "exact_training": true,
+   "taped_cycle_s": 224.48,
+   "exact_training_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "exact_softmax_installed": true,
+   "exact_layer_norm_installed": true,
+   "host_f64_softmax_served": 159,
+   "exact_layer_norm_verb": 803,
+   "host_avail_gib": 14.018,
+   "dram": 19054407168
+  }
+ ],
+ "build_fold_s": 4.22,
+ "prep_to_sampler_s": 7.17,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.052,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "prefix_untaped_3cycles_s": 3.43,
+ "env": {
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 149
+   }
+  }
+ }
+}

@@ -1,0 +1,206 @@
+{
+ "doc": "Which verb eats the taped trunk cycle, and whether the eviction is what makes it eat it.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--arms",
+  "A,B,C",
+  "--out",
+  "perf/of3t_p10trunk/out/tapeprobe2_384.json"
+ ],
+ "arms": {
+  "A": {
+   "taped": false,
+   "evict_enabled": true,
+   "cycle_s": 1.235,
+   "error": null,
+   "nodes": 0,
+   "taped_nodes": 0,
+   "evict_calls": 0,
+   "inside_tape_s": 0.0,
+   "dram_after": 2190110208,
+   "by_verb": []
+  },
+  "B": {
+   "taped": true,
+   "evict_enabled": true,
+   "cycle_s": 255.807,
+   "error": null,
+   "nodes": 9537,
+   "taped_nodes": 147,
+   "evict_calls": 112,
+   "inside_tape_s": 0.071,
+   "dram_after": 6407646720,
+   "by_verb": [
+    {
+     "verb": "host_f64_softmax",
+     "calls": 159,
+     "gap_s": 176.062,
+     "ms_per_call": 1107.308
+    },
+    {
+     "verb": "_v_exact_layer_norm",
+     "calls": 803,
+     "gap_s": 68.52,
+     "ms_per_call": 85.33
+    },
+    {
+     "verb": "_v_typecast",
+     "calls": 324,
+     "gap_s": 10.183,
+     "ms_per_call": 31.429
+    },
+    {
+     "verb": "_taped_linear",
+     "calls": 1831,
+     "gap_s": 0.345,
+     "ms_per_call": 0.189
+    },
+    {
+     "verb": "impl",
+     "calls": 1703,
+     "gap_s": 0.203,
+     "ms_per_call": 0.119
+    },
+    {
+     "verb": "_v_matmul",
+     "calls": 772,
+     "gap_s": 0.135,
+     "ms_per_call": 0.175
+    },
+    {
+     "verb": "_v_permute",
+     "calls": 755,
+     "gap_s": 0.068,
+     "ms_per_call": 0.091
+    },
+    {
+     "verb": "silu",
+     "calls": 369,
+     "gap_s": 0.068,
+     "ms_per_call": 0.183
+    },
+    {
+     "verb": "_sliced",
+     "calls": 906,
+     "gap_s": 0.043,
+     "ms_per_call": 0.048
+    },
+    {
+     "verb": "_identity_grad",
+     "calls": 235,
+     "gap_s": 0.019,
+     "ms_per_call": 0.082
+    },
+    {
+     "verb": "_v_reshape",
+     "calls": 680,
+     "gap_s": 0.019,
+     "ms_per_call": 0.028
+    },
+    {
+     "verb": "_v_transpose",
+     "calls": 264,
+     "gap_s": 0.019,
+     "ms_per_call": 0.072
+    },
+    {
+     "verb": "_v_concat_heads",
+     "calls": 104,
+     "gap_s": 0.015,
+     "ms_per_call": 0.146
+    },
+    {
+     "verb": "checkpoint",
+     "calls": 106,
+     "gap_s": 0.01,
+     "ms_per_call": 0.095
+    }
+   ]
+  },
+  "C": {
+   "taped": true,
+   "evict_enabled": false,
+   "cycle_s": 251.974,
+   "error": null,
+   "nodes": 3269,
+   "taped_nodes": 124,
+   "evict_calls": 112,
+   "inside_tape_s": 0.045,
+   "dram_after": 10623168000,
+   "by_verb": [
+    {
+     "verb": "host_f64_softmax",
+     "calls": 159,
+     "gap_s": 176.619,
+     "ms_per_call": 1110.81
+    },
+    {
+     "verb": "_v_exact_layer_norm",
+     "calls": 803,
+     "gap_s": 64.716,
+     "ms_per_call": 80.593
+    },
+    {
+     "verb": "_taped_linear",
+     "calls": 1831,
+     "gap_s": 10.545,
+     "ms_per_call": 5.759
+    },
+    {
+     "verb": "silu",
+     "calls": 369,
+     "gap_s": 0.025,
+     "ms_per_call": 0.069
+    },
+    {
+     "verb": "checkpoint",
+     "calls": 106,
+     "gap_s": 0.012,
+     "ms_per_call": 0.118
+    }
+   ]
+  }
+ },
+ "build_fold_s": 8.74,
+ "prep_to_sampler_s": 7.54,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 4.944,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "env": {
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 165
+   }
+  }
+ }
+}
