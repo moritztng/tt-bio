@@ -392,8 +392,14 @@ class Levers:
 # ------------------------------------------------------------------------------ one step
 
 
-def block_step(dev, lv, m0, z0, wm, wz, stack_name, k=1, ckpt=False):
-    """One taped forward + one backward of K blocks. Synced walls, host CPU of the backward."""
+def block_step(dev, lv, m0, z0, wm, wz, stack_name, k=1, ckpt=False, masks=None):
+    """One taped forward + one backward of K blocks. Synced walls, host CPU of the backward.
+
+    `masks` is `(msa_mask, (pair_multiply, pair_bias))` already on card, which is what the
+    shipped fold hands a block once the token axis is padded. Left `None` the step builds the
+    all-ones MSA mask `lv.mask` asks for and passes no pair mask, which is what every leg in
+    this file timed before.
+    """
     ag = dev.ag
     ke, kv = (k, 0) if stack_name == "extra" else (0, k)
     gc.collect()
@@ -401,9 +407,10 @@ def block_step(dev, lv, m0, z0, wm, wz, stack_name, k=1, ckpt=False):
     dev.sync()
     lv.phase = "fwd"
     t0 = time.time()
-    mask = dev.up(torch.ones(1, m0.shape[-2])) if lv.mask else None
+    mask = masks[0] if masks else (dev.up(torch.ones(1, m0.shape[-2])) if lv.mask else None)
+    pair_masks = masks[1] if masks else (None, None)
     with dev.tt.tape():
-        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt, msa_mask=mask)
+        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt, msa_mask=mask, pair_masks=pair_masks)
     dev.sync()
     t1 = time.time()
     roots = [zo] if stack_name == "extra" else [mo, zo]

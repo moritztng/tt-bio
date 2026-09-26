@@ -1,0 +1,37 @@
+{
+ "on card": {
+  "rounds": 10,
+  "round": 31.954,
+  "sg": 31.949,
+  "metered_device": 11.655,
+  "remainder": 20.295,
+  "aiclk_min": 1350,
+  "load1": 11.56
+ },
+ "in JAX": {
+  "rounds": 10,
+  "round": 35.738,
+  "sg": 35.733,
+  "metered_device": 11.896,
+  "remainder": 23.927,
+  "aiclk_min": 1350,
+  "load1": 11.52
+ },
+ "delta": {
+  "round_s": 3.784,
+  "x": 1.118,
+  "remainder_s": 3.632
+ },
+ "per_cycle": {
+  "dev_c1_d0": 37.964,
+  "dev_c1_d1": 34.533,
+  "dev_c2_d0": 32.635,
+  "dev_c2_d1": 30.296
+ },
+ "ceiling": {
+  "round_s": 3.525,
+  "source": "perf/bcx_p10_tmplemb/out/AB.json",
+  "captured": 1.073
+ },
+ "note": "meter.install instruments the Evoformer and extra-MSA seams only, so the template device call is inside the remainder column on the on-card arm"
+}

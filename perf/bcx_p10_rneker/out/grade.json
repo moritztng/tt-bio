@@ -1,0 +1,197 @@
+{
+  "grade": {
+    "(0, 0)": {
+      "name": "FPU add, packer rounds",
+      "total_differ": 97234,
+      "cases": {
+        "random bf16 pairs": {
+          "differ": 9125,
+          "of": 82944,
+          "pct": 11.001398533950617,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "ratio 256x": {
+          "differ": 5073,
+          "of": 82944,
+          "pct": 6.116174768518518,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "REAL ties (x + halfulp)": {
+          "differ": 41518,
+          "of": 82944,
+          "pct": 50.05545910493827,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "REAL ties, negated": {
+          "differ": 41518,
+          "of": 82944,
+          "pct": 50.05545910493827,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        }
+      }
+    },
+    "(0, 1)": {
+      "name": "FPU add, SFPU rounds to even",
+      "total_differ": 5045,
+      "cases": {
+        "random bf16 pairs": {
+          "differ": 399,
+          "of": 82944,
+          "pct": 0.4810474537037037,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "ratio 256x": {
+          "differ": 4646,
+          "of": 82944,
+          "pct": 5.601369598765432,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "REAL ties (x + halfulp)": {
+          "differ": 0,
+          "of": 82944,
+          "pct": 0.0,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "REAL ties, negated": {
+          "differ": 0,
+          "of": 82944,
+          "pct": 0.0,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        }
+      }
+    },
+    "(1, 0)": {
+      "name": "SFPU add, packer rounds",
+      "total_differ": 92348,
+      "cases": {
+        "random bf16 pairs": {
+          "differ": 8731,
+          "of": 82944,
+          "pct": 10.52637924382716,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "ratio 256x": {
+          "differ": 581,
+          "of": 82944,
+          "pct": 0.7004726080246914,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "REAL ties (x + halfulp)": {
+          "differ": 41518,
+          "of": 82944,
+          "pct": 50.05545910493827,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "REAL ties, negated": {
+          "differ": 41518,
+          "of": 82944,
+          "pct": 50.05545910493827,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        }
+      }
+    },
+    "(1, 1)": {
+      "name": "SFPU add, SFPU rounds to even",
+      "total_differ": 0,
+      "cases": {
+        "random bf16 pairs": {
+          "differ": 0,
+          "of": 82944,
+          "pct": 0.0,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "ratio 256x": {
+          "differ": 0,
+          "of": 82944,
+          "pct": 0.0,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "REAL ties (x + halfulp)": {
+          "differ": 0,
+          "of": 82944,
+          "pct": 0.0,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        },
+        "REAL ties, negated": {
+          "differ": 0,
+          "of": 82944,
+          "pct": 0.0,
+          "input_norms_moved": [
+            false,
+            false
+          ]
+        }
+      }
+    }
+  },
+  "exact_arm": [
+    1,
+    1
+  ],
+  "bandwidth": {
+    "shape": [
+      1,
+      288,
+      288,
+      128
+    ],
+    "reps": 20,
+    "median_s": 0.0001788809895515442,
+    "gb_per_call": 0.063700992,
+    "achieved_gbps": 356.1082268143686,
+    "cores": 110,
+    "tiles": 10368,
+    "gran": 2
+  },
+  "aiclk": {
+    "n": 10,
+    "min": 1350,
+    "max": 1350,
+    "median": 1350
+  }
+}

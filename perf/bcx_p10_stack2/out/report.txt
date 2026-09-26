@@ -1,0 +1,44 @@
+wave-10 composed stack, pc card 0, one sitting, off/on/on/off at the process boundary
+
+arm     n   round s     min     max    host     dev  AICLK  clkmin  load1
+off    16    11.257  10.973  13.391   1.693   9.496   1350    1343   2.92
+on     16     9.126   8.567  11.448   1.745   7.183   1350    1343   2.67
+
+paired, round k against round k inside an adjacent process pair, n=16
+  paired median delta   +2.252 s   ->  1.2500x
+  paired mean delta     +2.255 s (sd 0.275)
+  rank-paired wins      16/16
+  unpaired medians      11.257 -> 9.126 s, 1.2335x
+  device column         9.496 -> 7.183 s, 1.3221x
+
+RATIO against the 0.6958 s H200 round: off 16.18x  ->  on 13.12x
+
+reach, per round, at the round boundary (a flag that declines measures the anchor)
+  p1_off   hifi=True bw=False rne=False taped='tri_att_sdpa_hifi'
+      triatt_bw_served     [0, 0, 0, 0, 0, 0, 0, 0]
+      triatt_bw_calls      [108, 108, 108, 108, 108, 108, 108, 108]
+      triatt_bw_declined   [0, 0, 0, 0, 0, 0, 0, 0]
+      mm_served            [None, None, None, None, None, None, None, None]
+      rne_served           [0, 0, 0, 0, 0, 0, 0, 0]
+      rne_declined         [0, 0, 0, 0, 0, 0, 0, 0]
+  p2_on    hifi=True bw=True rne=True taped='tri_att_sdpa_hifi,rne_add'
+      triatt_bw_served     [108, 108, 108, 108, 108, 108, 108, 108]
+      triatt_bw_calls      [108, 108, 108, 108, 108, 108, 108, 108]
+      triatt_bw_declined   [0, 0, 0, 0, 0, 0, 0, 0]
+      mm_served            [696, 696, 696, 696, 696, 696, 696, 696]
+      rne_served           [1386, 1386, 1386, 1386, 1386, 1386, 1386, 1386]
+      rne_declined         [12, 12, 12, 12, 12, 12, 12, 12]
+  p4_off   hifi=True bw=False rne=False taped='tri_att_sdpa_hifi'
+      triatt_bw_served     [0, 0, 0, 0, 0, 0, 0, 0]
+      triatt_bw_calls      [108, 108, 108, 108, 108, 108, 108, 108]
+      triatt_bw_declined   [0, 0, 0, 0, 0, 0, 0, 0]
+      mm_served            [None, None, None, None, None, None, None, None]
+      rne_served           [0, 0, 0, 0, 0, 0, 0, 0]
+      rne_declined         [0, 0, 0, 0, 0, 0, 0, 0]
+  p3_on    hifi=True bw=True rne=True taped='tri_att_sdpa_hifi,rne_add'
+      triatt_bw_served     [108, 108, 108, 108, 108, 108, 108, 108]
+      triatt_bw_calls      [108, 108, 108, 108, 108, 108, 108, 108]
+      triatt_bw_declined   [0, 0, 0, 0, 0, 0, 0, 0]
+      mm_served            [696, 696, 696, 696, 696, 696, 696, 696]
+      rne_served           [1386, 1386, 1386, 1386, 1386, 1386, 1386, 1386]
+      rne_declined         [12, 12, 12, 12, 12, 12, 12, 12]
