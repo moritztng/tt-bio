@@ -1,3 +1,40 @@
+"""Which half of a bf16 reduction destroys a weight gradient: the product, or the sum?
+
+**THE APPLICATION TO `ttnn.sum` IS DEAD, killed on device 2026-09-26 by `of3t-p10exact` in a
+6-second arm** (`perf/of3t_p10exact/sum_accumulator.py`, qb2 card 1 p300c). The CPU arithmetic
+below is correct about a bf16 ACCUMULATOR in the abstract. `ttnn.sum` is not one:
+
+    N        arithmetic                          rel L2      cos vs float64
+    64       ttnn.sum, bf16 in, precise cfg      1.752e-03   0.9999986
+    4096     ttnn.sum, bf16 in, precise cfg      1.741e-03   0.9999982
+    147456   ttnn.sum, bf16 in, precise cfg      1.848e-03   0.9999980   <- FLAT across 2304x in N
+    147456   ttnn.sum, fp32 in, precise cfg      7.565e-05   1.0000000
+    147456   _sum_leading, fp32 in (add tree)    7.182e-08   1.0000000
+
+**Flat in N means `ttnn.sum` already keeps an fp32 accumulator**; the residual 1.8e-03 is one bf16
+rounding of the OUTPUT, not a sqrt(N) running-sum walk. `_sum_leading` on a bf16 input reads
+bit-identically to plain `ttnn.sum`, confirming both which branch it takes and that the branch is
+fine. **So the six token-axis sites (autograd.py 1283, 1341, 1343, 2709, 2769, 2771) are NOT the
+defect they were claimed to be.**
+
+WHERE THE CLAIM CAME FROM, because the mistake is instructive. `autograd.py:2698` says "a bf16
+result means a bf16 running sum however precise the destination register is", measured as
+"6.5e-02 relative L2 at K=4096 against 6.5e-03 at K=64, the sqrt(K) signature of a bf16
+reduction". That comment is about a **MATMUL** (`_matmul` at 2705, fixed there with
+`dtype=ttnn.float32`) and it is correct about the matmul. **Generalising it to `ttnn.sum` was mine
+and it was wrong** -- and the sqrt(K) growth the comment reports is exactly what the arm above
+shows `ttnn.sum` does NOT have.
+
+WHAT SURVIVES, and it is worth a fraction of what was claimed. Passing fp32 INTO the reduction
+still buys **24x** on the residual (7.565e-05 against 1.848e-03), and the fp32 add tree buys
+another 1000x (7.182e-08). So `dtype=ttnn.float32` at those six sites is a real if modest
+improvement, not a fix for anything catastrophic. Price it as such.
+
+The CPU model below stands as a statement about bf16 accumulators generally. It was applied to the
+wrong op.
+
+--- original header follows ---
+
 """Which half of a bf16 reduction destroys a layer-norm weight gradient: the product, or the sum?
 
 Pure numpy, no device, ~1 min on a CPU. Models `dgamma = sum_rows(g * norm)` exactly as
