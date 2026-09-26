@@ -102,7 +102,7 @@ def points(ttnn, dev, p, pc, dest_tiles):
                 k["core_grid"] = ttnn.CoreGrid(y=_y, x=_x)
                 return a, k
             P.append(("core_grid %dx%d (mmlay's lever)" % (y, x), g))
-        return P
+        return P + l1_points(ttnn, dev)
 
     f = fields_of(pc)
     Mt, Nt, Kt = _tiles(p["M"]), _tiles(p["N"]), _tiles(p["K"])
@@ -182,7 +182,23 @@ def points(ttnn, dev, p, pc, dest_tiles):
         k = {kk: v for kk, v in k.items() if kk not in ("program_config", "config")}
         return a, k
     P.append(("plan dropped: ttnn's own planner", nop))
-    return P
+    return P + l1_points(ttnn, dev)
+
+
+def l1_points(ttnn, dev):
+    """`micro.py`'s operand-placement transforms, unchanged, as leg 2's decisive control.
+
+    The roofline model says this family is DRAM-bound: arithmetic intensity 81.8 FLOP/byte
+    against a ridge of 194.2. It also says the family reaches only 36.5 % of the DRAM roof while
+    the round's eltwise ops reach 76-85 % at the same per-call byte scale on the same card. Two
+    explanations fit: the card really is at the roof and the census byte model cannot see the
+    operand re-reads that get it there, or the matmul program cannot saturate DRAM at all.
+
+    Moving an operand to L1 discriminates them. If the class is bandwidth-starved, taking its
+    DRAM reads away makes it faster; if it is not, the time barely moves and the 36.5 % is the
+    program, not the bus. That is a measurement and not a model, which is why it is here.
+    """
+    return [(lab, tf) for lab, tf in MI.points(ttnn, dev) if "L1" in lab]
 
 
 def dest_tiles_of(ck) -> int:
