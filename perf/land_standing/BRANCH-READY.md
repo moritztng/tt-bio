@@ -3,9 +3,11 @@
 As of 2026-09-26. **0 behind `origin/main`**, so merging is a fast-forward and `main` afterwards
 is exactly the tree the suite below scored.
 
-    tip    74c13e5c3
-    tree   6e33abef952d63f121ee248bed665bcb3425e163
-    suite  4722 passed, 282 skipped, 0 failed in 588 s   (tree hash read after the run)
+    verified tree   6e33abef952d63f121ee248bed665bcb3425e163  (commit 74c13e5c3)
+    full suite      4722 passed, 282 skipped, 0 failed in 588 s, tree hash read after the run
+    tip             one commit later, adding THIS FILE and nothing else -- 1 file, +45, all
+                    markdown, so the suite result above covers every line of code on the branch
+    guards on tip   837 passed, 35 skipped, 0 failed
 
 45 files, +5427 / -43. **The only shared-surface file is `tt_bio/tenstorrent.py`, +10 lines, and
 it is comment-only** — verified by filtering the diff for non-comment additions and getting
