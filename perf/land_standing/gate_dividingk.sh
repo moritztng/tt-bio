@@ -33,9 +33,13 @@ for arm in $ARMS; do
   # The guard: the gate names the tree it scored. If that is not this worktree, the verdict is
   # about somebody else's code and the whole chain is worthless, so stop rather than accumulate
   # green arms that mean nothing.
-  scored=$(grep -m1 "scoring  *:" "$log" | sed 's/.*scoring  *: //')
+  # The gate prints its scoring tree in TWO formats -- "scoring       : <path>" when it imports
+  # the shared checkout, "scoring tt_bio from <path> (commit ...)" when PYTHONPATH points it
+  # here. Keying on the first format made this guard abort a perfectly good arm, so match the
+  # PATH inside whichever line mentions scoring rather than the punctuation around it.
+  scored=$(grep -m1 "scoring" "$log")
   case "$scored" in
-    "$WT"*) ;;
+    *"$WT"*) ;;
     *) echo "ARM $arm ABORTED-WRONG-TREE scored='$scored'" | tee -a "$OUT/ARMS2.txt"
        echo "GATE_CHAIN_END"; exit 2 ;;
   esac
