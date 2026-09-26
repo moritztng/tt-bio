@@ -88,6 +88,38 @@ and runs per recycle, not per diffusion step, so the ~51 s absolute saving shoul
 200-step fold while the RATIO falls, because the extra diffusion steps are time the lever does
 not touch. Quote the seconds; re-measure before quoting 1.635x at production settings.
 
+## Accuracy, re-measured on the TRUNK where there is no sampler and no floor
+
+The structure-level test failed for want of resolution: the diffusion sampler sits between the
+lever and the CA-RMSD, and on this fixture re-seeding moves the structure 19.6 A, so nothing
+below that could be seen. The lever lives in the trunk, and the trunk takes no seed. Measured
+there instead, three folds at 832 tokens, same input, same seed
+(`perf/land_standing/trunkcmp.py`, capture hook `perf/land_standing/trunk_dump_sitecustomize.py`):
+
+    tensor                OFF vs OFF (control)   ON vs OFF (the lever)
+    s  [1,832,384]              0.000e+00              2.152e-01
+    z  [1,832,832,128]          0.000e+00              8.724e-02
+
+**The control is exactly zero** — two OFF runs agree bit-for-bit on both tensors and on all six
+global scalars (rms, sum, absmax each). So the trunk is deterministic across runs and this
+instrument has **no floor to clear at all**, which is the thing the structure-level test could
+not give.
+
+**And the effect is large: 21.5 % relative on the single representation, 8.7 % on the pair.**
+That is not a rounding difference. It is what two genuinely different kernels accumulate over the
+trunk's blocks — at 832 the shipped arm declines every call and runs `_fp32_softmax_attention`,
+while the lever serves the fused route, so the arms are not near-neighbours.
+
+**What this does and does not settle.** It settles that the change is *real and large* and that
+the earlier "indistinguishable from re-seeding" reading was the fixture's noise floor hiding it,
+not evidence of a small effect. It does not settle *direction*: there is no float64 trunk
+reference here, so the trunk measurement cannot say whether ON is closer to correct. The only
+directional evidence remains per-call, where the fused route is 8.7-12.6 % closer to float64 than
+the fall-back it replaces.
+
+Those two can both hold — each call slightly better, the 48-block trajectory still diverging far —
+and deciding between them needs a reference, not another arm.
+
 ## Recommendation
 
 Keep it off by default, but the trade has changed and the note should say so. The gain is no
