@@ -1,0 +1,24 @@
+# perf/bcx_pr/gb10_repro.py, run 2026-09-26 12:0xZ on pc. Issue #23 reproduced without a GB10:
+# an nvidia-smi stub that exits 0 and prints '0, [N/A], [N/A]', design_devices() stubbed at one cuda device.
+# jax 0.11.2, CPU backend, no accelerator opened.
+
+=== upstream/main 3e3563894 ===
+nvidia-smi on PATH: 0, [N/A], [N/A]
+  design_gpu_memory_gb()     -> RAISES ValueError: could not convert string to float: '[N/A]'
+  plan_design_workers({})    -> RAISES ValueError: could not convert string to float: '[N/A]'
+
+=== upstream/main + the reporter's own design_workers.py ===
+nvidia-smi on PATH: 0, [N/A], [N/A]
+  design_gpu_memory_gb()     -> {}
+  plan_design_workers({})    -> [{'gpu': '0', 'memory_fraction': 0.0, 'residue_count': 201}]
+
+=== PR #19 merged into main before d00dd6f (e2db56ab1) ===
+nvidia-smi on PATH: 0, [N/A], [N/A]
+  design_gpu_memory_gb()     -> RAISES ValueError: could not convert string to float: '[N/A]'
+  plan_design_workers({})    -> RAISES ValueError: could not convert string to float: '[N/A]'
+
+=== PR #19 merged into main after d00dd6f (e4f58043c) ===
+nvidia-smi on PATH: 0, [N/A], [N/A]
+  design_gpu_memory_gb()     -> {'0': (119.0, 119.0)}
+  plan_design_workers({})    -> [{'gpu': '0', 'memory_fraction': 0.242, 'residue_count': 201}, {'gpu': '0', 'memory_fraction': 0.242, 'residue_count': 201}, {'gpu': '0', 'memory_fraction': 0.242, 'residue_count': 201}, {'gpu': '0', 'memory_fraction': 0.242, 'residue_count': 201}]
+

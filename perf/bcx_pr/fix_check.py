@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Six behaviours of BindCraft 2's design-worker fan-out, checked against whatever tree is on
+"""Seven behaviours of BindCraft 2's design-worker fan-out, checked against whatever tree is on
 PYTHONPATH. Run it on PR #19 head 68b853dde for the control and on the same tree with the fix
 applied for the result.
 
@@ -10,8 +10,32 @@ offered in the PR comment would have introduced, and the reason that fix was wit
 Run:  PYTHONPATH=<tree> JAX_PLATFORMS=cpu python3 fix_check.py
 """
 import os
+import stat
 import sys
+import tempfile
 from bindcraft import design_workers as dw
+
+
+GB10_NVIDIA_SMI = """#!/bin/sh
+# A DGX Spark GB10 shares one memory pool with the host, so nvidia-smi cannot measure a free and
+# a total for the board: it prints [N/A] for both and exits 0. Issue #23.
+case "$*" in
+  *memory.free*) echo "0, [N/A], [N/A]" ;;
+  *index*)       echo "0" ;;
+esac
+exit 0
+"""
+
+
+def nvidia_smi_printing_not_available():
+    """Put a GB10's nvidia-smi first on PATH. Returns the directory so the caller can undo it."""
+    directory = tempfile.mkdtemp(prefix='gb10-')
+    stub = os.path.join(directory, 'nvidia-smi')
+    with open(stub, 'w') as handle:
+        handle.write(GB10_NVIDIA_SMI)
+    os.chmod(stub, os.stat(stub).st_mode | stat.S_IEXEC)
+    os.environ['PATH'] = directory + os.pathsep + os.environ['PATH']
+    return directory
 
 
 class Device:
@@ -37,7 +61,8 @@ def only(*names):
 
 def pins(plan):
     """What launch_design_workers would put in each worker's environment, without spawning one."""
-    variable = dw.design_visibility_variable() or 'CUDA_VISIBLE_DEVICES'
+    resolve = getattr(dw, 'design_visibility_variable', lambda: None)  # absent at 301efdd and 3e3563894
+    variable = resolve() or 'CUDA_VISIBLE_DEVICES'
     return variable, [worker['gpu'] for worker in plan]
 
 
@@ -112,6 +137,21 @@ def main() -> int:
     plan, error = attempt(lambda: dw.plan_design_workers({}))
     checks.append(('E  no accelerator -> an empty plan, no raise',
                    error is None and plan == [], error or str(plan)))
+
+    # F -- issue #23, reported against 3e3563894 by a third party on a DGX Spark GB10. nvidia-smi
+    # is present and exits 0, and prints [N/A] where the memory numbers go, so the float() in
+    # nvidia_smi_memory_gb raises out through plan_design_workers and the campaign refuses. The
+    # guard drops the unmeasurable rows, which lets the plugin's own reading answer instead.
+    devices('cuda', 1)
+    only()
+    stub_directory = nvidia_smi_printing_not_available()
+    memory, error = attempt(dw.design_gpu_memory_gb)
+    checks.append(('F  nvidia-smi reports [N/A] memory -> a reading, not a raise',
+                   error is None and memory == {'0': (80.0, 80.0)}, error or str(memory)))
+    plan, error = attempt(lambda: dw.plan_design_workers({}, residue_count=201))
+    checks.append(('F  nvidia-smi reports [N/A] memory -> a plan, not a refused campaign',
+                   error is None and plan is not None and len(plan) >= 1, error or f'{len(plan)} worker(s)'))
+    os.environ['PATH'] = os.environ['PATH'].split(os.pathsep, 1)[1]
 
     for label, ok, detail in checks:
         print(f"  {'pass' if ok else 'FAIL'}  {label}\n              {detail}")

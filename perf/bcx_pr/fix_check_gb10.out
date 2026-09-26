@@ -1,0 +1,86 @@
+# perf/bcx_pr/fix_check.py, run 2026-09-26 12:1xZ on pc. New case F is issue #23 (DGX Spark GB10).
+# jax 0.11.2 / jaxlib 0.11.2, python 3.12.12, CPU backend, no card and no device opened.
+# design_devices() is stubbed; nvidia-smi is a stub that prints what a GB10's prints. Everything else is the module as written.
+# Trees: upstream/main 3e3563894; e2db56ab1 = that main with PR #19 head bf304d153 merged in (mergeable: clean);
+#        e2db56ab1 + guard = the same merge with this pass's [N/A] guard on nvidia_smi_memory_gb.
+
+=== upstream/main 3e3563894 ===
+  FAIL  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              0 worker(s) on []
+  pass  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['2', '3']
+  FAIL  B  free memory keyed by the pin name, not the jax id
+              []
+  FAIL  C  rocm, no variable set -> the whole box
+              []
+  FAIL  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              []
+  FAIL  D  variable does not describe the devices -> jax ids, no mixed list
+              ['2', '3', 'bogus', '7']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+  FAIL  F  nvidia-smi reports [N/A] memory -> a reading, not a raise
+              ValueError: could not convert string to float: '[N/A]'
+  FAIL  F  nvidia-smi reports [N/A] memory -> a plan, not a refused campaign
+              ValueError: could not convert string to float: '[N/A]'
+
+4 passed, 7 failed
+
+=== MERGE of PR #19 into main, as it stands e2db56ab1 ===
+2 devices visible, designing on one: no way to pin a worker to a single device on this platform
+  pass  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              1 worker(s) on ['0']
+  pass  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['2', '3']
+  pass  B  free memory keyed by the pin name, not the jax id
+              ['2', '3']
+  pass  C  rocm, no variable set -> the whole box
+              ['0', '1', '2', '3']
+  pass  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  D  variable does not describe the devices -> jax ids, no mixed list
+              ['0', '1']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+  FAIL  F  nvidia-smi reports [N/A] memory -> a reading, not a raise
+              ValueError: could not convert string to float: '[N/A]'
+  FAIL  F  nvidia-smi reports [N/A] memory -> a plan, not a refused campaign
+              ValueError: could not convert string to float: '[N/A]'
+
+9 passed, 2 failed
+
+=== the same MERGE + this pass's guard ===
+2 devices visible, designing on one: no way to pin a worker to a single device on this platform
+  pass  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              1 worker(s) on ['0']
+  pass  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['2', '3']
+  pass  B  free memory keyed by the pin name, not the jax id
+              ['2', '3']
+  pass  C  rocm, no variable set -> the whole box
+              ['0', '1', '2', '3']
+  pass  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  D  variable does not describe the devices -> jax ids, no mixed list
+              ['0', '1']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+  pass  F  nvidia-smi reports [N/A] memory -> a reading, not a raise
+              {'0': (80.0, 80.0)}
+  pass  F  nvidia-smi reports [N/A] memory -> a plan, not a refused campaign
+              4 worker(s)
+
+11 passed, 0 failed
+

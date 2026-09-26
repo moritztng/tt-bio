@@ -14,6 +14,7 @@ from `ErikMaeots` at 2026-09-25T15:04:09Z.
     44a0dd34b3  2026-09-25T12:12:37Z  LeonardoTredese   unified gpu determination mechanism
     68b853ddec  2026-09-25T15:00:48Z  LeonardoTredese   Updated docs, removed stale tests, fixed bindcraft.py imports
     bf304d1530  2026-09-26T07:2xZ     moritztng         Pin design workers by the visibility variable's own names
+    d00dd6f243  2026-09-26T12:0xZ     moritztng         Drop the memory rows nvidia-smi cannot measure instead of raising
 
 `bf304d1` is `PIN_FIX.patch` pushed to the branch on 2026-09-26 07:29Z after 11.8 h of silence on
 two comments that both offered it. One additive commit, no rebase, no force-push. Re-measured
@@ -23,7 +24,7 @@ revisions give `selected_design_gpus() -> []` and `plan_design_workers({}, 300, 
 `PR19_COMMENT_3_2026-09-26.md` is the comment as posted
 (https://github.com/PacesaLab/BindCraft2/pull/19#issuecomment-5844267891).
 
-So the PR is now +49/-23 across 4 files, not the +290/-15 we opened, and the 215-line
+So the PR is now +69/-24 across 4 files, not the +290/-15 we opened, and the 215-line
 `tests/test_design_workers.py` we added came out in `68b853d`. The rewrite replaces our env-var
 enumeration with `jax.devices()` and derives the visibility variable from the device kind.
 Everything under "Measured at HEAD" below was measured on `403ddcf8`, our commit, and does not
@@ -31,6 +32,46 @@ describe what is on the PR today.
 
 `0001-Find-and-pin-design-workers-without-nvidia-smi.patch` is our commit. `PR_BODY.md` is the body
 as posted. There is no Tenstorrent code, no `tt_bio` import and no `tenstorrent` extra in any of it.
+
+## The branch did not fix the crash a third party reported in the function it rewrites
+
+Issue #23, filed 2026-09-26T00:44:28Z by `c00jsw00` against `3e3563894`: a campaign on a DGX Spark
+GB10 refuses with `could not convert string to float: '[N/A]'` before the first trajectory. The
+board shares one memory pool with the host, so `nvidia-smi --query-gpu=memory.free,memory.total`
+has no board figure to give: it prints `[N/A]` in both fields and **exits 0**, which is why
+`check=True` does not trip and why `except (OSError, CalledProcessError)` does not catch the
+`ValueError` that `float('[N/A]')` raises. It escapes `plan_design_workers` and `cli.py:211` turns
+it into `campaign refused`.
+
+**`bf304d1` carried that line unchanged from `main`, so this branch reproduced the report exactly.**
+`gb10_repro.py` / `.out`, four trees, an `nvidia-smi` stub that prints what the reporter's does and
+`design_devices()` stubbed, so no accelerator is opened anywhere:
+
+    upstream/main 3e3563894                         RAISES ValueError
+    upstream/main + the reporter's own file          {} and a single-process campaign
+    PR #19 merged into main, before d00dd6f          RAISES ValueError
+    PR #19 merged into main, after  d00dd6f          {'0': (119.0, 119.0)} and a 4-worker plan
+
+`d00dd6f` drops a row whose memory does not parse rather than the whole reading, which leaves
+`design_gpu_memory_gb` to fall through to `jax_device_memory_gb()` as it already does where
+`nvidia-smi` is absent. A board that reports numbers is read exactly as before.
+
+**The 119.0 GB in the last row is the stub's number, not a GB10's.** What the CUDA plugin reports
+for a unified pool is untested here and we have no such box. If it reports a `bytes_limit` the
+packing is memory-aware; if it reports nothing the result is the one worker the reporter's own
+patch gives. Neither refuses the campaign, which is the whole claim.
+
+`fix_check.py` grew case F for this and now runs 11 checks. `fix_check_gb10.out`, measured on the
+**merge result** rather than the branch tip, because a branch-tip reading does not verify the merge:
+
+    upstream/main 3e3563894                          4 pass /  7 fail
+    this branch merged into it, before d00dd6f       9 pass /  2 fail
+    the same merge, after                           11 pass /  0 fail
+
+The 2 are the GB10 pair. `git merge origin/main` resolves clean at `e4f58043c`, and the four files
+this branch touches appear in none of the open PRs #10, #16, #21 or #22.
+`ISSUE23_COMMENT_2026-09-26.md` and `PR19_COMMENT_4_2026-09-26.md` are the two comments as posted
+(issuecomment-5846138314 and -5846138434). `GB10_NA.patch` is the commit.
 
 ## Two defects in the rewrite, reported 2026-09-25T16:18:46Z
 
