@@ -31,6 +31,31 @@ even though the flag is on. The other three are unconditional at the sizes they 
 Given how often this session found a lever's reach to be narrower than its flag suggests, that is
 worth carrying rather than discovering later.
 
+## Where the seconds land: one of the four is Blackhole-only
+
+The audit above checked that each lever is present and default-on. That is necessary and not
+sufficient — a lever can be on and still not reach the hardware users run on. Checked per lever:
+
+`_IS_SMALL_GRID` is `grid_x * grid_y < 11 * 10` (`tenstorrent.py:5412`), so it is **False on a
+p300c (11x10 = 110)** and **True on a Wormhole Galaxy (8x9 = 72**, the grid this repo records in
+202 places**)**.
+
+| seconds | lever | grid-gated? |
+|---|---|---|
+| 1.438 | derived fused `_MM_BLOCK` key | no |
+| 11.564 | fused HiFi triangle attention | no |
+| **0.1315** | **K4 `TT_BIO_SDPA_BAND_DIV_K`** | **YES — `if _SDPA_BAND_DIV_K and not _IS_SMALL_GRID`** (`tenstorrent.py:1403`), and the line above it says so in words: *"`not _IS_SMALL_GRID` is the Blackhole scope"* |
+| 9.5000 | `TT_BIO_TRIATT_NARROW_Q_FALLBACK` | no — its docstring discusses core count as an L1 term, not as a gate |
+
+**So K4's 0.1315 s is Blackhole-only and does not fire on a Galaxy.** JapanFold production runs
+on Wormhole Galaxies, so on the hardware that serves users this row has delivered **22.5020 s**,
+not 22.6335 s. On a QuietBox p300c the full 22.6335 s is real.
+
+This is not a defect in K4 — it is scoped deliberately and the code says so. It is a defect in
+how the total is stated: **a single cumulative number cannot be true on two hardware families at
+once**, and this row's own charter is that a win users never receive did not happen. Quote the
+figure with the part it was measured on.
+
 ## What this does not claim
 
 Nothing here re-measures anything. It checks that every lever the total counts is still present
