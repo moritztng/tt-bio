@@ -1,5 +1,36 @@
 # TT_BIO_TRIATT_DIVIDING_K: what it is worth, and what is still unknown
 
+## CURRENT STATE, 2026-09-26 — read this, then skip to the last section
+
+This file grew by pass and several of its middle sections are superseded in place. Everything
+that is settled:
+
+- **Reach: exactly one length, 832 tokens.** Enumerated over all 48 tile-aligned lengths from 32
+  to 1536 with a model validated against six device outcomes. Ten lengths get no fused pair; the
+  HiFi route is `openfold3.trunk` alone and OpenFold3 pads to a multiple of 64, so 832 is the only
+  one a user can present.
+- **Speed: +50.999 s, 1.6351x** on an OpenFold3 fold at 832, A/A floor 1.306 s, effect 39x floor,
+  AICLK sampled DURING every leg at 1350 MHz, arms interleaved, board-pair sibling idle.
+- **Blast radius: zero.** The lever opens 832 and changes the pick at no length that serves today.
+  Every `_Q_SPLIT_MAX_S` variant tested buys the same one length and moves 3 to 12 shipped picks,
+  so **the cap is not a better route to this and should be left alone.**
+- **Per call against float64: not a worse kernel.** The route the lever unlocks sits in a
+  0.02084-0.02148 band across seven lengths, and the one length where the shipped route serves
+  reads 0.021430, inside it. At n=256 the arms are identical to the last digit.
+- **The chunked-k question is closed.** A single-chunk k does serve at 832 (`q64 k832`, 384/384,
+  zero rejects), and it accounts for 13 % of the structural move, in the same direction. The
+  earlier claim that the allocator refuses it is **retracted**.
+
+**The one open blocker, unchanged:** whether the fused route is better or worse than the
+materialised one at 832. It needs a fixture where OpenFold3 is confident. Tiled CDK2 apo gives
+pLDDT 0.37 and its confidence heads **flip sign between 704 and 832**, so they cannot decide it.
+
+**Recommendation: keep it off by default until that fixture exists.** The cost of waiting is
+51 seconds on every fold that pads to 832 tokens.
+
+---
+
+
 Written 2026-09-26 by `land-standing` so the next reader does not re-derive any of it. Every
 number here was measured on qb2 card 3, p300c; the artifacts are under
 `perf/land_standing/out/`.
@@ -444,7 +475,7 @@ bound when and only when the k chunk is wide, and see whether `q64 k832` serves.
 re-take the confidence pair at 832 — that is the reading that would move this lever from held to
 landable.
 
-## The single-chunk k DOES serve at 832 — and it is not the explanation. Two corrections.
+## The single-chunk k DOES serve at 832 (its Recommendation is SUPERSEDED by the one at the end of this file)
 
 Measured 2026-09-26 on qb2 card 3, p300c, AICLK median 1350 MHz on every leg, loadavg 14-19.
 Accuracy and firing only; no timing claim is taken from these legs.
@@ -529,3 +560,79 @@ is left needing a confident target is narrower than before but it has not gone a
   verified at 512 and 1024 with a counter-example at 832 sitting between them. Any padded length
   below the cap whose shipped q does not divide it is in the same position. That is a reach
   question about a default-ON route, not about this lever.
+
+## The cap is NOT the thing to argue about. The lever is strictly better, measured both ways.
+
+Last pass ended by suggesting `_Q_SPLIT_MAX_S = 1024` deserved attention in its own right, since
+832's hole sits below it. Enumerated properly, that suggestion is wrong, and the enumeration also
+settles the lever's reach. Host arithmetic only, no device: `perf/land_standing/capreach.py`,
+`capblast.py`, `cap768.py`.
+
+### The model is validated before it is believed
+
+`serves(n)` replicates `_tri_att_sdpa_hifi_inner`'s route order — `_tri_att_fused_large_s` first,
+then the k ladder — and answers each rung with the engine's own budget model, `plan_for_shape`
+plus `cb_fits_l1`. It is checked against six outcomes this row measured on the device:
+
+    n=256  dividing-k off          predicted (ladder, 256, 256)    device: served q256 k256
+    n=704  dividing-k off          predicted (ladder, 352, 704)    device: served q352 k704
+    n=832  dividing-k off          predicted None                  device: 0 served / 384 declined
+    n=832  dividing-k ON           predicted (ladder, 416, 416)    device: served q416 k416
+    n=832  cap 768, lever off      predicted (large_s, 416, 416)   device: served q416 k416
+    n=1088 dividing-k off          predicted (large_s, 64, 1088)   device: served q64 k1088
+
+**The first version failed 704 and the guard caught it.** The model had left out `one_k_chunk`,
+and `tenstorrent.py:10483` passes `tri_att_one_k_chunk=tri_att_sdpa_hifi` — so the only default-ON
+HiFi site gets the route and the k order together, and the full-width k is prepended to its
+ladder. That is why 704 serves a wide k with the lever off. A sweep built on the first version
+would have been confidently wrong about every length.
+
+### Reach: 10 holes in 48 lengths, and exactly one of them is reachable
+
+Every tile-aligned length from 32 to 1536, shipping defaults:
+
+    serves a fused pair:                    38
+    no fused pair, falls to materialised:   10  -> 544 608 736 832 928 992 1184 1312 1376 1504
+      below the cap:                         6  -> 544 608 736 832 928 992
+      above the cap:                         4  -> 1184 1312 1376 1504
+
+The HiFi route is `openfold3.trunk` and nothing else — `boltz2.trunk` and `rf3.tri_att` default
+False — and OpenFold3 pads its pair axis to a multiple of 64. Of the ten holes **only 832 is a
+multiple of 64**, so on shipping defaults **832 is the only hole any user can present.** That
+confirms the earlier five-length sample from a full enumeration instead of a spot check.
+
+### The comparison that decides it
+
+    change                     holes closed   picks CHANGED at lengths that serve today
+    cap 1024 -> 768 or 800          1 (832)    3  -- 896, 960, 1024
+    cap 1024 -> 32                  4          12 -- including 512, 704 and 1024
+    TT_BIO_TRIATT_DIVIDING_K        1 (832)    0
+
+**The lever buys the same length and disturbs nothing. Every cap variant buys it and moves picks
+that ship today.** At 896 the cap lift replaces `q224 k896` — one k chunk — with `q448 k224`, four
+chunks and a running-max rescale the length does not currently pay. 1024 is one of the two lengths
+the cap's own justification was verified on, and it moves too.
+
+**So the cap's stated reason is wrong and its conclusion is right.** The recorded justification,
+*"at and below it the ladder already lands on a fused pair"*, is false at six lengths. The real
+reason to keep it is visible in `fused_pairs`'s own output: its preference order is tuned for the
+regime above 1024 and degrades below it. At 704 it offers `(704, 32)` first — k in 22 chunks —
+when the ladder is already serving `(352, 704)` in one. Below the cap the route would frequently
+pick worse than what is there.
+
+That is worth correcting in the comment, and it is **not** a reason to change the cap.
+
+### Recommendation, superseding all of the above
+
+`TT_BIO_TRIATT_DIVIDING_K` is the right lever for 832. It is surgical — one length opened, zero
+picks moved — and this is now measured across all 48 tile-aligned lengths rather than argued. Its
+remaining blocker is unchanged and is the only one left: whether the fused route is better or
+worse than the materialised one at 832, which needs a fixture where OpenFold3 is confident.
+pLDDT 0.37 on tiled CDK2 apo is not that fixture, and the confidence heads flip sign between 704
+and 832, so they cannot stand in for it.
+
+Two things that are NOT blockers and should stop being treated as open:
+
+- the chunked-k question — settled, the single chunk serves at 832 and accounts for 13 % of the
+  move, in the same direction;
+- the cap — settled, changing it is worse than the lever at every variant tested.
