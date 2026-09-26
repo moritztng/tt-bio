@@ -436,3 +436,4 @@ perf/of3t_d137digest/work_gate/
 scripts/af2_port/parity_artifacts/multimer_trunk/*.npz
 perf/bcx_p10_rneker/out/xlacache/
 perf/bcx_p10_movker/out/xlacache/
+perf/bcx_p10_movker/out/**/.campaign_state.json
