@@ -30,17 +30,26 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", choices=["on", "off"], required=True,
-                    help="on = the composed stack's triangle-attention route")
+    ap.add_argument("--arm", choices=["agtri", "hifi", "off", "on"], required=True,
+                    help="which triangle-attention route the graded arm takes. `agtri` is the "
+                         "stock fused verb, `hifi` is bcx-p10-tapegen's taped fused HiFi "
+                         "kernel, `off` is the materialised path. `on` is the old name for "
+                         "`agtri` and is kept so the earlier readings stay reproducible")
     ap.add_argument("--n", type=int, default=288)
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--stack", default="template")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
-    on = a.arm == "on"
-    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "1" if on else "0"
+    arm = "agtri" if a.arm == "on" else a.arm
+    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "1" if arm == "agtri" else "0"
     os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1"      # the agtri arm, the one inside the bar
+    # Set before tt_bio is imported, which is why this runs above the sys.path insert:
+    # `_TRIATT_FUSED_HIFI` is resolved at import and a later assignment would be too late for
+    # the module-level default, unlike in run_round.py where tt_bio is already loaded.
+    os.environ["TT_BIO_TAPED_KERNELS"] = "tri_att_sdpa_hifi" if arm == "hifi" else ""
+    os.environ["TT_BIO_TRIATT_FUSED_HIFI"] = "1" if arm == "hifi" else "0"
+    os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if arm == "hifi" else "0"
     sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(ROOT / "perf" / "bcx_p10_tmplemb"))
     sys.argv = ["vjp.py", "--n", str(a.n), "--reps", str(a.reps), "--stack", a.stack,
@@ -52,7 +61,9 @@ def main():
     from tt_bio import tenstorrent, taped_ttnn
     reach = {"triatt_sdpa_stats": dict(tenstorrent.TRIATT_TAPED_SDPA_STATS),
              "sdpa_own_forward_stats": dict(taped_ttnn.SDPA_OWN_FORWARD_STATS),
-             "arm": a.arm}
+             "fused_hifi_stats": dict(tenstorrent.TRIATT_FUSED_HIFI_STATS),
+             "kernel_entry_stats": {k: list(v) for k, v in taped_ttnn.KERNEL_STATS.items()},
+             "arm": arm}
     print("REACH " + json.dumps(reach))
     # vjp.py treats --out as a directory prefix, so the reach counter goes beside its file
     # rather than into it. An arm whose counter is zero graded nothing and the JSON alone
