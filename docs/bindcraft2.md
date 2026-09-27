@@ -72,7 +72,7 @@ On one Blackhole chip, a 288-token PD-L1 round:
 
 An H200 runs the same round in 0.696 s. Every figure here was taken at a 1350 MHz AICLK, sampled
 during the rounds. One more gradient kernel landed after the table: with it, three trajectories
-run at 6.18 s and two at 6.62 s, the latter measured through exactly the call above with no
+run at 6.18 s and two at 6.62 s, the latter measured with the predictor arguments above and no
 environment variable set. What the option is worth to you depends on how much of your round is
 host time, since that is all it fills.
 
