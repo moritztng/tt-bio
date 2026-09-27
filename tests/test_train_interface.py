@@ -260,6 +260,15 @@ def test_tier0_status_file_speaks_japanfold(tmp_path):
         st.claim({"lr": 1e-4}, chips=[0])
 
 
+def test_unit_roundoff_reads_ttnn_and_torch_dtype_names():
+    """ttnn prints DataType.BFLOAT16. A case-sensitive match called it fp32, so the step
+    control asserted on a 2-step run whose updates were correctly below bf16 spacing."""
+    from tt_bio.train.optim import unit_roundoff
+
+    assert unit_roundoff("DataType.BFLOAT16") == unit_roundoff("torch.bfloat16") == 2.0 ** -8
+    assert unit_roundoff("DataType.FLOAT32") == 2.0 ** -24
+
+
 def test_weights_plan_answers_from_openfold3_measurements():
     from tt_bio.train.dryrun import plan
 

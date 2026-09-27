@@ -343,6 +343,9 @@ class _Status:
                 f"{self.dir} holds a run with other settings {diff} (was, now). Pass a new "
                 f"--out, or the same settings to resume it")
         if launcher.driving():
+            # One chip runs where TT_VISIBLE_DEVICES points; the ids are the launcher's only
+            # when it spawns ranks, so that is what gets recorded.
+            chips = chips if len(chips) > 1 else [os.environ.get("TT_VISIBLE_DEVICES", "0")]
             self._write(status="running", config=config, chips=chips, pid=os.getpid(),
                         host=socket.gethostname(), error=None, out=str(self.dir.resolve()),
                         progress=str(self.progress.resolve()))

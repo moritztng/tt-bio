@@ -47,7 +47,7 @@ from .tensors import to_device, to_host
 if TYPE_CHECKING:
     from .. import autograd as ag
 
-__all__ = ["AdamW", "af3_lr", "DISPLACEMENT_BAND", "round_to_device_dtype"]
+__all__ = ["AdamW", "af3_lr", "DISPLACEMENT_BAND", "round_to_device_dtype", "unit_roundoff"]
 
 
 # The band the cumulative ratio has to stay inside. Wide enough that bf16 rounding of a
@@ -177,6 +177,16 @@ class _Moments(dict):
         self[name] = v
         return v
 
+
+
+def unit_roundoff(dtype) -> float:
+    """Half an ulp, relative, of a device weight's dtype under round-to-nearest.
+
+    bfloat16 keeps 7 explicit mantissa bits, so 2**-8. Matched on the lowercased name because
+    ttnn prints ``DataType.BFLOAT16`` and torch ``torch.bfloat16``; a case-sensitive match
+    read every ttnn weight as fp32 and failed every short run at the default warmup.
+    """
+    return 2.0 ** -8 if "bfloat16" in str(dtype).lower() else 2.0 ** -24
 
 class AdamW:
     """AdamW with fp32 master weights, after ``adamw_full_precision.cpp``.
@@ -572,11 +582,10 @@ class AdamW:
         m, d = math.sqrt(m), math.sqrt(d)
         # The displacement the device copy CANNOT show. A change smaller than half an ulp of
         # the weight it is applied to rounds away entirely, so below this the ratio is
-        # measuring the dtype and not the optimizer. bfloat16 keeps 7 explicit mantissa bits,
-        # so its unit roundoff -- half an ulp under round-to-nearest -- is 2**-8.
+        # measuring the dtype and not the optimizer.
         res = 0.0
         for n, t in self.params.items():
-            u = 2.0 ** -8 if "bfloat16" in str(t.value.dtype) else 2.0 ** -24
+            u = unit_roundoff(t.value.dtype)
             res += float(np.sum((u * np.abs(self._widen(self.init[n]))) ** 2))
         return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan"),
                 "resolution": math.sqrt(res)}
