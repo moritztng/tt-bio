@@ -108,7 +108,12 @@ def set_hifi(on):
     import, so it is set on the module.
     """
     from tt_bio import tenstorrent as _tn
-    os.environ["TT_BIO_TAPED_KERNELS"] = "tri_att_sdpa_hifi" if on else ""
+    # Only this route's own entry. Overwriting the list dropped `rne_add` from every cell a
+    # caller had armed it on (`cells.arm`, then this), so the census taped the residual's
+    # four-call wide path the shipped round never runs (bcx-p10-devtop).
+    names = [n.strip() for n in os.environ.get("TT_BIO_TAPED_KERNELS", "").split(",")
+             if n.strip() and n.strip() != "tri_att_sdpa_hifi"]
+    os.environ["TT_BIO_TAPED_KERNELS"] = ",".join((["tri_att_sdpa_hifi"] if on else []) + names)
     os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if on else "0"
     _tn._TRIATT_FUSED_HIFI = bool(on)
 
