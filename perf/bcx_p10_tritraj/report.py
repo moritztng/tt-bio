@@ -1,4 +1,5 @@
-"""The tritraj sitting: N=2 vs N=3 interleaved trajectories on one card, full stack5 stack.
+#!/usr/bin/env python3
+"""The tritraj sitting: N interleaved trajectories on one card against N-1, full stack5 stack.
 
     report.py out/a1 out/b1 ... [--json out/report.json]
 
