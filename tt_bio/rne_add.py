@@ -28,6 +28,7 @@ import ttnn
 from . import core_split
 from . import genq
 from . import ops as _ops
+from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "rne_add"
 
@@ -82,7 +83,7 @@ REJECTS: dict = {}
 # of a process that has already asked for it. Two switches for one lever is how the first wiring
 # of this row measured a clean zero: `--rne-kernel 1` armed the model and the module was still
 # off, so `eligible` returned before it could even count a decline.
-_ENABLED = os.environ.get("TT_BIO_RNE_ADD_KERNEL", "1") == "1"
+_ENABLED = env_flag("TT_BIO_RNE_ADD_KERNEL", True)
 
 
 def set_enabled(on: bool) -> bool:

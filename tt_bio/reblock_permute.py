@@ -445,7 +445,7 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
 #
 # Default OFF, release-gated. A module switch as well as an env var, so an A/B flips it in one
 # process without a second device context.
-TAPED_MOVE = os.environ.get("TT_BIO_TAPED_CHANNEL_MOVE", "0") == "1"
+TAPED_MOVE = env_flag("TT_BIO_TAPED_CHANNEL_MOVE", False)
 
 
 def set_taped_channel_move(on: bool) -> bool:

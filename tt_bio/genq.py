@@ -36,7 +36,7 @@ placed core missing from the assignment refuses the plan rather than guessing a 
 
 from __future__ import annotations
 
-import os
+from .envflags import env_flag
 
 # Scan orders. The value is a compile-time argument, so the kernel header switches on it.
 ROW_MAJOR, COL_MAJOR = 0, 1
@@ -46,7 +46,7 @@ ROW_MAJOR, COL_MAJOR = 0, 1
 # per-core table as one broadcast list, and because a caller adding common args needs the budget.
 MAX_RUNTIME_ARG_WORDS = 341
 
-_COMPACT = os.environ.get("TT_BIO_GENQ_COMPACT", "0") == "1"
+_COMPACT = env_flag("TT_BIO_GENQ_COMPACT", False)
 
 # Why a plan was refused, by reason. A kernel that quietly stops taking the cheap path is a
 # silent perf regression, so the counts are readable from a probe.
