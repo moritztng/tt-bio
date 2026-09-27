@@ -203,6 +203,35 @@ def refuse_if_it_will_not_fit(extra: int, *, per_trajectory: int = TRAJECTORY_BY
             f"{per_trajectory / 2**30:.2f} GB in flight.")
 
 
+#: Gradient rounds entered per slot, and the event that fires once a slot has its FIRST round
+#: behind it. Two trajectories entering their first JAX trace together would compile at the same
+#: time, which is the one part of a design loop with process-wide trace state, so the caller
+#: starts trajectory i only after i-1 has cleared its compile round. `interleave` resets both.
+_ROUNDS: dict[str, int] = {}
+_CLEARED: dict[str, threading.Event] = {}
+
+
+def compile_round_cleared(name: str) -> threading.Event:
+    """The event set once trajectory `name` has entered its second gradient round."""
+    return _CLEARED.setdefault(str(name), threading.Event())
+
+
+def round_entered() -> None:
+    """Count a gradient round for this thread's trajectory. Inert when nothing is interleaved.
+
+    Called at the top of the design model's `sequence_gradients`, which is the design loop
+    itself and runs on the trajectory's own thread, so the slot is trustworthy here. A compile
+    of the next length bucket runs on a daemon thread of its own and lands in slot `""`, which
+    is nobody's trajectory and sets no event.
+    """
+    if GATE is None:
+        return
+    s = slot()
+    n = _ROUNDS[s] = _ROUNDS.get(s, 0) + 1
+    if n == 2:
+        compile_round_cleared(s).set()
+
+
 @contextlib.contextmanager
 def interleave(trajectories: int = 2, per_trajectory: int = TRAJECTORY_BYTES):
     """Install the gate so `trajectories` threads can share one card.
@@ -216,6 +245,8 @@ def interleave(trajectories: int = 2, per_trajectory: int = TRAJECTORY_BYTES):
     """
     refuse_if_it_will_not_fit(trajectories - 1, per_trajectory=per_trajectory)
     global GATE
+    _ROUNDS.clear()
+    _CLEARED.clear()
     was, GATE = GATE, DeviceGate()
     try:
         yield GATE

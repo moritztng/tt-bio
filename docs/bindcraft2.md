@@ -36,6 +36,52 @@ with bindcraft2.campaign_predictor(card=0):
 out to accept whatever `TT_VISIBLE_DEVICES` already says; pass it and `bindcraft2` raises rather
 than silently running on the wrong chip.
 
+## Several trajectories on one card
+
+A design round is a host column and a device column laid end to end, and one trajectory cannot
+overlap them: the card idles about 2.6 s of every round with a host thread busy in all of it.
+Independent trajectories are the only work there is to fill that with, and a campaign has a
+supply of them.
+
+```python
+from tt_bio import bindcraft2
+
+with bindcraft2.campaign_predictor(card=0):
+    bindcraft2.run_campaign(settings, project_folder, trajectories_per_card=3,
+                            af2_weights=params_dir, mpnn_weights=mpnn_dir)
+```
+
+`bindcraft2.run_campaign` goes where `campaign.run_campaign` went. At the default
+`trajectories_per_card=1` it *is* that call: no threads, no scheduling, nothing in tt-bio behaves
+differently. Above 1 it runs that many trajectories on their own threads over one chip, each
+claiming its own trajectory number out of the project's progress file exactly as separate worker
+processes would.
+
+On one Blackhole chip, a 288-token PD-L1 round:
+
+| trajectories | s per round, amortised over the trajectories running |
+|---|---|
+| 1 | 9.06 |
+| 2 | 7.23 |
+| 3 | 6.76 |
+
+An H200 runs the same round in 0.696 s. These were measured with tt-bio's gradient levers on
+(`state/perf10/bcx-p10-tritraj.md`); what the option is worth to you depends on how much of your
+round is host time, since that is all it fills.
+
+The rate holds over a whole campaign, not just a burst: four PD-L1 trajectories at
+`trajectories_per_card=2`, run to their stop condition, took 500 gradient rounds at 6.78 s
+amortised, 2.2 % under a 9-round measurement on the same chip.
+
+It costs host memory: about 3.5 GB per trajectory beyond the first, on top of the roughly 8 GB one
+trajectory of this size holds. Two of them peaked at 14.2 GB, three at 19.5 GB. Both the box and
+the card are read before any thread starts, and a box that cannot hold them raises `MemoryError`
+naming what it wanted and what was free, rather than letting the kernel kill the campaign at
+round 200.
+
+Trajectory *i* starts only once *i-1* has its first gradient round behind it, so no two of them
+compile at the same time. Their output interleaves on stdout.
+
 ## Or build one predictor
 
 ```python

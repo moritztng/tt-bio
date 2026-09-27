@@ -10,6 +10,8 @@ import pathlib
 import subprocess
 import sys
 import textwrap
+import threading
+import time
 import types
 
 import numpy as np
@@ -188,6 +190,7 @@ def _campaign_factory_trunks(monkeypatch, **kwargs):
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
     design.extra_msa = None
+    design.template = None
     design.exact = True
 
     @contextlib.contextmanager
@@ -615,3 +618,257 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             const = model._up(model.opm_constant[index].reshape(1, 1, -1))
             z = checkpoint(lambda t, blk=block, c=const: blk(blk._residual(t, c)), z)
     assert len(built) == 1, built
+
+
+# ------------------------------------------------ several trajectories on one card
+
+
+def _campaign_calls(monkeypatch, rounds_before_finishing=3, **kwargs):
+    """Run `bindcraft2.run_campaign` against a campaign that does nothing but count rounds.
+
+    Each fake campaign call plays `rounds_before_finishing` gradient rounds through
+    `duotraj.round_entered`, which is the hook the real design model calls, and records the
+    thread and slot it ran on.
+    """
+    _bindcraft_root()
+    from bindcraft import campaign
+    from tt_bio import duotraj
+
+    calls = []
+
+    def fake_run_campaign(settings, project_folder, **kw):
+        calls.append({"settings": settings, "project": project_folder, "kwargs": kw,
+                      "slot": duotraj.slot(), "thread": threading.current_thread().name,
+                      "gate": duotraj.GATE is not None, "order": len(calls)})
+        for _ in range(rounds_before_finishing):
+            duotraj.round_entered()
+            time.sleep(0.01)
+        return len(calls)
+
+    monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    returned = bindcraft2.run_campaign({"campaign_name": "t"}, "/tmp/project", **kwargs)
+    return calls, returned
+
+
+def test_one_trajectory_per_card_is_bindcrafts_own_call(monkeypatch):
+    """The default changes nothing: no gate, no thread, the caller's own arguments."""
+    from tt_bio import duotraj
+
+    calls, returned = _campaign_calls(monkeypatch, af2_weights="/w", mpnn_weights="/m")
+    assert len(calls) == 1
+    assert calls[0]["kwargs"] == {"af2_weights": "/w", "mpnn_weights": "/m"}
+    assert calls[0]["gate"] is False and calls[0]["slot"] == ""
+    assert calls[0]["thread"] == threading.current_thread().name
+    assert returned == 1
+    assert duotraj.GATE is None
+
+
+@pytest.mark.parametrize("trajectories", [0, -1])
+def test_fewer_than_one_trajectory_is_refused(monkeypatch, trajectories):
+    with pytest.raises(ValueError):
+        _campaign_calls(monkeypatch, trajectories_per_card=trajectories)
+
+
+def test_three_trajectories_run_one_campaign_each_under_the_gate(monkeypatch):
+    from tt_bio import duotraj
+
+    calls, returned = _campaign_calls(monkeypatch, trajectories_per_card=3)
+    assert len(calls) == 3
+    assert sorted(call["slot"] for call in calls) == ["t1", "t2", "t3"]
+    assert {call["thread"] for call in calls} == {"duotraj:t1", "duotraj:t2", "duotraj:t3"}
+    assert all(call["gate"] for call in calls)
+    assert returned == 3
+    # The gate is installed for the campaign and taken down with it.
+    assert duotraj.GATE is None
+
+
+def test_a_trajectory_waits_for_the_one_before_it_to_clear_its_compile_round(monkeypatch):
+    """No two trajectories trace at the same time: i starts on i-1's SECOND round."""
+    _bindcraft_root()
+    from bindcraft import campaign
+    from tt_bio import duotraj
+
+    seen = []
+
+    def fake_run_campaign(settings, project_folder, **kw):
+        slot = duotraj.slot()
+        for round_number in range(1, 4):
+            seen.append((slot, round_number))
+            duotraj.round_entered()
+            time.sleep(0.05)
+
+    monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=2)
+
+    assert seen[0] == ("t1", 1)
+    # t2's first round cannot appear before t1's second, which is the event that releases it.
+    assert seen.index(("t2", 1)) > seen.index(("t1", 2))
+
+
+def test_a_trajectory_that_stops_early_does_not_strand_the_next_one(monkeypatch):
+    """A campaign that never reaches a second round still releases its follower."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    ran = []
+    monkeypatch.setattr(campaign, "run_campaign",
+                        lambda settings, project_folder, **kw: ran.append(1))
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3, stagger_timeout=30.0)
+    assert len(ran) == 3
+
+
+def test_a_failing_trajectory_comes_back_out(monkeypatch):
+    _bindcraft_root()
+    from bindcraft import campaign
+    from tt_bio import duotraj
+
+    def fake_run_campaign(settings, project_folder, **kw):
+        if duotraj.slot() == "t2":
+            raise RuntimeError("t2 fell over")
+
+    monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    with pytest.raises(RuntimeError, match="t2 fell over"):
+        bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=2,
+                                stagger_timeout=30.0)
+
+
+def test_a_box_that_cannot_hold_them_is_refused_before_any_campaign_starts(monkeypatch):
+    """The host is the limit that binds, and it is read before a thread exists."""
+    _bindcraft_root()
+    from bindcraft import campaign
+    from tt_bio import duotraj
+
+    started = []
+    monkeypatch.setattr(campaign, "run_campaign",
+                        lambda *a, **kw: started.append(1))
+    monkeypatch.setattr(duotraj, "free_host_bytes", lambda: 2 * 2**30)
+    with pytest.raises(MemoryError, match="HOST"):
+        bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3)
+    assert not started
+
+
+def test_the_campaign_header_is_printed_once_not_once_per_trajectory(monkeypatch):
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    real = campaign.print_campaign_header
+    headers = []
+    monkeypatch.setattr(campaign, "print_campaign_header", lambda *a, **kw: headers.append(1))
+    monkeypatch.setattr(campaign, "run_campaign",
+                        lambda settings, project_folder, **kw:
+                        campaign.print_campaign_header(settings, project_folder, None))
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3, stagger_timeout=30.0)
+    assert headers == [1]
+    assert campaign.print_campaign_header is not real or True
+
+
+def test_the_campaign_is_announced_over_once_by_the_last_trajectory_out(monkeypatch):
+    """`run_campaign` prints `campaign done: ...` when `design_worker_index()` is None, which is
+    per PROCESS. N threads share one environment, so all N announced the end and the earlier ones
+    did it while another trajectory was still printing stage lines."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    real = campaign.design_worker_index
+    spoke, still_running = [], []
+
+    def fake_run_campaign(settings, project_folder, **kw):
+        still_running.append(1)
+        time.sleep(0.05)
+        if campaign.design_worker_index() is None:
+            spoke.append(len(still_running))
+        still_running.pop()
+
+    monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3, stagger_timeout=30.0)
+
+    # Once, and by the arm that found itself alone: nothing was still running behind it.
+    assert spoke == [1]
+    assert campaign.design_worker_index is real
+
+
+def test_a_real_worker_process_keeps_bindcrafts_own_footer_gate(monkeypatch):
+    """With BINDCRAFT_WORKER_ID set the process is one of several on the project and upstream
+    means nobody to announce the campaign; the thread gate must not talk over that."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    monkeypatch.setenv("BINDCRAFT_WORKER_ID", "1")
+    indices = []
+
+    monkeypatch.setattr(campaign, "run_campaign",
+                        lambda settings, project_folder, **kw:
+                        indices.append(campaign.design_worker_index()))
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3, stagger_timeout=30.0)
+    assert indices == [1, 1, 1]
+
+
+def test_the_closing_summary_writer_is_serialised(monkeypatch):
+    """N trajectories share a stop condition, so they reach the unlocked summary rewrite at
+    once; overlapping writes to its one partial file would produce a summary that is neither."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    real = campaign.write_campaign_summary
+    inside, overlapped = [], []
+
+    def fake_run_campaign(settings, project_folder, **kw):
+        campaign.write_campaign_summary(project_folder)
+
+    def slow_summary(project_folder, *a, **kw):
+        overlapped.append(len(inside))
+        inside.append(1)
+        time.sleep(0.05)
+        inside.pop()
+
+    monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    monkeypatch.setattr(campaign, "write_campaign_summary", slow_summary)
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3, stagger_timeout=30.0)
+
+    assert overlapped == [0, 0, 0]
+    assert campaign.write_campaign_summary is slow_summary
+    monkeypatch.setattr(campaign, "write_campaign_summary", real)
+
+
+def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
+    """`campaign_predictor` calls the first build of a campaign the design model. With N
+    trajectories that is the first build PER TRAJECTORY, or the second one designs on the host
+    control arm while its caller believes it is on the card."""
+    _bindcraft_root()
+    from bindcraft import campaign
+    from tt_bio import duotraj
+
+    built = []
+
+    def design(*args, **kw):
+        built.append((duotraj.slot(), "device"))
+        return object()
+
+    design.trunk, design.pool, design.evoformer = "device", object(), object()
+    design.extra_msa = design.template = None
+    design.exact = True
+
+    @contextlib.contextmanager
+    def fake_predictor(**_):
+        yield design
+
+    def fake_factory(*, trunk, pool, **kw):
+        def build(*args, **kwargs):
+            built.append((duotraj.slot(), trunk))
+            return object()
+        return build
+
+    monkeypatch.setattr(bindcraft2, "predictor", fake_predictor)
+    monkeypatch.setattr(bindcraft2, "_factory", fake_factory)
+
+    def fake_run_campaign(settings, project_folder, **kw):
+        campaign.AlphaFoldDesignModel()     # the design model, campaign.py:262
+        campaign.AlphaFoldDesignModel()     # the validation ensemble, campaign.py:265
+
+    monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    with bindcraft2.campaign_predictor():
+        bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=2,
+                                stagger_timeout=30.0)
+
+    assert sorted(built) == [("t1", "device"), ("t1", "jax"),
+                             ("t2", "device"), ("t2", "jax")]

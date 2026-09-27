@@ -1360,6 +1360,10 @@ def design_model_class():
                 return super().predict(protein_states, passed, *args, **kwargs)
 
         def sequence_gradients(self, protein_states, losses, model=None, *args, **kwargs):
+            # One gradient round of one trajectory, on that trajectory's own thread. It is the
+            # only point in the design loop that is both, which is what `run_campaign` starts
+            # the next interleaved trajectory on. A no-op unless trajectories are interleaved.
+            duotraj.round_entered()
             if self.trunk == "jax":
                 with self._route(None):
                     return super().sequence_gradients(protein_states, losses, model,
@@ -1507,15 +1511,25 @@ def campaign_predictor(*, validation: str = "jax",
         from bindcraft import campaign
         control = None
         built = []
+        # "The first build is the design model" is per TRAJECTORY, not per process: interleaved
+        # trajectories each build their own design model on their own thread, and counting them
+        # together would hand the second trajectory the host control arm as its design model.
+        # A single-trajectory process has one slot and counts exactly as it did before.
+        design_models = {}
+        building = threading.Lock()
 
         def build_for_campaign(*args, **kw):
             nonlocal control
-            if built and validation == "jax" and build.trunk == "device":
-                if control is None:
-                    control = _factory(trunk="jax", pool=None)
-                made = control(*args, **kw)
-            else:
-                made = build(*args, **kw)
+            with building:
+                slot = duotraj.slot()
+                nth = design_models[slot] = design_models.get(slot, 0) + 1
+                if nth > 1 and validation == "jax" and build.trunk == "device":
+                    if control is None:
+                        control = _factory(trunk="jax", pool=None)
+                    factory = control
+                else:
+                    factory = build
+            made = factory(*args, **kw)
             built.append(made)
             return made
 
@@ -1534,3 +1548,134 @@ def campaign_predictor(*, validation: str = "jax",
             yield build_for_campaign
         finally:
             campaign.AlphaFoldDesignModel = real
+
+
+@contextlib.contextmanager
+def _one_campaign_not_n(campaign, trajectories: int):
+    """Hold the two campaign-wide things N trajectories in one process would each do.
+
+    `write_campaign_summary` reads the whole project and rewrites `summary.csv` through one
+    fixed `summary.csv.partial`, and it takes no lock. N interleaved trajectories share a stop
+    condition, so they reach it within milliseconds of each other and two of them writing that
+    one partial file at once produce a summary that is neither. N worker PROCESSES have the same
+    race and it is upstream's to fix; a process-wide lock is what this module can do about its
+    own threads.
+
+    `print_campaign_header` folds the first design trajectory to report the target it is about
+    to run. It is the same campaign N times over, so it is printed once.
+
+    The closing lines (`campaign stopped: ...`, `campaign done: ...`) are printed inline by
+    `run_campaign` itself, gated on `design_worker_index() is None`, which is how BindCraft 2
+    keeps N worker PROCESSES from each announcing the end. N threads share one environment, so
+    all N pass that gate: the campaign was announced over twice while a trajectory was still
+    printing stage lines. Those two call sites are the only readers of that name in
+    `campaign.py`, so holding it back until the last arm arrives puts the footer last and once.
+    """
+    summary, header = campaign.write_campaign_summary, campaign.print_campaign_header
+    worker_index = campaign.design_worker_index
+    writing = threading.Lock()
+    closing = threading.Lock()
+    printed = []
+    arrived = set()
+
+    @functools.wraps(summary)
+    def write_campaign_summary(*args, **kwargs):
+        with writing:
+            return summary(*args, **kwargs)
+
+    @functools.wraps(header)
+    def print_campaign_header(*args, **kwargs):
+        with writing:
+            if printed:
+                return None
+            printed.append(True)
+        return header(*args, **kwargs)
+
+    @functools.wraps(worker_index)
+    def design_worker_index():
+        if worker_index() is not None:
+            return worker_index()  # A real worker process: upstream's gate already holds.
+        with closing:
+            arrived.add(threading.get_ident())
+            return None if len(arrived) >= trajectories else 0
+
+    campaign.write_campaign_summary = write_campaign_summary
+    campaign.print_campaign_header = print_campaign_header
+    campaign.design_worker_index = design_worker_index
+    try:
+        yield
+    finally:
+        campaign.write_campaign_summary = summary
+        campaign.print_campaign_header = header
+        campaign.design_worker_index = worker_index
+
+
+def run_campaign(settings: Mapping, project_folder: str, *, trajectories_per_card: int = 1,
+                 stagger_timeout: float = 1800.0, **run_campaign_kwargs) -> int:
+    """BindCraft 2's campaign loop, optionally with several trajectories sharing one card.
+
+    Call it where you would call `campaign.run_campaign`, inside `campaign_predictor`::
+
+        with bindcraft2.campaign_predictor(card=0, exact=False):
+            bindcraft2.run_campaign(settings, project, af2_weights=params,
+                                    mpnn_weights=mpnn, trajectories_per_card=3)
+
+    `trajectories_per_card=1` is BindCraft 2's own call, unchanged: no threads, no gate, nothing
+    in tt-bio behaves differently. Above 1 it runs that many design trajectories on their own
+    threads over one chip, each taking its own trajectory number out of the project's file-locked
+    progress exactly as separate worker processes would.
+
+    It is worth doing because a design round is a host column and a device column laid end to
+    end, and one trajectory cannot overlap them: measured on a 288-token PD-L1 round, the card
+    idles 2.6 s of every round with a host thread busy in all of it. Independent trajectories are
+    the only work there is to fill it with. On one Blackhole chip the round goes from 9.06 s
+    serial to 7.23 s at two trajectories and 6.76 s at three, amortised over the trajectories
+    running (`state/perf10/bcx-p10-tritraj.md`).
+
+    It costs host memory: about 3.5 GB per additional trajectory, on top of the ~8 GB one
+    trajectory of this size holds. `duotraj.refuse_if_it_will_not_fit` reads both the box and the
+    card before any thread starts and raises `MemoryError` naming what it wanted and what was
+    free, because a campaign OOM-killed at round 200 is worse than a slower one.
+
+    Trajectory i starts only once i-1 has its first gradient round behind it, so no two
+    trajectories trace and compile at the same time; `stagger_timeout` bounds that wait.
+
+    Returns the campaign's trajectory count. A trajectory that raises re-raises here once the
+    others have finished, rather than leaving them orphaned on the card.
+    """
+    from bindcraft import campaign
+
+    trajectories = int(trajectories_per_card)
+    if trajectories < 1:
+        raise ValueError("trajectories_per_card must be at least 1, not "
+                         f"{trajectories_per_card!r}")
+    if trajectories == 1:
+        return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)
+
+    names = [f"t{i + 1}" for i in range(trajectories)]
+
+    def one(i: int):
+        waits_for = names[i - 1] if i else None
+
+        def go():
+            if waits_for is not None:
+                cleared = duotraj.compile_round_cleared(waits_for)
+                if not cleared.wait(stagger_timeout):
+                    raise TimeoutError(
+                        f"{names[i]}: {waits_for} did not clear its first gradient round in "
+                        f"{stagger_timeout:.0f}s, so nothing was interleaved")
+            try:
+                return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)
+            finally:
+                # A trajectory that stops before its second round sets no event of its own, and
+                # the next one would wait out the whole timeout for one that will never come.
+                duotraj.compile_round_cleared(names[i]).set()
+        return go
+
+    with duotraj.interleave(trajectories=trajectories), \
+            _one_campaign_not_n(campaign, trajectories):
+        counted = duotraj.run([one(i) for i in range(trajectories)], names=names)
+    # Each arm returns the trajectory count it read out of the shared campaign progress as it
+    # left, so the last one out carries the whole campaign's. Summing would count that one file
+    # N times.
+    return max((n for n in counted if isinstance(n, int)), default=0)
