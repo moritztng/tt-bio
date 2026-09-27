@@ -1,0 +1,252 @@
+--- 2026-09-27T06:44:23Z load 4.65 4.57 2.74
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       10:27  354 9648608 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of
+  18685       00:00 94.1 55280 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   3131       19:07  7.1 535408 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   2217       19:31  0.1 211672 /usr/bin/gnome-shell
+    925       19:43  0.1     0 [irq/114-rtw89_pci]
+   1141       19:38  0.1 13572 /usr/lib/polkit-1/polkitd --no-debug
+   1485       19:38  0.1 51412 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:45:23Z load 6.99 5.22 3.08
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       11:27  359 12966380 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  18736       01:00  177 16344928 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+  19635       00:00  100 57148 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   3131       20:07  7.1 535408 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   2217       20:31  0.1 211724 /usr/bin/gnome-shell
+    925       20:43  0.1     0 [irq/114-rtw89_pci]
+   1141       20:38  0.1 13620 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T06:46:23Z load 5.80 5.29 3.24
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       12:27  362 13801980 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  18736       02:00  205 17563512 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+  21920       00:00  100  4476 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   3131       21:07  7.3 535412 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   2217       21:31  0.1 211648 /usr/bin/gnome-shell
+    925       21:43  0.1     0 [irq/114-rtw89_pci]
+   1141       21:38  0.1 13908 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T06:47:24Z load 7.04 5.66 3.49
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       13:27  366 9801536 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of
+  18736       03:00  218 17967936 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       22:07  7.4 535412 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   2217       22:31  0.1 211520 /usr/bin/gnome-shell
+    925       22:43  0.1     0 [irq/114-rtw89_pci]
+   1141       22:38  0.1 13908 /usr/lib/polkit-1/polkitd --no-debug
+   1485       22:38  0.1 51736 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:48:24Z load 7.89 6.21 3.82
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       14:27  367 12358156 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  22591       00:20  172 5971644 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+   3131       23:07  7.5 535412 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   2217       23:31  0.1 211700 /usr/bin/gnome-shell
+    925       23:43  0.1     0 [irq/114-rtw89_pci]
+   1141       23:38  0.1 13908 /usr/lib/polkit-1/polkitd --no-debug
+   1485       23:38  0.1 51784 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:49:24Z load 8.94 6.73 4.14
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       15:27  370 13040232 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  22591       01:20  204 18657896 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       24:07  7.5 535412 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   2217       24:31  0.1 211648 /usr/bin/gnome-shell
+    925       24:43  0.1     0 [irq/114-rtw89_pci]
+   1141       24:38  0.1 13908 /usr/lib/polkit-1/polkitd --no-debug
+   1485       24:38  0.1 51832 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:50:24Z load 6.13 6.37 4.18
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       16:27  372 13743064 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  22591       02:20  218 18867764 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       25:07  7.6 535412 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   2217       25:31  0.2 211696 /usr/bin/gnome-shell
+    925       25:43  0.2     0 [irq/114-rtw89_pci]
+   1141       25:38  0.1 13908 /usr/lib/polkit-1/polkitd --no-debug
+   1485       25:38  0.1 51856 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:51:24Z load 4.63 5.92 4.16
+    PID     ELAPSED %CPU   RSS COMMAND
+  25208       00:00  430 169232 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_par
+  12246       17:27  374 12240412 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+   3131       26:07  7.8 535412 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       26:43  0.2     0 [irq/114-rtw89_pci]
+   2217       26:31  0.2 211684 /usr/bin/gnome-shell
+   1141       26:38  0.1 13908 /usr/lib/polkit-1/polkitd --no-debug
+   1485       26:38  0.1 51928 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:52:24Z load 5.10 5.84 4.25
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       18:27  376 13040464 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  25208       01:00  187 18208880 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       27:07  7.8 535412 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       27:43  0.2     0 [irq/114-rtw89_pci]
+   2217       27:31  0.2 211644 /usr/bin/gnome-shell
+   1141       27:39  0.1 13908 /usr/lib/polkit-1/polkitd --no-debug
+   1485       27:38  0.1 52016 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:53:24Z load 4.05 5.42 4.20
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       19:27  377 13938792 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  25208       02:00  218 18785064 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       28:07  7.9 535412 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       28:43  0.2     0 [irq/114-rtw89_pci]
+   2217       28:31  0.1 211624 /usr/bin/gnome-shell
+   1141       28:39  0.1 13916 /usr/lib/polkit-1/polkitd --no-debug
+   1485       28:38  0.1 52028 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:54:24Z load 5.04 5.44 4.28
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       20:27  379 12556700 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  25208       03:00  224 18796988 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       29:07  8.0 535432 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       29:43  0.2     0 [irq/114-rtw89_pci]
+   2217       29:31  0.1 211648 /usr/bin/gnome-shell
+   1141       29:39  0.1 13916 /usr/lib/polkit-1/polkitd --no-debug
+   1485       29:38  0.1 52036 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:55:24Z load 4.45 5.26 4.30
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       21:27  377 15780248 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  26697       00:35  166 9683560 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+  27018       00:00 97.5 64856 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   3131       30:07  8.0 535460 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       30:43  0.2     0 [irq/114-rtw89_pci]
+   2217       30:31  0.1 211656 /usr/bin/gnome-shell
+   1141       30:39  0.1 13932 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T06:56:24Z load 6.68 5.76 4.53
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       22:27  376 16616604 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  26697       01:35  204 18155488 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       31:07  8.0 535492 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       31:43  0.2     0 [irq/114-rtw89_pci]
+   2217       31:31  0.1 211644 /usr/bin/gnome-shell
+   1141       31:39  0.1 13944 /usr/lib/polkit-1/polkitd --no-debug
+   1485       31:38  0.1 52144 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:57:24Z load 5.92 5.70 4.59
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       23:27  374 16929388 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  26697       02:35  222 18719224 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       32:07  8.0 535524 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       32:43  0.2     0 [irq/114-rtw89_pci]
+   2217       32:31  0.1 211588 /usr/bin/gnome-shell
+   1141       32:39  0.1 13964 /usr/lib/polkit-1/polkitd --no-debug
+   1485       32:38  0.1 52200 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:58:24Z load 5.89 5.75 4.68
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       24:27  373 16665012 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  27762       00:08  175 5225336 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+   3131       33:07  8.0 535540 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       33:43  0.2     0 [irq/114-rtw89_pci]
+   2217       33:31  0.1 211680 /usr/bin/gnome-shell
+   1141       33:39  0.1 14028 /usr/lib/polkit-1/polkitd --no-debug
+   1485       33:38  0.1 52228 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T06:59:24Z load 5.29 5.60 4.69
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       25:27  372 16322008 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  27762       01:08  190 17591328 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+  28337       00:00 90.9 60108 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   3131       34:07  8.0 535572 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       34:43  0.2     0 [irq/114-rtw89_pci]
+   2217       34:31  0.1 211608 /usr/bin/gnome-shell
+   1141       34:39  0.1 14140 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T07:00:24Z load 5.98 5.67 4.77
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       26:27  372 20232932 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  27762       02:08  223 18463788 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       35:07  8.1 535604 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       35:43  0.2     0 [irq/114-rtw89_pci]
+   2217       35:31  0.1 211680 /usr/bin/gnome-shell
+   1141       35:39  0.1 14248 /usr/lib/polkit-1/polkitd --no-debug
+   1485       35:38  0.1 52240 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T07:01:24Z load 8.16 6.29 5.04
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       27:27  374 23786716 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  27762       03:09  233 18789640 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+  31537       00:00  111 16836 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+  31540       00:00  100  4460 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   3131       36:07  8.2 535636 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       36:43  0.2     0 [irq/114-rtw89_pci]
+   2217       36:31  0.1 211612 /usr/bin/gnome-shell
+--- 2026-09-27T07:02:24Z load 8.05 6.62 5.23
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       28:27  375 16014844 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  31733       00:51  162 14348020 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+  32194       00:00  100 31680 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   3131       37:07  8.2 535668 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       37:43  0.2     0 [irq/114-rtw89_pci]
+   2217       37:31  0.1 211660 /usr/bin/gnome-shell
+   1141       37:39  0.1 14248 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T07:03:24Z load 8.51 6.96 5.43
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       29:27  376 20049364 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  31733       01:51  203 18613268 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       38:07  8.3 535704 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       38:43  0.2     0 [irq/114-rtw89_pci]
+   2217       38:31  0.1 211624 /usr/bin/gnome-shell
+   1485       38:38  0.1 52552 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+   1141       38:39  0.1 14248 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T07:04:24Z load 7.80 7.02 5.54
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       30:27  377 19926120 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  31733       02:51  219 17860228 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       39:07  8.3 535736 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       39:43  0.2     0 [irq/114-rtw89_pci]
+   2217       39:31  0.1 211652 /usr/bin/gnome-shell
+   1485       39:38  0.1 52612 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+   1141       39:39  0.1 14248 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T07:05:24Z load 7.27 7.06 5.65
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       31:27  378 16265392 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  32943       00:19  177 7286012 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+   3131       40:07  8.4 535752 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       40:43  0.2     0 [irq/114-rtw89_pci]
+   2217       40:32  0.1 212372 /usr/bin/gnome-shell
+   1485       40:38  0.1 52616 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+   1141       40:39  0.1 14248 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T07:06:24Z load 7.56 7.20 5.79
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       32:27  379 19041392 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  32943       01:19  196 18278976 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       41:07  8.4 535784 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       41:43  0.2     0 [irq/114-rtw89_pci]
+   2217       41:32  0.1 212024 /usr/bin/gnome-shell
+   1485       41:38  0.1 52700 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+   1141       41:39  0.1 14248 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T07:07:24Z load 7.92 7.37 5.94
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       33:27  380 23868596 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  32943       02:19  221 18681648 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+  33864       00:00  100 62588 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   3131       42:07  8.5 531748 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       42:43  0.2     0 [irq/114-rtw89_pci]
+   2217       42:32  0.1 212040 /usr/bin/gnome-shell
+   1485       42:38  0.1 52728 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T07:08:24Z load 8.71 7.70 6.14
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       34:27  380 23675700 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  32943       03:19  226 18812384 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+  34600       00:00 96.2     0 [tt-smi] <defunct>
+   3131       43:07  8.5 531764 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       43:43  0.2     0 [irq/114-rtw89_pci]
+   2217       43:32  0.1 212024 /usr/bin/gnome-shell
+   1485       43:38  0.1 52732 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T07:09:24Z load 8.46 7.79 6.27
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       35:27  381 17284820 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  34765       00:48  168 14264516 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       44:07  8.5 531796 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       44:43  0.2     0 [irq/114-rtw89_pci]
+   2217       44:32  0.1 212016 /usr/bin/gnome-shell
+   1485       44:38  0.1 52960 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+   1141       44:39  0.1 14252 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T07:10:24Z load 6.56 7.42 6.24
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       36:27  382 15973452 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  34765       01:48  206 18545036 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       45:07  8.6 531832 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       45:43  0.2     0 [irq/114-rtw89_pci]
+   2217       45:32  0.1 212048 /usr/bin/gnome-shell
+   1485       45:38  0.1 53212 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+   1141       45:39  0.1 14264 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T07:11:24Z load 7.48 7.47 6.33
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246       37:27  382 17700708 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+  34765       02:48  223 18133712 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   3131       46:07  8.6 531864 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+    925       46:43  0.2     0 [irq/114-rtw89_pci]
+   2217       46:32  0.1 212112 /usr/bin/gnome-shell
+   1485       46:38  0.1 53276 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+   1141       46:39  0.1 14284 /usr/lib/polkit-1/polkitd --no-debug
