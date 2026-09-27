@@ -156,11 +156,11 @@ def _echo_recipe(ctx, param, value):
 @click.option("--warmup-steps", default=1000, show_default=True, type=int)
 @click.option("--checkpoint-every", default=100, show_default=True, type=int)
 @click.option("--seed", default=0, show_default=True, type=int)
-@click.option("--exact/--device-ops", default=False, show_default=True,
+@click.option("--exact/--device-ops", default=None,
               help="--exact runs softmax and layer norm in float64 on the host, a diagnostic "
-                   "reference about 40x slower on the trunk backward. The default, --device-ops, "
-                   "keeps them on the device kernels and clears the same accuracy bar "
-                   "(docs/training.md).")
+                   "reference about 40x slower on the trunk backward. --device-ops keeps them "
+                   "on the device kernels, which clear the same accuracy bar. Neither: the "
+                   "device path, unless the crop fits only with --exact (docs/training.md).")
 @click.option("--dry-run", is_flag=True,
               help="Answer 'will this fit and how long' and exit, WITHOUT opening a device.")
 @click.option("--show-recipe", is_flag=False, flag_value="default", default=None,
@@ -189,7 +189,7 @@ def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, r
       tt_bio.autograd + train.gradcheck                            Tier 3
     """
     from . import objectives
-    from .dryrun import plan
+    from .dryrun import needs_exact, plan
 
     chips = len(chip_ids)
     if data is None:
@@ -243,6 +243,12 @@ def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, r
         forward, dataset = load(model, Path(data), tokens=tokens)
     except NotImplementedError as exc:
         raise click.ClickException(str(exc)) from exc
+
+    if exact is None:
+        exact = needs_exact(model, tokens or 256)
+        if exact:
+            click.echo(f"{tokens} aa fits {model} only with --exact on one card, so it is on: "
+                       f"a step runs many times slower. Lower --tokens for the device path.")
 
     # Only now does anything reach a device.
     from ..autograd import exact_training

@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-__all__ = ["plan", "Plan", "UNMEASURED", "CARD_DRAM_BYTES", "MEASURED",
+__all__ = ["plan", "Plan", "UNMEASURED", "CARD_DRAM_BYTES", "MEASURED", "needs_exact",
            "FORWARD_OOM_BY_MODEL"]
 
 
@@ -113,6 +113,25 @@ LARGEST_MEASURED_TO_FIT = {
                        ".json. 640 still refuses. 544 is unmeasured post-fix -- it sits below "
                        "a crop that runs, so it is not claimed as a refusal either"),
 }
+
+# The largest crop the DEVICE path (float64 instrument off, the default) is measured to complete,
+# per model. LARGEST_MEASURED_TO_FIT above was measured with the instrument on, which computes
+# softmax and layer norm on the host and so keeps the attention probabilities off the card. On
+# the device path OpenFold3's triangle-attention backward holds them there in fp32, and 576 runs
+# out of memory with the fp32 softmax backward on and off alike. Between the two numbers only the
+# instrument fits, so `needs_exact` turns it on there rather than refusing a crop that runs.
+DEVICE_PATH_LARGEST_FIT = {
+    "openfold3": (512, "of3t-p10default -- 512 completes, backward DRAM high-water 25,983,800,320 B of 34,225,520,128 B (75.9 %), qb1 p150a card 0, median 1350 MHz polled DURING: perf/of3t_p10default/out/split_512_default.json. 576 runs out of memory on a 3,057,647,616 B request: split_576_default.json, split_576_fp32off.json"),
+}
+
+
+def needs_exact(model: Optional[str], tokens: int) -> bool:
+    """Whether this crop fits only with the float64 instrument on: above the device path's
+    measured fit and at or below the instrument's."""
+    device, _ = DEVICE_PATH_LARGEST_FIT.get(model, (None, None))
+    exact, _ = LARGEST_MEASURED_TO_FIT.get(model, (None, None))
+    return device is not None and exact is not None and device < tokens <= exact
+
 
 # The largest crop with a measured training replica. Nothing above this has one.
 MEASURED_CROP = 256

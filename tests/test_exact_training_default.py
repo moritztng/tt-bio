@@ -161,3 +161,20 @@ def test_no_environment_variable_and_no_inference_route():
         if hits:
             callers[str(path.relative_to(SRC))] = hits
     assert not callers, f"the exact training ops are named outside the tape: {callers}"
+
+
+def test_the_instrument_turns_on_only_where_it_alone_fits():
+    # 576 fits OpenFold3 only with the instrument on; the device path is measured to 512. Above
+    # the instrument fit plan() refuses, so needs_exact stays off there instead of promising it.
+    from tt_bio.train.dryrun import (DEVICE_PATH_LARGEST_FIT, LARGEST_MEASURED_TO_FIT,
+                                     needs_exact)
+
+    device, _ = DEVICE_PATH_LARGEST_FIT["openfold3"]
+    exact, _ = LARGEST_MEASURED_TO_FIT["openfold3"]
+    assert device < exact
+    assert not needs_exact("openfold3", 256)
+    assert not needs_exact("openfold3", device)
+    assert needs_exact("openfold3", device + 32)
+    assert needs_exact("openfold3", exact)
+    assert not needs_exact("openfold3", exact + 64)
+    assert not needs_exact("protenix-v2", exact)

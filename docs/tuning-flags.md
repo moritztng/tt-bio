@@ -1228,7 +1228,8 @@ the result is cast back. The fp32 copies are freed at the end of each call.
 
 It is what makes on-device OpenFold3 training accurate. The model-frame gradient reads 0.946x
 the pre-registered accuracy bar with it on and 1.067x with it off on a p150a, and 0.997x against
-2.168x on a p300c (`perf/of3t_p10default`, `perf/of3t_p10exact`). MEMLINE_FLAGS
+2.168x on a p300c (`perf/of3t_p10default`, `perf/of3t_p10exact`). The fp32 copies do not
+set the memory limit: 576 aa runs out of memory at the same allocation with it on and off.
 
 `perf/of3t_p10exact/smbw32_off_is_main.py` asserts that the off path reaches `ttnn.sum` with
 exactly the arguments the pre-flag backward used, so `=0` is the old behaviour and not an

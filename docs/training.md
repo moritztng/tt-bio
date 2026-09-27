@@ -191,7 +191,7 @@ these are per model and `plan()` applies only the one you asked for:
   536,870,912 B refused. Both in the forward under per-block checkpointing where the forward is
   untaped, so what fails is one block's working set. Distribution does not help: 8 chips each
   run out at 384 aa exactly as one does.
-- **OpenFold3 — 576 aa runs and is the largest measured to. 640 and 768 refuse.** The backward
+- **OpenFold3 — 576 aa runs with `--exact` and is the largest measured to; the device path fits to 512. 640 and 768 refuse.** The backward
   peaks at 30,230,471,680 B of the card's 34,225,520,128 B at 576 aa, 88.3 % full, with the
   clock at a median 1350 MHz polled during. 640 and 768 die with the card full, 23,710,208 B
   and 6,231,552 B free. **This frontier moved on 2026-09-23 and the reason is worth reading**:
@@ -558,9 +558,13 @@ A training step keeps softmax and layer norm on the device kernels inference use
 softmax backward in fp32 (`TT_BIO_SOFTMAX_BW_FP32`, on by default). On OpenFold3 that is enough:
 the model-frame gradient against upstream OpenFold3 0.4.3 reads 0.99736x its accuracy bar,
 where the same device kernels with a bf16 softmax backward read 2.168x
-(`perf/of3t_p10exact`). STEPLINE
+(`perf/of3t_p10exact`). A crop-384 step on a p150a at 1350 MHz takes 54.3 s, 7.1x an H200's 7.620 s
+(`perf/of3t_p10default`).
 
-MEMLINE
+The device path keeps the attention probabilities on the card for the backward, so on one card it
+fits OpenFold3 up to 512 aa (26.0 GB of 34.2 GB at 512). 544 and 576 fit only with `--exact`, and
+`tt-bio finetune` turns it on for those crops by itself and says so. Lower `--tokens` to stay on
+the device path.
 
 `--exact` swaps softmax and layer norm for a float64 computation on the host, in the forward,
 the backward, and every forward the backward recomputes. It reads 0.98737x the same bar, so it
