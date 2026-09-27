@@ -154,6 +154,19 @@ def levers():
             "rne_kernel": bool(AF2PairBlock.rne_kernel)}
 
 
+
+def lever_stats():
+    """Each `bindcraft2.fast_round` lever's own serve counter. A lever at zero never ran."""
+    from tt_bio import mm_layout, reblock_permute, rne_add, taped_ttnn, tenstorrent, triatt_bw
+    return {"mm_layout": mm_layout.reach(),
+            "taped_channel_move": list(reblock_permute.STATS) + list(reblock_permute.STATS_BACK),
+            "widen_add": dict(rne_add.WIDEN_REACH),
+            "rne_add": list(rne_add.STATS),
+            "qkv_grad_join": dict(taped_ttnn.QKV_JOIN_STATS),
+            "triatt_bw": dict(triatt_bw.STATS),
+            "triatt_fused_hifi": dict(tenstorrent.TRIATT_FUSED_HIFI_STATS),
+            "taped_kernels": {k: list(v) for k, v in taped_ttnn.KERNEL_STATS.items()}}
+
 def lever_reach(expect):
     """A `REACH` callable that stamps every lever and refuses a round that disagrees.
 

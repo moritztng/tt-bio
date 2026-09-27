@@ -92,18 +92,6 @@ def main():
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
 
-    # The campaign's gating lever configuration, the same one `bcx-p10-tritraj` measured.
-    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "0"
-    os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1"
-    os.environ["TT_BIO_TAPED_KERNELS"] = "tri_att_sdpa_hifi,rne_add"
-    os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1"
-    from tt_bio import tenstorrent as _tn
-    from tt_bio import triatt_bw as _tbw
-    from tt_bio.af2 import AF2PairBlock
-    AF2PairBlock.rne_kernel = True
-    _tn._TRIATT_FUSED_HIFI = True
-    _tbw.FUSED = True
-
     M.CLOCK = M.Clock(1.0)
     M.CLOCK.start()
 
@@ -148,6 +136,7 @@ def main():
         rounds.dump()
         stamp.update({"wall_seconds": round(time.time() - t0, 2),
                       "trajectories_returned": trajectories, "error": exc,
+                      "lever_stats": M.lever_stats(),
                       "rounds_per_slot": {s: sum(1 for r in rounds.rows if r["slot"] == s)
                                           for s in sorted({r["slot"] for r in rounds.rows})},
                       "gate": gates[-1].report() if gates else None,
@@ -160,7 +149,9 @@ def main():
 
     with bindcraft2.campaign_predictor(trunk="device", validation=args.validation,
                                        checkpoints=args.params, extra_msa=True,
-                                       template=True, exact=False):
+                                       template=True, exact=False) as build:
+        # `exact=False` arms the measured levers itself (`bindcraft2.fast_round`).
+        stamp["fast"] = build.fast
         try:
             trajectories = bindcraft2.run_campaign(
                 settings, project, trajectories_per_card=n,

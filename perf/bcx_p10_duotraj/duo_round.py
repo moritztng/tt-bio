@@ -39,8 +39,6 @@ if str(_ROOT) not in sys.path:
 import meter as M                                                      # noqa: E402
 import bc2_state as B                                                  # noqa: E402
 from tt_bio import duotraj                                             # noqa: E402
-from tt_bio import genq as _genq                                       # noqa: E402
-from tt_bio import reblock_permute as _reblock                         # noqa: E402
 import bindcraft.campaign as campaign                                  # noqa: E402
 import bindcraft.trajectory as trajectory                              # noqa: E402
 import bindcraft.sequence_optimization as seqopt                       # noqa: E402
@@ -165,29 +163,25 @@ def main():
     M.CLOCK.start()
 
     import tt_bio
-    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "0"
-    os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1"
-    from tt_bio import tenstorrent as _tn
-    from tt_bio.af2 import AF2PairBlock
     from tt_bio import triatt_bw as _tbw
-    AF2PairBlock.rne_kernel = True
-    os.environ["TT_BIO_TAPED_KERNELS"] = "tri_att_sdpa_hifi,rne_add"
-    os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1"
-    _tn._TRIATT_FUSED_HIFI = True
-    _tbw.FUSED = True
 
-    _expect = {"genq_compact": os.environ.get("TT_BIO_GENQ_COMPACT") == "1",
-               "taped_channel_move": os.environ.get("TT_BIO_TAPED_CHANNEL_MOVE") == "1",
-               "mm_layout": os.environ.get("TT_BIO_MM_LAYOUT") == "1",
-               "widen_add": os.environ.get("TT_BIO_WIDEN_ADD") == "1",
-               "grad_fanin_l1": os.environ.get("TT_BIO_GRAD_FANIN_L1") == "1",
-               "triatt_bw": True, "triatt_hifi": True, "rne_kernel": True}
+    # The levers are the product's: `campaign_predictor(exact=False)` arms them on entry
+    # (`bindcraft2.fast_round`), so every round boundary inside it must read them all live. An env
+    # var still takes one out, and the expectation follows it.
+    from tt_bio.envflags import env_flag
+    _expect = {"genq_compact": env_flag("TT_BIO_GENQ_COMPACT", False),
+               "grad_fanin_l1": env_flag("TT_BIO_GRAD_FANIN_L1", False)}
+    for key, env in (("taped_channel_move", "TT_BIO_TAPED_CHANNEL_MOVE"),
+                     ("mm_layout", "TT_BIO_MM_LAYOUT"), ("widen_add", "TT_BIO_WIDEN_ADD"),
+                     ("triatt_bw", "TT_BIO_TRIATT_BW_FUSED"),
+                     ("triatt_hifi", "TT_BIO_TRIATT_FUSED_HIFI")):
+        _expect[key] = env_flag(env, True)
+    _expect["rne_kernel"] = True
 
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "interleave": bool(args.interleave),
              "trajectories": n_traj,
-             "levers_expected": _expect, "genq_compact": _genq.compact(),
-             "taped_channel_move": _reblock.TAPED_MOVE,
+             "levers_expected": _expect,
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
              "seed": args.seed, "binder": args.binder, "rounds_requested": args.rounds,
              "length_bucket_size": campaign_length_bucket(settings),
@@ -227,9 +221,8 @@ def main():
         "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
         "rne_add_entry": list(taped_ttnn.KERNEL_STATS.get("rne_add", [0, 0])),
     })
-    _check = M.lever_reach(_expect)
-    _check()
-    M.REACH.append(_check)
+    # Checked at every round boundary, all of which fall inside the predictor that arms them.
+    M.REACH.append(M.lever_reach(_expect))
 
     # The gate's own numbers, refreshed into the stamp at every boundary. The end-of-run stamp
     # is written once and three interleaved arms have now been OOM-killed before reaching it;
@@ -276,6 +269,7 @@ def main():
                                            checkpoints=args.params, extra_msa=True,
                                            template=True, exact=False) as build:
             evo = build.evoformer
+            stamp["fast"] = build.fast
             # The gate goes on BOTH arms. On the serial arm it is one thread taking an
             # uncontended lock, which costs nothing and is what makes the control able to say
             # which thread the device seam runs on -- the one fact the slot design rests on.
@@ -294,6 +288,7 @@ def main():
                       "rne_add_stats": {"served": rne_add.STATS[0],
                                         "declined": rne_add.STATS[1]},
                       "mm_layout": mm_layout.reach(),
+                      "lever_stats": M.lever_stats(),
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),

@@ -1397,7 +1397,52 @@ def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice
     #: Whether the tape this factory's models open runs softmax and layer norm exact. Inert on
     #: `trunk="jax"`, which opens no tt-bio tape at all.
     build.exact = exact
+    #: What `fast_round` armed for this factory's models, or None.
+    build.fast = None
     return build
+
+
+#: The gradient levers the device round is measured with (`state/perf10/bcx-p10-devtop.md`),
+#: as `(module, object, attribute, env var, value)`. Every one defaults off in tt-bio, so the
+#: other models that open a tape run without them; `fast_round` turns them on for the duration
+#: of a BindCraft 2 predictor only. A named env var still wins, so an A/B can take one lever out.
+#: The rows without one are defaults their module reads live against its own env var already.
+_FAST_ROUND = (
+    ("mm_layout", None, "MM_LAYOUT", "TT_BIO_MM_LAYOUT", True),
+    ("reblock_permute", None, "TAPED_MOVE", "TT_BIO_TAPED_CHANNEL_MOVE", True),
+    ("rne_add", None, "WIDEN_ADD", "TT_BIO_WIDEN_ADD", True),
+    ("taped_ttnn", None, "QKV_GRAD_JOIN", "TT_BIO_QKV_GRAD_JOIN", True),
+    ("triatt_bw", None, "FUSED", "TT_BIO_TRIATT_BW_FUSED", True),
+    ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
+    ("af2", "AF2PairBlock", "rne_kernel", None, True),
+    ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None, "tri_att_sdpa_hifi,rne_add"),
+    ("tenstorrent", None, "_TRIATT_HIFI_DIVIDING_K_DEFAULT", None, True),
+)
+
+
+@contextlib.contextmanager
+def fast_round():
+    """Arm `_FAST_ROUND` for the duration and put every value back on exit.
+
+    Process-wide, not per thread: interleaved trajectories run on their own threads inside it
+    and must all see the same program. Yields `{attribute: value}` as armed, for a stamp.
+    """
+    import importlib
+
+    from tt_bio.envflags import env_flag
+
+    saved = []
+    try:
+        for module, owner, attr, env, value in _FAST_ROUND:
+            target = importlib.import_module(f"tt_bio.{module}")
+            if owner:
+                target = getattr(target, owner)
+            saved.append((target, attr, getattr(target, attr)))
+            setattr(target, attr, env_flag(env, value) if env else value)
+        yield {attr: getattr(t, attr) for t, attr, _ in saved}
+    finally:
+        for target, attr, old in reversed(saved):
+            setattr(target, attr, old)
 
 
 @contextlib.contextmanager
@@ -1406,7 +1451,8 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               recompute: bool = True,
               extra_msa: bool = False,
               template: bool = False,
-              exact: bool = True) -> Iterator[Callable[..., object]]:
+              exact: bool = True,
+              fast: bool | None = None) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -1444,6 +1490,11 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     (`perf/bcx_exact/ACCEPT_GRADE.json`). It stays on by default because it is the more accurate
     of the two. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one ran.
 
+    `fast` arms the gradient levers the device round is measured with (`fast_round`) for the
+    duration, and defaults to `not exact`: they change which kernels compute the round, not
+    the work it does, and the exact tape is the arm they are graded against. `build.fast`
+    holds what was armed.
+
     `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
     this same class, which is the control arm every device result should be read against.
 
@@ -1471,10 +1522,14 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # `_EXACT_TRAINING` is a process-wide stack, not thread-local, so this covers every tape
     # opened for the duration -- both `_taped` calls and the backward's recompute -- without
     # either swap having to know about it.
+    fast = not exact if fast is None else fast
     with autograd.exact_training(exact), evoformer_on_device(evo, extra), \
-            template_on_device(tmpl):
-        yield _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
-                       template=tmpl, exact=exact)
+            template_on_device(tmpl), \
+            (fast_round() if fast else contextlib.nullcontext()) as armed:
+        build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
+                         template=tmpl, exact=exact)
+        build.fast = armed
+        yield build
 
 
 @contextlib.contextmanager
@@ -1539,6 +1594,7 @@ def campaign_predictor(*, validation: str = "jax",
         build_for_campaign.extra_msa = build.extra_msa
         build_for_campaign.template = build.template
         build_for_campaign.exact = build.exact
+        build_for_campaign.fast = build.fast
         build_for_campaign.validation = validation
         build_for_campaign.built = built
 
