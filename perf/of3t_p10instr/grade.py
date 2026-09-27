@@ -5,6 +5,9 @@
     grade.py ab --history out/N3a.json,out/N3b.json \
         --design two=out/AB2.json:TF7:B2trunk:I_TFs1 \
         --design twelve=out/AB12.json:I_D12:X12b:I_D12s1 --out out/VERDICT.json
+
+`--draws N` grades eval seeds 0..N-1 and `--bar design=T` holds a design to a fixed bar instead
+of F/3 (PREREG-128.md). H is always taken on the seeds every run of a weights shares.
 """
 from __future__ import annotations
 
@@ -45,10 +48,11 @@ def _calls(path):
     return r, by
 
 
-def _score(seeds_rows):
+def _score(seeds_rows, seeds=None):
     """M(X): mean over the four targets of the mean over graded seeds."""
+    seeds = GRADED if seeds is None else seeds
     targets = sorted(next(iter(seeds_rows.values())))
-    return st.mean(st.mean(seeds_rows[s][t] for s in GRADED) for t in targets)
+    return st.mean(st.mean(seeds_rows[s][t] for s in seeds) for t in targets)
 
 
 def _modes(xs, gap=1.0):
@@ -69,7 +73,9 @@ def history(paths):
     runs = [_calls(p)[1] for p in paths]
     diffs = {}
     for lab in sorted({lab for r in runs for lab in r}):
-        ms = [_score(r[lab]) for r in runs if lab in r]
+        have = [r[lab] for r in runs if lab in r]
+        seeds = [s for s in GRADED if all(s in h for h in have)]
+        ms = [_score(h, seeds) for h in have]
         if len(ms) > 1:
             diffs[lab] = max(ms) - min(ms)
     return max(diffs.values()), diffs
@@ -104,8 +110,12 @@ def _delta(by, a, b):
 
 
 def ab(a):
-    H, _ = history(a.history.split(","))
-    res = {"H": H, "bar_ratio": BAR_RATIO, "designs": {}}
+    global GRADED
+    GRADED = list(range(a.draws))
+    bars = dict((k, float(v)) for k, v in (b.split("=") for b in a.bar))
+    H, hd = history(a.history.split(","))
+    res = {"H": H, "H_per_weights": hd, "draws": a.draws, "bar_ratio": BAR_RATIO,
+           "fixed_bars": bars, "designs": {}}
     for spec in a.design:
         name, rest = spec.split("=", 1)
         path, arm_a, arm_b, floor_b = rest.split(":")
@@ -114,7 +124,7 @@ def ab(a):
         fdelta, fse_h, _ = _delta(by, arm_a, floor_b)
         h, hf = se_h + H, fse_h + H
         F = abs(fdelta)
-        T = BAR_RATIO * F
+        T = bars.get(name, BAR_RATIO * F)
         if F <= hf:
             grade = "UNRESOLVED"
             why = f"floor F {F:.4f} is inside its own half-width {hf:.4f}"
@@ -124,11 +134,14 @@ def ab(a):
             grade, why = "FAIL", f"|Delta| - h = {abs(delta) - h:.4f} > T {T:.4f}"
         else:
             grade, why = "UNRESOLVED", f"|Delta| {abs(delta):.4f} +- h {h:.4f} straddles T {T:.4f}"
+        # Draws at which this spread would resolve, if Delta and sd(d_s) hold.
+        room = (T - abs(delta) - H) if abs(delta) < T else (abs(delta) - T - H)
+        need = math.ceil((1.96 * st.stdev(d) / room) ** 2) if room > 0 else None
         res["designs"][name] = {
             "artifact": path, "arm_a": arm_a, "arm_b": arm_b, "floor_b": floor_b,
             "M": {lab: _score(by[lab]) for lab in by},
             "delta": delta, "h": h, "se_half": se_h, "F": F, "F_signed": fdelta, "h_F": hf,
-            "T": T, "grade": grade, "why": why, "aiclk": rec.get("aiclk_line"),
+            "T": T, "grade": grade, "why": why, "sd_d": st.stdev(d), "draws_to_resolve": need, "aiclk": rec.get("aiclk_line"),
             "head": rec.get("head"), "dirty": rec.get("dirty")}
     g = {k: v["grade"] for k, v in res["designs"].items()}
     if all(x == "PASS" for x in g.values()):
@@ -154,6 +167,8 @@ def main() -> int:
     b.add_argument("--history", required=True, help="comma-separated noise artifacts")
     b.add_argument("--design", action="append", required=True,
                    help="name=artifact.json:ARM_A:ARM_B:FLOOR_B")
+    b.add_argument("--draws", type=int, default=32, help="grade eval seeds 0..N-1")
+    b.add_argument("--bar", action="append", default=[], help="design=T, a fixed bar")
     b.add_argument("--out")
     a = ap.parse_args()
     return noise(a) if a.cmd == "noise" else ab(a)
