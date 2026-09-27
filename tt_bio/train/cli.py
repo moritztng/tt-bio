@@ -397,7 +397,7 @@ class _Status:
                  "displacement": run.displacement}, indent=2, default=str) + "\n")
         best, latest = run.best, run.checkpointer.latest()
         self._write(status="succeeded", step=run.history[-1]["step"] if run.history else None,
-                    loss=run.loss, provenance={k: v for k, v in prov.items() if k != "config"},
+                    loss=run.loss, provenance={k: v for k, v in prov.items() if k not in ("config", "dp")},
                     dp=_dp_summary(run.dp), checkpoint=str(best["path"]) if best else None,
                     latest=str(latest) if latest else None, record=str(self.dir / "run.json"))
 

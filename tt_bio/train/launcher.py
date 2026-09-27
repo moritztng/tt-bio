@@ -323,7 +323,7 @@ class ProcessAxis(Axis):
         st["publish_s"].append(t_pub - t0)
         st["wait_s"].append(t_wait - t_pub)
         st["add_s"].append(time.perf_counter() - t_wait)
-        st["bytes"] = int(vec.nbytes)
+        st["bytes"] = max(st["bytes"], int(vec.nbytes))
         return acc
 
 

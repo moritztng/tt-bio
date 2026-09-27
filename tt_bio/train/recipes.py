@@ -34,7 +34,7 @@ from typing import Callable, Dict
 
 from . import launcher, objectives, provenance
 from ..autograd import backward, exact_training_ops, install, release_pins, uninstall
-from .sharding import batches
+from .sharding import batches, seed_sample
 from .checkpoint import Checkpointer, load_adapter
 from .lora import LoraConfig, attach, trainable
 from .mesh import Mesh
@@ -187,6 +187,9 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                     shard = batch.per_chip[dp_rank]
                     total, breakdown = 0.0, {}
                     for index in shard:
+                        # A sample's random draws are a function of (seed, step, index), so a
+                        # resumed run and every rank draw what one uninterrupted chip draws.
+                        seed_sample(seed, batch.step, index)
                         data = dataset.batch([index])
                         outputs = forward(data)
                         loss, terms, seeds = row(

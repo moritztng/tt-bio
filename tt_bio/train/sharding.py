@@ -22,7 +22,7 @@ from typing import Iterator, List, Optional, Sequence
 
 from .mesh import Axis
 
-__all__ = ["batches", "Batch"]
+__all__ = ["batches", "Batch", "seed_sample"]
 
 
 @dataclass(frozen=True)
@@ -106,3 +106,20 @@ def batches(n_examples: int, *, global_batch: int, steps: Optional[int] = None,
                         global_batch=global_batch)
             step += 1
         epoch += 1
+
+
+def seed_sample(seed: int, step: int, index: int) -> None:
+    """Seed Python's, numpy's and torch's global generators for one sample of one step.
+
+    A forward that draws from a global generator otherwise reads whatever the process drew
+    before it, so the same step came out differently after a resume (loss 1.3721393 against
+    1.3722644 uninterrupted on OpenFold3) and on a second rank. Keyed on the step and the
+    sample, never on the process's history.
+    """
+    import random
+    import numpy as np
+    import torch
+    s = int(np.random.default_rng([int(seed), int(step), int(index)]).integers(2 ** 31))
+    random.seed(s)
+    np.random.seed(s)
+    torch.manual_seed(s)

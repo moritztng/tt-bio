@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING
 # escape-hatch test reads this tuple, so adding a name here is a deliberate widening of the
 # contract and removing one breaks a test rather than a user's script silently.
 TIER2 = (
-    "plan", "batches", "Mesh", "AdamW", "Checkpointer", "LoraConfig", "trainable",
+    "plan", "batches", "seed_sample", "Mesh", "AdamW", "Checkpointer", "LoraConfig", "trainable",
     "lora_factors_for", "weights_for", "walked_weights", "lora_factors", "lora_linear",
     "attach", "census",
     "select", "af3_lr", "to_host",
@@ -61,7 +61,7 @@ _WHERE = {
     "finetune": "loop", "Run": "loop",
     "plan": "dryrun", "Plan": "dryrun", "UNMEASURED": "dryrun",
     "CARD_DRAM_BYTES": "dryrun",
-    "batches": "sharding", "Batch": "sharding",
+    "batches": "sharding", "Batch": "sharding", "seed_sample": "sharding",
     "Mesh": "mesh", "Axis": "mesh", "UnreducedGradients": "mesh",
     "AdamW": "optim", "af3_lr": "optim", "DISPLACEMENT_BAND": "optim",
     "LoraConfig": "lora", "LoraSite": "lora", "lora_factors": "lora",
@@ -94,7 +94,7 @@ _FROM_AUTOGRAD = ("install", "uninstall", "installed", "is_grad_enabled", "backw
 __all__ = sorted({*TIER2, *_WHERE, *_SUBMODULES, *_FROM_AUTOGRAD, "TIER2", "tier2"})
 
 if TYPE_CHECKING:  # for editors only; never executed, so it cannot import ttnn at runtime
-    from .sharding import Batch, batches
+    from .sharding import Batch, batches, seed_sample
     from .checkpoint import Checkpointer, load_adapter, save_adapter
     from .checks import gradcheck
     from .lora import (LoraConfig, Parameters, attach, lora_factors, lora_factors_for,

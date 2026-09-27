@@ -493,12 +493,16 @@ class AdamW:
             # name order, so two ranks with different key sets would exchange vectors of
             # different lengths and sum the wrong bytes into each other's gradients. Upstream
             # keeps a zeros_like entry for every parameter for the same reason.
-            summed = self.data_parallel.reduce_all(
-                {n: [self.accum[n] if n in self.accum else np.zeros_like(self.master[n])]
-                 for n in self.master})
-            counts = self.data_parallel.reduce_all(
-                {n: [np.float32([self.participation.get(n, 0)])] for n in self.master})
-            self.participation = {n: int(v.ravel()[0]) for n, v in counts.items()}
+            # The participation counts ride in the same message: one barrier a step, and the
+            # collective's timings and byte count describe the gradient rather than a 16 KB
+            # vector of counts.
+            both = self.data_parallel.reduce_all({
+                **{n: [self.accum[n] if n in self.accum else np.zeros_like(self.master[n])]
+                   for n in self.master},
+                **{f"{n}\0count": [np.float32([self.participation.get(n, 0)])]
+                   for n in self.master}})
+            summed = {n: both[n] for n in self.master}
+            self.participation = {n: int(both[f"{n}\0count"].ravel()[0]) for n in self.master}
             # A parameter no rank activated is dropped rather than stepped on a zero
             # gradient. Upstream zeroes its grad and lets Adam step it from momentum alone;
             # ours skips it, and that difference is recorded rather than papered over.
