@@ -1376,6 +1376,17 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
     def bw(g):
         xv = x.value
         K = int(xv.shape[-1])
+        # ONE dtype through the closure. A fan-in accumulator is fp32 and the activation it
+        # meets is bf16, and `ttnn.multiply(bf16, fp32)` is not a function of its inputs: it
+        # repeats bit-exact with the operands swapped and differs run to run as written, on
+        # row, vector and full operands (`perf/of3t_p10trainfix/bcast_det.py`). Here that was
+        # `norm * mean(dnorm * norm)`, rounded to bf16 inside a three-term cancellation, and
+        # two runs handed the same g, x and gamma got dx 7-40 % apart in norm from it.
+        dt = ttnn.float32 if ttnn.float32 in (xv.dtype, g.dtype) else xv.dtype
+        xv, g = (v if v.dtype == dt else ttnn.typecast(v, dt) for v in (xv, g))
+        gv = None if gamma is None else gamma.value
+        if gv is not None and gv.dtype != dt:
+            gv = ttnn.typecast(gv, dt)
         mean = _row_mean(xv, bwcfg, K)
         centered = ttnn.subtract(xv, mean)
         var = _row_mean(ttnn.multiply(centered, centered), bwcfg, K)
@@ -1386,7 +1397,7 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
         if beta is not None and beta.requires_grad:
             beta.add_grad(_sum_leading(g, beta.value.shape))
         if x.requires_grad:
-            dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
+            dnorm = ttnn.multiply(g, gv) if gv is not None else g
             # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
             dn_mean = _row_mean(dnorm, bwcfg, K)
             dn_norm_mean = _row_mean(ttnn.multiply(dnorm, norm), bwcfg, K)

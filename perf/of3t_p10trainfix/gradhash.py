@@ -40,6 +40,34 @@ def clip_and_accumulate(self, disabled=()):
 
 
 optim.AdamW.clip_and_accumulate = clip_and_accumulate
+
+# Every `ttnn.multiply(bf16, fp32)` the step issues, by the tt_bio line that issued it. That
+# operand order is the one `bcast_det.py` measured nondeterministic; the census says where
+# else it runs.
+import collections                                                    # noqa: E402
+import traceback                                                      # noqa: E402
+import ttnn                                                           # noqa: E402
+
+MIXED = collections.Counter()
+_mul = ttnn.multiply
+
+
+def multiply(a, b, *args, **kw):
+    try:
+        if a.dtype == ttnn.bfloat16 and b.dtype == ttnn.float32:
+            site = next((f"{Path(f.filename).name}:{f.lineno} {f.name}"
+                         for f in reversed(traceback.extract_stack()[:-1])
+                         if "/tt_bio/" in f.filename), "?")
+            MIXED[site] += 1
+    except AttributeError:
+        pass
+    return _mul(a, b, *args, **kw)
+
+
+ttnn.multiply = multiply
+import atexit                                                         # noqa: E402
+atexit.register(lambda: OUT.with_suffix(".mixed.json").write_text(
+    json.dumps(MIXED.most_common(), indent=1) + "\n"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "of3t_p10trainout"))
 import trainarm                                                       # noqa: E402
 
