@@ -963,57 +963,74 @@ How many designs a card returns per hour, how `--num_designs` and `--devices` mo
 
 ## Training
 
-Fine-tune or pre-train a model you can already run, with the same forward the inference path
-uses. The surface has four levels and you pick the one that matches what you want to write, not
-how much configuration you are willing to tolerate.
+Train OpenFold3 with the same forward the inference path uses:
+
+```bash
+pip install 'tt-bio[tenstorrent,train]'
+tt-bio train --model openfold3
+```
+
+With no data given, that fetches upstream's 8-structure training sample (73 MB, from
+OpenFold3's public bucket, checked file by file against a shipped sha256 list), trains the
+model's own weights at a 384-token crop for one pass over it, and writes to `runs/openfold3`.
+It needs the OpenFold3 weights, `of3-p2-155k.pt`, which [`docs/weights.md`](docs/weights.md)
+says how to fetch. A step takes about 41 s on one p300c chip. Run the same command again and it
+resumes from the last checkpoint; run it with different settings on the same `--out` and it
+refuses rather than mixing two runs.
+
+Your own data is OpenFold3's training-set layout, a `pdb_training_set/` directory beside one
+`training_cache*.json`, featurised on the fly by upstream's own pipeline:
+
+```bash
+tt-bio train data/ --model openfold3 --steps 2000
+tt-bio train data/ --model openfold3 --steps 2000 --chips 1,2 --global-batch 2
+tt-bio train data/ --model openfold3 --dry-run      # does it fit, and how long a step takes
+```
+
+`--help` lists the next layer: `--steps`, `--chips`, `--global-batch`, `--lr`,
+`--warmup-steps`, `--checkpoint-every`, `--tokens`, `--seed`, `--train adapters`. `--help-all`
+adds the expert one: precision (`--exact`), the objective, the recipe and the LoRA shape.
+[`docs/training.md`](docs/training.md#data) has the data layout and the rest.
+
+**For an agent**, everything a run says it also writes, in JapanFold's vocabulary:
+
+| file | what is in it |
+|---|---|
+| `<out>/status.json` | `status` (`running`, `succeeded`, `failed`), `step`, `steps`, `loss`, the chips, the clock sampled during the run, the checkpoint, and on failure `error: {title, detail}` |
+| `<out>/progress.jsonl` | one row per step: `step`, `loss`, `lr`, `grad_norm`, `s` (wall seconds, the first row includes model load), `healthy` |
+| `<out>/run.json` | the full record after success: history, provenance, the per-rank data-parallel record |
+| `<out>/traceback.txt` | the traceback, when the run failed |
+
+The exit code is 0 on success and 1 on failure, with a one-line reason on stderr. A step whose
+loss or gradient norm is not finite stops the run rather than training on it. After a resume
+the progress rows after the last checkpoint appear twice, once from each process.
+
+Underneath the command are three more levels, and you pick the one that matches what you want
+to write:
 
 | Level | You write | You own |
 |---|---|---|
-| `tt-bio finetune ...` | a command line | the config |
+| `tt-bio train ...` | a command line | the config |
 | `train.finetune(...)` | one call | the objective |
 | `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer`, `Mesh`, `trainable` | the loop | the `for` statement |
 | `tt_bio.autograd` + `train.gradcheck` | an op and its backward | the gradient |
 
-Dropping a level is not a rewrite. `train.recipes.source("default")` prints the body the
-one-call version runs, written only in names the level below exports, and a test keeps it that
-way: if the recipe ever needed a private hook, the test fails and the hook becomes public.
+Dropping a level is not a rewrite. `tt-bio train --show-recipe` prints the loop the command
+runs, the body of `train.recipes.source("default")`, written only in names the level below
+exports, and a test keeps it that way: if the recipe ever needed a private hook, the test fails
+and the hook becomes public. More chips is `mesh=train.Mesh({"dp": [1, 2]})` one level down,
+and adapters instead of weights is `train="adapters"`; one loop body serves both, which the
+escape-hatch test checks instruction for instruction.
 
-Going wider or going deeper is one argument, at whichever level you are already on. These three
-are the same command:
+**What works today:** OpenFold3 end to end from the command line (data, featurisation, the
+weights, training its weights, checkpoints, resume, the agent files), the dry run, gradient
+checking, and data parallelism across the chips in one box. **What does not:** OpenFold3 is the
+only model that ships a training featuriser; `--model` offers only it, and another model
+registers its own with `tt_bio.train.catalogue.register`. `--train adapters` runs the same loop
+but has not been measured on OpenFold3, and its dry run says `UNMEASURED`. A trained checkpoint
+is not yet loadable by `tt-bio predict`.
 
-```bash
-# one chip: LoRA adapters on a frozen trunk
-tt-bio finetune data/ --model protenix-v2 --out runs/a --global-batch 8 --steps 2000
-
-# two chips: same run, one flag
-tt-bio finetune data/ --model protenix-v2 --out runs/b --global-batch 8 --steps 2000 --chips 0,2
-
-# pre-training: train the weights themselves, same loop
-tt-bio finetune data/ --model protenix-v2 --out runs/c --global-batch 8 --steps 200000 \
-    --train weights
-```
-
-The same three at the level below are `train.finetune(...)`, plus `mesh=`, plus
-`train="weights"`. Nothing is rewritten between them: one loop body serves both training modes
-and both chip counts, which the escape-hatch test checks instruction for instruction.
-
-```bash
-# will this fit, and how long? answered without opening a card
-tt-bio finetune data/ --model protenix-v2 --out runs/a --global-batch 8 --steps 2000 --dry-run
-
-tt-bio finetune --show-recipe        # the loop it would run, as source you can edit
-tt-bio finetune --list-objectives    # the named loss rows
-```
-
-**What works today:** the interface, the dry run, both training modes, the optimizer, gradient
-checking, checkpoints, and data parallelism across the chips in one box. **What does not:** no
-model ships a training featuriser yet, so a real `tt-bio finetune` run stops with a named error
-at the point it would read your data. Featurisation is per model on purpose, and a model
-registers its own with `tt_bio.train.catalogue.register`. `--train weights` also comes back
-`UNMEASURED` from the dry run: we have measured a frozen trunk's memory and not a trained one's,
-and it will not print a projection shaped like a measurement.
-
-`finetune` follows OpenFold3's optimizer setup rather than Adam's library defaults, which
+`tt-bio train` follows OpenFold3's optimizer setup rather than Adam's library defaults, which
 differ in three places that no loss curve shows: `betas=(0.9, 0.95)`, no weight decay, and the
 AlphaFold 2 learning-rate schedule. Each is an argument, and the loop clips every sample
 separately, so a batch of 8 is 8 forwards per step. See
