@@ -44,6 +44,13 @@ def one(path):
            "warm": {s: len(warm[s]) for s in slots},
            "host_hwm_gb": round(max(rss) / 1e9, 2) if rss else None,
            "gate": st.get("gate"), "stopped": st.get("stopped")}
+    g = st.get("gate") or {}
+    held = sum((g.get("held_s") or {}).values())
+    total = sum(1 for e in ev if e["kind"] == "round_start")
+    # Gate hold per round over ALL rounds, compile rounds included: the one device figure read
+    # the same way on both arms.
+    out["held_per_round_all"] = round(held / total, 3) if total else None
+    out["waited_s"] = g.get("waited_s")
     allw = [r for s in slots for r in warm[s]]
     if not allw:
         out["error"] = "no warm rounds"
@@ -73,8 +80,11 @@ def one(path):
     n = sum(share(r) for s in slots for r in warm[s])
     wall = end - start
     dev = device_in(ev, start, end)
-    out.update(round_s=wall / n, device_s=dev / n, n=round(n, 2), window_s=round(wall, 2),
-               card_busy=round(dev / wall, 4), clock=clock(d.get("aiclk", []), start, end))
+    # A duo seam event spans the wait for the lock as well as the device region, so summing
+    # them double-counts; the device column on a duo arm is the gate's own held seconds.
+    out.update(round_s=wall / n, seam_span_s=dev / n, n=round(n, 2), window_s=round(wall, 2),
+               clock=clock(d.get("aiclk", []), start, end))
+    out["device_s"] = None
     return out, d
 
 
@@ -95,10 +105,12 @@ def main():
         c = r.get("clock", {})
         print(f"{r['arm']:4s} {'duo' if r['interleave'] else 'ser'} "
               + (r.get("error") or
-                 f"round {r['round_s']:.3f} s  device {r['device_s']:.3f} s  n {r['n']}  "
+                 f"round {r['round_s']:.3f} s  device "
+                 + (f"{r['device_s']:.3f} s" if r['device_s'] is not None else "  -  ")
+                 + f"  gate held/round(all) {r['held_per_round_all']}  n {r['n']}  "
                  f"AICLK med {c.get('aiclk_med')} min {c.get('aiclk_min')} "
                  f"load1 {c.get('load1')}  hwm {r['host_hwm_gb']} GB"
-                 + (f"  busy {r['card_busy']:.3f}" if r['interleave'] else "")))
+                 + (f"  waited {r['waited_s']}" if r['interleave'] else "")))
     ser = [r for r in rows if not r["interleave"] and "round_s" in r]
     duo = [r for r in rows if r["interleave"] and "round_s" in r]
     summary = {}
@@ -107,8 +119,7 @@ def main():
         dd = statistics.mean(r["round_s"] for r in duo)
         summary = {"serial_round_s": s, "duo_round_s": dd, "speedup": s / dd,
                    "ratio_vs_h200": dd / H200, "bar_s": 10 * H200,
-                   "serial_device_s": statistics.mean(r["device_s"] for r in ser),
-                   "duo_device_s": statistics.mean(r["device_s"] for r in duo)}
+                   "serial_device_s": statistics.mean(r["device_s"] for r in ser)}
         print(f"\nserial {s:.3f}  duo {dd:.3f}  speedup {s/dd:.4f}x  "
               f"RATIO {dd/H200:.2f}x vs H200 (bar {10*H200:.3f} s)")
     # Leg 4: every duo digest against every serial arm's digest for the same (slot, round).
