@@ -23,8 +23,10 @@ import sys
 
 #: Which lever labels the arm. `ab.sh` drives any env-var lever, so the reader has to be told
 #: which one this sitting moved. The label still comes from the ENGINE read at the round
-#: boundary (`meter.levers`), never from the process stamp.
-LEVER = os.environ.get("REPORT_LEVER", "grad_fanin_l1")
+#: boundary (`meter.levers`), never from the process stamp. A comma-separated list labels a
+#: round `on` only when every lever in it read armed, `off` when none did, and `mixed` otherwise,
+#: so a stack arm with one lever gone inert shows up as a third arm instead of hiding in `on`.
+LEVER = os.environ.get("REPORT_LEVER", "grad_fanin_l1").split(",")
 
 SERVED = "fanin_l1_served"
 DECLINED = "fanin_l1_declined: over the L1 budget"
@@ -49,7 +51,8 @@ def rounds(path):
         after = (starts[i + 1] if i + 1 < len(starts) else (stop[0] if stop else {})).get("reach") or {}
         delta = lambda k: (after.get(k, 0) - before.get(k, 0)) if after else None  # noqa: E731
         # The engine's own answer, at the boundary that opened this round.
-        arm = "on" if before.get("lever_" + LEVER) else "off"
+        armed = [bool(before.get("lever_" + k)) for k in LEVER]
+        arm = "on" if all(armed) else "off" if not any(armed) else "mixed"
         out.append({"round": starts[i]["round"], "arm": arm,
                     "wall": round(t1 - t0, 3), "fwd": round(fwd, 3), "bwd": round(bwd, 3),
                     "dev": round(fwd + bwd, 3),
