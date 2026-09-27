@@ -48,7 +48,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--out", default="equal_E.json")
-    ap.add_argument("--lever", choices=("fanin_l1", "widen_add"), default="fanin_l1")
+    ap.add_argument("--lever", choices=("fanin_l1", "widen_add", "qkv_join"), default="fanin_l1")
     args = ap.parse_args()
     if args.params is None:
         from perf.bcx_afgrad import afgrad as A
@@ -61,8 +61,13 @@ def main():
     from tt_bio import fanin_l1, rne_add
     if args.lever == "fanin_l1":
         F, flag, reach, clear = fanin_l1, "FANIN_L1", fanin_l1.reach, fanin_l1.REACH.clear
-    else:
+    elif args.lever == "widen_add":
         F, flag, reach, clear = rne_add, "WIDEN_ADD", rne_add.widen_reach, rne_add.WIDEN_REACH.clear
+    else:                                   # bcx-p10-devtop
+        from tt_bio import taped_ttnn as F
+        flag = "QKV_GRAD_JOIN"
+        reach = lambda: dict(F.QKV_JOIN_STATS)
+        clear = lambda: F.QKV_JOIN_STATS.update(served=0)
     lv, dev, ref = S.open_all(args)
     clock = S.Clock()
 
