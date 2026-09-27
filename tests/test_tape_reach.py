@@ -43,6 +43,9 @@ ALLOWED = {
     # `lineage.recording` patches the real `ttnn.from_torch` while the model is BUILT, to trace
     # which weights each device tensor came from; the shim would be the wrong thing to patch.
     "train/lineage.py",
+    # `duotraj.free_device_bytes` reads the card's DRAM view before any trajectory starts, to
+    # refuse an interleave that will not fit. A memory query, not device work under a tape.
+    "duotraj.py",
     # The OpenFold3 training forward builds its inputs with the raw `from_torch` and wraps each
     # one in `ag.Tensor` itself, so they enter the tape as constants. A module-scope import
     # would hand it the shim and change what the gradient-parity result was measured on.

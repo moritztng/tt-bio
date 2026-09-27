@@ -46,10 +46,15 @@ supply of them.
 ```python
 from tt_bio import bindcraft2
 
-with bindcraft2.campaign_predictor(card=0):
+with bindcraft2.campaign_predictor(card=0, exact=False, extra_msa=True, template=True):
     bindcraft2.run_campaign(settings, project_folder, trajectories_per_card=3,
                             af2_weights=params_dir, mpnn_weights=mpnn_dir)
 ```
+
+This is the call the round below was measured with. `exact=False` also turns on tt-bio's
+gradient kernels for BindCraft 2 (`fast=True` is its default there), and puts them back when the
+block exits, so nothing else in the process runs differently. No environment variable is
+involved.
 
 `bindcraft2.run_campaign` goes where `campaign.run_campaign` went. At the default
 `trajectories_per_card=1` it *is* that call: no threads, no scheduling, nothing in tt-bio behaves
@@ -65,9 +70,11 @@ On one Blackhole chip, a 288-token PD-L1 round:
 | 2 | 7.23 |
 | 3 | 6.76 |
 
-An H200 runs the same round in 0.696 s. These were measured with tt-bio's gradient levers on
-(`state/perf10/bcx-p10-tritraj.md`); what the option is worth to you depends on how much of your
-round is host time, since that is all it fills.
+An H200 runs the same round in 0.696 s. Every figure here was taken at a 1350 MHz AICLK, sampled
+during the rounds. One more gradient kernel landed after the table: with it, three trajectories
+run at 6.18 s and two at 6.62 s, the latter measured through exactly the call above with no
+environment variable set. What the option is worth to you depends on how much of your round is
+host time, since that is all it fills.
 
 The rate holds over a whole campaign, not just a burst: four PD-L1 trajectories at
 `trajectories_per_card=2`, run to their stop condition, took 500 gradient rounds at 6.78 s
@@ -155,9 +162,10 @@ with bindcraft2.predictor(card=0, extra_msa=True) as build:
 Off by default, and switchable independently of the Evoformer, so a comparison graded on the
 Evoformer alone keeps the program it was graded on.
 
-Leave it off. On a real gradient round it makes things slower: the card runs the stack in 34.0 s
-where BindCraft 2's JAX runs it on the host in 10.3 s, so the round goes up about 4 %. Measured
-with both arms interleaved in one process on one card, 16 rounds, seven per arm.
+Before tt-bio's gradient kernels it made a round slower: the card ran the stack in 34.0 s where
+BindCraft 2's JAX ran it on the host in 10.3 s, about 4 % on the round, measured with both arms
+interleaved in one process on one card, 16 rounds, seven per arm. The interleaved round in the
+table above was measured with it on and has not been re-measured with it off.
 
 The reason is what the Evoformer swap already did. With the Evoformer on the card a round is 97 %
 device time and only 13 s of 454 s is left on the host, so even a free extra-MSA swap could win
@@ -198,6 +206,11 @@ is one trajectory rather than a rate. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS`
 
 Turning it off changes only how softmax and layer norm are computed inside the tape. It does not
 skip a step, a recycle or a block.
+
+`exact=False` also arms tt-bio's gradient kernels for the duration of the predictor, the ones the
+round figures on this page were measured with. Pass `fast=False` to keep the device softmax and
+layer norm without them. Like `exact=False`, they change which kernels compute the round and do
+not skip any of its work.
 
 ## The control arm
 

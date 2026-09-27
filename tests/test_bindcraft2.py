@@ -192,6 +192,7 @@ def _campaign_factory_trunks(monkeypatch, **kwargs):
     design.extra_msa = None
     design.template = None
     design.exact = True
+    design.fast = None
 
     @contextlib.contextmanager
     def fake_predictor(**_):
@@ -312,6 +313,54 @@ def test_the_exact_instrument_can_be_turned_off_through_the_predictor():
     # The scope is the predictor's, so it is gone with it and no later tape inherits it.
     assert autograd.exact_training_ops() == armed
 
+
+
+def _fast_round_now():
+    import importlib
+    out = {}
+    for module, owner, attr, _env, _value in bindcraft2._FAST_ROUND:
+        target = importlib.import_module(f"tt_bio.{module}")
+        out[attr] = getattr(getattr(target, owner) if owner else target, attr)
+    return out
+
+
+def test_exact_false_arms_the_measured_round_and_puts_it_back(monkeypatch):
+    """The round `docs/bindcraft2.md` quotes needs no env var: `exact=False` arms its levers.
+
+    They are process state other models' tapes read too, so the check that matters as much as
+    the arming is that the predictor's exit restores every one of them.
+    """
+    _bindcraft_root()
+    for _module, _owner, _attr, env, _value in bindcraft2._FAST_ROUND:
+        if env:
+            monkeypatch.delenv(env, raising=False)
+    params = _af2_params()
+    before = _fast_round_now()
+    want = {attr: value for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND}
+    assert before != want
+    with bindcraft2.campaign_predictor(checkpoints=str(params), exact=False) as build:
+        assert _fast_round_now() == want
+        assert build.fast == want
+    assert _fast_round_now() == before
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params)) as build:
+        assert _fast_round_now() == before
+        assert build.fast is None
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params), exact=False,
+                              fast=False) as build:
+        assert _fast_round_now() == before
+
+
+def test_a_lever_env_var_still_takes_one_lever_out(monkeypatch):
+    """An A/B has to be able to drop one lever from the armed round without editing code."""
+    _bindcraft_root()
+    from tt_bio import mm_layout, rne_add
+
+    monkeypatch.setenv("TT_BIO_MM_LAYOUT", "0")
+    monkeypatch.delenv("TT_BIO_WIDEN_ADD", raising=False)
+    params = _af2_params()
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params), exact=False):
+        assert mm_layout.MM_LAYOUT is False
+        assert rne_add.WIDEN_ADD is True
 
 def test_the_campaign_path_can_turn_the_exact_instrument_off_too():
     """`campaign_predictor` takes `**kwargs`, so nothing in its signature says `exact` arrives.
@@ -847,6 +896,7 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
     design.trunk, design.pool, design.evoformer = "device", object(), object()
     design.extra_msa = design.template = None
     design.exact = True
+    design.fast = None
 
     @contextlib.contextmanager
     def fake_predictor(**_):

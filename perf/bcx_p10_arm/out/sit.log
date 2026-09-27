@@ -1,0 +1,13 @@
+=== a1 (old, 9 rounds, N=2) 2026-09-27T08:03:04Z
+perf/bcx_p10_arm/sit.sh: line 14: 3059313 Aborted                 perf/bcx_p10_arm/arm.sh "$tag" "$which" "$r" "$n" > "$o/$tag.log" 2>&1
+  a1 exited 134
+=== b1 (new, 9 rounds, N=2) 2026-09-27T08:05:35Z
+perf/bcx_p10_arm/sit.sh: line 14: 3072549 Aborted                 perf/bcx_p10_arm/arm.sh "$tag" "$which" "$r" "$n" > "$o/$tag.log" 2>&1
+  b1 exited 134
+=== b2 (new, 9 rounds, N=2) 2026-09-27T08:08:06Z
+perf/bcx_p10_arm/sit.sh: line 14: 3124420 Aborted                 perf/bcx_p10_arm/arm.sh "$tag" "$which" "$r" "$n" > "$o/$tag.log" 2>&1
+  b2 exited 134
+=== a2 (old, 9 rounds, N=2) 2026-09-27T08:10:40Z
+perf/bcx_p10_arm/sit.sh: line 14: 3141763 Aborted                 perf/bcx_p10_arm/arm.sh "$tag" "$which" "$r" "$n" > "$o/$tag.log" 2>&1
+  a2 exited 134
+=== sitting done 2026-09-27T08:13:14Z

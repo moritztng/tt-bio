@@ -268,7 +268,9 @@ fixes it. On a BindCraft 2 gradient round at 288 tokens, 696 calls a round acros
 classes, 3.04x to 14.34x each, PCC 1.000000 against the call it replaces. The round pays
 1.0336x on device seconds (paired median over 24 rounds, pc card 0 at 1350 MHz).
 
-Off by default because it has not been through a release gate. It changes the order a matmul
+Off by default because it has not been through a release gate, except inside
+`bindcraft2.predictor(exact=False)`, which turns it on for its own duration along with the other
+gradient kernels its round is measured with (`fast=False` opts out). It changes the order a matmul
 accumulates its partial products, so results move by up to 2.0e-3 in bf16. The structure that
 comes out has now been scored, as part of the composed stack rather than alone: 0.5376 A on the
 confident core against a 0.60 A kill bar, unchanged from the same stack without it.
