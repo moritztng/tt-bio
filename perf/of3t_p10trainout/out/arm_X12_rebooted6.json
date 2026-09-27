@@ -1,0 +1,677 @@
+{
+  "argv": [
+    "--corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/train12",
+    "--checkpoint",
+    "/home/ttuser/of3-weights/of3-p2-155k.pt",
+    "--exact",
+    "on",
+    "--steps",
+    "12",
+    "--out-dir",
+    "/home/ttuser/of3t_p10trainout/runs/X12",
+    "--curve",
+    "/home/ttuser/of3t_p10trainout/runs/X12.jsonl",
+    "--out",
+    "/home/ttuser/.coworker/wt/of3t-p10trainfix/perf/of3t_p10trainout/out/arm_X12.json",
+    "--displacement-band",
+    "0.01,100",
+    "--eval-corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/val",
+    "--checkpoint-every",
+    "100000",
+    "--pin-watch",
+    "--seed",
+    "0",
+    "--eval-every",
+    "2",
+    "--exact-scope",
+    "trunk"
+  ],
+  "started": "2026-09-27T03:34:06Z",
+  "precondition_slot_fix": {
+    "commit": "ce0f78d60",
+    "is_ancestor_of_head": true,
+    "head": "50c6d4ab0416d869c601d194007de5e7e3abce01",
+    "head_short": "50c6d4ab0",
+    "dirty": true
+  },
+  "steps": [
+    {
+      "step": 0,
+      "loss": 1.779165406384832,
+      "breakdown": {
+        "mse": {
+          "value": 0.13699451019458883,
+          "weight": 4.0,
+          "contribution": 0.5479780407783553
+        },
+        "smooth_lddt": {
+          "value": 0.2931856911093199,
+          "weight": 4.0,
+          "contribution": 1.1727427644372797
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 1.9317156445402424,
+          "weight": 0.03,
+          "contribution": 0.05795146933620727
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 2.692912703567722,
+          "weight": 0.0001,
+          "contribution": 0.00026929127035677224
+        },
+        "resolved": {
+          "value": 2.2384056263269456,
+          "weight": 0.0001,
+          "contribution": 0.00022384056263269458
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 9.999999411580342,
+      "lr": 0.0003,
+      "s": null,
+      "wall_s": 2158.239,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 686
+      },
+      "dram_gb": 3.267,
+      "registries": {
+        "_WRAPPED": 128,
+        "_PARAMS": 3778,
+        "_ZERO_CACHE": 13,
+        "_CKPT_PINS": 0,
+        "_TOUCHED": 2718
+      }
+    },
+    {
+      "step": 1,
+      "loss": 1.2382110811954676,
+      "breakdown": {
+        "mse": {
+          "value": 0.047704387523435185,
+          "weight": 4.0,
+          "contribution": 0.19081755009374074
+        },
+        "smooth_lddt": {
+          "value": 0.2400131864537023,
+          "weight": 4.0,
+          "contribution": 0.9600527458148091
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 2.8970582496373343,
+          "weight": 0.03,
+          "contribution": 0.08691174748912002
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 1.8779606230884904,
+          "weight": 0.0001,
+          "contribution": 0.00018779606230884905
+        },
+        "resolved": {
+          "value": 2.412417354885905,
+          "weight": 0.0001,
+          "contribution": 0.00024124173548859053
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 5.52875839722062,
+      "lr": 0.0003,
+      "s": 1515.762139819999,
+      "wall_s": 3674.002,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 1184
+      },
+      "dram_gb": 3.393,
+      "registries": {
+        "_WRAPPED": 132,
+        "_PARAMS": 3778,
+        "_ZERO_CACHE": 15,
+        "_CKPT_PINS": 0,
+        "_TOUCHED": 2718
+      },
+      "eval": {
+        "mean_loss": 6.810782656891191,
+        "7kud": 9.220237761178133,
+        "7ohe": 10.829830603145222,
+        "7fb8": 4.7140091686124075,
+        "7vus": 2.4790530946289997
+      }
+    },
+    {
+      "step": 2,
+      "loss": 2.170503765776135,
+      "breakdown": {
+        "mse": {
+          "value": 0.2061299422756928,
+          "weight": 4.0,
+          "contribution": 0.8245197691027712
+        },
+        "smooth_lddt": {
+          "value": 0.3224662242932633,
+          "weight": 4.0,
+          "contribution": 1.2898648971730533
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 1.8572813120886436,
+          "weight": 0.03,
+          "contribution": 0.05571843936265931
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 1.8033162066167416,
+          "weight": 0.0001,
+          "contribution": 0.00018033162066167417
+        },
+        "resolved": {
+          "value": 2.203285169893389,
+          "weight": 0.0001,
+          "contribution": 0.0002203285169893389
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 9.999999915656225,
+      "lr": 0.0003,
+      "s": 1371.04659665699,
+      "wall_s": 5045.048,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 1641
+      },
+      "dram_gb": 3.372,
+      "registries": {
+        "_WRAPPED": 132,
+        "_PARAMS": 3778,
+        "_ZERO_CACHE": 17,
+        "_CKPT_PINS": 0,
+        "_TOUCHED": 2718
+      }
+    },
+    {
+      "step": 3,
+      "loss": 1.3628359617491477,
+      "breakdown": {
+        "mse": {
+          "value": 0.05590812312062676,
+          "weight": 4.0,
+          "contribution": 0.22363249248250705
+        },
+        "smooth_lddt": {
+          "value": 0.24810384051321888,
+          "weight": 4.0,
+          "contribution": 0.9924153620528755
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 4.883091430140971,
+          "weight": 0.03,
+          "contribution": 0.14649274290422912
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 0.593494819864621,
+          "weight": 0.0001,
+          "contribution": 5.9349481986462105e-05
+        },
+        "resolved": {
+          "value": 2.360148275495857,
+          "weight": 0.0001,
+          "contribution": 0.0002360148275495857
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 10.00000045680246,
+      "lr": 0.0003,
+      "s": 1417.1046321890026,
+      "wall_s": 6462.153,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 2110
+      },
+      "dram_gb": 3.234,
+      "registries": {
+        "_WRAPPED": 132,
+        "_PARAMS": 3778,
+        "_ZERO_CACHE": 19,
+        "_CKPT_PINS": 0,
+        "_TOUCHED": 2718
+      },
+      "eval": {
+        "mean_loss": 9.594769832243454,
+        "7kud": 9.202570958394455,
+        "7ohe": 18.85044106838384,
+        "7fb8": 4.70388638139549,
+        "7vus": 5.622180920800031
+      }
+    },
+    {
+      "step": 4,
+      "loss": 1.519311751517239,
+      "breakdown": {
+        "mse": {
+          "value": 0.08376220512273935,
+          "weight": 4.0,
+          "contribution": 0.3350488204909574
+        },
+        "smooth_lddt": {
+          "value": 0.2826841298940015,
+          "weight": 4.0,
+          "contribution": 1.130736519576006
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 1.7721062326529922,
+          "weight": 0.03,
+          "contribution": 0.053163186979589765
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 1.453749535226235,
+          "weight": 0.0001,
+          "contribution": 0.00014537495352262352
+        },
+        "resolved": {
+          "value": 2.178495171634015,
+          "weight": 0.0001,
+          "contribution": 0.0002178495171634015
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 7.516346241412067,
+      "lr": 0.0003,
+      "s": 1409.370453926007,
+      "wall_s": 7871.523,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 2571
+      },
+      "dram_gb": 3.208,
+      "registries": {
+        "_WRAPPED": 124,
+        "_PARAMS": 3778,
+        "_ZERO_CACHE": 21,
+        "_CKPT_PINS": 0,
+        "_TOUCHED": 2718
+      }
+    },
+    {
+      "step": 5,
+      "loss": 1.134183997222256,
+      "breakdown": {
+        "mse": {
+          "value": 0.021386848985909868,
+          "weight": 4.0,
+          "contribution": 0.08554739594363947
+        },
+        "smooth_lddt": {
+          "value": 0.23082140523804195,
+          "weight": 4.0,
+          "contribution": 0.9232856209521678
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 4.169425514713678,
+          "weight": 0.03,
+          "contribution": 0.12508276544141034
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 0.46865994420145,
+          "weight": 0.0001,
+          "contribution": 4.6865994420145e-05
+        },
+        "resolved": {
+          "value": 2.213488906181263,
+          "weight": 0.0001,
+          "contribution": 0.0002213488906181263
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 5.247973369763113,
+      "lr": 0.0003,
+      "s": 1474.923094251979,
+      "wall_s": 9346.446,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 3049
+      },
+      "dram_gb": 3.235,
+      "registries": {
+        "_WRAPPED": 132,
+        "_PARAMS": 3778,
+        "_ZERO_CACHE": 21,
+        "_CKPT_PINS": 0,
+        "_TOUCHED": 2718
+      },
+      "eval": {
+        "mean_loss": 6.826726939428058,
+        "7kud": 9.214930264588205,
+        "7ohe": 10.907570474873724,
+        "7fb8": 4.708028384581362,
+        "7vus": 2.4763786336689413
+      }
+    }
+  ],
+  "exact_ops_requested": "both",
+  "corpus": {
+    "cache_file": "/home/ttuser/of3t-data-xhost/datasets/training_cache_with_templates_subset_8.json",
+    "split": "train",
+    "stage": "initial_training",
+    "crop": 384,
+    "seed": 20260926,
+    "draw_seed": 20260926,
+    "package": "tt_bio._vendor.openfold3",
+    "datapoints_in_cache": 292,
+    "order": [
+      290,
+      289,
+      270,
+      285,
+      291,
+      248,
+      267,
+      154,
+      290,
+      268,
+      267,
+      291
+    ],
+    "entries": [
+      {
+        "index": 154,
+        "pdb_id": "2wig",
+        "chain_or_interface": "['101', '97']",
+        "file": "154_2wig.pt",
+        "sha256": "92996d949b40f7d1fd31d3d586f55370f36224bffc1761cf385e2ae56b270a73",
+        "bytes": 837530212,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 248,
+        "pdb_id": "2wig",
+        "chain_or_interface": "['81', '83']",
+        "file": "248_2wig.pt",
+        "sha256": "bf745dc10e7ad12832b7808772824bd37ad9797cad4a85ab77514c40225478d6",
+        "bytes": 709208871,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 267,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '2']",
+        "file": "267_3wnm.pt",
+        "sha256": "8b0973534a9297503312eed897d807e919cce9c2f84d0bf3921ac3893a6ed4b3",
+        "bytes": 584526802,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 268,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '3']",
+        "file": "268_3wnm.pt",
+        "sha256": "6cfc0b2bef8dc03482f200b682c960b0f0d432866a01f0f4350f898b56aaf189",
+        "bytes": 587826196,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 270,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '5']",
+        "file": "270_3wnm.pt",
+        "sha256": "241c1d7fe944b061db69ac8b06fecec1a2995579e14ca516e338dd92703c4053",
+        "bytes": 733282002,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 285,
+        "pdb_id": "4ky2",
+        "chain_or_interface": "['3', '7']",
+        "file": "285_4ky2.pt",
+        "sha256": "3b00433bf911e74b913b9fbe78c61eeb0e0d1322a02e6d54d97d1da51b0a3f72",
+        "bytes": 319004271,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 289,
+        "pdb_id": "5ron",
+        "chain_or_interface": "4",
+        "file": "289_5ron.pt",
+        "sha256": "298fd215011e092f7edf015201255c7235fb6514e661e3618a68ee51c80b3fd1",
+        "bytes": 840418860,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      },
+      {
+        "index": 290,
+        "pdb_id": "5ron",
+        "chain_or_interface": "['1', '3']",
+        "file": "290_5ron.pt",
+        "sha256": "61f724250a7a10078fe245e4f6d10853296e1ecb777ef02618b141e342681fbb",
+        "bytes": 809883180,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      },
+      {
+        "index": 291,
+        "pdb_id": "5ron",
+        "chain_or_interface": "['1', '4']",
+        "file": "291_5ron.pt",
+        "sha256": "912f3338af9732a0911383b5f450cc621bdc250b3e3b16d0f949eefa204dc9af",
+        "bytes": 223952940,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      }
+    ]
+  },
+  "exact_ops": [
+    "softmax",
+    "layer_norm"
+  ],
+  "exact_scope": "trunk",
+  "dataset": {
+    "n": 9,
+    "files": [
+      "154_2wig.pt",
+      "248_2wig.pt",
+      "267_3wnm.pt",
+      "268_3wnm.pt",
+      "270_3wnm.pt",
+      "285_4ky2.pt",
+      "289_5ron.pt",
+      "290_5ron.pt",
+      "291_5ron.pt"
+    ]
+  },
+  "displacement_band": [
+    0.01,
+    100.0
+  ],
+  "eval_before": {
+    "mean_loss": 6.8024402513580124,
+    "n": 4,
+    "seed": 20260926,
+    "stage": "initial_training",
+    "instrument": "shipped inference path, exact ops uninstalled for the block",
+    "targets": [
+      {
+        "index": 0,
+        "pdb_id": "7kud",
+        "loss": 9.277909187494767,
+        "s": 10.237,
+        "breakdown": {
+          "bond": 0.0,
+          "smooth_lddt": 3.535681160120073,
+          "mse": 5.599059074059674,
+          "distogram": 0.14145698721808922,
+          "resolved": 0.0003623633165203392,
+          "plddt": 0.0,
+          "pae": 0.0006713384004121569,
+          "pde": 0.0006782643799968873
+        }
+      },
+      {
+        "index": 1,
+        "pdb_id": "7ohe",
+        "loss": 10.762623927477078,
+        "s": 1.425,
+        "breakdown": {
+          "bond": 0.0,
+          "smooth_lddt": 3.581970777746528,
+          "mse": 6.978249489363687,
+          "distogram": 0.2004677982701984,
+          "resolved": 0.0003802788170982951,
+          "plddt": 0.0,
+          "pae": 0.00076217108472697,
+          "pde": 0.000793412194838439
+        }
+      },
+      {
+        "index": 2,
+        "pdb_id": "7fb8",
+        "loss": 4.717250730350796,
+        "s": 2.001,
+        "breakdown": {
+          "bond": 0.0,
+          "smooth_lddt": 3.6096885545876627,
+          "mse": 1.000279058967684,
+          "distogram": 0.10563498953136218,
+          "resolved": 0.00026551475253060825,
+          "plddt": 0.0,
+          "pae": 0.0006159191926975164,
+          "pde": 0.0007666933188589269
+        }
+      },
+      {
+        "index": 3,
+        "pdb_id": "7vus",
+        "loss": 2.4519771601094082,
+        "s": 2.988,
+        "breakdown": {
+          "bond": 0.0,
+          "smooth_lddt": 1.8850900010449632,
+          "mse": 0.43542034377330197,
+          "distogram": 0.13053788887479692,
+          "resolved": 0.00030486338155853065,
+          "plddt": 0.0,
+          "pae": 0.00037285984431358765,
+          "pde": 0.0002512031904743874
+        }
+      }
+    ]
+  }
+}
