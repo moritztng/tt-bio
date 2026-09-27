@@ -1,0 +1,158 @@
+{
+  "argv": [
+    "--train-corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/train12",
+    "--eval-corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/val",
+    "--checkpoint",
+    "/home/ttuser/of3-weights/of3-p2-155k.pt",
+    "--adapter",
+    "/home/ttuser/of3t_p10trainout/runs/X12b/adapter-00000011.safetensors",
+    "--adapter",
+    "/home/ttuser/of3t_p10instr/base.safetensors",
+    "--label",
+    "X12b",
+    "--label",
+    "base",
+    "--seeds",
+    "20260926",
+    "--repeat",
+    "2",
+    "--out",
+    "perf/of3t_p10instr/out/N2_order.json"
+  ],
+  "head": "c33e00bd4a7a2e8e6ee3d5ba4cf0ca72195326ff",
+  "dirty": true,
+  "started": "2026-09-27T10:38:55Z",
+  "seeds": [
+    20260926
+  ],
+  "repeat": 2,
+  "contexts": [
+    "shipped"
+  ],
+  "calls": [
+    {
+      "label": "X12b",
+      "adapter": "/home/ttuser/of3t_p10trainout/runs/X12b/adapter-00000011.safetensors",
+      "context": "shipped",
+      "seed": 20260926,
+      "rep": 0,
+      "mean_loss": 6.848213286869434,
+      "targets": {
+        "7kud": {
+          "loss": 9.174657516397644,
+          "bond": 0.0,
+          "smooth_lddt": 3.5201506624622056,
+          "mse": 5.5023244432483205,
+          "distogram": 0.15050946632921375,
+          "resolved": 0.00033812141510029624,
+          "plddt": 0.0,
+          "pae": 0.0006680146155849157,
+          "pde": 0.0006668083272212561
+        },
+        "7ohe": {
+          "loss": 10.91581493497499,
+          "bond": 0.0,
+          "smooth_lddt": 3.6074346392252283,
+          "mse": 7.1484375943322895,
+          "distogram": 0.15800154478617892,
+          "resolved": 0.0003431074317836603,
+          "plddt": 0.0,
+          "pae": 0.0007638010876604128,
+          "pde": 0.0008342481118475112
+        },
+        "7fb8": {
+          "loss": 4.717947995020696,
+          "bond": 0.0,
+          "smooth_lddt": 3.6160279393617882,
+          "mse": 0.993789336658182,
+          "distogram": 0.10640759151813149,
+          "resolved": 0.00023305304193332386,
+          "plddt": 0.0,
+          "pae": 0.0006542667462126183,
+          "pde": 0.0008358076944489293
+        },
+        "7vus": {
+          "loss": 2.5844327010844097,
+          "bond": 0.0,
+          "smooth_lddt": 1.969071360132192,
+          "mse": 0.5233340293725074,
+          "distogram": 0.09099393314780908,
+          "resolved": 0.00028392412159436084,
+          "plddt": 0.0,
+          "pae": 0.00043655420293337087,
+          "pde": 0.00031290010737369833
+        }
+      }
+    },
+    {
+      "label": "X12b",
+      "adapter": "/home/ttuser/of3t_p10trainout/runs/X12b/adapter-00000011.safetensors",
+      "context": "shipped",
+      "seed": 20260926,
+      "rep": 1,
+      "mean_loss": 6.848219197174828,
+      "targets": {
+        "7kud": {
+          "loss": 9.174676960642149,
+          "bond": 0.0,
+          "smooth_lddt": 3.5201506624622056,
+          "mse": 5.5023244432483205,
+          "distogram": 0.15050946632921375,
+          "resolved": 0.00033394396685272815,
+          "plddt": 0.0,
+          "pae": 0.000677517292548689,
+          "pde": 0.0006809273430091066
+        },
+        "7ohe": {
+          "loss": 10.91581493497499,
+          "bond": 0.0,
+          "smooth_lddt": 3.6074346392252283,
+          "mse": 7.1484375943322895,
+          "distogram": 0.15800154478617892,
+          "resolved": 0.0003431074317836603,
+          "plddt": 0.0,
+          "pae": 0.0007638010876604128,
+          "pde": 0.0008342481118475112
+        },
+        "7fb8": {
+          "loss": 4.7179525065033285,
+          "bond": 0.0,
+          "smooth_lddt": 3.6160279393617882,
+          "mse": 0.993789336658182,
+          "distogram": 0.10640759151813149,
+          "resolved": 0.00023202959946059122,
+          "plddt": 0.0,
+          "pae": 0.000656160763138606,
+          "pde": 0.0008394486026282416
+        },
+        "7vus": {
+          "loss": 2.584432386578843,
+          "bond": 0.0,
+          "smooth_lddt": 1.969071360132192,
+          "mse": 0.5233340293725074,
+          "distogram": 0.09099393314780908,
+          "resolved": 0.00028397232675976547,
+          "plddt": 0.0,
+          "pae": 0.0004362723225957863,
+          "pde": 0.00031281927697962754
+        }
+      }
+    }
+  ],
+  "params": 4049,
+  "ok": false,
+  "error": "FileNotFoundError: [Errno 2] No such file or directory: '/home/ttuser/of3t_p10instr/base.safetensors'",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-p10instr/perf/of3t_p10instr/evalnoise.py\", line 138, in main\n    load_adapter(path, _by_file_names(path, params), ds.device)\n                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10instr/perf/of3t_p10instr/evalnoise.py\", line 56, in _by_file_names\n    with open(path, \"rb\") as fh:\n         ^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: '/home/ttuser/of3t_p10instr/base.safetensors'\n",
+  "wall_s": 24.801,
+  "aiclk": {
+    "0": {
+      "min": 800,
+      "max": 1350,
+      "median": 1350,
+      "n": 11
+    }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 11 samples, polled DURING the work"
+}
