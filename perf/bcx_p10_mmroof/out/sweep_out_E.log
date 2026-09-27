@@ -1,0 +1,356 @@
+2026-09-26 20:51:19.393 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+ARMED {"triatt_bw_fused": true, "rne_kernel": true, "triatt_hifi": true, "mm_layout": true, "taped_kernels": "tri_att_sdpa_hifi,rne_add"}
+captured 46 classes from a warm block step
+
+== linear 288x288x128x128 - | round 0.228 s over 936 calls | 39.4 % dram, 13.0 % compute, 104 cores, binds DRAM
+   plan RMC1D:g11x10,w4,sh1,sw4,bh5,bw4,M25,N4,fb1,mc00,gi00 | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.1972    215.5  48.7%    13.78 1.0000x  pcc 1.000000 maxdev 0.00e+00
+2026-09-26 20:51:40.379 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 2592 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 1 (subblock h 1)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:51:40.484 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 2 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 2 (subblock h 2)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:40.602 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 3 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 3 (subblock h 3)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:40.699 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 4 (subblock h 4)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:40.786 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 3 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 6 (subblock h 3)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:40.866 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 8 (subblock h 4)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.001 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 3 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 9 (subblock h 3)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.130 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 12 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.240 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 16 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.336 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 3 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 18 (subblock h 3)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.410 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 24 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.468 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 3 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 27 (subblock h 3)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.526 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 32 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.584 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 36 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.642 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 48 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.701 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 3 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 54 (subblock h 3)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.772 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 72 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.832 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 3 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 81 (subblock h 3)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.913 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 96 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:41.979 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 108 (subblock h 4)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.046 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 144 (subblock h 4)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.105 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 3 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 162 (subblock h 3)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.163 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 216 (subblock h 4)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.222 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 288 (subblock h 4)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.281 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 324 (subblock h 4)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.340 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 432 (subblock h 4)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.417 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 648 (subblock h 4)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.476 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 864 (subblock h 4)             REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.561 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 1296 (subblock h 4)            REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+2026-09-26 20:51:42.638 | critical |          Always | TT_FATAL: out_subblock_w 4 times out_subblock_h 4 needs to be at most 4 to fit in hardware (assert.hpp:104)
+per_core_M 25 -> 2592 (subblock h 4)            REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+out_subblock 1x4 -> 1x1                          0.2628    161.7  36.6%    10.34 0.7505x  pcc 1.000000 maxdev 0.00e+00
+out_subblock 1x4 -> 1x2                          0.2403    176.9  40.0%    11.31 0.8207x  pcc 1.000000 maxdev 0.00e+00
+in0_block_w 4 -> 1 (regroups the K accumulation)     0.2239    189.9  42.9%    12.14 0.8811x  pcc 1.000000 maxdev 9.77e-04
+in0_block_w 4 -> 2 (regroups the K accumulation)     0.2048    207.5  46.9%    13.27 0.9630x  pcc 1.000000 maxdev 4.88e-04
+fuse_batch True -> False                        11.1579      3.8   0.9%     0.24 0.0177x  pcc 0.999445 maxdev 2.35e-01
+grid -> 11x10                                    0.1958    217.1  49.1%    13.88 1.0075x  pcc 1.000000 maxdev 0.00e+00
+2026-09-26 20:51:44.093 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 104 blocks > 64 cores (assert.hpp:104)
+grid -> 8x8                                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:51:44.173 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 104 blocks > 55 cores (assert.hpp:104)
+grid -> 11x5                                    REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:51:44.243 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 104 blocks > 36 cores (assert.hpp:104)
+grid -> 6x6                                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+plan dropped: ttnn's own planner                 1.2349     34.4   7.8%     2.20 0.1597x  pcc 1.000000 maxdev 4.88e-04
+operand a -> L1 interleaved                      0.1952    217.8  49.2%    13.92 1.0105x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.1991    213.5  48.3%    13.65 0.9908x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.1936    219.5  49.6%    14.04 1.0187x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.1287    330.3  74.7%    21.12 1.5327x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.1083    392.4  88.7%    25.09 1.8208x  pcc 1.000000 maxdev 0.00e+00
+   BEST a, b and output -> L1 at 1.8208x -> the round row 0.228 s becomes 0.125 s, saving 0.103 s
+
+== experimental.minimal_matmul 288x288x128x512 - | round 0.190 s over 312 calls | 39.4 % dram, 20.7 % compute, None cores, binds DRAM
+   plan none | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+2026-09-26 20:51:45.250 | critical |          Always | TT_FATAL: minimal_matmul bias must be 1 in all dims except the last (assert.hpp:104)
+baseline: the call the model makes              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minima
+core_grid 8x8 (mmlay's lever)                   REFUSED  
+core_grid 11x10 (mmlay's lever)                 REFUSED  
+2026-09-26 20:51:45.492 | critical |          Always | TT_FATAL: minimal_matmul bias must be 1 in all dims except the last (assert.hpp:104)
+operand a -> L1 interleaved                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minima
+2026-09-26 20:51:45.579 | critical |          Always | TT_FATAL: minimal_matmul bias must be 1 in all dims except the last (assert.hpp:104)
+operand b -> L1 interleaved                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minima
+2026-09-26 20:51:45.657 | critical |          Always | TT_FATAL: minimal_matmul bias must be 1 in all dims except the last (assert.hpp:104)
+both operands -> L1 interleaved                 REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minima
+2026-09-26 20:51:45.754 | critical |          Always | TT_FATAL: minimal_matmul bias must be 1 in all dims except the last (assert.hpp:104)
+output -> L1 interleaved                        REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minima
+2026-09-26 20:51:45.843 | critical |          Always | TT_FATAL: minimal_matmul bias must be 1 in all dims except the last (assert.hpp:104)
+a, b and output -> L1                           REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minima
+
+== linear 288x288x512x128 - | round 0.130 s over 156 calls | 28.9 % dram, 15.2 % compute, None cores, binds DRAM
+   plan none | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.8223    129.3  29.2%    13.22 1.0000x  pcc 1.000000 maxdev 0.00e+00
+core_grid 8x8 (mmlay's lever)                    0.9170    115.9  26.2%    11.86 0.8967x  pcc 1.000000 maxdev 0.00e+00
+core_grid 11x10 (mmlay's lever)                  0.8236    129.1  29.2%    13.20 0.9983x  pcc 1.000000 maxdev 0.00e+00
+operand a -> L1 interleaved                      0.2918    364.4  82.4%    37.26 2.8183x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.8235    129.1  29.2%    13.20 0.9985x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.2935    362.1  81.9%    37.04 2.8011x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.7325    145.1  32.8%    14.84 1.1226x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.1931    550.6 124.5%    56.31 4.2587x  pcc 1.000000 maxdev 0.00e+00
+   BEST a, b and output -> L1 at 4.2587x -> the round row 0.130 s becomes 0.030 s, saving 0.099 s
+
+== matmul 1x82944x512x128 tb | round 0.104 s over 156 calls | 36.1 % dram, 19.0 % compute, None cores, binds DRAM
+   plan none | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.6342    167.6  37.9%    17.14 1.0000x  pcc 1.000000 maxdev 0.00e+00
+core_grid 8x8 (mmlay's lever)                    0.9316    114.1  25.8%    11.67 0.6808x  pcc 1.000000 maxdev 1.95e-03
+core_grid 11x10 (mmlay's lever)                  0.9249    114.9  26.0%    11.75 0.6857x  pcc 1.000000 maxdev 1.95e-03
+operand a -> L1 interleaved                      1.2985     81.9  18.5%     8.37 0.4884x  pcc 1.000000 maxdev 8.79e-03
+operand b -> L1 interleaved                      1.2503     85.0  19.2%     8.70 0.5072x  pcc 1.000000 maxdev 8.79e-03
+both operands -> L1 interleaved                  1.1764     90.4  20.4%     9.24 0.5391x  pcc 1.000000 maxdev 8.79e-03
+output -> L1 interleaved                         1.8224     58.3  13.2%     5.97 0.3480x  pcc 1.000000 maxdev 8.79e-03
+a, b and output -> L1                            1.0528    101.0  22.8%    10.33 0.6024x  pcc 1.000000 maxdev 8.79e-03
+   BEST baseline: the call the model makes at 1.0000x -> the round row 0.104 s becomes 0.104 s, saving 0.000 s
+
+== experimental.minimal_matmul 288x288x128x384 - | round 0.103 s over 312 calls | 58.0 % dram, 28.6 % compute, None cores, binds DRAM
+   plan MinimalMat:g11x10 | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.3270    260.1  58.8%    24.94 1.0000x  pcc 1.000000 maxdev 0.00e+00
+grid -> 11x10                                    1.2420     68.5  15.5%     6.56 0.2632x  pcc 1.000000 maxdev 4.88e-04
+grid -> 8x8                                      1.6787     50.7  11.5%     4.86 0.1948x  pcc 1.000000 maxdev 4.88e-04
+grid -> 11x5                                     1.9643     43.3   9.8%     4.15 0.1664x  pcc 1.000000 maxdev 4.88e-04
+grid -> 6x6                                      2.2938     37.1   8.4%     3.55 0.1425x  pcc 1.000000 maxdev 4.88e-04
+plan dropped: ttnn's own planner                 0.3889    218.6  49.4%    20.96 0.8406x  pcc 1.000000 maxdev 0.00e+00
+operand a -> L1 interleaved                      0.2848    298.6  67.5%    28.63 1.1482x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.3215    264.5  59.8%    25.36 1.0171x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.2769    307.1  69.4%    29.45 1.1808x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.2870    296.2  67.0%    28.41 1.1391x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.2782    305.6  69.1%    29.30 1.1750x  pcc 1.000000 maxdev 0.00e+00
+   BEST both operands -> L1 interleaved at 1.1808x -> the round row 0.103 s becomes 0.088 s, saving 0.016 s
+
+== linear 288x288x128x512 - | round 0.095 s over 156 calls | 39.4 % dram, 20.7 % compute, None cores, binds DRAM
+   plan none | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.7299    145.7  32.9%    14.89 1.0000x  pcc 1.000000 maxdev 0.00e+00
+core_grid 8x8 (mmlay's lever)                    1.2249     86.8  19.6%     8.88 0.5959x  pcc 1.000000 maxdev 0.00e+00
+core_grid 11x10 (mmlay's lever)                  0.6534    162.7  36.8%    16.64 1.1171x  pcc 1.000000 maxdev 0.00e+00
+operand a -> L1 interleaved                      0.6255    170.0  38.4%    17.38 1.1669x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.7652    139.0  31.4%    14.21 0.9540x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.6264    169.8  38.4%    17.36 1.1653x  pcc 1.000000 maxdev 0.00e+00
+2026-09-26 20:52:03.992 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 449 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 798720 and static circular buffer region ends at 1438208 (assert.hpp:104)
+output -> L1 interleaved                        REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::
+2026-09-26 20:52:04.651 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 451 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 602112 and static circular buffer region ends at 1028608 (assert.hpp:104)
+a, b and output -> L1                           REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::
+   BEST operand a -> L1 interleaved at 1.1669x -> the round row 0.095 s becomes 0.082 s, saving 0.014 s
+
+== matmul 1x82944x128x128 tb | round 0.086 s over 416 calls | 46.6 % dram, 15.4 % compute, None cores, binds DRAM
+   plan none | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.1867    227.7  51.5%    14.56 1.0000x  pcc 1.000000 maxdev 0.00e+00
+core_grid 8x8 (mmlay's lever)                    0.2620    162.2  36.7%    10.37 0.7125x  pcc 1.000000 maxdev 9.77e-04
+core_grid 11x10 (mmlay's lever)                  0.2443    174.0  39.3%    11.13 0.7641x  pcc 1.000000 maxdev 9.77e-04
+operand a -> L1 interleaved                      0.3453    123.1  27.8%     7.87 0.5406x  pcc 1.000000 maxdev 2.44e-03
+operand b -> L1 interleaved                      0.3509    121.1  27.4%     7.75 0.5320x  pcc 1.000000 maxdev 2.44e-03
+both operands -> L1 interleaved                  0.2975    142.9  32.3%     9.14 0.6275x  pcc 1.000000 maxdev 2.44e-03
+output -> L1 interleaved                         0.4640     91.6  20.7%     5.86 0.4023x  pcc 1.000000 maxdev 2.44e-03
+a, b and output -> L1                            0.2970    143.1  32.4%     9.15 0.6284x  pcc 1.000000 maxdev 2.44e-03
+   BEST baseline: the call the model makes at 1.0000x -> the round row 0.086 s becomes 0.086 s, saving 0.000 s
+
+== linear 288x288x128x32 - | round 0.077 s over 456 calls | 35.5 % dram, 4.7 % compute, 104 cores, binds DRAM
+   plan RMC1D:g11x10,w4,sh1,sw1,bh5,bw1,M25,N1,fb1,mc00,gi00 | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.1291    205.6  46.5%     5.26 1.0000x  pcc 1.000000 maxdev 0.00e+00
+2026-09-26 20:52:06.473 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 2592 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 1 (subblock h 1)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:06.578 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 1296 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 2 (subblock h 2)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:06.682 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 864 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 3 (subblock h 3)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:06.765 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 648 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 4 (subblock h 4)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:06.848 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 432 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 6 (subblock h 3)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:06.938 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 324 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 8 (subblock h 4)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:07.031 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 288 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 9 (subblock h 3)               REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:07.135 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 216 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 12 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:07.230 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 162 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 16 (subblock h 4)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:07.326 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 144 blocks > 110 cores (assert.hpp:104)
+per_core_M 25 -> 18 (subblock h 3)              REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+per_core_M 25 -> 24 (subblock h 4)               0.1195    222.2  50.2%     5.69 1.0806x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 25 -> 27 (subblock h 3)               0.1187    223.7  50.6%     5.72 1.0878x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 25 -> 32 (subblock h 4)               0.1265    209.9  47.5%     5.37 1.0209x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 25 -> 36 (subblock h 4)               0.1250    212.5  48.0%     5.44 1.0332x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 25 -> 48 (subblock h 4)               0.1421    186.9  42.3%     4.78 0.9089x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 25 -> 54 (subblock h 3)               0.1403    189.2  42.8%     4.84 0.9200x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 25 -> 72 (subblock h 4)               0.1469    180.8  40.9%     4.63 0.8791x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 25 -> 81 (subblock h 3)               0.1551    171.2  38.7%     4.38 0.8325x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 25 -> 96 (subblock h 4)               0.1632    162.7  36.8%     4.16 0.7912x  pcc 1.000000 maxdev 0.00e+00
+2026-09-26 20:52:08.168 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=1)] grow to 1667584 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 108 (subblock h 4)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.230 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=0)] grow to 2183680 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 144 (subblock h 4)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.291 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=0)] grow to 2441728 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 162 (subblock h 3)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.354 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=0)] grow to 3215872 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 216 (subblock h 4)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.416 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=8,y=0)] grow to 4248064 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 288 (subblock h 4)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.479 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=0)] grow to 4764160 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 324 (subblock h 4)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.556 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=5,y=0)] grow to 6312448 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 432 (subblock h 4)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.622 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=3,y=0)] grow to 9409024 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 648 (subblock h 4)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.752 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=2,y=0)] grow to 12505600 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 864 (subblock h 4)             REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.873 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=1,y=0)] grow to 18698752 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 1296 (subblock h 4)            REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+2026-09-26 20:52:08.993 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=0,y=0)] grow to 37278208 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+per_core_M 25 -> 2592 (subblock h 4)            REFUSED  TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::
+in0_block_w 4 -> 1 (regroups the K accumulation)     0.1329    199.8  45.2%     5.11 0.9718x  pcc 1.000000 maxdev 4.88e-04
+in0_block_w 4 -> 2 (regroups the K accumulation)     0.1241    213.9  48.4%     5.47 1.0401x  pcc 1.000000 maxdev 4.88e-04
+fuse_batch True -> False                         4.0750      6.5   1.5%     0.17 0.0317x  pcc 1.000000 maxdev 0.00e+00
+grid -> 11x10                                    0.1500    177.0  40.0%     4.53 0.8607x  pcc 1.000000 maxdev 0.00e+00
+2026-09-26 20:52:09.690 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 104 blocks > 64 cores (assert.hpp:104)
+grid -> 8x8                                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:09.771 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 104 blocks > 55 cores (assert.hpp:104)
+grid -> 11x5                                    REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:09.845 | critical |          Always | TT_FATAL: Number of blocks exceeds number of cores: 104 blocks > 36 cores (assert.hpp:104)
+grid -> 6x6                                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+plan dropped: ttnn's own planner                 0.6097     43.5   9.8%     1.11 0.2118x  pcc 1.000000 maxdev 4.88e-04
+operand a -> L1 interleaved                      0.0966    275.0  62.2%     7.04 1.3372x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.1151    230.6  52.1%     5.90 1.1216x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.0940    282.4  63.8%     7.23 1.3731x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.1322    200.8  45.4%     5.14 0.9767x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.0837    317.2  71.7%     8.12 1.5426x  pcc 1.000000 maxdev 0.00e+00
+   BEST a, b and output -> L1 at 1.5426x -> the round row 0.077 s becomes 0.050 s, saving 0.027 s
+
+== matmul 128x288x288x288 tb | round 0.059 s over 156 calls | 38.1 % dram, 18.8 % compute, 81 cores, binds DRAM
+   plan RMC2D:g11x10,w9,sh1,sw1,bh1,bw1,M1,N1,fb0,tm0 | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.6521     97.7  22.1%     9.38 1.0000x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 1 -> 3 (subblock h 3)                 0.4447    143.2  32.4%    13.75 1.4663x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 1 -> 9 (subblock h 3)                 0.7983     79.8  18.0%     7.66 0.8168x  pcc 1.000000 maxdev 0.00e+00
+in0_block_w 9 -> 1 (regroups the K accumulation)     0.8633     73.8  16.7%     7.08 0.7553x  pcc 1.000000 maxdev 9.77e-04
+in0_block_w 9 -> 3 (regroups the K accumulation)     0.4400    144.8  32.7%    13.90 1.4820x  pcc 1.000000 maxdev 9.77e-04
+2026-09-26 20:52:14.893 | critical |          Always | TT_FATAL: Matmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config. (assert.hpp:104)
+fuse_batch False -> True                        REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+grid -> 11x10                                    0.3119    204.2  46.2%    19.61 2.0906x  pcc 1.000000 maxdev 0.00e+00
+2026-09-26 20:52:15.226 | critical |          Always | TT_FATAL: Num output blocks along x (9) must be smaller than or equal to the number of columns in compute grid (8)! (assert.hpp:104)
+grid -> 8x8                                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:15.355 | critical |          Always | TT_FATAL: Num output blocks along y (9) must be smaller than or equal to the number of rows in compute grid (5)! (assert.hpp:104)
+grid -> 11x5                                    REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:15.478 | critical |          Always | TT_FATAL: Num output blocks along x (9) must be smaller than or equal to the number of columns in compute grid (6)! (assert.hpp:104)
+grid -> 6x6                                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+plan dropped: ttnn's own planner                 0.8480     75.1  17.0%     7.21 0.7690x  pcc 1.000000 maxdev 9.77e-04
+operand a -> L1 interleaved                      0.2992    212.9  48.1%    20.44 2.1797x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.2787    228.6  51.7%    21.94 2.3396x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.2782    229.0  51.8%    21.98 2.3441x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.2836    224.6  50.8%    21.56 2.2992x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.2717    234.4  53.0%    22.51 2.3999x  pcc 1.000000 maxdev 0.00e+00
+   BEST a, b and output -> L1 at 2.3999x -> the round row 0.059 s becomes 0.025 s, saving 0.034 s
+
+== experimental.minimal_matmul 288x288x128x128 - | round 0.053 s over 312 calls | 56.4 % dram, 18.6 % compute, None cores, binds DRAM
+   plan MinimalMat:g11x10 | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.1609    264.1  59.7%    16.89 1.0000x  pcc 1.000000 maxdev 0.00e+00
+grid -> 11x10                                    0.6266     67.8  15.3%     4.34 0.2569x  pcc 1.000000 maxdev 4.88e-04
+grid -> 8x8                                      0.8382     50.7  11.5%     3.24 0.1920x  pcc 1.000000 maxdev 4.88e-04
+grid -> 11x5                                     0.6195     68.6  15.5%     4.39 0.2598x  pcc 1.000000 maxdev 4.88e-04
+grid -> 6x6                                      1.0987     38.7   8.7%     2.47 0.1465x  pcc 1.000000 maxdev 4.88e-04
+plan dropped: ttnn's own planner                 0.2614    162.6  36.8%    10.40 0.6156x  pcc 1.000000 maxdev 0.00e+00
+operand a -> L1 interleaved                      0.1730    245.6  55.5%    15.71 0.9301x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.1601    265.5  60.0%    16.98 1.0055x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.1693    251.1  56.8%    16.06 0.9509x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.1587    267.8  60.6%    17.13 1.0143x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.1537    276.5  62.5%    17.68 1.0472x  pcc 1.000000 maxdev 0.00e+00
+   BEST a, b and output -> L1 at 1.0472x -> the round row 0.053 s becomes 0.051 s, saving 0.002 s
+
+== matmul 128x288x288x288 ta | round 0.051 s over 156 calls | 44.1 % dram, 21.8 % compute, 81 cores, binds DRAM
+   plan RMC2D:g11x10,w9,sh1,sw1,bh1,bw1,M1,N1,fb0,tm0 | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.3257    195.6  44.2%    18.77 1.0000x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 1 -> 3 (subblock h 3)                 0.4281    148.8  33.6%    14.28 0.7608x  pcc 1.000000 maxdev 0.00e+00
+per_core_M 1 -> 9 (subblock h 3)                 0.9391     67.8  15.3%     6.51 0.3468x  pcc 1.000000 maxdev 0.00e+00
+in0_block_w 9 -> 1 (regroups the K accumulation)     0.8939     71.3  16.1%     6.84 0.3644x  pcc 1.000000 maxdev 9.77e-04
+in0_block_w 9 -> 3 (regroups the K accumulation)     0.4256    149.7  33.8%    14.37 0.7652x  pcc 1.000000 maxdev 9.77e-04
+2026-09-26 20:52:27.868 | critical |          Always | TT_FATAL: Matmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config. (assert.hpp:104)
+fuse_batch False -> True                        REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu
+grid -> 11x10                                    0.3450    184.6  41.7%    17.73 0.9441x  pcc 1.000000 maxdev 0.00e+00
+2026-09-26 20:52:28.228 | critical |          Always | TT_FATAL: Num output blocks along x (9) must be smaller than or equal to the number of columns in compute grid (8)! (assert.hpp:104)
+grid -> 8x8                                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:28.342 | critical |          Always | TT_FATAL: Num output blocks along y (9) must be smaller than or equal to the number of rows in compute grid (5)! (assert.hpp:104)
+grid -> 11x5                                    REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+2026-09-26 20:52:28.456 | critical |          Always | TT_FATAL: Num output blocks along x (9) must be smaller than or equal to the number of columns in compute grid (6)! (assert.hpp:104)
+grid -> 6x6                                     REFUSED  TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto
+plan dropped: ttnn's own planner                 0.8664     73.5  16.6%     7.06 0.3759x  pcc 1.000000 maxdev 9.77e-04
+operand a -> L1 interleaved                      0.3460    184.1  41.6%    17.68 0.9414x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.2805    227.1  51.3%    21.80 1.1612x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.2783    228.9  51.8%    21.98 1.1706x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.2997    212.5  48.1%    20.40 1.0868x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.2769    230.1  52.0%    22.09 1.1764x  pcc 1.000000 maxdev 0.00e+00
+   BEST a, b and output -> L1 at 1.1764x -> the round row 0.051 s becomes 0.043 s, saving 0.008 s
+
+== matmul 288x128x32x288 - | round 0.047 s over 288 calls | 32.6 % dram, 4.8 % compute, None cores, binds DRAM
+   plan none | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.2290    103.1  23.3%     2.97 1.0000x  pcc 1.000000 maxdev 0.00e+00
+core_grid 8x8 (mmlay's lever)                    0.1604    147.2  33.3%     4.24 1.4279x  pcc 1.000000 maxdev 0.00e+00
+core_grid 11x10 (mmlay's lever)                  0.1619    145.8  33.0%     4.20 1.4143x  pcc 1.000000 maxdev 0.00e+00
+operand a -> L1 interleaved                      0.1585    148.9  33.7%     4.29 1.4443x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.1599    147.7  33.4%     4.25 1.4325x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.1579    149.5  33.8%     4.30 1.4503x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.0650    363.2  82.1%    10.45 3.5227x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.0601    393.0  88.8%    11.31 3.8111x  pcc 1.000000 maxdev 0.00e+00
+   BEST a, b and output -> L1 at 3.8111x -> the round row 0.047 s becomes 0.012 s, saving 0.035 s
+
+== matmul 1x82944x384x128 tb | round 0.042 s over 104 calls | 47.2 % dram, 23.3 % compute, None cores, binds DRAM
+   plan none | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.4019    211.6  47.8%    20.29 1.0000x  pcc 1.000000 maxdev 0.00e+00
+core_grid 8x8 (mmlay's lever)                    0.4713    180.4  40.8%    17.30 0.8529x  pcc 1.000000 maxdev 9.77e-04
+core_grid 11x10 (mmlay's lever)                  0.4441    191.5  43.3%    18.36 0.9051x  pcc 1.000000 maxdev 9.77e-04
+operand a -> L1 interleaved                      0.9793     86.8  19.6%     8.33 0.4104x  pcc 1.000000 maxdev 6.84e-03
+operand b -> L1 interleaved                      0.9611     88.5  20.0%     8.48 0.4182x  pcc 1.000000 maxdev 6.84e-03
+both operands -> L1 interleaved                  0.8010    106.2  24.0%    10.18 0.5018x  pcc 1.000000 maxdev 6.84e-03
+output -> L1 interleaved                         1.3530     62.8  14.2%     6.03 0.2971x  pcc 1.000000 maxdev 6.84e-03
+a, b and output -> L1                            0.8012    106.1  24.0%    10.18 0.5016x  pcc 1.000000 maxdev 6.84e-03
+   BEST baseline: the call the model makes at 1.0000x -> the round row 0.042 s becomes 0.042 s, saving 0.000 s
+
+== matmul 1x32x36864x288 ta | round 0.041 s over 96 calls | 12.5 % dram, 1.9 % compute, None cores, binds DRAM
+   plan none | ck hifi4/f32acc/l1acc
+point                                                ms     GB/s  %dram  TFLOP/s vs base  against the baseline's answer
+baseline: the call the model makes               0.4443     53.2  12.0%     1.53 1.0000x  pcc 1.000000 maxdev 0.00e+00
+core_grid 8x8 (mmlay's lever)                    0.1411    167.5  37.9%     4.82 3.1487x  pcc 1.000000 maxdev 9.05e-04
+core_grid 11x10 (mmlay's lever)                  0.1720    137.3  31.1%     3.95 2.5823x  pcc 1.000000 maxdev 8.78e-04
+operand a -> L1 interleaved                      0.3821     61.8  14.0%     1.78 1.1627x  pcc 1.000000 maxdev 0.00e+00
+operand b -> L1 interleaved                      0.4395     53.8  12.2%     1.55 1.0109x  pcc 1.000000 maxdev 0.00e+00
+both operands -> L1 interleaved                  0.3793     62.3  14.1%     1.79 1.1712x  pcc 1.000000 maxdev 0.00e+00
+output -> L1 interleaved                         0.4426     53.4  12.1%     1.54 1.0038x  pcc 1.000000 maxdev 0.00e+00
+a, b and output -> L1                            0.3905     60.5  13.7%     1.74 1.1378x  pcc 1.000000 maxdev 0.00e+00
+   BEST core_grid 8x8 (mmlay's lever) at 3.1487x -> the round row 0.041 s becomes 0.013 s, saving 0.028 s
+
+wrote /home/ttuser/.coworker/wt/bcx-p10-mmroof/perf/bcx_p10_mmroof/out/sweep_out_E.json

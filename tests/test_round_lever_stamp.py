@@ -16,27 +16,34 @@ import meter as M                                                      # noqa: E
 
 @pytest.fixture
 def armed():
-    """Every lever on, restored afterwards."""
-    from tt_bio import genq, mm_layout, reblock_permute, tenstorrent, triatt_bw
+    """Every lever on, restored afterwards.
+
+    Add a lever to `meter.LEVERS` and this fixture has to arm it too, or every test in this
+    file fails with the inert-lever refusal the file exists to check. That coupling is
+    deliberate: the refusal is what stops an arm measuring a lever it did not arm.
+    """
+    from tt_bio import fanin_l1, genq, mm_layout, reblock_permute, tenstorrent, triatt_bw
     from tt_bio.af2 import AF2PairBlock
     saved = (genq.compact(), reblock_permute.TAPED_MOVE, mm_layout.MM_LAYOUT,
-             triatt_bw.FUSED, tenstorrent._TRIATT_FUSED_HIFI, AF2PairBlock.rne_kernel)
+             triatt_bw.FUSED, tenstorrent._TRIATT_FUSED_HIFI, AF2PairBlock.rne_kernel,
+             fanin_l1.FANIN_L1)
     genq.set_compact(True)
     reblock_permute.TAPED_MOVE = True
     mm_layout.MM_LAYOUT = True
     triatt_bw.FUSED = True
     tenstorrent._TRIATT_FUSED_HIFI = True
     AF2PairBlock.rne_kernel = True
+    fanin_l1.FANIN_L1 = True
     yield {k: True for k in M.LEVERS}
     (genq_on, reblock_permute.TAPED_MOVE, mm_layout.MM_LAYOUT, triatt_bw.FUSED,
-     tenstorrent._TRIATT_FUSED_HIFI, AF2PairBlock.rne_kernel) = saved
+     tenstorrent._TRIATT_FUSED_HIFI, AF2PairBlock.rne_kernel, fanin_l1.FANIN_L1) = saved
     genq.set_compact(genq_on)
 
 
-def test_stamps_all_six_when_the_arm_holds(armed):
+def test_stamps_every_lever_when_the_arm_holds(armed):
     out = M.lever_reach(armed)()
     assert out == {"lever_" + k: True for k in M.LEVERS}
-    assert len(M.LEVERS) == 6
+    assert len(M.LEVERS) == 7
 
 
 def test_refuses_the_round_when_a_lever_goes_inert(armed):

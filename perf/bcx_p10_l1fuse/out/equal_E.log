@@ -1,0 +1,12 @@
+2026-09-26 23:09:52.943 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+ARMED {"triatt_bw_fused": true, "rne_kernel": true, "triatt_hifi": true, "mm_layout": true, "taped_kernels": "tri_att_sdpa_hifi,rne_add"}
+{"stack": "evo", "arm": "off", "reach": {}, "bwd": 3.951, "aiclk": {"n": 21, "min": 1350, "median": 1350, "max": 1350}}
+{"stack": "evo", "arm": "on", "reach": {"served": 23, "declined: over the L1 budget": 4}, "bwd": 4.841, "aiclk": {"n": 25, "min": 1350, "median": 1350, "max": 1350}}
+{"stack": "evo", "arm": "off2", "reach": {}, "bwd": 3.883, "aiclk": {"n": 23, "min": 1350, "median": 1350, "max": 1350}}
+{"stack": "evo", "on_vs_off": [{"equal": true, "max_abs": 0.0}, {"equal": true, "max_abs": 0.0}], "aa_control": [{"equal": true, "max_abs": 0.0}, {"equal": true, "max_abs": 0.0}]}
+{"stack": "extra", "arm": "off", "reach": {}, "bwd": 2.66, "aiclk": {"n": 13, "min": 1318, "median": 1350, "max": 1350}}
+{"stack": "extra", "arm": "on", "reach": {"served": 11, "declined: over the L1 budget": 4}, "bwd": 2.388, "aiclk": {"n": 13, "min": 1350, "median": 1350, "max": 1350}}
+{"stack": "extra", "arm": "off2", "reach": {}, "bwd": 2.517, "aiclk": {"n": 14, "min": 1350, "median": 1350, "max": 1350}}
+{"stack": "extra", "on_vs_off": [{"equal": true, "max_abs": 0.0}, {"equal": true, "max_abs": 0.0}], "aa_control": [{"equal": true, "max_abs": 0.0}, {"equal": true, "max_abs": 0.0}]}
+wrote /home/ttuser/.coworker/wt/bcx-p10-l1fuse/perf/bcx_p10_l1fuse/out/equal_E.json

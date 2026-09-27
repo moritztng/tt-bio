@@ -31,6 +31,8 @@ import ttnn
 
 from tt_bio.envflags import env_flag
 from tt_bio import mm_layout as _mm_layout
+from tt_bio import fanin_l1 as _fanin_l1
+from tt_bio import rne_add as _rne_add
 
 #: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
 #: what this flag exists to avoid. It was introduced for trace capture, which refuses a host
@@ -519,10 +521,37 @@ class Tensor:
         if FANIN_MIXED:
             self._grad = ttnn.add(self._grad, grad, dtype=ttnn.float32)
             return
+        # The promoted CONTRIBUTION is written and read straight back by this ttnn.add: 576
+        # instances and 24.46 GB a round, the largest write-then-reread edge in
+        # bcx-p10-l1fuse's chain census. `fanin_l1.typecast` puts it in L1 where the grid's own
+        # budget takes it and leaves it in DRAM where it does not. Nothing here is taped, so
+        # `Tensor.evict` never turns the placement back into a DRAM copy the way it does in a
+        # forward.
+        #
+        # ONLY the contribution, and the accumulator and the sum stay in DRAM by name. The
+        # contribution dies on the next line; `self._grad` lives until the whole backward is
+        # done, and an L1 buffer that outlives the op that made it is not this row's chain --
+        # it is a permanent 386 KB a bank that the next kernel's statically allocated circular
+        # buffers collide with. Measured, not guessed: routing the accumulator here too threw
+        # `Statically allocated circular buffers in program 209 clash with L1 buffers ... L1
+        # buffer allocated at 1378304 and static circular buffer region ends at 1427968` on the
+        # first backward. A budget that guards its own allocation does not guard the next
+        # program's CB region, so residency is only safe for a value whose lifetime ends inside
+        # the chain that reads it.
+        #
+        # `TT_BIO_WIDEN_ADD` removes the casts instead of placing them: one kernel widens both
+        # operands in the unpacker and adds in a float32 DEST, the same function at 8-10
+        # B/element against 18-24. Where it serves there is no promoted tensor left for
+        # `fanin_l1` to place, so the two never act on one call.
+        if _rne_add.widen_eligible(self._grad, grad):
+            self._grad = _rne_add.widen_add(self._grad, grad)
+            return
         if self._grad.dtype != ttnn.float32:
             self._grad = ttnn.typecast(self._grad, ttnn.float32)
-        self._grad = ttnn.add(self._grad, grad if grad.dtype == ttnn.float32
-                              else ttnn.typecast(grad, ttnn.float32))
+        self._grad = ttnn.add(
+            self._grad,
+            grad if grad.dtype == ttnn.float32 else _fanin_l1.typecast(grad, ttnn.float32),
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
     def add_grad_slice(self, grad, starts, ends) -> None:
         """Accumulate the gradient of the slice ``[starts, ends)`` of this value.
