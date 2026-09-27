@@ -63,10 +63,11 @@ def one(path):
         print(f"  slot {s}: {len(walls)} warm rounds, median {statistics.median(walls):.3f} s, "
               f"min {min(walls):.3f}, max {max(walls):.3f}")
 
-    if len(slots) < 2:
+    if len(slots) < 2 or any(not warm[s] for s in slots):
+        print("  not every slot has a warm round, so there is no window to amortise over")
         return
-    start = max(warm[s][0][1] for s in slots if warm[s])
-    end = min(warm[s][-1][2] for s in slots if warm[s])
+    start = max(warm[s][0][1] for s in slots)
+    end = min(warm[s][-1][2] for s in slots)
     if end <= start:
         print("  no common window: the two trajectories never ran at the same time, so this "
               "arm's amortised round is its median warm round")

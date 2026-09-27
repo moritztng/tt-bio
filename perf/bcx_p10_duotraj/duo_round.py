@@ -83,12 +83,18 @@ class DuoMeter:
     trajectories' rounds into one numbering that belongs to neither.
     """
 
-    def __init__(self, rounds):
+    def __init__(self, rounds, trajectories=1):
         self.rounds = rounds
         self.counts: dict[str, int] = {}
         #: Set when the FIRST trajectory clears its compile round, which is when a second one
         #: may start without the two of them measuring each other's compile.
         self.ready = threading.Event()
+        #: Every trajectory waits here once its OWN compile round is behind it, so the warm
+        #: rounds of both start together. Without it the leader is three or four rounds ahead
+        #: by the time the follower finishes tracing, and it then finishes and leaves the card
+        #: to the follower alone -- the common window ends up one round wide on a seven-round
+        #: arm, which is not a sample.
+        self.warm = threading.Barrier(trajectories)
 
     @property
     def entries(self) -> int:
@@ -101,8 +107,12 @@ class DuoMeter:
             M.EVENTS.append({"kind": "round_stop", "phase": "round", "t0": time.time(),
                              "slot": s, "round": n, "reach": M._reach()})
             raise M.StopAfterRounds(f"{self.rounds} rounds collected on {s!r}")
-        if n >= 2:
+        if n == 2:
             self.ready.set()
+            try:
+                self.warm.wait(timeout=1800)
+            except threading.BrokenBarrierError:
+                pass
         M.EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
                          "slot": s, "round": n, "load1": os.getloadavg()[0],
                          "triatt_bw": M.reach(), "mm_layout": M._mm_reach(),
@@ -211,7 +221,7 @@ def main():
 
     out = pathlib.Path(project) / "round_events.json"
     M.DUMP = (str(out), stamp)
-    mt = DuoMeter(args.rounds)
+    mt = DuoMeter(args.rounds, 2 if args.interleave else 1)
     M.install(mt, bindcraft2, bindcraft2.design_model_class(), trajectory, seqopt)
 
     # Every event carries the trajectory that produced it, or the device seconds of two
