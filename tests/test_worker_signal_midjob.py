@@ -63,7 +63,7 @@ class _StubModel:
 def _stub_load(self, cfg):
     self.model = _StubModel()
     self.model_id = cfg.get("model")
-    self.config_hash = W._hash_run_config(cfg)
+    self.config_hash = W.run_config_hash(cfg)
 
 
 def _drive_loop(monkeypatch, url, *, on_predict):

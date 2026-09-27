@@ -14,6 +14,7 @@ worker in another container or mount namespace too."""
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import sqlite3
 import threading
@@ -36,6 +37,18 @@ from typing import Any
 LEASE_S = 120.0
 #: Renewals per lease: ten seconds between heartbeats at the default lease.
 HEARTBEAT_PER_LEASE = 12
+
+
+def run_config_hash(cfg: dict[str, Any]) -> str:
+    """The part of a run's config that decides which weights a worker loads, hashed.
+
+    A worker reloads exactly when this changes, and reports the one it holds as ``warm``, so
+    the lease compares like with like. The model name alone was not that: Boltz-2's config
+    carries no ``model`` key, so every Boltz-2 run was stored as model None and a worker with
+    Boltz-2 resident never matched its own model's work, and ``--fast`` reloads under the
+    same name."""
+    keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method")}
+    return hashlib.sha256(json.dumps(keep, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
@@ -212,7 +225,7 @@ class ControllerStore:
         keep renewing a lease on work nobody is doing."""
         worker = payload["worker"]
         worker_id = worker["worker_id"]
-        warm_model = worker.get("model")  # model this worker already has resident
+        warm = worker.get("warm")  # run_config_hash of the weights this worker has resident
         batch_size = max(1, int(payload.get("batch_size") or 1))
         now = time.time()
         lease_until = now + self.lease_s
@@ -252,10 +265,15 @@ class ControllerStore:
             # users get a fair share, and each device tends to stay on one model
             # (reloading only when its model has no waiting work). Work-conserving
             # throughout — a device never idles while any job waits.
+            hashes: dict[str, str] = {}
+
+            def cold(row):
+                if row["run_id"] not in hashes:
+                    hashes[row["run_id"]] = run_config_hash(json.loads(row["config_json"]))
+                return hashes[row["run_id"]] != warm
+
             def rank(row):
-                return (load.get(row["owner"], 0),
-                        0 if row["model"] == warm_model else 1,
-                        row["updated_at"], row["job_id"])
+                return (load.get(row["owner"], 0), cold(row), row["updated_at"], row["job_id"])
             chosen = min(rows, key=rank)
             run_id = chosen["run_id"]
             config_json = chosen["config_json"]

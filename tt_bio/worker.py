@@ -26,7 +26,8 @@ from typing import Any
 import torch
 
 from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_parent_death_guard
-from tt_bio.host_controller import HEARTBEAT_PER_LEASE, LEASE_S, ControllerClient, HttpProgressQueue
+from tt_bio.host_controller import (HEARTBEAT_PER_LEASE, LEASE_S, ControllerClient,
+                                    HttpProgressQueue, run_config_hash)
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
 from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
@@ -756,7 +757,7 @@ class _WorkerState:
         # weights are run-independent, so a resident model serves jobs from any
         # run/user of the same model with no reload. Per-run bits (output/MSA
         # paths, progress) are refreshed cheaply in bind_run().
-        return self.model is not None and self.config_hash == _hash_run_config(cfg)
+        return self.model is not None and self.config_hash == run_config_hash(cfg)
 
     def reset(self) -> None:
         self.model = None
@@ -926,7 +927,7 @@ class _WorkerState:
                     .eval()
                     .to(self.torch_device)
                 )
-        self.config_hash = _hash_run_config(cfg)
+        self.config_hash = run_config_hash(cfg)
         self.model_id = model_id
 
     def bind_run(self, run_id: str, cfg: dict[str, Any]) -> None:
@@ -1958,16 +1959,6 @@ class _WorkerState:
         return {k: round(pred[k].item(), 6) for k in keys if k in pred}
 
 
-def _hash_run_config(cfg: dict[str, Any]) -> str:
-    """Stable hash of the parts of the config that affect model setup."""
-    import hashlib
-    import json
-
-    keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method")}
-    blob = json.dumps(keep, sort_keys=True, default=str).encode("utf-8")
-    return hashlib.sha256(blob).hexdigest()
-
-
 def _install_orphan_guard(dispatcher_pid: int) -> None:
     """Die with the dispatcher, whatever this worker is in the middle of.
 
@@ -2136,6 +2127,7 @@ def run_worker_loop(
                 # Tell the scheduler which model we already have resident so it
                 # can keep us on it (affinity) and avoid a reload.
                 worker_info["model"] = state.model_id
+                worker_info["warm"] = state.config_hash
                 lease = client.lease(worker_info, batch_size=1)
             except Exception:
                 time.sleep(idle_poll)
