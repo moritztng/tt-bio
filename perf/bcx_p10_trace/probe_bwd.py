@@ -33,7 +33,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 OUT = os.environ.get("TRACE_PROBE_OUT", "probe_bwd.json")
-REGION = int(os.environ.get("TRACE_PROBE_REGION_MB", "256")) << 20
+REGION = int(os.environ.get("TRACE_PROBE_REGION_MB", "1024")) << 20  # total bytes, not per bank
 CARD = os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0]
 
 
