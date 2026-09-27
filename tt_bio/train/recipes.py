@@ -33,7 +33,7 @@ import inspect
 from typing import Callable, Dict
 
 from . import launcher, objectives, provenance
-from ..autograd import backward, exact_training_ops, install, uninstall
+from ..autograd import backward, exact_training_ops, install, release_pins, uninstall
 from .sharding import batches
 from .checkpoint import Checkpointer
 from .lora import LoraConfig, attach, trainable
@@ -48,7 +48,8 @@ __all__ = ["source", "names", "recipe", "train_loop"]
 def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
                betas=(0.9, 0.95), weight_decay=0.0, plateau_until=50000, checkpoint_every=100,
-               tokens=None, weights=None, model=None):
+               tokens=None, weights=None, model=None, on_step=None,
+               displacement_band=None):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -84,6 +85,17 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     None of the three could be left to a default. ``beta2`` is the sharpest: 0.999 against
     0.95 is a second-moment horizon twenty times longer, it moves no gradient and no loss
     curve, and over twenty steps it was the whole of a 0.9 % uniform excess in the update.
+
+    ``displacement_band`` is the step control's band, ``None`` for the optimizer's own. It is
+    an argument because a run can legitimately sit under it: at a rate whose step is below the
+    device dtype's spacing every update rounds away by design, and a grading arm needs to
+    RECORD that ratio rather than be stopped by it. Widening it is a pre-registration, not a
+    workaround -- the ratio is in the provenance either way.
+
+    ``on_step(record)`` is called with each step's history row as soon as it exists, before
+    the checkpoint. It is how a long run survives its own death: ``history`` is returned at
+    the end and a run killed at step 90 of 100 returns nothing, so a caller that wants the
+    curve writes it out from here rather than waiting for it.
 
     ``dataset`` needs ``__len__`` and ``batch(indices) -> dict`` carrying the labels the
     objective row names. No featurizer is imposed -- per-model featurisation is the one thing
@@ -173,6 +185,22 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                         # once per root and land the fan-in sums partial.
                         backward([outputs[k] for k in seeds],
                                  [to_device(g, dataset.device) for g in seeds.values()])
+                        # Every checkpointed block PINNED its own input across its untaped
+                        # forward, and the backward that consumed the pin cannot drop it:
+                        # `checkpoint` takes the pin precisely because the recompute happens
+                        # inside the backward, so the owner of the release is the loop. This
+                        # is that loop, and it is the only one in the tree that runs many
+                        # steps in one process -- `bindcraft2` releases at all four of its
+                        # boundaries and `perf/of3t_stepfloor/fullstep.py` releases per rep,
+                        # which is why neither leaks and this did.
+                        #
+                        # Measured on the OpenFold3 training composition at crop 384: 120
+                        # pins a step (48 pairformer blocks and 24 DiT blocks, inputs held
+                        # twice where a block publishes two), of which ~69 hold a live DRAM
+                        # buffer, 1.02 GB. Six steps of that is 8.1 GB standing under a
+                        # backward whose own transient is ~23 GB, and the seventh step was
+                        # refused a 906 MB buffer with 61.3 MB of contiguous space left.
+                        release_pins()
                         # Clip THIS sample and add it to the accumulator, then clear the tape
                         # so the next sample's backward starts from nothing. Clearing it also
                         # leaves `replicas()` empty at the step, which is correct: under
@@ -180,9 +208,23 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                         opt.clip_and_accumulate()
                         opt.zero_grad()
                         total = total + loss / len(shard)
-                        for term in terms:
-                            breakdown[term] = (breakdown.get(term, 0.0)
-                                               + terms[term] / len(shard))
+                        # A term is a ROW, not a number: `af3_loss` reports
+                        # `{value, weight, contribution}` per term and `{value: None,
+                        # skipped: ...}` for one it could not run. Averaging the row field by
+                        # field keeps the skip reason legible and keeps `contribution`
+                        # summing to the loss; averaging the row itself was a `dict / int`
+                        # TypeError the first time a real objective met this loop.
+                        for term, row_ in terms.items():
+                            if not isinstance(row_, dict):
+                                breakdown[term] = (breakdown.get(term, 0.0)
+                                                   + row_ / len(shard))
+                                continue
+                            acc = breakdown.setdefault(term, {})
+                            for k, v in row_.items():
+                                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                                    acc[k] = v
+                                else:
+                                    acc[k] = acc.get(k, 0.0) + v / len(shard)
                     # The accumulated, per-sample-clipped gradient, summed across the axis
                     # inside step() together with the participation counts it divides by.
                     opt.step(replicas=launcher.replicas(params))
@@ -195,6 +237,8 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                             "grad_norm": opt.last_grad_norm, "lr": opt.last_lr,
                             "s": launcher.tick()}
                     history.append(last)
+                    if on_step is not None:
+                        on_step(last)
                     ckpt.save(batch.step, opt, metrics={"loss": total},
                               provenance=prov.as_dict())
             if last is not None:
@@ -203,7 +247,9 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         # The step control, on the cumulative ratio over the whole run. Raises rather than
         # warns: a run whose updates never reached the weight the forward reads produced
         # nothing, and it produced nothing while every number above looked healthy.
-        prov.config["displacement"] = opt.check_displacement()
+        prov.config["displacement"] = (opt.check_displacement()
+                                       if displacement_band is None else
+                                       opt.check_displacement(band=displacement_band))
         # A rank's result leaves with the rank. The driver has no device and no optimizer, so
         # the masters it compares for divergence only exist inside this process. No-op when
         # nothing launched us as a rank.
