@@ -72,7 +72,12 @@ def _install_nanobind_leak_stderr_filter() -> None:
                         _os._exit(0)
                 except Exception:
                     pass
-                _os.close(write_fd)
+                # Keep only the two fds the filter uses. Anything else inherited here is held for
+                # the whole run, and an flock the parent held at the fork then outlives the
+                # parent's close: a second BindCraft 2 trajectory in one process hung forever on
+                # its compile lock. close-on-exec does not help, a fork is not an exec.
+                from multiprocessing.util import close_all_fds_except
+                close_all_fds_except((read_fd, original_stderr_fd))
                 suppressing_nanobind_leak = False
                 with _os.fdopen(read_fd, "rb", closefd=True) as pipe:
                     for raw_line in pipe:
