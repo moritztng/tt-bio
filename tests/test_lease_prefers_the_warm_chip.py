@@ -8,6 +8,8 @@ stored as model None and a worker holding Boltz-2 never matched them.
 """
 import time
 
+import pytest
+
 from tt_bio import host_controller as H
 
 BOLTZ2 = {"conf_kwargs": {"x": 1}, "aff_kwargs": {}, "fast": False}   # as main.predict builds it
@@ -64,6 +66,51 @@ def test_fairness_still_outranks_a_warm_model(tmp_path):
     assert _next(store, _worker("x")) == "mine"                   # busy now holds a chip
     _run(store, "theirs", PROTENIX, owner="idle")
     assert _next(store, _worker("a", warm=H.run_config_hash(BOLTZ2))) == "theirs"
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(H.time, "time", lambda: now[0])
+    return now
+
+
+WARM = H.run_config_hash(BOLTZ2)
+
+
+def test_a_cold_worker_leaves_the_job_to_an_idle_warm_one(tmp_path, clock):
+    """The case that reloaded production 31 times in 35: many idle chips, one of them warm."""
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    store.heartbeat({"worker": _worker("warm", warm=WARM)})     # idle, polling
+    _run(store, "boltz", BOLTZ2)
+    clock[0] += 0.5
+    assert _next(store, _worker("cold")) is None
+    assert _next(store, _worker("warm", warm=WARM)) == "boltz"
+
+
+def test_a_busy_warm_worker_does_not_hold_the_job_back(tmp_path, clock):
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    _run(store, "first", BOLTZ2)
+    assert _next(store, _worker("warm", warm=WARM)) == "first"   # now busy
+    _run(store, "second", BOLTZ2)
+    assert _next(store, _worker("cold")) == "second"
+
+
+def test_a_silent_warm_worker_does_not_hold_the_job_back(tmp_path, clock):
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    store.heartbeat({"worker": _worker("warm", warm=WARM)})
+    _run(store, "boltz", BOLTZ2)
+    clock[0] += H.IDLE_WARM_S + 1                               # it stopped polling
+    assert _next(store, _worker("cold")) == "boltz"
+
+
+def test_a_cold_worker_still_takes_work_no_idle_chip_is_warm_for(tmp_path, clock):
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    store.heartbeat({"worker": _worker("warm", warm=WARM)})
+    _run(store, "boltz", BOLTZ2)
+    _run(store, "protenix", PROTENIX)
+    assert _next(store, _worker("cold")) == "protenix"
+    assert _next(store, _worker("warm", warm=WARM)) == "boltz"
 
 
 def test_the_worker_reloads_on_exactly_the_key_it_reports():

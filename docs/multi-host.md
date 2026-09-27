@@ -112,9 +112,10 @@ workers unchanged; it is the model configuration the submitting command built.
 one run. `worker` is the advertisement above: `worker_id`, `host`, `accelerator`,
 `device_id`, `label` and `model`, plus `warm`: `run_config_hash(config)` of the weights it
 has resident, or null. Among the owners with the fewest chips in use, the controller gives
-a worker a job whose run hashes to its `warm` before an older one that would make it reload.
-Fairness comes first and no chip waits for a warm job, so a busy warm chip never holds work
-back from an idle cold one. A worker asks only when it holds nothing, so a job
+a worker a job whose run hashes to its `warm` before an older one that would make it reload,
+and a worker that would have to reload skips a job while another worker that holds its weights
+is idle and polled in the last 5 s. Fairness comes first, and a busy or silent warm worker
+holds nothing back, so a job waits at most one poll for a warm chip. A worker asks only when it holds nothing, so a job
 still leased to the asking worker was abandoned (its process restarted, or its
 completion never arrived) and goes back in the queue.
 
