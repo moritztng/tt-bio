@@ -1551,29 +1551,43 @@ def campaign_predictor(*, validation: str = "jax",
 
 
 @contextlib.contextmanager
-def _one_closing_summary_at_a_time(campaign):
-    """Serialise BindCraft 2's end-of-campaign summary writer for the duration.
+def _one_campaign_not_n(campaign):
+    """Hold the two campaign-wide things N trajectories in one process would each do.
 
-    Every campaign call ends with `write_campaign_summary`, which reads the whole project and
-    rewrites `summary.csv` through one fixed `summary.csv.partial`. It takes no lock, and N
-    interleaved trajectories share a stop condition so they reach it within milliseconds of each
-    other: two of them writing that one partial file at once produces a summary that is neither.
-    N worker PROCESSES have the same race and it is upstream's to fix; a process-wide lock is
-    what this module can do about its own threads.
+    `write_campaign_summary` reads the whole project and rewrites `summary.csv` through one
+    fixed `summary.csv.partial`, and it takes no lock. N interleaved trajectories share a stop
+    condition, so they reach it within milliseconds of each other and two of them writing that
+    one partial file at once produce a summary that is neither. N worker PROCESSES have the same
+    race and it is upstream's to fix; a process-wide lock is what this module can do about its
+    own threads.
+
+    `print_campaign_header` folds the first design trajectory to report the target it is about
+    to run. It is the same campaign N times over, so it is printed once.
     """
-    real = campaign.write_campaign_summary
+    summary, header = campaign.write_campaign_summary, campaign.print_campaign_header
     writing = threading.Lock()
+    printed = []
 
-    @functools.wraps(real)
+    @functools.wraps(summary)
     def write_campaign_summary(*args, **kwargs):
         with writing:
-            return real(*args, **kwargs)
+            return summary(*args, **kwargs)
+
+    @functools.wraps(header)
+    def print_campaign_header(*args, **kwargs):
+        with writing:
+            if printed:
+                return None
+            printed.append(True)
+        return header(*args, **kwargs)
 
     campaign.write_campaign_summary = write_campaign_summary
+    campaign.print_campaign_header = print_campaign_header
     try:
         yield
     finally:
-        campaign.write_campaign_summary = real
+        campaign.write_campaign_summary = summary
+        campaign.print_campaign_header = header
 
 
 def run_campaign(settings: Mapping, project_folder: str, *, trajectories_per_card: int = 1,
@@ -1639,7 +1653,7 @@ def run_campaign(settings: Mapping, project_folder: str, *, trajectories_per_car
         return go
 
     with duotraj.interleave(trajectories=trajectories), \
-            _one_closing_summary_at_a_time(campaign):
+            _one_campaign_not_n(campaign):
         counted = duotraj.run([one(i) for i in range(trajectories)], names=names)
     # Each arm returns the trajectory count it read out of the shared campaign progress as it
     # left, so the last one out carries the whole campaign's. Summing would count that one file

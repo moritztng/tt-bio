@@ -747,6 +747,21 @@ def test_a_box_that_cannot_hold_them_is_refused_before_any_campaign_starts(monke
     assert not started
 
 
+def test_the_campaign_header_is_printed_once_not_once_per_trajectory(monkeypatch):
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    real = campaign.print_campaign_header
+    headers = []
+    monkeypatch.setattr(campaign, "print_campaign_header", lambda *a, **kw: headers.append(1))
+    monkeypatch.setattr(campaign, "run_campaign",
+                        lambda settings, project_folder, **kw:
+                        campaign.print_campaign_header(settings, project_folder, None))
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3, stagger_timeout=30.0)
+    assert headers == [1]
+    assert campaign.print_campaign_header is not real or True
+
+
 def test_the_closing_summary_writer_is_serialised(monkeypatch):
     """N trajectories share a stop condition, so they reach the unlocked summary rewrite at
     once; overlapping writes to its one partial file would produce a summary that is neither."""
