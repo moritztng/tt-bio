@@ -1,0 +1,28 @@
+train scheduler 16.0
+inference scheduler 16.0
+Diffusion Module has 16.0
+[deadskip] installed: 41/41 manifest-pass modules skipped (EXACT zeros); 0 left on stock: 
+deadskip: 41/41 modules skipped (ckpt sha ok; per-module live re-probe exactly 0 on this process; trimul inplace-safe: 2); on stock: none
+[ptx_trimul_routes] FIRST trimul outgoing N=730 C=256 dtype=bfloat16 residual=True mask=None selection=[trimul row=native_exact word=exact cell=8.0|bf16|C256|H256|N<=800|out|fwd(nearest) stack=A100:2.13.0+cu130/3.7.1/cueq0.11.1 class=bitwise≡cueq exact_vs=cuequivariance_torch x_stock=1.813 reason=exact winner on A100:2.13.0+cu130/3.7.1/cueq0.11.1]
+[ptx_trimul_routes] FIRST trimul incoming N=730 C=256 dtype=bfloat16 residual=True mask=None selection=[trimul row=native_exact word=exact cell=8.0|bf16|C256|H256|N<=800|in|fwd(nearest) stack=A100:2.13.0+cu130/3.7.1/cueq0.11.1 class=bitwise≡cueq exact_vs=cuequivariance_torch x_stock=1.831 reason=exact winner on A100:2.13.0+cu130/3.7.1/cueq0.11.1]
+[infopt_graphs] poison per-class probe: ok (classes=43 read=28 read_finite_squash=0 unread=15 replay_noise_max=0.0332)
+PHASE item=r0 seed=101 lm_s=- trunk_s=44.242 sampler_s=13.751 conf_s=0.441 fwd_s=58.498 total_s=58.626
+PEAK item=r0 alloc_gib=10.59 reserved_gib=13.15
+PEAK-NOTE item=r0 seed=101
+[protenix-opt] PRED-RELEASE item=r0 released_gib=1.31 allocated_gib=5.42
+PHASE item=r1 seed=101 lm_s=- trunk_s=26.684 sampler_s=10.568 conf_s=0.438 fwd_s=37.752 total_s=37.996
+PEAK item=r1 alloc_gib=11.79 reserved_gib=14.57
+PEAK-NOTE item=r1 seed=101
+[protenix-opt] PRED-RELEASE item=r1 released_gib=1.31 allocated_gib=5.49
+PHASE item=r2 seed=101 lm_s=- trunk_s=27.215 sampler_s=10.574 conf_s=0.437 fwd_s=38.286 total_s=38.495
+PEAK item=r2 alloc_gib=11.73 reserved_gib=14.63
+PEAK-NOTE item=r2 seed=101
+[protenix-opt] PRED-RELEASE item=r2 released_gib=1.31 allocated_gib=5.49
+PHASE item=r3 seed=101 lm_s=- trunk_s=26.414 sampler_s=10.580 conf_s=0.437 fwd_s=37.493 total_s=37.721
+PEAK item=r3 alloc_gib=11.60 reserved_gib=14.16
+PEAK-NOTE item=r3 seed=101
+[dit_fuse] EXIT STATS calls={'ada': 240, 'gate': 120, 'res': 300, 'swiglu': 150} fallback=30
+[infopt_graphs] SUMMARY sampler_cache max_entries=1 live_graphs=1 captures=1 evictions=0 empty_cache_deferred=0 empty_cache_flushed=0 empty_cache_passed=12 ceiling_gb=47.66 ceiling_evictions=0 reserved_gb_at_first_defer=None peak_reserved_gb_while_deferring=0.0
+[ptx_trimul_routes] LEVER name=F2.trimul state=on impl=trimul:native_exact@exact/8.0|bf16|C256|H256|N<=800|out|fwd origin=core served=4280 fallback=0 fallback_by=none min_tokens=101 shapes=730x256/bfloat16/outgoing mode=exact errors=none gate=ok word=exact bind=tier:exact lever=trimul_core_exact passthrough=4
+[ptx_summary_host] SUMMARY calls=4 samples=20 delegated=0 chains_max=2 pairs=4 d2h=8 h2d=10
+[ptx_keep_pool] SUMMARY skipped=4 passed=9 errors=0 skipped_sites={"protenix/model/modules/confidence.py:204": 4} passed_sites={"__init__.py:840": 1, "graphs.py:449": 1, "pred_release.py:75": 3, "runner/inference.py:505": 4}

@@ -1,0 +1,15 @@
+train scheduler 16.0
+inference scheduler 16.0
+Diffusion Module has 16.0
+PHASE item=r0 seed=101 lm_s=- trunk_s=72.758 sampler_s=17.614 conf_s=2.411 fwd_s=92.968 total_s=93.100
+PEAK item=r0 alloc_gib=15.03 reserved_gib=31.61
+PEAK-NOTE item=r0 seed=101
+PHASE item=r1 seed=101 lm_s=- trunk_s=68.182 sampler_s=17.436 conf_s=2.359 fwd_s=88.061 total_s=88.198
+PEAK item=r1 alloc_gib=16.36 reserved_gib=31.22
+PEAK-NOTE item=r1 seed=101
+PHASE item=r2 seed=101 lm_s=- trunk_s=69.643 sampler_s=17.432 conf_s=2.364 fwd_s=89.519 total_s=89.646
+PEAK item=r2 alloc_gib=16.35 reserved_gib=21.12
+PEAK-NOTE item=r2 seed=101
+PHASE item=r3 seed=101 lm_s=- trunk_s=67.589 sampler_s=17.425 conf_s=2.356 fwd_s=87.449 total_s=87.616
+PEAK item=r3 alloc_gib=15.98 reserved_gib=22.96
+PEAK-NOTE item=r3 seed=101

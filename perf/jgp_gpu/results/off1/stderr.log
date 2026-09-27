@@ -1,0 +1,47 @@
+[protenix-opt] WEIGHTS pinned (cached digest 2026-09-27T20:17:09Z) sha256=8f931f9774a396b6… (checkpoint/protenix-v2.pt = stock/PINS.json checkpoint)
+[protenix-opt] NOT ACTIVE: mode off: stock protenix (no environment set, no lever applied) (mode=off)
+[protenix-opt] stock subprocess: /root/kit/protenix_v2/venv/bin/python -s -m protenix_opt.stock_pred ... (env stripped of PROTENIX_OPT_CACHE_DIR; PYTHONPATH stripped of nothing)
+[protenix-opt stock] ENV-CLEAN ok: absent=PTX_,FPF_,INFOPT_,PF_,PROTENIX_OPT,CUEQ_TRITON_CACHE_DIR kit_modules=none kit_dirs=none autoload=none no_user_site=True
+[protenix-opt stock] CUEQ-CACHE cueq_user_cache=/root/.cache/cuequivariance-triton source=home exists=0 json=0
+2026-09-27 20:17:28,176 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/batch_inference.py:835] INFO runner.batch_inference: Run infer with input=/root/jgp/out/off1/in.json, out_dir=/root/jgp/out/off1/pred, sample=5
+2026-09-27 20:17:28,176 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/batch_inference.py:863] INFO runner.batch_inference: Using default params for model protenix-v2: cycle=10, step=200, use_msa=True
+2026-09-27 20:17:28,176 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/batch_inference.py:511] INFO runner.batch_inference: Will infer with 1 jsons
+2026-09-27 20:17:28,240 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/batch_inference.py:413] INFO runner.batch_inference: Inference by Protenix: model_size: 464M, with_feature: default, model_version: v2, dtype: bf16
+2026-09-27 20:17:28,240 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/batch_inference.py:418] INFO runner.batch_inference: Triangle_multiplicative kernel: cuequivariance, Triangle_attention kernel: cuequivariance
+2026-09-27 20:17:28,240 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/batch_inference.py:422] INFO runner.batch_inference: enable_diffusion_shared_vars_cache: True, enable_efficient_fusion: True, enable_tf32: True
+2026-09-27 20:17:28,240 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Distributed environment: world size: 1, global rank: 0, local rank: 0
+2026-09-27 20:17:28,240 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:98] INFO root: LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+2026-09-27 20:17:28,341 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:123] INFO root: Kernels will be compiled when fast_layernorm is first called.
+2026-09-27 20:17:28,341 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:127] INFO root: Finished environment initialization.
+2026-09-27 20:18:42,554 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Loading from /weights/protenix/checkpoint/protenix-v2.pt, strict: True
+2026-09-27 20:18:43,726 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Sampled key: module.input_embedder.atom_attention_encoder.linear_no_bias_ref_pos.weight
+2026-09-27 20:18:43,838 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Finish loading checkpoint.
+2026-09-27 20:18:43,844 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:246] INFO runner.inference: Model parameters: 464.44M
+  0%|          | 0/1 [00:00<?, ?it/s]2026-09-27 20:18:43,852 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/msa_search.py:252] INFO runner.msa_search: do not need to update msa result, so return itself /root/jgp/out/off1/in.json
+2026-09-27 20:18:43,852 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:428] INFO runner.inference: Loading data from /root/jgp/out/off1/in.json
+2026-09-27 20:18:43,857 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/inference/infer_dataloader.py:283] INFO protenix.data.inference.infer_dataloader: Featurizing r0...
+2026-09-27 20:18:50,758 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/constraint/constraint_featurizer.py:392] INFO protenix.data.constraint.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-09-27 20:18:51,973 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/template/template_featurizer.py:684] INFO protenix.data.template.template_featurizer: Calling InferenceTemplateFeaturizer.make_template_feature
+2026-09-27 20:18:52,477 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:478] INFO runner.inference: [Rank 0 (1/4)] r0 [seed:101]: N_asym 2, N_token 730, N_atom 5919, N_msa 8770
+/root/kit/protenix_v2/venv/lib/python3.11/site-packages/torch/jit/_script.py:1488: DeprecationWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+2026-09-27 20:19:55,058 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:500] INFO runner.inference: [Rank 0] r0 [seed:101] succeeded. Model forward time: 62.58s. Results saved to /root/jgp/out/off1/pred
+2026-09-27 20:19:55,076 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/inference/infer_dataloader.py:283] INFO protenix.data.inference.infer_dataloader: Featurizing r1...
+2026-09-27 20:19:55,453 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/constraint/constraint_featurizer.py:392] INFO protenix.data.constraint.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-09-27 20:19:56,634 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/template/template_featurizer.py:684] INFO protenix.data.template.template_featurizer: Calling InferenceTemplateFeaturizer.make_template_feature
+2026-09-27 20:19:57,131 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:478] INFO runner.inference: [Rank 0 (2/4)] r1 [seed:101]: N_asym 2, N_token 730, N_atom 5919, N_msa 8770
+2026-09-27 20:20:54,277 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:500] INFO runner.inference: [Rank 0] r1 [seed:101] succeeded. Model forward time: 57.15s. Results saved to /root/jgp/out/off1/pred
+2026-09-27 20:20:54,294 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/inference/infer_dataloader.py:283] INFO protenix.data.inference.infer_dataloader: Featurizing r2...
+2026-09-27 20:20:54,682 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/constraint/constraint_featurizer.py:392] INFO protenix.data.constraint.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-09-27 20:20:55,866 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/template/template_featurizer.py:684] INFO protenix.data.template.template_featurizer: Calling InferenceTemplateFeaturizer.make_template_feature
+2026-09-27 20:20:56,372 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:478] INFO runner.inference: [Rank 0 (3/4)] r2 [seed:101]: N_asym 2, N_token 730, N_atom 5919, N_msa 8770
+2026-09-27 20:21:54,235 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:500] INFO runner.inference: [Rank 0] r2 [seed:101] succeeded. Model forward time: 57.86s. Results saved to /root/jgp/out/off1/pred
+2026-09-27 20:21:54,250 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/inference/infer_dataloader.py:283] INFO protenix.data.inference.infer_dataloader: Featurizing r3...
+2026-09-27 20:21:54,630 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/constraint/constraint_featurizer.py:392] INFO protenix.data.constraint.constraint_featurizer: Loaded constraint feature: #atom contact:0 #contact:0 #pocket:0
+2026-09-27 20:21:55,804 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/protenix/data/template/template_featurizer.py:684] INFO protenix.data.template.template_featurizer: Calling InferenceTemplateFeaturizer.make_template_feature
+2026-09-27 20:21:56,302 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:478] INFO runner.inference: [Rank 0 (4/4)] r3 [seed:101]: N_asym 2, N_token 730, N_atom 5919, N_msa 8770
+2026-09-27 20:22:53,296 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:500] INFO runner.inference: [Rank 0] r3 [seed:101] succeeded. Model forward time: 56.99s. Results saved to /root/jgp/out/off1/pred
+2026-09-27 20:22:53,329 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:520] INFO runner.inference: [Rank 0] Seed 101 completed in 249.47s.
+2026-09-27 20:22:53,329 [/root/kit/protenix_v2/venv/lib/python3.11/site-packages/runner/inference.py:532] INFO runner.inference: [Rank 0] Job completed in 249.48s.
+100%|██████████| 1/1 [04:09<00:00, 249.48s/it]100%|██████████| 1/1 [04:09<00:00, 249.48s/it]
+[protenix-opt] OUTPUTS complete 40/40 (entries=4 seeds=1 samples=5)
