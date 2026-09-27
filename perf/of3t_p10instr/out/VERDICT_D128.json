@@ -1,0 +1,72 @@
+{
+ "H": 0.0,
+ "H_per_weights": {
+  "B2trunk": 0.0,
+  "I_D12": 0.0,
+  "I_D12s1": 0.0,
+  "I_TFs1": 0.0,
+  "L40G": 0.0,
+  "L40Gs1": 0.0,
+  "TF7": 0.0,
+  "X12b": 0.0
+ },
+ "draws": 128,
+ "bar_ratio": 0.3333333333333333,
+ "fixed_bars": {
+  "two": 0.019428875906963877,
+  "twelve": 0.04507007146777562
+ },
+ "designs": {
+  "two": {
+   "artifact": "D128_TF7_a.json+D128_B2trunk_a.json+D128_I_TFs1_a.json",
+   "arm_a": "TF7",
+   "arm_b": "B2trunk",
+   "floor_b": "I_TFs1",
+   "M": {
+    "TF7": 12.053754741880594,
+    "B2trunk": 12.06498184097807,
+    "I_TFs1": 12.098081308383085
+   },
+   "delta": -0.011227099097476729,
+   "h": 0.010426929757448012,
+   "se_half": 0.010426929757448012,
+   "F": 0.04432656650248968,
+   "F_signed": -0.04432656650248968,
+   "h_F": 0.021819938937054136,
+   "T": 0.019428875906963877,
+   "grade": "UNRESOLVED",
+   "why": "|Delta| 0.0112 +- h 0.0104 straddles T 0.0194",
+   "sd_d": 0.06018736929344729,
+   "draws_to_resolve": 207,
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 231 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 230 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 230 samples, polled DURING the work",
+   "head": "9e944bac8801cc60e73b7d7543bee56b034cc7dc",
+   "dirty": false
+  },
+  "twelve": {
+   "artifact": "D128_I_D12_a.json+D128_X12b_a.json+D128_I_D12s1_a.json",
+   "arm_a": "I_D12",
+   "arm_b": "X12b",
+   "floor_b": "I_D12s1",
+   "M": {
+    "I_D12": 12.039810426773723,
+    "X12b": 12.057926663060512,
+    "I_D12s1": 12.141729626529038
+   },
+   "delta": -0.01811623628678941,
+   "h": 0.011385530266525685,
+   "se_half": 0.011385530266525685,
+   "F": 0.1019191997553161,
+   "F_signed": -0.1019191997553161,
+   "h_F": 0.031146092923642857,
+   "T": 0.04507007146777562,
+   "grade": "PASS",
+   "why": "|Delta| + h = 0.0295 <= T 0.0451",
+   "sd_d": 0.06572069925604075,
+   "draws_to_resolve": 23,
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 221 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 219 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 221 samples, polled DURING the work",
+   "head": "9e944bac8801cc60e73b7d7543bee56b034cc7dc",
+   "dirty": true
+  }
+ },
+ "verdict": "PARTIAL"
+}
