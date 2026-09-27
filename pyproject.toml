@@ -105,6 +105,8 @@ reference = ["ml_collections"]  # opendde.config.config -> ml_collections.config
 # Without it, `tt-bio --help` and --accelerator cpu/gpu still work; requesting a card
 # fails with a clear message naming this extra.
 tenstorrent = ["ttnn==0.68.0"]
+# Training: OpenFold3's vendored training featuriser imports these at module load.
+train = ["pytorch_lightning", "ml_collections"]
 
 [project.scripts]
 tt-bio = "tt_bio.main:cli"
