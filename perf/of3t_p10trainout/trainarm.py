@@ -202,6 +202,11 @@ def main() -> int:
                          "the card -- no checkpoint round trip to get wrong. The before score "
                          "is the movement control: two arms that never moved agree perfectly, "
                          "so a grade is only readable if the arm moved further than its floor")
+    ap.add_argument("--eval-every", type=int, default=0,
+                    help="also score the held-out corpus after every Nth step, same instrument "
+                         "and seed as the before/after scores, into the step row as `eval`. "
+                         "The step is deterministic, so an arm with this flag must reproduce "
+                         "the loss curve of one without it; that is the check it is harmless")
     ap.add_argument("--pin-watch", action="store_true",
                     help="record the engine's handle registries every step. Microseconds: "
                          "four len() calls, no GC pass, so a timing arm can carry it")
@@ -286,6 +291,10 @@ def main() -> int:
                               f'  registries {row["registries"]}',
                               flush=True)
                         state["cz"] = cz
+                    if a.eval_every and a.eval_corpus and (row["step"] + 1) % a.eval_every == 0:
+                        ev = _evaluate(fwd, a.eval_corpus, a.stage, a.eval_seed)
+                        row["eval"] = {"mean_loss": ev["mean_loss"],
+                                       **{t["pdb_id"]: t["loss"] for t in ev["targets"]}}
                     if a.gc_per_step:
                         import gc
                         row["gc_collected"] = gc.collect()
