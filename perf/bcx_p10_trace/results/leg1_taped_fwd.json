@@ -1,0 +1,101 @@
+{
+ "aiclk_start": 1325,
+ "shapes": {
+  "m": [
+   2,
+   288,
+   256
+  ],
+  "z": [
+   288,
+   288,
+   128
+  ],
+  "n": 275
+ },
+ "eager": [
+  {
+   "enqueue_s": 0.6612350399955176,
+   "total_s": 0.8292412839946337,
+   "aiclk": 1350
+  },
+  {
+   "enqueue_s": 0.6808888739906251,
+   "total_s": 0.8465223110106308,
+   "aiclk": 1350
+  },
+  {
+   "enqueue_s": 0.6884629229898565,
+   "total_s": 0.8301207320182584,
+   "aiclk": 1318
+  },
+  {
+   "enqueue_s": 0.7153306579857599,
+   "total_s": 0.8813544090080541,
+   "aiclk": 1350
+  }
+ ],
+ "capture_s": 0.6091245899733622,
+ "replay": [
+  {
+   "input": 0,
+   "enqueue_s": 0.016728833987144753,
+   "total_s": 0.8320834960031789,
+   "aiclk": 1350,
+   "equal_m": true,
+   "equal_z": true,
+   "maxabs_z": 0.0
+  },
+  {
+   "input": 1,
+   "enqueue_s": 0.008398160978686064,
+   "total_s": 0.8258804630022496,
+   "aiclk": 1337,
+   "equal_m": true,
+   "equal_z": true,
+   "maxabs_z": 0.0
+  },
+  {
+   "input": 0,
+   "enqueue_s": 0.03425701201194897,
+   "total_s": 0.8500169170147274,
+   "aiclk": 1312,
+   "equal_m": true,
+   "equal_z": true,
+   "maxabs_z": 0.0
+  },
+  {
+   "input": 1,
+   "enqueue_s": 0.01289362701936625,
+   "total_s": 0.8288624310225714,
+   "aiclk": 1350,
+   "equal_m": true,
+   "equal_z": true,
+   "maxabs_z": 0.0
+  },
+  {
+   "input": 0,
+   "enqueue_s": 0.01614207398961298,
+   "total_s": 0.8330422949802596,
+   "aiclk": 1350,
+   "equal_m": true,
+   "equal_z": true,
+   "maxabs_z": 0.0
+  },
+  {
+   "input": 1,
+   "enqueue_s": 0.013084862002870068,
+   "total_s": 0.8303697759984061,
+   "aiclk": 1350,
+   "equal_m": true,
+   "equal_z": true,
+   "maxabs_z": 0.0
+  }
+ ],
+ "aiclk_end": 1350,
+ "loadavg": [
+  14.6357421875,
+  14.2333984375,
+  14.4189453125
+ ]
+}

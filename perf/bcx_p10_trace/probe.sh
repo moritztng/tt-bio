@@ -1,10 +1,10 @@
 #!/bin/bash
 # Leg 1 probe on a qb2 card: tritraj's full stack5 configuration, one trajectory, the
-# Evoformer taped seam hijacked on round 2 by probe_evo.py.
-#   probe_evo.sh <tag> [region MB per bank]
+# Evoformer seam hijacked on round 2 by probe_<which>.py.
+#   probe.sh <evo|bwd> <tag> [region MB per bank]
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-tag=$1; region=${2:-256}
+which=$1; tag=$2; region=${3:-256}
 out=perf/bcx_p10_trace/out/$tag
 rm -rf "$out"; mkdir -p "$out"
 export PYTHONPATH=$PWD
@@ -15,6 +15,6 @@ export TT_BIO_LEASE_HOLDER=worker:bcx-p10-trace
 export TT_BIO_MM_LAYOUT=1 TT_BIO_TAPED_CHANNEL_MOVE=1 TT_BIO_WIDEN_ADD=1
 export TT_BIO_GRAD_FANIN_L1=0 TT_BIO_GENQ_COMPACT=0
 export TRACE_PROBE_OUT=$PWD/$out/probe.json TRACE_PROBE_REGION_MB=$region
-exec timeout 1500 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_trace/probe_evo.py \
+exec timeout 1500 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_trace/probe_$which.py \
     --rounds 3 --interleave 0 --trajectories 1 --binder 146 \
     --params /home/ttuser/bcx_e2e/af2_params --out "$out"

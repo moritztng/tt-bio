@@ -10,8 +10,8 @@ two consecutive calls (two recycles: same padded shape, different values), then 
   capture the same forward inside begin/end_trace_capture on persistent input tensors
   replay  copy each call's inputs in place, execute_trace, compare torch.equal to eager
 
-The forward is untaped here (recompute=False, no tape) because it isolates dispatch: the
-taped seam's tape is leg 2. Writes one JSON and exits the process, so nothing captured here
+The forward is the seam's own taped forward (tape open, checkpoints as configured). The
+backward is leg 2. Writes one JSON and exits the process, so nothing captured here
 leaks into a timed round.
 """
 import json
@@ -29,6 +29,7 @@ if str(_ROOT) not in sys.path:
 OUT = os.environ.get("TRACE_PROBE_OUT", "probe_evo.json")
 REGION = int(os.environ.get("TRACE_PROBE_REGION_MB", "256")) << 20
 SEEN: list = []
+TAPES: list = []
 
 
 def aiclk():
@@ -50,8 +51,15 @@ def experiment(evo, slot, calls):
     res["shapes"] = {"m": list(m0.shape), "z": list(z0.shape), "n": n}
 
     def body(mi, zi):
-        # The blocks deallocate what they are handed; the persistent inputs must survive.
-        return trunk.evoformer(ttnn.clone(mi), ttnn.clone(zi), msa_mask, pm, recompute=False)
+        # The seam as it runs: leaves under tt-bio's tape, block checkpoints recomputed in the
+        # backward. Leaves are clones so the persistent inputs survive whatever the forward frees.
+        ml = trunk.ag.Tensor(ttnn.clone(mi), requires_grad=True)
+        zl = trunk.ag.Tensor(ttnn.clone(zi), requires_grad=True)
+        with trunk.taped.tape():
+            mo, zo = trunk.evoformer(ml, zl, msa_mask, pm, recompute=evo.recompute)
+        trunk.ag.release_pins()
+        TAPES.append((ml, zl, mo, zo))
+        return mo.value, zo.value
 
     def host(t):
         return ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
@@ -68,7 +76,8 @@ def experiment(evo, slot, calls):
             ttnn.synchronize_device(dev)
             t2 = time.perf_counter()
             out = (ttnn.to_torch(mo).clone(), ttnn.to_torch(zo).clone())
-            for t in (mi, zi, mo, zo):
+            TAPES.clear()
+            for t in (mi, zi):
                 ttnn.deallocate(t)
             times.append({"enqueue_s": t1 - t0, "total_s": t2 - t0, "aiclk": aiclk()})
         eager.append(out)
