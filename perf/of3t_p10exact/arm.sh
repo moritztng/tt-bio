@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# of3t-p10exact: one model-frame trunk rung on qb2 card 1.
+# of3t-p10exact: one model-frame trunk rung (qb2 card 1 by default; CARD, IN, O, HOLDER, BOARD_CLASS move it).
 #
 #   arm.sh <TAG> <scopes> [extra p10arm flags...]
-#       scopes: none | softmax | layer_norm | softmax,layer_norm   (the HOST float64 instrument)
+#       scopes: default | none | softmax | layer_norm | softmax,layer_norm   (the HOST float64 instrument;
+#               default passes no instrument flag, none forces it off)
 #       extra:  --probe-out F | --ln-fp32 | --probe-limit N
 #       LEVER=<dev_cot lever>  the DEVICE-side precision ladder, default none. Names in
 #              perf/of3t_bwdaccum/dev_cot.py: prod_fp32, sum_fp32, xhat_fp32, dxcfg, dx_fp32,
@@ -17,31 +18,35 @@
 # An ACCURACY reading: the clock sampler and host_quiet RECORD the conditions (the writer stamps
 # them, D155/D249), and no timing is quoted.
 set -uo pipefail
-W=/home/ttuser/.coworker/wt/of3t-p10exact
+W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$W"
-O=/home/ttuser/of3t_p10exact
+O=${O:-/home/ttuser/of3t_p10exact}
 H=$W/perf/of3t_p10exact
 mkdir -p "$O"
-CARD=1
+CARD=${CARD:-1}
+IN=${IN:-/home/ttuser}
+HOLDER=${HOLDER:-worker:of3t-p10exact}
 SYS=/sys/class/tenstorrent/tenstorrent!$CARD
-B=/home/ttuser/of3t_modelframe/boundary_model_n384.pt
-C=/home/ttuser/of3t_recut/cot_external.pt
+B=$IN/of3t_modelframe/boundary_model_n384.pt
+C=$IN/of3t_recut/cot_external.pt
 B_SHA=583bcd7c91ce6ed46aea59844954fb2bf7ddc3d553d7f9d4f238998183db99e2
 C_SHA=1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4
 
 TAG=${1:?usage: arm.sh TAG scopes}; SCOPES=${2:?usage: arm.sh TAG scopes}; shift 2
 LEVER=${LEVER:-none}
-[ "$SCOPES" = none ] && X=(--device-only "$@") || X=(--exact "$SCOPES" "$@")
+# default: no instrument flag at all, so the arm runs whatever the package defaults to.
+case $SCOPES in none) X=(--device-only "$@") ;; default) X=("$@") ;; *) X=(--exact "$SCOPES" "$@") ;; esac
 [ "$(sha256sum < "$B" | cut -d' ' -f1)" = "$B_SHA" ] || { echo "boundary digest mismatch"; exit 2; }
 [ "$(sha256sum < "$C" | cut -d' ' -f1)" = "$C_SHA" ] || { echo "cotangent digest mismatch (A42)"; exit 2; }
 
 unset TT_MESH_GRAPH_DESC_PATH
 BOARD=$(cat "$SYS/tt_card_type")
-[ "$BOARD" = p300c ] || { echo "card $CARD is a $BOARD, not p300c -- refusing"; exit 3; }
+[ "$BOARD" = "${BOARD_CLASS:-p300c}" ] || { echo "card $CARD is a $BOARD, not ${BOARD_CLASS:-p300c} -- refusing"; exit 3; }
 
 source /home/ttuser/tt-bio-dev/env/bin/activate
-ENV=(TT_BIO_SOFTMAX_BW_RENORM=1 TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD
-     TT_BIO_LEASE_HOLDER=worker:of3t-p10exact OMP_NUM_THREADS=8 PYTHONPATH="$W")
+# Both softmax-backward flags at the package default (renorm and fp32 on), never inherited.
+ENV=(-u TT_BIO_SOFTMAX_BW_RENORM -u TT_BIO_SOFTMAX_BW_FP32 TT_VISIBLE_DEVICES=$CARD
+     TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=$HOLDER OMP_NUM_THREADS=8 PYTHONPATH="$W")
 if ! env "${ENV[@]}" timeout 120 python3 perf/of3t_verbinstall/cardcheck.py $CARD; then
   echo "=== $TAG ABORTED: card $CARD failed the bounded dispatch check ==="; exit 3
 fi
@@ -69,9 +74,9 @@ E=$(date +%s)
 kill "$SAMPLER" 2>/dev/null
 echo "=== $TAG exit $rc elapsed $((E-S))s $(date -u +%FT%TZ) ==="
 
-[ -s "$REP" ] && python3 - "$REP" "$CLK" "$CARD" "$BOARD" "$B" "$C" "$OUT" "$rc" "$SCOPES" "$QUIET" "$LEVER" <<'PY'
+[ -s "$REP" ] && python3 - "$REP" "$CLK" "$CARD" "$BOARD" "$B" "$C" "$OUT" "$rc" "$SCOPES" "$QUIET" "$LEVER" "${HOLDER#worker:}" <<'PY'
 import hashlib, json, os, socket, subprocess, sys
-rep, clk, card, board, b, c, out, rc, scopes, quiet, lever = sys.argv[1:]
+rep, clk, card, board, b, c, out, rc, scopes, quiet, lever, row = sys.argv[1:]
 def sha(p):
     h = hashlib.sha256()
     with open(p, "rb") as f:
@@ -81,10 +86,10 @@ def sha(p):
 s = sorted(int(l) for l in open(clk) if l.strip().isdigit())
 d = json.load(open(rep))
 d["provenance"] = {
-    "host": socket.gethostname(), "row": "of3t-p10exact", "device_involved": True,
+    "host": socket.gethostname(), "row": row, "device_involved": True,
     "card": int(card), "board_class": board, "exact_scopes": scopes,
     "device_lever": lever,
-    "config": "dev_cot.py --lever " + lever + ", TT_BIO_SOFTMAX_BW_RENORM=1, arm flipped, crop 0, "
+    "config": "dev_cot.py --lever " + lever + ", softmax-bw flags at the package default, arm flipped, crop 0, "
               "8 threads, p10arm.py --exact " + scopes,
     "boundary_version": "upstream OpenFold3 0.4.3 (boundary captured from of3pkg043; graded "
                         "reference 0.4.3 bf16 autocast, contrast reference 0.4.3 float64)",
