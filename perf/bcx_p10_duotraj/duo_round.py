@@ -170,6 +170,8 @@ def main():
     _expect = {"genq_compact": os.environ.get("TT_BIO_GENQ_COMPACT") == "1",
                "taped_channel_move": os.environ.get("TT_BIO_TAPED_CHANNEL_MOVE") == "1",
                "mm_layout": os.environ.get("TT_BIO_MM_LAYOUT") == "1",
+               "widen_add": os.environ.get("TT_BIO_WIDEN_ADD") == "1",
+               "grad_fanin_l1": os.environ.get("TT_BIO_GRAD_FANIN_L1") == "1",
                "triatt_bw": True, "triatt_hifi": True, "rne_kernel": True}
 
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
@@ -233,6 +235,7 @@ def main():
     M.DUMP = (str(out), stamp)
     mt = DuoMeter(args.rounds, 2 if args.interleave else 1)
     M.install(mt, bindcraft2, bindcraft2.design_model_class(), trajectory, seqopt)
+    _digest_outputs(bindcraft2.design_model_class(), mt)
 
     # Every event carries the trajectory that produced it, or the device seconds of two
     # trajectories land in one column and the amortised number is unreadable.
@@ -288,6 +291,37 @@ def main():
         M.dump(str(out), stamp)
         print(json.dumps(stamp, indent=1), flush=True)
         print(f"events -> {out}", flush=True)
+
+
+def _digest_outputs(cls, mt):
+    """A sha256 of every gradient round's output, per trajectory, on both arms.
+
+    Interleaving changes no arithmetic, so each trajectory's outputs in `duo` must be
+    `torch.equal` to the same trajectory run `serial`. Hashing the return of
+    `sequence_gradients` (gradients, losses, aux) lets the two arms be compared round by round
+    from their event logs. Both arms pay it, so it is common-mode in the timing.
+    """
+    import hashlib
+    import jax
+    import numpy as np
+    sg = cls.sequence_gradients
+
+    def sequence_gradients(self, *a, **kw):
+        r = sg(self, *a, **kw)
+        h = hashlib.sha256()
+        leaves = jax.tree_util.tree_leaves(r)
+        for leaf in leaves:
+            try:
+                x = np.asarray(leaf)
+                h.update(f"{x.dtype}{x.shape}".encode())
+                h.update(x.tobytes())
+            except Exception:
+                h.update(repr(leaf).encode())
+        M.EVENTS.append({"kind": "digest", "phase": "sequence_gradients", "t0": time.time(),
+                         "slot": duotraj.slot(), "round": mt.entries, "leaves": len(leaves),
+                         "sha256": h.hexdigest()})
+        return r
+    cls.sequence_gradients = sequence_gradients
 
 
 def _run_pair(one, stopped, *, threaded, ready):

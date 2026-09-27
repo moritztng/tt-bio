@@ -62,7 +62,7 @@ def main():
     import vjp
     vjp.main()
 
-    from tt_bio import mm_layout, rne_add, taped_ttnn, tenstorrent, triatt_bw
+    from tt_bio import mm_layout, reblock_permute, rne_add, taped_ttnn, tenstorrent, triatt_bw
     reach = {"arm": a.arm,
              "fused_hifi_stats": dict(tenstorrent.TRIATT_FUSED_HIFI_STATS),
              "triatt_bw_stats": dict(triatt_bw.STATS),
@@ -71,6 +71,9 @@ def main():
              "rne_kernel": AF2PairBlock.rne_kernel,
              "mm_layout": dict(mm_layout.reach()),
              "mm_layout_on": bool(mm_layout.MM_LAYOUT),
+             "widen_add": bool(rne_add.WIDEN_ADD),
+             "widen_reach": dict(rne_add.WIDEN_REACH),
+             "taped_channel_move": bool(reblock_permute.TAPED_MOVE),
              "kernel_entry_stats": {k: list(v) for k, v in taped_ttnn.KERNEL_STATS.items()}}
     print("REACH " + json.dumps(reach))
     # vjp.py treats --out as a directory prefix, so the counters go beside its file.
