@@ -762,6 +762,47 @@ def test_the_campaign_header_is_printed_once_not_once_per_trajectory(monkeypatch
     assert campaign.print_campaign_header is not real or True
 
 
+def test_the_campaign_is_announced_over_once_by_the_last_trajectory_out(monkeypatch):
+    """`run_campaign` prints `campaign done: ...` when `design_worker_index()` is None, which is
+    per PROCESS. N threads share one environment, so all N announced the end and the earlier ones
+    did it while another trajectory was still printing stage lines."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    real = campaign.design_worker_index
+    spoke, still_running = [], []
+
+    def fake_run_campaign(settings, project_folder, **kw):
+        still_running.append(1)
+        time.sleep(0.05)
+        if campaign.design_worker_index() is None:
+            spoke.append(len(still_running))
+        still_running.pop()
+
+    monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3, stagger_timeout=30.0)
+
+    # Once, and by the arm that found itself alone: nothing was still running behind it.
+    assert spoke == [1]
+    assert campaign.design_worker_index is real
+
+
+def test_a_real_worker_process_keeps_bindcrafts_own_footer_gate(monkeypatch):
+    """With BINDCRAFT_WORKER_ID set the process is one of several on the project and upstream
+    means nobody to announce the campaign; the thread gate must not talk over that."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    monkeypatch.setenv("BINDCRAFT_WORKER_ID", "1")
+    indices = []
+
+    monkeypatch.setattr(campaign, "run_campaign",
+                        lambda settings, project_folder, **kw:
+                        indices.append(campaign.design_worker_index()))
+    bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3, stagger_timeout=30.0)
+    assert indices == [1, 1, 1]
+
+
 def test_the_closing_summary_writer_is_serialised(monkeypatch):
     """N trajectories share a stop condition, so they reach the unlocked summary rewrite at
     once; overlapping writes to its one partial file would produce a summary that is neither."""

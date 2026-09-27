@@ -1551,7 +1551,7 @@ def campaign_predictor(*, validation: str = "jax",
 
 
 @contextlib.contextmanager
-def _one_campaign_not_n(campaign):
+def _one_campaign_not_n(campaign, trajectories: int):
     """Hold the two campaign-wide things N trajectories in one process would each do.
 
     `write_campaign_summary` reads the whole project and rewrites `summary.csv` through one
@@ -1563,10 +1563,20 @@ def _one_campaign_not_n(campaign):
 
     `print_campaign_header` folds the first design trajectory to report the target it is about
     to run. It is the same campaign N times over, so it is printed once.
+
+    The closing lines (`campaign stopped: ...`, `campaign done: ...`) are printed inline by
+    `run_campaign` itself, gated on `design_worker_index() is None`, which is how BindCraft 2
+    keeps N worker PROCESSES from each announcing the end. N threads share one environment, so
+    all N pass that gate: the campaign was announced over twice while a trajectory was still
+    printing stage lines. Those two call sites are the only readers of that name in
+    `campaign.py`, so holding it back until the last arm arrives puts the footer last and once.
     """
     summary, header = campaign.write_campaign_summary, campaign.print_campaign_header
+    worker_index = campaign.design_worker_index
     writing = threading.Lock()
+    closing = threading.Lock()
     printed = []
+    arrived = set()
 
     @functools.wraps(summary)
     def write_campaign_summary(*args, **kwargs):
@@ -1581,13 +1591,23 @@ def _one_campaign_not_n(campaign):
             printed.append(True)
         return header(*args, **kwargs)
 
+    @functools.wraps(worker_index)
+    def design_worker_index():
+        if worker_index() is not None:
+            return worker_index()  # A real worker process: upstream's gate already holds.
+        with closing:
+            arrived.add(threading.get_ident())
+            return None if len(arrived) >= trajectories else 0
+
     campaign.write_campaign_summary = write_campaign_summary
     campaign.print_campaign_header = print_campaign_header
+    campaign.design_worker_index = design_worker_index
     try:
         yield
     finally:
         campaign.write_campaign_summary = summary
         campaign.print_campaign_header = header
+        campaign.design_worker_index = worker_index
 
 
 def run_campaign(settings: Mapping, project_folder: str, *, trajectories_per_card: int = 1,
@@ -1653,7 +1673,7 @@ def run_campaign(settings: Mapping, project_folder: str, *, trajectories_per_car
         return go
 
     with duotraj.interleave(trajectories=trajectories), \
-            _one_campaign_not_n(campaign):
+            _one_campaign_not_n(campaign, trajectories):
         counted = duotraj.run([one(i) for i in range(trajectories)], names=names)
     # Each arm returns the trajectory count it read out of the shared campaign progress as it
     # left, so the last one out carries the whole campaign's. Summing would count that one file
