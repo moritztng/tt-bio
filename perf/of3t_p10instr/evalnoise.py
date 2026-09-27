@@ -89,7 +89,7 @@ def main() -> int:
                     help="one per --adapter, defaults to the run directory name")
     ap.add_argument("--seeds", default="20260926")
     ap.add_argument("--warmup", type=int, default=1,
-                    help="discarded calls on the start weights before anything is scored")
+                    help="discarded calls after each load, on the loaded weights")
     ap.add_argument("--repeat", type=int, default=1, help="calls per seed, back to back")
     ap.add_argument("--context", action="append", choices=("shipped", "install"), default=[])
     ap.add_argument("--stage", default="initial_training")
@@ -137,15 +137,6 @@ def main() -> int:
             # writes into these, so `base` after an adapter puts the checkpoint back exactly.
             start = {name: t.value for name, t in params.items()}
             dump()
-            # The FIRST forward at a shape is not the forward every later call at that shape
-            # runs (the start weights read 7ohe 10.762624 cold and 18.871191 on every call
-            # after, out/N1_repro.json). One discarded call puts every scored call in the same
-            # warm state.
-            for _ in range(a.warmup):
-                with ag.exact_training(False):
-                    ev = _evaluate(fwd, a.eval_corpus, a.stage, seeds[0])
-                rec.setdefault("warmup", []).append(
-                    {t["pdb_id"]: t["loss"] for t in ev["targets"]})
             for path, label in zip(a.adapter, labels):
                 t1 = time.perf_counter()
                 if path == "base":
@@ -156,6 +147,16 @@ def main() -> int:
                 moved = params.rebind()
                 print(f"[load] {label} {path} rebind {moved} "
                       f"{time.perf_counter() - t1:.1f}s", flush=True)
+                # The FIRST forward at a shape is not the forward every later call at that
+                # shape runs (the start weights read 7ohe 10.762624 cold and 18.871191 on every
+                # call after, out/N1_repro.json). Discarded calls on THESE weights put every
+                # scored call in the warm state; a warm-up on other weights is not the same
+                # thing (out/N3a.json vs out/N3b.json).
+                for _ in range(a.warmup):
+                    with ag.exact_training(False):
+                        ev = _evaluate(fwd, a.eval_corpus, a.stage, seeds[0])
+                    rec.setdefault("warmup", []).append(
+                        {"label": label, **{t["pdb_id"]: t["loss"] for t in ev["targets"]}})
                 for ctx in contexts:
                     for seed in seeds:
                         for rep in range(a.repeat):
