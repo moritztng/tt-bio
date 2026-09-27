@@ -823,11 +823,10 @@ def main() -> int:
                          "backward closure, so an ON rep and an OFF rep can share one warm "
                          "process and one set of weights, which is the only way to price it "
                          "against a run-to-run spread this large")
-    ap.add_argument("--no-exact", action="store_true",
-                    help="run the whole step inside ag.exact_training(False), which no "
-                         "measurement at the shipped shape has ever been taken in. There is "
-                         "no environment variable for the switch (autograd.py:1491), so this "
-                         "flag is the only way to reach it from a command line")
+    ap.add_argument("--exact", action=argparse.BooleanOptionalAction, default=None,
+                    help="run the whole step inside ag.exact_training(ON|OFF). Omitted, the "
+                         "step runs on the library default, which is what `tt-bio train` "
+                         "gets: the device path, instrument off")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     if a.grad_ab:
@@ -847,7 +846,7 @@ def main() -> int:
                    "diffusion_samples": a.samples, "stage": a.stage,
                    "taped": not a.no_tape, "chunk": a.chunk or None,
                    "loss_shape": a.loss_shape,
-                   "exact_training": not a.no_exact,
+                   "exact_training": "default" if a.exact is None else a.exact,
                    "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so "
                           "a chunked arm and an unchunked one noise the same structures"}}
     a.out.parent.mkdir(parents=True, exist_ok=True)
@@ -881,9 +880,11 @@ def main() -> int:
             # a setting the step does not. `exact_training` is a context manager over a
             # module global, so it has to stay open across the whole rep loop; the ExitStack
             # holds it there without reindenting 200 lines of step around it.
-            es.enter_context(ag.exact_training(not a.no_exact))
+            if a.exact is not None:
+                es.enter_context(ag.exact_training(a.exact))
+            exact_on = bool(ag.exact_training_ops())
             out["exact"] = {
-                "requested": "OFF" if a.no_exact else "ON",
+                "requested": "ON" if exact_on else "OFF",
                 "ops_a_tape_would_run_exact": list(ag.exact_training_ops()),
                 "softmax_stats_before": dict(ag.EXACT_SOFTMAX_STATS),
                 "layer_norm_stats_before": dict(ag.EXACT_LAYER_NORM_STATS),
@@ -1285,7 +1286,7 @@ def main() -> int:
                 v for r in reps
                 for v in list(r.get("exact_installed_in_trunk_tape", {}).values())
                 + [x for c in r.get("chunks", []) for x in c.get("exact_in_chunk_tape", [])])
-            out["exact"]["off_proven"] = bool(a.no_exact
+            out["exact"]["off_proven"] = bool(not exact_on
                                               and out["exact"]["counters_all_zero"]
                                               and not out["exact"]["installed_in_any_tape"])
             out["renorm"]["stats_after"] = dict(ag.SOFTMAX_BW_RENORM_STATS)
