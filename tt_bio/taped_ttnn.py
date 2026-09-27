@@ -37,6 +37,7 @@ import types
 import ttnn
 
 from . import autograd as ag
+from .envflags import env_flag
 from . import mm_layout as _mm_layout
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw,
@@ -1238,6 +1239,20 @@ def _v_concat_heads(shipped, args, kwargs):
     return _tape(out_v, [x], make)
 
 
+#: Hand each head's cotangent to `add_grad_slice` as its own slot of the packed axis, so the
+#: three are joined by ONE concat when the gradient is read, instead of three packed-width
+#: tensors that are two-thirds zeros summed through `add_grad`. The slots are disjoint, so the
+#: sum of the zero-filled tensors and the concat of the slots are the same numbers: every
+#: element is one head's value plus exact zeros. At the 288 pair track that is three
+#: 60.75 MiB bfloat16 writes, two float32 widening adds and a narrowing cast per call replaced
+#: by one 60.75 MiB write, the largest write-then-reread chain of the BindCraft 2 round
+#: (`state/perf10/bcx-p10-devtop.md`). Default OFF, release-gated.
+QKV_GRAD_JOIN = env_flag("TT_BIO_QKV_GRAD_JOIN", False)
+
+#: Slot cotangents handed to `add_grad_slice`, cumulative; sample at a round boundary.
+QKV_JOIN_STATS = {"served": 0}
+
+
 @_verb("experimental.nlp_create_qkv_heads")
 def _v_create_qkv_heads(shipped, args, kwargs):
     """``[B, 1, L, 3*H*dh] -> three [B, H, L, dh]``, measured equal to
@@ -1270,6 +1285,10 @@ def _v_create_qkv_heads(shipped, args, kwargs):
                 # [3, H, dh], so slot s is the contiguous range [s*H*dh, (s+1)*H*dh) either
                 # way and the gradient is bit-identical.
                 rows = ttnn.reshape(ag.merge_heads_value(g), [B, 1, L, H * dh])
+                if QKV_GRAD_JOIN:
+                    QKV_JOIN_STATS["served"] += 1
+                    x.add_grad_slice(rows, [0, 0, 0, s * H * dh], [B, 1, L, (s + 1) * H * dh])
+                    return
                 # One zero tensor for both empty slots, then one concat. `ttnn.pad` would be
                 # the single-allocation form and cannot be used: it refuses front padding
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
