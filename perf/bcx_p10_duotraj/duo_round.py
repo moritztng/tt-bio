@@ -130,6 +130,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=9)
     ap.add_argument("--interleave", type=int, default=0)
+    # 1: the gate is held for the enqueue only and each seam waits on its readback outside it
+    # (`duotraj.DeviceGate.split`). 0 is the gate every earlier sitting ran.
+    ap.add_argument("--split-gate", type=int, default=0)
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--binder", type=int, default=146)
     ap.add_argument("--params", default="/home/moritz/bcx_shipped/af2_params")
@@ -176,6 +179,7 @@ def main():
 
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "interleave": bool(args.interleave),
+             "split_gate": bool(args.split_gate),
              "levers_expected": _expect, "genq_compact": _genq.compact(),
              "taped_channel_move": _reblock.TAPED_MOVE,
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
@@ -269,7 +273,8 @@ def main():
             # The gate goes on BOTH arms. On the serial arm it is one thread taking an
             # uncontended lock, which costs nothing and is what makes the control able to say
             # which thread the device seam runs on -- the one fact the slot design rests on.
-            with duotraj.interleave(trajectories=2 if args.interleave else 1) as gate:
+            with duotraj.interleave(trajectories=2 if args.interleave else 1,
+                                   split=bool(args.split_gate)) as gate:
                 _run_pair(one, stopped, threaded=bool(args.interleave),
                           ready=mt.ready if args.interleave else None)
             stamp["gate"] = gate.report()

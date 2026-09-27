@@ -77,9 +77,18 @@ class DeviceGate:
     between `waited` and zero is the interference the amortised round pays for.
     """
 
-    def __init__(self):
+    def __init__(self, split: bool = False):
         self._lock = threading.RLock()
         self._depth = threading.local()
+        #: Hold the card for the ENQUEUE only. A seam issues its readbacks non-blocking with an
+        #: event behind them, leaves the gate, and waits for that event outside it, so the other
+        #: trajectory enqueues while this one's kernels run. Off, the seam waits under the gate.
+        self.split = bool(split)
+        #: Seconds per slot per phase of a hold: `enqueue` (acquire to the first readback),
+        #: `device_wait` and `readback` (under the gate when not split), `wait_outside` (the
+        #: same wait after the gate is released, when split). The rest of `held` is host work
+        #: under the gate after the readback was issued.
+        self.phases: dict[str, dict[str, float]] = {}
         self.waited: dict[str, float] = {}
         self.held: dict[str, float] = {}
         self.entries: dict[str, int] = {}
@@ -103,6 +112,7 @@ class DeviceGate:
         self._lock.acquire()
         t1 = time.perf_counter()
         self._depth.n = 1
+        self._depth.t1 = t1
         self.waited[s] = self.waited.get(s, 0.0) + (t1 - t0)
         self.entries[s] = self.entries.get(s, 0) + 1
         key = f"{s or '-'}@{threading.current_thread().name}"
@@ -114,9 +124,22 @@ class DeviceGate:
             self.held[s] = self.held.get(s, 0.0) + (time.perf_counter() - t1)
             self._lock.release()
 
+    def since_acquire(self) -> float:
+        """Seconds since this thread took the gate, 0 when it does not hold it."""
+        if not getattr(self._depth, "n", 0):
+            return 0.0
+        return time.perf_counter() - self._depth.t1
+
+    def account(self, slot: str, phase: str, seconds: float) -> None:
+        got = self.phases.setdefault(slot, {})
+        got[phase] = got.get(phase, 0.0) + seconds
+
     def report(self) -> dict:
         return {"waited_s": {k: round(v, 3) for k, v in self.waited.items()},
                 "held_s": {k: round(v, 3) for k, v in self.held.items()},
+                "phases_s": {k: {p: round(v, 3) for p, v in d.items()}
+                             for k, d in self.phases.items()},
+                "split": self.split,
                 "seams": dict(self.entries), "slot_at_seam": dict(self.threads)}
 
 
@@ -143,6 +166,49 @@ def card(slot: str = "", tag: str = ""):
         return
     with gate.held_for(tag, slot):
         yield
+
+
+def splitting() -> bool:
+    """True when the gate in force is released before a seam waits on the device."""
+    gate = GATE
+    return gate is not None and gate.split
+
+
+def fetch(device, tensors, slot: str = ""):
+    """Read `tensors` back from the card, as a callable that returns the torch tensors.
+
+    Under a split gate the readbacks are issued non-blocking with an event recorded behind
+    them, and the callable waits on that event: call it AFTER leaving `card()`, and the wait
+    no longer holds the gate. One command queue executes in order, so the event covers exactly
+    this seam's work and not what the other trajectory enqueues after it, and a buffer this
+    seam frees cannot be overwritten before its own reads have run. Otherwise it is the
+    blocking synchronize-then-read the seams always did, done here under the gate, and the
+    callable only hands the result over.
+    """
+    import torch
+    import ttnn
+    gate = GATE
+    if gate is not None:
+        gate.account(slot, "enqueue", gate.since_acquire())
+    if gate is None or not gate.split:
+        t0 = time.perf_counter()
+        ttnn.synchronize_device(device)
+        t1 = time.perf_counter()
+        out = [torch.Tensor(ttnn.to_torch(t)) for t in tensors]
+        if gate is not None:
+            gate.account(slot, "device_wait", t1 - t0)
+            gate.account(slot, "readback", time.perf_counter() - t1)
+        return lambda: out
+    hosts = [ttnn.from_device(t, blocking=False) for t in tensors]
+    event = ttnn.record_event(device)
+
+    def wait():
+        t0 = time.perf_counter()
+        ttnn.event_synchronize(event)
+        got = [torch.Tensor(ttnn.to_torch(h)) for h in hosts]
+        gate.account(slot, "wait_outside", time.perf_counter() - t0)
+        return got
+    return wait
 
 
 def free_device_bytes() -> int:
@@ -204,8 +270,10 @@ def refuse_if_it_will_not_fit(extra: int, *, per_trajectory: int = TRAJECTORY_BY
 
 
 @contextlib.contextmanager
-def interleave(trajectories: int = 2, per_trajectory: int = TRAJECTORY_BYTES):
-    """Install the gate so `trajectories` threads can share one card.
+def interleave(trajectories: int = 2, per_trajectory: int = TRAJECTORY_BYTES,
+               split: bool = False):
+    """Install the gate so `trajectories` threads can share one card. `split` holds it for
+    the enqueue only (`DeviceGate.split`).
 
     The switch, and the whole of it. Outside this block `card()` is a no-op and nothing in
     tt-bio behaves differently, which is what keeps a lever that changes the resident
@@ -216,7 +284,7 @@ def interleave(trajectories: int = 2, per_trajectory: int = TRAJECTORY_BYTES):
     """
     refuse_if_it_will_not_fit(trajectories - 1, per_trajectory=per_trajectory)
     global GATE
-    was, GATE = GATE, DeviceGate()
+    was, GATE = GATE, DeviceGate(split)
     try:
         yield GATE
     finally:
