@@ -1,0 +1,861 @@
+{
+ "arms": [
+  {
+   "arm": "a1",
+   "interleave": true,
+   "trajectories": 2,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8
+   },
+   "host_hwm_gb": 15.14,
+   "stopped": [
+    "B: 9 rounds collected on 'B'",
+    "A: 9 rounds collected on 'A'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 32.44,
+     "B": 36.078
+    },
+    "held_s": {
+     "A": 59.562,
+     "B": 57.474
+    },
+    "seams": {
+     "A": 81,
+     "B": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 3,
+     "A@Dummy-4": 3,
+     "A@Dummy-5": 9,
+     "A@Dummy-6": 1,
+     "A@Dummy-7": 7,
+     "A@Dummy-8": 4,
+     "B@Dummy-9": 7,
+     "B@Dummy-8": 9,
+     "B@Dummy-10": 2,
+     "B@Dummy-5": 3,
+     "B@Dummy-6": 9,
+     "B@Dummy-11": 6,
+     "A@Dummy-12": 9,
+     "A@Dummy-13": 5,
+     "B@Dummy-4": 2,
+     "B@Dummy-14": 8,
+     "A@Dummy-15": 6,
+     "A@Dummy-16": 9,
+     "A@Dummy-17": 6,
+     "B@Dummy-18": 6,
+     "B@Dummy-15": 4,
+     "B@Dummy-7": 3,
+     "B@Dummy-12": 6,
+     "A@Dummy-11": 3,
+     "B@Dummy-16": 7,
+     "B@Dummy-17": 3,
+     "A@Dummy-18": 3,
+     "B@Dummy-3": 5,
+     "A@Dummy-9": 5,
+     "A@Dummy-10": 6,
+     "B@Dummy-13": 1,
+     "A@Dummy-14": 2
+    }
+   },
+   "waited_per_round": {
+    "A": 3.604,
+    "B": 4.009
+   },
+   "round_s": 7.082990243972235,
+   "n": 15.99,
+   "window_s": 113.29,
+   "held_per_round": 6.498764897159201,
+   "idle_per_round": 0.5842253468130341,
+   "gate_busy": 0.917517132356603,
+   "clock": {
+    "n": 108,
+    "aiclk_med": 1350,
+    "aiclk_min": 1306,
+    "load1": 10.81
+   }
+  },
+  {
+   "arm": "b1",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.33,
+   "stopped": [
+    "C: 9 rounds collected on 'C'",
+    "B: 9 rounds collected on 'B'",
+    "A: 9 rounds collected on 'A'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 74.464,
+     "B": 74.487,
+     "C": 75.642
+    },
+    "held_s": {
+     "A": 59.723,
+     "B": 59.891,
+     "C": 56.373
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 4,
+     "A@Dummy-4": 7,
+     "A@Dummy-5": 4,
+     "A@Dummy-6": 7,
+     "A@Dummy-7": 7,
+     "A@Dummy-8": 5,
+     "A@Dummy-9": 5,
+     "A@Dummy-10": 4,
+     "B@Dummy-8": 4,
+     "B@Dummy-11": 1,
+     "B@Dummy-12": 8,
+     "B@Dummy-13": 5,
+     "B@Dummy-7": 6,
+     "B@Dummy-14": 14,
+     "B@Dummy-3": 6,
+     "C@Dummy-11": 6,
+     "C@Dummy-13": 4,
+     "C@Dummy-5": 3,
+     "C@Dummy-3": 3,
+     "C@Dummy-15": 1,
+     "C@Dummy-6": 3,
+     "C@Dummy-4": 6,
+     "C@Dummy-16": 10,
+     "B@Dummy-10": 3,
+     "A@Dummy-15": 6,
+     "B@Dummy-4": 5,
+     "A@Dummy-13": 1,
+     "A@Dummy-17": 2,
+     "B@Dummy-9": 3,
+     "B@Dummy-17": 9,
+     "C@Dummy-12": 9,
+     "B@Dummy-15": 5,
+     "A@Dummy-11": 6,
+     "C@Dummy-18": 7,
+     "B@Dummy-5": 7,
+     "A@Dummy-16": 14,
+     "C@Dummy-9": 5,
+     "C@Dummy-14": 6,
+     "C@Dummy-8": 5,
+     "C@Dummy-10": 6,
+     "C@Dummy-17": 4,
+     "B@Dummy-18": 2,
+     "B@Dummy-16": 2,
+     "A@Dummy-12": 4,
+     "C@Dummy-7": 3,
+     "A@Dummy-18": 5,
+     "B@Dummy-6": 1
+    }
+   },
+   "waited_per_round": {
+    "A": 8.274,
+    "B": 8.276,
+    "C": 8.405
+   },
+   "round_s": 6.840480665691666,
+   "n": 23.99,
+   "window_s": 164.13,
+   "held_per_round": 6.532974730966419,
+   "idle_per_round": 0.3075059347252463,
+   "gate_busy": 0.95504615103036,
+   "clock": {
+    "n": 157,
+    "aiclk_med": 1350,
+    "aiclk_min": 1312,
+    "load1": 12.84
+   }
+  },
+  {
+   "arm": "b2",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.48,
+   "stopped": [
+    "A: 9 rounds collected on 'A'",
+    "C: 9 rounds collected on 'C'",
+    "B: 9 rounds collected on 'B'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 70.331,
+     "B": 73.606,
+     "C": 74.567
+    },
+    "held_s": {
+     "A": 60.881,
+     "B": 57.278,
+     "C": 56.577
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 8,
+     "A@Dummy-4": 5,
+     "A@Dummy-5": 2,
+     "A@Dummy-6": 4,
+     "A@Dummy-7": 3,
+     "A@Dummy-8": 9,
+     "A@Dummy-9": 6,
+     "B@Dummy-10": 9,
+     "B@Dummy-4": 9,
+     "B@Dummy-11": 3,
+     "B@Dummy-12": 5,
+     "B@Dummy-13": 4,
+     "B@Dummy-14": 11,
+     "B@Dummy-15": 7,
+     "C@Dummy-9": 10,
+     "C@Dummy-3": 6,
+     "C@Dummy-6": 8,
+     "C@Dummy-16": 6,
+     "C@Dummy-12": 10,
+     "C@Dummy-11": 5,
+     "A@Dummy-10": 7,
+     "B@Dummy-3": 7,
+     "A@Dummy-17": 4,
+     "C@Dummy-15": 5,
+     "A@Dummy-12": 2,
+     "C@Dummy-17": 4,
+     "A@Dummy-13": 6,
+     "B@Dummy-9": 5,
+     "A@Dummy-11": 7,
+     "C@Dummy-8": 5,
+     "C@Dummy-5": 4,
+     "C@Dummy-10": 6,
+     "B@Dummy-17": 3,
+     "B@Dummy-8": 2,
+     "B@Dummy-18": 5,
+     "B@Dummy-7": 3,
+     "C@Dummy-4": 2,
+     "C@Dummy-18": 3,
+     "B@Dummy-6": 3,
+     "A@Dummy-15": 5,
+     "B@Dummy-5": 4,
+     "A@Dummy-16": 8,
+     "C@Dummy-7": 3,
+     "C@Dummy-14": 2,
+     "A@Dummy-18": 4,
+     "A@Dummy-14": 1,
+     "C@Dummy-13": 2,
+     "B@Dummy-16": 1
+    }
+   },
+   "waited_per_round": {
+    "A": 7.815,
+    "B": 8.178,
+    "C": 8.285
+   },
+   "round_s": 6.740050514055442,
+   "n": 23.98,
+   "window_s": 161.65,
+   "held_per_round": 6.478551904741518,
+   "idle_per_round": 0.2614986093139245,
+   "gate_busy": 0.9612022775246855,
+   "clock": {
+    "n": 154,
+    "aiclk_med": 1350,
+    "aiclk_min": 1318,
+    "load1": 11.75
+   }
+  },
+  {
+   "arm": "a2",
+   "interleave": true,
+   "trajectories": 2,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8
+   },
+   "host_hwm_gb": 15.34,
+   "stopped": [
+    "A: 9 rounds collected on 'A'",
+    "B: 9 rounds collected on 'B'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 31.873,
+     "B": 37.586
+    },
+    "held_s": {
+     "A": 60.426,
+     "B": 56.512
+    },
+    "seams": {
+     "A": 81,
+     "B": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 9,
+     "A@Dummy-4": 9,
+     "A@Dummy-5": 5,
+     "A@Dummy-6": 7,
+     "A@Dummy-7": 3,
+     "B@Dummy-5": 5,
+     "B@Dummy-8": 12,
+     "B@Dummy-9": 2,
+     "B@Dummy-10": 6,
+     "B@Dummy-11": 4,
+     "B@Dummy-12": 6,
+     "B@Dummy-13": 4,
+     "A@Dummy-12": 5,
+     "B@Dummy-14": 2,
+     "A@Dummy-11": 2,
+     "A@Dummy-9": 2,
+     "B@Dummy-15": 7,
+     "A@Dummy-16": 10,
+     "B@Dummy-17": 4,
+     "A@Dummy-10": 4,
+     "B@Dummy-18": 7,
+     "B@Dummy-3": 5,
+     "B@Dummy-4": 4,
+     "B@Dummy-6": 4,
+     "A@Dummy-8": 10,
+     "B@Dummy-7": 6,
+     "A@Dummy-18": 4,
+     "A@Dummy-15": 3,
+     "A@Dummy-17": 6,
+     "B@Dummy-16": 3,
+     "A@Dummy-13": 1,
+     "A@Dummy-14": 1
+    }
+   },
+   "waited_per_round": {
+    "A": 3.541,
+    "B": 4.176
+   },
+   "round_s": 7.144060721227869,
+   "n": 15.99,
+   "window_s": 114.24,
+   "held_per_round": 6.497310886411669,
+   "idle_per_round": 0.6467498348161995,
+   "gate_busy": 0.9094702774719641,
+   "clock": {
+    "n": 111,
+    "aiclk_med": 1350,
+    "aiclk_min": 1312,
+    "load1": 11.93
+   }
+  },
+  {
+   "arm": "b3",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.4,
+   "stopped": [
+    "B: 9 rounds collected on 'B'",
+    "C: 9 rounds collected on 'C'",
+    "A: 9 rounds collected on 'A'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 75.554,
+     "B": 74.659,
+     "C": 77.829
+    },
+    "held_s": {
+     "A": 60.373,
+     "B": 58.364,
+     "C": 57.192
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 15,
+     "A@Dummy-4": 5,
+     "A@Dummy-5": 3,
+     "A@Dummy-6": 4,
+     "A@Dummy-7": 11,
+     "A@Dummy-8": 3,
+     "B@Dummy-9": 7,
+     "B@Dummy-10": 5,
+     "B@Dummy-11": 3,
+     "B@Dummy-12": 6,
+     "B@Dummy-13": 5,
+     "B@Dummy-4": 5,
+     "B@Dummy-8": 9,
+     "C@Dummy-8": 7,
+     "C@Dummy-14": 7,
+     "C@Dummy-13": 3,
+     "C@Dummy-15": 2,
+     "C@Dummy-10": 11,
+     "C@Dummy-7": 7,
+     "C@Dummy-11": 9,
+     "A@Dummy-15": 9,
+     "C@Dummy-12": 3,
+     "C@Dummy-3": 6,
+     "A@Dummy-10": 4,
+     "A@Dummy-13": 4,
+     "B@Dummy-16": 4,
+     "B@Dummy-14": 2,
+     "B@Dummy-5": 11,
+     "C@Dummy-17": 4,
+     "A@Dummy-14": 2,
+     "B@Dummy-7": 6,
+     "A@Dummy-9": 2,
+     "B@Dummy-18": 4,
+     "C@Dummy-4": 7,
+     "B@Dummy-6": 2,
+     "C@Dummy-18": 3,
+     "A@Dummy-17": 4,
+     "A@Dummy-16": 6,
+     "C@Dummy-5": 4,
+     "B@Dummy-15": 6,
+     "C@Dummy-6": 2,
+     "B@Dummy-17": 4,
+     "A@Dummy-18": 4,
+     "A@Dummy-12": 3,
+     "C@Dummy-16": 4,
+     "C@Dummy-9": 2,
+     "A@Dummy-11": 2,
+     "B@Dummy-3": 2
+    }
+   },
+   "waited_per_round": {
+    "A": 8.395,
+    "B": 8.295,
+    "C": 8.648
+   },
+   "round_s": 6.761738071089313,
+   "n": 23.98,
+   "window_s": 162.18,
+   "held_per_round": 6.511023578367948,
+   "idle_per_round": 0.25071449272136587,
+   "gate_busy": 0.9629215905606684,
+   "clock": {
+    "n": 155,
+    "aiclk_med": 1350,
+    "aiclk_min": 1312,
+    "load1": 11.81
+   }
+  },
+  {
+   "arm": "a3",
+   "interleave": true,
+   "trajectories": 2,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8
+   },
+   "host_hwm_gb": 15.16,
+   "stopped": [
+    "B: 9 rounds collected on 'B'",
+    "A: 9 rounds collected on 'A'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 33.475,
+     "B": 37.051
+    },
+    "held_s": {
+     "A": 62.143,
+     "B": 57.612
+    },
+    "seams": {
+     "A": 81,
+     "B": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 6,
+     "A@Dummy-4": 7,
+     "A@Dummy-5": 8,
+     "A@Dummy-6": 2,
+     "A@Dummy-7": 3,
+     "A@Dummy-8": 9,
+     "B@Dummy-9": 8,
+     "B@Dummy-10": 8,
+     "B@Dummy-11": 7,
+     "B@Dummy-6": 13,
+     "B@Dummy-4": 4,
+     "B@Dummy-12": 2,
+     "A@Dummy-13": 5,
+     "B@Dummy-8": 8,
+     "A@Dummy-14": 9,
+     "A@Dummy-10": 6,
+     "B@Dummy-14": 2,
+     "A@Dummy-11": 2,
+     "A@Dummy-15": 3,
+     "B@Dummy-5": 5,
+     "B@Dummy-16": 1,
+     "B@Dummy-7": 9,
+     "B@Dummy-3": 4,
+     "A@Dummy-17": 6,
+     "B@Dummy-18": 6,
+     "B@Dummy-17": 3,
+     "A@Dummy-12": 6,
+     "A@Dummy-9": 3,
+     "A@Dummy-18": 5,
+     "A@Dummy-16": 1,
+     "B@Dummy-13": 1
+    }
+   },
+   "waited_per_round": {
+    "A": 3.719,
+    "B": 4.117
+   },
+   "round_s": 7.4119713515945795,
+   "n": 15.99,
+   "window_s": 118.5,
+   "held_per_round": 6.681850983879374,
+   "idle_per_round": 0.7301203677152057,
+   "gate_busy": 0.9014944428302288,
+   "clock": {
+    "n": 113,
+    "aiclk_med": 1350,
+    "aiclk_min": 1306,
+    "load1": 11.12
+   }
+  },
+  {
+   "arm": "a4",
+   "interleave": true,
+   "trajectories": 2,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8
+   },
+   "host_hwm_gb": 15.26,
+   "stopped": [
+    "B: 9 rounds collected on 'B'",
+    "A: 9 rounds collected on 'A'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 31.909,
+     "B": 35.543
+    },
+    "held_s": {
+     "A": 59.626,
+     "B": 57.415
+    },
+    "seams": {
+     "A": 81,
+     "B": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 9,
+     "A@Dummy-4": 9,
+     "A@Dummy-5": 10,
+     "A@Dummy-6": 8,
+     "A@Dummy-7": 7,
+     "A@Dummy-8": 4,
+     "B@Dummy-8": 5,
+     "B@Dummy-9": 5,
+     "B@Dummy-10": 7,
+     "B@Dummy-11": 8,
+     "B@Dummy-12": 1,
+     "B@Dummy-6": 7,
+     "B@Dummy-13": 6,
+     "A@Dummy-11": 2,
+     "B@Dummy-14": 9,
+     "B@Dummy-15": 5,
+     "A@Dummy-12": 9,
+     "A@Dummy-16": 3,
+     "B@Dummy-4": 9,
+     "B@Dummy-5": 3,
+     "A@Dummy-15": 6,
+     "B@Dummy-17": 6,
+     "A@Dummy-18": 3,
+     "B@Dummy-16": 6,
+     "A@Dummy-17": 4,
+     "A@Dummy-10": 2,
+     "B@Dummy-7": 3,
+     "A@Dummy-14": 3,
+     "A@Dummy-13": 1,
+     "A@Dummy-9": 1,
+     "B@Dummy-18": 1
+    }
+   },
+   "waited_per_round": {
+    "A": 3.545,
+    "B": 3.949
+   },
+   "round_s": 7.2773726425157355,
+   "n": 15.99,
+   "window_s": 116.35,
+   "held_per_round": 6.493820109384163,
+   "idle_per_round": 0.7835525331315718,
+   "gate_busy": 0.8923302994608363,
+   "clock": {
+    "n": 112,
+    "aiclk_med": 1350,
+    "aiclk_min": 1318,
+    "load1": 12.65
+   }
+  },
+  {
+   "arm": "b4",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.51,
+   "stopped": [
+    "C: 9 rounds collected on 'C'",
+    "B: 9 rounds collected on 'B'",
+    "A: 9 rounds collected on 'A'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 73.917,
+     "B": 74.917,
+     "C": 75.058
+    },
+    "held_s": {
+     "A": 60.356,
+     "B": 57.634,
+     "C": 56.752
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 4,
+     "A@Dummy-4": 10,
+     "A@Dummy-5": 4,
+     "A@Dummy-6": 8,
+     "A@Dummy-7": 5,
+     "A@Dummy-8": 5,
+     "B@Dummy-7": 11,
+     "B@Dummy-5": 5,
+     "B@Dummy-4": 10,
+     "B@Dummy-3": 6,
+     "B@Dummy-9": 7,
+     "B@Dummy-10": 6,
+     "C@Dummy-11": 5,
+     "C@Dummy-4": 7,
+     "C@Dummy-7": 7,
+     "C@Dummy-3": 7,
+     "C@Dummy-12": 7,
+     "C@Dummy-13": 11,
+     "C@Dummy-14": 3,
+     "A@Dummy-15": 4,
+     "C@Dummy-9": 3,
+     "B@Dummy-14": 3,
+     "A@Dummy-13": 6,
+     "C@Dummy-16": 6,
+     "C@Dummy-17": 4,
+     "B@Dummy-12": 7,
+     "C@Dummy-10": 3,
+     "B@Dummy-15": 1,
+     "C@Dummy-5": 4,
+     "B@Dummy-8": 2,
+     "B@Dummy-11": 4,
+     "C@Dummy-15": 7,
+     "A@Dummy-18": 8,
+     "B@Dummy-17": 3,
+     "A@Dummy-16": 6,
+     "C@Dummy-6": 6,
+     "A@Dummy-9": 5,
+     "A@Dummy-11": 4,
+     "B@Dummy-18": 5,
+     "A@Dummy-12": 4,
+     "B@Dummy-13": 6,
+     "A@Dummy-17": 3,
+     "A@Dummy-14": 3,
+     "A@Dummy-10": 2,
+     "B@Dummy-16": 3,
+     "B@Dummy-6": 2,
+     "C@Dummy-8": 1
+    }
+   },
+   "waited_per_round": {
+    "A": 8.213,
+    "B": 8.324,
+    "C": 8.34
+   },
+   "round_s": 6.7017308818849655,
+   "n": 23.98,
+   "window_s": 160.73,
+   "held_per_round": 6.4637221997592995,
+   "idle_per_round": 0.23800868212566573,
+   "gate_busy": 0.9644854909395105,
+   "clock": {
+    "n": 155,
+    "aiclk_med": 1350,
+    "aiclk_min": 1306,
+    "load1": 14.76
+   }
+  },
+  {
+   "arm": "e1",
+   "interleave": false,
+   "trajectories": 3,
+   "commit": "7ad2416ef",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 16.57,
+   "stopped": [
+    "A: 9 rounds collected on 'A'",
+    "B: 9 rounds collected on 'B'",
+    "C: 9 rounds collected on 'C'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 0.001,
+     "B": 0.001,
+     "C": 0.001
+    },
+    "held_s": {
+     "A": 61.649,
+     "B": 55.86,
+     "C": 54.856
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 7,
+     "A@Dummy-4": 7,
+     "A@Dummy-5": 7,
+     "A@Dummy-6": 5,
+     "A@Dummy-7": 5,
+     "A@Dummy-8": 3,
+     "A@Dummy-9": 4,
+     "A@Dummy-10": 6,
+     "A@Dummy-11": 6,
+     "A@Dummy-12": 4,
+     "A@Dummy-13": 9,
+     "A@Dummy-14": 3,
+     "A@Dummy-15": 6,
+     "A@Dummy-16": 6,
+     "A@Dummy-17": 1,
+     "A@Dummy-18": 2,
+     "B@Dummy-11": 11,
+     "B@Dummy-5": 7,
+     "B@Dummy-4": 9,
+     "B@Dummy-17": 2,
+     "B@Dummy-13": 4,
+     "B@Dummy-18": 9,
+     "B@Dummy-15": 6,
+     "B@Dummy-10": 5,
+     "B@Dummy-16": 4,
+     "B@Dummy-12": 2,
+     "B@Dummy-14": 3,
+     "B@Dummy-6": 4,
+     "B@Dummy-8": 6,
+     "B@Dummy-7": 2,
+     "B@Dummy-3": 3,
+     "B@Dummy-9": 4,
+     "C@Dummy-7": 7,
+     "C@Dummy-17": 4,
+     "C@Dummy-16": 9,
+     "C@Dummy-18": 5,
+     "C@Dummy-12": 8,
+     "C@Dummy-9": 7,
+     "C@Dummy-8": 3,
+     "C@Dummy-10": 6,
+     "C@Dummy-11": 2,
+     "C@Dummy-14": 5,
+     "C@Dummy-3": 5,
+     "C@Dummy-4": 8,
+     "C@Dummy-13": 8,
+     "C@Dummy-15": 2,
+     "C@Dummy-6": 1,
+     "C@Dummy-5": 1
+    }
+   },
+   "waited_per_round": {
+    "A": 0.0,
+    "B": 0.0,
+    "C": 0.0
+   }
+  }
+ ],
+ "summary": {
+  "by_n": {
+   "2": {
+    "arms": [
+     "a1",
+     "a2",
+     "a3",
+     "a4"
+    ],
+    "round_s": 7.229098739827605,
+    "ratio_vs_h200": 10.389621643902853,
+    "spread": [
+     7.082990243972235,
+     7.4119713515945795
+    ],
+    "held_per_round": 6.542936719208602,
+    "idle_per_round": 0.6861620206190028
+   },
+   "3": {
+    "arms": [
+     "b1",
+     "b2",
+     "b3",
+     "b4"
+    ],
+    "round_s": 6.761000033180347,
+    "ratio_vs_h200": 9.716872712245397,
+    "spread": [
+     6.7017308818849655,
+     6.840480665691666
+    ],
+    "held_per_round": 6.496568103458796,
+    "idle_per_round": 0.2644319297215506
+   }
+  },
+  "speedup_3_over_2": 1.0692351285830517,
+  "leg4": {
+   "equal_to_serial": 180,
+   "differ": 0,
+   "first_differ": [],
+   "serial_keys": 27
+  }
+ }
+}

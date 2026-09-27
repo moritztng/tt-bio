@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+"""The tritraj sitting: N interleaved trajectories on one card against N-1, full stack5 stack.
 """The tritraj sitting: N=2 vs N=3 interleaved trajectories on one card, full stack5 stack.
 
     report.py out/a1 out/b1 ... [--json out/report.json]
@@ -137,10 +137,11 @@ def main():
         print(f"\nN={n}: {m:.3f} s/round ({m / H200:.2f}x H200), spread "
               f"{s['spread'][0]:.3f}-{s['spread'][1]:.3f}, held {s['held_per_round']:.3f}, "
               f"idle {s['idle_per_round']:.3f}")
-    if 2 in summary["by_n"] and 3 in summary["by_n"]:
-        sp = summary["by_n"][2]["round_s"] / summary["by_n"][3]["round_s"]
-        summary["speedup_3_over_2"] = sp
-        print(f"N=3 vs N=2: {sp:.4f}x  (GO needs >= 1.03x; bar {10 * H200:.3f} s)")
+    ns = sorted(summary["by_n"])
+    for lo, hi in zip(ns, ns[1:]):
+        sp = summary["by_n"][lo]["round_s"] / summary["by_n"][hi]["round_s"]
+        summary[f"speedup_{hi}_over_{lo}"] = sp
+        print(f"N={hi} vs N={lo}: {sp:.4f}x  (GO needs >= 1.03x; bar {10 * H200:.3f} s)")
     ser = [r for r in rows if not r["interleave"]]
     inter = [r for r in rows if r["interleave"]]
     if ser and inter:
