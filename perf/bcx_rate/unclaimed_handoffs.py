@@ -22,15 +22,29 @@ honest test of that is whether a person looked.
 
   python3 perf/bcx_rate/unclaimed_handoffs.py                 # BCX rows concluded in the last 24h
   python3 perf/bcx_rate/unclaimed_handoffs.py --hours 72 --prefix of3t
+
+The second half of the report has no time window, and that is the correction. The prose scan
+above only looks back --hours, which is backwards for the case it was built for: an unclaimed
+handoff gets MORE urgent as it ages, and this tool's own 24 h window hid the worst one it had.
+`bcx-exactflip` concluded 2026-09-26 17:16 handing its merge to `land-standing`, and 29 h later
+`wk/bcx-exactflip` was still not on main, `land-standing.md` had never named it, and main still
+shipped the slow `exact=True` default on the morning the competition window opened. A branch
+that is not an ancestor of origin/main is a fact, not prose, so it is checked at every age.
 """
 import argparse
 import re
+import subprocess
 import sys
 import time
 from pathlib import Path
 
 COWORKER = Path("/home/moritz/.coworker")
 CONCLUDED = COWORKER / "state" / "concluded"
+REPO = Path(__file__).resolve().parents[2]
+
+#: A branch a marker names as carrying its work. Local `wk/` branches only: a marker quoting
+#: `origin/main` or a bare sha is not claiming to own an unlanded branch.
+BRANCH = re.compile(r"\bwk/([a-z0-9][a-z0-9._-]*[a-z0-9])\b")
 
 #: Phrases a row uses when it is handing something on rather than finishing it. Deliberately
 #: narrow: a row that says "I flipped nothing -- that is land-standing's" is handing over, a row
@@ -55,6 +69,47 @@ def named_paths(text):
         if p.exists():
             out.append(p)
     return sorted(set(out))
+
+
+def git(*a):
+    r = subprocess.run(("git", "-C", str(REPO)) + a, capture_output=True, text=True)
+    return r.returncode, r.stdout.strip()
+
+
+def unlanded_branches(prefix):
+    """Branches named by a concluded marker that are not ancestors of origin/main.
+
+    Age-independent on purpose. Returns [(branch, tip, marker_name, concluded_at)], oldest
+    conclusion first, so the longest-unclaimed merge reads at the top.
+    """
+    rc, _ = git("rev-parse", "--verify", "--quiet", "origin/main")
+    if rc:
+        return None
+    out, seen = [], set()
+    for marker in sorted(CONCLUDED.glob("%s*" % prefix), key=lambda p: p.stat().st_mtime):
+        if not marker.is_file():
+            continue
+        for name in dict.fromkeys(BRANCH.findall(marker.read_text(errors="replace"))):
+            branch = "wk/%s" % name
+            if branch in seen:
+                continue
+            rc, tip = git("rev-parse", "--verify", "--quiet", "origin/%s" % branch)
+            if rc:
+                continue          # branch gone: deleted after landing, or never pushed
+            seen.add(branch)
+            if git("merge-base", "--is-ancestor", tip, "origin/main")[0] == 0:
+                continue
+            # Not on main is not the same as unclaimed. A sub-row's branch is normally taken up
+            # by an aggregator (every bcx-p10-* feeds wk/bcx-perf10), and a tip contained in
+            # another live branch has a carrier, whatever main says. Only a tip nothing else
+            # contains is actually sitting with no route.
+            carriers = [b.strip().replace("origin/", "", 1)
+                        for b in git("branch", "-r", "--contains", tip)[1].splitlines()
+                        if b.strip() and "->" not in b and b.strip() != "origin/%s" % branch]
+            if carriers:
+                continue
+            out.append((branch, tip[:9], marker.name, marker.stat().st_mtime))
+    return out
 
 
 def main(argv=None):
@@ -100,6 +155,21 @@ def main(argv=None):
     print("\n%d concluded row(s) in the last %gh carry handoff language." % (flagged, args.hours))
     print("'NOT touched since' is a CANDIDATE, not a verdict: a page can be correct already, and a")
     print("handoff can be to a row rather than to a page. Read the marker before acting.")
+
+    unlanded = unlanded_branches(args.prefix)
+    if unlanded is None:
+        print("\nno origin/main in %s -- branch check skipped" % REPO)
+        return 0
+    print("\nBranches named by a concluded %s* row that are NOT on origin/main (every age):"
+          % (args.prefix or "any"))
+    if not unlanded:
+        print("   none")
+        return 0
+    now = time.time()
+    for branch, tip, marker, at in unlanded:
+        print("   %-26s %s  unlanded %5.1f h  (%s)" % (branch, tip, (now - at) / 3600.0, marker))
+    print("Held deliberately (release-gated, superseded) or dropped -- the marker says which.")
+    print("Age is the signal: a gate nobody has opened in a day is usually a gate nobody owns.")
     return 0
 
 
