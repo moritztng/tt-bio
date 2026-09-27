@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// rne_add reader. Two same-shaped bfloat16 TILE tensors, read page-for-page into c_0 and c_1.
+// rne_add reader. Two same-shaped TILE tensors, read page-for-page into c_0 and c_1. They share
+// a tile grid and not necessarily a dtype (`widen_add`: float32 or bfloat16 beside bfloat16).
 //
 // A core owns the contiguous tile range [first_tile, first_tile + num_tiles) of BOTH operands --
 // the op is elementwise, so one index serves both accessors and the whole work split is a single
@@ -52,7 +53,10 @@ void kernel_main() {
         num_tiles = get_arg_val<uint32_t>(1);
     }
 
-    const uint32_t tile_bytes = get_tile_size(cb_a);
+    // One size per operand: `widen_add` reads a float32 accumulator beside a bfloat16
+    // contribution, so the two walks advance by different strides.
+    const uint32_t tile_a = get_tile_size(cb_a);
+    const uint32_t tile_b = get_tile_size(cb_b);
 
     uint32_t page = first_tile;
     for (uint32_t i = 0; i < num_tiles; i += GRAN) {
@@ -67,8 +71,8 @@ void kernel_main() {
             // this kernel exists to exploit.
             noc_async_read_page(page + j, sa, wa);
             noc_async_read_page(page + j, sb, wb);
-            wa += tile_bytes;
-            wb += tile_bytes;
+            wa += tile_a;
+            wb += tile_b;
         }
         noc_async_read_barrier();
         cb_push_back(cb_a, n);

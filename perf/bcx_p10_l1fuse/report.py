@@ -29,6 +29,17 @@ LEVER = os.environ.get("REPORT_LEVER", "grad_fanin_l1")
 SERVED = "fanin_l1_served"
 DECLINED = "fanin_l1_declined: over the L1 budget"
 SPILLED = "fanin_l1_spilled: the allocator refused L1"
+#: A lever whose reach is several named counters (`widen_add_served: first`, `...: later`,
+#: `widen_add_declined: <reason>`) is read by prefix instead: each column is the sum of every
+#: counter that starts with `<prefix>served`, `<prefix>declined` or `<prefix>spilled`.
+PREFIX = os.environ.get("REPORT_REACH_PREFIX")
+
+
+def _count(reach, col):
+    if PREFIX is None:
+        return reach.get({"served": SERVED, "declin": DECLINED, "spill": SPILLED}[col], 0)
+    head = PREFIX + {"served": "served", "declin": "declined", "spill": "spilled"}[col]
+    return sum(v for k, v in reach.items() if k.startswith(head))
 
 
 def rounds(path):
@@ -47,7 +58,7 @@ def rounds(path):
         samples = sorted(c for t, c, _ in clk if t0 <= t <= t1)
         before = starts[i].get("reach") or {}
         after = (starts[i + 1] if i + 1 < len(starts) else (stop[0] if stop else {})).get("reach") or {}
-        delta = lambda k: (after.get(k, 0) - before.get(k, 0)) if after else None  # noqa: E731
+        delta = lambda c: (_count(after, c) - _count(before, c)) if after else None  # noqa: E731
         # The engine's own answer, at the boundary that opened this round.
         arm = "on" if before.get("lever_" + LEVER) else "off"
         out.append({"round": starts[i]["round"], "arm": arm,
@@ -56,8 +67,8 @@ def rounds(path):
                     "clkmed": samples[len(samples) // 2] if samples else None,
                     "clkmin": samples[0] if samples else None,
                     "load1": round(starts[i]["load1"], 1) if starts[i].get("load1") else None,
-                    "served": delta(SERVED), "declin": delta(DECLINED),
-                    "spill": delta(SPILLED)})
+                    "served": delta("served"), "declin": delta("declin"),
+                    "spill": delta("spill")})
     return d, out
 
 
@@ -101,7 +112,7 @@ def main(*paths):
                   f"{len(srv)} warm rounds -- it went inert and the median is two arms blended")
         if arm == "on" and srv:
             print(f"\non-arm reach per warm round: served min {min(srv)} med {med(srv)} "
-                  f"max {max(srv)}; declined-over-budget med "
+                  f"max {max(srv)}; declined med "
                   f"{med([r['declin'] for r in warm if r['declin'] is not None])}; "
                   f"allocator spills total {sum(spl)}")
         if arm == "off" and srv and max(srv) > 0:

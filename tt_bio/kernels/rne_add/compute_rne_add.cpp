@@ -31,6 +31,11 @@
 //     Rounding to even in the SFPU first leaves a value that is already exactly bfloat16-
 //     representable, and the pack becomes a pure format change with no tie left to break.
 //
+// `widen_add` is the same program at ADD_MODE=1, ROUND_MODE=0 with a float32 output CB: the
+// backward's gradient fan-in, `f32(a) + f32(b)` rounded once to float32. A bfloat16 operand widens
+// exactly on the way into DEST; a float32 one is unpacked straight to DEST (`UnpackToDestFp32`,
+// set by the host), because through SrcA it would lose 13 mantissa bits to the 19-bit register.
+//
 // WHAT DOES NOT WORK, so nobody spends the day on it again: `typecast_tile<Float32, Float16_b>`
 // is the right arithmetic -- it is `bits + 0x7fff + lsb`, which IS round-half-to-even -- and it
 // cannot be used from a 32-bit-DEST kernel. Its store is scheduled through SFPLOADMACRO, and the
@@ -122,9 +127,12 @@ void kernel_main() {
         tile_regs_acquire();
         if constexpr (ADD_MODE == 1) {
             for (uint32_t j = 0; j < n; ++j) {
-                copy_tile_to_dst_init_short(cb_a);
+                // `_with_dt` reconfigures the unpacker only when the two CBs differ in format,
+                // which is `widen_add`'s float32 accumulator beside a bfloat16 contribution.
+                // For rne_add both are bfloat16 and the reconfig is a compare.
+                copy_tile_to_dst_init_short_with_dt(cb_b, cb_a);
                 copy_tile(cb_a, j, SLOTS * j);
-                copy_tile_to_dst_init_short(cb_b);
+                copy_tile_to_dst_init_short_with_dt(cb_a, cb_b);
                 copy_tile(cb_b, j, SLOTS * j + 1);
                 add_binary_tile_init();
                 add_binary_tile(SLOTS * j, SLOTS * j + 1, SLOTS * j);

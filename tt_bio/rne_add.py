@@ -20,12 +20,14 @@ at every shape.
 
 from __future__ import annotations
 
+import collections
 import os
 from pathlib import Path
 
 import ttnn
 
 from . import core_split
+from .envflags import env_flag
 from . import genq
 from . import ops as _ops
 
@@ -96,8 +98,8 @@ def enabled() -> bool:
     return _ENABLED
 
 
-def _gran() -> int:
-    cap = _DST_TILES // (2 if ADD_MODE == 1 else 1)
+def _gran(add_mode=None) -> int:
+    cap = _DST_TILES // (2 if (ADD_MODE if add_mode is None else add_mode) == 1 else 1)
     return min(GRAN or cap, cap)
 
 
@@ -113,14 +115,23 @@ def _reject(reason, shape, other=None):
 def _tile_grid(t) -> tuple:
     """The PADDED tile grid, which is what the buffer holds and what the kernels index.
 
+    TILE layout pads the last two dims each to 32 and every leading index gets its own padded
+    `[H, W]` block, so the page count is `prod(leading) * ceil(H/32) * ceil(W/32)`. Flattening
+    the leading dims into H first is a different count whenever H is not a multiple of 32:
+    `[3, 50, 70]` holds 3 x 2 x 3 pages, not 5 x 3, and an op that walks the second number reads
+    the wrong tiles (`widen_add`'s grade measured 0.29-0.67 rel L2 on exactly those shapes before
+    this was fixed; every shape the round runs is aligned, so no shipped number moved).
+
     Tile padding is added and written like any other element: the wide path pads the same way and
-    the padding of a residual's operands is the padding of its result.
+    the padding of an add's operands is the padding of its result.
     """
     shape = [int(d) for d in t.shape]
-    rows = 1
-    for d in shape[:-1]:
-        rows *= d
-    return ((rows + TILE_H - 1) // TILE_H, (shape[-1] + TILE_W - 1) // TILE_W)
+    if len(shape) == 1:
+        shape = [1] + shape
+    lead = 1
+    for d in shape[:-2]:
+        lead *= d
+    return (lead * ((shape[-2] + TILE_H - 1) // TILE_H), (shape[-1] + TILE_W - 1) // TILE_W)
 
 
 def _tile_count(t) -> int:
@@ -151,7 +162,7 @@ def _split_plan(device, units):
     return _SPLIT_CACHE[key]
 
 
-def _cache_key(a, b, out, device):
+def _cache_key(a, b, out, device, mode):
     """What decides which cached program serves this call, built only from cheap reads.
 
     This runs on EVERY dispatch, so what it costs is what every call costs. The obvious spelling
@@ -171,17 +182,18 @@ def _cache_key(a, b, out, device):
         device.id(), _tile_count(a), a.dtype, a.layout, b.dtype, b.layout,
         mca.buffer_type, mca.memory_layout, mcb.buffer_type, mcb.memory_layout,
         mco.buffer_type, mco.memory_layout, g.x, g.y,
-        ADD_MODE, ROUND_MODE, _gran(), OUT_DTYPE, genq.compact(),
+        mode, _gran(mode[0]), out.dtype, genq.compact(),
     )
 
 
-def _build(a, out, device, reader_ct, writer_ct):
+def _build(a, b, out, device, reader_ct, writer_ct, mode):
     num_tiles = _tile_count(a)
     plan = _split_plan(device, num_tiles)
     assert plan is not None, "no work to split"
     num_cores, core_grid, cg1, cg2, work1, work2 = plan
 
-    gran = _gran()
+    add_mode, round_mode = mode
+    gran = _gran(add_mode)
 
     def cb(idx, depth, dtype):
         tile_bytes = TILE_H * TILE_W * _ELEM[dtype]
@@ -194,8 +206,8 @@ def _build(a, out, device, reader_ct, writer_ct):
 
     # Depth 2*gran on every CB: the dataflow kernels reserve `gran` tiles and walk them from one
     # `get_write_ptr`, so a depth that is not a multiple of `gran` would wrap a block mid-walk.
-    cbs = [cb(A_CB, 2 * gran, _DTYPE), cb(B_CB, 2 * gran, _DTYPE),
-           cb(OUT_CB, 2 * gran, OUT_DTYPE)]
+    cbs = [cb(A_CB, 2 * gran, a.dtype), cb(B_CB, 2 * gran, b.dtype),
+           cb(OUT_CB, 2 * gran, out.dtype)]
 
     # EVERY placed core gets a slice, and the placement set is built from the same loop that
     # assigns them. A core placed without runtime args reads them as zero, so its writer takes
@@ -243,14 +255,9 @@ def _build(a, out, device, reader_ct, writer_ct):
         kernel_source=str(KERNEL_DIR / "compute_rne_add.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[A_CB, B_CB, OUT_CB, gran, ADD_MODE, ROUND_MODE] + genq_ct,
+        compile_time_args=[A_CB, B_CB, OUT_CB, gran, add_mode, round_mode] + genq_ct,
         runtime_args=compute_rt,
-        config=ttnn.ComputeConfigDescriptor(
-            # HiFi4 keeps every mantissa bit of a bfloat16 operand on the FPU path, and the 32-bit
-            # DEST is what makes the intermediate wider than either operand. Both are the kernel's
-            # accuracy claim, not a tuning choice.
-            math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True
-        ),
+        config=_compute_config(a, b),
     )
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=cbs)
 
@@ -267,22 +274,42 @@ def _build(a, out, device, reader_ct, writer_ct):
             "compact": plan_ct is not None}
 
 
-def _prepare(a, b, out, device):
-    entry = _CACHE.get(_cache_key(a, b, out, device))
+#: Circular buffers per core on Blackhole; the length `unpack_to_dest_mode` is indexed by CB id.
+_NUM_CBS = 64
+
+
+def _compute_config(a, b):
+    """HiFi4 keeps every mantissa bit of a bfloat16 operand on the FPU path, and the 32-bit DEST
+    is what makes the intermediate wider than either operand. Both are the kernel's accuracy
+    claim, not a tuning choice.
+
+    A float32 operand is unpacked straight to DEST. Through SrcA it would arrive as a 19-bit
+    TF32 and `widen_add` would round the accumulator on every contribution.
+    """
+    cfg = ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
+                                       fp32_dest_acc_en=True)
+    wide = [cb for cb, t in ((A_CB, a), (B_CB, b)) if t.dtype == ttnn.float32]
+    if wide:
+        modes = [ttnn.UnpackToDestMode.Default] * _NUM_CBS
+        for cb in wide:
+            modes[cb] = ttnn.UnpackToDestMode.UnpackToDestFp32
+        cfg.unpack_to_dest_mode = modes
+    return cfg
+
+
+def _prepare(a, b, out, device, mode):
+    key = _cache_key(a, b, out, device, mode)
+    entry = _CACHE.get(key)
     if entry is None:
-        entry = _build_entry(a, b, out, device)
-    return entry
-
-
-def _build_entry(a, b, out, device):
-    """The miss path. Everything here is built once per (shape, placement, mode), never per call."""
-    reader_ct = [_gran()]
-    reader_ct.extend(ttnn.TensorAccessorArgs(a).get_compile_time_args())
-    reader_ct.extend(ttnn.TensorAccessorArgs(b).get_compile_time_args())
-    writer_ct = [_gran()]
-    writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
-    entry = _build(a, out, device, reader_ct, writer_ct)
-    _CACHE[_cache_key(a, b, out, device)] = entry
+        # The miss path. Everything here is built once per (shape, placement, mode), never per
+        # call.
+        gran = _gran(mode[0])
+        reader_ct = [gran]
+        reader_ct.extend(ttnn.TensorAccessorArgs(a).get_compile_time_args())
+        reader_ct.extend(ttnn.TensorAccessorArgs(b).get_compile_time_args())
+        writer_ct = [gran]
+        writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+        entry = _CACHE[key] = _build(a, b, out, device, reader_ct, writer_ct, mode)
     return entry
 
 
@@ -293,12 +320,17 @@ def rne_add(a, b, memory_config=None, out=None, device=None):
     Neither operand is deallocated: the caller owns them, exactly as it owns the operands of the
     four-call path this replaces.
     """
+    STATS[0] += 1
+    return _dispatch(a, b, OUT_DTYPE, (ADD_MODE, ROUND_MODE), memory_config, out, device)
+
+
+def _dispatch(a, b, out_dtype, mode, memory_config, out, device):
     device = device or a.device()
     if out is None:
         out = ttnn.allocate_tensor_on_device(
-            a.shape, OUT_DTYPE, ttnn.TILE_LAYOUT, device, memory_config or a.memory_config()
+            a.shape, out_dtype, ttnn.TILE_LAYOUT, device, memory_config or a.memory_config()
         )
-    entry = _prepare(a, b, out, device)
+    entry = _prepare(a, b, out, device, mode)
     common_r = [a.buffer_address(), b.buffer_address()]
     common_w = [out.buffer_address()]
     if ADDR_WRITE_MODE == "in_place":
@@ -312,7 +344,6 @@ def rne_add(a, b, memory_config=None, out=None, device=None):
         pd = entry["pd"] = ttnn.ProgramDescriptor(
             kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
         )
-    STATS[0] += 1
     return ttnn.generic_op([a, b, out], pd)
 
 
@@ -343,3 +374,72 @@ def eligible(a, b, memory_config) -> bool:
     if _tile_grid(a) != _tile_grid(b):
         return _reject("tile_grid", shape_a, [int(d) for d in b.shape])
     return True
+
+
+# ---------------------------------------------------------------------------------------------
+# widen_add: the backward's gradient fan-in, `f32(a) + f32(b)`, on the same program.
+#
+# `autograd.Tensor.add_grad` promotes on the second contribution: `typecast(acc, f32)`,
+# `typecast(grad, f32)`, `add`. The casts write float32 tensors the add reads straight back, and
+# those edges are the seven largest write-then-reread chains in the round's backward
+# (`state/perf10/bcx-p10-l1fuse.md`: 24.46 GB a round at `1x288x288x128`, 18.35 GB each on the
+# triangle-attention bias at `288x1x288x384`). The promotion itself is load-bearing -- a mixed
+# `ttnn.add(..., dtype=float32)` is 5-6 orders of magnitude less accurate, because ttnn's binary
+# datapath follows the narrowest operand -- so this keeps the arithmetic and removes the round
+# trips: widen in the unpacker, add in a 32-bit DEST with the SFPU (exact, like rne_add's
+# ADD_MODE=1), pack float32. No rounding step: the float32 DEST is the result. Bytes per element
+# 8 against 24 on the first promotion and 10 against 18 on every later one.
+#
+# A float32 + float32 call is declined: `ttnn.add` already moves 12 B/element there and there is
+# no cast to remove.
+
+#: The lever. Default OFF and release-gated; `autograd.Tensor.add_grad` is the only caller.
+WIDEN_ADD = env_flag("TT_BIO_WIDEN_ADD", False)
+
+#: Served and declined calls by name, cumulative; sample at a round boundary.
+WIDEN_REACH: collections.Counter = collections.Counter()
+
+_WIDEN_MODE = (1, 0)  # SFPU add, no rounding: the float32 DEST is packed as it is
+_WIDE_IN = (ttnn.bfloat16, ttnn.float32)
+
+
+def _widen_decline(reason) -> bool:
+    WIDEN_REACH["declined: " + reason] += 1
+    return False
+
+
+def widen_eligible(a, b) -> bool:
+    """What `widen_add` serves. Everything else falls through to the caller's widened path."""
+    if not WIDEN_ADD:
+        return False
+    if _ops.taping():
+        # Nothing tapes a backward, so this never fires on the fan-in; a taped caller would need
+        # a tape entry, and there is none.
+        return _widen_decline("taped")
+    if a.dtype not in _WIDE_IN or b.dtype not in _WIDE_IN:
+        return _widen_decline("dtype")
+    if a.dtype == ttnn.float32 and b.dtype == ttnn.float32:
+        return _widen_decline("both float32")
+    if a.layout != ttnn.TILE_LAYOUT or b.layout != ttnn.TILE_LAYOUT:
+        return _widen_decline("not TILE")
+    if [int(d) for d in a.shape] != [int(d) for d in b.shape]:
+        return _widen_decline("shape")
+    for t in (a, b):
+        if t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
+            return _widen_decline("sharded")
+    return True
+
+
+def widen_add(a, b):
+    """``f32(a) + f32(b)`` rounded once to float32, into a new DRAM float32 tensor.
+
+    `a` and `b` are TILE, same shape, each bfloat16 or float32 and not both float32 (the gate).
+    Neither is deallocated.
+    """
+    WIDEN_REACH["served: " + ("first" if a.dtype == b.dtype else "later")] += 1
+    return _dispatch(a, b, ttnn.float32, _WIDEN_MODE, ttnn.DRAM_MEMORY_CONFIG, None, None)
+
+
+def widen_reach() -> dict:
+    """A snapshot of `WIDEN_REACH`, for a round boundary or a run stamp."""
+    return dict(WIDEN_REACH)

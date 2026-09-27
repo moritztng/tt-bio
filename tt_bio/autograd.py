@@ -32,6 +32,7 @@ import ttnn
 from tt_bio.envflags import env_flag
 from tt_bio import mm_layout as _mm_layout
 from tt_bio import fanin_l1 as _fanin_l1
+from tt_bio import rne_add as _rne_add
 
 #: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
 #: what this flag exists to avoid. It was introduced for trace capture, which refuses a host
@@ -537,6 +538,14 @@ class Tensor:
         # first backward. A budget that guards its own allocation does not guard the next
         # program's CB region, so residency is only safe for a value whose lifetime ends inside
         # the chain that reads it.
+        #
+        # `TT_BIO_WIDEN_ADD` removes the casts instead of placing them: one kernel widens both
+        # operands in the unpacker and adds in a float32 DEST, the same function at 8-10
+        # B/element against 18-24. Where it serves there is no promoted tensor left for
+        # `fanin_l1` to place, so the two never act on one call.
+        if _rne_add.widen_eligible(self._grad, grad):
+            self._grad = _rne_add.widen_add(self._grad, grad)
+            return
         if self._grad.dtype != ttnn.float32:
             self._grad = ttnn.typecast(self._grad, ttnn.float32)
         self._grad = ttnn.add(
