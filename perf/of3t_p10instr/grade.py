@@ -19,7 +19,22 @@ BAR_RATIO = 1 / 3                 # 0.60 A structure bar over its 1.84 A seed fl
 
 
 def _calls(path):
+    """`path` is one artifact, or several joined by `+` (one checkpoint per process)."""
+    if "+" in path:
+        parts = [_calls(p) for p in path.split("+")]
+        by = {}
+        for _, b in parts:
+            for lab, rows in b.items():
+                if lab in by:
+                    raise SystemExit(f"{lab} appears twice in {path}")
+                by[lab] = rows
+        return {"head": ",".join(sorted({r.get("head") for r, _ in parts})),
+                "dirty": any(r.get("dirty") for r, _ in parts),
+                "aiclk_line": " | ".join(r.get("aiclk_line", "") for r, _ in parts)}, by
     r = json.loads(Path(path).read_text())
+    if r.get("trimul", {}).get("host_in_proj"):
+        raise SystemExit(f"{path}: {r['trimul']} -- a trimul cut its in-projection from the "
+                         "start checkpoint's host copy, so this artifact did not score its weights")
     if not r.get("ok"):
         raise SystemExit(f"{path}: run did not finish ok ({r.get('error')})")
     by = {}
@@ -52,9 +67,11 @@ def _modes(xs, gap=1.0):
 def history(paths):
     """H: the largest |M| difference between two processes scoring the same weights."""
     runs = [_calls(p)[1] for p in paths]
-    common = set.intersection(*(set(r) for r in runs))
-    diffs = {lab: max(_score(r[lab]) for r in runs) - min(_score(r[lab]) for r in runs)
-             for lab in sorted(common)}
+    diffs = {}
+    for lab in sorted({lab for r in runs for lab in r}):
+        ms = [_score(r[lab]) for r in runs if lab in r]
+        if len(ms) > 1:
+            diffs[lab] = max(ms) - min(ms)
     return max(diffs.values()), diffs
 
 

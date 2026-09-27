@@ -77,6 +77,35 @@ def _by_file_names(path, params):
     return out
 
 
+def _trimul_state(model):
+    """Every TriangleMultiplication in `model`: how many read device leaves, how many cache.
+
+    `train_in_projections` gives each trimul device leaves for its in-projection, and then
+    `_gp_in_chunks` cuts from them per call and caches nothing. A trimul without them would cut
+    from the START checkpoint's host copy and cache it per width, so a loaded checkpoint would
+    run start-weight in-projections at every width it had not seen at discovery.
+    """
+    import ttnn
+    from tt_bio.tenstorrent import _WALK_OPAQUE, TriangleMultiplication
+    seen, stack, n, host, cached = set(), [model], 0, 0, 0
+    while stack:
+        o = stack.pop()
+        if id(o) in seen or isinstance(o, _WALK_OPAQUE + (ttnn.Tensor,)):
+            continue
+        seen.add(id(o))
+        if isinstance(o, TriangleMultiplication):
+            n += 1
+            host += o.g_in_weight is None
+            cached += len(o._gp_cache) + len(o._gp_gout_cache)
+        if isinstance(o, dict):
+            stack += o.values()
+        elif isinstance(o, (list, tuple)):
+            stack += o
+        elif hasattr(o, "__dict__"):
+            stack += vars(o).values()
+    return {"trimuls": n, "host_in_proj": host, "cache_entries": cached}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--train-corpus", required=True, type=Path,
@@ -178,6 +207,8 @@ def main() -> int:
                                   + " ".join(f"{k} {v['loss']:.6f}"
                                              for k, v in row["targets"].items()), flush=True)
                             dump()
+            rec["trimul"] = _trimul_state(getattr(fwd, "model", fwd))
+            print(f"[trimul] {rec['trimul']}", flush=True)
             rec["ok"] = True
         except BaseException as exc:                                   # noqa: BLE001
             import traceback
