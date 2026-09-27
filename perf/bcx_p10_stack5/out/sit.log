@@ -1,0 +1,19 @@
+=== fp 2026-09-27T01:20:12Z
+=== s1 (serial, 9 rounds) 2026-09-27T01:21:26Z
+=== d1 (duo, 9 rounds) 2026-09-27T01:24:52Z
+perf/bcx_p10_stack5/sit.sh: line 19: 3836242 Aborted                 (core dumped) perf/bcx_p10_stack5/arm.sh "$tag" "$r" "$mode" > "$o/$tag.log" 2>&1
+  d1 exited 134
+=== d2 (duo, 9 rounds) 2026-09-27T01:27:37Z
+perf/bcx_p10_stack5/sit.sh: line 19: 3842594 Aborted                 (core dumped) perf/bcx_p10_stack5/arm.sh "$tag" "$r" "$mode" > "$o/$tag.log" 2>&1
+  d2 exited 134
+=== s2 (serial, 9 rounds) 2026-09-27T01:30:30Z
+=== d3 (duo, 9 rounds) 2026-09-27T01:33:55Z
+perf/bcx_p10_stack5/sit.sh: line 19: 3863381 Aborted                 (core dumped) perf/bcx_p10_stack5/arm.sh "$tag" "$r" "$mode" > "$o/$tag.log" 2>&1
+  d3 exited 134
+=== s3 (serial, 9 rounds) 2026-09-27T01:36:39Z
+=== s4 (serial, 9 rounds) 2026-09-27T01:39:55Z
+=== d4 (duo, 9 rounds) 2026-09-27T01:43:12Z
+perf/bcx_p10_stack5/sit.sh: line 19: 3895451 Aborted                 (core dumped) perf/bcx_p10_stack5/arm.sh "$tag" "$r" "$mode" > "$o/$tag.log" 2>&1
+  d4 exited 134
+=== acc 2026-09-27T01:45:58Z
+=== sitting done 2026-09-27T01:50:38Z

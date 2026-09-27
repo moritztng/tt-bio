@@ -88,8 +88,29 @@ def one(path):
     return out, d
 
 
-def digests(d):
-    return {(e["slot"], e["round"]): e["sha256"] for e in d["events"] if e["kind"] == "digest"}
+def digests(d, part=None):
+    return {(e["slot"], e["round"]): (e["parts"][part] if part else e["sha256"])
+            for e in d["events"] if e["kind"] == "digest" and (part is None or "parts" in e)}
+
+
+def leg4(ser, duo, raw, part=None):
+    """Every duo digest against every serial arm's digest for the same (slot, round)."""
+    ref = {}
+    for r in ser:
+        for k, h in digests(raw[r["arm"]], part).items():
+            ref.setdefault(k, set()).add(h)
+    same = diff = 0; bad = []
+    for r in duo:
+        for k, h in digests(raw[r["arm"]], part).items():
+            if k not in ref:
+                continue
+            if h in ref[k] and len(ref[k]) == 1:
+                same += 1
+            else:
+                diff += 1; bad.append((r["arm"], k))
+    return {"duo_equal_to_serial": same, "differ": diff, "first_differ": bad[:6],
+            "serial_keys_disagreeing_across_serial_arms": sum(len(v) > 1 for v in ref.values()),
+            "serial_keys": len(ref)}
 
 
 def main():
@@ -122,26 +143,16 @@ def main():
                    "serial_device_s": statistics.mean(r["device_s"] for r in ser)}
         print(f"\nserial {s:.3f}  duo {dd:.3f}  speedup {s/dd:.4f}x  "
               f"RATIO {dd/H200:.2f}x vs H200 (bar {10*H200:.3f} s)")
-    # Leg 4: every duo digest against every serial arm's digest for the same (slot, round).
-    ref = {}
-    for r in ser:
-        for k, h in digests(raw[r["arm"]]).items():
-            ref.setdefault(k, set()).add(h)
-    same = diff = 0; bad = []
-    for r in duo:
-        for k, h in digests(raw[r["arm"]]).items():
-            if k not in ref:
-                continue
-            if h in ref[k] and len(ref[k]) == 1:
-                same += 1
-            else:
-                diff += 1; bad.append((r["arm"], k))
-    serial_self = sum(1 for v in ref.values() if len(v) > 1)
-    summary["leg4"] = {"duo_equal_to_serial": same, "differ": diff, "first_differ": bad[:6],
-                       "serial_keys_disagreeing_across_serial_arms": serial_self,
-                       "serial_keys": len(ref)}
-    print(f"leg 4: {same} duo (trajectory, round) outputs equal to serial, {diff} differ; "
-          f"serial arms disagree among themselves on {serial_self} of {len(ref)} keys")
+    summary["leg4"] = {}
+    for part in (None, "pred", "grad", "loss"):
+        l4 = leg4(ser, duo, raw, part)
+        if part and not l4["serial_keys"]:
+            continue
+        summary["leg4"][part or "all"] = l4
+        print(f"leg 4 [{part or 'all'}]: {l4['duo_equal_to_serial']} duo (trajectory, round) "
+              f"outputs equal to serial, {l4['differ']} differ; serial arms disagree among "
+              f"themselves on {l4['serial_keys_disagreeing_across_serial_arms']} of "
+              f"{l4['serial_keys']} keys")
     if js:
         pathlib.Path(js).write_text(json.dumps({"arms": rows, "summary": summary}, indent=1,
                                                default=str))

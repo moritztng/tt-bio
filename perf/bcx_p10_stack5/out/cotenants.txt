@@ -1,0 +1,279 @@
+--- 2026-09-27T01:20:12Z load 16.62 15.61 12.49
+    PID     ELAPSED %CPU   RSS COMMAND
+3818651       01:01  716 4773012 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 204169  1-11:46:02  373 7892856 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3816527       02:07  164 8293364 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/lnhash.py --hash-out /home/ttuser/.coworker/wt/of3t-p10trainfix/perf/of3t_p10trainfix/out/lnhash_b.json --
+3821012       00:00  100  4516 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   3182  1-16:12:41 11.2 514460 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+3818599       01:04  7.6 499576 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/prot.yaml --model openbind --sampling
+   1122  1-16:13:20  3.3 40292 /usr/libexec/bluetooth/bluetoothd
+--- 2026-09-27T01:21:12Z load 21.19 17.14 13.21
+    PID     ELAPSED %CPU   RSS COMMAND
+3818651       02:01  742 4774780 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 204169  1-11:47:02  373 8402724 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3816527       03:07  163 8418276 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/lnhash.py --hash-out /home/ttuser/.coworker/wt/of3t-p10trainfix/perf/of3t_p10trainfix/out/lnhash_b.json --
+3821008       01:00  141 7521976 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/footprint.py --rounds 3 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --triatt-bw 
+   3182  1-16:13:41 11.2 514480 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+3818599       02:04  4.8 499632 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/prot.yaml --model openbind --sampling
+   1122  1-16:14:20  3.3 40292 /usr/libexec/bluetooth/bluetoothd
+--- 2026-09-27T01:22:12Z load 18.46 17.22 13.49
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:48:02  373 8402724 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3823581       00:45  185 8399512 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3816527       04:07  163 8335768 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/lnhash.py --hash-out /home/ttuser/.coworker/wt/of3t-p10trainfix/perf/of3t_p10trainfix/out/lnhash_b.json --
+   3182  1-16:14:41 11.2 514512 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+3818599       03:04  3.7 499636 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/prot.yaml --model openbind --sampling
+   1122  1-16:15:20  3.3 40292 /usr/libexec/bluetooth/bluetoothd
+3763183       13:59  0.7 481084 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/release_gate.py --journal gate_genq.json
+--- 2026-09-27T01:23:12Z load 12.58 15.82 13.24
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:49:02  373 7892856 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3823581       01:45  175 10125272 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3824959       00:58  116 8899204 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/scripts/rf3_port/accuracy_cell.py --fixture 7eip_997 --seeds 0 --ste
+3827717       00:00  100 74896 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3827719       00:00 93.7 76048 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3827718       00:00 87.5 76808 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+   3182  1-16:15:41 11.2 514532 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-09-27T01:24:12Z load 10.72 14.72 13.03
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:50:02  373 8423464 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3823581       02:45  171 13494244 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3833670       00:00  100 27364 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3824959       01:58 75.0 8901604 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/scripts/rf3_port/accuracy_cell.py --fixture 7eip_997 --seeds 0 --ste
+   3182  1-16:16:41 11.2 514560 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:17:20  3.3 40316 /usr/libexec/bluetooth/bluetoothd
+3763183       15:59  0.6 485704 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/release_gate.py --journal gate_genq.json
+--- 2026-09-27T01:25:12Z load 10.42 13.94 12.87
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:51:02  373 8545204 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3836242       00:19  170 7158508 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3824959       02:58 76.2 8902044 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/scripts/rf3_port/accuracy_cell.py --fixture 7eip_997 --seeds 0 --ste
+   3182  1-16:17:41 11.2 514612 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:18:20  3.3 40324 /usr/libexec/bluetooth/bluetoothd
+3763183       16:59  0.6 485704 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/release_gate.py --journal gate_genq.json
+   1146  1-16:18:20  0.4 150564 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T01:26:12Z load 9.34 12.98 12.60
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:52:02  373 8441636 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3836242       01:20  190 14500116 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3838017       00:00  100  4520 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+3824959       03:58 81.3 9154536 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/scripts/rf3_port/accuracy_cell.py --fixture 7eip_997 --seeds 0 --ste
+   3182  1-16:18:41 11.2 514624 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:19:20  3.3 40336 /usr/libexec/bluetooth/bluetoothd
+3763183       17:59  0.5 485704 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/release_gate.py --journal gate_genq.json
+--- 2026-09-27T01:27:12Z load 10.61 12.62 12.50
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:53:02  373 8441636 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3841712       00:16  250 5886416 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/perf/dsfix/fixtures/rfd3_R4.json --model rfd3 
+3836242       02:20  205 14774064 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3840663       00:37  134 1849460 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/bcast_det.py --out perf/of3t_p10trainfix/out/bcast_det.json
+   3182  1-16:19:41 11.2 514660 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:20:20  3.3 40348 /usr/libexec/bluetooth/bluetoothd
+3763183       18:59  0.5 485704 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/release_gate.py --journal gate_genq.json
+--- 2026-09-27T01:28:12Z load 10.20 12.08 12.31
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:54:02  373 8482988 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3843933       00:12  196 4014108 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/binder.yaml --model boltzgen --out_di
+3842594       00:34  157 8759276 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3840663       01:37  136 1864200 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/bcast_det.py --out perf/of3t_p10trainfix/out/bcast_det.json
+3844266       00:00 87.5 48852 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3844265       00:00 75.0 41956 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3844267       00:00 75.0 46068 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+--- 2026-09-27T01:29:12Z load 11.75 12.15 12.32
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:55:02  373 8462372 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3842594       01:34  180 14803532 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3843933       01:12  169 4737112 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/binder.yaml --model boltzgen --out_di
+3840663       02:37  135 1973736 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/bcast_det.py --out perf/of3t_p10trainfix/out/bcast_det.json
+   3182  1-16:21:41 11.2 514720 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:22:20  3.3 40348 /usr/libexec/bluetooth/bluetoothd
+3763183       20:59  0.5 485704 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/release_gate.py --journal gate_genq.json
+--- 2026-09-27T01:30:12Z load 13.10 12.41 12.40
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:56:02  373 8462376 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3842594       02:34  194 14653656 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3843933       02:12  193 4742660 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/binder.yaml --model boltzgen --out_di
+3840663       03:37  133 2245628 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/bcast_det.py --out perf/of3t_p10trainfix/out/bcast_det.json
+   3182  1-16:22:41 11.2 514748 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+3849541       00:00  4.3 10888 sshd: ttuser [priv]
+   1122  1-16:23:20  3.3 40348 /usr/libexec/bluetooth/bluetoothd
+--- 2026-09-27T01:31:12Z load 13.46 12.52 12.43
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:57:02  373 8494368 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_
+3843933       03:12  187 6327440 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/binder.yaml --model boltzgen --out_di
+3851134       00:41  160 8215144 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3840663       04:37  133 1793116 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/bcast_det.py --out perf/of3t_p10trainfix/out/bcast_det.json
+3852962       00:00 95.6 49840 /opt/tenstorrent/sfpi/compiler/bin/../lib/gcc/../../libexec/gcc/riscv-tt-elf/15.1.0/lto1 -quiet -dumpbase /home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0/tt-metal-
+   3182  1-16:23:41 11.2 514804 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:24:20  3.3 40348 /usr/libexec/bluetooth/bluetoothd
+--- 2026-09-27T01:32:12Z load 13.59 12.66 12.48
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:58:02  373 10338912 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3843933       04:12  186 6290568 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/binder.yaml --model boltzgen --out_di
+3851134       01:41  162 9575080 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3840663       05:37  133 2081180 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/bcast_det.py --out perf/of3t_p10trainfix/out/bcast_det.json
+3855865       00:00  100 34532 /opt/tenstorrent/sfpi/compiler/bin/../lib/gcc/../../libexec/gcc/riscv-tt-elf/15.1.0/lto1 -quiet -dumpbase /home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0/tt-metal-
+3855869       00:00  100 31500 /opt/tenstorrent/sfpi/compiler/bin/../lib/gcc/../../libexec/gcc/riscv-tt-elf/15.1.0/lto1 -quiet -dumpbase /home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0/tt-metal-
+3855880       00:00  100 21676 /opt/tenstorrent/sfpi/compiler/bin/../lib/gcc/../../libexec/gcc/riscv-tt-elf/15.1.0/lto1 -quiet -dumpbase /home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0/tt-metal-
+--- 2026-09-27T01:33:12Z load 12.73 12.56 12.45
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-11:59:02  373 10531184 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3851134       02:41  162 13015368 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3840663       06:37  132 1979296 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/bcast_det.py --out perf/of3t_p10trainfix/out/bcast_det.json
+   3182  1-16:25:41 11.2 514860 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:26:20  3.3 40348 /usr/libexec/bluetooth/bluetoothd
+3763183       25:00  0.5 504816 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/release_gate.py --journal gate_genq.json
+   1146  1-16:26:20  0.4 150872 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T01:34:12Z load 11.94 12.37 12.40
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:00:02  373 13687984 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3863381       00:16  153 5249076 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3840663       07:37  133 1594864 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/bcast_det.py --out perf/of3t_p10trainfix/out/bcast_det.json
+3866057       00:00  100 56892 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3866053       00:00 90.9 51608 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3866054       00:00 90.9 53468 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3866055       00:00 90.9 46900 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+--- 2026-09-27T01:35:12Z load 11.07 12.08 12.30
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:01:02  373 13687984 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3859070       01:59  187 630904 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/rfd3_binder.json --model rfd3 --from_p
+3863381       01:16  168 13785072 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+   3182  1-16:27:41 11.2 514960 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:28:20  3.3 40372 /usr/libexec/bluetooth/bluetoothd
+3867383       00:01  2.9 17116 /usr/lib/git-core/git-remote-https origin https://github.com/moritztng/tt-bio.git
+3867268       00:01  0.5 10956 sshd: ttuser [priv]
+--- 2026-09-27T01:36:12Z load 11.88 12.06 12.27
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:02:02  373 13687984 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3863381       02:16  190 14455456 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3869665       00:38  172 8241704 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/gradhash.py --hash-out /home/ttuser/.coworker/wt/of3t-p10trainfix/perf/of3t_p10trainfix/out/gh_fixa.json -
+3872857       00:00  100 76520 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3869996       00:29 33.5 2309956 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/scripts/release_gate.py --pxdesign-child --pxdesign-out /home/ttuser
+   3182  1-16:28:41 11.2 514992 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:29:20  3.3 40396 /usr/libexec/bluetooth/bluetoothd
+--- 2026-09-27T01:37:12Z load 14.33 12.70 12.48
+    PID     ELAPSED %CPU   RSS COMMAND
+3874693       00:41  427 4981368 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 204169  1-12:03:02  373 10406588 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3875218       00:25  214 8473132 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainfix/gradhash.py --hash-out /home/ttuser/.coworker/wt/of3t-p10trainfix/perf/of3t_p10trainfix/out/gh_fixb.json -
+3875032       00:33  164 7808356 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3876055       00:00  107 59836 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3876056       00:00  100 59256 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3876057       00:00  100 60644 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+--- 2026-09-27T01:38:12Z load 16.66 13.68 12.83
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:04:02  373 13751156 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3874693       01:41  210 13059336 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3875032       01:33  160 9680896 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3881712       00:00  102 83484 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3881710       00:00  100 87656 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3881711       00:00  100 85912 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+3881714       00:00  100 88232 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+--- 2026-09-27T01:39:12Z load 11.97 12.92 12.62
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:05:02  373 13751156 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3875032       02:33  164 13453992 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3874693       02:41  162 13155948 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+   3182  1-16:31:41 11.2 515060 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:32:20  3.3 40412 /usr/libexec/bluetooth/bluetoothd
+3874629       02:43  2.9 509052 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/1ahw_abag.yaml --model opendde-abag -
+   1146  1-16:32:20  0.4 151160 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T01:40:12Z load 9.32 11.99 12.32
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:06:02  373 13751156 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3885209       00:24  211 5818284 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of
+3885377       00:17  162 6423724 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3874693       03:41  145 14808192 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+   3182  1-16:32:41 11.2 515116 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:33:20  3.3 40440 /usr/libexec/bluetooth/bluetoothd
+3874629       03:43  2.3 509328 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/1ahw_abag.yaml --model opendde-abag -
+--- 2026-09-27T01:41:12Z load 9.68 11.66 12.19
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:07:02  373 10682784 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3885209       01:24  169 14984936 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+3885377       01:17  167 9540028 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/b
+3874693       04:41  135 11110088 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+   3182  1-16:33:41 11.2 515124 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:34:20  3.3 40444 /usr/libexec/bluetooth/bluetoothd
+3874629       04:43  1.9 509724 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/1ahw_abag.yaml --model opendde-abag -
+--- 2026-09-27T01:42:12Z load 14.31 12.40 12.39
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:08:02  373 10537400 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3888123       00:11  210 3962876 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of
+3885377       02:17  163 12997604 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3874693       05:41  132 5611908 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3889217       00:00  100  4592 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+3889117       00:00 93.3 62392 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+3889211       00:00 83.3 46956 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+--- 2026-09-27T01:43:12Z load 13.86 12.71 12.51
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:09:02  373 13751156 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3895451       00:00  278 164144 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/bc
+3888123       01:11  169 9497960 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of
+3874693       06:41  132 7241984 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3895558       00:00 90.0 60120 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+   3182  1-16:35:41 11.2 515200 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:36:20  3.3 40448 /usr/libexec/bluetooth/bluetoothd
+--- 2026-09-27T01:44:12Z load 14.68 13.14 12.67
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:10:02  373 13751156 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3888123       02:11  180 14863712 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+3895451       01:00  159 13688976 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3874693       07:41  156 7242180 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+   3182  1-16:36:41 11.2 515232 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:37:20  3.3 40448 /usr/libexec/bluetooth/bluetoothd
+3874629       07:43  1.4 510468 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/1ahw_abag.yaml --model opendde-abag -
+--- 2026-09-27T01:45:12Z load 17.14 14.31 13.12
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:11:02  373 13751156 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3874693       08:41  181 7972216 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3895451       02:00  178 13380260 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out perf/
+3897935       00:51  142 7004524 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 48 --chunk 4 --reps 3 --no-exact --out /home/ttuser/.coworker/
+   3182  1-16:37:41 11.2 515244 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:38:20  3.3 40472 /usr/libexec/bluetooth/bluetoothd
+3874629       08:43  1.3 510472 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/1ahw_abag.yaml --model opendde-abag -
+--- 2026-09-27T01:46:12Z load 16.44 14.58 13.28
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:12:02  373 10738700 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3900030       00:38  294 1974448 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/scripts/nesso1_port/device_parity.py --fixture /home/ttuser/.coworke
+3900805       00:14  161 5217464 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 4 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder
+3897935       01:51  132 10065832 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 48 --chunk 4 --reps 3 --no-exact --out /home/ttuser/.coworker
+   3182  1-16:38:41 11.2 515308 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:39:20  3.3 40492 /usr/libexec/bluetooth/bluetoothd
+   1146  1-16:39:20  0.4 151520 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T01:47:12Z load 14.85 14.66 13.40
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:13:02  373 13748596 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3903076       00:54  334 9182984 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3900805       01:14  163 9486420 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 4 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder
+3897935       02:51  135 10077440 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 48 --chunk 4 --reps 3 --no-exact --out /home/ttuser/.coworker
+3906542       00:00  100  4520 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   3182  1-16:39:41 11.2 515332 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+3903026       00:56  6.9 498000 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/abag_pilot_expansion/9j4c_abag.yaml -
+--- 2026-09-27T01:48:12Z load 11.93 13.82 13.18
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:14:02  373 13921316 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3903076       01:54  211 9182984 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3906680       00:49  154 8514020 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 4 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder
+3906896       00:42  134 6999408 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 48 --chunk 4 --reps 3 --no-exact --out /home/ttuser/.coworker/
+3908664       00:00  100  4516 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   3182  1-16:40:41 11.2 515360 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+3903026       01:56  3.6 498364 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/abag_pilot_expansion/9j4c_abag.yaml -
+--- 2026-09-27T01:49:12Z load 9.82 12.89 12.91
+    PID     ELAPSED %CPU   RSS COMMAND
+ 204169  1-12:15:02  373 13717928 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3903076       02:54  172 9182984 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3909055       00:37  153 8119440 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 4 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder
+3906896       01:42  128 10065444 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 48 --chunk 4 --reps 3 --no-exact --out /home/ttuser/.coworker
+   3182  1-16:41:41 11.2 515424 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:42:20  3.3 40516 /usr/libexec/bluetooth/bluetoothd
+3903026       02:56  2.5 498844 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/abag_pilot_expansion/9j4c_abag.yaml -
+--- 2026-09-27T01:50:12Z load 10.15 12.40 12.73
+    PID     ELAPSED %CPU   RSS COMMAND
+3910533       00:07  468 11188904 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_stack2/grad_stack2.py --arm on --out /home/ttuser/.coworker/wt/bcx-p10-stack5/perf/bcx_p10_stack5/out_acc/grad_o
+ 204169  1-12:16:02  373 10373352 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx
+3903076       03:54  153 9182984 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3906896       02:42  123 10075820 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 48 --chunk 4 --reps 3 --no-exact --out /home/ttuser/.coworker
+   3182  1-16:42:41 11.2 515428 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1122  1-16:43:20  3.3 40528 /usr/libexec/bluetooth/bluetoothd
+3903026       03:56  2.0 499156 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/gate_genq/examples/abag_pilot_expansion/9j4c_abag.yaml -

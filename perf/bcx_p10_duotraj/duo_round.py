@@ -301,25 +301,45 @@ def _digest_outputs(cls, mt):
     `sequence_gradients` (gradients, losses, aux) lets the two arms be compared round by round
     from their event logs. Both arms pay it, so it is common-mode in the timing.
     """
+    import dataclasses
     import hashlib
-    import jax
     import numpy as np
     sg = cls.sequence_gradients
 
+    # `StructurePrediction` and `Protein` are plain dataclasses, not registered pytrees, so
+    # `jax.tree_util.tree_leaves` hands them back whole and `np.asarray` makes an object array
+    # whose bytes are pointers. Walk them by field instead, with dict keys in sorted order.
+    def walk(h, x):
+        if dataclasses.is_dataclass(x):
+            for f in dataclasses.fields(x):
+                h.update(f.name.encode())
+                walk(h, getattr(x, f.name))
+        elif isinstance(x, dict):
+            for k in sorted(x, key=str):
+                h.update(str(k).encode())
+                walk(h, x[k])
+        elif isinstance(x, (list, tuple)):
+            for v in x:
+                walk(h, v)
+        else:
+            a = np.asarray(x)
+            if a.dtype == object:
+                raise TypeError(f"digest: unwalkable leaf {type(x).__name__}")
+            h.update(f"{a.dtype}{a.shape}".encode())
+            h.update(np.ascontiguousarray(a).tobytes())
+
+    def sha(x):
+        h = hashlib.sha256()
+        walk(h, x)
+        return h.hexdigest()
+
     def sequence_gradients(self, *a, **kw):
         r = sg(self, *a, **kw)
-        h = hashlib.sha256()
-        leaves = jax.tree_util.tree_leaves(r)
-        for leaf in leaves:
-            try:
-                x = np.asarray(leaf)
-                h.update(f"{x.dtype}{x.shape}".encode())
-                h.update(x.tobytes())
-            except Exception:
-                h.update(repr(leaf).encode())
+        predictions, gradients, loss = r
+        parts = {"pred": sha(predictions), "grad": sha(gradients), "loss": sha(loss)}
         M.EVENTS.append({"kind": "digest", "phase": "sequence_gradients", "t0": time.time(),
-                         "slot": duotraj.slot(), "round": mt.entries, "leaves": len(leaves),
-                         "sha256": h.hexdigest()})
+                         "slot": duotraj.slot(), "round": mt.entries, "parts": parts,
+                         "sha256": hashlib.sha256("".join(parts.values()).encode()).hexdigest()})
         return r
     cls.sequence_gradients = sequence_gradients
 
