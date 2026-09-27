@@ -6189,8 +6189,9 @@ TRACE_REGIONS = {
     "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
     "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
     # BindCraft 2 seam traces (tt_bio/seam_trace.py), a TOTAL: the Evoformer forward+backward
-    # pair took 391.5 MB at n=288; priced for three trajectories on five checkpoints.
-    "bindcraft2": {"wormhole_b0": 7 << 30, "blackhole": 7 << 30},
+    # pair took 391.5 MB at n=288; priced for three trajectories on five checkpoints, all three
+    # stacks, with headroom.
+    "bindcraft2": {"wormhole_b0": 10 << 30, "blackhole": 10 << 30},
 }
 
 

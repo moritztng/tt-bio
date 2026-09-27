@@ -589,8 +589,8 @@ class EvoformerOnDevice:
             with duotraj.card(slot, "evoformer._taped"):
                 trunk = self._trunk(slot)
                 masks = self._msa_mask(trunk, mask), self._pair_masks(trunk, pair_mask)
-                mo, zo = self._traced.forward(slot, trunk, [m, z], lambda leaves: list(
-                    trunk.evoformer(*leaves, *masks, recompute=self.recompute)))
+                mo, zo = self._traced.forward(slot, trunk, [m, z], lambda t, leaves: list(
+                    t.evoformer(*leaves, *masks, recompute=self.recompute)))
                 self._tapes.sweep(slot)
                 token = self._tapes.bank({"traced": True, "n": n,
                                           "shapes": (tuple(m.shape), tuple(z.shape))}, slot)
@@ -800,7 +800,7 @@ class ExtraMsaOnDevice:
                 trunk = self._trunk(slot)
                 trunk.opm_device()
                 pm = self._pair_masks(trunk, pair_mask)
-                (out,) = self._traced.forward(slot, trunk, [z], lambda leaves: [trunk.extra_msa(leaves[0], pm, recompute=self.recompute)])
+                (out,) = self._traced.forward(slot, trunk, [z], lambda t, leaves: [t.extra_msa(leaves[0], pm, recompute=self.recompute)])
                 self._tapes.sweep(slot)
                 token = self._tapes.bank({"traced": True, "n": n, "shape": tuple(z.shape)},
                                          slot)
@@ -972,7 +972,7 @@ class TemplateOnDevice:
             with duotraj.card(slot, "template._taped"):
                 trunk = self._trunk(slot)
                 pm = self._pair_masks(trunk, pair_mask)
-                (out,) = self._traced.forward(slot, trunk, [act], lambda leaves: [trunk.template_stack(leaves[0], pm, recompute=self.recompute)])
+                (out,) = self._traced.forward(slot, trunk, [act], lambda t, leaves: [t.template_stack(leaves[0], pm, recompute=self.recompute)])
                 self._tapes.sweep(slot)
                 token = self._tapes.bank({"traced": True, "n": n, "shape": tuple(act.shape)},
                                          slot)

@@ -38,7 +38,8 @@ STATS = {"captures": 0, "replays_fwd": 0, "replays_bwd": 0, "eager_fwd": 0, "eag
          "leaked_after_capture": 0}
 
 _captured = False
-_prepared = False
+#: Every stack's traced face in this process, so the first capture can prime and capture all.
+_ALL: list = []
 
 
 def enabled() -> bool:
@@ -82,6 +83,7 @@ class _Fixed:
         self.inputs = self.outputs = self.seeds = self.bank = self.grads = None
         self.shapes = None
         self.traces: dict = {}
+        self.fn = None              # the stack's taped forward, fn(trunk, leaves) -> roots
         self.pending = None         # ("eager", leaves, roots) | ("traced", key)
 
 
@@ -89,13 +91,15 @@ class SeamTraces:
     """The traced face of one stack (Evoformer, extra-MSA or template).
 
     `forward(slot, trunk, xs, fn)` and `backward(slot, trunk, gs)` run inside the stack's
-    `duotraj.card` hold. `xs` and `gs` are padded host tensors; `fn(leaves) -> roots` is the
-    stack's taped forward on device leaves. Both return padded float host tensors.
+    `duotraj.card` hold. `xs` and `gs` are padded host tensors; `fn(trunk, leaves) -> roots` is the
+    stack's taped forward on device leaves; it must take the trunk as its first argument and hold
+    nothing checkpoint-specific, because the first capture replays it on every checkpoint. Both return padded float host tensors.
     """
 
     def __init__(self, name: str, pool):
         self.name, self.pool = name, pool
         self._fixed: dict[str, _Fixed] = {}
+        _ALL.append(self)
 
     # ------------------------------------------------------------------ helpers
 
@@ -106,14 +110,42 @@ class SeamTraces:
         return ttnn.from_torch(t.detach().reshape(list(shape)).to(torch.bfloat16),
                                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
 
-    def _prepare(self, trunk):
-        """Load every checkpoint and its device constants before the first capture."""
-        global _prepared
-        if _prepared:
-            return
+    def _prepare_all(self):
+        """Everything persistent, then every trace, before the first replay.
+
+        A checkpoint's first forward does one-time setup, some of it a host write, and a host
+        write inside a capture is a TT_FATAL; setup that allocates after a capture is the hazard
+        the module docstring names. So every stack runs eager once on every checkpoint, and only
+        then is anything captured: every (trajectory, stack, checkpoint) at once.
+        """
+        trunks = []
         for name in self.pool.names:
-            self.pool._load(name).opm_device()
-        _prepared = True
+            trunk = self.pool._load(name)
+            trunk.opm_device()
+            trunks.append(trunk)
+        for st in _ALL:
+            for slot, fx in st._fixed.items():
+                if fx.grads is None:
+                    persistent(f"{st.name}: trajectory {slot!r} is still in its eager round")
+                for trunk in trunks:
+                    st._prime(fx, trunk)
+        for st in _ALL:
+            for fx in st._fixed.values():
+                for trunk in trunks:
+                    st._capture(fx, trunk)
+
+    @staticmethod
+    def _prime(fx, trunk):
+        ttnn, ag = trunk.ttnn, trunk.ag
+        leaves = [ag.Tensor(ttnn.clone(i), requires_grad=True) for i in fx.inputs]
+        with trunk.taped.tape():
+            roots = fx.fn(trunk, leaves)
+        ag.release_pins()
+        ag.backward(roots, [ttnn.clone(s) for s in fx.seeds])
+        ag.release_pins()
+        ttnn.synchronize_device(trunk.device)
+        del leaves, roots
+        gc.collect()
 
     # ------------------------------------------------------------------ forward
 
@@ -127,8 +159,11 @@ class SeamTraces:
             raise ValueError(f"{self.name}: trajectory {slot!r} changed shape from {fx.shapes} "
                              f"to {[tuple(x.shape) for x in xs]}; its traces are static")
         key = id(trunk)
+        if key not in fx.traces and not _captured:
+            self._prepare_all()
         if key not in fx.traces:
-            self._capture(fx, trunk, fn, key)
+            raise RuntimeError(f"{self.name}: no trace for this checkpoint on {slot!r}; every "
+                               f"checkpoint in the pool is captured at the first replay")
         for x, buf in zip(xs, fx.inputs):
             ttnn.copy_host_to_device_tensor(self._host(trunk, x, buf.shape), buf)
         ttnn.execute_trace(trunk.device, fx.traces[key][0], cq_id=0, blocking=False)
@@ -141,7 +176,7 @@ class SeamTraces:
         ttnn = trunk.ttnn
         leaves = [trunk.leaf(x) for x in xs]
         with trunk.taped.tape():
-            roots = fn(leaves)
+            roots = fn(trunk, leaves)
         trunk.ag.release_pins()
         fx = self._fixed.get(slot)
         if fx is None:
@@ -161,6 +196,7 @@ class SeamTraces:
                 ttnn.copy(r.value, o)
             for t in fx.inputs + fx.seeds:
                 ttnn.deallocate(ttnn.clone(t))
+        fx.fn = fn
         fx.pending = ("eager", leaves, roots)
         STATS["eager_fwd"] += 1
         return [torch_of(trunk, r.value, x.shape) for r, x in zip(roots, xs)]
@@ -192,18 +228,17 @@ class SeamTraces:
 
     # ------------------------------------------------------------------ capture
 
-    def _capture(self, fx, trunk, fn, key):
+    def _capture(self, fx, trunk):
         global _captured
         ttnn, ag, dev = trunk.ttnn, trunk.ag, trunk.device
         from tt_bio import tenstorrent
         tenstorrent.require_trace_region(f"TT_BIO_TRACE_SEAMS ({self.name})")
-        self._prepare(trunk)
         ttnn.synchronize_device(dev)
         before = _live(dev)
         f = ttnn.begin_trace_capture(dev, cq_id=0)
         leaves = [ag.Tensor(ttnn.clone(i), requires_grad=True) for i in fx.inputs]
         with trunk.taped.tape():
-            roots = fn(leaves)
+            roots = fx.fn(trunk, leaves)
         ag.release_pins()
         tape = _tape_of(roots)
         if [tuple(v.shape) for v in tape] != [tuple(b.shape) for b in fx.bank]:
@@ -226,7 +261,7 @@ class SeamTraces:
         del leaves, roots, tape
         gc.collect()
         STATS["leaked_after_capture"] += len(_live(dev) - before)
-        fx.traces[key] = (f, b)
+        fx.traces[id(trunk)] = (f, b)
         STATS["captures"] += 1
 
 
