@@ -1,0 +1,53 @@
+{
+ "H": 0.0,
+ "bar_ratio": 0.3333333333333333,
+ "designs": {
+  "two": {
+   "artifact": "G_TF7_a.json+G_B2trunk_a.json+G_I_TFs1_a.json",
+   "arm_a": "TF7",
+   "arm_b": "B2trunk",
+   "floor_b": "I_TFs1",
+   "M": {
+    "TF7": 11.851893325614107,
+    "B2trunk": 11.861567288189931,
+    "I_TFs1": 11.910179953334998
+   },
+   "delta": -0.009673962575823439,
+   "h": 0.016312626479097623,
+   "se_half": 0.016312626479097623,
+   "F": 0.05828662772089163,
+   "F_signed": -0.05828662772089163,
+   "h_F": 0.04154356539924737,
+   "T": 0.019428875906963877,
+   "grade": "UNRESOLVED",
+   "why": "|Delta| 0.0097 +- h 0.0163 straddles T 0.0194",
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 76 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 78 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 71 samples, polled DURING the work",
+   "head": "e56ea64a8cc3fe12bff65ab01df682228c092b9b",
+   "dirty": true
+  },
+  "twelve": {
+   "artifact": "G_I_D12_a.json+G_X12b_a.json+G_I_D12s1_a.json",
+   "arm_a": "I_D12",
+   "arm_b": "X12b",
+   "floor_b": "I_D12s1",
+   "M": {
+    "I_D12": 11.835611076845169,
+    "X12b": 11.864650796969723,
+    "I_D12s1": 11.970821291248495
+   },
+   "delta": -0.029039720124555454,
+   "h": 0.025218937774837392,
+   "se_half": 0.025218937774837392,
+   "F": 0.13521021440332687,
+   "F_signed": -0.13521021440332687,
+   "h_F": 0.0681951549746833,
+   "T": 0.04507007146777562,
+   "grade": "UNRESOLVED",
+   "why": "|Delta| 0.0290 +- h 0.0252 straddles T 0.0451",
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 73 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 77 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 78 samples, polled DURING the work",
+   "head": "e56ea64a8cc3fe12bff65ab01df682228c092b9b",
+   "dirty": true
+  }
+ },
+ "verdict": "PARTIAL"
+}

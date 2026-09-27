@@ -1,0 +1,55 @@
+{
+ "H": 1.2346213254229816,
+ "bar_ratio": 0.3333333333333333,
+ "designs": {
+  "two": {
+   "artifact": "out/AB2.json",
+   "arm_a": "TF7",
+   "arm_b": "B2trunk",
+   "floor_b": "I_TFs1",
+   "M": {
+    "base": 11.921665321009877,
+    "TF7": 10.967701090633467,
+    "B2trunk": 11.945349496538476,
+    "I_TFs1": 13.18636881420955
+   },
+   "delta": -0.9776484059050095,
+   "h": 1.603573753027573,
+   "se_half": 0.3689524276045914,
+   "F": 2.218667723576083,
+   "F_signed": -2.218667723576083,
+   "h_F": 1.7499344550499274,
+   "T": 0.7395559078586943,
+   "grade": "UNRESOLVED",
+   "why": "|Delta| 0.9776 +- h 1.6036 straddles T 0.7396",
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 264 samples, polled DURING the work",
+   "head": "7eadb34aa7c89ddecf9f620abfd952f6c67a14e1",
+   "dirty": true
+  },
+  "twelve": {
+   "artifact": "out/AB12.json",
+   "arm_a": "I_D12",
+   "arm_b": "X12b",
+   "floor_b": "I_D12s1",
+   "M": {
+    "base": 11.921665321009877,
+    "I_D12": 10.954308691693557,
+    "X12b": 11.952313993587918,
+    "I_D12s1": 13.478634829653181
+   },
+   "delta": -0.9980053018943609,
+   "h": 1.594622278278907,
+   "se_half": 0.3600009528559253,
+   "F": 2.524326137959624,
+   "F_signed": -2.524326137959624,
+   "h_F": 1.756643428340578,
+   "T": 0.8414420459865413,
+   "grade": "UNRESOLVED",
+   "why": "|Delta| 0.9980 +- h 1.5946 straddles T 0.8414",
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 271 samples, polled DURING the work",
+   "head": "7eadb34aa7c89ddecf9f620abfd952f6c67a14e1",
+   "dirty": true
+  }
+ },
+ "verdict": "PARTIAL"
+}
