@@ -5803,22 +5803,23 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-17",
+      "recorded": "2026-09-27",
       "host": "tt-quietbox2",
-      "commit": "679b9ab4c",
+      "commit": "8e5654e21",
       "models": {
         "protenix-v2": {
           "grid": "11x10",
-          "recorded": "2026-09-17",
+          "recorded": "2026-09-27",
           "host": "tt-quietbox2",
-          "commit": "679b9ab4c",
+          "commit": "8e5654e21",
+          "host_threads": null,
           "runtime_s": {
-            "256": 14.8,
-            "512": 43.3,
-            "640": 70.3,
-            "768": 102.0,
-            "896": 141.9,
-            "1024": 186.3
+            "256": 17.1,
+            "512": 46.9,
+            "640": 69.6,
+            "768": 101.6,
+            "896": 142.6,
+            "1024": 185.8
           },
           "levers": {
             "256": {
@@ -5927,14 +5928,10 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,1)": 160,
-                  "no_mm_block:(8,1)": 1048
-                },
-                "reason": "declines all 1208 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5948,18 +5945,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
-                "declined": 3784,
-                "frac": 0.37350993377483444,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,33)": 1048,
-                  "no_mm_block:(8,1)": 1048,
-                  "no_mm_block:(8,32)": 1048
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -5971,13 +5960,15 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 8704,
+                "declined": 17408,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 8704
+                  "gated_window_BufferType.L1": 4352,
+                  "window_BufferType.L1": 8704,
+                  "back_l1_src_narrow": 4352
                 },
-                "reason": "declines all 8704 calls on window_BufferType.L1 x8704: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+                "reason": "declines all 17408 calls on window_BufferType.L1 x8704, gated_window_BufferType.L1 x4352, back_l1_src_narrow x4352: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -6011,11 +6002,12 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6041,24 +6033,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6136,6 +6125,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "512": {
@@ -6240,14 +6236,10 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,1)": 160,
-                  "no_mm_block:(8,1)": 1048
-                },
-                "reason": "declines all 1208 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6258,18 +6250,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
-                "declined": 3784,
-                "frac": 0.37350993377483444,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,33)": 1048,
-                  "no_mm_block:(8,1)": 1048,
-                  "no_mm_block:(8,32)": 1048
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6315,11 +6299,12 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6345,24 +6330,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6443,6 +6425,13 @@
                 "rejects": {
                   "base-unraised": 526
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "640": {
@@ -6545,14 +6534,10 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,1)": 160,
-                  "no_mm_block:(8,1)": 1048
-                },
-                "reason": "declines all 1208 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6563,18 +6548,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
-                "declined": 3784,
-                "frac": 0.37350993377483444,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,33)": 1048,
-                  "no_mm_block:(8,1)": 1048,
-                  "no_mm_block:(8,32)": 1048
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6620,11 +6597,12 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6650,24 +6628,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6748,6 +6723,13 @@
                 "rejects": {
                   "ratio-shrunk": 526
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "768": {
@@ -6850,14 +6832,10 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,1)": 160,
-                  "no_mm_block:(8,1)": 1048
-                },
-                "reason": "declines all 1208 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded The call count rises to this level at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded The call count rises to this level at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6868,18 +6846,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
-                "declined": 3784,
-                "frac": 0.37350993377483444,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,33)": 1048,
-                  "no_mm_block:(8,1)": 1048,
-                  "no_mm_block:(8,32)": 1048
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6929,11 +6899,12 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6959,24 +6930,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7057,6 +7025,13 @@
                 "rejects": {
                   "ratio-shrunk": 526
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "896": {
@@ -7148,25 +7123,21 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1207,
-                "declined": 2,
-                "frac": 0.9983457402812241,
+                "served": 1048,
+                "declined": 160,
+                "frac": 0.8675496688741722,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:896x896x64": 2
+                  "l1_dest_is_faster:896x896x64": 160
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,1)": 160,
-                  "no_mm_block:(8,1)": 1048
-                },
-                "reason": "declines all 1208 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c] [carried from tt-galaxy-wh l]"
+                "reason": "declines all 0 calls: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c] [carried from tt-galaxy-wh l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7177,18 +7148,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
-                "declined": 3784,
-                "frac": 0.37350993377483444,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,33)": 1048,
-                  "no_mm_block:(8,1)": 1048,
-                  "no_mm_block:(8,32)": 1048
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -7238,11 +7201,12 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -7268,24 +7232,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7366,6 +7327,13 @@
                 "rejects": {
                   "ratio-shrunk": 526
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "1024": {
@@ -7468,15 +7436,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1528,
+                "declined": 160,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 320,
-                  "k_tiles=2:(2,1)": 160,
-                  "no_mm_block:(8,1)": 1048
+                  "k_tiles=2:(2,2)": 160
                 },
-                "reason": "declines all 1528 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,2) x320, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c] [carried from tt-galaxy-wh l]"
+                "reason": "declines all 160 calls on k_tiles=2:(2,2) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c] [carried from tt-galaxy-wh l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7487,18 +7453,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2256,
-                "declined": 3784,
-                "frac": 0.37350993377483444,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,33)": 1048,
-                  "no_mm_block:(8,1)": 1048,
-                  "no_mm_block:(8,32)": 1048
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -7548,11 +7506,12 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -7578,24 +7537,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1048,
+                "served": 1208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7676,30 +7632,278 @@
                 "rejects": {
                   "ratio-shrunk": 526
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             }
           },
+          "runtime_reps_s": {
+            "256": [
+              16.4,
+              16.0,
+              17.1,
+              17.2,
+              17.3
+            ],
+            "512": [
+              47.4,
+              46.7,
+              46.9,
+              47.2,
+              45.7
+            ],
+            "640": [
+              69.6
+            ],
+            "768": [
+              101.6
+            ],
+            "896": [
+              142.6
+            ],
+            "1024": [
+              185.8
+            ]
+          },
+          "aiclk": {
+            "256": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350,
+                1350,
+                1350
+              ],
+              "n": 41
+            },
+            "512": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1337,
+                1331,
+                1350,
+                1337,
+                1318
+              ],
+              "n": 70
+            },
+            "640": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 18
+            },
+            "768": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1337
+              ],
+              "n": 23
+            },
+            "896": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1343
+              ],
+              "n": 31
+            },
+            "1024": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1337
+              ],
+              "n": 39
+            }
+          },
+          "load": {
+            "256": {
+              "max": 0.86,
+              "rep_median": [
+                0.52,
+                0.5,
+                0.63,
+                0.72,
+                0.78
+              ]
+            },
+            "512": {
+              "max": 0.87,
+              "rep_median": [
+                0.69,
+                0.69,
+                0.66,
+                0.66,
+                0.78
+              ]
+            },
+            "640": {
+              "max": 0.7,
+              "rep_median": [
+                0.63
+              ]
+            },
+            "768": {
+              "max": 0.65,
+              "rep_median": [
+                0.48
+              ]
+            },
+            "896": {
+              "max": 0.48,
+              "rep_median": [
+                0.34
+              ]
+            },
+            "1024": {
+              "max": 0.56,
+              "rep_median": [
+                0.43
+              ]
+            }
+          },
+          "structure": {
+            "256": {
+              "file": "cdk2x2_256.cif",
+              "steps": 6,
+              "n_ca": 256,
+              "clash_frac": 0.0,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 131.4541,
+              "radius_of_gyration_A": 109.619,
+              "plddt_mean": 0.873662,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 131.454 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 109.6 A outside [9.0, 45.2]"
+              ]
+            },
+            "512": {
+              "file": "cdk2x2_512.cif",
+              "steps": 6,
+              "n_ca": 512,
+              "clash_frac": 0.0156,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 132.4696,
+              "radius_of_gyration_A": 112.399,
+              "plddt_mean": 0.819821,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 132.470 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 112.4 A outside [11.8, 58.9]"
+              ]
+            },
+            "640": {
+              "file": "cdk2x2_640.cif",
+              "steps": 6,
+              "n_ca": 640,
+              "clash_frac": 0.0063,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 142.768,
+              "radius_of_gyration_A": 115.759,
+              "plddt_mean": 0.787409,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 142.768 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 115.8 A outside [12.8, 64.1]"
+              ]
+            },
+            "768": {
+              "file": "cdk2x2_768.cif",
+              "steps": 6,
+              "n_ca": 768,
+              "clash_frac": 0.013,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 139.4003,
+              "radius_of_gyration_A": 111.524,
+              "plddt_mean": 0.793926,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 139.400 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 111.5 A outside [13.7, 68.7]"
+              ]
+            },
+            "896": {
+              "file": "cdk2x2_896.cif",
+              "steps": 6,
+              "n_ca": 896,
+              "clash_frac": 0.0179,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 133.3765,
+              "radius_of_gyration_A": 112.104,
+              "plddt_mean": 0.761025,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 133.376 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 112.1 A outside [14.6, 72.8]"
+              ]
+            },
+            "1024": {
+              "file": "cdk2x2_1024.cif",
+              "steps": 6,
+              "n_ca": 1024,
+              "clash_frac": 0.0146,
+              "chain_break_frac": 0.999,
+              "ca_ca_median_A": 136.0503,
+              "radius_of_gyration_A": 115.897,
+              "plddt_mean": 0.736255,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 136.050 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 115.9 A outside [15.3, 76.6]"
+              ]
+            }
+          },
           "reps": 1,
-          "sigma_runtime_512": 0.0148,
+          "sigma_runtime_512": 0.0141,
           "exponents": {
             "256->512": {
-              "k": 1.549,
+              "k": 1.456,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.113,
+              "k": 1.907,
               "tol": 0.5
             }
           },
+          "sigma_runtime": {
+            "256": 0.0339,
+            "512": 0.0141
+          },
           "exponents_measured": {
-            "256->512": 1.549,
-            "512->640": 2.172,
-            "640->768": 2.041,
-            "768->896": 2.142,
-            "896->1024": 2.039
+            "256->512": 1.456,
+            "512->640": 1.769,
+            "640->768": 2.075,
+            "768->896": 2.199,
+            "896->1024": 1.982
           }
         }
-      }
+      },
+      "host_threads": null
     }
   }
 }

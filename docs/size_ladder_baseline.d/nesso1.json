@@ -3075,22 +3075,23 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-20",
+      "recorded": "2026-09-27",
       "host": "tt-quietbox2",
-      "commit": "0451345c8",
+      "commit": "8e5654e21",
       "models": {
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-09-20",
+          "recorded": "2026-09-27",
           "host": "tt-quietbox2",
-          "commit": "0451345c8",
+          "commit": "8e5654e21",
+          "host_threads": null,
           "runtime_s": {
-            "256": 5.0,
-            "512": 8.23,
-            "640": 9.8,
-            "768": 13.53,
-            "896": 17.61,
-            "1024": 24.47
+            "256": 4.09,
+            "512": 6.32,
+            "640": 7.04,
+            "768": 9.06,
+            "896": 12.88,
+            "1024": 20.27
           },
           "levers": {
             "256": {
@@ -3259,20 +3260,16 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 768,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "fill_preconditions": 768
-                },
-                "reason": "declines all 768 calls on fill_preconditions x768: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung. This leg exists because the shared apo fixture cannot see that"
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
+                "resolved": "True",
+                "served": 96,
                 "declined": 0,
-                "frac": 0.0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
@@ -3391,6 +3388,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "512": {
@@ -3558,21 +3562,22 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 672,
-                "frac": 0.0,
+                "served": 480,
+                "declined": 193,
+                "frac": 0.7132243684992571,
                 "how": "stats",
                 "rejects": {
-                  "fill_preconditions": 672
-                },
-                "reason": "declines all 672 calls on fill_preconditions x672: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung"
+                  "l1_budget": 1,
+                  "fill_preconditions": 192
+                }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 96,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3690,6 +3695,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "640": {
@@ -3860,21 +3872,22 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 672,
-                "frac": 0.0,
+                "served": 576,
+                "declined": 96,
+                "frac": 0.8571428571428571,
                 "how": "stats",
                 "rejects": {
-                  "fill_preconditions": 672
-                },
-                "reason": "declines all 672 calls on fill_preconditions x672: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung"
+                  "l1_budget": 1,
+                  "pm_over_l1": 95
+                }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3992,6 +4005,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "768": {
@@ -4160,21 +4180,22 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 672,
-                "frac": 0.0,
+                "served": 576,
+                "declined": 96,
+                "frac": 0.8571428571428571,
                 "how": "stats",
                 "rejects": {
-                  "fill_preconditions": 672
-                },
-                "reason": "declines all 672 calls on fill_preconditions x672: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung"
+                  "l1_budget": 1,
+                  "pm_over_l1": 95
+                }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -4292,6 +4313,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "896": {
@@ -4460,21 +4488,22 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 577,
-                "frac": 0.0,
+                "served": 480,
+                "declined": 98,
+                "frac": 0.8304498269896193,
                 "how": "stats",
                 "rejects": {
-                  "fill_preconditions": 577
-                },
-                "reason": "declines all 577 calls on fill_preconditions x577: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung [carried from rung 768]"
+                  "l1_budget": 1,
+                  "fill_preconditions": 97
+                }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 96,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -4593,6 +4622,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "1024": {
@@ -4761,29 +4797,24 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1345,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "fill_preconditions": 1345
-                },
-                "reason": "declines all 1345 calls on fill_preconditions x1345: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung [carried from rung 768]"
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
+                "resolved": "True",
+                "served": 96,
                 "declined": 0,
-                "frac": 0.0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 96,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "entered and refused, not unreached: 96 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing."
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4869,10 +4900,9 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take"
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -4894,34 +4924,180 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             }
           },
+          "runtime_reps_s": {
+            "256": [
+              3.9,
+              4.09,
+              4.13,
+              3.79,
+              4.1
+            ],
+            "512": [
+              6.32,
+              6.3,
+              6.24,
+              6.45,
+              6.35
+            ],
+            "640": [
+              7.04
+            ],
+            "768": [
+              9.06
+            ],
+            "896": [
+              12.88
+            ],
+            "1024": [
+              20.27
+            ]
+          },
+          "aiclk": {
+            "256": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800,
+                800,
+                800,
+                800,
+                800
+              ],
+              "n": 20
+            },
+            "512": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1312,
+                1350,
+                1343,
+                1331,
+                1350
+              ],
+              "n": 20
+            },
+            "640": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 5
+            },
+            "768": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 5
+            },
+            "896": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 6
+            },
+            "1024": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 11
+            }
+          },
+          "load": {
+            "256": {
+              "max": 0.48,
+              "rep_median": [
+                0.45,
+                0.33,
+                0.28,
+                0.29,
+                0.25
+              ]
+            },
+            "512": {
+              "max": 0.32,
+              "rep_median": [
+                0.23,
+                0.27,
+                0.27,
+                0.23,
+                0.25
+              ]
+            },
+            "640": {
+              "max": 0.31,
+              "rep_median": [
+                0.29
+              ]
+            },
+            "768": {
+              "max": 0.31,
+              "rep_median": [
+                0.24
+              ]
+            },
+            "896": {
+              "max": 0.23,
+              "rep_median": [
+                0.2
+              ]
+            },
+            "1024": {
+              "max": 0.96,
+              "rep_median": [
+                0.83
+              ]
+            }
+          },
           "reps": 1,
-          "sigma_runtime_512": 0.0252,
+          "sigma_runtime_512": 0.0124,
           "exponents": {
             "256->512": {
-              "k": 0.719,
+              "k": 0.628,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.226,
+              "k": 0.888,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0882,
-            "512": 0.0252
+            "256": 0.0371,
+            "512": 0.0124
           },
           "exponents_measured": {
-            "256->512": 0.719,
-            "512->640": 0.782,
-            "640->768": 1.769,
-            "768->896": 1.71,
-            "896->1024": 2.464
+            "256->512": 0.628,
+            "512->640": 0.483,
+            "640->768": 1.384,
+            "768->896": 2.282,
+            "896->1024": 3.396
           }
         }
-      }
+      },
+      "host_threads": null
     },
     "tt-galaxy-wh-l": {
       "recorded": "2026-09-24",

@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/tt-bio-release-v0-9-0/perf/size512/fixtures/cdk2x2_256.yaml",
+    "/home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_256.yaml",
     "--model",
     "protenix-v2",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/tt-bio-release-v0-9-0/perf/sizegate/work/out_protenix-v2-256-rep0"
+    "/home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/sizegate/work/out_protenix-v2-256-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -151,11 +151,8 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 1208,
-      "rejects": {
-        "k_tiles=2:(2,1)": 160,
-        "no_mm_block:(8,1)": 1048
-      },
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -175,16 +172,9 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 2256,
-      "declined": 3784,
-      "rejects": {
-        "no_mm_block:(2,9)": 160,
-        "no_mm_block:(2,8)": 160,
-        "no_mm_block:(2,6)": 320,
-        "no_mm_block:(8,33)": 1048,
-        "no_mm_block:(8,1)": 1048,
-        "no_mm_block:(8,32)": 1048
-      },
+      "served": 1208,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -203,9 +193,11 @@
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 8704,
+      "declined": 17408,
       "rejects": {
-        "window_BufferType.L1": 8704
+        "gated_window_BufferType.L1": 4352,
+        "window_BufferType.L1": 8704,
+        "back_l1_src_narrow": 4352
       },
       "gauges": null
     },
@@ -253,7 +245,7 @@
       "flag": "SDPA_WIDE_K",
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
-      "resolved": "False",
+      "resolved": "True",
       "served": 0,
       "declined": 0,
       "rejects": null,
@@ -294,11 +286,9 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.STATS",
       "resolved": "True",
-      "served": 1048,
-      "declined": 160,
-      "rejects": {
-        "no_mm_config": 160
-      },
+      "served": 1208,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -306,7 +296,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 1048,
+      "served": 1208,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -316,7 +306,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 1048,
+      "served": 1208,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -417,6 +407,16 @@
       "counter": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS",
       "resolved": "16",
       "served": 636,
+      "declined": 0,
+      "rejects": null,
+      "gauges": null
+    },
+    {
+      "flag": "TRIATT_SDPA_HIFI",
+      "how": "stats-dict",
+      "counter": "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS:served,declined",
+      "resolved": "none",
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null

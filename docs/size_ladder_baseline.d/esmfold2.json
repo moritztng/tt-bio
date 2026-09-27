@@ -5707,37 +5707,38 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-17",
+      "recorded": "2026-09-27",
       "host": "tt-quietbox2",
-      "commit": "679b9ab4c",
+      "commit": "8e5654e21",
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-09-17",
+          "recorded": "2026-09-27",
           "host": "tt-quietbox2",
-          "commit": "679b9ab4c",
+          "commit": "8e5654e21",
+          "host_threads": null,
           "runtime_s": {
-            "256": 16.1,
-            "512": 39.0,
-            "640": 63.2,
-            "768": 94.5,
-            "896": 126.3,
-            "1024": 152.5
+            "256": 31.7,
+            "512": 72.0,
+            "640": 106.9,
+            "768": 148.3,
+            "896": 204.8,
+            "1024": 254.7
           },
           "levers": {
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5767,10 +5768,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 538,
+                "declined": 578,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 538 calls: it serves at 512 and above, so this rung's shape is outside what the fused residual covers; the module keeps no reject dict, so the clause is not recorded"
+                "reason": "declines all 578 calls: it serves at 512 and above, so this rung's shape is outside what the fused residual covers; the module keeps no reject dict, so the clause is not recorded"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5783,13 +5784,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4336,
+                "declined": 4976,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 4336
+                  "memory": 4976
                 },
-                "reason": "declines all 4336 calls on memory x4336: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "reason": "declines all 4976 calls on memory x4976: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5833,7 +5834,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5856,13 +5857,15 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 8672,
+                "declined": 19904,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 8672
+                  "gated_window_BufferType.L1": 4976,
+                  "window_BufferType.L1": 9952,
+                  "back_l1_src_narrow": 4976
                 },
-                "reason": "declines all 8672 calls on window_BufferType.L1 x8672: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
+                "reason": "declines all 19904 calls on window_BufferType.L1 x9952, gated_window_BufferType.L1 x4976, back_l1_src_narrow x4976: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -5897,11 +5900,12 @@
                 "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6024,61 +6028,68 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 17216,
+                "served": 18496,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 8608,
+                "served": 9248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6125,7 +6136,7 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6155,21 +6166,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6183,11 +6194,12 @@
                 "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6310,61 +6322,68 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 21520,
+                "served": 23120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 10760,
+                "served": 11560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6403,32 +6422,24 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 21519,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(8,32)": 21519
-                },
-                "reason": "declines all 21519 calls on no_mm_block:(8,32) x21519: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "served": 23119,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 21519,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(8,32)": 21519
-                },
-                "reason": "declines all 21519 calls on no_mm_block:(8,32) x21519: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "served": 23119,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -6447,21 +6458,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6475,11 +6486,12 @@
                 "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6602,61 +6614,68 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 25824,
+                "served": 55490,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 12912,
+                "served": 27745,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6695,32 +6714,24 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 25823,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(8,32)": 25823
-                },
-                "reason": "declines all 25823 calls on no_mm_block:(8,32) x25823: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "served": 1,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 25823,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(8,32)": 25823
-                },
-                "reason": "declines all 25823 calls on no_mm_block:(8,32) x25823: no _MM_BLOCK entry for this shape; wrap-counted, so the failing clause is not recorded"
+                "served": 1,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -6739,21 +6750,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4336,
+                "served": 4976,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4336,
+                "served": 4976,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6767,11 +6778,12 @@
                 "reason": "declines all 0 calls: esmfold2's triangle attention does not route through the fused kernel's call site"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6894,61 +6906,68 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 30128,
+                "served": 32368,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 15064,
+                "served": 16184,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6987,32 +7006,27 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 30127,
-                "frac": 0.0,
+                "served": 16183,
+                "declined": 16184,
+                "frac": 0.4999845521673309,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(8,32)": 30127
-                },
-                "reason": "declines all 30127 calls on no_mm_block:(8,32) x30127: right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
+                  "op_threw:(8,32)": 16184
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 30127,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(8,32)": 30127
-                },
-                "reason": "declines all 30127 calls on no_mm_block:(8,32) x30127: no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280)."
+                "served": 32367,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -7031,21 +7045,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4336,
+                "served": 4976,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4336,
+                "served": 4976,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7059,11 +7073,12 @@
                 "reason": "declines all 0 calls: no call site on this path at any size: the persistent mask belongs to TriangleAttention's SDPA bias, and ESMFold2 constructs no TriangleAttention."
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -7186,61 +7201,68 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 87,
-                "frac": 0.8608,
+                "served": 578,
+                "declined": 157,
+                "frac": 0.7863945578231293,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 68866,
+                "served": 73986,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 34433,
+                "served": 36993,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 538,
+                "served": 578,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7279,32 +7301,27 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2,
-                "frac": 0.0,
+                "served": 1,
+                "declined": 1,
+                "frac": 0.5,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(8,32)": 2
-                },
-                "reason": "declines all 2 calls on no_mm_block:(8,32) x2: right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
+                  "op_threw:(8,32)": 1
+                }
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 1244,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(8,32)": 2
-                },
-                "reason": "declines all 2 calls on no_mm_block:(8,32) x2: no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280)."
+                "served": 2,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -7323,21 +7340,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 2488,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4336,
+                "served": 4976,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4336,
+                "served": 4976,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7351,11 +7368,12 @@
                 "reason": "declines all 0 calls: no call site on this path at any size: the persistent mask belongs to TriangleAttention's SDPA bias, and ESMFold2 constructs no TriangleAttention."
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -7478,30 +7496,283 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             }
           },
+          "runtime_reps_s": {
+            "256": [
+              31.5,
+              31.0,
+              31.7,
+              32.8,
+              32.4
+            ],
+            "512": [
+              69.5,
+              69.7,
+              72.0,
+              72.2,
+              72.2
+            ],
+            "640": [
+              106.9
+            ],
+            "768": [
+              148.3
+            ],
+            "896": [
+              204.8
+            ],
+            "1024": [
+              254.7
+            ]
+          },
+          "aiclk": {
+            "256": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350,
+                1343,
+                1350
+              ],
+              "n": 64
+            },
+            "512": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350,
+                1350,
+                1350
+              ],
+              "n": 98
+            },
+            "640": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 26
+            },
+            "768": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 34
+            },
+            "896": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 44
+            },
+            "1024": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 54
+            }
+          },
+          "load": {
+            "256": {
+              "max": 0.73,
+              "rep_median": [
+                0.61,
+                0.63,
+                0.55,
+                0.48,
+                0.42
+              ]
+            },
+            "512": {
+              "max": 0.65,
+              "rep_median": [
+                0.54,
+                0.4,
+                0.49,
+                0.41,
+                0.55
+              ]
+            },
+            "640": {
+              "max": 0.56,
+              "rep_median": [
+                0.48
+              ]
+            },
+            "768": {
+              "max": 0.62,
+              "rep_median": [
+                0.53
+              ]
+            },
+            "896": {
+              "max": 0.49,
+              "rep_median": [
+                0.39
+              ]
+            },
+            "1024": {
+              "max": 0.51,
+              "rep_median": [
+                0.41
+              ]
+            }
+          },
+          "structure": {
+            "256": {
+              "file": "cdk2x2_256.cif",
+              "steps": 6,
+              "n_ca": 256,
+              "clash_frac": 0.0156,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 80.5861,
+              "radius_of_gyration_A": 68.122,
+              "plddt_mean": 0.276057,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 80.586 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 68.1 A outside [9.0, 45.2]"
+              ]
+            },
+            "512": {
+              "file": "cdk2x2_512.cif",
+              "steps": 6,
+              "n_ca": 512,
+              "clash_frac": 0.0273,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 78.0687,
+              "radius_of_gyration_A": 75.718,
+              "plddt_mean": 0.262783,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 78.069 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 75.7 A outside [11.8, 58.9]"
+              ]
+            },
+            "640": {
+              "file": "cdk2x2_640.cif",
+              "steps": 6,
+              "n_ca": 640,
+              "clash_frac": 0.0328,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 79.5042,
+              "radius_of_gyration_A": 78.185,
+              "plddt_mean": 0.274572,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 79.504 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.2 A outside [12.8, 64.1]"
+              ]
+            },
+            "768": {
+              "file": "cdk2x2_768.cif",
+              "steps": 6,
+              "n_ca": 768,
+              "clash_frac": 0.0495,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 80.9888,
+              "radius_of_gyration_A": 73.827,
+              "plddt_mean": 0.257835,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 80.989 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "5.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 73.8 A outside [13.7, 68.7]"
+              ]
+            },
+            "896": {
+              "file": "cdk2x2_896.cif",
+              "steps": 6,
+              "n_ca": 896,
+              "clash_frac": 0.0379,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 79.2515,
+              "radius_of_gyration_A": 79.97,
+              "plddt_mean": 0.263733,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 79.252 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.0 A outside [14.6, 72.8]"
+              ]
+            },
+            "1024": {
+              "file": "cdk2x2_1024.cif",
+              "steps": 6,
+              "n_ca": 1024,
+              "clash_frac": 0.0557,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 80.3132,
+              "radius_of_gyration_A": 77.438,
+              "plddt_mean": 0.257459,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 80.313 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "5.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 77.4 A outside [15.3, 76.6]"
+              ]
+            }
+          },
           "reps": 1,
-          "sigma_runtime_512": 0.0029,
+          "sigma_runtime_512": 0.0196,
           "exponents": {
             "256->512": {
-              "k": 1.276,
+              "k": 1.184,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.183,
+              "k": 1.782,
               "tol": 0.5
             }
           },
+          "sigma_runtime": {
+            "256": 0.0226,
+            "512": 0.0196
+          },
           "exponents_measured": {
-            "256->512": 1.276,
-            "512->640": 2.163,
-            "640->768": 2.207,
-            "768->896": 1.882,
-            "896->1024": 1.412
+            "256->512": 1.184,
+            "512->640": 1.771,
+            "640->768": 1.795,
+            "768->896": 2.094,
+            "896->1024": 1.633
           }
         }
-      }
+      },
+      "host_threads": null
     }
   },
   "what": "size-ladder baseline rows for esmfold2, one file per model so parallel per-model recordings do not collide in one json",
