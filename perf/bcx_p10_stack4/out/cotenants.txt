@@ -1,0 +1,84 @@
+--- 2026-09-27T00:13:25Z load 13.12 13.49 12.58
+ 204169  373  1-10:39:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3668516  222       00:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3669060  100       00:00 ps -eo pid,pcpu,etime,args --sort=-pcpu
+--- 2026-09-27T00:14:25Z load 9.44 12.41 12.26
+ 204169  373  1-10:40:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3669067  170       01:00 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  167       01:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3670349 94.4       00:00 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+--- 2026-09-27T00:15:25Z load 12.70 12.61 12.33
+ 204169  373  1-10:41:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3675869  173       00:01 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3675848  171       00:02 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests/test_genq_compact_plan.py tests/test_tape_generic_op_entries.py tests/test_reblock_names.py
+3668516  148       02:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+--- 2026-09-27T00:16:25Z load 12.96 12.83 12.43
+ 204169  373  1-10:42:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3675869  169       01:01 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  152       03:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3676640  139       00:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+3677245  128       00:04 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:randomly --tb=no -rf tests/test_capacity_gate.py tests/test_sdpa_ragged_pad_defaults.py tests/test_triatt_sdpa_hifi_
+3677327  100       00:00 /home/ttuser/tt-bio-dev/env/bin/python3 /tmp/pytest-of-ttuser/pytest-169/test_the_hook_reaches_a_spawne0/driver.py
+--- 2026-09-27T00:17:25Z load 9.89 12.11 12.21
+ 204169  373  1-10:43:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3668516  153       04:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3679333  139       00:06 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3676640 72.1       01:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+--- 2026-09-27T00:18:25Z load 9.34 11.57 12.02
+ 204169  373  1-10:44:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3679333  166       01:06 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  147       05:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3676640 75.2       02:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+--- 2026-09-27T00:19:25Z load 9.12 11.12 11.84
+ 204169  373  1-10:45:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3681867  155       00:25 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  148       06:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3676640 85.1       03:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+--- 2026-09-27T00:20:25Z load 10.31 11.07 11.78
+ 204169  373  1-10:46:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3681867  160       01:25 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  146       07:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3676640 82.5       04:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+--- 2026-09-27T00:21:25Z load 8.68 10.47 11.52
+ 204169  373  1-10:47:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3686176  161       00:34 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  146       08:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3676640 73.4       05:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+--- 2026-09-27T00:22:25Z load 9.37 10.29 11.39
+ 204169  373  1-10:48:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3686176  163       01:34 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  144       09:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3676640 75.7       06:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+--- 2026-09-27T00:23:25Z load 12.02 10.79 11.49
+ 204169  373  1-10:49:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3690305  147       00:55 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  144       10:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3676640  125       07:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+--- 2026-09-27T00:24:25Z load 13.37 11.39 11.65
+ 204169  373  1-10:50:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3676640  170       08:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+3690305  148       01:55 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  144       11:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+--- 2026-09-27T00:25:25Z load 15.28 12.37 11.98
+ 204169  373  1-10:51:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3676640  214       09:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+3692671  150       00:39 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  148       12:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+--- 2026-09-27T00:26:25Z load 13.04 12.34 12.00
+ 204169  373  1-10:52:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3676640  243       10:35 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+3694005  178       00:01 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /tmp/tmpefu1dsw5/q.fasta --single_sequence --model boltz2 --out_dir /tmp/tmpefu1dsw5/out
+3692671  150       01:39 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  148       13:19 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+--- 2026-09-27T00:27:25Z load 15.13 13.09 12.28
+ 204169  373  1-10:53:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3676640  222       11:36 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+3694998  158       00:28 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  148       14:20 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
+3695565  141       00:01 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main embed /tmp/tmp584u0trd/q.fasta --model esmc-600m --out_dir /tmp/tmp584u0trd/out
+--- 2026-09-27T00:28:25Z load 13.35 12.94 12.27
+ 204169  373  1-10:54:15 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_predictor/run_arm.py --arm reference --multimer-pool --bucket 0 --trajectories 10 --seed 1 --params /home/ttuser/bcx_e2e/af2_
+3696235  307       00:22 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+3676640  204       12:36 /home/ttuser/tt-bio-dev/env/bin/python3 -m pytest -q -p no:cacheprovider -rfE tests
+3694998  160       01:28 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py --rounds 9 --exact 0 --extra-msa 1 --template 1 --triatt-sdpa 0 --triatt-hifi 1 --shipped --binder 146 --o
+3668516  146       15:20 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/of3-p2-155
