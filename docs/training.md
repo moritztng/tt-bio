@@ -363,6 +363,14 @@ Running the same command on the same `OUT` resumes: it loads the newest checkpoi
 at the step after it, and the rows `progress.jsonl` already has past that checkpoint appear
 again. Different settings on the same `OUT` are refused with the difference named.
 
+A resume restores the fp32 masters, both Adam moments and the optimizer's step count and beta
+powers bit for bit, and the device weights it uploads equal the masters rounded, as an
+uninterrupted run holds them. The losses after it are not bit-identical to an uninterrupted
+run's, and neither are two uninterrupted runs': on OpenFold3 the step-0 loss varies at 1e-7
+between runs and chips, and by the step after the first real update that has grown to about
+1 % (three uninterrupted runs read 1.3684, 1.3723 and 1.3812 at step 2; two resumed ones read
+1.3721 and 1.3944).
+
 ## Featurisation is per model, on purpose
 
 The one thing this design refuses to generalise, and the biggest trap in it rather than the
