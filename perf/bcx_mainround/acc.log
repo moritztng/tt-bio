@@ -1,0 +1,6 @@
+=== 2026-09-27T23:57:16Z vjp A 10e626bd0
+=== 2026-09-27T23:57:33Z vjp B 868d1233f
+=== 2026-09-27T23:57:47Z count B
+./acc.sh: line 29: 873029 Aborted                 ( cd "$B" && PYTHONPATH=$B JAX_COMPILATION_CACHE_DIR=$B/perf/bcx_p10_headline/out/xlacache timeout 1500 $PY -u perf/bcx_mainround/count_ln.py --rounds 3 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out "$d" ) > "$d.log" 2>&1
+  count exited 134
+=== 2026-09-27T23:59:05Z acc done

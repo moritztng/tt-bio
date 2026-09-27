@@ -1,0 +1,13 @@
+=== a1 10e626bd0 2026-09-27T23:44:36Z
+./sit.sh: line 16: 860475 Aborted                 "$t/perf/bcx_p10_headline/arm.sh" "$tag" "$r" "$n" > "$o/$tag.log" 2>&1
+  a1 exited 134
+=== b1 868d1233f 2026-09-27T23:47:46Z
+./sit.sh: line 16: 863532 Aborted                 "$t/perf/bcx_p10_headline/arm.sh" "$tag" "$r" "$n" > "$o/$tag.log" 2>&1
+  b1 exited 134
+=== a2 10e626bd0 2026-09-27T23:50:56Z
+./sit.sh: line 16: 866559 Aborted                 "$t/perf/bcx_p10_headline/arm.sh" "$tag" "$r" "$n" > "$o/$tag.log" 2>&1
+  a2 exited 134
+=== b2 868d1233f 2026-09-27T23:53:58Z
+./sit.sh: line 16: 867949 Aborted                 "$t/perf/bcx_p10_headline/arm.sh" "$tag" "$r" "$n" > "$o/$tag.log" 2>&1
+  b2 exited 134
+=== sitting done 2026-09-27T23:57:02Z

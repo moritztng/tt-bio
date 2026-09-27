@@ -1,0 +1,117 @@
+--- 2026-09-27T23:44:36Z load 1.04 0.91 0.54
+    PID     ELAPSED %CPU   RSS COMMAND
+ 849767       09:12  101 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:34:36  5.9 568368 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:34:48  0.4 27660 /usr/libexec/bluetooth/bluetoothd
+   1050    08:34:49  0.1     0 [irq/114-rtw89_pci]
+ 853527       07:45  0.1     0 [kworker/u64:5-events_unbound]
+   1129    08:34:48  0.1 28976 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:34:41  0.1 212320 /usr/bin/gnome-shell
+--- 2026-09-27T23:45:36Z load 3.79 1.75 0.85
+    PID     ELAPSED %CPU   RSS COMMAND
+ 860484       01:00  187 18641936 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       10:12  101 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:35:36  5.9 568400 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:35:48  0.4 27736 /usr/libexec/bluetooth/bluetoothd
+   1050    08:35:49  0.1     0 [irq/114-rtw89_pci]
+ 853527       08:45  0.1     0 [kworker/u64:5-events_power_efficient]
+   1129    08:35:48  0.1 29044 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T23:46:36Z load 3.24 1.97 0.99
+    PID     ELAPSED %CPU   RSS COMMAND
+ 860484       02:00  202 17938000 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       11:12  101 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:36:36  5.9 568428 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:36:48  0.4 27784 /usr/libexec/bluetooth/bluetoothd
+   1050    08:36:49  0.1     0 [irq/114-rtw89_pci]
+ 853527       09:45  0.1     0 [kworker/u64:5-flush-259:0]
+   1129    08:36:48  0.1 29132 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T23:47:36Z load 2.85 2.09 1.09
+    PID     ELAPSED %CPU   RSS COMMAND
+ 860484       03:00  211 18829616 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       12:12  101 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:37:36  5.9 568456 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:37:48  0.4 27828 /usr/libexec/bluetooth/bluetoothd
+   1050    08:37:49  0.1     0 [irq/114-rtw89_pci]
+ 853527       10:45  0.1     0 [kworker/u64:5-flush-259:0]
+   1129    08:37:48  0.1 29292 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-27T23:48:36Z load 2.41 2.10 1.16
+    PID     ELAPSED %CPU   RSS COMMAND
+ 863540       00:49  182 17668940 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       13:12  101 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:38:36  5.9 568488 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:38:48  0.4 27848 /usr/libexec/bluetooth/bluetoothd
+   1050    08:38:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:38:48  0.1 29328 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:38:41  0.1 212268 /usr/bin/gnome-shell
+--- 2026-09-27T23:49:36Z load 2.60 2.23 1.27
+    PID     ELAPSED %CPU   RSS COMMAND
+ 863540       01:49  206 18648484 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       14:12  101 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:39:36  5.9 568516 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:39:48  0.4 27888 /usr/libexec/bluetooth/bluetoothd
+   1050    08:39:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:39:48  0.1 29328 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:39:41  0.1 212364 /usr/bin/gnome-shell
+--- 2026-09-27T23:50:36Z load 3.34 2.47 1.41
+    PID     ELAPSED %CPU   RSS COMMAND
+ 863540       02:49  209 18813416 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       15:12  101 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:40:36  5.9 568548 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:40:48  0.4 27948 /usr/libexec/bluetooth/bluetoothd
+   1050    08:40:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:40:48  0.1 29328 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:40:41  0.1 212352 /usr/bin/gnome-shell
+--- 2026-09-27T23:51:36Z load 2.55 2.41 1.46
+    PID     ELAPSED %CPU   RSS COMMAND
+ 866567       00:39  167 12838260 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       16:12  100 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:41:36  5.9 568576 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:41:48  0.4 28012 /usr/libexec/bluetooth/bluetoothd
+   1050    08:41:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:41:48  0.1 29328 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:41:41  0.1 212284 /usr/bin/gnome-shell
+--- 2026-09-27T23:52:36Z load 3.53 2.75 1.64
+    PID     ELAPSED %CPU   RSS COMMAND
+ 866567       01:39  209 18588936 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       17:12  100 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:42:36  5.9 568608 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:42:48  0.4 28048 /usr/libexec/bluetooth/bluetoothd
+   1050    08:42:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:42:48  0.1 29328 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:42:41  0.1 212244 /usr/bin/gnome-shell
+--- 2026-09-27T23:53:36Z load 2.83 2.67 1.69
+    PID     ELAPSED %CPU   RSS COMMAND
+ 866567       02:39  212 18902968 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       18:12  100 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:43:36  5.9 568636 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:43:48  0.4 28092 /usr/libexec/bluetooth/bluetoothd
+   1050    08:43:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:43:48  0.1 29328 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:43:41  0.1 212296 /usr/bin/gnome-shell
+--- 2026-09-27T23:54:36Z load 2.78 2.71 1.77
+    PID     ELAPSED %CPU   RSS COMMAND
+ 867957       00:37  171 14343084 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       19:12  100 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:44:36  5.9 568668 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:44:48  0.4 28124 /usr/libexec/bluetooth/bluetoothd
+   1050    08:44:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:44:48  0.1 29328 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:44:41  0.1 212268 /usr/bin/gnome-shell
+--- 2026-09-27T23:55:36Z load 3.21 2.92 1.91
+    PID     ELAPSED %CPU   RSS COMMAND
+ 867957       01:37  202 18348448 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       20:12  100 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:45:36  5.9 568696 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:45:48  0.4 28188 /usr/libexec/bluetooth/bluetoothd
+   1050    08:45:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:45:48  0.1 29388 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:45:41  0.1 212368 /usr/bin/gnome-shell
+--- 2026-09-27T23:56:36Z load 4.01 3.14 2.04
+    PID     ELAPSED %CPU   RSS COMMAND
+ 867957       02:37  212 19012888 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 849767       21:12  100 8487848 /home/ttuser/tt-bio-dev/env/bin/python3 bench_bh.py q_glx 1 0 3 galaxy_msa complex730.yaml complex800.yaml
+   2739    08:46:36  5.9 568728 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1108    08:46:48  0.4 28232 /usr/libexec/bluetooth/bluetoothd
+   1050    08:46:49  0.1     0 [irq/114-rtw89_pci]
+   1129    08:46:48  0.1 29428 /usr/lib/polkit-1/polkitd --no-debug
+   2214    08:46:41  0.1 212384 /usr/bin/gnome-shell

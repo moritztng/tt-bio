@@ -1,0 +1,11 @@
+a1    round 5.854 s  held 5.727  idle 0.128  busy 97.8 %  AICLK med 1350 min 1312  load1 3.25  hwm 19.65 GB  
+b1    round 5.959 s  held 5.849  idle 0.109  busy 98.2 %  AICLK med 1350 min 1312  load1 2.77  hwm 19.51 GB  
+a2    round 5.861 s  held 5.751  idle 0.111  busy 98.1 %  AICLK med 1350 min 1312  load1 3.15  hwm 19.5 GB  
+b2    round 5.892 s  held 5.780  idle 0.112  busy 98.1 %  AICLK med 1350 min 1312  load1 3.5  hwm 19.57 GB  
+median 5.877 s  mean 5.892  spread 5.854-5.959  AICLK med 1350.0 min 1312  -> GO (bar 6.958)
+a1: fast armed 9/9  served {'mm_layout': 18792, 'taped_channel_move.fwd': 20412, 'taped_channel_move.back': 14580, 'widen_add': 26406, 'rne_add': 37422, 'qkv_grad_join': 16524, 'triatt_bw': 2916, 'triatt_fused_hifi': 8748, 'taped_kernels.rne_add': 37422, 'taped_kernels.tri_att_sdpa_hifi': 8748}  unserved: none
+b1: fast armed 8/9  served {'mm_layout': 18792, 'taped_channel_move.fwd': 20412, 'taped_channel_move.back': 14580, 'widen_add': 26406, 'rne_add': 37422, 'qkv_grad_join': 16524, 'triatt_bw': 2916, 'triatt_fused_hifi': 8748, 'taped_kernels.rne_add': 37422, 'taped_kernels.tri_att_sdpa_hifi': 8748}  unserved: none
+a2: fast armed 9/9  served {'mm_layout': 18792, 'taped_channel_move.fwd': 20412, 'taped_channel_move.back': 14580, 'widen_add': 26406, 'rne_add': 37422, 'qkv_grad_join': 16524, 'triatt_bw': 2916, 'triatt_fused_hifi': 8748, 'taped_kernels.rne_add': 37422, 'taped_kernels.tri_att_sdpa_hifi': 8748}  unserved: none
+b2: fast armed 8/9  served {'mm_layout': 18792, 'taped_channel_move.fwd': 20412, 'taped_channel_move.back': 14580, 'widen_add': 26406, 'rne_add': 37422, 'qkv_grad_join': 16524, 'triatt_bw': 2916, 'triatt_fused_hifi': 8748, 'taped_kernels.rne_add': 37422, 'taped_kernels.tri_att_sdpa_hifi': 8748}  unserved: none
+A/A: 108 outputs over 27 (trajectory, round) keys, identical across arms: False
+vs refs []: 0 equal, 0 differ

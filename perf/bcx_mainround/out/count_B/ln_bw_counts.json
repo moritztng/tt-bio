@@ -1,0 +1,14 @@
+{
+ "calls": 5562,
+ "fp32_branch": 0,
+ "typecasts": 0,
+ "row_mean_stats": {
+  "divide": 22248,
+  "mean": 0
+ },
+ "by_key": {
+  "x=DataType.BFLOAT16 g=DataType.BFLOAT16 gamma=DataType.BFLOAT16 K=128 branch=native casts=0": 3708,
+  "x=DataType.BFLOAT16 g=DataType.BFLOAT16 gamma=DataType.BFLOAT16 K=256 branch=native casts=0": 1728,
+  "x=DataType.BFLOAT16 g=DataType.BFLOAT16 gamma=DataType.BFLOAT16 K=64 branch=native casts=0": 126
+ }
+}
