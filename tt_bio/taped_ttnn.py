@@ -43,7 +43,7 @@ from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _via2d, _wrap)
 
-__all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn", "KERNELS",
+__all__ = ["tape", "recompute_scope", "shim_scope", "VERBS", "taped_ttnn", "KERNELS",
            "KERNEL_STATS", "enabled_kernels", "forget_shim_bindings"]
 
 # ---------------------------------------------------------------------------------------
@@ -280,6 +280,29 @@ def _v_matmul(shipped, args, kwargs):
 _SOFTMAX_BW_RENORM = ag.SOFTMAX_BW_RENORM
 
 
+#: `ttnn.softmax`'s default SFPU path runs `math_approx_mode=True`, and that single field is the
+#: whole of the forward's error: at the trunk's own shapes the rows come back summing to 0.9954
+#: and the output reads 1.8e-02 to 2.0e-02 relative L2 from a float64 softmax, against 5.2e-04 to
+#: 5.9e-04 with the field cleared, while HiFi4, `fp32_dest_acc_en` and `packer_l1_acc` are all
+#: bit-exactly inert (`perf/of3t_d116_verify/APPROX.json`, four shape/seed cases, 31x).
+#:
+#: The backward `dx = y (g - sum_j g_j y_j)` carries `y` multiplicatively, so it inherits that
+#: error whole: `of3t-p10grad` grades the shipped taped softmax `dx` at 2.201e-02 against float64
+#: while the backward CLOSURE alone reads 9.750e-05, and giving the FORWARD a precise config takes
+#: `dx` to 9.086e-04. The row-sum renorm below repairs the inner product, not the leading `y`.
+#:
+#: `autograd.softmax` has defaulted to `precise_config()` since it was written. This is the same
+#: rule at the shipped verb, and it applies ONLY where a gradient is at stake: with taping off the
+#: config is untouched, so every inference path -- including an evaluation inside a training run --
+#: is bit-identical to shipped. That is what keeps this off the `TT_BIO_SOFTMAX_CKC` release gate,
+#: which is a process-wide switch that does move shipped inference numbers on four models.
+def _softmax_fw_config(kwargs):
+    """The compute kernel config the taped softmax forward should run, or None to leave it."""
+    if not ag.is_grad_enabled():
+        return None
+    return kwargs.get("compute_kernel_config") or precise_config()
+
+
 @_verb("softmax", "softmax_in_place")
 def _v_softmax(shipped, args, kwargs):
     """`softmax_in_place` is taped out of place. The backward reads y, which the in-place
@@ -288,6 +311,9 @@ def _v_softmax(shipped, args, kwargs):
     x = _wrap(args[0])
     dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
     ra, rk = _raw(args, kwargs)
+    cfg = _softmax_fw_config(rk)
+    if cfg is not None:
+        rk = dict(rk, compute_kernel_config=cfg)
     y0 = ttnn.softmax(*ra, **rk) if shipped is ttnn.softmax_in_place else shipped(*ra, **rk)
     box = [y0]
 
@@ -297,7 +323,7 @@ def _v_softmax(shipped, args, kwargs):
             # The same expression as `autograd.softmax` and `triangle_attention`; the helper
             # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline, and the
             # fused `moreh_softmax_backward` route all three now share.
-            x.add_grad(ag.softmax_bw(y, g, dim=dim))
+            x.add_grad(ag.softmax_bw(y, g, dim=dim, config=cfg))
         return bw
 
     # The backward reads y and only y, so x is not pinned. Under `softmax_in_place` the
@@ -1426,10 +1452,20 @@ def _taped_verb(qual, shipped):
         if not always and not _on_tape(args, kwargs):
             return shipped(*args, **kwargs)
         if impl is None:
+            # The refusal belongs exactly where it protects a gradient, and no further. A
+            # tensor can be ON the tape and not be DIFFERENTIATING -- inside `no_grad`, or
+            # frozen in a fine-tune -- and then there is no gradient upstream to drop and
+            # unwrapping is the correct answer rather than a silent one. The shipped OF3
+            # rollout crosses to host with `ttnn.to_torch` inside its own `no_grad`
+            # (`openfold3_sample_diffusion.py:188`), which is a verb with no tape entry and
+            # never will have one, and a blanket refusal stopped `train_loop` there.
+            if not _differentiating(args, kwargs):
+                ra, rk = _raw(args, kwargs)
+                return shipped(*ra, **rk)
             raise NotImplementedError(
-                f"ttnn.{qual} has no tape entry, and it was handed a taped tensor. Add one "
-                f"to tt_bio.autograd._VERBS -- unwrapping here would drop the gradient of "
-                f"everything upstream of this call, silently.")
+                f"ttnn.{qual} has no tape entry, and it was handed a tensor being "
+                f"differentiated. Add one to tt_bio.autograd._VERBS -- unwrapping here would "
+                f"drop the gradient of everything upstream of this call, silently.")
         with ag._no_param_scan():
             out = impl(shipped, args, kwargs)
         return None if out is _FREED else out
@@ -1498,16 +1534,20 @@ def _swap(to_shim: bool) -> None:
 
 
 @contextlib.contextmanager
-def recompute_scope():
-    """Make the shipped modules taped again for a recomputation inside a BACKWARD.
+def shim_scope():
+    """Hook and shim together, restored exactly as found. Neither alone is a usable state.
 
-    `tape()` is a forward-time context: it swaps the shim in, and on the way out it forgets the
-    raw-handle wrappers and puts the grad hook back. A checkpointed segment recomputes itself
-    from inside `backward`, which the documented usage runs AFTER the tape block has closed --
-    so the shipped module is looking at the real `ttnn` again and hands it an `autograd.Tensor`,
-    which pybind refuses. This is the narrower thing that recompute needs: swap the shim in if
-    it is not already in, put it back exactly as found, and touch neither the wrapper map nor
-    the hook, because the backward that is running owns both.
+    The grad hook makes `ops.linear` and `ops.layer_norm` hand back an `autograd.Tensor`; the
+    shim is what makes every OTHER verb in the same module accept one. A shipped module mixes
+    the two freely -- `OF3DiffusionConditioning._pair` is four `ops` calls and eleven raw
+    `ttnn.` ones -- so with the hook on and the shim off, the first raw verb downstream of an
+    `ops` call gets an `autograd.Tensor` and pybind refuses it. That is not hypothetical: it is
+    where `tt_bio.train.recipes.train_loop` died on the OpenFold3 forward, in the discovery
+    pass, before step 0.
+
+    Nothing here opens a tape and nothing here changes what is differentiated. Under
+    `no_grad` the shim's verbs run the shipped ones, so a forward inside this context computes
+    what production computes.
     """
     if _SHIMMED:
         yield
@@ -1529,6 +1569,17 @@ def recompute_scope():
         _swap(False)
         if prev is None:
             ops.set_grad_hook(None)
+
+
+def recompute_scope():
+    """`shim_scope` under its other name: a recomputation from inside a BACKWARD.
+
+    `tape()` is a forward-time context and has already closed by the time `backward` runs a
+    checkpointed segment again, so the shipped module is looking at the real `ttnn` and hands
+    it an `autograd.Tensor`. The scope must touch neither the wrapper map nor the hook the
+    running backward owns, which is exactly what `shim_scope` does not touch.
+    """
+    return shim_scope()
 
 
 @contextlib.contextmanager
@@ -1554,8 +1605,9 @@ def tape():
     prev = ag._install_hooks()
     _swap(True)
     try:
-        # Softmax and layer norm exact for the forward (`autograd.exact_training`). The
-        # backward opens the same scope for itself, since it runs after this block closes.
+        # Softmax and layer norm exact for the forward under `autograd.exact_training(True)`,
+        # a no-op otherwise. The backward opens the same scope for itself, since it runs after
+        # this block closes.
         with ag._training_exact("tape"):
             yield
     finally:

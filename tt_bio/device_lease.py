@@ -283,6 +283,48 @@ def _holder_label():
     return os.environ.get("TT_BIO_LEASE_HOLDER") or f"pid:{os.getpid()}"
 
 
+# An ancestor with one of these names means a human or the fleet is attached above the open: an
+# ssh command, a terminal multiplexer, cron. Such an open is not detached, and the daemon at the
+# top of its chain lives forever, so recording it would mark the card busy for good.
+_ATTACHED_COMMS = ("sshd", "tmux", "screen", "cron", "crond", "atd")
+
+
+def _detached_ancestor(pid=None):
+    """Pid of the DETACHED chain this open belongs to, or ``None`` when it is not detached.
+
+    The lease's own ``pid`` is one device open. A detached chain (a ``nohup``/``setsid``
+    release gate, a trajectory ladder) opens and closes the card once per leg, so between
+    legs that pid is dead and the lease says released while the chain is about to open the
+    card again. The fleet dispatcher reads this field to keep the card busy for as long as the
+    chain lives.
+
+    Walks parents up to the one whose parent is init or a ``systemd`` subreaper. That process
+    is the answer only if nothing on the way is attached: a controlling terminal, an sshd,
+    a multiplexer, cron, or the fleet's ``worker.sh`` (whose own liveness already covers its
+    card). An unreadable ``/proc`` answers ``None``, which leaves the lease as it always was.
+    """
+    me = os.getpid() if pid is None else pid
+    pid, top = me, None
+    try:
+        while pid > 1:
+            with open(f"/proc/{pid}/stat") as f:
+                stat = f.read()
+            comm = stat[stat.index("(") + 1:stat.rindex(")")]
+            fields = stat[stat.rindex(")") + 2:].split()
+            ppid, tty = int(fields[1]), int(fields[4])
+            if comm == "systemd" or comm == "init":
+                break
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                argv = f.read().split(b"\0")
+            if (tty or comm.startswith(_ATTACHED_COMMS)
+                    or any(os.path.basename(a) == b"worker.sh" for a in argv)):
+                return None
+            top, pid = pid, ppid
+    except (OSError, ValueError, IndexError):
+        return None
+    return top if top not in (None, me) else None
+
+
 def granted_cards():
     """Physical cards this process is ALLOWED to open, or ``None`` for unbounded.
 
@@ -333,6 +375,7 @@ class DeviceLease:
             "card": self.card,
             "holder": _holder_label(),
             "pid": os.getpid(),
+            "detached_pid": _detached_ancestor(),
             "acquired": time.time(),
             "released": None,
         }

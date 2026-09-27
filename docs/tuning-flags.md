@@ -1138,6 +1138,39 @@ Protenix-v2 at 896 and OpenBind at 640 identical. At 1088 the bound makes the fl
 
 `TT_BIO_TRIATT_NARROW_Q_FALLBACK=0` is the way back.
 
+## `TT_BIO_TRIATT_DIVIDING_K` — on
+
+The fused HiFi triangle attention builds its k ladder from chunk widths that divide the padded
+length. When none of the shipped widths divides it, the route declines every rung and the fold
+falls back to the materialised fp32 softmax. This flag derives the ladder from the divisors
+instead, so a legal k exists at those lengths.
+
+It only ever adds a rung where the route serves nothing today, so no length that folds on the
+fused path now can have its pick moved. Replayed over all 48 tile-aligned lengths from 32 to 1536
+at `openfold3.trunk`, ten serve nothing and this opens exactly one of them: 832. OpenFold3 pads
+its pair axis to a multiple of 64, so 832 is the only one of the ten a user can present.
+
+**Speed: 1.6351x on OpenFold3 at 832 tokens**, +50.999 s. Arms interleaved in one process on a
+p300c, AICLK sampled during every leg at 1350 MHz, against an A/A floor of 1.306 s. The effect is
+39x that floor.
+
+**Accuracy at 832**, on tiled CDK2 at MSA depth 513, where OpenFold3 is confident (pLDDT 0.806).
+CA RMSD, Kabsch, float64, over 832 CA:
+
+| arm | CA RMSD |
+| --- | --- |
+| control, same arm rerun | 0.000000 A |
+| this flag | 0.450148 A |
+| a different seed | 1.974757 A |
+| flag and seed together | 1.948630 A |
+
+The move is inside the 0.60 A bar and 4.4x smaller than re-seeding, and both confidence heads
+move the favourable way (+0.000551 pLDDT, +0.000647 pTM). At 288, the other length anyone has run,
+pair rel_l2 against a float64 reference improves 0.021702 to 0.018661.
+
+`TT_BIO_TRIATT_DIVIDING_K=0` is the way back, read live rather than at import so one process can
+A/B both arms.
+
 ## `TT_BIO_TRIATT_BW_FUSED` — off, training only
 
 Sends the BACKWARD of `autograd.triangle_attention` through a fused kernel that keeps the
@@ -1215,30 +1248,26 @@ The sample-invariant pair base is built once on device and only the pae/pde/pLDD
 
 It feature-detects the ops it needs and stays off on a ttnn that lacks one, so setting it on an older runtime is a no-op rather than a crash.
 
-## `TT_BIO_SOFTMAX_BW_FP32` — off, training only
+## `TT_BIO_SOFTMAX_BW_FP32` — on, training only
 
-Runs the softmax backward in fp32. Off by default, and it only ever reaches a training tape:
+Runs the softmax backward in fp32. On by default, and it only ever reaches a training tape:
 inference never builds one, so a `predict` run is unaffected whatever this is set to.
+`TT_BIO_SOFTMAX_BW_FP32=0` turns it off.
 
 `dx = y (g - sum(g y) / sum(y))` is a cancellation. At a converged row `sum(g y) / sum(y)`
 approaches `g`, the subtraction keeps only the low bits of two bf16 numbers, and the reduction
 feeding it was the one reduction in `tt_bio/autograd.py` carrying no compute kernel config. With
 this on, both operands are cast to fp32, the same expression runs through the same function, and
-the result is cast back.
+the result is cast back. The fp32 copies are freed at the end of each call.
 
-Turn it on if you are training and the gradient is noisier than the reference. It costs two
-typecasts per call and holds an fp32 copy of the attention probabilities for the length of the
-backward, which is real memory at a large crop.
+It is what makes on-device OpenFold3 training accurate. The model-frame gradient reads 0.946x
+the pre-registered accuracy bar with it on and 1.067x with it off on a p150a, and 0.997x against
+2.168x on a p300c (`perf/of3t_p10default`, `perf/of3t_p10exact`). The fp32 copies do not
+set the memory limit: 576 aa runs out of memory at the same allocation with it on and off.
 
-On OpenFold3 at crop 384 it is what lets the host float64 exactness instrument be turned off: the
-device-only trunk reads 2.16813 of the pre-registered accuracy bar with this off and 0.99736 with
-it on, and the step is 63.182 s against 63.162 s, a difference 128x smaller than the run-to-run
-spread. Evidence in `perf/of3t_p10exact`.
-
-It stays off by default because it moves every trained gradient in the package and has been
-graded at one crop on one card class. `perf/of3t_p10exact/smbw32_off_is_main.py` asserts the off
-path reaches `ttnn.sum` with exactly the arguments `origin/main` uses, so setting it to 0 is the
-shipped behaviour and not an approximation of it.
+`perf/of3t_p10exact/smbw32_off_is_main.py` asserts that the off path reaches `ttnn.sum` with
+exactly the arguments the pre-flag backward used, so `=0` is the old behaviour and not an
+approximation of it.
 
 ## Idle host threads when a box is full
 

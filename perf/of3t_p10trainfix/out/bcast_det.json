@@ -1,0 +1,586 @@
+{
+ "shape": [
+  1,
+  64,
+  384,
+  128
+ ],
+ "rows": [
+  {
+   "op": "multiply",
+   "b": "col",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "9008cf027bed",
+    "9008cf027bed",
+    "9008cf027bed"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "col",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "c6fa5ca9b4d3",
+    "c6fa5ca9b4d3",
+    "c6fa5ca9b4d3"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "col",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "75cd9790f330",
+    "75cd9790f330",
+    "75cd9790f330"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "col",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "7a60e786b46d",
+    "7a60e786b46d",
+    "7a60e786b46d"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "row",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "6aff7c00ba50",
+    "6aff7c00ba50",
+    "6aff7c00ba50"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "row",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": false,
+   "hashes": [
+    "b06cbce8f284",
+    "8a512d44ca31",
+    "cae31231ca8f"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "row",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "521cde0f92cb",
+    "521cde0f92cb",
+    "521cde0f92cb"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "row",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "bcc33689dac3",
+    "bcc33689dac3",
+    "bcc33689dac3"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "vec",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "3792031bcdb6",
+    "3792031bcdb6",
+    "3792031bcdb6"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "vec",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": false,
+   "hashes": [
+    "78e53c284a2a",
+    "5b1315e33c69",
+    "0cdeecb24ae0"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "vec",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "3df9e95d3f21",
+    "3df9e95d3f21",
+    "3df9e95d3f21"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "vec",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "f86f4a5865ce",
+    "f86f4a5865ce",
+    "f86f4a5865ce"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "full",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "1991acba20f1",
+    "1991acba20f1",
+    "1991acba20f1"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "full",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": false,
+   "hashes": [
+    "1c303ede6947",
+    "558e13abf07b",
+    "3b2ea879d1be"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "full",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "7c8d7566fcf2",
+    "7c8d7566fcf2",
+    "7c8d7566fcf2"
+   ]
+  },
+  {
+   "op": "multiply",
+   "b": "full",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "a78ccb140401",
+    "a78ccb140401",
+    "a78ccb140401"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "col",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "a4da2ea29ac0",
+    "a4da2ea29ac0",
+    "a4da2ea29ac0"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "col",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "d855c35ebee6",
+    "d855c35ebee6",
+    "d855c35ebee6"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "col",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "96f2d7ed876b",
+    "96f2d7ed876b",
+    "96f2d7ed876b"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "col",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "a3db94525749",
+    "a3db94525749",
+    "a3db94525749"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "row",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "79b33911c5c0",
+    "79b33911c5c0",
+    "79b33911c5c0"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "row",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "6ebfa052a60b",
+    "6ebfa052a60b",
+    "6ebfa052a60b"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "row",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "49337c8c4a2f",
+    "49337c8c4a2f",
+    "49337c8c4a2f"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "row",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "53aa8cd3694a",
+    "53aa8cd3694a",
+    "53aa8cd3694a"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "vec",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "6ae006d8e5b2",
+    "6ae006d8e5b2",
+    "6ae006d8e5b2"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "vec",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "353ede6915ea",
+    "353ede6915ea",
+    "353ede6915ea"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "vec",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "0a8c7c643b24",
+    "0a8c7c643b24",
+    "0a8c7c643b24"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "vec",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "d5f10ab2cfc8",
+    "d5f10ab2cfc8",
+    "d5f10ab2cfc8"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "full",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "e965227e6200",
+    "e965227e6200",
+    "e965227e6200"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "full",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "7b2e72c2e1f2",
+    "7b2e72c2e1f2",
+    "7b2e72c2e1f2"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "full",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "d17509411e98",
+    "d17509411e98",
+    "d17509411e98"
+   ]
+  },
+  {
+   "op": "subtract",
+   "b": "full",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "e965227e6200",
+    "e965227e6200",
+    "e965227e6200"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "col",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "82579a7db1f1",
+    "82579a7db1f1",
+    "82579a7db1f1"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "col",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "72b7249c4999",
+    "72b7249c4999",
+    "72b7249c4999"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "col",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "b816ce100bd3",
+    "b816ce100bd3",
+    "b816ce100bd3"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "col",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "6427e28ccfa1",
+    "6427e28ccfa1",
+    "6427e28ccfa1"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "row",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "2a02ca0e731d",
+    "2a02ca0e731d",
+    "2a02ca0e731d"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "row",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "1ad05559ae85",
+    "1ad05559ae85",
+    "1ad05559ae85"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "row",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "473ef96bfee5",
+    "473ef96bfee5",
+    "473ef96bfee5"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "row",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "a00a639228e7",
+    "a00a639228e7",
+    "a00a639228e7"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "vec",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "1a594dd829d5",
+    "1a594dd829d5",
+    "1a594dd829d5"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "vec",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "6ad2863efd77",
+    "6ad2863efd77",
+    "6ad2863efd77"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "vec",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "935c71485787",
+    "935c71485787",
+    "935c71485787"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "vec",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "759a6400ef45",
+    "759a6400ef45",
+    "759a6400ef45"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "full",
+   "a_dtype": "bf16",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "f14c03bcd493",
+    "f14c03bcd493",
+    "f14c03bcd493"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "full",
+   "a_dtype": "bf16",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "f14c03bcd493",
+    "f14c03bcd493",
+    "f14c03bcd493"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "full",
+   "a_dtype": "fp32",
+   "b_dtype": "bf16",
+   "repeat_bitexact": true,
+   "hashes": [
+    "6bfc707266d9",
+    "6bfc707266d9",
+    "6bfc707266d9"
+   ]
+  },
+  {
+   "op": "add",
+   "b": "full",
+   "a_dtype": "fp32",
+   "b_dtype": "fp32",
+   "repeat_bitexact": true,
+   "hashes": [
+    "a591e2721340",
+    "a591e2721340",
+    "a591e2721340"
+   ]
+  }
+ ]
+}

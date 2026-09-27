@@ -432,6 +432,64 @@ def test_foreign_holder_is_not_called_a_co_tenant(d):
         os.environ.pop("TT_BIO_LEASE_HOLDER", None)
 
 
+# A chain script named <name>.sh that opens card 0 once and writes the lease JSON to LEASE_OUT.
+CHAIN_OPEN = r"""
+import json, os, sys
+sys.path.insert(0, os.environ["REPO"])
+from tt_bio.device_lease import DeviceLease
+lease = DeviceLease(card="0").acquire()
+meta = json.load(open(lease.path)); meta["ppid_of_chain"] = int(open(f"/proc/{os.getppid()}/stat").read().rsplit(")", 1)[1].split()[1])
+lease.release()
+open(os.environ["LEASE_OUT"] + ".part", "w").write(json.dumps(meta))
+os.replace(os.environ["LEASE_OUT"] + ".part", os.environ["LEASE_OUT"])
+"""
+
+
+def _run_chain(d, name, detach):
+    """Run a one-leg chain as `<name>.sh` and return (lease JSON, chain pid)."""
+    script, out = os.path.join(d, name + ".sh"), os.path.join(d, name + ".json")
+    with open(script, "w") as f:
+        f.write(f'#!/bin/bash\necho $$ > "{out}.pid"\n"{sys.executable}" -c "$CHAIN_OPEN"\n')
+    os.chmod(script, 0o755)
+    e = _env(d, "", 0)
+    e.update(CHAIN_OPEN=CHAIN_OPEN, LEASE_OUT=out)
+    argv = ["setsid", "-f", script] if detach else [script]
+    subprocess.run(argv, env=e, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, check=True)
+    for _ in range(200):
+        if os.path.exists(out):
+            return json.load(open(out)), int(open(out + ".pid").read())
+        time.sleep(0.05)
+    raise AssertionError(f"chain {name} never wrote its lease")
+
+
+def test_detached_chain_is_recorded_as_the_lease_anchor(d):
+    """A detached chain's pid goes into the lease, so the fleet sees it between two opens.
+
+    The lease pid is one open. Between two legs of a detached release gate it is dead and the
+    lease says released, and on 2026-09-27 the fleet handed qb2 card 0 to another row in exactly
+    that gap. ``detached_pid`` names the chain, which lives across every leg.
+    """
+    meta, chain = _run_chain(d, "gate_chain", detach=True)
+    comm = open(f"/proc/{meta['ppid_of_chain']}/comm").read().strip() if meta["ppid_of_chain"] > 1 else "init"
+    if comm not in ("systemd", "init"):
+        msg = f"orphans reparent to {comm!r} here, not init/systemd; the anchor walk stops only at those"
+        if pytest:
+            pytest.skip(msg)
+        print(f"  detached anchor: SKIP ({msg})")
+        return
+    assert meta["detached_pid"] == chain, meta
+    assert meta["pid"] != chain, meta
+    print(f"  detached anchor: setsid chain {chain} recorded as detached_pid  OK")
+
+
+def test_a_worker_sh_open_records_no_anchor(d):
+    """An open under the fleet's worker.sh is not detached: worker.sh already holds its card,
+    and recording its top-level ancestor would keep the card busy while the row only thinks."""
+    meta, _ = _run_chain(d, "worker", detach=False)
+    assert meta["detached_pid"] is None, meta
+    print("  detached anchor: an open under worker.sh records none  OK")
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as d:
         # The main process must lease into the SAME dir/host as the spawned holders so
@@ -459,4 +517,6 @@ if __name__ == "__main__":
         test_card_set_refused_when_visibility_exceeds_grant(d)
         test_card_set_matches_grant_when_pinned(d)
         test_logical_device_id_out_of_range_raises(d)
+        test_detached_chain_is_recorded_as_the_lease_anchor(d)
+        test_a_worker_sh_open_records_no_anchor(d)
     print("ALL DEVICE-LEASE UNIT TESTS PASSED")

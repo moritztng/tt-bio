@@ -156,10 +156,11 @@ def _echo_recipe(ctx, param, value):
 @click.option("--warmup-steps", default=1000, show_default=True, type=int)
 @click.option("--checkpoint-every", default=100, show_default=True, type=int)
 @click.option("--seed", default=0, show_default=True, type=int)
-@click.option("--device-ops", is_flag=True,
-              help="Run softmax and layer norm on the device kernels inference uses, instead "
-                   "of in float64 on the host. Faster per step; the gradient is measurably "
-                   "further from upstream's (docs/training.md).")
+@click.option("--exact/--device-ops", default=None,
+              help="--exact runs softmax and layer norm in float64 on the host, a diagnostic "
+                   "reference about 40x slower on the trunk backward. --device-ops keeps them "
+                   "on the device kernels, which clear the same accuracy bar. Neither: the "
+                   "device path, unless the crop fits only with --exact (docs/training.md).")
 @click.option("--dry-run", is_flag=True,
               help="Answer 'will this fit and how long' and exit, WITHOUT opening a device.")
 @click.option("--show-recipe", is_flag=False, flag_value="default", default=None,
@@ -170,7 +171,7 @@ def _echo_recipe(ctx, param, value):
               callback=_echo_objectives, help="Print the objective rows and exit.")
 def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, recipe, tokens,
              chip_ids, rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed,
-             device_ops, dry_run):
+             exact, dry_run):
     """Fine-tune or pre-train a shipped model.
 
     \b
@@ -188,7 +189,7 @@ def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, r
       tt_bio.autograd + train.gradcheck                            Tier 3
     """
     from . import objectives
-    from .dryrun import plan
+    from .dryrun import needs_exact, plan
 
     chips = len(chip_ids)
     if data is None:
@@ -243,12 +244,18 @@ def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, r
     except NotImplementedError as exc:
         raise click.ClickException(str(exc)) from exc
 
+    if exact is None:
+        exact = needs_exact(model, tokens or 256)
+        if exact:
+            click.echo(f"{tokens} aa fits {model} only with --exact on one card, so it is on: "
+                       f"a step runs many times slower. Lower --tokens for the device path.")
+
     # Only now does anything reach a device.
     from ..autograd import exact_training
     from .lora import LoraConfig
     from .loop import finetune as run_finetune
 
-    with exact_training(not device_ops):
+    with exact_training(exact):
         run = run_finetune(
             forward, dataset, out_dir=out_dir, global_batch=global_batch, steps=steps,
             objective=objective, train=train_mode, recipe=recipe, seed=seed, lr=lr,

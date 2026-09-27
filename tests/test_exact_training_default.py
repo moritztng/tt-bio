@@ -1,11 +1,12 @@
-"""Softmax and layer norm run exact on every training tape, gated on the tape itself.
+"""The float64 softmax and layer norm are off by default and scoped to the tape when on.
 
 of3t-stackexact measured the model-frame trunk gradient at 0.9822570327981535x the bar with
 both exact against 1.4511706984958472x on the device ops, and of3t-stackship made that the
-default. These pin the gate: `install()` opens it until its `uninstall()`, `tape()` and `backward()`
-open it for their own extent,
-put back exactly what they replaced, leave an outer owner's install alone, and
-`exact_training(False)` turns it off. No environment variable, and no route from inference.
+default. of3t-p10exact then cleared the same bar on the device alone (0.99736x) with the fp32
+softmax backward, and of3t-p10default turned the instrument off. These pin the default and the
+gate: under `exact_training(True)`, `install()` opens it until its `uninstall()`, `tape()` and
+`backward()` open it for their own extent, put back exactly what they replaced, and leave an
+outer owner's install alone. No environment variable, and no route from inference.
 """
 from pathlib import Path
 
@@ -34,11 +35,25 @@ def _all(v):
                            "layer_norm_hook")}
 
 
+def test_the_default_is_the_device_path(monkeypatch):
+    """A tape and a backward opened with no switch leave softmax and layer norm on the device,
+    and the fp32 softmax backward that makes that path accurate is on."""
+    ag, tt, ttnn = _mods()
+    seen = []
+    monkeypatch.setattr(ag, "_backward", lambda roots, seeds: seen.append(_state(ag, tt, ttnn)))
+    assert ag.exact_training_ops() == ()
+    with ag.tape():
+        assert _state(ag, tt, ttnn) == _all(False)
+    ag.backward([], [])
+    assert seen == [_all(False)]
+    assert ag.SOFTMAX_BW_FP32 is True
+
+
 def test_tape_runs_softmax_and_layer_norm_exact_and_puts_them_back():
     ag, tt, ttnn = _mods()
     was = (ttnn.softmax, ttnn.layer_norm, tt._VERBS["layer_norm"], ag._TAPED["layer_norm"])
     assert _state(ag, tt, ttnn) == _all(False)
-    with ag.tape():
+    with ag.exact_training(True), ag.tape():
         assert _state(ag, tt, ttnn) == _all(True)
         with ag.tape():                       # nested: the inner block changes nothing
             assert _state(ag, tt, ttnn) == _all(True)
@@ -53,24 +68,25 @@ def test_backward_runs_exact_for_its_own_extent(monkeypatch):
     ag, tt, ttnn = _mods()
     seen = []
     monkeypatch.setattr(ag, "_backward", lambda roots, seeds: seen.append(_state(ag, tt, ttnn)))
-    ag.backward([], [])
+    with ag.exact_training(True):
+        ag.backward([], [])
     assert seen == [_all(True)]
     assert _state(ag, tt, ttnn) == _all(False)
 
 
-def test_exact_training_false_is_the_off_switch(monkeypatch):
+def test_exact_training_false_inside_true_is_the_off_switch(monkeypatch):
     ag, tt, ttnn = _mods()
     seen = []
     monkeypatch.setattr(ag, "_backward", lambda roots, seeds: seen.append(_state(ag, tt, ttnn)))
-    with ag.exact_training(False):
-        assert ag.exact_training_ops() == ()
-        with ag.tape():
-            assert _state(ag, tt, ttnn) == _all(False)
-        ag.backward([], [])
-        with ag.exact_training(True):         # innermost block wins
-            assert ag.exact_training_ops() == ag.EXACT_TRAINING_OPS
+    with ag.exact_training(True):
+        with ag.exact_training(False):        # innermost block wins
+            assert ag.exact_training_ops() == ()
+            with ag.tape():
+                assert _state(ag, tt, ttnn) == _all(False)
+            ag.backward([], [])
+        assert ag.exact_training_ops() == ("softmax", "layer_norm")
     assert seen == [_all(False)]
-    assert ag.exact_training_ops() == ("softmax", "layer_norm")
+    assert ag.exact_training_ops() == ()
 
 
 def test_an_outer_install_is_left_to_its_owner():
@@ -82,7 +98,7 @@ def test_an_outer_install_is_left_to_its_owner():
     saved = (tt._VERBS["layer_norm"], ag._TAPED["layer_norm"])
     tt._VERBS["layer_norm"] = ag._TAPED["layer_norm"] = mine
     try:
-        with ag.exact_softmax():
+        with ag.exact_softmax(), ag.exact_training(True):
             with ag.tape():
                 assert _state(ag, tt, ttnn) == _all(True)
             assert ttnn.softmax is ag._exact_softmax_raw
@@ -99,18 +115,19 @@ def test_install_is_the_gate_and_pairs_by_nesting():
     install/uninstall pair must not disarm what the outer one armed."""
     ag, tt, ttnn = _mods()
     import tt_bio.ops as ops
-    prev = ag.install()
-    try:
-        assert _state(ag, tt, ttnn) == _all(True)
-        ag.install()
-        ag.uninstall()
-        assert _state(ag, tt, ttnn) == _all(True), "an inner pair disarmed the outer install"
-        with ag.tape():
-            pass
-        assert _state(ag, tt, ttnn) == _all(True), "a tape closing disarmed the install"
-    finally:
-        ag.uninstall()
-        ops.set_grad_hook(prev)
+    with ag.exact_training(True):
+        prev = ag.install()
+        try:
+            assert _state(ag, tt, ttnn) == _all(True)
+            ag.install()
+            ag.uninstall()
+            assert _state(ag, tt, ttnn) == _all(True), "an inner pair disarmed the outer install"
+            with ag.tape():
+                pass
+            assert _state(ag, tt, ttnn) == _all(True), "a tape closing disarmed the install"
+        finally:
+            ag.uninstall()
+            ops.set_grad_hook(prev)
     assert _state(ag, tt, ttnn) == _all(False)
     ag.uninstall()                            # a bare uninstall is still harmless
     assert _state(ag, tt, ttnn) == _all(False)
@@ -121,7 +138,7 @@ def test_tape_does_not_leave_an_install_behind():
     exact scope nobody pops, and every later fold in the process would run exact."""
     ag, tt, ttnn = _mods()
     depth = len(ag._INSTALL_EXACT)
-    with ag.tape():
+    with ag.exact_training(True), ag.tape():
         pass
     assert len(ag._INSTALL_EXACT) == depth
     assert _state(ag, tt, ttnn) == _all(False)
@@ -144,3 +161,20 @@ def test_no_environment_variable_and_no_inference_route():
         if hits:
             callers[str(path.relative_to(SRC))] = hits
     assert not callers, f"the exact training ops are named outside the tape: {callers}"
+
+
+def test_the_instrument_turns_on_only_where_it_alone_fits():
+    # 576 fits OpenFold3 only with the instrument on; the device path is measured to 512. Above
+    # the instrument fit plan() refuses, so needs_exact stays off there instead of promising it.
+    from tt_bio.train.dryrun import (DEVICE_PATH_LARGEST_FIT, LARGEST_MEASURED_TO_FIT,
+                                     needs_exact)
+
+    device, _ = DEVICE_PATH_LARGEST_FIT["openfold3"]
+    exact, _ = LARGEST_MEASURED_TO_FIT["openfold3"]
+    assert device < exact
+    assert not needs_exact("openfold3", 256)
+    assert not needs_exact("openfold3", device)
+    assert needs_exact("openfold3", device + 32)
+    assert needs_exact("openfold3", exact)
+    assert not needs_exact("openfold3", exact + 64)
+    assert not needs_exact("protenix-v2", exact)
