@@ -15,3 +15,19 @@
 === step_M2 tree /home/ttuser/.coworker/wt/of3t-p10land c75bed9a0 2026-09-27T10:45:39Z loadavg 10.35 8.76 6.44
 === step_M2 rc=0 2026-09-27T10:48:10Z loadavg 7.30 8.10 6.54
 === gate_merged 2026-09-27T10:48:10Z loadavg 7.30 8.10 6.54
+=== gate_merged rc=0 2026-09-27T10:51:29Z loadavg 23.58 15.63 9.79
+=== gate_main 2026-09-27T10:51:29Z loadavg 23.58 15.63 9.79
+=== gate_main rc=0 2026-09-27T10:54:19Z loadavg 18.84 17.46 11.49
+=== CHAIN DONE 2026-09-27T10:54:19Z loadavg 18.84 17.46 11.49
+=== chain2 start merged 5e804bcfb br e63a08408 2026-09-27T10:54:22Z loadavg 18.69 17.46 11.52
+=== TFM2 2026-09-27T10:54:22Z loadavg 18.69 17.46 11.52
+=== TFM2 rc=0 2026-09-27T10:56:31Z loadavg 18.21 16.91 12.05
+=== gh_bA tree e63a08408  2026-09-27T10:56:31Z loadavg 18.21 16.91 12.05
+=== gh_bA rc=0 2026-09-27T10:57:39Z loadavg 17.23 16.94 12.39
+=== gh_bB tree e63a08408  2026-09-27T10:57:39Z loadavg 17.23 16.94 12.39
+=== gh_bB rc=0 2026-09-27T10:58:53Z loadavg 15.89 16.58 12.62
+=== gh_hA tree 70622e298 PYTHONHASHSEED=0 2026-09-27T10:58:53Z loadavg 15.89 16.58 12.62
+=== gh_hA rc=0 2026-09-27T11:00:00Z loadavg 16.70 16.56 12.87
+=== gh_hB tree 70622e298 PYTHONHASHSEED=0 2026-09-27T11:00:00Z loadavg 16.70 16.56 12.87
+=== gh_hB rc=0 2026-09-27T11:01:08Z loadavg 14.00 15.94 12.94
+=== CHAIN2 DONE 2026-09-27T11:01:08Z loadavg 14.00 15.94 12.94
