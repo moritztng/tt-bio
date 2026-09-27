@@ -389,10 +389,24 @@ class _Status:
                     error={"title": type(exc).__name__, "detail": str(exc)})
 
     def succeed(self, run) -> None:
-        best = run.best
+        """The summary goes in status.json; the full record, config included, in run.json."""
+        prov = run.provenance.as_dict()
+        if self.writer:
+            (self.dir / "run.json").write_text(json.dumps(
+                {"history": run.history, "provenance": prov, "dp": run.dp,
+                 "displacement": run.displacement}, indent=2, default=str) + "\n")
+        best, latest = run.best, run.checkpointer.latest()
         self._write(status="succeeded", step=run.history[-1]["step"] if run.history else None,
-                    loss=run.loss, provenance=run.provenance.as_dict(), dp=run.dp,
-                    checkpoint=str(best["path"]) if best else None)
+                    loss=run.loss, provenance={k: v for k, v in prov.items() if k != "config"},
+                    dp=_dp_summary(run.dp), checkpoint=str(best["path"]) if best else None,
+                    latest=str(latest) if latest else None, record=str(self.dir / "run.json"))
+
+
+def _dp_summary(dp):
+    """The data-parallel numbers an agent reads; the per-rank record stays in run.json."""
+    keep = ("world", "nodes", "distinct_master_sha", "median_step_s", "comm_bytes",
+            "median_transfer_s", "median_barrier_wait_s")
+    return {k: dp.get(k) for k in keep} if dp else None
 
 
 def _mesh(chip_ids):
