@@ -480,8 +480,20 @@ you; at Tier 2 you own the loop, so you own them:
   divides each parameter's accumulated gradient by the number of samples that actually
   activated it, and does not clip again.
 
-Both are verified against OpenFold3's own `grad_manager`, executed rather than transcribed:
-`perf/of3t_leaves/clip_equiv.py`.
+Both clipping rules are verified against OpenFold3's own `grad_manager`, executed rather than
+transcribed: `perf/of3t_leaves/clip_equiv.py`.
+
+## `release_pins()` after every backward, or you run out of card
+
+Checkpointing is what makes a 48-block trunk fit at all, and each checkpointed block pins its
+own input across its untaped forward: the recompute that reads that input happens inside the
+backward, so the block cannot know when the pin is dead. The loop can, and `release_pins()` is
+how it says so. `finetune` calls it for you.
+
+At OpenFold3's crop 384 one step takes 120 pins holding 1.02 GB of card DRAM. A loop that
+never releases them grows by about a gigabyte a step whatever else it does, and is refused its
+seventh step with 61 MB of contiguous DRAM left. `train_loop` itself did exactly that until
+`08cf847df`, which capped every OF3T training run at six steps.
 
 ## The host float64 softmax: for when fp32 is not fp32
 

@@ -1328,6 +1328,85 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     return _tape(out_v, parents, make)
 
 
+# Whether `_row_mean` divides the row sum by K or calls `ttnn.mean`. A module switch so a step
+# A/B can flip it between reps of ONE warm process, the way `SOFTMAX_BW_RENORM` already is: the
+# 384-token step's own rep-to-rep spread is 2.551 s
+# (`perf/of3t_stepfloor/out/step_fp32bw_48_384.json`), and four extra scalar divides per
+# layer-norm backward do not live at that resolution across two separate runs. Default on.
+# `ttnn.mean` is the measured-wrong path; the switch exists to PRICE the fix, not to offer it.
+ROW_MEAN_DIVIDE = True
+ROW_MEAN_STATS = {"divide": 0, "mean": 0}
+
+
+def _row_mean(v, cfg, K: int):
+    """Mean over the last axis, as ``sum`` then an explicit multiply by ``1/K``.
+
+    Not a style choice. ``ttnn.mean`` carries its own ``1/K`` and returns it short at a K that
+    is not a power of two: at K=384 the four means of the closure below all inherit the same
+    signed constant and ``dx`` reads 2.089e-03 relative L2 against a finite-difference-validated
+    float64 reference, a +2.08e-03 systematic at 11327 sigma over 32 draws, where the identical
+    closure at K=128 reads 1.481e-04 and is unbiased. 1/128 is a power of two and exact in any
+    float; 1/384 is not. Summing and scaling by the host's own fp32 constant takes K=384 to
+    1.399e-04 and leaves K=128 bit-identical, which is the control the explanation predicts
+    (``perf/of3t_p10grad/PEROP.md``, SUMSCALE arms).
+
+    ``c_s = 384`` and ``c_z = 128``, so this is the single track's bias and not the pair
+    track's, and it is a function of the channel width rather than of the crop.
+    """
+    if not ROW_MEAN_DIVIDE:
+        ROW_MEAN_STATS["mean"] += 1
+        return ttnn.mean(v, dim=-1, keepdim=True, compute_kernel_config=cfg)
+    ROW_MEAN_STATS["divide"] += 1
+    return ttnn.divide(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg), float(K))
+
+
+def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
+    """The layer-norm backward, shared by ``layer_norm`` and ``_taped_layer_norm``.
+
+    One definition, because the two sites carried verbatim copies of it and a fix to either
+    one was a fix to neither.
+
+    mean and rstd are recomputed here rather than retained from the forward: two reductions,
+    and it is what buys the production ``ttnn.layer_norm`` forward, which returns neither. The
+    two-pass ``E[(x - mean)^2]`` rather than tt-train's ``E[x^2] - E[x]^2``
+    (``ops/layernorm_op.cpp:144``), which cancels catastrophically once the mean dominates the
+    spread. ``x.value`` is read inside ``bw`` and not captured: ``Tensor.free`` may have evicted
+    it to DRAM since the forward, and a captured handle would be freed storage.
+    """
+    def bw(g):
+        xv = x.value
+        K = int(xv.shape[-1])
+        # ONE dtype through the closure. A fan-in accumulator is fp32 and the activation it
+        # meets is bf16, and `ttnn.multiply(bf16, fp32)` is not a function of its inputs: it
+        # repeats bit-exact with the operands swapped and differs run to run as written, on
+        # row, vector and full operands (`perf/of3t_p10trainfix/bcast_det.py`). Here that was
+        # `norm * mean(dnorm * norm)`, rounded to bf16 inside a three-term cancellation, and
+        # two runs handed the same g, x and gamma got dx 7-40 % apart in norm from it.
+        dt = ttnn.float32 if ttnn.float32 in (xv.dtype, g.dtype) else xv.dtype
+        xv, g = (v if v.dtype == dt else ttnn.typecast(v, dt) for v in (xv, g))
+        gv = None if gamma is None else gamma.value
+        if gv is not None and gv.dtype != dt:
+            gv = ttnn.typecast(gv, dt)
+        mean = _row_mean(xv, bwcfg, K)
+        centered = ttnn.subtract(xv, mean)
+        var = _row_mean(ttnn.multiply(centered, centered), bwcfg, K)
+        rstd = ttnn.rsqrt(ttnn.add(var, eps))
+        norm = ttnn.multiply(centered, rstd)
+        if gamma is not None and gamma.requires_grad:
+            gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
+        if beta is not None and beta.requires_grad:
+            beta.add_grad(_sum_leading(g, beta.value.shape))
+        if x.requires_grad:
+            dnorm = ttnn.multiply(g, gv) if gv is not None else g
+            # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
+            dn_mean = _row_mean(dnorm, bwcfg, K)
+            dn_norm_mean = _row_mean(ttnn.multiply(dnorm, norm), bwcfg, K)
+            dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
+                               ttnn.multiply(norm, dn_norm_mean))
+            x.add_grad(ttnn.multiply(dx, rstd))
+    return bw
+
+
 def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor] = None,
                *, eps: float = 1e-6, config=None, backward_config=None,
                memory_config=None) -> Tensor:
@@ -1365,33 +1444,7 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
     parents = [p for p in (x, gamma, beta) if p is not None]
 
     def make():
-        def bw(g):
-            # Recomputed here, not retained from the forward: two reductions, and it is what
-            # buys the production kernel above. The two-pass E[(x - mean)^2] rather than
-            # tt-train's E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels
-            # catastrophically once the mean dominates the spread.
-            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
-            # DRAM since the forward, and the captured handle would be freed storage.
-            xv = x.value
-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
-            centered = ttnn.subtract(xv, mean)
-            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
-                            compute_kernel_config=bwcfg)
-            rstd = ttnn.rsqrt(ttnn.add(var, eps))
-            norm = ttnn.multiply(centered, rstd)
-            if gamma is not None and gamma.requires_grad:
-                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
-            if beta is not None and beta.requires_grad:
-                beta.add_grad(_sum_leading(g, beta.value.shape))
-            if x.requires_grad:
-                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
-                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
-                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                                   ttnn.multiply(norm, dn_norm_mean))
-                x.add_grad(ttnn.multiply(dx, rstd))
-        return bw
+        return _layer_norm_bw(x, gamma, beta, eps, bwcfg)
 
     return _tape(out_v, parents, make)
 
@@ -1558,6 +1611,11 @@ def _v_exact_softmax(shipped, args, kwargs):
     The host path never writes the caller's buffer, so the in-place kernel's one advantage is
     gone and its one hazard with it.
     """
+    if not _GRAD_ENABLED:
+        # See `_v_exact_layer_norm` for why `no_grad` takes the raw form. Same arithmetic,
+        # no wrapper, no tape node.
+        ra, rk = _raw(args, kwargs)
+        return _exact_softmax_raw(*ra, **rk)
     x = _wrap(args[0])
     dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
     EXACT_SOFTMAX_STATS["verb"] += 1
@@ -1619,6 +1677,18 @@ def _exact_layer_norm_raw(*args, **kwargs):
 def _v_exact_layer_norm(shipped, args, kwargs):
     """The taped `layer_norm`: float64 forward, and dx, dgamma, dbeta in float64 from x re-read
     off the card. mean and rstd are re-derived in the backward, not held on the host."""
+    if not _GRAD_ENABLED:
+        # Inside `no_grad` there is no tape to pin a wrapper into and no backward to serve it,
+        # so the verb form buys nothing and costs the wrapper map: `_wrap` hands back whatever
+        # wrapper the handle's id already has, and in a `no_grad` census the shipped decoder
+        # frees its activations two lines after each call (`openfold3_diffusion_decoder.py:99`
+        # norms `ql_out_pad` and deallocates it immediately). The forward then read a dead
+        # handle and the reference arm died on `tensor.is_allocated()` in the discovery pass,
+        # before step 0. The raw form is the SAME float64 arithmetic, which matters: the
+        # discovery pass has to run the arithmetic the step will run, because the fused
+        # softmax tail learns its L1 row caps from whatever it sees first (`install`).
+        ra, rk = _raw(args, kwargs)
+        return _exact_layer_norm_raw(*ra, **rk)
     x, gamma, beta, eps, mc = _ln_args(args, kwargs)
     x, gamma, beta = _wrap(x), _wrap(gamma), _wrap(beta)
     EXACT_LAYER_NORM_STATS["verb"] += 1
@@ -1712,6 +1782,29 @@ def _uninstall_exact(ops, owner: Optional[str] = None) -> None:
         for n, fn in saved["raw"].items():
             setattr(ttnn, n, fn)
         tt.forget_shim_bindings(*_EXACT_OPS[op]["verbs"])
+
+
+@contextlib.contextmanager
+def without_exact():
+    """Take the exact ops OUT for the block, and put back exactly what was there.
+
+    `exact_training(False)` changes what `exact_training_ops()` returns; it does not uninstall
+    what an enclosing `install()` already put in, and `install()` reads that function once at
+    the start of a run. So a section that has to run on the device`s own arithmetic whatever
+    the run asked for needs the ops gone, not the answer changed.
+
+    The detached rollout is that section. Upstream detaches it, so nothing computed there
+    reaches a gradient and the instrument has nothing to make exact; leaving it installed also
+    fails outright, because `_ln_forward64` downloads its input to host float64 and the shipped
+    diffusion decoder has already deallocated that buffer.
+    """
+    taken = {op: owner for op, (owner, _saved) in _EXACT_SAVED.items()}
+    _uninstall_exact(list(taken))
+    try:
+        yield
+    finally:
+        for op, owner in taken.items():
+            _install_exact((op,), owner)
 
 
 def exact_softmax_installed() -> bool:
@@ -1829,7 +1922,16 @@ def straight_through(value, x: Tensor) -> Tensor:
     weights on the card. Consumers read the precise value; the weights get the gradient of the
     device computation, evaluated where that computation landed. ``value`` is a raw ttnn tensor
     of ``x``'s shape and dtype.
+
+    ``x`` is WRAPPED rather than assumed: the device leg is only a `Tensor` when something on
+    it is registered, and in an inference pass over the same forward it comes back as a raw
+    handle. `_tape` then reads `.value` off a parent that has none -- `AttributeError` on a
+    raw ttnn tensor, in the evaluation of a run that had just finished training. Wrapping is a
+    no-op when it is already a `Tensor`, and it is what makes `add_grad` below well defined
+    either way.
     """
+    x = _wrap(x)
+
     def make():
         def bw(g):
             x.add_grad(g)
@@ -2793,33 +2895,7 @@ def _taped_layer_norm(shipped, args, kwargs):
     parents = [t for t in (x, gamma, beta) if t is not None]
 
     def make():
-        def bw(g):
-            # Recomputed here, not retained: two reductions, and it is what buys the
-            # production kernel above. Two-pass E[(x - mean)^2] rather than tt-train's
-            # E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels catastrophically
-            # once the mean dominates the spread.
-            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
-            # DRAM since the forward, and the captured handle would be freed storage.
-            xv = x.value
-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
-            centered = ttnn.subtract(xv, mean)
-            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
-                            compute_kernel_config=bwcfg)
-            rstd = ttnn.rsqrt(ttnn.add(var, eps))
-            norm = ttnn.multiply(centered, rstd)
-            if gamma is not None and gamma.requires_grad:
-                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
-            if beta is not None and beta.requires_grad:
-                beta.add_grad(_sum_leading(g, beta.value.shape))
-            if x.requires_grad:
-                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
-                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
-                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                                   ttnn.multiply(norm, dn_norm_mean))
-                x.add_grad(ttnn.multiply(dx, rstd))
-        return bw
+        return _layer_norm_bw(x, gamma, beta, eps, bwcfg)
 
     return _tape(out_v, parents, make)
 
