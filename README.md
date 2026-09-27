@@ -1064,7 +1064,7 @@ the gradients between them, the way `torchrun` does, so the program has to be re
 must not open a card before the `finetune` call. Both are checked before anything starts. Two
 p150a chips on a QuietBox measured **1.96x** at a 0.33 MB adapter gradient and **1.70x** at 5.24
 MB, both at 1350 MHz; the gap is host-side Adam contending between the two processes, not the
-exchange, which costs 2.3 % of the step. Four chips runs the same path and is not measured yet.
+exchange, which costs 2.3 % of the step. Training OpenFold3's weights at a 384-token crop, two p300c chips on a QuietBox take 46.5 s per two-sample step against 77.4 s on one, **1.66x**, both at 1350 MHz; each step exchanges a 2.1 GB gradient through shared memory. Four chips runs the same path and is not measured yet.
 One host: reaching a second box needs a cable, not a code change.
 
 Every run carries the check that makes a multi-chip number mean something. The ranks' weights
