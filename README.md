@@ -1019,10 +1019,11 @@ AlphaFold 2 learning-rate schedule. Each is an argument, and the loop clips ever
 separately, so a batch of 8 is 8 forwards per step. See
 [`docs/training.md`](docs/training.md) for what each one costs if you get it wrong.
 
-A training step runs softmax and layer norm in float64 on the host, which is what brings the
-OpenFold3 gradient inside its accuracy bar against upstream. It makes a step slower;
-`--device-ops` puts them back on the device kernels. Inference is unaffected. See
-[`docs/training.md`](docs/training.md#softmax-and-layer-norm-run-in-float64-during-training-by-default).
+A training step runs entirely on the device, with the softmax backward in fp32. On OpenFold3
+that keeps the gradient inside its accuracy bar against upstream. `--exact` computes softmax and
+layer norm in float64 on the host instead, a diagnostic reference that makes a step many times
+slower. Inference is unaffected. See
+[`docs/training.md`](docs/training.md#training-runs-on-the-device-float64-is-a-diagnostic).
 
 Four things the API enforces rather than documents, because each is a bug we hit:
 

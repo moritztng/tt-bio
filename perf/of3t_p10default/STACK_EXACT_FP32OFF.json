@@ -1,0 +1,88 @@
+{
+ "exact": [],
+ "device_only": false,
+ "sm_bw_fp32": {
+  "fired": 0,
+  "elements": 0,
+  "installed": false
+ },
+ "pkg_softmax_bw_fp32": {
+  "flag": false,
+  "fired": 0,
+  "elements": 0
+ },
+ "pkg_softmax_bw_renorm": {
+  "flag": true,
+  "applied": 144,
+  "declined": 0
+ },
+ "ln_probe": {
+  "installed": false,
+  "returns_fp32": false,
+  "limit": 32
+ },
+ "installed": {
+  "exact_training_ops_in_scope": [],
+  "softmax_installed_inside_the_scope": false,
+  "softmax_bw_fp32_installed": false
+ },
+ "counters": {
+  "EXACT_SOFTMAX_STATS": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "EXACT_LAYER_NORM_STATS": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "exactln_scope": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "layer_norm_probe": {
+   "verb": 0,
+   "bw": 0,
+   "probed": 0,
+   "fp32_returned": 0
+  }
+ },
+ "why_counters": "EXACT_SOFTMAX_STATS / EXACT_LAYER_NORM_STATS are the package's own, and they are what proves which path ran: both all-zero is the only proof of a DEVICE-ONLY arm, because _EXACT_TRAINING defaults True. exactln_scope counts the ladder's host float64 layer norm. layer_norm_probe: `bw` backwards seen by the probe, `probed` of those measured against float64, `fp32_returned` handed back as fp32.",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-p10default/perf/of3t_p10exact/CENSUS_FP32OFF.json",
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_p10default/in/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_p10default/in/of3t_recut/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_p10default/dev_FP32OFF.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-p10default/perf/of3t_p10exact/DEV_FP32OFF.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ],
+ "environment": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "board_class": "p150a",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 28,
+   "min": 800,
+   "median": 800,
+   "max": 800
+  },
+  "host_quiet": "device fd holder pid 3727676 BUSY (199 ticks/2s, owner of3t-p10default): /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/of3t_crop640/split_trace.py --tokens 384 -\nloadavg1 22.28 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "3b12920c4f352a0eebae264821167be260d281bd",
+  "boundary_version": "upstream OpenFold3 0.4.3 (boundary captured from of3pkg043; graded reference 0.4.3 bf16 autocast, contrast reference 0.4.3 float64)"
+ }
+}

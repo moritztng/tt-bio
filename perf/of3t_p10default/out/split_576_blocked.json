@@ -1,0 +1,612 @@
+{
+ "doc": "Who owns the bytes at the backward's DRAM high-water, at a crop where it COMPLETES.",
+ "argv": [
+  "--tokens",
+  "576",
+  "--dead-values",
+  "on",
+  "--walk-from-gb",
+  "999",
+  "--out",
+  "perf/of3t_p10default/out/split_576_blocked.json"
+ ],
+ "env": {
+  "host": "tt-quietbox",
+  "tt_visible_devices": "0",
+  "tt_bio_lease_cards": "0",
+  "commit": "b3ed3e0ff096638d64f4565df00896bc8537498d",
+  "branch": "wk/of3t-p10default",
+  "started_utc": "2026-09-27T14:54:26Z",
+  "loadavg": [
+   13.0771484375,
+   11.70849609375,
+   11.64697265625
+  ],
+  "drop_dead_values": true,
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 45
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 45 samples, polled DURING the work"
+ },
+ "build_fold_s": 5.62,
+ "prep_to_sampler_s": 19.79,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 13.637,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "forward": {
+  "cycles": 1,
+  "inputs_dram_b": 1773544448,
+  "ok": true,
+  "s": 90.08,
+  "dram_peak_b": 14535517184,
+  "l1_peak_b": 0,
+  "at_verb": "typecast",
+  "blocks_entered": {
+   "template_pair_stack": 1,
+   "msa_module": 1,
+   "pairformer": 1
+  }
+ },
+ "backward": {
+  "tape_nodes": 2482,
+  "outer_tensors_noted": 2483,
+  "ckpt_pins": 106,
+  "ok": false,
+  "error": "std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::prim::ConcatDeviceOperation::create_output_tensors(ttnn::prim::ConcatParams const&, ttnn::prim::ConcatInputs const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim21ConcatDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x2fa) [0x7b1d054731ba]\n --- ttnn::prim::concat(std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> > const&, long, unsigned int, tt::tt_metal::MemoryConfig const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- ttnn::operations::data_movement::concat_impl(std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> > const&, long, unsigned int, tt::tt_metal::MemoryConfig const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xa70727) [0x7b1d05470727]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xa72e35) [0x7b1d05472e35]\n --- ttnn::concat(std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> > const&, int, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, unsigned int, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x60896a) [0x7b1d0680896a]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x7b1d0646f895]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0x16d) [0x620a504c2e2d]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x620a504d7d5c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x29dea4) [0x620a505dfea4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0xbb) [0x620a504db83b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x620a504b9ee9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0x16d) [0x620a504c2e2d]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x620a504d7d5c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x29dea4) [0x620a505dfea4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0xbb) [0x620a504db83b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x620a504b9ee9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x620a504b8f92]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x620a504b8f92]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x620a504bccd3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x620a504b7cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x620a504b7cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x620a504b7cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x620a504b7cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x620a504b7cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x620a504bccd3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x620a504cdaec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x620a504b7cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x25b036) [0x620a5059d036]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x86) [0x620a5059cf06]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x281a88) [0x620a505c3a88]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x27c0df) [0x620a505be0df]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x281825) [0x620a505c3825]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1a8) [0x620a505c2d68]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x47) [0x620a505c2a47]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x2be) [0x620a505b6eae]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x620a50590f4d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x7b1d08629d90]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80) [0x7b1d08629e40]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x620a50590e45]\n\n",
+  "error_head": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 3057647616 B DRAM buffer across 8 banks, where each bank needs to store 382205952 B, but bank size is 4278190016 B (allocated: 3917896832 B, free: 360293184 B, largest free block: 115992512 B)\n",
+  "stage_at_failure": "enter",
+  "s": 25.91,
+  "dram_peak_b": 32001385472,
+  "l1_peak_b": 0,
+  "at_verb": "multiply",
+  "at_stage": "enter",
+  "dram_live_allocs": 4087,
+  "census": {
+   "DRAM": {
+    "count": 4087,
+    "sum_b": 32001385472,
+    "largest_b": 3057647616,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     3057647616,
+     3057647616,
+     3057647616,
+     1528823808,
+     1528823808,
+     1528823808,
+     339738624,
+     339738624,
+     265420800,
+     265420800
+    ],
+    "by_size": {
+     "distinct_sizes": 42,
+     "top_by_bytes": [
+      {
+       "each_b": 84934656,
+       "n": 122,
+       "total_b": 10362028032
+      },
+      {
+       "each_b": 3057647616,
+       "n": 3,
+       "total_b": 9172942848
+      },
+      {
+       "each_b": 1528823808,
+       "n": 3,
+       "total_b": 4586471424
+      },
+      {
+       "each_b": 265420800,
+       "n": 14,
+       "total_b": 3715891200
+      },
+      {
+       "each_b": 42467328,
+       "n": 26,
+       "total_b": 1104150528
+      },
+      {
+       "each_b": 339738624,
+       "n": 2,
+       "total_b": 679477248
+      },
+      {
+       "each_b": 254803968,
+       "n": 2,
+       "total_b": 509607936
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 21233664,
+       "n": 12,
+       "total_b": 254803968
+      },
+      {
+       "each_b": 9437184,
+       "n": 24,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 38010880,
+       "n": 3,
+       "total_b": 114032640
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 106168320,
+       "n": 1,
+       "total_b": 106168320
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1426,
+       "total_b": 23363584
+      },
+      {
+       "each_b": 32768,
+       "n": 892,
+       "total_b": 29229056
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 98304,
+       "n": 201,
+       "total_b": 19759104
+      },
+      {
+       "each_b": 84934656,
+       "n": 122,
+       "total_b": 10362028032
+      },
+      {
+       "each_b": 147456,
+       "n": 105,
+       "total_b": 15482880
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 589824,
+       "n": 103,
+       "total_b": 60751872
+      },
+      {
+       "each_b": 294912,
+       "n": 97,
+       "total_b": 28606464
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 442368,
+       "n": 65,
+       "total_b": 28753920
+      },
+      {
+       "each_b": 49152,
+       "n": 62,
+       "total_b": 3047424
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 4087
+  },
+  "free": {
+   "free_b": 2224134656,
+   "largest_contiguous_free_per_bank_b": 115996608,
+   "largest_contiguous_free_across_banks_b": 927972864
+  },
+  "params_with_grad": 6,
+  "params_declared": 2531
+ },
+ "after_forward": {
+  "label": "after forward, before backward",
+  "dram_now_b": 8078271488,
+  "census_total_b": 8078271488,
+  "census_dram_b": 8078271488,
+  "buffers": 3910,
+  "duplicate_addresses": 0,
+  "live_taped_tensors": 2691,
+  "by_owner": {
+   "boundaries": {
+    "n": 106,
+    "b": 4533387264,
+    "dram_b": 4533387264,
+    "l1_b": 0
+   },
+   "weights": {
+    "n": 2531,
+    "b": 359055360,
+    "dram_b": 359055360,
+    "l1_b": 0
+   },
+   "weight_grads": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "tape": {
+    "n": 48,
+    "b": 1855488000,
+    "dram_b": 1855488000,
+    "l1_b": 0
+   },
+   "cotangents": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "recompute": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "other_leaf": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   }
+  },
+  "owner_share_of_dram_pct": {
+   "boundaries": 56.12,
+   "weights": 4.44,
+   "weight_grads": 0.0,
+   "tape": 22.97,
+   "cotangents": 0.0,
+   "recompute": 0.0,
+   "other_leaf": 0.0
+  },
+  "unattributed": {
+   "n": 1225,
+   "b": 1330340864,
+   "dram_b": 1330340864,
+   "dram_share_pct": 16.47,
+   "top_by_bytes": [
+    {
+     "each_b": 4718592,
+     "n": 72,
+     "total_b": 339738624
+    },
+    {
+     "each_b": 9437184,
+     "n": 24,
+     "total_b": 226492416
+    },
+    {
+     "each_b": 84934656,
+     "n": 2,
+     "total_b": 169869312
+    },
+    {
+     "each_b": 38010880,
+     "n": 3,
+     "total_b": 114032640
+    },
+    {
+     "each_b": 2359296,
+     "n": 48,
+     "total_b": 113246208
+    },
+    {
+     "each_b": 106168320,
+     "n": 1,
+     "total_b": 106168320
+    },
+    {
+     "each_b": 1179648,
+     "n": 55,
+     "total_b": 64880640
+    },
+    {
+     "each_b": 589824,
+     "n": 96,
+     "total_b": 56623104
+    },
+    {
+     "each_b": 21233664,
+     "n": 2,
+     "total_b": 42467328
+    },
+    {
+     "each_b": 19005440,
+     "n": 1,
+     "total_b": 19005440
+    }
+   ]
+  },
+  "shapes": {
+   "boundaries": [
+    {
+     "shape": [
+      1,
+      576,
+      576,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      576,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      576,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      576,
+      576,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "weights": [
+    {
+     "shape": [
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 838
+    },
+    {
+     "shape": [
+      128,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 417
+    },
+    {
+     "shape": [
+      128,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 208
+    },
+    {
+     "shape": [
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 194
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 144
+    },
+    {
+     "shape": [
+      128,
+      4
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    },
+    {
+     "shape": [
+      128,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    },
+    {
+     "shape": [
+      128,
+      544
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    }
+   ],
+   "weight_grads": [],
+   "tape": [
+    {
+     "shape": [
+      1,
+      576,
+      576,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 23
+    },
+    {
+     "shape": [
+      1,
+      576,
+      576,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 8
+    },
+    {
+     "shape": [
+      1,
+      576,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 5
+    },
+    {
+     "shape": [
+      1,
+      576,
+      576,
+      1
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 5
+    },
+    {
+     "shape": [
+      1,
+      576,
+      576,
+      32
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    },
+    {
+     "shape": [
+      1,
+      576,
+      449
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    },
+    {
+     "shape": [
+      1,
+      576,
+      576,
+      39
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    },
+    {
+     "shape": [
+      1,
+      36,
+      576,
+      34
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    }
+   ],
+   "cotangents": [],
+   "recompute": [],
+   "other_leaf": []
+  },
+  "walk_s": 0.131
+ }
+}

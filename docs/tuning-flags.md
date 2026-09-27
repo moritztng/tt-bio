@@ -1250,30 +1250,28 @@ The sample-invariant pair base is built once on device and only the pae/pde/pLDD
 
 It feature-detects the ops it needs and stays off on a ttnn that lacks one, so setting it on an older runtime is a no-op rather than a crash.
 
-## `TT_BIO_SOFTMAX_BW_FP32` — off, training only
+## `TT_BIO_SOFTMAX_BW_FP32` — on, training only
 
-Runs the softmax backward in fp32. Off by default, and it only ever reaches a training tape:
+Runs the softmax backward in fp32. On by default, and it only ever reaches a training tape:
 inference never builds one, so a `predict` run is unaffected whatever this is set to.
+`TT_BIO_SOFTMAX_BW_FP32=0` turns it off. `bindcraft2.predictor(exact=False)` also turns it off
+for its own duration, because the BindCraft 2 gradient round was measured and graded with the
+bf16 backward (`docs/bindcraft2.md`); setting the variable still wins there.
 
 `dx = y (g - sum(g y) / sum(y))` is a cancellation. At a converged row `sum(g y) / sum(y)`
 approaches `g`, the subtraction keeps only the low bits of two bf16 numbers, and the reduction
 feeding it was the one reduction in `tt_bio/autograd.py` carrying no compute kernel config. With
 this on, both operands are cast to fp32, the same expression runs through the same function, and
-the result is cast back.
+the result is cast back. The fp32 copies are freed at the end of each call.
 
-Turn it on if you are training and the gradient is noisier than the reference. It costs two
-typecasts per call and holds an fp32 copy of the attention probabilities for the length of the
-backward, which is real memory at a large crop.
+It is what makes on-device OpenFold3 training accurate. The model-frame gradient reads 0.946x
+the pre-registered accuracy bar with it on and 1.067x with it off on a p150a, and 0.997x against
+2.168x on a p300c (`perf/of3t_p10default`, `perf/of3t_p10exact`). The fp32 copies do not
+set the memory limit: 576 aa runs out of memory at the same allocation with it on and off.
 
-On OpenFold3 at crop 384 it is what lets the host float64 exactness instrument be turned off: the
-device-only trunk reads 2.16813 of the pre-registered accuracy bar with this off and 0.99736 with
-it on, and the step is 63.182 s against 63.162 s, a difference 128x smaller than the run-to-run
-spread. Evidence in `perf/of3t_p10exact`.
-
-It stays off by default because it moves every trained gradient in the package and has been
-graded at one crop on one card class. `perf/of3t_p10exact/smbw32_off_is_main.py` asserts the off
-path reaches `ttnn.sum` with exactly the arguments `origin/main` uses, so setting it to 0 is the
-shipped behaviour and not an approximation of it.
+`perf/of3t_p10exact/smbw32_off_is_main.py` asserts that the off path reaches `ttnn.sum` with
+exactly the arguments the pre-flag backward used, so `=0` is the old behaviour and not an
+approximation of it.
 
 ## Idle host threads when a box is full
 

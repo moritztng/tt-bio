@@ -1,0 +1,75 @@
+{
+  "verdict": "NO-GO",
+  "start_checkpoint_mean_loss": 6.8024402513580124,
+  "arm_a_mean_loss": 6.797353961189264,
+  "arm_b_mean_loss": 6.8107746381747205,
+  "gap": 0.013420676985456126,
+  "replicate_floor": 0.0,
+  "tolerance": 0.0,
+  "movement": 0.005086290168748064,
+  "movement_control_cleared": true,
+  "movement_over_floor": null,
+  "gap_over_floor": null,
+  "gap_over_movement": 2.638598377245056,
+  "steps": [
+    "--corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/train12",
+    "--checkpoint",
+    "/home/ttuser/of3-weights/of3-p2-155k.pt",
+    "--exact",
+    "on",
+    "--steps",
+    "2",
+    "--out-dir",
+    "/home/ttuser/of3t_p10trainout/runs/B2trunk",
+    "--curve",
+    "/home/ttuser/of3t_p10trainout/runs/B2trunk.jsonl",
+    "--out",
+    "/home/ttuser/.coworker/wt/of3t-p10trainout/perf/of3t_p10trainout/out/arm_B2trunk.json",
+    "--checkpoint-every",
+    "9",
+    "--displacement-band",
+    "0.01,100",
+    "--exact-scope",
+    "trunk",
+    "--eval-corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/val",
+    "--seed",
+    "0"
+  ],
+  "arm_a": {
+    "file": "out/arm_TF7.json",
+    "exact_ops": [],
+    "exact_scope": "all",
+    "aiclk": "1350 MHz median sampled DURING, n=49 (min 800, max 1350)",
+    "per_target": {
+      "7kud": 9.230163601445915,
+      "7ohe": 10.773956747140403,
+      "7fb8": 4.7125742369213945,
+      "7vus": 2.4727212592493473
+    }
+  },
+  "arm_b": {
+    "file": "out/arm_B2trunk.json",
+    "exact_ops": [
+      "softmax",
+      "layer_norm"
+    ],
+    "exact_scope": "trunk",
+    "aiclk": "1350 MHz median sampled DURING, n=1232 (min 800, max 1350)",
+    "per_target": {
+      "7kud": 9.220224819303205,
+      "7ohe": 10.829830603145222,
+      "7fb8": 4.713988935857652,
+      "7vus": 2.4790541943928024
+    }
+  },
+  "commit": "e06c56a83",
+  "slot_fix_is_ancestor": true,
+  "per_target_gap": {
+    "7kud": 0.009938782142709712,
+    "7ohe": 0.05587385600481909,
+    "7fb8": 0.0014146989362577855,
+    "7vus": 0.006332935143455121
+  }
+}
