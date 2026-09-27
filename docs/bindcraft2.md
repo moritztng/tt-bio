@@ -69,10 +69,15 @@ An H200 runs the same round in 0.696 s. These were measured with tt-bio's gradie
 (`state/perf10/bcx-p10-tritraj.md`); what the option is worth to you depends on how much of your
 round is host time, since that is all it fills.
 
+The rate holds over a whole campaign, not just a burst: four PD-L1 trajectories at
+`trajectories_per_card=2`, run to their stop condition, took 500 gradient rounds at 6.78 s
+amortised, 2.2 % under a 9-round measurement on the same chip.
+
 It costs host memory: about 3.5 GB per trajectory beyond the first, on top of the roughly 8 GB one
-trajectory of this size holds. Three of them peaked at 19.5 GB. Both the box and the card are read
-before any thread starts, and a box that cannot hold them raises `MemoryError` naming what it
-wanted and what was free, rather than letting the kernel kill the campaign at round 200.
+trajectory of this size holds. Two of them peaked at 14.2 GB, three at 19.5 GB. Both the box and
+the card are read before any thread starts, and a box that cannot hold them raises `MemoryError`
+naming what it wanted and what was free, rather than letting the kernel kill the campaign at
+round 200.
 
 Trajectory *i* starts only once *i-1* has its first gradient round behind it, so no two of them
 compile at the same time. Their output interleaves on stdout.
