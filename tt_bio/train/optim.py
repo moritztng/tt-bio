@@ -227,6 +227,9 @@ class AdamW:
         self.schedule = schedule
         self.beta1, self.beta2 = float(betas[0]), float(betas[1])
         self.steps = 0
+        #: The largest learning rate a step has run at. The AlphaFold 2 schedule starts at
+        #: lr(0) = 0, so a one-step run moves nothing and is correct to.
+        self.peak_lr = 0.0
         # Multiplicative beta powers rather than pow(beta, step): cheap, and exactly
         # reproducible across a reload because the powers themselves are checkpointed.
         self.beta1_pow, self.beta2_pow = 1.0, 1.0
@@ -451,6 +454,7 @@ class AdamW:
                             "kept": (kept / want) if want > 0 else float("nan"),
                             "grad_norm": float(np.linalg.norm(g))}
         self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
+        self.peak_lr = max(self.peak_lr, float(lr))
         self.last_per_sample = per_sample
         # How many parameters this step did not write back because the update rounded away
         # entirely. Reported rather than silent: a step that skips every write is either a
@@ -543,6 +547,11 @@ class AdamW:
         r = d["ratio"]
         if self.steps == 0:
             raise RuntimeError("nothing has stepped yet; there is no displacement to check")
+        if not (r == r) and self.peak_lr == 0.0:
+            # Every step ran at lr 0, the first step of the warmup, so nothing was meant to move.
+            return {**d, "lr_zero": True,
+                    "note": f"all {self.steps} step(s) ran at lr 0 (the warmup's first step), "
+                            f"so the weights are unchanged by design; band not asserted"}
         if not (r == r):  # nan: master has not moved at all
             raise AssertionError(
                 f"the master has not moved after {self.steps} steps (displacement "
@@ -660,11 +669,12 @@ class AdamW:
         return {"steps": self.steps, "lr": self.lr, "beta1": self.beta1,
                 "beta2": self.beta2, "eps": self.eps,
                 "weight_decay": self.weight_decay, "clip_norm": self.clip_norm,
-                "beta1_pow": self.beta1_pow, "beta2_pow": self.beta2_pow}
+                "beta1_pow": self.beta1_pow, "beta2_pow": self.beta2_pow,
+                "peak_lr": self.peak_lr}
 
     def load_state_dict(self, d: dict) -> None:
         for k in ("steps", "lr", "beta1", "beta2", "eps", "weight_decay", "clip_norm",
-                  "beta1_pow", "beta2_pow"):
+                  "beta1_pow", "beta2_pow", "peak_lr"):
             if k in d:
                 setattr(self, k, d[k])
 

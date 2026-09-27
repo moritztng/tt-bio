@@ -528,6 +528,23 @@ def test_invariant_the_step_control_is_cumulative_not_per_step():
     assert "displacement()" in src and "cumulative" in src.lower()
 
 
+def test_a_run_that_only_ever_stepped_at_lr_zero_is_not_called_a_failure():
+    """`tt-bio train --model openfold3 --steps 1` trained its step and then failed: the AF2
+    schedule's first step runs at lr 0, the master correctly did not move, and the step control
+    read that as "nothing was learned". A zero displacement at a non-zero lr still raises."""
+    from tt_bio.train import AdamW
+
+    opt = AdamW({})
+    opt.steps = 1
+    opt.displacement = lambda: {"ratio": float("nan"), "master": 0.0, "device": 0.0,
+                                "resolution": 0.0}
+    assert opt.check_displacement()["lr_zero"] is True
+    opt.peak_lr = 3e-7
+    with pytest.raises(AssertionError, match="has not moved"):
+        opt.check_displacement()
+    assert AdamW({}).state_dict()["peak_lr"] == 0.0
+
+
 def test_invariant_plan_returns_unmeasured_rather_than_guessing():
     from tt_bio.train import plan
     from tt_bio.train.dryrun import UNMEASURED
