@@ -58,7 +58,7 @@ def names() -> list:
     return sorted({*_ADAPTERS, *SHIPPED})
 
 
-def load(model: str, path: Path, *, tokens=None):
+def load(model: str, path: Path, *, tokens=None, **kw):
     """Resolve ``model`` to ``(forward, dataset)``, or refuse with what is missing."""
     if model not in _ADAPTERS and model in SHIPPED:
         import importlib
@@ -72,7 +72,7 @@ def load(model: str, path: Path, *, tokens=None):
             f"featurisation is deliberately not generalised -- register one with "
             f"tt_bio.train.catalogue.register({model!r}, adapter). "
             f"Registered today: {names() or 'none'}")
-    forward, dataset = adapter(Path(path), tokens=tokens)
+    forward, dataset = adapter(Path(path), tokens=tokens, **kw)
     # Looked up on the CLASS, then in the instance's own dict -- never with `hasattr`, which
     # CALLS a property to find out whether it is there. `device` is the one that matters: a
     # data-parallel run is one process per chip, so a dataset resolves its device lazily and

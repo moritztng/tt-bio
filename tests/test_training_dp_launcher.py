@@ -271,7 +271,7 @@ def test_the_readme_data_parallelism_claim_is_backed_by_the_recipe_reaching_the_
     src = (REPO_ROOT / "tt_bio" / "train" / "recipes.py").read_text()
     assert "launcher.drive(" in src, (
         "the Tier-1 recipe no longer hands a wide dp axis to tt_bio.train.launcher, so "
-        "`tt-bio finetune --chips 2` and `train.finetune(mesh=...)` reach no launcher and the "
+        "`tt-bio train --chips 2` and `train.finetune(mesh=...)` reach no launcher and the "
         "README's works-today claim is false again")
     assert "NotImplementedError" not in src.split("def train_loop", 1)[1][:2000]
     readme = (REPO_ROOT / "README.md").read_text()

@@ -136,6 +136,11 @@ class Checkpointer:
         self._prune()
         return path
 
+    def latest(self) -> Optional[Path]:
+        """The newest checkpoint on disk, written by this run or an earlier one."""
+        found = sorted(self.dir.glob(f"{self.prefix}-*.safetensors"))
+        return found[-1] if found else None
+
     def best(self) -> Optional[dict]:
         scored = [w for w in self.written if w["score"] is not None]
         if not scored:

@@ -6,7 +6,7 @@ distinction is the whole design: a user can name their authorship unit before th
 while "how much configuration" is only knowable after you hit the wall.
 
     tier  surface                                            you own          the cut line
-    0     tt-bio finetune ...                                a config file    no callables in the signature
+    0     tt-bio train ...                                a config file    no callables in the signature
     1     train.finetune(...) -> Run                         the objective    no `for` over steps in your code
     2     plan, batches, objectives, AdamW, Checkpointer,     the `for`        no ttnn call in your code
           Mesh, LoraConfig, trainable, attach

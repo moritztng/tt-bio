@@ -5,7 +5,7 @@ README is a deliverable rather than a description of one. This gate exists becau
 time anyone read it as a user, it was wrong in the one place that mattered most.
 
 The README lists "single-box data parallelism up to 4 chips" under **what works today**. The
-Tier-1 recipe -- the thing `tt-bio finetune` and `train.finetune(...)` actually run -- refuses
+Tier-1 recipe -- the thing `tt-bio train` and `train.finetune(...)` actually run -- refuses
 any data-parallel axis wider than one chip, and says so itself: "this recipe is a single process,
 so it only ever holds one replica's gradient ... The launcher for it is not built." Verified by
 execution against a 2-chip mesh, which raises before a device is opened.

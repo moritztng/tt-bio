@@ -1,7 +1,7 @@
 """A memory wall belongs to a model, not to a token count.
 
 `plan()` used to hold one flat `FORWARD_OOM` table and apply it to whatever
-`tt-bio finetune --model X` was given, and its two entries were Protenix-v2's. That was wrong
+`tt-bio train --model X` was given, and its two entries were Protenix-v2's. That was wrong
 in both directions on a documented command: `--model openfold3 --tokens 512` was REFUSED on
 Protenix-v2's number for a crop OpenFold3 is measured to run, and 544/576/640/768 came back
 UNMEASURED for OpenFold3 when `of3t-crop768` measured all four to refuse.

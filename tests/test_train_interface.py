@@ -130,10 +130,10 @@ def test_tier0_signature_has_no_callables():
     signature would make it undecidable, because the only way to learn what a callable does
     is to run it -- and running it is what `--dry-run` exists to avoid.
     """
-    from tt_bio.train.cli import finetune
+    from tt_bio.train.cli import train
 
     offenders = []
-    for p in finetune.params:
+    for p in train.params:
         if callable(p.default):
             offenders.append(f"{p.name} defaults to a callable")
         if p.type is None or not hasattr(p.type, "convert"):
@@ -149,14 +149,12 @@ def test_tier0_dry_run_opens_no_device():
 
     from click.testing import CliRunner
 
-    from tt_bio.train.cli import finetune
+    from tt_bio.train.cli import train
 
     before = set(sys.modules)
-    res = CliRunner().invoke(finetune, [
-        str(REPO_ROOT), "--model", "protenix-v2", "--out", "/tmp/x",
-        "--global-batch", "8", "--steps", "10", "--tokens", "256", "--dry-run"])
+    res = CliRunner().invoke(train, [str(REPO_ROOT), "--model", "openfold3", "--dry-run"])
     assert res.exit_code == 0, res.output
-    assert "fits" in res.output and "5.06 GB" in res.output, res.output
+    assert "fits" in res.output and "42.27" in res.output, res.output
     newly = {m for m in set(sys.modules) - before if m.split(".")[0] == "ttnn"}
     assert not newly, f"--dry-run imported {newly}; it must answer before a device opens"
 
@@ -164,13 +162,12 @@ def test_tier0_dry_run_opens_no_device():
 def test_tier0_refuses_a_measured_oom_rather_than_estimating():
     from click.testing import CliRunner
 
-    from tt_bio.train.cli import finetune
+    from tt_bio.train.cli import train
 
-    res = CliRunner().invoke(finetune, [
-        str(REPO_ROOT), "--model", "protenix-v2", "--out", "/tmp/x",
-        "--global-batch", "8", "--steps", "10", "--tokens", "384", "--dry-run"])
+    res = CliRunner().invoke(train, [
+        str(REPO_ROOT), "--model", "openfold3", "--tokens", "640", "--dry-run"])
     assert res.exit_code != 0
-    assert "75,497,472" in res.output, res.output
+    assert "of3t-crop768" in res.output, res.output
 
 
 def test_tier0_recipe_names_match_the_recipes_module():
@@ -192,7 +189,7 @@ def test_tier0_recipe_names_match_the_recipes_module():
 
 
 def test_tier0_a_model_with_no_featuriser_refuses_by_name():
-    """The README's claim, asserted: a run stops with a named error, before a device opens.
+    """A model with no featuriser is not offered by the CLI, and the catalogue says why.
 
     What is missing is the featuriser, not the interface, and the message has to say which --
     a user who reads "not implemented" goes looking in the wrong place.
@@ -201,17 +198,76 @@ def test_tier0_a_model_with_no_featuriser_refuses_by_name():
 
     from click.testing import CliRunner
 
-    from tt_bio.train.cli import finetune
+    from tt_bio.train import catalogue
+    from tt_bio.train.cli import TRAINABLE, train
 
+    assert TRAINABLE == tuple(catalogue.SHIPPED), (
+        "the CLI's --model choices and the shipped featurisers disagree")
     before = set(sys.modules)
-    res = CliRunner().invoke(finetune, [
-        str(REPO_ROOT), "--model", "protenix-v2", "--out", "/tmp/tt-bio-train-test",
-        "--global-batch", "8", "--steps", "2", "--tokens", "256"])
-    assert res.exit_code == 1, res.output
-    assert res.exception is None or isinstance(res.exception, SystemExit), res.exception
-    assert "FEATURISER" in res.output and "catalogue.register" in res.output, res.output
+    res = CliRunner().invoke(train, [str(REPO_ROOT), "--model", "protenix-v2"])
+    assert res.exit_code == 2 and "openfold3" in res.output, res.output
+    with pytest.raises(NotImplementedError, match="FEATURISER"):
+        catalogue.load("protenix-v2", REPO_ROOT)
     assert not {m for m in set(sys.modules) - before if m.split(".")[0] == "ttnn"}, (
         "the featuriser refusal opened a device stack it did not need")
+
+
+def test_tier0_help_is_layered():
+    """`--help` shows a run's flags; `--help-all` adds the ones the perf work used."""
+    from click.testing import CliRunner
+
+    from tt_bio.train.cli import train
+
+    short = CliRunner().invoke(train, ["--help"]).output
+    full = CliRunner().invoke(train, ["--help-all"]).output
+    for flag in ("--model", "--out", "--steps", "--chips", "--global-batch", "--lr"):
+        assert flag in short, (flag, short)
+    for flag in ("--exact", "--objective", "--recipe", "--rank", "--show-recipe"):
+        assert flag not in short, (flag, short)
+        assert flag in full, (flag, full)
+
+
+def test_tier0_status_file_speaks_japanfold(tmp_path):
+    """status.json: running, then a step, then succeeded or failed with {title, detail}.
+
+    A different config in the same --out is refused rather than resumed into.
+    """
+    import json
+
+    import click
+
+    from tt_bio.train.cli import _Status
+
+    st = _Status(tmp_path)
+    st.claim({"lr": 3e-4}, chips=[0])
+    assert st.read()["status"] == "running"
+    st.step({"step": 0, "loss": 1.5, "lr": 1e-6, "grad_norm": 2.0})
+    row = json.loads((tmp_path / "progress.jsonl").read_text())
+    assert row["step"] == 0 and row["healthy"] is True and row["s"] >= 0
+    with pytest.raises(FloatingPointError):
+        st.step({"step": 1, "loss": float("nan"), "lr": 1e-6, "grad_norm": 2.0})
+    try:
+        raise FloatingPointError("x")
+    except FloatingPointError as exc:
+        st.fail(exc)
+    doc = st.read()
+    assert doc["status"] == "failed" and doc["error"] == {"title": "FloatingPointError",
+                                                          "detail": "x"}
+    assert (tmp_path / "traceback.txt").is_file()
+    st.claim({"lr": 3e-4}, chips=[0])
+    assert st.read()["status"] == "running" and st.read()["error"] is None
+    with pytest.raises(click.ClickException, match="other settings"):
+        st.claim({"lr": 1e-4}, chips=[0])
+
+
+def test_weights_plan_answers_from_openfold3_measurements():
+    from tt_bio.train.dryrun import plan
+
+    assert plan(tokens=384, model="openfold3", frozen_trunk=False).seconds_per_step == 42.27
+    two = plan(tokens=384, model="openfold3", chips=2, global_batch=4, frozen_trunk=False)
+    assert two.seconds_per_step == 2 * 42.27
+    assert "--exact" in plan(tokens=544, model="openfold3", frozen_trunk=False).why
+    assert plan(tokens=640, model="openfold3", frozen_trunk=False).verdict == "refused"
 
 
 def test_tier0_verb_is_registered_lazily_by_path():
@@ -229,10 +285,10 @@ def test_tier0_verb_is_registered_lazily_by_path():
         if isinstance(node, ast.Assign) and any(
                 getattr(x, "id", None) == "LAZY" for x in node.targets):
             lazy = ast.literal_eval(node.value)
-    assert lazy == {"finetune": "tt_bio.train.cli:finetune"}, (
+    assert lazy == {"train": "tt_bio.train.cli:train"}, (
         f"the lazy command map is {lazy!r}. Tier 0's verb has to be registered by dotted "
         f"path, not imported, or every tt-bio command pays for the tape.")
-    mod, attr = lazy["finetune"].split(":")
+    mod, attr = lazy["train"].split(":")
     target = importlib.import_module(mod)
     assert hasattr(target, attr), f"{mod} defines no {attr}"
 
@@ -252,11 +308,11 @@ def test_tier0_verb_appears_on_the_cli_without_importing_the_tape():
         import click
         from tt_bio.main import cli
         ctx = click.Context(cli)
-        assert "finetune" in cli.list_commands(ctx)
+        assert "train" in cli.list_commands(ctx)
         assert "tt_bio.train.cli" not in sys.modules, (
             "listing the commands imported the training CLI; the whole point of the dotted "
             "path is that naming a command is what loads it")
-        assert cli.get_command(ctx, "finetune").name == "finetune"
+        assert cli.get_command(ctx, "train").name == "train"
         assert cli.get_command(ctx, "preflight").name == "preflight"
         assert "tt_bio.train.cli" in sys.modules, (
             "naming the command did not load it, so the dotted path resolves to nothing")
@@ -578,15 +634,15 @@ def test_show_recipe_needs_no_wheel():
 
     from click.testing import CliRunner
 
-    from tt_bio.train.cli import finetune
+    from tt_bio.train.cli import train
 
     before = set(sys.modules)
-    res = CliRunner().invoke(finetune, ["--show-recipe"])
+    res = CliRunner().invoke(train, ["--show-recipe"])
     assert res.exit_code == 0, res.output
     assert res.output.startswith("def train_loop("), res.output[:120]
     assert "for batch in" in res.output, "the printed body has no loop to own"
     assert not {m for m in set(sys.modules) - before if m.split(".")[0] == "ttnn"}
-    bad = CliRunner().invoke(finetune, ["--show-recipe", "nope"])
+    bad = CliRunner().invoke(train, ["--show-recipe", "nope"])
     assert bad.exit_code != 0 and "recipes are ['default']" in bad.output, bad.output
 
 
