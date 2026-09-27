@@ -219,6 +219,16 @@ def main():
     _check()
     M.REACH.append(_check)
 
+    # The gate's own numbers, refreshed into the stamp at every boundary. The end-of-run stamp
+    # is written once and three interleaved arms have now been OOM-killed before reaching it;
+    # the per-boundary dump is what actually survives.
+    def _gate_now():
+        g = duotraj.GATE
+        if g is not None:
+            stamp["gate"] = g.report()
+        return {}
+    M.REACH.append(_gate_now)
+
     out = pathlib.Path(project) / "round_events.json"
     M.DUMP = (str(out), stamp)
     mt = DuoMeter(args.rounds, 2 if args.interleave else 1)

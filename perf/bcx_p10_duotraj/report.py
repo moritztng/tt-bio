@@ -72,11 +72,18 @@ def one(path):
         print("  no common window: the two trajectories never ran at the same time, so this "
               "arm's amortised round is its median warm round")
         return
-    inside = {s: [r for r in warm[s] if r[1] >= start and r[2] <= end] for s in slots}
-    n = sum(len(v) for v in inside.values())
+    # Rounds are counted PRO RATA: a round that straddles an edge of the window contributes
+    # the fraction of itself that is inside it. Counting only whole rounds throws away their
+    # seconds while keeping the window that contains them, which on a short arm halves the
+    # answer -- duo4 read 17.3 s/round that way against a true 8.7.
+    def share(r):
+        lo, hi = max(r[1], start), min(r[2], end)
+        return max(0.0, (hi - lo)) / (r[2] - r[1])
+    inside = {s: sum(share(r) for r in warm[s]) for s in slots}
+    n = sum(inside.values())
     wall = end - start
-    print(f"  common window {wall:.3f} s, rounds inside: "
-          f"{ {s: len(v) for s, v in inside.items()} } = {n}")
+    print(f"  common window {wall:.3f} s, rounds inside (pro rata): "
+          f"{ {s: round(v, 2) for s, v in inside.items()} } = {n:.2f}")
     if n:
         print(f"  **amortised {wall / n:.3f} s/round**  "
               f"RATIO {wall / n / 0.6958:.2f}x against the 0.6958 s H200 reference")
