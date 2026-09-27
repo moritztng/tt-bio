@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 __all__ = ["plan", "Plan", "UNMEASURED", "CARD_DRAM_BYTES", "MEASURED", "needs_exact",
-           "FORWARD_OOM_BY_MODEL"]
+           "FORWARD_OOM_BY_MODEL", "WEIGHTS_STEP_S"]
 
 
 UNMEASURED = "UNMEASURED"
@@ -51,7 +51,7 @@ MEASURED = {
 # The crop sizes measured to refuse, PER MODEL, with the allocation that was refused.
 #
 # Keyed by model, and that is the whole point. This table used to be one flat dict applied to
-# whatever `tt-bio finetune --model X` was given, and its two entries were Protenix-v2's. A
+# whatever `tt-bio train --model X` was given, and its two entries were Protenix-v2's. A
 # memory wall is a property of a model's activation shapes, not of a token count, so a flat
 # table answers a question it was never asked: `--model openfold3 --tokens 512` was REFUSED on
 # Protenix-v2's number for a crop OpenFold3 is measured to RUN, and 544/576/640/768 came back
@@ -123,6 +123,44 @@ LARGEST_MEASURED_TO_FIT = {
 DEVICE_PATH_LARGEST_FIT = {
     "openfold3": (512, "of3t-p10default -- 512 completes, backward DRAM high-water 25,983,800,320 B of 34,225,520,128 B (75.9 %), qb1 p150a card 0, median 1350 MHz polled DURING: perf/of3t_p10default/out/split_512_default.json. 576 runs out of memory on a 3,057,647,616 B request: split_576_default.json, split_576_fp32off.json"),
 }
+
+
+#: One training step of a model's own weights, one sample, on one chip, by crop.
+WEIGHTS_STEP_S = {
+    "openfold3": {
+        384: (42.27, "of3t-p10land -- 42.272 and 42.234 s on the merged tree, qb2 p300c card 3, "
+                     "1350 MHz sampled DURING; 54.2 s on qb1's p150a (of3t-p10default)"),
+    },
+}
+
+
+def _weights_plan(model: str, tokens: int, chips: int, global_batch: Optional[int]) -> Plan:
+    """Training the weights themselves, answered from this model's own measurements."""
+    device_fit, device_src = DEVICE_PATH_LARGEST_FIT[model]
+    exact_fit, exact_src = LARGEST_MEASURED_TO_FIT.get(model, (device_fit, device_src))
+    per_chip = (global_batch or chips) / chips
+    common = dict(tokens=tokens, chips=chips, global_batch=global_batch)
+    if tokens <= device_fit:
+        step, step_src = WEIGHTS_STEP_S.get(model, {}).get(tokens, (None, None))
+        secs = None if step is None else step * per_chip
+        timing = (f" A step takes about {secs:.1f} s: {per_chip:g} sample(s) per chip at "
+                  f"{step:.2f} s each on one Blackhole chip." if secs else
+                  f" The step time is measured at {sorted(WEIGHTS_STEP_S.get(model, {}))} "
+                  f"tokens only.")
+        return Plan(verdict="fits", fits=True, seconds_per_step=secs,
+                    why=f"training {model}'s weights fits one chip up to {device_fit} tokens, "
+                        f"measured." + timing,
+                    sources=[device_src] + ([step_src] if step_src else []), **common)
+    if tokens <= exact_fit:
+        return Plan(verdict="fits", fits=True,
+                    why=f"{tokens} tokens fits {model} only with --exact, which turns itself "
+                        f"on and makes a step many times slower. {device_fit} is the largest "
+                        f"crop the device path fits.",
+                    sources=[device_src, exact_src], **common)
+    return Plan(verdict=UNMEASURED,
+                why=f"{tokens} tokens is above the largest {model} crop measured to train "
+                    f"({exact_fit}) and not one measured to run out of memory.",
+                sources=[exact_src], **common)
 
 
 def needs_exact(model: Optional[str], tokens: int) -> bool:
@@ -213,6 +251,9 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
                 f"does. This is a refusal, not an estimate, and it is {model}'s own "
                 f"measurement: no other model's wall is applied here.",
             sources=[source])
+
+    if not frozen_trunk and model in DEVICE_PATH_LARGEST_FIT:
+        return _weights_plan(model, tokens, chips, global_batch)
 
     if not frozen_trunk:
         return Plan(

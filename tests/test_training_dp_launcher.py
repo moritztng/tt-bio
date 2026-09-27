@@ -103,6 +103,24 @@ def test_the_collective_sums_and_does_not_average(tmp_path):
             f"rank {r} got {got[r]}; the mean would be [5.5, 11, 16.5]")
 
 
+def test_the_step_loss_is_summed_across_ranks_and_kept_out_of_the_gradient_timings(tmp_path):
+    """A two-chip run's progress row read rank 0's shard: 1.3708 where one chip read 1.4812
+    for the same global batch. The loss now crosses the axis, and its 16-byte message must
+    not show up as the gradient collective's cost."""
+    got, axes = {}, {}
+
+    def run(r):
+        axes[r] = ax = _axis(r, 2, tmp_path)
+        got[r] = ax.sum_scalars([(1.25, 3.5)[r]])
+
+    ts = [threading.Thread(target=run, args=(r,)) for r in (0, 1)]
+    [t.start() for t in ts]
+    [t.join(timeout=60) for t in ts]
+    assert got[0] == got[1] == [4.75]
+    for ax in axes.values():
+        assert ax.state["publish_s"] == [] and ax.state["bytes"] == 0
+
+
 def test_every_rank_gets_the_same_bits_so_the_masters_stay_identical(tmp_path):
     """Bit-identical sums across ranks, which is what the sync invariant rests on.
 
@@ -260,6 +278,28 @@ def test_a_run_directory_whose_driver_is_gone_is_swept(tmp_path, monkeypatch):
 
 # --------------------------------------------------------------- the claim in the README
 
+def test_the_driver_hands_off_before_asking_the_forward_for_its_model(monkeypatch, tmp_path):
+    """`tt-bio train --chips 1,2` on OpenFold3 died in 8 s on its first real run.
+
+    The recipe asked the forward for its `model` one line above the data-parallel hand-off,
+    and OpenFold3's `model` builds the network, which opens the card. The launcher then
+    refused to spawn, correctly: the driver held a chip the rank was about to open.
+    """
+    from tt_bio.train import recipes
+
+    class Forward:
+        @property
+        def model(self):
+            raise AssertionError("the driver built the model before handing off")
+
+    handed = {}
+    monkeypatch.delenv(L.RANK_ENV, raising=False)
+    monkeypatch.setattr(L, "drive", lambda dp, **kw: handed.update(width=dp.width, **kw) or "run")
+    out = recipes.train_loop(Forward(), object(), out_dir=tmp_path, global_batch=2, steps=4,
+                             mesh=Mesh({"dp": [1, 2]}))
+    assert out == "run" and handed["width"] == 2 and handed["steps"] == 4
+
+
 def test_the_readme_data_parallelism_claim_is_backed_by_the_recipe_reaching_the_launcher():
     """The positive form of the docs gate.
 
@@ -271,7 +311,7 @@ def test_the_readme_data_parallelism_claim_is_backed_by_the_recipe_reaching_the_
     src = (REPO_ROOT / "tt_bio" / "train" / "recipes.py").read_text()
     assert "launcher.drive(" in src, (
         "the Tier-1 recipe no longer hands a wide dp axis to tt_bio.train.launcher, so "
-        "`tt-bio finetune --chips 2` and `train.finetune(mesh=...)` reach no launcher and the "
+        "`tt-bio train --chips 2` and `train.finetune(mesh=...)` reach no launcher and the "
         "README's works-today claim is false again")
     assert "NotImplementedError" not in src.split("def train_loop", 1)[1][:2000]
     readme = (REPO_ROOT / "README.md").read_text()

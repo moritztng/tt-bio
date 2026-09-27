@@ -67,7 +67,8 @@ import torch
 from . import catalogue, lineage, losses
 from ..taped_ttnn import shim_scope
 
-__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
+__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw",
+           "sample_data"]
 
 MODEL = "openfold3"
 
@@ -116,30 +117,51 @@ def _frame_atom_index(n_token: int) -> np.ndarray:
                      np.clip(i + 1, 0, n_token - 1)], axis=-1)
 
 
+#: The crop OpenFold3's first training stage uses (`initial_training`).
+CROP = 384
+
+
 class OpenFold3Dataset:
     """Upstream's own featuriser output, one sample per index, plus the af3 labels.
 
-    ``path`` is a ``.pt`` file holding a batch upstream's featuriser produced, or a directory
-    of them. Featurisation is NOT generalised here and that is the catalogue's own position:
-    each family's cropping and MSA handling is the part that is genuinely different, so a
-    model arrives with its featuriser rather than with a shared data layer.
+    ``path`` is either
+
+    * upstream's training-set directory: ``pdb_training_set/`` plus one
+      ``training_cache*.json`` datapoint cache, the layout upstream's preprocessing writes and the public
+      ``openfold3-data`` bucket serves. Each sample is featurised when it is asked for, by
+      upstream's own ``WeightedPDBDataset`` and collator: index ``i`` draws a datapoint from
+      the cache's ``datapoint_probabilities`` and crops it, both under a seed fixed by
+      ``(seed, i)``, so a resumed or data-parallel run sees the same sample at the same step.
+    * a ``.pt`` file holding a batch upstream's featuriser produced, or a directory of them.
+
+    Featurisation is NOT generalised here and that is the catalogue's own position: each
+    family's cropping and MSA handling is the part that is genuinely different, so a model
+    arrives with its featuriser rather than with a shared data layer.
 
     Four members, no base class: ``__len__``, ``tokens``, ``device``, ``batch``. ``device`` is
     resolved lazily on first use, because a data-parallel run is one process per chip and the
     process that spawns the ranks has to reach the launcher holding no card.
     """
 
-    def __init__(self, path, *, tokens: Optional[int] = None):
+    def __init__(self, path, *, tokens: Optional[int] = None, seed: int = 0):
         path = Path(path)
-        self.paths = (sorted(path.glob("*.pt")) if path.is_dir() else [path])
-        if not self.paths:
-            raise FileNotFoundError(f"no featurised batch under {path}")
         self._device = None
         self._cache: dict[int, dict] = {}
         self._tokens = tokens
+        self.seed = int(seed)
+        self.upstream = _Upstream(path, tokens or CROP) if _Upstream.holds(path) else None
+        if self.upstream and tokens is None:
+            self._tokens = CROP
+        self.paths = ([] if self.upstream else
+                      sorted(path.glob("*.pt")) if path.is_dir() else [path])
+        if not (self.upstream or self.paths):
+            raise FileNotFoundError(
+                f"{path} is not OpenFold3 training data. Expected upstream's training-set "
+                f"layout (a pdb_training_set/ directory beside one training_cache*.json) or "
+                f"featurised .pt batches; see docs/training.md#data")
 
     def __len__(self) -> int:
-        return len(self.paths)
+        return len(self.upstream) if self.upstream else len(self.paths)
 
     @property
     def tokens(self) -> int:
@@ -156,7 +178,13 @@ class OpenFold3Dataset:
 
     def _features(self, index: int) -> dict:
         if index not in self._cache:
-            raw = torch.load(self.paths[index], map_location="cpu", weights_only=False)
+            if self.upstream:
+                # One sample is ~0.8 GB of features, so only the last is kept: the census
+                # pass and the first step ask for the same index back to back.
+                self._cache.clear()
+                raw = self.upstream.sample(index, self.seed)
+            else:
+                raw = torch.load(self.paths[index], map_location="cpu", weights_only=False)
             self._cache[index] = {k: _one(v) for k, v in raw.items()}
         return self._cache[index]
 
@@ -258,6 +286,118 @@ class OpenFold3Dataset:
             "mol_type_convention": "af3",
             "pdb_id": f.get("pdb_id"),
         }
+
+
+class _Upstream:
+    """Upstream's ``WeightedPDBDataset`` over a training-set directory, one collated sample
+    per call. The paths are the ones upstream's own ``pdb_subset_helpers`` writes into its
+    runner config; the crop mix and template count are its ``initial_training`` stage."""
+
+    ROOT = "pdb_training_set"
+
+    @classmethod
+    def holds(cls, path: Path) -> bool:
+        return path.is_dir() and (path / cls.ROOT).is_dir()
+
+    def __init__(self, path: Path, crop: int):
+        caches = sorted(path.glob("training_cache*.json"))
+        if len(caches) != 1:
+            raise FileNotFoundError(
+                f"{path} needs exactly one datapoint cache, training_cache*.json, beside "
+                f"{self.ROOT}/; found {[c.name for c in caches] or 'none'}")
+        try:
+            from .._vendor.openfold3.core.data.framework.data_module import \
+                openfold_batch_collator
+            from .._vendor.openfold3.core.data.framework.single_datasets import pdb
+            from .._vendor.openfold3.projects.of3_all_atom.config import dataset_configs
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                f"OpenFold3's training featuriser needs {exc.name!r}: pip install "
+                f"'tt-bio[train]'") from exc
+        root, std = path / self.ROOT, path / self.ROOT / "preprocessed_pdb_data" / "standard"
+        paths = dataset_configs.TrainingDatasetPaths(
+            dataset_cache_file=str(caches[0]),
+            alignment_array_directory=str(root / "alignment_arrays"),
+            target_structures_directory=str(std / "structure_files"),
+            target_structure_file_format="npz",
+            reference_molecule_directory=str(std / "reference_mols"),
+            template_cache_directory=str(root / "templates" / "train_template_cache"),
+            template_structure_array_directory=str(
+                root / "templates" / "template_structure_arrays"),
+            template_file_format="npz")
+        # Upstream's `register_dataset_config` returns None, so the registry is the only way
+        # to reach the config class.
+        cfg = dataset_configs.DATASET_CONFIG_REGISTRY.get("WeightedPDBDataset")(
+            name="weighted-pdb", debug_mode=True, dataset_paths=paths,
+            template={"n_templates": 4, "take_top_k": False},
+            crop={"token_crop": {"enabled": True, "token_budget": crop,
+                                 "crop_weights": {"contiguous": 0.2, "spatial": 0.4,
+                                                  "spatial_interface": 0.4}},
+                  "chain_crop": {"enabled": True}},
+            sample_in_order=True, loss={"loss_weights": {}})
+        self.dataset = pdb.WeightedPDBDataset(cfg)
+        self.collate = openfold_batch_collator
+        dc = self.dataset.datapoint_cache
+        w = (np.asarray(dc["datapoint_probabilities"], np.float64)
+             if "datapoint_probabilities" in dc.columns else np.ones(len(dc)))
+        self.p = w / w.sum()
+
+    def __len__(self) -> int:
+        return len(self.p)
+
+    def sample(self, index: int, seed: int) -> dict:
+        """Draw, crop and collate sample ``index``; global RNGs are restored afterwards."""
+        import random
+        rng = np.random.default_rng([seed, index])
+        dp = int(rng.choice(len(self.p), p=self.p))
+        state = random.getstate(), np.random.get_state(), torch.get_rng_state()
+        try:
+            s = int(rng.integers(2**31))
+            random.seed(s), np.random.seed(s), torch.manual_seed(s)
+            return self.collate([self.dataset[dp]])
+        finally:
+            random.setstate(state[0]), np.random.set_state(state[1])
+            torch.set_rng_state(state[2])
+
+
+#: Upstream's public training-set bucket, and where the 8-structure sample is cached.
+SAMPLE_BUCKET = "https://openfold3-data.s3.amazonaws.com/"
+SAMPLE_DIR = "openfold3-train-sample"
+
+
+def sample_data(root=None, *, quiet: bool = False) -> Path:
+    """Upstream's 8-structure training sample, fetched once into the weight cache.
+
+    The eight are the ones upstream's own ``sample_subset_cache`` draws at seed 42 (1kvu 1wyc
+    1xbs 210l 2wig 3wnm 4ky2 5ron, 292 datapoints). The datapoint cache for them and the list
+    of files with their sha256 ship in ``tt_bio/data``; the files themselves come from the
+    public bucket and are checked against it. About 73 MB.
+    """
+    import json
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+    from .. import weights
+
+    data = Path(__file__).resolve().parent.parent / "data"
+    dest = weights.cache_root(root) / SAMPLE_DIR
+    files = json.loads((data / "openfold3_train_sample_files.json").read_text())
+    todo = [(rel, sha) for rel, sha in files.items()
+            if not (dest / _Upstream.ROOT / rel).is_file()]
+    if todo:
+        if not quiet:
+            print(f"fetching upstream's OpenFold3 training sample, {len(todo)} files, to {dest}",
+                  flush=True)
+        def one(item):
+            rel, sha = item
+            weights.fetch_file((f"{SAMPLE_BUCKET}{_Upstream.ROOT}/{rel}",),
+                               dest / _Upstream.ROOT / rel, sha256=sha, quiet=True,
+                               check_archive=False)
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            list(pool.map(one, todo))
+    cache = dest / "training_cache_with_templates_subset_8.json"
+    if not cache.is_file():
+        shutil.copyfile(data / "openfold3_train_sample.json", cache)
+    return dest
 
 
 # ------------------------------------------------------------------------------- forward
@@ -745,14 +885,26 @@ def adapter(path, tokens=None, *, checkpoint=None, rollout: int = 20, num_cycles
             seed: int = 0, exact_scope: str = "all"):
     """``(forward, dataset)`` for OpenFold3. ``path`` is the featurised corpus.
 
-    ``checkpoint`` defaults to ``path``'s sibling ``of3.pt`` so the registration stays a
-    one-liner; pass it when the weights live elsewhere.
+    ``checkpoint`` defaults to the weights ``tt-bio predict --model openfold3`` loads, so a
+    run trains the model a user already folds with. Pass it to start from other weights.
     """
-    path = Path(path)
-    ckpt = Path(checkpoint) if checkpoint else (path if path.is_dir() else path.parent) / "of3.pt"
+    ckpt = Path(checkpoint) if checkpoint else _shipped_weights()
     return (OpenFold3Forward(ckpt, rollout=rollout, num_cycles=num_cycles, seed=seed,
                              exact_scope=exact_scope),
-            OpenFold3Dataset(path, tokens=tokens))
+            OpenFold3Dataset(path, tokens=tokens, seed=seed))
+
+
+def _shipped_weights() -> Path:
+    """The inference checkpoint, or a refusal that says how to get it."""
+    from .. import weights
+    path = weights.resolve(MODEL)
+    if path is None or not path.is_file():
+        raise FileNotFoundError(
+            f"OpenFold3 weights not found at {path}. They are not downloaded automatically "
+            f"(no parameter licence is published): fetch of3-p2-155k.pt as docs/weights.md "
+            f"describes and put it there, or point OF3_CKPT at it. `tt-bio predict --model "
+            f"openfold3` reads the same file")
+    return path
 
 
 catalogue.register(MODEL, adapter)

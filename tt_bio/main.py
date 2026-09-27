@@ -1788,13 +1788,13 @@ class _Cli(click.Group):
     :class:`ControllerUnreachable` and land here.
     """
 
-    # Commands loaded only when named, by dotted path. `finetune` pulls in the training
+    # Commands loaded only when named, by dotted path. `train` pulls in the training
     # stack -- the tape, the optimizer, the loss set -- and none of that may be imported to
     # print `tt-bio --help` or to run `tt-bio predict`. Training is opt-in and inert when
     # off, and an eager import here would make the inference path pay for it. The path is
     # data rather than an import statement, which is also what keeps the opt-in invariant
     # test's census of training importers accurate.
-    LAZY = {"finetune": "tt_bio.train.cli:finetune"}
+    LAZY = {"train": "tt_bio.train.cli:train"}
 
     def list_commands(self, ctx):
         return sorted({*super().list_commands(ctx), *self.LAZY})

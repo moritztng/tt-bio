@@ -1,0 +1,2748 @@
+{
+  "_type": "ClusteredDatasetCache",
+  "name": "PDB-weighted-subset-8",
+  "reference_molecule_data": {
+    "ASP": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](CC(=O)O)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "HIS": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](Cc1c[nH]c[nH+]1)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "PHE": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](Cc1ccccc1)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "GLY": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "NCC(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "PRO": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "O=C(O)[C@@H]1CCCN1",
+      "set_fallback_to_nan": false
+    },
+    "TRP": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "TYR": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](Cc1ccc(O)cc1)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "ARG": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "NC(=[NH2+])NCCC[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "LYS": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](CCCC[NH3+])C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "MET": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "CSCC[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "ILE": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "CC[C@H](C)[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "VAL": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "CC(C)[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "GLU": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](CCC(=O)O)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "GLN": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "NC(=O)CC[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "THR": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "C[C@@H](O)[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "ALA": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "C[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "SER": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](CO)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "ASN": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "NC(=O)C[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "CYS": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "N[C@@H](CS)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "LEU": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "CC(C)C[C@H](N)C(=O)O",
+      "set_fallback_to_nan": false
+    },
+    "CA": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "[Ca+2]",
+      "set_fallback_to_nan": false
+    },
+    "GLC": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "OC[C@H]1O[C@H](O)[C@H](O)[C@@H](O)[C@@H]1O",
+      "set_fallback_to_nan": false
+    },
+    "FUL": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "C[C@@H]1O[C@H](O)[C@@H](O)[C@H](O)[C@@H]1O",
+      "set_fallback_to_nan": false
+    },
+    "NAG": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "CC(=O)N[C@@H]1[C@@H](O)[C@H](O)[C@@H](CO)O[C@H]1O",
+      "set_fallback_to_nan": false
+    },
+    "NAD": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "NC(=O)c1ccc[n+]([C@@H]2O[C@H](CO[P@@](=O)([O-])O[P@@](=O)(O)OC[C@H]3O[C@@H](n4cnc5c(N)ncnc54)[C@H](O)[C@@H]3O)[C@@H](O)[C@H]2O)c1",
+      "set_fallback_to_nan": false
+    },
+    "UPG": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "O=c1ccn([C@@H]2O[C@H](CO[P@](=O)(O)O[P@](=O)(O)O[C@H]3O[C@H](CO)[C@@H](O)[C@H](O)[C@H]3O)[C@@H](O)[C@H]2O)c(=O)[nH]1",
+      "set_fallback_to_nan": false
+    },
+    "CL": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "[Cl-]",
+      "set_fallback_to_nan": false
+    },
+    "NA": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "[Na+]",
+      "set_fallback_to_nan": false
+    },
+    "HED": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "OCCSSCCO",
+      "set_fallback_to_nan": false
+    },
+    "BGC": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "OC[C@H]1O[C@@H](O)[C@H](O)[C@@H](O)[C@@H]1O",
+      "set_fallback_to_nan": false
+    },
+    "1W3": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "Cc1cc(/C=C/c2c(C)c3ccc(O)cc3oc2=O)cc(C)c1O",
+      "set_fallback_to_nan": false
+    },
+    "TC3": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "CCO[P@](=O)(O)NC",
+      "set_fallback_to_nan": false
+    },
+    "2wig_2": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "CC(=O)N[C@H]1[C@H](O[C@H]2[C@H](O)[C@@H](NC(C)=O)CO[C@@H]2CO[C@H]2O[C@@H](C)[C@@H](O)[C@@H](O)[C@@H]2O)O[C@H](CO)[C@@H](O)[C@@H]1O",
+      "set_fallback_to_nan": false
+    },
+    "2wig_3": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "CC(=O)N[C@H]1CO[C@H](CO[C@H]2O[C@@H](C)[C@@H](O)[C@@H](O)[C@@H]2O)[C@@H](O)[C@@H]1O",
+      "set_fallback_to_nan": false
+    },
+    "483": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "C[C@H]1CC[C@H](NC(=O)Cn2ccnc2)CC1",
+      "set_fallback_to_nan": false
+    },
+    "3wnm_2": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "OC[C@H]1O[C@H](OC[C@H]2O[C@H](OC[C@H]3O[C@H](OC[C@H]4O[C@H](OC[C@H]5O[C@H](OC[C@H]6O[C@H](OC[C@H]7O[C@@H](O)[C@H](O)[C@@H](O)[C@@H]7O)[C@H](O)[C@@H](O)[C@@H]6O)[C@H](O)[C@@H](O)[C@@H]5O)[C@H](O)[C@@H](O)[C@@H]4O)[C@H](O)[C@@H](O)[C@@H]3O)[C@H](O)[C@@H](O)[C@@H]2O)[C@H](O)[C@@H](O)[C@@H]1O",
+      "set_fallback_to_nan": false
+    },
+    "3wnm_3": {
+      "conformer_gen_strategy": "default",
+      "fallback_conformer_pdb_id": null,
+      "canonical_smiles": "OC[C@H]1O[C@H](OC[C@H]2O[C@H](OC[C@H]3O[C@H](OC[C@H]4O[C@H](O)[C@H](O)[C@@H](O)[C@@H]4O)[C@H](O)[C@@H](O)[C@@H]3O)[C@H](O)[C@@H](O)[C@@H]2O)[C@H](O)[C@@H](O)[C@@H]1O",
+      "set_fallback_to_nan": false
+    }
+  },
+  "structure_data": {
+    "1kvu": {
+      "release_date": "1998-03-18",
+      "resolution": 1.9,
+      "chains": {
+        "1": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "1kvu_A",
+          "template_ids": [
+            "1udc_A",
+            "1nah_A",
+            "1nai_A",
+            "1uda_A",
+            "1udb_A",
+            "1xel_A"
+          ],
+          "cluster_id": "25293",
+          "cluster_size": 62
+        },
+        "10": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "1kvu_A",
+          "template_ids": [
+            "1udc_A",
+            "1nah_A",
+            "1nai_A",
+            "1uda_A",
+            "1udb_A",
+            "1xel_A"
+          ],
+          "cluster_id": "25293",
+          "cluster_size": 62
+        },
+        "11": {
+          "label_asym_id": "B",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "12": {
+          "label_asym_id": "C",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "13": {
+          "label_asym_id": "D",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "14": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAD",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44067",
+          "cluster_size": 4663
+        },
+        "15": {
+          "label_asym_id": "F",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "UPG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44538",
+          "cluster_size": 216
+        },
+        "2": {
+          "label_asym_id": "B",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "3": {
+          "label_asym_id": "C",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "4": {
+          "label_asym_id": "D",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "5": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAD",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44067",
+          "cluster_size": 4663
+        },
+        "6": {
+          "label_asym_id": "F",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "UPG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44538",
+          "cluster_size": 216
+        }
+      },
+      "interfaces": {
+        "1_10": {
+          "cluster_id": "25293_25293",
+          "cluster_size": 29
+        },
+        "1_11": {
+          "cluster_id": "25293_44025",
+          "cluster_size": 110
+        },
+        "1_2": {
+          "cluster_id": "25293_44025",
+          "cluster_size": 110
+        },
+        "1_3": {
+          "cluster_id": "25293_44025",
+          "cluster_size": 110
+        },
+        "1_4": {
+          "cluster_id": "25293_44025",
+          "cluster_size": 110
+        },
+        "1_5": {
+          "cluster_id": "25293_44067",
+          "cluster_size": 60
+        },
+        "1_6": {
+          "cluster_id": "25293_44538",
+          "cluster_size": 25
+        },
+        "10_11": {
+          "cluster_id": "25293_44025",
+          "cluster_size": 110
+        },
+        "10_12": {
+          "cluster_id": "25293_44025",
+          "cluster_size": 110
+        },
+        "10_13": {
+          "cluster_id": "25293_44025",
+          "cluster_size": 110
+        },
+        "10_14": {
+          "cluster_id": "25293_44067",
+          "cluster_size": 60
+        },
+        "10_15": {
+          "cluster_id": "25293_44538",
+          "cluster_size": 25
+        },
+        "10_2": {
+          "cluster_id": "25293_44025",
+          "cluster_size": 110
+        },
+        "14_15": {
+          "cluster_id": "44067_44538",
+          "cluster_size": 45
+        },
+        "5_6": {
+          "cluster_id": "44067_44538",
+          "cluster_size": 45
+        }
+      }
+    },
+    "1wyc": {
+      "release_date": "2006-02-21",
+      "resolution": 1.58,
+      "chains": {
+        "1": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "1wyc_A",
+          "template_ids": [
+            "1wyb_A",
+            "1ci8_A",
+            "1ci8_B",
+            "1ci9_A",
+            "1ci9_B",
+            "1sde_A",
+            "1cef_A",
+            "1ceg_A",
+            "1hvb_A",
+            "1ikg_A",
+            "1iki_A",
+            "1mpl_A",
+            "1pw1_A",
+            "1pw8_A",
+            "1pwc_A",
+            "1pwd_A",
+            "1pwg_A",
+            "1scw_A",
+            "1yqs_A",
+            "3pte_A"
+          ],
+          "cluster_id": "13281",
+          "cluster_size": 34
+        }
+      },
+      "interfaces": {}
+    },
+    "1xbs": {
+      "release_date": "2005-08-30",
+      "resolution": 2.5,
+      "chains": {
+        "1": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "1xbs_A",
+          "template_ids": [
+            "1qgv_A",
+            "1pqn_A",
+            "1erv_A",
+            "3trx_A",
+            "4trx_A",
+            "1auc_A",
+            "1ert_A",
+            "1eru_A",
+            "1trs_A",
+            "1tru_A",
+            "1trv_A",
+            "1trw_A",
+            "1m7t_A",
+            "1xwa_A",
+            "1xwa_B",
+            "1xwa_C",
+            "1xwa_D",
+            "1aiu_A",
+            "1xw9_A",
+            "1xw9_B"
+          ],
+          "cluster_id": "9670",
+          "cluster_size": 4
+        }
+      },
+      "interfaces": {}
+    },
+    "210l": {
+      "release_date": "1996-12-23",
+      "resolution": 1.89,
+      "chains": {
+        "1": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "210l_A",
+          "template_ids": [
+            "1l88_A",
+            "1tla_A",
+            "164l_A",
+            "158l_A",
+            "160l_A",
+            "159l_A",
+            "1l86_A",
+            "224l_A",
+            "1l63_A",
+            "1l87_A",
+            "165l_A",
+            "147l_A",
+            "109l_A",
+            "1l61_A",
+            "130l_A",
+            "1l55_A",
+            "163l_A",
+            "122l_A",
+            "129l_A",
+            "221l_A"
+          ],
+          "cluster_id": "1630",
+          "cluster_size": 645
+        },
+        "2": {
+          "label_asym_id": "B",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "HED",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44903",
+          "cluster_size": 207
+        },
+        "3": {
+          "label_asym_id": "C",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "HED",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44903",
+          "cluster_size": 207
+        }
+      },
+      "interfaces": {
+        "1_2": {
+          "cluster_id": "1630_44903",
+          "cluster_size": 184
+        },
+        "1_3": {
+          "cluster_id": "1630_44903",
+          "cluster_size": 184
+        }
+      }
+    },
+    "2wig": {
+      "release_date": "2009-05-19",
+      "resolution": 2.15,
+      "chains": {
+        "1": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "2wid_A",
+          "template_ids": [
+            "1p0i_A",
+            "1p0m_A",
+            "1p0p_A",
+            "1p0q_A",
+            "1xlu_A",
+            "1xlv_A",
+            "1xlw_A",
+            "3djy_A",
+            "3dkk_A",
+            "2pm8_A",
+            "2pm8_B",
+            "2j4c_A",
+            "1eea_A",
+            "2cek_A",
+            "1acj_A",
+            "1acl_A",
+            "1amn_A",
+            "1ax9_A",
+            "1cfj_A",
+            "1ea5_A"
+          ],
+          "cluster_id": "33153",
+          "cluster_size": 742
+        },
+        "10": {
+          "label_asym_id": "J",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "100": {
+          "label_asym_id": "D",
+          "auth_asym_id": "D",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "101": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "TC3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "55515",
+          "cluster_size": 8
+        },
+        "102": {
+          "label_asym_id": "F",
+          "auth_asym_id": "A",
+          "entity_id": 5,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "104": {
+          "label_asym_id": "H",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "105": {
+          "label_asym_id": "I",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "106": {
+          "label_asym_id": "J",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "108": {
+          "label_asym_id": "L",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "109": {
+          "label_asym_id": "M",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "110": {
+          "label_asym_id": "N",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "111": {
+          "label_asym_id": "O",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "113": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "2wid_A",
+          "template_ids": [
+            "1p0i_A",
+            "1p0m_A",
+            "1p0p_A",
+            "1p0q_A",
+            "1xlu_A",
+            "1xlv_A",
+            "1xlw_A",
+            "3djy_A",
+            "3dkk_A",
+            "2pm8_A",
+            "2pm8_B",
+            "2j4c_A",
+            "1eea_A",
+            "2cek_A",
+            "1acj_A",
+            "1acl_A",
+            "1amn_A",
+            "1ax9_A",
+            "1cfj_A",
+            "1ea5_A"
+          ],
+          "cluster_id": "33153",
+          "cluster_size": 742
+        },
+        "114": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "115": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "50730",
+          "cluster_size": 86
+        },
+        "116": {
+          "label_asym_id": "D",
+          "auth_asym_id": "D",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "117": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "TC3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "55515",
+          "cluster_size": 8
+        },
+        "118": {
+          "label_asym_id": "F",
+          "auth_asym_id": "A",
+          "entity_id": 5,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "12": {
+          "label_asym_id": "L",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "120": {
+          "label_asym_id": "H",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "121": {
+          "label_asym_id": "I",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "122": {
+          "label_asym_id": "J",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "124": {
+          "label_asym_id": "L",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "125": {
+          "label_asym_id": "M",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "126": {
+          "label_asym_id": "N",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "127": {
+          "label_asym_id": "O",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "13": {
+          "label_asym_id": "M",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "14": {
+          "label_asym_id": "N",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "15": {
+          "label_asym_id": "O",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "17": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "2wid_A",
+          "template_ids": [
+            "1p0i_A",
+            "1p0m_A",
+            "1p0p_A",
+            "1p0q_A",
+            "1xlu_A",
+            "1xlv_A",
+            "1xlw_A",
+            "3djy_A",
+            "3dkk_A",
+            "2pm8_A",
+            "2pm8_B",
+            "2j4c_A",
+            "1eea_A",
+            "2cek_A",
+            "1acj_A",
+            "1acl_A",
+            "1amn_A",
+            "1ax9_A",
+            "1cfj_A",
+            "1ea5_A"
+          ],
+          "cluster_id": "33153",
+          "cluster_size": 742
+        },
+        "18": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "19": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "50730",
+          "cluster_size": 86
+        },
+        "2": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "20": {
+          "label_asym_id": "D",
+          "auth_asym_id": "D",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "21": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "TC3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "55515",
+          "cluster_size": 8
+        },
+        "22": {
+          "label_asym_id": "F",
+          "auth_asym_id": "A",
+          "entity_id": 5,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "24": {
+          "label_asym_id": "H",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "25": {
+          "label_asym_id": "I",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "26": {
+          "label_asym_id": "J",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "28": {
+          "label_asym_id": "L",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "29": {
+          "label_asym_id": "M",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "3": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "50730",
+          "cluster_size": 86
+        },
+        "30": {
+          "label_asym_id": "N",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "31": {
+          "label_asym_id": "O",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "33": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "2wid_A",
+          "template_ids": [
+            "1p0i_A",
+            "1p0m_A",
+            "1p0p_A",
+            "1p0q_A",
+            "1xlu_A",
+            "1xlv_A",
+            "1xlw_A",
+            "3djy_A",
+            "3dkk_A",
+            "2pm8_A",
+            "2pm8_B",
+            "2j4c_A",
+            "1eea_A",
+            "2cek_A",
+            "1acj_A",
+            "1acl_A",
+            "1amn_A",
+            "1ax9_A",
+            "1cfj_A",
+            "1ea5_A"
+          ],
+          "cluster_id": "33153",
+          "cluster_size": 742
+        },
+        "34": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "35": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "50730",
+          "cluster_size": 86
+        },
+        "36": {
+          "label_asym_id": "D",
+          "auth_asym_id": "D",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "37": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "TC3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "55515",
+          "cluster_size": 8
+        },
+        "4": {
+          "label_asym_id": "D",
+          "auth_asym_id": "D",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "40": {
+          "label_asym_id": "H",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "41": {
+          "label_asym_id": "I",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "42": {
+          "label_asym_id": "J",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "44": {
+          "label_asym_id": "L",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "45": {
+          "label_asym_id": "M",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "46": {
+          "label_asym_id": "N",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "47": {
+          "label_asym_id": "O",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "49": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "2wid_A",
+          "template_ids": [
+            "1p0i_A",
+            "1p0m_A",
+            "1p0p_A",
+            "1p0q_A",
+            "1xlu_A",
+            "1xlv_A",
+            "1xlw_A",
+            "3djy_A",
+            "3dkk_A",
+            "2pm8_A",
+            "2pm8_B",
+            "2j4c_A",
+            "1eea_A",
+            "2cek_A",
+            "1acj_A",
+            "1acl_A",
+            "1amn_A",
+            "1ax9_A",
+            "1cfj_A",
+            "1ea5_A"
+          ],
+          "cluster_id": "33153",
+          "cluster_size": 742
+        },
+        "5": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "TC3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "55515",
+          "cluster_size": 8
+        },
+        "50": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "51": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "50730",
+          "cluster_size": 86
+        },
+        "52": {
+          "label_asym_id": "D",
+          "auth_asym_id": "D",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "53": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "TC3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "55515",
+          "cluster_size": 8
+        },
+        "54": {
+          "label_asym_id": "F",
+          "auth_asym_id": "A",
+          "entity_id": 5,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        },
+        "56": {
+          "label_asym_id": "H",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "57": {
+          "label_asym_id": "I",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "58": {
+          "label_asym_id": "J",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "60": {
+          "label_asym_id": "L",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "61": {
+          "label_asym_id": "M",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "62": {
+          "label_asym_id": "N",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "63": {
+          "label_asym_id": "O",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "65": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "2wid_A",
+          "template_ids": [
+            "1p0i_A",
+            "1p0m_A",
+            "1p0p_A",
+            "1p0q_A",
+            "1xlu_A",
+            "1xlv_A",
+            "1xlw_A",
+            "3djy_A",
+            "3dkk_A",
+            "2pm8_A",
+            "2pm8_B",
+            "2j4c_A",
+            "1eea_A",
+            "2cek_A",
+            "1acj_A",
+            "1acl_A",
+            "1amn_A",
+            "1ax9_A",
+            "1cfj_A",
+            "1ea5_A"
+          ],
+          "cluster_id": "33153",
+          "cluster_size": 742
+        },
+        "66": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "67": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "50730",
+          "cluster_size": 86
+        },
+        "68": {
+          "label_asym_id": "D",
+          "auth_asym_id": "D",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "69": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "TC3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "55515",
+          "cluster_size": 8
+        },
+        "72": {
+          "label_asym_id": "H",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "73": {
+          "label_asym_id": "I",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "74": {
+          "label_asym_id": "J",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "76": {
+          "label_asym_id": "L",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "77": {
+          "label_asym_id": "M",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "78": {
+          "label_asym_id": "N",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "79": {
+          "label_asym_id": "O",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "8": {
+          "label_asym_id": "H",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "81": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "2wid_A",
+          "template_ids": [
+            "1p0i_A",
+            "1p0m_A",
+            "1p0p_A",
+            "1p0q_A",
+            "1xlu_A",
+            "1xlv_A",
+            "1xlw_A",
+            "3djy_A",
+            "3dkk_A",
+            "2pm8_A",
+            "2pm8_B",
+            "2j4c_A",
+            "1eea_A",
+            "2cek_A",
+            "1acj_A",
+            "1acl_A",
+            "1amn_A",
+            "1ax9_A",
+            "1cfj_A",
+            "1ea5_A"
+          ],
+          "cluster_id": "33153",
+          "cluster_size": 742
+        },
+        "82": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "83": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "50730",
+          "cluster_size": 86
+        },
+        "84": {
+          "label_asym_id": "D",
+          "auth_asym_id": "D",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "85": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "TC3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "55515",
+          "cluster_size": 8
+        },
+        "88": {
+          "label_asym_id": "H",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "89": {
+          "label_asym_id": "I",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "9": {
+          "label_asym_id": "I",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "90": {
+          "label_asym_id": "J",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "92": {
+          "label_asym_id": "L",
+          "auth_asym_id": "A",
+          "entity_id": 7,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CL",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44046",
+          "cluster_size": 60522
+        },
+        "93": {
+          "label_asym_id": "M",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "94": {
+          "label_asym_id": "N",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "95": {
+          "label_asym_id": "O",
+          "auth_asym_id": "A",
+          "entity_id": 8,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NAG",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44016",
+          "cluster_size": 37388
+        },
+        "97": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "2wid_A",
+          "template_ids": [
+            "1p0i_A",
+            "1p0m_A",
+            "1p0p_A",
+            "1p0q_A",
+            "1xlu_A",
+            "1xlv_A",
+            "1xlw_A",
+            "3djy_A",
+            "3dkk_A",
+            "2pm8_A",
+            "2pm8_B",
+            "2j4c_A",
+            "1eea_A",
+            "2cek_A",
+            "1acj_A",
+            "1acl_A",
+            "1amn_A",
+            "1ax9_A",
+            "1cfj_A",
+            "1ea5_A"
+          ],
+          "cluster_id": "33153",
+          "cluster_size": 742
+        },
+        "98": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48917",
+          "cluster_size": 337
+        },
+        "99": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "2wig_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "50730",
+          "cluster_size": 86
+        }
+      },
+      "interfaces": {
+        "1_10": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "1_105": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "1_106": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "1_12": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "1_13": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "1_14": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "1_15": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "1_2": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "1_3": {
+          "cluster_id": "33153_50730",
+          "cluster_size": 59
+        },
+        "1_4": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "1_49": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "1_5": {
+          "cluster_id": "33153_55515",
+          "cluster_size": 8
+        },
+        "1_54": {
+          "cluster_id": "33153_44025",
+          "cluster_size": 177
+        },
+        "1_65": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "1_8": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "1_81": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "1_9": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "1_97": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "10_97": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "100_97": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "101_97": {
+          "cluster_id": "33153_55515",
+          "cluster_size": 8
+        },
+        "102_81": {
+          "cluster_id": "33153_44025",
+          "cluster_size": 177
+        },
+        "102_97": {
+          "cluster_id": "33153_44025",
+          "cluster_size": 177
+        },
+        "104_97": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "105_97": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "106_97": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "108_97": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "109_97": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "110_97": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "111_97": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "113_114": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "113_115": {
+          "cluster_id": "33153_50730",
+          "cluster_size": 59
+        },
+        "113_116": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "113_117": {
+          "cluster_id": "33153_55515",
+          "cluster_size": 8
+        },
+        "113_118": {
+          "cluster_id": "33153_44025",
+          "cluster_size": 177
+        },
+        "113_120": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "113_121": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "113_122": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "113_124": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "113_125": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "113_126": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "113_127": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "113_17": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "113_33": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "113_41": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "113_42": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "113_49": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "113_65": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "118_65": {
+          "cluster_id": "33153_44025",
+          "cluster_size": 177
+        },
+        "121_33": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "122_33": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "17_18": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "17_19": {
+          "cluster_id": "33153_50730",
+          "cluster_size": 59
+        },
+        "17_20": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "17_21": {
+          "cluster_id": "33153_55515",
+          "cluster_size": 8
+        },
+        "17_22": {
+          "cluster_id": "33153_44025",
+          "cluster_size": 177
+        },
+        "17_24": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "17_25": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "17_26": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "17_28": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "17_29": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "17_30": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "17_31": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "17_33": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "17_81": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "17_89": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "17_90": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "17_97": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "22_33": {
+          "cluster_id": "33153_44025",
+          "cluster_size": 177
+        },
+        "25_81": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "26_81": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "33_34": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "33_35": {
+          "cluster_id": "33153_50730",
+          "cluster_size": 59
+        },
+        "33_36": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "33_37": {
+          "cluster_id": "33153_55515",
+          "cluster_size": 8
+        },
+        "33_40": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "33_41": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "33_42": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "33_44": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "33_45": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "33_46": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "33_47": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "33_65": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "33_81": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "49_50": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "49_51": {
+          "cluster_id": "33153_50730",
+          "cluster_size": 59
+        },
+        "49_52": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "49_53": {
+          "cluster_id": "33153_55515",
+          "cluster_size": 8
+        },
+        "49_54": {
+          "cluster_id": "33153_44025",
+          "cluster_size": 177
+        },
+        "49_56": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "49_57": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "49_58": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "49_60": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "49_61": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "49_62": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "49_63": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "49_65": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "49_73": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "49_74": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "49_97": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "57_65": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "58_65": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "65_66": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "65_67": {
+          "cluster_id": "33153_50730",
+          "cluster_size": 59
+        },
+        "65_68": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "65_69": {
+          "cluster_id": "33153_55515",
+          "cluster_size": 8
+        },
+        "65_72": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "65_73": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "65_74": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "65_76": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "65_77": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "65_78": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "65_79": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "81_82": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "81_83": {
+          "cluster_id": "33153_50730",
+          "cluster_size": 59
+        },
+        "81_84": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "81_85": {
+          "cluster_id": "33153_55515",
+          "cluster_size": 8
+        },
+        "81_88": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "81_89": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "81_90": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "81_92": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "81_93": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "81_94": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "81_95": {
+          "cluster_id": "33153_44016",
+          "cluster_size": 1269
+        },
+        "81_97": {
+          "cluster_id": "33153_33153",
+          "cluster_size": 560
+        },
+        "9_97": {
+          "cluster_id": "33153_44046",
+          "cluster_size": 948
+        },
+        "97_98": {
+          "cluster_id": "33153_48917",
+          "cluster_size": 262
+        },
+        "97_99": {
+          "cluster_id": "33153_50730",
+          "cluster_size": 59
+        }
+      }
+    },
+    "3wnm": {
+      "release_date": "2014-02-05",
+      "resolution": 2.25,
+      "chains": {
+        "1": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "3wnn_A",
+          "template_ids": [
+            "3vmn_A",
+            "3vmo_A",
+            "3vmp_A",
+            "2vzp_A",
+            "2vzp_B",
+            "2vzq_A",
+            "2vzq_B",
+            "2vzr_A",
+            "2vzr_B",
+            "2vzu_A",
+            "2vzu_B",
+            "2vzo_A",
+            "2vzo_B",
+            "2vzs_A",
+            "2vzs_B",
+            "2vzt_A",
+            "2vzt_B",
+            "2vzv_A",
+            "2vzv_B",
+            "2x05_A"
+          ],
+          "cluster_id": "7945",
+          "cluster_size": 7
+        },
+        "2": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "3wnm_2",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "88173",
+          "cluster_size": 1
+        },
+        "3": {
+          "label_asym_id": "C",
+          "auth_asym_id": "C",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "3wnm_3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "48423",
+          "cluster_size": 7
+        },
+        "4": {
+          "label_asym_id": "D",
+          "auth_asym_id": "A",
+          "entity_id": 4,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "CA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44006",
+          "cluster_size": 47825
+        },
+        "5": {
+          "label_asym_id": "E",
+          "auth_asym_id": "A",
+          "entity_id": 5,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "NA",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "44025",
+          "cluster_size": 32161
+        }
+      },
+      "interfaces": {
+        "1_2": {
+          "cluster_id": "7945_88173",
+          "cluster_size": 1
+        },
+        "1_3": {
+          "cluster_id": "48423_7945",
+          "cluster_size": 3
+        },
+        "1_4": {
+          "cluster_id": "44006_7945",
+          "cluster_size": 9
+        },
+        "1_5": {
+          "cluster_id": "44025_7945",
+          "cluster_size": 8
+        }
+      }
+    },
+    "4ky2": {
+      "release_date": "2013-08-28",
+      "resolution": 1.13,
+      "chains": {
+        "1": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "7z60_A",
+          "template_ids": [
+            "1tfp_A",
+            "1tfp_B",
+            "1x7t_A",
+            "1x7t_B",
+            "1ie4_A",
+            "1ie4_B",
+            "1ie4_C",
+            "1ie4_D",
+            "1kgi_A",
+            "1kgi_B",
+            "1kgi_C",
+            "1kgi_D",
+            "1kgj_A",
+            "1kgj_B",
+            "1kgj_C",
+            "1kgj_D",
+            "1qab_A",
+            "1qab_B",
+            "1qab_C",
+            "1qab_D"
+          ],
+          "cluster_id": "1674",
+          "cluster_size": 1417
+        },
+        "10": {
+          "label_asym_id": "D",
+          "auth_asym_id": "B",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "1W3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "54752",
+          "cluster_size": 2
+        },
+        "2": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "7z60_A",
+          "template_ids": [
+            "1tfp_A",
+            "1tfp_B",
+            "1x7t_A",
+            "1x7t_B",
+            "1ie4_A",
+            "1ie4_B",
+            "1ie4_C",
+            "1ie4_D",
+            "1kgi_A",
+            "1kgi_B",
+            "1kgi_C",
+            "1kgi_D",
+            "1kgj_A",
+            "1kgj_B",
+            "1kgj_C",
+            "1kgj_D",
+            "1qab_A",
+            "1qab_B",
+            "1qab_C",
+            "1qab_D"
+          ],
+          "cluster_id": "1674",
+          "cluster_size": 1417
+        },
+        "3": {
+          "label_asym_id": "C",
+          "auth_asym_id": "A",
+          "entity_id": 2,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "1W3",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "54752",
+          "cluster_size": 2
+        },
+        "7": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "7z60_A",
+          "template_ids": [
+            "1tfp_A",
+            "1tfp_B",
+            "1x7t_A",
+            "1x7t_B",
+            "1ie4_A",
+            "1ie4_B",
+            "1ie4_C",
+            "1ie4_D",
+            "1kgi_A",
+            "1kgi_B",
+            "1kgi_C",
+            "1kgi_D",
+            "1kgj_A",
+            "1kgj_B",
+            "1kgj_C",
+            "1kgj_D",
+            "1qab_A",
+            "1qab_B",
+            "1qab_C",
+            "1qab_D"
+          ],
+          "cluster_id": "1674",
+          "cluster_size": 1417
+        },
+        "8": {
+          "label_asym_id": "B",
+          "auth_asym_id": "B",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "7z60_A",
+          "template_ids": [
+            "1tfp_A",
+            "1tfp_B",
+            "1x7t_A",
+            "1x7t_B",
+            "1ie4_A",
+            "1ie4_B",
+            "1ie4_C",
+            "1ie4_D",
+            "1kgi_A",
+            "1kgi_B",
+            "1kgi_C",
+            "1kgi_D",
+            "1kgj_A",
+            "1kgj_B",
+            "1kgj_C",
+            "1kgj_D",
+            "1qab_A",
+            "1qab_B",
+            "1qab_C",
+            "1qab_D"
+          ],
+          "cluster_id": "1674",
+          "cluster_size": 1417
+        }
+      },
+      "interfaces": {
+        "1_2": {
+          "cluster_id": "1674_1674",
+          "cluster_size": 2092
+        },
+        "1_3": {
+          "cluster_id": "1674_54752",
+          "cluster_size": 4
+        },
+        "1_7": {
+          "cluster_id": "1674_1674",
+          "cluster_size": 2092
+        },
+        "1_8": {
+          "cluster_id": "1674_1674",
+          "cluster_size": 2092
+        },
+        "10_2": {
+          "cluster_id": "1674_54752",
+          "cluster_size": 4
+        },
+        "10_8": {
+          "cluster_id": "1674_54752",
+          "cluster_size": 4
+        },
+        "2_7": {
+          "cluster_id": "1674_1674",
+          "cluster_size": 2092
+        },
+        "2_8": {
+          "cluster_id": "1674_1674",
+          "cluster_size": 2092
+        },
+        "3_7": {
+          "cluster_id": "1674_54752",
+          "cluster_size": 4
+        },
+        "7_8": {
+          "cluster_id": "1674_1674",
+          "cluster_size": 2092
+        }
+      }
+    },
+    "5ron": {
+      "release_date": "2021-05-26",
+      "resolution": 1.22,
+      "chains": {
+        "1": {
+          "label_asym_id": "A",
+          "auth_asym_id": "A",
+          "entity_id": 1,
+          "molecule_type": "PROTEIN",
+          "reference_mol_id": null,
+          "alignment_representative_id": "7lq8_A",
+          "template_ids": [
+            "1bjr_A",
+            "1cnm_A",
+            "1egq_A",
+            "1oyo_A",
+            "1pj8_A",
+            "1ptk_A",
+            "2dp4_A",
+            "2pkc_A",
+            "2prk_A",
+            "3d9q_A",
+            "3ddz_A",
+            "3de0_A",
+            "3de1_A",
+            "3de2_A",
+            "3de3_A",
+            "3de4_A",
+            "3de5_A",
+            "3de6_A",
+            "3de7_A",
+            "3dvq_A"
+          ],
+          "cluster_id": "36648",
+          "cluster_size": 196
+        },
+        "3": {
+          "label_asym_id": "C",
+          "auth_asym_id": "A",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "483",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "65373",
+          "cluster_size": 3
+        },
+        "4": {
+          "label_asym_id": "D",
+          "auth_asym_id": "A",
+          "entity_id": 3,
+          "molecule_type": "LIGAND",
+          "reference_mol_id": "483",
+          "alignment_representative_id": null,
+          "template_ids": null,
+          "cluster_id": "65373",
+          "cluster_size": 3
+        }
+      },
+      "interfaces": {
+        "1_3": {
+          "cluster_id": "36648_65373",
+          "cluster_size": 2
+        },
+        "1_4": {
+          "cluster_id": "36648_65373",
+          "cluster_size": 2
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"""Tier 0: ``tt-bio finetune``. Every knob is a flag, and no flag is a callable.
+"""Tier 0: ``tt-bio train``. Every knob is a flag, and no flag is a callable.
 
 The cut line, and it is a test rather than a description: **no callables in the signature.**
 That is what makes a Tier-0 run's legality decidable before a device opens -- a flag
@@ -13,6 +13,13 @@ at the point the run actually starts.
 Registered lazily on the main CLI group, which is why the command body lives here rather than
 in ``tt_bio/main.py``: ``tt-bio predict`` must not pay for the training stack, and
 ``tt-bio --help`` must not import the tape to print one line of help.
+
+The flags come in three layers. ``tt-bio train DATA --model openfold3`` is a whole run on
+one chip. ``--help`` adds what a user reaches for next: steps, chips, batch, learning rate,
+checkpoint interval. ``--help-all`` shows the rest, which the performance and accuracy work
+used and a training run does not need. Every run writes ``status.json`` and
+``progress.jsonl`` into ``--out`` so a program can follow it without parsing the log, and
+running the same command again resumes it.
 """
 
 from __future__ import annotations
@@ -38,7 +45,11 @@ RECIPE_NAMES = ("default",)
 # duplicated, and pinned by the same test: validating `--train` must not import the tape.
 TRAIN_MODES = ("adapters", "weights")
 
-__all__ = ["finetune", "ADAPTABLE", "RECIPE_NAMES", "TRAIN_MODES"]
+#: Models with a shipped featuriser, so `tt-bio train` can read their data. Pinned equal to
+#: `catalogue.SHIPPED` by a test; kept literal so `--help` imports nothing.
+TRAINABLE = ("openfold3",)
+
+__all__ = ["train", "ADAPTABLE", "TRAINABLE", "RECIPE_NAMES", "TRAIN_MODES"]
 
 
 def _echo_objectives(ctx, param, value):
@@ -120,161 +131,282 @@ def _echo_recipe(ctx, param, value):
     ctx.exit()
 
 
-@click.command("finetune")
+class _Layered(click.Command):
+    """`--help` shows the first two layers; `--help-all` shows every option."""
+
+    def format_options(self, ctx, formatter):
+        full = ctx.meta.get("help_all", False)
+        rows = [p.get_help_record(ctx) for p in self.get_params(ctx)
+                if full or not getattr(p, "expert", False)]
+        with formatter.section("Options"):
+            formatter.write_dl([r for r in rows if r])
+        if not full:
+            formatter.write_paragraph()
+            formatter.write_text("Precision, objective, recipe and LoRA options: --help-all")
+
+
+def _help_all(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    ctx.meta["help_all"] = True
+    click.echo(ctx.get_help())
+    ctx.exit()
+
+
+def _expert(*a, **kw):
+    """An option that `--help` leaves out and `--help-all` shows."""
+    def deco(f):
+        f = click.option(*a, **kw)(f)
+        f.__click_params__[-1].expert = True
+        return f
+    return deco
+
+
+@click.command("train", cls=_Layered)
 @click.argument("data", type=click.Path(exists=True, dir_okay=True), required=False)
-@click.option("--model", type=click.Choice(ADAPTABLE),
-              help="Which shipped forward to adapt.")
-@click.option("--out", "out_dir", type=click.Path(),
-              help="Where adapters and provenance are written.")
-@click.option("--global-batch", type=int, default=None,
-              help="Examples per optimizer step. REQUIRED, and never derived from the chip "
-                   "count: it is the axis a published recipe pins.")
-@click.option("--steps", type=int, default=None, help="Optimizer steps to run.")
-@click.option("--objective", default="af3", show_default=True,
-              help="A named objective row. `--list-objectives` prints them.")
-@click.option("--train", "train_mode", type=click.Choice(TRAIN_MODES), default="adapters",
-              show_default=True,
-              help="What the optimizer owns. `adapters` trains a LoRA pair beside each site "
-                   "on a frozen trunk; `weights` trains the model's own weights at those same "
-                   "sites, which is the pre-training run. Everything else is unchanged, and "
-                   "`--dry-run` prices the two apart.")
-@click.option("--recipe", default="default", show_default=True,
-              help="A named Tier-1 body. `tt-bio finetune --show-recipe` prints its source, "
-                   "which is a Tier-2 program you can edit and run yourself.")
-@click.option("--tokens", default=None, type=int,
-              help="Crop size, for the fit check. Defaults to the dataset's own.")
+@click.option("--model", type=click.Choice(TRAINABLE), help="The model to train.")
+@click.option("--out", "out_dir", type=click.Path(), default=None,
+              help="Run directory: checkpoints, status.json, progress.jsonl. Default "
+                   "runs/<model>. Running again with the same --out resumes.")
+@click.option("--steps", type=int, default=None,
+              help="Optimizer steps. Default: one pass over DATA.")
 @click.option("--chips", "chip_ids", default="1", show_default=True, callback=_chips,
-              help="The data-parallel axis: a count, e.g. 2, or the chips by their tt-smi id, "
-                   "e.g. 0,2. A count means the first N, which is not what you want on a box "
-                   "where chip 0 is busy.")
-@click.option("--rank", default=8, show_default=True, type=int, help="LoRA rank.")
-@click.option("--alpha", default=16.0, show_default=True, type=float, help="LoRA alpha.")
-@click.option("--target", "targets", multiple=True,
-              help="Regex matched against site names; repeatable. Default adapts every site "
-                   "the census finds.")
+              help="Data-parallel chips: a count, e.g. 4, or tt-smi ids, e.g. 0,2.")
+@click.option("--dry-run", is_flag=True,
+              help="Say whether it fits and how long a step takes, without opening a device.")
+@click.option("--global-batch", type=int, default=None,
+              help="Samples per optimizer step. Default: one per chip. Fix it to compare "
+                   "runs across chip counts.")
 @click.option("--lr", default=3e-4, show_default=True, type=float, help="Peak learning rate.")
 @click.option("--warmup-steps", default=1000, show_default=True, type=int)
-@click.option("--checkpoint-every", default=100, show_default=True, type=int)
-@click.option("--seed", default=0, show_default=True, type=int)
-@click.option("--exact/--device-ops", default=None,
-              help="--exact runs softmax and layer norm in float64 on the host, a diagnostic "
-                   "reference about 40x slower on the trunk backward. --device-ops keeps them "
-                   "on the device kernels, which clear the same accuracy bar. Neither: the "
-                   "device path, unless the crop fits only with --exact (docs/training.md).")
-@click.option("--dry-run", is_flag=True,
-              help="Answer 'will this fit and how long' and exit, WITHOUT opening a device.")
-@click.option("--show-recipe", is_flag=False, flag_value="default", default=None,
-              metavar="[NAME]", is_eager=True, expose_value=False,
-              callback=_echo_recipe,
-              help="Print a Tier-1 body as Tier-2 source and exit. The escape hatch.")
-@click.option("--list-objectives", is_flag=True, is_eager=True, expose_value=False,
-              callback=_echo_objectives, help="Print the objective rows and exit.")
-def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, recipe, tokens,
-             chip_ids, rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed,
-             exact, dry_run):
-    """Fine-tune or pre-train a shipped model.
+@click.option("--checkpoint-every", default=100, show_default=True, type=int,
+              help="Steps between checkpoints. The last step is always saved.")
+@click.option("--tokens", default=None, type=int,
+              help="Crop size in tokens. Default: the model's first training stage, 384 for "
+                   "OpenFold3.")
+@click.option("--seed", default=0, show_default=True, type=int,
+              help="Fixes the sample order and the crops.")
+@click.option("--train", "train_mode", type=click.Choice(TRAIN_MODES), default="weights",
+              show_default=True,
+              help="`weights` trains the model's own weights; `adapters` trains LoRA pairs "
+                   "on a frozen model (--help-all for rank and targets).")
+@click.option("--help-all", is_flag=True, is_eager=True, expose_value=False,
+              callback=_help_all, help="Show every option, including the expert ones.")
+@_expert("--exact/--device-ops", default=None,
+         help="--exact runs softmax and layer norm in float64 on the host, a diagnostic "
+              "reference many times slower. --device-ops keeps them on the device, which "
+              "clears the same accuracy bar. Neither: the device path, unless the crop fits "
+              "only with --exact.")
+@_expert("--objective", default="af3", show_default=True,
+         help="A named objective row. `--list-objectives` prints them.")
+@_expert("--recipe", default="default", show_default=True,
+         help="A named Tier-1 body. `--show-recipe` prints its source as a Tier-2 program.")
+@_expert("--rank", default=8, show_default=True, type=int, help="LoRA rank (adapters).")
+@_expert("--alpha", default=16.0, show_default=True, type=float,
+         help="LoRA alpha (adapters).")
+@_expert("--target", "targets", multiple=True,
+         help="Regex over site names, repeatable (adapters). Default: every site.")
+@_expert("--show-recipe", is_flag=False, flag_value="default", default=None,
+         metavar="[NAME]", is_eager=True, expose_value=False, callback=_echo_recipe,
+         help="Print a Tier-1 body as Tier-2 source and exit.")
+@_expert("--list-objectives", is_flag=True, is_eager=True, expose_value=False,
+         callback=_echo_objectives, help="Print the objective rows and exit.")
+def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warmup_steps,
+          checkpoint_every, tokens, seed, train_mode, exact, objective, recipe, rank, alpha,
+          targets):
+    """Train a model on the chips of this machine.
 
     \b
-        tt-bio finetune data/ --model protenix-v2 --out runs/a \\
-            --global-batch 8 --steps 2000
-        tt-bio finetune data/ --model protenix-v2 --out runs/b \\
-            --global-batch 8 --steps 2000 --chips 0,2
-        tt-bio finetune data/ --model protenix-v2 --out runs/c \\
-            --global-batch 8 --steps 200000 --train weights
+        tt-bio train --model openfold3
+        tt-bio train data/ --model openfold3
+        tt-bio train data/ --model openfold3 --steps 1000 --chips 4
 
-    \b
-    Progressive disclosure, if this is not enough:
-      --show-recipe        the Tier-2 program this command runs, as source
-      python -c "from tt_bio import train; train.finetune(...)"    Tier 1
-      tt_bio.autograd + train.gradcheck                            Tier 3
+    DATA for OpenFold3 is upstream's training-set directory (pdb_training_set/ plus a
+    training_cache*.json). Without DATA the run fetches upstream's 8-structure sample
+    (73 MB) and trains on that. The run writes OUT/status.json, whose `status` is running,
+    succeeded or failed, and OUT/progress.jsonl, one JSON line per step. Run the same
+    command again to resume from the last checkpoint. docs/training.md has the rest.
     """
     from . import objectives
     from .dryrun import needs_exact, plan
 
+    if model is None:
+        raise click.UsageError("--model is required, e.g. `tt-bio train data/ --model "
+                               "openfold3`")
     chips = len(chip_ids)
-    if data is None:
-        raise click.UsageError("DATA is required for a run. To look around without one, try "
-                               "--show-recipe, --list-objectives or --help")
-
-    # Legality, decided here and not on the card. Every one of these is a flag reading a
-    # flag; none of them needs a device, which is the Tier-0 cut line holding.
-    for name, value in (("--model", model), ("--out", out_dir),
-                        ("--global-batch", global_batch), ("--steps", steps)):
-        if value is None:
-            raise click.UsageError(f"{name} is required for a run")
+    global_batch = chips if global_batch is None else global_batch
+    out_dir = Path(out_dir or Path("runs") / model)
     if objective not in objectives.names():
         raise click.BadParameter(f"{objective!r}; rows are {objectives.names()}",
                                  param_hint="--objective")
-    # Checked against the recipe NAMES, read without importing the module: the names are
-    # what a flag can be wrong about, and importing the bodies to validate a string would
-    # pull the tape into a dry run.
     if recipe not in RECIPE_NAMES:
         raise click.BadParameter(f"{recipe!r}; recipes are {sorted(RECIPE_NAMES)}",
                                  param_hint="--recipe")
-    if global_batch % chips:
+    if global_batch < 1 or global_batch % chips:
         raise click.BadParameter(
-            f"--global-batch {global_batch} does not divide by --chips {chips}. Rounding it "
-            f"would change the recipe on a box with a different chip count",
+            f"--global-batch {global_batch} does not divide over {chips} chips",
             param_hint="--global-batch")
-    if steps < 1:
-        raise click.BadParameter("must be at least 1", param_hint="--steps")
-    if rank < 1:
-        raise click.BadParameter("must be at least 1", param_hint="--rank")
+    for name, value in (("--steps", steps), ("--rank", rank)):
+        if value is not None and value < 1:
+            raise click.BadParameter("must be at least 1", param_hint=name)
 
-    fit = plan(tokens=tokens or 256, model=model, chips=chips, global_batch=global_batch,
+    crop = tokens or _DEFAULT_CROP[model]
+    fit = plan(tokens=crop, model=model, chips=chips, global_batch=global_batch,
                frozen_trunk=train_mode == "adapters")
     click.echo(str(fit))
     if fit.verdict == "refused":
-        raise click.ClickException(
-            "refusing to start on a configuration measured not to fit. Lower --tokens. "
-            "The measurement named above is this model's own; no other model's wall is "
-            "applied to it")
+        raise click.ClickException("refusing to start on a configuration measured not to "
+                                   "fit. Lower --tokens")
     if dry_run:
-        if not fit.measured:
-            click.echo("\nnote: UNMEASURED is an answer, not an error. It means we have no "
-                       "measurement for this shape and will not print a projection shaped "
-                       "like one.")
         return
 
-    # The featuriser is resolved before anything reaches a device, so a model with no
-    # training adapter registered costs a message rather than a card and a traceback.
-    from .catalogue import load
+    from . import launcher
+    if data is None:
+        from .openfold3 import sample_data
+        data = sample_data(quiet=launcher.rank() != 0)
+        click.echo(f"no DATA given, so this trains on upstream's 8-structure sample in {data}. "
+                   f"Pass a training-set directory to train on your own.")
+    status = _Status(out_dir, writer=launcher.rank() == 0)
+    config = {"model": model, "data": str(Path(data).resolve()), "train": train_mode,
+              "global_batch": global_batch, "lr": lr, "warmup_steps": warmup_steps,
+              "tokens": crop, "seed": seed, "objective": objective, "recipe": recipe}
+    status.claim(config, chips=list(chip_ids))
     try:
-        forward, dataset = load(model, Path(data), tokens=tokens)
-    except NotImplementedError as exc:
-        raise click.ClickException(str(exc)) from exc
+        from .catalogue import load
+        forward, dataset = load(model, Path(data), tokens=tokens, seed=seed)
+        steps = steps or max(1, len(dataset) // global_batch)
+        status.update(steps=steps)
+        if exact is None and needs_exact(model, crop):
+            exact = True
+            click.echo(f"{crop} tokens fits {model} only with --exact on one card, so it is "
+                       f"on: a step runs many times slower. Lower --tokens for the device path.")
 
-    if exact is None:
-        exact = needs_exact(model, tokens or 256)
-        if exact:
-            click.echo(f"{tokens} aa fits {model} only with --exact on one card, so it is on: "
-                       f"a step runs many times slower. Lower --tokens for the device path.")
+        from ..autograd import exact_training
+        from .lora import LoraConfig
+        from .loop import finetune as run_finetune
 
-    # Only now does anything reach a device.
-    from ..autograd import exact_training
-    from .lora import LoraConfig
-    from .loop import finetune as run_finetune
-
-    with exact_training(exact):
-        run = run_finetune(
-            forward, dataset, out_dir=out_dir, global_batch=global_batch, steps=steps,
-            objective=objective, train=train_mode, recipe=recipe, seed=seed, lr=lr,
-            warmup_steps=warmup_steps,
-            checkpoint_every=checkpoint_every, tokens=tokens,
-            lora=LoraConfig(rank=rank, alpha=alpha, targets=tuple(targets)),
-            mesh=_mesh(chip_ids))
+        with exact_training(bool(exact)):
+            run = run_finetune(
+                forward, dataset, out_dir=out_dir, global_batch=global_batch, steps=steps,
+                objective=objective, train=train_mode, recipe=recipe, seed=seed, lr=lr,
+                warmup_steps=warmup_steps, checkpoint_every=checkpoint_every, tokens=tokens,
+                lora=LoraConfig(rank=rank, alpha=alpha, targets=tuple(targets)),
+                mesh=_mesh(chip_ids), on_step=status.step, resume=True)
+    except Exception as exc:                                           # noqa: BLE001
+        status.fail(exc)
+        raise click.ClickException(f"{type(exc).__name__}: {exc}\n(status and traceback in "
+                                   f"{status.path})") from None
     click.echo(str(run))
-    # Every rank of a data-parallel run reaches this line, so the path is per rank: rank 0
-    # keeps out_dir and the others get a subdirectory. One path shared by N writers is a
-    # truncated file, not a duplicate one.
-    from .launcher import out_dir as rank_dir
+    status.succeed(run)
+    click.echo(f"wrote {status.path}")
 
-    out = rank_dir(out_dir) / "run.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"history": run.history,
-                               "provenance": run.provenance.as_dict(),
-                               "displacement": run.displacement}, indent=2, default=str))
-    click.echo(f"wrote {out}")
+
+#: The crop a run uses when --tokens is not given: each model's first training stage.
+_DEFAULT_CROP = {"openfold3": 384}
+
+
+class _Status:
+    """``status.json`` and ``progress.jsonl`` in the run directory, for a program to follow.
+
+    ``status`` uses JapanFold's job words: ``running``, ``succeeded``, ``failed``, with an
+    error as ``{title, detail}``. Only rank 0 writes; on a data-parallel run the driver writes
+    the start and the end and rank 0 the steps in between.
+    """
+
+    def __init__(self, out_dir: Path, *, writer: bool = True):
+        import time
+        self.dir, self.writer, self.clock = Path(out_dir), writer, time.perf_counter
+        self.last = self.clock()
+        self.path = self.dir / "status.json"
+        self.progress = self.dir / "progress.jsonl"
+
+    def read(self) -> dict:
+        try:
+            return json.loads(self.path.read_text())
+        except (OSError, ValueError):
+            return {}
+
+    def _write(self, **fields) -> None:
+        if not self.writer:
+            return
+        import time
+        doc = {**self.read(), **fields,
+               "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        self.dir.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(doc, indent=2, default=str) + "\n")
+        tmp.replace(self.path)
+
+    def claim(self, config: dict, *, chips) -> None:
+        """Start or resume. A different config in the same directory is refused, not mixed."""
+        import os
+        import socket
+        from . import launcher
+        old = self.read()
+        if old.get("config") and old["config"] != config:
+            diff = {k: (old["config"].get(k), v) for k, v in config.items()
+                    if old["config"].get(k) != v}
+            raise click.ClickException(
+                f"{self.dir} holds a run with other settings {diff} (was, now). Pass a new "
+                f"--out, or the same settings to resume it")
+        if launcher.driving():
+            # One chip runs where TT_VISIBLE_DEVICES points; the ids are the launcher's only
+            # when it spawns ranks, so that is what gets recorded.
+            chips = chips if len(chips) > 1 else [os.environ.get("TT_VISIBLE_DEVICES", "0")]
+            self._write(status="running", config=config, chips=chips, pid=os.getpid(),
+                        host=socket.gethostname(), error=None, out=str(self.dir.resolve()),
+                        progress=str(self.progress.resolve()))
+
+    def update(self, **fields) -> None:
+        from . import launcher
+        if launcher.driving():
+            self._write(**fields)
+
+    def step(self, row: dict) -> None:
+        import math
+        loss, g = row.get("loss"), row.get("grad_norm")
+        healthy = all(v is None or math.isfinite(float(v)) for v in (loss, g))
+        now = self.clock()
+        line = {k: row.get(k) for k in ("step", "loss", "lr", "grad_norm")}
+        line["s"], self.last = round(row.get("s") or now - self.last, 3), now
+        line["healthy"] = healthy
+        if self.writer:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            with open(self.progress, "a") as fh:
+                fh.write(json.dumps(line, default=float) + "\n")
+        self._write(step=row.get("step"), loss=loss, healthy=healthy)
+        if not healthy:
+            raise FloatingPointError(
+                f"step {row.get('step')}: loss {loss}, gradient norm {g}. The run stops rather "
+                f"than train on it; resume from the last checkpoint with a lower --lr")
+
+    def fail(self, exc: BaseException) -> None:
+        import traceback
+        if self.writer:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            (self.dir / "traceback.txt").write_text(traceback.format_exc())
+        self._write(status="failed",
+                    error={"title": type(exc).__name__, "detail": str(exc)})
+
+    def succeed(self, run) -> None:
+        """The summary goes in status.json; the full record, config included, in run.json."""
+        prov = run.provenance.as_dict()
+        if self.writer:
+            (self.dir / "run.json").write_text(json.dumps(
+                {"history": run.history, "provenance": prov, "dp": run.dp,
+                 "displacement": run.displacement}, indent=2, default=str) + "\n")
+        best, latest = run.best, run.checkpointer.latest()
+        self._write(status="succeeded", step=run.history[-1]["step"] if run.history else None,
+                    loss=run.loss, provenance={k: v for k, v in prov.items() if k not in ("config", "dp")},
+                    dp=_dp_summary(run.dp), checkpoint=str(best["path"]) if best else None,
+                    latest=str(latest) if latest else None, record=str(self.dir / "run.json"))
+
+
+def _dp_summary(dp):
+    """The data-parallel numbers an agent reads; the per-rank record stays in run.json."""
+    keep = ("world", "nodes", "distinct_master_sha", "median_step_s", "comm_bytes",
+            "median_transfer_s", "median_barrier_wait_s")
+    return {k: dp.get(k) for k in keep} if dp else None
 
 
 def _mesh(chip_ids):

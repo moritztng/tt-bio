@@ -35,7 +35,7 @@ from typing import Callable, Dict
 from . import launcher, objectives, provenance
 from ..autograd import backward, exact_training_ops, install, release_pins, uninstall
 from .sharding import batches
-from .checkpoint import Checkpointer
+from .checkpoint import Checkpointer, load_adapter
 from .lora import LoraConfig, attach, trainable
 from .mesh import Mesh
 from .optim import AdamW, af3_lr
@@ -49,7 +49,7 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
                betas=(0.9, 0.95), weight_decay=0.0, plateau_until=50000, checkpoint_every=100,
                tokens=None, weights=None, model=None, on_step=None,
-               displacement_band=None):
+               displacement_band=None, resume=False):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -97,6 +97,10 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     the end and a run killed at step 90 of 100 returns nothing, so a caller that wants the
     curve writes it out from here rather than waiting for it.
 
+    ``resume=True`` continues from the newest checkpoint in ``out_dir`` when there is one:
+    weights, both Adam moments and the schedule are loaded and the batch plan picks up at the
+    step after it, which is the order an uninterrupted run would have seen.
+
     ``dataset`` needs ``__len__`` and ``batch(indices) -> dict`` carrying the labels the
     objective row names. No featurizer is imposed -- per-model featurisation is the one thing
     the campaign refused to generalise, because each family's cropping and MSA handling is
@@ -109,15 +113,18 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     Two lines below know about it -- which shard is read, and that ``step()`` is given
     something to reduce -- and the loop is otherwise the loop it was on one chip.
     """
+    # The driver of a data-parallel run computes nothing, so it hands off before anything
+    # below can open a card. Asking a forward for its `model` builds it, and building it
+    # opens the device, which the launcher then refuses: a rank would be a second opener.
+    dp = (mesh or Mesh({"dp": [0]})).axis("dp")
+    if dp.width > 1 and launcher.driving():
+        return launcher.drive(dp, out_dir=out_dir, steps=steps)
     # An adapter that BUILDS the model owns it, so it should not also have to be handed
     # back through every caller. `model=` still wins when it is passed; without it the
     # forward is asked. This is what makes discovery a WALK by default rather than the
     # call-site census, and the census is blind to every weight a module fuses in its own
     # `__init__` -- 2119 of 2531 on OpenFold3's trunk, silently.
     model = model if model is not None else getattr(forward, "model", None)
-    dp = (mesh or Mesh({"dp": [0]})).axis("dp")
-    if dp.width > 1 and launcher.driving():
-        return launcher.drive(dp, out_dir=out_dir, steps=steps)
     dp_rank, dp = launcher.rank(), launcher.reducer(dp)
     # `None` here means "train the weights themselves", and it is the only line that reads
     # `train`. Everything downstream branches on `cfg is None` or not at all.
@@ -156,7 +163,10 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         # bit-identical across ranks, so one copy is the run's checkpoint; the reason not to
         # let them share the path is that two writers make a truncated safetensors file.
         ckpt = Checkpointer(launcher.out_dir(out_dir), every=checkpoint_every, metric="loss")
-        history, last = [], None
+        history, last, start = [], None, 0
+        if resume and (latest := ckpt.latest()) is not None:
+            start = load_adapter(latest, params, dataset.device, opt=opt)["step"] + 1
+            params.rebind()
 
         with provenance.during(seed=seed, config={
                 "objective": objective, "global_batch": global_batch, "steps": steps,
@@ -166,6 +176,8 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                 "exact_ops": list(exact_training_ops())}) as prov:
             with attach(installed, cfg):
                 for batch in [first, *plan_order]:
+                    if batch.step < start:
+                        continue
                     # ONE SAMPLE AT A TIME. Upstream clips each sample before accumulating it
                     # (`per_sample_clipping: True` at `clip_val 10.0` is OpenFold3's shipped
                     # default), and per-sample clipping is a different ALGORITHM from clipping
@@ -233,6 +245,10 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                     # reads what the optimizer moved. A no-op for a call-site census, whose
                     # hook hands the forward the leaf itself.
                     params.rebind()
+                    # A rank's `total` is the mean over its own shard. The row reports the
+                    # global batch's, so a two-chip run reads the same loss as one chip does.
+                    if dp.width > 1:
+                        total = dp.sum_scalars([total * len(shard)])[0] / global_batch
                     last = {"step": batch.step, "loss": total, "breakdown": breakdown,
                             "grad_norm": opt.last_grad_norm, "lr": opt.last_lr,
                             "s": launcher.tick()}
