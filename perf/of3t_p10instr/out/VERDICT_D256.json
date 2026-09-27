@@ -1,0 +1,46 @@
+{
+ "H": 0.0,
+ "H_per_weights": {
+  "B2trunk": 0.0,
+  "I_D12": 0.0,
+  "I_D12s1": 0.0,
+  "I_TFs1": 0.0,
+  "L40G": 0.0,
+  "L40Gs1": 0.0,
+  "TF7": 0.0,
+  "X12b": 0.0
+ },
+ "draws": 256,
+ "bar_ratio": 0.3333333333333333,
+ "fixed_bars": {
+  "two": 0.019428875906963877
+ },
+ "designs": {
+  "two": {
+   "artifact": "D256_TF7_a.json+D256_B2trunk_a.json+D256_I_TFs1_a.json",
+   "arm_a": "TF7",
+   "arm_b": "B2trunk",
+   "floor_b": "I_TFs1",
+   "M": {
+    "TF7": 11.97624999840934,
+    "B2trunk": 11.982019226155302,
+    "I_TFs1": 12.010600938471814
+   },
+   "delta": -0.005769227745961507,
+   "h": 0.0071966959401422856,
+   "se_half": 0.0071966959401422856,
+   "F": 0.034350940062474605,
+   "F_signed": -0.034350940062474605,
+   "h_F": 0.014531730174954767,
+   "T": 0.019428875906963877,
+   "grade": "PASS",
+   "why": "|Delta| + h = 0.0130 <= T 0.0194",
+   "sd_d": 0.058748538286875804,
+   "draws_to_resolve": 72,
+   "aiclk": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 431 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 433 samples, polled DURING the work | CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 432 samples, polled DURING the work",
+   "head": "9185178fc00f1991a49ab242f6c5ca254cf8d068",
+   "dirty": false
+  }
+ },
+ "verdict": "GO"
+}
