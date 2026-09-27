@@ -1,0 +1,1 @@
+{"arm": "fold-models", "headline": "GATE PASS \u2014 all models cleared parse + ground-truth floor + geometry", "key": {"card_type": "p150a", "commit": "86ee5ff96", "diffusion_trace": false, "dirty": false, "fast": false, "host": "tt-quietbox", "package": "/home/ttuser/.coworker/wt/of3t-p10default/tt_bio"}, "members": ["openfold3"], "ts": 1790518575.680898, "verdict": "PASS"}
