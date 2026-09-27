@@ -1416,7 +1416,6 @@ _FAST_ROUND = (
     ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
     ("af2", "AF2PairBlock", "rne_kernel", None, True),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None, "tri_att_sdpa_hifi,rne_add"),
-    ("tenstorrent", None, "_TRIATT_HIFI_DIVIDING_K_DEFAULT", None, True),
 )
 
 
