@@ -163,12 +163,9 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
     first repair of this expression enumerated two callers and routed two, and the one it missed
     was `softmax` itself, which `__all__` exports.
     """
-    # `compute_kernel_config` only under TT_BIO_SOFTMAX_BW_FP32. The caller's `config` is never
-    # None in practice -- `softmax` and `triangle_attention` both pass `config or
-    # precise_config()` -- so honouring it here unconditionally would raise the fidelity of every
-    # taped softmax backward in the package on the shipped default. That is a release-gated
-    # change, not a free one, and it has been graded only at crop 384 on the fp32 arm. With the
-    # flag off this call is exactly what main ships.
+    # `compute_kernel_config` only under TT_BIO_SOFTMAX_BW_FP32, which is on by default. With it
+    # off (`TT_BIO_SOFTMAX_BW_FP32=0`) this call is the bf16 backward that shipped before the
+    # flag existed, config dropped and all.
     inner = (ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True, compute_kernel_config=config)
              if SOFTMAX_BW_FP32 and config is not None
              else ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True))
@@ -199,10 +196,11 @@ SOFTMAX_BW_FUSED = env_flag("TT_BIO_SOFTMAX_BW_FUSED", False)
 # round trip and a numpy float64 softmax and layer norm per call, 1541 s of one 48-block backward
 # against 41 s without it -- be turned off and still clear the bar. `perf/of3t_p10exact`.
 #
-# RELEASE-GATED, hence default off: it moves every trained gradient in the package, and it holds
-# an fp32 copy of the attention probabilities for the length of the backward, which is memory at
-# a crop nobody has run yet. Graded ON at crop 384.
-SOFTMAX_BW_FP32 = env_flag("TT_BIO_SOFTMAX_BW_FP32", False)
+# On by default, with `_EXACT_TRAINING` off: the pair is the device path OpenFold3 training ships
+# on. `TT_BIO_SOFTMAX_BW_FP32=0` is the off switch. The fp32 copies live for one backward call,
+# not for the length of the backward; `perf/of3t_p10default` measures the peak at the recipe's
+# crops.
+SOFTMAX_BW_FP32 = env_flag("TT_BIO_SOFTMAX_BW_FP32", True)
 
 # Reached only from a backward closure, like the renorm counter above, so which path ran is a
 # reading and not an argument.
@@ -1556,7 +1554,10 @@ def host_f64_softmax(x, dim: int = -1):
 
 # --- the exact training ops: softmax and layer norm in float64 on the host ----------------
 #
-# ON for every training tape. of3t-stackexact measured the model-frame trunk gradient against
+# OFF by default, ON inside `exact_training(True)`. It was the default until the fp32 softmax
+# backward (`SOFTMAX_BW_FP32`) brought the device-only trunk inside the same bar at 0.99736x
+# (`perf/of3t_p10exact`); it is now the float64 reference for a precision question, not the
+# route to accuracy. of3t-stackexact measured the model-frame trunk gradient against
 # upstream OpenFold3 0.4.3: with the device ops it reads 1.4511706984958472x the
 # 0.15210099830945006 bar, with the exact softmax 1.3037867474869442x, with both exact
 # 0.9822570327981535x, and the float64 contrast space improves at the same time, so this is
@@ -1575,7 +1576,7 @@ def host_f64_softmax(x, dim: int = -1):
 # What is left on the card is `softmax_bw_inner`'s reduction inside `triangle_attention`'s
 # backward, computed on an EXACT p.
 #
-# The GATE is the tape being installed, not a flag. `install()` opens the scope until its
+# When on, the GATE is the tape being installed. `install()` opens the scope until its
 # `uninstall()`, which is the whole fit in `train/recipes.py` and the discovery forward in
 # `walked_weights`; `tape()` and `backward()` open it for their own extent too, for a caller
 # that drives a tape without `install()`. Each takes out only what it put in. While open the
@@ -1583,7 +1584,7 @@ def host_f64_softmax(x, dim: int = -1):
 # fold enters any of them:
 # `tests/test_training_opt_in.py::test_no_inference_module_imports_training` keeps the
 # inference modules from importing this one at all. There is no
-# environment variable; `exact_training(False)` is the off switch.
+# environment variable; `exact_training(True)` is the on switch.
 
 EXACT_SOFTMAX_STATS = {"verb": 0, "raw": 0, "raw_elements": 0}
 EXACT_LAYER_NORM_STATS = {"verb": 0, "raw": 0, "elements": 0, "bw": 0}
@@ -1737,12 +1738,12 @@ _EXACT_OPS = {
                    "taped": {"layer_norm": _v_exact_layer_norm},
                    "raw": {"layer_norm": _exact_layer_norm_raw}},
 }
-# The set a training tape runs exact, of3t-stackexact's SL arm: 0.9822570327981535x the bar
-# where the device ops read 1.4511706984958472x.
+# The set a training tape runs exact under `exact_training(True)`, of3t-stackexact's SL arm:
+# 0.9822570327981535x the bar where the device ops read 1.4511706984958472x.
 EXACT_TRAINING_OPS = ("softmax", "layer_norm")
 # op -> (owner, the objects it replaced). Each scope takes out only the ops it put in.
 _EXACT_SAVED: dict = {}
-_EXACT_TRAINING = [True]    # innermost `exact_training()` block wins
+_EXACT_TRAINING = [False]   # innermost `exact_training()` block wins
 
 
 def _install_exact(ops, owner: str) -> tuple:
@@ -1833,12 +1834,14 @@ def exact_softmax():
 
 @contextlib.contextmanager
 def exact_training(on: bool = True):
-    """The training off switch. Inside `exact_training(False)`, `install()`, `tape()` and
-    `backward()` leave softmax and layer norm on the device ops, as inference runs them.
+    """The float64 instrument's switch. Inside `exact_training(True)`, `install()`, `tape()`
+    and `backward()` run softmax and layer norm on the host in float64; otherwise they stay on
+    the device ops, as inference runs them.
 
-    ON is the default because it is what reproduces upstream's gradient (of3t-stackexact:
-    0.9822570327981535x the bar against 1.4511706984958472x without). The cost is a host round
-    trip per softmax and per layer norm, in the forward and in the backward's recompute.
+    OFF is the default. With `SOFTMAX_BW_FP32` on, the device-only trunk clears the OpenFold3
+    accuracy clause at 0.99736x the bar against the instrument's 0.98737x (`perf/of3t_p10exact`),
+    and the instrument costs a host round trip per softmax and per layer norm, about 40x on the
+    trunk backward. It stays as a diagnostic: the float64 reference for a precision question.
     """
     _EXACT_TRAINING.append(bool(on))
     try:
@@ -1848,8 +1851,8 @@ def exact_training(on: bool = True):
 
 
 def exact_training_ops() -> tuple:
-    """The ops a tape opened now would run exact: `EXACT_TRAINING_OPS`, or none inside
-    `exact_training(False)`. What a run records in its provenance."""
+    """The ops a tape opened now would run exact: `EXACT_TRAINING_OPS` inside
+    `exact_training(True)`, else none. What a run records in its provenance."""
     return EXACT_TRAINING_OPS if _EXACT_TRAINING[-1] else ()
 
 
