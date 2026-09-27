@@ -103,6 +103,24 @@ def test_the_collective_sums_and_does_not_average(tmp_path):
             f"rank {r} got {got[r]}; the mean would be [5.5, 11, 16.5]")
 
 
+def test_the_step_loss_is_summed_across_ranks_and_kept_out_of_the_gradient_timings(tmp_path):
+    """A two-chip run's progress row read rank 0's shard: 1.3708 where one chip read 1.4812
+    for the same global batch. The loss now crosses the axis, and its 16-byte message must
+    not show up as the gradient collective's cost."""
+    got, axes = {}, {}
+
+    def run(r):
+        axes[r] = ax = _axis(r, 2, tmp_path)
+        got[r] = ax.sum_scalars([(1.25, 3.5)[r]])
+
+    ts = [threading.Thread(target=run, args=(r,)) for r in (0, 1)]
+    [t.start() for t in ts]
+    [t.join(timeout=60) for t in ts]
+    assert got[0] == got[1] == [4.75]
+    for ax in axes.values():
+        assert ax.state["publish_s"] == [] and ax.state["bytes"] == 0
+
+
 def test_every_rank_gets_the_same_bits_so_the_masters_stay_identical(tmp_path):
     """Bit-identical sums across ranks, which is what the sync invariant rests on.
 

@@ -245,6 +245,10 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                     # reads what the optimizer moved. A no-op for a call-site census, whose
                     # hook hands the forward the leaf itself.
                     params.rebind()
+                    # A rank's `total` is the mean over its own shard. The row reports the
+                    # global batch's, so a two-chip run reads the same loss as one chip does.
+                    if dp.width > 1:
+                        total = dp.sum_scalars([total * len(shard)])[0] / global_batch
                     last = {"step": batch.step, "loss": total, "breakdown": breakdown,
                             "grad_norm": opt.last_grad_norm, "lr": opt.last_lr,
                             "s": launcher.tick()}

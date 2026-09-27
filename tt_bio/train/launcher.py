@@ -273,9 +273,18 @@ class ProcessAxis(Axis):
             i += k
         return out
 
+    def sum_scalars(self, values) -> list:
+        """Sum a few floats across the ranks, the step's loss for one.
+
+        Its own exchange, left out of the step timings and the byte count, which describe the
+        gradient's collective and would read a 4-byte message as a fast one.
+        """
+        import numpy as np
+        return [float(v) for v in self._exchange(np.float64(values).ravel(), record=False)]
+
     # -- the collective itself
 
-    def _exchange(self, vec):
+    def _exchange(self, vec, *, record: bool = True):
         """Sum ``vec`` across every rank on the axis. Publish, barrier, add.
 
         The publish is a write to a temporary name and an ``os.replace``, so a peer polling
@@ -309,6 +318,8 @@ class ProcessAxis(Axis):
         stale = d / f"s{step - _KEEP_STEPS}_r{self.dp_rank}.npy"
         stale.unlink(missing_ok=True)
         st = self.state
+        if not record:
+            return acc
         st["publish_s"].append(t_pub - t0)
         st["wait_s"].append(t_wait - t_pub)
         st["add_s"].append(time.perf_counter() - t_wait)
