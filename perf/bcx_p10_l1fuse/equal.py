@@ -14,6 +14,10 @@ deviation 0 across nine classes moved between buffers -- so both input gradients
 `torch.equal` against the off arm. Anything that moves is this gate and not the residency, which
 is why the bar here is equality and not a tolerance.
 
+`--lever widen_add` runs the same three arms on `rne_add.WIDEN_ADD` (`bcx-p10-widenadd`). That
+lever does change which kernel adds, so equality is the claim the float64 grade predicts rather
+than a property of placement; a miss is reported by its max absolute deviation.
+
 On qb2, never pc card 0: it silently miscomputes ttnn matmuls at a low, location-keyed rate
 (memory `pc-card0-512aa-fold-nondeterminism`) and an equality check taken there asserts nothing.
 """
@@ -44,6 +48,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--out", default="equal_E.json")
+    ap.add_argument("--lever", choices=("fanin_l1", "widen_add"), default="fanin_l1")
     args = ap.parse_args()
     if args.params is None:
         from perf.bcx_afgrad import afgrad as A
@@ -53,7 +58,11 @@ def main():
     armed = CE.arm(1, 1, 1, 1)
     print("ARMED %s" % json.dumps(armed), flush=True)
 
-    from tt_bio import fanin_l1 as F
+    from tt_bio import fanin_l1, rne_add
+    if args.lever == "fanin_l1":
+        F, flag, reach, clear = fanin_l1, "FANIN_L1", fanin_l1.reach, fanin_l1.REACH.clear
+    else:
+        F, flag, reach, clear = rne_add, "WIDEN_ADD", rne_add.widen_reach, rne_add.WIDEN_REACH.clear
     lv, dev, ref = S.open_all(args)
     clock = S.Clock()
 
@@ -69,27 +78,27 @@ def main():
     SH.set_hifi(True)
 
     blob = {"stamp": S.stamp(args, clock), "cell": "E", "device_axis": n32, "armed": armed,
-            "share": F.FANIN_L1_SHARE, "loadavg_start": os.getloadavg(), "arms": {}}
+            "lever": args.lever, "share": fanin_l1.FANIN_L1_SHARE, "loadavg_start": os.getloadavg(), "arms": {}}
 
     for stack in args.stacks.split(","):               # warm both arms: JIT + program cache
         for on in (False, True):
-            F.FANIN_L1 = on
+            setattr(F, flag, on)
             S.block_step(dev, lv, m0, z0, wm, wz, stack, k=1, ckpt=spec["ckpt"], masks=masks)
-    F.REACH.clear()
+    clear()
 
     for stack in args.stacks.split(","):
         grads = {}
         for arm, on in (("off", False), ("on", True), ("off2", False)):
-            F.FANIN_L1 = on
-            F.REACH.clear()
+            setattr(F, flag, on)
+            clear()
             r, g = S.block_step(dev, lv, m0, z0, wm, wz, stack, k=1, ckpt=spec["ckpt"],
                                 masks=masks)
             grads[arm] = [t.clone() for t in g]
             blob["arms"][f"{stack}|{arm}"] = {
-                "flag": on, "reach": F.reach(),
+                "flag": on, "reach": reach(),
                 "wall_fwd": round(r["fwd"], 4), "wall_bwd": round(r["bwd"], 4),
                 "aiclk": clock.window(r["spans"]), "loadavg": os.getloadavg()[0]}
-            print(json.dumps({"stack": stack, "arm": arm, "reach": F.reach(),
+            print(json.dumps({"stack": stack, "arm": arm, "reach": reach(),
                               "bwd": round(r["bwd"], 3),
                               "aiclk": blob["arms"][f"{stack}|{arm}"]["aiclk"]}), flush=True)
 
