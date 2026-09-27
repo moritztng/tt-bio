@@ -800,7 +800,8 @@ class ExtraMsaOnDevice:
                 trunk = self._trunk(slot)
                 trunk.opm_device()
                 pm = self._pair_masks(trunk, pair_mask)
-                (out,) = self._traced.forward(slot, trunk, [z], lambda t, leaves: [t.extra_msa(leaves[0], pm, recompute=self.recompute)])
+                (out,) = self._traced.forward(slot, trunk, [z], lambda t, leaves: [
+                    t.extra_msa(leaves[0], pm, recompute=self.recompute)])
                 self._tapes.sweep(slot)
                 token = self._tapes.bank({"traced": True, "n": n, "shape": tuple(z.shape)},
                                          slot)
@@ -972,7 +973,8 @@ class TemplateOnDevice:
             with duotraj.card(slot, "template._taped"):
                 trunk = self._trunk(slot)
                 pm = self._pair_masks(trunk, pair_mask)
-                (out,) = self._traced.forward(slot, trunk, [act], lambda t, leaves: [t.template_stack(leaves[0], pm, recompute=self.recompute)])
+                (out,) = self._traced.forward(slot, trunk, [act], lambda t, leaves: [
+                    t.template_stack(leaves[0], pm, recompute=self.recompute)])
                 self._tapes.sweep(slot)
                 token = self._tapes.bank({"traced": True, "n": n, "shape": tuple(act.shape)},
                                          slot)

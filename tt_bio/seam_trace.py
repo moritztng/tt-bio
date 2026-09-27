@@ -93,7 +93,8 @@ class SeamTraces:
     `forward(slot, trunk, xs, fn)` and `backward(slot, trunk, gs)` run inside the stack's
     `duotraj.card` hold. `xs` and `gs` are padded host tensors; `fn(trunk, leaves) -> roots` is the
     stack's taped forward on device leaves; it must take the trunk as its first argument and hold
-    nothing checkpoint-specific, because the first capture replays it on every checkpoint. Both return padded float host tensors.
+    nothing checkpoint-specific, because the first capture replays it on every checkpoint.
+    Both return padded float host tensors.
     """
 
     def __init__(self, name: str, pool):
@@ -135,16 +136,39 @@ class SeamTraces:
                     st._capture(fx, trunk)
 
     @staticmethod
-    def _prime(fx, trunk):
+    def _body(fx, trunk, between=None):
+        """The traced work, eager or under capture: forward, tape -> bank, outputs -> fixed
+        buffers, `between()`, bank -> tape, backward, gradients -> fixed buffers.
+
+        Priming runs exactly this on every checkpoint so every program a capture issues is
+        compiled, copies included: a grad whose spec only one checkpoint produces compiles its
+        copy on first use, and inside a capture that is a TT_FATAL write (smoke s3)."""
         ttnn, ag = trunk.ttnn, trunk.ag
         leaves = [ag.Tensor(ttnn.clone(i), requires_grad=True) for i in fx.inputs]
         with trunk.taped.tape():
             roots = fx.fn(trunk, leaves)
         ag.release_pins()
+        tape = _tape_of(roots)
+        if [tuple(v.shape) for v in tape] != [tuple(b.shape) for b in fx.bank]:
+            if between is not None:
+                between(abort=True)
+            raise RuntimeError("the tape does not line up with the bank")
+        for v, b in zip(tape, fx.bank):
+            ttnn.copy(v, b)
+        for r, o in zip(roots, fx.outputs):
+            ttnn.copy(r.value, o)
+        if between is not None:
+            between()
+        for v, bk in zip(tape, fx.bank):
+            ttnn.copy(bk, v)
         ag.backward(roots, [ttnn.clone(s) for s in fx.seeds])
+        for leaf, g in zip(leaves, fx.grads):
+            ttnn.copy(leaf.grad, g)
         ag.release_pins()
-        ttnn.synchronize_device(trunk.device)
-        del leaves, roots
+
+    def _prime(self, fx, trunk):
+        self._body(fx, trunk)
+        trunk.ttnn.synchronize_device(trunk.device)
         gc.collect()
 
     # ------------------------------------------------------------------ forward
@@ -230,37 +254,26 @@ class SeamTraces:
 
     def _capture(self, fx, trunk):
         global _captured
-        ttnn, ag, dev = trunk.ttnn, trunk.ag, trunk.device
+        ttnn, dev = trunk.ttnn, trunk.device
         from tt_bio import tenstorrent
         tenstorrent.require_trace_region(f"TT_BIO_TRACE_SEAMS ({self.name})")
         ttnn.synchronize_device(dev)
         before = _live(dev)
-        f = ttnn.begin_trace_capture(dev, cq_id=0)
-        leaves = [ag.Tensor(ttnn.clone(i), requires_grad=True) for i in fx.inputs]
-        with trunk.taped.tape():
-            roots = fx.fn(trunk, leaves)
-        ag.release_pins()
-        tape = _tape_of(roots)
-        if [tuple(v.shape) for v in tape] != [tuple(b.shape) for b in fx.bank]:
-            ttnn.end_trace_capture(dev, f, cq_id=0)
-            raise RuntimeError(f"{self.name}: the captured tape does not line up with the bank")
-        for v, b in zip(tape, fx.bank):
-            ttnn.copy(v, b)
-        for r, o in zip(roots, fx.outputs):
-            ttnn.copy(r.value, o)
-        ttnn.end_trace_capture(dev, f, cq_id=0)
-        b = ttnn.begin_trace_capture(dev, cq_id=0)
-        for v, bk in zip(tape, fx.bank):
-            ttnn.copy(bk, v)
-        ag.backward(roots, [ttnn.clone(s) for s in fx.seeds])
-        for leaf, g in zip(leaves, fx.grads):
-            ttnn.copy(leaf.grad, g)
-        ag.release_pins()
-        ttnn.end_trace_capture(dev, b, cq_id=0)
+        ids = [ttnn.begin_trace_capture(dev, cq_id=0)]
+
+        def between(abort=False):
+            ttnn.end_trace_capture(dev, ids[0], cq_id=0)
+            if not abort:
+                ids.append(ttnn.begin_trace_capture(dev, cq_id=0))
+
+        self._body(fx, trunk, between)
+        ttnn.end_trace_capture(dev, ids[1], cq_id=0)
+        f, b = ids
         _captured = True
-        del leaves, roots, tape
         gc.collect()
-        STATS["leaked_after_capture"] += len(_live(dev) - before)
+        leaked = len(_live(dev) - before)
+        STATS["leaked_after_capture"] += leaked
+        STATS.setdefault("leaked_by_stack", {}).setdefault(self.name, []).append(leaked)
         fx.traces[id(trunk)] = (f, b)
         STATS["captures"] += 1
 
