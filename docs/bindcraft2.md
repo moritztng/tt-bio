@@ -51,8 +51,8 @@ with bindcraft2.campaign_predictor(card=0, exact=False, extra_msa=True, template
                             af2_weights=params_dir, mpnn_weights=mpnn_dir)
 ```
 
-This is the call the round below was measured with. `exact=False` also turns on tt-bio's
-gradient kernels for BindCraft 2 (`fast=True` is its default there), and puts them back when the
+This is the call the round below was measured with. `exact=False`, the default, also turns on
+tt-bio's gradient kernels for BindCraft 2 (`fast=True` is its default there), and puts them back when the
 block exits, so nothing else in the process runs differently. No environment variable is
 involved.
 
@@ -178,12 +178,12 @@ construction and refuses a mask that is not all-zero.
 
 ### The exact-training instrument
 
-Inside a tape, tt-bio runs softmax and layer norm on the host in float64 rather than on the
-device. That is what reproduces AlphaFold 2's own gradient most closely and it is the default,
-but a BindCraft 2 round pays a host round trip for every one of them:
+Inside a tape, tt-bio can run softmax and layer norm on the host in float64 rather than on the
+device. That is what reproduces AlphaFold 2's own gradient most closely, and a BindCraft 2 round
+pays a host round trip for every one of them. It is off by default; ask for it with:
 
 ```python
-with bindcraft2.predictor(card=0, exact=False) as build:
+with bindcraft2.predictor(card=0, exact=True) as build:
     ...
 ```
 
@@ -200,15 +200,17 @@ off accepted a 93-residue binder on the shipped `examples/pdl1.json` clearing al
 BindCraft 2's final filters, at pLDDT 0.90, i_pTM 0.79, zero backbone clashes and hotspot
 contact fraction 1.0.
 
-It stays on by default because it is the more accurate of the two, and the accepted count above
-is one trajectory rather than a rate. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` and
-`EXACT_LAYER_NORM_STATS` to confirm which one ran: with `exact=False` both stay at zero.
+So it is off by default: 460 s a round buys 1.1 % of an error budget bfloat16 already owns 85 %
+of, and a design loop is graded on the binders it accepts rather than on gradient distance.
+Set `exact=True` to reproduce a training-style gradient bar, which BindCraft 2 does not have.
+Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` and `EXACT_LAYER_NORM_STATS` to confirm which one
+ran: on the default both stay at zero.
 
 Turning it off changes only how softmax and layer norm are computed inside the tape. It does not
 skip a step, a recycle or a block.
 
-`exact=False` also arms tt-bio's gradient kernels for the duration of the predictor, the ones the
-round figures on this page were measured with. Pass `fast=False` to keep the device softmax and
+The default, `exact=False`, also arms tt-bio's gradient kernels for the duration of the predictor,
+the ones the round figures on this page were measured with. Pass `fast=False` to keep the device softmax and
 layer norm without them. Like `exact=False`, they change which kernels compute the round and do
 not skip any of its work.
 

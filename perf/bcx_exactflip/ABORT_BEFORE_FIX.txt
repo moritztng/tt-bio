@@ -1,0 +1,49 @@
+2026-09-26 14:59:24.279 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+
+tokens 175 padded to 192, calls {'primal': 0, 'taped': 2, 'backward': 1}, step 30.2 s (first call: weight load and JAX compile included), loss 11.6270, gradient (60, 20)
+CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 18 samples, polled DURING the work
+host load/core during the step: 0.67
+.terminate called after throwing an instance of 'std::runtime_error'
+Fatal Python error: Aborted
+
+Current thread 0x00007ca7b7c23080 (most recent call first):
+  File "/home/ttuser/.coworker/wt/bcx-exactflip/tt_bio/tenstorrent.py", line 6019 in _close_device_locked
+  File "/home/ttuser/.coworker/wt/bcx-exactflip/tt_bio/tenstorrent.py"  what():  TT_THROW @ /project/tt_metal/third_party/umd/device/utils/robust_mutex.cpp:380: tt::exception
+, line 6743 in cleanup
+  File info:
+"pthread_mutex_unlock failed for mutex CHIP_IN_USE_3_PCIe errno: 1
+/home/ttuser/.coworker/wt/bcx-exactflip/tests/conftest.py"backtrace:
+, line 94 in _release_device_after_test
+  File  --- tt::umd::RobustMutex::unlock()
+"/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/_pytest/fixtures.py --- tt::umd::LocalChip::close_device()
+", line 1014 in  --- tt::umd::Cluster::close_device()
+_teardown_yield_fixture
+ --- tt::Cluster::~Cluster()
+  File " --- tt::tt_metal::MetalEnvImpl::~MetalEnvImpl()
+/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/_pytest/fixtures.py" --- tt::tt_metal::MetalEnv::~MetalEnv()
+, line 1156 in finish --- tt::tt_metal::MetalContext::~MetalContext()
+
+  File  --- tt::tt_metal::MetalContext::destroy_instance(bool, ttsl::StrongType<int, tt::tt_metal::ContextIdTag>)
+" --- tt::tt_metal::MetalContext::destroy_all_instances(bool)
+/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/_pytest/runner.py", line 568 in teardown_exact
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/_pytest/runner.py", line 199 in pytest_runtest_teardown
+ --- /lib/x86_64-linux-gnu/libffi.so.8(+0x7b16) [0x7ca7b65c0b16]
+  File " --- /lib/x86_64-linux-gnu/libffi.so.8(+0x43ef) [0x7ca7b65bd3ef]
+/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pluggy/_callers.py --- /lib/x86_64-linux-gnu/libffi.so.8(ffi_call+0x12e) [0x7ca7b65c00be]
+", line 121 in _multicall --- /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so(+0xe11c) [0x7ca7b6fe611c]
+
+  File  --- /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so(+0x92af) [0x7ca7b6fe12af]
+"/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pluggy/_manager.py" --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_MakeTpCall+0x75) [0x548fb5]
+, line 120 in _hookexec
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pluggy/_hooks.py", line 512 in __call__
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]
+  File " --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5552a6]
+/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/_pytest/runner.py", line 250 in <lambda> --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5d432c]
+
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/_pytest/runner.py --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x207d) [0x5d86ad]
+", line 361 in  --- /home/ttuser/bcx_e2e_venv/bin/python() [0x6fa365]
+from_call
+ --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Vectorcall+0x35) [0x5499b5]
+  File  --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]
+"/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/_pytest/runner.py" --- /home/ttuser/bcx_e2e_venv/bin/python() [0x54cbb4]
