@@ -745,14 +745,26 @@ def adapter(path, tokens=None, *, checkpoint=None, rollout: int = 20, num_cycles
             seed: int = 0, exact_scope: str = "all"):
     """``(forward, dataset)`` for OpenFold3. ``path`` is the featurised corpus.
 
-    ``checkpoint`` defaults to ``path``'s sibling ``of3.pt`` so the registration stays a
-    one-liner; pass it when the weights live elsewhere.
+    ``checkpoint`` defaults to the weights ``tt-bio predict --model openfold3`` loads, so a
+    run trains the model a user already folds with. Pass it to start from other weights.
     """
-    path = Path(path)
-    ckpt = Path(checkpoint) if checkpoint else (path if path.is_dir() else path.parent) / "of3.pt"
+    ckpt = Path(checkpoint) if checkpoint else _shipped_weights()
     return (OpenFold3Forward(ckpt, rollout=rollout, num_cycles=num_cycles, seed=seed,
                              exact_scope=exact_scope),
             OpenFold3Dataset(path, tokens=tokens))
+
+
+def _shipped_weights() -> Path:
+    """The inference checkpoint, or a refusal that says how to get it."""
+    from .. import weights
+    path = weights.resolve(MODEL)
+    if path is None or not path.is_file():
+        raise FileNotFoundError(
+            f"OpenFold3 weights not found at {path}. They are not downloaded automatically "
+            f"(no parameter licence is published): fetch of3-p2-155k.pt as docs/weights.md "
+            f"describes and put it there, or point OF3_CKPT at it. `tt-bio predict --model "
+            f"openfold3` reads the same file")
+    return path
 
 
 catalogue.register(MODEL, adapter)
