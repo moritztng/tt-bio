@@ -260,6 +260,28 @@ def test_a_run_directory_whose_driver_is_gone_is_swept(tmp_path, monkeypatch):
 
 # --------------------------------------------------------------- the claim in the README
 
+def test_the_driver_hands_off_before_asking_the_forward_for_its_model(monkeypatch, tmp_path):
+    """`tt-bio train --chips 1,2` on OpenFold3 died in 8 s on its first real run.
+
+    The recipe asked the forward for its `model` one line above the data-parallel hand-off,
+    and OpenFold3's `model` builds the network, which opens the card. The launcher then
+    refused to spawn, correctly: the driver held a chip the rank was about to open.
+    """
+    from tt_bio.train import recipes
+
+    class Forward:
+        @property
+        def model(self):
+            raise AssertionError("the driver built the model before handing off")
+
+    handed = {}
+    monkeypatch.delenv(L.RANK_ENV, raising=False)
+    monkeypatch.setattr(L, "drive", lambda dp, **kw: handed.update(width=dp.width, **kw) or "run")
+    out = recipes.train_loop(Forward(), object(), out_dir=tmp_path, global_batch=2, steps=4,
+                             mesh=Mesh({"dp": [1, 2]}))
+    assert out == "run" and handed["width"] == 2 and handed["steps"] == 4
+
+
 def test_the_readme_data_parallelism_claim_is_backed_by_the_recipe_reaching_the_launcher():
     """The positive form of the docs gate.
 
