@@ -2073,22 +2073,23 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-20",
+      "recorded": "2026-09-27",
       "host": "tt-quietbox2",
-      "commit": "0451345c8",
+      "commit": "8e5654e21",
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-09-20",
+          "recorded": "2026-09-27",
           "host": "tt-quietbox2",
-          "commit": "0451345c8",
+          "commit": "8e5654e21",
+          "host_threads": null,
           "runtime_s": {
-            "256": 28.3,
-            "512": 80.4,
-            "640": 126.5,
-            "768": 184.1,
-            "896": 248.7,
-            "1024": 322.3
+            "256": 20.4,
+            "512": 68.8,
+            "640": 112.6,
+            "768": 186.0,
+            "896": 243.3,
+            "1024": 333.6
           },
           "levers": {
             "256": {
@@ -2195,14 +2196,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3160,
+                "declined": 2104,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2104,
-                  "k_tiles=12:(12,1)": 1056
+                  "k_tiles=12:(12,12)": 2104
                 },
-                "reason": "declines all 3160 calls on k_tiles=12:(12,12) x2104, k_tiles=12:(12,1) x1056: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "declines all 2104 calls on k_tiles=12:(12,12) x2104: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2218,14 +2218,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2272,
-                "declined": 2112,
-                "frac": 0.5182481751824818,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(12,49)": 1056,
-                  "no_mm_block:(12,48)": 1056
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2276,11 +2272,12 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -2402,6 +2399,13 @@
                   "base-unraised": 524,
                   "ratio-shrunk": 4
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "512": {
@@ -2504,14 +2508,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2120,
+                "declined": 1064,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 1064,
-                  "k_tiles=12:(12,1)": 1056
+                  "k_tiles=12:(12,12)": 1064
                 },
-                "reason": "declines all 2120 calls on k_tiles=12:(12,12) x1064, k_tiles=12:(12,1) x1056: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 1064 calls on k_tiles=12:(12,12) x1064: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2526,14 +2529,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2272,
-                "declined": 2112,
-                "frac": 0.5182481751824818,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(12,49)": 1056,
-                  "no_mm_block:(12,48)": 1056
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2583,11 +2582,12 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -2708,6 +2708,13 @@
                 "rejects": {
                   "ratio-shrunk": 528
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "640": {
@@ -2810,14 +2817,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3168,
+                "declined": 2112,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2112,
-                  "k_tiles=12:(12,1)": 1056
+                  "k_tiles=12:(12,12)": 2112
                 },
-                "reason": "declines all 3168 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 2112 calls on k_tiles=12:(12,12) x2112: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2832,14 +2838,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2272,
-                "declined": 2112,
-                "frac": 0.5182481751824818,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(12,49)": 1056,
-                  "no_mm_block:(12,48)": 1056
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2885,7 +2887,7 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
@@ -3009,6 +3011,13 @@
                 "rejects": {
                   "ratio-shrunk": 528
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "768": {
@@ -3111,14 +3120,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3168,
+                "declined": 2112,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,12)": 2112,
-                  "k_tiles=12:(12,1)": 1056
+                  "k_tiles=12:(12,12)": 2112
                 },
-                "reason": "declines all 3168 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 2112 calls on k_tiles=12:(12,12) x2112: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3133,14 +3141,10 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2272,
-                "declined": 2112,
-                "frac": 0.5182481751824818,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(12,49)": 1056,
-                  "no_mm_block:(12,48)": 1056
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -3181,21 +3185,22 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
-                "declined": 1217,
-                "frac": 0.4981443298969072,
+                "declined": 1218,
+                "frac": 0.49793899422918386,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 1,
+                  "l1_budget": 2,
                   "pm_over_l1": 1207,
                   "fill_preconditions": 9
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 8,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3310,324 +3315,23 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 122,
+                "served": 134,
                 "declined": 528,
-                "frac": 0.18769230769230769,
+                "frac": 0.20241691842900303,
                 "how": "stats",
                 "rejects": {
                   "ratio-shrunk": 528
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "896": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module [carried from rung 768]"
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module [carried from rung 768]"
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 3400,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 405,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path [carried from rung 768]"
-              },
-              "FP32_SOFTMAX_L1_GRID": {
-                "resolved": "(8, 8)",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 1092,
-                "declined": 160,
-                "frac": 0.8722044728434505,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:896x896x64": 160
-                }
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 3184,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=12:(12,12)": 2096,
-                  "k_tiles=12:(12,1)": 1088
-                },
-                "reason": "declines all 3184 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1088: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 1048,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=12": 1048
-                },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 2336,
-                "declined": 2136,
-                "frac": 0.5223613595706619,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(12,49)": 1048,
-                  "no_mm_block:(12,48)": 1088
-                }
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a] [carried from rung 768]"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 3400,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 6800,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 6800,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 1208,
-                "declined": 1289,
-                "frac": 0.48378053664397275,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 2,
-                  "pm_over_l1": 1207,
-                  "fill_preconditions": 80
-                }
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "SDPA_FUSED_LARGE_S": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 40,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "entered and refused, not unreached: 40 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing. Same model, same baseline: it does serve at 640 aa (8 calls), 1024 aa (56 calls)."
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 1248,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 1248,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 1248,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
-              },
-              "APB_CONCAT_HEADS": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 632,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "ATOM_AXIS_BUCKET": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 160,
-                "declined": 1092,
-                "frac": 0.12779552715654952,
-                "how": "wrap"
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 1,
-                "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): ONE shape overflows its per-core circular-buffer budget at this rung and silently takes the slow SDPA path; the set is empty at 256 and 512. This is the third gate of the 2026-08-13 above-640 defect, still open on opendde where it closed on boltz-2. Recorded, not blessed: the arm fails on ANY growth of this set, and shrinking it to 0 is a real win someone should take [carried from rung 768]"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRANSITION_H_CHUNK": {
-                "resolved": "16",
-                "served": 122,
-                "declined": 528,
-                "frac": 0.18769230769230769,
-                "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 528
-                }
-              }
-            },
-            "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 0,
@@ -3721,21 +3425,20 @@
                 "frac": 0.8738170347003155,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1024x1024x64": 160
+                  "l1_dest_is_faster:896x896x64": 160
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3360,
+                "declined": 2136,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 160,
                   "k_tiles=12:(12,12)": 2096,
-                  "k_tiles=12:(12,1)": 1104
+                  "k_tiles=12:(12,1)": 40
                 },
-                "reason": "declines all 3360 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1104, k_tiles=2:(2,2) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 2136 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x40: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3750,14 +3453,323 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2368,
-                "declined": 2152,
-                "frac": 0.5238938053097345,
+                "served": 1328,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a] [carried from rung 768]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 3400,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 6800,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 6800,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1208,
+                "declined": 1329,
+                "frac": 0.47615293653921953,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 2,
+                  "pm_over_l1": 1207,
+                  "fill_preconditions": 120
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 40,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "entered and refused, not unreached: 40 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing. Same model, same baseline: it does serve at 640 aa (8 calls), 1024 aa (56 calls)."
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1248,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1248,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1248,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 160,
+                "declined": 1088,
+                "frac": 0.1282051282051282,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1,
+                "frac": 0.0,
+                "how": "setlen",
+                "reason": "overflow set holds 1 shape(s): ONE shape overflows its per-core circular-buffer budget at this rung and silently takes the slow SDPA path; the set is empty at 256 and 512. This is the third gate of the 2026-08-13 above-640 defect, still open on opendde where it closed on boltz-2. Recorded, not blessed: the arm fails on ANY growth of this set, and shrinking it to 0 is a real win someone should take [carried from rung 768]"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 140,
+                "declined": 528,
+                "frac": 0.20958083832335328,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 528
+                }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module [carried from rung 768]"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module [carried from rung 768]"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module [carried from rung 768]"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 3400,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 405,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path [carried from rung 768]"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1132,
+                "declined": 160,
+                "frac": 0.8761609907120743,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(12,49)": 1048,
-                  "no_mm_block:(12,48)": 1104
+                  "l1_dest_is_faster:1024x1024x64": 160
                 }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 2312,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,2)": 160,
+                  "k_tiles=12:(12,12)": 2096,
+                  "k_tiles=12:(12,1)": 56
+                },
+                "reason": "declines all 2312 calls on k_tiles=12:(12,12) x2096, k_tiles=2:(2,2) x160, k_tiles=12:(12,1) x56: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1048,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=12": 1048
+                },
+                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 1376,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -3807,7 +3819,7 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 56,
                 "declined": 0,
                 "frac": 1.0,
@@ -3897,8 +3909,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 160,
-                "declined": 1108,
-                "frac": 0.12618296529968454,
+                "declined": 1104,
+                "frac": 0.12658227848101267,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -3924,41 +3936,285 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 122,
+                "served": 146,
                 "declined": 528,
-                "frac": 0.18769230769230769,
+                "frac": 0.2166172106824926,
                 "how": "stats",
                 "rejects": {
                   "ratio-shrunk": 528
                 }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             }
           },
+          "runtime_reps_s": {
+            "256": [
+              20.4,
+              20.4,
+              20.4,
+              20.3,
+              20.5
+            ],
+            "512": [
+              68.9,
+              68.7,
+              68.7,
+              68.8,
+              68.9
+            ],
+            "640": [
+              112.6
+            ],
+            "768": [
+              186.0
+            ],
+            "896": [
+              243.3
+            ],
+            "1024": [
+              333.6
+            ]
+          },
+          "aiclk": {
+            "256": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350,
+                1350,
+                1350
+              ],
+              "n": 30
+            },
+            "512": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1331,
+                1337,
+                1343,
+                1325,
+                1343
+              ],
+              "n": 75
+            },
+            "640": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1318
+              ],
+              "n": 24
+            },
+            "768": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 39
+            },
+            "896": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1343
+              ],
+              "n": 50
+            },
+            "1024": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1337
+              ],
+              "n": 67
+            }
+          },
+          "load": {
+            "256": {
+              "max": 0.21,
+              "rep_median": [
+                0.16,
+                0.19,
+                0.15,
+                0.18,
+                0.19
+              ]
+            },
+            "512": {
+              "max": 0.17,
+              "rep_median": [
+                0.12,
+                0.08,
+                0.07,
+                0.11,
+                0.11
+              ]
+            },
+            "640": {
+              "max": 0.22,
+              "rep_median": [
+                0.08
+              ]
+            },
+            "768": {
+              "max": 0.76,
+              "rep_median": [
+                0.52
+              ]
+            },
+            "896": {
+              "max": 0.64,
+              "rep_median": [
+                0.46
+              ]
+            },
+            "1024": {
+              "max": 1.53,
+              "rep_median": [
+                1.26
+              ]
+            }
+          },
+          "structure": {
+            "256": {
+              "file": "cdk2x2_256.cif",
+              "steps": 6,
+              "n_ca": 256,
+              "clash_frac": 0.0078,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 134.2414,
+              "radius_of_gyration_A": 114.006,
+              "plddt_mean": 0.585243,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 134.241 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 114.0 A outside [9.0, 45.2]"
+              ]
+            },
+            "512": {
+              "file": "cdk2x2_512.cif",
+              "steps": 6,
+              "n_ca": 512,
+              "clash_frac": 0.0,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 137.4134,
+              "radius_of_gyration_A": 113.545,
+              "plddt_mean": 0.569944,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 137.413 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 113.5 A outside [11.8, 58.9]"
+              ]
+            },
+            "640": {
+              "file": "cdk2x2_640.cif",
+              "steps": 6,
+              "n_ca": 640,
+              "clash_frac": 0.0063,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 149.6726,
+              "radius_of_gyration_A": 117.005,
+              "plddt_mean": 0.565208,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 149.673 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 117.0 A outside [12.8, 64.1]"
+              ]
+            },
+            "768": {
+              "file": "cdk2x2_768.cif",
+              "steps": 6,
+              "n_ca": 768,
+              "clash_frac": 0.0026,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 147.2927,
+              "radius_of_gyration_A": 114.134,
+              "plddt_mean": 0.554718,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 147.293 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 114.1 A outside [13.7, 68.7]"
+              ]
+            },
+            "896": {
+              "file": "cdk2x2_896.cif",
+              "steps": 6,
+              "n_ca": 896,
+              "clash_frac": 0.0112,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 138.5081,
+              "radius_of_gyration_A": 112.806,
+              "plddt_mean": 0.5601,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 138.508 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 112.8 A outside [14.6, 72.8]"
+              ]
+            },
+            "1024": {
+              "file": "cdk2x2_1024.cif",
+              "steps": 6,
+              "n_ca": 1024,
+              "clash_frac": 0.0059,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 135.9974,
+              "radius_of_gyration_A": 115.167,
+              "plddt_mean": 0.559377,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 135.997 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 115.2 A outside [15.3, 76.6]"
+              ]
+            }
+          },
           "reps": 1,
-          "sigma_runtime_512": 0.0467,
+          "sigma_runtime_512": 0.0015,
           "exponents": {
             "256->512": {
-              "k": 1.506,
+              "k": 1.754,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.043,
+              "k": 2.453,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0279,
-            "512": 0.0467
+            "256": 0.0035,
+            "512": 0.0015
           },
           "exponents_measured": {
-            "256->512": 1.506,
-            "512->640": 2.031,
-            "640->768": 2.058,
-            "768->896": 1.951,
-            "896->1024": 1.941
+            "256->512": 1.754,
+            "512->640": 2.208,
+            "640->768": 2.753,
+            "768->896": 1.742,
+            "896->1024": 2.364
           }
         }
-      }
+      },
+      "host_threads": null
     },
     "tt-galaxy-wh-l": {
       "recorded": "2026-09-24",
