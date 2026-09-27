@@ -1,0 +1,727 @@
+{
+ "arms": [
+  {
+   "arm": "q1",
+   "interleave": true,
+   "commit": "ab93da79a",
+   "card": "0",
+   "warm": {
+    "A": 2,
+    "B": 2
+   },
+   "host_hwm_gb": 13.41,
+   "gate": {
+    "waited_s": {
+     "A": 9.675,
+     "B": 9.981
+    },
+    "held_s": {
+     "A": 21.146,
+     "B": 19.15
+    },
+    "phases_s": {
+     "A": {
+      "enqueue": 18.153,
+      "device_wait": 2.64,
+      "readback": 0.213
+     },
+     "B": {
+      "enqueue": 16.218,
+      "device_wait": 2.657,
+      "readback": 0.161
+     }
+    },
+    "split": false,
+    "seams": {
+     "A": 27,
+     "B": 27
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 2,
+     "A@Dummy-4": 2,
+     "A@Dummy-5": 3,
+     "A@Dummy-6": 1,
+     "A@Dummy-7": 3,
+     "A@Dummy-8": 5,
+     "B@Dummy-9": 6,
+     "B@Dummy-10": 4,
+     "B@Dummy-8": 3,
+     "B@Dummy-11": 4,
+     "B@Dummy-5": 2,
+     "B@Dummy-3": 2,
+     "B@Dummy-12": 1,
+     "A@Dummy-12": 3,
+     "B@Dummy-4": 1,
+     "B@Dummy-13": 2,
+     "A@Dummy-14": 4,
+     "A@Dummy-11": 1,
+     "B@Dummy-14": 1,
+     "A@Dummy-9": 2,
+     "A@Dummy-10": 1,
+     "B@Dummy-6": 1
+    }
+   },
+   "stopped": [
+    "B: 3 rounds collected on 'B'",
+    "A: 3 rounds collected on 'A'"
+   ],
+   "held_per_round_all": 6.716,
+   "waited_s": {
+    "A": 9.675,
+    "B": 9.981
+   },
+   "round_s": 7.390782236802227,
+   "seam_span_s": 12.390810650711124,
+   "n": 3.98,
+   "window_s": 29.43,
+   "clock": {
+    "n": 28,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "load1": 1.67
+   },
+   "device_s": null,
+   "split": false,
+   "phases_per_round": {
+    "device_wait": 0.886,
+    "enqueue": 5.8,
+    "held": 6.798,
+    "readback": 0.064,
+    "host_under_gate": 0.049,
+    "rounds": 4,
+    "warm_only": true
+   }
+  },
+  {
+   "arm": "q2",
+   "interleave": true,
+   "commit": "ab93da79a",
+   "card": "0",
+   "warm": {
+    "A": 2,
+    "B": 2
+   },
+   "host_hwm_gb": 13.65,
+   "gate": {
+    "waited_s": {
+     "A": 9.684,
+     "B": 9.444
+    },
+    "held_s": {
+     "A": 18.506,
+     "B": 16.513
+    },
+    "phases_s": {
+     "A": {
+      "enqueue": 18.455,
+      "wait_outside": 2.631
+     },
+     "B": {
+      "enqueue": 16.477,
+      "wait_outside": 2.786
+     }
+    },
+    "split": true,
+    "seams": {
+     "A": 27,
+     "B": 27
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 6,
+     "A@Dummy-4": 1,
+     "A@Dummy-5": 1,
+     "A@Dummy-6": 4,
+     "A@Dummy-7": 4,
+     "B@Dummy-8": 3,
+     "B@Dummy-6": 3,
+     "B@Dummy-9": 2,
+     "B@Dummy-7": 4,
+     "B@Dummy-10": 1,
+     "B@Dummy-11": 2,
+     "B@Dummy-12": 1,
+     "B@Dummy-3": 2,
+     "B@Dummy-5": 1,
+     "A@Dummy-13": 3,
+     "B@Dummy-4": 6,
+     "B@Dummy-14": 2,
+     "A@Dummy-11": 3,
+     "A@Dummy-14": 3,
+     "A@Dummy-12": 2
+    }
+   },
+   "stopped": [
+    "B: 3 rounds collected on 'B'",
+    "A: 3 rounds collected on 'A'"
+   ],
+   "held_per_round_all": 5.837,
+   "waited_s": {
+    "A": 9.684,
+    "B": 9.444
+   },
+   "round_s": 7.455551876648808,
+   "seam_span_s": 12.312920884624434,
+   "n": 3.96,
+   "window_s": 29.51,
+   "clock": {
+    "n": 29,
+    "aiclk_med": 1350,
+    "aiclk_min": 1343,
+    "load1": 2.5
+   },
+   "device_s": null,
+   "split": true,
+   "phases_per_round": {
+    "enqueue": 5.843,
+    "held": 5.86,
+    "wait_outside": 0.895,
+    "host_under_gate": 0.016,
+    "rounds": 4,
+    "warm_only": true
+   }
+  },
+  {
+   "arm": "q3",
+   "interleave": true,
+   "commit": "ab93da79a",
+   "card": "0",
+   "warm": {
+    "A": 2,
+    "B": 2
+   },
+   "host_hwm_gb": 13.51,
+   "gate": {
+    "waited_s": {
+     "A": 9.149,
+     "B": 9.169
+    },
+    "held_s": {
+     "A": 18.248,
+     "B": 16.121
+    },
+    "phases_s": {
+     "A": {
+      "enqueue": 18.188,
+      "wait_outside": 2.698
+     },
+     "B": {
+      "enqueue": 16.095,
+      "wait_outside": 2.786
+     }
+    },
+    "split": true,
+    "seams": {
+     "A": 27,
+     "B": 27
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 2,
+     "A@Dummy-4": 4,
+     "A@Dummy-5": 3,
+     "A@Dummy-6": 7,
+     "A@Dummy-7": 1,
+     "A@Dummy-8": 2,
+     "A@Dummy-9": 2,
+     "A@Dummy-10": 1,
+     "B@Dummy-11": 5,
+     "B@Dummy-12": 3,
+     "B@Dummy-3": 2,
+     "B@Dummy-9": 3,
+     "B@Dummy-13": 1,
+     "B@Dummy-10": 1,
+     "A@Dummy-13": 3,
+     "B@Dummy-5": 4,
+     "B@Dummy-4": 4,
+     "B@Dummy-8": 1,
+     "A@Dummy-11": 1,
+     "B@Dummy-14": 2,
+     "B@Dummy-7": 1,
+     "A@Dummy-14": 1
+    }
+   },
+   "stopped": [
+    "B: 3 rounds collected on 'B'",
+    "A: 3 rounds collected on 'A'"
+   ],
+   "held_per_round_all": 5.728,
+   "waited_s": {
+    "A": 9.149,
+    "B": 9.169
+   },
+   "round_s": 7.3451372056183795,
+   "seam_span_s": 11.98512936794795,
+   "n": 3.99,
+   "window_s": 29.32,
+   "clock": {
+    "n": 28,
+    "aiclk_med": 1350,
+    "aiclk_min": 1343,
+    "load1": 2.59
+   },
+   "device_s": null,
+   "split": true,
+   "phases_per_round": {
+    "enqueue": 5.694,
+    "held": 5.71,
+    "wait_outside": 0.912,
+    "host_under_gate": 0.017,
+    "rounds": 4,
+    "warm_only": true
+   }
+  },
+  {
+   "arm": "q4",
+   "interleave": true,
+   "commit": "ab93da79a",
+   "card": "0",
+   "warm": {
+    "A": 2,
+    "B": 2
+   },
+   "host_hwm_gb": 13.47,
+   "gate": {
+    "waited_s": {
+     "A": 8.947,
+     "B": 9.544
+    },
+    "held_s": {
+     "A": 21.435,
+     "B": 19.161
+    },
+    "phases_s": {
+     "A": {
+      "enqueue": 18.498,
+      "device_wait": 2.624,
+      "readback": 0.21
+     },
+     "B": {
+      "enqueue": 16.3,
+      "device_wait": 2.601,
+      "readback": 0.167
+     }
+    },
+    "split": false,
+    "seams": {
+     "A": 27,
+     "B": 27
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 6,
+     "A@Dummy-4": 3,
+     "A@Dummy-5": 2,
+     "A@Dummy-6": 3,
+     "A@Dummy-7": 2,
+     "A@Dummy-8": 3,
+     "A@Dummy-9": 4,
+     "B@Dummy-6": 3,
+     "B@Dummy-5": 4,
+     "B@Dummy-10": 4,
+     "B@Dummy-3": 2,
+     "B@Dummy-11": 2,
+     "B@Dummy-12": 3,
+     "A@Dummy-11": 2,
+     "B@Dummy-13": 3,
+     "A@Dummy-13": 1,
+     "B@Dummy-9": 1,
+     "B@Dummy-8": 1,
+     "B@Dummy-4": 4,
+     "A@Dummy-12": 1
+    }
+   },
+   "stopped": [
+    "B: 3 rounds collected on 'B'",
+    "A: 3 rounds collected on 'A'"
+   ],
+   "held_per_round_all": 6.766,
+   "waited_s": {
+    "A": 8.947,
+    "B": 9.544
+   },
+   "round_s": 7.302792912794111,
+   "seam_span_s": 12.147218558687065,
+   "n": 3.99,
+   "window_s": 29.16,
+   "clock": {
+    "n": 28,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "load1": 3.23
+   },
+   "device_s": null,
+   "split": false,
+   "phases_per_round": {
+    "device_wait": 0.873,
+    "enqueue": 5.786,
+    "held": 6.757,
+    "readback": 0.064,
+    "host_under_gate": 0.034,
+    "rounds": 4,
+    "warm_only": true
+   }
+  },
+  {
+   "arm": "q5",
+   "interleave": true,
+   "commit": "ab93da79a",
+   "card": "0",
+   "warm": {
+    "A": 2,
+    "B": 2
+   },
+   "host_hwm_gb": 13.39,
+   "gate": {
+    "waited_s": {
+     "A": 9.577,
+     "B": 9.893
+    },
+    "held_s": {
+     "A": 18.679,
+     "B": 16.601
+    },
+    "phases_s": {
+     "A": {
+      "enqueue": 18.661,
+      "wait_outside": 2.724
+     },
+     "B": {
+      "enqueue": 16.585,
+      "wait_outside": 2.708
+     }
+    },
+    "split": true,
+    "seams": {
+     "A": 27,
+     "B": 27
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 4,
+     "A@Dummy-4": 2,
+     "A@Dummy-5": 2,
+     "A@Dummy-6": 4,
+     "A@Dummy-7": 2,
+     "A@Dummy-8": 3,
+     "B@Dummy-6": 5,
+     "B@Dummy-3": 2,
+     "B@Dummy-9": 2,
+     "B@Dummy-10": 2,
+     "B@Dummy-11": 3,
+     "B@Dummy-8": 2,
+     "B@Dummy-4": 1,
+     "A@Dummy-11": 3,
+     "B@Dummy-12": 7,
+     "A@Dummy-9": 2,
+     "A@Dummy-13": 1,
+     "B@Dummy-13": 1,
+     "A@Dummy-10": 3,
+     "B@Dummy-7": 1,
+     "B@Dummy-14": 1,
+     "A@Dummy-14": 1
+    }
+   },
+   "stopped": [
+    "A: 3 rounds collected on 'A'",
+    "B: 3 rounds collected on 'B'"
+   ],
+   "held_per_round_all": 5.88,
+   "waited_s": {
+    "A": 9.577,
+    "B": 9.893
+   },
+   "round_s": 7.409863342633822,
+   "seam_span_s": 12.516776290809425,
+   "n": 3.98,
+   "window_s": 29.49,
+   "clock": {
+    "n": 29,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "load1": 3.2
+   },
+   "device_s": null,
+   "split": true,
+   "phases_per_round": {
+    "enqueue": 5.889,
+    "held": 5.895,
+    "wait_outside": 0.894,
+    "host_under_gate": 0.007,
+    "rounds": 4,
+    "warm_only": true
+   }
+  },
+  {
+   "arm": "q6",
+   "interleave": true,
+   "commit": "ab93da79a",
+   "card": "0",
+   "warm": {
+    "A": 2,
+    "B": 2
+   },
+   "host_hwm_gb": 13.48,
+   "gate": {
+    "waited_s": {
+     "A": 9.557,
+     "B": 9.46
+    },
+    "held_s": {
+     "A": 20.601,
+     "B": 19.526
+    },
+    "phases_s": {
+     "A": {
+      "enqueue": 17.779,
+      "device_wait": 2.556,
+      "readback": 0.166
+     },
+     "B": {
+      "enqueue": 16.453,
+      "device_wait": 2.629,
+      "readback": 0.218
+     }
+    },
+    "split": false,
+    "seams": {
+     "A": 27,
+     "B": 27
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 4,
+     "A@Dummy-4": 1,
+     "A@Dummy-5": 7,
+     "A@Dummy-6": 2,
+     "A@Dummy-7": 3,
+     "A@Dummy-8": 3,
+     "B@Dummy-9": 6,
+     "B@Dummy-10": 3,
+     "B@Dummy-6": 2,
+     "B@Dummy-11": 3,
+     "B@Dummy-4": 2,
+     "B@Dummy-12": 3,
+     "B@Dummy-3": 4,
+     "A@Dummy-12": 1,
+     "B@Dummy-13": 3,
+     "B@Dummy-14": 1,
+     "A@Dummy-10": 1,
+     "A@Dummy-11": 3,
+     "A@Dummy-13": 1,
+     "A@Dummy-14": 1
+    }
+   },
+   "stopped": [
+    "B: 3 rounds collected on 'B'",
+    "A: 3 rounds collected on 'A'"
+   ],
+   "held_per_round_all": 6.688,
+   "waited_s": {
+    "A": 9.557,
+    "B": 9.46
+   },
+   "round_s": 7.362092315546864,
+   "seam_span_s": 12.198216995492263,
+   "n": 3.98,
+   "window_s": 29.31,
+   "clock": {
+    "n": 28,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "load1": 2.46
+   },
+   "device_s": null,
+   "split": false,
+   "phases_per_round": {
+    "device_wait": 0.856,
+    "enqueue": 5.758,
+    "held": 6.748,
+    "readback": 0.067,
+    "host_under_gate": 0.066,
+    "rounds": 4,
+    "warm_only": true
+   }
+  },
+  {
+   "arm": "q7",
+   "interleave": true,
+   "commit": "ab93da79a",
+   "card": "0",
+   "warm": {
+    "A": 2,
+    "B": 2
+   },
+   "host_hwm_gb": 13.51,
+   "gate": {
+    "waited_s": {
+     "A": 8.902,
+     "B": 10.083
+    },
+    "held_s": {
+     "A": 21.744,
+     "B": 18.881
+    },
+    "phases_s": {
+     "A": {
+      "enqueue": 18.904,
+      "device_wait": 2.553,
+      "readback": 0.189
+     },
+     "B": {
+      "enqueue": 16.014,
+      "device_wait": 2.575,
+      "readback": 0.187
+     }
+    },
+    "split": false,
+    "seams": {
+     "A": 27,
+     "B": 27
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 5,
+     "A@Dummy-4": 2,
+     "A@Dummy-5": 2,
+     "A@Dummy-6": 2,
+     "A@Dummy-7": 2,
+     "A@Dummy-8": 1,
+     "A@Dummy-9": 3,
+     "B@Dummy-6": 5,
+     "B@Dummy-3": 4,
+     "B@Dummy-10": 5,
+     "B@Dummy-11": 1,
+     "B@Dummy-12": 4,
+     "A@Dummy-10": 4,
+     "A@Dummy-11": 3,
+     "A@Dummy-13": 2,
+     "B@Dummy-8": 2,
+     "B@Dummy-4": 1,
+     "B@Dummy-14": 2,
+     "B@Dummy-9": 2,
+     "A@Dummy-14": 1,
+     "B@Dummy-5": 1
+    }
+   },
+   "stopped": [
+    "B: 3 rounds collected on 'B'",
+    "A: 3 rounds collected on 'A'"
+   ],
+   "held_per_round_all": 6.771,
+   "waited_s": {
+    "A": 8.902,
+    "B": 10.083
+   },
+   "round_s": 7.164276424445465,
+   "seam_span_s": 12.20483056046814,
+   "n": 3.98,
+   "window_s": 28.52,
+   "clock": {
+    "n": 28,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "load1": 2.56
+   },
+   "device_s": null,
+   "split": false,
+   "phases_per_round": {
+    "device_wait": 0.855,
+    "enqueue": 5.766,
+    "held": 6.72,
+    "readback": 0.064,
+    "host_under_gate": 0.035,
+    "rounds": 4,
+    "warm_only": true
+   }
+  },
+  {
+   "arm": "q8",
+   "interleave": true,
+   "commit": "ab93da79a",
+   "card": "0",
+   "warm": {
+    "A": 2,
+    "B": 2
+   },
+   "host_hwm_gb": 13.75,
+   "gate": {
+    "waited_s": {
+     "A": 9.246,
+     "B": 9.745
+    },
+    "held_s": {
+     "A": 18.108,
+     "B": 16.464
+    },
+    "phases_s": {
+     "A": {
+      "enqueue": 18.073,
+      "wait_outside": 2.705
+     },
+     "B": {
+      "enqueue": 16.44,
+      "wait_outside": 2.78
+     }
+    },
+    "split": true,
+    "seams": {
+     "A": 27,
+     "B": 27
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 8,
+     "A@Dummy-4": 1,
+     "A@Dummy-5": 2,
+     "A@Dummy-6": 3,
+     "A@Dummy-7": 3,
+     "A@Dummy-8": 3,
+     "B@Dummy-9": 4,
+     "B@Dummy-10": 1,
+     "B@Dummy-4": 2,
+     "B@Dummy-6": 3,
+     "B@Dummy-8": 4,
+     "B@Dummy-11": 7,
+     "B@Dummy-12": 3,
+     "A@Dummy-13": 1,
+     "A@Dummy-12": 1,
+     "B@Dummy-14": 1,
+     "A@Dummy-14": 2,
+     "A@Dummy-9": 2,
+     "A@Dummy-11": 1,
+     "B@Dummy-5": 1,
+     "B@Dummy-3": 1
+    }
+   },
+   "stopped": [
+    "A: 3 rounds collected on 'A'",
+    "B: 3 rounds collected on 'B'"
+   ],
+   "held_per_round_all": 5.762,
+   "waited_s": {
+    "A": 9.246,
+    "B": 9.745
+   },
+   "round_s": 7.265328028644632,
+   "seam_span_s": 12.269734109805654,
+   "n": 3.99,
+   "window_s": 29.0,
+   "clock": {
+    "n": 28,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "load1": 2.71
+   },
+   "device_s": null,
+   "split": true,
+   "phases_per_round": {
+    "enqueue": 5.772,
+    "held": 5.785,
+    "wait_outside": 0.912,
+    "host_under_gate": 0.013,
+    "rounds": 4,
+    "warm_only": true
+   }
+  }
+ ],
+ "summary": {
+  "duo_old_round_s": 7.304985972397167,
+  "duo_split_round_s": 7.3689701133864105,
+  "speedup": 0.9913170850193828,
+  "ratio_vs_h200": 10.590644026137412,
+  "bar_s": 6.958
+ }
+}
