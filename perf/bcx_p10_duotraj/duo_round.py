@@ -296,6 +296,7 @@ def main():
                       "mm_layout": mm_layout.reach(),
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "host_folds": dict(evo.host_folds) if evo else None,
+                      "seam_trace": dict(bindcraft2.seam_trace.STATS),
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
         M.dump(str(out), stamp)

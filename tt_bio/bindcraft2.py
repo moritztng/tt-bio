@@ -42,7 +42,7 @@ from typing import Callable, Iterator
 import numpy as np
 import torch
 
-from tt_bio import duotraj
+from tt_bio import duotraj, seam_trace
 
 #: tt-bio's token axis buckets to 32, and rounding a design UP is faster than running it ragged:
 #: the PD-L1 complex at 211 tokens costs 4.504 s on the trunk forward and the same design padded
@@ -109,6 +109,11 @@ class _Trunk:
 
         self.ttnn, self.ag, self.taped = ttnn, autograd, taped_ttnn
         self.multimer = _is_multimer(path)
+        if seam_trace.enabled():
+            from tt_bio import tenstorrent
+            tenstorrent.get_device(trace="bindcraft2")
+        #: The extra-MSA `opm_constant`s on card, set by `opm_device()` under traced seams.
+        self._opm_dev = None
         # `template` costs two more c=64 pair blocks of weights per checkpoint and is only
         # wanted by `TemplateOnDevice`, so it stays off unless that swap is armed: five trunks
         # already sit near the allocator's limit at n=288 (`TrunkPool.resident`).
@@ -133,6 +138,16 @@ class _Trunk:
         if tuple(x.shape) != tuple(shape):
             raise ValueError(f"the trunk returned {tuple(x.shape)}, expected {tuple(shape)}")
         return x
+
+    def opm_device(self):
+        """Upload the extra-MSA stack's `opm_constant`s once. A trace cannot upload (a host
+        write inside a capture is a TT_FATAL), so traced seams clone these instead; the clone is
+        the same bytes the per-execution upload makes."""
+        if self._opm_dev is None and self.extra_blocks:
+            seam_trace.persistent("uploading the extra-MSA constants")
+            self._opm_dev = [self.model._up(c.reshape(1, 1, -1))
+                             for c in self.model.opm_constant[:self.extra_blocks]]
+        return self._opm_dev
 
     def leaf(self, t: torch.Tensor):
         return self.ag.Tensor(self.up(t), requires_grad=True)
@@ -169,6 +184,8 @@ class _Trunk:
         # a freed buffer by then and `ttnn.typecast` raises "Buffer is not allocated". The
         # Evoformer loop above has no such operand, which is why only this stack broke.
         def const(index):
+            if self._opm_dev is not None:
+                return self.ttnn.clone(self._opm_dev[index])
             return model._up(model.opm_constant[index].reshape(1, 1, -1))
 
         for index, block in enumerate(model.device_extra_msa):
@@ -384,6 +401,7 @@ class TrunkPool:
         with self._lock:
             trunk = self._trunks.get(name)
             if trunk is None:
+                seam_trace.persistent(f"loading checkpoint {name!r}")
                 trunk = self._trunks[name] = _Trunk(self.paths[name],
                                                     template=self.template)
             if name in self._order:
@@ -445,6 +463,9 @@ class EvoformerOnDevice:
         self._mask_dev: dict = {}
         self._pair_mask_dev: dict = {}
         self._tapes = _Tapes()
+        #: Traced replay of this stack's seams, or None (`tt_bio.seam_trace`).
+        self._traced = (seam_trace.SeamTraces('evoformer', pool) if seam_trace.enabled()
+                        else None)
 
     # ------------------------------------------------------------------ which side folds
 
@@ -518,6 +539,7 @@ class EvoformerOnDevice:
         key = self._key(mask)
         got = self._mask_dev.get(key)
         if got is None:
+            seam_trace.persistent("a new MSA mask")
             got = self._mask_dev[key] = trunk.up(mask)
         return got
 
@@ -533,6 +555,7 @@ class EvoformerOnDevice:
         key = self._key(pair_mask)
         got = self._pair_mask_dev.get(key)
         if got is None:
+            seam_trace.persistent("a new pair mask")
             got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
         return got
 
@@ -562,6 +585,17 @@ class EvoformerOnDevice:
 
     def _taped(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
+        if self._traced is not None:
+            with duotraj.card(slot, "evoformer._taped"):
+                trunk = self._trunk(slot)
+                masks = self._msa_mask(trunk, mask), self._pair_masks(trunk, pair_mask)
+                mo, zo = self._traced.forward(slot, trunk, [m, z], lambda leaves: list(
+                    trunk.evoformer(*leaves, *masks, recompute=self.recompute)))
+                self._tapes.sweep(slot)
+                token = self._tapes.bank({"traced": True, "n": n,
+                                          "shapes": (tuple(m.shape), tuple(z.shape))}, slot)
+                self.calls["taped"] += 1
+                return mo[:, :n].numpy(), zo[:n, :n].numpy(), np.int32(token)
         with duotraj.card(slot, "evoformer._taped"):
             trunk = self._trunk(slot)
             ml, zl = trunk.leaf(m), trunk.leaf(z)
@@ -586,6 +620,15 @@ class EvoformerOnDevice:
         entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live tape for token {int(token)}")
+        if entry.get("traced"):
+            (m_shape, z_shape), n = entry["shapes"], entry["n"]
+            gm, gz = torch.zeros(m_shape), torch.zeros(z_shape)
+            gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
+            gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
+            with duotraj.card(slot, "evoformer._backward"):
+                gm, gz = self._traced.backward(slot, self.pool.trunk_for(slot), [gm, gz])
+            self.calls["backward"] += 1
+            return gm[:, :n].numpy(), gz[:n, :n].numpy()
         mo, zo = entry["roots"]
         ml, zl = entry["leaves"]
         m_shape, z_shape = entry["shapes"]
@@ -687,6 +730,9 @@ class ExtraMsaOnDevice:
         self.swapped: list[int] = []
         self._pair_mask_dev: dict = {}
         self._tapes = _Tapes()
+        #: Traced replay of this stack's seams, or None (`tt_bio.seam_trace`).
+        self._traced = (seam_trace.SeamTraces('extra_msa', pool) if seam_trace.enabled()
+                        else None)
 
     # ------------------------------------------------------------------ inputs
 
@@ -731,6 +777,7 @@ class ExtraMsaOnDevice:
         key = EvoformerOnDevice._key(pair_mask)
         got = self._pair_mask_dev.get(key)
         if got is None:
+            seam_trace.persistent("a new pair mask")
             got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
         return got
 
@@ -748,6 +795,17 @@ class ExtraMsaOnDevice:
 
     def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
+        if self._traced is not None:
+            with duotraj.card(slot, "extra_msa._taped"):
+                trunk = self._trunk(slot)
+                trunk.opm_device()
+                pm = self._pair_masks(trunk, pair_mask)
+                (out,) = self._traced.forward(slot, trunk, [z], lambda leaves: [trunk.extra_msa(leaves[0], pm, recompute=self.recompute)])
+                self._tapes.sweep(slot)
+                token = self._tapes.bank({"traced": True, "n": n, "shape": tuple(z.shape)},
+                                         slot)
+                self.calls["taped"] += 1
+                return out[:n, :n].numpy(), np.int32(token)
         with duotraj.card(slot, "extra_msa._taped"):
             trunk = self._trunk(slot)
             zl = trunk.leaf(z)
@@ -773,6 +831,10 @@ class ExtraMsaOnDevice:
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
         with duotraj.card(slot, "extra_msa._backward"):
             trunk = self.pool.trunk_for(slot)
+            if entry.get("traced"):
+                (g,) = self._traced.backward(slot, trunk, [gz])
+                self.calls["backward"] += 1
+                return g[:n, :n].numpy()
             trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
             trunk.sync()
             out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
@@ -850,6 +912,9 @@ class TemplateOnDevice:
         self.seen = {"calls": 0, "n": None, "channels": None, "blocks_swapped": None}
         self._pair_mask_dev: dict = {}
         self._tapes = _Tapes()
+        #: Traced replay of this stack's seams, or None (`tt_bio.seam_trace`).
+        self._traced = (seam_trace.SeamTraces('template', pool) if seam_trace.enabled()
+                        else None)
 
     # ------------------------------------------------------------------ inputs
 
@@ -885,6 +950,7 @@ class TemplateOnDevice:
         got = self._pair_mask_dev.get(key)
         if got is None:
             from tt_bio.af2 import af2_pair_masks
+            seam_trace.persistent("a new pair mask")
             got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
         return got
 
@@ -902,6 +968,16 @@ class TemplateOnDevice:
 
     def _taped(self, slot, act_np, pair_mask_np):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
+        if self._traced is not None:
+            with duotraj.card(slot, "template._taped"):
+                trunk = self._trunk(slot)
+                pm = self._pair_masks(trunk, pair_mask)
+                (out,) = self._traced.forward(slot, trunk, [act], lambda leaves: [trunk.template_stack(leaves[0], pm, recompute=self.recompute)])
+                self._tapes.sweep(slot)
+                token = self._tapes.bank({"traced": True, "n": n, "shape": tuple(act.shape)},
+                                         slot)
+                self.calls["taped"] += 1
+                return out[:n, :n].numpy(), np.int32(token)
         with duotraj.card(slot, "template._taped"):
             trunk = self._trunk(slot)
             leaf = trunk.leaf(act)
@@ -928,6 +1004,10 @@ class TemplateOnDevice:
         g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
         with duotraj.card(slot, "template._backward"):
             trunk = self.pool.trunk_for(slot)
+            if entry.get("traced"):
+                (g,) = self._traced.backward(slot, trunk, [g])
+                self.calls["backward"] += 1
+                return g[:n, :n].numpy()
             trunk.ag.backward([entry["root"]], [trunk.seed(g, entry["root"])])
             trunk.sync()
             out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
