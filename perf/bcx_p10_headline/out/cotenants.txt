@@ -1,0 +1,135 @@
+--- 2026-09-27T09:08:17Z load 7.93 9.13 8.42
+    PID     ELAPSED %CPU   RSS COMMAND
+ 159518       00:10  749 3511016 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+  12246    02:34:20  383 20138508 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 159477       00:11 31.6 492708 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_256.yaml --model 
+   3131    02:43:00  8.8 535080 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 159628       00:08  2.3 305000 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+    925    02:43:36  0.2     0 [irq/114-rtw89_pci]
+   1485    02:43:31  0.1 60452 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T09:09:17Z load 8.20 9.01 8.43
+    PID     ELAPSED %CPU   RSS COMMAND
+ 161044       00:26  587 3807868 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+  12246    02:35:20  383 20103184 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 159896       01:00  155 14438928 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 161005       00:28 13.1 495528 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_256.yaml --model 
+   3131    02:44:00  8.8 535100 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 161110       00:24  0.7 305016 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+    925    02:44:36  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-27T09:10:17Z load 10.29 9.49 8.63
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246    02:36:20  382 23504888 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 159896       02:00  186 18790676 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 162722       00:01  144 322800 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_256.yaml --model 
+   3131    02:45:00  8.9 535132 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 162720       00:01  2.8 14864 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/scripts/lever_census.py --tt-bio /home/ttuser/tt-bio-dev/env/bin/pytho
+    925    02:45:36  0.2     0 [irq/114-rtw89_pci]
+   1485    02:45:31  0.1 60856 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T09:11:17Z load 12.41 10.22 8.93
+    PID     ELAPSED %CPU   RSS COMMAND
+ 163544       00:12  667 3511344 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+  12246    02:37:20  383 25795896 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 159896       03:00  201 18043440 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 163453       00:15 29.0 493388 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_256.yaml --model 
+   3131    02:46:00  8.9 535160 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 163602       00:10  1.8 304892 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 163451       00:16  0.4 15012 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/scripts/lever_census.py --tt-bio /home/ttuser/tt-bio-dev/env/bin/pytho
+--- 2026-09-27T09:12:17Z load 14.34 11.18 9.35
+    PID     ELAPSED %CPU   RSS COMMAND
+ 164147       00:24  610 4451740 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+  12246    02:38:20  383 23224520 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 164230       00:23  164 7243420 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+ 165065       00:00  103 82428 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+ 165062       00:00 96.6 81620 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+ 165063       00:00 96.6 84048 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+ 165064       00:00 96.6 87880 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/ -I /hom
+--- 2026-09-27T09:13:17Z load 10.91 10.61 9.26
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246    02:39:20  383 26356848 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 166507       00:06  199 3416288 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 164230       01:23  186 18289440 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 166680       00:00 91.3 64920 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+ 166467       00:08 42.2 492508 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_512.yaml --model 
+   3131    02:48:00  8.9 535216 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 166567       00:03  5.3 304992 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+--- 2026-09-27T09:14:17Z load 11.05 10.75 9.39
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246    02:40:20  383 23869880 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 166507       01:06  338 5576612 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 164230       02:23  206 18607904 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 167297       00:00  100  4500 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   3131    02:49:00  8.9 535244 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 166467       01:08  5.9 495744 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_512.yaml --model 
+ 166567       01:03  0.3 304992 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+--- 2026-09-27T09:15:17Z load 10.74 10.84 9.51
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246    02:41:20  383 22828780 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 167461       00:49  361 4464600 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 164230       03:23  212 18543212 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 169780       00:00  100 16224 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   3131    02:50:00  8.9 535276 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 167422       00:51  7.5 495252 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_512.yaml --model 
+ 167529       00:46  0.4 305024 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+--- 2026-09-27T09:16:17Z load 11.18 10.88 9.61
+    PID     ELAPSED %CPU   RSS COMMAND
+ 171974       00:32  505 4464528 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+  12246    02:42:20  383 24662972 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 169823       00:54  151 14219020 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 171928       00:34 10.7 494916 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_512.yaml --model 
+   3131    02:51:00  8.9 535404 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 173707       00:30  0.6 304996 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+    925    02:51:36  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-27T09:17:17Z load 10.81 10.64 9.60
+    PID     ELAPSED %CPU   RSS COMMAND
+ 174756       00:15  696 3512108 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+  12246    02:43:20  383 24351756 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 169823       01:54  193 15874208 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 174713       00:18 21.5 494944 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_512.yaml --model 
+   3131    02:52:00  8.9 535404 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 174817       00:13  1.4 305024 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+    925    02:52:36  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-27T09:18:17Z load 9.57 10.40 9.58
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246    02:44:20  383 22030348 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 175723       00:00  280 184284 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_512.yaml --model 
+ 169823       02:54  210 18123188 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 175741       00:00  100 64880 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   3131    02:53:00  8.9 535404 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 175721       00:00  2.0 14712 /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/scripts/lever_census.py --tt-bio /home/ttuser/tt-bio-dev/env/bin/pytho
+    925    02:53:36  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-27T09:19:17Z load 11.06 10.98 9.85
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246    02:45:20  383 21632456 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 175769       00:57  323 4464464 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 176319       00:24  176 7362252 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+   3131    02:54:00  8.9 535404 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 175723       01:00  7.7 495320 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_512.yaml --model 
+ 175836       00:54  0.3 304992 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+    925    02:54:36  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-27T09:20:17Z load 13.35 11.60 10.13
+    PID     ELAPSED %CPU   RSS COMMAND
+ 177006       00:41  401 4950892 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+  12246    02:46:20  383 21761416 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 176319       01:24  180 18155728 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 179036       00:00  100 36876 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+ 179039       00:00  100  4504 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+ 176960       00:43 10.0 495280 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_640.yaml --model 
+   3131    02:55:00  9.0 535424 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-09-27T09:21:17Z load 10.79 11.10 10.05
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246    02:47:20  383 24056052 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 177006       01:41  263 681144 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 176319       02:24  209 18692760 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 179671       00:00  100  4480 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   3131    02:56:00  9.0 535452 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 176960       01:43  4.6 495696 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_640.yaml --model 
+    925    02:56:36  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-27T09:22:17Z load 10.02 10.81 10.01
+    PID     ELAPSED %CPU   RSS COMMAND
+  12246    02:48:20  383 22592844 /home/ttuser/tt-bio-dev/env/bin/python perf/of3t_p10trainout/trainarm.py --corpus /home/ttuser/of3t_p10trainout/corpus/train12 --checkpoint /home/ttuser/of3-weights/o
+ 179778       00:50  359 4950788 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+ 176319       03:24  215 18817668 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 180329       00:00 52.0     0 [tt-smi] <defunct>
+   3131    02:57:00  9.0 535484 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 179739       00:53  8.5 495860 /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/land-standing/.landtmp/rec_p300c/perf/size512/fixtures/cdk2x2_640.yaml --model 
+ 179837       00:47  0.3 304984 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork

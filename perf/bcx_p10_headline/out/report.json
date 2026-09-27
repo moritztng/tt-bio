@@ -1,0 +1,739 @@
+{
+ "arms": [
+  {
+   "arm": "h1",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "ff538cafd",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.63,
+   "stopped": [
+    "B: 9 rounds collected on 'B'",
+    "C: 9 rounds collected on 'C'",
+    "A: 9 rounds collected on 'A'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 70.07,
+     "B": 67.103,
+     "C": 71.998
+    },
+    "held_s": {
+     "A": 60.14,
+     "B": 55.932,
+     "C": 53.419
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 4,
+     "A@Dummy-4": 10,
+     "A@Dummy-5": 9,
+     "A@Dummy-6": 5,
+     "A@Dummy-7": 2,
+     "A@Dummy-8": 6,
+     "B@Dummy-9": 7,
+     "B@Dummy-10": 4,
+     "B@Dummy-4": 3,
+     "B@Dummy-11": 6,
+     "B@Dummy-3": 12,
+     "B@Dummy-7": 7,
+     "B@Dummy-12": 2,
+     "C@Dummy-7": 7,
+     "C@Dummy-11": 5,
+     "C@Dummy-4": 8,
+     "C@Dummy-13": 6,
+     "C@Dummy-14": 3,
+     "C@Dummy-12": 6,
+     "A@Dummy-15": 7,
+     "B@Dummy-14": 4,
+     "B@Dummy-8": 1,
+     "B@Dummy-16": 1,
+     "A@Dummy-9": 4,
+     "C@Dummy-15": 8,
+     "A@Dummy-17": 7,
+     "B@Dummy-13": 3,
+     "A@Dummy-16": 10,
+     "C@Dummy-5": 7,
+     "B@Dummy-6": 7,
+     "C@Dummy-10": 4,
+     "C@Dummy-18": 4,
+     "C@Dummy-17": 6,
+     "B@Dummy-15": 10,
+     "A@Dummy-14": 3,
+     "C@Dummy-9": 6,
+     "B@Dummy-5": 5,
+     "C@Dummy-3": 3,
+     "A@Dummy-13": 2,
+     "B@Dummy-18": 5,
+     "A@Dummy-10": 4,
+     "C@Dummy-6": 5,
+     "B@Dummy-17": 4,
+     "A@Dummy-18": 3,
+     "C@Dummy-8": 1,
+     "C@Dummy-16": 2,
+     "A@Dummy-11": 3,
+     "A@Dummy-12": 2
+    }
+   },
+   "waited_per_round": {
+    "A": 7.786,
+    "B": 7.456,
+    "C": 8.0
+   },
+   "round_s": 6.302543318035082,
+   "n": 24.0,
+   "window_s": 151.24,
+   "held_per_round": 6.100590715429577,
+   "idle_per_round": 0.20195260260550452,
+   "gate_busy": 0.9679569671456909,
+   "clock": {
+    "n": 144,
+    "aiclk_med": 1350,
+    "aiclk_min": 1306,
+    "load1": 11.06
+   }
+  },
+  {
+   "arm": "h2",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "ff538cafd",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.22,
+   "stopped": [
+    "B: 9 rounds collected on 'B'",
+    "A: 9 rounds collected on 'A'",
+    "C: 9 rounds collected on 'C'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 67.854,
+     "B": 70.246,
+     "C": 70.763
+    },
+    "held_s": {
+     "A": 56.819,
+     "B": 53.936,
+     "C": 54.125
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 7,
+     "A@Dummy-4": 4,
+     "A@Dummy-5": 3,
+     "A@Dummy-6": 5,
+     "A@Dummy-7": 5,
+     "A@Dummy-8": 7,
+     "B@Dummy-9": 8,
+     "B@Dummy-10": 6,
+     "B@Dummy-11": 7,
+     "B@Dummy-12": 8,
+     "C@Dummy-13": 6,
+     "C@Dummy-11": 8,
+     "C@Dummy-14": 7,
+     "C@Dummy-15": 2,
+     "C@Dummy-16": 7,
+     "C@Dummy-5": 7,
+     "A@Dummy-14": 5,
+     "C@Dummy-17": 5,
+     "B@Dummy-13": 6,
+     "A@Dummy-12": 4,
+     "C@Dummy-4": 7,
+     "B@Dummy-5": 4,
+     "B@Dummy-17": 7,
+     "A@Dummy-11": 5,
+     "C@Dummy-9": 7,
+     "B@Dummy-7": 7,
+     "C@Dummy-18": 4,
+     "A@Dummy-17": 7,
+     "B@Dummy-15": 6,
+     "A@Dummy-10": 13,
+     "B@Dummy-18": 5,
+     "C@Dummy-10": 4,
+     "C@Dummy-6": 6,
+     "A@Dummy-18": 5,
+     "C@Dummy-7": 2,
+     "C@Dummy-8": 3,
+     "B@Dummy-14": 6,
+     "C@Dummy-3": 3,
+     "A@Dummy-13": 3,
+     "B@Dummy-6": 1,
+     "A@Dummy-16": 4,
+     "A@Dummy-15": 4,
+     "B@Dummy-3": 4,
+     "C@Dummy-12": 3,
+     "B@Dummy-4": 3,
+     "B@Dummy-8": 3
+    }
+   },
+   "waited_per_round": {
+    "A": 7.539,
+    "B": 7.805,
+    "C": 7.863
+   },
+   "round_s": 6.288474315917439,
+   "n": 23.99,
+   "window_s": 150.87,
+   "held_per_round": 6.08739673514681,
+   "idle_per_round": 0.20107758077062873,
+   "gate_busy": 0.968024425215245,
+   "clock": {
+    "n": 145,
+    "aiclk_med": 1350,
+    "aiclk_min": 1318,
+    "load1": 11.2
+   }
+  },
+  {
+   "arm": "h3",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "10e626bd0",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.41,
+   "stopped": [
+    "A: 9 rounds collected on 'A'",
+    "C: 9 rounds collected on 'C'",
+    "B: 9 rounds collected on 'B'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 68.589,
+     "B": 72.226,
+     "C": 71.199
+    },
+    "held_s": {
+     "A": 56.314,
+     "B": 53.589,
+     "C": 53.707
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 8,
+     "A@Dummy-4": 9,
+     "A@Dummy-5": 10,
+     "A@Dummy-6": 7,
+     "A@Dummy-7": 5,
+     "A@Dummy-8": 4,
+     "A@Dummy-9": 4,
+     "A@Dummy-10": 3,
+     "B@Dummy-11": 10,
+     "B@Dummy-9": 3,
+     "B@Dummy-3": 4,
+     "B@Dummy-6": 7,
+     "B@Dummy-12": 7,
+     "B@Dummy-4": 6,
+     "B@Dummy-5": 4,
+     "C@Dummy-3": 7,
+     "C@Dummy-7": 4,
+     "C@Dummy-13": 9,
+     "C@Dummy-10": 5,
+     "C@Dummy-9": 5,
+     "C@Dummy-14": 8,
+     "B@Dummy-10": 3,
+     "C@Dummy-4": 4,
+     "B@Dummy-15": 7,
+     "C@Dummy-15": 2,
+     "B@Dummy-16": 1,
+     "C@Dummy-8": 5,
+     "C@Dummy-17": 8,
+     "C@Dummy-11": 4,
+     "B@Dummy-18": 6,
+     "C@Dummy-16": 4,
+     "A@Dummy-14": 4,
+     "A@Dummy-18": 5,
+     "B@Dummy-13": 7,
+     "B@Dummy-8": 4,
+     "A@Dummy-13": 3,
+     "B@Dummy-14": 2,
+     "A@Dummy-11": 5,
+     "C@Dummy-6": 1,
+     "B@Dummy-7": 2,
+     "C@Dummy-12": 10,
+     "B@Dummy-17": 8,
+     "A@Dummy-15": 6,
+     "A@Dummy-17": 3,
+     "C@Dummy-5": 1,
+     "A@Dummy-16": 3,
+     "C@Dummy-18": 4,
+     "A@Dummy-12": 2
+    }
+   },
+   "waited_per_round": {
+    "A": 7.621,
+    "B": 8.025,
+    "C": 7.911
+   },
+   "round_s": 6.237056991959615,
+   "n": 23.99,
+   "window_s": 149.65,
+   "held_per_round": 6.057637750344793,
+   "idle_per_round": 0.17941924161482187,
+   "gate_busy": 0.971233349022445,
+   "clock": {
+    "n": 143,
+    "aiclk_med": 1350,
+    "aiclk_min": 1312,
+    "load1": 10.69
+   }
+  },
+  {
+   "arm": "h4",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "10e626bd0",
+   "card": "3",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.31,
+   "stopped": [
+    "C: 9 rounds collected on 'C'",
+    "A: 9 rounds collected on 'A'",
+    "B: 9 rounds collected on 'B'"
+   ],
+   "gate": {
+    "waited_s": {
+     "A": 72.818,
+     "B": 72.021,
+     "C": 74.244
+    },
+    "held_s": {
+     "A": 56.216,
+     "B": 55.885,
+     "C": 55.216
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 7,
+     "A@Dummy-4": 13,
+     "A@Dummy-5": 4,
+     "A@Dummy-6": 4,
+     "A@Dummy-7": 6,
+     "A@Dummy-8": 8,
+     "B@Dummy-9": 7,
+     "B@Dummy-10": 8,
+     "B@Dummy-11": 7,
+     "B@Dummy-5": 2,
+     "B@Dummy-3": 5,
+     "B@Dummy-6": 5,
+     "B@Dummy-12": 3,
+     "C@Dummy-13": 11,
+     "C@Dummy-5": 3,
+     "C@Dummy-11": 4,
+     "C@Dummy-14": 3,
+     "C@Dummy-4": 8,
+     "C@Dummy-10": 2,
+     "B@Dummy-8": 3,
+     "B@Dummy-7": 8,
+     "C@Dummy-15": 4,
+     "B@Dummy-15": 6,
+     "C@Dummy-12": 8,
+     "A@Dummy-12": 4,
+     "C@Dummy-3": 7,
+     "B@Dummy-16": 7,
+     "A@Dummy-13": 8,
+     "C@Dummy-6": 5,
+     "A@Dummy-14": 2,
+     "B@Dummy-4": 2,
+     "C@Dummy-8": 5,
+     "A@Dummy-17": 5,
+     "C@Dummy-18": 5,
+     "C@Dummy-17": 4,
+     "A@Dummy-16": 6,
+     "A@Dummy-18": 6,
+     "B@Dummy-17": 3,
+     "B@Dummy-14": 4,
+     "B@Dummy-13": 7,
+     "C@Dummy-7": 4,
+     "C@Dummy-9": 5,
+     "C@Dummy-16": 3,
+     "A@Dummy-15": 3,
+     "A@Dummy-11": 2,
+     "A@Dummy-9": 3,
+     "B@Dummy-18": 4
+    }
+   },
+   "waited_per_round": {
+    "A": 8.091,
+    "B": 8.002,
+    "C": 8.249
+   },
+   "round_s": 6.397011009495248,
+   "n": 24.0,
+   "window_s": 153.51,
+   "held_per_round": 6.208898803626444,
+   "idle_per_round": 0.18811220586880423,
+   "gate_busy": 0.9705937342315678,
+   "clock": {
+    "n": 148,
+    "aiclk_med": 1350,
+    "aiclk_min": 1306,
+    "load1": 11.1
+   }
+  }
+ ],
+ "summary": {
+  "arms": [
+   "h1",
+   "h2",
+   "h3",
+   "h4"
+  ],
+  "median_s": 6.295508816976261,
+  "mean_s": 6.3062714088518455,
+  "spread": [
+   6.237056991959615,
+   6.397011009495248
+  ],
+  "aiclk_med": 1350.0,
+  "aiclk_min": 1306,
+  "commit": [
+   "10e626bd0",
+   "ff538cafd"
+  ],
+  "card": [
+   "3"
+  ],
+  "go": true,
+  "levers": {
+   "h1": {
+    "fast": {
+     "MM_LAYOUT": true,
+     "TAPED_MOVE": true,
+     "WIDEN_ADD": true,
+     "QKV_GRAD_JOIN": true,
+     "FUSED": true,
+     "_TRIATT_FUSED_HIFI": true,
+     "rne_kernel": true,
+     "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+     "_TRIATT_HIFI_DIVIDING_K_DEFAULT": true
+    },
+    "served": {
+     "mm_layout": 18792,
+     "taped_channel_move.fwd": 20412,
+     "taped_channel_move.back": 14580,
+     "widen_add": 26406,
+     "rne_add": 37422,
+     "qkv_grad_join": 16524,
+     "triatt_bw": 2916,
+     "triatt_fused_hifi": 8748,
+     "taped_kernels.rne_add": 37422,
+     "taped_kernels.tri_att_sdpa_hifi": 8748
+    },
+    "lever_stats": {
+     "mm_layout": {
+      "declined: has a program config": 33372,
+      "declined: has a core grid": 7776,
+      "served": 18792,
+      "declined: not batched": 41472
+     },
+     "taped_channel_move": [
+      20412,
+      16848,
+      14580,
+      0
+     ],
+     "widen_add": {
+      "served: first": 20898,
+      "served: later": 5508
+     },
+     "rne_add": [
+      37422,
+      324
+     ],
+     "qkv_grad_join": {
+      "served": 16524
+     },
+     "triatt_bw": {
+      "served": 2916,
+      "declined": 0,
+      "bw_calls": 2916
+     },
+     "triatt_fused_hifi": {
+      "served": 8748,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "taped_kernels": {
+      "rne_add": [
+       37422,
+       0
+      ],
+      "tri_att_sdpa_hifi": [
+       8748,
+       0
+      ]
+     }
+    },
+    "unserved": []
+   },
+   "h2": {
+    "fast": {
+     "MM_LAYOUT": true,
+     "TAPED_MOVE": true,
+     "WIDEN_ADD": true,
+     "QKV_GRAD_JOIN": true,
+     "FUSED": true,
+     "_TRIATT_FUSED_HIFI": true,
+     "rne_kernel": true,
+     "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+     "_TRIATT_HIFI_DIVIDING_K_DEFAULT": true
+    },
+    "served": {
+     "mm_layout": 18792,
+     "taped_channel_move.fwd": 20412,
+     "taped_channel_move.back": 14580,
+     "widen_add": 26406,
+     "rne_add": 37422,
+     "qkv_grad_join": 16524,
+     "triatt_bw": 2916,
+     "triatt_fused_hifi": 8748,
+     "taped_kernels.rne_add": 37422,
+     "taped_kernels.tri_att_sdpa_hifi": 8748
+    },
+    "lever_stats": {
+     "mm_layout": {
+      "declined: has a program config": 33372,
+      "declined: has a core grid": 7776,
+      "served": 18792,
+      "declined: not batched": 41472
+     },
+     "taped_channel_move": [
+      20412,
+      16848,
+      14580,
+      0
+     ],
+     "widen_add": {
+      "served: first": 20898,
+      "served: later": 5508
+     },
+     "rne_add": [
+      37422,
+      324
+     ],
+     "qkv_grad_join": {
+      "served": 16524
+     },
+     "triatt_bw": {
+      "served": 2916,
+      "declined": 0,
+      "bw_calls": 2916
+     },
+     "triatt_fused_hifi": {
+      "served": 8748,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "taped_kernels": {
+      "rne_add": [
+       37422,
+       0
+      ],
+      "tri_att_sdpa_hifi": [
+       8748,
+       0
+      ]
+     }
+    },
+    "unserved": []
+   },
+   "h3": {
+    "fast": {
+     "MM_LAYOUT": true,
+     "TAPED_MOVE": true,
+     "WIDEN_ADD": true,
+     "QKV_GRAD_JOIN": true,
+     "FUSED": true,
+     "_TRIATT_FUSED_HIFI": true,
+     "rne_kernel": true,
+     "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+     "_TRIATT_HIFI_DIVIDING_K_DEFAULT": true
+    },
+    "served": {
+     "mm_layout": 18792,
+     "taped_channel_move.fwd": 20412,
+     "taped_channel_move.back": 14580,
+     "widen_add": 26406,
+     "rne_add": 37422,
+     "qkv_grad_join": 16524,
+     "triatt_bw": 2916,
+     "triatt_fused_hifi": 8748,
+     "taped_kernels.rne_add": 37422,
+     "taped_kernels.tri_att_sdpa_hifi": 8748
+    },
+    "lever_stats": {
+     "mm_layout": {
+      "declined: has a program config": 33372,
+      "declined: has a core grid": 7776,
+      "served": 18792,
+      "declined: not batched": 41472
+     },
+     "taped_channel_move": [
+      20412,
+      16848,
+      14580,
+      0
+     ],
+     "widen_add": {
+      "served: first": 20898,
+      "served: later": 5508
+     },
+     "rne_add": [
+      37422,
+      324
+     ],
+     "qkv_grad_join": {
+      "served": 16524
+     },
+     "triatt_bw": {
+      "served": 2916,
+      "declined": 0,
+      "bw_calls": 2916
+     },
+     "triatt_fused_hifi": {
+      "served": 8748,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "taped_kernels": {
+      "rne_add": [
+       37422,
+       0
+      ],
+      "tri_att_sdpa_hifi": [
+       8748,
+       0
+      ]
+     }
+    },
+    "unserved": []
+   },
+   "h4": {
+    "fast": {
+     "MM_LAYOUT": true,
+     "TAPED_MOVE": true,
+     "WIDEN_ADD": true,
+     "QKV_GRAD_JOIN": true,
+     "FUSED": true,
+     "_TRIATT_FUSED_HIFI": true,
+     "rne_kernel": true,
+     "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+     "_TRIATT_HIFI_DIVIDING_K_DEFAULT": true
+    },
+    "served": {
+     "mm_layout": 18792,
+     "taped_channel_move.fwd": 20412,
+     "taped_channel_move.back": 14580,
+     "widen_add": 26406,
+     "rne_add": 37422,
+     "qkv_grad_join": 16524,
+     "triatt_bw": 2916,
+     "triatt_fused_hifi": 8748,
+     "taped_kernels.rne_add": 37422,
+     "taped_kernels.tri_att_sdpa_hifi": 8748
+    },
+    "lever_stats": {
+     "mm_layout": {
+      "declined: has a program config": 33372,
+      "declined: has a core grid": 7776,
+      "served": 18792,
+      "declined: not batched": 41472
+     },
+     "taped_channel_move": [
+      20412,
+      16848,
+      14580,
+      0
+     ],
+     "widen_add": {
+      "served: first": 20898,
+      "served: later": 5508
+     },
+     "rne_add": [
+      37422,
+      324
+     ],
+     "qkv_grad_join": {
+      "served": 16524
+     },
+     "triatt_bw": {
+      "served": 2916,
+      "declined": 0,
+      "bw_calls": 2916
+     },
+     "triatt_fused_hifi": {
+      "served": 8748,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "taped_kernels": {
+      "rne_add": [
+       37422,
+       0
+      ],
+      "tri_att_sdpa_hifi": [
+       8748,
+       0
+      ]
+     }
+    },
+    "unserved": []
+   }
+  },
+  "all_served": true,
+  "aa_equal": {
+   "keys": 27,
+   "outputs": 108,
+   "all_identical": true
+  },
+  "ref_equal": {
+   "refs": [
+    "b1",
+    "b2",
+    "b3",
+    "b4"
+   ],
+   "equal": 108,
+   "differ": 0
+  }
+ }
+}
