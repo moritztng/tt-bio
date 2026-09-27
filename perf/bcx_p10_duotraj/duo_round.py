@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-"""Two BindCraft 2 design trajectories in one process, serial or interleaved on one card.
+"""N BindCraft 2 design trajectories in one process, serial or interleaved on one card.
 
-`perf/bcx_round/run_round.py` runs ONE trajectory and times its rounds. This runs two, and
-the only difference between the two arms is whether they overlap:
+`perf/bcx_round/run_round.py` runs ONE trajectory and times its rounds. This runs
+`--trajectories` of them (default two), and the only difference between the two arms is
+whether they overlap:
 
-    --interleave 0   trajectory A runs to N rounds, then trajectory B does. The control.
-    --interleave 1   both run at once, each on its own thread, sharing the card through
+    --interleave 0   trajectory A runs to N rounds, then B, and so on. The control.
+    --interleave 1   all run at once, each on its own thread, sharing the card through
                      `tt_bio.duotraj`'s seam lock.
 
 One process for both arms, so the JAX compile, the weights on card and the box's load are
-common-mode and cancel. The number is the amortised `wall / rounds completed by both` over
-the window in which both trajectories were running, which is the same quantity
+common-mode and cancel. The number is the amortised `wall / rounds completed by all` over
+the window in which every trajectory was running, which is the same quantity
 `bcx-gpuref` reports (89.93 s / 125 rounds) and the same UNIT the campaign gates on.
 
 BindCraft 2's own campaign loop drives both: `run_campaign` claims a trajectory number out
-of the file-locked campaign progress, so two of them in one project folder take trajectory
-1 and trajectory 2 exactly as two worker processes would. Nothing about the design loop is
+of the file-locked campaign progress, so N of them in one project folder take trajectories
+1..N exactly as N worker processes would. Nothing about the design loop is
 re-implemented here.
 """
 import argparse
@@ -86,15 +87,18 @@ class DuoMeter:
     def __init__(self, rounds, trajectories=1):
         self.rounds = rounds
         self.counts: dict[str, int] = {}
-        #: Set when the FIRST trajectory clears its compile round, which is when a second one
-        #: may start without the two of them measuring each other's compile.
-        self.ready = threading.Event()
+        #: Set per slot when that trajectory clears its compile round, which is when the next
+        #: one may start without the two of them measuring each other's compile.
+        self.cleared: dict[str, threading.Event] = {}
         #: Every trajectory waits here once its OWN compile round is behind it, so the warm
         #: rounds of both start together. Without it the leader is three or four rounds ahead
         #: by the time the follower finishes tracing, and it then finishes and leaves the card
         #: to the follower alone -- the common window ends up one round wide on a seven-round
         #: arm, which is not a sample.
         self.warm = threading.Barrier(trajectories)
+
+    def cleared_event(self, s):
+        return self.cleared.setdefault(s, threading.Event())
 
     @property
     def entries(self) -> int:
@@ -108,7 +112,7 @@ class DuoMeter:
                              "slot": s, "round": n, "reach": M._reach()})
             raise M.StopAfterRounds(f"{self.rounds} rounds collected on {s!r}")
         if n == 2:
-            self.ready.set()
+            self.cleared_event(s).set()
             try:
                 self.warm.wait(timeout=1800)
             except threading.BrokenBarrierError:
@@ -130,6 +134,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=9)
     ap.add_argument("--interleave", type=int, default=0)
+    ap.add_argument("--trajectories", type=int, default=2)
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--binder", type=int, default=146)
     ap.add_argument("--params", default="/home/moritz/bcx_shipped/af2_params")
@@ -139,10 +144,14 @@ def main():
     if args.rounds > 9:
         raise SystemExit("9 rounds is the ceiling per process, see bcx-p10-rne")
 
+    if not 1 <= args.trajectories <= 26:
+        raise SystemExit("--trajectories must be 1..26")
+    n_traj = args.trajectories
     project = args.out
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
-    overrides = [f"campaign_seed={args.seed}", "max_trajectories=2",
-                 f"project_folder={project}", f"binder_lengths=[{args.binder},{args.binder}]",
+    overrides = [f"campaign_seed={args.seed}", f"max_trajectories={n_traj}",
+                 f"project_folder={project}",
+                 f"binder_lengths=[{','.join([str(args.binder)] * n_traj)}]",
                  # Both trajectories must be the SAME shape, or the interleaved arm pays a
                  # second compile the serial arm does not and the comparison is of compiles.
                  "compile_next_length=0"] + args.sets
@@ -176,6 +185,7 @@ def main():
 
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "interleave": bool(args.interleave),
+             "trajectories": n_traj,
              "levers_expected": _expect, "genq_compact": _genq.compact(),
              "taped_channel_move": _reblock.TAPED_MOVE,
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
@@ -233,7 +243,7 @@ def main():
 
     out = pathlib.Path(project) / "round_events.json"
     M.DUMP = (str(out), stamp)
-    mt = DuoMeter(args.rounds, 2 if args.interleave else 1)
+    mt = DuoMeter(args.rounds, n_traj if args.interleave else 1)
     M.install(mt, bindcraft2, bindcraft2.design_model_class(), trajectory, seqopt)
     _digest_outputs(bindcraft2.design_model_class(), mt)
 
@@ -255,7 +265,7 @@ def main():
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn",
                                                             "weights_neutral"),
-                                  max_trajectories=2)
+                                  max_trajectories=n_traj)
         return go
 
     t0 = time.time()
@@ -269,9 +279,9 @@ def main():
             # The gate goes on BOTH arms. On the serial arm it is one thread taking an
             # uncontended lock, which costs nothing and is what makes the control able to say
             # which thread the device seam runs on -- the one fact the slot design rests on.
-            with duotraj.interleave(trajectories=2 if args.interleave else 1) as gate:
-                _run_pair(one, stopped, threaded=bool(args.interleave),
-                          ready=mt.ready if args.interleave else None)
+            with duotraj.interleave(trajectories=n_traj if args.interleave else 1) as gate:
+                gate._lock = _TimedLock(gate._lock)
+                _run_pair(one, stopped, n_traj, threaded=bool(args.interleave), meter=mt)
             stamp["gate"] = gate.report()
     finally:
         M.CLOCK.stop()
@@ -344,22 +354,50 @@ def _digest_outputs(cls, mt):
     cls.sequence_gradients = sequence_gradients
 
 
-def _run_pair(one, stopped, *, threaded, ready):
-    """Both trajectories, either on two threads or one after the other.
+class _TimedLock:
+    """The gate's lock, with every outer hold recorded as a `gate` event.
+
+    `DeviceGate` only keeps per-slot totals, which cannot say how much of a given window the
+    card sat idle. The gate only touches its lock at the outermost seam, so each
+    acquire/release pair here is one hold, and holds never overlap.
+    """
+
+    def __init__(self, lock):
+        self._lock = lock
+        self._t = 0.0
+
+    def acquire(self, *a, **kw):
+        got = self._lock.acquire(*a, **kw)
+        self._t = time.time()
+        return got
+
+    def release(self):
+        t0 = self._t
+        self._lock.release()
+        M.EVENTS.append({"kind": "gate", "phase": "hold", "t0": t0, "t1": time.time()})
+
+
+def _run_pair(one, stopped, n, *, threaded, meter):
+    """N trajectories, either on N threads or one after the other.
+
+    Interleaved, trajectory i starts once trajectory i-1 has cleared its compile round, so no
+    two traces overlap; `DuoMeter.warm` then holds them all at round 2 until the last arrives.
 
     A `StopAfterRounds` is this harness finishing a trajectory on purpose, so it is recorded
     and not re-raised; anything else is a real failure and comes back out.
     """
-    names = ["A", "B"]
+    names = [chr(ord("A") + i) for i in range(n)]
     if threaded:
-        def guard(name):
+        def guard(i, name):
             def go():
+                if i and not meter.cleared_event(names[i - 1]).wait(1800):
+                    raise TimeoutError(f"{name}: {names[i - 1]} never cleared its compile round")
                 try:
                     one(name)()
                 except M.StopAfterRounds as stop:
                     stopped.append(f"{name}: {stop}")
             return go
-        duotraj.run([guard(n) for n in names], names=names, ready=ready)
+        duotraj.run([guard(i, x) for i, x in enumerate(names)], names=names)
         return
     for name in names:
         with duotraj.trajectory(name):
