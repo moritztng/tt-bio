@@ -1,0 +1,74 @@
+/home/ttuser/.coworker/wt/land-standing/.landtmp/rfd3_840/tt_bio/main.py:62: DeprecationWarning: This process (pid=3801230) is multi-threaded, use of fork() may lead to deadlocks in the child.
+  pid = _os.fork()
+Designing 1 spec(s) × 1 design(s) → /home/ttuser/.coworker/wt/land-standing/.landtmp/rfd3_840/rfd3_fusion_gate/out_R4 (checkpoint=/home/ttuser/.boltz/rfd3/weights, from_pdb=True, 4 steps, batch=8)
+[design:R4_b100] contig='A1-585,100' length='100' ligand=None partial_t=None from_pdb=True
+[tune] x=(1, 6080, 128) w=(128, 128) default=   0.083 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 6080, 128) w=(128, 128) default=   0.030 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 6051, 128, 32) w=(32, 32) default=   0.520 ms  gain= 1.00x  DEFAULT
+[tune] x=(1, 6080, 128) w=(128, 256) default=   0.073 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 6080, 256) w=(256, 128) default=   0.038 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 704, 384) w=(384, 768) default=   0.028 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 704, 768) w=(768, 384) default=   0.026 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 64, 704, 128) w=(128, 256) default=   0.494 ms  gain= 2.19x  bw=2 obw=8 pcM=13
+[tune] x=(1, 64, 704, 256) w=(256, 128) default=   0.135 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 45, 704, 128) w=(128, 256) default=   0.418 ms  gain= 2.56x  bw=2 obw=8 pcM=9
+[tune] x=(1, 45, 704, 256) w=(256, 128) default=   0.095 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 64, 704, 128) w=(128, 512) default=   0.579 ms  gain= 1.30x  bw=1 obw=16 pcM=13
+[tune] x=(1, 64, 704, 512) w=(512, 128) default=   0.380 ms  gain= 1.00x  DEFAULT
+[tune] x=(1, 45, 704, 128) w=(128, 512) default=   0.369 ms  gain= 1.26x  bw=1 obw=16 pcM=9
+[tune] x=(1, 45, 704, 512) w=(512, 128) default=   0.704 ms  gain= 2.14x  bw=1 obw=4 pcM=9
+[tune] x=(1, 685, 704, 128) w=(128, 32) default=   0.728 ms  gain= 1.00x  DEFAULT
+[tune] x=(1, 704, 384) w=(384, 1536) default=   0.056 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 704, 1536) w=(1536, 384) default=   0.038 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 685, 704, 128) w=(128, 576) default=  10.656 ms  gain= 1.96x  bw=1 obw=18 pcM=137
+[tune] x=(1, 704, 384) w=(384, 768) default=   0.041 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 704, 768) w=(768, 768) default=   0.054 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 704, 768) w=(768, 1536) default=   0.070 ms under 0.25 ms floor, SKIP
+[tune] x=(1, 704, 1536) w=(1536, 768) default=   0.099 ms under 0.25 ms floor, SKIP
+[design:R4_b100#0] wrote /home/ttuser/.coworker/wt/land-standing/.landtmp/rfd3_840/rfd3_fusion_gate/out_R4/R4_b100.cif (6051 atoms, batch=1)
+Done — 1 design(s) → /home/ttuser/.coworker/wt/land-standing/.landtmp/rfd3_840/rfd3_fusion_gate/out_R4
+  R4_b100#0: /home/ttuser/.coworker/wt/land-standing/.landtmp/rfd3_840/rfd3_fusion_gate/out_R4/R4_b100.cif (6051 atoms)
+--- R4: 1 processes, cli rc=0
+SPLIT_SWIGLU                     not-imported   served=None declined=None
+SPLIT_SWIGLU_SMALL_GRID          not-imported   served=None declined=None
+PAIR_FFN_L1_FC1                  not-imported   served=None declined=None
+PAIR_FFN_L1_LN                   not-imported   served=None declined=None
+PAIR_FFN_L1_SLICE                not-imported   served=None declined=None
+PAIR_FFN_FUSED_RESIDUAL          not-imported   served=None declined=None
+PAIR_FFN_FILL_ASSEMBLY           not-imported   served=None declined=None
+TRIMUL_IN_PROJ_DUAL_NOC          not-imported   served=None declined=None
+ADALN_S_HOIST                    True           served=0 declined=0
+FP32_SOFTMAX_BIAS_HOIST          True           served=0 declined=0
+FP32_SOFTMAX_L1_GRID             (8, 8)         served=0 declined=0
+PAIR_TRANSPOSE_VIA_ROW_MAJOR     True           served=0 declined=0
+PAIR_PROJ_MINIMAL_MATMUL         True           served=0 declined=0
+TRIMUL_TAIL_F1                   True           served=0 declined=0
+QKV_MM_CONFIG                    True           served=0 declined=0
+DEVICE_LM_HANDOFF                not-imported   served=None declined=None
+REBLOCK_PERMUTE                  True           served=0 declined=0
+REBLOCK_PERMUTE_BACK             True           served=0 declined=0
+REBLOCK_PERMUTE_GATED            True           served=0 declined=0
+TRIMUL_MASK_AFTER_MOVE           True           served=0 declined=0
+TRIATT_PERSISTENT_MASK           True           served=0 declined=0
+SDPA_WIDE_K                      True           served=0 declined=0
+SDPA_FUSED_LARGE_S               True           served=0 declined=0
+RFD3_SPARSE_BIAS                 True           served=0 declined=0
+RFD3_FUSED_SCORES                True           served=27 declined=0
+TRIATT_HEAD_MAJOR_QKV            True           served=0 declined=0
+TRIATT_HEAD_MAJOR_TAIL           True           served=0 declined=0
+TRIATT_TAIL_OVER_L1              True           served=0 declined=0
+B2_BIAS_SLICE_HOIST              True           served=0 declined=0
+B2_ADALN_S_MEMO                  True           served=0 declined=0
+B2_TOKEN_DIT_SDPA                True           served=0 declined=0
+APB_CONCAT_HEADS                 False          served=0 declined=0
+ATOM_AXIS_BUCKET                 True           served=0 declined=0
+TRANSPOSE_L1_RESIDENT            1.25           served=0 declined=0
+SDPA_Q_CHUNK_FITS                True           served=0 declined=0
+RFD3_SOFTMAX_PV_FUSED            True           served=27 declined=108
+                                    why softmax kernel does not engage at this shape @ key 704 x108
+RFD3_FC1_SPLIT_SILU              True           served=154 declined=14
+                                    why rows=64 w=704 hidden=256 no-pinned-config x20
+                                    why tensor_rows=685 w=704 hidden=512 chunk-height-would-move 64->63 x14
+                                    why rows=45 w=704 hidden=256 no-pinned-config x2
+TRANSITION_H_CHUNK               16             served=0 declined=0
+TRIATT_SDPA_HIFI                 none           served=0 declined=0

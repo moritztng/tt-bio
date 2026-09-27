@@ -91,3 +91,24 @@ Deliberately not applied by this row. Loosening a guard that is currently blocki
 +50.999 s candidate is a conflict of interest, and a guard change needs its own characterisation
 run against the arm it protects. It belongs to whoever owns `rfd3-fusion`, with this file as the
 evidence.
+
+## 2026-09-27: the decline path, named with RFD3_TUNE_LOG=1
+
+Two runs of the arm alone, qb2 card 3 (p300c), `RFD3_TUNE_LOG=1`, logs in `rfd3_tunelog/`:
+
+    tree                  FC1 served/declined   PV served   verdict
+    main 0ebcaae1f        154 / 14               27         PASS
+    840c5f844             154 / 14               27         PASS
+
+Every calibration outcome in both runs is a timing decision, not an allocation refusal: 14
+`[tune] ... SKIP` lines, each "default=N ms under 0.25 ms floor", and no "does not fit". The shapes
+that do get pinned sit close to the thresholds too: `x=(1,64,704,128) w=(128,512)` and
+`x=(1,45,704,128) w=(128,512)` choose a config at gain 1.14x against `_TUNE_MIN_GAIN` 1.05, and
+`x=(1,64,704,256) w=(256,128)` skips at 0.131 ms against the 0.25 ms `_TUNE_MIN_MS` floor. So what
+calibration pins, and therefore how many later calls `model.py` counts as `no-pinned-config`,
+follows the box's wall clock. A loaded or slower host moves shapes across either threshold, which
+is how qb1 read 35/133 on the same tree that reads 154/14 here. The arithmetic is unaffected
+(every config calibration returns is bitwise equal to the default); only the census split moves.
+
+Consequence for the arm is unchanged from above: assert `served + declined == 12 * serving` and
+the clause set, not the exact split. Left to the arm owner.
