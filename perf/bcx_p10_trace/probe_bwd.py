@@ -125,7 +125,12 @@ def experiment(evo, slot, fwd_calls, cots):
     bank = [ttnn.clone(v) for v in ref_tape]
     mo_o, zo_o = ttnn.clone(mo.value), ttnn.clone(zo.value)
     sm_i, sz_i = seeds(0, mo, zo)
-    gm_o, gz_o = ttnn.clone(ml.value), ttnn.clone(zl.value)
+    # Gradients do not share the leaves' spec, so their buffers come from a real backward.
+    ag.backward([mo, zo], [ttnn.clone(sm_i), ttnn.clone(sz_i)])
+    gm_o, gz_o = ttnn.clone(ml.grad), ttnn.clone(zl.grad)
+    ag.release_pins()
+    ml, zl, mo, zo = forward(mi, zi)
+    ref_tape = tape_of(mo, zo)
     res["tape"] = {"tensors": len(ref_tape),
                    "elements": int(sum(v.volume() for v in ref_tape)),
                    "memory": sorted({str(v.memory_config().buffer_type) for v in ref_tape}),
@@ -137,8 +142,8 @@ def experiment(evo, slot, fwd_calls, cots):
         ttnn.copy(b, v)
     ttnn.copy(mo.value, mo_o)
     ttnn.copy(zo.value, zo_o)
-    ttnn.copy(ml.value, gm_o)
-    ttnn.copy(zl.value, gz_o)
+    ttnn.copy(gm_o, gm_o)
+    ttnn.copy(gz_o, gz_o)
     del ml, zl, mo, zo, ref_tape
     ttnn.synchronize_device(dev)
 
