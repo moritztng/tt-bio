@@ -67,7 +67,8 @@ import torch
 from . import catalogue, lineage, losses
 from ..taped_ttnn import shim_scope
 
-__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
+__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw",
+           "sample_data"]
 
 MODEL = "openfold3"
 
@@ -357,6 +358,46 @@ class _Upstream:
         finally:
             random.setstate(state[0]), np.random.set_state(state[1])
             torch.set_rng_state(state[2])
+
+
+#: Upstream's public training-set bucket, and where the 8-structure sample is cached.
+SAMPLE_BUCKET = "https://openfold3-data.s3.amazonaws.com/"
+SAMPLE_DIR = "openfold3-train-sample"
+
+
+def sample_data(root=None, *, quiet: bool = False) -> Path:
+    """Upstream's 8-structure training sample, fetched once into the weight cache.
+
+    The eight are the ones upstream's own ``sample_subset_cache`` draws at seed 42 (1kvu 1wyc
+    1xbs 210l 2wig 3wnm 4ky2 5ron, 292 datapoints). The datapoint cache for them and the list
+    of files with their sha256 ship in ``tt_bio/data``; the files themselves come from the
+    public bucket and are checked against it. About 73 MB.
+    """
+    import json
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+    from .. import weights
+
+    data = Path(__file__).resolve().parent.parent / "data"
+    dest = weights.cache_root(root) / SAMPLE_DIR
+    files = json.loads((data / "openfold3_train_sample_files.json").read_text())
+    todo = [(rel, sha) for rel, sha in files.items()
+            if not (dest / _Upstream.ROOT / rel).is_file()]
+    if todo:
+        if not quiet:
+            print(f"fetching upstream's OpenFold3 training sample, {len(todo)} files, to {dest}",
+                  flush=True)
+        def one(item):
+            rel, sha = item
+            weights.fetch_file((f"{SAMPLE_BUCKET}{_Upstream.ROOT}/{rel}",),
+                               dest / _Upstream.ROOT / rel, sha256=sha, quiet=True,
+                               check_archive=False)
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            list(pool.map(one, todo))
+    cache = dest / "training_cache_with_templates_subset_8.json"
+    if not cache.is_file():
+        shutil.copyfile(data / "openfold3_train_sample.json", cache)
+    return dest
 
 
 # ------------------------------------------------------------------------------- forward

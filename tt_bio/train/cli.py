@@ -217,20 +217,22 @@ def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warm
     """Train a model on the chips of this machine.
 
     \b
+        tt-bio train --model openfold3
         tt-bio train data/ --model openfold3
         tt-bio train data/ --model openfold3 --steps 1000 --chips 4
 
     DATA for OpenFold3 is upstream's training-set directory (pdb_training_set/ plus a
-    training_cache*.json). The run writes OUT/status.json, whose `status` is running,
+    training_cache*.json). Without DATA the run fetches upstream's 8-structure sample
+    (73 MB) and trains on that. The run writes OUT/status.json, whose `status` is running,
     succeeded or failed, and OUT/progress.jsonl, one JSON line per step. Run the same
     command again to resume from the last checkpoint. docs/training.md has the rest.
     """
     from . import objectives
     from .dryrun import needs_exact, plan
 
-    if data is None or model is None:
-        raise click.UsageError("DATA and --model are required for a run, e.g. "
-                               "`tt-bio train data/ --model openfold3`")
+    if model is None:
+        raise click.UsageError("--model is required, e.g. `tt-bio train data/ --model "
+                               "openfold3`")
     chips = len(chip_ids)
     global_batch = chips if global_batch is None else global_batch
     out_dir = Path(out_dir or Path("runs") / model)
@@ -259,6 +261,11 @@ def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warm
         return
 
     from . import launcher
+    if data is None:
+        from .openfold3 import sample_data
+        data = sample_data(quiet=launcher.rank() != 0)
+        click.echo(f"no DATA given, so this trains on upstream's 8-structure sample in {data}. "
+                   f"Pass a training-set directory to train on your own.")
     status = _Status(out_dir, writer=launcher.rank() == 0)
     config = {"model": model, "data": str(Path(data).resolve()), "train": train_mode,
               "global_batch": global_batch, "lr": lr, "warmup_steps": warmup_steps,
