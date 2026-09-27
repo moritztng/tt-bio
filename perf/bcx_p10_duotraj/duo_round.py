@@ -230,9 +230,11 @@ def main():
     # the per-boundary dump is what actually survives.
     def _gate_now():
         g = duotraj.GATE
-        if g is not None:
-            stamp["gate"] = g.report()
-        return {}
+        if g is None:
+            return {}
+        stamp["gate"] = g.report()
+        # Cumulative at each boundary, so a reader can difference out the compile round.
+        return {"gate_held": stamp["gate"]["held_s"], "gate_phases": stamp["gate"]["phases_s"]}
     M.REACH.append(_gate_now)
 
     out = pathlib.Path(project) / "round_events.json"

@@ -8,30 +8,52 @@ pro rata over the common window, AICLK sampled during it). Grouped here by gate 
 gate's hold per round split into its phases, and the equality check of every duo digest
 against every serial arm's digest for the same (trajectory, round).
 """
+import importlib.util
 import json
 import pathlib
 import statistics
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "bcx_p10_stack5"))
-_argv, sys.argv = sys.argv, sys.argv[:1]
-import report as S  # noqa: E402
-sys.argv = _argv
+# stack5's report imports duotraj's as `report`, so this one is loaded under its own name.
+_spec = importlib.util.spec_from_file_location(
+    "stack5_report", pathlib.Path(__file__).resolve().parents[1] / "bcx_p10_stack5" / "report.py")
+S = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(S)
 
 
 def phases(d):
-    """Gate seconds per round by phase, summed over slots, over all rounds."""
-    g = d["stamp"].get("gate") or {}
-    total = sum(1 for e in d["events"] if e["kind"] == "round_start") or 1
-    held = sum((g.get("held_s") or {}).values())
-    ph = {}
-    for per in (g.get("phases_s") or {}).values():
-        for k, v in per.items():
-            ph[k] = ph.get(k, 0.0) + v
-    under = sum(v for k, v in ph.items() if k != "wait_outside")
-    out = {k: round(v / total, 3) for k, v in sorted(ph.items())}
-    out["host_under_gate"] = round((held - under) / total, 3)
-    out["held"] = round(held / total, 3)
+    """Gate seconds per WARM round by phase, summed over slots.
+
+    The gate is cumulative and its snapshot rides every round boundary, so each slot's warm
+    share is its last boundary minus the start of its round 2. Falls back to all rounds when
+    the boundaries carry no snapshot (arms run before the snapshot existed)."""
+    ev = [e for e in d["events"] if e["kind"] in ("round_start", "round_stop")
+          and isinstance(e.get("reach"), dict) and "gate_phases" in e["reach"]]
+    tot, n = {}, 0
+    for s in sorted({e.get("slot") for e in ev} - {None}):
+        mine = sorted((e for e in ev if e.get("slot") == s), key=lambda e: e["t0"])
+        begin = next((e for e in mine if e["kind"] == "round_start" and e["round"] >= 2), None)
+        if begin is None:
+            continue
+        last = mine[-1]
+        n += sum(1 for e in mine if e["kind"] == "round_start" and e["round"] >= 2)
+        a = dict(begin["reach"]["gate_phases"].get(s, {}), held=begin["reach"]["gate_held"].get(s, 0))
+        b = dict(last["reach"]["gate_phases"].get(s, {}), held=last["reach"]["gate_held"].get(s, 0))
+        for k in b:
+            tot[k] = tot.get(k, 0.0) + b[k] - a.get(k, 0.0)
+    warm = bool(n)
+    if not warm:
+        g = d["stamp"].get("gate") or {}
+        n = sum(1 for e in d["events"] if e["kind"] == "round_start") or 1
+        tot = {"held": sum((g.get("held_s") or {}).values())}
+        for per in (g.get("phases_s") or {}).values():
+            for k, v in per.items():
+                tot[k] = tot.get(k, 0.0) + v
+    under = sum(v for k, v in tot.items() if k not in ("wait_outside", "held"))
+    out = {k: round(v / n, 3) for k, v in sorted(tot.items())}
+    out["host_under_gate"] = round((tot.get("held", 0.0) - under) / n, 3)
+    out["rounds"] = n
+    out["warm_only"] = warm
     return out
 
 
