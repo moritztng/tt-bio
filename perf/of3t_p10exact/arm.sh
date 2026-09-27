@@ -47,6 +47,8 @@ source /home/ttuser/tt-bio-dev/env/bin/activate
 # Both softmax-backward flags at the package default (renorm and fp32 on), never inherited.
 ENV=(-u TT_BIO_SOFTMAX_BW_RENORM -u TT_BIO_SOFTMAX_BW_FP32 TT_VISIBLE_DEVICES=$CARD
      TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=$HOLDER OMP_NUM_THREADS=8 PYTHONPATH="$W")
+# SMBW_FP32=0|1 pins the fp32 softmax backward for a control arm; unset leaves the default.
+[ -n "${SMBW_FP32:-}" ] && ENV+=(TT_BIO_SOFTMAX_BW_FP32=$SMBW_FP32)
 if ! env "${ENV[@]}" timeout 120 python3 perf/of3t_verbinstall/cardcheck.py $CARD; then
   echo "=== $TAG ABORTED: card $CARD failed the bounded dispatch check ==="; exit 3
 fi
