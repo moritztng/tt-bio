@@ -56,6 +56,7 @@ half its terms.
 
 from __future__ import annotations
 
+import contextlib
 import math
 from pathlib import Path
 from typing import Optional
@@ -64,6 +65,7 @@ import numpy as np
 import torch
 
 from . import catalogue, lineage, losses
+from ..taped_ttnn import shim_scope
 
 __all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
 
@@ -190,10 +192,42 @@ class OpenFold3Dataset:
         xyz = gt["atom_positions"].float()
         resolved = gt.get("atom_resolved_mask", gt.get("atom_mask")).float()
         real = np.flatnonzero(tok.numpy() > 0)
-        if len(real) != int(rep.shape[0]):
+
+        # THE CROP IS A SUBSET OF THE GROUND TRUTH, and for anything bigger than the token
+        # budget it is a strict one. Upstream crops the FEATURES and hands back the whole
+        # deposited structure: 4ky2 arrives as 384 cropped tokens against 480 ground-truth
+        # ones and 2wig as 384 against 2512. Lining them up by POSITION would score the
+        # crop's labels against the structure's first 384 tokens, which are not the same
+        # tokens; taking only the targets whose count happens to match would train on the
+        # ones that fit, which is the small pool.
+        #
+        # `token_index` is the join and is carried on both sides: it is each token's index in
+        # the UNCROPPED structure, so `f["token_index"][real]` is a subset of
+        # `gt["token_index"]` and matching the values is exact. On a target that fits, the
+        # permutation is the identity and this is a no-op, which is why it runs
+        # unconditionally rather than only on the mismatch -- a join that is only taken on
+        # the hard case is a join nobody tests.
+        if "token_index" in gt:
+            gt_tok = gt["token_index"].long().numpy().reshape(-1)
+            crop_tok = f["token_index"].long().numpy().reshape(-1)[real]
+            where = {int(t): i for i, t in enumerate(gt_tok)}
+            absent = [int(t) for t in crop_tok if int(t) not in where]
+            if absent:
+                raise ValueError(
+                    f"{len(absent)} cropped tokens are not in ground_truth by token_index "
+                    f"(first {absent[:5]}); the crop is not a subset of the structure it is "
+                    f"scored against")
+            sel = np.fromiter((where[int(t)] for t in crop_tok), np.int64, len(crop_tok))
+            rep = rep[sel]
+        elif len(real) != int(rep.shape[0]):
             raise ValueError(
                 f"{int(tok.sum())} real tokens on the crop axis but {int(rep.shape[0])} in "
-                f"ground_truth; the scatter below would put a label on the wrong token")
+                f"ground_truth, and ground_truth carries no token_index to join them on; the "
+                f"scatter below would put a label on the wrong token")
+        if len(real) != int(rep.shape[0]):
+            raise ValueError(
+                f"{int(tok.sum())} real tokens on the crop axis but {int(rep.shape[0])} "
+                f"representative atoms after the token_index join")
         true_xyz = np.zeros((n, 3), np.float64)
         coord_mask = np.zeros(n, np.float64)
         true_xyz[real] = xyz[rep].numpy().astype(np.float64)
@@ -237,11 +271,22 @@ class OpenFold3Forward:
     """
 
     def __init__(self, checkpoint, *, device=None, num_cycles: int = 1, rollout: int = 20,
-                 seed: int = 0):
+                 seed: int = 0, exact_scope: str = "all"):
         self.checkpoint = Path(checkpoint)
         self.rollout = int(rollout)
         self.num_cycles = int(num_cycles)
         self.seed = int(seed)
+        #: Where an enclosing `exact_training` run is allowed to reach. ``"all"`` is the whole
+        #: differentiated forward. ``"trunk"`` keeps it to the taped trunk -- which is the
+        #: section the campaign's pre-registered tensor clause was measured on -- and runs the
+        #: diffusion half device-native in BOTH arms. It exists because the instrument cannot
+        #: run the diffusion decoder today: the exact ops replace `ttnn.layer_norm` globally,
+        #: an earlier norm in the module hands back a host-built tensor, and
+        #: `openfold3_diffusion_decoder.py:99` then norms a buffer its own `pad_dim` path has
+        #: already deallocated (`TT_FATAL ... tensor.is_allocated()`, four arms, ~400 s in).
+        if exact_scope not in ("all", "trunk"):
+            raise ValueError(f"exact_scope is 'all' or 'trunk', not {exact_scope!r}")
+        self.exact_scope = exact_scope
         self._device = device
         self._model = None
         self._registered = False
@@ -444,11 +489,13 @@ class OpenFold3Forward:
 
         # ---- the taped forward, in two blocks with the rollout raw between them.
         #
-        # The rollout CANNOT be inside the tape, and `ag.no_grad()` is not enough to put it
-        # there. `no_grad` stops the tape differentiating, not wrapping: the hook still
-        # returns a `Tensor` because a registered parameter is on the tape whatever the
-        # activations are, and the sampler's own `ttnn.to_torch` -- the host EDM step it
-        # takes every rollout step -- then meets a taped tensor and refuses, correctly.
+        # The rollout CANNOT be inside the tape, and unwrapping its arguments with `_v` is not
+        # enough to keep it out: it re-enters `ops.linear` at every projection inside itself,
+        # the hook sees a registered parameter on the tape whatever the activations are, and
+        # hands back a `Tensor` again. One of those meets the raw `ttnn.layer_norm` beside it
+        # in `OF3DiffusionConditioning` and pybind refuses it; the next meets the sampler`s own
+        # per-step `ttnn.to_torch`. So the rollout runs under `ag.no_grad()`, where the hook
+        # returns the shipped result RAW instead of rewrapping it.
         #
         # Two blocks is the honest shape rather than a workaround. Upstream detaches the
         # rollout (`model.py:381`), so the gradient genuinely does not cross it, and the tape
@@ -481,33 +528,61 @@ class OpenFold3Forward:
         # between the two, so a parameter gradient that differs differs because of the
         # structure the rollout produced, which is the whole of the rollout's reach into a
         # gradient once upstream has detached it.
-        rep = (f["ground_truth"]["start_atom_index"] if "ground_truth" in f
-               else f["start_atom_index"]).long()
+        # THE CROP OWN representative atoms, not the ground truth ones. `xl` below is the
+        # rollout coordinate array and it holds the CROP atoms; `ground_truth` numbers the
+        # atoms of the UNCROPPED structure, so on anything larger than the token budget its
+        # indices run off the end -- index 2679 into a 2678-atom crop, measured on 2wig at
+        # crop 384. The ground truth indices belong on the LABEL side, where
+        # `OpenFold3Dataset.batch` uses them to read `ground_truth.atom_positions`.
         real = torch.nonzero(tok > 0, as_tuple=True)[0]
+        # At the REAL tokens, not the whole crop axis: both use sites pair `rep` with `real`,
+        # and on a target that does not fill the crop the two lengths differ -- 311 real tokens
+        # against a 384 axis on 5ron, three steps into a twelve-step arm.
+        rep = f["start_atom_index"].long()[real]
         if self.repr_coords_in is not None:
             repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
             self.rollout_ran = False
         else:
-            schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
-            xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
-            xl_d = m.sampler(
-                ft(xl0.unsqueeze(0)), _v(s_trunk), _v(s_input_d), _v(z_trunk), _v(relpos_d),
-                ft(tok.reshape(1, n_token)), pair_mask_dm,
-                ft(tok.reshape(n_token, 1).unsqueeze(0)),
-                dm_aux["cl0_d"], dm_aux["plm0_d"], dm_aux["amc_d"], dm_aux["amc_na_d"],
-                dm_aux["idx_tt"], dm_aux["flat_tt"], dm_aux["zij_mask_d"], dm_aux["kidx_tt"],
-                dm_aux["valid_d"], dm_aux["mb_d"], dm_aux["pm_d"], dm_aux["mean_d"],
-                dm_aux["tok_pad_tt"], dm_aux["tok_col_pad_tt"],
-                n_atom, aux["NP"], aux["nb"], n_token, n_token,
-                schedule, rots, trans, noise, ts, ctau, m.step_scale)
-            xl = torch.Tensor(ttnn.to_torch(_v(xl_d))).float().reshape(n_atom, 3)
-            self.rollout_coords = xl
-            self.rollout_ran = True
-            # Atom scope -> token scope, on the CROP's axis. The representative index is the
-            # real tokens' first atoms; padded rows stay at the origin and the pair mask
-            # drops them.
-            repr_x = torch.zeros(n_token, 3)
-            repr_x[real] = xl[rep]
+            # THE EXACTNESS INSTRUMENT IS OFF HERE WHATEVER THE RUN ASKED FOR, and that is a
+            # scope decision rather than a cost one. `exact_training` replaces softmax and
+            # layer norm to make a GRADIENT exact; upstream detaches the rollout
+            # (`model.py:381`) so nothing computed in it reaches one. Leaving it installed
+            # also broke: `_ln_forward64` downloads its input to host float64 and the shipped
+            # decoder has already deallocated that buffer, so the reference arm died on
+            # `tensor.is_allocated()` 398 s in, inside the discovery pass, before step 0. Both
+            # It takes `without_exact` and not `exact_training(False)`: the second changes what
+            # the SWITCH reports, and `install()` read that switch once when the run started.
+            # Both arms of a comparison run the identical rollout, so scoping it out cannot bias
+            # one against the other -- and it is what keeps the reference arm affordable.
+            #
+            # `no_grad` for the arithmetic and the SHIM for the plumbing, because the two
+            # answer different halves. `no_grad` stops `_tape` building nodes the detached
+            # rollout would never use. The shim is what lets the sampler`s own raw `ttnn.`
+            # verbs accept the `Tensor` the hook hands back at every `ops.linear` inside it --
+            # unwrapping the ARGUMENTS with `_v` cannot reach those, which is why the rollout
+            # died on `ttnn.layer_norm` in `OF3DiffusionConditioning` and then on its own
+            # per-step `ttnn.to_torch`.
+            with ag.no_grad(), shim_scope(), ag.without_exact():
+                schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
+                xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
+                xl_d = m.sampler(
+                    ft(xl0.unsqueeze(0)), _v(s_trunk), _v(s_input_d), _v(z_trunk), _v(relpos_d),
+                    ft(tok.reshape(1, n_token)), pair_mask_dm,
+                    ft(tok.reshape(n_token, 1).unsqueeze(0)),
+                    dm_aux["cl0_d"], dm_aux["plm0_d"], dm_aux["amc_d"], dm_aux["amc_na_d"],
+                    dm_aux["idx_tt"], dm_aux["flat_tt"], dm_aux["zij_mask_d"], dm_aux["kidx_tt"],
+                    dm_aux["valid_d"], dm_aux["mb_d"], dm_aux["pm_d"], dm_aux["mean_d"],
+                    dm_aux["tok_pad_tt"], dm_aux["tok_col_pad_tt"],
+                    n_atom, aux["NP"], aux["nb"], n_token, n_token,
+                    schedule, rots, trans, noise, ts, ctau, m.step_scale)
+                xl = torch.Tensor(ttnn.to_torch(_v(xl_d))).float().reshape(n_atom, 3)
+                self.rollout_coords = xl
+                self.rollout_ran = True
+                # Atom scope -> token scope, on the CROP's axis. The representative index is the
+                # real tokens' first atoms; padded rows stay at the origin and the pair mask
+                # drops them.
+                repr_x = torch.zeros(n_token, 3)
+                repr_x[real] = xl[rep]
         self.repr_coords = repr_x
 
         # ---- the one-step denoise. THIS is what trains the diffusion module.
@@ -528,8 +603,12 @@ class OpenFold3Forward:
             s = m.sampler
             sigma, eps = denoise_draw(self.seed, n_atom)
             amask = aux["atom_mask"].float()
-            xl_true = (f["ground_truth"]["atom_positions"].float()
-                       * amask[:, None])
+            gt_idx = _gt_atom_index(f, f["ground_truth"], real, n_atom)
+            have = torch.from_numpy(gt_idx >= 0)
+            xl_true = torch.zeros(n_atom, 3)
+            xl_true[have] = f["ground_truth"]["atom_positions"].float()[
+                torch.from_numpy(gt_idx[gt_idx >= 0])]
+            xl_true = xl_true * amask[:, None]
             xl_noisy = xl_true + sigma * torch.from_numpy(eps).float()
             xl_noisy = xl_noisy * amask[:, None]
             rl_noisy = xl_noisy / math.sqrt(sigma * sigma + m.sigma_data ** 2)
@@ -538,7 +617,12 @@ class OpenFold3Forward:
             one_hot = torch.zeros(n_token, n_atom)
             one_hot[real, rep] = 1.0
 
-            with ag.tape():
+            # `exact_scope="trunk"` takes the instrument out for the diffusion half. Both
+            # arms then run it device-native, so it cannot bias one against the other, and the
+            # grade narrows to the section the tensor clause named.
+            denoise_exact = (ag.without_exact() if self.exact_scope == "trunk"
+                             else contextlib.nullcontext())
+            with denoise_exact, ag.tape():
                 # THE DTYPE BOUNDARY, crossed through the sampler's own helper rather than a
                 # copy of it. `OF3_DIFFUSION_FP32_DEVICE` (default on) builds the diffusion
                 # weights in fp32 against a bf16 trunk; driving `dc`/`dm` directly without
@@ -606,6 +690,40 @@ class OpenFold3Forward:
                 "resolved_logits": out["experimentally_resolved_logits"]}
 
 
+def _gt_atom_index(f, gt, real, n_atom):
+    """For each atom of the CROP, which row of `ground_truth.atom_positions` it is. -1 = none.
+
+    The denoise arm noises the GROUND TRUTH, and the ground truth is the whole deposited
+    structure: 3580 atoms against the crop's 2678 on 2wig at crop 384. Multiplying one by the
+    other's mask is a shape error when they differ and a SILENT mislabelling when they happen
+    to match, because the crop's atoms are not the structure's first ones.
+
+    The join is the same one the labels use, one level down: tokens match on `token_index`, and
+    a token's atoms are a contiguous run at `start_atom_index` of length `num_atoms_per_token`
+    on each side. A token whose two runs differ in length is refused rather than truncated.
+    """
+    import numpy as np
+    f_start = f["start_atom_index"].long().numpy().reshape(-1)
+    f_n = f["num_atoms_per_token"].long().numpy().reshape(-1)
+    f_tok = f["token_index"].long().numpy().reshape(-1)
+    g_start = gt["start_atom_index"].long().numpy().reshape(-1)
+    g_n = gt["num_atoms_per_token"].long().numpy().reshape(-1)
+    g_tok = gt["token_index"].long().numpy().reshape(-1)
+    where = {int(t): i for i, t in enumerate(g_tok)}
+    idx = np.full(int(n_atom), -1, np.int64)
+    for i in np.asarray(real).reshape(-1):
+        j = where.get(int(f_tok[i]))
+        if j is None:
+            raise ValueError(f"cropped token {int(f_tok[i])} is not in ground_truth")
+        ni, nj = int(f_n[i]), int(g_n[j])
+        if ni != nj:
+            raise ValueError(f"token {int(f_tok[i])} holds {ni} atoms in the crop and {nj} in "
+                             f"ground_truth; the two are not the same token")
+        a, b = int(f_start[i]), int(g_start[j])
+        idx[a:a + ni] = np.arange(b, b + nj)
+    return idx
+
+
 def denoise_draw(seed: int, n_atom: int):
     """The denoise arm's noise level and per-atom noise, a function of the seed alone.
 
@@ -624,7 +742,7 @@ def _v(t):
 # ------------------------------------------------------------------------------ register
 
 def adapter(path, tokens=None, *, checkpoint=None, rollout: int = 20, num_cycles: int = 1,
-            seed: int = 0):
+            seed: int = 0, exact_scope: str = "all"):
     """``(forward, dataset)`` for OpenFold3. ``path`` is the featurised corpus.
 
     ``checkpoint`` defaults to ``path``'s sibling ``of3.pt`` so the registration stays a
@@ -632,7 +750,8 @@ def adapter(path, tokens=None, *, checkpoint=None, rollout: int = 20, num_cycles
     """
     path = Path(path)
     ckpt = Path(checkpoint) if checkpoint else (path if path.is_dir() else path.parent) / "of3.pt"
-    return (OpenFold3Forward(ckpt, rollout=rollout, num_cycles=num_cycles, seed=seed),
+    return (OpenFold3Forward(ckpt, rollout=rollout, num_cycles=num_cycles, seed=seed,
+                             exact_scope=exact_scope),
             OpenFold3Dataset(path, tokens=tokens))
 
 

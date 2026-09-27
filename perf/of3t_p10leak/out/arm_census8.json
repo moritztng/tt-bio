@@ -1,0 +1,670 @@
+{
+  "argv": [
+    "--corpus",
+    "/home/ttuser/of3t_p10leak/corpus",
+    "--checkpoint",
+    "/home/ttuser/of3-weights/of3-p2-155k.pt",
+    "--exact",
+    "off",
+    "--steps",
+    "8",
+    "--checkpoint-every",
+    "100000",
+    "--displacement-band",
+    "0.01,100",
+    "--out-dir",
+    "/home/ttuser/of3t_p10leak/runs/census8",
+    "--curve",
+    "/home/ttuser/of3t_p10leak/runs/census8.jsonl",
+    "--out",
+    "/home/ttuser/.coworker/wt/of3t-p10leak/perf/of3t_p10leak/out/arm_census8.json",
+    "--leak-census"
+  ],
+  "started": "2026-09-26T22:43:22Z",
+  "precondition_slot_fix": {
+    "commit": "ce0f78d60",
+    "is_ancestor_of_head": true,
+    "head": "3ed0d27aada69c4607c1d4c44a939207808b5c36",
+    "head_short": "3ed0d27aa",
+    "dirty": true
+  },
+  "steps": [
+    {
+      "step": 0,
+      "loss": 1.7992573069214166,
+      "breakdown": {
+        "mse": {
+          "value": 0.14006627042043632,
+          "weight": 4.0,
+          "contribution": 0.5602650816817453
+        },
+        "smooth_lddt": {
+          "value": 0.2951564627869061,
+          "weight": 4.0,
+          "contribution": 1.1806258511476244
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 1.9290486358132064,
+          "weight": 0.03,
+          "contribution": 0.05787145907439619
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 2.7155593776180256,
+          "weight": 0.0001,
+          "contribution": 0.00027155593776180255
+        },
+        "resolved": {
+          "value": 2.233590798890928,
+          "weight": 0.0001,
+          "contribution": 0.0002233590798890928
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 9.99999983033405,
+      "lr": 0.0003,
+      "s": null,
+      "wall_s": 63.135,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 25
+      },
+      "dram_gb": 3.214,
+      "held_gb": 2.855,
+      "census_s": 0.5
+    },
+    {
+      "step": 1,
+      "loss": 1.2389510601365992,
+      "breakdown": {
+        "mse": {
+          "value": 0.04735262289775886,
+          "weight": 4.0,
+          "contribution": 0.18941049159103543
+        },
+        "smooth_lddt": {
+          "value": 0.24010574824900155,
+          "weight": 4.0,
+          "contribution": 0.9604229929960062
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 2.9553763196709424,
+          "weight": 0.03,
+          "contribution": 0.08866128959012827
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 2.1326416225464597,
+          "weight": 0.0001,
+          "contribution": 0.00021326416225464598
+        },
+        "resolved": {
+          "value": 2.4302179717440175,
+          "weight": 0.0001,
+          "contribution": 0.00024302179717440177
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 10.000000139516402,
+      "lr": 0.0003,
+      "s": 44.02716171997599,
+      "wall_s": 107.162,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 42
+      },
+      "dram_gb": 4.296,
+      "held_gb": 3.875,
+      "census_s": 0.6
+    },
+    {
+      "step": 2,
+      "loss": 2.2575051806150483,
+      "breakdown": {
+        "mse": {
+          "value": 0.22469202674640168,
+          "weight": 4.0,
+          "contribution": 0.8987681069856067
+        },
+        "smooth_lddt": {
+          "value": 0.3249867888451812,
+          "weight": 4.0,
+          "contribution": 1.2999471553807247
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 1.9431572806844506,
+          "weight": 0.03,
+          "contribution": 0.05829471842053351
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 2.715374979143176,
+          "weight": 0.0001,
+          "contribution": 0.0002715374979143176
+        },
+        "resolved": {
+          "value": 2.2366233026952873,
+          "weight": 0.0001,
+          "contribution": 0.00022366233026952875
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 9.99999966684706,
+      "lr": 0.0003,
+      "s": 46.35985473301844,
+      "wall_s": 153.522,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 60
+      },
+      "dram_gb": 5.329,
+      "held_gb": 4.858,
+      "census_s": 0.5
+    },
+    {
+      "step": 3,
+      "loss": 1.4055348766418132,
+      "breakdown": {
+        "mse": {
+          "value": 0.058890908244258564,
+          "weight": 4.0,
+          "contribution": 0.23556363297703425
+        },
+        "smooth_lddt": {
+          "value": 0.2508013883342537,
+          "weight": 4.0,
+          "contribution": 1.0032055533370148
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 5.548738869127537,
+          "weight": 0.03,
+          "contribution": 0.1664621660738261
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 0.6524567631408688,
+          "weight": 0.0001,
+          "contribution": 6.524567631408688e-05
+        },
+        "resolved": {
+          "value": 2.382785776238318,
+          "weight": 0.0001,
+          "contribution": 0.00023827857762383182
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 9.999999446064427,
+      "lr": 0.0003,
+      "s": 43.347076523990836,
+      "wall_s": 196.869,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 77
+      },
+      "dram_gb": 6.236,
+      "held_gb": 5.743,
+      "census_s": 0.3
+    },
+    {
+      "step": 4,
+      "loss": 1.4765817040948552,
+      "breakdown": {
+        "mse": {
+          "value": 0.07669959853114273,
+          "weight": 4.0,
+          "contribution": 0.30679839412457094
+        },
+        "smooth_lddt": {
+          "value": 0.2776591900727132,
+          "weight": 4.0,
+          "contribution": 1.110636760290853
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 1.9544849573273768,
+          "weight": 0.03,
+          "contribution": 0.0586345487198213
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 2.858231662436833,
+          "weight": 0.0001,
+          "contribution": 0.0002858231662436833
+        },
+        "resolved": {
+          "value": 2.2617779336653756,
+          "weight": 0.0001,
+          "contribution": 0.00022617779336653757
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 9.999999397182952,
+      "lr": 0.0003,
+      "s": 42.530213752994314,
+      "wall_s": 239.4,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 93
+      },
+      "dram_gb": 7.194,
+      "held_gb": 6.629,
+      "census_s": 0.8
+    },
+    {
+      "step": 5,
+      "loss": 1.1857172278738075,
+      "breakdown": {
+        "mse": {
+          "value": 0.018876524487179788,
+          "weight": 4.0,
+          "contribution": 0.07550609794871915
+        },
+        "smooth_lddt": {
+          "value": 0.23323108852962793,
+          "weight": 4.0,
+          "contribution": 0.9329243541185117
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 5.900099596374297,
+          "weight": 0.03,
+          "contribution": 0.1770029878912289
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 0.5032595072577675,
+          "weight": 0.0001,
+          "contribution": 5.032595072577675e-05
+        },
+        "resolved": {
+          "value": 2.33461964621894,
+          "weight": 0.0001,
+          "contribution": 0.00023346196462189402
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 9.999999674775712,
+      "lr": 0.0003,
+      "s": 41.52080445099273,
+      "wall_s": 280.92,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 110
+      },
+      "dram_gb": 8.095,
+      "held_gb": 7.514,
+      "census_s": 0.6
+    }
+  ],
+  "exact_ops_requested": "both",
+  "corpus": {
+    "cache_file": "/home/ttuser/of3t-data-xhost/datasets/training_cache_with_templates_subset_8.json",
+    "split": "train",
+    "stage": "initial_training",
+    "crop": 384,
+    "seed": 20260926,
+    "draw_seed": 20260926,
+    "package": "tt_bio._vendor.openfold3",
+    "datapoints_in_cache": 292,
+    "order": [
+      290,
+      289,
+      270,
+      285,
+      291,
+      248,
+      267,
+      154,
+      290,
+      268,
+      267,
+      291
+    ],
+    "entries": [
+      {
+        "index": 154,
+        "pdb_id": "2wig",
+        "chain_or_interface": "['101', '97']",
+        "file": "154_2wig.pt",
+        "sha256": "92996d949b40f7d1fd31d3d586f55370f36224bffc1761cf385e2ae56b270a73",
+        "bytes": 837530212,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 248,
+        "pdb_id": "2wig",
+        "chain_or_interface": "['81', '83']",
+        "file": "248_2wig.pt",
+        "sha256": "bf745dc10e7ad12832b7808772824bd37ad9797cad4a85ab77514c40225478d6",
+        "bytes": 709208871,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 267,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '2']",
+        "file": "267_3wnm.pt",
+        "sha256": "8b0973534a9297503312eed897d807e919cce9c2f84d0bf3921ac3893a6ed4b3",
+        "bytes": 584526802,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 268,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '3']",
+        "file": "268_3wnm.pt",
+        "sha256": "6cfc0b2bef8dc03482f200b682c960b0f0d432866a01f0f4350f898b56aaf189",
+        "bytes": 587826196,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 270,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '5']",
+        "file": "270_3wnm.pt",
+        "sha256": "241c1d7fe944b061db69ac8b06fecec1a2995579e14ca516e338dd92703c4053",
+        "bytes": 733282002,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 285,
+        "pdb_id": "4ky2",
+        "chain_or_interface": "['3', '7']",
+        "file": "285_4ky2.pt",
+        "sha256": "3b00433bf911e74b913b9fbe78c61eeb0e0d1322a02e6d54d97d1da51b0a3f72",
+        "bytes": 319004271,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 289,
+        "pdb_id": "5ron",
+        "chain_or_interface": "4",
+        "file": "289_5ron.pt",
+        "sha256": "298fd215011e092f7edf015201255c7235fb6514e661e3618a68ee51c80b3fd1",
+        "bytes": 840418860,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      },
+      {
+        "index": 290,
+        "pdb_id": "5ron",
+        "chain_or_interface": "['1', '3']",
+        "file": "290_5ron.pt",
+        "sha256": "61f724250a7a10078fe245e4f6d10853296e1ecb777ef02618b141e342681fbb",
+        "bytes": 809883180,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      },
+      {
+        "index": 291,
+        "pdb_id": "5ron",
+        "chain_or_interface": "['1', '4']",
+        "file": "291_5ron.pt",
+        "sha256": "912f3338af9732a0911383b5f450cc621bdc250b3e3b16d0f949eefa204dc9af",
+        "bytes": 223952940,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      }
+    ]
+  },
+  "exact_ops": [],
+  "exact_scope": "all",
+  "dataset": {
+    "n": 9,
+    "files": [
+      "154_2wig.pt",
+      "248_2wig.pt",
+      "267_3wnm.pt",
+      "268_3wnm.pt",
+      "270_3wnm.pt",
+      "285_4ky2.pt",
+      "289_5ron.pt",
+      "290_5ron.pt",
+      "291_5ron.pt"
+    ]
+  },
+  "displacement_band": [
+    0.01,
+    100.0
+  ],
+  "ok": false,
+  "error": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 905969664 B DRAM buffer across 8 banks, where each bank needs to store 113246208 B, but bank size is 4278190016 B (allocated: 3937731584 B, free: 340458432 B, largest free block: 61341696 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x76c7d74d2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x76c7dd11886f]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorES5_NS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0xa4d) [0x76c7dd10a4bd]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadd7c8) [0x76c7dd0dd7c8]\n --- ttnn::multiply(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- ttnn::operations::binary::detail::multiply_fast_approx_tensor_tensor(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, bool, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x5c06df) [0x76c7de3c06df]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x76c7de06daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyObject_Call_Prepend+0x111) [0x54a851]\n --- /home/ttuser/tt-bio-dev/env/bin/python() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyObject_Call_Prepend+0xc2) [0x54a802]\n --- /home/ttuser/tt-bio-dev/env/bin/python() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyObject_MakeTpCall+0x75) [0x548fb5]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x76c7e042a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x76c7e042a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_start+0x25) [0x657a05]\n",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/perf/of3t_p10trainout/trainarm.py\", line 293, in main\n    run = train_loop(fwd, ds, out_dir=a.out_dir, global_batch=a.global_batch,\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/train/recipes.py\", line 186, in train_loop\n    backward([outputs[k] for k in seeds],\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/autograd.py\", line 636, in backward\n    _backward(roots, seeds)\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/autograd.py\", line 676, in _backward\n    fire()\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/autograd.py\", line 2436, in fire\n    _recompute(seeded)\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/autograd.py\", line 2407, in _recompute\n    backward(roots, [g for _, g in seeded])\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/autograd.py\", line 636, in backward\n    _backward(roots, seeds)\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/autograd.py\", line 665, in _backward\n    t.node.fn(_unshard(g))\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/taped_ttnn.py\", line 227, in bw\n    x.add_grad(ag.softmax_bw(y, g, dim=dim))\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10leak/tt_bio/autograd.py\", line 218, in softmax_bw\n    return ttnn.multiply(y, ttnn.subtract(g, softmax_bw_inner(y, g, dim=dim, config=config)))\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py\", line 473, in __call__\n    result = self.function(*function_args, **function_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 905969664 B DRAM buffer across 8 banks, where each bank needs to store 113246208 B, but bank size is 4278190016 B (allocated: 3937731584 B, free: 340458432 B, largest free block: 61341696 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x76c7d74d2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x76c7dd11886f]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorES5_NS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0xa4d) [0x76c7dd10a4bd]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadd7c8) [0x76c7dd0dd7c8]\n --- ttnn::multiply(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- ttnn::operations::binary::detail::multiply_fast_approx_tensor_tensor(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, bool, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x5c06df) [0x76c7de3c06df]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x76c7de06daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyObject_Call_Prepend+0x111) [0x54a851]\n --- /home/ttuser/tt-bio-dev/env/bin/python() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyObject_Call_Prepend+0xc2) [0x54a802]\n --- /home/ttuser/tt-bio-dev/env/bin/python() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyObject_MakeTpCall+0x75) [0x548fb5]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x76c7e042a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x76c7e042a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python(_start+0x25) [0x657a05]\n\n",
+  "wall_s": 290.276,
+  "aiclk": {
+    "0": {
+      "min": 800,
+      "max": 1350,
+      "median": 1350,
+      "n": 113
+    }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 113 samples, polled DURING the work",
+  "host_load": [
+    0.5888671875,
+    0.5888671875,
+    0.58673095703125,
+    0.58673095703125,
+    0.594818115234375,
+    0.57720947265625,
+    0.57720947265625,
+    0.6060791015625,
+    0.6060791015625,
+    0.61260986328125,
+    0.61260986328125,
+    0.59857177734375,
+    0.59857177734375,
+    0.580657958984375,
+    0.580657958984375,
+    0.554168701171875,
+    0.554168701171875,
+    0.554168701171875,
+    0.5498046875,
+    0.5498046875,
+    0.57086181640625,
+    0.580230712890625,
+    0.580230712890625,
+    0.55377197265625,
+    0.55377197265625,
+    0.584503173828125,
+    0.584503173828125,
+    0.557708740234375,
+    0.557708740234375,
+    0.6031494140625,
+    0.6031494140625,
+    0.579864501953125,
+    0.579864501953125,
+    0.558441162109375,
+    0.558441162109375,
+    0.553741455078125,
+    0.553741455078125,
+    0.529388427734375,
+    0.529388427734375,
+    0.53704833984375,
+    0.53704833984375,
+    0.509033203125,
+    0.509033203125,
+    0.523345947265625,
+    0.523345947265625,
+    0.531494140625,
+    0.531494140625,
+    0.54400634765625,
+    0.54400634765625,
+    0.52044677734375,
+    0.52044677734375,
+    0.498779296875,
+    0.498779296875,
+    0.5089111328125,
+    0.558258056640625,
+    0.558258056640625,
+    0.563629150390625,
+    0.563629150390625,
+    0.583587646484375,
+    0.583587646484375,
+    0.596923828125,
+    0.596923828125,
+    0.59918212890625,
+    0.59918212890625,
+    0.60125732421875,
+    0.60125732421875,
+    0.588134765625,
+    0.588134765625,
+    0.596099853515625,
+    0.596099853515625,
+    0.5733642578125,
+    0.5733642578125,
+    0.542449951171875,
+    0.542449951171875,
+    0.549072265625,
+    0.549072265625,
+    0.6002197265625,
+    0.6002197265625,
+    0.582183837890625,
+    0.582183837890625,
+    0.560577392578125,
+    0.560577392578125,
+    0.54571533203125,
+    0.54571533203125,
+    0.557098388671875,
+    0.557098388671875,
+    0.547515869140625,
+    0.547515869140625,
+    0.53369140625,
+    0.53369140625,
+    0.520965576171875,
+    0.520965576171875,
+    0.5743408203125,
+    0.5743408203125,
+    0.583404541015625,
+    0.596771240234375,
+    0.596771240234375,
+    0.594024658203125,
+    0.594024658203125,
+    0.57147216796875,
+    0.57147216796875,
+    0.55072021484375,
+    0.55072021484375,
+    0.591705322265625,
+    0.591705322265625,
+    0.594390869140625,
+    0.594390869140625,
+    0.571807861328125,
+    0.571807861328125,
+    0.606109619140625,
+    0.606109619140625,
+    0.58258056640625,
+    0.58258056640625
+  ]
+}

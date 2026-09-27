@@ -130,6 +130,32 @@ def _slot_rank(item):
     return ("._wc." in n or n.endswith("._wc"), n)
 
 
+def _dedupe_slots(found):
+    """One entry per tensor IDENTITY, under the name whose owner the forward reads.
+
+    `tape()` keys a trainable weight on the raw handle, so declaring one tensor under two
+    paths would put the same leaf in twice and the optimizer would step it twice. WHICH name
+    survives is not cosmetic -- it decides where `Parameters.rebind` writes the new weight
+    after `AdamW.step`, and a slot the forward never reads freezes that weight. See
+    `_slot_rank`.
+
+    Returns `(kept, unwritable)`: `{name: (owner, key, tensor)}` and the names whose owner is
+    a tuple, which `rebind` cannot write back to.
+    """
+    by_id, kept, unwritable = {}, {}, []
+    for n, (o, k, t) in sorted(found.items(), key=_slot_rank):
+        if id(t) in by_id:
+            continue
+        by_id[id(t)] = n
+        kept[n] = (o, k, t)
+        if isinstance(o, tuple):
+            # rebind refuses a tuple slot, correctly: there is nowhere to write the new
+            # weight back to. Counted here rather than raised mid-arm, because a timing run
+            # that dies ten minutes into its backward tells you nothing about the timing.
+            unwritable.append(n)
+    return kept, unwritable
+
+
 def declare_all(trunk, sampler, out):
     """Every device weight of the trunk AND the diffusion half, as one tape-leaf set.
 
@@ -153,19 +179,9 @@ def declare_all(trunk, sampler, out):
     # replaces t.value, and the engine value setter re-keys the TAPE registry for it
     # (autograd.py:220), but the MODEL still holds the handle the walk saw, and only writing
     # it back closes that half.
-    by_id, flat, slots, unwritable = {}, {}, {}, []
-    for n, (o, k, t) in sorted(found.items(), key=_slot_rank):
-        if id(t) in by_id:
-            continue
-        by_id[id(t)] = n
-        flat[n] = ag.parameter(t)
-        if isinstance(o, tuple):
-            # rebind refuses a tuple slot, correctly: there is nowhere to write the new
-            # weight back to. Counted here rather than raised mid-arm, because a timing run
-            # that dies ten minutes into its backward tells you nothing about the timing.
-            unwritable.append(n)
-            continue
-        slots[n] = (o, k)
+    kept, unwritable = _dedupe_slots(found)
+    flat = {n: ag.parameter(t) for n, (_o, _k, t) in kept.items()}
+    slots = {n: (o, k) for n, (o, k, _t) in kept.items() if not isinstance(o, tuple)}
     params = Parameters(flat, slots=slots)
     out["params"] = {
         "declared": len(params),
@@ -785,15 +801,22 @@ def main() -> int:
                          "one process, one set of weights, the SAME replicate noise, no "
                          "optimizer between them. Reports per-parameter cos and rel_l2, "
                          "which is what says the chunked gradient IS the unchunked one")
-    ap.add_argument("--loss-shape", choices=("model", "harness"), default="model",
-                    help="model: the per-replicate terms per root and the five head terms "
-                         "once per step, which is what their step runs. harness: the whole "
-                         "7-term set per root, which is what this file did before "
-                         "of3t-p10host took it apart and is kept as the control")
+    ap.add_argument("--loss-shape", choices=("model", "per-root"), default="model",
+                    help="model: the five non-diffusion terms once per step and the three "
+                         "diffusion-coupled ones per replicate, which is what their step and "
+                         "tt_bio/train/openfold3.py both run. per-root: the whole seven-term "
+                         "set per replicate, what this file did before of3t-p10host took it "
+                         "apart, kept as the control. of3t-p10samples called per-root "
+                         "`harness`; one flag, one vocabulary, because two declarations of "
+                         "this name made argparse refuse to build the parser at all")
     ap.add_argument("--stage", default="initial_training")
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
+    ap.add_argument("--rowmean-per-rep", default="",
+                    help="per-rep plan for autograd.ROW_MEAN_DIVIDE, e.g. 1,0,1,0. The layer-norm "
+                         "backward's four row means as sum/K (1) or as ttnn.mean (0). One warm "
+                         "process, because the step's rep-to-rep spread is larger than the lever.")
     ap.add_argument("--renorm-per-rep", default="",
                     help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
                          "THIS process. The lever is a module global read inside the "
@@ -892,6 +915,9 @@ def main() -> int:
             out["renorm"] = {"flag": bool(ag.SOFTMAX_BW_RENORM),
                              "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
             plan = [bool(int(x)) for x in a.renorm_per_rep.split(",") if x != ""]
+            rmplan = [bool(int(x)) for x in a.rowmean_per_rep.split(",") if x != ""]
+            out["row_mean"] = {"flag": bool(ag.ROW_MEAN_DIVIDE), "per_rep_plan": rmplan or None,
+                               "stats_before": dict(ag.ROW_MEAN_STATS)}
             cplan = [int(x) for x in a.chunk_per_rep.split(",") if x != ""]
             out["chunk_per_rep_plan"] = cplan or None
             out["renorm"]["per_rep_plan"] = plan or None
@@ -913,6 +939,12 @@ def main() -> int:
                 if plan:
                     ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
                 row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
+                if rmplan:
+                    ag.ROW_MEAN_DIVIDE = rmplan[rep % len(rmplan)]
+                row["row_mean_divide"] = bool(ag.ROW_MEAN_DIVIDE)
+                # Differenced per rep, not read once: a switch that is set and never fires is
+                # this fleet's standing failure and the counter is what tells the two apart.
+                rm0 = dict(ag.ROW_MEAN_STATS)
                 rs0 = dict(ag.SOFTMAX_BW_RENORM_STATS)
                 ex0 = (dict(ag.EXACT_SOFTMAX_STATS), dict(ag.EXACT_LAYER_NORM_STATS))
                 # The host resident set, phase by phase, and this rep's own peak. Host
@@ -1124,7 +1156,7 @@ def main() -> int:
                 else:
                     # --- 3. loss heads ----------------------------------------------------
                     t0 = time.perf_counter()
-                    if a.loss_shape == "harness":
+                    if a.loss_shape == "per-root":
                         seeds = host_losses(roots, rep_atom, weights, rng_loss, l_out)
                     else:
                         roll = _to_tokens(roots[0], rep_atom)
@@ -1154,7 +1186,6 @@ def main() -> int:
                 row["seed_upload_s"] = round(seed_s, 3)
                 row["backward_s"] = round(bwd_s, 3)
                 row["dram_peak"] = peak_dram
-                row["mem_available_gib"] = _mem_available_gib()
                 got = sum(1 for t in params.values() if getattr(t, "grad", None) is not None)
                 row["params_with_grad"] = f"{got} of {len(params)}"
                 row["backward_valid"] = bool(got) or a.no_tape
@@ -1217,6 +1248,8 @@ def main() -> int:
                                          - rs0["applied"])
                 row["renorm_declined"] = (ag.SOFTMAX_BW_RENORM_STATS["declined"]
                                           - rs0["declined"])
+                row["row_mean_fired"] = {k: ag.ROW_MEAN_STATS[k] - rm0[k]
+                                         for k in ag.ROW_MEAN_STATS}
                 print(f"[rep {rep}] trunk {row['trunk_s']:.2f}s  "
                       f"diffusion {row['diffusion_s']:.2f}s  "
                       f"losses {row['losses_s']:.2f}s  "
