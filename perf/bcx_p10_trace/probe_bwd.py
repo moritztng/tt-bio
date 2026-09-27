@@ -127,9 +127,18 @@ def experiment(evo, slot, fwd_calls, cots):
     sm_i, sz_i = seeds(0, mo, zo)
     gm_o, gz_o = ttnn.clone(ml.value), ttnn.clone(zl.value)
     res["tape"] = {"tensors": len(ref_tape),
-                   "bytes": int(sum(v.volume() * v.element_size() for v in ref_tape)),
+                   "elements": int(sum(v.volume() for v in ref_tape)),
                    "memory": sorted({str(v.memory_config().buffer_type) for v in ref_tape}),
                    "dtypes": sorted({str(v.dtype) for v in ref_tape})}
+    # Every copy the traces issue compiles here: a program load is a device write, and a write
+    # inside a capture is a TT_FATAL.
+    for v, b in zip(ref_tape, bank):
+        ttnn.copy(v, b)
+        ttnn.copy(b, v)
+    ttnn.copy(mo.value, mo_o)
+    ttnn.copy(zo.value, zo_o)
+    ttnn.copy(ml.value, gm_o)
+    ttnn.copy(zl.value, gz_o)
     del ml, zl, mo, zo, ref_tape
     ttnn.synchronize_device(dev)
 
