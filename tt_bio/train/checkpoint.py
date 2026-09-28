@@ -136,6 +136,15 @@ class Checkpointer:
         self._prune()
         return path
 
+    @property
+    def weights(self) -> Path:
+        """Where a weights run leaves its trained weights in the model's own checkpoint format.
+
+        The adapter files beside it resume a run; this is the file a model loads, and
+        ``tt-bio predict --checkpoint`` takes.
+        """
+        return self.dir / "weights.pt"
+
     def latest(self) -> Optional[Path]:
         """The newest checkpoint on disk, written by this run or an earlier one."""
         found = sorted(self.dir.glob(f"{self.prefix}-*.safetensors"))

@@ -844,7 +844,7 @@ class _WorkerState:
             ckc = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
                 fp32_dest_acc_en=True, packer_l1_acc=True)
-            sd = torch.load(cfg["of3_ckpt"], map_location="cpu", weights_only=False)
+            sd = _of3_state_dict(cfg)
             # CLI --recycling_steps counts recycles; the trunk runs recycles+1 cycles.
             self.model = OpenFold3(sd, ckc, num_cycles=_recycles(cfg, 3) + 1)
         elif model_id == "rf3":
@@ -1957,6 +1957,20 @@ class _WorkerState:
             "affinity_probability_binary2",
         ]
         return {k: round(pred[k].item(), 6) for k in keys if k in pred}
+
+
+def _of3_state_dict(cfg: dict[str, Any]) -> dict:
+    """The weights an OF3-family fold loads: ``--checkpoint`` when given, else the shipped file.
+
+    Both are the same format. `tt-bio train` writes its trained weights as OUT/weights.pt for
+    exactly this; its adapter-*.safetensors files hold optimizer state for resuming a run.
+    """
+    ckpt = cfg.get("checkpoint")
+    if ckpt and Path(ckpt).suffix == ".safetensors":
+        raise RuntimeError(
+            f"{ckpt} is a training checkpoint, which resumes a run. Fold with the weights.pt "
+            f"that `tt-bio train` wrote beside it")
+    return torch.load(ckpt or cfg["of3_ckpt"], map_location="cpu", weights_only=False)
 
 
 def _install_orphan_guard(dispatcher_pid: int) -> None:
