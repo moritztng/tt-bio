@@ -947,6 +947,18 @@ def trained_state_dict(masters: dict, base, *, device=None) -> dict:
     if stray:
         raise ValueError(f"{len(stray)} trained tensors are not weights of this model, e.g. "
                          f"{stray[:3]}")
+    # One device tensor reached by two walk paths (the DiT's `w_lg` is also its cache entry
+    # `_wc[(key, True)]`) has a master per path, and the card holds the one the optimizer wrote
+    # last. That master is the weight; the other paths are dropped so it counts once.
+    order = {p: i for i, p in enumerate(masters)}
+    by_object = {}
+    for p, _o, _k, t in walked:
+        if p in masters:
+            by_object.setdefault(id(t), []).append(p)
+    for paths in by_object.values():
+        for p in sorted(paths, key=order.get)[:-1]:
+            uploads.pop(p, None)
+            masters = {q: m for q, m in masters.items() if q != p}
     moved = {}
     for p, m in masters.items():
         d = np.asarray(m, np.float32).reshape(-1) - to_host(found[p]).reshape(-1)
