@@ -1,9 +1,9 @@
 # Training: the four tiers, and what each one guarantees
 
-Progressive disclosure, cut where the **unit of user authorship** changes. Not where the
-amount of configuration changes, which is the distinction this whole design turns on: you can
-name your authorship unit before you start, while "how much configuration" is only knowable
-after you hit a wall.
+Training has four tiers, and each one is cut where the **thing you write** changes: a config,
+an objective, the loop, an op. The cut is not where the amount of configuration grows. You know
+which of the four you are writing before you start; how much configuration you need only shows
+once you hit a wall.
 
 | Tier | Surface | You own | Cut line, and its test |
 |---|---|---|---|
@@ -20,8 +20,8 @@ gate rather than by taste.
 
 ## The three calls, and what changes between them
 
-The design is against real usage, so these are the three a user actually writes. The first two
-differ by one argument, and the third folds with what either of them trained.
+These are the three commands a user writes. The first two differ by one argument, and the third
+folds with what either of them trained.
 
 ```bash
 tt-bio train data/ --model openfold3 --out runs/a --global-batch 8 --steps 2000
@@ -120,7 +120,7 @@ the device, because sending the next reader to the wrong file is worse than no r
 
 Level 1 runs anywhere, including a box with no card:
 
-```
+```bash
 pytest tests/test_autograd_reference_gate.py
 ```
 
@@ -192,16 +192,16 @@ Measured, and each carries its source:
 Refused rather than estimated. **A memory wall belongs to a model, not to a token count**, so
 these are per model and `plan()` applies only the one you asked for:
 
-- **Protenix-v2 — 384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB,
+- **Protenix-v2, 384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB,
   536,870,912 B refused. Both in the forward under per-block checkpointing where the forward is
   untaped, so what fails is one block's working set. Distribution does not help: 8 chips each
   run out at 384 aa exactly as one does.
-- **OpenFold3 — 576 aa runs with `--exact` and is the largest measured to; the device path fits to 512. 640 and 768 refuse.** The backward
+- **OpenFold3: 576 aa runs with `--exact` and is the largest measured to; the device path fits to 512. 640 and 768 refuse.** The backward
   peaks at 30,230,471,680 B of the card's 34,225,520,128 B at 576 aa, 88.3 % full, with the
   clock at a median 1350 MHz polled during. 640 and 768 die with the card full, 23,710,208 B
   and 6,231,552 B free. **This frontier moved on 2026-09-23 and the reason is worth reading**:
   576 used to refuse with 6,671,522,304 B still free, short by 77,930,560 B per bank, beaten by
-  contiguity inside `ttnn::concat` rather than by capacity — and splitting the concat-heads
+  contiguity inside `ttnn::concat` rather than by capacity, and splitting the concat-heads
   gradient on `dh` instead of a dim of extent `H` removed exactly that allocation. So one of the
   two walls was never a capacity wall at all, which is also why a capacity extrapolation cannot
   find this frontier and why these are measurements and not a slope. 544 sits below a crop that
@@ -324,10 +324,12 @@ going multi-card is. Until it is wired, the honest claim is multi-card on one ho
 `tt-bio train --model openfold3 DATA` reads upstream OpenFold3's training-set layout, the one
 its own `WeightedPDBDataset` reads:
 
-    DATA/
-      pdb_training_set/
-        mmcif_files/ ...  preprocessed/ ...  msas/ ...  templates/ ...
-      training_cache_<anything>.json      exactly one
+```text
+DATA/
+  pdb_training_set/
+    mmcif_files/ ...  preprocessed/ ...  msas/ ...  templates/ ...
+  training_cache_<anything>.json      exactly one
+```
 
 Each step's sample is drawn from the cache's `datapoint_probabilities` and cropped by
 upstream's own featuriser, in the training process, at about 2 to 4 s a sample on the host.
@@ -432,7 +434,7 @@ Two things follow from walking, and both are checked rather than assumed.
 * **The discovery forward runs first, and it runs taped.** Weights a module fuses lazily do not
   exist until the first call at a given shape, so a walk of a freshly built model is a walk of a
   smaller model than the one that runs. And several fused kernels decline while a tape is open,
-  which routes the call down a composed path that fuses a different weight again — an untaped
+  which routes the call down a composed path that fuses a different weight again: an untaped
   discovery forward reached 196 of the 204 weights the taped forward then used. `walked_weights`
   spends one `no_grad` forward with the hook installed, which costs the same one inference the
   census costs.
@@ -548,7 +550,7 @@ things decide whether that is the same rule the reference applies. `finetune` do
 you; at Tier 2 you own the loop, so you own them:
 
 * **`disabled=` the parameter names this sample does not activate.** They are excluded from the
-  global norm and from the update, which is what OpenFold3 does — and it is not a corner case.
+  global norm and from the update, which is what OpenFold3 does, and it is not a corner case.
   Their runner disables the confidence head whenever a sample's summed confidence weight is
   zero, which the initial-training config does on four of its five datasets. Norm over a set the
   reference excluded and the coefficient applied to every gradient in the step is different:
@@ -599,7 +601,7 @@ already do.
 
 What it is worth. On the OpenFold3 diffusion module's gradient over 547 parameters, 51.1358 % of
 the model's squared gradient norm, against upstream's own bf16 training step, it takes the
-mass-weighted relative error from 7.426217e+00 to 7.777580e-02 — 95.5x of the gap. Against an
+mass-weighted relative error from 7.426217e+00 to 7.777580e-02, 95.5x of the gap. Against an
 exact float64 reference it reads 5.930664e-02, which is 1.013x what upstream's own bf16 step
 reaches against the same reference. It is not free: 167x on the softmax alone, and 1.47x on the
 whole gradient arm, because the softmax is a small share of what the step runs.
@@ -607,8 +609,10 @@ whole gradient arm, because the softmax is a small share of what the step runs.
 Syntax is the one the other per-site softmax flags use. A bare token turns one construction site
 on, a `-` prefix turns it off, and `all` / `-all` move every site without a token of its own:
 
-    TT_BIO_HOST_F64_SOFTMAX_AB=all                          # every site
-    TT_BIO_HOST_F64_SOFTMAX_AB=openfold3.diffusion_transformer
+```bash
+TT_BIO_HOST_F64_SOFTMAX_AB=all                          # every site
+TT_BIO_HOST_F64_SOFTMAX_AB=openfold3.diffusion_transformer
+```
 
 The sites are `openfold3.diffusion_transformer`, `openfold3.atom_transformer` and
 `protenix.atom_transformer`.
@@ -623,7 +627,7 @@ exists because `d_logits = y(g - Σ g·y)` is only row-sum-free when the row sum
 for 1.049x the runtime, which is 99.6 % of the ground the host round trip buys at a tenth of the
 cost. What the round trip still has over it is the forward: the renormalisation cannot fix a
 softmax that was computed imprecisely, only the backward's use of it. Turning both on is safe and
-pointless — a float64 softmax already sums to one, so the division is a no-op there, measured as a
+pointless: a float64 softmax already sums to one, so the division is a no-op there, measured as a
 bit-identical gradient.
 
 Set `TT_BIO_SOFTMAX_BW_RENORM=0` for the old backward. **It cannot change a prediction.** Every
@@ -657,8 +661,10 @@ for, a float64 reference when you are chasing a precision question:
 tt-bio train ... --exact
 ```
 
-    with tt_bio.autograd.exact_training(True):
-        ...                     # tapes and backwards opened here run softmax and layer norm in float64
+```python
+with tt_bio.autograd.exact_training(True):
+    ...                     # tapes and backwards opened here run softmax and layer norm in float64
+```
 
 When it is on, the training stack opens it, not a flag on each call. `tt_bio.autograd.install()`
 opens the float64 ops until its `uninstall()`, and the recipe holds one install across the whole
