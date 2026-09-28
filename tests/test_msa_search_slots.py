@@ -4,6 +4,9 @@ A Galaxy runs one ``tt-bio predict`` per job, so the bound has to hold between s
 processes, not threads. Each case starts real OS processes that call the real
 ``compute_msa_offline`` with a stand-in ``colabfold_search`` on PATH. The stand-in records
 when it ran and at what nice value, so overlap and priority are read from what happened.
+K reaches them only through the environment, as it does on a Galaxy: the first version kept
+it in a module global, the CLI set it on ``__main__`` (``python -m tt_bio.main``), and the
+prefetch's ``tt_bio.main`` never saw it, so no search on dev took a slot.
 """
 import os
 import signal
@@ -28,7 +31,6 @@ SEARCH = textwrap.dedent("""
     import sys
     from pathlib import Path
     from tt_bio import main as m
-    m.MSA_SEARCHES = int(sys.argv[3]) or None
     m.compute_msa_offline({sys.argv[1]: "MKTAYIAKQR"}, sys.argv[1], Path(sys.argv[2]),
                           sys.argv[4], pair=False)
 """)
@@ -51,6 +53,8 @@ def host(tmp_path):
 def _launch(host, n, k, **extra):
     tmp, db, env = host
     env = {**env, **extra}
+    if k:
+        env["TT_BIO_MSA_SEARCHES"] = str(k)
     return [subprocess.Popen([sys.executable, "-c", SEARCH, f"s{i}", str(tmp / f"msa{i}"),
                               str(k), str(db)], env=env, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True)
@@ -129,3 +133,17 @@ def test_a_killed_searcher_frees_its_slot(host):
     assert second.returncode == 0, out
     starts, _ends, _ = _intervals(tmp)
     assert len(starts) == 2
+
+
+def test_the_cli_option_reaches_every_copy_of_the_module(tmp_path, monkeypatch):
+    """``predict --msa_searches`` puts K where a second import of tt_bio.main and every
+    child process read it: the environment."""
+    from click.testing import CliRunner
+    from tt_bio import main as m
+    monkeypatch.setenv(m.MSA_SEARCHES_ENV, "")      # restored after the test, whatever predict sets
+    monkeypatch.delenv(m.MSA_SEARCHES_ENV)
+    inp = tmp_path / "in"
+    inp.mkdir()
+    CliRunner().invoke(m.predict, [str(inp), "--out_dir", str(tmp_path / "out"),
+                                   "--msa_searches", "3"])
+    assert os.environ.get(m.MSA_SEARCHES_ENV) == "3"

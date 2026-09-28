@@ -544,18 +544,21 @@ def _validate_offline_msa_db(db_path: Path, require_envdb: bool = False) -> None
         )
 
 
-#: How many offline searches may run at once against one database on this host; ``None``
+#: How many offline searches may run at once against one database on this host; unset
 #: for no limit. Set by ``tt-bio predict --msa_searches``. A Galaxy runs one ``tt-bio
 #: predict`` per job, so the limit cannot be a counter in any one process: it is ``n`` lock
 #: files in the host's temp dir, and a search holds one for as long as it
 #: runs. The kernel drops the lock of a searcher that dies, so a killed job frees its slot.
-MSA_SEARCHES: int | None = None
+#: It travels in the environment, not a module global: ``python -m tt_bio.main`` runs this
+#: file as ``__main__``, and the prefetch imports ``tt_bio.main``, a second copy that would
+#: never see the global the CLI set (dev .107, 09-28: no slot was ever taken).
+MSA_SEARCHES_ENV = "TT_BIO_MSA_SEARCHES"
 
 
 @contextmanager
 def _search_slot(db_path: str):
-    """Hold one of :data:`MSA_SEARCHES` host-wide search slots for ``db_path``."""
-    n = MSA_SEARCHES
+    """Hold one of the ``$TT_BIO_MSA_SEARCHES`` host-wide search slots for ``db_path``."""
+    n = int(os.environ.get(MSA_SEARCHES_ENV) or 0)
     if not n:
         yield
         return
@@ -3253,8 +3256,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         1   every target failed
         2   some targets failed, some folded
     """
-    global MSA_SEARCHES
-    MSA_SEARCHES = msa_searches
+    if msa_searches:
+        os.environ[MSA_SEARCHES_ENV] = str(msa_searches)
     # Refuse a size this model is MEASURED not to fold, before anything opens a device. Placed
     # ahead of the model branch so both routes are covered by one call: past this point predict
     # forks into the scheduler path and the Boltz-2 path, and guarding each separately is how one
