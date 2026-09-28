@@ -159,6 +159,12 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         opt = AdamW(params, lr=lr, data_parallel=dp, betas=betas, weight_decay=weight_decay,
                     schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup_steps,
                                               plateau_until=plateau_until))
+        # A weights run trains the checkpoint's parameters, so elements the build filled with
+        # constants (the k and v thirds of a fused bias whose checkpoint has a q bias only)
+        # stay put. Otherwise they train a parameter the model lacks and weights.pt cannot
+        # carry the run.
+        if cfg is None and hasattr(forward, "unsourced"):
+            opt.hold(forward.unsourced())
         # Rank 0 owns out_dir and the others get a subdirectory of it. The masters are
         # bit-identical across ranks, so one copy is the run's checkpoint; the reason not to
         # let them share the path is that two writers make a truncated safetensors file.

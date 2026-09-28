@@ -167,6 +167,44 @@ def recording(state_dict: dict, canonical=lambda k: k, *, differentiable: bool =
         _Traced._live = weakref.WeakSet()
 
 
+def _jvp(host, xs, v):
+    """``J v``: differentiate the (linear-in-u) ``J^T u`` with respect to u."""
+    u = torch.zeros_like(host, requires_grad=True)
+    jt = torch.autograd.grad(host, xs, u, create_graph=True, allow_unused=True)
+    pairs = [(g, x) for g, x in zip(jt, v) if g is not None and g.requires_grad]
+    if not pairs:
+        return torch.zeros_like(host)
+    (out,) = torch.autograd.grad([g for g, _ in pairs], u, [x for _, x in pairs],
+                                 retain_graph=True)
+    return out
+
+
+def unsourced(lineage: Lineage, uploads: dict, canonical=lambda k: k) -> dict:
+    """``{path: bool mask}`` of the elements of each upload that no checkpoint value reaches.
+
+    A build fills some elements with constants: the k and v thirds of a fused q/k/v bias whose
+    checkpoint has only a q bias, for one. Training them trains a parameter the model does not
+    have, and no checkpoint can carry the result, so the optimizer holds them. An element is
+    reached when ``J r`` is non-zero for a random ``r`` (zero only on a set of measure zero).
+    Uploads with every element reached are left out.
+    """
+    leaves = lineage.leaves
+    g = torch.Generator().manual_seed(0)
+    out = {}
+    for path, (keys, host) in uploads.items():
+        xs = [x for k, x in leaves.items() if canonical(k) in keys]
+        if host is None:
+            continue
+        if host.grad_fn is None or not xs:
+            out[path] = torch.ones(host.shape, dtype=torch.bool)
+            continue
+        r = [torch.randn(x.shape, generator=g, dtype=x.dtype) for x in xs]
+        held = _jvp(host, xs, r) == 0
+        if held.any():
+            out[path] = held
+    return out
+
+
 def fold_back(state_dict: dict, lineage: Lineage, uploads: dict, moved: dict,
               canonical=lambda k: k, *, tol: float = 1e-3) -> dict:
     """``state_dict`` with each upload's movement pulled back into the keys it was built from.
@@ -202,16 +240,7 @@ def fold_back(state_dict: dict, lineage: Lineage, uploads: dict, moved: dict,
     def pullback(host, xs, d):
         return torch.autograd.grad(host, xs, d, retain_graph=True, allow_unused=True)
 
-    def forward(host, xs, v):
-        """``J v``: differentiate the (linear-in-u) ``J^T u`` with respect to u."""
-        u = torch.zeros_like(host, requires_grad=True)
-        jt = torch.autograd.grad(host, xs, u, create_graph=True, allow_unused=True)
-        pairs = [(g, x) for g, x in zip(jt, v) if g is not None and g.requires_grad]
-        if not pairs:
-            return torch.zeros_like(host)
-        (out,) = torch.autograd.grad([g for g, _ in pairs], u, [x for _, x in pairs],
-                                     retain_graph=True)
-        return out
+    forward = _jvp
 
     num, den = {}, {}
     for path, (keys, host) in uploads.items():

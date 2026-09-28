@@ -274,6 +274,27 @@ class AdamW:
         self.accum: Dict[str, "np.ndarray"] = {}
         self.participation: Dict[str, int] = {}
         self.accum_count = 0
+        #: ``{name: bool mask}`` of elements no step moves (`hold`).
+        self.held: Dict[str, "np.ndarray"] = {}
+
+    def hold(self, masks: dict) -> int:
+        """Never move the masked elements of each named parameter; returns how many.
+
+        For elements the build filled with constants rather than checkpoint values: the model
+        has no such parameter, so their gradient is dropped before the clip norm, as it would
+        be for a weight that did not exist, and neither the step nor the decay touches them.
+        """
+        import numpy as np
+        self.held = {n: np.asarray(m, bool).reshape(self.master[n].shape)
+                     for n, m in masks.items() if n in self.master}
+        return int(sum(m.sum() for m in self.held.values()))
+
+    def _grad(self, name, t):
+        import numpy as np
+        g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+        if name in self.held:
+            g[self.held[name]] = 0.0
+        return g
 
     @staticmethod
     def _narrow(arr, dtype):
@@ -383,8 +404,7 @@ class AdamW:
             # does not.
             g = None if name in disabled else (
                 self.accum.get(name) if per_sample else (
-                    None if t.grad is None else
-                    to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)))
+                    None if t.grad is None else self._grad(name, t)))
             if g is None:
                 g = np.zeros_like(self.master[name])
             elif clip != 1.0:
@@ -398,6 +418,8 @@ class AdamW:
             theta = self.master[name]
             upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
                         + self.weight_decay * theta)
+            if name in self.held:
+                upd[self.held[name]] = 0.0
             # The control the brief demands, measured rather than asserted: the step the
             # weight the FORWARD reads actually took, after rounding to the device dtype.
             # A master update that vanishes in the cast is an expensive no-op.
@@ -620,7 +642,7 @@ class AdamW:
         tot = 0.0
         for name, t in self.params.items():
             if t.grad is not None and name not in disabled:
-                gg = to_host(t.grad).astype(np.float32)
+                gg = self._grad(name, t)
                 tot += float(gg.ravel() @ gg.ravel())
         return math.sqrt(tot)
 
@@ -656,7 +678,7 @@ class AdamW:
         for name, t in self.params.items():
             if t.grad is None or name in disabled:
                 continue
-            g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+            g = self._grad(name, t)
             if clip != 1.0:
                 g = g * clip
             acc = self.accum.get(name)

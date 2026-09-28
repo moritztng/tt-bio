@@ -477,6 +477,15 @@ class OpenFold3Forward:
         self._claimed = {k for k in map(_canonical_key, sd) if not k.startswith(_FROZEN)}
         return sd, lin, walked, uploads
 
+    def unsourced(self) -> dict:
+        """``{walk path: bool mask}`` of device-weight elements no checkpoint value reaches.
+
+        Builds a second copy of the model with a differentiable lineage; it is gone on return.
+        """
+        fwd = OpenFold3Forward(self.checkpoint, device=self.device)
+        _sd, lin, _walked, uploads = fwd._record(differentiable=True)
+        return lineage.unsourced(lin, uploads, _canonical_key)
+
     def write_weights(self, masters: dict, path) -> Path:
         """Write ``masters`` as an OpenFold3 checkpoint in the shipped format, atomically."""
         import os

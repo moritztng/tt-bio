@@ -169,3 +169,43 @@ def test_train_adapters_is_refused_for_openfold3_with_what_to_do():
     assert res.exit_code == 2
     assert "Drop the flag" in res.output and "--checkpoint" in res.output
     assert "--train" not in CliRunner().invoke(train, ["--help"]).output
+
+
+def test_constants_the_build_fills_in_are_found_and_held():
+    """OpenFold3's fused q/k/v bias is the q bias beside zeros: the checkpoint has no k or v
+    bias. Those zeros are found, and the optimizer never moves them, so weights.pt can carry
+    the run."""
+    import numpy as np
+    from tt_bio.train import optim
+
+    sd = {"q.bias": torch.randn(4), "w": torch.randn(3, 4)}
+    with lineage.recording(sd, differentiable=True) as (traced, lin):
+        model = {"qkv_b": ttnn.from_torch(torch.cat([traced["q.bias"], torch.zeros(8)])),
+                 "w": ttnn.from_torch(traced["w"].t())}
+    uploads = lin.by_path([(p, model, p, t) for p, t in model.items()], hosts=True)
+    held = lineage.unsourced(lin, uploads)
+    assert set(held) == {"qkv_b"}
+    assert held["qkv_b"].tolist() == [False] * 4 + [True] * 8
+
+    class _P:
+        def __init__(self, a):
+            self.value, self.grad = _V(a), _V(np.ones_like(a))
+
+    class _V(np.ndarray):
+        def __new__(cls, a):
+            return np.asarray(a, np.float32).view(cls)
+
+        def device(self):
+            return None
+
+    host = lambda t, **k: np.asarray(t, np.float32)  # noqa: E731
+    params = {"qkv_b": _P(np.zeros(12, np.float32))}
+    import unittest.mock as mock
+    with mock.patch.object(optim, "to_host", host), \
+            mock.patch.object(optim, "to_device", lambda a, *x, **k: _V(a)):
+        opt = optim.AdamW(params, lr=1e-2, weight_decay=0.1)
+        assert opt.hold({"qkv_b": held["qkv_b"].numpy()}) == 8
+        assert opt.grad_norm() == pytest.approx(2.0)   # sqrt(4): the held 8 are not in it
+        opt.step()
+    m = opt.master["qkv_b"]
+    assert (m[:4] != 0).all() and (m[4:] == 0).all()
