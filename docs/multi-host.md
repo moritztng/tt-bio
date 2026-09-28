@@ -89,8 +89,7 @@ A run's status is `ok` only if every job was `ok`, and `failed` if any was not.
 - **`online`** means heard from in the last 20 s. An idle worker asks for work every
   second and a busy one heartbeats from its own thread, so a worker that goes quiet has
   died or its host has.
-- **`model`** is the model the worker has loaded. The controller prefers to give a worker
-  jobs for the model it already has, so it does not reload.
+- **`model`** is the model the worker has loaded, for display.
 - **`running`** is the jobs it holds right now. An empty list on an online worker is a
   free chip.
 
@@ -111,7 +110,12 @@ workers unchanged; it is the model configuration the submitting command built.
 `{"run_id", "config", "jobs": [{"id", "name", "input_b64"}], "lease_s"}`, or
 `{"jobs": [], "lease_s"}` when there is nothing to do. Every job in one answer belongs to
 one run. `worker` is the advertisement above: `worker_id`, `host`, `accelerator`,
-`device_id`, `label` and `model`. A worker asks only when it holds nothing, so a job
+`device_id`, `label` and `model`, plus `warm`: `run_config_hash(config)` of the weights it
+has resident, or null. Among the owners with the fewest chips in use, the controller gives
+a worker a job whose run hashes to its `warm` before an older one that would make it reload,
+and a worker that would have to reload skips a job while another worker that holds its weights
+is idle and polled in the last 5 s. Fairness comes first, and a busy or silent warm worker
+holds nothing back, so a job waits at most one poll for a warm chip. A worker asks only when it holds nothing, so a job
 still leased to the asking worker was abandoned (its process restarted, or its
 completion never arrived) and goes back in the queue.
 
