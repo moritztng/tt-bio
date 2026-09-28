@@ -5,7 +5,8 @@ sits in the built model; predict builds from an upstream-format state dict. `lin
 turns one into the other by differentiating the build, so these tests build a toy model with
 the transforms the real one uses (transpose, fused concatenation, padding, a constant scale, one
 parameter stored under two keys) and check the round trip: rebuild from the folded-back dict and
-every upload has moved by exactly what training moved it. Host-only; no device is opened.
+every upload has moved by exactly what training moved it. Host-only: `ttnn.from_torch` is
+replaced by a stand-in that keeps the tensor, because even a host upload brings the cluster up.
 """
 
 import pytest
@@ -16,13 +17,29 @@ ttnn = pytest.importorskip("ttnn")
 from tt_bio.train import lineage  # noqa: E402
 
 
+class _Upload:
+    """What the recording needs of a ttnn tensor: an identity, a shape, no buffer."""
+
+    def __init__(self, t):
+        self.t = t.detach().clone()
+        self.shape = tuple(t.shape)
+
+    def buffer_address(self):
+        raise RuntimeError("host tensor")
+
+
+@pytest.fixture(autouse=True)
+def _host_uploads(monkeypatch):
+    monkeypatch.setattr(ttnn, "from_torch", lambda t, *a, **k: _Upload(t))
+
+
 def _canonical(k):
     return k[len("copy."):] if k.startswith("copy.") else k
 
 
 def _build(sd):
     """Five uploads, one per transform family the OpenFold3 build uses."""
-    up = lambda t: ttnn.from_torch(t, dtype=ttnn.float32)  # noqa: E731
+    up = lambda t: ttnn.from_torch(t)  # noqa: E731
     return {
         "lin": up(sd["lin.weight"].t().contiguous()),
         "qkv": up(torch.cat([sd["q.weight"], sd["k.weight"], sd["v.weight"]]).t()),
@@ -43,7 +60,7 @@ def _state_dict():
 
 
 def _host(t):
-    return ttnn.to_torch(t).double()
+    return t.t.double()
 
 
 def _record(sd, **kw):
@@ -87,8 +104,7 @@ def test_nothing_moved_is_the_same_state_dict():
 def test_a_value_uploaded_twice_and_trained_apart_is_refused():
     sd = {"w": torch.randn(4, 4)}
     with lineage.recording(sd, differentiable=True) as (traced, lin):
-        model = {"one": ttnn.from_torch(traced["w"], dtype=ttnn.float32),
-                 "two": ttnn.from_torch(traced["w"].t(), dtype=ttnn.float32)}
+        model = {"one": ttnn.from_torch(traced["w"]), "two": ttnn.from_torch(traced["w"].t())}
     uploads = lin.by_path([(p, model, p, t) for p, t in model.items()], hosts=True)
     moved = {"one": torch.full((4, 4), 1e-2, dtype=torch.float64)}
     with pytest.raises(ValueError, match="cannot be written back"):
