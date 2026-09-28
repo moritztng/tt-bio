@@ -20,13 +20,13 @@ gate rather than by taste.
 
 ## The three calls, and what changes between them
 
-The design is against real usage, so these are the three a user actually writes. They differ by
-one argument each, and none of them is a rewrite of the one before it.
+The design is against real usage, so these are the three a user actually writes. The first two
+differ by one argument, and the third folds with what either of them trained.
 
 ```bash
 tt-bio train data/ --model openfold3 --out runs/a --global-batch 8 --steps 2000
 tt-bio train data/ --model openfold3 --out runs/b --global-batch 8 --steps 2000 --chips 0,2
-tt-bio train data/ --model openfold3 --out runs/c --global-batch 8 --steps 2000 --train adapters
+tt-bio predict target.yaml --model openfold3 --checkpoint runs/b/weights.pt
 ```
 
 Every flag after `--model` has a default, so the shortest of these is `tt-bio train --model
@@ -47,9 +47,10 @@ run = train.finetune(forward, dataset, out_dir="runs/c", global_batch=8, steps=2
 axis and hands the run to the launcher, which re-runs your program once per chip. The loop is
 the loop it was on one chip.
 
-**Adapters or weights is `--train`, and nothing else moves either.** `adapters` puts a LoRA
+**Adapters or weights is `train=`, and nothing else moves either.** `adapters` puts a LoRA
 factor pair beside each site and freezes the trunk; `weights` trains the model's own weights at
-those same sites. The loop, the objective, the optimizer, the checkpointer and the data-parallel
+those same sites. `tt-bio train` refuses `--train adapters` for OpenFold3, the one model it
+trains today: LoRA has no measured run on it, and `predict` loads full weights only. The loop, the objective, the optimizer, the checkpointer and the data-parallel
 axis are the same code, and the escape-hatch test below compares them instruction for
 instruction rather than taking the claim on trust. What does change is the memory arithmetic, so
 `--train weights` is a name a flag can carry and `plan()` answers differently for it.
@@ -357,7 +358,29 @@ training a model.
   included) and the per-rank data-parallel record.
 - `OUT/adapter-<step>.safetensors`: the fp32 masters and both Adam moments, every
   `--checkpoint-every` steps and at the last one, three kept. About 6.4 GB each when training
-  OpenFold3's weights.
+  OpenFold3's weights. These resume a run; they are not what a model loads.
+- `OUT/weights.pt`: after the last step, the trained weights in the format of the checkpoint
+  the run started from (2.3 GB for OpenFold3), for `tt-bio predict --checkpoint`. A run on
+  several chips writes it once, from rank 0.
+
+### How `weights.pt` is made
+
+The optimizer holds each weight the way the device reads it: transposed, fused with its
+neighbours, padded to tiles. The checkpoint `predict` loads holds upstream's tensors. At the end
+of the run tt-bio rebuilds the model from the starting weights while recording which checkpoint
+tensors each device weight was made from, differentiates that build, and pulls each weight's
+change back into those tensors (`tt_bio.train.lineage.fold_back`). No per-module rule for how a
+weight reaches the card is written down, so a new fused layout cannot fall out of step with it.
+
+It is checked before the file is written: rebuilding each weight training moved must reproduce
+that movement, or the run fails naming the weight. That catches one value that reached the card
+twice and trained apart, which a checkpoint cannot represent. Some modules keep a weight in more
+than one fused layout and read one per call; the layouts the run never read did not move, and
+rebuilt from the file they carry the trained values too. A weights run trains the checkpoint's parameters and nothing else. Where the build fills part of a
+device weight with constants (OpenFold3 fuses q, k and v biases, and its checkpoint has only the q
+bias, so the k and v thirds are zeros), those elements are found before the first step and the
+optimizer never moves them. Every tensor the run did not move is the
+starting file's own tensor, unchanged.
 
 Running the same command on the same `OUT` resumes: it loads the newest checkpoint and starts
 at the step after it, and the rows `progress.jsonl` already has past that checkpoint appear

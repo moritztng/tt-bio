@@ -68,7 +68,7 @@ from . import catalogue, lineage, losses
 from ..taped_ttnn import shim_scope
 
 __all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw",
-           "sample_data"]
+           "sample_data", "trained_state_dict"]
 
 MODEL = "openfold3"
 
@@ -455,20 +455,45 @@ class OpenFold3Forward:
     def model(self):
         """The shipped ``OpenFold3`` module, built once on first use."""
         if self._model is None:
-            import ttnn
-            from ..tenstorrent import walk_device_weights
-            dev = self.device
-            sd = torch.load(self.checkpoint, map_location="cpu", weights_only=False)
-            sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
-            sd = {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
-            ckc = ttnn.init_device_compute_kernel_config(
-                dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
-                fp32_dest_acc_en=True, packer_l1_acc=True)
-            with lineage.recording(sd, _canonical_key) as (sd, lin):
-                self._build(sd, ckc)
-            self._lineage = lin.by_path(walk_device_weights(self._model))
-            self._claimed = {k for k in map(_canonical_key, sd) if not k.startswith(_FROZEN)}
+            self._record()
         return self._model
+
+    def _record(self, *, differentiable: bool = False):
+        """Build the model under a lineage recording. Returns what ``trained_state_dict`` needs:
+        the checkpoint as loaded, the ``Lineage``, the walk and ``{path: (keys, host)}``."""
+        import ttnn
+        from ..tenstorrent import walk_device_weights
+        dev = self.device
+        sd = _load_state_dict(self.checkpoint)
+        ckc = ttnn.init_device_compute_kernel_config(
+            dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+            fp32_dest_acc_en=True, packer_l1_acc=True)
+        with lineage.recording(sd, _canonical_key, differentiable=differentiable) as (traced,
+                                                                                      lin):
+            self._build(traced, ckc)
+        walked = list(walk_device_weights(self._model))
+        uploads = lin.by_path(walked, hosts=True)
+        self._lineage = {p: keys for p, (keys, _h) in uploads.items()}
+        self._claimed = {k for k in map(_canonical_key, sd) if not k.startswith(_FROZEN)}
+        return sd, lin, walked, uploads
+
+    def unsourced(self) -> dict:
+        """``{walk path: bool mask}`` of device-weight elements no checkpoint value reaches.
+
+        Builds a second copy of the model with a differentiable lineage; it is gone on return.
+        """
+        fwd = OpenFold3Forward(self.checkpoint, device=self.device)
+        _sd, lin, _walked, uploads = fwd._record(differentiable=True)
+        return lineage.unsourced(lin, uploads, _canonical_key)
+
+    def write_weights(self, masters: dict, path) -> Path:
+        """Write ``masters`` as an OpenFold3 checkpoint in the shipped format, atomically."""
+        import os
+        path = Path(path)
+        tmp = path.with_suffix(".part")
+        torch.save(trained_state_dict(masters, self.checkpoint, device=self.device), tmp)
+        os.replace(tmp, path)
+        return path
 
     def _build(self, sd, ckc):
         """The shipped module plus everything the training step adds to it."""
@@ -892,6 +917,55 @@ def adapter(path, tokens=None, *, checkpoint=None, rollout: int = 20, num_cycles
     return (OpenFold3Forward(ckpt, rollout=rollout, num_cycles=num_cycles, seed=seed,
                              exact_scope=exact_scope),
             OpenFold3Dataset(path, tokens=tokens, seed=seed))
+
+
+def _load_state_dict(path) -> dict:
+    """An OpenFold3 checkpoint as ``{key: tensor}``, Lightning's ``model.`` prefix removed."""
+    sd = torch.load(path, map_location="cpu", weights_only=False)
+    sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
+    return {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
+
+
+def trained_state_dict(masters: dict, base, *, device=None) -> dict:
+    """``masters`` (the optimizer's, keyed by walk path) as an OpenFold3 state dict like ``base``.
+
+    The masters are in device coordinates, keyed by where each weight sits in the built model;
+    the model is built from an upstream-format state dict. So this builds the model from
+    ``base`` with a differentiable lineage, reads back every device weight as a run from
+    ``base`` starts from it, and folds each master's movement back into the keys it was built
+    from (``lineage.fold_back``). Keys training never moved come back as the same tensors, so
+    the result folds exactly as ``base`` does everywhere the run did not reach.
+
+    Holds a second copy of the weights on the device until it returns.
+    """
+    from .tensors import to_host
+
+    fwd = OpenFold3Forward(base, device=device)
+    sd, lin, walked, uploads = fwd._record(differentiable=True)
+    found = {p: t for p, _o, _k, t in walked}
+    stray = sorted(set(masters) - set(found))
+    if stray:
+        raise ValueError(f"{len(stray)} trained tensors are not weights of this model, e.g. "
+                         f"{stray[:3]}")
+    # One device tensor reached by two walk paths (the DiT's `w_lg` is also its cache entry
+    # `_wc[(key, True)]`) has a master per path, and the card holds the one the optimizer wrote
+    # last. That master is the weight; the other paths are dropped so it counts once.
+    order = {p: i for i, p in enumerate(masters)}
+    by_object = {}
+    for p, _o, _k, t in walked:
+        if p in masters:
+            by_object.setdefault(id(t), []).append(p)
+    for paths in by_object.values():
+        for p in sorted(paths, key=order.get)[:-1]:
+            uploads.pop(p, None)
+            masters = {q: m for q, m in masters.items() if q != p}
+    moved = {}
+    for p, m in masters.items():
+        d = np.asarray(m, np.float32).reshape(-1) - to_host(found[p]).reshape(-1)
+        if d.any():
+            moved[p] = torch.from_numpy(d)
+    del found, walked, fwd
+    return lineage.fold_back(sd, lin, uploads, moved, _canonical_key)
 
 
 def _shipped_weights() -> Path:

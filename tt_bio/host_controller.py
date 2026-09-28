@@ -50,7 +50,8 @@ def run_config_hash(cfg: dict[str, Any]) -> str:
     carries no ``model`` key, so every Boltz-2 run was stored as model None and a worker with
     Boltz-2 resident never matched its own model's work, and ``--fast`` reloads under the
     same name."""
-    keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method")}
+    keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method",
+                                    "checkpoint")}
     return hashlib.sha256(json.dumps(keep, sort_keys=True, default=str).encode()).hexdigest()
 
 
