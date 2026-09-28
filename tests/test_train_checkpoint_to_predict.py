@@ -101,14 +101,27 @@ def test_nothing_moved_is_the_same_state_dict():
     assert all(out[k] is sd[k] for k in sd)
 
 
-def test_a_value_uploaded_twice_and_trained_apart_is_refused():
+def _twice():
     sd = {"w": torch.randn(4, 4)}
     with lineage.recording(sd, differentiable=True) as (traced, lin):
         model = {"one": ttnn.from_torch(traced["w"]), "two": ttnn.from_torch(traced["w"].t())}
-    uploads = lin.by_path([(p, model, p, t) for p, t in model.items()], hosts=True)
-    moved = {"one": torch.full((4, 4), 1e-2, dtype=torch.float64)}
+    return sd, lin, lin.by_path([(p, model, p, t) for p, t in model.items()], hosts=True)
+
+
+def test_a_value_uploaded_twice_and_trained_apart_is_refused():
+    sd, lin, uploads = _twice()
+    moved = {"one": torch.full((4, 4), 1e-2, dtype=torch.float64),
+             "two": torch.full((4, 4), -1e-2, dtype=torch.float64)}
     with pytest.raises(ValueError, match="cannot be written back"):
         lineage.fold_back(sd, lin, uploads, moved)
+
+
+def test_a_second_view_the_forward_never_read_follows_the_one_it_did():
+    """Triangle attention's case: q/k/v/g live in several fused views and one call reads one."""
+    sd, lin, uploads = _twice()
+    d = 1e-2 * torch.randn(4, 4, dtype=torch.float64)
+    out = lineage.fold_back(sd, lin, uploads, {"one": d})
+    assert torch.allclose(out["w"].double() - sd["w"].double(), d, atol=1e-6)
 
 
 def test_a_moved_weight_the_checkpoint_did_not_make_is_refused():

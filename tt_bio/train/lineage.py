@@ -179,11 +179,12 @@ def fold_back(state_dict: dict, lineage: Lineage, uploads: dict, moved: dict,
     card once. ``J^T J 1`` comes from a double backward, so no rule about any one transform is
     written down anywhere.
 
-    Keys that are copies of one parameter (``canonical``) move together. Every upload is then
-    checked forward: rebuilding it from the returned dict must reproduce its movement to
+    Keys that are copies of one parameter (``canonical``) move together. Every moved upload is
+    then checked forward: rebuilding it from the returned dict must reproduce its movement to
     ``tol`` relative, else this raises naming it. That catches a value that reached the card
     twice and trained apart, which one checkpoint cannot represent, and an upload with no path
-    back to its keys at all. The returned tensors keep their stored dtype; untouched keys are
+    back to its keys at all. An upload that did not move is not checked: it got no gradient, so
+    it is a view the trained forward never read, and it follows the one it did. The returned tensors keep their stored dtype; untouched keys are
     the same objects.
     """
     orphan = sorted(p for p in moved if p not in uploads and torch.as_tensor(moved[p]).any())
@@ -241,15 +242,20 @@ def fold_back(state_dict: dict, lineage: Lineage, uploads: dict, moved: dict,
 
     worst = []
     for path, (keys, host) in uploads.items():
+        # An upload the run never moved had no gradient: the forward that trained never read
+        # it. It is a second view of weights another upload carries (triangle attention holds
+        # q/k/v/g as `qkv`+`g`, fused `qkvg` and `qkvgb`, and uses one per call), and rebuilt
+        # from the result it carries the trained values like the view that was read.
+        if path not in moved:
+            continue
         xs_k = [k for k in sources(keys) if canonical(k) in step]
-        d = torch.as_tensor(moved.get(path, 0.0), dtype=torch.float64)
+        d = torch.as_tensor(moved[path], dtype=torch.float64)
         if not xs_k:
-            if d.abs().max() > 0:
-                worst.append((path, 1.0))
+            worst.append((path, 1.0))
             continue
         got = forward(host, [leaves[k] for k in xs_k],
                       [step[canonical(k)].to(leaves[k].dtype) for k in xs_k]).double()
-        d = d.reshape(got.shape) if d.dim() else torch.zeros_like(got)
+        d = d.reshape(got.shape)
         err = float((got - d).norm() / max(float(d.norm()), float(got.norm()), 1e-30))
         # A build that rounds on the host before uploading rounds the movement with it.
         if err > max(tol, 4 * torch.finfo(host.dtype).eps):
