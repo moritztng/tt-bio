@@ -750,7 +750,7 @@ class _WorkerState:
             ckc = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
                 fp32_dest_acc_en=True, packer_l1_acc=True)
-            sd = torch.load(cfg["of3_ckpt"], map_location="cpu", weights_only=False)
+            sd = _of3_state_dict(cfg)
             # CLI --recycling_steps counts recycles; the trunk runs recycles+1 cycles.
             self.model = OpenFold3(sd, ckc, num_cycles=_recycles(cfg, 3) + 1)
         elif model_id == "rf3":
@@ -1933,12 +1933,31 @@ class _WorkerState:
         return {k: round(pred[k].item(), 6) for k in keys if k in pred}
 
 
+def _of3_state_dict(cfg: dict[str, Any]) -> dict:
+    """The weights an OF3-family fold loads: ``--checkpoint`` when given, else the shipped file.
+
+    A checkpoint `tt-bio train` wrote holds the optimizer's masters in device coordinates, so it
+    is turned back into this format against the shipped weights it started from; anything else
+    is read as a state dict, as the shipped file is.
+    """
+    ckpt = cfg.get("checkpoint")
+    if ckpt:
+        from tt_bio.train.checkpoint import read_header
+
+        if read_header(ckpt).get("tt_bio_adapter") == "1":
+            from tt_bio.train.openfold3 import trained_state_dict
+
+            return trained_state_dict(ckpt, base=cfg["of3_ckpt"])
+    return torch.load(ckpt or cfg["of3_ckpt"], map_location="cpu", weights_only=False)
+
+
 def _hash_run_config(cfg: dict[str, Any]) -> str:
     """Stable hash of the parts of the config that affect model setup."""
     import hashlib
     import json
 
-    keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method")}
+    keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method",
+                                    "checkpoint")}
     blob = json.dumps(keep, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()
 

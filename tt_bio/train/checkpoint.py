@@ -23,7 +23,7 @@ from .tensors import to_device
 if TYPE_CHECKING:
     from .. import autograd as ag
 
-__all__ = ["Checkpointer", "save_adapter", "load_adapter"]
+__all__ = ["Checkpointer", "save_adapter", "load_adapter", "read_header"]
 
 
 _SPLIT = "|"
@@ -72,13 +72,23 @@ def load_adapter(path, params: Dict[str, ag.Tensor], device, *, opt: Optional[Ad
             opt.master[name] = arr.copy()
             opt.exp_avg[name] = blob[f"exp_avg{_SPLIT}{name}"].astype(np.float32).copy()
             opt.exp_avg_sq[name] = blob[f"exp_avg_sq{_SPLIT}{name}"].astype(np.float32).copy()
-    with open(path, "rb") as fh:
-        n = int.from_bytes(fh.read(8), "little")
-        header = json.loads(fh.read(n))
-    md = header.get("__metadata__", {})
+    md = read_header(path)
     if opt is not None and "optimizer" in md:
         opt.load_state_dict(json.loads(md["optimizer"]))
     return json.loads(md["meta"]) if "meta" in md else {}
+
+
+def read_header(path) -> dict:
+    """A safetensors file's string metadata, without reading a tensor. ``{}`` for a file that is
+    not safetensors, so asking "did `tt-bio train` write this?" never needs a guard."""
+    try:
+        with open(path, "rb") as fh:
+            n = int.from_bytes(fh.read(8), "little")
+            if not 0 < n < 1 << 27:
+                return {}
+            return json.loads(fh.read(n)).get("__metadata__", {}) or {}
+    except (OSError, ValueError):
+        return {}
 
 
 # --------------------------------------------------------------------- the cadence

@@ -3052,7 +3052,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.argument("data", type=click.Path(exists=True))
 @click.option("--out_dir", default="./")
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
-@click.option("--checkpoint", type=click.Path(exists=True), default=None)
+@click.option("--checkpoint", type=click.Path(exists=True, dir_okay=False), default=None,
+              help="Weights to fold with instead of the shipped ones (boltz2, openfold3, "
+                   "openbind). For openfold3 this can be a checkpoint `tt-bio train` wrote.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
               help="Trunk recycling iterations. Default: "
@@ -3292,7 +3294,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 f"it), so --accelerator {accelerator} cannot be honored. Drop the flag to fold "
                 f"on the card; --model boltz2 is the one model with a CPU/GPU path."
             )
-        for n, on in [("--use_potentials", use_potentials), ("--checkpoint", bool(checkpoint))]:
+        for n, on in [("--use_potentials", use_potentials),
+                      ("--checkpoint", bool(checkpoint) and model not in OF3_FAMILY)]:
             if on:
                 click.secho(f"Note: --model {model} does not read {n}; ignoring it", fg="yellow")
         # --max_msa_seqs left at its default means "the depth this model already uses", not
@@ -3395,6 +3398,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
+            "checkpoint": str(Path(checkpoint).resolve()) if checkpoint else None,
         }
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}

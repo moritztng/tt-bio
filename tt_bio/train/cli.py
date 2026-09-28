@@ -36,6 +36,15 @@ import click
 # landed, not a preference -- when a model gets routed it gets added here in the same change.
 ADAPTABLE = ("protenix-v2", "openfold3")
 
+#: Trainable models `--train adapters` is refused for, and what to do instead. OpenFold3's LoRA
+#: path has no measured run behind it and `tt-bio predict` loads only a weights checkpoint, so
+#: offering it would hand back a file nothing folds with.
+WEIGHTS_ONLY = {
+    "openfold3": "--train adapters is not supported for openfold3. Drop the flag to train the "
+                 "model's weights, which `tt-bio predict --model openfold3 --checkpoint "
+                 "<checkpoint>` folds with.",
+}
+
 # The Tier-1 bodies, by name. Duplicated from `recipes._RECIPES` on purpose and pinned by a
 # test: validating `--recipe` must not import the bodies, because importing them imports the
 # tape and `--dry-run` promises not to. The test fails if the two ever disagree.
@@ -49,7 +58,7 @@ TRAIN_MODES = ("adapters", "weights")
 #: `catalogue.SHIPPED` by a test; kept literal so `--help` imports nothing.
 TRAINABLE = ("openfold3",)
 
-__all__ = ["train", "ADAPTABLE", "TRAINABLE", "RECIPE_NAMES", "TRAIN_MODES"]
+__all__ = ["train", "ADAPTABLE", "TRAINABLE", "RECIPE_NAMES", "TRAIN_MODES", "WEIGHTS_ONLY"]
 
 
 def _echo_objectives(ctx, param, value):
@@ -186,10 +195,6 @@ def _expert(*a, **kw):
                    "OpenFold3.")
 @click.option("--seed", default=0, show_default=True, type=int,
               help="Fixes the sample order and the crops.")
-@click.option("--train", "train_mode", type=click.Choice(TRAIN_MODES), default="weights",
-              show_default=True,
-              help="`weights` trains the model's own weights; `adapters` trains LoRA pairs "
-                   "on a frozen model (--help-all for rank and targets).")
 @click.option("--help-all", is_flag=True, is_eager=True, expose_value=False,
               callback=_help_all, help="Show every option, including the expert ones.")
 @_expert("--exact/--device-ops", default=None,
@@ -201,6 +206,10 @@ def _expert(*a, **kw):
          help="A named objective row. `--list-objectives` prints them.")
 @_expert("--recipe", default="default", show_default=True,
          help="A named Tier-1 body. `--show-recipe` prints its source as a Tier-2 program.")
+@_expert("--train", "train_mode", type=click.Choice(TRAIN_MODES), default="weights",
+         show_default=True,
+         help="`weights` trains the model's own weights; `adapters` trains LoRA pairs on a "
+              "frozen model, for models that support it (not openfold3).")
 @_expert("--rank", default=8, show_default=True, type=int, help="LoRA rank (adapters).")
 @_expert("--alpha", default=16.0, show_default=True, type=float,
          help="LoRA alpha (adapters).")
@@ -233,6 +242,8 @@ def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warm
     if model is None:
         raise click.UsageError("--model is required, e.g. `tt-bio train data/ --model "
                                "openfold3`")
+    if train_mode == "adapters" and model in WEIGHTS_ONLY:
+        raise click.UsageError(WEIGHTS_ONLY[model])
     chips = len(chip_ids)
     global_batch = chips if global_batch is None else global_batch
     out_dir = Path(out_dir or Path("runs") / model)
@@ -299,6 +310,9 @@ def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warm
     click.echo(str(run))
     status.succeed(run)
     click.echo(f"wrote {status.path}")
+    if run.best and train_mode == "weights":
+        click.echo(f"fold with it: tt-bio predict INPUT --model {model} "
+                   f"--checkpoint {run.best['path']}")
 
 
 #: The crop a run uses when --tokens is not given: each model's first training stage.

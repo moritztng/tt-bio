@@ -173,6 +173,9 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                 "lr": lr, "train": train, "chips": dp.width,
                 "rank": cfg.rank if cfg else None, "alpha": cfg.alpha if cfg else None,
                 "dp_rank": dp_rank, "rollout": row.rollout, "sites": sorted(params),
+                # The weights the run started from, which a checkpoint's masters are only
+                # meaningful against (`openfold3.trained_state_dict` checks it).
+                "weights": getattr(forward, "starting_weights", None),
                 "exact_ops": list(exact_training_ops())}) as prov:
             with attach(installed, cfg):
                 for batch in [first, *plan_order]:
