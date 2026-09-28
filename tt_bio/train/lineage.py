@@ -186,6 +186,10 @@ def fold_back(state_dict: dict, lineage: Lineage, uploads: dict, moved: dict,
     back to its keys at all. The returned tensors keep their stored dtype; untouched keys are
     the same objects.
     """
+    orphan = sorted(p for p in moved if p not in uploads and torch.as_tensor(moved[p]).any())
+    if orphan:
+        raise ValueError(f"{len(orphan)} device weights moved but were not uploaded from the "
+                         f"checkpoint, so nothing can carry their change, e.g. {orphan[:4]}")
     leaves = lineage.leaves
     members = {}
     for k in leaves:

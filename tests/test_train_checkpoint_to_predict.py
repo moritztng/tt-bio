@@ -111,6 +111,13 @@ def test_a_value_uploaded_twice_and_trained_apart_is_refused():
         lineage.fold_back(sd, lin, uploads, moved)
 
 
+def test_a_moved_weight_the_checkpoint_did_not_make_is_refused():
+    sd = _state_dict()
+    _, lin, uploads = _record(sd, differentiable=True)
+    with pytest.raises(ValueError, match="not uploaded from the checkpoint"):
+        lineage.fold_back(sd, lin, uploads, {"derived": torch.ones(2)}, _canonical)
+
+
 def test_the_plain_recording_is_unchanged():
     """The training build's own recording keeps no host tensor and makes no leaf."""
     sd = _state_dict()
