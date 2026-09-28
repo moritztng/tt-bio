@@ -715,16 +715,97 @@ def _campaign_calls(monkeypatch, rounds_before_finishing=3, **kwargs):
 
 
 def test_one_trajectory_per_card_is_bindcrafts_own_call(monkeypatch):
-    """The default changes nothing: no gate, no thread, the caller's own arguments."""
+    """The escape hatch changes nothing: no gate, no thread, the caller's own arguments."""
     from tt_bio import duotraj
 
-    calls, returned = _campaign_calls(monkeypatch, af2_weights="/w", mpnn_weights="/m")
+    calls, returned = _campaign_calls(monkeypatch, trajectories_per_card=1,
+                                      af2_weights="/w", mpnn_weights="/m")
     assert len(calls) == 1
     assert calls[0]["kwargs"] == {"af2_weights": "/w", "mpnn_weights": "/m"}
     assert calls[0]["gate"] is False and calls[0]["slot"] == ""
     assert calls[0]["thread"] == threading.current_thread().name
     assert returned == 1
     assert duotraj.GATE is None
+
+
+def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0):
+    """Pretend the box has this much free host memory, this process holds that much, and the
+    card has that much DRAM free (0 = no card open, which is what `auto` sees at entry)."""
+    from tt_bio import duotraj
+
+    monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(free_gb * 2**30))
+    monkeypatch.setattr(duotraj, "host_rss_bytes", lambda: int(rss_gb * 2**30))
+    monkeypatch.setattr(duotraj, "free_device_bytes", lambda: int(card_gb * 2**30))
+
+
+def test_the_default_takes_as_many_trajectories_as_the_box_holds(monkeypatch, capsys):
+    """The shipped default is `auto`, and on a roomy box that is the cap, not one."""
+    from tt_bio import duotraj
+
+    _box(monkeypatch, free_gb=200.0)
+    calls, returned = _campaign_calls(monkeypatch, af2_weights="/w")
+    assert len(calls) == duotraj.AUTO_CAP == 3
+    assert all(call["gate"] for call in calls)
+    assert all(call["kwargs"] == {"af2_weights": "/w"} for call in calls)
+    # It says which it chose and why, on one line the user sees.
+    line = capsys.readouterr().out
+    assert "3 design trajectories on this card" in line and "GB of host memory is free" in line
+
+
+def test_a_box_that_holds_two_gets_two_not_the_cap(monkeypatch):
+    """17 GB free is a two-trajectory box: two of them peaked at 14.2-15.3 GB and three at
+    19.3-19.5, which is the reading that kept a third off pc."""
+    _box(monkeypatch, free_gb=17.0)
+    calls, _ = _campaign_calls(monkeypatch)
+    assert len(calls) == 2
+
+
+def test_a_small_box_gets_bindcrafts_own_loop(monkeypatch):
+    """Auto floors at 1, and 1 is upstream's call: no gate, no thread."""
+    from tt_bio import duotraj
+
+    _box(monkeypatch, free_gb=9.0)
+    calls, _ = _campaign_calls(monkeypatch)
+    assert len(calls) == 1
+    assert calls[0]["gate"] is False and calls[0]["slot"] == ""
+    assert calls[0]["thread"] == threading.current_thread().name
+    assert duotraj.GATE is None
+
+
+def test_a_box_whose_free_memory_cannot_be_read_runs_one(monkeypatch, capsys):
+    """An unreadable box is not a proven-roomy one. `free_host_bytes()` returns 0 when
+    /proc/meminfo is missing, and choosing the cap there is how a default OOM-kills a campaign
+    that worked yesterday."""
+    _box(monkeypatch, free_gb=0.0)
+    calls, _ = _campaign_calls(monkeypatch)
+    assert len(calls) == 1
+    assert calls[0]["gate"] is False
+    assert "could not be read" in capsys.readouterr().out
+
+
+def test_auto_does_not_put_more_trajectories_on_the_card_than_it_holds(monkeypatch):
+    """The box is roomy and the card is not: the card is read too, when one is open."""
+    _box(monkeypatch, free_gb=200.0, card_gb=4.0)
+    calls, _ = _campaign_calls(monkeypatch)
+    assert len(calls) == 2
+
+
+def test_an_explicit_count_is_honoured_even_when_it_will_not_fit(monkeypatch):
+    """Auto lowers itself; a number the caller wrote is not quietly lowered. It still raises."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    started = []
+    monkeypatch.setattr(campaign, "run_campaign", lambda *a, **kw: started.append(1))
+    _box(monkeypatch, free_gb=2.0)
+    with pytest.raises(MemoryError, match="HOST"):
+        bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3)
+    assert not started
+
+
+def test_a_string_that_is_not_auto_is_refused(monkeypatch):
+    with pytest.raises(ValueError, match="auto"):
+        _campaign_calls(monkeypatch, trajectories_per_card="all")
 
 
 @pytest.mark.parametrize("trajectories", [0, -1])

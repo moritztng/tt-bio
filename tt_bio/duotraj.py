@@ -203,6 +203,80 @@ def refuse_if_it_will_not_fit(extra: int, *, per_trajectory: int = TRAJECTORY_BY
             f"{per_trajectory / 2**30:.2f} GB in flight.")
 
 
+#: The most trajectories `auto` will ever choose. A fourth read 6.976 s a round against three
+#: at 6.992 on the same card and sitting (`state/perf10/bcx-p10-tritraj.md`), which is nothing:
+#: at three, 0.26 s of gate idle a round is all that is left to fill. Past this the host memory
+#: is spent for no seconds back.
+AUTO_CAP = 3
+
+#: What a WHOLE campaign's host high-water looks like, which is not what the guard above prices.
+#: `refuse_if_it_will_not_fit` charges each additional trajectory and the first one nothing,
+#: which is the right question for a number the caller chose and the wrong one for choosing the
+#: number: when `auto` runs, the first trajectory has not grown either. Measured on real PD-L1
+#: campaigns (`state/perf10/bcx-p10-campaign.md`, `bcx-p10-tritraj.md`): 8.2 GB high-water with
+#: one trajectory, 14.2-15.3 with two, 19.3-19.5 with three. That is ~8.5 GB for the first and
+#: ~5.6 GB for each one after it, rounded up in both places because the cost of being wrong here
+#: is a campaign the kernel kills at round 200.
+AUTO_BASE_HOST_BYTES = int(8.5 * 2**30)
+AUTO_EXTRA_HOST_BYTES = int(6.0 * 2**30)
+
+#: Left to the rest of the box. A campaign that takes MemAvailable to zero is one the kernel
+#: starts reclaiming against, and this is the margin `auto` keeps so it never sits exactly on
+#: the boundary `refuse_if_it_will_not_fit` refuses at.
+AUTO_HOST_RESERVE_BYTES = int(2.0 * 2**30)
+
+
+def host_rss_bytes() -> int:
+    """What this process already holds, or 0 when it cannot be read."""
+    try:
+        for line in open("/proc/self/status"):
+            if line.startswith("VmRSS:"):
+                return int(line.split()[1]) * 1024
+    except OSError:
+        pass
+    return 0
+
+
+def auto_trajectories(cap: int = AUTO_CAP) -> "tuple[int, str]":
+    """How many trajectories this box can hold, and one sentence saying why.
+
+    Reads the box (and the card, when one is open) and returns the largest count up to `cap`
+    that fits, floored at 1. The caller prints the reason, because a default that silently
+    picks a different number on two boxes is a default nobody can reason about.
+
+    **An unreadable box chooses 1, never `cap`.** `free_host_bytes()` returns 0 when
+    /proc/meminfo is not there or not readable, and the two ways of being wrong do not cost
+    the same: one is a campaign slower than it could have been, the other is one the kernel
+    kills at round 200 with the designs it had.
+    """
+    cap = max(1, int(cap))
+    free = free_host_bytes()
+    gb = 1 / 2**30
+    if not free:
+        return 1, "free host memory could not be read, and an unreadable box is not a roomy one"
+    held = host_rss_bytes()
+
+    def peak(n: int) -> int:
+        return AUTO_BASE_HOST_BYTES + AUTO_EXTRA_HOST_BYTES * (n - 1)
+
+    def needs(n: int) -> int:
+        return max(0, peak(n) - held) + AUTO_HOST_RESERVE_BYTES
+
+    on_card = free_device_bytes()
+    room_on_card = cap if not on_card else max(1, 1 + on_card // TRAJECTORY_BYTES)
+    for n in range(cap, 1, -1):
+        if n > room_on_card:
+            continue
+        if needs(n) <= free:
+            return n, (f"{free * gb:.1f} GB of host memory is free and {n} of them peak near "
+                       f"{peak(n) * gb:.0f} GB")
+    if on_card and room_on_card < 2:
+        return 1, (f"the card has {on_card * gb:.1f} GB free, under the "
+                   f"{TRAJECTORY_BYTES * gb:.1f} GB a second trajectory holds in flight")
+    return 1, (f"{free * gb:.1f} GB of host memory is free and a second trajectory needs "
+               f"{needs(2) * gb:.1f} GB")
+
+
 #: Gradient rounds entered per slot, and the event that fires once a slot has its FIRST round
 #: behind it. Two trajectories entering their first JAX trace together would compile at the same
 #: time, which is the one part of a design loop with process-wide trace state, so the caller

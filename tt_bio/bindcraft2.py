@@ -1670,20 +1670,28 @@ def _one_campaign_not_n(campaign, trajectories: int):
         campaign.design_worker_index = worker_index
 
 
-def run_campaign(settings: Mapping, project_folder: str, *, trajectories_per_card: int = 1,
+def run_campaign(settings: Mapping, project_folder: str, *,
+                 trajectories_per_card: "int | str" = "auto",
                  stagger_timeout: float = 1800.0, **run_campaign_kwargs) -> int:
-    """BindCraft 2's campaign loop, optionally with several trajectories sharing one card.
+    """BindCraft 2's campaign loop, with as many trajectories on one card as the box can hold.
 
     Call it where you would call `campaign.run_campaign`, inside `campaign_predictor`::
 
         with bindcraft2.campaign_predictor(card=0, exact=False):
-            bindcraft2.run_campaign(settings, project, af2_weights=params,
-                                    mpnn_weights=mpnn, trajectories_per_card=3)
+            bindcraft2.run_campaign(settings, project, af2_weights=params, mpnn_weights=mpnn)
+
+    The default, `"auto"`, reads free host memory (and the card, if one is open) BEFORE any
+    thread starts and takes the largest count that fits up to `duotraj.AUTO_CAP`, floored at 1.
+    It prints the count and the reason it chose it. A box whose free memory cannot be read gets
+    1: the two ways of guessing wrong do not cost the same, and the expensive one is a campaign
+    the kernel kills at round 200.
 
     `trajectories_per_card=1` is BindCraft 2's own call, unchanged: no threads, no gate, nothing
-    in tt-bio behaves differently. Above 1 it runs that many design trajectories on their own
-    threads over one chip, each taking its own trajectory number out of the project's file-locked
-    progress exactly as separate worker processes would.
+    in tt-bio behaves differently. Any explicit number is honoured exactly, including one this
+    box cannot hold, which still raises `MemoryError` rather than being quietly lowered. Above 1
+    it runs that many design trajectories on their own threads over one chip, each taking its own
+    trajectory number out of the project's file-locked progress exactly as separate worker
+    processes would.
 
     It is worth doing because a design round is a host column and a device column laid end to
     end, and one trajectory cannot overlap them: measured on a 288-token PD-L1 round, the card
@@ -1705,7 +1713,17 @@ def run_campaign(settings: Mapping, project_folder: str, *, trajectories_per_car
     """
     from bindcraft import campaign
 
-    trajectories = int(trajectories_per_card)
+    if isinstance(trajectories_per_card, str):
+        if trajectories_per_card != "auto":
+            raise ValueError('trajectories_per_card must be a count or "auto", not '
+                             f"{trajectories_per_card!r}")
+        trajectories, why = duotraj.auto_trajectories()
+        print(f"[tt_bio.bindcraft2] {trajectories} design "
+              f"{'trajectory' if trajectories == 1 else 'trajectories'} on this card: {why}. "
+              f"Pass trajectories_per_card to choose yourself; 1 is BindCraft 2's own loop.",
+              flush=True)
+    else:
+        trajectories = int(trajectories_per_card)
     if trajectories < 1:
         raise ValueError("trajectories_per_card must be at least 1, not "
                          f"{trajectories_per_card!r}")
