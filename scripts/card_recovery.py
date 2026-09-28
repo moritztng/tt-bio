@@ -19,6 +19,12 @@ needs it.
 take a co-tenant's job down with it. When the sibling is busy this REFUSES, and a refusal is a
 result the caller must respect by stopping: opening a dirty card is what kills the host, and a
 dead host costs the co-tenant far more than a wait.
+
+A p150a is one chip per board and has no sibling. Applying the p300c pairs there refused a
+reset of qb1 card 0 because an unrelated job held card 1, and stopped a size-ladder record
+50 minutes in (2026-09-28). Only a card that sysfs positively names p150 skips the pair check;
+anything unrecognised keeps it, since a wrong refusal costs a rerun and a wrong reset costs a
+co-tenant's job.
 """
 from __future__ import annotations
 
@@ -31,11 +37,26 @@ from pathlib import Path
 #: (`qb2-tt-smi-reset-resets-board-pair-not-chip`).
 BOARD_PAIRS = ((0, 1), (2, 3))
 
+#: PCI subsystem ids of single-chip Blackhole p150 boards (same table as
+#: scripts/perf_regression.py::_P150_SUBSYSTEMS).
+SINGLE_CHIP_SUBSYSTEMS = {"0x0040"}
+
 OK, REFUSED, FAILED = "ok", "refused", "failed"
+
+
+def subsystem_device(card: int) -> str | None:
+    """PCI subsystem_device of /dev/tenstorrent/<card> from sysfs; opens no device."""
+    path = Path(f"/sys/class/tenstorrent/tenstorrent!{card}/device/subsystem_device")
+    try:
+        return path.read_text().strip().lower()
+    except OSError:
+        return None
 
 
 def board_sibling(card: int) -> int | None:
     """The other chip on this card's board, whose job a reset would also kill."""
+    if subsystem_device(card) in SINGLE_CHIP_SUBSYSTEMS:
+        return None
     for a, b in BOARD_PAIRS:
         if card == a:
             return b
@@ -94,7 +115,8 @@ def reset_after_kill(card: int, *, timeout_s: float = 180.0, say=print) -> str:
     if not smi:
         say(f"[card-recovery] no tt-smi on PATH; cannot reset card {card}")
         return FAILED
-    say(f"[card-recovery] resetting card {card} (board pair {card}/{sib}) after a wedge-kill")
+    board = f"board pair {card}/{sib}" if sib is not None else "single-chip board"
+    say(f"[card-recovery] resetting card {card} ({board}) after a wedge-kill")
     try:
         rc = subprocess.run([smi, "-r", str(card)], timeout=timeout_s,
                             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT).returncode

@@ -16,9 +16,31 @@ cr = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(cr)
 
 
+@pytest.fixture(autouse=True)
+def _p300c_by_default(monkeypatch):
+    # Pin the board to p300c so the pair tests do not depend on which host runs them.
+    monkeypatch.setattr(cr, "subsystem_device", lambda card: "0x0044")
+
+
 @pytest.mark.parametrize("card,sibling", [(0, 1), (1, 0), (2, 3), (3, 2)])
 def test_a_reset_takes_the_whole_board_pair_so_every_card_knows_its_sibling(card, sibling):
     assert cr.board_sibling(card) == sibling
+
+
+@pytest.mark.parametrize("sub", [None, "0x9999"])
+def test_an_unrecognised_board_keeps_the_pair_guard(monkeypatch, sub):
+    monkeypatch.setattr(cr, "subsystem_device", lambda card: sub)
+    assert cr.board_sibling(0) == 1
+
+
+def test_a_p150a_has_no_sibling_so_a_busy_neighbour_does_not_block_its_reset(monkeypatch):
+    # qb1 2026-09-28: card 1 busy, card 0 wedged, the p300c pairs refused a reset of a
+    # single-chip board and stopped the gate.
+    calls = _spy(monkeypatch, sibling_busy=True)
+    monkeypatch.setattr(cr, "subsystem_device", lambda card: "0x0040")
+    assert cr.board_sibling(0) is None
+    assert cr.reset_after_kill(0, say=lambda *a: None) == cr.OK
+    assert calls == [["/fake/tt-smi", "-r", "0"]]
 
 
 def test_a_card_outside_the_known_pairs_reports_no_sibling():
