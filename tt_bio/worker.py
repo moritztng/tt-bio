@@ -2131,6 +2131,10 @@ def run_worker_loop(
 
             run_id = lease["run_id"]
             cfg = dict(lease["config"])
+            # The chip is this run's from here. A cold worker spends the next
+            # ~100 s loading the model, before any job's own clock starts; each
+            # job reports that stretch as load_s so a lease can be billed whole.
+            leased_at = time.time()
 
             # Design shards ride the same scheduler as prediction. They run the
             # BoltzGen single-device pipeline IN-PROCESS on this worker's already-
@@ -2182,8 +2186,9 @@ def run_worker_loop(
                 # finally: a finally runs before the exception reaches the handler
                 # below, which would hide the very case this exists to catch.
                 inflight = job
-                _execute_job(state, job, cfg, run_id, client, worker_id, meta)
+                _execute_job(state, job, cfg, run_id, client, worker_id, meta, leased_at)
                 inflight = None
+                leased_at = time.time()
     except KeyboardInterrupt as exc:
         # SIGINT between leases is how _stop_worker_processes ends a FINISHED run, so
         # that case is an ordinary shutdown: it stays silent and exits 0, as before.
@@ -2230,11 +2235,15 @@ def _execute_job(
     client: ControllerClient,
     worker_id: str,
     meta: dict[str, Any],
+    leased_at: float | None = None,
 ) -> None:
     job_id = job["id"]
     filename = job.get("name") or f"{job_id}.yaml"
-    row: dict[str, Any] = {"id": job_id, "status": "failed"}
     t0 = time.time()
+    # runtime_s is the job; load_s is the lease before it, the model load on a
+    # cold worker and ~0 on a warm one. Their sum is what this attempt held.
+    row: dict[str, Any] = {"id": job_id, "status": "failed",
+                           "load_s": round(t0 - (leased_at or t0), 1)}
 
     def emit(event: str, **kw):
         try:
