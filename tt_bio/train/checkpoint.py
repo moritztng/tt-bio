@@ -23,14 +23,10 @@ from .tensors import to_device
 if TYPE_CHECKING:
     from .. import autograd as ag
 
-__all__ = ["Checkpointer", "save_adapter", "load_adapter", "WEIGHTS"]
+__all__ = ["Checkpointer", "save_adapter", "load_adapter"]
 
 
 _SPLIT = "|"
-
-#: Where a weights run leaves its trained weights in the model's own checkpoint format, beside
-#: the adapter files. The adapter files resume a run; this one is what a model loads.
-WEIGHTS = "weights.pt"
 
 
 def save_adapter(path, opt: AdamW, *, meta: Optional[dict] = None) -> None:
@@ -139,6 +135,15 @@ class Checkpointer:
         self.written.append({"path": path, "step": step, "score": score})
         self._prune()
         return path
+
+    @property
+    def weights(self) -> Path:
+        """Where a weights run leaves its trained weights in the model's own checkpoint format.
+
+        The adapter files beside it resume a run; this is the file a model loads, and
+        ``tt-bio predict --checkpoint`` takes.
+        """
+        return self.dir / "weights.pt"
 
     def latest(self) -> Optional[Path]:
         """The newest checkpoint on disk, written by this run or an earlier one."""

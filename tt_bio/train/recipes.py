@@ -35,7 +35,7 @@ from typing import Callable, Dict
 from . import launcher, objectives, provenance
 from ..autograd import backward, exact_training_ops, install, release_pins, uninstall
 from .sharding import batches
-from .checkpoint import WEIGHTS, Checkpointer, load_adapter
+from .checkpoint import Checkpointer, load_adapter
 from .lora import LoraConfig, attach, trainable
 from .mesh import Mesh
 from .optim import AdamW, af3_lr
@@ -264,7 +264,7 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                 # `tt-bio predict --checkpoint` folds with. One rank writes it: the masters
                 # are bit-identical across the axis.
                 if train == "weights" and dp_rank == 0 and hasattr(forward, "write_weights"):
-                    forward.write_weights(opt.master, launcher.out_dir(out_dir) / WEIGHTS)
+                    forward.write_weights(opt.master, ckpt.weights)
         # The step control, on the cumulative ratio over the whole run. Raises rather than
         # warns: a run whose updates never reached the weight the forward reads produced
         # nothing, and it produced nothing while every number above looked healthy.

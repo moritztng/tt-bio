@@ -410,9 +410,8 @@ class _Status:
             (self.dir / "run.json").write_text(json.dumps(
                 {"history": run.history, "provenance": prov, "dp": run.dp,
                  "displacement": run.displacement}, indent=2, default=str) + "\n")
-        from .checkpoint import WEIGHTS
         best, latest = run.best, run.checkpointer.latest()
-        weights = self.dir / WEIGHTS
+        weights = run.checkpointer.weights
         self.weights = str(weights) if weights.is_file() else None
         self._write(status="succeeded", step=run.history[-1]["step"] if run.history else None,
                     loss=run.loss, provenance={k: v for k, v in prov.items() if k not in ("config", "dp")},
