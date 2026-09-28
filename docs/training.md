@@ -372,10 +372,12 @@ tensors each device weight was made from, differentiates that build, and pulls e
 change back into those tensors (`tt_bio.train.lineage.fold_back`). No per-module rule for how a
 weight reaches the card is written down, so a new fused layout cannot fall out of step with it.
 
-It is checked in both directions before the file is written. Rebuilding every device weight from
-the result must reproduce what training moved it by, or the run fails naming the weight; that is
-what catches one value that reached the card twice and trained apart, which a checkpoint cannot
-represent. Every tensor the run did not move is the starting file's own tensor, unchanged.
+It is checked before the file is written: rebuilding each weight training moved must reproduce
+that movement, or the run fails naming the weight. That catches one value that reached the card
+twice and trained apart, which a checkpoint cannot represent. Some modules keep a weight in more
+than one fused layout and read one per call; the layouts the run never read did not move, and
+rebuilt from the file they carry the trained values too. Every tensor the run did not move is the
+starting file's own tensor, unchanged.
 
 Running the same command on the same `OUT` resumes: it loads the newest checkpoint and starts
 at the step after it, and the rows `progress.jsonl` already has past that checkpoint appear
