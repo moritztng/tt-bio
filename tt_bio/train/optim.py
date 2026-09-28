@@ -208,6 +208,9 @@ class AdamW:
     which is AdamW's whole point and what tt-train's kernel implements.
     """
 
+    #: ``{name: bool mask}`` of elements no step moves. `hold` replaces it, never mutates it.
+    held: Dict[str, "np.ndarray"] = {}
+
     def __init__(self, params: Dict[str, ag.Tensor], *, lr: float = 3e-4,
                  betas=(0.9, 0.999), eps: float = 1e-8, weight_decay: float = 0.01,
                  clip_norm: float = 10.0, schedule=None,
@@ -274,8 +277,6 @@ class AdamW:
         self.accum: Dict[str, "np.ndarray"] = {}
         self.participation: Dict[str, int] = {}
         self.accum_count = 0
-        #: ``{name: bool mask}`` of elements no step moves (`hold`).
-        self.held: Dict[str, "np.ndarray"] = {}
 
     def hold(self, masks: dict) -> int:
         """Never move the masked elements of each named parameter; returns how many.
