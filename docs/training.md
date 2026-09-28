@@ -376,7 +376,10 @@ It is checked before the file is written: rebuilding each weight training moved 
 that movement, or the run fails naming the weight. That catches one value that reached the card
 twice and trained apart, which a checkpoint cannot represent. Some modules keep a weight in more
 than one fused layout and read one per call; the layouts the run never read did not move, and
-rebuilt from the file they carry the trained values too. Every tensor the run did not move is the
+rebuilt from the file they carry the trained values too. A weights run trains the checkpoint's parameters and nothing else. Where the build fills part of a
+device weight with constants (OpenFold3 fuses q, k and v biases, and its checkpoint has only the q
+bias, so the k and v thirds are zeros), those elements are found before the first step and the
+optimizer never moves them. Every tensor the run did not move is the
 starting file's own tensor, unchanged.
 
 Running the same command on the same `OUT` resumes: it loads the newest checkpoint and starts
