@@ -26,6 +26,7 @@ from the environment and nothing changes behaviour for a process that never call
 from __future__ import annotations
 
 import contextlib
+import sys
 import threading
 import time
 
@@ -146,7 +147,15 @@ def card(slot: str = "", tag: str = ""):
 
 
 def free_device_bytes() -> int:
-    """Free DRAM on the open card, or 0 when the read fails or no card is open."""
+    """Free DRAM on the open card, or 0 when the read fails or no card is open.
+
+    A process that has not imported ttnn has no card open, so this answers without
+    importing it: the auto default asks before anything on the design path has, and
+    pulling the whole device stack in to be told there is no device costs seconds and a
+    pile of teardown noise for an answer already known.
+    """
+    if "ttnn" not in sys.modules:
+        return 0
     try:
         import ttnn
         from tt_bio import tenstorrent

@@ -70,7 +70,11 @@ class Rounds:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--trajectories", type=int, default=2)
+    ap.add_argument("--trajectories", default="auto",
+                    help='how many share the card: a count, or "auto" to leave the argument '
+                         "off entirely and measure the shipped default's own resolution")
+    ap.add_argument("--max-trajectories", dest="max_trajectories", type=int, default=4,
+                    help="the campaign's own budget, the same on both arms")
     ap.add_argument("--binder", type=int, default=146)
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--params", default="/home/moritz/bcx_shipped/af2_params")
@@ -79,14 +83,18 @@ def main():
     ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V")
     args = ap.parse_args()
 
-    n = args.trajectories
+    # "auto" means: do not pass the argument at all. The point of this arm is the default a
+    # user gets, and a harness that passes `trajectories_per_card=3` measures a number no user
+    # asked for.
+    n = None if args.trajectories == "auto" else int(args.trajectories)
+    budget = args.max_trajectories
     project = args.out
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
-    overrides = [f"campaign_seed={args.seed}", f"max_trajectories={n}",
+    overrides = [f"campaign_seed={args.seed}", f"max_trajectories={budget}",
                  f"project_folder={project}",
-                 # Both trajectories at one binder length, so the amortised round is comparable
+                 # Every trajectory at one binder length, so the amortised round is comparable
                  # with the harness figure and not a reading of two different shapes.
-                 f"binder_lengths=[{','.join([str(args.binder)] * n)}]",
+                 f"binder_lengths=[{','.join([str(args.binder)] * budget)}]",
                  "compile_next_length=0"] + args.sets
     settings = cleaned_campaign_settings(
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
@@ -116,7 +124,10 @@ def main():
     cls.sequence_gradients = sequence_gradients
 
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
-             "trajectories": n, "validation": args.validation, "binder": args.binder,
+             "trajectories": n, "trajectories_arg": args.trajectories,
+             "max_trajectories": budget,
+             "auto_would_choose": list(duotraj.auto_trajectories()),
+             "validation": args.validation, "binder": args.binder,
              "seed": args.seed, "project": project,
              "commit": subprocess.run(["git", "-C", str(_ROOT), "rev-parse", "HEAD"],
                                       capture_output=True, text=True).stdout.strip(),
@@ -153,8 +164,9 @@ def main():
         # `exact=False` arms the measured levers itself (`bindcraft2.fast_round`).
         stamp["fast"] = build.fast
         try:
+            per_card = {} if n is None else {"trajectories_per_card": n}
             trajectories = bindcraft2.run_campaign(
-                settings, project, trajectories_per_card=n,
+                settings, project, **per_card,
                 af2_weights=args.params,
                 mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights", "proteinmpnn",
                                           "weights_neutral"))
