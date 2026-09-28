@@ -1,0 +1,26 @@
+# fix_check.py at PR #19 f723626, 2026-09-28 09:0xZ, pc, jax 0.11.2 CPU, GB10 stub now answers a uuid query
+2 devices visible, designing on one: no way to pin a worker to a single device on this platform
+  pass  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              1 worker(s) on ['0']
+  pass  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['2', '3']
+  pass  B  free memory keyed by the pin name, not the jax id
+              ['2', '3']
+  pass  C  rocm, no variable set -> the whole box
+              ['0', '1', '2', '3']
+  pass  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  D  variable does not describe the devices -> jax ids, no mixed list
+              ['0', '1']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+  pass  F  nvidia-smi reports [N/A] memory -> a reading, not a raise
+              {'0': (80.0, 80.0)}
+  pass  F  nvidia-smi reports [N/A] memory -> a plan, not a refused campaign
+              4 worker(s)
+
+11 passed, 0 failed

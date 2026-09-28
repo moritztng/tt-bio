@@ -1,0 +1,26 @@
+# perf/bcx_pr/uuid_repro.py, run 2026-09-28 09:0xZ on pc. Issue #24 reproduced with a two-board nvidia-smi stub,
+# design_devices() stubbed at one cuda device. jax 0.11.2, CPU backend, no accelerator opened.
+
+=== upstream/main e6d30f6ea ===
+CUDA_VISIBLE_DEVICES=1
+  memory keys   -> ['0', '1']
+  workers       -> 4 on ['1'], memory_fraction 0.24
+CUDA_VISIBLE_DEVICES=GPU-9f8e7d6c-1111-1111-1111-111111111111
+  memory keys   -> ['0', '1']
+  workers       -> 1 on ['GPU-9f8e7d6c-1111-1111-1111-111111111111'], memory_fraction 0.0
+
+=== PR #19 d00dd6f (before) ===
+CUDA_VISIBLE_DEVICES=1
+  memory keys   -> ['0', '1']
+  workers       -> 4 on ['1'], memory_fraction 0.24
+CUDA_VISIBLE_DEVICES=GPU-9f8e7d6c-1111-1111-1111-111111111111
+  memory keys   -> ['0', '1']
+  workers       -> 1 on ['GPU-9f8e7d6c-1111-1111-1111-111111111111'], memory_fraction 0.0
+
+=== PR #19 f723626 (after) ===
+CUDA_VISIBLE_DEVICES=1
+  memory keys   -> ['0', '1', 'GPU-0a1b2c3d-0000-0000-0000-000000000000', 'GPU-9f8e7d6c-1111-1111-1111-111111111111']
+  workers       -> 4 on ['1'], memory_fraction 0.24
+CUDA_VISIBLE_DEVICES=GPU-9f8e7d6c-1111-1111-1111-111111111111
+  memory keys   -> ['0', '1', 'GPU-0a1b2c3d-0000-0000-0000-000000000000', 'GPU-9f8e7d6c-1111-1111-1111-111111111111']
+  workers       -> 4 on ['GPU-9f8e7d6c-1111-1111-1111-111111111111'], memory_fraction 0.24

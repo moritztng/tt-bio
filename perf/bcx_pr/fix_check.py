@@ -20,6 +20,7 @@ GB10_NVIDIA_SMI = """#!/bin/sh
 # A DGX Spark GB10 shares one memory pool with the host, so nvidia-smi cannot measure a free and
 # a total for the board: it prints [N/A] for both and exits 0. Issue #23.
 case "$*" in
+  *uuid,memory.free*) echo "0, GPU-5e2b1c9a-0000-0000-0000-000000000000, [N/A], [N/A]" ;;
   *memory.free*) echo "0, [N/A], [N/A]" ;;
   *index*)       echo "0" ;;
 esac
