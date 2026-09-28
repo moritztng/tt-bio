@@ -91,7 +91,7 @@ instead of round-tripping through DRAM, on the backward as much as the forward.
 
 ## Reproduce
 
-```
+```bash
 TT_VISIBLE_DEVICES=0 python3 perf/hallgrad/blocksweep.py \
   --out floor.json --steps 30 --ns 128,256 --ks 1,2,4,8 --transitions on,off
 ```

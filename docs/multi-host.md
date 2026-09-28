@@ -6,7 +6,7 @@ top and talks to each machine's controller. That can be JapanFold, Slurm, Ray or
 [a fifty-line script](../examples/many_hosts.py). This page is the contract that layer
 builds against.
 
-```
+```text
   your scheduler: queue, accounts, fairness between users, which machine gets what
         |                 |                 |
    host A             host B             host C          (ssh, or an agent on each host)

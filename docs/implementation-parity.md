@@ -120,7 +120,9 @@ global RNG differently before the sampler. `TT_BIO_SHARED_DRAW_SEED`, set on all
 re-seeds in `AtomDiffusion.sample` right before the first `torch.randn`, and the three then draw
 bit-identical noise. Per leg and per metric `d`:
 
-    d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
+```text
+d(device_bf16, reference_fp32)  <=  d(reference_bf16, reference_fp32) * (1 + margin) + abs_floor
+```
 
 The right-hand side is the bf16 cost of the whole trajectory, chaotic amplification included,
 measured from a bf16 recompute of the reference rather than guessed. The scorer is
