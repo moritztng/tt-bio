@@ -544,6 +544,50 @@ def _validate_offline_msa_db(db_path: Path, require_envdb: bool = False) -> None
         )
 
 
+#: How many offline searches may run at once against one database on this host; ``None``
+#: for no limit. Set by ``tt-bio predict --msa_searches``. A Galaxy runs one ``tt-bio
+#: predict`` per job, so the limit cannot be a counter in any one process: it is ``n`` lock
+#: files in the host's temp dir, and a search holds one for as long as it
+#: runs. The kernel drops the lock of a searcher that dies, so a killed job frees its slot.
+MSA_SEARCHES: int | None = None
+
+
+@contextmanager
+def _search_slot(db_path: str):
+    """Hold one of :data:`MSA_SEARCHES` host-wide search slots for ``db_path``."""
+    n = MSA_SEARCHES
+    if not n:
+        yield
+        return
+    key = hashlib.sha256(str(Path(db_path).resolve()).encode()).hexdigest()[:12]
+    slots = Path(tempfile.gettempdir()) / f"tt-bio-msa-search-{key}"
+    slots.mkdir(exist_ok=True)
+    said = None
+    while True:
+        for i in range(n):
+            f = open(slots / f"{i}.lock", "w")
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                f.close()
+                continue
+            try:
+                yield
+            finally:
+                f.close()
+            return
+        # Said once a minute, so a job that waits is seen to wait and not to hang.
+        if said is None or time.monotonic() - said >= 60:
+            said = time.monotonic()
+            click.echo(f"  waiting for one of {n} MSA search slots on this host")
+        time.sleep(0.5 + random.random())
+
+
+def _lowest_priority() -> None:
+    """A search's CPU time is what folds leave: host load slows a fold (158 s -> 262 s)."""
+    os.nice(19)
+
+
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
                         pairing_strategy: str = "greedy", pair: bool = True) -> None:
@@ -592,15 +636,17 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
         commands.append(cmd_base)
 
         last_error = ""
-        for idx, cmd in enumerate(commands):
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                last_error = ""
-                break
-            err = (result.stderr or result.stdout or "").strip()
-            last_error = "\n".join(err.splitlines()[-20:]) if err else ""
-            if idx < len(commands) - 1:
-                click.echo("  colabfold_search failed with explicit --mmseqs, retrying with default lookup")
+        with _search_slot(db_path):
+            for idx, cmd in enumerate(commands):
+                result = subprocess.run(cmd, capture_output=True, text=True,
+                                        preexec_fn=_lowest_priority)
+                if result.returncode == 0:
+                    last_error = ""
+                    break
+                err = (result.stderr or result.stdout or "").strip()
+                last_error = "\n".join(err.splitlines()[-20:]) if err else ""
+                if idx < len(commands) - 1:
+                    click.echo("  colabfold_search failed with explicit --mmseqs, retrying with default lookup")
         if last_error:
             raise RuntimeError(
                 f"colabfold_search failed (exit {result.returncode})\n{last_error}"
@@ -3089,6 +3135,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
               help="MSA cache directory (default: <out_dir>/msa). Point at a persistent shared "
                    "path to reuse {seq_hash}.a3m across runs and hosts (never re-search a sequence).")
+@click.option("--msa_searches", type=click.IntRange(min=1), default=None,
+              help="Run at most this many offline MSA searches at once on this host, across "
+                   "every tt-bio process that searches the same --msa_db_path (default: no limit).")
 @click.option("--msa_cache_only", is_flag=True,
               help="Treat --msa_dir as the ONLY MSA source: never search (online or local), and "
                    "fail rather than fold a chain single-sequence when its a3m is not cached. Use "
@@ -3168,7 +3217,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, partial_t, partial_structure, early_stop_plddt,
             max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_msa_server, msa_db_path, msa_dir_opt, msa_searches, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
@@ -3204,6 +3253,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         1   every target failed
         2   some targets failed, some folded
     """
+    global MSA_SEARCHES
+    MSA_SEARCHES = msa_searches
     # Refuse a size this model is MEASURED not to fold, before anything opens a device. Placed
     # ahead of the model branch so both routes are covered by one call: past this point predict
     # forks into the scheduler path and the Boltz-2 path, and guarding each separately is how one
