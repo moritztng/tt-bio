@@ -1,11 +1,11 @@
-"""A `tt-bio train` checkpoint folds through `tt-bio predict`.
+"""The weights `tt-bio train` writes fold through `tt-bio predict`.
 
-The masters a training checkpoint holds are in device coordinates, keyed by where each weight
-sits in the built model; predict builds from an upstream-format state dict. `lineage.fold_back`
-turns one into the other by differentiating the build, so these tests build a toy model with
-the transforms the real one uses (transpose, fused concatenation, padding, a constant scale, one
-parameter stored under two keys) and check the round trip: rebuild from the folded-back dict and
-every upload has moved by exactly what training moved it. Host-only: `ttnn.from_torch` is
+The optimizer's masters are in device coordinates, keyed by where each weight sits in the built
+model; predict builds from an upstream-format state dict. `lineage.fold_back` turns one into the
+other by differentiating the build, and a weights run writes the result as OUT/weights.pt. These
+tests build a toy model with the transforms the real one uses (transpose, fused concatenation,
+padding, a constant scale, one parameter stored under two keys) and check the round trip:
+rebuild from the folded-back dict and every upload has moved by exactly what training moved it. Host-only: `ttnn.from_torch` is
 replaced by a stand-in that keeps the tensor, because even a host upload brings the cluster up.
 """
 
@@ -120,30 +120,24 @@ def test_the_plain_recording_is_unchanged():
     assert keys["aliased"] == frozenset({"a.weight"})
 
 
-def test_read_header_tells_a_training_checkpoint_from_a_state_dict(tmp_path):
-    import numpy as np
-    from safetensors.numpy import save_file
-    from tt_bio.train.checkpoint import read_header
-
-    st = tmp_path / "adapter-00000001.safetensors"
-    save_file({"master|w": np.zeros(2, np.float32)}, str(st), metadata={"tt_bio_adapter": "1"})
-    pt = tmp_path / "weights.pt"
-    torch.save({"w": torch.zeros(2)}, pt)
-    assert read_header(st)["tt_bio_adapter"] == "1"
-    assert read_header(pt) == {}
-    assert read_header(tmp_path / "missing") == {}
-
-
-def test_predict_without_checkpoint_loads_the_shipped_file_as_before(tmp_path, monkeypatch):
+def test_predict_loads_the_shipped_file_or_the_checkpoint_in_its_place(tmp_path):
     from tt_bio import worker
 
     pt = tmp_path / "shipped.pt"
     torch.save({"w": torch.arange(3.0)}, pt)
     assert torch.equal(worker._of3_state_dict({"of3_ckpt": str(pt)})["w"], torch.arange(3.0))
-    other = tmp_path / "other.pt"
-    torch.save({"w": torch.ones(3)}, other)
-    got = worker._of3_state_dict({"of3_ckpt": str(pt), "checkpoint": str(other)})
+    trained = tmp_path / "weights.pt"
+    torch.save({"w": torch.ones(3)}, trained)
+    got = worker._of3_state_dict({"of3_ckpt": str(pt), "checkpoint": str(trained)})
     assert torch.equal(got["w"], torch.ones(3))
+
+
+def test_predict_names_weights_pt_when_handed_a_resume_checkpoint(tmp_path):
+    from tt_bio import worker
+
+    with pytest.raises(RuntimeError, match="weights.pt"):
+        worker._of3_state_dict({"of3_ckpt": "x", "checkpoint": str(
+            tmp_path / "adapter-00000001.safetensors")})
 
 
 def test_train_adapters_is_refused_for_openfold3_with_what_to_do():

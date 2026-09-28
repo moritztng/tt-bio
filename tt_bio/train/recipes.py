@@ -35,7 +35,7 @@ from typing import Callable, Dict
 from . import launcher, objectives, provenance
 from ..autograd import backward, exact_training_ops, install, release_pins, uninstall
 from .sharding import batches
-from .checkpoint import Checkpointer, load_adapter
+from .checkpoint import WEIGHTS, Checkpointer, load_adapter
 from .lora import LoraConfig, attach, trainable
 from .mesh import Mesh
 from .optim import AdamW, af3_lr
@@ -173,9 +173,6 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                 "lr": lr, "train": train, "chips": dp.width,
                 "rank": cfg.rank if cfg else None, "alpha": cfg.alpha if cfg else None,
                 "dp_rank": dp_rank, "rollout": row.rollout, "sites": sorted(params),
-                # The weights the run started from, which a checkpoint's masters are only
-                # meaningful against (`openfold3.trained_state_dict` checks it).
-                "weights": getattr(forward, "starting_weights", None),
                 "exact_ops": list(exact_training_ops())}) as prov:
             with attach(installed, cfg):
                 for batch in [first, *plan_order]:
@@ -263,6 +260,11 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
             if last is not None:
                 ckpt.save(last["step"], opt, metrics={"loss": last["loss"]},
                           provenance=prov.as_dict(), force=True)
+                # The trained weights in the model's own checkpoint format, which is what
+                # `tt-bio predict --checkpoint` folds with. One rank writes it: the masters
+                # are bit-identical across the axis.
+                if train == "weights" and dp_rank == 0 and hasattr(forward, "write_weights"):
+                    forward.write_weights(opt.master, launcher.out_dir(out_dir) / WEIGHTS)
         # The step control, on the cumulative ratio over the whole run. Raises rather than
         # warns: a run whose updates never reached the weight the forward reads produced
         # nothing, and it produced nothing while every number above looked healthy.

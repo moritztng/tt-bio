@@ -1936,18 +1936,14 @@ class _WorkerState:
 def _of3_state_dict(cfg: dict[str, Any]) -> dict:
     """The weights an OF3-family fold loads: ``--checkpoint`` when given, else the shipped file.
 
-    A checkpoint `tt-bio train` wrote holds the optimizer's masters in device coordinates, so it
-    is turned back into this format against the shipped weights it started from; anything else
-    is read as a state dict, as the shipped file is.
+    Both are the same format. `tt-bio train` writes its trained weights as OUT/weights.pt for
+    exactly this; its adapter-*.safetensors files hold optimizer state for resuming a run.
     """
     ckpt = cfg.get("checkpoint")
-    if ckpt:
-        from tt_bio.train.checkpoint import read_header
-
-        if read_header(ckpt).get("tt_bio_adapter") == "1":
-            from tt_bio.train.openfold3 import trained_state_dict
-
-            return trained_state_dict(ckpt, base=cfg["of3_ckpt"])
+    if ckpt and Path(ckpt).suffix == ".safetensors":
+        raise RuntimeError(
+            f"{ckpt} is a training checkpoint, which resumes a run. Fold with the weights.pt "
+            f"that `tt-bio train` wrote beside it")
     return torch.load(ckpt or cfg["of3_ckpt"], map_location="cpu", weights_only=False)
 
 

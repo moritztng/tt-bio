@@ -57,7 +57,6 @@ half its terms.
 from __future__ import annotations
 
 import contextlib
-import json
 import math
 from pathlib import Path
 from typing import Optional
@@ -453,11 +452,6 @@ class OpenFold3Forward:
         return self._device
 
     @property
-    def starting_weights(self) -> dict:
-        """The file this forward starts from, as a training checkpoint records it."""
-        return base_weights(self.checkpoint)
-
-    @property
     def model(self):
         """The shipped ``OpenFold3`` module, built once on first use."""
         if self._model is None:
@@ -482,6 +476,15 @@ class OpenFold3Forward:
         self._lineage = {p: keys for p, (keys, _h) in uploads.items()}
         self._claimed = {k for k in map(_canonical_key, sd) if not k.startswith(_FROZEN)}
         return sd, lin, walked, uploads
+
+    def write_weights(self, masters: dict, path) -> Path:
+        """Write ``masters`` as an OpenFold3 checkpoint in the shipped format, atomically."""
+        import os
+        path = Path(path)
+        tmp = path.with_suffix(".part")
+        torch.save(trained_state_dict(masters, self.checkpoint, device=self.device), tmp)
+        os.replace(tmp, path)
+        return path
 
     def _build(self, sd, ckc):
         """The shipped module plus everything the training step adds to it."""
@@ -914,52 +917,30 @@ def _load_state_dict(path) -> dict:
     return {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
 
 
-def base_weights(checkpoint) -> dict:
-    """What a training checkpoint records about the weights it started from."""
-    p = Path(checkpoint)
-    return {"name": p.name, "bytes": p.stat().st_size}
+def trained_state_dict(masters: dict, base, *, device=None) -> dict:
+    """``masters`` (the optimizer's, keyed by walk path) as an OpenFold3 state dict like ``base``.
 
+    The masters are in device coordinates, keyed by where each weight sits in the built model;
+    the model is built from an upstream-format state dict. So this builds the model from
+    ``base`` with a differentiable lineage, reads back every device weight as a run from
+    ``base`` starts from it, and folds each master's movement back into the keys it was built
+    from (``lineage.fold_back``). Keys training never moved come back as the same tensors, so
+    the result folds exactly as ``base`` does everywhere the run did not reach.
 
-def trained_state_dict(path, base=None) -> dict:
-    """The weights a ``tt-bio train`` checkpoint holds, as the checkpoint ``predict`` loads.
-
-    A training checkpoint stores the optimizer's masters in device coordinates, keyed by where
-    each weight sits in the built model; the model is built from an upstream-format state dict.
-    So this builds the training model from ``base`` (the shipped weights by default) with a
-    differentiable lineage, reads back every device weight as the run started from it, and
-    folds each master's movement back into the keys it was built from (``lineage.fold_back``).
-    Keys training never moved come back as the same tensors, so the result folds exactly as
-    the base does everywhere the run did not reach.
-
-    Opens the device, and holds a second copy of the weights on it until it returns.
+    Holds a second copy of the weights on the device until it returns.
     """
-    from safetensors import safe_open
-    from .checkpoint import read_header
     from .tensors import to_host
 
-    base = Path(base) if base else _shipped_weights()
-    md = read_header(path)
-    if md.get("tt_bio_adapter") != "1":
-        raise ValueError(f"{path} is not a checkpoint `tt-bio train` wrote")
-    meta = json.loads(md.get("meta", "{}"))
-    started = meta.get("provenance", {}).get("config", {}).get("weights")
-    if started and started != base_weights(base):
-        raise ValueError(f"{path} was trained from {started['name']} ({started['bytes']} bytes) "
-                         f"and would be applied to {base} ({base.stat().st_size} bytes). Point "
-                         f"OF3_CKPT at the weights the run started from")
-    with safe_open(str(path), framework="np") as fh:
-        pre = "master|"
-        masters = {k[len(pre):]: fh.get_tensor(k) for k in fh.keys() if k.startswith(pre)}
-    fwd = OpenFold3Forward(base)
+    fwd = OpenFold3Forward(base, device=device)
     sd, lin, walked, uploads = fwd._record(differentiable=True)
     found = {p: t for p, _o, _k, t in walked}
     stray = sorted(set(masters) - set(found))
     if stray:
-        raise ValueError(f"{path} holds {len(stray)} tensors this model does not have, e.g. "
-                         f"{stray[:3]}. It is not a `--train weights` checkpoint of openfold3")
+        raise ValueError(f"{len(stray)} trained tensors are not weights of this model, e.g. "
+                         f"{stray[:3]}")
     moved = {}
     for p, m in masters.items():
-        d = m.astype(np.float32).reshape(-1) - to_host(found[p]).reshape(-1)
+        d = np.asarray(m, np.float32).reshape(-1) - to_host(found[p]).reshape(-1)
         if d.any():
             moved[p] = torch.from_numpy(d)
     del found, walked, fwd

@@ -310,9 +310,9 @@ def train(data, model, out_dir, steps, chip_ids, dry_run, global_batch, lr, warm
     click.echo(str(run))
     status.succeed(run)
     click.echo(f"wrote {status.path}")
-    if run.best and train_mode == "weights":
-        click.echo(f"fold with it: tt-bio predict INPUT --model {model} "
-                   f"--checkpoint {run.best['path']}")
+    if status.weights:
+        click.echo(f"fold with the trained weights: tt-bio predict INPUT --model {model} "
+                   f"--checkpoint {status.weights}")
 
 
 #: The crop a run uses when --tokens is not given: each model's first training stage.
@@ -331,6 +331,7 @@ class _Status:
         import time
         self.dir, self.writer, self.clock = Path(out_dir), writer, time.perf_counter
         self.last = self.clock()
+        self.weights = None
         self.path = self.dir / "status.json"
         self.progress = self.dir / "progress.jsonl"
 
@@ -409,10 +410,14 @@ class _Status:
             (self.dir / "run.json").write_text(json.dumps(
                 {"history": run.history, "provenance": prov, "dp": run.dp,
                  "displacement": run.displacement}, indent=2, default=str) + "\n")
+        from .checkpoint import WEIGHTS
         best, latest = run.best, run.checkpointer.latest()
+        weights = self.dir / WEIGHTS
+        self.weights = str(weights) if weights.is_file() else None
         self._write(status="succeeded", step=run.history[-1]["step"] if run.history else None,
                     loss=run.loss, provenance={k: v for k, v in prov.items() if k not in ("config", "dp")},
-                    dp=_dp_summary(run.dp), checkpoint=str(best["path"]) if best else None,
+                    dp=_dp_summary(run.dp), weights=self.weights,
+                    checkpoint=str(best["path"]) if best else None,
                     latest=str(latest) if latest else None, record=str(self.dir / "run.json"))
 
 
