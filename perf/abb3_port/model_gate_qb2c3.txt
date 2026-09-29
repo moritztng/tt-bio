@@ -1,8 +1,9 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the landing tree.
-RECORDED-AT: 63a8d313cbe8fa76b2095ee13df5e7d79a09d256 scripts/abb3_port/model_gate.py
+RECORDED-AT: 6119788d7424aa99d6f1ac533effc2e51fb0e3ae scripts/abb3_port/model_gate.py
 #
-# TREE: origin/main 1f0c23c71 with the ABodyBuilder3 training stack merged (wk/land-of3t-train-ab).
+# TREE: main f45a72a98 (the ABodyBuilder3 stack) with wk/of3t-p10batch merged, whose
+# tt_bio/autograd.py change (ag.matmul reduces a broadcast operand gradient) is in this import closure.
 # Replaces model_gate_qb1c1.txt, recorded at db857fe72 on qb1 card 1 (p150a): 22 files in this
 # script's import closure had changed since, so that record no longer described the code.
 #
@@ -13,9 +14,9 @@ RECORDED-AT: 63a8d313cbe8fa76b2095ee13df5e7d79a09d256 scripts/abb3_port/model_ga
 #   done; done
 #
 # NO TIMING CLAIM. Every row is an accuracy comparison against a float64 reference. AICLK on card 3,
-# sampled every 2 s over this run and the step gate after it: 1350 MHz on 220 of 239 samples, 1343 on 8, 800 on 11.
+# sampled every 2 s over this run and the step gate after it: 1350 MHz on 157 of 172 samples, 1343 on 7, 800 on 8.
 #
-# WHAT MOVED since db857fe72, on a different host and board: nothing. All four arms print the same
+# WHAT MOVED since db857fe72, on a different host and board, and since the autograd change: nothing. All four arms print the same
 # digits as the qb1c1 record, line for line, including the known failure below.
 #
 # STILL FAILING, unchanged: the sigma 0.3 / 256-token stress arm, angles 5.11e-02 against its own

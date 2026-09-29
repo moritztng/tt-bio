@@ -1,0 +1,24 @@
+commit 2c5ca7e3f start 2026-09-29T09:11:56Z
+openfold3 rc=0 09:12:50
+boltz2 rc=0 09:13:09
+esmfold2 rc=0 09:13:44
+esmfold2-fast rc=0 09:14:19
+protenix-v2 rc=0 09:14:46
+protenix-v1 rc=0 09:15:08
+opendde rc=0 09:15:40
+rf3 rc=0 09:16:14
+openbind rc=0 09:17:06
+boltzgen rc=0 09:19:22
+rfd3 rc=0 09:20:22
+opendde-abag rc=0 09:25:47
+capacity rc=0 09:41:03
+l1-budget rc=0 09:42:10
+batch-position rc=0 09:46:13
+nesso1 rc=0 09:46:31
+pxdesign rc=0 09:46:38
+rf3-1024aa rc=0 09:49:29
+rfd3-fusion rc=0 09:50:07
+esmc-300m rc=0 09:50:13
+esmc-600m rc=0 09:50:21
+size-ladder rc=1 13:08:24
+gate done 2026-09-29T13:08:24Z

@@ -1,0 +1,26 @@
+[release-gate] granted card(s) [1]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-of3t-train/tt_bio (commit 3840b026d)
+
+======================================================================
+[size-ladder] checking for card p300c: boltz2, openbind, rf3, nesso1 at rungs 256,512,640,768,896,1024,1088
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+[size-ladder] nesso1: tt-bio affinity, bf16 trunk, 5 recycles, 256-token crop
+======================================================================
+[card-recovery] resetting card 1 (board pair 1/0) after a wedge-kill
+[card-recovery] card 1 reset, no fd holders
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024,1088, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa   1088aa  k256->512  k512->768     wall  result
+boltz2              8.0s    14.7s    21.2s    32.0s    44.7s    54.4s        -       0.88       1.92    3905s  FAIL (boltz2 512->768: exponent 2.51 -> 1.92 outside ±0.50; boltz2 per-rung base->run: 256 4.2->8.0 1.90x, 512 10.9->14.7 1.35x, 640 17.4->21.2 1.22x, 768 30.2->32.0 1.06x, 896 41.8->44.7 1.07x, 1024 48.6->54.4 1.12x -- every rung moved; this is a whole-ladder shift, not one rung)
+    FAIL boltz2 512->768: exponent 2.51 -> 1.92 outside ±0.50
+    FAIL boltz2 per-rung base->run: 256 4.2->8.0 1.90x, 512 10.9->14.7 1.35x, 640 17.4->21.2 1.22x, 768 30.2->32.0 1.06x, 896 41.8->44.7 1.07x, 1024 48.6->54.4 1.12x -- every rung moved; this is a whole-ladder shift, not one rung
+openbind            7.9s    18.0s    26.6s    35.5s    49.5s    69.6s        -       1.19       1.68    3905s  PASS
+rf3                25.6s    41.9s    57.5s        -        -        -        -          -          -    3905s  FAIL (rung 768 warm-up: census fold timed out after 1800s (full log kept at perf/sizegate/failures/rf3-768-warmup-20260929T143401Z.log))
+    FAIL rung 768 warm-up: census fold timed out after 1800s (full log kept at perf/sizegate/failures/rf3-768-warmup-20260929T143401Z.log)
+nesso1              6.5s     9.4s    10.3s     9.2s    12.6s    14.7s        -       0.53      -0.04    3905s  FAIL (nesso1 512->768: exponent 0.89 -> -0.04 outside ±0.50; nesso1 per-rung base->run: 256 4.1->6.5 1.58x, 512 6.3->9.4 1.48x, 640 7.0->10.3 1.47x, 768 9.1->9.2 1.02x, 896 12.9->12.6 0.98x, 1024 20.3->14.7 0.72x -- only 256 aa, 512 aa, 640 aa, 1024 aa moved more than 5%; 768, 896 aa reproduce. Attribute the exponent to those rungs, not to the interval)
+    FAIL nesso1 512->768: exponent 0.89 -> -0.04 outside ±0.50
+    FAIL nesso1 per-rung base->run: 256 4.1->6.5 1.58x, 512 6.3->9.4 1.48x, 640 7.0->10.3 1.47x, 768 9.1->9.2 1.02x, 896 12.9->12.6 0.98x, 1024 20.3->14.7 0.72x -- only 256 aa, 512 aa, 640 aa, 1024 aa moved more than 5%; 768, 896 aa reproduce. Attribute the exponent to those rungs, not to the interval
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record

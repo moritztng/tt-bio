@@ -70,6 +70,25 @@ def _dram(dev):
     return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
 
 
+def _dram_free(dev):
+    """(largest contiguous free, total free), both in bytes across all banks.
+
+    The peak allocation is NOT what an arm is refused on. `of3t-p10wall` died at 48 replicates
+    with 12,713,984 B refused while 115 MB was free and the largest block was 908 KB, so the
+    figure that decides whether the accurate configuration fits is the largest CONTIGUOUS block,
+    which is what an interleaved allocation is actually placed into. Same idiom as
+    `tenstorrent.py:5860`: the per-bank minimum times the banks, because a bank that cannot take
+    its share refuses the whole placement.
+    """
+    import ttnn
+    mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
+    lcf = mv.largest_contiguous_bytes_free_per_bank
+    lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+    tf = mv.total_bytes_free_per_bank
+    tf = min(tf) if isinstance(tf, (list, tuple)) else tf
+    return int(lcf) * int(mv.num_banks), int(tf) * int(mv.num_banks)
+
+
 def _mem_available_gib():
     """Host MemAvailable, beside every timing that has a host half.
 
@@ -261,6 +280,22 @@ def diffusion_pre(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
         sigmas.append(pool[int(rng.integers(len(pool)))])
     out["sigmas"] = [round(s, 4) for s in sigmas]
     out["distinct_sigmas"] = len(set(sigmas))
+
+    # THE WHOLE NOISE SET, DRAWN HERE, INDEXED BY REPLICATE. `tt_bio/sample_chunks.py` states
+    # the codebase invariant: "the samplers draw every sample's initial noise, augmentation and
+    # step noise over the whole sample axis on the host before any chunking, so a sample gets
+    # the same draws at every width." This harness used to thread one generator into the
+    # replicate loop and draw inside it, which makes a replicate's noise a function of its
+    # POSITION IN THE DRAW ORDER rather than of its index. On one chip, in order, that is
+    # invisible; it breaks the moment the axis is partitioned any other way -- a sample-batched
+    # call, a re-run chunk, a rank holding a round-robin slice -- and then a batched arm and a
+    # per-replicate arm are different computations and the gradient A/B compares nothing.
+    # Drawing the set in one call at this point in the stream is bit-identical to the 48
+    # sequential draws it replaces (`tests/test_replicate_noise_is_indexed.py`), so no banked
+    # number moves; what changes is that C=4, C=8, a batch of 4 and a 2-rank split now agree
+    # by construction.
+    out["noise_draw"] = "whole sample axis, drawn before any chunking, indexed by replicate"
+    noise = rng.standard_normal((n_samples, int(n_atom), 3)).astype("float32")
     out["n_samples"] = n_samples
     out["n_atom"] = int(n_atom)
     out["n_token"] = int(n_token)
@@ -279,7 +314,7 @@ def diffusion_pre(sampler, sargs, s_trunk, z_trunk, n_samples, rng, out):
     out["tokens_without_an_atom"] = int((rep < 0).sum())
     rep = np.clip(rep, 0, n_atom - 1)
     out["rep_atom_index"] = "first atom of each token, from atom_to_token_idx"
-    return {"sargs": sargs, "sigmas": sigmas, "rep": rep, "zij_pad": zij_pad,
+    return {"sargs": sargs, "sigmas": sigmas, "noise": noise, "rep": rep, "zij_pad": zij_pad,
             "si_trunk": si_trunk_dev, "atom_mask_host": atom_mask_host, "xl_host": xl_host}
 
 
@@ -318,9 +353,9 @@ def cut_tree(v, pairs):
     return v
 
 
-def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
-                    cache=None):
-    """One chunk of replicates: `dc.single` plus the denoiser, once per noised structure.
+def diffusion_chunk(sampler, pre, idxs, out, si_trunk=None, zij_pad=None,
+                    cache=None, batch=1):
+    """One chunk of replicates: `dc.single` plus the denoiser, over `idxs` noised structures.
 
     Every denoised structure stays on the card as a tape root; there is no EDM update
     chaining one to the next and no host download between them. `si_trunk` / `zij_pad`
@@ -333,6 +368,17 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
     same subgraph once per chunk on the way back. So the caller primes it once on the TRUNK's
     side of the cut and hands the cut copy in here; `cache=None` rebuilds, which is what an
     unchunked step does anyway.
+
+    `batch` is the SAMPLE AXIS: how many of this chunk's replicates go through one call of
+    the diffusion module. At 1 the loop is what it always was. Above 1 the module runs the
+    atom-level encoder and decoder once per replicate and the 24-block token DiT ONCE for
+    all of them, which is where the dispatch cost is -- see
+    `OF3DiffusionModule._denoise_samples`. The width is resolved by the tree's own
+    `resolve_sample_chunk_width`, so a chunk of 4 at batch 3 runs 2+2 rather than 3+1.
+
+    The replicates are named by INDEX, not by a sigma sublist: a replicate's noise comes from
+    `pre["noise"][k]`, so the same k is the same noised structure at any batch width, in any
+    chunk, on any rank.
     """
     import math
     import torch
@@ -349,18 +395,27 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
      noise_schedule, rots_list, trans_list, noise_list, t_list, c_tau_list,
      step_scale) = pre["sargs"][:35]
 
+    from tt_bio.sample_chunks import resolve_sample_chunk_width
+
     dc, dm = sampler.dc, sampler.dm
     dt = sampler._act_dtype
     si_dev_trunk = pre["si_trunk"] if si_trunk is None else si_trunk
     zij = pre["zij_pad"] if zij_pad is None else zij_pad
     atom_mask_host, xl_host = pre["atom_mask_host"], pre["xl_host"]
+    sigmas_all, noise_all = pre["sigmas"], pre["noise"]
     inv_cache = {} if cache is None else cache
-    roots, per_sample = [], []
-    for k, t in enumerate(sigmas):
-        t0 = time.perf_counter()
-        noise = torch.from_numpy(
-            rng.standard_normal((n_atom, 3)).astype("float32")) * t
-        xl_noisy = xl_host + noise
+    idxs = list(idxs)
+
+    if batch > 1 and not getattr(dm.dit, "supports_multiplicity", False):
+        # A capability that is reachable but silently declines is this fleet's documented way
+        # of losing a whole campaign's win (`rfd3_bias.py:229`). Refuse loudly instead.
+        raise RuntimeError("--dit-batch asked for a sample axis the DiT does not declare")
+    width = resolve_sample_chunk_width(len(idxs), batch) if batch > 1 else 1
+
+    def prep(k):
+        """Replicate k's four per-sample tensors. Everything here is host or `dc.single`."""
+        t = sigmas_all[k]
+        xl_noisy = xl_host + torch.from_numpy(noise_all[k]) * t
         n_emb = fourier_noise_emb(t, sampler.sigma_data, sampler.fourier_w, sampler.fourier_b)
         si_dev = dc.single(si_dev_trunk, si_input_dev,
                            sampler._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev)
@@ -368,18 +423,42 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
         rl_noisy = xl_noisy * atom_mask_host[:, None] / math.sqrt(t * t + sampler.sigma_data ** 2)
         rl_noisy_dev = sampler._to_dev(sampler._pad_atoms_host(rl_noisy, n_atom, NP))
         xl_noisy_dev = sampler._to_dev((xl_noisy * atom_mask_host[:, None]).unsqueeze(0))
-        xl_denoised_dev = dm(
-            si_dev_trunk, si_pad, zij, cl0_dev, plm0_dev, rl_noisy_dev, xl_noisy_dev,
-            atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
-            npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
-            enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
-            token_mask_pad_tt, tok_mask_col_pad_tt,
-            n_atom, NP, nb, n_token, n_tok_pad, t, sampler.sigma_data, cache=inv_cache)
+        return si_pad, rl_noisy_dev, xl_noisy_dev, t
+
+    def denoise(si, rl, xl, t, samples=None):
+        return dm(si_dev_trunk, si, zij, cl0_dev, plm0_dev, rl, xl,
+                  atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
+                  npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
+                  enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
+                  token_mask_pad_tt, tok_mask_col_pad_tt,
+                  n_atom, NP, nb, n_token, n_tok_pad, t, sampler.sigma_data,
+                  cache=inv_cache, samples=samples)
+
+    roots, per_sample, batches = [], [], []
+    for start in range(0, len(idxs), width):
+        part = idxs[start:start + width]
+        t0 = time.perf_counter()
+        built = [prep(k) for k in part]
+        if len(built) == 1:
+            got = [denoise(*built[0])]
+        else:
+            got = denoise(None, None, None, None, samples=built)
         ttnn.synchronize_device(dm.device if hasattr(dm, "device") else dc.device)
-        roots.append(xl_denoised_dev)
-        per_sample.append(round(time.perf_counter() - t0, 3))
-        print(f"  [diffusion] sample {k} sigma {t:8.3f}  {per_sample[-1]:7.3f}s", flush=True)
+        dt_s = time.perf_counter() - t0
+        roots.extend(got)
+        # THE STAMP. An A/B that agrees must read as "the axis did not reach" before it reads
+        # as "the axis did not help", so the width that actually ran is in the artifact, per
+        # call, beside the shape the DiT saw.
+        batches.append({"first": part[0], "n": len(part), "s": round(dt_s, 3)})
+        per_sample.extend([round(dt_s / len(part), 3)] * len(part))
+        print(f"  [diffusion] samples {part[0]}..{part[-1]} (batch {len(part)}) "
+              f"sigma {sigmas_all[part[0]]:8.3f}  {dt_s:7.3f}s  "
+              f"{dt_s / len(part):6.3f}s/replicate", flush=True)
     out.setdefault("per_sample_s", []).extend(per_sample)
+    out.setdefault("batches", []).extend(batches)
+    out["dit_batch_width"] = width
+    out["per_sample_s_basis"] = ("measured per replicate at width 1; the batch wall divided "
+                                 "by its width above 1")
     return roots
 
 
@@ -791,6 +870,18 @@ def main() -> int:
                     help="replicates per chunk. The chunk tape is cut at the trunk output, "
                          "so the trunk backward still runs exactly ONCE per step whatever "
                          "this is. 0 keeps every replicate in one tape")
+    ap.add_argument("--dit-batch", type=int, default=1,
+                    help="replicates through ONE diffusion-module call (the sample axis). "
+                         "1 is the per-replicate loop; above 1 the 24-block token DiT runs "
+                         "once for the batch and the atom-level stages stay at batch 1. "
+                         "Capped by --chunk, and the width is rebalanced so the widest "
+                         "batch is as narrow as the batch count allows.")
+    ap.add_argument("--dit-batch-per-rep", default="",
+                    help="comma-separated sample-axis width per rep, one warm process. The "
+                         "A/B this row exists to take: width 1 IS the per-replicate loop, so "
+                         "`1,4,1,4` interleaves the two arms at the step boundary on one "
+                         "card against one clock, which is the only way to price a lever "
+                         "against a run-to-run spread this large")
     ap.add_argument("--chunk-per-rep", default="",
                     help="comma-separated C per rep, one warm process. The replicate "
                          "subgraph's backward is what the campaign's 5.6x projection rests "
@@ -829,6 +920,8 @@ def main() -> int:
                          "gets: the device path, instrument off")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
+    if a.dit_batch < 1:
+        ap.error("--dit-batch is a sample-axis width, so 1 is the narrowest it can be")
     if a.grad_ab:
         # One process, one weight set, no step between the two arms: anything else compares
         # two different models rather than two ways of summing one gradient.
@@ -920,7 +1013,9 @@ def main() -> int:
             out["row_mean"] = {"flag": bool(ag.ROW_MEAN_DIVIDE), "per_rep_plan": rmplan or None,
                                "stats_before": dict(ag.ROW_MEAN_STATS)}
             cplan = [int(x) for x in a.chunk_per_rep.split(",") if x != ""]
+            bplan = [int(x) for x in a.dit_batch_per_rep.split(",") if x != ""]
             out["chunk_per_rep_plan"] = cplan or None
+            out["dit_batch_per_rep_plan"] = bplan or None
             out["renorm"]["per_rep_plan"] = plan or None
             reps = []
             grad_ab: dict = {}
@@ -928,11 +1023,16 @@ def main() -> int:
                 # Two streams, not one. The replicate noise must be identical between a
                 # chunked arm and an unchunked one or the gradient A/B compares two different
                 # sets of structures; drawing the loss fixture from the same stream made the
-                # draw order depend on the loss SHAPE.
+                # draw order depend on the loss SHAPE. `rng_diff` is now consumed entirely
+                # inside `diffusion_pre` -- the sigma draw and then the whole 48-long noise
+                # set -- so the replicate loop draws nothing and the chunk width, the batch
+                # width and the rank split cannot reach the numbers.
                 seed_rep = 0 if a.grad_ab else rep
                 rng_diff = np.random.default_rng(SEED + seed_rep)
                 rng_loss = np.random.default_rng(SEED + 10_000 + seed_rep)
-                row = {"rep": rep, "cold": rep == 0}
+                min_lcf = 1 << 62
+                dbw = bplan[rep % len(bplan)] if bplan else a.dit_batch
+                row = {"rep": rep, "cold": rep == 0, "dit_batch": dbw}
                 # In `reps` from the start, so the per-chunk `dump()` inside a 12-chunk step
                 # lands in the artifact instead of in a local nobody has written out yet.
                 reps.append(row)
@@ -1022,8 +1122,8 @@ def main() -> int:
                         # replicate is one of the 48 -- its backward is deferred into the
                         # final walk rather than skipped.
                         t0 = time.perf_counter()
-                        prime_roots = diffusion_chunk(sampler, pre, pre["sigmas"][:1],
-                                                      rng_diff, d_out, cache=prime_cache)
+                        prime_roots = diffusion_chunk(sampler, pre, range(1),
+                                                      d_out, cache=prime_cache)
                         ttnn.synchronize_device(dev)
                         row["prime_replicate_s"] = round(time.perf_counter() - t0, 3)
                         diff_s += row["prime_replicate_s"]
@@ -1032,10 +1132,12 @@ def main() -> int:
                         dump()
                     if not chunk:
                         t0 = time.perf_counter()
-                        roots = diffusion_chunk(sampler, pre, pre["sigmas"], rng_diff, d_out)
+                        roots = diffusion_chunk(sampler, pre, range(a.samples), d_out,
+                                                batch=dbw)
                         diff_s += time.perf_counter() - t0
                         row["dram_after_diffusion"] = _dram(dev)
                         peak_dram = row["dram_after_diffusion"]
+                        min_lcf = min(min_lcf, _dram_free(dev)[0])
                     print("  [tape] leaving the tape context", flush=True)
 
                 print("  [tape] left the tape context", flush=True)
@@ -1067,20 +1169,22 @@ def main() -> int:
                     prime_cot = _cotangents(prime_roots, prime_seeds, dev)
                     loss_s += time.perf_counter() - t0
                     for ci in range(1, a.samples, chunk):
-                        part = pre["sigmas"][ci:ci + chunk]
-                        c = {"first": ci, "n": len(part)}
+                        part = range(ci, min(ci + chunk, a.samples))
+                        c = {"first": ci, "n": len(part), "dit_batch": dbw}
                         t0 = time.perf_counter()
                         with ag.tape():
                             c["exact_in_chunk_tape"] = [ag.exact_softmax_installed(),
                                                         ag.exact_layer_norm_installed()]
-                            roots = diffusion_chunk(sampler, pre, part, rng_diff, d_out,
+                            roots = diffusion_chunk(sampler, pre, part, d_out,
                                                     si_trunk=s_det, zij_pad=z_det,
-                                                    cache=cut_cache)
+                                                    cache=cut_cache, batch=dbw)
                         ttnn.synchronize_device(dev)
                         c["diffusion_s"] = round(time.perf_counter() - t0, 3)
                         diff_s += c["diffusion_s"]
                         c["dram_after_diffusion"] = _dram(dev)
+                        c["dram_largest_free_after_diffusion"], c["dram_total_free_after_diffusion"] = _dram_free(dev)
                         peak_dram = max(peak_dram, c["dram_after_diffusion"])
+                        min_lcf = min(min_lcf, c["dram_largest_free_after_diffusion"])
 
                         t0 = time.perf_counter()
                         if labels is None:
@@ -1108,12 +1212,15 @@ def main() -> int:
                         roots = None
                         gc.collect()
                         c["dram_after_backward"] = _dram(dev)
+                        c["dram_largest_free_after_backward"], c["dram_total_free_after_backward"] = _dram_free(dev)
+                        min_lcf = min(min_lcf, c["dram_largest_free_after_backward"])
                         c["mem_available_gib"] = _mem_available_gib()
                         chunks.append(c)
                         print(f"  [chunk {len(chunks)}] {c['n']} replicates  "
                               f"fwd {c['diffusion_s']:.2f}s  loss {c['losses_s']:.2f}s  "
                               f"bwd {c['backward_s']:.2f}s  {c['tape_nodes']} nodes  "
                               f"dram {c['dram_after_diffusion'] / 1e9:.2f} GB  "
+                              f"lcf {c['dram_largest_free_after_backward'] / 1e6:.1f} MB  "
                               f"memavail {c['mem_available_gib']} GiB", flush=True)
                         row["chunks"] = chunks
                         dump()
@@ -1187,11 +1294,15 @@ def main() -> int:
                 row["seed_upload_s"] = round(seed_s, 3)
                 row["backward_s"] = round(bwd_s, 3)
                 row["dram_peak"] = peak_dram
+                # The low-water mark of the largest contiguous block over the whole step. This,
+                # not the peak, is what the accuracy-matched arm is refused on.
+                row["dram_largest_free_min"] = min_lcf
                 got = sum(1 for t in params.values() if getattr(t, "grad", None) is not None)
                 row["params_with_grad"] = f"{got} of {len(params)}"
                 row["backward_valid"] = bool(got) or a.no_tape
                 row["dram_after_backward"] = _dram(dev)
                 _mark("after_backward")
+                row["dram_largest_free_after_backward"], row["dram_total_free_after_backward"] = _dram_free(dev)
 
                 if a.grad_ab:
                     grad_ab = grad_snapshot(params, grad_ab, row,

@@ -1,0 +1,18 @@
+[release-gate] granted card(s) [0]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-of3t-train/tt_bio (commit 5daedee85)
+
+======================================================================
+[size-ladder] checking for card p300c: boltz2, nesso1, rf3 at rungs 256,512,640,768,896,1024,1088
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+[size-ladder] nesso1: tt-bio affinity, bf16 trunk, 5 recycles, 256-token crop
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024,1088, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa   1088aa  k256->512  k512->768     wall  result
+boltz2              4.0s    11.1s    17.5s    25.9s    37.7s    48.8s        -       1.47       2.09    2032s  PASS
+nesso1              3.9s     6.4s     6.9s     9.2s    12.7s    14.5s        -       0.71       0.90    2032s  PASS
+rf3                21.3s    37.0s    52.8s    68.7s    95.9s   121.2s   162.8s       0.80       1.53    2032s  PASS
+##############################################################################
+GATE PASS — lever census and scaling exponents match the recorded baseline at every rung
