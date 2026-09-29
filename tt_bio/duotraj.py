@@ -26,6 +26,7 @@ from the environment and nothing changes behaviour for a process that never call
 from __future__ import annotations
 
 import contextlib
+import pathlib
 import sys
 import threading
 import time
@@ -55,13 +56,50 @@ TRAJECTORY_HOST_BYTES = int(3.5 * 2**30)
 #: trajectory at 512 add 7.94 GB each against 4.47 at 288, which is 1.94e-5. Rounded up.
 HOST_BYTES_PER_TOKEN2 = 2.0e-5 * 2**30
 
-#: DRAM on one Blackhole chip as the allocator reports it, 31.875 GiB on both the p150a and a
-#: p300 chip. `auto` runs before any card is open, so this is what it prices the card against.
-CARD_BYTES = int(31.875 * 2**30)
+#: DRAM one chip has, as the allocator reports it, by the PCI device id the kernel driver puts
+#: in `/sys/class/tenstorrent/tenstorrent!N/device/device` (the ids are tt-kmd's own, from
+#: `enumerate.h`). 31.875 GiB on Blackhole, the p150a and one p300 chip alike; 12 GiB on a
+#: Wormhole chip, which is what `tenstorrent.atom_pair_budget_bytes` already prices that part at.
+CARD_BYTES_BY_PCI_ID = {0x401E: int(12 * 2**30), 0xB140: int(31.875 * 2**30)}
+
+#: What a card is worth when the host will not say which part it is. The SMALLEST part tt-bio
+#: runs on, not the largest, the same way `tenstorrent.l1_resident_budget_bytes()` falls back to
+#: Wormhole's L1: over-pricing the card starts trajectories that do not fit, under-pricing it
+#: starts one that does.
+CARD_BYTES = int(12 * 2**30)
+
+#: Where the kernel driver publishes one node per chip.
+TT_SYSFS_CLASS = "/sys/class/tenstorrent"
 
 #: DRAM `auto` leaves unspent, for the fragmentation a nearly full card refuses on: at 704 tokens
 #: three trajectories died with 197 MB free in total and no contiguous 11.5 MB piece of it.
 CARD_RESERVE_BYTES = int(1.0 * 2**30)
+
+
+def card_total_bytes() -> int:
+    """DRAM one chip of this host has, answered without opening a device.
+
+    `auto` runs before ttnn is imported, so the size of the card it is pricing cannot come from
+    the allocator. The kernel driver publishes the part anyway: every chip has a
+    `/sys/class/tenstorrent` node whose PCI device id says Wormhole or Blackhole, and the two
+    differ by **2.65x**. Priced as a Blackhole chip, a 12 GiB Wormhole chip approves 3
+    trajectories of a 288-token design at 5.3 GB each, which is 16 GB on a card that holds 11.
+
+    Chips only disagree on a host with two parts in it, and then the smallest one wins: the
+    count is chosen once, before anything knows which chip the run lands on.
+    """
+    try:
+        nodes = sorted(pathlib.Path(TT_SYSFS_CLASS).iterdir())
+    except OSError:
+        return CARD_BYTES
+    sizes = []
+    for node in nodes:
+        try:
+            pci = int((node / "device" / "device").read_text().strip(), 16)
+        except (OSError, ValueError):
+            continue
+        sizes.append(CARD_BYTES_BY_PCI_ID.get(pci, CARD_BYTES))
+    return min(sizes) if sizes else CARD_BYTES
 
 
 #: What the composed triangle attention adds per token CUBED when the fused arm declines. The
@@ -260,7 +298,7 @@ def refuse_if_it_will_not_fit(extra: int, *, tokens: int) -> None:
             f"the box.")
     # None has started, so the card holds at most the shared floor: all of them are priced.
     want = (extra + 1) * trajectory_bytes(tokens)
-    free = free_device_bytes() or CARD_BYTES - trajectory_floor_bytes(tokens)
+    free = free_device_bytes() or card_total_bytes() - trajectory_floor_bytes(tokens)
     if free < want:
         raise MemoryError(
             f"interleaving {extra + 1} trajectories of {tokens} tokens needs {want * gb:.2f} GB "
@@ -332,7 +370,7 @@ def auto_trajectories(tokens: "int | None", cap: int = AUTO_CAP) -> "tuple[int, 
 
     per = trajectory_bytes(tokens)
     open_card = free_device_bytes()
-    room = (open_card or CARD_BYTES - trajectory_floor_bytes(tokens)) - CARD_RESERVE_BYTES
+    room = (open_card or card_total_bytes() - trajectory_floor_bytes(tokens)) - CARD_RESERVE_BYTES
     on_card = max(1, min(cap, room // per))
     for n in range(on_card, 1, -1):
         if needs(n) <= free:
