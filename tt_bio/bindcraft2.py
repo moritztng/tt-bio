@@ -34,6 +34,7 @@ import contextlib
 import functools
 import os
 import pathlib
+import re
 import sys
 import threading
 from collections.abc import Mapping
@@ -56,6 +57,103 @@ EVOFORMER_BLOCKS = 48
 
 def _pad32(n: int) -> int:
     return -(-n // TOKEN_BUCKET) * TOKEN_BUCKET
+
+
+#: The largest token axis measured to complete a BindCraft 2 gradient round on one p150a
+#: (34.226 GB of DRAM): 544 tokens holds 14.23 GB resident, 576 refuses. Measured on qb1,
+#: 2026-09-29, `state/bgx-size.md`. It is quoted in a refusal as a reference point and is
+#: enforced nowhere: the allocator decides, and a board with more DRAM has a different answer.
+MEASURED_MAX_TOKENS_P150A = 544
+
+#: tt-metal's allocator refusal, which carries every number a user needs and is buried under
+#: forty lines of C++ backtrace by the time JAX has finished wrapping it. Per bank, except the
+#: buffer size itself.
+_ALLOCATOR_REFUSAL = re.compile(
+    r"allocate (?P<want>\d+) B (?P<space>\w+) buffer across (?P<banks>\d+) banks, "
+    r"where each bank needs to store (?P<per_bank>\d+) B, "
+    r"but bank size is (?P<bank_size>\d+) B "
+    r"\(allocated: (?P<allocated>\d+) B, free: (?P<free>\d+) B, "
+    r"largest free block: (?P<largest>\d+) B\)")
+
+
+def _gb(b: float) -> str:
+    return f"{b / 1e9:.3f} GB" if b >= 1e9 else f"{b / 1e6:.1f} MB"
+
+
+def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
+    """An allocator refusal rewritten to name the size that caused it, or None.
+
+    What a researcher sees without this is a `JaxRuntimeError` wrapping ten Python frames, a
+    tt-metal `TT_FATAL`, and forty lines of raw C++ hex, with the token axis, the memory it
+    wanted and the size that would have fitted nowhere in it. Every number added here is read
+    off the allocator's own line or off the fold in hand, so none of it can drift from the
+    failure it describes.
+
+    None means `exc` is not an allocator refusal and the caller must re-raise it unchanged: a
+    wrapper that swallows the shape of an unrelated bug is worse than no wrapper.
+    """
+    hit = _ALLOCATOR_REFUSAL.search(str(exc))
+    if hit is None:
+        return None
+    g = {k: int(v) for k, v in hit.groupdict().items() if v.isdigit()}
+    space = hit.group("space")
+    banks, want, per_bank = g["banks"], g["want"], g["per_bank"]
+    free_total, largest, bank_size = g["free"] * banks, g["largest"], g["bank_size"]
+    card_total, held = bank_size * banks, g["allocated"] * banks
+
+    # Two refusals wear the same words and take different remedies. The card is genuinely full
+    # only when the free memory could not hold the request even in one piece; when it could,
+    # the request was refused for want of a contiguous run and a smaller buffer still fits.
+    fragmented = free_total >= want and largest < per_bank
+    diagnosis = (
+        f"This is fragmentation, not a full card: {_gb(free_total)} is free, which would "
+        f"cover the {_gb(want)} request if it were in one piece, but the largest contiguous "
+        f"block in a bank is {_gb(largest)} against the {_gb(per_bank)} that bank needs."
+        if fragmented else
+        f"The card is full: {_gb(free_total)} free against a {_gb(want)} request, with "
+        f"{_gb(held)} of {_gb(card_total)} already held by this fold.")
+
+    drop = n - (padded - TOKEN_BUCKET)
+    if padded > MEASURED_MAX_TOKENS_P150A:
+        action = (
+            f"What to do: run a smaller complex. The token axis is target residues + binder "
+            f"length rounded up to a multiple of {TOKEN_BUCKET}, so {drop} residues off the "
+            f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. The largest axis "
+            f"measured to complete a gradient round on one p150a is "
+            f"{MEASURED_MAX_TOKENS_P150A} tokens; above that the card refuses. Trimming the "
+            f"target to the domain you are binding is the other lever and usually the bigger "
+            f"one.")
+    else:
+        action = (
+            f"What to do: {padded} tokens fits on a p150a with the card to itself (the "
+            f"largest axis measured to complete a gradient round is "
+            f"{MEASURED_MAX_TOKENS_P150A}), so something else is holding this card. Interleaved "
+            f"trajectories are the usual cause: pass trajectories_per_card=1 to run BindCraft "
+            f"2's own one-at-a-time loop. Otherwise {drop} residues off the binder takes this "
+            f"fold to {padded - TOKEN_BUCKET} tokens.")
+
+    return MemoryError(
+        f"BindCraft 2 ran out of device memory in the Evoformer {phase} at {padded} tokens.\n"
+        f"  complex   {n} residues, padded to {padded} tokens "
+        f"(tt-bio buckets the token axis to {TOKEN_BUCKET})\n"
+        f"  asked for {_gb(want)} in one {space} buffer "
+        f"({_gb(per_bank)} in each of {banks} banks)\n"
+        f"  free      {_gb(free_total)} of {_gb(card_total)}, largest contiguous block "
+        f"{_gb(largest)}\n"
+        f"{diagnosis}\n{action}\n"
+        f"The allocator's own refusal follows.")
+
+
+@contextlib.contextmanager
+def _refusal_names_the_size(phase: str, n: int, padded: int) -> "Iterator[None]":
+    """Name the token axis on the way out of a device seam. A no-op unless it refuses."""
+    try:
+        yield
+    except Exception as exc:
+        better = _size_aware_refusal(exc, phase=phase, n=n, padded=padded)
+        if better is None:
+            raise
+        raise better from exc
 
 
 def pin_card(card: int | str) -> None:
@@ -551,7 +649,8 @@ class EvoformerOnDevice:
         # `_inputs` is numpy and torch padding and touches no card, so it runs OUTSIDE
         # `duotraj.card`. Everything after it does touch the card and runs inside.
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
-        with duotraj.card(slot, "evoformer._primal"):
+        with _refusal_names_the_size("forward", n, z.shape[0]), \
+                duotraj.card(slot, "evoformer._primal"):
             trunk = self._trunk(slot)
             mo, zo = trunk.evoformer(trunk.up(m), trunk.up(z), self._msa_mask(trunk, mask),
                                      self._pair_masks(trunk, pair_mask), recompute=False)
@@ -562,7 +661,8 @@ class EvoformerOnDevice:
 
     def _taped(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
-        with duotraj.card(slot, "evoformer._taped"):
+        with _refusal_names_the_size("forward", n, z.shape[0]), \
+                duotraj.card(slot, "evoformer._taped"):
             trunk = self._trunk(slot)
             ml, zl = trunk.leaf(m), trunk.leaf(z)
             with trunk.taped.tape():
@@ -594,7 +694,8 @@ class EvoformerOnDevice:
         gm, gz = torch.zeros(m_shape), torch.zeros(z_shape)
         gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        with duotraj.card(slot, "evoformer._backward"):
+        with _refusal_names_the_size("backward", n, z_shape[0]), \
+                duotraj.card(slot, "evoformer._backward"):
             trunk = self.pool.trunk_for(slot)
             trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
             trunk.sync()
