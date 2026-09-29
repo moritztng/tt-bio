@@ -43,7 +43,7 @@ from typing import Callable, Iterator
 import numpy as np
 import torch
 
-from tt_bio import duotraj
+from tt_bio import bcinputs, duotraj
 
 #: tt-bio's token axis buckets to 32, and rounding a design UP is faster than running it ragged:
 #: the PD-L1 complex at 211 tokens costs 4.504 s on the trunk forward and the same design padded
@@ -77,11 +77,15 @@ def design_tokens(settings: Mapping) -> int:
         return int(design_residue_count(dict(settings)))
     except Exception:
         return 0
+
+
 #: The largest token axis measured to complete a BindCraft 2 gradient round on one p150a
-#: (34.226 GB of DRAM): 544 tokens holds 14.23 GB resident, 576 refuses. Measured on qb1,
-#: 2026-09-29, `state/bgx-size.md`. It is quoted in a refusal as a reference point and is
-#: enforced nowhere: the allocator decides, and a board with more DRAM has a different answer.
-MEASURED_MAX_TOKENS_P150A = 544
+#: (34.226 GB of DRAM): 576 tokens holds 14.23 GB resident and 608 refuses. Measured on qb1,
+#: 2026-09-29, `state/bgx-size.md`, where the axis is the one the Evoformer seam ran rather
+#: than `target_residues + binder` -- those differ, and an earlier value of 544 here came from
+#: the arithmetic. It is quoted in a refusal as a reference point and is enforced nowhere: the
+#: allocator decides, and a board with more DRAM has a different answer.
+MEASURED_MAX_TOKENS_P150A = 576
 
 #: tt-metal's allocator refusal, which carries every number a user needs and is buried under
 #: forty lines of C++ backtrace by the time JAX has finished wrapping it. Per bank, except the
@@ -134,11 +138,13 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
     drop = n - (padded - TOKEN_BUCKET)
     if padded > MEASURED_MAX_TOKENS_P150A:
         action = (
-            f"What to do: run a smaller complex. The token axis is target residues + binder "
-            f"length rounded up to a multiple of {TOKEN_BUCKET}, so {drop} residues off the "
+            f"What to do: run a smaller complex. The token axis is the complex BindCraft 2 "
+            f"built, padded to a multiple of {TOKEN_BUCKET} -- it is LARGER than target "
+            f"residues + binder length, so size the job off the {n} above and not off that "
+            f"sum. {drop} residues off the "
             f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. The largest axis "
             f"measured to complete a gradient round on one p150a is "
-            f"{MEASURED_MAX_TOKENS_P150A} tokens; above that the card refuses. Trimming the "
+            f"{MEASURED_MAX_TOKENS_P150A} tokens. Trimming the "
             f"target to the domain you are binding is the other lever and usually the bigger "
             f"one.")
     else:
@@ -724,11 +730,18 @@ class EvoformerOnDevice:
         The arm's circular buffers do not fit L1 at every token axis, and when it declines the
         composed path runs in its place and materialises the `[N,4,N,N]` fp32 scores. Nothing in
         a run says so today, so a size that degrades looks like a size that is merely large. It
-        is not a small effect and it is not monotone in the size: measured on qb1 p150a with
-        hIL2R and a 146- against a 100-residue binder, 512 tokens holds 25.75 GB at 69.2 s a
-        round where 544 holds 14.23 GB at 49.4 s, so the smaller fold is the heavier and the
-        slower one. hTNFa on three chains declines identically at the same 512 axis, so it is
-        the axis and not the target.
+        is not a small effect and it is not monotone in the size: measured on qb1 p150a, one
+        axis holds 25.75 GB at 69.2 s a round where the next bucket up holds 14.23 GB at 49.4 s,
+        so the smaller fold is the heavier and the slower one, and two different targets on two
+        different chain counts decline identically at the same axis.
+
+        The note states the cost it can COMPUTE -- the composed tensor is `16 * n**3` bytes and
+        that is exact -- and does not quote the axes it was measured at. An earlier version did,
+        and the sizes it named came from arithmetic over a target file rather than from the
+        seam, so when that arithmetic turned out to be a bucket off at several targets the
+        message contradicted itself: it reported declining at 544 and advised moving to 544. A
+        message that hard-codes measured sizes inherits every labelling error upstream of it,
+        and the arm's L1 fit is a kernel policy that is expected to move anyway.
 
         The counters are process-wide, so the window is one forward and the test is a delta over
         it. Interleaved trajectories can serve inside that window; that direction only silences
@@ -739,13 +752,15 @@ class EvoformerOnDevice:
         served, declined = served - before[0], declined - before[1]
         if served or not declined:
             return
+        extra = 16 * padded ** 3          # [n,4,n,n] fp32, the term the fused arm never holds
         print(f"[tt_bio.bindcraft2] the fused triangle attention declined all {declined} calls "
               f"at {padded} tokens: its circular buffers do not fit L1 at this token axis, so "
               f"the composed path is running and holding the [{padded},4,{padded},{padded}] "
-              f"fp32 scores. Expect several times the device memory and a slower round than one "
-              f"bucket either side -- on a p150a, 512 tokens measures 25.75 GB and 69.2 s a "
-              f"round where 544 measures 14.23 GB and 49.4 s. Another binder length is the "
-              f"cheap way out.", file=sys.stderr)
+              f"fp32 scores -- {_gb(extra)} of device memory this fold would not otherwise "
+              f"need, and a slower round with it. Whether the arm fits is a property of the "
+              f"token axis and is NOT monotone in it, so a neighbouring binder length is often "
+              f"much cheaper: try one 32-token bucket UP as well as one down.",
+              file=sys.stderr)
 
     def _backward(self, slot, token, g_msa_np, g_pair_np):
         entry = self._tapes.take(token)
@@ -1890,6 +1905,10 @@ def run_campaign(settings: Mapping, project_folder: str, *,
     others have finished, rather than leaving them orphaned on the card.
     """
     from bindcraft import campaign
+
+    # Before a card is opened: a hotspot that names no residue of the target sets no flag, and
+    # BindCraft 2 reads that as a campaign with no epitope rather than as a mistake.
+    bcinputs.refuse_unusable_inputs(settings)
 
     tokens = design_tokens(settings)
     if isinstance(trajectories_per_card, str):

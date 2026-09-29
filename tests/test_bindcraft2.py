@@ -55,8 +55,13 @@ def test_importing_the_backend_pulls_in_neither_ttnn_nor_jax():
 
 
 def test_pinning_a_card_after_ttnn_is_imported_raises():
+    """The child names its own pin rather than inheriting one: `pin_card` returns early when the
+    environment already names the card asked for, so a suite run under `TT_VISIBLE_DEVICES=3`
+    (which is how this fleet runs anything that touches a card) used to fail this test and pass
+    it on every other card."""
     printed = _run_child("""
-        import sys, types
+        import os, sys, types
+        os.environ["TT_VISIBLE_DEVICES"] = "0"
         sys.modules["ttnn"] = types.ModuleType("ttnn")
         from tt_bio import bindcraft2
         try:
@@ -65,6 +70,20 @@ def test_pinning_a_card_after_ttnn_is_imported_raises():
             print("raised", "TT_VISIBLE_DEVICES=3" in str(exc))
     """)
     assert printed.split() == ["raised", "True"]
+
+
+def test_pinning_the_card_the_environment_already_names_is_a_no_op():
+    """The other half of the same branch, and the reason the test above has to set its own pin:
+    a process started with the card already in its environment is pinned, ttnn or no ttnn."""
+    printed = _run_child("""
+        import os, sys, types
+        os.environ["TT_VISIBLE_DEVICES"] = "3"
+        sys.modules["ttnn"] = types.ModuleType("ttnn")
+        from tt_bio import bindcraft2
+        bindcraft2.pin_card(3)
+        print("no-op", os.environ["TT_VISIBLE_DEVICES"])
+    """)
+    assert printed.split() == ["no-op", "3"]
 
 
 def test_a_missing_checkpoint_is_recorded_rather_than_refused(tmp_path):
@@ -1097,10 +1116,11 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
 
 # --------------------------------------------------------------------- the refusal a user reads
 
-#: tt-metal's own words, copied verbatim off a 576-token fold (hTNFa + a 100-residue binder) on
-#: qb1 card 1, 2026-09-29. JAX wraps this in a `JaxRuntimeError` behind ten Python frames and
-#: forty lines of C++ hex, and the size that caused it appears nowhere in any of them.
-REFUSAL_576 = (
+#: tt-metal's own words, copied verbatim off an hTNFa + 100-residue-binder fold on qb1 card 1,
+#: 2026-09-29, which runs on a 608-token axis: the refused buffer is exactly [608,4,608,608]
+#: fp32 (608**3 * 4 * 4 = 3,596,091,392 B). JAX wraps this in a `JaxRuntimeError` behind ten
+#: Python frames and forty lines of C++ hex, and the size that caused it appears nowhere.
+REFUSAL_608 = (
     "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\n"
     "info:\n"
     "Out of Memory: Not enough space to allocate 3596091392 B DRAM buffer across 8 banks, "
@@ -1113,24 +1133,45 @@ REFUSAL_576 = (
 
 def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down():
     """The four things the traceback does not say: how big, how much, why, and what to do."""
-    got = bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_576),
-                                         phase="backward", n=556, padded=576)
+    # The allocator line is verbatim; the complex length is a fixture, since the message logic
+    # is what is under test and the seam reports the real one at runtime.
+    got = bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
+                                         phase="backward", n=586, padded=608)
     msg = str(got)
     assert isinstance(got, MemoryError)
-    assert "576 tokens" in msg and "556 residues" in msg     # the axis and how it was composed
+    assert "608 tokens" in msg and "586 residues" in msg     # the axis and how it was composed
     assert "3.596 GB" in msg and "326.7 MB" in msg           # asked for, and the block it got
     assert "fragmentation, not a full card" in msg           # 4.122 GB free covers 3.596 GB
-    assert "544 tokens" in msg                               # one bucket down
-    assert "12 residues off the binder" in msg               # 556 - 544, the concrete action
+    assert "576 tokens" in msg                               # one bucket down, and it serves
+    assert "10 residues off the binder" in msg               # 586 - 576, the concrete action
     assert "backward" in msg
+
+
+def test_the_refusal_does_not_teach_the_false_token_arithmetic():
+    """The axis is the padded complex, NOT target + binder.
+
+    hHSA at 736 tokens carries a 706-residue complex where the target counts 578 residues and
+    the binder 100 -- the sum is 678, a whole two buckets low. A refusal that explains the axis
+    as that sum sends the user to re-size against a number the seam does not use, which is the
+    mistake this ladder made in its own harness before `axis_census.sh` measured the seam.
+    """
+    better = bindcraft2._size_aware_refusal(
+        RuntimeError(REFUSAL_608), phase="backward", n=706, padded=736)
+    assert better is not None
+    text = str(better)
+    assert "706 residues" in text
+    assert "LARGER than target residues + binder length" in text
+    assert "size the job off the 706" in text
+    # the superseded clause, verbatim, must be gone
+    assert "token axis is target residues + binder" not in text
 
 
 def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
     """Same words from the allocator, opposite remedy: retrying smaller is all that is left."""
-    full = REFUSAL_576.replace("free: 515248512 B", "free: 51524851 B") \
+    full = REFUSAL_608.replace("free: 515248512 B", "free: 51524851 B") \
                       .replace("largest free block: 326674368 B", "largest free block: 51524851 B")
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(full),
-                                             phase="forward", n=556, padded=576))
+                                             phase="forward", n=586, padded=608))
     assert "The card is full" in msg
     assert "fragmentation" not in msg
 
@@ -1138,7 +1179,7 @@ def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
 def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
     """320 tokens is measured to fit alone, so a refusal there is company on the chip, and the
     knob that removes it is BindCraft 2's own one-at-a-time loop, not a shorter binder."""
-    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_576),
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
                                              phase="backward", n=300, padded=320))
     assert "trajectories_per_card=1" in msg
     assert "288 tokens" in msg
@@ -1148,17 +1189,17 @@ def test_an_unrelated_failure_is_re_raised_unchanged():
     """A wrapper that repaints the shape of an unrelated bug is worse than no wrapper."""
     boom = ValueError("holds 24 Evoformer blocks and this splice was built for 48")
     with pytest.raises(ValueError) as caught:
-        with bindcraft2._refusal_names_the_size("forward", 556, 576):
+        with bindcraft2._refusal_names_the_size("forward", 586, 608):
             raise boom
     assert caught.value is boom
-    assert bindcraft2._size_aware_refusal(boom, phase="forward", n=556, padded=576) is None
+    assert bindcraft2._size_aware_refusal(boom, phase="forward", n=586, padded=608) is None
 
 
 def test_the_allocators_own_refusal_is_kept_as_the_cause():
     """The added message is for the user; the original line is what a bug report needs."""
-    original = RuntimeError(REFUSAL_576)
+    original = RuntimeError(REFUSAL_608)
     with pytest.raises(MemoryError) as caught:
-        with bindcraft2._refusal_names_the_size("backward", 556, 576):
+        with bindcraft2._refusal_names_the_size("backward", 586, 608):
             raise original
     assert caught.value.__cause__ is original
     assert "largest free block: 326674368 B" in str(caught.value.__cause__)
@@ -1182,8 +1223,23 @@ def test_a_fused_arm_that_declined_every_call_says_so(monkeypatch, capsys):
     assert "declined all 972 calls at 512 tokens" in err
     assert "do not fit L1" in err
     assert "[512,4,512,512]" in err              # what the composed path holds instead
-    assert "544 measures 14.23 GB" in err        # and the bucket that does not
+    assert "2.147 GB" in err                     # 16 * 512**3, computed not quoted
+    assert "one 32-token bucket UP as well as one down" in err
     assert 512 in splice._fused_checked          # said once, not once a round
+
+
+def test_the_note_quotes_no_measured_axis(monkeypatch, capsys):
+    """It used to name 512 and 544 as the bad and good sizes. Those came from arithmetic over a
+    target file, not from the seam, and when the arithmetic proved a bucket off the message
+    advised moving to the very axis it was declining at. The computed tensor size cannot rot."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (0, 96))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(544, (0, 0))
+    err = capsys.readouterr().err
+    assert "declined all 96 calls at 544 tokens" in err
+    assert "2.576 GB" in err                     # 16 * 544**3
+    for stale in ("25.75", "14.23", "69.2", "49.4"):
+        assert stale not in err
 
 
 def test_a_fused_arm_that_served_is_not_reported(monkeypatch, capsys):

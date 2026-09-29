@@ -242,18 +242,248 @@ with bindcraft2.predictor(trunk="jax") as build:
     ...
 ```
 
+## What your target file can look like
+
+BindCraft 2 reads the target structure, and tt-bio checks the inputs before it opens a card.
+These all work, with the target's own residue numbering kept end to end, so a hotspot is the
+residue the file calls by that number:
+
+- **PDB and mmCIF**, and a file whose header is not the wwPDB's own.
+- **Ligands, cofactors, metals, glycans and waters** left in the file. They are dropped, the
+  protein chains are unchanged, and no residue number shifts.
+- **Selenomethionine and the other modified residues** BindCraft 2 maps to a parent amino acid,
+  and **alternate side-chain conformations**.
+- **Unresolved loops.** A missing stretch stays missing; the residues around it keep their
+  numbers. A hotspot inside the gap is refused rather than dropped, see below.
+- **Multi-chain targets**, with `"chains": "A,B"` to design against several and `"chains": "B"`
+  to pick one out of a complex. Hotspots on the second chain are written in that chain's own
+  numbering, `"B125"`.
+- **A FASTA target**, for a disordered one BindCraft 2 crops itself.
+- **A structure pasted in as text** rather than named as a path.
+
+A gzipped target, which is what the RCSB hands you by default, is refused with the command to
+unpack it: BindCraft 2 reads a target as text. There is no fetch-by-ID; the target is a file you
+have.
+
+Insertion codes (`100A`, the antibody numbering habit) are refused: renumber first.
+
+## Inputs that are refused
+
+A hotspot that names no residue of the target sets no flag, and BindCraft 2's interface loss
+reads "no hotspots" as "design against the whole surface". The campaign would then run to the
+end and hand back confident designs against an epitope nobody chose. So `tt_bio` refuses it,
+before the card is opened, naming the residue and the reason:
+
+```
+target 'T' hotspot 66: chain A of gap.pdb has no residue 66, it falls in the unresolved stretch
+60-70. A hotspot is read in the file's own residue numbering. Name a residue the structure
+resolves, or model the missing one in first.
+```
+
+Four spellings of the same mistake are refused this way: a residue in an unresolved loop, a
+number outside the chain's range, a number written 1-based against a file that starts at 18, and
+a hotspot on a chain the campaign does not design against. Coldspots are checked the same way. A
+*range* that falls partly in a gap is allowed and says what it dropped, because a region is a
+reasonable thing to ask for:
+
+```
+[tt_bio.bcinputs] target 'T' hotspot 54-70: 11 of 17 residues are not in the structure (60-70
+unresolved); the rest carry the hotspot.
+```
+
+A chain named twice in one target's `chains` is refused, because `merge_receptor_chains`
+concatenates the chains it is given in the order it is given them: `"chains": "A,A"` on the
+115-residue hPDL1 prepares a 230-residue target and flags hotspot 54 at both 54 and 217, a
+homodimer nobody asked for with the epitope on both halves of it. `A,B`, `A, B`, `B,A` and a
+single chain are all fine; a target that really is a homodimer needs a file holding both copies.
+
+The order the chains are listed in is the order they are fused, so it decides the numbers a
+hotspot lands on: on the two-chain target, `A57` resolves to 57 with `"chains": "A,B"` and to
+320 with `"chains": "B,A"`. Both name the same residue of chain A -- the number to read a
+hotspot against is always the file's own, and the fused index is internal.
+
+A hotspot that names no chain is noted rather than refused, on a target whose chains share that
+residue number. BindCraft 2 qualifies a bare span with the target's first chain, which is the
+right default and says nothing about the alternative -- and most deposited complexes number
+every chain from 1, an antibody's heavy and light chains included. Chains A and B of BindCraft
+2's own `hIL2R_beta_gamma.pdb` both hold residues 57-59:
+
+```
+[tt_bio.bcinputs] target 'T' hotspot 57 names no chain, and chains A, B of
+hIL2R_beta_gamma.pdb each hold those residues. BindCraft 2 takes the first, chain A, and that is
+the one carrying the hotspot. Write A57 to say so, or B57 for the other one.
+```
+
+`A57` resolves to 57 and `B57` to 283, through the chain-break offset the receptor fusion
+applies, so the two spellings do name different residues.
+
+Two targets under one `name` are refused too, and this one is worth spelling out: BindCraft 2
+keys a campaign's targets by name, so a repeated name is not a second target -- it replaces the
+first. The campaign designs against the last one alone and the other target's hotspots are gone
+without a word:
+
+```
+2 targets are named 'T' (il2rb.pdb, hPDL1.pdb). BindCraft 2 keys a campaign's targets by name,
+so only the last of them is prepared and the rest are dropped without a word. Give each target
+its own "name".
+```
+
+A hotspot that points at a ligand, a metal, a glycan or a water is refused by name -- `residue
+401 of chain A in ligands.pdb is NAG, a heteroatom` -- because those are on screen in a viewer
+with residue numbers of their own and BindCraft 2 designs against the polymer only. The three
+ways a hotspot can miss (a heteroatom, an unresolved stretch, a number the chain never reaches)
+each say which one it is.
+
+A **nucleotide** sequence pasted in where the protein sequence goes is refused. BindCraft 2
+names every letter that is not an amino acid -- `X`, `*`, a stray digit, the `U` of RNA -- but
+DNA is spelled entirely in letters that are: A, C, G and T are also alanine, cysteine, glycine
+and threonine, so a coding sequence copied out of a genome browser folds as a poly-Ala/Cys/Gly/
+Thr peptide of the same length, hotspots and all, and nothing downstream can tell.
+
+```
+target 'D': cds.fasta reads as a nucleotide sequence rather than a protein one. All 60 of its
+letters are A, C, G or T (A 16, C 12, G 13, T 19) -- which are also the codes for alanine,
+cysteine, glycine and threonine [...] Translate the sequence to amino acids first. If it really
+is a protein of only those four residues, hand it in as a structure file, which is not read this
+way.
+```
+
+The test is narrow on purpose: every letter one of ACGT, three of the four present, each at
+least a tenth of the sequence, at least 30 residues. Poly-alanine, (GA)n elastin-like and (GT)n
+repeats are real designs spelled in nucleotide letters and are not refused, nor is anything
+under 30 letters. A lower-case FASTA is read exactly like an upper-case one.
+
+A hotspot on a **FASTA** target is refused unless the crop is turned off, and this is the one
+that costs the most for the least visible reason. BindCraft 2 crops a sequence target to a window
+sampled at random -- `crop_fasta_sequence`, which defaults to 10-40 residues for every FASTA --
+and it applies the crop by slicing the hotspot flags along with the sequence. So the hotspot a
+researcher wrote is kept or thrown away by a dice roll, and when it is thrown away the campaign
+is the no-epitope case again. Measured here on a 60-residue target with hotspots `5,50` over six
+campaign seeds: five kept no hotspot at all, the sixth kept one of the two. The single line
+BindCraft 2 prints, `target=T crop=8-35/60`, says nothing about hotspots.
+
+```
+target 'T': this is a FASTA target with '5,50' asked for, and BindCraft 2 crops a FASTA target
+to a window of 10-40 residues sampled at random out of its 60. [...] Write
+"crop_fasta_sequence": false to keep the whole sequence, or a crop as long as the target, or
+hand in a structure.
+```
+
+Cropping a sequence target with no hotspots is the feature and is untouched, as is a crop as long
+as the target -- the shape BindCraft 2's own IDR example ships.
+
+A file whose extension does not match its records is refused with the rename to make, because
+BindCraft 2 picks its reader from the suffix: a PDB saved as `.cif` fails inside the mmCIF reader
+(`There are no blocks in the file`) and an mmCIF saved as `.pdb` fails inside the PDB one
+(`Illegal hybrid-36 string`).
+
+A residue numbered at or below zero -- a structure deposited with its expression tag still
+numbered -3, -2, -1, 0 -- cannot be named as a hotspot at all: a span writes a range as
+`A35-40`, so the minus is the separator. The refusal says so and names the file's own first
+residue. Renumber the file from 1 if you need those residues.
+
+A target file that holds no polymer -- a ligand-only download, or a structure whose residues are
+all `HETATM` -- is refused by name rather than as an `IndexError` from inside the campaign:
+BindCraft 2 reads the polymer and drops every heteroatom, so such a file has no chain to design
+against at all.
+
+Two settings are refused for the same reason, that they would otherwise cost a whole campaign:
+a confidence threshold written as a percentage (`"min_plddt_final": 80`, where the scale is 0 to
+1) accepts nothing however long it runs, and `"binder_lengths": 80` is not a list, which stops
+BindCraft 2 inside its length sampler. Write `[80]`, or `[60, 90]` for a range.
+
+That second one is raised before `tt_bio` is called at all -- a campaign is loaded first, and a
+scalar length stops inside `load_settings` as `TypeError: 'int' object is not iterable`, which
+names neither the setting nor the fix. So load through the check to get the message:
+
+```python
+settings = bcinputs.load_settings(request)          # BindCraft 2's own, message first
+```
+
+It is `bindcraft.settings.load_settings` in every other respect, asserted against it on a
+correct campaign, and checks only what it can read off the request as written.
+
+Two settings that BindCraft 2 accepts are refused here because of what they do far from where
+they were written: a negative recycle count (`design_recycles`, `validation_recycles`,
+`betasheet_reopt_recycles`) reaches JAX as an invalid tensor dimension and fails inside the first
+fold with the card already open -- write `0` if you want a single pass with no recycling -- and
+`"number_of_final_designs": 0` ends a campaign before it takes a trajectory, because BindCraft 2
+stops as soon as the accepted count reaches it. Pass `trajectory_only` with `max_trajectories`
+if trajectories without acceptance is what you wanted.
+
+An NMR ensemble is not refused: BindCraft 2 reads `MODEL 1` and ignores the rest, so a
+20-model ensemble designs against its first model. Split the model you want out first if that is
+not the one you meant.
+
+An mmCIF's two numberings do not have to agree, and BindCraft 2 reads the **author** one:
+`auth_seq_id` and `auth_asym_id`, not `label_seq_id` (which the wwPDB numbers from 1) or
+`label_asym_id`. So a hotspot means the same residue in the mmCIF and the PDB of the same entry,
+checked both ways round.
+
+Numbering is the file's own throughout, never a 1-based position. A target renumbered by a
+modelling tool is self-consistent and cannot be told apart from the original, so hotspots move
+with it: check the numbering of the file you hand in, not the one you downloaded.
+
 ## What fits
 
-Every binder length BindCraft 2 draws against the 115-residue PD-L1 target fits on one card. The
-draw range is 60 to 180 residues, three roundings collapse it to five padded sizes (192, 224, 256,
-288, 320 tokens), and the largest runs six consecutive gradient steps with the resident DRAM line
-flat. Peak allocation at the top draw is 19.19 GB of the card's 34.226 GB, in the backward, with
-12.68 GB still free. Measured on a p300c at AICLK 1350 median over 808 samples taken during the
-step.
+Two things decide whether a campaign runs: whether the input is one BindCraft 2 can read, which
+is the two sections above, and how big the complex is, which is this one.
 
-The token axis buckets to 32 and rounding up is faster, not slower: the PD-L1 complex at 211
-tokens costs 4.504 s on the trunk forward and the same design padded to 224 costs 1.369 s,
-same card and same AICLK 1350 median.
+Size is counted in **tokens**: the residues of the fused complex BindCraft 2 builds, rounded up
+to a multiple of 32. That is not your target length plus your binder length. The fusion adds 18
+to 28 residues, so a job sized off residue counts comes out one or two buckets low. A 387-residue
+target with a 146-residue binder is a 576-token job, not a 544-token one.
+
+Measured end to end on a p150a across eight deposited targets, 115 to 674 residues, one to three
+chains and six folds, at AICLK 1343 to 1350 sampled during each run:
+
+| tokens | outcome | peak DRAM of 34.226 GB | one gradient round |
+|---|---|---|---|
+| 192 to 512 | runs and completes | 2.63 to 11.42 GB | 5.89 to 34.19 s |
+| **544** | runs and completes, at 1.8x the memory and 2.0x the round of either neighbour | 25.75 GB | 67.27 s |
+| 576 | runs and completes | 14.23 GB | 47.38 s |
+| 608 and above | refused, naming the axis and the memory | | |
+
+**The card is never the limit inside the supported range.** At the top of it the job holds 42 %
+of the board. What stops 608 is a single `[608, 4, 608, 608]` fp32 score tensor on the composed
+path, 3.6 GB asked for against 4.1 GB free but only 327 MB contiguous, after the fused
+triangle-attention arm declined every call. At 736 the card genuinely is full, 243 MB free
+against a 277 MB request, and the message says which of the two it is rather than calling
+everything fragmentation. Both refusals raise; nothing in the range OOM-killed a process, hung
+one, or returned a wrong answer.
+
+**544 tokens is the one axis to avoid**, and it is the only rung where the fused arm declines
+inside the supported range. It costs more memory than the larger 576 does. The run says so
+itself when it happens and says which way to move; moving the axis by one bucket in either
+direction is the fix.
+
+Within the range, size is the axis that matters and fold and chain count are not: six folds, one
+to three chains, and two structures with unresolved gaps all behave the same at the same token
+count.
+
+**Accepted designs have been measured at 288 tokens**, the PD-L1 example in the table below. A
+576-token campaign runs, backpropagates and clears both the screen and the refine stage; how
+often it accepts is not yet measured. Treat the range as "the gradient loop runs and completes"
+above 288, and the acceptance rate as measured at 288 only.
+
+How many trajectories run at once is priced separately from any of this, and that estimate is
+calibrated at 288 tokens and does not scale with the axis: on a large complex pass
+`trajectories_per_card=1` rather than letting it choose. See
+[Several trajectories on one card](#several-trajectories-on-one-card).
+
+Binder length inside a campaign costs nothing extra to worry about. Every length BindCraft 2
+draws against the 115-residue PD-L1 target fits: the draw range is 60 to 180 residues, three
+roundings collapse it to five padded sizes (192, 224, 256, 288, 320 tokens), and the largest runs
+six consecutive gradient steps with the resident DRAM line flat, peaking at 19.19 GB of 34.226 GB
+in the backward with 12.68 GB still free. Measured on a p300c at AICLK 1350 median over 808
+samples taken during the step.
+
+Rounding up to the bucket is faster, not slower: the PD-L1 complex at 211 tokens costs 4.504 s on
+the trunk forward and the same design padded to 224 costs 1.369 s, same card and same AICLK 1350
+median.
+
+All of the size numbers above are a p150a. A p300c is a different chip and its own numbers are
+the ones in the two paragraphs before this.
 
 ## What one step costs
 
