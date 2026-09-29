@@ -382,3 +382,26 @@ def test_a_hotspot_on_no_residue_at_all_still_names_the_range(tmp_path):
     path = _target(tmp_path, "whole.pdb")
     problems, _ = _problems(_settings(path, hotspots="401"))
     assert len(problems) == 1 and "residues run 18 to 132" in problems[0]
+
+
+# ------------------------------------------------- the call site, not just the check
+
+def test_run_campaign_refuses_before_it_opens_a_card(tmp_path):
+    """The check is two lines in `tt_bio.bindcraft2.run_campaign`; this is what makes them load-bearing.
+
+    Without this, deleting the call leaves all the other tests in this file green, and a campaign
+    with a hotspot that names no residue goes back to designing against the whole surface. No
+    device is opened: the refusal is raised before the predictor context is entered, which is the
+    property being asserted -- a researcher's mistake costs them nothing, not a card.
+    """
+    _bindcraft()
+    pytest.importorskip("tt_bio.bindcraft2", reason="jax/bindcraft not importable here")
+    from tt_bio import bindcraft2
+
+    path = _target(tmp_path, "gap.pdb", keep=lambda n: not 60 <= n <= 70)
+    settings = {"campaign_name": "bgx-inputs-hook", "modality": "binder",
+                "binder_lengths": [60], "max_trajectories": 1,
+                "targets": [{"name": "T", "target_path": str(path), "hotspots": "66"}]}
+    with pytest.raises(ValueError) as refusal:
+        bindcraft2.run_campaign(settings, str(tmp_path / "project"))
+    assert "unresolved stretch 60-70" in str(refusal.value)
