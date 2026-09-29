@@ -126,7 +126,11 @@ def main():
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "trajectories": n, "trajectories_arg": args.trajectories,
              "max_trajectories": budget,
-             "auto_would_choose": list(duotraj.auto_trajectories()),
+             # The axis `run_campaign` itself prices, read the same way it reads it
+             # (`bindcraft2.design_tokens`), so the stamp records the choice the default would
+             # have made for THIS design rather than the fallback an unknown axis gives.
+             "auto_would_choose": list(
+                 duotraj.auto_trajectories(bindcraft2.design_tokens(settings))),
              "validation": args.validation, "binder": args.binder,
              "seed": args.seed, "project": project,
              "commit": subprocess.run(["git", "-C", str(_ROOT), "rev-parse", "HEAD"],
