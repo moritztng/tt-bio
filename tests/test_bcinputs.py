@@ -614,3 +614,29 @@ def test_an_rna_sequence_is_bindcrafts_own_refusal_not_this_one(tmp_path):
 def test_a_structure_target_is_never_read_as_a_nucleotide_sequence(tmp_path):
     assert bcinputs.fasta_nucleotide_problems(
         _settings(_target(tmp_path, "t.pdb"), chains="A", hotspots="54")) == []
+
+
+def test_a_chain_named_twice_is_refused_because_the_target_is_prepared_twice(tmp_path):
+    """Measured: `"chains": "A,A"` on 115 residues of hPDL1 prepares 230 and flags hotspot 54 at
+    both 54 and 217, so the campaign designs against a homodimer nobody asked for."""
+    problems, _ = _problems(_settings(_target(tmp_path, "t.pdb"), chains="A,A", hotspots="54"))
+    assert len(problems) == 1
+    assert "names chain A more than once" in problems[0]
+    assert "2 copies of it" in problems[0]
+
+
+def test_two_different_chains_are_not_refused(tmp_path):
+    for chains in ("A,B", "A, B", "B,A", "A"):
+        problems, _ = _problems(_settings(_homodimer(tmp_path), chains=chains, hotspots="A54"))
+        assert problems == [], chains
+
+
+def test_a_chain_list_with_no_chains_is_left_to_bindcraft(tmp_path):
+    """An empty `chains` is the default, meaning every chain in the file."""
+    problems, _ = _problems(_settings(_target(tmp_path, "t.pdb"), hotspots="54"))
+    assert problems == []
+
+
+def test_a_chain_named_three_times_says_how_many_copies(tmp_path):
+    problems, _ = _problems(_settings(_target(tmp_path, "t.pdb"), chains="A,A,A", hotspots="54"))
+    assert len(problems) == 1 and "3 copies of it" in problems[0]

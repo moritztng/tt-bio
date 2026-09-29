@@ -110,6 +110,10 @@ CASES = [
     # Chains A and B of BindCraft 2's own two-chain target both hold 57-59, so a bare span is
     # ambiguous and the first chain wins it silently.
     case("chain-shared-number", targets=target("twochain.pdb", chains="A,B", hotspots="57")),
+    case("chain-named-twice", targets=target("twochain.pdb", chains="A,A", hotspots="57")),
+    case("chain-reversed-order", targets=target("twochain.pdb", chains="B,A", hotspots="A57")),
+    case("chain-with-spaces", targets=target("twochain.pdb", chains="A, B", hotspots="A57")),
+    case("chain-lowercase", targets=target("twochain.pdb", chains="a", hotspots="57")),
     case("chain-shared-number-qualified",
          targets=target("twochain.pdb", chains="A,B", hotspots="A57")),
     case("chain-shared-number-other",

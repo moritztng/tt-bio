@@ -311,6 +311,28 @@ def shape_problems(label: str, target) -> list[str]:
     return problems
 
 
+def _repeated_chain_problem(label: str, target, source: str) -> str | None:
+    """The same chain named twice in one target's `chains`.
+
+    `merge_receptor_chains` concatenates the chains it is given, in the order it is given them,
+    so a repeated letter is prepared as a second copy of that chain: measured on qb2 2026-09-29,
+    `"chains": "A,A"` on a 115-residue hPDL1 prepares a 230-residue target and flags hotspot 54
+    at both 54 and 217. The campaign then designs against a homodimer nobody asked for, with the
+    epitope on both halves of it, and every number in the log looks reasonable.
+    """
+    written = [chain.strip() for chain in (getattr(target, "chains", "") or "").split(",")]
+    written = [chain for chain in written if chain]
+    repeated = [chain for index, chain in enumerate(written) if chain in written[:index]]
+    if not repeated:
+        return None
+    return (f"{label}: chains {','.join(written)!r} names chain {repeated[0]} more than once, "
+            f"and BindCraft 2 concatenates the chains it is given in the order it is given "
+            f"them, so {source} would be prepared with {len(written)} copies of it -- "
+            f"{len(written)} times the residues, and every hotspot on that chain flagged once "
+            f"per copy. Name each chain once. A target that really is a homodimer needs a file "
+            f"holding both copies of it.")
+
+
 def _target_source(target) -> str:
     """What to call a target's file in a message: its name on disk, or that it was pasted in."""
     path = getattr(target, "path", "") or ""
@@ -346,6 +368,8 @@ def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
                 f"it was read as a heteroatom, a ligand, a metal, a glycan or a water, so the "
                 f"file has no chain. Point the target at the file that holds the polymer, and "
                 f"check that its residues are ATOM records rather than HETATM."], []
+    if problem := _repeated_chain_problem(label, target, source):
+        return [problem], []                 # every span below would resolve twice over as well
     problems, notes = [], []
     for kind, spans in (("hotspot", target.hotspots), ("coldspot", target.coldspots)):
         for raw in (spans or "").split(","):
