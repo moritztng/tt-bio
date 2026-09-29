@@ -301,6 +301,25 @@ with residue numbers of their own and BindCraft 2 designs against the polymer on
 ways a hotspot can miss (a heteroatom, an unresolved stretch, a number the chain never reaches)
 each say which one it is.
 
+A hotspot on a **FASTA** target is refused unless the crop is turned off, and this is the one
+that costs the most for the least visible reason. BindCraft 2 crops a sequence target to a window
+sampled at random -- `crop_fasta_sequence`, which defaults to 10-40 residues for every FASTA --
+and it applies the crop by slicing the hotspot flags along with the sequence. So the hotspot a
+researcher wrote is kept or thrown away by a dice roll, and when it is thrown away the campaign
+is the no-epitope case again. Measured here on a 60-residue target with hotspots `5,50` over six
+campaign seeds: five kept no hotspot at all, the sixth kept one of the two. The single line
+BindCraft 2 prints, `target=T crop=8-35/60`, says nothing about hotspots.
+
+```
+target 'T': this is a FASTA target with '5,50' asked for, and BindCraft 2 crops a FASTA target
+to a window of 10-40 residues sampled at random out of its 60. [...] Write
+"crop_fasta_sequence": false to keep the whole sequence, or a crop as long as the target, or
+hand in a structure.
+```
+
+Cropping a sequence target with no hotspots is the feature and is untouched, as is a crop as long
+as the target -- the shape BindCraft 2's own IDR example ships.
+
 A file whose extension does not match its records is refused with the rename to make, because
 BindCraft 2 picks its reader from the suffix: a PDB saved as `.cif` fails inside the mmCIF reader
 (`There are no blocks in the file`) and an mmCIF saved as `.pdb` fails inside the PDB one

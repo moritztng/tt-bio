@@ -1,11 +1,17 @@
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets hPDL1 | output /tmp/bgx_probe/base
 base                             WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdbx/convert.py:548: UserWarning: Missing 'B_iso_or_equiv' in 'atom_site' category. 'b_factor' will be set to `nan`.
+  warnings.warn(
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/format-mmcif
 format-mmcif                     WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/format-weird-header
 format-weird-header              WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdbx/convert.py:548: UserWarning: Missing 'B_iso_or_equiv' in 'atom_site' category. 'b_factor' will be set to `nan`.
+  warnings.warn(
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/format-cif-label-numbering
 format-cif-label-numbering       WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdbx/convert.py:548: UserWarning: Missing 'B_iso_or_equiv' in 'atom_site' category. 'b_factor' will be set to `nan`.
+  warnings.warn(
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/format-cif-label-chain
 format-cif-label-chain           WORKS    asked='54,56' T[115aa 18-132 hot=[54, 56]] binder=[60, 61, 62, 63, 64, 65]
 het-hotspot-on-a-ligand          REFUSED  [tt_bio.bcinputs] target 'T' hotspot 401: residue 401 of chain A in ligands.pdb is NAG, a heteroatom, and BindCraft 2 designs against the polymer only, so it drops it with the ligands, the metals, the glycans and the waters. A hotspot names a protein residue; chain A's run 18 to 132.
@@ -22,6 +28,9 @@ target=dynorphin_a crop=3-13/13
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets dynorphin_a | output /tmp/bgx_probe/format-fasta
 target=dynorphin_a crop=3-13/13
 format-fasta                     WORKS    asked='-' dynorphin_a[11aa 3-13 hot=none] binder=[60, 61, 62, 63, 64, 65]
+fasta-hotspots-cropped           REFUSED  [tt_bio.bcinputs] target 'D': this is a FASTA target with '5,50' asked for, and BindCraft 2 crops a FASTA target to a window of 10-40 residues sampled at random out of its 60. The crop slices the hotspot flags with the sequence, so a hotspot outside the window is dropped without a word and the campaign designs against whatever surface is left. Write "crop_fasta_sequence": false to keep the whole s
+campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets D | output /tmp/bgx_probe/fasta-hotspots-crop-off
+fasta-hotspots-crop-off          WORKS    asked='5,50' D[60aa 1-60 hot=[5, 50]] binder=[60, 61, 62, 63, 64, 65]
 format-missing-file              REFUSED  [bindcraft preflight] target 'T': no file at /tmp/does-not-exist.pdb
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/format-inline-structure
 format-inline-structure          WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
@@ -89,7 +98,7 @@ campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multi
 len-range                        WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
 len-zero                         REFUSED  [bindcraft preflight] design inputs did not parse: Binder length must be positive
 len-negative                     REFUSED  [bindcraft preflight] design inputs did not parse: Binder length must be positive
-len-scalar                       CRASH    [bindcraft load_settings] Traceback (most recent call last): / File "/home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/probe.py", line 177, in stage / return call(), None / ^^^^^^ / File "/home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/probe.py", line 185, in <lambda> / full, stopped = stage("bindcraft load_settings", lambda: load_settings(request)) / ^^^^^^^^^^^^^^^^^^^^^^ / File "/home/t
+len-scalar                       CRASH    [bindcraft load_settings] Traceback (most recent call last): / File "/home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/probe.py", line 183, in stage / return call(), None / ^^^^^^ / File "/home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/probe.py", line 191, in <lambda> / full, stopped = stage("bindcraft load_settings", lambda: load_settings(request)) / ^^^^^^^^^^^^^^^^^^^^^^ / File "/home/t
 len-written-as-range             REFUSED  [bindcraft load_settings] invalid literal for int() with base 10: '-'
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets hPDL1 | output /tmp/bgx_probe/len-huge
 len-huge                         WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[5000]
