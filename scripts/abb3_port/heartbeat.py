@@ -74,7 +74,7 @@ def _rows(path: Path) -> list:
     return read_rows(path)
 
 
-def resumes(rows: list, checkpoints: dict) -> list:
+def resumes(rows: list, checkpoints: dict, declared: list = ()) -> list:
     """Every point where the step counter went backwards, and what kind of restart it was.
 
     ``checkpoints`` maps step -> path. The predicate is **did it land past a checkpoint we
@@ -91,27 +91,72 @@ def resumes(rows: list, checkpoints: dict) -> list:
     Deliberately *not* "did it land past the LATEST checkpoint". Checkpoints written after the
     death are on disk by the time anyone reads, so the latest is not the one it resumed from,
     and a tighter predicate would invent alarms the way the old one did.
+
+    And the checkpoint set is not the primary evidence at all, because pruning destroys it. The
+    three resumes on the base-loss leg came off checkpoints 551 and 683, both deleted once
+    ``keep_checkpoints`` had three newer ones, and this called all three
+    ``UNEXPLAINED-JUMP-BACK`` on a run whose replayed rows were bit-identical. What a resume
+    leaves behind permanently is those rows: same loss, same master digest, because it is the
+    same arithmetic on restored state. :func:`~tt_bio.train.history.replay_agreement` reads
+    them, and the checkpoints are the fallback for a restart that replayed nothing this reader
+    can see.
+
+    ``declared`` is :func:`declared_restarts`: restarts somebody took on purpose and wrote down
+    beforehand. A deliberate restart that changes the optimizer -- the lr-schedule repair at
+    step 552 -- is a real jump-back with a digest that really does differ, so no evidence in the
+    run can explain it and it would latch this instrument at INCIDENT for the rest of the leg.
+    A declaration is matched on the exact ``(died_at, resumed_at)`` pair, so it excuses the one
+    restart it names and nothing else.
     """
+    from tt_bio.train.history import replay_agreement
+
     found = []
     for i in range(1, len(rows)):
         before, after = rows[i - 1]["step"], rows[i]["step"]
         if after > before:
             continue
         prior = [s for s in checkpoints if s <= before]
+        replay = replay_agreement(rows, i)
         if after == 1:
             verdict = "RESTARTED-FROM-SCRATCH" if prior else "RESTARTED-NO-CHECKPOINT"
-        elif any(s < after for s in prior):
+        elif replay["agrees"] or any(s < after for s in prior):
             verdict = "RESUMED"
         else:
             verdict = "UNEXPLAINED-JUMP-BACK"
+        why = next((d.get("why") for d in declared
+                     if d.get("died_at") == before and d.get("resumed_at") == after), None)
+        if verdict == "UNEXPLAINED-JUMP-BACK" and why:
+            verdict = "DECLARED-RESTART"
         found.append({"died_at": before, "resumed_at": after, "lost_steps": before - after + 1,
-                      "from_checkpoint": verdict == "RESUMED", "verdict": verdict})
+                      "from_checkpoint": verdict == "RESUMED", "verdict": verdict,
+                      "replay": replay, "why": why})
     return found
 
 
 #: Restart verdicts that want a human. ``RESTARTED-NO-CHECKPOINT`` is not one: the run went back
-#: to 1 with nothing on disk to resume from, so nothing recoverable was thrown away.
+#: to 1 with nothing on disk to resume from, so nothing recoverable was thrown away. Neither is
+#: ``DECLARED-RESTART``, which is one somebody wrote down before taking it.
 BAD_RESTARTS = ("RESTARTED-FROM-SCRATCH", "UNEXPLAINED-JUMP-BACK")
+
+#: Deliberate restarts, declared in the run directory rather than argued for in a reply.
+DECLARED = "known-restarts.json"
+
+
+def declared_restarts(out: Path) -> list:
+    """Restarts taken on purpose, each naming the exact step pair it excuses and why.
+
+    Written when the restart is taken, not when the alarm goes off, which is the whole point:
+    a declaration added after the fact to quiet an instrument is indistinguishable from the
+    defect it is quieting. Absent file, empty list, and every jump-back stays unexplained.
+    """
+    path = Path(out) / DECLARED
+    if not path.is_file():
+        return []
+    try:
+        loaded = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return []
+    return loaded if isinstance(loaded, list) else []
 
 
 def lr_check(out: Path, rows: list) -> dict:
@@ -254,7 +299,7 @@ def main() -> int:
     state["lr"] = lr_check(out, rows0)
     state["grad_norm"] = rows0[-1].get("grad_norm")
 
-    res = resumes(rows0, checkpoints)
+    res = resumes(rows0, checkpoints, declared_restarts(out))
     state["resumes"] = res
     state["restarts_logged"] = supervisor_restarts(out)
     state["resumes_survived"] = max(len(res), state["restarts_logged"])
@@ -273,7 +318,8 @@ def main() -> int:
         bad = [r for r in res if r["verdict"] in BAD_RESTARTS][0]
         verdict, incident = "INCIDENT", (
             f"a restart did not resume: the run died at step {bad['died_at']} and came back at "
-            f"step {bad['resumed_at']}, which is not past any checkpoint on disk")
+            f"step {bad['resumed_at']}, replaying {bad['replay']['compared']} rows of which "
+            f"{len(bad['replay']['disagree'])} disagree, and past no checkpoint still on disk")
     elif agree is False:
         verdict, incident = "INCIDENT", "the ranks' master digests disagree"
     elif since is not None and since > args.stall_minutes * 60.0:

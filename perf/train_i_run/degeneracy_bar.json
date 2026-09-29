@@ -1,0 +1,28 @@
+{
+  "_what": "A pre-registered refusal of the one failure this reproduction has already had, written at step ~175 of leg 2 when no reading past it existed and committed so the timestamp is git's.",
+  "_why_these_references": "Leg 1 ran 1451 steps from an all-zero init in which 356 of 436 parameters had an identically zero gradient, so it measured where a model that trains nothing sits. Its settled region (steps 1052-1451, n=400) is the void reference. The leg-2 reference is this leg's own position at steps 75-174 (n=100), so the bar also refuses a run that climbs back toward the void after leaving it.",
+  "_not_an_accuracy_bar": "Clearing this says the run is not degenerate. It says nothing about CDR-H3. The accuracy bars are unchanged and not renegotiable: step 5805 -> mean CDR-H3 <= 4.12 A, step 19351 -> <= 3.46 A, on the 150 validation structures.",
+  "_phase": "Measured through the shipped scheduler at steps_per_epoch 132: lr is 99.83 % of peak at step 174, 83.91 % at 1735, 80.27 % at 1935 and 36.62 % at 3870, all inside the first cosine cycle of 6600. The comparison runs from higher lr to lower, which is the direction that helps a loss, so a FAIL cannot be blamed on schedule phase. A PASS is correspondingly not evidence of anything beyond not-degenerate.",
+  "_units": "loss values from the history rows, not the loss_terms wall clock. loss = fape + supervised_chi + 0.5 * final_output_backbone, recovered by least squares over 66 steps with max residual 3.7e-07.",
+  "check_steps": [1935, 3870],
+  "window": 200,
+  "margin_standard_errors": 5,
+  "terms": {
+    "final_output_backbone": {
+      "void_leg": 3.785925,
+      "leg2_step_75_174": 3.290910
+    },
+    "loss": {
+      "void_leg": 5.221216,
+      "leg2_step_75_174": 4.716306
+    }
+  },
+  "references": {
+    "void_leg": {"run": "runs/base-loss-zeroinit", "steps": [1052, 1451], "n": 400,
+                 "sd": {"final_output_backbone": 0.056151, "loss": 0.061282}},
+    "leg2_step_75_174": {"run": "runs/base-loss", "steps": [75, 174], "n": 100,
+                         "sd": {"final_output_backbone": 0.065838, "loss": 0.071081}}
+  },
+  "on_fail": "The leg stops and reports without waiting for step 5805. A run that is not measurably below the coordinates a zero model occupies, at 1 % of the schedule, has found the same flat region.",
+  "written_at": "2026-09-19T08:3xZ, leg 2 step ~175 of 193512"
+}

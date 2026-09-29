@@ -98,12 +98,19 @@ from .mesh import Mesh
 from .sharding import batches, steps_per_epoch
 
 __all__ = ["RunConfig", "ReducedRAdam", "CosineRestartsByStep", "run",
-           "TRIPWIRE_FRACTIONS"]
+           "TRIPWIRE_FRACTIONS", "scored_steps"]
 
 #: r2's rule, kept as the run's falsifiability check: a folding model reaches ~90 % of its final
 #: accuracy in the first few percent of its budget, so a validation curve that is flat at 3 % is
 #: a broken run and it is knowable in days rather than weeks. 10 % is the confirmation point.
 TRIPWIRE_FRACTIONS = (0.03, 0.10)
+
+#: How many steps of a launch the gradient-coverage gate watches before it decides. Upstream's
+#: zero-initialised residual projections make step 1 unrepresentative and one update is enough to
+#: switch them on, so two would do; ten is ~2 minutes of a 5-day leg and leaves room for a branch
+#: that takes longer. A launch that dies before reaching it is not checked, which is the right
+#: trade: the gate exists to stop a long run, not to adjudicate a crash.
+GRADIENT_COVERAGE_STEPS = 10
 
 
 @dataclass
@@ -312,6 +319,35 @@ class CosineRestartsByStep:
                    T_mult=int(spec.get("T_mult", 1)), eta_min=float(spec.get("eta_min", 0.0)))
 
 
+def scored_steps(total_steps: int, sched: "CosineRestartsByStep") -> set:
+    """The steps whose checkpoint will be scored, and which therefore must be written and kept.
+
+    Two kinds, in one set because the write trigger and the prune guard need the same answer:
+
+    * the 3 % and 10 % tripwires, which decide whether the run continues at all;
+    * every cosine MINIMUM, because a reading is only comparable to another reading at the same
+      phase of the schedule. Both tripwires land deep in an anneal -- 3.5 % and 1.1 % of peak lr
+      -- while a wall-clock cap lands wherever the clock stops, which can be 85 % of peak. A
+      model mid-update scores worse than the same model annealed, so differencing a cap reading
+      against the 10 % one would read schedule phase as curve.
+
+    The minima are derived from the schedule rather than transcribed: ``set_step`` samples the
+    cosine at fractional epoch ``(gs - 1) / steps_per_epoch``, so the last step of cycle ``k`` is
+    ``k * T_0 * steps_per_epoch`` -- one step further on the cosine has restarted and is back at
+    peak. ``T_mult`` lengthens each successive cycle, which is why this walks the cycles rather
+    than striding a constant.
+    """
+    steps = {int(f * total_steps) for f in TRIPWIRE_FRACTIONS}
+    spe, t_mult = sched.steps_per_epoch, int(sched.inner.T_mult)
+    length = at = int(sched.inner.T_0)
+    while at * spe <= total_steps:
+        steps.add(at * spe)
+        length *= t_mult
+        at += length
+    return steps
+
+
+
 # ------------------------------------------------------------------------------- the loop
 
 
@@ -361,7 +397,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     if cfg.rank == 0:
         sched.write(cfg.out_dir)
     log = open(cfg.out_dir / f"history-rank{cfg.rank}.jsonl", "a", buffering=1)
-    tripwires = {int(f * cfg.steps) for f in TRIPWIRE_FRACTIONS}
+    scored = scored_steps(cfg.steps, sched)
     last_ckpt = time.monotonic()
     t_run = time.monotonic()
     # Sampled for the life of the run, not checked either side of it. A cotenant that arrives
@@ -387,6 +423,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
                                           for i in range(0, len(b.per_chip[cfg.rank]),
                                                          cfg.micro_batch)],
                          dataset, cfg.prefetch)
+    coverage_left, never_moved = GRADIENT_COVERAGE_STEPS, None
     with provenance.during(seed=cfg.seed, config=cfg.as_dict()) as prov:
         while True:
             # `t_data` is stamped BEFORE the stream is pulled, so with a prefetch depth the wait
@@ -404,6 +441,12 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             t0 = time.perf_counter()
             parts, timing = step.step(micros)
             wall = time.perf_counter() - t0
+            if coverage_left:
+                dead = set(step.ungradiented)
+                never_moved = dead if never_moved is None else (never_moved & dead)
+                coverage_left -= 1
+                if not coverage_left:
+                    _assert_every_parameter_trains(never_moved, len(step.params), gs, cfg.rank)
             terms = {k: round(v - prev_terms.get(k, 0.0), 4)
                      for k, v in step.loss_terms.items()}
             prev_terms = dict(step.loss_terms)
@@ -433,13 +476,13 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             # would resume from.
             out_of_time = bool(cfg.max_seconds) and time.monotonic() - t_run > cfg.max_seconds
             due = ((time.monotonic() - last_ckpt >= cadence) or gs == cfg.steps
-                   or gs in tripwires or out_of_time)
+                   or gs in scored or out_of_time)
             if due and cfg.rank == 0:
                 path = save_run_state(
                     ckpt_dir / f"step-{gs:09d}.safetensors", step, global_step=gs,
                     metrics=parts, provenance=prov.as_dict(), history_tail=history[-50:])
                 written.append(path)
-                _prune(written, cfg.keep_checkpoints, tripwires)
+                _prune(written, cfg.keep_checkpoints, scored)
                 print(f"[rank 0] checkpoint {path.name} at step {gs}", flush=True)
             if due:
                 last_ckpt = time.monotonic()
@@ -458,13 +501,59 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             "steps_done": history[-1]["step"] if history else start}
 
 
+def _assert_every_parameter_trains(never_moved: set, total: int, gs: int, rank: int) -> None:
+    """Refuse to keep running if a parameter got no gradient on ANY of this launch's first steps.
+
+    Checked once per launch rather than once per run, so a resume re-establishes it, and the
+    cost is one comparison per parameter over `GRADIENT_COVERAGE_STEPS` 12-second steps.
+
+    **One step is not the test, and finding that out is what the gate is worth.** Upstream
+    initialises every residual branch's output projection to zero -- `init="final"` on the IPA's
+    `linear_out`, the transition's `linear_3`, the angle resnet's `linear_3` and the backbone
+    update -- so at step 1 those branches contribute nothing and the weights BEHIND them have an
+    exactly zero gradient. That is upstream's behaviour and not a defect: the `final` weights
+    themselves have a nonzero gradient (`x^T g`, no factor of the weight), so one update switches
+    the branches on and everything upstream of them starts moving at step 2. A first-step check
+    reported 218 of 500 here and was reading that transient. What separates the transient from a
+    dead parameter is time, so the set is intersected across several steps and a parameter has to
+    be zero on all of them to count.
+
+    **This is the check the first `base-loss` leg did not have.** It ran 1,388 steps in which
+    356 of 436 parameters had an identically zero gradient, because `initial_state_dict`
+    returned an all-zero model and a zero weight matrix passes no gradient back through itself.
+    Nothing noticed: the loss was flat at 5.22 but flat is not obviously wrong at 0.7 % of a
+    schedule, `grad_norm` was a plausible 0.18 because it is the norm over ALL parameters and
+    the 80 live ones carried it, and the master digest changed every step because those 80 moved.
+    Three healthy-looking signals over one dead run. The property that separates them is per
+    parameter, so it has to be asserted per parameter.
+
+    Zero is the right test and not an approximation of one. At a correct init every parameter in
+    this model is downstream of the loss along a path with no zero factor, including the ones
+    whose WEIGHT starts at zero -- upstream's `final` init -- because their gradient is
+    `x^T g`, not a product with the weight. A genuinely zero gradient here means a broken tape
+    or a broken init, both of which stop the run.
+    """
+    if not never_moved:
+        return
+    dead = sorted(never_moved)
+    names = ", ".join(str(i) for i in dead[:8])
+    raise RuntimeError(
+        f"[rank {rank}] step {gs}: {len(dead)} of {total} parameters received no gradient on "
+        f"any of the last {GRADIENT_COVERAGE_STEPS} steps (indices {names}"
+        f"{'...' if len(dead) > 8 else ''}). Refusing to continue: a run in "
+        f"this state produces a plausible loss curve and trains nothing. Check the starting "
+        f"weights first -- `tt_bio.train.abb3_init.initialise_` draws them, and a model built "
+        f"without it is all zeros.")
+
+
 def _prune(written: list, keep: int, protect: set) -> None:
-    """Keep the newest ``keep``, and never delete a tripwire checkpoint.
+    """Keep the newest ``keep``, and never delete a checkpoint in ``protect``.
 
     The newest is what a resume needs -- not the best-scoring one, which is a different
-    question and the wrong file to restart from. The tripwire checkpoints are kept because the
-    3 % and 10 % validation points are the run's falsifiability check and re-reaching step
-    5,805 to re-evaluate it costs days.
+    question and the wrong file to restart from. ``protect`` is :func:`scored_steps`: the
+    tripwires, because the 3 % and 10 % validation points are the run's falsifiability check
+    and re-reaching step 5,805 to re-evaluate it costs days; and the cosine minima, because a
+    cap reading has to be phase-matched to the tripwire it is differenced against.
     """
     while len(written) > keep:
         for i, p in enumerate(written):

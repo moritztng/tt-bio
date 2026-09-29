@@ -113,8 +113,10 @@ class InvariantPointAttention(nn.Module):
         self.linear_q_points = Linear(c_s, h * cfg.no_qk_points * 3)
         self.linear_kv_points = Linear(c_s, h * (cfg.no_qk_points + cfg.no_v_points) * 3)
         self.linear_b = Linear(c_s, h)
+        #: Allocated at zero and filled by `abb3_init.initialise_` with upstream's
+        #: `ipa_point_weights_init_` (structure_module.py:243-244), which is not zero.
         self.head_weights = nn.Parameter(torch.zeros(h))
-        self.linear_out = Linear(h * (c_s + c + cfg.no_v_points * 4), c_s)
+        self.linear_out = Linear(h * (c_s + c + cfg.no_v_points * 4), c_s, init="final")
 
     def forward(self, s: torch.Tensor, z: torch.Tensor, affine: QuatAffine,
                 mask: torch.Tensor) -> torch.Tensor:
@@ -171,9 +173,9 @@ class StructureModuleTransition(nn.Module):
 class _TransitionLayer(nn.Module):
     def __init__(self, c: int):
         super().__init__()
-        self.linear_1 = Linear(c, 2 * c)
-        self.linear_2 = Linear(2 * c, 2 * c)
-        self.linear_3 = Linear(2 * c, c)
+        self.linear_1 = Linear(c, 2 * c, init="relu")
+        self.linear_2 = Linear(2 * c, 2 * c, init="relu")
+        self.linear_3 = Linear(2 * c, c, init="final")
 
     def forward(self, s: torch.Tensor) -> torch.Tensor:
         return s + self.linear_3(F.relu(self.linear_2(F.relu(self.linear_1(s)))))
@@ -209,8 +211,8 @@ class AngleResnet(nn.Module):
 class _AngleResnetBlock(nn.Module):
     def __init__(self, c: int):
         super().__init__()
-        self.linear_2 = Linear(c, c)
-        self.linear_3 = Linear(c, c)
+        self.linear_2 = Linear(c, c, init="relu")
+        self.linear_3 = Linear(c, c, init="final")
 
     def forward(self, a: torch.Tensor) -> torch.Tensor:
         return a + self.linear_3(F.relu(self.linear_2(F.relu(a))))
@@ -221,7 +223,7 @@ class BackboneUpdate(nn.Module):
 
     def __init__(self, cfg: ABB3Config):
         super().__init__()
-        self.linear = Linear(cfg.embed_dim, 6)
+        self.linear = Linear(cfg.embed_dim, 6, init="final")
 
     def forward(self, s: torch.Tensor) -> torch.Tensor:
         return self.linear(s)
@@ -233,9 +235,9 @@ class PerResidueLDDTCaPredictor(nn.Module):
     def __init__(self, cfg: ABB3Config):
         super().__init__()
         self.layer_norm = LayerNorm(cfg.embed_dim)
-        self.linear_1 = Linear(cfg.embed_dim, PLDDT_HIDDEN)
-        self.linear_2 = Linear(PLDDT_HIDDEN, PLDDT_HIDDEN)
-        self.linear_3 = Linear(PLDDT_HIDDEN, PLDDT_BINS)
+        self.linear_1 = Linear(cfg.embed_dim, PLDDT_HIDDEN, init="relu")
+        self.linear_2 = Linear(PLDDT_HIDDEN, PLDDT_HIDDEN, init="relu")
+        self.linear_3 = Linear(PLDDT_HIDDEN, PLDDT_BINS, init="final")
 
     def forward(self, s: torch.Tensor) -> torch.Tensor:
         s = self.layer_norm(s)

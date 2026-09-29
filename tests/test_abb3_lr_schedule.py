@@ -26,7 +26,8 @@ from pathlib import Path
 import pytest
 import torch
 
-from tt_bio.train.abb3_run import CosineRestartsByStep
+from tt_bio.train.abb3_run import (CosineRestartsByStep, GRADIENT_COVERAGE_STEPS,
+                                   RunConfig, _prune, run, scored_steps)
 from tt_bio.train.abodybuilder3_step import RECIPE
 from tt_bio.train.sharding import steps_per_epoch
 
@@ -112,6 +113,51 @@ def test_the_cycle_is_fifty_epochs_and_the_restart_resets_to_the_base_lr():
         "the recipe rather than the end of it")
 
 
+def test_the_scored_steps_are_the_tripwires_and_every_cosine_trough():
+    """A cap reading has to be phase-matched to the tripwire it is differenced against.
+
+    The cap verdict is `d_final = A_10 - A_cap`, and the 10 % tripwire lands at 1.1 % of peak
+    lr while the wall-clock cap lands wherever the clock stops -- 85 % of peak on one of the
+    live projections. A model mid-update scores worse than the same model annealed, so that
+    difference can come out negative, and a negative `d_final` is a pre-registered STOP. The
+    troughs are therefore written and kept, so the cap can be scored at one.
+
+    Checked through the shipped scheduler rather than against the number 6,600: a trough is a
+    step whose lr is at eta_min and whose successor is back at the base lr.
+    """
+    total = 193_512
+    s = sched()
+    scored = scored_steps(total, s)
+
+    assert {5805, 19351} == {int(f * total) for f in (0.03, 0.10)} <= scored
+    troughs = sorted(scored - {5805, 19351})
+    assert troughs[:4] == [6600, 13200, 19800, 26400]
+    assert max(troughs) <= total
+
+    for t in troughs[:4]:
+        assert s.set_step(t) < 1e-8, f"step {t} is not a trough"
+        assert s.set_step(t + 1) == pytest.approx(RECIPE["lr"], rel=1e-15)
+    # A step that is not a trough must not be in the set, or "protected" means "everything".
+    assert 3_300 not in scored and s.set_step(3_300) > 0.2 * RECIPE["lr"]
+
+
+def test_pruning_stops_rather_than_deleting_a_scored_checkpoint():
+    """`_prune` protects by exact step number, so "nearest before" is not a thing it can say.
+
+    Which is why one set feeds both the write trigger and the protection: a trough the
+    30-minute cadence never happens to land on is not there to be protected, and the cadence
+    lands up to ~145 steps either side of any given step.
+    """
+    scored = scored_steps(193_512, sched())
+    written = [Path(f"step-{n:09d}.safetensors")
+               for n in (19_800, 26_400, 26_500, 26_600, 26_700)]
+    _prune(written, 1, scored)
+    assert [p.name for p in written] == ["step-000019800.safetensors",
+                                         "step-000026400.safetensors"], (
+        "prune has to give up while two protected files are over its keep count, rather than "
+        "deleting the one the cap reading is scored on")
+
+
 def test_the_schedule_round_trips_through_the_file_a_reader_checks_it_with():
     spec = sched().spec
     assert CosineRestartsByStep.load(spec).set_step(3_000) == sched().set_step(3_000)
@@ -128,10 +174,16 @@ class _FakeStep:
     history say so.
     """
 
-    def __init__(self, n=2, size=4, accumulate=16):
+    def __init__(self, n=2, size=4, accumulate=16, dead=()):
         from tt_bio.abodybuilder3 import Dropout
         self.mirror = [torch.zeros(size, size, requires_grad=True) for _ in range(n)]
-        self.params = []
+        #: Stands in for the device parameters. Only its length is read, by the coverage guard.
+        self.params = list(range(n))
+        #: Indices the fake hands no gradient, so the guard can be driven from a test.
+        self.dead = set(dead)
+        #: The contract `abb3_run.run` reads off a step every launch. A fake that omits it
+        #: passes every test of the schedule and crashes the loop it claims to check.
+        self.ungradiented: list = []
         self.optimizer = torch.optim.RAdam(self.mirror, lr=RECIPE["lr"],
                                            weight_decay=RECIPE["weight_decay"])
         self.dropout = Dropout.__new__(Dropout)
@@ -146,8 +198,11 @@ class _FakeStep:
     def step(self, micros):
         from tt_bio.train.abodybuilder3_step import StepTiming
         self.seen.append(float(self.optimizer.param_groups[0]["lr"]))
+        self.ungradiented = []
         for i, m in enumerate(self.mirror):
-            m.grad = torch.full(m.shape, 0.01 * (i + 1))
+            m.grad = torch.zeros(m.shape) if i in self.dead else torch.full(m.shape, 0.01 * (i + 1))
+            if not bool(torch.any(m.grad != 0)):
+                self.ungradiented.append(i)
         self.optimizer.step()
         return {"loss": 1.0}, StepTiming(micro_batches=len(micros))
 
@@ -203,6 +258,44 @@ def test_the_run_loop_drives_the_schedule_and_writes_it_into_every_row(tmp_path)
     spec = json.loads((tmp_path / "schedule.json").read_text())
     assert spec["steps_per_epoch"] == STEPS_PER_EPOCH
     assert CosineRestartsByStep.load(spec).set_step(6) == want[-1]
+
+
+def test_the_run_loop_stops_on_a_parameter_that_never_receives_a_gradient(tmp_path):
+    """The loop reads `step.ungradiented` every launch, and that read has to be exercised HERE.
+
+    `_assert_every_parameter_trains` has its own unit tests, but those call it with a set. The
+    defect it exists to catch reached 1,451 steps because the loop, not the function, is where
+    a dead parameter has to be noticed, and this test failed as an `AttributeError` when the
+    fake did not carry the attribute the loop reads: a stub that had fallen behind the
+    interface it stands in for.
+    """
+    step = _FakeStep(n=3, dead={1})
+    cfg = RunConfig(out_dir=tmp_path, steps=GRADIENT_COVERAGE_STEPS + 2, global_batch=64,
+                    micro_batch=4, rendezvous=tmp_path / "rv", checkpoint_minutes=1e6)
+    with pytest.raises(RuntimeError, match="received no gradient"):
+        run(step, _FakeData(), cfg, resume=False)
+    assert len(step.seen) == GRADIENT_COVERAGE_STEPS, (
+        "the guard fired at the wrong step: it intersects over "
+        f"{GRADIENT_COVERAGE_STEPS} steps and must stop on the last of them")
+
+
+def test_a_parameter_that_is_dead_on_one_step_only_does_not_stop_the_run(tmp_path):
+    """The control for the test above, and the transient the guard was rewritten for.
+
+    Upstream's `init="final"` zeroes each residual branch's output projection, so the weights
+    behind it have an exactly zero gradient on step 1 and a nonzero one from step 2. A guard
+    that read one step reported 218 of 500 here. The set is intersected across the first
+    steps, so one dead step is not a dead parameter.
+    """
+    step = _FakeStep(n=3, dead={1})
+
+    def revive(gs, row, st):
+        st.dead = set()
+
+    cfg = RunConfig(out_dir=tmp_path, steps=GRADIENT_COVERAGE_STEPS + 2, global_batch=64,
+                    micro_batch=4, rendezvous=tmp_path / "rv", checkpoint_minutes=1e6)
+    out = run(step, _FakeData(), cfg, resume=False, on_step=revive)
+    assert out["steps_done"] == GRADIENT_COVERAGE_STEPS + 2
 
 
 # ------------------------------- every key of the four training blocks has to land somewhere

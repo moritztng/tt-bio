@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-__all__ = ["read_rows"]
+__all__ = ["read_rows", "replay_agreement"]
 
 
 def read_rows(path) -> list:
@@ -53,3 +53,34 @@ def read_rows(path) -> list:
         except json.JSONDecodeError:
             continue
     return rows
+
+
+def replay_agreement(rows: list, i: int) -> dict:
+    """Did the steps the restart at index ``i`` replayed come back the way they went in?
+
+    A resume restores master weights and optimizer moments from a checkpoint and re-runs every
+    step since it, so the replayed rows are the same arithmetic on the same state: same loss,
+    same master digest. When they agree, the restart demonstrably came off a checkpoint --
+    which is a stronger statement than "a checkpoint file is on disk", and unlike the file it
+    cannot be pruned away. Three healthy resumes on this leg were called
+    ``UNEXPLAINED-JUMP-BACK`` because the checkpoints they came off, 551 and 683, had since
+    been pruned to keep the newest three.
+
+    ``compared`` is 0 when nothing overlaps -- a sparse ``log_every`` can log none of the
+    replayed steps -- and then this says nothing and the caller needs its other evidence.
+    """
+    before, after = rows[i - 1]["step"], rows[i]["step"]
+    earlier = {int(r["step"]): r for r in rows[:i]}
+    compared, disagree = 0, []
+    for r in rows[i:]:
+        step = int(r["step"])
+        if step > before:
+            break
+        prev = earlier.get(step)
+        if prev is None:
+            continue
+        compared += 1
+        if prev.get("digest") != r.get("digest") or prev.get("loss") != r.get("loss"):
+            disagree.append(step)
+    return {"replayed_from": after, "compared": compared, "disagree": disagree,
+            "agrees": compared > 0 and not disagree}
