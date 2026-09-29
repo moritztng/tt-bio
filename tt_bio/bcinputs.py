@@ -91,6 +91,31 @@ def binder_length_problems(settings: Mapping) -> list[str]:
             f"so anything else stops the campaign from inside the length sampler."]
 
 
+def file_problem(label: str, path: str, source: str) -> str | None:
+    """A target file BindCraft 2's reader cannot open as text, named as what it is.
+
+    The RCSB hands out `.pdb.gz` and `.cif.gz` by default, and BindCraft 2 reads a structure
+    with `open(source).read()`, so a downloaded target arrives as
+    `'utf-8' codec can't decode byte 0x8b in position 1`, which names neither the file nor gzip.
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(4)
+    except OSError:
+        return None                             # BindCraft 2's preflight names an unreadable file
+    if head[:2] == b"\x1f\x8b":
+        return (f"{label}: {source} is gzipped and BindCraft 2 reads a target as text. Unpack it "
+                f"first: gunzip -k {source}.")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            fh.read(4096)
+    except (UnicodeDecodeError, OSError):
+        return (f"{label}: {source} is not text, so it is neither a PDB nor an mmCIF file. "
+                f"BindCraft 2 reads .pdb, .cif and a structure pasted in as text; convert a "
+                f"binary format (BinaryCIF, an mmtf) first.")
+    return None
+
+
 def _chain_residues(path: str, chains: str) -> dict[str, set[int]]:
     """Every residue number BindCraft 2 will keep, per chain, read the way BindCraft 2 reads it.
 
@@ -173,6 +198,8 @@ def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
     path = target.path
     if "\n" in path or not os.path.isfile(path):
         return [], []                                    # BindCraft 2's preflight names this one
+    if problem := file_problem(label, path, os.path.basename(path)):
+        return [problem], []
     try:
         residues = _fasta_residues(path, target.chains) if is_fasta(path) else \
             _chain_residues(path, target.chains)

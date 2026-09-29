@@ -252,6 +252,11 @@ residue the file calls by that number:
   to pick one out of a complex. Hotspots on the second chain are written in that chain's own
   numbering, `"B125"`.
 - **A FASTA target**, for a disordered one BindCraft 2 crops itself.
+- **A structure pasted in as text** rather than named as a path.
+
+A gzipped target, which is what the RCSB hands you by default, is refused with the command to
+unpack it: BindCraft 2 reads a target as text. There is no fetch-by-ID; the target is a file you
+have.
 
 Insertion codes (`100A`, the antibody numbering habit) are refused: renumber first.
 

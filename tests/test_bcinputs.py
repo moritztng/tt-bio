@@ -94,6 +94,23 @@ def test_a_file_that_is_not_there_is_left_to_bindcrafts_own_error():
     assert _problems(_settings("/tmp/bgx-no-such-target.pdb", hotspots="54")) == ([], [])
 
 
+def test_a_gzipped_target_says_to_unpack_it(tmp_path):
+    import gzip
+    path = _target(tmp_path, "whole.pdb")
+    gz = tmp_path / "hPDL1.pdb.gz"
+    gz.write_bytes(gzip.compress(path.read_bytes()))
+    problems, _ = _problems(_settings(gz, hotspots="54"))
+    assert len(problems) == 1 and "gunzip -k hPDL1.pdb.gz" in problems[0]
+
+
+def test_a_binary_target_is_named_as_not_text(tmp_path):
+    _bindcraft()
+    path = tmp_path / "target.bcif"
+    path.write_bytes(bytes(range(256)) * 20)
+    problems, _ = _problems(_settings(path, hotspots="54"))
+    assert len(problems) == 1 and "is not text" in problems[0]
+
+
 # ---------------------------------------------------------------- settings, checked without a file
 
 def test_a_confidence_threshold_written_as_a_percentage_is_refused():

@@ -67,6 +67,14 @@ def main():
     ap.add_argument("--card", default=os.environ.get("TT_VISIBLE_DEVICES", "3"))
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--out", default=str(HERE / "out"))
+    ap.add_argument("--real", action="store_true",
+                    help="a whole campaign on this input rather than a few gradient rounds: "
+                         "every design stage, ProteinMPNN, the validation ensemble and the "
+                         "acceptance filters, on the shipped five-checkpoint multimer pool and "
+                         "the shipped trajectory default. This is the leg that says the designs "
+                         "are sane, not just that the input runs")
+    ap.add_argument("--max-trajectories", dest="max_trajectories", type=int, default=1)
+    ap.add_argument("--designs", type=int, default=1)
     args = ap.parse_args()
 
     out = pathlib.Path(args.out)
@@ -88,21 +96,24 @@ def main():
     import numpy as np
 
     request = {"campaign_name": f"bgx-{args.case}", "project_folder": str(project),
-               "campaign_seed": args.seed, "trajectory_only": True, "max_trajectories": 1,
-               "number_of_final_designs": 1,
-               # One monomer trunk, the same reduction `perf/bcx_round/run_round.py` makes: five
-               # multimer checkpoints would measure the checkpoint pool, not the input.
-               "validation_model": "monomer", "design_models": ["model_1_ptm"],
-               "validation_models": ["model_2_ptm"],
-               "screen_steps": args.rounds, "refine_steps": 0, "anneal_steps": 0,
-               "harden_steps": 0, "mutate_steps": 0, "compile_next_length": 0,
-               **CASES[args.case]}
+               "campaign_seed": args.seed, "max_trajectories": args.max_trajectories,
+               "number_of_final_designs": args.designs, "compile_next_length": 0}
+    if not args.real:
+        # A few real gradient rounds: the whole screen stage and nothing after it, on one
+        # monomer trunk, the same reduction `perf/bcx_round/run_round.py` makes. Five multimer
+        # checkpoints and a validation ensemble would measure the pool, not the input.
+        request.update({"trajectory_only": True, "validation_model": "monomer",
+                        "design_models": ["model_1_ptm"], "validation_models": ["model_2_ptm"],
+                        "screen_steps": args.rounds, "refine_steps": 0, "anneal_steps": 0,
+                        "harden_steps": 0, "mutate_steps": 0})
+    request.update(CASES[args.case])
     if "modality" not in request:
         request["modality"] = "binder"
     settings = cleaned_campaign_settings(read_settings(str(BC2 / "examples/pdl1.json"), request))
 
     import bindcraft.campaign as campaign
-    campaign.MULTIMER_POOL = ("model_1_ptm", "model_2_ptm")
+    if not args.real:
+        campaign.MULTIMER_POOL = ("model_1_ptm", "model_2_ptm")
 
     prepared = prepare_targets(build_design_settings(settings))
     record = {"case": args.case, "rounds_asked": args.rounds, "card": args.card,
@@ -115,10 +126,16 @@ def main():
     M.CLOCK = M.Clock(1.0)
     M.CLOCK.start()
     t0 = time.time()
+    mpnn = str(BC2 / "bindcraft/weights/proteinmpnn/weights_neutral")
     try:
         with bindcraft2.campaign_predictor(card=args.card):
-            trajectories = bindcraft2.run_campaign(settings, str(project),
-                                                   trajectories_per_card=1, af2_weights=AF2)
+            # The real leg leaves `trajectories_per_card` off, which is the shipped default's own
+            # resolution; the round leg pins 1, because two trajectories would interleave the
+            # thing being checked.
+            per_card = {} if args.real else {"trajectories_per_card": 1}
+            trajectories = bindcraft2.run_campaign(
+                settings, str(project), **per_card, af2_weights=AF2,
+                **({"mpnn_weights": mpnn} if args.real else {}))
         record["outcome"], record["trajectories"] = "RAN", trajectories
     except Exception as error:
         record["outcome"] = f"{type(error).__name__}"
@@ -129,6 +146,10 @@ def main():
     record["clock"] = M.CLOCK.window(t0, t1)
     csv = project / "trajectories.csv"
     record["trajectories_csv"] = csv.read_text().strip().splitlines()[-2:] if csv.is_file() else []
+    accepted = project / "accepted.csv"
+    record["accepted"] = (len(accepted.read_text().strip().splitlines()) - 1
+                          if accepted.is_file() else 0)
+    record["real"] = bool(args.real)
     with open(out / "rounds.jsonl", "a") as fh:
         fh.write(json.dumps(record) + "\n")
     print(json.dumps(record), flush=True)

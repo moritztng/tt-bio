@@ -43,6 +43,11 @@ CASES = [
     case("format-fasta", target="dynorphin_a"),
     case("format-missing-file", targets=target("/tmp/does-not-exist.pdb", hotspots="54")),
 
+    case("format-inline-structure", targets=[{"name": "T", "target_path": "INLINE",
+                                              "hotspots": "54,56,66,115"}]),
+    case("format-gzipped", targets=target("hPDL1.pdb.gz", hotspots="54")),
+    case("format-pdb-id", targets=[{"name": "T", "target_path": "5C3T", "hotspots": "54"}]),
+
     # --- heteroatoms
     case("het-ligands-waters-metal", targets=target("ligands.pdb", hotspots="54,56,66,115")),
     case("het-mse", targets=target("mse.pdb", hotspots="54,56,66,115")),
@@ -109,6 +114,14 @@ def resolved_hotspots(protein):
     return [int(n) for n in np.asarray(protein.residue_index)[mask]]
 
 
+def inline(settings):
+    """A target pasted as text rather than named as a path, which BindCraft 2 also accepts."""
+    for target_settings in settings.get("targets") or ():
+        if target_settings.get("target_path") == "INLINE":
+            target_settings["target_path"] = (STRUCT / "hPDL1.pdb").read_text()
+    return settings
+
+
 def run(name, settings):
     """Load, check, preflight, prepare. The first stage that refuses is the one reported."""
     from bindcraft.preflight import CampaignPreflightError, preflight_campaign
@@ -118,7 +131,7 @@ def run(name, settings):
     from tt_bio import bcinputs
 
     request = {"campaign_name": name, "number_of_final_designs": 1,
-               "project_folder": f"/tmp/bgx_probe/{name}", **settings}
+               "project_folder": f"/tmp/bgx_probe/{name}", **inline(settings)}
     out = {"case": name}
 
     def stage(label, call):
