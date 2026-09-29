@@ -3,9 +3,12 @@
 
     sit.py --chip 30 --rounds 7 --out OUT  a1:0:0:1 b1:1:1:1 b2:1:1:1 a2:0:0:1 ...
 
-Each arm is `tag:extra_msa:template:trajectories` and runs as its own process
-(`perf/bcx_p10_duotraj/duo_round.py`), so the arms alternate at the process boundary and
-neither owns the quiet half of the sitting, the way `perf/bcx_default/sit.sh` does it.
+Each arm is `tag:extra_msa:template:trajectories` and runs as its own process, so the arms
+alternate at the process boundary and neither owns the quiet half of the sitting, the way
+`perf/bcx_default/sit.sh` does it. An N=1 arm is `perf/bcx_round/run_round.py --exact 0`,
+which runs exactly `--rounds` gradient rounds; a real campaign screens a poor trajectory out
+after two, and on 2026-09-29 that left an arm with one warm round. N>1 arms need the
+interleave, so they are `perf/bcx_p10_duotraj/duo_round.py`.
 
 The Galaxy is the difference. A japanfold agent's chip workers wait on tt-bio's per-card
 `flock` and take a chip the moment its holder lets go, so a sitting whose arms each take the
@@ -13,6 +16,11 @@ lease themselves hands the chip back to the dev service between every pair of ar
 process takes the card's lease in the host's REAL lease directory for the whole sitting and
 gives every arm a private one, so the agent sees one holder from the first arm to the last and
 the box's agent is restarted once per sitting rather than once per arm.
+
+The lease is not enough on a box whose agent can reset one chip (PDB CPLD 1.16). The agent's
+recovery waits for zero processes with `/dev/tenstorrent/<node>` open, not for the lease, so on
+2026-09-29 it ran `tt-smi -r` on the sitting's chip in the gap between two arms and every later
+arm died with `Query mappings failed`. So this process also holds the node open until the end.
 
 Beside the arms it samples every chip's AICLK and the host's loadavg at 1 Hz into
 OUT/aiclk.jsonl, and the top of `ps` once a minute into OUT/cotenants.txt.
@@ -29,6 +37,14 @@ import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
+
+def device_node(chip: str) -> str:
+    """`/dev/tenstorrent/<node>` of UMD chip `chip`: UMD counts chips in PCI order, the nodes
+    do not (on .107 chip 30 is node 6)."""
+    root = pathlib.Path("/sys/class/tenstorrent")
+    nodes = sorted(root.iterdir(), key=lambda d: os.path.basename(os.path.realpath(d / "device")))
+    return "/dev/tenstorrent/" + nodes[int(chip)].name.split("!", 1)[1]
 
 
 def sample(dest: pathlib.Path, stop: threading.Event):
@@ -64,6 +80,9 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--private-leases", default=None,
                     help="lease dir the arms use; default OUT/leases")
+    ap.add_argument("--shipped", action="store_true",
+                    help="N=1 arms keep pdl1.json's five multimer_v3 models (run_round.py "
+                         "--shipped); without it they pin one monomer trunk, as bring-up did")
     ap.add_argument("arms", nargs="+", metavar="tag:extra:template:N")
     args = ap.parse_args()
     arms = []
@@ -77,7 +96,9 @@ def main():
     from tt_bio.device_lease import DeviceLease
 
     lease = DeviceLease(card=args.chip, timeout=600).acquire()
-    print(f"{time.strftime('%FT%TZ', time.gmtime())} holding {lease.path}", flush=True)
+    node = device_node(args.chip)
+    held = os.open(node, os.O_RDWR)
+    print(f"{time.strftime('%FT%TZ', time.gmtime())} holding {lease.path} and {node}", flush=True)
     # A lease whose holder is killed keeps `released: null` in its metadata. tt-bio itself is
     # fine with that -- the kernel drops the flock -- but the Galaxy's own agent reads the
     # metadata, and on 2026-09-29 a crashed run's file held `.107` in `box reset waits for
@@ -95,11 +116,15 @@ def main():
         for tag, extra, tmpl, n in arms:
             arm = out / tag
             arm.mkdir(exist_ok=True)
-            cmd = [sys.executable, "-u", str(ROOT / "perf/bcx_p10_duotraj/duo_round.py"),
-                   "--rounds", str(args.rounds), "--interleave", str(int(n > 1)),
-                   "--trajectories", str(n), "--binder", str(args.binder),
-                   "--params", args.params, "--out", str(arm),
-                   "--extra-msa", str(extra), "--template", str(tmpl)]
+            if n == 1:
+                cmd = [sys.executable, "-u", str(ROOT / "perf/bcx_round/run_round.py"),
+                       "--exact", "0"] + (["--shipped"] if args.shipped else [])
+            else:
+                cmd = [sys.executable, "-u", str(ROOT / "perf/bcx_p10_duotraj/duo_round.py"),
+                       "--interleave", "1", "--trajectories", str(n)]
+            cmd += ["--rounds", str(args.rounds), "--binder", str(args.binder),
+                    "--params", args.params, "--out", str(arm),
+                    "--extra-msa", str(extra), "--template", str(tmpl)]
             t0 = time.time()
             print(f"=== {tag} extra_msa={extra} template={tmpl} N={n} "
                   f"{time.strftime('%FT%TZ', time.gmtime())} load {os.getloadavg()[0]:.2f}",
@@ -109,6 +134,7 @@ def main():
             print(f"    {tag} rc={rc} {time.time() - t0:.0f}s", flush=True)
     finally:
         stop.set()
+        os.close(held)
         lease.release()
         print(f"{time.strftime('%FT%TZ', time.gmtime())} sitting done, lease released", flush=True)
 
