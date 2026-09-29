@@ -59,11 +59,18 @@ to choose yourself; 1 is BindCraft 2's own loop.
 
 **The count falls as the design grows.** A trajectory's memory grows with the square of the
 token axis, and at some axes the fused triangle attention does not fit the chip and a slower path
-holds about twice as much: at 544 tokens one trajectory holds 21.5 GB of the card where 512 holds
-10.4. Which axes do that is only known once the card has tried, and a campaign draws several
+holds about twice as much: at 544 tokens one trajectory holds 21.5 GB of a p300 chip where 512
+holds 10.4. Every figure in this section is that chip, and the board moves them a little: the
+p150a in "What fits" below holds 25.75 GB at the same 544-token axis.
+Which axes do that is only known once the card has tried, and a campaign draws several
 binder lengths, so the default prices every design as if it were one of them. On a 32 GB
 Blackhole chip that is three trajectories up to 352 tokens, two at 384 and 416, and one from 448
 up. Where one fits, the default is one, which is BindCraft 2's own loop unchanged.
+
+So the size the line prints is an upper bound, and above about 448 tokens it can be roughly
+twice what the run goes on to hold: a 576-token design is priced at 29.9 GB and holds 13.1 GB
+when the fused arm serves. It is not telling you the card is too small. It is saying it will
+not start a second trajectory on a design that might need the slower path.
 
 A box whose free memory cannot be read gets one, never three, and so does a design whose token
 axis cannot be read. An explicit `trajectories_per_card=N` is used exactly as given, including a
@@ -437,7 +444,8 @@ to 28 residues, so a job sized off residue counts comes out one or two buckets l
 target with a 146-residue binder is a 576-token job, not a 544-token one.
 
 Measured end to end on a p150a across eight deposited targets, 115 to 674 residues, one to three
-chains and six folds, at AICLK 1343 to 1350 sampled during each run:
+chains and six folds, with the card's AICLK sampled during each run and its median 1350 MHz in
+all 445 of them:
 
 | tokens | outcome | peak DRAM of 34.226 GB | one gradient round |
 |---|---|---|---|
@@ -454,10 +462,19 @@ against a 277 MB request, and the message says which of the two it is rather tha
 everything fragmentation. Both refusals raise; nothing in the range OOM-killed a process, hung
 one, or returned a wrong answer.
 
-**544 tokens is the one axis to avoid**, and it is the only rung where the fused arm declines
-inside the supported range. It costs more memory than the larger 576 does. The run says so
-itself when it happens and says which way to move; moving the axis by one bucket in either
-direction is the fix.
+**544 tokens is the axis to avoid**, and the reason is the fused triangle-attention kernel. It
+serves every call in the gradient round from 288 through 512 and again at 576, and it serves
+none at 544, so the round falls back to the composed path and costs 25.75 GB and 67.27 s
+against 11.42 GB and 34.19 s at 512 and 14.23 GB and 47.38 s at 576. The run says so itself
+when it happens and says which way to move; moving the axis by one bucket in either direction
+is the fix.
+
+The arm also serves nothing at 192, where it costs nothing worth noticing: that is the cheapest
+rung on the ladder at 2.63 GB and 5.89 s. Declining is a fallback, not a failure. A 576-token
+campaign against a two-chain 387-residue target declined twice going into its mutate stage,
+carried on through the composed path and kept designing, while the 288-token campaign beside it
+declined nothing at any stage. So above about 512 tokens expect some calls on the composed path
+and expect them to cost more.
 
 Within the range, size is the axis that matters and fold and chain count are not: six folds, one
 to three chains, and two structures with unresolved gaps all behave the same at the same token

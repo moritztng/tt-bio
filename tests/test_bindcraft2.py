@@ -875,6 +875,26 @@ def test_the_estimate_is_above_every_footprint_measured_on_the_card(monkeypatch)
     assert (duotraj.trajectory_bytes(544) + duotraj.trajectory_floor_bytes(544)) / 2**30 > 25.75
 
 
+def test_the_line_calls_its_own_estimate_an_upper_bound_at_the_largest_axis_that_fits(monkeypatch):
+    """576 tokens is the largest complex one card carries: 14.23 GB of a p150a (`perf/bgx_size`)
+    and 13.14 of a p300 (`perf/bgx_traj`). `trajectory_bytes` prices the composed path at every
+    axis, so it charges 29.9 GB, more than the card has left after the floor and the reserve.
+    Phrased as "one trajectory holds about 29.9 GB of the card" that reads as a refusal at the one
+    axis a user who has read "what fits" is most likely to be sitting on."""
+    from tt_bio import duotraj
+
+    monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(200 * 2**30))
+    monkeypatch.setattr(duotraj, "host_rss_bytes", lambda: 0)
+    monkeypatch.setattr(duotraj, "free_device_bytes", lambda: 0)  # what `auto` sees at entry
+
+    count, why = duotraj.auto_trajectories(576)
+    assert count == 1
+    room = duotraj.CARD_BYTES - duotraj.trajectory_floor_bytes(576) - duotraj.CARD_RESERVE_BYTES
+    assert duotraj.trajectory_bytes(576) > room, "the premise: the charge is over the card at 576"
+    assert "priced at up to" in why and "composed path" in why, why
+    assert "holds about" not in why, why
+
+
 def test_an_explicit_count_is_honoured_even_when_it_will_not_fit(monkeypatch):
     """Auto lowers itself; a number the caller wrote is not quietly lowered. It still raises."""
     _bindcraft_root()
