@@ -111,14 +111,19 @@ def main():
     t = threading.Thread(target=sample, args=(out, stop), daemon=True)
     t.start()
     env = dict(os.environ, TT_BIO_LEASE_DIR=args.private_leases or str(out / "leases"),
-               TT_BIO_LEASE_CARDS=str(args.chip))
+               TT_BIO_LEASE_CARDS=str(args.chip), TT_BIO_MM_LAYOUT="1",
+               TT_BIO_TAPED_CHANNEL_MOVE="1", TT_BIO_WIDEN_ADD="1")
     try:
         for tag, extra, tmpl, n in arms:
             arm = out / tag
             arm.mkdir(exist_ok=True)
             if n == 1:
+                # `--exact 0` arms the product's whole fast round, and run_round.py stops an
+                # arm whose levers do not match what it was told to expect, so it is told all
+                # six: three by flag, three by the env vars it reads them from.
                 cmd = [sys.executable, "-u", str(ROOT / "perf/bcx_round/run_round.py"),
-                       "--exact", "0"] + (["--shipped"] if args.shipped else [])
+                       "--exact", "0", "--triatt-hifi", "1", "--triatt-bw", "1",
+                       "--rne-kernel", "1"] + (["--shipped"] if args.shipped else [])
             else:
                 cmd = [sys.executable, "-u", str(ROOT / "perf/bcx_p10_duotraj/duo_round.py"),
                        "--interleave", "1", "--trajectories", str(n)]
