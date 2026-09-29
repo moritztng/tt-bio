@@ -284,6 +284,21 @@ reasonable thing to ask for:
 unresolved); the rest carry the hotspot.
 ```
 
+A hotspot that names no chain is noted rather than refused, on a target whose chains share that
+residue number. BindCraft 2 qualifies a bare span with the target's first chain, which is the
+right default and says nothing about the alternative -- and most deposited complexes number
+every chain from 1, an antibody's heavy and light chains included. Chains A and B of BindCraft
+2's own `hIL2R_beta_gamma.pdb` both hold residues 57-59:
+
+```
+[tt_bio.bcinputs] target 'T' hotspot 57 names no chain, and chains A, B of
+hIL2R_beta_gamma.pdb each hold those residues. BindCraft 2 takes the first, chain A, and that is
+the one carrying the hotspot. Write A57 to say so, or B57 for the other one.
+```
+
+`A57` resolves to 57 and `B57` to 283, through the chain-break offset the receptor fusion
+applies, so the two spellings do name different residues.
+
 Two targets under one `name` are refused too, and this one is worth spelling out: BindCraft 2
 keys a campaign's targets by name, so a repeated name is not a second target -- it replaces the
 first. The campaign designs against the last one alone and the other target's hotspots are gone
