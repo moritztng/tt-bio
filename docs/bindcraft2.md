@@ -419,16 +419,64 @@ with it: check the numbering of the file you hand in, not the one you downloaded
 
 ## What fits
 
-Every binder length BindCraft 2 draws against the 115-residue PD-L1 target fits on one card. The
-draw range is 60 to 180 residues, three roundings collapse it to five padded sizes (192, 224, 256,
-288, 320 tokens), and the largest runs six consecutive gradient steps with the resident DRAM line
-flat. Peak allocation at the top draw is 19.19 GB of the card's 34.226 GB, in the backward, with
-12.68 GB still free. Measured on a p300c at AICLK 1350 median over 808 samples taken during the
-step.
+Two things decide whether a campaign runs: whether the input is one BindCraft 2 can read, which
+is the two sections above, and how big the complex is, which is this one.
 
-The token axis buckets to 32 and rounding up is faster, not slower: the PD-L1 complex at 211
-tokens costs 4.504 s on the trunk forward and the same design padded to 224 costs 1.369 s,
-same card and same AICLK 1350 median.
+Size is counted in **tokens**: the residues of the fused complex BindCraft 2 builds, rounded up
+to a multiple of 32. That is not your target length plus your binder length. The fusion adds 18
+to 28 residues, so a job sized off residue counts comes out one or two buckets low. A 387-residue
+target with a 146-residue binder is a 576-token job, not a 544-token one.
+
+Measured end to end on a p150a across eight deposited targets, 115 to 674 residues, one to three
+chains and six folds, at AICLK 1343 to 1350 sampled during each run:
+
+| tokens | outcome | peak DRAM of 34.226 GB | one gradient round |
+|---|---|---|---|
+| 192 to 512 | runs and completes | 2.63 to 11.42 GB | 5.89 to 34.19 s |
+| **544** | runs and completes, at 1.8x the memory and 2.0x the round of either neighbour | 25.75 GB | 67.27 s |
+| 576 | runs and completes | 14.23 GB | 47.38 s |
+| 608 and above | refused, naming the axis and the memory | | |
+
+**The card is never the limit inside the supported range.** At the top of it the job holds 42 %
+of the board. What stops 608 is a single `[608, 4, 608, 608]` fp32 score tensor on the composed
+path, 3.6 GB asked for against 4.1 GB free but only 327 MB contiguous, after the fused
+triangle-attention arm declined every call. At 736 the card genuinely is full, 243 MB free
+against a 277 MB request, and the message says which of the two it is rather than calling
+everything fragmentation. Both refusals raise; nothing in the range OOM-killed a process, hung
+one, or returned a wrong answer.
+
+**544 tokens is the one axis to avoid**, and it is the only rung where the fused arm declines
+inside the supported range. It costs more memory than the larger 576 does. The run says so
+itself when it happens and says which way to move; moving the axis by one bucket in either
+direction is the fix.
+
+Within the range, size is the axis that matters and fold and chain count are not: six folds, one
+to three chains, and two structures with unresolved gaps all behave the same at the same token
+count.
+
+**Accepted designs have been measured at 288 tokens**, the PD-L1 example in the table below. A
+576-token campaign runs, backpropagates and clears both the screen and the refine stage; how
+often it accepts is not yet measured. Treat the range as "the gradient loop runs and completes"
+above 288, and the acceptance rate as measured at 288 only.
+
+How many trajectories run at once is priced separately from any of this, and that estimate is
+calibrated at 288 tokens and does not scale with the axis: on a large complex pass
+`trajectories_per_card=1` rather than letting it choose. See
+[Several trajectories on one card](#several-trajectories-on-one-card).
+
+Binder length inside a campaign costs nothing extra to worry about. Every length BindCraft 2
+draws against the 115-residue PD-L1 target fits: the draw range is 60 to 180 residues, three
+roundings collapse it to five padded sizes (192, 224, 256, 288, 320 tokens), and the largest runs
+six consecutive gradient steps with the resident DRAM line flat, peaking at 19.19 GB of 34.226 GB
+in the backward with 12.68 GB still free. Measured on a p300c at AICLK 1350 median over 808
+samples taken during the step.
+
+Rounding up to the bucket is faster, not slower: the PD-L1 complex at 211 tokens costs 4.504 s on
+the trunk forward and the same design padded to 224 costs 1.369 s, same card and same AICLK 1350
+median.
+
+All of the size numbers above are a p150a. A p300c is a different chip and its own numbers are
+the ones in the two paragraphs before this.
 
 ## What one step costs
 
