@@ -5,6 +5,79 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **`tt-bio train` trains OpenFold3 on Tenstorrent chips.** `tt-bio train --model openfold3`
+  with no other argument fetches upstream's 8-structure training sample (73 MB, each file checked
+  against a shipped sha256 list), trains the model's own weights at a 384-token crop for one pass
+  over it, and writes to `runs/openfold3`. Give it a directory in OpenFold3's training-set layout
+  to train on your own data, featurised on the fly by upstream's pipeline. A step takes about 42 s
+  on one Blackhole p300c chip at 1350 MHz, and one chip trains crops up to 512 tokens. Install the
+  featuriser with `pip install 'tt-bio[tenstorrent,train]'`.
+
+  A run ends by writing `<out>/weights.pt`, the trained weights in the shipped checkpoint's format,
+  and `tt-bio predict --model openfold3 --checkpoint <out>/weights.pt` folds with them. Without
+  `--checkpoint`, `predict` folds with the shipped weights and returns the same bytes as before.
+
+  `--chips` trains data-parallel across the chips of one box, as a count (`--chips 2`) or as tt-smi
+  ids (`--chips 0,2`), and writes one `weights.pt` either way. Two p300c chips take 46.5 s per
+  two-sample step against 77.4 s on one, 1.66x at 1350 MHz. `--dry-run` says whether a
+  configuration fits and how long a step takes without opening a device. Running the same command
+  again resumes from the last checkpoint, and different settings on the same `--out` are refused.
+  `status.json` and `progress.jsonl` in the run directory carry the state, one row per step.
+
+  The command is the first of four tiers, each cut where the thing you write changes:
+  `tt-bio train` takes a config; `train.finetune()` takes your objective and runs the loop;
+  `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer` and `Mesh` let you write the loop;
+  `tt_bio.autograd` with `train.gradcheck` is where you add an op and its backward. Each cut has a
+  test that fails if it drifts. Training is opt-in: no inference path imports it. OpenFold3 trains
+  its own weights only, and `--train adapters` (LoRA) is refused for it. See
+  [docs/training.md](docs/training.md).
+
+- **BindCraft 2 designs on a card through `tt_bio.bindcraft2`.** BindCraft 2 is a third-party
+  design loop you install yourself; tt-bio gives it an AlphaFold 2 Evoformer that runs on the chip,
+  gradient loop included, and interleaves as many design trajectories on one chip as the box and
+  card hold. On the shipped PD-L1 example it accepts 7 binders per 31 trajectories against the
+  reference JAX's 1 per 5, which Fisher exact does not separate (p = 1.00). One p150a carries a
+  complex up to 576 tokens and one Wormhole Galaxy chip up to 512; a larger one is refused with the
+  axis and the memory named. See [docs/bindcraft2.md](docs/bindcraft2.md).
+
+- **Interface scores for multi-chain Boltz-2 folds, and `tt-bio score` for folds you already
+  have.** With `--write_pae`, a multi-chain Boltz-2 entry carries `interface_scores` for every chain
+  pair: ipSAE in both directions with their max and min, ipTM, interface pAE, pDockQ, pDockQ2 and
+  LIS, defined as in the script Adaptyv scored its Nipah binder competition with.
+  `interface_score_distribution` gives the same scores per diffusion sample. `tt-bio score
+  model.cif pae.npz --plddt plddt.npz` scores an existing tt-bio or upstream Boltz fold without a
+  device. See [docs/interface-scores.md](docs/interface-scores.md).
+
+- **[docs/multi-host.md](docs/multi-host.md): the contract for running tt-bio on many machines.**
+  The endpoints a scheduler answers and a platform polls, what a host advertises, the lease and
+  how a result settles exactly once. [`examples/many_hosts.py`](examples/many_hosts.py) is a
+  fifty-line driver built on it; it folded twelve inputs across four Galaxies. `GET /cluster` now
+  names each worker's loaded model and the jobs it holds.
+
+- **A structure template given as an mmCIF works on every model that takes templates.** The
+  top-level `templates:` block (`cif`, optional `chain_id` and `template_id`) was read only by
+  Boltz-2 and refused elsewhere. Protenix-v2, OpenDDE, OpenDDE-abag, OpenFold3, OpenBind and RF3
+  now align each chain to the template's sequence and take it the way they take a precomputed
+  alignment `.npz`, which RF3 also accepts now. On the 1a8q fixture the cif and the npz give
+  bit-identical structures on all six, CA-RMSD to the crystal 0.13-0.25 A against 15.8-18.9 A
+  without a template. `force`, pdb templates and more than one template per chain on RF3 are
+  refused with the reason. Boltz-2 now refuses a per-chain `.npz`, which its parser never read
+  (it folded as if no template had been given); it takes the same template as a cif.
+  Protenix-v1 and ESMFold2 still refuse templates: v1's checkpoint ships
+  an empty template stack and ESMFold2 has no template input.
+
+- **Protenix-v2 and OpenDDE now report per-chain-pair ipTM in `results.json`.** A multi-chain
+  entry carries `pair_chains_iptm` and `chains_ptm`, the same two fields Boltz-2 already writes
+  and in the same shape, for every sample rather than only the best one. Read
+  `pair_chains_iptm[binder][target]` to score one named interface of a complex; the global `iptm`
+  averages the whole interface, and on a two-chain target the two agree. The matrix was already
+  computed to derive the per-chain averages and then dropped, so nothing about the fold changed:
+  the same input gives the same coordinates, pLDDT, pTM and ipTM as before. Opened as #15 by
+  @ssiddhantsharma; the diagonal (each chain's own pTM) and the device confidence path
+  (`TT_PROTENIX_CONF_DEVICE=1`) were added on top of it.
+
 ### Removed
 
 - **`tt-bio predict --listen`, and a controller bound to anything but 127.0.0.1.** tt-bio no
@@ -143,36 +216,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   is process-wide and nothing restored it, so reaching any of them from a script, a notebook or a
   test left the rest of that program without gradients. The verbs still run inference with grad
   off; the setting now stops at the verb's edge. Same inputs give the same outputs.
-
-### Added
-
-- **[docs/multi-host.md](docs/multi-host.md): the contract for running tt-bio on many machines.**
-  The endpoints a scheduler answers and a platform polls, what a host advertises, the lease and
-  how a result settles exactly once. [`examples/many_hosts.py`](examples/many_hosts.py) is a
-  fifty-line driver built on it; it folded twelve inputs across four Galaxies. `GET /cluster` now
-  names each worker's loaded model and the jobs it holds.
-
-- **A structure template given as an mmCIF works on every model that takes templates.** The
-  top-level `templates:` block (`cif`, optional `chain_id` and `template_id`) was read only by
-  Boltz-2 and refused elsewhere. Protenix-v2, OpenDDE, OpenDDE-abag, OpenFold3, OpenBind and RF3
-  now align each chain to the template's sequence and take it the way they take a precomputed
-  alignment `.npz`, which RF3 also accepts now. On the 1a8q fixture the cif and the npz give
-  bit-identical structures on all six, CA-RMSD to the crystal 0.13-0.25 A against 15.8-18.9 A
-  without a template. `force`, pdb templates and more than one template per chain on RF3 are
-  refused with the reason. Boltz-2 now refuses a per-chain `.npz`, which its parser never read
-  (it folded as if no template had been given); it takes the same template as a cif.
-  Protenix-v1 and ESMFold2 still refuse templates: v1's checkpoint ships
-  an empty template stack and ESMFold2 has no template input.
-
-- **Protenix-v2 and OpenDDE now report per-chain-pair ipTM in `results.json`.** A multi-chain
-  entry carries `pair_chains_iptm` and `chains_ptm`, the same two fields Boltz-2 already writes
-  and in the same shape, for every sample rather than only the best one. Read
-  `pair_chains_iptm[binder][target]` to score one named interface of a complex; the global `iptm`
-  averages the whole interface, and on a two-chain target the two agree. The matrix was already
-  computed to derive the per-chain averages and then dropped, so nothing about the fold changed:
-  the same input gives the same coordinates, pLDDT, pTM and ipTM as before. Opened as #15 by
-  @ssiddhantsharma; the diagonal (each chain's own pTM) and the device confidence path
-  (`TT_PROTENIX_CONF_DEVICE=1`) were added on top of it.
 
 ### The release gate itself
 
