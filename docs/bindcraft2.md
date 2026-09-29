@@ -340,6 +340,17 @@ a confidence threshold written as a percentage (`"min_plddt_final": 80`, where t
 1) accepts nothing however long it runs, and `"binder_lengths": 80` is not a list, which stops
 BindCraft 2 inside its length sampler. Write `[80]`, or `[60, 90]` for a range.
 
+That second one is raised before `tt_bio` is called at all -- a campaign is loaded first, and a
+scalar length stops inside `load_settings` as `TypeError: 'int' object is not iterable`, which
+names neither the setting nor the fix. So load through the check to get the message:
+
+```python
+settings = bcinputs.load_settings(request)          # BindCraft 2's own, message first
+```
+
+It is `bindcraft.settings.load_settings` in every other respect, asserted against it on a
+correct campaign, and checks only what it can read off the request as written.
+
 Two settings that BindCraft 2 accepts are refused here because of what they do far from where
 they were written: a negative recycle count (`design_recycles`, `validation_recycles`,
 `betasheet_reopt_recycles`) reaches JAX as an invalid tensor dimension and fails inside the first

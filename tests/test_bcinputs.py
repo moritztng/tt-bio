@@ -448,3 +448,38 @@ def test_a_structure_target_is_never_cropped_by_this_setting(tmp_path):
     settings = _settings(_target(tmp_path, "whole.pdb"), hotspots="54") | \
         {"crop_fasta_sequence": [10, 40]}
     assert _problems(settings) == ([], [])
+
+
+def test_a_scalar_binder_length_is_refused_by_name_before_bindcraft_cannot_name_it():
+    """`load_settings` raises `TypeError: 'int' object is not iterable` on this, naming nothing."""
+    from bindcraft.settings import load_settings
+
+    request = {"campaign_name": "x", "binder_lengths": 80, "targets": [{"name": "T"}]}
+    with pytest.raises(TypeError, match="not iterable"):       # what BindCraft 2 does with it
+        load_settings(dict(request))
+    with pytest.raises(ValueError, match=r"binder_lengths 80 has to be a list: write \[80\]"):
+        bcinputs.load_settings(request)
+
+
+def test_a_binder_length_range_is_refused_before_the_int_parse_that_cannot_name_it():
+    request = {"campaign_name": "x", "binder_lengths": "60-90", "targets": [{"name": "T"}]}
+    with pytest.raises(ValueError, match="invalid literal for int"):
+        load_settings_module().load_settings(dict(request))
+    with pytest.raises(ValueError, match=r"write \[60, 90\]"):
+        bcinputs.load_settings(request)
+
+
+def load_settings_module():
+    from bindcraft import settings
+
+    return settings
+
+
+def test_loading_through_the_check_is_otherwise_bindcraft_2s_own_load_settings(tmp_path):
+    """The seam must not change a campaign that is written correctly, only the message order."""
+    request = {"campaign_name": "x",
+               **_settings(_target(tmp_path, "t.pdb"), chains="A", hotspots="54")}
+    through_the_check = bcinputs.load_settings(dict(request))
+    from bindcraft.settings import load_settings
+
+    assert through_the_check == load_settings(dict(request))

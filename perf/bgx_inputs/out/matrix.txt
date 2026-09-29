@@ -98,12 +98,12 @@ campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multi
 len-range                        WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
 len-zero                         REFUSED  [bindcraft preflight] design inputs did not parse: Binder length must be positive
 len-negative                     REFUSED  [bindcraft preflight] design inputs did not parse: Binder length must be positive
-len-scalar                       CRASH    [bindcraft load_settings] Traceback (most recent call last): / File "/home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/probe.py", line 183, in stage / return call(), None / ^^^^^^ / File "/home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/probe.py", line 191, in <lambda> / full, stopped = stage("bindcraft load_settings", lambda: load_settings(request)) / ^^^^^^^^^^^^^^^^^^^^^^ / File "/home/t
-len-written-as-range             REFUSED  [bindcraft load_settings] invalid literal for int() with base 10: '-'
+len-scalar                       REFUSED  [tt_bio.bcinputs load_settings] binder_lengths 80 has to be a list: write [80]. BindCraft 2 iterates it, so anything else stops the campaign from inside the length sampler.
+len-written-as-range             REFUSED  [tt_bio.bcinputs load_settings] binder_lengths '60-90' has to be a list: write [60, 90]. BindCraft 2 iterates it, so anything else stops the campaign from inside the length sampler.
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets hPDL1 | output /tmp/bgx_probe/len-huge
 len-huge                         WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[5000]
-set-unknown-key                  REFUSED  [bindcraft load_settings] unrecognized campaign settings: hotspot
-set-percentage-threshold         REFUSED  [bindcraft load_settings] these checks read a fraction of 0 to 1 rather than a percentage: max_helix_fraction_final 50 (write 0.5)
+set-unknown-key                  REFUSED  [tt_bio.bcinputs load_settings] unrecognized campaign settings: hotspot
+set-percentage-threshold         REFUSED  [tt_bio.bcinputs load_settings] these checks read a fraction of 0 to 1 rather than a percentage: max_helix_fraction_final 50 (write 0.5)
 set-plddt-as-percentage          REFUSED  [tt_bio.bcinputs] min_plddt_final 80 reads a confidence of 0 to 1, not a percentage: write 0.8. Left as it is, no design is ever accepted.
 set-filter-nonsense              REFUSED  [tt_bio.bcinputs] filters.i_pTM.threshold 5 reads a confidence of 0 to 1: i_pTM cannot exceed 1, so no design is ever accepted. Write 0.05 if it was meant as a percentage.
 set-negative-recycles            REFUSED  [tt_bio.bcinputs] design_recycles -3 is not a recycle count. AlphaFold 2 folds design_recycles + 1 times, so a negative count reaches JAX as an invalid tensor dimension and fails inside the first fold with the card already open. Write 0 for a single pass with no recycling, or a positive count.
@@ -118,9 +118,9 @@ hot-as-list                      REFUSED  [tt_bio.bcinputs] target 'T': "hotspot
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/hot-with-spaces
 hot-with-spaces                  WORKS    asked='54, 56 ,115' T[104aa 18-132 hot=[54, 56, 115]] binder=[60, 61, 62, 63, 64, 65]
 chain-as-list                    REFUSED  [tt_bio.bcinputs] target 'T': "chains" is a list, and BindCraft 2 reads it as one comma-separated string. Write it as "chains": "A,B". A list reaches str.split as a list and fails inside the campaign with AttributeError.
-set-unknown-filter               REFUSED  [bindcraft load_settings] unrecognized campaign settings: filters.Nonexistent_Metric
-set-unknown-loss                 REFUSED  [bindcraft load_settings] unrecognized campaign settings: losses.no_such_loss
-set-misspelled-filter            REFUSED  [bindcraft load_settings] unrecognized campaign settings: filters.i_ptm (did you mean i_pTM?)
+set-unknown-filter               REFUSED  [tt_bio.bcinputs load_settings] unrecognized campaign settings: filters.Nonexistent_Metric
+set-unknown-loss                 REFUSED  [tt_bio.bcinputs load_settings] unrecognized campaign settings: losses.no_such_loss
+set-misspelled-filter            REFUSED  [tt_bio.bcinputs load_settings] unrecognized campaign settings: filters.i_ptm (did you mean i_pTM?)
 set-negative-validation-recycles REFUSED  [tt_bio.bcinputs] validation_recycles -1 is not a recycle count. AlphaFold 2 folds validation_recycles + 1 times, so a negative count reaches JAX as an invalid tensor dimension and fails inside the first fold with the card already open. Write 0 for a single pass with no recycling, or a positive count.
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets hPDL1 | output /tmp/bgx_probe/set-no-recycles
 set-no-recycles                  WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]

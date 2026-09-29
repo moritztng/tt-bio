@@ -188,7 +188,11 @@ def run(name, settings):
             out["outcome"], out["message"] = "CRASH", f"[{label}] " + traceback.format_exc(limit=3)
         return None, out
 
-    full, stopped = stage("bindcraft load_settings", lambda: load_settings(request))
+    # Loaded through `bcinputs.load_settings`, which is BindCraft 2's own plus the two spellings
+    # it raises an unnameable TypeError on. `load_settings` itself is imported for the cases
+    # below that ask what BindCraft 2 does unaided.
+    full, stopped = stage("tt_bio.bcinputs load_settings",
+                          lambda: bcinputs.load_settings(request))
     if stopped:
         return out
     if not SKIP_CHECK:

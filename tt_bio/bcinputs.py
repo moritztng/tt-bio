@@ -451,6 +451,28 @@ def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
     return problems + fasta_crop_problems(settings), notes
 
 
+def load_settings(request: Mapping, *args, **kwargs) -> dict:
+    """`bindcraft.settings.load_settings`, with the spellings it cannot report checked first.
+
+    A campaign is loaded before anything in tt-bio sees it, so the check above runs on settings
+    `load_settings` has already returned -- and two spellings never get that far. A binder length
+    written `80` rather than `[80]` stops inside BindCraft 2's length sampler as `TypeError:
+    'int' object is not iterable`, and `"60-90"` as `ValueError: invalid literal for int() with
+    base 10: '-'`; neither names `binder_lengths`, and the message that does is unreachable.
+    Loading through here puts the message first and is otherwise `load_settings` exactly::
+
+        settings = bcinputs.load_settings(request)
+
+    It checks only what it can read off the request as written. Everything else waits for
+    `refuse_unusable_inputs`, which needs the defaults filled in to know what it is looking at.
+    """
+    from bindcraft.settings import load_settings as bindcraft_load_settings
+
+    if problems := binder_length_problems(request):
+        raise ValueError("\n".join(problems))
+    return bindcraft_load_settings(request, *args, **kwargs)
+
+
 def refuse_unusable_inputs(settings: Mapping) -> None:
     """Stop a campaign whose inputs would design against something the caller did not ask for."""
     problems, notes = input_problems(settings)
