@@ -295,6 +295,16 @@ so only the last of them is prepared and the rest are dropped without a word. Gi
 its own "name".
 ```
 
+A file whose extension does not match its records is refused with the rename to make, because
+BindCraft 2 picks its reader from the suffix: a PDB saved as `.cif` fails inside the mmCIF reader
+(`There are no blocks in the file`) and an mmCIF saved as `.pdb` fails inside the PDB one
+(`Illegal hybrid-36 string`).
+
+A residue numbered at or below zero -- a structure deposited with its expression tag still
+numbered -3, -2, -1, 0 -- cannot be named as a hotspot at all: a span writes a range as
+`A35-40`, so the minus is the separator. The refusal says so and names the file's own first
+residue. Renumber the file from 1 if you need those residues.
+
 A target file that holds no polymer -- a ligand-only download, or a structure whose residues are
 all `HETATM` -- is refused by name rather than as an `IndexError` from inside the campaign:
 BindCraft 2 reads the polymer and drops every heteroatom, so such a file has no chain to design
@@ -316,6 +326,11 @@ if trajectories without acceptance is what you wanted.
 An NMR ensemble is not refused: BindCraft 2 reads `MODEL 1` and ignores the rest, so a
 20-model ensemble designs against its first model. Split the model you want out first if that is
 not the one you meant.
+
+An mmCIF's two numberings do not have to agree, and BindCraft 2 reads the **author** one:
+`auth_seq_id` and `auth_asym_id`, not `label_seq_id` (which the wwPDB numbers from 1) or
+`label_asym_id`. So a hotspot means the same residue in the mmCIF and the PDB of the same entry,
+checked both ways round.
 
 Numbering is the file's own throughout, never a 1-based position. A target renumbered by a
 modelling tool is self-consistent and cannot be told apart from the original, so hotspots move
