@@ -706,11 +706,18 @@ class EvoformerOnDevice:
         The arm's circular buffers do not fit L1 at every token axis, and when it declines the
         composed path runs in its place and materialises the `[N,4,N,N]` fp32 scores. Nothing in
         a run says so today, so a size that degrades looks like a size that is merely large. It
-        is not a small effect and it is not monotone in the size: measured on qb1 p150a with
-        hIL2R and a 146- against a 100-residue binder, 512 tokens holds 25.75 GB at 69.2 s a
-        round where 544 holds 14.23 GB at 49.4 s, so the smaller fold is the heavier and the
-        slower one. hTNFa on three chains declines identically at the same 512 axis, so it is
-        the axis and not the target.
+        is not a small effect and it is not monotone in the size: measured on qb1 p150a, one
+        axis holds 25.75 GB at 69.2 s a round where the next bucket up holds 14.23 GB at 49.4 s,
+        so the smaller fold is the heavier and the slower one, and two different targets on two
+        different chain counts decline identically at the same axis.
+
+        The note states the cost it can COMPUTE -- the composed tensor is `16 * n**3` bytes and
+        that is exact -- and does not quote the axes it was measured at. An earlier version did,
+        and the sizes it named came from arithmetic over a target file rather than from the
+        seam, so when that arithmetic turned out to be a bucket off at several targets the
+        message contradicted itself: it reported declining at 544 and advised moving to 544. A
+        message that hard-codes measured sizes inherits every labelling error upstream of it,
+        and the arm's L1 fit is a kernel policy that is expected to move anyway.
 
         The counters are process-wide, so the window is one forward and the test is a delta over
         it. Interleaved trajectories can serve inside that window; that direction only silences
@@ -721,13 +728,15 @@ class EvoformerOnDevice:
         served, declined = served - before[0], declined - before[1]
         if served or not declined:
             return
+        extra = 16 * padded ** 3          # [n,4,n,n] fp32, the term the fused arm never holds
         print(f"[tt_bio.bindcraft2] the fused triangle attention declined all {declined} calls "
               f"at {padded} tokens: its circular buffers do not fit L1 at this token axis, so "
               f"the composed path is running and holding the [{padded},4,{padded},{padded}] "
-              f"fp32 scores. Expect several times the device memory and a slower round than one "
-              f"bucket either side -- on a p150a, 512 tokens measures 25.75 GB and 69.2 s a "
-              f"round where 544 measures 14.23 GB and 49.4 s. Another binder length is the "
-              f"cheap way out.", file=sys.stderr)
+              f"fp32 scores -- {_gb(extra)} of device memory this fold would not otherwise "
+              f"need, and a slower round with it. Whether the arm fits is a property of the "
+              f"token axis and is NOT monotone in it, so a neighbouring binder length is often "
+              f"much cheaper: try one 32-token bucket UP as well as one down.",
+              file=sys.stderr)
 
     def _backward(self, slot, token, g_msa_np, g_pair_np):
         entry = self._tapes.take(token)

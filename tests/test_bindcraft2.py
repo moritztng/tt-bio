@@ -1107,8 +1107,23 @@ def test_a_fused_arm_that_declined_every_call_says_so(monkeypatch, capsys):
     assert "declined all 972 calls at 512 tokens" in err
     assert "do not fit L1" in err
     assert "[512,4,512,512]" in err              # what the composed path holds instead
-    assert "544 measures 14.23 GB" in err        # and the bucket that does not
+    assert "2.147 GB" in err                     # 16 * 512**3, computed not quoted
+    assert "one 32-token bucket UP as well as one down" in err
     assert 512 in splice._fused_checked          # said once, not once a round
+
+
+def test_the_note_quotes_no_measured_axis(monkeypatch, capsys):
+    """It used to name 512 and 544 as the bad and good sizes. Those came from arithmetic over a
+    target file, not from the seam, and when the arithmetic proved a bucket off the message
+    advised moving to the very axis it was declining at. The computed tensor size cannot rot."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (0, 96))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(544, (0, 0))
+    err = capsys.readouterr().err
+    assert "declined all 96 calls at 544 tokens" in err
+    assert "2.576 GB" in err                     # 16 * 544**3
+    for stale in ("25.75", "14.23", "69.2", "49.4"):
+        assert stale not in err
 
 
 def test_a_fused_arm_that_served_is_not_reported(monkeypatch, capsys):
