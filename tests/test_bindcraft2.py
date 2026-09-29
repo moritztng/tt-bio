@@ -1211,6 +1211,21 @@ def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
     assert "288 tokens" in msg
 
 
+def test_a_refusal_on_a_smaller_card_does_not_quote_the_p150a_as_if_it_applied():
+    """A Wormhole chip has 12 banks of 1,073,741,792 B (the bank size its own refusals carry),
+    about 12.9 GB. 320 tokens fits a p150a, but telling a Wormhole user "something else is
+    holding this card" sends them after company the chip does not have."""
+    wormhole = ("Out of Memory: Not enough space to allocate 1638400000 B DRAM buffer across "
+                "12 banks, where each bank needs to store 136533344 B, but bank size is "
+                "1073741792 B (allocated: 1028249600 B, free: 45492192 B, "
+                "largest free block: 21491680 B)")
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(wormhole),
+                                             phase="backward", n=300, padded=320))
+    assert "12.885 GB" in msg and "less than the 34.226 GB" in msg
+    assert "run a smaller complex" in msg
+    assert "something else is holding" not in msg
+
+
 def test_an_unrelated_failure_is_re_raised_unchanged():
     """A wrapper that repaints the shape of an unrelated bug is worse than no wrapper."""
     boom = ValueError("holds 24 Evoformer blocks and this splice was built for 48")

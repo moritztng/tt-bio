@@ -86,6 +86,10 @@ def design_tokens(settings: Mapping) -> int:
 #: the arithmetic. It is quoted in a refusal as a reference point and is enforced nowhere: the
 #: allocator decides, and a board with more DRAM has a different answer.
 MEASURED_MAX_TOKENS_P150A = 576
+#: The DRAM that figure was measured against, as the allocator reports it: 8 banks of
+#: 4,278,190,016 B. A card with less (a Wormhole chip has 12 banks of about 1 GiB) refuses
+#: smaller complexes, so the 576 is no reference point there.
+P150A_DRAM_BYTES = 8 * 4_278_190_016
 
 #: tt-metal's allocator refusal, which carries every number a user needs and is buried under
 #: forty lines of C++ backtrace by the time JAX has finished wrapping it. Per bank, except the
@@ -136,15 +140,21 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
         f"{_gb(held)} of {_gb(card_total)} already held by this fold.")
 
     drop = n - (padded - TOKEN_BUCKET)
-    if padded > MEASURED_MAX_TOKENS_P150A:
+    smaller_card = card_total < P150A_DRAM_BYTES
+    if padded > MEASURED_MAX_TOKENS_P150A or smaller_card:
+        reference = (
+            f"This card has {_gb(card_total)}, less than the {_gb(P150A_DRAM_BYTES)} of the "
+            f"p150a where {MEASURED_MAX_TOKENS_P150A} tokens is the largest axis measured to "
+            f"complete a gradient round, so its own ceiling is lower."
+            if smaller_card else
+            f"The largest axis measured to complete a gradient round on one p150a is "
+            f"{MEASURED_MAX_TOKENS_P150A} tokens.")
         action = (
             f"What to do: run a smaller complex. The token axis is the complex BindCraft 2 "
             f"built, padded to a multiple of {TOKEN_BUCKET} -- it is LARGER than target "
             f"residues + binder length, so size the job off the {n} above and not off that "
             f"sum. {drop} residues off the "
-            f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. The largest axis "
-            f"measured to complete a gradient round on one p150a is "
-            f"{MEASURED_MAX_TOKENS_P150A} tokens. Trimming the "
+            f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. {reference} Trimming the "
             f"target to the domain you are binding is the other lever and usually the bigger "
             f"one.")
     else:
