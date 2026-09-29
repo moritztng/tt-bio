@@ -210,6 +210,38 @@ def peak_from_probe(path: pathlib.Path) -> dict:
     return {"tagged_peak_gib": best, "tagged_peak_line": line} if best else {}
 
 
+AXIS: dict = {}
+
+
+def observe_axis():
+    """Record the token axis the Evoformer SEAM actually gets, not the one arithmetic predicts.
+
+    `tokens` above is `_pad32(target_residues + binder)` off `targets.json`, and for a
+    single-chain target that is exact. It is NOT exact for a multi-chain one: the fused-arm
+    note printed 544 on a rung this harness labelled 512 (hIL2R, 2 chains) and 608 on one it
+    labelled 576 (hTNFa, 3 chains), both one bucket high, while hPDL1 on one chain matched.
+    BindCraft 2 hands the splice whatever complex it built, `_pad` buckets THAT, and the
+    difference is real tokens -- so a table keyed on the arithmetic mislabels exactly the rungs
+    that carry a boundary.
+
+    `_pad` is a staticmethod taking no self, so the wrap is a plain function and the class keeps
+    working for a concurrent leg in another process.
+    """
+    inner = bindcraft2.EvoformerOnDevice._pad
+
+    def pad(m, z, mask, pair_mask):
+        out = inner(m, z, mask, pair_mask)
+        n = int(out[4])
+        AXIS.setdefault("complex_residues", n)
+        AXIS.setdefault("evoformer_axis", int(bindcraft2._pad32(n)))
+        AXIS["axis_seen"] = sorted(set(AXIS.get("axis_seen", [])) |
+                                   {int(bindcraft2._pad32(n))})
+        return out
+
+    bindcraft2.EvoformerOnDevice._pad = staticmethod(pad)
+    return AXIS
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--target", required=True, choices=sorted(TARGETS))
@@ -235,6 +267,7 @@ def main():
 
     spec = TARGETS[args.target]
     tokens = bindcraft2._pad32(spec["residues"] + args.binder)
+    axis = observe_axis()
     project = args.out
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
 
@@ -312,6 +345,11 @@ def main():
                       "error": exc, "traceback": tb,
                       "dram_total_bytes": tenstorrent._dram_total_bytes()
                       if tenstorrent._device is not None else None,
+                      "complex_residues": axis.get("complex_residues"),
+                      "evoformer_axis": axis.get("evoformer_axis"),
+                      "axis_seen": axis.get("axis_seen"),
+                      "axis_matches_arithmetic": (axis.get("evoformer_axis") == tokens
+                                                  if axis.get("evoformer_axis") else None),
                       "device_free_min": rounds.free_min,
                       "rounds_done": len(rounds.rows),
                       "rounds_per_slot": {s: sum(1 for r in rounds.rows if r["slot"] == s)
