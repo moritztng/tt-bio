@@ -28,6 +28,13 @@ target=dynorphin_a crop=3-13/13
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets dynorphin_a | output /tmp/bgx_probe/format-fasta
 target=dynorphin_a crop=3-13/13
 format-fasta                     WORKS    asked='-' dynorphin_a[11aa 3-13 hot=none] binder=[60, 61, 62, 63, 64, 65]
+format-fasta-nucleotide          REFUSED  [tt_bio.bcinputs] target 'D': cds.fasta reads as a nucleotide sequence rather than a protein one. All 60 of its letters are A, C, G or T (A 16, C 12, G 12, T 20) -- which are also the codes for alanine, cysteine, glycine and threonine, so BindCraft 2 accepts it and designs a binder against a 60-residue poly-Ala/Cys/Gly/Thr peptide instead of your target. Translate the sequence to amino acids first
+target=D crop=30-49/50
+campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets D | output /tmp/bgx_probe/format-fasta-low-complexity
+target=D crop=30-49/50
+format-fasta-low-complexity      WORKS    asked='-' D[20aa 30-49 hot=none] binder=[60, 61, 62, 63, 64, 65]
+campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets D | output /tmp/bgx_probe/format-fasta-lowercase
+format-fasta-lowercase           WORKS    asked='5,50' D[60aa 1-60 hot=[5, 50]] binder=[60, 61, 62, 63, 64, 65]
 fasta-hotspots-cropped           REFUSED  [tt_bio.bcinputs] target 'D': this is a FASTA target with '5,50' asked for, and BindCraft 2 crops a FASTA target to a window of 10-40 residues sampled at random out of its 60. The crop slices the hotspot flags with the sequence, so a hotspot outside the window is dropped without a word and the campaign designs against whatever surface is left. Write "crop_fasta_sequence": false to keep the whole s
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets D | output /tmp/bgx_probe/fasta-hotspots-crop-off
 fasta-hotspots-crop-off          WORKS    asked='5,50' D[60aa 1-60 hot=[5, 50]] binder=[60, 61, 62, 63, 64, 65]

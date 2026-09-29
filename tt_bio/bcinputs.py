@@ -403,6 +403,71 @@ def count_problems(settings: Mapping) -> list[str]:
     return problems
 
 
+#: A, C, G and T are nucleotides and they are also alanine, cysteine, glycine and threonine, so
+#: a pasted-in DNA sequence is a valid protein sequence and BindCraft 2 folds it as one.
+NUCLEOTIDE_LETTERS = frozenset("ACGT")
+#: Below this length, and below three of the four letters, a real low-complexity peptide is
+#: plausible: poly-alanine and the (GA)n elastin-like and silk-like designs are ordinary
+#: research sequences, and refusing one of those would be worse than accepting a short DNA.
+NUCLEOTIDE_MIN_LENGTH = 30
+NUCLEOTIDE_MIN_DISTINCT = 3
+NUCLEOTIDE_MIN_SHARE = 0.10
+
+
+def _fasta_letters(path: str, chains: str) -> str:
+    from bindcraft.protein import read_fasta_sequences
+
+    records = read_fasta_sequences(path)
+    name = (chains or "A").split(",")[0].strip() or "A"
+    sequence = records.get(name) or (next(iter(records.values())) if len(records) == 1 else "")
+    return "".join(sequence).upper()
+
+
+def fasta_nucleotide_problems(settings: Mapping) -> list[str]:
+    """A nucleotide sequence pasted in where a protein sequence goes.
+
+    `from_fasta` refuses every non-standard letter it is given -- `X`, `*`, a stray digit, and
+    the `U` that gives RNA away -- but a DNA sequence is spelled entirely in letters that are
+    also amino acids, so it is accepted and folded as a poly-Ala/Cys/Gly/Thr peptide of the same
+    length. Measured on qb2 2026-09-29: a 60-base CDS prepared as a 60-residue target, hotspots
+    5 and 50 resolving cleanly onto residues that mean nothing. Nothing downstream can catch it,
+    because there is nothing wrong with the peptide except that the researcher never meant it.
+
+    The test is deliberately narrow, so that a real low-complexity peptide is not refused: every
+    letter one of ACGT, at least three of the four present, each of them at least a tenth of the
+    sequence, and at least `NUCLEOTIDE_MIN_LENGTH` residues.
+    """
+    from bindcraft.settings import build_design_settings, is_fasta
+
+    try:
+        targets = build_design_settings(dict(settings)).targets
+    except Exception:
+        return []
+    problems = []
+    for target in targets:
+        path = getattr(target, "path", "") or ""
+        if "\n" in path or not os.path.isfile(path) or not is_fasta(path):
+            continue
+        letters = _fasta_letters(path, target.chains)
+        present = set(letters)
+        if not letters or not present <= NUCLEOTIDE_LETTERS:
+            continue
+        if len(letters) < NUCLEOTIDE_MIN_LENGTH or len(present) < NUCLEOTIDE_MIN_DISTINCT:
+            continue
+        if min(letters.count(letter) for letter in present) < NUCLEOTIDE_MIN_SHARE * len(letters):
+            continue
+        counts = ", ".join(f"{letter} {letters.count(letter)}" for letter in sorted(present))
+        problems.append(
+            f"target {getattr(target, 'name', '')!r}: {os.path.basename(path)} reads as a "
+            f"nucleotide sequence rather than a protein one. All {len(letters)} of its letters "
+            f"are A, C, G or T ({counts}) -- which are also the codes for alanine, cysteine, "
+            f"glycine and threonine, so BindCraft 2 accepts it and designs a binder against a "
+            f"{len(letters)}-residue poly-Ala/Cys/Gly/Thr peptide instead of your target. "
+            f"Translate the sequence to amino acids first. If it really is a protein of only "
+            f"those four residues, hand it in as a structure file, which is not read this way.")
+    return problems
+
+
 def fasta_crop_problems(settings: Mapping) -> list[str]:
     """Hotspots on a FASTA target that BindCraft 2 crops: the crop takes the hotspots with it.
 
@@ -475,7 +540,7 @@ def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
         target_problem, target_notes = target_problems(target)
         problems += target_problem
         notes += target_notes
-    return problems + fasta_crop_problems(settings), notes
+    return problems + fasta_crop_problems(settings) + fasta_nucleotide_problems(settings), notes
 
 
 def load_settings(request: Mapping, *args, **kwargs) -> dict:

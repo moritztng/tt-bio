@@ -566,3 +566,51 @@ def test_the_spelling_the_note_suggests_resolves_to_a_different_residue(tmp_path
             flagged[hotspots] = [int(n) for n in np.asarray(protein.residue_index)[mask]]
     assert flagged["A57"] == [57]
     assert flagged["B57"] == [283]
+
+
+def _fasta_of(tmp_path, sequence, name="target.fasta"):
+    path = tmp_path / name
+    path.write_text(f">T\n{sequence}\n")
+    return path
+
+
+CDS = "ATGAAAACCATTATTGCACTGAGCTATATTTTTTGCCTGGTGTTTGCACAGAAACTGCCG"
+REAL_PROTEIN = "MKTIIALSYIFCLVFAQKLPGNDNSTATLCLGHHAVPNGTLVKTITDDQIEVTNATELVQ"
+
+
+def test_a_nucleotide_sequence_pasted_in_as_a_protein_target_is_refused(tmp_path):
+    """BindCraft 2 folds it as a poly-Ala/Cys/Gly/Thr peptide of the same length and nothing
+    downstream can tell: the peptide is valid, it is just not what the researcher meant."""
+    problems, _ = _problems(_settings(_fasta_of(tmp_path, CDS), chains="A"))
+    assert len(problems) == 1
+    assert "reads as a nucleotide sequence" in problems[0]
+    assert "alanine, cysteine, glycine and threonine" in problems[0]
+    assert "Translate the sequence" in problems[0]
+
+
+def test_a_real_protein_sequence_is_not_refused(tmp_path):
+    assert _problems(_settings(_fasta_of(tmp_path, REAL_PROTEIN), chains="A")) == ([], [])
+
+
+def test_a_low_complexity_designed_peptide_is_not_refused(tmp_path):
+    """The false positives this check must not produce: poly-alanine, an (GA)n elastin-like
+    design and a (GT)n repeat are real research sequences spelled in nucleotide letters."""
+    for sequence in ("A" * 40, "GA" * 25, "GT" * 20, "AG" * 30):
+        assert _problems(_settings(_fasta_of(tmp_path, sequence), chains="A")) == ([], []), sequence
+
+
+def test_a_short_nucleotide_sequence_is_not_refused(tmp_path):
+    """Under 30 letters a real peptide is plausible enough that refusing costs more than it
+    saves -- GATTACA is a peptide as much as it is a joke."""
+    assert _problems(_settings(_fasta_of(tmp_path, CDS[:27]), chains="A")) == ([], [])
+
+
+def test_an_rna_sequence_is_bindcrafts_own_refusal_not_this_one(tmp_path):
+    """RNA gives itself away with the U, which `from_fasta` already names."""
+    problems, _ = _problems(_settings(_fasta_of(tmp_path, CDS.replace("T", "U")), chains="A"))
+    assert problems == []                       # nothing from here; BindCraft 2 refuses the U
+
+
+def test_a_structure_target_is_never_read_as_a_nucleotide_sequence(tmp_path):
+    assert bcinputs.fasta_nucleotide_problems(
+        _settings(_target(tmp_path, "t.pdb"), chains="A", hotspots="54")) == []

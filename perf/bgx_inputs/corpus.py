@@ -184,6 +184,19 @@ def main():
     (OUT / "target60.fasta").write_text(
         ">A\n" + "".join("ACDEFGHIKLMNPQRSTVWY"[index % 20] for index in range(60)) + "\n")
 
+    # 11j. A nucleotide sequence pasted in where the protein sequence goes -- a coding sequence
+    #      copied out of a genome browser. Every letter of it is also an amino acid code, so
+    #      BindCraft 2 folds it as a 60-residue poly-Ala/Cys/Gly/Thr peptide without a word.
+    (OUT / "cds.fasta").write_text(
+        ">A\nATGAAAACCATTATTGCACTGAGCTATATTTTTTGCCTGGTGTTTGCACAGAAACTGCCG\n")
+    # 11k. The false positive that check must not produce: an (GA)n elastin-like design is a real
+    #      peptide spelled entirely in nucleotide letters.
+    (OUT / "elastin_like.fasta").write_text(">A\n" + "GA" * 25 + "\n")
+    # 11l. A protein sequence in lower case, which is what some tools write. Measured: read
+    #      exactly like the upper-case one, 60 residues and the same hotspots.
+    (OUT / "lowercase.fasta").write_text(
+        ">A\n" + "".join("ACDEFGHIKLMNPQRSTVWY"[index % 20] for index in range(60)).lower() + "\n")
+
     rewrite("cif_label_numbering.cif", label_from_one)
     rewrite("cif_label_chain.cif", label_chain_x)
 
