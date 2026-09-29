@@ -445,10 +445,17 @@ against a 277 MB request, and the message says which of the two it is rather tha
 everything fragmentation. Both refusals raise; nothing in the range OOM-killed a process, hung
 one, or returned a wrong answer.
 
-**544 tokens is the one axis to avoid**, and it is the only rung where the fused arm declines
-inside the supported range. It costs more memory than the larger 576 does. The run says so
-itself when it happens and says which way to move; moving the axis by one bucket in either
-direction is the fix.
+**544 tokens is the axis to avoid**: it costs more memory than the larger 576 does, and it is
+the only rung whose *gradient rounds* make the fused triangle-attention arm decline, which is
+where the extra memory and time come from. The run says so itself when it happens and says
+which way to move; moving the axis by one bucket in either direction is the fix.
+
+The arm declines near the top of the range outside the gradient rounds too, and it is a
+fallback rather than a failure: a 576-token campaign against a two-chain 387-residue target
+declined twice going into its mutate stage, carried on through the composed path, and kept
+designing. The 288-token campaign next to it declined nothing at any stage. So expect the
+composed path to serve some calls above about 512 tokens, and expect the round to cost more
+where it does.
 
 Within the range, size is the axis that matters and fold and chain count are not: six folds, one
 to three chains, and two structures with unresolved gaps all behave the same at the same token
