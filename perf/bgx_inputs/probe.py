@@ -32,6 +32,7 @@ def target(path, **kw):
 
 
 STRUCT = BC2 / "settings/target/structures"
+FASTA60 = IN / "target60.fasta"          # written by corpus.py: 60 residues, no structure
 
 CASES = [
     # --- the baseline, the one BCX measured
@@ -56,6 +57,11 @@ CASES = [
     case("numbering-negative-out-of-range",
          targets=target("negative_numbering.pdb", hotspots="-99")),
     case("format-fasta", target="dynorphin_a"),
+    case("fasta-hotspots-cropped", targets=[{"name": "D", "target_path": str(FASTA60),
+                                             "hotspots": "5,50"}]),
+    case("fasta-hotspots-crop-off", targets=[{"name": "D", "target_path": str(FASTA60),
+                                              "hotspots": "5,50"}],
+         crop_fasta_sequence=False),
     case("format-missing-file", targets=target("/tmp/does-not-exist.pdb", hotspots="54")),
 
     case("format-inline-structure", targets=[{"name": "T", "target_path": "INLINE",

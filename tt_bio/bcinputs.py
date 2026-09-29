@@ -376,6 +376,49 @@ def count_problems(settings: Mapping) -> list[str]:
     return problems
 
 
+def fasta_crop_problems(settings: Mapping) -> list[str]:
+    """Hotspots on a FASTA target that BindCraft 2 crops: the crop takes the hotspots with it.
+
+    A FASTA target is cropped to a window sampled at random from `crop_fasta_sequence`, which
+    defaults to `(10, 40)` for every FASTA, and `prepare_targets` applies the crop by slicing
+    `sequence, atoms, atom_mask, flags, residue_index` together -- so a hotspot outside the
+    sampled window is dropped with the sequence around it, and the only line printed is
+    `target=T crop=8-35/60`, which says nothing about hotspots. An empty hotspot mask is then
+    read by `interface_contacts_loss` as a campaign with no epitope. Measured on qb2 2026-09-29:
+    a 60-residue FASTA target with hotspots 5,50 kept NO hotspot in 5 of 6 campaign seeds, and
+    the sixth kept one of two. It is the silent whole-surface case with a random draw in front
+    of it.
+    """
+    from bindcraft.settings import build_design_settings, is_fasta, resolve_crop_length_bounds
+
+    try:
+        targets = build_design_settings(dict(settings)).targets
+        bounds = resolve_crop_length_bounds(dict(settings))
+    except Exception:
+        return []                    # BindCraft 2 refuses a settings it cannot resolve, its way
+    if not bounds:
+        return []                                             # cropping is off: nothing is lost
+    problems = []
+    for target in targets:
+        path = getattr(target, "path", "") or ""
+        spans = f"{target.hotspots or ''},{target.coldspots or ''}".strip(",")
+        if "\n" in path or not spans.strip(",") or not os.path.isfile(path) or not is_fasta(path):
+            continue
+        residues = _fasta_residues(path, target.chains)
+        length = max((len(numbers) for numbers in residues.values()), default=0)
+        if not length or max(bounds) >= length:
+            continue                      # the crop cannot exclude anything: the target is kept
+        label = f"target {getattr(target, 'name', '')!r}"
+        problems.append(
+            f"{label}: this is a FASTA target with {spans!r} asked for, and BindCraft 2 crops a "
+            f"FASTA target to a window of {min(bounds)}-{max(bounds)} residues sampled at "
+            f"random out of its {length}. The crop slices the hotspot flags with the sequence, "
+            f"so a hotspot outside the window is dropped without a word and the campaign "
+            f"designs against whatever surface is left. Write \"crop_fasta_sequence\": false to "
+            f"keep the whole sequence, or a crop as long as the target, or hand in a structure.")
+    return problems
+
+
 def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
     """Everything wrong with a campaign's inputs that this module can name, and what to note."""
     problems = threshold_problems(settings) + binder_length_problems(settings) \
@@ -405,7 +448,7 @@ def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
         target_problem, target_notes = target_problems(target)
         problems += target_problem
         notes += target_notes
-    return problems, notes
+    return problems + fasta_crop_problems(settings), notes
 
 
 def refuse_unusable_inputs(settings: Mapping) -> None:

@@ -178,6 +178,12 @@ def main():
     protein_dna += [line[:21] + "B" + line[22:] for line in dna if line.startswith("ATOM")]
     write("protein_dna.pdb", protein_dna + ["END"])
 
+    # 11i. A FASTA target long enough for BindCraft 2's default crop to be a real crop: the
+    #      shipped IDR example is 13 residues with `crop_fasta_sequence` [13, 13], which keeps
+    #      everything, so it cannot show what the default (10, 40) does to a hotspot.
+    (OUT / "target60.fasta").write_text(
+        ">A\n" + "".join("ACDEFGHIKLMNPQRSTVWY"[index % 20] for index in range(60)) + "\n")
+
     rewrite("cif_label_numbering.cif", label_from_one)
     rewrite("cif_label_chain.cif", label_chain_x)
 

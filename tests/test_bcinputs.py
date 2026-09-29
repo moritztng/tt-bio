@@ -405,3 +405,46 @@ def test_run_campaign_refuses_before_it_opens_a_card(tmp_path):
     with pytest.raises(ValueError) as refusal:
         bindcraft2.run_campaign(settings, str(tmp_path / "project"))
     assert "unresolved stretch 60-70" in str(refusal.value)
+
+
+# ------------------------------------------- hotspots on a FASTA target BindCraft 2 crops
+
+def _fasta(tmp_path, residues=60):
+    path = tmp_path / "target.fasta"
+    path.write_text(">A\n" + "".join("ACDEFGHIKLMNPQRSTVWY"[i % 20] for i in range(residues)))
+    return path
+
+
+def test_hotspots_on_a_cropped_fasta_target_are_refused(tmp_path):
+    """The crop is a random window and it slices the hotspot flags with the sequence.
+
+    Measured: a 60-residue FASTA with hotspots 5,50 kept no hotspot at all in 5 of 6 campaign
+    seeds, which is the silent whole-surface case with a random draw in front of it.
+    """
+    problems, _ = _problems(_settings(_fasta(tmp_path), hotspots="5,50"))
+    assert len(problems) == 1
+    assert "crops a FASTA target to a window of 10-40 residues sampled at random" in problems[0]
+    assert '"crop_fasta_sequence": false' in problems[0]
+
+
+def test_hotspots_on_a_fasta_target_with_cropping_off_are_kept(tmp_path):
+    settings = _settings(_fasta(tmp_path), hotspots="5,50") | {"crop_fasta_sequence": False}
+    assert _problems(settings) == ([], [])
+
+
+def test_a_crop_as_long_as_the_target_is_not_refused(tmp_path):
+    """BindCraft 2's own IDR example: a 13-residue FASTA with crop_fasta_sequence [13, 13]."""
+    settings = _settings(_fasta(tmp_path, 13), hotspots="5") | {"crop_fasta_sequence": [13, 13]}
+    assert _problems(settings) == ([], [])
+
+
+def test_a_cropped_fasta_target_with_no_hotspots_is_not_refused(tmp_path):
+    settings = {"binder_lengths": [60],
+                "targets": [{"name": "T", "target_path": str(_fasta(tmp_path))}]}
+    assert _problems(settings) == ([], [])
+
+
+def test_a_structure_target_is_never_cropped_by_this_setting(tmp_path):
+    settings = _settings(_target(tmp_path, "whole.pdb"), hotspots="54") | \
+        {"crop_fasta_sequence": [10, 40]}
+    assert _problems(settings) == ([], [])
