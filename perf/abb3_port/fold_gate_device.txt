@@ -1,0 +1,9 @@
+  loaded base-loss epoch 1465 step 193512, 7,111,515 parameters, folding on the card
+  skip 1aqk_H0-L0: 231 residues against 233 regions
+  1gaf_H0-L0       CDR-H3: ours 1.500  theirs refined 1.422  theirs unrefined 1.519
+  1h0d_B0-A0       CDR-H3: ours 2.666  theirs refined 2.655  theirs unrefined 2.714
+  1iqd_B0-A0       CDR-H3: ours 1.859  theirs refined 1.832  theirs unrefined 1.863
+  1jps_H0-L0       CDR-H3: ours 0.689  theirs refined 0.641  theirs unrefined 0.698
+  mean CDR-H3 over 4: ours 1.679 A, theirs unrefined 1.699 A
+  mean Fw-H  over 4: ours 0.545 A
+PASS (bar: mean Fw-H < 2.0 A, the structural-sanity bar)

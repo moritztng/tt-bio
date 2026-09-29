@@ -1,0 +1,2 @@
+[sup] grant 5.0 days, ends 2026-09-24T01:52:58Z, 120.00 h left
+[sup] launching 2 rank(s) on chips [2, 3] (restart 0)

@@ -188,14 +188,30 @@ Measured, and each carries its source:
   of the 34.23 GB above.
 - **1.87x on two chips, 93.5 % efficiency**: 8.08 tokens/s on one chip, 15.11 on two, 1350 MHz
   sampled during on both.
+- Protenix-v2's **shipped 48-block pairformer forward**, untaped, at the checkpoint's own widths:
+  **0.699 GB at 256 aa, 0.877 GB at 384, 1.055 GB at 512, 1.284 GB at 640, 1.614 GB at 768**,
+  2.0 % to 4.7 % of the card. Measured by `ptx-crop` on qb1 card 1 and re-measured by
+  `train-x-cropunblock` on qb1 card 2 at 256 / 384 / 512, the two runs 16 to 32 KB apart, 1350
+  MHz median sampled during on both.
+- What a **trained Protenix-v2 trunk retains** under per-block checkpointing: **4.074 GB at 256
+  aa, 7.762 GB at 384 (22.7 %), 13.047 GB at 512**. Four terms, two read off the allocator on the
+  card (the 48 block-boundary pairs, and one block's 38 DRAM intermediates in recompute) and two
+  from the checkpoint's censused parameter counts. The 384 aa pair reproduced byte for byte across
+  the two campaigns: 3,638,034,432 B and 2,283,307,008 B.
+- **3.69x on four chips, 92.2 % efficiency**: ABodyBuilder3 on four qb1 p150a chips, 7.647 s a
+  step against 28.189 s on one, arms interleaved, 1350 MHz median and minimum during every arm.
+  The 7.8 % that does not scale is host torch; the exchange is 127.87 MB in 0.293 s, 3.8 % of the
+  step. It holds only with the host's cores divided across the ranks, which `launcher.py` now does
+  by default: at torch's own width the same step takes 931 s.
 
 Refused rather than estimated. **A memory wall belongs to a model, not to a token count**, so
 these are per model and `plan()` applies only the one you asked for:
 
-- **Protenix-v2, 384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB,
-  536,870,912 B refused. Both in the forward under per-block checkpointing where the forward is
-  untaped, so what fails is one block's working set. Distribution does not help: 8 chips each
-  run out at 384 aa exactly as one does.
+- **Protenix-v2: nothing.** 384 and 512 aa used to be refused on 4.14 GB allocated / 75,497,472
+  B refused and 7.15 GB / 536,870,912 B. Those were measured against a differentiable twin of the
+  pair track rather than the shipped module, and the twin has since been deleted. The shipped
+  forward fits at both (above). Its table is kept empty rather than deleted, and any entry put
+  back carries its own citation, which a test checks.
 - **OpenFold3: 576 aa runs with `--exact` and is the largest measured to; the device path fits to 512. 640 and 768 refuse.** The backward
   peaks at 30,230,471,680 B of the card's 34,225,520,128 B at 576 aa, 88.3 % full, with the
   clock at a median 1350 MHz polled during. 640 and 768 die with the card full, 23,710,208 B
@@ -207,7 +223,7 @@ these are per model and `plan()` applies only the one you asked for:
   find this frontier and why these are measurements and not a slope. 544 sits below a crop that
   runs and has not been re-measured since the fix, so it is not claimed in either direction.
 
-**These two do not transfer to each other**, and a model with no entry gets no refusal from this
+**One model's wall does not transfer to another**, and a model with no entry gets no refusal from this
 table. Asking for a 512 aa OpenFold3 crop used to be refused on Protenix-v2's number for a crop
 OpenFold3 is measured to run; asking for 640 used to come back `UNMEASURED` when it is measured
 to refuse. Both were wrong, in opposite directions, and both came from one flat table.
@@ -220,13 +236,13 @@ to refuse. Both were wrong, in opposite directions, and both came from one flat 
   Where the memory fit *is* measured even though the step time is not, the answer says so:
   OpenFold3 at 512 aa comes back `UNMEASURED` and adds that the memory fits up to 512 aa, so
   the crop is expected to run and what is missing is a step time.
-- **Anything above a LoRA adapter on a frozen trunk.** The only source for a trained trunk's
-  memory is `perf/hall_grad/DECISION.md`, a feasibility memo whose 27.58 GB and roughly 40
-  engineer-days are projections of work that is not built, and which says so itself.
-- **A step time on more than two chips.** 1.87x at two chips is the only multi-chip point we
-  have, and carrying 93.5 % forward as a per-chip efficiency assumes the host reduce's per-rank
-  volume and shard imbalance stay flat in rank count, which is exactly what is unmeasured. Two
-  points cannot measure a scaling exponent.
+- **Protenix-v2 above a LoRA adapter on a frozen trunk**, for one term rather than the whole
+  arithmetic. Retention is measured, the peak is not: no taped pairformer exists, so the
+  backward's own working set inside the block being recomputed has never been allocated. The
+  27.58 GB feasibility projection in `perf/hall_grad/DECISION.md` is retired: it was at 800 aa
+  for work that is not built, and it is not the same claim as 7.762 GB measured at 384.
+- **A step time at three chips, or above four.** One, two and four are measured; three is not,
+  and above four the world leaves the box and pays a link the same-box points say nothing about.
 
 Below 256 aa `plan()` reports the 256 aa figure as an **upper bound** rather than scaling it
 down: a smaller crop carries the same weights and optimizer state and strictly fewer
@@ -313,11 +329,30 @@ not the collective. `perf/train_d_dp/` holds the harness and the raw results.
 Tensor parallelism is deliberately absent. A full replica is 14.8 % of one chip, so there is no
 memory argument for it, and it returns only if something later forces it.
 
-Multi-host is out of scope, and the blocker is cabling rather than software: 20 MB/s over WiFi
-makes a per-step gradient exchange cost more than the step. `Mesh.auto()` reports one host
-today, and the interface does not change shape when that changes: an axis is an axis whether
-its chips share a host or not, and going multi-host is meant to be the same one argument that
-going multi-card is. Until it is wired, the honest claim is multi-card on one host.
+Multi-host runs, and the cable it wants is a speed-up rather than a prerequisite. Name the other
+boxes on the mesh and it gives you the rendezvous the transport already takes:
+
+```python
+mesh = train.Mesh({"dp": [0, 1]}, hosts=["ttuser@tt-quietbox2"])
+mesh.rendezvous("/dev/shm/abb3-dp")     # /dev/shm/abb3-dp+ttuser@tt-quietbox2
+```
+
+Each host names the others. `tt_bio/train/xhost.py` mirrors the shared-directory rendezvous to
+those peers over one persistent ssh channel each, so a rank still sums 0..world-1 over local files
+and the per-rank masters stay bit-identical across the boundary, checked at every step of a 12-step
+run. Measured on ABodyBuilder3: two chips in one box step in 11.154 s, the same two chips split
+across qb1 and qb2 step in 13.545 s, the median of steps 2-12, so 1.554x against one chip's
+21.043 s where one box gives 1.887x at 94.3 %. The whole gap is the exchange.
+
+**77.7 % is close to a floor, not a typical result.** qb2 has no cable, so that run crossed its
+WiFi, where the 28.4 MB each rank sends per step costs 1.768 s. At 1000 Mb/s the same exchange is
+about 0.24 s each way, near 2 % of the step instead of 13-18 %, and two wired hosts should land
+much closer to the 94.3 % the same two chips give inside one box.
+
+`Mesh.auto()` still reports one host, because it can only count the chips on the box it runs on,
+and `--chips` is still one box: driving ranks across a host boundary today means your own launcher,
+of which `scripts/train_xhost/xhost_gate.py` is a worked example. `perf/train_xhost/` holds the
+results, including the 12-step run the numbers above come from.
 
 ## Data
 

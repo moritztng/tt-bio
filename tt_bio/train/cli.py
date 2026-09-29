@@ -34,7 +34,7 @@ import click
 # A name absent here is not adaptable today and the refusal says so rather than failing later
 # with an empty census. Kept as a list because it is a fact about the attach work that has
 # landed, not a preference -- when a model gets routed it gets added here in the same change.
-ADAPTABLE = ("protenix-v2", "openfold3")
+ADAPTABLE = ("protenix-v2", "openfold3", "abodybuilder3")
 
 #: Trainable models `--train adapters` is refused for, and what to do instead. OpenFold3's LoRA
 #: path has no measured run behind it and `tt-bio predict` loads only a weights checkpoint, so

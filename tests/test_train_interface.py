@@ -554,17 +554,27 @@ def test_invariant_plan_returns_unmeasured_rather_than_guessing():
     assert fits.verdict == "fits" and abs(fits.replica_gb - 5.06) < 1e-9
     assert abs(fits.occupancy - 0.1478) < 5e-4
 
-    # a measured OOM is a refusal, not an extrapolation, and only for the model it was measured on
-    assert plan(tokens=384, model="protenix-v2", chips=1).verdict == "refused"
-    assert plan(tokens=512, model="protenix-v2", chips=1).verdict == "refused"
+    # 384 and 512 were refused here on a twin's OOM. The shipped forward fits at both, so the
+    # answer is UNMEASURED and it names the measured forward peak rather than a refusal.
+    for tokens, peak in ((384, "0.877 GB"), (512, "1.055 GB")):
+        p384 = plan(tokens=tokens, model="protenix-v2", chips=1)
+        assert p384.verdict == UNMEASURED and peak in p384.why
 
     # above the measured crop, and above a LoRA adapter, it says so
     assert plan(tokens=768, chips=1).verdict == UNMEASURED
     assert plan(tokens=256, chips=1, frozen_trunk=False).verdict == UNMEASURED
 
-    # two chips is measured; four is not, and the step time is withheld rather than scaled
+    # one, two and four chips are measured; three and eight are not, and there the step time
+    # is withheld rather than scaled. Four arrived by measurement (train-w-fourchip: 3.686x at
+    # 92.2 %), so what this pins is that the widths WITHOUT a measurement still refuse.
     assert plan(tokens=256, chips=2, seconds_per_step_1chip=2.0).seconds_per_step is not None
-    assert plan(tokens=256, chips=4, seconds_per_step_1chip=2.0).seconds_per_step is None
+    four = plan(tokens=256, chips=4, seconds_per_step_1chip=2.0)
+    assert abs(four.seconds_per_step - 2.0 / 3.686) < 1e-9
+    assert any("train-w-fourchip" in s for s in four.sources)
+    for unmeasured_width in (3, 8):
+        p = plan(tokens=256, chips=unmeasured_width, seconds_per_step_1chip=2.0)
+        assert p.seconds_per_step is None
+        assert any(UNMEASURED in s for s in p.sources)
     for p in (plan(tokens=768, chips=1), plan(tokens=256, chips=1, frozen_trunk=False)):
         assert not p.measured and p.seconds_per_step is None and p.replica_gb is None
 

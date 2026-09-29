@@ -138,3 +138,30 @@ def test_the_control_the_gate_still_reads_the_code_and_not_the_prose():
         assert "launcher.drive(" in dispatch, (
             "the dispatch matched but does not call launcher.drive(), so a wide axis reaches "
             "no launcher and the works-today claim is false again.")
+
+
+# The README's dry-run example says "does it fit, and how long a step takes". This runs that
+# command and checks it answers both halves. It replaces an AST reading of the old `finetune`
+# command's `if dry_run:` branch: `tt-bio train` prints the whole `Plan`, step time included,
+# before it reaches that branch, so the code shape the old gate read no longer exists while the
+# promise is kept.
+
+def _readme_dryrun_block() -> str:
+    text = README.read_text(encoding="utf-8")
+    for block in re.findall(r"```bash\n(.*?)```", text, re.S):
+        if "--dry-run" in block:
+            return block
+    return ""
+
+
+def test_the_dry_run_answers_the_duration_question_the_readme_promises_it_answers():
+    from click.testing import CliRunner
+
+    from tt_bio.train.cli import train
+
+    block = _readme_dryrun_block()
+    if "how long" not in block:
+        pytest.skip("the README's dry-run example no longer promises a duration")
+    res = CliRunner().invoke(train, [str(ROOT), "--model", "openfold3", "--dry-run"])
+    assert res.exit_code == 0, res.output
+    assert "fits" in res.output and "s/step" in res.output, res.output

@@ -1071,6 +1071,12 @@ layer norm in float64 on the host instead, a diagnostic reference that makes a s
 slower. Inference is unaffected. See
 [`docs/training.md`](docs/training.md#training-runs-on-the-device-float64-is-a-diagnostic).
 
+ABodyBuilder3 wants its data staged first: `data.tar.gz` from Zenodo `10.5281/zenodo.11354577`,
+extracted so that `structures/structures/*.pt` sits under the path you pass. Fine-tuning also
+wants their checkpoint beside it; without one the command refuses rather than adapting a random
+initialisation. To train from scratch instead, `scripts/abb3_port/repro.py` is the reproduction's
+own entry point.
+
 Four things the API enforces rather than documents, because each is a bug we hit:
 
 - `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose
@@ -1093,8 +1099,8 @@ the gradients between them, the way `torchrun` does, so the program has to be re
 must not open a card before the `finetune` call. Both are checked before anything starts. Two
 p150a chips on a QuietBox measured **1.96x** at a 0.33 MB adapter gradient and **1.70x** at 5.24
 MB, both at 1350 MHz; the gap is host-side Adam contending between the two processes, not the
-exchange, which costs 2.3 % of the step. Training OpenFold3's weights at a 384-token crop, two p300c chips on a QuietBox take 46.5 s per two-sample step against 77.4 s on one, **1.66x**, both at 1350 MHz; each step exchanges a 2.1 GB gradient through shared memory. Four chips runs the same path and is not measured yet.
-One host: reaching a second box needs a cable, not a code change.
+exchange, which costs 2.3 % of the step. Training OpenFold3's weights at a 384-token crop, two p300c chips on a QuietBox take 46.5 s per two-sample step against 77.4 s on one, **1.66x**, both at 1350 MHz; each step exchanges a 2.1 GB gradient through shared memory. ABodyBuilder3 on one QuietBox's four chips measures **3.69x at 92 %**, 7.65 s a step against 28.19 s on one, with one master hash across the four ranks. It needs the host's cores split between the ranks, which the launcher does by default; left at torch's own width every rank claims all 16 cores and the same step takes 931 s.
+Two boxes work too and the link is what it costs: the same two chips split across two QuietBoxes give **1.554x** where one box gives 1.887x, all of the difference being the 28.4 MB gradient exchange over the second box's WiFi. That box has no cable, so 77.7 % efficiency is close to the floor for this; a wired link would cut the exchange to about 2 % of the step. Name the other box on the mesh, `train.Mesh({"dp": [0, 1]}, hosts=["ttuser@tt-quietbox2"])`, and it composes the rendezvous the transport takes. Starting the ranks on both boxes is still your own launcher rather than `--chips`.
 
 Every run carries the check that makes a multi-chip number mean something. The ranks' weights
 must stay identical, so the launcher compares every rank's master weights at the end and refuses

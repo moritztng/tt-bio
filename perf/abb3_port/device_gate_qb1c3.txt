@@ -1,0 +1,22 @@
+=== tokens=64, batch 2 ===
+  grad off  max abs 4.355e-01  rel 6.83e-03  (|ref|max 63.748, 125 of 128 residues unmasked)
+  grad on   max abs 4.355e-01  rel 6.83e-03  (|ref|max 63.748, 125 of 128 residues unmasked)
+  grad on vs grad off: 0.000e+00  (must be 0, everywhere, masked included)
+  ok   d/ds                     rel 8.06e-03  (bar 5e-2)
+  ok   d/dz                     rel 7.94e-03  (bar 5e-2)
+  ok   d/d linear_q.weight      rel 1.24e-02  (bar 5e-2)
+  ok   d/d linear_b[0].weight   rel 1.16e-02  (bar 5e-2)
+  ok   d/d linear_out.bias      rel 1.33e-03  (bar 5e-2)
+  ok   d/d head_weights         rel 1.53e-02  (bar 5e-2)
+PASS
+=== tokens=256, batch 2 ===
+  grad off  max abs 4.991e-01  rel 6.74e-03  (|ref|max 74.049, 509 of 512 residues unmasked)
+  grad on   max abs 4.991e-01  rel 6.74e-03  (|ref|max 74.049, 509 of 512 residues unmasked)
+  grad on vs grad off: 0.000e+00  (must be 0, everywhere, masked included)
+  ok   d/ds                     rel 1.50e-02  (bar 5e-2)
+  ok   d/dz                     rel 1.18e-02  (bar 5e-2)
+  ok   d/d linear_q.weight      rel 1.15e-02  (bar 5e-2)
+  ok   d/d linear_b[0].weight   rel 1.14e-02  (bar 5e-2)
+  ok   d/d linear_out.bias      rel 1.32e-03  (bar 5e-2)
+  ok   d/d head_weights         rel 1.73e-02  (bar 5e-2)
+PASS

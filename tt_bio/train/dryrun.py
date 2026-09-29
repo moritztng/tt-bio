@@ -6,12 +6,19 @@ premises taken from uncalibrated sources, so a planner that guesses is worse tha
 at all. A configuration this module has no measurement for comes back ``UNMEASURED`` with the
 reason, and ``UNMEASURED`` is a first-class answer rather than an error.
 
-The line between the two is not "small versus large". It is **a LoRA adapter on a frozen
-trunk, versus anything above it**. Below that line the arithmetic is a replica measured off a
-live chip. Above it the only source is ``perf/hall_grad/DECISION.md``, which is a feasibility
-memo -- its 27.58 GB of tape and its 40 engineer-days are projections of work that is not
-built, and it says so itself. Reporting a projection in the same shape as a measurement is
-how a projection becomes a commitment.
+Where a number was measured is load-bearing rather than decorative, and this module learned
+that the expensive way. It used to refuse Protenix's own 384-token crop on an OOM taken against
+a differentiable TWIN of the pair track, a module that has since been deleted. The allocation
+that twin was refused, 75,497,472 B, is byte for byte one ``[1,384,384,256]`` bf16 pair tensor;
+the shipped forward allocates that tensor and 37 more of the same block's intermediates inside
+2.283 GB and peaks at 0.877 GB of 34.23 GB over all 48 blocks. The wall was the twin, not the
+card, and the refusal outlived the module it described by two campaigns. So every entry in
+every table below names its own source, and :func:`provenance_gap` is what keeps that true.
+
+The other line this module holds is between what is measured and what is inferred from it. A
+trained trunk's RETENTION is measured; the peak of a real backward is not, because no taped
+pairformer exists to run one. Reporting the first in the shape of the second is how a bound
+becomes a commitment, so ``plan()`` reports the gigabytes and withholds the verdict.
 
 No ttnn import, no device. ``plan()`` has to answer before a card opens, because Tier 0's cut
 line is that a flag's legality is decidable without one.
@@ -19,11 +26,13 @@ line is that a flag's legality is decidable without one.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
 __all__ = ["plan", "Plan", "UNMEASURED", "CARD_DRAM_BYTES", "MEASURED", "needs_exact",
-           "FORWARD_OOM_BY_MODEL", "WEIGHTS_STEP_S"]
+           "FORWARD_OOM_BY_MODEL", "WEIGHTS_STEP_S", "FORWARD_FITS_BY_MODEL",
+           "TRAINED_TRUNK_BOUND_BY_MODEL", "provenance_gap"]
 
 
 UNMEASURED = "UNMEASURED"
@@ -46,6 +55,85 @@ MEASURED = {
                           "chips 1 and 3, 1350 MHz sampled during on both"),
     "dp2_efficiency": (0.935, "train-r5: the 6.5 % that does not scale is load imbalance, not "
                               "bandwidth"),
+    # The four-chip point is ABodyBuilder3's, not Protenix's: it is the model we can run a
+    # four-rank step on today. The same ladder's two-chip rung is 1.984x, so the two models'
+    # two-chip points agree within 6 % and the ladder is not silently a different scaling law.
+    "dp4_speedup": (3.686, "train-w-fourchip LADDER: ABodyBuilder3 on four qb1 p150a chips, "
+                           "global batch 64, micro 4, 256 tokens, arms interleaved from cold "
+                           "starts, 7.647 s a step against the 28.189 s one-chip cadence of "
+                           "the same session; 1350 MHz median and minimum sampled during every "
+                           "arm. A second take at three rounds gave 3.742x"),
+    "dp4_efficiency": (0.922, "train-w-fourchip ATTRIBUTION: the 7.8 % that does not scale is "
+                              "host torch, not the exchange -- the reduce moves 127.87 MB in "
+                              "0.293 s, 3.8 % of the step. Conditional on the host's cores "
+                              "being divided across the ranks, which tt_bio/train/launcher.py "
+                              "now does by default: with torch's own default width every rank "
+                              "claims all 16 cores and the same step takes 931 s"),
+}
+
+# A source has to be something a reader can open a year from now: a repo path, a state doc or a
+# commit. Everything else reads like provenance without being any.
+_CITES = re.compile(r"state/[\w./-]+|[\w./-]+\.(?:py|md|json|txt|yaml)"
+                    r"|\b(?=[0-9a-f]{7,40}\b)[0-9a-f]*[a-f][0-9a-f]*\b")
+
+
+def provenance_gap(where):
+    """``None`` if ``where`` cites something openable, otherwise why it does not.
+
+    This exists because of what it would have caught. Protenix-v2's 384 and 512 refusals were
+    two bare tuples under a shared comment, and when the module they were measured on was
+    deleted the entries stayed, refusing the recipe's own crop for another two campaigns. A
+    per-entry citation is what makes that visible: a number whose source names a file can be
+    checked against the file, and a number that names nothing cannot be checked at all.
+    """
+    if not isinstance(where, str) or not where.strip():
+        return "no source at all"
+    if not _CITES.search(where):
+        return f"names no file, state doc or commit: {where[:60]!r}"
+    return None
+
+
+# Peak device DRAM of Protenix-v2's SHIPPED 48-block pairformer at the checkpoint's own widths (c_z 256,
+# 8 triangle heads of 32), forward only and untaped -- which is the state per-block
+# checkpointing runs the forward in, so this is the figure the crop question turns on.
+FORWARD_FITS_BY_MODEL = {
+    "protenix-v2": {
+        256: (0.699, "ptx-crop measured 699,301,888 B on qb1 card 1 (wk/ptx-crop 9c567b590, "
+                     "state/concluded/ptx-crop); train-x-cropunblock reproduced 699,318,272 B on "
+                     "qb1 card 2, perf/train_x_crop/out/trunk48_qb1c2.json"),
+        384: (0.877, "ptx-crop measured 877,076,480 B on qb1 card 1 (wk/ptx-crop 9c567b590, "
+                     "state/concluded/ptx-crop); train-x-cropunblock reproduced 877,092,864 B on "
+                     "qb1 card 2, 16 KB apart, perf/train_x_crop/out/trunk48_qb1c2.json. Both at "
+                     "1350 MHz median sampled during. This is the crop Protenix's own recipe uses"),
+        512: (1.055, "ptx-crop measured 1,055,121,408 B on qb1 card 1 (wk/ptx-crop 9c567b590, "
+                     "state/concluded/ptx-crop); train-x-cropunblock reproduced 1,055,154,176 B on "
+                     "qb1 card 2, perf/train_x_crop/out/trunk48_qb1c2.json"),
+        640: (1.284, "ptx-crop, 1,284,096,000 B on qb1 card 1, wk/ptx-crop 9c567b590, "
+                     "state/concluded/ptx-crop. Not re-measured by train-x-cropunblock"),
+        768: (1.614, "ptx-crop, 1,614,217,216 B on qb1 card 1, wk/ptx-crop 9c567b590, "
+                     "state/concluded/ptx-crop. Not re-measured by train-x-cropunblock"),
+    },
+}
+
+# What a TRAINED Protenix-v2 trunk RETAINS at a crop under per-block checkpointing, and an upper bound
+# rather than a peak. Four terms: the 48 block-boundary (z, s) pairs and one block's inner set
+# are read off the allocator on the card, the weight and gradient terms are the checkpoint's own
+# censused parameter counts (464,442,431 whole model x 2 B bf16, 227,960,832 trunk x 4 B fp32).
+# What is NOT in it is the backward's own working set inside the block being recomputed, because
+# no taped pairformer exists to allocate one. That missing term is why plan() reports these
+# gigabytes and still answers UNMEASURED.
+TRAINED_TRUNK_BOUND_BY_MODEL = {
+    "protenix-v2": {
+        256: (4.074, "1.620 GB boundaries + 0.613 GB inner set, both measured; ptx-crop on qb1 "
+                     "card 1, wk/ptx-crop 4ab2aad2a, state/concluded/ptx-crop"),
+        384: (7.762, "3.638 GB boundaries + 2.283 GB inner set (38 DRAM intermediates), both "
+                     "measured; ptx-crop on qb1 card 1 (wk/ptx-crop 4ab2aad2a) and reproduced byte "
+                     "for byte by train-x-cropunblock on qb1 card 2, 3,638,034,432 B and "
+                     "2,283,307,008 B, perf/train_x_crop/out/tape_qb1c2.json, 1350 MHz sampled "
+                     "during. Replaces the 27.58 GB projection this module used to refuse on"),
+        512: (13.047, "6.461 GB boundaries + 4.745 GB inner set, both measured; ptx-crop on qb1 "
+                      "card 1, wk/ptx-crop 4ab2aad2a, state/concluded/ptx-crop"),
+    },
 }
 
 # The crop sizes measured to refuse, PER MODEL, with the allocation that was refused.
@@ -61,14 +149,13 @@ MEASURED = {
 # A model with no entry here gets no refusal from this table. That is deliberate: borrowing a
 # neighbour's wall is what produced the defect, and UNMEASURED is a first-class answer.
 FORWARD_OOM_BY_MODEL = {
-    # train-r5 measured both; PLAN.md P2 corrected r5's causal attribution (production's trimul
-    # chunking is built and the training path simply does not get it) and scheduled A2 to
-    # re-measure on the shipped forward. The OOM itself stands, so plan() refuses on it -- and
-    # refuses by naming the measurement rather than by extrapolating a slope through it.
-    "protenix-v2": {
-        384: (4.14, 75_497_472, "train-r5-distributed-tt REPLICA-FITS -- measured"),
-        512: (7.15, 536_870_912, "train-r5-distributed-tt REPLICA-FITS -- measured"),
-    },
+    # Empty, and kept so the retraction stays visible. 384 and 512 sat here, measured by
+    # train-r5 against a differentiable TWIN of the pair track that has since been deleted (see
+    # the module docstring), until train-x-cropunblock measured both to PASS on the shipped
+    # forward: they are in FORWARD_FITS_BY_MODEL now. Any future entry cites its own source,
+    # which `provenance_gap` checks and the two that left did not.
+    "protenix-v2": {},
+
     # of3t-crop768, concluded 2026-09-21, on Blackhole at a median 1350 MHz polled DURING every
     # rung. Forward AND backward peaks on the taped training path, cards 0 and 1 of qb1 (p150a)
     # for 544/576/640/768 and qb2 (p300c) for the 512 baseline; both boards present the same
@@ -95,7 +182,8 @@ FORWARD_OOM_BY_MODEL = {
         640: (None, None, "of3t-crop768 -- card full, 23,710,208 B free device-wide; "
                           "RE-CONFIRMED post-concat-fix at e558bfb06 (perf/of3t_cropwall/out/"
                           "split_640_fix2_card3.json), so this wall is not the concat one"),
-        768: (None, None, "of3t-crop768 -- card full, 6,231,552 B free device-wide; the "
+        768: (None, None, "of3t-crop768 (state/concluded/of3t-crop768) -- card full, "
+                          "6,231,552 B free device-wide; the "
                           "levered fit puts 768 at 1.558x the card and the fit UNDER-predicts, "
                           "so that is a floor on the overshoot"),
     },
@@ -216,10 +304,11 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
          seconds_per_step_1chip: Optional[float] = None) -> Plan:
     """Will a run of this shape fit, and how long is a step.
 
-    ``frozen_trunk=False`` means full fine-tuning, which is the line this module will not
-    cross: the memory arithmetic for a trained trunk exists only as a projection, so it comes
-    back UNMEASURED at any crop the forward itself fits at. A crop whose FORWARD is measured
-    to OOM is refused before that, because the forward is what both modes run and "we measured
+    ``frozen_trunk=False`` means full fine-tuning. A model with its own weights-training
+    measurements (``DEVICE_PATH_LARGEST_FIT``) is answered from them; otherwise it comes back
+    UNMEASURED, with the model's measured retention bound in the reason where one exists: what
+    is unmeasured is the backward's own working set, not the whole arithmetic. A crop whose
+    FORWARD is measured to OOM is refused before that, because the forward is what both modes run and "we measured
     this failing" is a different answer from "we have no measurement".
 
     ``seconds_per_step_1chip`` is the caller's own measurement of a single-chip step. Given
@@ -256,14 +345,26 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
         return _weights_plan(model, tokens, chips, global_batch)
 
     if not frozen_trunk:
+        bounds = TRAINED_TRUNK_BOUND_BY_MODEL.get(model, {})
+        crops = ", ".join(str(k) for k in sorted(bounds)) or "no crop"
+        if tokens not in bounds:
+            return Plan(
+                verdict=UNMEASURED, tokens=tokens, chips=chips, global_batch=global_batch,
+                why=f"full fine-tuning: a trained {model or 'model'} trunk's cost is measured at "
+                    f"{crops} and not at {tokens} aa, and both of its measured terms move "
+                    f"with the crop across the triangle ops' chunking thresholds. Measure it.",
+                sources=[f"TRAINED_TRUNK_BOUND_BY_MODEL covers {crops} for {model}"])
+        gb, src = bounds[tokens]
         return Plan(
             verdict=UNMEASURED, tokens=tokens, chips=chips, global_batch=global_batch,
-            why="full fine-tuning: the only source for a trained trunk's tape is "
-                "perf/hall_grad/DECISION.md, a feasibility memo whose 27.58 GB (15.76 GB of "
-                "tape + 11.82 GB live, per-block checkpointing, at 800 aa) and 40 engineer-day "
-                "estimate are projections of unbuilt work. Measured planning stops at a LoRA "
-                "adapter on a frozen trunk.",
-            sources=["perf/hall_grad/DECISION.md:38,107 -- projection, not measurement"])
+            why=f"full fine-tuning: a trained trunk RETAINS {gb:.3f} GB of "
+                f"{CARD_DRAM_GB:.2f} GB ({gb / CARD_DRAM_GB * 100:.1f} %) at {tokens} aa under "
+                f"per-block checkpointing, measured on the card. That is a bound on retention "
+                f"and not a peak: no taped pairformer exists yet, so the backward's own working "
+                f"set inside the block being recomputed has never been allocated and is not in "
+                f"the figure. UNMEASURED is that one missing term rather than the whole "
+                f"arithmetic, and memory is no longer the reason to expect this not to fit.",
+            sources=[src])
 
     # A measured memory fit is not a measured step time, but it is not nothing either: saying
     # "no measurement" when we have watched this exact crop complete would throw away the one
@@ -277,16 +378,29 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
         fit_src = [fit_source]
 
     if tokens > MEASURED_CROP:
+        fits = FORWARD_FITS_BY_MODEL.get(model, {})
+        fwd = fits.get(tokens)
+        sources = [f"MEASURED replica exists only at {MEASURED_CROP} aa"] + fit_src
+        if fwd is not None:
+            forward = (f" The forward is not the obstacle: it is measured to fit at {tokens} aa, "
+                       f"peaking at {fwd[0]:.3f} GB of {CARD_DRAM_GB:.2f} GB "
+                       f"({fwd[0] / CARD_DRAM_GB * 100:.1f} %) over all 48 blocks.")
+            sources.append(f"forward: {fwd[1]}")
+        elif fits:
+            forward = (f" The forward has no measurement at {tokens} aa either; it is measured "
+                       f"to fit at {', '.join(str(k) for k in sorted(fits))} aa.")
+        else:
+            forward = ""
         return Plan(
             verdict=UNMEASURED, tokens=tokens, chips=chips, global_batch=global_batch,
             why=f"{tokens} tokens is above the largest crop with a measured training replica "
                 f"({MEASURED_CROP} aa) and is not a size "
                 f"{model or 'this model'}'s own forward OOM was measured at "
-                f"({', '.join(str(k) for k in sorted(oom)) or 'none recorded'}). Activation "
-                f"volume is neither linear nor quadratic in tokens across the triangle ops' "
-                f"chunking thresholds, so interpolating between 256 and 384 would be a guess "
-                f"with a plausible shape. Measure it." + fit_note,
-            sources=[f"MEASURED replica exists only at {MEASURED_CROP} aa"] + fit_src)
+                f"({', '.join(str(k) for k in sorted(oom)) or 'none recorded'}).{forward} "
+                f"Activation volume is neither linear nor quadratic in tokens across the "
+                f"triangle ops' chunking thresholds, so scaling the {MEASURED_CROP} aa replica "
+                f"up would be a guess with a plausible shape. Measure it." + fit_note,
+            sources=sources)
 
     replica_gb, replica_src = MEASURED[
         "replica_256aa_opt_resident_gb" if optimizer_resident else "replica_256aa_gb"]
@@ -324,19 +438,27 @@ def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
 
 
 def _dp_speedup(chips: int):
-    """The measured DP speedup, or ``(None, why)`` above where it was measured.
+    """The measured DP speedup, or ``(None, why)`` at a width nobody has measured.
 
-    Two chips is 1.87x at 93.5 % efficiency and that is the only multi-chip point we have. The
-    tempting move is to carry 93.5 % forward as a per-chip efficiency and report 3.74x at 4
-    chips; it is refused here for the reason the campaign already wrote down twice -- two
-    points cannot measure a scaling exponent, and r5 named shard balance and the host reduce's
-    O(N) per-rank volume as the terms that grow with rank count. They do not show up at N=2.
+    One, two and four chips are measured. Three is not, and neither is anything above four:
+    the fourth chip is the last one a QuietBox has, so a wider world crosses a host boundary
+    and pays a link that the same-box points say nothing about.
+
+    The four-chip point is worth reading with its condition attached. Carrying two chips'
+    efficiency forward would have predicted 3.74x, which is within 2 % of the measurement --
+    and it would still have been the wrong number to trust, because the same four-chip step
+    takes 931 s when every rank takes torch's default thread width and 7.647 s when the host's
+    cores are divided across the ranks. What scales is a measured configuration, not a chip
+    count.
     """
     if chips == 1:
         return 1.0, "single chip: no collective, speedup 1.0 by definition"
     if chips == 2:
         return MEASURED["dp2_speedup"][0], f"DP speedup: {MEASURED['dp2_speedup'][1]}"
-    return None, (f"{chips}-chip step time is {UNMEASURED}: 1.87x on two chips is the only "
-                  f"multi-chip point measured, and extrapolating 93.5 % efficiency per chip "
-                  f"assumes the host reduce's O(N) per-rank volume and shard imbalance stay "
-                  f"flat in rank count, which is exactly what is unmeasured")
+    if chips == 4:
+        return MEASURED["dp4_speedup"][0], f"DP speedup: {MEASURED['dp4_speedup'][1]}"
+    return None, (f"{chips}-chip step time is {UNMEASURED}: one, two and four chips are "
+                  f"measured on this hardware and {chips} is not. Interpolating between them "
+                  f"assumes the host reduce's per-rank volume and the host torch that owns "
+                  f"the 7.8 % gap at four chips both move smoothly in rank count, and above "
+                  f"four the world leaves the box and pays a link these points never crossed")
