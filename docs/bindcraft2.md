@@ -316,6 +316,25 @@ with residue numbers of their own and BindCraft 2 designs against the polymer on
 ways a hotspot can miss (a heteroatom, an unresolved stretch, a number the chain never reaches)
 each say which one it is.
 
+A **nucleotide** sequence pasted in where the protein sequence goes is refused. BindCraft 2
+names every letter that is not an amino acid -- `X`, `*`, a stray digit, the `U` of RNA -- but
+DNA is spelled entirely in letters that are: A, C, G and T are also alanine, cysteine, glycine
+and threonine, so a coding sequence copied out of a genome browser folds as a poly-Ala/Cys/Gly/
+Thr peptide of the same length, hotspots and all, and nothing downstream can tell.
+
+```
+target 'D': cds.fasta reads as a nucleotide sequence rather than a protein one. All 60 of its
+letters are A, C, G or T (A 16, C 12, G 13, T 19) -- which are also the codes for alanine,
+cysteine, glycine and threonine [...] Translate the sequence to amino acids first. If it really
+is a protein of only those four residues, hand it in as a structure file, which is not read this
+way.
+```
+
+The test is narrow on purpose: every letter one of ACGT, three of the four present, each at
+least a tenth of the sequence, at least 30 residues. Poly-alanine, (GA)n elastin-like and (GT)n
+repeats are real designs spelled in nucleotide letters and are not refused, nor is anything
+under 30 letters. A lower-case FASTA is read exactly like an upper-case one.
+
 A hotspot on a **FASTA** target is refused unless the crop is turned off, and this is the one
 that costs the most for the least visible reason. BindCraft 2 crops a sequence target to a window
 sampled at random -- `crop_fasta_sequence`, which defaults to 10-40 residues for every FASTA --
