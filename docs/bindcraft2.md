@@ -24,13 +24,18 @@ yourself, and BindCraft 2's own licence governs what you may do with it.
 integration:
 
 ```python
-import bindcraft.campaign as campaign
 from tt_bio import bindcraft2
 
 with bindcraft2.campaign_predictor(card=0):
-    campaign.run_campaign(settings, project_folder,
-                          af2_weights=params_dir, mpnn_weights=mpnn_dir)
+    bindcraft2.run_campaign(settings, project_folder,
+                            af2_weights=params_dir, mpnn_weights=mpnn_dir)
 ```
+
+`bindcraft2.run_campaign` goes where BindCraft 2's own `campaign.run_campaign` went and takes the
+same arguments. It runs several design trajectories over the one chip by default, as many as your
+box has the memory for, and prints the count it chose with the reason. That is worth 1.20x on a
+completed trajectory and 1.22x on a round. [Several trajectories on one
+card](#several-trajectories-on-one-card) below is how to read that line and how to turn it off.
 
 `card` has to be set before ttnn is imported, because that is when ttnn reads the pin. Leave it
 out to accept whatever `TT_VISIBLE_DEVICES` already says; pass it and `bindcraft2` raises rather
@@ -41,56 +46,55 @@ than silently running on the wrong chip.
 A design round is a host column and a device column laid end to end, and one trajectory cannot
 overlap them: the card idles about 2.6 s of every round with a host thread busy in all of it.
 Independent trajectories are the only work there is to fill that with, and a campaign has a
-supply of them.
+supply of them. So `bindcraft2.run_campaign` runs several of them by default.
 
-```python
-from tt_bio import bindcraft2
+Before any thread starts it reads free host memory, and the card when one is already open, then
+takes the largest count that fits up to three. It says which it took:
 
-with bindcraft2.campaign_predictor(card=0, exact=False, extra_msa=True, template=True):
-    bindcraft2.run_campaign(settings, project_folder, trajectories_per_card=3,
-                            af2_weights=params_dir, mpnn_weights=mpnn_dir)
+```
+[tt_bio.bindcraft2] 3 design trajectories on this card: 226.3 GB of host memory is free and 3 of
+them peak near 20 GB. Pass trajectories_per_card to choose yourself; 1 is BindCraft 2's own loop.
 ```
 
-This is the call the round below was measured with. `exact=False`, the default, also turns on
-tt-bio's gradient kernels for BindCraft 2 (`fast=True` is its default there), and puts them back when the
-block exits, so nothing else in the process runs differently. No environment variable is
-involved.
+A box whose free memory cannot be read gets one, never three. An explicit
+`trajectories_per_card=N` is used exactly as given, including a number the box cannot hold, which
+raises `MemoryError` naming what it wanted and what was free rather than letting the kernel kill
+the campaign at round 200.
 
-`bindcraft2.run_campaign` goes where `campaign.run_campaign` went. At the default
-`trajectories_per_card=1` it *is* that call: no threads, no scheduling, nothing in tt-bio behaves
-differently. Above 1 it runs that many trajectories on their own threads over one chip, each
-claiming its own trajectory number out of the project's progress file exactly as separate worker
-processes would.
+```python
+# BindCraft 2's own loop: no threads, no scheduling, nothing in tt-bio behaves differently.
+bindcraft2.run_campaign(settings, project_folder, trajectories_per_card=1,
+                        af2_weights=params_dir, mpnn_weights=mpnn_dir)
+```
 
-On one Blackhole chip, a 288-token PD-L1 round:
+What the default is worth, from two real `examples/pdl1.json` campaigns run to their stop
+condition on one Blackhole chip: same commit, same seed, same six-trajectory budget, a 146-residue
+binder against the 115-residue PD-L1 target at 288 tokens.
 
-| trajectories | s per round, amortised over the trajectories running |
-|---|---|
-| 1 | 9.06 |
-| 2 | 7.23 |
-| 3 | 6.76 |
+| trajectories | s per round | s per completed trajectory | accepted | chip-seconds per accepted design | host peak |
+|---|---|---|---|---|---|
+| 1 | 7.41 | 927.0 | 2 of 6 | 2,781 | 13.1 GB |
+| 3, the default here | 6.00 | 773.8 | 2 of 6 | 2,321 | 21.9 GB |
 
-An H200 runs the same round in 0.696 s. Every figure here was taken at a 1350 MHz AICLK, sampled
-during the rounds. One more gradient kernel landed after the table: with it, three trajectories
-run at 6.18 s and two at 6.62 s, the latter measured with the predictor arguments above and no
-environment variable set. What the option is worth to you depends on how much of your round is
-host time, since that is all it fills.
+The two campaigns accepted the same two designs, with bit-identical coordinates and the same
+metrics on all six trajectories. Interleaving buys time and changes nothing else about the
+result. An H200 runs this round in 0.696 s, so the default went from 10.6x that to 8.6x.
 
-How busy the host is moves the round as much as any of this. On a quiet box, load1 2.4-4.0, the
-three-trajectory round reads **5.93 s**; the tree it was measured against read 5.86 s in that same
-sitting and 6.30 s in an earlier one at load1 11. Same p300c box, 1350 MHz in all of them, so the
-7 % is host load and nothing else. Measure your own box before comparing against anyone's number,
-including these.
+The round on its own, measured tighter: eight arms alternating in one sitting on one card, nine
+rounds each, first round dropped. One trajectory reads **7.204 s** a round (7.183-7.258 across
+four arms) against **5.899 s** at three (5.891-5.912), **1.221x**. AICLK was 1350 MHz in every
+arm, sampled during the rounds, with no sample under 1200.
 
-The rate holds over a whole campaign, not just a burst: four PD-L1 trajectories at
-`trajectories_per_card=2`, run to their stop condition, took 500 gradient rounds at 6.78 s
-amortised, 2.2 % under a 9-round measurement on the same chip.
+Three is the cap because a fourth bought nothing: 6.976 s a round against three at 6.992 in the
+same sitting, with only 0.26 s of idle a round left to fill. How busy your host is moves the round
+as much as any of this: the same three-trajectory round read 6.30 s on a box at load1 11 where a
+quiet box reads 5.90. Measure your own box before comparing against anyone's number, including
+these.
 
-It costs host memory: about 3.5 GB per trajectory beyond the first, on top of the roughly 8 GB one
-trajectory of this size holds. Two of them peaked at 14.2 GB, three at 19.5 GB. Both the box and
-the card are read before any thread starts, and a box that cannot hold them raises `MemoryError`
-naming what it wanted and what was free, rather than letting the kernel kill the campaign at
-round 200.
+It costs host memory. The same campaign peaked at 13.1 GB with one trajectory and 21.9 GB with
+three, about 4.4 GB for each one after the first. The resolver prices it higher than that, 8.5 GB
+for the first and 6 GB for each one after, so it errs towards a campaign that is slower than it
+could have been rather than one the kernel kills.
 
 Trajectory *i* starts only once *i-1* has its first gradient round behind it, so no two of them
 compile at the same time. Their output interleaves on stdout.
@@ -290,8 +294,11 @@ but it runs above our rate rather than below it, so it is reported here rather t
 
 Cost, on those same 31 trajectories: **22,599 chip-seconds per accepted design**, 5,103 per
 completed trajectory, across p150a and p300c cards at an AICLK of 1350 MHz sampled during the
-runs. They were measured before the gradient kernels the round table above was measured with, so
-treat that as an upper bound on what a design costs today.
+runs. They were measured before the gradient kernels and the interleaving default above, so treat
+that as an upper bound rather than as today's cost: on the current tree the six-trajectory PD-L1
+campaign in the table above accepted two designs at **2,321 chip-seconds each**. Six trajectories is far too few to put an
+acceptance rate on; read that number as a cost per accepted design on this tree, not as evidence
+that the loop accepts more often.
 
 One caution when you read your own verdicts, and it is BindCraft 2's behaviour rather than the
 card's: `predicted_tm_score` is a maximum over the PAE rows, so a single collapsed row pins pTM
