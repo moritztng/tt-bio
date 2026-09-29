@@ -1018,3 +1018,119 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
 
     assert sorted(built) == [("t1", "device"), ("t1", "jax"),
                              ("t2", "device"), ("t2", "jax")]
+
+
+# --------------------------------------------------------------------- the refusal a user reads
+
+#: tt-metal's own words, copied verbatim off a 576-token fold (hTNFa + a 100-residue binder) on
+#: qb1 card 1, 2026-09-29. JAX wraps this in a `JaxRuntimeError` behind ten Python frames and
+#: forty lines of C++ hex, and the size that caused it appears nowhere in any of them.
+REFUSAL_576 = (
+    "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\n"
+    "info:\n"
+    "Out of Memory: Not enough space to allocate 3596091392 B DRAM buffer across 8 banks, "
+    "where each bank needs to store 449511424 B, but bank size is 4278190016 B "
+    "(allocated: 3762941504 B, free: 515248512 B, largest free block: 326674368 B)\n"
+    "backtrace:\n"
+    " --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so"
+    "(+0x3aad4e1) [0x70a33d99d4e1]\n")
+
+
+def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down():
+    """The four things the traceback does not say: how big, how much, why, and what to do."""
+    got = bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_576),
+                                         phase="backward", n=556, padded=576)
+    msg = str(got)
+    assert isinstance(got, MemoryError)
+    assert "576 tokens" in msg and "556 residues" in msg     # the axis and how it was composed
+    assert "3.596 GB" in msg and "326.7 MB" in msg           # asked for, and the block it got
+    assert "fragmentation, not a full card" in msg           # 4.122 GB free covers 3.596 GB
+    assert "544 tokens" in msg                               # one bucket down
+    assert "12 residues off the binder" in msg               # 556 - 544, the concrete action
+    assert "backward" in msg
+
+
+def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
+    """Same words from the allocator, opposite remedy: retrying smaller is all that is left."""
+    full = REFUSAL_576.replace("free: 515248512 B", "free: 51524851 B") \
+                      .replace("largest free block: 326674368 B", "largest free block: 51524851 B")
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(full),
+                                             phase="forward", n=556, padded=576))
+    assert "The card is full" in msg
+    assert "fragmentation" not in msg
+
+
+def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
+    """320 tokens is measured to fit alone, so a refusal there is company on the chip, and the
+    knob that removes it is BindCraft 2's own one-at-a-time loop, not a shorter binder."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_576),
+                                             phase="backward", n=300, padded=320))
+    assert "trajectories_per_card=1" in msg
+    assert "288 tokens" in msg
+
+
+def test_an_unrelated_failure_is_re_raised_unchanged():
+    """A wrapper that repaints the shape of an unrelated bug is worse than no wrapper."""
+    boom = ValueError("holds 24 Evoformer blocks and this splice was built for 48")
+    with pytest.raises(ValueError) as caught:
+        with bindcraft2._refusal_names_the_size("forward", 556, 576):
+            raise boom
+    assert caught.value is boom
+    assert bindcraft2._size_aware_refusal(boom, phase="forward", n=556, padded=576) is None
+
+
+def test_the_allocators_own_refusal_is_kept_as_the_cause():
+    """The added message is for the user; the original line is what a bug report needs."""
+    original = RuntimeError(REFUSAL_576)
+    with pytest.raises(MemoryError) as caught:
+        with bindcraft2._refusal_names_the_size("backward", 556, 576):
+            raise original
+    assert caught.value.__cause__ is original
+    assert "largest free block: 326674368 B" in str(caught.value.__cause__)
+
+
+# ------------------------------------------------- the degradation that used to be silent
+
+def _splice_without_a_card():
+    """An `EvoformerOnDevice` with nothing built: the note reads counters and prints, no more."""
+    splice = object.__new__(bindcraft2.EvoformerOnDevice)
+    splice._fused_checked = set()
+    return splice
+
+
+def test_a_fused_arm_that_declined_every_call_says_so(monkeypatch, capsys):
+    """512 tokens is 1.8x the memory and 1.4x the round of 544 and nothing said why."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (0, 972))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(512, (0, 0))
+    err = capsys.readouterr().err
+    assert "declined all 972 calls at 512 tokens" in err
+    assert "do not fit L1" in err
+    assert "[512,4,512,512]" in err              # what the composed path holds instead
+    assert "544 measures 14.23 GB" in err        # and the bucket that does not
+    assert 512 in splice._fused_checked          # said once, not once a round
+
+
+def test_a_fused_arm_that_served_is_not_reported(monkeypatch, capsys):
+    """544 serves all 972. A note there would train the user to ignore the note."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (972, 0))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(544, (0, 0))
+    assert capsys.readouterr().err == ""
+
+
+def test_the_note_reads_a_delta_not_a_running_total(monkeypatch, capsys):
+    """The counters are process-wide and a campaign varies the binder length, so a trajectory
+    that served at an earlier axis must not silence the note at this one."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (972, 972))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(512, (972, 0))     # 972 served BEFORE this axis
+    assert "declined all 972 calls at 512 tokens" in capsys.readouterr().err
+
+
+def test_a_run_that_never_reached_the_arm_is_silent(monkeypatch, capsys):
+    """`(0, 0)` is the host trunk and every non-device path. Silence is the only honest note."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (0, 0))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(288, (0, 0))
+    assert capsys.readouterr().err == ""
