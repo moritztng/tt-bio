@@ -1657,7 +1657,9 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     on a Wormhole Galaxy chip the round is 29.423 s with them in JAX against 16.267 s on card,
     1.8087x, host 17.188 -> 2.417 s against device 12.294 -> 13.856 (eight arms alternated at
     288 tokens, AICLK 1000 with 0 of 454 samples under it, `perf/bwx_perf/results/`). Blackhole
-    agrees to 3 %: 37.675 against 20.220 s, 1.863x (`bcx-p10-resident`). Pass False to keep a
+    agrees to 3 %: 37.675 against 20.220 s, 1.863x (`bcx-p10-resident`). That is one
+    trajectory; two interleaved hide most of the host column, and there it is 1.1331x
+    (15.776 -> 13.923 s on the same chip). Pass False to keep a
     comparison graded on the Evoformer alone on the program it was graded on. Read
     `build.extra_msa.calls` and `build.template.calls` to check the on-card paths ran.
 
