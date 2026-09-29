@@ -1,0 +1,2 @@
+./trial.sh: line 25: 232967 Aborted                 BCX_BC2=/home/ttuser/bcx_e2e/bc2 JAX_COMPILATION_CACHE_DIR=$PWD/perf/bc2_teardown/out/xlacache timeout 2400 $PY -u perf/bcx_p10_campaign/campaign_run.py --max-trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out "$o/campaign" --set screen_steps=4 --set refine_steps=2 --set anneal_steps=2 --set harden_steps=1 --set mutate_steps=1 > "$o/campaign.log" 2>&1
+chain done 2026-09-29T07:40:34Z
