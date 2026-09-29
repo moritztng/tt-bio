@@ -15,14 +15,14 @@ All of them take `PYTHONPATH=$PWD`. The device ones need `TT_VISIBLE_DEVICES=<ca
 | `relayout_probe.py` | which reorientations are exact? | leading-axis permute and reshape exact, last-axis 7.5e-04 | card |
 | `op_gradcheck.py` | is every op's gradient right? | 27 cases, forward and backward vs torch float64, grad-off vs grad-on 0.00e+00 | card |
 | `device_gate.py` | is the IPA block right? | forward 6.74e-03, gradients 1.3e-03..1.8e-02 | card |
-| `model_gate.py` | is the 8-block model right? | `perf/abb3_port/model_gate_qb1c1.txt`, and one row is over its bar | card |
+| `model_gate.py` | is the 8-block model right? | `perf/abb3_port/model_gate_qb2c3.txt`, and one row is over its bar | card |
 | `loss_gate.py` | are the losses upstream's? | all terms 0.00e+00 vs their `loss.py` in float64 | upstream checkout |
 | `output_gate.py` | does the PDB writer round-trip? | 52 structures, worst region 0.0000 A | Zenodo `output/` |
 | `fold_gate.py` | does the port reproduce their predictions? | reference exact on 17, device 0.020 A mean CDR-H3 | Zenodo `output/` + card |
 | `moment_audit.py` | did a run ever train its parameters? | `base-loss` step 1,248: 80 live, 356 dead of 436, 2,704 of 7,992,080 scalars (0.034 %) under a live `exp_avg`, and all 356 dead ones sit over a zero master weight | a checkpoint |
 | `../../tests/test_gradient_reaches_every_parameter.py` | do real steps reach every parameter, and can the weights they start from train at all? | the two card-free arms green on the repaired initialiser and red on the allocation the first leg ran, 106 of 316 tensors named and no bias among them; the three device arms last read on the pre-repair tree, 380 of 436 taking an identically zero gradient over 3 steps, both device controls green | card for 3 of the 5 |
 | `step_time.py` | what does the device half of a step cost? | 14.472 s median over 100 steps | card |
-| `step_gate.py` | what does a COMPLETE step cost? | `perf/abb3_port/step_gate_default_qb1c1.txt` at the shipped default, and `step_gate_complete_qb1c3.txt` for the attribution | card |
+| `step_gate.py` | what does a COMPLETE step cost? | `perf/abb3_port/step_gate_default_qb2c3.txt` at the shipped default, and `step_gate_complete_qb1c3.txt` for the attribution | card |
 
 ## The two that decide whether a number is real
 
