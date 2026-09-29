@@ -98,6 +98,13 @@ CASES = [
     case("chain-absent", targets=target("twochain.pdb", chains="C", hotspots="67")),
     case("chain-unselected-hotspot", targets=target("twochain.pdb", chains="A", hotspots="B125")),
     case("chain-default-all", targets=target("twochain.pdb", hotspots="67,68")),
+    # Chains A and B of BindCraft 2's own two-chain target both hold 57-59, so a bare span is
+    # ambiguous and the first chain wins it silently.
+    case("chain-shared-number", targets=target("twochain.pdb", chains="A,B", hotspots="57")),
+    case("chain-shared-number-qualified",
+         targets=target("twochain.pdb", chains="A,B", hotspots="A57")),
+    case("chain-shared-number-other",
+         targets=target("twochain.pdb", chains="A,B", hotspots="B57")),
 
     # --- hotspots
     case("hot-none", targets=target("hPDL1.pdb" if (IN / "hPDL1.pdb").exists() else str(STRUCT / "hPDL1.pdb"))),

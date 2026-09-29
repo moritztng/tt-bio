@@ -71,8 +71,17 @@ campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multi
 chain-both                       WORKS    asked='A67,B125' T[387aa 32-472 hot=[67, 351]] binder=[60, 61, 62, 63, 64, 65]
 chain-absent                     REFUSED  [bindcraft preflight] design inputs did not parse: Target 'T' has no chain ['C'] in /home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/inputs/twochain.pdb; the structure has ['A', 'B']. Write several chains as "A,B".
 chain-unselected-hotspot         REFUSED  [tt_bio.bcinputs] target 'T' hotspot B125: this campaign designs against chain A of twochain.pdb, so chain B is not in its target. Add B to the target's "chains", or move the hotspot to chain A.
+[tt_bio.bcinputs] target 'T' hotspot 67 names no chain, and chains A, B of twochain.pdb each hold those residues. BindCraft 2 takes the first, chain A, and that is the one carrying the hotspot. Write A67 to say so, or B67 for the other one.
+[tt_bio.bcinputs] target 'T' hotspot 68 names no chain, and chains A, B of twochain.pdb each hold those residues. BindCraft 2 takes the first, chain A, and that is the one carrying the hotspot. Write A68 to say so, or B68 for the other one.
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/chain-default-all
 chain-default-all                WORKS    asked='67,68' T[387aa 32-472 hot=[67, 68]] binder=[60, 61, 62, 63, 64, 65]
+[tt_bio.bcinputs] target 'T' hotspot 57 names no chain, and chains A, B of twochain.pdb each hold those residues. BindCraft 2 takes the first, chain A, and that is the one carrying the hotspot. Write A57 to say so, or B57 for the other one.
+campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/chain-shared-number
+chain-shared-number              WORKS    asked='57' T[387aa 32-472 hot=[57]] binder=[60, 61, 62, 63, 64, 65]
+campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/chain-shared-number-qualified
+chain-shared-number-qualified    WORKS    asked='A57' T[387aa 32-472 hot=[57]] binder=[60, 61, 62, 63, 64, 65]
+campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/chain-shared-number-other
+chain-shared-number-other        WORKS    asked='B57' T[387aa 32-472 hot=[283]] binder=[60, 61, 62, 63, 64, 65]
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/hot-none
 hot-none                         WORKS    asked='-' T[115aa 18-132 hot=none] binder=[60, 61, 62, 63, 64, 65]
 campaign preflight: design model_1_multimer_v3,model_2_multimer_v3,model_3_multimer_v3,model_4_multimer_v3,model_5_multimer_v3 | validation model_1_ptm,model_2_ptm | redesign negative/v_48_020 | targets T | output /tmp/bgx_probe/hot-one

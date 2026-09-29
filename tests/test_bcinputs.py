@@ -483,3 +483,86 @@ def test_loading_through_the_check_is_otherwise_bindcraft_2s_own_load_settings(t
     from bindcraft.settings import load_settings
 
     assert through_the_check == load_settings(dict(request))
+
+
+def _homodimer(tmp_path):
+    """Two chains numbered alike, which is how most deposited complexes look."""
+    atoms = [line for line in _bindcraft() if line.startswith("ATOM")]
+    chain_b = [f"{line[:21]}B{line[22:30]}{float(line[30:38]) + 40:8.3f}{line[38:]}"
+               for line in atoms]
+    path = tmp_path / "homodimer.pdb"
+    path.write_text("\n".join(atoms + ["TER"] + chain_b) + "\nEND\n")
+    return path
+
+
+def test_a_bare_hotspot_on_two_chains_that_share_its_number_says_which_chain_won(tmp_path):
+    """Measured: `54` on chains A,B of a homodimer flags residue 54 of chain A and nothing of
+    chain B, which is BindCraft 2's documented first-chain default and is otherwise silent."""
+    problems, notes = _problems(_settings(_homodimer(tmp_path), chains="A,B", hotspots="54"))
+    assert problems == []
+    assert len(notes) == 1
+    assert "chains A, B" in notes[0] and "takes the first, chain A" in notes[0]
+    assert "A54" in notes[0] and "B54" in notes[0]
+
+
+def test_a_hotspot_that_names_its_chain_is_not_noted(tmp_path):
+    for hotspots in ("A54", "B54"):
+        problems, notes = _problems(_settings(_homodimer(tmp_path), chains="A,B",
+                                              hotspots=hotspots))
+        assert (problems, notes) == ([], []), hotspots
+
+
+def test_a_bare_hotspot_on_a_single_chain_target_is_not_noted(tmp_path):
+    problems, notes = _problems(_settings(_target(tmp_path, "one.pdb"), chains="A",
+                                          hotspots="54"))
+    assert (problems, notes) == ([], [])
+
+
+def test_a_bare_hotspot_only_one_chain_has_is_not_noted(tmp_path):
+    """The ambiguity is the point: a number only one chain holds is not ambiguous."""
+    atoms = [line for line in _bindcraft() if line.startswith("ATOM")]
+    shifted = [f"{line[:21]}B{int(line[22:26]) + 200:4d}{line[26:]}" for line in atoms]
+    path = tmp_path / "two_ranges.pdb"
+    path.write_text("\n".join(atoms + ["TER"] + shifted) + "\nEND\n")
+    problems, notes = _problems(_settings(path, chains="A,B", hotspots="54"))
+    assert (problems, notes) == ([], [])
+
+
+IL2R = pathlib.Path("/home/ttuser/bcx_e2e/bc2/settings/target/structures/hIL2R_beta_gamma.pdb")
+
+
+def _il2r():
+    pytest.importorskip("bindcraft", reason="BindCraft 2 is not on sys.path")
+    if not IL2R.is_file():
+        pytest.skip("BindCraft 2's shipped two-chain target is not on this machine")
+    return IL2R
+
+
+def test_bindcraft_2s_own_two_chain_target_draws_the_note(tmp_path):
+    """Reachability, counted on shipped data rather than on a file this test wrote: chains A and
+    B of `hIL2R_beta_gamma.pdb` both hold residues 57-59, so a bare `57` is ambiguous on the
+    target BindCraft 2 ships for its own two-chain example."""
+    problems, notes = _problems(_settings(_il2r(), chains="A,B", hotspots="57"))
+    assert problems == []
+    assert len(notes) == 1 and "hIL2R_beta_gamma.pdb" in notes[0]
+
+
+def test_the_spelling_the_note_suggests_resolves_to_a_different_residue(tmp_path):
+    """The advice has to work: `A57` and `B57` must name two residues, not one. `B57` lands at
+    283 through the chain-break offset `merge_receptor_chains` applies."""
+    from bindcraft.protein import ResidueFlags, has_residue_flag
+    from bindcraft.protein_preparation import prepare_targets
+    from bindcraft.settings import build_design_settings
+    import numpy as np
+
+    flagged = {}
+    for hotspots in ("A57", "B57"):
+        settings = bcinputs.load_settings(
+            {"campaign_name": "x", "number_of_final_designs": 1,
+             **_settings(_il2r(), chains="A,B", hotspots=hotspots)})
+        assert bcinputs.input_problems(settings) == ([], []), hotspots
+        for protein in prepare_targets(build_design_settings(settings)).values():
+            mask = np.asarray(has_residue_flag(protein.flags, ResidueFlags.HOTSPOT))
+            flagged[hotspots] = [int(n) for n in np.asarray(protein.residue_index)[mask]]
+    assert flagged["A57"] == [57]
+    assert flagged["B57"] == [283]

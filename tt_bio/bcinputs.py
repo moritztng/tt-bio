@@ -253,6 +253,31 @@ def _negative_span_problem(label: str, kind: str, raw: str, residues: dict[str, 
             f"BindCraft 2 reads throughout.")
 
 
+#: A span the user wrote with a chain letter in front, as opposed to a bare residue number.
+_WRITTEN_CHAIN = re.compile(r"\s*([A-Za-z])\s*\d")
+
+
+def _ambiguous_chain_note(label: str, kind: str, raw: str, start: int, end: int,
+                          residues: dict[str, set[int]], source: str) -> str | None:
+    """A bare residue number on a target whose chains share that number.
+
+    `chain_qualified_residue_span` qualifies a bare span with the target's first chain, which is
+    the right default and is silent about the alternative. Most deposited complexes number every
+    chain from 1, so the number a researcher copies out of a paper about one chain exists in the
+    others too, and the flag lands on whichever chain happens to be first.
+    """
+    if _WRITTEN_CHAIN.match(raw):
+        return None                                   # the user named the chain; nothing to say
+    wanted = set(range(start, end + 1))
+    holders = [chain for chain, numbers in residues.items() if numbers & wanted]
+    if len(holders) < 2:
+        return None
+    return (f"{label} {kind} {raw} names no chain, and chains {', '.join(holders)} of {source} "
+            f"each hold those residues. BindCraft 2 takes the first, chain {holders[0]}, and "
+            f"that is the one carrying the {kind}. Write {holders[0]}{raw.strip()} to say so, "
+            f"or {holders[1]}{raw.strip()} for the other one.")
+
+
 def _span_note(label: str, kind: str, raw: str, chain: str, start: int, end: int,
                residues: dict[str, set[int]]) -> str | None:
     missing = [n for n in range(start, end + 1) if n not in residues.get(chain, ())]
@@ -342,6 +367,8 @@ def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
             if problem:
                 problems.append(problem)
             elif note := _span_note(label, kind, raw, chain, start, end, residues):
+                notes.append(note)
+            elif note := _ambiguous_chain_note(label, kind, raw, start, end, residues, source):
                 notes.append(note)
     return problems, notes
 
