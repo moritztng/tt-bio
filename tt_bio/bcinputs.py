@@ -108,11 +108,38 @@ def file_problem(label: str, path: str, source: str) -> str | None:
                 f"first: gunzip -k {source}.")
     try:
         with open(path, encoding="utf-8") as fh:
-            fh.read(4096)
+            text = fh.read(8192)
     except (UnicodeDecodeError, OSError):
         return (f"{label}: {source} is not text, so it is neither a PDB nor an mmCIF file. "
                 f"BindCraft 2 reads .pdb, .cif and a structure pasted in as text; convert a "
                 f"binary format (BinaryCIF, an mmtf) first.")
+    return _extension_problem(label, path, source, text)
+
+
+CIF_SUFFIXES = (".cif", ".mmcif", ".pdbx")
+PDB_SUFFIXES = (".pdb", ".ent", ".pdb1")
+PDB_RECORDS = ("HEADER", "REMARK", "CRYST1", "SEQRES", "TITLE ", "COMPND", "MODEL ",
+               "ATOM  ", "HETATM", "EXPDTA")
+
+
+def _extension_problem(label: str, path: str, source: str, text: str) -> str | None:
+    """A file whose extension says one format and whose records say the other.
+
+    BindCraft 2 dispatches on the suffix, so the reader that runs is the wrong one and the error
+    comes from inside it: a PDB named .cif is `There are no blocks in the file` and an mmCIF
+    named .pdb is `Illegal hybrid-36 string '8  .'`. Neither names the file or the format.
+    """
+    suffix = os.path.splitext(path)[1].lower()
+    is_cif = "_atom_site." in text or text.lstrip().startswith("data_")
+    is_pdb = any(line.startswith(PDB_RECORDS) for line in text.splitlines())
+    if suffix in CIF_SUFFIXES and is_pdb and not is_cif:
+        return (f"{label}: {source} is named {suffix} but holds PDB records, and BindCraft 2 "
+                f"reads a {suffix} with an mmCIF reader, which fails with 'There are no blocks "
+                f"in the file'. Rename it to .pdb, or convert it to mmCIF.")
+    if suffix in PDB_SUFFIXES and is_cif and not is_pdb:
+        return (f"{label}: {source} is named {suffix} but holds an mmCIF block, and BindCraft 2 "
+                f"reads a {suffix} with a PDB reader, which fails with 'Illegal hybrid-36 "
+                f"string'. Rename it to .cif.")
     return None
 
 
@@ -177,6 +204,28 @@ def _span_problem(label: str, kind: str, raw: str, chain: str, start: int, end: 
             f"unresolved stretch {_unresolved_stretch(residues[chain], start)}. A {kind} is read "
             f"in the file's own residue numbering. Name a residue the structure resolves, or "
             f"model the missing one in first.")
+
+
+_NEGATIVE = re.compile(r"[A-Za-z]*-\d")
+
+
+def _negative_span_problem(label: str, kind: str, raw: str, residues: dict[str, set[int]],
+                           source: str) -> str | None:
+    """A residue named with a minus, which the span syntax reads as its range separator.
+
+    A deposited structure that keeps an expression tag numbers residues from below 1, and those
+    residues cannot be written as a span at all: BindCraft 2 answers `'A-2+HOTSPOT' outside any
+    span`, which names the syntax but not the reason the file cannot use it.
+    """
+    if not _NEGATIVE.match(raw.strip()):
+        return None
+    lowest = min((number for numbers in residues.values() for number in numbers), default=1)
+    numbering = (f"{source} numbers its residues from {lowest}, and a residue at or below zero "
+                 f"cannot be named: ") if lowest < 1 else ""
+    return (f"{label} {kind} {raw}: {numbering}a span is written A35 or A35-40, so the minus is "
+            f"read as the range separator rather than as part of a residue number. Renumber the "
+            f"file from 1 and name the residues in that numbering, which is the numbering "
+            f"BindCraft 2 reads throughout.")
 
 
 def _span_note(label: str, kind: str, raw: str, chain: str, start: int, end: int,
@@ -252,6 +301,9 @@ def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
         for raw in (spans or "").split(","):
             raw = raw.strip()
             if not raw:
+                continue
+            if problem := _negative_span_problem(label, kind, raw, residues, source):
+                problems.append(problem)
                 continue
             match = _SPAN.match(chain_qualified_residue_span(raw, list(residues) or ["A"]))
             if not match:

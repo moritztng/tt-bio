@@ -123,6 +123,49 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     block.write(str(OUT / "hPDL1.cif"))
 
+    # 11b/11c. A wwPDB mmCIF carries TWO numberings: `label_seq_id` counts 1..N per entity and
+    #     `auth_seq_id` is the author's. Biotite writes them equal here, which is exactly the case
+    #     that cannot tell the two apart, so write the divergent ones by hand: one where the label
+    #     numbering is 1-based against an author numbering starting at 18, and one where the label
+    #     chain is X while the author chain is A. If a reader takes the label columns, a hotspot
+    #     means a different residue than the one the file's own numbering names.
+    written = (OUT / "hPDL1.cif").read_text().splitlines()
+    LABEL_SEQ, AUTH_SEQ, LABEL_ASYM, AUTH_ASYM = 7, 9, 5, 11
+
+    def rewrite(name, change):
+        out = []
+        for line in written:
+            fields = line.split()
+            if line.startswith(("ATOM", "HETATM")) and len(fields) > AUTH_ASYM:
+                change(fields)
+                out.append(" ".join(fields))
+            else:
+                out.append(line)
+        (OUT / name).write_text("\n".join(out) + "\n")
+
+    def label_from_one(fields):
+        fields[LABEL_SEQ] = str(int(fields[AUTH_SEQ]) - 17)
+
+    def label_chain_x(fields):
+        fields[LABEL_ASYM] = "X"
+
+    # 11d/11e. A file whose extension lies: the PDB named .cif and the mmCIF named .pdb, which is
+    #     what a download or a rename produces.
+    (OUT / "really_a_pdb.cif").write_text((OUT / "gap.pdb").read_text())
+    (OUT / "really_a_cif.pdb").write_text((OUT / "hPDL1.cif").read_text())
+
+    # 11f. Residues numbered from -3: an expression tag left in the deposited numbering, so the
+    #      author numbering runs -3, -2, -1, 0, 1, ... and a hotspot can be written "-2".
+    tagged = []
+    for line in pdl1:
+        if line.startswith("ATOM"):
+            line = line[:22] + f"{int(line[22:26]) - 21:>4}" + line[26:]
+        tagged.append(line)
+    write("negative_numbering.pdb", tagged)
+
+    rewrite("cif_label_numbering.cif", label_from_one)
+    rewrite("cif_label_chain.cif", label_chain_x)
+
     for path in sorted(OUT.iterdir()):
         print(f"{path.name:20s} {path.stat().st_size:8d} B")
 

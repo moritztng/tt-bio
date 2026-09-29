@@ -317,3 +317,48 @@ def test_every_resolved_filter_prints_the_bound_it_enforces():
                 for t in declared_thresholds(resolved["filters"])}
     for line in acceptance_filters(resolved):
         assert line in enforced, f"printed {line!r}, which is not a bound the campaign enforces"
+
+
+# ---------------------------------------------------------------- the extension lies
+
+def test_a_pdb_named_cif_is_refused_with_the_rename_to_make(tmp_path):
+    path = _target(tmp_path, "really_a_pdb.cif")
+    problems, _ = _problems(_settings(path, hotspots="54"))
+    assert len(problems) == 1
+    assert "named .cif but holds PDB records" in problems[0] and "Rename it to .pdb" in problems[0]
+
+
+def test_an_mmcif_named_pdb_is_refused_the_same_way(tmp_path):
+    path = tmp_path / "really_a_cif.pdb"
+    path.write_text("data_structure\n#\nloop_\n_atom_site.group_PDB\n_atom_site.id\nATOM 1\n")
+    problems, _ = _problems(_settings(path, hotspots="54"))
+    assert len(problems) == 1 and "Rename it to .cif" in problems[0]
+
+
+def test_a_pdb_named_pdb_and_an_mmcif_named_cif_are_not_refused(tmp_path):
+    assert _problems(_settings(_target(tmp_path, "fine.pdb"), hotspots="54")) == ([], [])
+    cif = tmp_path / "fine.cif"
+    cif.write_text("data_structure\n#\nloop_\n_atom_site.group_PDB\n_atom_site.id\nATOM 1\n")
+    problems, _ = _problems(_settings(cif, hotspots="54"))
+    assert problems == []                # unreadable as a structure, which is upstream's to say
+
+
+# ---------------------------------------------------------------- a residue numbered below 1
+
+def test_a_hotspot_written_with_a_minus_is_refused_and_names_the_files_numbering(tmp_path):
+    lines = [line for line in _bindcraft() if line.startswith("ATOM")]
+    tagged = [line[:22] + f"{int(line[22:26]) - 21:>4}" + line[26:] for line in lines]
+    path = tmp_path / "negative_numbering.pdb"
+    path.write_text("\n".join(tagged) + "\nEND\n")
+    problems, _ = _problems(_settings(path, hotspots="-2"))
+    assert len(problems) == 1
+    assert "numbers its residues from -3" in problems[0]
+    assert "read as the range separator" in problems[0]
+
+
+def test_a_positive_hotspot_on_the_same_file_still_resolves(tmp_path):
+    lines = [line for line in _bindcraft() if line.startswith("ATOM")]
+    tagged = [line[:22] + f"{int(line[22:26]) - 21:>4}" + line[26:] for line in lines]
+    path = tmp_path / "negative_numbering.pdb"
+    path.write_text("\n".join(tagged) + "\nEND\n")
+    assert _problems(_settings(path, hotspots="33")) == ([], [])

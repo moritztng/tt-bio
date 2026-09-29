@@ -40,6 +40,14 @@ CASES = [
     # --- file formats and headers
     case("format-mmcif", targets=target("hPDL1.cif", hotspots="54,56,66,115")),
     case("format-weird-header", targets=target("weird_header.pdb", hotspots="54,56,66,115")),
+    case("format-cif-label-numbering",
+         targets=target("cif_label_numbering.cif", hotspots="54,56,66,115")),
+    case("format-cif-label-chain", targets=target("cif_label_chain.cif", hotspots="54,56")),
+    case("format-pdb-named-cif", targets=target("really_a_pdb.cif", hotspots="54,56")),
+    case("format-cif-named-pdb", targets=target("really_a_cif.pdb", hotspots="54,56")),
+    case("numbering-negative", targets=target("negative_numbering.pdb", hotspots="-2,0,33")),
+    case("numbering-negative-out-of-range",
+         targets=target("negative_numbering.pdb", hotspots="-99")),
     case("format-fasta", target="dynorphin_a"),
     case("format-missing-file", targets=target("/tmp/does-not-exist.pdb", hotspots="54")),
 
