@@ -43,6 +43,7 @@ import ttnn
 from ..abodybuilder3 import Dropout, DeviceABB3, to_device_fp32
 from ..abodybuilder3_output import device_outputs_to_host, geometry_tail
 from ..abodybuilder3_reference import ABB3Config
+from ..autograd import release_pins
 from . import abodybuilder3_grad as grad
 from . import losses_geometry as L
 from .fape_device import prepare_sidechain_constants, sidechain_fape_device
@@ -240,6 +241,7 @@ class TrainStep:
                 with _timer(timing, "device_backward"):
                     grad.backward(packed["roots"], packed["seeds"])
                     ttnn.synchronize_device(sample["device"])
+                    release_pins()
                 parts = packed["parts"]
             with _timer(timing, "optimizer"):
                 self.ungradiented = []

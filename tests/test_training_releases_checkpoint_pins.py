@@ -34,19 +34,41 @@ def _releases(node) -> bool:
                for n in ast.walk(node))
 
 
-def _loops_that_backward():
+def _inside_a_backward(tree):
+    """Loops nested in a method named `backward`: a replay inside someone else's backward.
+
+    `fape_device._DeviceSidechainFape.backward` replays a small tape per chunk while the host
+    loss is being differentiated, before the device backward of the same step has run. A global
+    release there would drop the pins that later backward still has to recompute from, so the
+    release is owed by the loop that drives the step, not by a backward nested in it.
+    """
+    nested = set()
+    for fn in ast.walk(tree):
+        if isinstance(fn, ast.FunctionDef) and fn.name == "backward":
+            nested.update(id(n) for n in ast.walk(fn) if isinstance(n, (ast.For, ast.While)))
+    return nested
+
+
+def _loops_that_backward(skip_nested=True):
     """Every `for`/`while` body in the package that drives a backward, innermost first."""
     out = []
     for path in sorted(ROOT.rglob("*.py")):
         if "_vendor" in path.parts:
             continue
         tree = ast.parse(path.read_text())
+        nested = _inside_a_backward(tree) if skip_nested else set()
         for node in ast.walk(tree):
-            if not isinstance(node, (ast.For, ast.While)):
+            if not isinstance(node, (ast.For, ast.While)) or id(node) in nested:
                 continue
             if any(_backward_call(n) for n in ast.walk(node)):
                 out.append((path.relative_to(ROOT.parent), node))
     return out
+
+
+def test_the_nested_backward_exemption_is_not_decorative():
+    exempt = ({str(rel) for rel, _ in _loops_that_backward(skip_nested=False)}
+              - {str(rel) for rel, _ in _loops_that_backward()})
+    assert exempt == {"tt_bio/train/fape_device.py"}, exempt
 
 
 def test_the_package_has_a_loop_that_backwards():
