@@ -40,6 +40,7 @@ HERE_REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(HERE_REPO))
 
 from tt_bio.train import deadline  # noqa: E402
+from tt_bio.train.launcher import host_threads  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -96,11 +97,17 @@ def launch(rank: int, chips: list, args) -> subprocess.Popen:
            "--split-csv", args.split_csv, "--structures", args.structures]
     if args.max_seconds:
         cmd += ["--max-seconds", f"{args.max_seconds:.3f}"]
-    if args.torch_threads:
-        cmd += ["--torch-threads", str(args.torch_threads)]
-        # Also in the environment, because torch reads OMP_NUM_THREADS at import and the
-        # thread pool it builds there is what the first op uses.
-        env["OMP_NUM_THREADS"] = str(args.torch_threads)
+    # 0 means "divide the host across the ranks", which is the only setting that makes sense
+    # for a run that spawns one process per chip: torch sizes its intra-op pool from the
+    # machine and cannot see its siblings, so an unset width oversubscribes by the rank count.
+    # Measured on qb1, 16 physical cores, four micro-batches a rank: four ranks at torch's
+    # default 16 threads spend 913.98 s of a 931.05 s step in `losses` and `host_backward`;
+    # the same per-rank work with the cores divided spends 2.50 s.
+    threads = args.torch_threads or host_threads(len(chips))
+    cmd += ["--torch-threads", str(threads)]
+    # Also in the environment, because torch reads OMP_NUM_THREADS at import and the thread
+    # pool it builds there is what the first op uses.
+    env["OMP_NUM_THREADS"] = str(threads)
     if args.kill_at and rank == args.kill_rank:
         cmd += ["--kill-at", str(args.kill_at)]
     logs = Path(args.out) / "logs"
@@ -168,7 +175,10 @@ def main() -> int:
                     help="seconds between a death and the restart, for the card to come back")
     ap.add_argument("--kill-at", type=int, default=0, help="demo: kill one rank at this step")
     ap.add_argument("--kill-rank", type=int, default=0)
-    ap.add_argument("--torch-threads", type=int, default=0)
+    ap.add_argument("--torch-threads", type=int, default=0,
+                    help="intra-op threads a rank; 0 divides the host's physical "
+                         "cores across the ranks, which is what a one-process-per-chip "
+                         "run wants. Torch's own default is the whole box per rank")
     ap.add_argument("--print-reboot-hook", action="store_true")
     args = ap.parse_args()
     # Derived from the output directory rather than random, so a supervisor restarted after a

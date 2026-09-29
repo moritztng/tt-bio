@@ -198,6 +198,11 @@ Measured, and each carries its source:
   card (the 48 block-boundary pairs, and one block's 38 DRAM intermediates in recompute) and two
   from the checkpoint's censused parameter counts. The 384 aa pair reproduced byte for byte across
   the two campaigns: 3,638,034,432 B and 2,283,307,008 B.
+- **3.69x on four chips, 92.2 % efficiency**: ABodyBuilder3 on four qb1 p150a chips, 7.647 s a
+  step against 28.189 s on one, arms interleaved, 1350 MHz median and minimum during every arm.
+  The 7.8 % that does not scale is host torch; the exchange is 127.87 MB in 0.293 s, 3.8 % of the
+  step. It holds only with the host's cores divided across the ranks, which `launcher.py` now does
+  by default: at torch's own width the same step takes 931 s.
 
 Refused rather than estimated. **A memory wall belongs to a model, not to a token count**, so
 these are per model and `plan()` applies only the one you asked for:
@@ -236,10 +241,8 @@ to refuse. Both were wrong, in opposite directions, and both came from one flat 
   backward's own working set inside the block being recomputed has never been allocated. The
   27.58 GB feasibility projection in `perf/hall_grad/DECISION.md` is retired: it was at 800 aa
   for work that is not built, and it is not the same claim as 7.762 GB measured at 384.
-- **A step time on more than two chips.** 1.87x at two chips is the only multi-chip point we
-  have, and carrying 93.5 % forward as a per-chip efficiency assumes the host reduce's per-rank
-  volume and shard imbalance stay flat in rank count, which is exactly what is unmeasured. Two
-  points cannot measure a scaling exponent.
+- **A step time at three chips, or above four.** One, two and four are measured; three is not,
+  and above four the world leaves the box and pays a link the same-box points say nothing about.
 
 Below 256 aa `plan()` reports the 256 aa figure as an **upper bound** rather than scaling it
 down: a smaller crop carries the same weights and optimizer state and strictly fewer
