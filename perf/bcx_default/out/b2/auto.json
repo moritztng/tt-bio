@@ -1,0 +1,6 @@
+{
+ "n": 3,
+ "why": "227.6 GB of host memory is free and 3 of them peak near 20 GB",
+ "free_host": 244353650688,
+ "rss": 18591744
+}

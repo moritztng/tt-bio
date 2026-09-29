@@ -1,0 +1,658 @@
+{
+ "arms": [
+  {
+   "arm": "a1",
+   "interleave": false,
+   "trajectories": 1,
+   "commit": "11d3fd8eb",
+   "card": "0",
+   "warm": {
+    "A": 8
+   },
+   "host_hwm_gb": 10.55,
+   "gate": {
+    "waited_s": {
+     "A": 0.0
+    },
+    "held_s": {
+     "A": 61.82
+    },
+    "seams": {
+     "A": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 3,
+     "A@Dummy-4": 9,
+     "A@Dummy-5": 6,
+     "A@Dummy-6": 8,
+     "A@Dummy-7": 4,
+     "A@Dummy-8": 6,
+     "A@Dummy-9": 3,
+     "A@Dummy-10": 6,
+     "A@Dummy-11": 6,
+     "A@Dummy-12": 6,
+     "A@Dummy-13": 9,
+     "A@Dummy-14": 2,
+     "A@Dummy-15": 1,
+     "A@Dummy-16": 5,
+     "A@Dummy-17": 3,
+     "A@Dummy-18": 4
+    }
+   },
+   "round_s": 7.257961720228195,
+   "n": 8.0,
+   "window_s": 58.06,
+   "per_trajectory_round_s": 7.257961720228195,
+   "held_per_round": 5.924733132123947,
+   "idle_per_round": 1.333228588104248,
+   "gate_busy": 0.8163081262348776,
+   "clock": {
+    "n": 56,
+    "aiclk_med": 1350,
+    "aiclk_min": 1312,
+    "under_1200": 0,
+    "load1": 1.82
+   }
+  },
+  {
+   "arm": "b1",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "11d3fd8eb",
+   "card": "0",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.34,
+   "gate": {
+    "waited_s": {
+     "A": 74.516,
+     "B": 74.569,
+     "C": 75.621
+    },
+    "held_s": {
+     "A": 52.541,
+     "B": 52.37,
+     "C": 51.618
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 12,
+     "A@Dummy-4": 6,
+     "A@Dummy-5": 10,
+     "A@Dummy-6": 2,
+     "A@Dummy-7": 7,
+     "A@Dummy-8": 5,
+     "A@Dummy-9": 4,
+     "B@Dummy-10": 11,
+     "B@Dummy-7": 5,
+     "B@Dummy-11": 5,
+     "B@Dummy-12": 7,
+     "C@Dummy-13": 8,
+     "C@Dummy-11": 7,
+     "C@Dummy-14": 5,
+     "C@Dummy-12": 5,
+     "C@Dummy-7": 2,
+     "C@Dummy-5": 4,
+     "C@Dummy-9": 10,
+     "C@Dummy-3": 9,
+     "B@Dummy-13": 3,
+     "B@Dummy-15": 8,
+     "A@Dummy-12": 2,
+     "B@Dummy-16": 1,
+     "C@Dummy-15": 6,
+     "B@Dummy-3": 10,
+     "A@Dummy-11": 5,
+     "B@Dummy-14": 4,
+     "A@Dummy-10": 5,
+     "A@Dummy-17": 3,
+     "C@Dummy-10": 6,
+     "C@Dummy-8": 7,
+     "A@Dummy-16": 4,
+     "B@Dummy-9": 6,
+     "A@Dummy-15": 5,
+     "C@Dummy-17": 5,
+     "B@Dummy-4": 9,
+     "A@Dummy-13": 5,
+     "C@Dummy-6": 3,
+     "B@Dummy-8": 6,
+     "A@Dummy-18": 4,
+     "A@Dummy-14": 2,
+     "B@Dummy-6": 5,
+     "C@Dummy-16": 1,
+     "C@Dummy-4": 1,
+     "C@Dummy-18": 2,
+     "B@Dummy-18": 1
+    }
+   },
+   "auto": {
+    "n": 3,
+    "why": "226.3 GB of host memory is free and 3 of them peak near 20 GB",
+    "free_host": 242968502272,
+    "rss": 18452480
+   },
+   "round_s": 5.90181113781301,
+   "n": 24.0,
+   "window_s": 141.62,
+   "per_trajectory_round_s": 17.70543341343903,
+   "held_per_round": 5.788406538742677,
+   "idle_per_round": 0.11340459907033335,
+   "gate_busy": 0.9807847800578118,
+   "clock": {
+    "n": 136,
+    "aiclk_med": 1350,
+    "aiclk_min": 1306,
+    "under_1200": 0,
+    "load1": 2.09
+   }
+  },
+  {
+   "arm": "b2",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "11d3fd8eb",
+   "card": "0",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.49,
+   "gate": {
+    "waited_s": {
+     "A": 74.246,
+     "B": 74.049,
+     "C": 75.42
+    },
+    "held_s": {
+     "A": 52.477,
+     "B": 51.881,
+     "C": 51.619
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 7,
+     "A@Dummy-4": 4,
+     "A@Dummy-5": 7,
+     "A@Dummy-6": 8,
+     "A@Dummy-7": 5,
+     "A@Dummy-8": 12,
+     "B@Dummy-9": 4,
+     "B@Dummy-10": 5,
+     "B@Dummy-11": 7,
+     "B@Dummy-7": 7,
+     "B@Dummy-12": 4,
+     "B@Dummy-3": 5,
+     "C@Dummy-13": 6,
+     "C@Dummy-4": 6,
+     "C@Dummy-14": 5,
+     "C@Dummy-10": 7,
+     "C@Dummy-5": 3,
+     "C@Dummy-12": 5,
+     "C@Dummy-15": 6,
+     "B@Dummy-16": 5,
+     "A@Dummy-11": 4,
+     "A@Dummy-17": 5,
+     "C@Dummy-7": 4,
+     "A@Dummy-13": 6,
+     "C@Dummy-8": 2,
+     "B@Dummy-14": 2,
+     "A@Dummy-15": 4,
+     "B@Dummy-4": 6,
+     "C@Dummy-17": 7,
+     "C@Dummy-3": 4,
+     "B@Dummy-8": 6,
+     "B@Dummy-15": 3,
+     "C@Dummy-6": 9,
+     "C@Dummy-16": 7,
+     "B@Dummy-17": 5,
+     "B@Dummy-6": 3,
+     "C@Dummy-9": 3,
+     "B@Dummy-5": 11,
+     "B@Dummy-18": 1,
+     "A@Dummy-18": 2,
+     "A@Dummy-14": 4,
+     "C@Dummy-11": 6,
+     "A@Dummy-12": 4,
+     "B@Dummy-13": 7,
+     "A@Dummy-16": 4,
+     "A@Dummy-9": 4,
+     "A@Dummy-10": 1,
+     "C@Dummy-18": 1
+    }
+   },
+   "auto": {
+    "n": 3,
+    "why": "227.6 GB of host memory is free and 3 of them peak near 20 GB",
+    "free_host": 244353650688,
+    "rss": 18591744
+   },
+   "round_s": 5.890718395400072,
+   "n": 24.0,
+   "window_s": 141.35,
+   "per_trajectory_round_s": 17.672155186200218,
+   "held_per_round": 5.774464010298092,
+   "idle_per_round": 0.11625438510197958,
+   "gate_busy": 0.9802648204686274,
+   "clock": {
+    "n": 136,
+    "aiclk_med": 1350,
+    "aiclk_min": 1306,
+    "under_1200": 0,
+    "load1": 1.92
+   }
+  },
+  {
+   "arm": "a2",
+   "interleave": false,
+   "trajectories": 1,
+   "commit": "ed7b1892a",
+   "card": "0",
+   "warm": {
+    "A": 8
+   },
+   "host_hwm_gb": 9.91,
+   "gate": {
+    "waited_s": {
+     "A": 0.0
+    },
+    "held_s": {
+     "A": 53.241
+    },
+    "seams": {
+     "A": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 6,
+     "A@Dummy-4": 5,
+     "A@Dummy-5": 4,
+     "A@Dummy-6": 7,
+     "A@Dummy-7": 4,
+     "A@Dummy-8": 4,
+     "A@Dummy-9": 5,
+     "A@Dummy-10": 9,
+     "A@Dummy-11": 3,
+     "A@Dummy-12": 10,
+     "A@Dummy-13": 5,
+     "A@Dummy-14": 7,
+     "A@Dummy-15": 1,
+     "A@Dummy-16": 5,
+     "A@Dummy-17": 6
+    }
+   },
+   "round_s": 7.224295884370804,
+   "n": 8.0,
+   "window_s": 57.79,
+   "per_trajectory_round_s": 7.224295884370804,
+   "held_per_round": 5.881810128688812,
+   "idle_per_round": 1.3424857556819916,
+   "gate_busy": 0.8141707126660809,
+   "clock": {
+    "n": 57,
+    "aiclk_med": 1350,
+    "aiclk_min": 1312,
+    "under_1200": 0,
+    "load1": 2.03
+   }
+  },
+  {
+   "arm": "b3",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "c8955f0dc",
+   "card": "0",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.38,
+   "gate": {
+    "waited_s": {
+     "A": 74.242,
+     "B": 73.751,
+     "C": 75.523
+    },
+    "held_s": {
+     "A": 52.729,
+     "B": 52.462,
+     "C": 51.557
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 4,
+     "A@Dummy-4": 10,
+     "A@Dummy-5": 4,
+     "A@Dummy-6": 5,
+     "A@Dummy-7": 5,
+     "B@Dummy-8": 6,
+     "B@Dummy-5": 7,
+     "B@Dummy-9": 5,
+     "B@Dummy-10": 3,
+     "B@Dummy-11": 9,
+     "B@Dummy-4": 6,
+     "C@Dummy-12": 7,
+     "C@Dummy-5": 7,
+     "C@Dummy-13": 8,
+     "C@Dummy-3": 4,
+     "C@Dummy-6": 3,
+     "C@Dummy-9": 8,
+     "C@Dummy-11": 7,
+     "A@Dummy-10": 5,
+     "B@Dummy-14": 6,
+     "A@Dummy-15": 4,
+     "B@Dummy-7": 10,
+     "C@Dummy-14": 10,
+     "A@Dummy-16": 9,
+     "C@Dummy-8": 5,
+     "B@Dummy-15": 2,
+     "A@Dummy-9": 8,
+     "B@Dummy-3": 6,
+     "B@Dummy-6": 9,
+     "C@Dummy-17": 7,
+     "A@Dummy-13": 3,
+     "B@Dummy-16": 6,
+     "A@Dummy-8": 5,
+     "C@Dummy-7": 2,
+     "A@Dummy-17": 3,
+     "A@Dummy-14": 8,
+     "A@Dummy-11": 2,
+     "B@Dummy-18": 2,
+     "C@Dummy-15": 5,
+     "C@Dummy-18": 1,
+     "B@Dummy-12": 2,
+     "C@Dummy-4": 4,
+     "A@Dummy-18": 2,
+     "A@Dummy-12": 4,
+     "B@Dummy-13": 1,
+     "B@Dummy-17": 1,
+     "C@Dummy-16": 1,
+     "C@Dummy-10": 2
+    }
+   },
+   "auto": {
+    "n": 3,
+    "why": "226.4 GB of host memory is free and 3 of them peak near 20 GB",
+    "free_host": 243056111616,
+    "rss": 18477056
+   },
+   "round_s": 5.91207232942293,
+   "n": 24.0,
+   "window_s": 141.87,
+   "per_trajectory_round_s": 17.73621698826879,
+   "held_per_round": 5.7980907507147,
+   "idle_per_round": 0.11398157870822895,
+   "gate_busy": 0.9807205371725629,
+   "clock": {
+    "n": 136,
+    "aiclk_med": 1350,
+    "aiclk_min": 1318,
+    "under_1200": 0,
+    "load1": 2.44
+   }
+  },
+  {
+   "arm": "a3",
+   "interleave": false,
+   "trajectories": 1,
+   "commit": "4a980566f",
+   "card": "0",
+   "warm": {
+    "A": 8
+   },
+   "host_hwm_gb": 10.32,
+   "gate": {
+    "waited_s": {
+     "A": 0.0
+    },
+    "held_s": {
+     "A": 53.149
+    },
+    "seams": {
+     "A": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 10,
+     "A@Dummy-4": 5,
+     "A@Dummy-5": 6,
+     "A@Dummy-6": 6,
+     "A@Dummy-7": 2,
+     "A@Dummy-8": 7,
+     "A@Dummy-9": 4,
+     "A@Dummy-10": 6,
+     "A@Dummy-11": 2,
+     "A@Dummy-12": 3,
+     "A@Dummy-13": 6,
+     "A@Dummy-14": 3,
+     "A@Dummy-15": 7,
+     "A@Dummy-16": 2,
+     "A@Dummy-17": 7,
+     "A@Dummy-18": 5
+    }
+   },
+   "round_s": 7.184474557638168,
+   "n": 8.0,
+   "window_s": 57.48,
+   "per_trajectory_round_s": 7.184474557638168,
+   "held_per_round": 5.870378643274307,
+   "idle_per_round": 1.314095914363861,
+   "gate_busy": 0.8170922725355355,
+   "clock": {
+    "n": 56,
+    "aiclk_med": 1350,
+    "aiclk_min": 1331,
+    "under_1200": 0,
+    "load1": 2.39
+   }
+  },
+  {
+   "arm": "a4",
+   "interleave": false,
+   "trajectories": 1,
+   "commit": "4a980566f",
+   "card": "0",
+   "warm": {
+    "A": 8
+   },
+   "host_hwm_gb": 10.37,
+   "gate": {
+    "waited_s": {
+     "A": 0.0
+    },
+    "held_s": {
+     "A": 53.194
+    },
+    "seams": {
+     "A": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 9,
+     "A@Dummy-4": 5,
+     "A@Dummy-5": 10,
+     "A@Dummy-6": 8,
+     "A@Dummy-7": 4,
+     "A@Dummy-8": 6,
+     "A@Dummy-9": 2,
+     "A@Dummy-10": 3,
+     "A@Dummy-11": 3,
+     "A@Dummy-12": 6,
+     "A@Dummy-13": 7,
+     "A@Dummy-14": 2,
+     "A@Dummy-15": 5,
+     "A@Dummy-16": 7,
+     "A@Dummy-17": 4
+    }
+   },
+   "round_s": 7.18280416727066,
+   "n": 8.0,
+   "window_s": 57.46,
+   "per_trajectory_round_s": 7.18280416727066,
+   "held_per_round": 5.874885857105255,
+   "idle_per_round": 1.3079183101654053,
+   "gate_busy": 0.8179097912588098,
+   "clock": {
+    "n": 55,
+    "aiclk_med": 1350,
+    "aiclk_min": 1312,
+    "under_1200": 0,
+    "load1": 2.26
+   }
+  },
+  {
+   "arm": "b4",
+   "interleave": true,
+   "trajectories": 3,
+   "commit": "4a980566f",
+   "card": "0",
+   "warm": {
+    "A": 8,
+    "B": 8,
+    "C": 8
+   },
+   "host_hwm_gb": 19.41,
+   "gate": {
+    "waited_s": {
+     "A": 74.65,
+     "B": 74.135,
+     "C": 75.272
+    },
+    "held_s": {
+     "A": 52.627,
+     "B": 52.314,
+     "C": 51.17
+    },
+    "seams": {
+     "A": 81,
+     "B": 81,
+     "C": 81
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 7,
+     "A@Dummy-4": 10,
+     "A@Dummy-5": 7,
+     "A@Dummy-6": 2,
+     "A@Dummy-7": 2,
+     "B@Dummy-8": 6,
+     "B@Dummy-4": 5,
+     "B@Dummy-9": 9,
+     "B@Dummy-6": 4,
+     "B@Dummy-5": 8,
+     "C@Dummy-10": 9,
+     "C@Dummy-9": 3,
+     "C@Dummy-11": 5,
+     "C@Dummy-8": 3,
+     "C@Dummy-5": 10,
+     "C@Dummy-12": 10,
+     "B@Dummy-13": 7,
+     "A@Dummy-8": 8,
+     "C@Dummy-3": 3,
+     "B@Dummy-14": 8,
+     "C@Dummy-15": 8,
+     "B@Dummy-16": 5,
+     "A@Dummy-13": 5,
+     "B@Dummy-10": 4,
+     "A@Dummy-17": 1,
+     "B@Dummy-18": 3,
+     "A@Dummy-15": 5,
+     "A@Dummy-9": 3,
+     "A@Dummy-12": 3,
+     "A@Dummy-11": 4,
+     "C@Dummy-13": 7,
+     "B@Dummy-11": 5,
+     "A@Dummy-14": 10,
+     "B@Dummy-3": 4,
+     "C@Dummy-4": 5,
+     "B@Dummy-7": 4,
+     "B@Dummy-12": 4,
+     "A@Dummy-18": 6,
+     "A@Dummy-10": 2,
+     "C@Dummy-6": 8,
+     "C@Dummy-17": 3,
+     "A@Dummy-16": 6,
+     "C@Dummy-7": 2,
+     "B@Dummy-15": 5,
+     "C@Dummy-18": 2,
+     "C@Dummy-14": 1,
+     "C@Dummy-16": 2
+    }
+   },
+   "auto": {
+    "n": 3,
+    "why": "226.0 GB of host memory is free and 3 of them peak near 20 GB",
+    "free_host": 242642710528,
+    "rss": 18558976
+   },
+   "round_s": 5.896136377330562,
+   "n": 24.0,
+   "window_s": 141.49,
+   "per_trajectory_round_s": 17.688409131991683,
+   "held_per_round": 5.7795413768245165,
+   "idle_per_round": 0.11659500050604465,
+   "gate_busy": 0.9802251859447606,
+   "clock": {
+    "n": 137,
+    "aiclk_med": 1350,
+    "aiclk_min": 1318,
+    "under_1200": 0,
+    "load1": 1.7
+   }
+  }
+ ],
+ "summary": {
+  "by_n": {
+   "1": {
+    "arms": [
+     "a1",
+     "a2",
+     "a3",
+     "a4"
+    ],
+    "round_s": 7.204385221004486,
+    "ratio_vs_h200": 10.354103508198458,
+    "spread": [
+     7.18280416727066,
+     7.257961720228195
+    ],
+    "per_trajectory_round_s": 7.204385221004486,
+    "host_hwm_gb": 10.55,
+    "aiclk_med": 1350.0,
+    "aiclk_min": 1312,
+    "load1": 2.1449999999999996
+   },
+   "3": {
+    "arms": [
+     "b1",
+     "b2",
+     "b3",
+     "b4"
+    ],
+    "round_s": 5.898973757571786,
+    "ratio_vs_h200": 8.477973207202913,
+    "spread": [
+     5.890718395400072,
+     5.91207232942293
+    ],
+    "per_trajectory_round_s": 17.696921272715358,
+    "host_hwm_gb": 19.49,
+    "aiclk_med": 1350.0,
+    "aiclk_min": 1306,
+    "load1": 2.005
+   }
+  },
+  "speedup_3_over_1": 1.2212946721041271
+ }
+}
