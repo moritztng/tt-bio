@@ -65,6 +65,11 @@ binder lengths, so the default prices every design as if it were one of them. On
 Blackhole chip that is three trajectories up to 352 tokens, two at 384 and 416, and one from 448
 up. Where one fits, the default is one, which is BindCraft 2's own loop unchanged.
 
+So the size the line prints is an upper bound, and above about 448 tokens it can be roughly
+twice what the run goes on to hold: a 576-token design is priced at 29.9 GB and holds 14.23 GB
+when the fused arm serves. It is not telling you the card is too small. It is saying it will
+not start a second trajectory on a design that might need the slower path.
+
 A box whose free memory cannot be read gets one, never three, and so does a design whose token
 axis cannot be read. An explicit `trajectories_per_card=N` is used exactly as given, including a
 number that will not fit, which raises `MemoryError` naming what it wanted and what was free
