@@ -1,0 +1,7 @@
+# Raw RCSB downloads. fetch.sh regenerates them; the cleaned structures beside them are
+# what the rungs read and those are checked in.
+3KS3.pdb
+1TNF.pdb
+1AO6.pdb
+2P4E.pdb
+3V83.pdb
