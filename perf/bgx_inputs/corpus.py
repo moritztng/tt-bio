@@ -163,6 +163,21 @@ def main():
         tagged.append(line)
     write("negative_numbering.pdb", tagged)
 
+    # 11g/11h. A nucleic acid: a DNA-only target, and a protein-DNA complex whose second chain is
+    #     DNA. A researcher designing against a transcription factor hands in the complex, and the
+    #     question is whether the DNA chain is refused or quietly dropped from a target the caller
+    #     asked for by chain.
+    dna = []
+    for index, line in enumerate(pdl1):
+        if line.startswith("ATOM"):
+            line = line[:17] + " D" + "ACGT"[(int(line[22:26])) % 4] + line[20:]
+        dna.append(line)
+    write("dna_only.pdb", dna)
+    protein_dna = [line for line in il2r if not (line.startswith("ATOM")
+                                                 and line[21:22] == "B")]
+    protein_dna += [line[:21] + "B" + line[22:] for line in dna if line.startswith("ATOM")]
+    write("protein_dna.pdb", protein_dna + ["END"])
+
     rewrite("cif_label_numbering.cif", label_from_one)
     rewrite("cif_label_chain.cif", label_chain_x)
 
