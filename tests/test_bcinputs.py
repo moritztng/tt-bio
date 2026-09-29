@@ -150,6 +150,27 @@ def test_an_empty_binder_length_list_is_refused():
     assert len(bcinputs.binder_length_problems({"binder_lengths": []})) == 1
 
 
+def test_no_campaign_bindcraft_ships_is_refused():
+    """The false-positive guard: 25 real campaigns, and a check that refuses one is wrong."""
+    _bindcraft()
+    import glob
+
+    from bindcraft.preflight import cleaned_campaign_settings
+    from bindcraft.settings import read_settings
+
+    paths = [p for p in sorted(glob.glob("/home/ttuser/bcx_e2e/bc2/examples/*.json"))
+             if not p.endswith("metadata.json")]
+    if not paths:
+        pytest.skip("BindCraft 2's shipped examples are not on this machine")
+    refused = {}
+    for path in paths:
+        problems, _ = bcinputs.input_problems(
+            cleaned_campaign_settings(read_settings(path, {})))
+        if problems:
+            refused[pathlib.Path(path).name] = problems
+    assert refused == {} and len(paths) >= 20
+
+
 # ---------------------------------------------------------------- the refusal itself
 
 def test_refuse_unusable_inputs_raises_with_every_problem_on_it(tmp_path):

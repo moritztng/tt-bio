@@ -52,6 +52,7 @@ CASES = [
     case("het-ligands-waters-metal", targets=target("ligands.pdb", hotspots="54,56,66,115")),
     case("het-mse", targets=target("mse.pdb", hotspots="54,56,66,115")),
     case("het-altloc", targets=target("altloc.pdb", hotspots="54,56,66,115")),
+    case("het-phospho", targets=target("phospho.pdb", hotspots="56")),
     case("het-insertion-code", targets=target("insertion.pdb", hotspots="54")),
     case("het-trimmed-residue", targets=target("trimmed.pdb", hotspots="54")),
 
@@ -172,10 +173,38 @@ def run(name, settings):
     return out
 
 
+def examples():
+    """Every campaign BindCraft 2 ships, through the same check.
+
+    The false-positive guard: 25 real campaigns, including the multi-target ones, the
+    focused-epitope one and the FASTA IDR. A check that refuses one of these is wrong.
+    """
+    import glob
+
+    from bindcraft.preflight import cleaned_campaign_settings
+    from bindcraft.settings import read_settings
+    from tt_bio import bcinputs
+
+    for path in sorted(glob.glob(str(BC2 / "examples/*.json"))):
+        name = os.path.basename(path)
+        if name == "metadata.json":
+            continue
+        try:
+            settings = cleaned_campaign_settings(read_settings(path, {}))
+            problems, notes = bcinputs.input_problems(settings)
+        except Exception as error:
+            print(f"{name:40s} STOPPED {type(error).__name__}: {error}"[:200], flush=True)
+            continue
+        said = " | ".join(problems) or " | ".join(notes) or "clean"
+        print(f"{name:40s} {'REFUSED ' if problems else ''}{said}"[:220], flush=True)
+
+
 def main(argv):
     global SKIP_CHECK
-    wanted = set(a for a in argv[1:] if a != "--without-check")
+    wanted = set(a for a in argv[1:] if not a.startswith("--"))
     SKIP_CHECK = "--without-check" in argv[1:]
+    if "--examples" in argv[1:]:
+        return examples()
     os.makedirs("/tmp/bgx_probe", exist_ok=True)
     for name, settings in CASES:
         if wanted and name not in wanted:

@@ -59,6 +59,17 @@ def main():
         mse.append(l)
     write("mse.pdb", mse)
 
+    # 3b. Phosphoserine, the other modification habit, which BindCraft 2 does not map: only
+    #     MSE is in MODIFIED_RESIDUE_PARENTS, so this has to end in a clear refusal.
+    phospho = []
+    for l in pdl1:
+        if resnum(l) == 54:
+            phospho.append("HETATM" + l[6:17] + "SEP" + l[20:])
+        else:
+            phospho.append(l)
+    phospho.append("HETATM 2100  P   SEP A  54      20.000 -30.000 -10.000  1.00 20.00           P  ")
+    write("phospho.pdb", phospho)
+
     # 4. Two side-chain conformations on three residues, altloc A at 0.6 and B at 0.4.
     alt = []
     for l in pdl1:
