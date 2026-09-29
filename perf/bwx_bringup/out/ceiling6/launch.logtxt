@@ -1,0 +1,4 @@
+2026-09-29T21:34:41Z agent stopped (dev .107 out of /v1/cluster)
+2026-09-29T21:34:41Z aiclk logger pid 945636
+2026-09-29T21:34:41Z sitting6 pid 945640
+2026-09-29T21:34:41Z agent deliberately left DOWN for the probe; restorer armed on pid 945640

@@ -1,0 +1,6 @@
+2026-09-29T21:25:47Z sitting5 launch chip=30 load=0.13 2.10 4.26
+2026-09-29T21:26:06Z agent stop rc=0
+2026-09-29T21:26:06Z sitting5 pid 911615
+2026-09-29T21:26:08Z lease on card 30: "holder": "worker:bwx-bringup"
+2026-09-29T21:26:08Z agent deliberately left DOWN for the ladder; restorer armed on pid 911615
+2026-09-29T21:26:08Z watchdog backstop: 1

@@ -86,6 +86,30 @@ def design_tokens(settings: Mapping) -> int:
 #: the arithmetic. It is quoted in a refusal as a reference point and is enforced nowhere: the
 #: allocator decides, and a board with more DRAM has a different answer.
 MEASURED_MAX_TOKENS_P150A = 576
+#: The DRAM that figure was measured against, as the allocator reports it: 8 banks of
+#: 4,278,190,016 B. A card with less refuses smaller complexes, so the 576 is no reference
+#: point there -- which is why the Wormhole row below exists.
+P150A_DRAM_BYTES = 8 * 4_278_190_016
+
+#: The same measurement on one chip of a Wormhole Galaxy: 512 tokens completes a gradient round
+#: and 544 refuses, in the Evoformer backward, with the card full at 12.756 GB of 12.885 GB.
+#: Measured on dev .107 card 30, 2026-09-29, `state/bwx-bringup.md`. 576 refuses as well and
+#: refuses with the fused triangle attention arm in place, which is what rules out 544 being a
+#: hole in the L1 clash class rather than the top of the card: at 544 the arm declines and the
+#: composed path holds 2.576 GB the fold would not otherwise need, so that rung alone could not
+#: settle it. Quoted like the p150a figure and enforced nowhere: the allocator decides.
+MEASURED_MAX_TOKENS_WH_GALAXY = 512
+#: 12 banks of 1,073,741,792 B, as the allocator reports them.
+WH_GALAXY_DRAM_BYTES = 12 * 1_073_741_792
+
+#: Every board the ladder has actually been run on, by the DRAM the allocator reports: the
+#: largest token axis measured to complete a gradient round on one. A refusal quotes the row
+#: for the board in hand, because quoting another board's ceiling is how a user gets told their
+#: fold should have fitted when on this card it never could.
+_MEASURED_CEILINGS = (
+    (P150A_DRAM_BYTES, MEASURED_MAX_TOKENS_P150A, "p150a"),
+    (WH_GALAXY_DRAM_BYTES, MEASURED_MAX_TOKENS_WH_GALAXY, "Wormhole Galaxy chip"),
+)
 
 #: tt-metal's allocator refusal, which carries every number a user needs and is buried under
 #: forty lines of C++ backtrace by the time JAX has finished wrapping it. Per bank, except the
@@ -100,6 +124,19 @@ _ALLOCATOR_REFUSAL = re.compile(
 
 def _gb(b: float) -> str:
     return f"{b / 1e9:.3f} GB" if b >= 1e9 else f"{b / 1e6:.1f} MB"
+
+
+def _measured_board(card_total: int):
+    """The `_MEASURED_CEILINGS` row for the board in hand, or None for one nobody laddered.
+
+    Matched on reported DRAM within 5 %, not on equality: the figure is a bank count times a
+    bank size the allocator prints, and a board that reserves a little differently is still
+    that board.
+    """
+    for dram, cap, name in _MEASURED_CEILINGS:
+        if abs(card_total - dram) <= dram // 20:
+            return dram, cap, name
+    return None
 
 
 def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
@@ -136,25 +173,37 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
         f"{_gb(held)} of {_gb(card_total)} already held by this fold.")
 
     drop = n - (padded - TOKEN_BUCKET)
-    if padded > MEASURED_MAX_TOKENS_P150A:
+    # The ceiling to compare against is THIS board's, where one has been measured. A Wormhole
+    # Galaxy chip stops at 512 and a p150a at 576, so a Wormhole user told the p150a number is
+    # told their 544-token fold should have fitted, and sent looking for a phantom co-tenant.
+    board = _measured_board(card_total)
+    cap = board[1] if board else MEASURED_MAX_TOKENS_P150A
+    board_name = board[2] if board else "p150a"
+    smaller_card = card_total < P150A_DRAM_BYTES
+    if padded > cap or smaller_card:
+        reference = (
+            f"The largest axis measured to complete a gradient round on one {board_name} "
+            f"({_gb(board[0])}) is {cap} tokens."
+            if board else
+            f"This card has {_gb(card_total)}, less than the {_gb(P150A_DRAM_BYTES)} of the "
+            f"p150a where {MEASURED_MAX_TOKENS_P150A} tokens is the largest axis measured to "
+            f"complete a gradient round, so its own ceiling is lower.")
         action = (
             f"What to do: run a smaller complex. The token axis is the complex BindCraft 2 "
             f"built, padded to a multiple of {TOKEN_BUCKET} -- it is LARGER than target "
             f"residues + binder length, so size the job off the {n} above and not off that "
             f"sum. {drop} residues off the "
-            f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. The largest axis "
-            f"measured to complete a gradient round on one p150a is "
-            f"{MEASURED_MAX_TOKENS_P150A} tokens. Trimming the "
+            f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. {reference} Trimming the "
             f"target to the domain you are binding is the other lever and usually the bigger "
             f"one.")
     else:
         action = (
-            f"What to do: {padded} tokens fits on a p150a with the card to itself (the "
-            f"largest axis measured to complete a gradient round is "
-            f"{MEASURED_MAX_TOKENS_P150A}), so something else is holding this card. Interleaved "
-            f"trajectories are the usual cause: pass trajectories_per_card=1 to run BindCraft "
-            f"2's own one-at-a-time loop. Otherwise {drop} residues off the binder takes this "
-            f"fold to {padded - TOKEN_BUCKET} tokens.")
+            f"What to do: {padded} tokens fits on a {board_name} with the card to itself (the "
+            f"largest axis measured to complete a gradient round is {cap}), so something else "
+            f"is holding this card. Interleaved trajectories are the usual cause: pass "
+            f"trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise "
+            f"{drop} residues off the binder takes this fold to {padded - TOKEN_BUCKET} "
+            f"tokens.")
 
     return MemoryError(
         f"BindCraft 2 ran out of device memory in the Evoformer {phase} at {padded} tokens.\n"

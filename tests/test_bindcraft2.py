@@ -1211,6 +1211,56 @@ def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
     assert "288 tokens" in msg
 
 
+#: A Wormhole Galaxy chip's own words: 12 banks of 1,073,741,792 B, about 12.885 GB. Copied
+#: off the 544-token rung of the ceiling ladder on dev .107 card 30, 2026-09-29.
+REFUSAL_WORMHOLE = (
+    "Out of Memory: Not enough space to allocate 1638400000 B DRAM buffer across "
+    "12 banks, where each bank needs to store 136533344 B, but bank size is "
+    "1073741792 B (allocated: 1028249600 B, free: 45492192 B, "
+    "largest free block: 21491680 B)")
+
+
+def test_a_refusal_on_a_smaller_card_does_not_quote_the_p150a_as_if_it_applied():
+    """320 tokens fits a p150a, but telling a Wormhole user "something else is holding this
+    card" sends them after company the chip does not have."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=300, padded=320))
+    assert "run a smaller complex" in msg
+    assert "something else is holding" not in msg
+    assert "34.226 GB" not in msg          # the p150a's DRAM is not this card's business
+
+
+def test_a_wormhole_refusal_quotes_the_ceiling_measured_on_a_wormhole():
+    """The board in hand decides which measured ceiling the message may quote.
+
+    A Wormhole Galaxy chip completes a gradient round at 512 tokens and refuses at 544; a p150a
+    goes to 576. Quoting 576 here tells a user whose 544-token fold just died that it should
+    have fitted, and the only remedy that reading suggests -- go find the co-tenant -- is for a
+    co-tenant that does not exist. Measured in `state/bwx-bringup.md`.
+    """
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=531, padded=544))
+    assert "Wormhole Galaxy chip" in msg and "512 tokens" in msg
+    assert "12.885 GB" in msg
+    assert "run a smaller complex" in msg
+    assert "19 residues off the binder" in msg     # 531 -> 512, the concrete way down
+    assert "576" not in msg                        # the p150a's ceiling, not this card's
+
+
+def test_a_board_nobody_laddered_still_gets_the_conservative_reference():
+    """An unmeasured card must not be silently promoted to a measured one.
+
+    A 5 % match is what identifies a board, so a card at half a p150a matches neither row and
+    falls back to the p150a comparison, which says only that its own ceiling is lower -- a
+    direction, not a number, because nobody has run the ladder on it.
+    """
+    odd = REFUSAL_WORMHOLE.replace("across 12 banks", "across 4 banks")
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(odd),
+                                             phase="backward", n=300, padded=320))
+    assert "its own ceiling is lower" in msg
+    assert "Wormhole Galaxy chip" not in msg
+
+
 def test_an_unrelated_failure_is_re_raised_unchanged():
     """A wrapper that repaints the shape of an unrelated bug is worse than no wrapper."""
     boom = ValueError("holds 24 Evoformer blocks and this splice was built for 48")

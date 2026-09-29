@@ -511,6 +511,39 @@ median.
 All of the size numbers above are a p150a. A p300c is a different chip and its own numbers are
 the ones in the two paragraphs before this.
 
+### One chip of a Wormhole Galaxy stops at 512 tokens
+
+A Wormhole Galaxy chip has 12 banks of 1,073,741,792 B, 12.885 GB against the p150a's 34.226 GB,
+and its ceiling is its own: **512 tokens completes a gradient round and every axis above it
+refuses in the Evoformer backward.** Measured on dev `.107` card 30 with the box's agent stopped
+so the ladder held the chip alone, 2026-09-29, at AICLK 1000 MHz median over 109 samples taken
+during the rung -- 1000 is this part's ceiling, not a throttled 1350.
+
+| tokens | outcome | held at the refusal, of 12.885 GB |
+|---|---|---|
+| 320 to 512 | runs and completes | |
+| 544 | refused, card full: 151.5 MB wanted, 128.6 MB free | 12.756 GB |
+| 576 | refused, no contiguous run: 6.3 MB a bank wanted, largest block 1.4 MB | 12.735 GB |
+| 608 | refused, card full: 189.3 MB wanted, 149.3 MB free | 12.736 GB |
+| 640 | refused, no contiguous run: 0.4 MB a bank wanted, largest block 0.2 MB | 12.776 GB |
+
+Every rung above 512 holds about 12.74 GB of the 12.885 GB before it stops, so whether the last
+refusal reads "full" or "fragmented" is only which buffer happened to be next: the chip is
+saturated either way.
+
+**Why the ladder did not stop at the first refusal.** At 544 the fused triangle attention
+declines every call -- the same L1 circular-buffer clash that makes 544 the axis to avoid on a
+p150a -- so the composed path runs and holds a `[544, 4, 544, 544]` fp32 score tensor, 2.576 GB
+the fold would not otherwise need. A single refusal at 544 could therefore have been that clash
+rather than the top of the card, and the run says as much itself. It is not: **576 refuses with
+the fused arm serving every call**, and 544 refuses again with the same numbers when re-run
+alone. The clash follows the token axis and not the board, declining at 544 and 608 and serving
+at 576 and 640 exactly as it does on a p150a.
+
+So a Wormhole chip does **not** reach the p150a's 576, and nobody should predict either number
+from bank geometry: the earlier guess from 12 GiB in 12 banks put this wall near 384-416 tokens,
+and 384, 416, 448, 480 and 512 all run, in a flat 1:45 to 2:12 a rung.
+
 ## What one step costs
 
 One gradient step through this entry point on a real card, at the small end of the draw range:

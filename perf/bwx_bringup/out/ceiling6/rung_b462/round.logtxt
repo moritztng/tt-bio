@@ -1,0 +1,463 @@
+2026-09-29 21:35:50.698 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ubuntu/.cache/ttnn,model_cache_path=/home/ubuntu/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "UF-EV-A4-GWH01",
+ "card": "30",
+ "tt_bio_file": "/home/ubuntu/bwx/tt-bio/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true,
+  "grad_fanin_l1": false,
+  "widen_add": true
+ },
+ "genq_compact": false,
+ "taped_channel_move": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": false,
+ "binder_pinned": 462,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_ptm',), validation_models=('model_2_ptm',), validation_pool_exhausted=False)",
+ "pci": "0000:c7:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!6/tt_aiclk",
+ "commit": "2d174fd5bdcae23359615e195c77be163842dabb",
+ "seed": 100,
+ "rounds_requested": 1,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-29T21:35:51Z",
+ "loadavg_start": [
+  3.3310546875,
+  3.1103515625,
+  3.9306640625
+ ],
+ "nproc": 64,
+ "project": "/home/ubuntu/bwx/out/sitting6/rung_b462"
+}
+/home/ubuntu/bwx/tt-bio/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 462
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ubuntu/bwx/out/sitting6/rung_b462 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l462_225c73fd7be4f028 | accepted 0/10 ===
+2026-09-29 21:36:21.490 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 2094368 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-09-29 21:36:21.497 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 2016544 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-09-29 21:36:22.945 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 3596091392 B DRAM buffer across 12 banks, where each bank needs to store 299675648 B, but bank size is 1073741792 B (allocated: 820135936 B, free: 253605856 B, largest free block: 222820320 B) (assert.hpp:104)
+2026-09-29 21:36:48.802 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 3596091392 B DRAM buffer across 12 banks, where each bank needs to store 299675648 B, but bank size is 1073741792 B (allocated: 747668832 B, free: 326072960 B, largest free block: 293623776 B) (assert.hpp:104)
+[tt_bio.bindcraft2] the fused triangle attention declined all 96 calls at 608 tokens: its circular buffers do not fit L1 at this token axis, so the composed path is running and holding the [608,4,608,608] fp32 scores -- 3.596 GB of device memory this fold would not otherwise need, and a slower round with it. Whether the arm fits is a property of the token axis and is NOT monotone in it, so a neighbouring binder length is often much cheaper: try one 32-token bucket UP as well as one down.
+2026-09-29 21:37:11.641 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 2081947648 B DRAM buffer across 12 banks, where each bank needs to store 173498368 B, but bank size is 1073741792 B (allocated: 873856352 B, free: 199885440 B, largest free block: 169043936 B) (assert.hpp:104)
+2026-09-29 21:37:27.289 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 946339840 B DRAM buffer across 12 banks, where each bank needs to store 78864384 B, but bank size is 1073741792 B (allocated: 958236000 B, free: 115505792 B, largest free block: 74354656 B) (assert.hpp:104)
+2026-09-29 21:37:37.321 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 378535936 B DRAM buffer across 12 banks, where each bank needs to store 31547392 B, but bank size is 1073741792 B (allocated: 1035786592 B, free: 37955200 B, largest free block: 24479712 B) (assert.hpp:104)
+2026-09-29 21:37:37.327 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 189267968 B DRAM buffer across 12 banks, where each bank needs to store 15773696 B, but bank size is 1073741792 B (allocated: 1059873120 B, free: 13868672 B, largest free block: 1640416 B) (assert.hpp:104)
+[tri_att] DRAM refused the single pass at ((1, 608, 608, 128), False); re-running it in 512-row blocks
+2026-09-29 21:37:40.534 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 189267968 B DRAM buffer across 12 banks, where each bank needs to store 15773696 B, but bank size is 1073741792 B (allocated: 1053505888 B, free: 20235904 B, largest free block: 9330656 B) (assert.hpp:104)
+[tri_att] still refused; halving the block to 256 rows
+2026-09-29 21:37:42.818 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 189267968 B DRAM buffer across 12 banks, where each bank needs to store 15773696 B, but bank size is 1073741792 B (allocated: 1053964640 B, free: 19777152 B, largest free block: 7794656 B) (assert.hpp:104)
+[tri_att] still refused; halving the block to 128 rows
+2026-09-29 21:37:45.656 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 19922944 B DRAM buffer across 12 banks, where each bank needs to store 1660928 B, but bank size is 1073741792 B (allocated: 1062058336 B, free: 11683456 B, largest free block: 413696 B) (assert.hpp:104)
+[tri_att] still refused; halving the block to 64 rows
+2026-09-29 21:37:49.422 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 4980736 B DRAM buffer across 12 banks, where each bank needs to store 415744 B, but bank size is 1073741792 B (allocated: 1063158112 B, free: 10583680 B, largest free block: 403456 B) (assert.hpp:104)
+[tri_att] still refused; halving the block to 32 rows
+2026-09-29 21:37:51.856 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 189267968 B DRAM buffer across 12 banks, where each bank needs to store 15773696 B, but bank size is 1073741792 B (allocated: 1061296480 B, free: 12445312 B, largest free block: 2017248 B) (assert.hpp:104)
+jax.pure_callback failed
+Traceback (most recent call last):
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 175, in _refusal_names_the_size
+    yield
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 780, in _backward
+    trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/autograd.py", line 706, in backward
+    _backward(roots, seeds)
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/autograd.py", line 746, in _backward
+    fire()
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/autograd.py", line 2604, in fire
+    _recompute(seeded)
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/autograd.py", line 2570, in _recompute
+    y = fn(*inner)
+        ^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 279, in <lambda>
+    lambda a, b, blk=block: blk(a, b, msa_mask, *pair_masks), m, z)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/af2.py", line 888, in __call__
+    return msa, super().__call__(z, mask, attn_mask)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/af2.py", line 440, in __call__
+    z = self._residual(z, self._update(name, device, z))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/af2.py", line 427, in _update
+    return device(x, *args)
+           ^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/af2.py", line 435, in <lambda>
+    ("tri_att_start", lambda t: self.tri_att_start(t, attn_mask)),
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 8966, in __call__
+    u = self._update(x, attn_mask, add_to_input)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 8993, in _update
+    return row_block_after_refusal(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 5842, in row_block_after_refusal
+    out = blocked(rows)
+          ^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 8973, in blocked
+    return host_acc_after_refusal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 6594, in host_acc_after_refusal
+    return run()
+           ^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 8975, in <lambda>
+    lambda: _inplace_guarded("triangle attention", lambda: self._attend_pair(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 6782, in _inplace_guarded
+    out = run()
+          ^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 8975, in <lambda>
+    lambda: _inplace_guarded("triangle attention", lambda: self._attend_pair(
+                                                           ^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 9295, in _attend_pair
+    o_chunk = attend(qkv_chunk, triangle_bias, len(g_chunk.shape) == 4,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 9109, in attend
+    return _attend_heads(q, k, v, bias, keep_heads, gate)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 9134, in _attend_heads
+    o = _fp32_softmax_attention(
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 4353, in _fp32_softmax_attention
+    return _with_dram_narrowing(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 3364, in _with_dram_narrowing
+    return run(blk)
+           ^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 4315, in run
+    return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 4393, in _fp32_softmax_attention_block
+    attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/tenstorrent.py", line 4426, in _fp32_softmax_tail
+    sc = ttnn.typecast(sc0, ttnn.float32, memory_config=sc0.memory_config())
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/taped_ttnn.py", line 1489, in call
+    out = impl(shipped, args, kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/taped_ttnn.py", line 1679, in _v_typecast
+    out_v = shipped(*ra, **rk)
+            ^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/venv/lib/python3.12/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 189267968 B DRAM buffer across 12 banks, where each bank needs to store 15773696 B, but bank size is 1073741792 B (allocated: 1061296480 B, free: 12445312 B, largest free block: 2017248 B)
+backtrace:
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7fb8cf555697]
+ --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)
+ --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)
+ --- tt::tt_metal::Buffer::allocate_impl()
+ --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)
+ --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)
+ --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)
+ --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)
+ --- ttnn::prim::TypecastDeviceOperation::create_output_tensors(ttnn::prim::TypecastParams const&, ttnn::prim::TypecastInputs const&)
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim23TypecastDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x146) [0x7fb95d46a996]
+ --- ttnn::prim::typecast(tt::tt_metal::Tensor const&, tt::tt_metal::DataType, tt::tt_metal::MemoryConfig const&, bool, bool, bool, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x132bded) [0x7fb95d45bded]
+ --- ttnn::typecast(tt::tt_metal::Tensor const&, tt::tt_metal::DataType const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x2eed66) [0x7fb95db69d66]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7fb95dae8aa5]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyObject_Call_Prepend+0x179) [0x1810df9]
+ --- /home/ubuntu/bwx/venv/bin/python() [0x1874658]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyEval_EvalFrameDefault+0xe6fc) [0x182453c]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyObject_Call_Prepend+0x179) [0x1810df9]
+ --- /home/ubuntu/bwx/venv/bin/python() [0x1874658]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyEval_EvalFrameDefault+0xe6fc) [0x182453c]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyObject_Call_Prepend+0xb0) [0x1810d30]
+ --- /home/ubuntu/bwx/venv/bin/python() [0x1874658]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyEval_EvalFrameDefault+0x3cb3) [0x1819af3]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyObject_Call_Prepend+0xb0) [0x1810d30]
+ --- /home/ubuntu/bwx/venv/bin/python() [0x1874658]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyEval_EvalFrameDefault+0xe6fc) [0x182453c]
+ --- /home/ubuntu/bwx/venv/bin/python() [0x1815120]
+ --- /home/ubuntu/bwx/venv/bin/python() [0x1aa6601]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyEval_EvalFrameDefault+0xe5e8) [0x1824428]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyObject_Call_Prepend+0xb0) [0x1810d30]
+ --- /home/ubuntu/bwx/venv/bin/python() [0x1874658]
+ --- /home/ubuntu/bwx/venv/bin/python(_PyEval_EvalFrameDefault+0xe6fc) [0x182453c]
+ --- /home/ubuntu/bwx/venv/bin/python(PyObject_Vectorcall+0x3d) [0x19082fd]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3aad4e1) [0x7fbced64d4e1]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a68dc2) [0x7fbced608dc2]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a70c68) [0x7fbced610c68]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a6aae9) [0x7fbced60aae9]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db6e3c) [0x7fbced956e3c]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db7021) [0x7fbced957021]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2c3d3) [0x7fbcf2acc3d3]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2ba3e) [0x7fbcf2acba3e]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde1e94b) [0x7fbcf79be94b]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde21f1f) [0x7fbcf79c1f1f]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde23a06) [0x7fbcf79c3a06]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde24873) [0x7fbcf79c4873]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x80d7d7a) [0x7fbcf1c77d7a]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x95d959c) [0x7fbcf317959c]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x95d9cf2) [0x7fbcf3179cf2]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78ce044) [0x7fbcf146e044]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78cded1) [0x7fbcf146ded1]
+ --- /home/ubuntu/bwx/venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78bd28f) [0x7fbcf145d28f]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x94a83) [0x7fbcf9895a83]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x1268e0) [0x7fbcf99278e0]
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py", line 93, in pure_callback_impl
+    return tree_util.tree_map(np.asarray, callback(*args))
+                                          ^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+    return tree_util.tree_leaves(self.callback_func(*args, **kwargs))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/perf/bcx_round/meter.py", line 261, in wrapper
+    return orig(self, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 777, in _backward
+    with _refusal_names_the_size("backward", n, z_shape[0]), \
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 180, in _refusal_names_the_size
+    raise better from exc
+MemoryError: BindCraft 2 ran out of device memory in the Evoformer backward at 608 tokens.
+  complex   595 residues, padded to 608 tokens (tt-bio buckets the token axis to 32)
+  asked for 189.3 MB in one DRAM buffer (15.8 MB in each of 12 banks)
+  free      149.3 MB of 12.885 GB, largest contiguous block 2.0 MB
+The card is full: 149.3 MB free against a 189.3 MB request, with 12.736 GB of 12.885 GB already held by this fold.
+What to do: run a smaller complex. The token axis is the complex BindCraft 2 built, padded to a multiple of 32 -- it is LARGER than target residues + binder length, so size the job off the 595 above and not off that sum. 19 residues off the binder takes this fold to 576 tokens. The largest axis measured to complete a gradient round on one p150a is 576 tokens. Trimming the target to the domain you are binding is the other lever and usually the bigger one.
+The allocator's own refusal follows.
+{
+ "host": "UF-EV-A4-GWH01",
+ "card": "30",
+ "tt_bio_file": "/home/ubuntu/bwx/tt-bio/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true,
+  "grad_fanin_l1": false,
+  "widen_add": true
+ },
+ "genq_compact": false,
+ "taped_channel_move": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": false,
+ "binder_pinned": 462,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_ptm',), validation_models=('model_2_ptm',), validation_pool_exhausted=False)",
+ "pci": "0000:c7:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!6/tt_aiclk",
+ "commit": "2d174fd5bdcae23359615e195c77be163842dabb",
+ "seed": 100,
+ "rounds_requested": 1,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-29T21:35:51Z",
+ "loadavg_start": [
+  3.3310546875,
+  3.1103515625,
+  3.9306640625
+ ],
+ "nproc": 64,
+ "project": "/home/ubuntu/bwx/out/sitting6/rung_b462",
+ "wall_seconds": 120.6,
+ "stopped": null,
+ "triatt_bw_stats": {
+  "served": 0,
+  "declined": 0
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 2,
+  "backward": 0
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 2,
+  "backward": 0
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 2,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 0,
+  "backward": 0
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 220,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "rne_add": [
+   910,
+   0
+  ],
+  "tri_att_sdpa_hifi": [
+   0,
+   220
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 0,
+  "declined": 220,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 910,
+  "declined": 8,
+  "rejects": {
+   "shape_mismatch|(1, 608, 608, 128)|(1, 1, 1, 128)": 8
+  }
+ },
+ "fp32_softmax_calls": 317,
+ "mm_layout": {
+  "declined: has a program config": 1106,
+  "served": 905,
+  "declined: has a core grid": 194
+ },
+ "mm_layout_on": true,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  4.2041015625,
+  4.0537109375,
+  4.22021484375
+ ],
+ "finished_utc": "2026-09-29T21:37:52Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 462,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> /home/ubuntu/bwx/out/sitting6/rung_b462/round_events.json
+Traceback (most recent call last):
+  File "/home/ubuntu/bwx/tt-bio/perf/bcx_round/run_round.py", line 354, in <module>
+    main()
+  File "/home/ubuntu/bwx/tt-bio/perf/bcx_round/run_round.py", line 296, in main
+    campaign.run_campaign(settings, project, af2_weights=args.params,
+  File "/home/ubuntu/bwx/bc2/bindcraft/campaign.py", line 271, in run_campaign
+    return run_campaign_arm(settings, project_folder, alphafold_model, validation_model, mpnn_model, key, max_trajectories, build_validation_model, autotune=settings.get('autotune', True), metadata=metadata)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/bc2/bindcraft/campaign.py", line 185, in run_campaign_arm
+    protein_states, predictions, failed_stage = run_trajectory(design_settings, alphafold_model, trajectory_random_key, trajectory_directory=trajectory_directory, targets=trajectory_targets)
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/bc2/bindcraft/trajectory.py", line 303, in run_trajectory
+    protein_states, predictions = run_gradient_design_stage(trajectory.protein_states, design_model, sequence_optimizer=stage.sequence_optimizer, design_schedule=design_schedule, record_sequence_update=recorder, select_best_round=len(design_settings.prepared_states) < 2, select_filtered_round=rotating_stage_filter_round(design_settings, target_schedule, trajectory.protein_states, stage.name), **induced_fit_reference_arguments(trajectory.losses, trajectory.binder_alone_reference, design_model, design_settings))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/perf/bcx_round/meter.py", line 328, in wrapper
+    return orig(*a, **kw)
+           ^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/bc2/bindcraft/trajectory.py", line 131, in run_gradient_design_stage
+    predictions, chain_gradients, graph_design_loss = design_model.sequence_gradients(active_protein_states, active_losses, softmax_weight=softmax_weight, one_hot_weight=one_hot_weight, temperature=temperature, logit_scale=logit_scale, reference_predictions=reference_predictions)
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/perf/bcx_round/meter.py", line 282, in sequence_gradients
+    return sg(self, protein_states, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 1554, in sequence_gradients
+    return super().sequence_gradients(protein_states, losses, passed,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/bc2/bindcraft/af2.py", line 406, in sequence_gradients
+    (design_loss, prediction_arrays), shared_chain_gradients = compiled_sequence_gradients(*gradient_arguments)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jax.errors.JaxRuntimeError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):
+  File "/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+  File "/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+  File "/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py", line 96, in pure_callback_impl
+  File "/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+  File "/home/ubuntu/bwx/tt-bio/perf/bcx_round/meter.py", line 263, in wrapper
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 777, in _backward
+  File "/home/ubuntu/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 190, in __exit__
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 180, in _refusal_names_the_size
+MemoryError: BindCraft 2 ran out of device memory in the Evoformer backward at 608 tokens.
+  complex   595 residues, padded to 608 tokens (tt-bio buckets the token axis to 32)
+  asked for 189.3 MB in one DRAM buffer (15.8 MB in each of 12 banks)
+  free      149.3 MB of 12.885 GB, largest contiguous block 2.0 MB
+The card is full: 149.3 MB free against a 189.3 MB request, with 12.736 GB of 12.885 GB already held by this fold.
+What to do: run a smaller complex. The token axis is the complex BindCraft 2 built, padded to a multiple of 32 -- it is LARGER than target residues + binder length, so size the job off the 595 above and not off that sum. 19 residues off the binder takes this fold to 576 tokens. The largest axis measured to complete a gradient round on one p150a is 576 tokens. Trimming the target to the domain you are binding is the other lever and usually the bigger one.
+The allocator's own refusal follows.
+--------------------
+For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.

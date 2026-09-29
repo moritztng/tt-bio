@@ -1,0 +1,48 @@
+2026-09-29T21:26:06Z sitting5 start chip=30 -- extending the ladder above 512 tokens
+2026-09-29T21:26:06Z preflight start binder=146 (288 tokens), 1 round
+2026-09-29T21:26:40Z preflight rc=0 seam_axis=1,288
+2026-09-29T21:26:40Z ladder start: 544 576 608 640 672 704 736 768 tokens
+2026-09-29T21:26:40Z rung binder=398 start
+2026-09-29T21:28:29Z rung binder=398 rc=1 seam_axis=1,544
+2026-09-29T21:28:29Z MEMORY REFUSAL at binder=398. THIS IS THE CEILING: the cap is the rung BELOW it.
+2026-09-29 21:27:11.521 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 2575826944 B DRAM buffer across 12 banks, where each bank needs to store 214654976 B, but bank size is 1073741792 B (allocated: 1027299328 B, free: 46442464 B, largest free block: 21800928 B) (assert.hpp:104)
+[tt_bio.bindcraft2] the fused triangle attention declined all 96 calls at 544 tokens: its circular buffers do not fit L1 at this token axis, so the composed path is running and holding the [544,4,544,544] fp32 scores -- 2.576 GB of device memory this fold would not otherwise need, and a slower round with it. Whether the arm fits is a property of the token axis and is NOT monotone in it, so a neighbouring binder length is often much cheaper: try one 32-token bucket UP as well as one down.
+2026-09-29 21:27:52.507 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 2575826944 B DRAM buffer across 12 banks, where each bank needs to store 214654976 B, but bank size is 1073741792 B (allocated: 827171456 B, free: 246570336 B, largest free block: 210255840 B) (assert.hpp:104)
+2026-09-29 21:27:58.938 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 2121269248 B DRAM buffer across 12 banks, where each bank needs to store 176775168 B, but bank size is 1073741792 B (allocated: 876528256 B, free: 197213536 B, largest free block: 173449184 B) (assert.hpp:104)
+2026-09-29 21:28:11.458 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 1060634624 B DRAM buffer across 12 banks, where each bank needs to store 88387584 B, but bank size is 1073741792 B (allocated: 1011658880 B, free: 62082912 B, largest free block: 46757856 B) (assert.hpp:104)
+2026-09-29 21:28:11.465 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 454557696 B DRAM buffer across 12 banks, where each bank needs to store 37879808 B, but bank size is 1073741792 B (allocated: 1034678400 B, free: 39063392 B, largest free block: 27449312 B) (assert.hpp:104)
+2026-09-29 21:28:12.503 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 151519232 B DRAM buffer across 12 banks, where each bank needs to store 12627968 B, but bank size is 1073741792 B (allocated: 1058951296 B, free: 14790496 B, largest free block: 3954656 B) (assert.hpp:104)
+[tri_att] DRAM refused the single pass at ((1, 544, 544, 128), False); re-running it in 512-row blocks
+2026-09-29 21:28:15.743 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 151519232 B DRAM buffer across 12 banks, where each bank needs to store 12627968 B, but bank size is 1073741792 B (allocated: 1061806208 B, free: 11935584 B, largest free block: 929760 B) (assert.hpp:104)
+[tri_att] still refused; halving the block to 256 rows
+2026-09-29 21:28:19.048 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 151519232 B DRAM buffer across 12 banks, where each bank needs to store 12627968 B, but bank size is 1073741792 B (allocated: 1060038784 B, free: 13703008 B, largest free block: 3051488 B) (assert.hpp:104)
+[tri_att] still refused; halving the block to 128 rows
+2026-09-29 21:28:21.877 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 151519232 B DRAM buffer across 12 banks, where each bank needs to store 12627968 B, but bank size is 1073741792 B (allocated: 1060544640 B, free: 13197152 B, largest free block: 2869216 B) (assert.hpp:104)
+[tri_att] still refused; halving the block to 64 rows
+2026-09-29 21:28:25.213 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 75759616 B DRAM buffer across 12 banks, where each bank needs to store 6313984 B, but bank size is 1073741792 B (allocated: 1059637376 B, free: 14104416 B, largest free block: 5269472 B) (assert.hpp:104)
+[tri_att] still refused; halving the block to 32 rows
+2026-09-29 21:28:27.867 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 151519232 B DRAM buffer across 12 banks, where each bank needs to store 12627968 B, but bank size is 1073741792 B (allocated: 1063022720 B, free: 10719072 B, largest free block: 1251296 B) (assert.hpp:104)
+jax.pure_callback failed
+Traceback (most recent call last):
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 175, in _refusal_names_the_size
+    yield
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 780, in _backward
+    trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/autograd.py", line 706, in backward
+    _backward(roots, seeds)
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/autograd.py", line 746, in _backward
+    fire()
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/autograd.py", line 2604, in fire
+    _recompute(seeded)
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/autograd.py", line 2570, in _recompute
+    y = fn(*inner)
+        ^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/bindcraft2.py", line 279, in <lambda>
+    lambda a, b, blk=block: blk(a, b, msa_mask, *pair_masks), m, z)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/af2.py", line 888, in __call__
+    return msa, super().__call__(z, mask, attn_mask)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/bwx/tt-bio/tt_bio/af2.py", line 440, in __call__
+    z = self._residual(z, self._update(name, device, z))
+2026-09-29T21:28:29Z sitting5 done
