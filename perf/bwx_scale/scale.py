@@ -137,7 +137,8 @@ def main():
         stop.set()
         let_go()
         (out / "sitting.json").write_text(json.dumps(
-            {"chips": chips, "seed": args.seed, "binder": args.binder,
+            {"chips": chips, "nodes": {str(c): device_node(c).rsplit("/", 1)[1] for c in chips},
+             "seed": args.seed, "binder": args.binder,
              "max_trajectories": args.max_trajectories,
              "wall_seconds": round(time.time() - t0, 1), "campaigns": results,
              "finished_utc": time.strftime("%FT%TZ", time.gmtime())}, indent=1))
