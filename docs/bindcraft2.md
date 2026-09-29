@@ -284,6 +284,17 @@ reasonable thing to ask for:
 unresolved); the rest carry the hotspot.
 ```
 
+A chain named twice in one target's `chains` is refused, because `merge_receptor_chains`
+concatenates the chains it is given in the order it is given them: `"chains": "A,A"` on the
+115-residue hPDL1 prepares a 230-residue target and flags hotspot 54 at both 54 and 217, a
+homodimer nobody asked for with the epitope on both halves of it. `A,B`, `A, B`, `B,A` and a
+single chain are all fine; a target that really is a homodimer needs a file holding both copies.
+
+The order the chains are listed in is the order they are fused, so it decides the numbers a
+hotspot lands on: on the two-chain target, `A57` resolves to 57 with `"chains": "A,B"` and to
+320 with `"chains": "B,A"`. Both name the same residue of chain A -- the number to read a
+hotspot against is always the file's own, and the fused index is internal.
+
 A hotspot that names no chain is noted rather than refused, on a target whose chains share that
 residue number. BindCraft 2 qualifies a bare span with the target's first chain, which is the
 right default and says nothing about the alternative -- and most deposited complexes number
