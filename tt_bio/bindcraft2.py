@@ -43,7 +43,7 @@ from typing import Callable, Iterator
 import numpy as np
 import torch
 
-from tt_bio import duotraj
+from tt_bio import bcinputs, duotraj
 
 #: tt-bio's token axis buckets to 32, and rounding a design UP is faster than running it ragged:
 #: the PD-L1 complex at 211 tokens costs 4.504 s on the trunk forward and the same design padded
@@ -1881,6 +1881,10 @@ def run_campaign(settings: Mapping, project_folder: str, *,
     others have finished, rather than leaving them orphaned on the card.
     """
     from bindcraft import campaign
+
+    # Before a card is opened: a hotspot that names no residue of the target sets no flag, and
+    # BindCraft 2 reads that as a campaign with no epitope rather than as a mistake.
+    bcinputs.refuse_unusable_inputs(settings)
 
     if isinstance(trajectories_per_card, str):
         if trajectories_per_card != "auto":

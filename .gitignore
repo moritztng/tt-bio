@@ -440,3 +440,8 @@ perf/bcx_p10_*/out/xlacache/
 # evidence the cadence result rests on is history-rank*.jsonl and provenance-rank*.json, which
 # stay tracked; the weights are run residue nothing reads.
 perf/train_u_relpos/**/checkpoints/
+
+# bgx-inputs: the input matrix keeps its harness and its records, not its run dirs or the
+# JAX cache the batch fills.
+perf/bgx_inputs/out/xlacache/
+perf/bgx_inputs/out/run_*/
