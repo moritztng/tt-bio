@@ -295,6 +295,12 @@ so only the last of them is prepared and the rest are dropped without a word. Gi
 its own "name".
 ```
 
+A hotspot that points at a ligand, a metal, a glycan or a water is refused by name -- `residue
+401 of chain A in ligands.pdb is NAG, a heteroatom` -- because those are on screen in a viewer
+with residue numbers of their own and BindCraft 2 designs against the polymer only. The three
+ways a hotspot can miss (a heteroatom, an unresolved stretch, a number the chain never reaches)
+each say which one it is.
+
 A file whose extension does not match its records is refused with the rename to make, because
 BindCraft 2 picks its reader from the suffix: a PDB saved as `.cif` fails inside the mmCIF reader
 (`There are no blocks in the file`) and an mmCIF saved as `.pdb` fails inside the PDB one
