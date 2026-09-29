@@ -55,8 +55,6 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 
 /* charts, open, no cards */
 .metricline{margin:30px 0 30px}
-.unit{font-size:.86rem;color:var(--ink-3);margin:12px 0 0}
-.unit b{color:var(--ink-2);font-weight:600}
 .seg{display:inline-flex;border-bottom:1px solid var(--rule-2);gap:24px}
 .seg button{font:inherit;font-size:.95rem;padding:0 0 10px;border:0;background:0;cursor:pointer;
   color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -76,6 +74,10 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 .bval{font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
 .brow.us .bval{color:var(--ink);font-weight:600}
 .bna{font-size:.85rem;color:var(--ink-4)}
+/* the axis: what a bar value is, beside the values, once above all the groups */
+.bhead{font-size:.86rem;color:var(--ink-3);padding-bottom:4px}
+.bhead b{color:var(--ink-2);font-weight:600}
+.bhead .bval{font-size:.8rem;color:var(--ink-3);align-self:end}
 .caption{font-size:.85rem;color:var(--ink-4);margin-top:22px;max-width:66ch}
 .prov{font-size:.92rem;color:var(--ink-3);margin:0;max-width:70ch}
 .prov a{color:var(--ink-2)}
@@ -167,11 +169,10 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
       <a href="benchmarks/#methods">What each GPU row runs</a></p>
     <div class="metricline">
       <div class="seg" id="metric">
-        <button data-m="perk" aria-pressed="true">Purchase price</button>
-        <button data-m="tco" aria-pressed="false">Total cost of ownership</button>
-        <button data-m="tph" aria-pressed="false">Raw throughput</button>
+        <button data-m="perk" aria-pressed="true">Throughput per $ to buy</button>
+        <button data-m="tco" aria-pressed="false">Throughput per $ to own</button>
+        <button data-m="tph" aria-pressed="false">Throughput per server</button>
       </div>
-      <p class="unit" id="unit"></p>
     </div>
     <div id="bars"></div>
     <p class="caption" id="cap"></p>
@@ -312,10 +313,12 @@ function build(D){
   const srv = CELLS.map(k => P[SERVER_OF[k]]);
   const usd = v => "$" + Math.round(v/1000) + "k";
   CAP = {
-    perk: srv.map(p => p.name + " " + usd(p.price_usd)).join(", ") + ", at list.",
-    tco:  "Over " + m.amortisation_years + " years that is " +
+    perk: "Purchase prices at list: " + srv.map(p => p.name + " " + usd(p.price_usd)).join(", ") + ".",
+    tco:  "Ownership is purchase price plus electricity. Over " + m.amortisation_years +
+          " years that is " +
           srv.map(p => usd(ownUsd(p))).join(", ") + " respectively.",
-    tph:  "Same " + D.scope.size_aa + "-residue protein, each stack on its own shipped settings. " +
+    tph:  "32 Blackhole processors against 8 GPUs, on the same " + D.scope.size_aa +
+          "-residue protein, each stack on its own shipped settings. " +
           srv.map(p => p.power_kw + " kW").join(" against ") + "."
   };
 }
@@ -336,13 +339,13 @@ function groupHTML(model){
   return `<div class="mgroup"><div class="mname">${model}</div><div class="bars">${bars}</div></div>`;
 }
 function drawChart(){
-  document.getElementById("bars").innerHTML = Object.keys(CH).map(groupHTML).join("");
-  const UNIT = {
-    perk:"<b>Predictions per hour, per $1,000 of purchase price.</b> What the hardware costs to buy.",
-    tco:"<b>Predictions per hour, per $1,000 of four-year ownership.</b> Purchase price plus electricity, over four years.",
-    tph:"<b>Predictions per hour, per server.</b> 32 Blackhole processors against 8 GPUs."
-  };
-  document.getElementById("unit").innerHTML = UNIT[metric];
+  const AXIS = {perk:["Predictions per hour, per $1,000 of purchase price.", "per $1k"],
+                tco:["Predictions per hour, per $1,000 of four-year ownership.", "per $1k"],
+                tph:["Predictions per hour, per server.", "per hour"]}[metric];
+  document.getElementById("bars").innerHTML =
+    `<div class="brow bhead"><div style="grid-column:1/3"><b>${AXIS[0]}</b>
+      Higher is better.</div><div class="bval">${AXIS[1]}</div></div>` +
+    Object.keys(CH).map(groupHTML).join("");
   document.getElementById("cap").textContent = CAP[metric] +
     " Bars scale within each model.";
 }
