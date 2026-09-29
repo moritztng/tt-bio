@@ -753,7 +753,7 @@ def test_the_default_takes_as_many_trajectories_as_the_box_holds(monkeypatch, ca
     assert all(call["kwargs"] == {"af2_weights": "/w"} for call in calls)
     # It says which it chose and why, on one line the user sees.
     line = capsys.readouterr().out
-    assert "3 design trajectories on this card" in line and "GB of host memory is free" in line
+    assert "3 design trajectories on this card" in line and "288 tokens" in line
 
 
 def test_a_box_that_holds_two_gets_two_not_the_cap(monkeypatch):
@@ -788,10 +788,17 @@ def test_a_box_whose_free_memory_cannot_be_read_runs_one(monkeypatch, capsys):
 
 
 def test_auto_does_not_put_more_trajectories_on_the_card_than_it_holds(monkeypatch):
-    """The box is roomy and the card is not: the card is read too, when one is open."""
+    """The box is roomy and the card is not: the card is read too, when one is open.
+
+    10 GB free holds two 288-token trajectories at 3.2 GB each with the 1 GB reserve left over;
+    4 GB holds one. The count is what ALL of them need, not what the ones after the first need:
+    `auto` runs before any trajectory has started, so none of that memory is spoken for yet, and
+    charging the first one nothing is how the old estimate approved a second that had nowhere to
+    go."""
+    _box(monkeypatch, free_gb=200.0, card_gb=10.0)
+    assert len(_campaign_calls(monkeypatch)[0]) == 2
     _box(monkeypatch, free_gb=200.0, card_gb=4.0)
-    calls, _ = _campaign_calls(monkeypatch)
-    assert len(calls) == 2
+    assert len(_campaign_calls(monkeypatch)[0]) == 1
 
 
 def test_a_large_design_gets_fewer_trajectories_than_a_small_one(monkeypatch, capsys):
