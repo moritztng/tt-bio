@@ -1,0 +1,232 @@
+2026-09-29 21:26:07.193 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ubuntu/.cache/ttnn,model_cache_path=/home/ubuntu/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "UF-EV-A4-GWH01",
+ "card": "30",
+ "tt_bio_file": "/home/ubuntu/bwx/tt-bio/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true,
+  "grad_fanin_l1": false,
+  "widen_add": true
+ },
+ "genq_compact": false,
+ "taped_channel_move": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": false,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_ptm',), validation_models=('model_2_ptm',), validation_pool_exhausted=False)",
+ "pci": "0000:c7:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!6/tt_aiclk",
+ "commit": "2d174fd5bdcae23359615e195c77be163842dabb",
+ "seed": 100,
+ "rounds_requested": 1,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-29T21:26:08Z",
+ "loadavg_start": [
+  0.52783203125,
+  2.07470703125,
+  4.21044921875
+ ],
+ "nproc": 64,
+ "project": "/home/ubuntu/bwx/out/sitting5/preflight"
+}
+/home/ubuntu/bwx/tt-bio/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ubuntu/bwx/out/sitting5/preflight | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_322d1f8f0b91373d | accepted 0/10 ===
+{
+ "host": "UF-EV-A4-GWH01",
+ "card": "30",
+ "tt_bio_file": "/home/ubuntu/bwx/tt-bio/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true,
+  "grad_fanin_l1": false,
+  "widen_add": true
+ },
+ "genq_compact": false,
+ "taped_channel_move": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": false,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_ptm',), validation_models=('model_2_ptm',), validation_pool_exhausted=False)",
+ "pci": "0000:c7:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!6/tt_aiclk",
+ "commit": "2d174fd5bdcae23359615e195c77be163842dabb",
+ "seed": 100,
+ "rounds_requested": 1,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-29T21:26:08Z",
+ "loadavg_start": [
+  0.52783203125,
+  2.07470703125,
+  4.21044921875
+ ],
+ "nproc": 64,
+ "project": "/home/ubuntu/bwx/out/sitting5/preflight",
+ "wall_seconds": 30.64,
+ "stopped": "1 rounds collected",
+ "triatt_bw_stats": {
+  "served": 104,
+  "declined": 0,
+  "bw_calls": 104
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 2,
+  "backward": 1
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 2,
+  "backward": 1
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 2,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 0,
+  "backward": 0
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "rne_add": [
+   1356,
+   0
+  ],
+  "tri_att_sdpa_hifi": [
+   312,
+   0
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 312,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 1356,
+  "declined": 12,
+  "rejects": {
+   "shape_mismatch|(1, 288, 288, 128)|(1, 1, 1, 128)": 12
+  }
+ },
+ "fp32_softmax_calls": 144,
+ "mm_layout": {
+  "declined: has a program config": 1224,
+  "declined: has a core grid": 288,
+  "served": 688,
+  "declined: not batched": 1504
+ },
+ "mm_layout_on": true,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  1.13818359375,
+  2.0634765625,
+  4.12744140625
+ ],
+ "finished_utc": "2026-09-29T21:26:38Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "2": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> /home/ubuntu/bwx/out/sitting5/preflight/round_events.json
