@@ -362,3 +362,23 @@ def test_a_positive_hotspot_on_the_same_file_still_resolves(tmp_path):
     path = tmp_path / "negative_numbering.pdb"
     path.write_text("\n".join(tagged) + "\nEND\n")
     assert _problems(_settings(path, hotspots="33")) == ([], [])
+
+
+# ------------------------------------------------- a hotspot on a residue the reader dropped
+
+def test_a_hotspot_on_a_ligand_names_the_heteroatom_it_points_at(tmp_path):
+    """A researcher reads 401 off a viewer, where the glycan is on screen with a number."""
+    lines = [line for line in _bindcraft() if line.startswith("ATOM")]
+    lines.append("HETATM 9001  C1  NAG A 401       1.000   2.000   3.000  1.00  0.00           C")
+    path = tmp_path / "ligands.pdb"
+    path.write_text("\n".join(lines) + "\nEND\n")
+    problems, _ = _problems(_settings(path, hotspots="54,401"))
+    assert len(problems) == 1
+    assert "residue 401 of chain A in ligands.pdb is NAG, a heteroatom" in problems[0]
+    assert "names a protein residue" in problems[0]
+
+
+def test_a_hotspot_on_no_residue_at_all_still_names_the_range(tmp_path):
+    path = _target(tmp_path, "whole.pdb")
+    problems, _ = _problems(_settings(path, hotspots="401"))
+    assert len(problems) == 1 and "residues run 18 to 132" in problems[0]

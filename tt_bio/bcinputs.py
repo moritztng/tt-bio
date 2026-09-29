@@ -162,6 +162,25 @@ def _chain_residues(path: str, chains: str) -> dict[str, set[int]]:
     return residues
 
 
+def _dropped_residue(path: str, chain: str, number: int) -> str | None:
+    """The residue name a hotspot points at when the polymer reader has already dropped it.
+
+    A researcher reads a residue number off a viewer, where the ligands, the metals, the glycans
+    and the waters are all on screen with numbers of their own. `polymer_atom_records` drops
+    every one of them, so "no residue 401" is true of the target and false of the file the
+    caller is looking at: naming NAG 401 is what tells them which.
+    """
+    from bindcraft.protein import read_structure_atoms
+
+    try:
+        for record in read_structure_atoms(path):
+            if str(record["chain_id"]) == chain and int(record["res_id"]) == number:
+                return str(record["res_name"]).strip() or None
+    except Exception:
+        return None                 # the file reads or it does not; the caller has other errors
+    return None
+
+
 def _fasta_residues(path: str, chains: str) -> dict[str, set[int]]:
     from bindcraft.protein import read_fasta_sequences
 
@@ -182,7 +201,8 @@ def _unresolved_stretch(residues: set[int], number: int) -> str:
 
 
 def _span_problem(label: str, kind: str, raw: str, chain: str, start: int, end: int,
-                  residues: dict[str, set[int]], source: str, available) -> str | None:
+                  residues: dict[str, set[int]], source: str, available,
+                  path: str = "") -> str | None:
     if chain not in residues:
         designed = ", ".join(residues) or "none"
         where = (f'Add {chain} to the target\'s "chains", or move the {kind} to chain {designed}.'
@@ -196,6 +216,11 @@ def _span_problem(label: str, kind: str, raw: str, chain: str, start: int, end: 
     if [number for number in range(start, end + 1) if number in residues[chain]]:
         return None
     span = f"residue {start}" if start == end else f"residues {start}-{end}"
+    if start == end and path and (dropped := _dropped_residue(path, chain, start)):
+        return (f"{label} {kind} {raw}: residue {start} of chain {chain} in {source} is "
+                f"{dropped}, a heteroatom, and BindCraft 2 designs against the polymer only, so "
+                f"it drops it with the ligands, the metals, the glycans and the waters. A {kind} "
+                f"names a protein residue; chain {chain}'s run {present[0]} to {present[-1]}.")
     if start > present[-1] or end < present[0]:
         return (f"{label} {kind} {raw}: chain {chain} of {source} has no {span}, its residues run "
                 f"{present[0]} to {present[-1]}. A {kind} is read in the file's own residue "
@@ -313,7 +338,7 @@ def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
             end = int(match.group("end") or start)
             start, end = min(start, end), max(start, end)
             problem = _span_problem(label, kind, raw, chain, start, end, residues, source,
-                                    available)
+                                    available, "" if is_fasta(path) else path)
             if problem:
                 problems.append(problem)
             elif note := _span_note(label, kind, raw, chain, start, end, residues):

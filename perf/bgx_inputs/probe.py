@@ -43,6 +43,8 @@ CASES = [
     case("format-cif-label-numbering",
          targets=target("cif_label_numbering.cif", hotspots="54,56,66,115")),
     case("format-cif-label-chain", targets=target("cif_label_chain.cif", hotspots="54,56")),
+    case("het-hotspot-on-a-ligand", targets=target("ligands.pdb", hotspots="54,401")),
+    case("het-hotspot-on-a-metal", targets=target("ligands.pdb", hotspots="201")),
     case("het-dna-only", targets=target("dna_only.pdb", hotspots="54")),
     case("het-protein-dna-both-chains",
          targets=target("protein_dna.pdb", chains="A,B", hotspots="A67,B54")),
