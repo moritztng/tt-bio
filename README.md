@@ -276,8 +276,9 @@ ladder against a recorded baseline. See [docs/size-generality.md](docs/size-gene
 All structure models support the sampling, output-format, and scheduling options.
 MSA, affinity, constraint, and auxiliary-output options apply only where listed
 below. Each model downloads its weights automatically on first use, except
-OpenFold3: fetch the consortium checkpoint yourself and point `OF3_CKPT` at it,
-or put it at `~/.boltz/of3-p2-155k.pt`. `tt-bio weights` lists every artifact with
+OpenFold3: fetch the consortium checkpoint yourself from
+`https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt`
+and put it at `~/.boltz/of3-p2-155k.pt`, or point `OF3_CKPT` at it. `tt-bio weights` lists every artifact with
 its status, size and path; `--download` prefetches, `--prune` reclaims disk. Set
 `TT_BIO_CACHE` to move all of it (both `~/.boltz` and the Hugging Face cache, about
 65 GiB) somewhere with room. See [docs/weights.md](docs/weights.md).
@@ -987,14 +988,17 @@ Train OpenFold3 with the same forward the inference path uses:
 
 ```bash
 pip install 'tt-bio[tenstorrent,train]'
+curl --create-dirs -o ~/.boltz/of3-p2-155k.pt \
+  https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt
 tt-bio train --model openfold3
 ```
 
-With no data given, that fetches upstream's 8-structure training sample (73 MB, from
-OpenFold3's public bucket, checked file by file against a shipped sha256 list), trains the
-model's own weights at a 384-token crop for one pass over it, and writes to `runs/openfold3`.
-It needs the OpenFold3 weights, `of3-p2-155k.pt`, which [`docs/weights.md`](docs/weights.md)
-says how to fetch. A step takes about 41 s on one p300c chip. Run the same command again and it
+The `curl` line fetches the OpenFold3 weights (2.29 GB, no login). tt-bio does not download them
+for you because the consortium publishes no parameter licence; see
+[`docs/weights.md`](docs/weights.md). With no data given, `tt-bio train` fetches upstream's
+8-structure training sample (73 MB, from OpenFold3's public bucket, checked file by file against
+a shipped sha256 list), trains the model's own weights at a 384-token crop for one pass over it,
+and writes to `runs/openfold3`. A step takes about 42 s on one p300c chip. Run the same command again and it
 resumes from the last checkpoint; run it with different settings on the same `--out` and it
 refuses rather than mixing two runs.
 
