@@ -1,0 +1,9 @@
+{
+ "n": 2,
+ "why": "2 of them at 512 tokens hold about 20 GB of the card and peak near 22 GB of the 209.4 GB of host memory free",
+ "tokens": 512,
+ "size_aware": true,
+ "free_host": 224825438208,
+ "free_device": 0,
+ "rss": 18571264
+}

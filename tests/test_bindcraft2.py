@@ -55,8 +55,13 @@ def test_importing_the_backend_pulls_in_neither_ttnn_nor_jax():
 
 
 def test_pinning_a_card_after_ttnn_is_imported_raises():
+    """The child names its own pin rather than inheriting one: `pin_card` returns early when the
+    environment already names the card asked for, so a suite run under `TT_VISIBLE_DEVICES=3`
+    (which is how this fleet runs anything that touches a card) used to fail this test and pass
+    it on every other card."""
     printed = _run_child("""
-        import sys, types
+        import os, sys, types
+        os.environ["TT_VISIBLE_DEVICES"] = "0"
         sys.modules["ttnn"] = types.ModuleType("ttnn")
         from tt_bio import bindcraft2
         try:
@@ -65,6 +70,20 @@ def test_pinning_a_card_after_ttnn_is_imported_raises():
             print("raised", "TT_VISIBLE_DEVICES=3" in str(exc))
     """)
     assert printed.split() == ["raised", "True"]
+
+
+def test_pinning_the_card_the_environment_already_names_is_a_no_op():
+    """The other half of the same branch, and the reason the test above has to set its own pin:
+    a process started with the card already in its environment is pinned, ttnn or no ttnn."""
+    printed = _run_child("""
+        import os, sys, types
+        os.environ["TT_VISIBLE_DEVICES"] = "3"
+        sys.modules["ttnn"] = types.ModuleType("ttnn")
+        from tt_bio import bindcraft2
+        bindcraft2.pin_card(3)
+        print("no-op", os.environ["TT_VISIBLE_DEVICES"])
+    """)
+    assert printed.split() == ["no-op", "3"]
 
 
 def test_a_missing_checkpoint_is_recorded_rather_than_refused(tmp_path):
@@ -687,7 +706,7 @@ def test_the_extra_msa_segment_survives_being_recomputed():
 # ------------------------------------------------ several trajectories on one card
 
 
-def _campaign_calls(monkeypatch, rounds_before_finishing=3, **kwargs):
+def _campaign_calls(monkeypatch, rounds_before_finishing=3, tokens=None, **kwargs):
     """Run `bindcraft2.run_campaign` against a campaign that does nothing but count rounds.
 
     Each fake campaign call plays `rounds_before_finishing` gradient rounds through
@@ -710,6 +729,8 @@ def _campaign_calls(monkeypatch, rounds_before_finishing=3, **kwargs):
         return len(calls)
 
     monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    if tokens is not None:
+        monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: tokens)
     returned = bindcraft2.run_campaign({"campaign_name": "t"}, "/tmp/project", **kwargs)
     return calls, returned
 
@@ -728,14 +749,16 @@ def test_one_trajectory_per_card_is_bindcrafts_own_call(monkeypatch):
     assert duotraj.GATE is None
 
 
-def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0):
-    """Pretend the box has this much free host memory, this process holds that much, and the
-    card has that much DRAM free (0 = no card open, which is what `auto` sees at entry)."""
+def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0, tokens=288):
+    """Pretend the box has this much free host memory, this process holds that much, the card has
+    that much DRAM free (0 = no card open, which is what `auto` sees at entry), and the design
+    runs at this token axis."""
     from tt_bio import duotraj
 
     monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(free_gb * 2**30))
     monkeypatch.setattr(duotraj, "host_rss_bytes", lambda: int(rss_gb * 2**30))
     monkeypatch.setattr(duotraj, "free_device_bytes", lambda: int(card_gb * 2**30))
+    monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: tokens)
 
 
 def test_the_default_takes_as_many_trajectories_as_the_box_holds(monkeypatch, capsys):
@@ -749,7 +772,7 @@ def test_the_default_takes_as_many_trajectories_as_the_box_holds(monkeypatch, ca
     assert all(call["kwargs"] == {"af2_weights": "/w"} for call in calls)
     # It says which it chose and why, on one line the user sees.
     line = capsys.readouterr().out
-    assert "3 design trajectories on this card" in line and "GB of host memory is free" in line
+    assert "3 design trajectories on this card" in line and "288 tokens" in line
 
 
 def test_a_box_that_holds_two_gets_two_not_the_cap(monkeypatch):
@@ -784,10 +807,72 @@ def test_a_box_whose_free_memory_cannot_be_read_runs_one(monkeypatch, capsys):
 
 
 def test_auto_does_not_put_more_trajectories_on_the_card_than_it_holds(monkeypatch):
-    """The box is roomy and the card is not: the card is read too, when one is open."""
+    """The box is roomy and the card is not: the card is read too, when one is open.
+
+    12 GB free holds two 288-token trajectories at 5.3 GB each with the 1 GB reserve left over;
+    4 GB holds one. The count is what ALL of them need, not what the ones after the first need:
+    `auto` runs before any trajectory has started, so none of that memory is spoken for yet, and
+    charging the first one nothing is how the old estimate approved a second that had nowhere to
+    go."""
+    _box(monkeypatch, free_gb=200.0, card_gb=12.0)
+    assert len(_campaign_calls(monkeypatch)[0]) == 2
     _box(monkeypatch, free_gb=200.0, card_gb=4.0)
-    calls, _ = _campaign_calls(monkeypatch)
-    assert len(calls) == 2
+    assert len(_campaign_calls(monkeypatch)[0]) == 1
+
+
+def test_a_large_design_gets_fewer_trajectories_than_a_small_one(monkeypatch, capsys):
+    """The regression this row exists for. The footprint grows with the square of the token axis,
+    so a count chosen at 288 tokens is not a count that fits at 704: measured on qb2 card 0, one
+    trajectory of a 704-token design peaks at 19.32 GB of the card's 31.875, and the three the
+    size-blind default chose died in round 1 with the card 99.4 % allocated
+    (`state/bgx-traj.md`). The same roomy box, the same card, five sizes."""
+    _box(monkeypatch, free_gb=200.0, tokens=288)
+    assert len(_campaign_calls(monkeypatch, tokens=288)[0]) == 3
+    assert len(_campaign_calls(monkeypatch, tokens=352)[0]) == 3
+    assert len(_campaign_calls(monkeypatch, tokens=384)[0]) == 2
+    assert len(_campaign_calls(monkeypatch, tokens=448)[0]) == 1
+    assert len(_campaign_calls(monkeypatch, tokens=704)[0]) == 1
+    assert "704 tokens" in capsys.readouterr().out
+
+
+def test_a_design_that_only_fits_once_runs_bindcrafts_own_loop(monkeypatch):
+    """Where one fits, auto IS one: no gate, no thread, upstream's own call."""
+    from tt_bio import duotraj
+
+    _box(monkeypatch, free_gb=200.0, tokens=704)
+    calls, _ = _campaign_calls(monkeypatch, tokens=704)
+    assert len(calls) == 1
+    assert calls[0]["gate"] is False and calls[0]["slot"] == ""
+    assert calls[0]["thread"] == threading.current_thread().name
+    assert duotraj.GATE is None
+
+
+def test_a_design_whose_token_axis_cannot_be_read_runs_one(monkeypatch, capsys):
+    """An unknown size is not a small one. `design_tokens` answers 0 when BindCraft 2 cannot
+    size the design, and pricing that as the 288-token reference is how the guard was wrong."""
+    _box(monkeypatch, free_gb=200.0, tokens=0)
+    calls, _ = _campaign_calls(monkeypatch, tokens=0)
+    assert len(calls) == 1
+    assert "token axis could not be read" in capsys.readouterr().out
+
+
+def test_the_estimate_is_above_every_footprint_measured_on_the_card(monkeypatch):
+    """The guard errs LOW on the count, which means erring HIGH on the footprint. Measured peak
+    minus the shared round-boundary floor, one shipped trajectory, qb2 card 0
+    (`perf/bgx_traj/out/`), against what `trajectory_bytes` charges for it. 544 is an axis where
+    the fused triangle attention declines and the composed path holds the scores: the estimate
+    prices that path everywhere, because which one runs is not known until the card has tried."""
+    from tt_bio import duotraj
+
+    fused = {288: 2.881, 384: 5.084, 448: 6.896, 512: 8.985,
+             576: 11.506, 640: 14.184, 704: 17.139}
+    composed = {544: 20.018}
+    for tokens, gb in {**fused, **composed}.items():
+        charged = duotraj.trajectory_bytes(tokens) / 2**30
+        assert charged > gb, (tokens, charged, gb)
+    assert duotraj.trajectory_bytes(544) / 2**30 < 20.018 * 1.3
+    # qb1's p150a measured 25.75 GB resident at 544, floor included; the charge covers it too.
+    assert (duotraj.trajectory_bytes(544) + duotraj.trajectory_floor_bytes(544)) / 2**30 > 25.75
 
 
 def test_an_explicit_count_is_honoured_even_when_it_will_not_fit(monkeypatch):
@@ -799,6 +884,20 @@ def test_an_explicit_count_is_honoured_even_when_it_will_not_fit(monkeypatch):
     monkeypatch.setattr(campaign, "run_campaign", lambda *a, **kw: started.append(1))
     _box(monkeypatch, free_gb=2.0)
     with pytest.raises(MemoryError, match="HOST"):
+        bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3)
+    assert not started
+
+
+def test_an_explicit_count_too_big_for_the_card_is_refused_on_the_card(monkeypatch):
+    """The host is roomy and the card is not: an explicit 3 at 704 tokens is the run that died,
+    and it is refused before a thread exists rather than in round 1."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    started = []
+    monkeypatch.setattr(campaign, "run_campaign", lambda *a, **kw: started.append(1))
+    _box(monkeypatch, free_gb=200.0, tokens=704)
+    with pytest.raises(MemoryError, match="on the card"):
         bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3)
     assert not started
 
@@ -887,6 +986,7 @@ def test_a_box_that_cannot_hold_them_is_refused_before_any_campaign_starts(monke
     monkeypatch.setattr(campaign, "run_campaign",
                         lambda *a, **kw: started.append(1))
     monkeypatch.setattr(duotraj, "free_host_bytes", lambda: 2 * 2**30)
+    monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: 288)
     with pytest.raises(MemoryError, match="HOST"):
         bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3)
     assert not started
@@ -1022,10 +1122,11 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
 
 # --------------------------------------------------------------------- the refusal a user reads
 
-#: tt-metal's own words, copied verbatim off a 576-token fold (hTNFa + a 100-residue binder) on
-#: qb1 card 1, 2026-09-29. JAX wraps this in a `JaxRuntimeError` behind ten Python frames and
-#: forty lines of C++ hex, and the size that caused it appears nowhere in any of them.
-REFUSAL_576 = (
+#: tt-metal's own words, copied verbatim off an hTNFa + 100-residue-binder fold on qb1 card 1,
+#: 2026-09-29, which runs on a 608-token axis: the refused buffer is exactly [608,4,608,608]
+#: fp32 (608**3 * 4 * 4 = 3,596,091,392 B). JAX wraps this in a `JaxRuntimeError` behind ten
+#: Python frames and forty lines of C++ hex, and the size that caused it appears nowhere.
+REFUSAL_608 = (
     "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\n"
     "info:\n"
     "Out of Memory: Not enough space to allocate 3596091392 B DRAM buffer across 8 banks, "
@@ -1038,24 +1139,45 @@ REFUSAL_576 = (
 
 def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down():
     """The four things the traceback does not say: how big, how much, why, and what to do."""
-    got = bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_576),
-                                         phase="backward", n=556, padded=576)
+    # The allocator line is verbatim; the complex length is a fixture, since the message logic
+    # is what is under test and the seam reports the real one at runtime.
+    got = bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
+                                         phase="backward", n=586, padded=608)
     msg = str(got)
     assert isinstance(got, MemoryError)
-    assert "576 tokens" in msg and "556 residues" in msg     # the axis and how it was composed
+    assert "608 tokens" in msg and "586 residues" in msg     # the axis and how it was composed
     assert "3.596 GB" in msg and "326.7 MB" in msg           # asked for, and the block it got
     assert "fragmentation, not a full card" in msg           # 4.122 GB free covers 3.596 GB
-    assert "544 tokens" in msg                               # one bucket down
-    assert "12 residues off the binder" in msg               # 556 - 544, the concrete action
+    assert "576 tokens" in msg                               # one bucket down, and it serves
+    assert "10 residues off the binder" in msg               # 586 - 576, the concrete action
     assert "backward" in msg
+
+
+def test_the_refusal_does_not_teach_the_false_token_arithmetic():
+    """The axis is the padded complex, NOT target + binder.
+
+    hHSA at 736 tokens carries a 706-residue complex where the target counts 578 residues and
+    the binder 100 -- the sum is 678, a whole two buckets low. A refusal that explains the axis
+    as that sum sends the user to re-size against a number the seam does not use, which is the
+    mistake this ladder made in its own harness before `axis_census.sh` measured the seam.
+    """
+    better = bindcraft2._size_aware_refusal(
+        RuntimeError(REFUSAL_608), phase="backward", n=706, padded=736)
+    assert better is not None
+    text = str(better)
+    assert "706 residues" in text
+    assert "LARGER than target residues + binder length" in text
+    assert "size the job off the 706" in text
+    # the superseded clause, verbatim, must be gone
+    assert "token axis is target residues + binder" not in text
 
 
 def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
     """Same words from the allocator, opposite remedy: retrying smaller is all that is left."""
-    full = REFUSAL_576.replace("free: 515248512 B", "free: 51524851 B") \
+    full = REFUSAL_608.replace("free: 515248512 B", "free: 51524851 B") \
                       .replace("largest free block: 326674368 B", "largest free block: 51524851 B")
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(full),
-                                             phase="forward", n=556, padded=576))
+                                             phase="forward", n=586, padded=608))
     assert "The card is full" in msg
     assert "fragmentation" not in msg
 
@@ -1063,7 +1185,7 @@ def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
 def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
     """320 tokens is measured to fit alone, so a refusal there is company on the chip, and the
     knob that removes it is BindCraft 2's own one-at-a-time loop, not a shorter binder."""
-    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_576),
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
                                              phase="backward", n=300, padded=320))
     assert "trajectories_per_card=1" in msg
     assert "288 tokens" in msg
@@ -1073,17 +1195,17 @@ def test_an_unrelated_failure_is_re_raised_unchanged():
     """A wrapper that repaints the shape of an unrelated bug is worse than no wrapper."""
     boom = ValueError("holds 24 Evoformer blocks and this splice was built for 48")
     with pytest.raises(ValueError) as caught:
-        with bindcraft2._refusal_names_the_size("forward", 556, 576):
+        with bindcraft2._refusal_names_the_size("forward", 586, 608):
             raise boom
     assert caught.value is boom
-    assert bindcraft2._size_aware_refusal(boom, phase="forward", n=556, padded=576) is None
+    assert bindcraft2._size_aware_refusal(boom, phase="forward", n=586, padded=608) is None
 
 
 def test_the_allocators_own_refusal_is_kept_as_the_cause():
     """The added message is for the user; the original line is what a bug report needs."""
-    original = RuntimeError(REFUSAL_576)
+    original = RuntimeError(REFUSAL_608)
     with pytest.raises(MemoryError) as caught:
-        with bindcraft2._refusal_names_the_size("backward", 556, 576):
+        with bindcraft2._refusal_names_the_size("backward", 586, 608):
             raise original
     assert caught.value.__cause__ is original
     assert "largest free block: 326674368 B" in str(caught.value.__cause__)
@@ -1107,8 +1229,23 @@ def test_a_fused_arm_that_declined_every_call_says_so(monkeypatch, capsys):
     assert "declined all 972 calls at 512 tokens" in err
     assert "do not fit L1" in err
     assert "[512,4,512,512]" in err              # what the composed path holds instead
-    assert "544 measures 14.23 GB" in err        # and the bucket that does not
+    assert "2.147 GB" in err                     # 16 * 512**3, computed not quoted
+    assert "one 32-token bucket UP as well as one down" in err
     assert 512 in splice._fused_checked          # said once, not once a round
+
+
+def test_the_note_quotes_no_measured_axis(monkeypatch, capsys):
+    """It used to name 512 and 544 as the bad and good sizes. Those came from arithmetic over a
+    target file, not from the seam, and when the arithmetic proved a bucket off the message
+    advised moving to the very axis it was declining at. The computed tensor size cannot rot."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (0, 96))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(544, (0, 0))
+    err = capsys.readouterr().err
+    assert "declined all 96 calls at 544 tokens" in err
+    assert "2.576 GB" in err                     # 16 * 544**3
+    for stale in ("25.75", "14.23", "69.2", "49.4"):
+        assert stale not in err
 
 
 def test_a_fused_arm_that_served_is_not_reported(monkeypatch, capsys):

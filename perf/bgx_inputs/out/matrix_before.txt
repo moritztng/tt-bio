@@ -1,0 +1,52 @@
+base                             WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+format-mmcif                     WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+format-weird-header              WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+format-fasta                     WORKS    asked='-' dynorphin_a[11aa 3-13 hot=none] binder=[60, 61, 62, 63, 64, 65]
+format-missing-file              REFUSED  [bindcraft preflight] target 'T': no file at /tmp/does-not-exist.pdb
+format-inline-structure          WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+format-gzipped                   REFUSED  [bindcraft preflight] 'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte
+format-pdb-id                    REFUSED  [bindcraft preflight] target 'T': no file at 5C3T
+het-ligands-waters-metal         WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+het-mse                          WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+het-altloc                       WORKS    asked='54,56,66,115' T[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+het-insertion-code               REFUSED  [bindcraft preflight] design inputs did not parse: from_structure: insertion codes are not supported; renumber residues A 100A in /home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/inputs/insertion.pdb before loading
+het-trimmed-residue              WORKS    asked='54' T[114aa 18-132 hot=[54]] binder=[60, 61, 62, 63, 64, 65]
+gap-hotspots-outside-gap         WORKS    asked='54,56,115' T[104aa 18-132 hot=[54, 56, 115]] binder=[60, 61, 62, 63, 64, 65]
+gap-hotspot-in-gap               WORKS    asked='54,56,66,115' T[104aa 18-132 hot=[54, 56, 115]] binder=[60, 61, 62, 63, 64, 65]
+gap-all-hotspots-in-gap          WORKS    asked='62,64,66' T[104aa 18-132 hot=none] binder=[60, 61, 62, 63, 64, 65]
+gap-range-across-gap             WORKS    asked='54-70' T[104aa 18-132 hot=[54, 55, 56, 57, 58, 59]] binder=[60, 61, 62, 63, 64, 65]
+gap-coldspot-in-gap              WORKS    asked='54' T[104aa 18-132 hot=[54]] binder=[60, 61, 62, 63, 64, 65]
+numbering-renumbered-from-1      WORKS    asked='54,56,66,115' T[115aa 1-115 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+chain-two-chain-target           WORKS    asked='-' hIL2R[387aa 32-472 hot=[67, 68, 96, 99, 101, 159, 160, 351, 407, 455, 456, 457]] binder=[60, 61, 62, 63, 64, 65]
+chain-one-of-two                 WORKS    asked='67,68,96' T[196aa 32-233 hot=[67, 68, 96]] binder=[60, 61, 62, 63, 64, 65]
+chain-second-only                WORKS    asked='B125,B181' T[191aa 56-246 hot=[125, 181]] binder=[60, 61, 62, 63, 64, 65]
+chain-both                       WORKS    asked='A67,B125' T[387aa 32-472 hot=[67, 351]] binder=[60, 61, 62, 63, 64, 65]
+chain-absent                     REFUSED  [bindcraft preflight] design inputs did not parse: Target 'T' has no chain ['C'] in /home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/inputs/twochain.pdb; the structure has ['A', 'B']. Write several chains as "A,B".
+chain-unselected-hotspot         WORKS    asked='B125' T[196aa 32-233 hot=none] binder=[60, 61, 62, 63, 64, 65]
+chain-default-all                WORKS    asked='67,68' T[387aa 32-472 hot=[67, 68]] binder=[60, 61, 62, 63, 64, 65]
+hot-none                         WORKS    asked='-' T[115aa 18-132 hot=none] binder=[60, 61, 62, 63, 64, 65]
+hot-one                          WORKS    asked='54' T[115aa 18-132 hot=[54]] binder=[60, 61, 62, 63, 64, 65]
+hot-range                        WORKS    asked='54-66' T[115aa 18-132 hot=[54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66]] binder=[60, 61, 62, 63, 64, 65]
+hot-whole-interface              WORKS    asked='54-70,112-120' T[115aa 18-132 hot=[54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 112, 113, 114, 115, 116, 117, 118, 119, 120]] binder=[60, 61, 62, 63, 64, 65]
+hot-does-not-exist               WORKS    asked='999' T[115aa 18-132 hot=none] binder=[60, 61, 62, 63, 64, 65]
+hot-below-first-residue          WORKS    asked='5' T[115aa 18-132 hot=none] binder=[60, 61, 62, 63, 64, 65]
+hot-wrong-chain                  WORKS    asked='B54' T[115aa 18-132 hot=none] binder=[60, 61, 62, 63, 64, 65]
+hot-malformed                    REFUSED  [bindcraft preflight] design inputs did not parse: residue spans 'fifty-four+HOTSPOT' carry 'fifty-four+HOTSPOT' outside any span; a span is written "A35", "A35-40", "A35-40(5-7)", "A35*" for a framework position, "A35!" to hold the residue unredesigned, or "A35+COLDSPOT" to set a flag by name
+hot-fasta-out-of-range           WORKS    asked='99' D[11aa 3-13 hot=none] binder=[60, 61, 62, 63, 64, 65]
+hot-reversed-range               WORKS    asked='66-54' T[115aa 18-132 hot=[54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66]] binder=[60, 61, 62, 63, 64, 65]
+len-short                        WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[30]
+len-very-short                   WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[4]
+len-long                         WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[300]
+len-range                        WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+len-zero                         REFUSED  [bindcraft preflight] design inputs did not parse: Binder length must be positive
+len-negative                     REFUSED  [bindcraft preflight] design inputs did not parse: Binder length must be positive
+len-scalar                       CRASH    [bindcraft load_settings] Traceback (most recent call last): / File "/home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/probe.py", line 139, in stage / return call(), None / ^^^^^^ / File "/home/ttuser/.coworker/wt/bgx-inputs/perf/bgx_inputs/probe.py", line 147, in <lambda> / full, stopped = stage("bindcraft load_settings", lambda: load_settings(request)) / ^^^^^^^^^^^^^^^^^^^^^^ / File "/home/t
+len-written-as-range             REFUSED  [bindcraft load_settings] invalid literal for int() with base 10: '-'
+len-huge                         WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[5000]
+set-unknown-key                  REFUSED  [bindcraft load_settings] unrecognized campaign settings: hotspot
+set-percentage-threshold         REFUSED  [bindcraft load_settings] these checks read a fraction of 0 to 1 rather than a percentage: max_helix_fraction_final 50 (write 0.5)
+set-plddt-as-percentage          WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+set-filter-nonsense              WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+set-negative-recycles            WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+set-huge-recycles                WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]
+set-zero-designs                 WORKS    asked='-' hPDL1[115aa 18-132 hot=[54, 56, 66, 115]] binder=[60, 61, 62, 63, 64, 65]

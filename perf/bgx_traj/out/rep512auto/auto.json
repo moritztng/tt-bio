@@ -1,0 +1,9 @@
+{
+ "n": 3,
+ "why": "218.4 GB of host memory is free and 3 of them peak near 20 GB",
+ "tokens": 512,
+ "size_aware": false,
+ "free_host": 234539278336,
+ "free_device": 0,
+ "rss": 18456576
+}
