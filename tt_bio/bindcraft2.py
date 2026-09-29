@@ -1514,6 +1514,14 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
         pin_card(card)
     # After `pin_card`: importing autograd imports ttnn, and a pin after that raises.
     from tt_bio import autograd
+    from tt_bio.tenstorrent import get_device
+
+    # Open the chip on this thread, not on whichever thread first reaches the card. UMD's
+    # CHIP_IN_USE lock is a robust pthread mutex owned by the thread that opens the chip, and the
+    # close at exit runs on the main thread. Left to the first device call, the open happens on
+    # one of XLA's CPU pool threads (the device seams run there), the unlock at exit fails with
+    # EPERM and the process aborts with exit 134 after the campaign has already finished.
+    get_device()
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident, template=template)

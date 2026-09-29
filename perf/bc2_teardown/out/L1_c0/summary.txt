@@ -1,0 +1,6 @@
+trial=L1_c0 card=0 kind=long commit=c739e39f9 start=2026-09-29T07:59:20Z
+campaign_rc=134 chip_in_use=1 end=2026-09-29T08:38:40Z
+gate_rc=0 gate_wall=70 end=2026-09-29T08:39:50Z
+aiclk_mhz min/median/max=800/1350/1350
+protenix-v1         1.781   0.898     <=5.0/>=0.6   1.0000     0    0(0.0000)     24s  PASS
+opendde             1.395   0.940     <=6.0/>=0.5   1.0000     0    5(0.0056)     45s  PASS

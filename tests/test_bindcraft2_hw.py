@@ -10,7 +10,9 @@ Run it pinned, which the session guard in `conftest.py` enforces:
     TT_VISIBLE_DEVICES=2 PYTHONPATH=/path/to/BindCraft2 python3 -m pytest \\
         tests/test_bindcraft2_hw.py -s
 """
+import os
 import pathlib
+import subprocess
 import sys
 import time
 
@@ -39,29 +41,6 @@ def _design_state(settings_file):
     return protein_states, losses
 
 
-def _open_card_on_this_thread():
-    """Open the chip here, before BindCraft 2's JAX can open it on a callback thread.
-
-    UMD's per-chip `CHIP_IN_USE_<n>` mutex is owned by the THREAD that opened the chip, and
-    `conftest.py` closes the device from the test's own thread. Left alone, the first call into
-    the card happens inside a JAX host callback on a worker thread pytest never sees, so the
-    unlock in `LocalChip::close_device()` runs off-owner: `pthread_mutex_unlock` returns EPERM,
-    UMD throws out of a destructor, and the process dies with SIGABRT. Every test in this file
-    PASSED and then exited 134 in teardown, which reads as a broken card test rather than the
-    thread-ownership detail it is. Measured on qb2 card 3: open on `Dummy-2` and close on
-    MainThread aborts, open and close both on MainThread exits 0, same work either way.
-
-    A process that aborts this way also leaves `/dev/shm/TT_UMD_LOCK.CHIP_IN_USE_<n>_PCIe` with
-    the owner-died bit set, which the next process to touch that card inherits.
-
-    `get_device()` caches a module-global handle, so this costs one open (0.4-1.0 s) and every
-    later callback reuses it.
-    """
-    from tt_bio import tenstorrent
-
-    tenstorrent.get_device()
-
-
 def _pdl1_draw():
     """BindCraft 2's shipped PD-L1 draw, or a skip naming what is missing."""
     bindcraft = pytest.importorskip("bindcraft", reason="BindCraft 2 is not on sys.path")
@@ -73,8 +52,46 @@ def _pdl1_draw():
     if not settings_file.exists():
         pytest.skip(f"BindCraft 2 has no {settings_file}")
     protein_states, losses = _design_state(settings_file)
-    _open_card_on_this_thread()  # after every skip above has been decided, never before
     return params, protein_states, losses
+
+
+_ONE_STEP_THEN_EXIT = """
+import sys
+sys.path.insert(0, "tests")
+import pytest
+import test_bindcraft2_hw as t
+from tt_bio import bindcraft2
+try:
+    params, protein_states, losses = t._pdl1_draw()
+except pytest.skip.Exception as skip:
+    print("SKIP", skip)
+    sys.exit(0)
+with bindcraft2.predictor(trunk="device", checkpoints=params) as build:
+    model = build(presets="model_1_ptm", data_dir=str(params), max_cache_size=1,
+                  num_recycle=1, length_bucket_size=32)
+    model.sequence_gradients(protein_states, losses)
+"""
+
+
+def test_a_process_that_ran_the_card_exits_zero():
+    """The exit status of a process that took one gradient step on card, which is what a user sees.
+
+    UMD's per-chip `CHIP_IN_USE_<n>` mutex belongs to the THREAD that opened the chip, and the
+    close at exit runs on the main thread. BindCraft 2's first call into the card happens inside a
+    JAX host callback on one of XLA's pool threads, so an open left to that call makes the unlock
+    at exit fail with EPERM, and the process aborts with 134 after the work has finished. Every
+    BindCraft 2 campaign ended that way until `predictor()` opened the chip on the thread that
+    enters it. It runs in a child because the abort is in the process teardown, which an
+    in-process test never reaches.
+    """
+    env = dict(os.environ, TT_BIO_DEBUG_STDERR="1")  # keep an abort's own message visible
+    out = subprocess.run([sys.executable, "-c", _ONE_STEP_THEN_EXIT], env=env, text=True,
+                         cwd=pathlib.Path(__file__).resolve().parents[1], capture_output=True,
+                         timeout=1200)
+    if out.stdout.startswith("SKIP"):
+        pytest.skip(out.stdout[5:].strip())
+    assert out.returncode == 0, out.stderr[-3000:]
+    assert "CHIP_IN_USE" not in out.stderr, out.stderr[-3000:]
 
 
 def _exact_counters():

@@ -1,0 +1,6 @@
+trial=a6_c0 card=0 kind=abort commit=9bd197348 start=2026-09-29T07:53:10Z
+campaign_rc=134 chip_in_use=1 end=2026-09-29T07:54:47Z
+gate_rc=0 gate_wall=78 end=2026-09-29T07:56:05Z
+aiclk_mhz min/median/max=800/1350/1350
+protenix-v1         1.781   0.898     <=5.0/>=0.6   1.0000     0    0(0.0000)     27s  PASS
+opendde             1.395   0.940     <=6.0/>=0.5   1.0000     0    5(0.0056)     50s  PASS
