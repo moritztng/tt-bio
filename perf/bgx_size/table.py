@@ -50,7 +50,7 @@ def main():
             continue
         (foot if r.get("footprint_probe") else timed)[r["tokens"]] = r
 
-    print("| tokens | target | chains | binder | resident peak | free at peak | largest free "
+    print("| tokens | target | chains | binder | resident peak GB | free at peak GB | largest free "
           "block | s/round | AICLK in-round | load1 | auto chose | outcome |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for tok in sorted(set(timed) | set(foot)):
@@ -77,7 +77,8 @@ def main():
                 ld = f"{max(p.get('load1', 0) for p in body):.1f}"
         peak = fre = lcf = "-"
         if f and f.get("resident_peak_gb"):
-            peak = f"{f['resident_peak_gb']:.4f} GB"
+            # Decimal GB, which is the unit bcx-bigtarget's curve is quoted in.
+            peak = f"{f['resident_peak_gb']:.4f}"
             fre = f"{f['free_at_peak_gb']:.3f}"
             if f.get("largest_free_block_at_peak_mb") is not None:
                 lcf = f"{f['largest_free_block_at_peak_mb']:.0f} MB"

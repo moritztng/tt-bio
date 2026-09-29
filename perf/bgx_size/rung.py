@@ -163,13 +163,20 @@ class DevicePeak:
         autograd._retire = retire
 
     def report(self) -> dict:
+        """Both units, spelled out. `bcx-bigtarget`'s curve is in DECIMAL GB -- it calls the
+        card 34.226 GB, which is 34.226e9 bytes and 31.875 GiB -- so a GiB figure compared
+        against it reads 7 % light. Reporting `_gb` as decimal and `_gib` as binary beside
+        it makes a rung comparable with that curve without anyone doing the conversion in
+        their head and getting it wrong."""
         if not self.samples:
             return {"node_probe_samples": 0}
-        g = 2**30
+        free_at_peak = self.total - self.used_max
         return {"node_probe_samples": self.samples, "node_probe_calls": self.calls,
-                "resident_peak_gb": round(self.used_max / g, 4),
-                "free_at_peak_gb": round((self.total - self.used_max) / g, 4),
-                "device_total_gb": round(self.total / g, 4),
+                "resident_peak_gb": round(self.used_max / 1e9, 4),
+                "resident_peak_gib": round(self.used_max / 2**30, 4),
+                "free_at_peak_gb": round(free_at_peak / 1e9, 4),
+                "free_at_peak_gib": round(free_at_peak / 2**30, 4),
+                "device_total_gb": round(self.total / 1e9, 4),
                 "largest_free_block_at_peak_mb": None if self.largest_free_at_peak is None
                 else round(self.largest_free_at_peak / 2**20, 1)}
 
@@ -188,7 +195,7 @@ def peak_from_probe(path: pathlib.Path) -> dict:
             continue
         if used > best:
             best, line = used, ln.strip()
-    return {"resident_peak_gib": best, "peak_line": line} if best else {}
+    return {"tagged_peak_gib": best, "tagged_peak_line": line} if best else {}
 
 
 def main():
