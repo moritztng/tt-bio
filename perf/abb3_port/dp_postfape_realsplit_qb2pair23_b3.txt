@@ -1,0 +1,17 @@
+# train-b3-train: POST-FAPE DP curve, run host qb2, real sabdab split, whole pair 2+3
+# batch 64 as 32 x 2 (1 chip) / 2 ranks x 16 micro (2 chips), 256 tokens, 8 blocks
+
+ world  median step s              per round  speedup  efficiency               AICLK during  ranks agree   clean
+     1         22.895          [22.9, 22.89]    1.000x      100.0% 1350.0 med / 1350.0 min, 249 smp          yes      NO
+         rank 0 nodes ['/dev/tenstorrent/2']: 0/76 samples with a foreign holder of OUR node [], 74/76 elsewhere ['/dev/tenstorrent/0 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s', '/dev/tenstorrent/0 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s']
+         rank 0 nodes ['/dev/tenstorrent/2']: 0/76 samples with a foreign holder of OUR node [], 73/76 elsewhere ['/dev/tenstorrent/0 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s', '/dev/tenstorrent/0 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s']
+     2         12.126         [12.16, 12.09]    1.888x       94.4% 1350.0 med / 1343.0 min, 129 smp          yes      NO
+         rank 0 nodes ['/dev/tenstorrent/2']: 0/42 samples with a foreign holder of OUR node [], 40/42 elsewhere ['/dev/tenstorrent/0 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s']
+         rank 1 nodes ['/dev/tenstorrent/3']: 0/42 samples with a foreign holder of OUR node [], 39/42 elsewhere ['/dev/tenstorrent/0 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s']
+         rank 0 nodes ['/dev/tenstorrent/2']: 0/41 samples with a foreign holder of OUR node [], 41/41 elsewhere ['/dev/tenstorrent/0 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s', '/dev/tenstorrent/1 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/abb3_port/fape_memory_census.py --micro 4 ']
+         rank 1 nodes ['/dev/tenstorrent/3']: 0/41 samples with a foreign holder of OUR node [], 41/41 elsewhere ['/dev/tenstorrent/0 /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s', '/dev/tenstorrent/1 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/abb3_port/fape_memory_census.py --micro 4 ']
+
+STAGES (last step of the widest arm, seconds): {'forward': 2.92, 'download': 0.11, 'losses': 1.37, 'host_backward': 1.11, 'device_backward': 6.15, 'optimizer': 0.15, 'total': 12.08, 'micro_batches': 16}
+NODES: rank 0 held [2]; every rank's own node is read from its own /proc/<pid>/fd by the provenance recorder, since TT_VISIBLE_DEVICES=N does not select /dev/tenstorrent/N
+PASS: every rank's master digest matched at every step on every arm, so the ratios above are one model trained faster rather than N models trained separately
+CONTENDED: world [1, 2] ran beside a foreign device holder for part of the measurement, so its step time is an UPPER bound. Re-take on an idle pair before quoting it as the curve.

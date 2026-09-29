@@ -1071,6 +1071,12 @@ layer norm in float64 on the host instead, a diagnostic reference that makes a s
 slower. Inference is unaffected. See
 [`docs/training.md`](docs/training.md#training-runs-on-the-device-float64-is-a-diagnostic).
 
+ABodyBuilder3 wants its data staged first: `data.tar.gz` from Zenodo `10.5281/zenodo.11354577`,
+extracted so that `structures/structures/*.pt` sits under the path you pass. Fine-tuning also
+wants their checkpoint beside it; without one the command refuses rather than adapting a random
+initialisation. To train from scratch instead, `scripts/abb3_port/repro.py` is the reproduction's
+own entry point.
+
 Four things the API enforces rather than documents, because each is a bug we hit:
 
 - `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose

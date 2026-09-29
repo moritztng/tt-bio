@@ -1,0 +1,40 @@
+2026-09-18 19:40:05.073 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 1 elsewhere, 554 pid(s) unreadable
+  elsewhere  pid 101002 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  sidechain FAPE on the card
+  taped device parameters: 436
+  every one of 436 parameters took a non-zero gradient
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 1 elsewhere, 555 pid(s) unreadable
+  elsewhere  pid 115184 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  step   1  24.091 s  loss 5.0139  (median so far 24.091 s)
+  step   5  26.517 s  loss 5.0167  (median so far 24.249 s)
+  step  10  23.976 s  loss 5.0153  (median so far 24.140 s)
+  step  15  26.134 s  loss 5.0134  (median so far 24.139 s)
+  step  20  25.034 s  loss 5.0094  (median so far 24.163 s)
+  step  25  23.482 s  loss 5.0040  (median so far 24.091 s)
+  step  30  23.941 s  loss 4.9998  (median so far 23.958 s)
+  step  35  22.841 s  loss 5.0022  (median so far 23.792 s)
+  step  40  23.231 s  loss 4.9996  (median so far 23.712 s)
+  step  45  24.341 s  loss 4.9837  (median so far 23.603 s)
+  step  50  23.077 s  loss 4.9693  (median so far 23.574 s)
+\nSTEP: median 23.574 s over 50 COMPLETE steps at batch 64 (32 x 2) and 256 tokens, min 22.841 s, max 26.517 s
+BREAKDOWN (median over steps, seconds and share of the step):
+  forward             5.969 s   25.3 %
+  download            0.241 s    1.0 %
+  losses              2.784 s   11.8 %
+  host_backward       2.217 s    9.4 %
+  device_backward    11.652 s   49.4 %
+  optimizer           0.086 s    0.4 %
+LOSS TERMS (cumulative over 52 steps, share of the loss stage):
+  fape_sidechain      56.19 s   48.3 %
+  renamed_gt          35.23 s   30.3 %
+  fape_backbone       15.30 s   13.1 %
+  final_backbone       5.39 s    4.6 %
+  supervised_chi       4.32 s    3.7 %
+CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 393
+INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
+TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
+CONTENDED: 0 cotenant(s) on our node and 1 elsewhere

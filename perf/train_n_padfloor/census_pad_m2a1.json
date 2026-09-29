@@ -1,0 +1,659 @@
+{
+ "report": "perf/train_n_padfloor/prof_pad_m2a1/reports/2026_09_19_00_21_21/ops_perf_results_2026_09_19_00_21_21.csv",
+ "split": "period 11775 ops, agreed by probe widths [200, 500, 1000], +0.27 % from half of 23487 rows (the file is one cold step and one warm one); the cold step is 63 ops shorter",
+ "ops": 11775,
+ "device_kernel_ms": 446.062735,
+ "device_fw_ms": 609.898417,
+ "by_op": {
+  "MatmulDeviceOperation": {
+   "ms": 68.820468,
+   "n": 892
+  },
+  "BinaryNgDeviceOperation": {
+   "ms": 200.502668,
+   "n": 6709
+  },
+  "ReshapeViewDeviceOperation": {
+   "ms": 25.373012,
+   "n": 840
+  },
+  "UnaryDeviceOperation": {
+   "ms": 12.116587,
+   "n": 648
+  },
+  "TransposeDeviceOperation": {
+   "ms": 46.199284,
+   "n": 1056
+  },
+  "PermuteDeviceOperation": {
+   "ms": 16.257473,
+   "n": 48
+  },
+  "SliceDeviceOperation": {
+   "ms": 1.077537,
+   "n": 72
+  },
+  "ReduceDeviceOperation": {
+   "ms": 62.819257,
+   "n": 1134
+  },
+  "SoftmaxDeviceOperation": {
+   "ms": 0.39792,
+   "n": 8
+  },
+  "LayerNormDeviceOperation": {
+   "ms": 0.114995,
+   "n": 16
+  },
+  "FillPadDeviceOperation": {
+   "ms": 9.379279,
+   "n": 280
+  },
+  "ConcatDeviceOperation": {
+   "ms": 3.004255,
+   "n": 72
+  }
+ },
+ "by_shape": {
+  "BinaryNgDeviceOperation  2[2]x1[1]x256[256]x256[256] @ 2[2]x1[1]x256[256]x256[256]": {
+   "ms": 75.845408,
+   "n": 5143
+  },
+  "ReduceDeviceOperation  24[24]x256[256]x32[4]x256[256]": {
+   "ms": 24.264105,
+   "n": 24
+  },
+  "BinaryNgDeviceOperation  2[2]x256[256]x256[256]x128[128] @ 1[1]x1[1]x32[1]x128[128]": {
+   "ms": 23.467444,
+   "n": 102
+  },
+  "BinaryNgDeviceOperation  2[2]x12[12]x256[256]x32[32] @ 2[2]x1[1]x256[256]x32[1]": {
+   "ms": 23.162061,
+   "n": 592
+  },
+  "TransposeDeviceOperation  24[24]x4[4]x256[256]x256[256]": {
+   "ms": 19.845812,
+   "n": 24
+  },
+  "BinaryNgDeviceOperation  2[2]x1[1]x256[256]x32[1] @ 2[2]x1[1]x32[1]x256[256]": {
+   "ms": 18.486699,
+   "n": 56
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x131072[131072]x32[32]": {
+   "ms": 15.156876,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  2[2]x48[48]x256[256]x32[1] @ 2[2]x48[48]x32[1]x256[256]": {
+   "ms": 14.963939,
+   "n": 24
+  },
+  "BinaryNgDeviceOperation  2[2]x256[256]x256[256]x32[1] @ 1[1]x1[1]x32[1]x128[128]": {
+   "ms": 13.802261,
+   "n": 8
+  },
+  "MatmulDeviceOperation  2[2]x256[256]x32[12]x256[256] @ 2[2]x256[256]x256[256]x128[128]": {
+   "ms": 13.652807,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  1[1]x2[2]x32[1]x3584[3584] @ 1[1]x2[2]x512[512]x32[1]": {
+   "ms": 12.870937,
+   "n": 36
+  },
+  "TransposeDeviceOperation  24[24]x256[256]x32[1]x256[256]": {
+   "ms": 12.652548,
+   "n": 24
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x131072[131072]x128[128] @ 1[1]x1[1]x131072[131072]x32[32]": {
+   "ms": 11.374242,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  1[1]x1[1]x32[2]x256[256]": {
+   "ms": 8.734719,
+   "n": 392
+  },
+  "MatmulDeviceOperation  2[2]x256[256]x32[12]x128[128] @ 2[2]x256[256]x256[256]x128[128]": {
+   "ms": 7.737476,
+   "n": 8
+  },
+  "MatmulDeviceOperation  2[2]x12[12]x256[256]x256[256] @ 2[2]x12[12]x256[256]x32[32]": {
+   "ms": 7.673026,
+   "n": 80
+  },
+  "UnaryDeviceOperation  1[1]x2[2]x512[512]x3584[3584]": {
+   "ms": 6.603913,
+   "n": 356
+  },
+  "ReshapeViewDeviceOperation  1[1]x512[512]x32[12]x32[32]": {
+   "ms": 6.572792,
+   "n": 88
+  },
+  "ReshapeViewDeviceOperation  1[1]x2[2]x256[256]x384[384]": {
+   "ms": 6.474365,
+   "n": 88
+  },
+  "PermuteDeviceOperation  2[2]x12[12]x256[256]x256[256]": {
+   "ms": 5.991525,
+   "n": 8
+  },
+  "PermuteDeviceOperation  2[2]x32[32]x256[256]x256[256]": {
+   "ms": 5.724968,
+   "n": 8
+  },
+  "MatmulDeviceOperation  2[2]x256[256]x32[12]x256[256] @ 2[2]x256[256]x32[12]x128[128]": {
+   "ms": 5.560804,
+   "n": 8
+  },
+  "MatmulDeviceOperation  2[2]x256[256]x256[256]x32[32] @ 1[1]x1[1]x128[128]x32[32]": {
+   "ms": 5.509219,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  1[1]x2[2]x512[512]x3584[3584] @ 1[1]x2[2]x512[512]x3584[3584]": {
+   "ms": 4.54339,
+   "n": 40
+  },
+  "ReduceDeviceOperation  256[256]x12[12]x32[2]x256[256]": {
+   "ms": 4.062481,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x2[2]x512[512]x3584[3584]": {
+   "ms": 3.882345,
+   "n": 68
+  },
+  "UnaryDeviceOperation  1[1]x2[2]x512[512]x32[1]": {
+   "ms": 3.740485,
+   "n": 32
+  },
+  "FillPadDeviceOperation  1[1]x96[96]x256[256]x32[1]": {
+   "ms": 3.424651,
+   "n": 96
+  },
+  "ReduceDeviceOperation  2[2]x48[48]x256[256]x256[256]": {
+   "ms": 3.393228,
+   "n": 48
+  },
+  "TransposeDeviceOperation  2[2]x48[48]x256[256]x32[1]": {
+   "ms": 3.369331,
+   "n": 96
+  },
+  "MatmulDeviceOperation  2[2]x256[256]x256[256]x128[128] @ 1[1]x1[1]x128[128]x32[32]": {
+   "ms": 3.030246,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x131072[131072]x160[132] @ 1[1]x1[1]x131072[131072]x128[128]": {
+   "ms": 3.002102,
+   "n": 1
+  },
+  "TransposeDeviceOperation  2[2]x12[12]x256[256]x32[32]": {
+   "ms": 2.8576,
+   "n": 280
+  },
+  "ReduceDeviceOperation  2[2]x256[256]x32[12]x32[32]": {
+   "ms": 2.489393,
+   "n": 192
+  },
+  "FillPadDeviceOperation  1[1]x1[1]x512[512]x32[1]": {
+   "ms": 2.370402,
+   "n": 48
+  },
+  "ReshapeViewDeviceOperation  1[1]x2[2]x256[256]x1536[1536]": {
+   "ms": 2.166058,
+   "n": 8
+  },
+  "PermuteDeviceOperation  256[256]x12[12]x32[1]x256[256]": {
+   "ms": 2.154831,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  1[1]x1[1]x32[2]x256[256] @ 1[1]x1[1]x32[2]x256[256]": {
+   "ms": 2.15037,
+   "n": 204
+  },
+  "MatmulDeviceOperation  2[2]x12[12]x256[256]x32[32] @ 2[2]x12[12]x256[256]x32[32]": {
+   "ms": 2.121574,
+   "n": 40
+  },
+  "ReduceDeviceOperation  2[2]x256[256]x64[48]x32[1]": {
+   "ms": 2.119249,
+   "n": 96
+  },
+  "ReshapeViewDeviceOperation  1[1]x512[512]x32[12]x128[128]": {
+   "ms": 2.010664,
+   "n": 8
+  },
+  "FillPadDeviceOperation  1[1]x96[96]x32[1]x256[256]": {
+   "ms": 1.997245,
+   "n": 96
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x131072[131072]x128[128]": {
+   "ms": 1.895548,
+   "n": 1
+  },
+  "UnaryDeviceOperation  2[2]x1[1]x256[256]x256[256]": {
+   "ms": 1.722156,
+   "n": 236
+  },
+  "ReshapeViewDeviceOperation  1[1]x512[512]x256[256]x32[1]": {
+   "ms": 1.628518,
+   "n": 8
+  },
+  "ReduceDeviceOperation  2[2]x256[256]x256[256]x128[128]": {
+   "ms": 1.577946,
+   "n": 8
+  },
+  "PermuteDeviceOperation  2[2]x256[256]x256[256]x32[32]": {
+   "ms": 1.537489,
+   "n": 8
+  },
+  "TransposeDeviceOperation  2[2]x256[256]x32[1]x32[32]": {
+   "ms": 1.267842,
+   "n": 192
+  },
+  "ReshapeViewDeviceOperation  1[1]x2[2]x256[256]x32[1]": {
+   "ms": 1.224961,
+   "n": 166
+  },
+  "BinaryNgDeviceOperation  2[2]x1[1]x256[256]x256[256]": {
+   "ms": 1.217673,
+   "n": 68
+  },
+  "ReshapeViewDeviceOperation  1[1]x2[2]x256[256]x256[256]": {
+   "ms": 1.198665,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x256[256] @ 1[1]x1[1]x256[256]x256[256]": {
+   "ms": 1.049544,
+   "n": 80
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x384[384] @ 1[1]x1[1]x128[128]x384[384]": {
+   "ms": 0.936402,
+   "n": 48
+  },
+  "TransposeDeviceOperation  2[2]x48[48]x32[1]x256[256]": {
+   "ms": 0.91956,
+   "n": 96
+  },
+  "ReshapeViewDeviceOperation  1[1]x1[1]x32[2]x256[256]": {
+   "ms": 0.897822,
+   "n": 284
+  },
+  "TransposeDeviceOperation  2[2]x144[144]x256[256]x32[1]": {
+   "ms": 0.89254,
+   "n": 8
+  },
+  "ReshapeViewDeviceOperation  1[1]x512[512]x160[144]x32[1]": {
+   "ms": 0.822717,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x128[128] @ 1[1]x1[1]x512[512]x384[384]": {
+   "ms": 0.813438,
+   "n": 48
+  },
+  "TransposeDeviceOperation  2[2]x256[256]x32[12]x32[32]": {
+   "ms": 0.798876,
+   "n": 88
+  },
+  "TransposeDeviceOperation  2[2]x256[256]x160[144]x32[1]": {
+   "ms": 0.796904,
+   "n": 8
+  },
+  "ReshapeViewDeviceOperation  1[1]x2[2]x256[256]x160[144]": {
+   "ms": 0.764395,
+   "n": 8
+  },
+  "TransposeDeviceOperation  2[2]x12[12]x256[256]x256[256]": {
+   "ms": 0.746761,
+   "n": 8
+  },
+  "TransposeDeviceOperation  2[2]x256[256]x32[12]x256[256]": {
+   "ms": 0.708441,
+   "n": 8
+  },
+  "MatmulDeviceOperation  2[2]x256[256]x256[256]x160[132] @ 1[1]x1[1]x160[132]x128[128]": {
+   "ms": 0.681029,
+   "n": 1
+  },
+  "ConcatDeviceOperation  2[2]x12[12]x256[256]x256[256] @ 2[2]x20[20]x256[256]x256[256]": {
+   "ms": 0.672994,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  2[2]x12[12]x256[256]x256[256] @ 1[1]x12[12]x32[1]x32[1]": {
+   "ms": 0.64771,
+   "n": 20
+  },
+  "TransposeDeviceOperation  2[2]x256[256]x32[1]x32[1]": {
+   "ms": 0.635969,
+   "n": 96
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x384[384]x128[128]": {
+   "ms": 0.634579,
+   "n": 40
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x384[384] @ 1[1]x1[1]x512[512]x128[128]": {
+   "ms": 0.621712,
+   "n": 40
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x256[256] @ 1[1]x1[1]x512[512]x256[256]": {
+   "ms": 0.575887,
+   "n": 40
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x512[512]x256[256]": {
+   "ms": 0.570632,
+   "n": 64
+  },
+  "FillPadDeviceOperation  1[1]x288[288]x32[1]x256[256]": {
+   "ms": 0.561162,
+   "n": 8
+  },
+  "PermuteDeviceOperation  2[2]x144[144]x32[1]x256[256]": {
+   "ms": 0.469034,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  2[2]x144[144]x32[1]x256[256] @ 1[1]x144[144]x32[1]x32[1]": {
+   "ms": 0.466639,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x512[512]x384[384]": {
+   "ms": 0.458842,
+   "n": 48
+  },
+  "SliceDeviceOperation  2[2]x144[144]x256[256]x32[1]": {
+   "ms": 0.398078,
+   "n": 24
+  },
+  "SoftmaxDeviceOperation  2[2]x12[12]x256[256]x256[256]": {
+   "ms": 0.39792,
+   "n": 8
+  },
+  "FillPadDeviceOperation  1[1]x2[2]x512[512]x32[1]": {
+   "ms": 0.395215,
+   "n": 8
+  },
+  "SliceDeviceOperation  2[2]x144[144]x32[1]x256[256]": {
+   "ms": 0.393888,
+   "n": 24
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x512[512]x32[1]": {
+   "ms": 0.389115,
+   "n": 48
+  },
+  "ConcatDeviceOperation  2[2]x48[48]x256[256]x32[1] @ 2[2]x48[48]x256[256]x32[1]": {
+   "ms": 0.38606,
+   "n": 8
+  },
+  "ConcatDeviceOperation  2[2]x48[48]x32[1]x256[256] @ 2[2]x48[48]x32[1]x256[256]": {
+   "ms": 0.385875,
+   "n": 8
+  },
+  "ConcatDeviceOperation  2[2]x48[48]x256[256]x32[1] @ 2[2]x96[96]x256[256]x32[1]": {
+   "ms": 0.384586,
+   "n": 8
+  },
+  "ConcatDeviceOperation  2[2]x48[48]x32[1]x256[256] @ 2[2]x96[96]x32[1]x256[256]": {
+   "ms": 0.384331,
+   "n": 8
+  },
+  "ConcatDeviceOperation  2[2]x96[96]x256[256]x32[1] @ 2[2]x48[48]x256[256]x32[1]": {
+   "ms": 0.383165,
+   "n": 8
+  },
+  "ConcatDeviceOperation  2[2]x96[96]x32[1]x256[256] @ 2[2]x48[48]x32[1]x256[256]": {
+   "ms": 0.381712,
+   "n": 8
+  },
+  "PermuteDeviceOperation  1[1]x144[144]x32[1]x256[256]": {
+   "ms": 0.379626,
+   "n": 8
+  },
+  "ReshapeViewDeviceOperation  1[1]x2[2]x160[144]x256[256]": {
+   "ms": 0.369345,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x128[128]x384[384]": {
+   "ms": 0.360185,
+   "n": 48
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x512[512]x128[128]": {
+   "ms": 0.348472,
+   "n": 41
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x256[256] @ 1[1]x1[1]x128[128]x256[256]": {
+   "ms": 0.344548,
+   "n": 24
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x128[128] @ 1[1]x1[1]x512[512]x256[256]": {
+   "ms": 0.331007,
+   "n": 24
+  },
+  "ReduceDeviceOperation  2[2]x1[1]x256[256]x32[32]": {
+   "ms": 0.325531,
+   "n": 192
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x128[128] @ 1[1]x1[1]x512[512]x32[1]": {
+   "ms": 0.319794,
+   "n": 48
+  },
+  "FillPadDeviceOperation  1[1]x144[144]x32[1]x256[256]": {
+   "ms": 0.306539,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x384[384] @ 1[1]x1[1]x384[384]x128[128]": {
+   "ms": 0.301891,
+   "n": 40
+  },
+  "ReshapeViewDeviceOperation  1[1]x2[2]x32[1]x256[256]": {
+   "ms": 0.295603,
+   "n": 118
+  },
+  "ReshapeViewDeviceOperation  1[1]x1[1]x160[144]x512[512]": {
+   "ms": 0.289346,
+   "n": 8
+  },
+  "ReduceDeviceOperation  2[2]x1[1]x256[256]x256[256]": {
+   "ms": 0.271362,
+   "n": 48
+  },
+  "SliceDeviceOperation  2[2]x32[32]x256[256]x256[256]": {
+   "ms": 0.265725,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x128[128]x32[1]": {
+   "ms": 0.250342,
+   "n": 48
+  },
+  "TransposeDeviceOperation  2[2]x1[1]x32[1]x256[256]": {
+   "ms": 0.240234,
+   "n": 96
+  },
+  "ReshapeViewDeviceOperation  1[1]x144[144]x32[2]x256[256]": {
+   "ms": 0.238035,
+   "n": 8
+  },
+  "ReduceDeviceOperation  2[2]x1[1]x64[48]x256[256]": {
+   "ms": 0.237773,
+   "n": 96
+  },
+  "ReduceDeviceOperation  1[1]x2[2]x256[256]x128[128]": {
+   "ms": 0.229116,
+   "n": 64
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x32[1] @ 1[1]x1[1]x128[128]x32[1]": {
+   "ms": 0.227405,
+   "n": 48
+  },
+  "ReshapeViewDeviceOperation  1[1]x288[288]x32[1]x256[256]": {
+   "ms": 0.224767,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x1536[1536]x128[128]": {
+   "ms": 0.222497,
+   "n": 8
+  },
+  "ReduceDeviceOperation  2[2]x12[12]x256[256]x256[256]": {
+   "ms": 0.209669,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x144[144]x32[2]x256[256]": {
+   "ms": 0.204433,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x1536[1536] @ 1[1]x1[1]x1536[1536]x128[128]": {
+   "ms": 0.191731,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x1536[1536] @ 1[1]x1[1]x512[512]x128[128]": {
+   "ms": 0.188345,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x144[144]x32[1]x256[256]": {
+   "ms": 0.18793,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x256[256]x32[2]x128[128]": {
+   "ms": 0.182692,
+   "n": 8
+  },
+  "FillPadDeviceOperation  1[1]x1[1]x512[512]x160[144]": {
+   "ms": 0.164554,
+   "n": 8
+  },
+  "FillPadDeviceOperation  1[1]x12[12]x32[1]x256[256]": {
+   "ms": 0.159511,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x128[128]x256[256]": {
+   "ms": 0.152546,
+   "n": 24
+  },
+  "ReshapeViewDeviceOperation  1[1]x144[144]x32[1]x32[1]": {
+   "ms": 0.150364,
+   "n": 8
+  },
+  "TransposeDeviceOperation  1[1]x2[2]x160[144]x256[256]": {
+   "ms": 0.131212,
+   "n": 8
+  },
+  "TransposeDeviceOperation  1[1]x2[2]x256[256]x128[128]": {
+   "ms": 0.126297,
+   "n": 8
+  },
+  "LayerNormDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x32[1]x128[128]": {
+   "ms": 0.114995,
+   "n": 16
+  },
+  "TransposeDeviceOperation  1[1]x144[144]x32[2]x256[256]": {
+   "ms": 0.11354,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x32[1]x128[128]": {
+   "ms": 0.113487,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x256[256] @ 1[1]x1[1]x512[512]x128[128]": {
+   "ms": 0.108795,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x128[128] @ 1[1]x1[1]x512[512]x160[144]": {
+   "ms": 0.10731,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x160[144]x512[512] @ 1[1]x1[1]x512[512]x128[128]": {
+   "ms": 0.10544,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x256[256] @ 1[1]x1[1]x512[512]x64[64]": {
+   "ms": 0.105396,
+   "n": 8
+  },
+  "TransposeDeviceOperation  1[1]x256[256]x32[1]x128[128]": {
+   "ms": 0.095817,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x160[144] @ 1[1]x1[1]x128[128]x160[144]": {
+   "ms": 0.085971,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x256[256]x128[128]": {
+   "ms": 0.079999,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x12[12]x256[256]x256[256]": {
+   "ms": 0.078446,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x160[144]x512[512] @ 1[1]x1[1]x160[144]x128[128]": {
+   "ms": 0.070374,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x512[512]x160[144]": {
+   "ms": 0.068953,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x512[512]x64[64]": {
+   "ms": 0.066064,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x2[2]x512[512]x32[1]": {
+   "ms": 0.065983,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x256[256] @ 1[1]x1[1]x256[256]x128[128]": {
+   "ms": 0.062823,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x160[144]x128[128] @ 1[1]x1[1]x512[512]x128[128]": {
+   "ms": 0.062128,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x256[256] @ 1[1]x1[1]x256[256]x64[64]": {
+   "ms": 0.060218,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x64[64] @ 1[1]x1[1]x256[256]x64[64]": {
+   "ms": 0.057142,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x12[12]x32[1]x256[256]": {
+   "ms": 0.044882,
+   "n": 8
+  },
+  "ReshapeViewDeviceOperation  1[1]x1[1]x32[1]x160[144]": {
+   "ms": 0.044595,
+   "n": 8
+  },
+  "ReduceDeviceOperation  1[1]x1[1]x256[256]x128[128]": {
+   "ms": 0.038191,
+   "n": 8
+  },
+  "UnaryDeviceOperation  1[1]x2[2]x256[256]x32[1]": {
+   "ms": 0.036802,
+   "n": 16
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x128[128] @ 1[1]x1[1]x128[128]x160[144]": {
+   "ms": 0.036286,
+   "n": 8
+  },
+  "BinaryNgDeviceOperation  1[1]x2[2]x256[256]x32[32]": {
+   "ms": 0.029931,
+   "n": 8
+  },
+  "ConcatDeviceOperation  1[1]x2[2]x256[256]x32[32] @ 1[1]x2[2]x256[256]x32[32]": {
+   "ms": 0.025532,
+   "n": 16
+  },
+  "SliceDeviceOperation  1[1]x2[2]x256[256]x64[64]": {
+   "ms": 0.019846,
+   "n": 16
+  },
+  "UnaryDeviceOperation  1[1]x2[2]x256[256]x32[32]": {
+   "ms": 0.013231,
+   "n": 8
+  },
+  "MatmulDeviceOperation  1[1]x1[1]x512[512]x32[23] @ 1[1]x1[1]x512[512]x128[128]": {
+   "ms": 0.007941,
+   "n": 1
+  },
+  "MatmulDeviceOperation  1[1]x2[2]x256[256]x32[23] @ 1[1]x1[1]x32[23]x128[128]": {
+   "ms": 0.006267,
+   "n": 1
+  }
+ }
+}

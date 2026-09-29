@@ -1,0 +1,4 @@
+0000:01:00.0  n=8  median 1350 MHz  min 1350  max 1350
+0000:41:00.0  n=8  median 1350 MHz  min 1350  max 1350
+0000:42:00.0  n=8  median 1350 MHz  min 1350  max 1350
+0000:c1:00.0  n=8  median 1350 MHz  min 1350  max 1350

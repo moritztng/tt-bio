@@ -1,0 +1,49 @@
+# train-h-fape-24mb: the device sidechain FAPE's DRAM census on qb2, card 1 (/dev/tenstorrent/1)
+# Instrument: scripts/abb3_port/fape_memory_census.py -- ttnn.get_memory_view(dev, DRAM),
+# per-bank bytes x 8 banks, sampled after every abodybuilder3_ops call.
+# Calibration: one [4, 512, 3584] fp32 allocation moves it by 29 360 128 B, which is the
+# byte count in train-b3-train's OOM.
+
+== BEFORE (wk/train-b2-abb3-port's retained chunks), micro 4 x 256 tokens, chunk 512 ==
+  shape      micro 4, 256 tokens -> 2048 frames x 3584 points, chunk 512
+  card       32640 MB over 8 banks, 0.02 MB allocated at open
+  unit       one [4, 512, 3584] fp32 = 28.00 MB
+
+  CONSTANTS    450.94 MB  (16.10 units, 4 chunks)
+  warm base    451.17 MB retained after warmup + collect
+
+  TAPE        3154.53 MB  (112.66 units) retained by the forward
+      before chunk 0           5.25 MB  ( 0.19 units)
+      before chunk 1         792.53 MB  (28.30 units)
+      before chunk 2        1579.84 MB  (56.42 units)
+      before chunk 3        2367.16 MB  (84.54 units)
+      after last chunk      3154.47 MB  (112.66 units)
+  TRANSIENT      0.00 MB peak above the retained tape, sampled after every op
+
+  BACKWARD   peak  4516.88 MB above warm base (161.32 units), 4516.88 MB still held after it
+  PEAK        4516.88 MB is what the term needs free on the card
+  released       0.00 MB still held after collect
+
+  TOTAL       4968.05 MB constants + tape + transient, against 32640 MB of card
+
+== AFTER (checkpointed chunks), same configuration ==
+  shape      micro 4, 256 tokens -> 2048 frames x 3584 points, chunk 512
+  card       32640 MB over 8 banks, 0.02 MB allocated at open
+  unit       one [4, 512, 3584] fp32 = 28.00 MB
+
+  CONSTANTS    450.94 MB  (16.10 units, 4 chunks)
+  warm base    451.17 MB retained after warmup + collect
+
+  TAPE           0.28 MB  ( 0.01 units) retained by the forward
+      before chunk 0           5.25 MB  ( 0.19 units)
+      before chunk 1           8.28 MB  ( 0.30 units)
+      before chunk 2           8.31 MB  ( 0.30 units)
+      before chunk 3           8.34 MB  ( 0.30 units)
+      after last chunk         8.38 MB  ( 0.30 units)
+  TRANSIENT    260.06 MB peak above the retained tape, sampled after every op
+
+  BACKWARD   peak   798.16 MB above warm base (28.51 units), 0.38 MB still held after it
+  PEAK         798.16 MB is what the term needs free on the card
+  released       0.00 MB still held after collect
+
+  TOTAL       1249.33 MB constants + tape + transient, against 32640 MB of card
