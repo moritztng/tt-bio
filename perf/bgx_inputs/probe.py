@@ -110,6 +110,10 @@ CASES = [
     case("set-negative-recycles", target="hPDL1", design_recycles=-3),
     case("set-huge-recycles", target="hPDL1", design_recycles=1000),
     case("set-zero-designs", target="hPDL1", number_of_final_designs=0),
+    case("set-negative-validation-recycles", target="hPDL1", validation_recycles=-1),
+    case("set-no-recycles", target="hPDL1", design_recycles=0),
+    case("set-trajectory-only-zero-designs", target="hPDL1", number_of_final_designs=0,
+         trajectory_only=True, max_trajectories=2),
 ]
 
 

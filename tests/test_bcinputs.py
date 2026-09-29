@@ -232,3 +232,32 @@ def test_two_targets_with_their_own_names_are_not_refused(tmp_path):
                 "targets": [{"name": "A", "target_path": str(first), "hotspots": "54"},
                             {"name": "B", "target_path": str(second), "hotspots": "56"}]}
     assert _problems(settings) == ([], [])
+
+
+# ---------------------------------------------------------------- counts that fail elsewhere
+
+def test_a_negative_recycle_count_is_refused_before_a_card_is_opened(tmp_path):
+    path = _target(tmp_path, "whole.pdb")
+    problems, _ = _problems(_settings(path, hotspots="54") | {"design_recycles": -3})
+    assert len(problems) == 1
+    assert "design_recycles -3 is not a recycle count" in problems[0]
+    assert "Write 0 for a single pass" in problems[0]
+
+
+def test_no_recycling_at_all_is_a_choice_and_is_not_refused(tmp_path):
+    path = _target(tmp_path, "whole.pdb")
+    assert _problems(_settings(path, hotspots="54") | {"design_recycles": 0}) == ([], [])
+
+
+def test_asking_for_no_final_designs_is_refused_because_the_campaign_stops_at_once(tmp_path):
+    path = _target(tmp_path, "whole.pdb")
+    problems, _ = _problems(_settings(path, hotspots="54") | {"number_of_final_designs": 0})
+    assert len(problems) == 1 and "ends the campaign before it takes a single trajectory" in problems[0]
+
+
+def test_no_final_designs_with_trajectory_only_is_not_refused(tmp_path):
+    path = _target(tmp_path, "whole.pdb")
+    settings = _settings(path, hotspots="54") | {"number_of_final_designs": 0,
+                                                 "trajectory_only": True,
+                                                 "max_trajectories": 2}
+    assert _problems(settings) == ([], [])

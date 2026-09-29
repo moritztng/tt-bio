@@ -243,9 +243,40 @@ def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
     return problems, notes
 
 
+RECYCLE_SETTINGS = ("design_recycles", "validation_recycles", "betasheet_reopt_recycles")
+
+
+def count_problems(settings: Mapping) -> list[str]:
+    """Counts that are accepted here and fail, or end the campaign, somewhere far from here."""
+    problems = []
+    for name in RECYCLE_SETTINGS:
+        value = settings.get(name)
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value < 0:
+            # `recycled_alphafold_outputs` splits a key into `num_recycle + 1`, so a negative
+            # count is an invalid tensor dimension: MLIRError out of the first fold, with the
+            # card already open and nothing said about the setting.
+            problems.append(
+                f"{name} {value} is not a recycle count. AlphaFold 2 folds {name} + 1 times, so "
+                f"a negative count reaches JAX as an invalid tensor dimension and fails inside "
+                f"the first fold with the card already open. Write 0 for a single pass with no "
+                f"recycling, or a positive count.")
+    designs = settings.get("number_of_final_designs")
+    if isinstance(designs, (int, float)) and not isinstance(designs, bool) and designs < 1 \
+            and not settings.get("trajectory_only"):
+        # `claim_trajectory` hands out no trajectory once accepted >= requested, and that is
+        # already true at zero: the campaign reports itself finished having designed nothing.
+        problems.append(
+            f"number_of_final_designs {designs} ends the campaign before it takes a single "
+            f"trajectory, because BindCraft 2 stops as soon as the accepted count reaches it, "
+            f"and it starts at zero. Write how many designs you want, or pass trajectory_only "
+            f"with max_trajectories to run trajectories without accepting any.")
+    return problems
+
+
 def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
     """Everything wrong with a campaign's inputs that this module can name, and what to note."""
-    problems = threshold_problems(settings) + binder_length_problems(settings)
+    problems = threshold_problems(settings) + binder_length_problems(settings) \
+        + count_problems(settings)
     notes: list[str] = []
     if problems:
         return problems, notes                    # a settings error stops the targets resolving
