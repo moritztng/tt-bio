@@ -1,0 +1,308 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "trajectories": null,
+ "trajectories_arg": "auto",
+ "max_trajectories": 3,
+ "auto_would_choose": [
+  3,
+  "218.5 GB of host memory is free and 3 of them peak near 20 GB"
+ ],
+ "validation": "device",
+ "binder": 146,
+ "seed": 100,
+ "project": "perf/bc2_teardown/out/L1_c0/campaign",
+ "commit": "c739e39f9ca02f9cc904d886fa2a5505c68ddedd",
+ "compile_cache": "/home/ttuser/.coworker/wt/bc2-teardown-next-job/perf/bc2_teardown/out/xlacache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  17.4814453125,
+  8.87255859375,
+  4.853515625
+ ],
+ "mem_start": {
+  "vmhwm": 461967360,
+  "vmrss": 461967360,
+  "mem_available": 234576371712
+ },
+ "started_utc": "2026-09-29T07:59:22Z"
+}
+2026-09-29 07:59:23.010 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[tt_bio.bindcraft2] 3 design trajectories on this card: 218.4 GB of host memory is free and 3 of them peak near 20 GB. Pass trajectories_per_card to choose yourself; 1 is BindCraft 2's own loop.
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bc2_teardown/out/L1_c0/campaign | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_65b794fd11eadc4b | accepted 0/10 ===
+
+=== trajectory 2 | pdl1_denovo_l146_95577589ca04600d | accepted 0/10 ===
+
+=== trajectory 3 | pdl1_denovo_l146_617507eef6bea406 | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.81    pLDDT=0.89  
+  passed screen design stage  i_pTM=0.82    pLDDT=0.79  
+  passed screen design stage  i_pTM=0.71    pLDDT=0.83  
+  passed refine design stage  i_pTM=0.84    pLDDT=0.88  
+  passed refine design stage  i_pTM=0.14    pLDDT=0.66  
+  passed refine design stage  i_pTM=0.76    pLDDT=0.81  
+  passed anneal design stage  i_pTM=0.86    pLDDT=0.94  
+  rejected at anneal design stage  i_pTM=0.29    pLDDT=0.79   due to [i_pTM]
+  passed anneal design stage  i_pTM=0.74    pLDDT=0.87  
+  passed harden design stage  i_pTM=0.83    pLDDT=0.86  
+  passed harden design stage  i_pTM=0.61    pLDDT=0.8   
+  passed mutate design stage  i_pTM=0.85    pLDDT=0.88  
+  binder hallucination successful
+  rejected at mutate design stage  i_pTM=0.13    pLDDT=0.4    due to [i_pTM, pLDDT]
+  binder optimization, 10 MPNN redesigns
+   1/10  ACCEPTED  Binder_RMSD=0.34    Hotspot_Contact_Fraction=1.0     Interface_Residues=18   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.93    i_pAE=0.18    i_pTM=0.82    pLDDT=0.93    pTM=0.86  
+   2/10  ACCEPTED  Binder_RMSD=0.38    Hotspot_Contact_Fraction=1.0     Interface_Residues=15   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.94    i_pAE=0.17    i_pTM=0.86    pLDDT=0.94    pTM=0.88  
+   3/10  ACCEPTED  Binder_RMSD=1.7     Hotspot_Contact_Fraction=1.0     Interface_Residues=15   Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.93    i_pAE=0.18    i_pTM=0.85    pLDDT=0.92    pTM=0.87  
+  3 of 10 redesigns passed, keeping the best 1 by i_pDAE: candidate 2 (0.36)
+
+campaign stopped at max_trajectories=3: 1/10 accepted in 3 trajectories, so 10 needs roughly 30 at this rate
+
+campaign done: 1 accepted design(s) after 3 trajectories, ranked by i_pDAE
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "trajectories": null,
+ "trajectories_arg": "auto",
+ "max_trajectories": 3,
+ "auto_would_choose": [
+  3,
+  "218.5 GB of host memory is free and 3 of them peak near 20 GB"
+ ],
+ "validation": "device",
+ "binder": 146,
+ "seed": 100,
+ "project": "perf/bc2_teardown/out/L1_c0/campaign",
+ "commit": "c739e39f9ca02f9cc904d886fa2a5505c68ddedd",
+ "compile_cache": "/home/ttuser/.coworker/wt/bc2-teardown-next-job/perf/bc2_teardown/out/xlacache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  17.4814453125,
+  8.87255859375,
+  4.853515625
+ ],
+ "mem_start": {
+  "vmhwm": 461967360,
+  "vmrss": 461967360,
+  "mem_available": 234576371712
+ },
+ "started_utc": "2026-09-29T07:59:22Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "wall_seconds": 2354.66,
+ "trajectories_returned": 3,
+ "error": null,
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 457320,
+   "declined: has a core grid": 106560,
+   "served": 257520,
+   "declined: not batched": 568320
+  },
+  "taped_channel_move": [
+   279720,
+   240864,
+   218360,
+   0
+  ],
+  "widen_add": {
+   "served: first": 286380,
+   "served: later": 75480
+  },
+  "rne_add": [
+   564084,
+   4888
+  ],
+  "qkv_grad_join": {
+   "served": 226440
+  },
+  "triatt_bw": {
+   "served": 39960,
+   "declined": 0,
+   "bw_calls": 39960
+  },
+  "triatt_fused_hifi": {
+   "served": 129288,
+   "declined": 2496,
+   "too_short": 0,
+   "taped": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    512820,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    119880,
+    0
+   ]
+  }
+ },
+ "rounds_per_slot": {
+  "t1": 125,
+  "t2": 120,
+  "t3": 125
+ },
+ "gate": {
+  "waited_s": {
+   "t1": 1102.62,
+   "t2": 1074.344,
+   "t3": 1095.727
+  },
+  "held_s": {
+   "t1": 783.287,
+   "t2": 694.635,
+   "t3": 748.726
+  },
+  "seams": {
+   "t1": 1317,
+   "t2": 1080,
+   "t3": 1221
+  },
+  "slot_at_seam": {
+   "t1@Dummy-3": 97,
+   "t1@Dummy-4": 85,
+   "t1@Dummy-5": 78,
+   "t1@Dummy-6": 85,
+   "t1@Dummy-7": 85,
+   "t1@Dummy-8": 87,
+   "t1@Dummy-9": 86,
+   "t1@Dummy-10": 68,
+   "t2@Dummy-11": 88,
+   "t1@Dummy-12": 75,
+   "t2@Dummy-12": 42,
+   "t1@Dummy-13": 71,
+   "t2@Dummy-10": 66,
+   "t2@Dummy-5": 70,
+   "t2@Dummy-6": 77,
+   "t1@Dummy-14": 103,
+   "t1@Dummy-11": 78,
+   "t1@Dummy-15": 81,
+   "t2@Dummy-13": 67,
+   "t1@Dummy-16": 92,
+   "t1@Dummy-17": 73,
+   "t2@Dummy-7": 55,
+   "t2@Dummy-4": 65,
+   "t2@Dummy-18": 65,
+   "t1@Dummy-18": 73,
+   "t2@Dummy-3": 85,
+   "t2@Dummy-17": 53,
+   "t3@Dummy-3": 73,
+   "t2@Dummy-9": 70,
+   "t3@Dummy-13": 78,
+   "t3@Dummy-11": 70,
+   "t3@Dummy-15": 78,
+   "t2@Dummy-14": 75,
+   "t3@Dummy-16": 67,
+   "t3@Dummy-5": 71,
+   "t3@Dummy-9": 77,
+   "t3@Dummy-14": 83,
+   "t3@Dummy-6": 81,
+   "t3@Dummy-12": 88,
+   "t2@Dummy-15": 65,
+   "t3@Dummy-4": 55,
+   "t3@Dummy-10": 72,
+   "t2@Dummy-16": 80,
+   "t2@Dummy-8": 57,
+   "t3@Dummy-18": 100,
+   "t3@Dummy-7": 93,
+   "t3@Dummy-17": 61,
+   "t3@Dummy-8": 74
+  }
+ },
+ "mem_end": {
+  "vmhwm": 20136878080,
+  "vmrss": 17869139968,
+  "mem_available": 212702834688
+ },
+ "loadavg_end": [
+  6.234375,
+  4.27734375,
+  3.5927734375
+ ],
+ "finished_utc": "2026-09-29T08:38:37Z"
+}
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  TT_THROW @ /project/tt_metal/third_party/umd/device/utils/robust_mutex.cpp:380: tt::exception
+info:
+pthread_mutex_unlock failed for mutex CHIP_IN_USE_0_PCIe errno: 1
+backtrace:
+ --- tt::umd::RobustMutex::unlock()
+ --- tt::umd::LocalChip::close_device()
+ --- tt::umd::Cluster::close_device()
+ --- tt::Cluster::~Cluster()
+ --- tt::tt_metal::MetalEnvImpl::~MetalEnvImpl()
+ --- tt::tt_metal::MetalEnv::~MetalEnv()
+ --- tt::tt_metal::MetalContext::~MetalContext()
+ --- tt::tt_metal::MetalContext::destroy_instance(bool, ttsl::StrongType<int, tt::tt_metal::ContextIdTag>)
+ --- tt::tt_metal::MetalContext::destroy_all_instances(bool)
+ --- /lib/x86_64-linux-gnu/libffi.so.8(+0x7b16) [0x7a0324ae7b16]
+ --- /lib/x86_64-linux-gnu/libffi.so.8(+0x43ef) [0x7a0324ae43ef]
+ --- /lib/x86_64-linux-gnu/libffi.so.8(ffi_call+0x12e) [0x7a0324ae70be]
+ --- /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so(+0xe11c) [0x7a032558a11c]
+ --- /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so(+0x92af) [0x7a03255852af]
+ --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyObject_MakeTpCall+0x75) [0x548fb5]
+ --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]
+ --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x6e2313]
+ --- /home/ttuser/bcx_e2e_venv/bin/python3(Py_FinalizeEx+0x4e) [0x6b118e]
+ --- /home/ttuser/bcx_e2e_venv/bin/python3(Py_RunMain+0x281) [0x6bcba1]
+ --- /home/ttuser/bcx_e2e_venv/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7a032562a1ca]
+ --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7a032562a28b]
+ --- /home/ttuser/bcx_e2e_venv/bin/python3(_start+0x25) [0x657a05]
+
+[tt-quietbox2:265494] *** Process received signal ***
+[tt-quietbox2:265494] Signal: Aborted (6)
+[tt-quietbox2:265494] Signal code:  (-6)
+[tt-quietbox2:265494] [ 0] /lib/x86_64-linux-gnu/libc.so.6(+0x45330)[0x7a0325645330]
+[tt-quietbox2:265494] [ 1] /lib/x86_64-linux-gnu/libc.so.6(pthread_kill+0x11c)[0x7a032569ec0c]
+[tt-quietbox2:265494] [ 2] /lib/x86_64-linux-gnu/libc.so.6(gsignal+0x1e)[0x7a032564527e]
+[tt-quietbox2:265494] [ 3] /lib/x86_64-linux-gnu/libc.so.6(abort+0xdf)[0x7a03256288ff]
+[tt-quietbox2:265494] [ 4] /lib/x86_64-linux-gnu/libstdc++.so.6(+0xac2b5)[0x7a03248ac2b5]
+[tt-quietbox2:265494] [ 5] /lib/x86_64-linux-gnu/libstdc++.so.6(+0xc31ea)[0x7a03248c31ea]
+[tt-quietbox2:265494] [ 6] /lib/x86_64-linux-gnu/libstdc++.so.6(_ZSt10unexpectedv+0x0)[0x7a03248abcac]
+[tt-quietbox2:265494] [ 7] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/../ttnn.libs/libdevice-24800af9.so(+0x19705b)[0x7a01e039705b]
+[tt-quietbox2:265494] [ 8] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/../ttnn.libs/libdevice-24800af9.so(+0x2f6a31)[0x7a01e04f6a31]
+[tt-quietbox2:265494] [ 9] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/../ttnn.libs/libdevice-24800af9.so(_ZN2tt3umd7Cluster12close_deviceEv+0x1c5)[0x7a01e04d5415]
+[tt-quietbox2:265494] [10] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt7ClusterD1Ev+0x143)[0x7a01c5c62af3]
+[tt-quietbox2:265494] [11] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal12MetalEnvImplD1Ev+0x6b)[0x7a01c5bc2bfb]
+[tt-quietbox2:265494] [12] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal8MetalEnvD2Ev+0x1e)[0x7a01c5bc416e]
+[tt-quietbox2:265494] [13] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal12MetalContextD1Ev+0x56)[0x7a01c5bbf346]
+[tt-quietbox2:265494] [14] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal12MetalContext16destroy_instanceEbN4ttsl10StrongTypeIiNS0_12ContextIdTagEEE+0x86)[0x7a01c5bbed86]
+[tt-quietbox2:265494] [15] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal12MetalContext21destroy_all_instancesEb+0xa)[0x7a01c5bbee5a]
+[tt-quietbox2:265494] [16] /lib/x86_64-linux-gnu/libffi.so.8(+0x7b16)[0x7a0324ae7b16]
+[tt-quietbox2:265494] [17] /lib/x86_64-linux-gnu/libffi.so.8(+0x43ef)[0x7a0324ae43ef]
+[tt-quietbox2:265494] [18] /lib/x86_64-linux-gnu/libffi.so.8(ffi_call+0x12e)[0x7a0324ae70be]
+[tt-quietbox2:265494] [19] /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so(+0xe11c)[0x7a032558a11c]
+[tt-quietbox2:265494] [20] /usr/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so(+0x92af)[0x7a03255852af]
+[tt-quietbox2:265494] [21] /home/ttuser/bcx_e2e_venv/bin/python3(_PyObject_MakeTpCall+0x75)[0x548fb5]
+[tt-quietbox2:265494] [22] /home/ttuser/bcx_e2e_venv/bin/python3(_PyEval_EvalFrameDefault+0xadf)[0x5d710f]
+[tt-quietbox2:265494] [23] /home/ttuser/bcx_e2e_venv/bin/python3[0x6e2313]
+[tt-quietbox2:265494] [24] /home/ttuser/bcx_e2e_venv/bin/python3(Py_FinalizeEx+0x4e)[0x6b118e]
+[tt-quietbox2:265494] [25] /home/ttuser/bcx_e2e_venv/bin/python3(Py_RunMain+0x281)[0x6bcba1]
+[tt-quietbox2:265494] [26] /home/ttuser/bcx_e2e_venv/bin/python3(Py_BytesMain+0x2d)[0x6bc7bd]
+[tt-quietbox2:265494] [27] /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca)[0x7a032562a1ca]
+[tt-quietbox2:265494] [28] /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b)[0x7a032562a28b]
+[tt-quietbox2:265494] [29] /home/ttuser/bcx_e2e_venv/bin/python3(_start+0x25)[0x657a05]
+[tt-quietbox2:265494] *** End of error message ***
+timeout: the monitored command dumped core

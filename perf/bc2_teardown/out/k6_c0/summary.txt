@@ -1,0 +1,5 @@
+trial=k6_c0 card=0 kind=control commit=c739e39f9 start=2026-09-29T07:56:05Z
+gate_rc=0 gate_wall=195 end=2026-09-29T07:59:20Z
+aiclk_mhz min/median/max=800/800/1350
+protenix-v1         1.781   0.898     <=5.0/>=0.6   1.0000     0    0(0.0000)     47s  PASS
+opendde             1.395   0.940     <=6.0/>=0.5   1.0000     0    5(0.0056)    145s  PASS

@@ -68,6 +68,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **A BindCraft 2 campaign exits 0.** Every campaign used to finish its work and then abort with
+  exit 134 (`pthread_mutex_unlock failed for mutex CHIP_IN_USE_<n>_PCIe`), because the card was
+  opened on one of JAX's worker threads and closed on the main thread. `bindcraft2.predictor()`
+  now opens the card on the thread that enters it. The abort never harmed the next job on the card:
+  across six abort-then-fold trials and six controls on two cards, the next fold matched to three
+  decimals (`perf/bc2_teardown`).
+
 - **`tt-bio design --model boltzgen --seed` did nothing.** The flag was dropped, and the design
   and refold loaders featurized from OS entropy. It now reaches every draw, so the same spec and seed
   give byte-identical designs; without `--seed` each run still draws fresh. Metrics CSV columns no

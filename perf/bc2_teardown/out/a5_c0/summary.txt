@@ -1,0 +1,2 @@
+trial=a5_c0 card=0 kind=abort commit=9bd197348 start=2026-09-29T07:50:24Z
+campaign_rc=134 chip_in_use=1 end=2026-09-29T07:51:56Z
