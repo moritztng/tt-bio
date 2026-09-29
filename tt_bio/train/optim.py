@@ -365,8 +365,9 @@ class AdamW:
         # Under per-sample clipping every sample was already clipped as it arrived, so the
         # norm here is the accumulated one and is reported rather than applied -- clipping the
         # sum again would be a third algorithm, neither theirs nor ours.
+        read = {}
         gnorm = (math.sqrt(sum(float(v.ravel() @ v.ravel()) for v in self.accum.values()))
-                 if per_sample else self.grad_norm(disabled))
+                 if per_sample else self.grad_norm(disabled, keep=read))
         clip = 1.0 if per_sample else self.clip_coef(gnorm)
         report = {}
         writes_skipped = 0
@@ -405,7 +406,7 @@ class AdamW:
             # does not.
             g = None if name in disabled else (
                 self.accum.get(name) if per_sample else (
-                    None if t.grad is None else self._grad(name, t)))
+                    None if t.grad is None else read.pop(name)))
             if g is None:
                 g = np.zeros_like(self.master[name])
             elif clip != 1.0:
@@ -626,7 +627,7 @@ class AdamW:
         return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan"),
                 "resolution": math.sqrt(res)}
 
-    def grad_norm(self, disabled=()) -> float:
+    def grad_norm(self, disabled=(), *, keep=None) -> float:
         """Global L2 norm of the gradients, for clipping and for the trajectory log.
 
         ``disabled`` is the set of parameter names this sample does not activate, and it is
@@ -637,14 +638,24 @@ class AdamW:
         5 datasets. Norming over a set they excluded gives a different clip coefficient for
         every gradient in the step -- measured at 8.368e-01 relative on one small enabled tensor
         beside one large disabled one, which is not a corner case but most of initial training.
+
+        ``keep``, a dict, receives every gradient read, by name. The clip is global, so the
+        norm has to see every gradient before any is applied and cannot be folded into the
+        update loop; ``step`` and ``clip_and_accumulate`` pass ``keep`` and consume the arrays
+        instead of reading each gradient off the card a second time. Dropping that second read
+        measured 1.245x on the AdamW phase at the OpenFold3 crop-384 census, bit-identical
+        (on the ``wk/of3t-p10optim`` branch). The price is holding the host
+        copies between the two passes, one float32 array per parameter, released as the loop
+        pops them.
         """
-        import numpy as np
         disabled = set(disabled)
         tot = 0.0
         for name, t in self.params.items():
             if t.grad is not None and name not in disabled:
                 gg = self._grad(name, t)
                 tot += float(gg.ravel() @ gg.ravel())
+                if keep is not None:
+                    keep[name] = gg
         return math.sqrt(tot)
 
     def clip_coef(self, gnorm: float) -> float:
@@ -674,12 +685,13 @@ class AdamW:
         """
         import numpy as np
         disabled = set(disabled)
-        gnorm = self.grad_norm(disabled)
+        read = {}
+        gnorm = self.grad_norm(disabled, keep=read)
         clip = self.clip_coef(gnorm)
         for name, t in self.params.items():
             if t.grad is None or name in disabled:
                 continue
-            g = self._grad(name, t)
+            g = read.pop(name)
             if clip != 1.0:
                 g = g * clip
             acc = self.accum.get(name)
