@@ -48,18 +48,25 @@ overlap them: the card idles about 2.6 s of every round with a host thread busy 
 Independent trajectories are the only work there is to fill that with, and a campaign has a
 supply of them. So `bindcraft2.run_campaign` runs several of them by default.
 
-Before any thread starts it reads free host memory, and the card when one is already open, then
-takes the largest count that fits up to three. It says which it took:
+Before any thread starts it prices a trajectory at your design's token axis, reads free host
+memory and the card, and takes the largest count that fits up to three. It says which it took:
 
 ```
-[tt_bio.bindcraft2] 3 design trajectories on this card: 226.3 GB of host memory is free and 3 of
-them peak near 20 GB. Pass trajectories_per_card to choose yourself; 1 is BindCraft 2's own loop.
+[tt_bio.bindcraft2] 3 design trajectories on this card: 3 of them at 288 tokens hold about 10 GB
+of the card and peak near 20 GB of the 226.3 GB of host memory free. Pass trajectories_per_card
+to choose yourself; 1 is BindCraft 2's own loop.
 ```
 
-A box whose free memory cannot be read gets one, never three. An explicit
-`trajectories_per_card=N` is used exactly as given, including a number the box cannot hold, which
-raises `MemoryError` naming what it wanted and what was free rather than letting the kernel kill
-the campaign at round 200.
+**The count falls as the design grows,** because both footprints grow with the square of the
+token axis. One trajectory of a 288-token design holds about 3 GB of the card and one of a
+704-token design holds 19, so three fit at 288 and one at 704. On a 32 GB Blackhole chip the
+default is three up to about 448 tokens, two to about 608, and one above that. Where one fits,
+the default is one, which is BindCraft 2's own loop unchanged.
+
+A box whose free memory cannot be read gets one, never three, and so does a design whose token
+axis cannot be read. An explicit `trajectories_per_card=N` is used exactly as given, including a
+number that will not fit, which raises `MemoryError` naming what it wanted and what was free
+rather than dying in the middle of a round.
 
 ```python
 # BindCraft 2's own loop: no threads, no scheduling, nothing in tt-bio behaves differently.

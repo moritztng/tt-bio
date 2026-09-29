@@ -687,7 +687,7 @@ def test_the_extra_msa_segment_survives_being_recomputed():
 # ------------------------------------------------ several trajectories on one card
 
 
-def _campaign_calls(monkeypatch, rounds_before_finishing=3, **kwargs):
+def _campaign_calls(monkeypatch, rounds_before_finishing=3, tokens=None, **kwargs):
     """Run `bindcraft2.run_campaign` against a campaign that does nothing but count rounds.
 
     Each fake campaign call plays `rounds_before_finishing` gradient rounds through
@@ -710,6 +710,8 @@ def _campaign_calls(monkeypatch, rounds_before_finishing=3, **kwargs):
         return len(calls)
 
     monkeypatch.setattr(campaign, "run_campaign", fake_run_campaign)
+    if tokens is not None:
+        monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: tokens)
     returned = bindcraft2.run_campaign({"campaign_name": "t"}, "/tmp/project", **kwargs)
     return calls, returned
 
@@ -728,14 +730,16 @@ def test_one_trajectory_per_card_is_bindcrafts_own_call(monkeypatch):
     assert duotraj.GATE is None
 
 
-def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0):
-    """Pretend the box has this much free host memory, this process holds that much, and the
-    card has that much DRAM free (0 = no card open, which is what `auto` sees at entry)."""
+def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0, tokens=288):
+    """Pretend the box has this much free host memory, this process holds that much, the card has
+    that much DRAM free (0 = no card open, which is what `auto` sees at entry), and the design
+    runs at this token axis."""
     from tt_bio import duotraj
 
     monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(free_gb * 2**30))
     monkeypatch.setattr(duotraj, "host_rss_bytes", lambda: int(rss_gb * 2**30))
     monkeypatch.setattr(duotraj, "free_device_bytes", lambda: int(card_gb * 2**30))
+    monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: tokens)
 
 
 def test_the_default_takes_as_many_trajectories_as_the_box_holds(monkeypatch, capsys):
@@ -790,6 +794,55 @@ def test_auto_does_not_put_more_trajectories_on_the_card_than_it_holds(monkeypat
     assert len(calls) == 2
 
 
+def test_a_large_design_gets_fewer_trajectories_than_a_small_one(monkeypatch, capsys):
+    """The regression this row exists for. The footprint grows with the square of the token axis,
+    so a count chosen at 288 tokens is not a count that fits at 704: measured on qb2 card 0, one
+    trajectory of a 704-token design peaks at 19.32 GB of the card's 31.875, and the three the
+    size-blind default chose died in round 1 with the card 99.4 % allocated
+    (`state/bgx-traj.md`). The same roomy box, the same card, four sizes."""
+    _box(monkeypatch, free_gb=200.0, tokens=288)
+    assert len(_campaign_calls(monkeypatch, tokens=288)[0]) == 3
+    assert len(_campaign_calls(monkeypatch, tokens=448)[0]) == 3
+    assert len(_campaign_calls(monkeypatch, tokens=512)[0]) == 2
+    assert len(_campaign_calls(monkeypatch, tokens=704)[0]) == 1
+    assert "704 tokens" in capsys.readouterr().out
+
+
+def test_a_design_that_only_fits_once_runs_bindcrafts_own_loop(monkeypatch):
+    """Where one fits, auto IS one: no gate, no thread, upstream's own call."""
+    from tt_bio import duotraj
+
+    _box(monkeypatch, free_gb=200.0, tokens=704)
+    calls, _ = _campaign_calls(monkeypatch, tokens=704)
+    assert len(calls) == 1
+    assert calls[0]["gate"] is False and calls[0]["slot"] == ""
+    assert calls[0]["thread"] == threading.current_thread().name
+    assert duotraj.GATE is None
+
+
+def test_a_design_whose_token_axis_cannot_be_read_runs_one(monkeypatch, capsys):
+    """An unknown size is not a small one. `design_tokens` answers 0 when BindCraft 2 cannot
+    size the design, and pricing that as the 288-token reference is how the guard was wrong."""
+    _box(monkeypatch, free_gb=200.0, tokens=0)
+    calls, _ = _campaign_calls(monkeypatch, tokens=0)
+    assert len(calls) == 1
+    assert "token axis could not be read" in capsys.readouterr().out
+
+
+def test_the_estimate_is_above_every_footprint_measured_on_the_card(monkeypatch):
+    """The guard errs LOW on the count, which means erring HIGH on the footprint. Measured peak
+    minus the shared round-boundary floor, one shipped trajectory, qb2 card 0
+    (`perf/bgx_traj/out/`), against what `trajectory_bytes` charges for it."""
+    from tt_bio import duotraj
+
+    measured = {288: 2.881, 384: 5.084, 448: 6.896, 512: 8.985,
+                576: 11.506, 640: 14.184, 704: 17.139}
+    for tokens, gb in measured.items():
+        charged = duotraj.trajectory_bytes(tokens) / 2**30
+        assert charged > gb, (tokens, charged, gb)
+        assert charged < gb * 1.25, (tokens, charged, gb)
+
+
 def test_an_explicit_count_is_honoured_even_when_it_will_not_fit(monkeypatch):
     """Auto lowers itself; a number the caller wrote is not quietly lowered. It still raises."""
     _bindcraft_root()
@@ -799,6 +852,20 @@ def test_an_explicit_count_is_honoured_even_when_it_will_not_fit(monkeypatch):
     monkeypatch.setattr(campaign, "run_campaign", lambda *a, **kw: started.append(1))
     _box(monkeypatch, free_gb=2.0)
     with pytest.raises(MemoryError, match="HOST"):
+        bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3)
+    assert not started
+
+
+def test_an_explicit_count_too_big_for_the_card_is_refused_on_the_card(monkeypatch):
+    """The host is roomy and the card is not: an explicit 3 at 704 tokens is the run that died,
+    and it is refused before a thread exists rather than in round 1."""
+    _bindcraft_root()
+    from bindcraft import campaign
+
+    started = []
+    monkeypatch.setattr(campaign, "run_campaign", lambda *a, **kw: started.append(1))
+    _box(monkeypatch, free_gb=200.0, tokens=704)
+    with pytest.raises(MemoryError, match="on the card"):
         bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3)
     assert not started
 
@@ -887,6 +954,7 @@ def test_a_box_that_cannot_hold_them_is_refused_before_any_campaign_starts(monke
     monkeypatch.setattr(campaign, "run_campaign",
                         lambda *a, **kw: started.append(1))
     monkeypatch.setattr(duotraj, "free_host_bytes", lambda: 2 * 2**30)
+    monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: 288)
     with pytest.raises(MemoryError, match="HOST"):
         bindcraft2.run_campaign({}, "/tmp/project", trajectories_per_card=3)
     assert not started

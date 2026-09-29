@@ -58,6 +58,26 @@ def _pad32(n: int) -> int:
     return -(-n // TOKEN_BUCKET) * TOKEN_BUCKET
 
 
+def design_tokens(settings: Mapping) -> int:
+    """The padded token axis a campaign with these settings will run at, or 0 if it cannot be
+    read.
+
+    BindCraft 2 sizes its own prediction with `design_residue_count`, which parses the target and
+    adds the longest binder, both padded to the campaign's bucket. Asking it rather than
+    re-deriving the axis keeps the two in step, including for scaffolds, oligomers and cropped
+    targets, where a count of our own would be wrong in a different way for each.
+
+    Returns 0 rather than raising: this is only ever used to SIZE a default, and a default that
+    cannot read the design falls back to one trajectory, which is BindCraft 2's own loop.
+    """
+    try:
+        from bindcraft.protein_preparation import design_residue_count
+
+        return int(design_residue_count(dict(settings)))
+    except Exception:
+        return 0
+
+
 def pin_card(card: int | str) -> None:
     """Pin this process to one physical card.
 
@@ -1688,11 +1708,14 @@ def run_campaign(settings: Mapping, project_folder: str, *,
         with bindcraft2.campaign_predictor(card=0, exact=False):
             bindcraft2.run_campaign(settings, project, af2_weights=params, mpnn_weights=mpnn)
 
-    The default, `"auto"`, reads free host memory (and the card, if one is open) BEFORE any
-    thread starts and takes the largest count that fits up to `duotraj.AUTO_CAP`, floored at 1.
-    It prints the count and the reason it chose it. A box whose free memory cannot be read gets
-    1: the two ways of guessing wrong do not cost the same, and the expensive one is a campaign
-    the kernel kills at round 200.
+    The default, `"auto"`, prices a trajectory at THIS design's token axis, reads free host
+    memory (and the card, if one is open) BEFORE any thread starts, and takes the largest count
+    that fits up to `duotraj.AUTO_CAP`, floored at 1. It prints the count and the reason it chose
+    it. Both footprints grow with the square of the axis, so the count falls as the design grows:
+    three trajectories of a 288-token design hold about 10 GB of the card and one of a 704-token
+    design holds 19. A box whose free memory cannot be read, or a design whose axis cannot be
+    read, gets 1: the two ways of guessing wrong do not cost the same, and the expensive one is a
+    campaign that dies.
 
     `trajectories_per_card=1` is BindCraft 2's own call, unchanged: no threads, no gate, nothing
     in tt-bio behaves differently. Any explicit number is honoured exactly, including one this
@@ -1708,10 +1731,11 @@ def run_campaign(settings: Mapping, project_folder: str, *,
     serial to 7.23 s at two trajectories and 6.76 s at three, amortised over the trajectories
     running (`state/perf10/bcx-p10-tritraj.md`).
 
-    It costs host memory: about 3.5 GB per additional trajectory, on top of the ~8 GB one
-    trajectory of this size holds. `duotraj.refuse_if_it_will_not_fit` reads both the box and the
-    card before any thread starts and raises `MemoryError` naming what it wanted and what was
-    free, because a campaign OOM-killed at round 200 is worse than a slower one.
+    It costs memory on both sides, and both grow with the token axis:
+    `duotraj.trajectory_bytes` and `duotraj.trajectory_host_bytes` are the estimates, fitted on
+    a measured ladder from 288 to 704 tokens. `duotraj.refuse_if_it_will_not_fit` reads the box
+    and the card before any thread starts and raises `MemoryError` naming what it wanted and what
+    was free, because a campaign that dies is worse than a slower one.
 
     Trajectory i starts only once i-1 has its first gradient round behind it, so no two
     trajectories trace and compile at the same time; `stagger_timeout` bounds that wait.
@@ -1721,11 +1745,12 @@ def run_campaign(settings: Mapping, project_folder: str, *,
     """
     from bindcraft import campaign
 
+    tokens = design_tokens(settings)
     if isinstance(trajectories_per_card, str):
         if trajectories_per_card != "auto":
             raise ValueError('trajectories_per_card must be a count or "auto", not '
                              f"{trajectories_per_card!r}")
-        trajectories, why = duotraj.auto_trajectories()
+        trajectories, why = duotraj.auto_trajectories(tokens)
         print(f"[tt_bio.bindcraft2] {trajectories} design "
               f"{'trajectory' if trajectories == 1 else 'trajectories'} on this card: {why}. "
               f"Pass trajectories_per_card to choose yourself; 1 is BindCraft 2's own loop.",
@@ -1758,7 +1783,7 @@ def run_campaign(settings: Mapping, project_folder: str, *,
                 duotraj.compile_round_cleared(names[i]).set()
         return go
 
-    with duotraj.interleave(trajectories=trajectories), \
+    with duotraj.interleave(trajectories=trajectories, tokens=tokens), \
             _one_campaign_not_n(campaign, trajectories):
         counted = duotraj.run([one(i) for i in range(trajectories)], names=names)
     # Each arm returns the trajectory count it read out of the shared campaign progress as it
