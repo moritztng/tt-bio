@@ -244,15 +244,30 @@ def test_validation_can_be_put_on_card_explicitly(monkeypatch):
     assert _campaign_factory_trunks(monkeypatch, validation="device") == ["device"] * 3
 
 
-def test_the_extra_msa_stack_stays_in_jax_unless_it_is_asked_for():
-    """The second swap is off by default, so an Evoformer-only comparison keeps its program.
+def test_the_extra_msa_stack_runs_on_card_by_default():
+    """Both AF2 swaps default ON, because leaving them in JAX is what costs the round.
 
-    `bcx-seeds` grades matched pairs on the Evoformer swap alone. A second default moving
-    underneath that set would void it.
+    On a Wormhole Galaxy chip a 288-token round is 29.423 s with them in JAX against 16.267 s
+    on card, 1.8087x, host 17.188 -> 2.417 s (`perf/bwx_perf/results/`); Blackhole agrees to
+    3 %. Before this the shipped default was the one arm nobody had measured: every headline
+    was taken through a harness that hardcoded them on.
     """
     _bindcraft_root()
     params = _af2_params()
     with bindcraft2.predictor(trunk="device", checkpoints=str(params)) as build:
+        assert build.extra_msa is not None
+
+
+def test_the_extra_msa_stack_can_be_kept_in_jax():
+    """`extra_msa=False` is the opt-out an Evoformer-only comparison needs.
+
+    `bcx-seeds` grades matched pairs on the Evoformer swap alone, so that set is re-run on
+    this flag rather than on the default.
+    """
+    _bindcraft_root()
+    params = _af2_params()
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params),
+                              extra_msa=False) as build:
         assert build.extra_msa is None
 
 

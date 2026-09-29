@@ -181,28 +181,32 @@ with bindcraft2.campaign_predictor(card=0, validation="device"):  # both on card
 `validation="device"` is a reasonable choice for throughput, but an accepted count measured that
 way is a different measurement. Re-measure before quoting it, and say which path produced it.
 
-### The extra-MSA stack
+### The extra-MSA stack and the template embedder
 
-BindCraft 2 runs a four-block extra-MSA stack before the Evoformer. It stays in JAX unless you ask
-for it:
+BindCraft 2 runs a four-block extra-MSA stack before the Evoformer, and a multimer template
+embedder with two more pair blocks. Both run on the card by default. Pass False to leave either
+in BindCraft 2's JAX:
 
 ```python
-with bindcraft2.predictor(card=0, extra_msa=True) as build:
+with bindcraft2.predictor(card=0, extra_msa=False) as build:
     ...
 ```
 
-Off by default, and switchable independently of the Evoformer, so a comparison graded on the
-Evoformer alone keeps the program it was graded on.
+Leaving them in JAX costs far more on the host than running them costs on the card. On a Wormhole
+Galaxy chip a 288-token round is 29.423 s with both in JAX against 16.267 s with both on card,
+1.8087x: the host column falls from 17.188 s to 2.417 s and the device column rises from 12.294 to
+13.856. Eight arms alternated at the process boundary in one sitting on one chip, AICLK 1000 MHz
+median with none of the 454 samples below it. A Blackhole p300 chip agrees to 3 %, 37.675 against
+20.220 s at AICLK 1350.
 
-Before tt-bio's gradient kernels it made a round slower: the card ran the stack in 34.0 s where
-BindCraft 2's JAX ran it on the host in 10.3 s, about 4 % on the round, measured with both arms
-interleaved in one process on one card, 16 rounds, seven per arm. The interleaved round in the
-table above was measured with it on and has not been re-measured with it off.
+Early on this went the other way: before tt-bio's gradient kernels the card ran the extra-MSA
+stack in 34.0 s where JAX ran it on the host in 10.3 s. The kernels closed that gap, and the
+host cost is what is left.
 
-The reason is what the Evoformer swap already did. With the Evoformer on the card a round is 97 %
-device time and only 13 s of 454 s is left on the host, so even a free extra-MSA swap could win
-2 %. The two levers do not add up: the first one takes the host time the second one was going to
-save. Read `build.extra_msa.calls` to confirm the card ran it.
+The template swap brings two more blocks of weights per checkpoint onto the card, so it is not
+free of allocator pressure. Monomer checkpoints are untouched; the swap is installed on the
+multimer modules only. Read `build.extra_msa.calls` and `build.template.calls` to confirm the
+card ran them.
 
 BindCraft 2 feeds an all-zero extra-MSA mask, so there is no gradient into the extra MSA to lose:
 it measures exactly zero on BindCraft 2's own JAX, and the card's path returns zero by
