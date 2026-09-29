@@ -67,6 +67,12 @@ binder lengths, so the default prices every design as if it were one of them. On
 Blackhole chip that is three trajectories up to 352 tokens, two at 384 and 416, and one from 448
 up. Where one fits, the default is one, which is BindCraft 2's own loop unchanged.
 
+**The part matters, and the default reads it.** A Wormhole chip has 12 GB where a Blackhole chip
+has 32, so the counts above are not the counts there: at 288 tokens the default takes one, or two
+when a chip is already open and can report its own free memory. Two at 288 tokens has run a
+campaign to its stop condition on a Wormhole Galaxy chip, so pass `trajectories_per_card=2` if
+your designs stay near that size. Three is refused on that part.
+
 So the size the line prints is an upper bound, and above about 448 tokens it can be roughly
 twice what the run goes on to hold: a 576-token design is priced at 29.9 GB and holds 13.1 GB
 when the fused arm serves. It is not telling you the card is too small. It is saying it will

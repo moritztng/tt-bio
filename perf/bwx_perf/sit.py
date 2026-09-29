@@ -21,6 +21,7 @@ import argparse
 import json
 import os
 import pathlib
+import signal
 import subprocess
 import sys
 import threading
@@ -77,6 +78,14 @@ def main():
 
     lease = DeviceLease(card=args.chip, timeout=600).acquire()
     print(f"{time.strftime('%FT%TZ', time.gmtime())} holding {lease.path}", flush=True)
+    # A lease whose holder is killed keeps `released: null` in its metadata. tt-bio itself is
+    # fine with that -- the kernel drops the flock -- but the Galaxy's own agent reads the
+    # metadata, and on 2026-09-29 a crashed run's file held `.107` in `box reset waits for
+    # holders {'30': [704203]}` for minutes while the box tried to recover a bad chip. A
+    # sitting is the long-running thing on a shared serving box, so it stamps its own release
+    # on the way out of every signal that is not SIGKILL.
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, lambda s, _f: (lease.release(), sys.exit(128 + s)))
     stop = threading.Event()
     t = threading.Thread(target=sample, args=(out, stop), daemon=True)
     t.start()
