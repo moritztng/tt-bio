@@ -188,6 +188,30 @@ def _span_note(label: str, kind: str, raw: str, chain: str, start: int, end: int
             f"structure ({missing[0]}-{missing[-1]} unresolved); the rest carry the {kind}.")
 
 
+SPAN_FIELDS = ("chains", "hotspots", "coldspots")
+
+
+def shape_problems(label: str, target) -> list[str]:
+    """A target field written as a JSON list where BindCraft 2 reads one comma-separated string.
+
+    `target_binding_site_flags` and `selected_chain_names` both call `str.split` on these, so a
+    list reaches them as a list: `AttributeError: 'list' object has no attribute 'split'`, from
+    inside the campaign, naming neither the field nor the target.
+    """
+    problems = []
+    for field in SPAN_FIELDS:
+        value = getattr(target, field, None)
+        if value is None or isinstance(value, str):
+            continue
+        written = ",".join(str(item) for item in value) \
+            if isinstance(value, (list, tuple, set)) else str(value)
+        problems.append(
+            f'{label}: "{field}" is a {type(value).__name__}, and BindCraft 2 reads it as one '
+            f'comma-separated string. Write it as "{field}": "{written}". A list reaches '
+            f"str.split as a list and fails inside the campaign with AttributeError.")
+    return problems
+
+
 def _target_source(target) -> str:
     """What to call a target's file in a message: its name on disk, or that it was pasted in."""
     path = getattr(target, "path", "") or ""
@@ -201,6 +225,8 @@ def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
     from bindcraft.settings import is_fasta
 
     label = f"target {name or getattr(target, 'name', '')!r}"
+    if shaped := shape_problems(label, target):
+        return shaped, []          # every reader below splits these fields on a comma
     path = target.path
     if "\n" in path or not os.path.isfile(path):
         return [], []                                    # BindCraft 2's preflight names this one

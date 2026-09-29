@@ -261,3 +261,23 @@ def test_no_final_designs_with_trajectory_only_is_not_refused(tmp_path):
                                                  "trajectory_only": True,
                                                  "max_trajectories": 2}
     assert _problems(settings) == ([], [])
+
+
+# ---------------------------------------------------------------- a JSON list where a string goes
+
+def test_hotspots_written_as_a_json_list_are_refused_with_the_string_to_write(tmp_path):
+    path = _target(tmp_path, "whole.pdb")
+    problems, _ = _problems(_settings(path, hotspots=["54", "56"]))
+    assert len(problems) == 1
+    assert '"hotspots": "54,56"' in problems[0] and "comma-separated string" in problems[0]
+
+
+def test_chains_written_as_a_json_list_are_refused_before_bindcraft_splits_them(tmp_path):
+    path = _target(tmp_path, "whole.pdb")
+    problems, _ = _problems(_settings(path, chains=["A", "B"], hotspots="54"))
+    assert len(problems) == 1 and '"chains": "A,B"' in problems[0]
+
+
+def test_hotspots_with_spaces_around_the_commas_are_not_refused(tmp_path):
+    path = _target(tmp_path, "whole.pdb")
+    assert _problems(_settings(path, hotspots="54, 56 ,115")) == ([], [])
