@@ -105,6 +105,75 @@ class Rounds:
         return out
 
 
+class DevicePeak:
+    """The device high-water mark, sampled at tape nodes rather than at round boundaries.
+
+    `tenstorrent.dram_peak` only fires where tt-bio's own code is tagged, and the AF2 design
+    backward runs through `autograd`'s tape, which carries no tags: at 192 tokens it reported
+    a 1.941 GiB peak off a forward tag while the backward is where the footprint is made. So
+    this samples where `bcx-bigtarget`'s census sampled, at every Nth `_retire` -- the point
+    the backward walk releases an intermediate, which every tape node passes through.
+
+    Every Nth and not every one because `get_memory_view` drains the pipeline. This leg
+    reports no timing for exactly that reason.
+    """
+
+    def __init__(self, every: int):
+        self.every, self.calls, self.samples = every, 0, 0
+        self.used_max = 0
+        self.free_min = None
+        self.largest_free_at_peak = None
+        self.total = 0
+
+    def sample(self) -> None:
+        import ttnn
+        from tt_bio import tenstorrent
+        if tenstorrent._device is None:
+            return
+        mv = ttnn.get_memory_view(tenstorrent._device, ttnn.BufferType.DRAM)
+        banks = int(mv.num_banks)
+        self.total = int(mv.total_bytes_per_bank) * banks
+        free = int(mv.total_bytes_free_per_bank) * banks
+        used = self.total - free
+        self.samples += 1
+        if self.free_min is None or free < self.free_min:
+            self.free_min = free
+        if used > self.used_max:
+            self.used_max = used
+            lcf = mv.largest_contiguous_bytes_free_per_bank
+            if isinstance(lcf, (list, tuple)):
+                lcf = min(lcf)
+            self.largest_free_at_peak = int(lcf)
+
+    def install(self) -> None:
+        """Wrap `autograd._retire`. A module-level rebind is enough: the backward walk looks
+        it up in the module globals, which is also why the tree stays clean -- nothing on
+        disk changes, so the timed leg sharing this worktree measures an unpatched tree."""
+        from tt_bio import autograd
+        real = autograd._retire
+
+        def retire(t):
+            self.calls += 1
+            if self.calls % self.every == 0:
+                try:
+                    self.sample()
+                except Exception:
+                    pass
+            return real(t)
+        autograd._retire = retire
+
+    def report(self) -> dict:
+        if not self.samples:
+            return {"node_probe_samples": 0}
+        g = 2**30
+        return {"node_probe_samples": self.samples, "node_probe_calls": self.calls,
+                "resident_peak_gb": round(self.used_max / g, 4),
+                "free_at_peak_gb": round((self.total - self.used_max) / g, 4),
+                "device_total_gb": round(self.total / g, 4),
+                "largest_free_block_at_peak_mb": None if self.largest_free_at_peak is None
+                else round(self.largest_free_at_peak / 2**20, 1)}
+
+
 def peak_from_probe(path: pathlib.Path) -> dict:
     """The device high-water mark, read out of `tenstorrent.dram_peak`'s own census file."""
     if not path.exists():
@@ -139,6 +208,8 @@ def main():
     ap.add_argument("--footprint", action="store_true",
                     help="arm tenstorrent.dram_peak. Reports no timing: the probe drains the "
                          "pipeline and a run with it on measures the probe")
+    ap.add_argument("--probe-every", dest="probe_every", type=int, default=8,
+                    help="sample device DRAM at every Nth tape node, with --footprint")
     ap.add_argument("--out", required=True)
     ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V")
     args = ap.parse_args()
@@ -149,8 +220,10 @@ def main():
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
 
     probe = pathlib.Path(project) / "dram_peak.txt"
+    peak = DevicePeak(max(1, args.probe_every))
     if args.footprint:
         os.environ["TT_BIO_DRAM_PEAK"] = str(probe)
+        peak.install()
 
     # The settings a user would write: the shipped PD-L1 campaign with its target swapped.
     # Inline `targets` rather than a `settings/target/<name>.json`, so nothing is written
@@ -226,7 +299,7 @@ def main():
                                           for s in sorted({r["slot"] for r in rounds.rows})},
                       "per_round": rounds.per_round(M.CLOCK),
                       "aiclk_run": M.CLOCK.window(t0, time.time()),
-                      **peak_from_probe(probe),
+                      **peak_from_probe(probe), **peak.report(),
                       "mem_end": host_memory(), "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
         pathlib.Path(os.path.join(project, "rung.json")).write_text(json.dumps(stamp, indent=1))
