@@ -60,10 +60,12 @@ def _pad32(n: int) -> int:
 
 
 #: The largest token axis measured to complete a BindCraft 2 gradient round on one p150a
-#: (34.226 GB of DRAM): 544 tokens holds 14.23 GB resident, 576 refuses. Measured on qb1,
-#: 2026-09-29, `state/bgx-size.md`. It is quoted in a refusal as a reference point and is
-#: enforced nowhere: the allocator decides, and a board with more DRAM has a different answer.
-MEASURED_MAX_TOKENS_P150A = 544
+#: (34.226 GB of DRAM): 576 tokens holds 14.23 GB resident and 608 refuses. Measured on qb1,
+#: 2026-09-29, `state/bgx-size.md`, where the axis is the one the Evoformer seam ran rather
+#: than `target_residues + binder` -- those differ, and an earlier value of 544 here came from
+#: the arithmetic. It is quoted in a refusal as a reference point and is enforced nowhere: the
+#: allocator decides, and a board with more DRAM has a different answer.
+MEASURED_MAX_TOKENS_P150A = 576
 
 #: tt-metal's allocator refusal, which carries every number a user needs and is buried under
 #: forty lines of C++ backtrace by the time JAX has finished wrapping it. Per bank, except the
@@ -120,7 +122,7 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
             f"length rounded up to a multiple of {TOKEN_BUCKET}, so {drop} residues off the "
             f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. The largest axis "
             f"measured to complete a gradient round on one p150a is "
-            f"{MEASURED_MAX_TOKENS_P150A} tokens; above that the card refuses. Trimming the "
+            f"{MEASURED_MAX_TOKENS_P150A} tokens. Trimming the "
             f"target to the domain you are binding is the other lever and usually the bigger "
             f"one.")
     else:

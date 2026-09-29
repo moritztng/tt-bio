@@ -1022,10 +1022,11 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
 
 # --------------------------------------------------------------------- the refusal a user reads
 
-#: tt-metal's own words, copied verbatim off a 576-token fold (hTNFa + a 100-residue binder) on
-#: qb1 card 1, 2026-09-29. JAX wraps this in a `JaxRuntimeError` behind ten Python frames and
-#: forty lines of C++ hex, and the size that caused it appears nowhere in any of them.
-REFUSAL_576 = (
+#: tt-metal's own words, copied verbatim off an hTNFa + 100-residue-binder fold on qb1 card 1,
+#: 2026-09-29, which runs on a 608-token axis: the refused buffer is exactly [608,4,608,608]
+#: fp32 (608**3 * 4 * 4 = 3,596,091,392 B). JAX wraps this in a `JaxRuntimeError` behind ten
+#: Python frames and forty lines of C++ hex, and the size that caused it appears nowhere.
+REFUSAL_608 = (
     "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\n"
     "info:\n"
     "Out of Memory: Not enough space to allocate 3596091392 B DRAM buffer across 8 banks, "
@@ -1038,24 +1039,26 @@ REFUSAL_576 = (
 
 def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down():
     """The four things the traceback does not say: how big, how much, why, and what to do."""
-    got = bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_576),
-                                         phase="backward", n=556, padded=576)
+    # The allocator line is verbatim; the complex length is a fixture, since the message logic
+    # is what is under test and the seam reports the real one at runtime.
+    got = bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
+                                         phase="backward", n=586, padded=608)
     msg = str(got)
     assert isinstance(got, MemoryError)
-    assert "576 tokens" in msg and "556 residues" in msg     # the axis and how it was composed
+    assert "608 tokens" in msg and "586 residues" in msg     # the axis and how it was composed
     assert "3.596 GB" in msg and "326.7 MB" in msg           # asked for, and the block it got
     assert "fragmentation, not a full card" in msg           # 4.122 GB free covers 3.596 GB
-    assert "544 tokens" in msg                               # one bucket down
-    assert "12 residues off the binder" in msg               # 556 - 544, the concrete action
+    assert "576 tokens" in msg                               # one bucket down, and it serves
+    assert "10 residues off the binder" in msg               # 586 - 576, the concrete action
     assert "backward" in msg
 
 
 def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
     """Same words from the allocator, opposite remedy: retrying smaller is all that is left."""
-    full = REFUSAL_576.replace("free: 515248512 B", "free: 51524851 B") \
+    full = REFUSAL_608.replace("free: 515248512 B", "free: 51524851 B") \
                       .replace("largest free block: 326674368 B", "largest free block: 51524851 B")
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(full),
-                                             phase="forward", n=556, padded=576))
+                                             phase="forward", n=586, padded=608))
     assert "The card is full" in msg
     assert "fragmentation" not in msg
 
@@ -1063,7 +1066,7 @@ def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
 def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
     """320 tokens is measured to fit alone, so a refusal there is company on the chip, and the
     knob that removes it is BindCraft 2's own one-at-a-time loop, not a shorter binder."""
-    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_576),
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
                                              phase="backward", n=300, padded=320))
     assert "trajectories_per_card=1" in msg
     assert "288 tokens" in msg
@@ -1073,17 +1076,17 @@ def test_an_unrelated_failure_is_re_raised_unchanged():
     """A wrapper that repaints the shape of an unrelated bug is worse than no wrapper."""
     boom = ValueError("holds 24 Evoformer blocks and this splice was built for 48")
     with pytest.raises(ValueError) as caught:
-        with bindcraft2._refusal_names_the_size("forward", 556, 576):
+        with bindcraft2._refusal_names_the_size("forward", 586, 608):
             raise boom
     assert caught.value is boom
-    assert bindcraft2._size_aware_refusal(boom, phase="forward", n=556, padded=576) is None
+    assert bindcraft2._size_aware_refusal(boom, phase="forward", n=586, padded=608) is None
 
 
 def test_the_allocators_own_refusal_is_kept_as_the_cause():
     """The added message is for the user; the original line is what a bug report needs."""
-    original = RuntimeError(REFUSAL_576)
+    original = RuntimeError(REFUSAL_608)
     with pytest.raises(MemoryError) as caught:
-        with bindcraft2._refusal_names_the_size("backward", 556, 576):
+        with bindcraft2._refusal_names_the_size("backward", 586, 608):
             raise original
     assert caught.value.__cause__ is original
     assert "largest free block: 326674368 B" in str(caught.value.__cause__)
