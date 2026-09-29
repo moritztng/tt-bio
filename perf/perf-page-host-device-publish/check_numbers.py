@@ -8,13 +8,15 @@ the Tenstorrent host shares to perf/perf-page-host-device-split/tt_<model>_qb2c1
 ones to that directory's hgpu.json and h200/, and RoseTTAFold3's to the pass that measured its cell.
 """
 
+import html
 import json
+import re
 import sys
 from pathlib import Path
 
 # Defaults to the repo this file sits in. Pass a root to score a copy of the site tree instead,
-# which is how the deployed page is checked: curl the two live files into <root>/site/ and point
-# this at <root>.
+# which is how the deployed page is checked: curl the live data file and index.html into <root>/site/
+# (keeping data/) and point this at <root>.
 ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2]
 
 # model -> (host_tt, host_gpu, device_tt, device_gpu, whole_fold, device_only)
@@ -92,6 +94,11 @@ def main():
     for mid in ("protenix-v2", "opendde", "rf3"):
         if not next(m for m in page["models"] if m["id"] == mid).get("note"):
             bad.append(f"{mid}: row note missing")
+    # The home page carries scope.nvidia_code as static markup so the provenance reads without JS;
+    # this is what stops that copy drifting from the data both pages render.
+    home = re.search(r'<span id="prov">(.*?)</span>', (ROOT / "site" / "index.html").read_text(), re.S)
+    if not home or html.unescape(" ".join(home.group(1).split())) != page["scope"]["nvidia_code"]:
+        bad.append("site/index.html #prov differs from scope.nvidia_code")
     if bad:
         print("\nFAIL")
         for b in bad:

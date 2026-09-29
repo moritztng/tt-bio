@@ -19,8 +19,10 @@ reproduces it within that reference's own run-to-run noise. The methodology, per
 reproduction commands are in [`docs/implementation-parity.md`](docs/implementation-parity.md).
 Predictions and designs per hour per server, and throughput per dollar of purchase price and of
 total cost of ownership against NVIDIA DGX H200, B200 and A100, are on
-[tt-bio.com](https://tt-bio.com). Its [benchmark page](https://tt-bio.com/benchmarks/) has the
-measured seconds behind every figure, the fixtures, the run conditions and the cost model.
+[tt-bio.com](https://tt-bio.com). The NVIDIA figures run each model's own upstream code, not
+BioNeMo or Anthropic's life-sciences kit; an optimised serving stack might be faster and is not
+measured. The [benchmark page](https://tt-bio.com/benchmarks/) has the measured seconds behind
+every figure, the fixtures, the run conditions and the cost model.
 
 Each runs as `tt-bio <command> --model <name>`:
 
