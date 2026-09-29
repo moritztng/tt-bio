@@ -19,7 +19,7 @@ ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().pare
 
 # model -> (host_tt, host_gpu, device_tt, device_gpu, whole_fold, device_only)
 EXPECT = {
-    "boltz2":      (0.382, 0.240, 23.122,  7.298, 3.118, 3.168),
+    "boltz2":      (0.382, 0.240, 16.958,  7.298, 2.300, 2.324),
     "esmfold2":    (0.056, 0.001, 29.337,  7.256, 4.050, 4.043),
     "protenix-v2": (0.101, 0.619, 50.442, 12.186, 3.947, 4.139),
     "opendde":     (0.125, 6.308, 82.268, 20.640, 3.057, 3.986),
