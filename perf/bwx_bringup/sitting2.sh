@@ -41,7 +41,9 @@ grade(){  # grade <stage> <blocks> <tag> [extra args...]
   say "$stage rc=$rc"
   # The whole point of this stage is that a non-finite reading is a RESULT, not a crash, so
   # look for one explicitly rather than trusting the exit code.
-  grep -iE "inf|nan|Bus error|Non-existent physical|Signal:" "$d/grade.log" | head -8 \
+  # \binf\b / \bnan\b, not a bare substring: "inf" matches "info" and every INFO line in a ttnn
+  # log, which buries the one reading this stage exists to catch.
+  grep -iE "\b(inf|-inf|nan)\b|Bus error|Non-existent physical|Signal:" "$d/grade.log" | head -8 \
       | sed "s/^/  $stage: /" | tee -a "$OUT/sitting.log"
   tail -20 "$d/grade.log" | tee -a "$OUT/sitting.log"
   touch "$OUT/DONE-$stage"
