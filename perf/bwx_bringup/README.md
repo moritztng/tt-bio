@@ -1,5 +1,12 @@
 # BindCraft 2 on a Wormhole Galaxy chip
 
+> **Chip 30 of this box was found faulty at the end of the sitting these numbers come from.**
+> The box's own canary declared it dead -- `canary missed: 85ac6bda (want d721d4c1e026111c),
+> pLDDT 0.9667, miss 2 of 2` -- a chip that computes in a normal 18.3 s and returns the wrong
+> answer. The round and campaign figures below were taken before any anomaly and their internals
+> look healthy, but **re-measure on a canary-passing chip before building on them**, and read the
+> gradient section as "the arithmetic can be right here", not as a clean bill of health.
+
 The first BindCraft 2 gradient rounds to run on Wormhole. Dev Galaxy `.107` (`UF-EV-A4-GWH01`,
 Osaka dev box, not production), **chip 30** = sysfs node 6, PCI `0000:c7:00.0`, `Arch.WORMHOLE_B0`,
 compute grid **8x9**, so `tt_bio.tenstorrent._IS_SMALL_GRID` is the path in force. tt-bio
