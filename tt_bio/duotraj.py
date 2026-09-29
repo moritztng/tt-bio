@@ -340,8 +340,14 @@ def auto_trajectories(tokens: "int | None", cap: int = AUTO_CAP) -> "tuple[int, 
                        f"card and peak near {peak(n) * gb:.0f} GB of the "
                        f"{free * gb:.1f} GB of host memory free")
     if on_card < 2:
-        return 1, (f"at {tokens} tokens one trajectory holds about {per * gb:.1f} GB of the card "
-                   f"and a second does not fit in the {room * gb:.1f} GB it has for them")
+        # `per` prices the composed path at every axis, so above ~448 tokens it can be twice what
+        # the run goes on to hold and at 576 it exceeds the whole card while the design fits in
+        # 13.1 GB. Said as "one trajectory holds 29.9 GB of the card" that reads as a refusal at
+        # the largest axis that works, which is the opposite of what it means.
+        return 1, (f"at {tokens} tokens one trajectory is priced at up to {per * gb:.1f} GB "
+                   f"against the {room * gb:.1f} GB the card has for them, so it runs one. That "
+                   f"price assumes the slower composed path; where the fused one serves, the run "
+                   f"holds well under it")
     return 1, (f"{free * gb:.1f} GB of host memory is free and a second trajectory at {tokens} "
                f"tokens needs {needs(2) * gb:.1f} GB")
 
