@@ -1053,6 +1053,25 @@ def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down():
     assert "backward" in msg
 
 
+def test_the_refusal_does_not_teach_the_false_token_arithmetic():
+    """The axis is the padded complex, NOT target + binder.
+
+    hHSA at 736 tokens carries a 706-residue complex where the target counts 578 residues and
+    the binder 100 -- the sum is 678, a whole two buckets low. A refusal that explains the axis
+    as that sum sends the user to re-size against a number the seam does not use, which is the
+    mistake this ladder made in its own harness before `axis_census.sh` measured the seam.
+    """
+    better = bindcraft2._size_aware_refusal(
+        RuntimeError(REFUSAL_608), phase="backward", n=706, padded=736)
+    assert better is not None
+    text = str(better)
+    assert "706 residues" in text
+    assert "LARGER than target residues + binder length" in text
+    assert "size the job off the 706" in text
+    # the superseded clause, verbatim, must be gone
+    assert "token axis is target residues + binder" not in text
+
+
 def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
     """Same words from the allocator, opposite remedy: retrying smaller is all that is left."""
     full = REFUSAL_608.replace("free: 515248512 B", "free: 51524851 B") \

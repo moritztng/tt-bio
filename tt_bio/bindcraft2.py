@@ -118,8 +118,10 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
     drop = n - (padded - TOKEN_BUCKET)
     if padded > MEASURED_MAX_TOKENS_P150A:
         action = (
-            f"What to do: run a smaller complex. The token axis is target residues + binder "
-            f"length rounded up to a multiple of {TOKEN_BUCKET}, so {drop} residues off the "
+            f"What to do: run a smaller complex. The token axis is the complex BindCraft 2 "
+            f"built, padded to a multiple of {TOKEN_BUCKET} -- it is LARGER than target "
+            f"residues + binder length, so size the job off the {n} above and not off that "
+            f"sum. {drop} residues off the "
             f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. The largest axis "
             f"measured to complete a gradient round on one p150a is "
             f"{MEASURED_MAX_TOKENS_P150A} tokens. Trimming the "
