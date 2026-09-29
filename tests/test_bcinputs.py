@@ -640,3 +640,26 @@ def test_a_chain_list_with_no_chains_is_left_to_bindcraft(tmp_path):
 def test_a_chain_named_three_times_says_how_many_copies(tmp_path):
     problems, _ = _problems(_settings(_target(tmp_path, "t.pdb"), chains="A,A,A", hotspots="54"))
     assert len(problems) == 1 and "3 copies of it" in problems[0]
+
+
+def test_a_bindcraft_symbol_this_module_imports_is_not_swallowed_into_a_silent_pass(
+        tmp_path, monkeypatch):
+    """The check must fail loudly if BindCraft 2 moves a symbol it reads, not quietly pass.
+
+    `input_problems` used to import `build_design_settings` inside the try that catches an
+    unresolvable settings. An upstream rename would have raised ImportError there, been caught,
+    and returned "nothing wrong" for every target: the campaign designs unguarded and nothing
+    says so. The import is hoisted, so the same rename now stops the campaign.
+    """
+    settings_module = pytest.importorskip("bindcraft.settings")
+    monkeypatch.delattr(settings_module, "build_design_settings")
+    path = _target(tmp_path, "whole.pdb")
+    with pytest.raises(ImportError):
+        bcinputs.input_problems(_settings(path, hotspots="999"))
+
+
+def test_a_settings_bindcraft_cannot_resolve_is_still_left_to_bindcraft(tmp_path):
+    """The other half of the branch: the try is for a settings BindCraft 2 refuses itself, and
+    that one stays quiet here so the campaign reports it in BindCraft 2's own words."""
+    _bindcraft()
+    assert bcinputs.input_problems({"binder_lengths": [60], "targets": "not a list"}) == ([], [])
