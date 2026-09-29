@@ -304,11 +304,6 @@ One caution when you read your own verdicts, and it is BindCraft 2's behaviour r
 card's: `predicted_tm_score` is a maximum over the PAE rows, so a single collapsed row pins pTM
 and i_pTM at that length's ceiling on either arm. Grade a `mutate`-stage verdict on pLDDT.
 
-One rough edge: closing the card at the end of a process that has also run JAX can abort in the
-driver, with `pthread_mutex_unlock failed for mutex CHIP_IN_USE_0_PCIe`. It happens after the work
-is finished, the chip is left healthy, and the results already written are valid, but the process
-exit status is a crash. Write your outputs out as you go rather than at exit.
-
 ## Licence
 
 BindCraft 2 ships under a source-available, hosting-restricted licence and tt-bio neither vendors
