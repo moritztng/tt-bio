@@ -179,8 +179,10 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
     board = _measured_board(card_total)
     cap = board[1] if board else MEASURED_MAX_TOKENS_P150A
     board_name = board[2] if board else "p150a"
-    smaller_card = card_total < P150A_DRAM_BYTES
-    if padded > cap or smaller_card:
+    # A card nobody laddered and smaller than a p150a has no ceiling to compare against, so
+    # a refusal there is always read as the size.
+    unmeasured_smaller = board is None and card_total < P150A_DRAM_BYTES
+    if padded > cap or unmeasured_smaller:
         reference = (
             f"The largest axis measured to complete a gradient round on one {board_name} "
             f"({_gb(board[0])}) is {cap} tokens."

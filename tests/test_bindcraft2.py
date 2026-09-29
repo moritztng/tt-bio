@@ -1220,13 +1220,15 @@ REFUSAL_WORMHOLE = (
     "largest free block: 21491680 B)")
 
 
-def test_a_refusal_on_a_smaller_card_does_not_quote_the_p150a_as_if_it_applied():
-    """320 tokens fits a p150a, but telling a Wormhole user "something else is holding this
-    card" sends them after company the chip does not have."""
+def test_a_wormhole_refusal_under_its_own_ceiling_blames_the_card_not_the_size():
+    """320 tokens completes a gradient round on a Wormhole Galaxy chip held alone, so a refusal
+    there means something else holds the card, most often an interleave count the chip cannot
+    carry. Telling that user to shrink the complex sends them the wrong way."""
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
                                              phase="backward", n=300, padded=320))
-    assert "run a smaller complex" in msg
-    assert "something else is holding" not in msg
+    assert "fits on a Wormhole Galaxy chip" in msg and "512" in msg
+    assert "trajectories_per_card=1" in msg
+    assert "run a smaller complex" not in msg
     assert "34.226 GB" not in msg          # the p150a's DRAM is not this card's business
 
 
