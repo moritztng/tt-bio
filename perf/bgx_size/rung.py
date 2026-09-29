@@ -48,6 +48,14 @@ def resolve(path: str) -> str:
     return str(ROOT / path)
 
 
+def _safe(fn):
+    """An instrument never kills a rung: the rung is the measurement, this is the label."""
+    try:
+        return fn()
+    except BaseException as exc:
+        return {"error": repr(exc)}
+
+
 def host_memory() -> dict:
     out = {}
     for line in open("/proc/self/status"):
@@ -80,7 +88,11 @@ class Rounds:
             self.rows.append({"t": time.time(), "slot": slot,
                               "round": sum(1 for r in self.rows if r["slot"] == slot) + 1,
                               "device_free": free, "load1": round(os.getloadavg()[0], 2),
-                              **host_memory()})
+                              # Cumulative, so consecutive boundaries subtract to a per-round
+                              # reach. `declined` rising is the fused triangle attention
+                              # falling through to the composed path, which is a footprint
+                              # and a speed event and shows up in neither as an error.
+                              "triatt": M.reach(), **host_memory()})
             self.dump()
 
     def dump(self):
@@ -305,6 +317,11 @@ def main():
                       "rounds_per_slot": {s: sum(1 for r in rounds.rows if r["slot"] == s)
                                           for s in sorted({r["slot"] for r in rounds.rows})},
                       "per_round": rounds.per_round(M.CLOCK),
+                      # Which levers the ENGINE ran, read off the modules that own the flags,
+                      # and each one's serve counter. A rung whose footprint jumps has to say
+                      # whether a lever went inert rather than leave it to arithmetic.
+                      "levers": _safe(M.levers), "lever_stats": _safe(M.lever_stats),
+                      "triatt_reach": _safe(M.reach),
                       "aiclk_run": M.CLOCK.window(t0, time.time()),
                       **peak_from_probe(probe), **peak.report(),
                       "mem_end": host_memory(), "loadavg_end": os.getloadavg(),
