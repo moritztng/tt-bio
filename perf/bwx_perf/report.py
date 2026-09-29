@@ -67,10 +67,15 @@ def one(path):
     if not rounds:
         row["error"] = "no warm round"
         return row
+    # An interleaved arm's round boundaries come from either slot, so its walls alternate near 0
+    # and near a whole round, and the median of an even count of those is the mean of one of
+    # each: on 2026-09-29 it read a 26.4 s and a 0.1 s round as 13.3. The amortised round is the
+    # span over the rounds, which is the mean, and the host/device split is not defined there.
+    solo = row["n"] == 1
     row.update(
-        wall=statistics.median(r["wall"] for r in rounds),
-        device=statistics.median(r["device"] for r in rounds),
-        host=statistics.median(r["host"] for r in rounds),
+        wall=(statistics.median if solo else statistics.mean)(r["wall"] for r in rounds),
+        device=statistics.median(r["device"] for r in rounds) if solo else None,
+        host=statistics.median(r["host"] for r in rounds) if solo else None,
         aiclk_med=statistics.median(clk) if clk else None,
         aiclk_min=min(clk) if clk else None,
         under_floor=sum(1 for c in clk if c < CLOCK_FLOOR), clk_n=len(clk),
@@ -92,7 +97,9 @@ def main():
         if "error" in r:
             print(f"{tag}  {r['error']}")
             continue
-        print(f"{tag}  wall {r['wall']:7.3f}  device {r['device']:7.3f}  host {r['host']:7.3f}  "
+        split = (f"device {r['device']:7.3f}  host {r['host']:7.3f}" if r["device"] is not None
+                 else "amortised over both slots, no host/device split")
+        print(f"{tag}  wall {r['wall']:7.3f}  {split}  "
               f"warm {r['warm']:2d}  AICLK {r['aiclk_med']}/{r['aiclk_min']} "
               f"(<{CLOCK_FLOOR}: {r['under_floor']} of {r['clk_n']})  load1 {r['load1']}")
         # The round against the load that round ran at. On a shared Galaxy box an arm's own
@@ -111,8 +118,8 @@ def main():
         summary[name] = {
             "arms": [r["arm"] for r in rs], "wall": statistics.median(walls),
             "spread": [min(walls), max(walls)],
-            "device": statistics.median([r["device"] for r in rs]),
-            "host": statistics.median([r["host"] for r in rs]),
+            "device": statistics.median([r["device"] for r in rs]) if key[2] == 1 else None,
+            "host": statistics.median([r["host"] for r in rs]) if key[2] == 1 else None,
             "ratio_vs_h200": statistics.median(walls) / H200,
             "aiclk_med": statistics.median([r["aiclk_med"] for r in rs]),
             "aiclk_min": min(r["aiclk_min"] for r in rs),
@@ -120,12 +127,14 @@ def main():
         s = summary[name]
         print(f"\n{name}: {s['wall']:.3f} s a round ({s['ratio_vs_h200']:.1f}x H200), spread "
               f"{s['spread'][0]:.3f}-{s['spread'][1]:.3f} over {len(rs)} arms, "
-              f"host {s['host']:.3f} + device {s['device']:.3f}, "
-              f"AICLK {s['aiclk_med']}/{s['aiclk_min']}, load1 {s['load1']}")
+              + (f"host {s['host']:.3f} + device {s['device']:.3f}, " if s["host"] is not None
+                 else "amortised, ")
+              + f"AICLK {s['aiclk_med']}/{s['aiclk_min']}, load1 {s['load1']}")
     if len(summary) == 2:
         (an, a), (bn, b) = sorted(summary.items(), key=lambda kv: -kv[1]["wall"])
-        print(f"\n{bn} is {a['wall'] / b['wall']:.4f}x {an} on the round "
-              f"({a['host'] - b['host']:+.3f} s host, {a['device'] - b['device']:+.3f} s device)")
+        split = (f" ({a['host'] - b['host']:+.3f} s host, {a['device'] - b['device']:+.3f} s "
+                 f"device)" if a["host"] is not None and b["host"] is not None else "")
+        print(f"\n{bn} is {a['wall'] / b['wall']:.4f}x {an} on the round{split}")
         summary["ratio"] = {"faster": bn, "slower": an, "x": a["wall"] / b["wall"]}
     if js:
         pathlib.Path(js).write_text(json.dumps({"arms": rows, "summary": summary}, indent=1,
