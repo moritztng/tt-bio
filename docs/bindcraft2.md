@@ -462,28 +462,40 @@ against a 277 MB request, and the message says which of the two it is rather tha
 everything fragmentation. Both refusals raise; nothing in the range OOM-killed a process, hung
 one, or returned a wrong answer.
 
-**544 tokens is the axis to avoid**, and the reason is the fused triangle-attention kernel. It
-serves every call in the gradient round from 288 through 512 and again at 576, and it serves
-none at 544, so the round falls back to the composed path and costs 25.75 GB and 67.27 s
-against 11.42 GB and 34.19 s at 512 and 14.23 GB and 47.38 s at 576. The run says so itself
-when it happens and says which way to move; moving the axis by one bucket in either direction
-is the fix.
+**544 tokens is the axis to avoid**, and the reason is the fused triangle-attention forward. It
+runs at 288 through 512 and again at 576, and at 544 it does not fit the chip, so the round falls
+back to the composed path: 25.75 GB and 67.27 s against 11.42 GB and 34.19 s at 512 and 14.23 GB
+and 47.38 s at 576. Both the memory and the round time jump together, which is the signature. The
+run says so itself when it happens and says which way to move; moving the axis by one bucket in
+either direction is the fix.
+
+The *backward* is a second kernel with its own, narrower limit, and it is the expensive half of a
+gradient round. Counted on the p150a ladder at 108 backward calls a round, it serves all 108 at
+288 and **0 of 108** at 352, 416, 448, 480, 512 and 576: above 288 the gradient runs on the
+chunked recompute at every size measured. The 576 campaign below confirms it at length, 0 of
+27,000 calls served over 249 rounds. So "the fused arm runs at this size" is a statement about the
+forward, and a round four times the length of the 288-token one is not a round that failed.
 
 The arm also serves nothing at 192, where it costs nothing worth noticing: that is the cheapest
-rung on the ladder at 2.63 GB and 5.89 s. Declining is a fallback, not a failure. A 576-token
-campaign against a two-chain 387-residue target declined twice going into its mutate stage,
-carried on through the composed path and kept designing, while the 288-token campaign beside it
-declined nothing at any stage. So above about 512 tokens expect some calls on the composed path
-and expect them to cost more.
+rung on the ladder at 2.63 GB and 5.89 s. Declining is a fallback, not a failure. Nor is it
+all-or-nothing at a given size: over the whole 576-token campaign the fused forward **served
+81,000 calls and declined 15,232**, one call in six, and the campaign carried those through the
+composed path and kept designing. The 288-token campaign beside it declined nothing at any stage.
+So above about 512 tokens expect a share of the calls on the composed path and expect them to
+cost more.
 
 Within the range, size is the axis that matters and fold and chain count are not: six folds, one
 to three chains, and two structures with unresolved gaps all behave the same at the same token
 count.
 
-**Accepted designs have been measured at 288 tokens**, the PD-L1 example in the table below. A
-576-token campaign runs, backpropagates and clears both the screen and the refine stage; how
-often it accepts is not yet measured. Treat the range as "the gradient loop runs and completes"
-above 288, and the acceptance rate as measured at 288 only.
+**Accepted designs have been measured at 288 tokens**, the PD-L1 example in the table below. One
+576-token campaign has since run to the end, and it is the only one: a two-chain 387-residue
+hIL2R target with a 146-residue binder, two trajectories, 249 gradient rounds at a median 47.20 s
+(p10 46.95, p90 47.46), 3 h 39 m of wall clock, ten redesign candidates screened and refolded, and
+**no design accepted**. It stopped on its trajectory cap, not on an error, and held 19.07 GB of
+host memory at its peak. AICLK median 1350 MHz over 12,461 samples taken during the run, on a
+p150a. The whole record is `perf/bgx_size/CAMP576.md`. Two trajectories cannot put a rate on anything, so treat the range as "the gradient loop
+runs and completes" above 288, and the acceptance rate as measured at 288 only.
 
 Binder length inside a campaign costs nothing extra to worry about. Every length BindCraft 2
 draws against the 115-residue PD-L1 target fits: the draw range is 60 to 180 residues, three
