@@ -1,0 +1,491 @@
+{
+  "chips": [
+    1,
+    2,
+    3,
+    0
+  ],
+  "rungs": [
+    1,
+    2,
+    4
+  ],
+  "rounds": 3,
+  "steps": 4,
+  "micro": 4,
+  "global_batch": 64,
+  "tokens": 256,
+  "blocks": 8,
+  "seed": 0,
+  "data": "sabdab",
+  "arms": {
+    "1": {
+      "world": 1,
+      "n": 3,
+      "cadence_s": 28.5781,
+      "wall_s": 22.8512,
+      "speedup": 1.0,
+      "efficiency": 1.0,
+      "cadence_per_round": [
+        27.968,
+        28.774,
+        28.578
+      ],
+      "wall_per_round": [
+        22.253,
+        23.118,
+        22.851
+      ],
+      "data_s": 5.7152,
+      "outer_s": 0.0,
+      "host_torch_s": 9.4705,
+      "forward_s": 5.1248,
+      "device_backward_s": 7.4791,
+      "optimizer_s": 0.1279,
+      "reduce_s": 0.0,
+      "reduce_wait_s": 0.0,
+      "reduce_mb": 0.0,
+      "aiclk": {
+        "samples": 178,
+        "median": 1350.0,
+        "min": 1350.0,
+        "max": 1350.0
+      },
+      "nodes_per_round": [
+        [
+          2
+        ],
+        [
+          2
+        ],
+        [
+          2
+        ]
+      ],
+      "digests_agree": true,
+      "clean": false,
+      "attribution_per_rank": [
+        {
+          "0": {
+            "wall": 22.2531,
+            "data": 5.7152,
+            "outer": 0.0,
+            "reduce_s": 0.0,
+            "reduce_wait_s": 0.0,
+            "reduce_mb": 0.0,
+            "forward": 5.1289,
+            "device_backward": 7.4791,
+            "losses": 4.4665,
+            "host_backward": 4.5405,
+            "optimizer": 0.1279,
+            "cadence": 27.9683
+          }
+        },
+        {
+          "0": {
+            "wall": 23.1182,
+            "data": 5.6559,
+            "outer": 0.0,
+            "reduce_s": 0.0,
+            "reduce_wait_s": 0.0,
+            "reduce_mb": 0.0,
+            "forward": 5.1248,
+            "device_backward": 7.5544,
+            "losses": 5.146,
+            "host_backward": 4.5496,
+            "optimizer": 0.1339,
+            "cadence": 28.7741
+          }
+        },
+        {
+          "0": {
+            "wall": 22.8512,
+            "data": 5.7269,
+            "outer": 0.0,
+            "reduce_s": 0.0,
+            "reduce_wait_s": 0.0,
+            "reduce_mb": 0.0,
+            "forward": 5.1178,
+            "device_backward": 7.4525,
+            "losses": 4.8955,
+            "host_backward": 4.575,
+            "optimizer": 0.1224,
+            "cadence": 28.5781
+          }
+        }
+      ]
+    },
+    "2": {
+      "world": 2,
+      "n": 3,
+      "cadence_s": 14.3227,
+      "wall_s": 11.1456,
+      "speedup": 1.9953,
+      "efficiency": 0.9977,
+      "cadence_per_round": [
+        14.244,
+        14.323,
+        14.697
+      ],
+      "wall_per_round": [
+        11.146,
+        11.112,
+        11.524
+      ],
+      "data_s": 3.1756,
+      "outer_s": 0.0,
+      "host_torch_s": 4.3903,
+      "forward_s": 2.5959,
+      "device_backward_s": 3.7359,
+      "optimizer_s": 0.2633,
+      "reduce_s": 0.1238,
+      "reduce_wait_s": 0.0606,
+      "reduce_mb": 63.9369,
+      "aiclk": {
+        "samples": 89,
+        "median": 1350.0,
+        "min": 1350.0,
+        "max": 1350.0
+      },
+      "nodes_per_round": [
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "digests_agree": true,
+      "clean": false,
+      "attribution_per_rank": [
+        {
+          "0": {
+            "wall": 11.1456,
+            "data": 3.0981,
+            "outer": 0.0,
+            "reduce_s": 0.2104,
+            "reduce_wait_s": 0.1412,
+            "reduce_mb": 63.9369,
+            "forward": 2.5959,
+            "device_backward": 3.7269,
+            "losses": 2.0877,
+            "host_backward": 2.1623,
+            "optimizer": 0.3476,
+            "cadence": 14.2437
+          },
+          "1": {
+            "wall": 11.1014,
+            "data": 3.1351,
+            "outer": 0.0,
+            "reduce_s": 0.0731,
+            "reduce_wait_s": 0.0202,
+            "reduce_mb": 63.9369,
+            "forward": 2.5339,
+            "device_backward": 3.7267,
+            "losses": 2.2239,
+            "host_backward": 2.1664,
+            "optimizer": 0.1989,
+            "cadence": 14.2365
+          }
+        },
+        {
+          "0": {
+            "wall": 11.1116,
+            "data": 3.1571,
+            "outer": 0.0,
+            "reduce_s": 0.0772,
+            "reduce_wait_s": 0.0303,
+            "reduce_mb": 63.9369,
+            "forward": 2.5854,
+            "device_backward": 3.7359,
+            "losses": 2.167,
+            "host_backward": 2.1012,
+            "optimizer": 0.2062,
+            "cadence": 14.2687
+          },
+          "1": {
+            "wall": 11.1413,
+            "data": 3.1814,
+            "outer": 0.0,
+            "reduce_s": 0.0861,
+            "reduce_wait_s": 0.0404,
+            "reduce_mb": 63.9369,
+            "forward": 2.5744,
+            "device_backward": 3.7357,
+            "losses": 2.1807,
+            "host_backward": 2.1106,
+            "optimizer": 0.2109,
+            "cadence": 14.3227
+          }
+        },
+        {
+          "0": {
+            "wall": 11.5235,
+            "data": 3.1711,
+            "outer": 0.0,
+            "reduce_s": 0.1238,
+            "reduce_wait_s": 0.0606,
+            "reduce_mb": 63.9369,
+            "forward": 2.6214,
+            "device_backward": 3.7793,
+            "losses": 2.2749,
+            "host_backward": 2.1165,
+            "optimizer": 0.2633,
+            "cadence": 14.6946
+          },
+          "1": {
+            "wall": 11.5211,
+            "data": 3.1756,
+            "outer": 0.0,
+            "reduce_s": 0.0707,
+            "reduce_wait_s": 0.0303,
+            "reduce_mb": 63.9369,
+            "forward": 2.5263,
+            "device_backward": 3.8112,
+            "losses": 2.3664,
+            "host_backward": 2.2354,
+            "optimizer": 0.2005,
+            "cadence": 14.6967
+          }
+        }
+      ]
+    },
+    "4": {
+      "world": 4,
+      "n": 3,
+      "cadence_s": 7.6372,
+      "wall_s": 5.6856,
+      "speedup": 3.742,
+      "efficiency": 0.9355,
+      "cadence_per_round": [
+        7.704,
+        7.629,
+        7.637
+      ],
+      "wall_per_round": [
+        5.779,
+        5.686,
+        5.678
+      ],
+      "data_s": 1.9182,
+      "outer_s": 0.0,
+      "host_torch_s": 2.1931,
+      "forward_s": 1.3066,
+      "device_backward_s": 1.8768,
+      "optimizer_s": 0.4319,
+      "reduce_s": 0.2925,
+      "reduce_wait_s": 0.2021,
+      "reduce_mb": 127.8739,
+      "aiclk": {
+        "samples": 142,
+        "median": 1350.0,
+        "min": 1350.0,
+        "max": 1350.0
+      },
+      "nodes_per_round": [
+        [
+          2,
+          3,
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          0,
+          1
+        ]
+      ],
+      "digests_agree": true,
+      "clean": false,
+      "attribution_per_rank": [
+        {
+          "0": {
+            "wall": 5.7787,
+            "data": 1.894,
+            "outer": 0.0,
+            "reduce_s": 0.0953,
+            "reduce_wait_s": 0.0303,
+            "reduce_mb": 127.8739,
+            "forward": 1.3046,
+            "device_backward": 1.8775,
+            "losses": 1.188,
+            "host_backward": 1.0731,
+            "optimizer": 0.2168,
+            "cadence": 7.6727
+          },
+          "1": {
+            "wall": 5.7925,
+            "data": 1.8852,
+            "outer": 0.0,
+            "reduce_s": 0.3001,
+            "reduce_wait_s": 0.2121,
+            "reduce_mb": 127.8739,
+            "forward": 1.3065,
+            "device_backward": 1.8556,
+            "losses": 1.0537,
+            "host_backward": 1.0273,
+            "optimizer": 0.4334,
+            "cadence": 7.6777
+          },
+          "2": {
+            "wall": 5.7777,
+            "data": 1.8952,
+            "outer": 0.0,
+            "reduce_s": 0.3733,
+            "reduce_wait_s": 0.303,
+            "reduce_mb": 127.8739,
+            "forward": 1.3054,
+            "device_backward": 1.8579,
+            "losses": 1.0503,
+            "host_backward": 0.9847,
+            "optimizer": 0.4951,
+            "cadence": 7.6729
+          },
+          "3": {
+            "wall": 5.7883,
+            "data": 1.9152,
+            "outer": 0.0,
+            "reduce_s": 0.2425,
+            "reduce_wait_s": 0.1716,
+            "reduce_mb": 127.8739,
+            "forward": 1.3059,
+            "device_backward": 1.864,
+            "losses": 1.1296,
+            "host_backward": 1.0272,
+            "optimizer": 0.3696,
+            "cadence": 7.7035
+          }
+        },
+        {
+          "0": {
+            "wall": 5.6856,
+            "data": 1.9005,
+            "outer": 0.0,
+            "reduce_s": 0.1963,
+            "reduce_wait_s": 0.1312,
+            "reduce_mb": 127.8739,
+            "forward": 1.3057,
+            "device_backward": 1.8607,
+            "losses": 1.1265,
+            "host_backward": 1.0175,
+            "optimizer": 0.3179,
+            "cadence": 7.5861
+          },
+          "1": {
+            "wall": 5.6968,
+            "data": 1.9096,
+            "outer": 0.0,
+            "reduce_s": 0.0905,
+            "reduce_wait_s": 0.0203,
+            "reduce_mb": 127.8739,
+            "forward": 1.3064,
+            "device_backward": 1.872,
+            "losses": 1.1219,
+            "host_backward": 1.0293,
+            "optimizer": 0.2278,
+            "cadence": 7.6064
+          },
+          "2": {
+            "wall": 5.7109,
+            "data": 1.9182,
+            "outer": 0.0,
+            "reduce_s": 0.2279,
+            "reduce_wait_s": 0.1515,
+            "reduce_mb": 127.8739,
+            "forward": 1.3102,
+            "device_backward": 1.858,
+            "losses": 1.0265,
+            "host_backward": 1.0461,
+            "optimizer": 0.3472,
+            "cadence": 7.6291
+          },
+          "3": {
+            "wall": 5.6749,
+            "data": 1.9089,
+            "outer": 0.0,
+            "reduce_s": 0.1223,
+            "reduce_wait_s": 0.0505,
+            "reduce_mb": 127.8739,
+            "forward": 1.3046,
+            "device_backward": 1.8759,
+            "losses": 1.0786,
+            "host_backward": 1.0359,
+            "optimizer": 0.2444,
+            "cadence": 7.5838
+          }
+        },
+        {
+          "0": {
+            "wall": 5.6778,
+            "data": 1.9458,
+            "outer": 0.0,
+            "reduce_s": 0.1259,
+            "reduce_wait_s": 0.0505,
+            "reduce_mb": 127.8739,
+            "forward": 1.304,
+            "device_backward": 1.8628,
+            "losses": 1.1634,
+            "host_backward": 1.0204,
+            "optimizer": 0.2508,
+            "cadence": 7.6236
+          },
+          "1": {
+            "wall": 5.701,
+            "data": 1.9362,
+            "outer": 0.0,
+            "reduce_s": 0.2925,
+            "reduce_wait_s": 0.2021,
+            "reduce_mb": 127.8739,
+            "forward": 1.3065,
+            "device_backward": 1.8588,
+            "losses": 1.0379,
+            "host_backward": 1.011,
+            "optimizer": 0.4319,
+            "cadence": 7.6372
+          },
+          "2": {
+            "wall": 5.7007,
+            "data": 1.9216,
+            "outer": 0.0,
+            "reduce_s": 0.1469,
+            "reduce_wait_s": 0.0707,
+            "reduce_mb": 127.8739,
+            "forward": 1.3035,
+            "device_backward": 1.8751,
+            "losses": 1.0886,
+            "host_backward": 1.0235,
+            "optimizer": 0.2666,
+            "cadence": 7.6223
+          },
+          "3": {
+            "wall": 5.6588,
+            "data": 1.9333,
+            "outer": 0.0,
+            "reduce_s": 0.0904,
+            "reduce_wait_s": 0.0203,
+            "reduce_mb": 127.8739,
+            "forward": 1.3066,
+            "device_backward": 1.8768,
+            "losses": 1.1033,
+            "host_backward": 1.0297,
+            "optimizer": 0.2116,
+            "cadence": 7.5921
+          }
+        }
+      ]
+    }
+  }
+}

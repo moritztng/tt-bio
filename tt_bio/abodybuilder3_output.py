@@ -1,0 +1,139 @@
+"""Turn the device model's atom14 output into what the evaluation instrument reads, and nothing more.
+
+`tt_bio/antibody_rmsd.py` is `train-b1-instrument`'s, validated by recomputing ABodyBuilder3's own
+released per-structure numbers to 0.00843 A over 1,236 evaluations. This module's only job is to
+hand it a PDB and call it. **It deliberately contains no RMSD arithmetic, no superposition and no
+region logic**, because a second scorer is how a reproduction ends up measuring a different quantity
+than the paper it is reproducing.
+
+That failure mode is specific and it is already documented: the published per-region "backbone
+RMSD" is over **N, CA, C, CB**, not the conventional N, CA, C, O. Our atom14 layout's first four
+slots are N, CA, C, O -- `restype_name_to_atom14_names["ALA"]` is
+`['N', 'CA', 'C', 'O', 'CB', ...]` -- so slicing `[..., :4]` off our own output and scoring it would
+take the carbonyl and drop CB, which moves CDR-H3 by ~0.07 A against a 0.20 A accuracy bar and
+stays entirely plausible. Writing named ATOM records and letting the instrument select by name makes
+that structurally impossible rather than a thing to remember.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import torch
+import ttnn
+
+from . import antibody_rmsd
+from .abodybuilder3_reference import (frames_to_atom14_positions, frames_to_tensor_4x4,
+                                       torsion_angles_to_frames)
+from .af2_reference import QuatAffine
+from ._vendor.esm.utils import residue_constants as _rc
+
+#: Atom names per restype in atom14 order, indexed by the aatype the model consumes. Unknown
+#: residues take UNK, which carries the backbone only.
+ATOM14_NAMES: list[list[str]] = [
+    list(_rc.restype_name_to_atom14_names[_rc.restype_1to3[aa]]) for aa in _rc.restypes
+] + [list(_rc.restype_name_to_atom14_names["UNK"])]
+
+#: Their inference stage writes the heavy chain 1..n_h and the light chain from 501, and
+#: `antibody_rmsd.residue_indices` uses that jump to find the chain break. Matching it is what lets
+#: the instrument pair our residues with their truth.
+LIGHT_RESSEQ_START = antibody_rmsd.LIGHT_RESSEQ_START
+
+
+def write_fv_pdb(path: str | Path, aatype: torch.Tensor, atom14: torch.Tensor,
+                 atom_mask: torch.Tensor, n_heavy: int) -> Path:
+    """Write one Fv as a PDB: chain H numbered 1..n_heavy, chain L from 501.
+
+    `aatype` is `[N]`, `atom14` is `[N, 14, 3]` and `atom_mask` is `[N, 14]`. Masked slots are not
+    written at all rather than written as zeros, because the instrument keys on what is present and
+    a zeroed atom would be scored as a real one at the origin.
+
+    The chain identifier occupies exactly one column (21). A two-character chain silently corrupts
+    the residue-number field that follows it, which has killed a finished fold in this repo before.
+    """
+    aatype = aatype.detach().cpu().long()
+    atom14 = atom14.detach().cpu().double()
+    atom_mask = atom_mask.detach().cpu()
+    n_res = int(aatype.shape[0])
+    assert 0 < n_heavy <= n_res, (n_heavy, n_res)
+
+    lines, serial = [], 1
+    for i in range(n_res):
+        names = ATOM14_NAMES[int(aatype[i])]
+        chain = "H" if i < n_heavy else "L"
+        resseq = i + 1 if i < n_heavy else LIGHT_RESSEQ_START + (i - n_heavy)
+        resname = _rc.restype_1to3.get(_rc.restypes[int(aatype[i])], "UNK") \
+            if int(aatype[i]) < len(_rc.restypes) else "UNK"
+        for slot, name in enumerate(names):
+            if not name or not bool(atom_mask[i, slot]):
+                continue
+            x, y, z = (float(v) for v in atom14[i, slot])
+            lines.append(
+                f"ATOM  {serial:>5} {name:<4}{resname:>4} {chain}{resseq:>4}    "
+                f"{x:>8.3f}{y:>8.3f}{z:>8.3f}  1.00  0.00          {name[0]:>2}")
+            serial += 1
+    lines.append("END")
+    out = Path(path)
+    out.write_text("\n".join(lines) + "\n")
+    return out
+
+
+def score_fv(true_pdb: str | Path, pred_pdb: str | Path, regions,
+             atoms=antibody_rmsd.BACKBONE_ATOMS) -> dict[str, float]:
+    """Per-region RMSDs, straight from `train-b1-instrument`'s instrument.
+
+    One line on purpose. Every number this row reports about structure accuracy comes through here,
+    so there is exactly one place that could ever drift, and it is not ours.
+    """
+    return antibody_rmsd.score_pdb_pair(true_pdb, pred_pdb, regions, atoms)
+
+
+def device_outputs_to_host(out: dict, n_angles: int, *, taped: bool, block: int = -1) -> dict:
+    """One block's device outputs as the reference's own format: `frames` [B, N, 7], `angles`
+    [B, N, 7, 2] and the un-normalised pair.
+
+    The device carries the quaternion, the translation and the sin/cos blocks as separate tensors,
+    because that is what keeps the rotation a broadcast multiply and the sin/cos normalisation a
+    reduction-free elementwise add. Reassembling them is host bookkeeping and belongs here, in one
+    place, so the parity gate and the fold gate cannot drift into two conventions.
+    """
+    def pull(t):
+        return ttnn.to_torch(t.value if taped else t).double()
+
+    quat = torch.stack([pull(q) for q in out["quat"][block]], dim=-1)
+    trans = torch.stack([pull(t) for t in out["trans"][block]], dim=-1)
+    return {
+        "frames": torch.cat([quat, trans], dim=-1),
+        "angles": torch.stack([pull(out["sin"][block])[..., :n_angles],
+                               pull(out["cos"][block])[..., :n_angles]], dim=-1),
+        "unnormalized_angles": torch.stack([pull(out["unnorm_sin"][block])[..., :n_angles],
+                                            pull(out["unnorm_cos"][block])[..., :n_angles]],
+                                           dim=-1),
+        "states": pull(out["states"][block]),
+    }
+
+
+def geometry_tail(frames: torch.Tensor, angles: torch.Tensor, aatype: torch.Tensor
+                  ) -> tuple[torch.Tensor, torch.Tensor]:
+    """`(atom14 positions, the 8 rigid-group frames as 4x4)` from a block's frames and angles.
+
+    Both, because the loss set needs both: the sidechain FAPE scores the rigid-group FRAMES against
+    the renamed ground truth and the positions against it too, and recomputing the frames to get
+    the second would run the torsion chain twice.
+    """
+    affine = QuatAffine(frames[..., :4], frames[..., 4:], normalize=False)
+    rot, trans = torsion_angles_to_frames(aatype, affine.rotation, affine.translation, angles)
+    return frames_to_atom14_positions(aatype, rot, trans), frames_to_tensor_4x4(rot, trans)
+
+
+def atom14_from_frames(frames: torch.Tensor, angles: torch.Tensor,
+                       aatype: torch.Tensor) -> torch.Tensor:
+    """The geometry tail: torsion angles to frames, then frames and literature positions to atom14.
+
+    Host torch, and deliberately so. It is a few thousand gather-heavy operations on `[B, N, 8]`
+    frames and a 21-row rigid-group table -- no FLOPs worth a kernel -- and it is already scored at
+    <= 8.7e-14 against upstream in float64 by `scripts/abb3_port/reference_gate.py`. Keeping it on
+    the host is what lets the four losses be compared against upstream's own `loss.py` without a
+    device port of each.
+    """
+    return geometry_tail(frames, angles, aatype)[0]

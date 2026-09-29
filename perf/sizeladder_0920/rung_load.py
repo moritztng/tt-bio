@@ -77,7 +77,7 @@ def main():
                          "rungs 256/512/768 before the pass is called unusable. 1.25 rather "
                          "than something looser because protenix-v1 came out unusable at a "
                          "measured 1.51x: its 256 rung inflated 1.55x and its 512 1.41x while "
-                         "640 and up reproduced inside 7 %, which bent k512->768 from 1.773 to "
+                         "640 and up reproduced inside 7 %%, which bent k512->768 from 1.773 to "
                          "1.013 -- 0.76 outside the +-0.50 band a later quiet check would read")
     ap.add_argument("models", nargs="+")
     args = ap.parse_args()

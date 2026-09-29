@@ -73,7 +73,7 @@ def main():
     for n in ("ref384", "ref64", "floor384", "floor64", "ours384", "ours64"):
         ap.add_argument("--" + n, required=True)
     ap.add_argument("--blocks", default="44,4,0",
-                    help="the blocks of3t-widthattr put 74.58 % of the growth in")
+                    help="the blocks of3t-widthattr put 74.58 %% of the growth in")
     ap.add_argument("--floor-host", required=True)
     ap.add_argument("--arm-host", required=True)
     ap.add_argument("--out", required=True)

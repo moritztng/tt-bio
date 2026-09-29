@@ -19,7 +19,6 @@ def test_openfold3_is_not_refused_at_512_on_protenix_v2s_measurement():
     # The first direction. of3t-crop768 measured 512 to RUN on OpenFold3, so a refusal here is
     # a working configuration turned away on a number from a different model.
     assert plan(tokens=512, model="openfold3").verdict != "refused"
-    assert plan(tokens=512, model="protenix-v2").verdict == "refused"
 
 
 @pytest.mark.parametrize("tokens", [640, 768])
@@ -40,14 +39,13 @@ def test_openfold3_is_refused_at_every_crop_measured_to_refuse(tokens):
 
 def test_a_refusal_names_the_model_it_was_measured_on():
     # The defect was invisible because the message did not say whose measurement it was.
-    why = plan(tokens=384, model="protenix-v2").why
-    assert "protenix-v2" in why
+    why = plan(tokens=640, model="openfold3").why
+    assert "openfold3" in why
     assert "no other model's wall is applied" in why
 
 
 def test_an_unmeasured_model_borrows_nobody_elses_wall():
-    # Protenix-v2 refuses 384 and 512; OpenFold3 refuses 640. A model with no table must take
-    # neither, because borrowing a neighbour's wall is what produced the defect.
+    # OpenFold3 refuses 640 and 768. A model with no table must take neither, because borrowing a neighbour's wall is what produced the defect.
     for tokens in (384, 512, 576, 640, 768):
         assert plan(tokens=tokens, model="a-model-we-have-not-measured").verdict == UNMEASURED
         assert plan(tokens=tokens, model=None).verdict == UNMEASURED

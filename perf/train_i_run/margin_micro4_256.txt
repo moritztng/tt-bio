@@ -1,0 +1,6 @@
+2026-09-19 00:45:16.884 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  config     micro 4 x 16 = batch 64, 256 tokens, 8 blocks, sidechain FAPE on the card
+  PEAK       30213.13 MB allocated at the high-water mark of a warm step
+  MARGIN      2426.87 MB free of 32640 MB (7.44 % of the card)
+EXIT=0

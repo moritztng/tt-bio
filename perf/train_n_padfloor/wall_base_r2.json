@@ -1,0 +1,79 @@
+{
+ "micro": 2,
+ "accumulate": 1,
+ "tokens": 256,
+ "host_fape": false,
+ "blocks": 8,
+ "steps": [
+  1.0323014589957893,
+  0.9287578299990855,
+  0.8823239249904873,
+  0.9169185350037878,
+  0.9433595459995558
+ ],
+ "stages": [
+  {
+   "forward": 0.2620374999969499,
+   "download": 0.009492497003520839,
+   "losses": 0.1852067919971887,
+   "host_backward": 0.153091514002881,
+   "device_backward": 0.35841477500798646,
+   "optimizer": 0.06330611000885256,
+   "total": 1.0323014589957893,
+   "micro_batches": 1
+  },
+  {
+   "forward": 0.1542099469952518,
+   "download": 0.009613376008928753,
+   "losses": 0.18145124800503254,
+   "host_backward": 0.15151274799427483,
+   "device_backward": 0.3580429799912963,
+   "optimizer": 0.07322495098924264,
+   "total": 0.9287578299990855,
+   "micro_batches": 1
+  },
+  {
+   "forward": 0.1544614129961701,
+   "download": 0.007667205005418509,
+   "losses": 0.14575759299623314,
+   "host_backward": 0.1509149960038485,
+   "device_backward": 0.3581636179878842,
+   "optimizer": 0.06469362000643741,
+   "total": 0.8823239249904873,
+   "micro_batches": 1
+  },
+  {
+   "forward": 0.1542554360057693,
+   "download": 0.007834842006559484,
+   "losses": 0.16051772200444248,
+   "host_backward": 0.1705820609931834,
+   "device_backward": 0.358365035004681,
+   "optimizer": 0.0645503019914031,
+   "total": 0.9169185350037878,
+   "micro_batches": 1
+  },
+  {
+   "forward": 0.1541071789979469,
+   "download": 0.009923442004946992,
+   "losses": 0.15605801800847985,
+   "host_backward": 0.16099002400005702,
+   "device_backward": 0.3608974849921651,
+   "optimizer": 0.10060919000534341,
+   "total": 0.9433595459995558,
+   "micro_batches": 1
+  }
+ ],
+ "median": 0.9287578299990855,
+ "stage_median": {
+  "forward": 0.1542554360057693,
+  "download": 0.009492497003520839,
+  "losses": 0.16051772200444248,
+  "host_backward": 0.153091514002881,
+  "device_backward": 0.358365035004681,
+  "optimizer": 0.06469362000643741
+ },
+ "clock": "AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 2",
+ "cotenants_same_node": 0,
+ "cotenants_elsewhere": 0,
+ "when": "2026-09-19T00:22:51Z"
+}

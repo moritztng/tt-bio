@@ -1,0 +1,36 @@
+{
+  "train": {
+    "n": 8395,
+    "max": [
+      250,
+      "4nwu_H0-L0"
+    ],
+    "median": 229,
+    "over_256": [],
+    "n_over_256": 0,
+    "bucket_of_max": 256
+  },
+  "valid": {
+    "n": 150,
+    "max": [
+      248,
+      "8gbw_H0-L0"
+    ],
+    "median": 230.0,
+    "over_256": [],
+    "n_over_256": 0,
+    "bucket_of_max": 256
+  },
+  "test": {
+    "n": 100,
+    "max": [
+      242,
+      "3tje_H0-L0"
+    ],
+    "median": 229.0,
+    "over_256": [],
+    "n_over_256": 0,
+    "bucket_of_max": 256
+  }
+}
+EXIT=0

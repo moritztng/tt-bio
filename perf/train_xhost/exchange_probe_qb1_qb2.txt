@@ -1,0 +1,16 @@
+# The gradient exchange on its own: 28,446,060 B of float32 per rank, both directions at once,
+# through the shipped transport (tt_bio/train/xhost.py), no card opened. 2026-09-18, qb1 <-> qb2.
+# qb2 is on WiFi -- it has no ethernet cable -- so this is a WiFi number and a cable would change it.
+
+PROBE {"host": "tt-quietbox", "rank": 0, "world": 2, "python": "3.10.12", "numpy": "1.26.4", "bytes_per_rank": 28446060, "peers": ["ttuser@tt-quietbox2"], "rounds": [2.153, 2.032, 1.732, 1.768, 1.72], "median_s": 1.768, "digests": ["7e38bedde82cb352fdcc8db5b046680a"], "sent_mb": 142.2}
+PROBE {"host": "tt-quietbox2", "rank": 1, "world": 2, "python": "3.12.3", "numpy": "2.5.2", "bytes_per_rank": 28446060, "peers": ["ttuser@tt-quietbox"], "rounds": [2.046, 2.023, 1.732, 1.776, 1.718], "median_s": 1.776, "digests": ["7e38bedde82cb352fdcc8db5b046680a"], "sent_mb": 142.2}
+
+Median 1.768 s (qb1) and 1.776 s (qb2) for the full allreduce: write, mirror, wait for the peer,
+sum in rank order. Against the 22.010 s step train-h-fape-24mb measured, 8.0 %; against the
+14.096 s cross-host step measured here, 12.5 %.
+
+The summed vector hashes the same on both hosts across two numpy majors and two CPUs, which is the
+rank-order invariant the reduce depends on, re-established on the real payload rather than assumed.
+
+The orchestrator's earlier probe paid a fresh ssh handshake per transfer and read 1.87-2.02 s. The
+persistent channel is 1.77 s, so the handshake was not the term that mattered: the link is.

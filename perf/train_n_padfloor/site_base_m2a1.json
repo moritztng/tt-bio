@@ -1,0 +1,2931 @@
+{
+ "report": "perf/train_n_padfloor/prof_base_m2a1/reports/2026_09_19_00_08_55/ops_perf_results_2026_09_19_00_08_55.csv",
+ "device_programs": 11767,
+ "host_calls": 11783,
+ "child_programs": 1547,
+ "empty_host_calls": 1562,
+ "orphans": 0,
+ "device_kernel_ms": 541.989394,
+ "entries": [
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "131072x12",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 100.200997,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "24x4x256x256",
+   "site": "abodybuilder3_grad.py:436 _sum_dim",
+   "ms": 24.24496,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "24x4x256x256",
+   "site": "abodybuilder3_grad.py:436 _sum_dim",
+   "ms": 19.84799,
+   "n": 24
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 15.947502,
+   "n": 360
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "131072x12",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 15.152911,
+   "n": 8
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x48x256x1 @ 2x48x1x256",
+   "site": "abodybuilder3_grad.py:266 _sub_square",
+   "ms": 14.965921,
+   "n": 24
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x48x256x1 @ 2x48x1x256",
+   "site": "abodybuilder3_grad.py:270 bw",
+   "ms": 14.964537,
+   "n": 24
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x256x128 @ 1x1x1x128",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 14.932576,
+   "n": 9
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x12x256 @ 2x256x256x128",
+   "site": "abodybuilder3_grad.py:209 _matmul",
+   "ms": 13.653724,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "131072x128 @ 131072x12",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 11.373236,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x1",
+   "site": "fape_device.py:81 _local_coords",
+   "ms": 9.486351,
+   "n": 72
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x12x256x256 @ 2x12x256x256",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 8.443694,
+   "n": 16
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x12x256 @ 2x256x12x128",
+   "site": "abodybuilder3_grad.py:224 bw",
+   "ms": 7.803263,
+   "n": 8
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x1x3584 @ 2x512x1",
+   "site": "fape_device.py:76 <listcomp>",
+   "ms": 7.166457,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "2x48x256x1",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 6.781664,
+   "n": 192
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x256x128 @ 2x256x256x128",
+   "site": "autograd.py:112 add_grad",
+   "ms": 6.773725,
+   "n": 15
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 6.011834,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x256x12 @ 128x12",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 5.998902,
+   "n": 8
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "child",
+   "shapes": "2x256x12x256",
+   "site": "abodybuilder3_grad.py:516 bw",
+   "ms": 5.555509,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x1",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 4.861754,
+   "n": 40
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 4.819966,
+   "n": 34
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x48x256x256 @ 2x48x256x256",
+   "site": "abodybuilder3_grad.py:271 bw",
+   "ms": 4.75132,
+   "n": 24
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "24x4x256x256 @ 24x1x256x256",
+   "site": "abodybuilder3_grad.py:441 bw",
+   "ms": 4.704338,
+   "n": 24
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 4.287099,
+   "n": 32
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "child",
+   "shapes": "2x48x256x1 @ 2x48x1x256",
+   "site": "abodybuilder3_grad.py:266 _sub_square",
+   "ms": 4.220224,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "fape_device.py:82 _local_coords",
+   "ms": 4.122471,
+   "n": 48
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 4.08518,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x256x128 @ 2x256x256x1",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 3.939325,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x1",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 3.844823,
+   "n": 39
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x384",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 3.528595,
+   "n": 48
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "24x4x256x256 @ 24x1x256x256",
+   "site": "abodybuilder3_grad.py:441 bw",
+   "ms": 3.41401,
+   "n": 24
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x48x256x256",
+   "site": "abodybuilder3_grad.py:273 bw",
+   "ms": 3.410031,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x48x256x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 3.393926,
+   "n": 48
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x48x256x256",
+   "site": "abodybuilder3_grad.py:270 bw",
+   "ms": 3.386112,
+   "n": 24
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:209 _matmul",
+   "ms": 3.0745,
+   "n": 32
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:224 bw",
+   "ms": 3.064829,
+   "n": 32
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x256x128 @ 128x12",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 3.039802,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "131072x132 @ 131072x128",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 3.004073,
+   "n": 1
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x12x32",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 2.993543,
+   "n": 40
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x384",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 2.95001,
+   "n": 40
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "2x48x1x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 2.892219,
+   "n": 192
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "512x1",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 2.370424,
+   "n": 48
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:516 bw",
+   "ms": 2.345297,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 2.337891,
+   "n": 184
+  },
+  {
+   "op": "ttnn.concat",
+   "kind": "self",
+   "shapes": "",
+   "site": "abodybuilder3_grad.py:562 bw",
+   "ms": 2.333037,
+   "n": 62
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 2.312777,
+   "n": 1066
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "child",
+   "shapes": "2x256x12x256 @ 2x256x12x128",
+   "site": "abodybuilder3_grad.py:224 bw",
+   "ms": 2.186902,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "1x12x256x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 2.154848,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x48x256x1",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 2.119131,
+   "n": 96
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x12x128",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 2.008287,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 1.980528,
+   "n": 184
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x1x256x1",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 1.96451,
+   "n": 144
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "autograd.py:112 add_grad",
+   "ms": 1.933292,
+   "n": 19
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "131072x128",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 1.897461,
+   "n": 1
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x512x1 @ 2x1x3584",
+   "site": "fape_device.py:97 _clamp_pattern",
+   "ms": 1.881467,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x1x256x1",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 1.810157,
+   "n": 144
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:138 _flat2d",
+   "ms": 1.791453,
+   "n": 24
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x12x32",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 1.781588,
+   "n": 24
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x256x1 @ 1x1x1x128",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 1.763202,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:216 bw",
+   "ms": 1.699496,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x256x128 @ 1x1x1x128",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 1.658704,
+   "n": 1
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 1.643475,
+   "n": 184
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x48x256x1 @ 2x48x256x1",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 1.636423,
+   "n": 72
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x48x1x256 @ 2x48x1x256",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 1.635568,
+   "n": 72
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x48x256x1 @ 2x1x256x1",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 1.630809,
+   "n": 72
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x48x1x256 @ 2x1x1x256",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 1.629635,
+   "n": 72
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x48x1x256 @ 2x1x1x256",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 1.62853,
+   "n": 72
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x256x1",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 1.62806,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x48x256x1 @ 2x1x256x1",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 1.624249,
+   "n": 72
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x256x256x128",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 1.577152,
+   "n": 8
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x1x3584 @ 2x512x1",
+   "site": "abodybuilder3_grad.py:248 _sub",
+   "ms": 1.545887,
+   "n": 12
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 1.50636,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "fape_device.py:97 _clamp_pattern",
+   "ms": 1.434413,
+   "n": 4
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:266 _sub_square",
+   "ms": 1.391486,
+   "n": 12
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "fape_device.py:125 _chunk_partial",
+   "ms": 1.366416,
+   "n": 12
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x12x256x32",
+   "site": "autograd.py:112 add_grad",
+   "ms": 1.151145,
+   "n": 128
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x256",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 1.136337,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "2x1x256x32",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 1.106016,
+   "n": 168
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x48x256x1 @ 2x48x256x1",
+   "site": "autograd.py:112 add_grad",
+   "ms": 1.099133,
+   "n": 48
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x48x1x256 @ 2x48x1x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 1.094659,
+   "n": 48
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x48x1x256 @ 2x48x1x256",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 1.083263,
+   "n": 48
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x48x256x1 @ 2x48x256x1",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 1.083254,
+   "n": 48
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "child",
+   "shapes": "144x2x256",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 1.074445,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 1x1x1x32",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 1.063845,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 1x1x1x32",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 1.061275,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x1",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 1.056944,
+   "n": 17
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x144x1x256 @ 2x144x1x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 1.054455,
+   "n": 16
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x144x256x1 @ 2x144x256x1",
+   "site": "autograd.py:112 add_grad",
+   "ms": 1.051037,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 1.048813,
+   "n": 7
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:270 bw",
+   "ms": 1.025968,
+   "n": 9
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 1.013528,
+   "n": 18
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "child",
+   "shapes": "2x256x64 @ 256x64",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.998973,
+   "n": 44
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.981043,
+   "n": 112
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "child",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:138 _flat2d",
+   "ms": 0.92611,
+   "n": 120
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "fape_device.py:126 _chunk_partial",
+   "ms": 0.917609,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x1x3584 @ 2x1x3584",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.912006,
+   "n": 9
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x144x256x1",
+   "site": "abodybuilder3_grad.py:516 bw",
+   "ms": 0.889376,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x128 @ 512x384",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.880585,
+   "n": 48
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:270 bw",
+   "ms": 0.878126,
+   "n": 9
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:271 bw",
+   "ms": 0.872308,
+   "n": 9
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:308 _scale",
+   "ms": 0.839454,
+   "n": 24
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x1x256x1",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 0.836873,
+   "n": 110
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:313 bw",
+   "ms": 0.83142,
+   "n": 24
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x144x1",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 0.824923,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.814809,
+   "n": 56
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x256x144x1",
+   "site": "abodybuilder3_grad.py:512 _permute",
+   "ms": 0.798683,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:216 bw",
+   "ms": 0.768592,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:227 bw",
+   "ms": 0.767852,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x144",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 0.75806,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.748297,
+   "n": 360
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:512 _permute",
+   "ms": 0.745745,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.731213,
+   "n": 360
+  },
+  {
+   "op": "ttnn.lt",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:371 bw",
+   "ms": 0.71815,
+   "n": 4
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x256x12x256",
+   "site": "abodybuilder3_grad.py:516 bw",
+   "ms": 0.707653,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.689319,
+   "n": 11
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x1 @ 2x1x1",
+   "site": "abodybuilder3_grad.py:441 bw",
+   "ms": 0.68741,
+   "n": 4
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x256 @ 256x256",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.685833,
+   "n": 40
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x256x132 @ 132x128",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.68238,
+   "n": 1
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.669123,
+   "n": 312
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:370 bw",
+   "ms": 0.662323,
+   "n": 4
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 0.65708,
+   "n": 222
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x1x256x1 @ 2x1x256x1",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.640454,
+   "n": 96
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x128 @ 384x128",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.635023,
+   "n": 40
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x384 @ 512x128",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.620848,
+   "n": 40
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x256x256x12",
+   "site": "abodybuilder3_grad.py:512 _permute",
+   "ms": 0.619992,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x1x256x1 @ 2x1x256x1",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.594063,
+   "n": 186
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x256 @ 512x256",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.576964,
+   "n": 40
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "512x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.568696,
+   "n": 64
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x48x256x1 @ 2x1x256x1",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.542025,
+   "n": 24
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x48x1x256 @ 2x1x1x256",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.541815,
+   "n": 24
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.532628,
+   "n": 135
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "child",
+   "shapes": "2x144x256",
+   "site": "abodybuilder3_grad.py:516 bw",
+   "ms": 0.532596,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:313 bw",
+   "ms": 0.515452,
+   "n": 128
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x1x256x1 @ 2x1x1x256",
+   "site": "abodybuilder3_grad.py:248 _sub",
+   "ms": 0.493624,
+   "n": 24
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x256x128 @ 2x256x256x128",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.475362,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x384 @ 128x384",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.466757,
+   "n": 24
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x144x1x256 @ 1x144x1x1",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.466402,
+   "n": 8
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x144x256",
+   "site": "abodybuilder3_grad.py:516 bw",
+   "ms": 0.465176,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:308 _scale",
+   "ms": 0.456833,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:301 bw",
+   "ms": 0.45669,
+   "n": 32
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "fape_device.py:127 _chunk_partial",
+   "ms": 0.454318,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "fape_device.py:98 _clamp_pattern",
+   "ms": 0.454016,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "fape_device.py:128 _chunk_partial",
+   "ms": 0.447848,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x256x128 @ 2x256x256x128",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.44577,
+   "n": 1
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x1",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.443936,
+   "n": 6
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x256x12x32",
+   "site": "abodybuilder3_grad.py:512 _permute",
+   "ms": 0.436643,
+   "n": 48
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x1x3584",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.431605,
+   "n": 4
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:209 _matmul",
+   "ms": 0.429704,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x1x3584",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 0.426552,
+   "n": 4
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:512 _permute",
+   "ms": 0.409215,
+   "n": 40
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:332 _sqrt_plus",
+   "ms": 0.401271,
+   "n": 4
+  },
+  {
+   "op": "ttnn.slice",
+   "kind": "self",
+   "shapes": "2x144x256x1",
+   "site": "abodybuilder3_grad.py:546 _slice_dim",
+   "ms": 0.400211,
+   "n": 24
+  },
+  {
+   "op": "ttnn.softmax",
+   "kind": "self",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:449 _softmax",
+   "ms": 0.398953,
+   "n": 8
+  },
+  {
+   "op": "ttnn.slice",
+   "kind": "self",
+   "shapes": "2x144x1x256",
+   "site": "abodybuilder3_grad.py:546 _slice_dim",
+   "ms": 0.394484,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "512x1",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.390736,
+   "n": 48
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:308 _scale",
+   "ms": 0.388239,
+   "n": 128
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x1x1 @ 2x1x1",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.382663,
+   "n": 3
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x256",
+   "site": "abodybuilder3_grad.py:453 bw",
+   "ms": 0.379827,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x256",
+   "site": "abodybuilder3_grad.py:454 bw",
+   "ms": 0.378956,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x1x256x256",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.376971,
+   "n": 8
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x256",
+   "site": "abodybuilder3_grad.py:248 _sub",
+   "ms": 0.376061,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x256",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.3757,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x144x256",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 0.370599,
+   "n": 8
+  },
+  {
+   "op": "ttnn.minimum",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:366 _minimum",
+   "ms": 0.365753,
+   "n": 4
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x256x12x32",
+   "site": "abodybuilder3_grad.py:516 bw",
+   "ms": 0.36337,
+   "n": 40
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x256 @ 256x256",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.361484,
+   "n": 40
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x128 @ 128x384",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.360308,
+   "n": 48
+  },
+  {
+   "op": "ttnn.lt",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:370 bw",
+   "ms": 0.358631,
+   "n": 4
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "child",
+   "shapes": "2x1x3584 @ 2x512x1",
+   "site": "fape_device.py:76 <listcomp>",
+   "ms": 0.355794,
+   "n": 9
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 2x12x256x1",
+   "site": "abodybuilder3_grad.py:454 bw",
+   "ms": 0.355514,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "512x128",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.350009,
+   "n": 41
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584",
+   "site": "fape_device.py:128 _chunk_partial",
+   "ms": 0.348647,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x1x3584",
+   "site": "fape_device.py:129 _chunk_partial",
+   "ms": 0.345249,
+   "n": 4
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x256 @ 128x256",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.344347,
+   "n": 24
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256x1",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 0.338433,
+   "n": 48
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.337904,
+   "n": 3
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:273 bw",
+   "ms": 0.335348,
+   "n": 5
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x128 @ 512x256",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.331265,
+   "n": 24
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x1x256x1",
+   "site": "abodybuilder3_grad.py:248 _sub",
+   "ms": 0.327198,
+   "n": 24
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x1x256x1",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.326888,
+   "n": 24
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x512x3584",
+   "site": "fape_device.py:98 _clamp_pattern",
+   "ms": 0.326764,
+   "n": 4
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:516 bw",
+   "ms": 0.326539,
+   "n": 32
+  },
+  {
+   "op": "ttnn.minimum",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "fape_device.py:127 _chunk_partial",
+   "ms": 0.323844,
+   "n": 4
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "fape_device.py:98 _clamp_pattern",
+   "ms": 0.319911,
+   "n": 4
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x128 @ 512x1",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.319577,
+   "n": 48
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x1",
+   "site": "fape_device.py:129 _chunk_partial",
+   "ms": 0.319022,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:371 bw",
+   "ms": 0.317079,
+   "n": 3
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:313 bw",
+   "ms": 0.317044,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 1x12x1x1",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.314686,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x1x1x256",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 0.310906,
+   "n": 117
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x256 @ 1x12x1x1",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 0.309344,
+   "n": 8
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "child",
+   "shapes": "2x1x3584 @ 2x512x1",
+   "site": "abodybuilder3_grad.py:248 _sub",
+   "ms": 0.305199,
+   "n": 5
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x384 @ 384x128",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.301828,
+   "n": 40
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x256 @ 2x256x256",
+   "site": "abodybuilder3_grad.py:412 bw",
+   "ms": 0.288498,
+   "n": 56
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "1x144x512",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 0.286177,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x1x256x32",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.284479,
+   "n": 168
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.284219,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x1",
+   "site": "abodybuilder3_grad.py:426 bw",
+   "ms": 0.283234,
+   "n": 4
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.281283,
+   "n": 4
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.270436,
+   "n": 48
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:253 bw",
+   "ms": 0.270317,
+   "n": 8
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:248 _sub",
+   "ms": 0.264456,
+   "n": 120
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x48x1x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.263927,
+   "n": 96
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.257508,
+   "n": 16
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x128 @ 128x1",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.249811,
+   "n": 48
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:253 bw",
+   "ms": 0.247043,
+   "n": 3
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.245217,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.2447,
+   "n": 3
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "1x144x128",
+   "site": "abodybuilder3_grad.py:152 _sum_to",
+   "ms": 0.233461,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "512x384",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.229783,
+   "n": 24
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:299 bw",
+   "ms": 0.228633,
+   "n": 16
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:253 bw",
+   "ms": 0.228424,
+   "n": 120
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 128",
+   "site": "abodybuilder3_grad.py:484 bw",
+   "ms": 0.227548,
+   "n": 16
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x1 @ 128x1",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.227521,
+   "n": 48
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x1536 @ 512x128",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.226011,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "144x2x256",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 0.225433,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.21544,
+   "n": 24
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 0.212932,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x12x256x256",
+   "site": "abodybuilder3_grad.py:453 bw",
+   "ms": 0.210639,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:313 bw",
+   "ms": 0.206961,
+   "n": 5
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 0.199604,
+   "n": 48
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:393 _norm_from_sq",
+   "ms": 0.198049,
+   "n": 8
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x1536 @ 1536x128",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.191337,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x12x128 @ 2x256x256x128",
+   "site": "abodybuilder3_grad.py:216 bw",
+   "ms": 0.188957,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.187391,
+   "n": 56
+  },
+  {
+   "op": "ttnn.gtz",
+   "kind": "self",
+   "shapes": "2x256x256",
+   "site": "abodybuilder3_grad.py:412 bw",
+   "ms": 0.185213,
+   "n": 56
+  },
+  {
+   "op": "ttnn.relu",
+   "kind": "self",
+   "shapes": "2x256x256",
+   "site": "abodybuilder3_grad.py:408 _relu",
+   "ms": 0.182546,
+   "n": 56
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.182402,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:271 bw",
+   "ms": 0.180551,
+   "n": 3
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x1x3584",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.167846,
+   "n": 2
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x256x256 @ 2x1x256x256",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.166918,
+   "n": 32
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "512x144",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.164555,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x256x256 @ 2x1x256x256",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.163627,
+   "n": 32
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:270 bw",
+   "ms": 0.162457,
+   "n": 2
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "1x12x1x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.16055,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.154748,
+   "n": 16
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x128 @ 128x256",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.153142,
+   "n": 24
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 0.149676,
+   "n": 1
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x32",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.140849,
+   "n": 8
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x256x32",
+   "site": "abodybuilder3_grad.py:384 bw",
+   "ms": 0.138714,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "1x144x1x1",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 0.137608,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "child",
+   "shapes": "2x1x1x256",
+   "site": "abodybuilder3_grad.py:501 bw",
+   "ms": 0.137122,
+   "n": 48
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x128 @ 1536x128",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.134375,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "child",
+   "shapes": "1x144x128",
+   "site": "abodybuilder3_grad.py:152 _sum_to",
+   "ms": 0.132241,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x64 @ 2x256x64",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.130248,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:384 bw",
+   "ms": 0.126988,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:301 bw",
+   "ms": 0.126867,
+   "n": 64
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x256x256 @ 2x1x256x256",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 0.126818,
+   "n": 25
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:253 bw",
+   "ms": 0.125897,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.125241,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x1x256x256 @ 2x1x256x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.125129,
+   "n": 24
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x256 @ 2x256x256",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.124734,
+   "n": 24
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x1",
+   "site": "abodybuilder3_grad.py:426 bw",
+   "ms": 0.120192,
+   "n": 4
+  },
+  {
+   "op": "ttnn.reciprocal",
+   "kind": "child",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.118062,
+   "n": 3
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x1x1 @ 2x1x1",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.117504,
+   "n": 3
+  },
+  {
+   "op": "ttnn.layer_norm",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:469 _layer_norm",
+   "ms": 0.11527,
+   "n": 16
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x128 @ 1x1x128",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.113939,
+   "n": 8
+  },
+  {
+   "op": "ttnn.permute",
+   "kind": "self",
+   "shapes": "144x2x256",
+   "site": "abodybuilder3_grad.py:512 _permute",
+   "ms": 0.112627,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x128 @ 512x144",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.109547,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x1",
+   "site": "abodybuilder3_grad.py:477 bw",
+   "ms": 0.109479,
+   "n": 16
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x1",
+   "site": "abodybuilder3_grad.py:474 bw",
+   "ms": 0.109302,
+   "n": 16
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x1",
+   "site": "abodybuilder3_grad.py:487 bw",
+   "ms": 0.109298,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x1",
+   "site": "abodybuilder3_grad.py:488 bw",
+   "ms": 0.109171,
+   "n": 16
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x256 @ 512x128",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.108944,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x1",
+   "site": "abodybuilder3_grad.py:487 bw",
+   "ms": 0.108728,
+   "n": 16
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "1x144x512 @ 144x128",
+   "site": "abodybuilder3_grad.py:227 bw",
+   "ms": 0.108671,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x256 @ 512x64",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.105923,
+   "n": 8
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x256x32",
+   "site": "abodybuilder3_grad.py:301 bw",
+   "ms": 0.105857,
+   "n": 15
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "256x256 @ 256x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.10577,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.103157,
+   "n": 2
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:266 _sub_square",
+   "ms": 0.103109,
+   "n": 2
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.101098,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "1x256x128",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.097413,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:308 _scale",
+   "ms": 0.087221,
+   "n": 1
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x144 @ 128x144",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.08593,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x256x256 @ 2x1x256x256",
+   "site": "abodybuilder3_grad.py:398 bw",
+   "ms": 0.084691,
+   "n": 16
+  },
+  {
+   "op": "ttnn.div",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:294 _div",
+   "ms": 0.081912,
+   "n": 32
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.081707,
+   "n": 1
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x256 @ 2x256x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.081653,
+   "n": 16
+  },
+  {
+   "op": "ttnn.lt",
+   "kind": "child",
+   "shapes": "2x512x3584 @ 2x512x3584",
+   "site": "abodybuilder3_grad.py:370 bw",
+   "ms": 0.081106,
+   "n": 1
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x128 @ 256x128",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.080005,
+   "n": 8
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:253 bw",
+   "ms": 0.079863,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "1x12x256x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.079462,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "child",
+   "shapes": "512x1536 @ 512x128",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.075595,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "512x144",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.074251,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32 @ 2x12x256x32",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.073054,
+   "n": 8
+  },
+  {
+   "op": "ttnn.concat",
+   "kind": "child",
+   "shapes": "",
+   "site": "abodybuilder3_grad.py:562 bw",
+   "ms": 0.068228,
+   "n": 24
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "512x64",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.066285,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "256 @ 256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.063233,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:299 bw",
+   "ms": 0.063115,
+   "n": 32
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x48x1x256 @ 2x1x1x256",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.062967,
+   "n": 22
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "1x144",
+   "site": "abodybuilder3_grad.py:194 bw",
+   "ms": 0.062086,
+   "n": 8
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x256 @ 256x128",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.061716,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "144x128 @ 1x512x128",
+   "site": "abodybuilder3_grad.py:209 _matmul",
+   "ms": 0.06148,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.060781,
+   "n": 1
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x1",
+   "site": "abodybuilder3_grad.py:476 bw",
+   "ms": 0.060696,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.060324,
+   "n": 1
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:301 bw",
+   "ms": 0.060284,
+   "n": 1
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x256 @ 256x64",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.059973,
+   "n": 8
+  },
+  {
+   "op": "ttnn.mean",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:486 bw",
+   "ms": 0.057179,
+   "n": 16
+  },
+  {
+   "op": "ttnn.mean",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:485 bw",
+   "ms": 0.057046,
+   "n": 16
+  },
+  {
+   "op": "ttnn.mean",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:475 bw",
+   "ms": 0.056774,
+   "n": 16
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "2x256x64 @ 256x64",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.056609,
+   "n": 8
+  },
+  {
+   "op": "ttnn.mean",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:473 bw",
+   "ms": 0.056602,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:412 bw",
+   "ms": 0.053797,
+   "n": 16
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:332 _sqrt_plus",
+   "ms": 0.053625,
+   "n": 8
+  },
+  {
+   "op": "ttnn.subtract",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:487 bw",
+   "ms": 0.053268,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.053199,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:486 bw",
+   "ms": 0.053023,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.053002,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.052994,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:480 bw",
+   "ms": 0.052934,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:475 bw",
+   "ms": 0.052845,
+   "n": 16
+  },
+  {
+   "op": "ttnn.reciprocal",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:298 bw",
+   "ms": 0.052286,
+   "n": 32
+  },
+  {
+   "op": "ttnn.div",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:294 _div",
+   "ms": 0.051943,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x128 @ 2x256x128",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 0.051167,
+   "n": 16
+  },
+  {
+   "op": "ttnn.neg",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:301 bw",
+   "ms": 0.049668,
+   "n": 32
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "child",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.049395,
+   "n": 1
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x256x256x128 @ 2x256x256x128",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.049335,
+   "n": 14
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x1x256x256 @ 2x1x256x256",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.046844,
+   "n": 9
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "144",
+   "site": "abodybuilder3_grad.py:497 _reshape",
+   "ms": 0.045625,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sqrt",
+   "kind": "self",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:332 _sqrt_plus",
+   "ms": 0.045284,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "1x12x1x256",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.044561,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:397 bw",
+   "ms": 0.043761,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:397 bw",
+   "ms": 0.043605,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reciprocal",
+   "kind": "self",
+   "shapes": "2x12x256x32",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.041591,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:393 _norm_from_sq",
+   "ms": 0.041064,
+   "n": 14
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "child",
+   "shapes": "2x256x128 @ 128x384",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.040496,
+   "n": 21
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x256x256 @ 2x1x256x256",
+   "site": "abodybuilder3_grad.py:393 _norm_from_sq",
+   "ms": 0.03938,
+   "n": 8
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x128 @ 128x144",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.03804,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sum",
+   "kind": "self",
+   "shapes": "1x256x128",
+   "site": "abodybuilder3_grad.py:158 _sum_to",
+   "ms": 0.037713,
+   "n": 8
+  },
+  {
+   "op": "ttnn.gtz",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:412 bw",
+   "ms": 0.037096,
+   "n": 16
+  },
+  {
+   "op": "ttnn.rsqrt",
+   "kind": "self",
+   "shapes": "2x256x1",
+   "site": "abodybuilder3_grad.py:476 bw",
+   "ms": 0.036692,
+   "n": 16
+  },
+  {
+   "op": "ttnn.relu",
+   "kind": "self",
+   "shapes": "2x256x128",
+   "site": "abodybuilder3_grad.py:408 _relu",
+   "ms": 0.036459,
+   "n": 16
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 0.034442,
+   "n": 16
+  },
+  {
+   "op": "ttnn.sqrt",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:397 bw",
+   "ms": 0.029975,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.029259,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:332 _sqrt_plus",
+   "ms": 0.029223,
+   "n": 8
+  },
+  {
+   "op": "ttnn.gtz",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:398 bw",
+   "ms": 0.026834,
+   "n": 8
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "child",
+   "shapes": "2x256x128 @ 1536x128",
+   "site": "abodybuilder3_grad.py:189 bw",
+   "ms": 0.026817,
+   "n": 8
+  },
+  {
+   "op": "ttnn.relu",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:397 bw",
+   "ms": 0.026797,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reciprocal",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:399 bw",
+   "ms": 0.02675,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reciprocal",
+   "kind": "self",
+   "shapes": "2x256x32",
+   "site": "abodybuilder3_grad.py:298 bw",
+   "ms": 0.024621,
+   "n": 14
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "child",
+   "shapes": "2x256x256x1 @ 1x1x1x128",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 0.022816,
+   "n": 7
+  },
+  {
+   "op": "ttnn.slice",
+   "kind": "self",
+   "shapes": "2x256x64",
+   "site": "abodybuilder3_grad.py:546 _slice_dim",
+   "ms": 0.019734,
+   "n": 16
+  },
+  {
+   "op": "ttnn.reshape",
+   "kind": "self",
+   "shapes": "1x128",
+   "site": "abodybuilder3_grad.py:194 bw",
+   "ms": 0.019325,
+   "n": 1
+  },
+  {
+   "op": "ttnn.div",
+   "kind": "child",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:294 _div",
+   "ms": 0.017727,
+   "n": 8
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x256x32 @ 2x256x32",
+   "site": "abodybuilder3_grad.py:236 _add",
+   "ms": 0.017148,
+   "n": 8
+  },
+  {
+   "op": "ttnn.sqrt",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:332 _sqrt_plus",
+   "ms": 0.016752,
+   "n": 8
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x256 @ 2x256",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.015738,
+   "n": 8
+  },
+  {
+   "op": "ttnn.gtz",
+   "kind": "self",
+   "shapes": "2x256x32",
+   "site": "abodybuilder3_grad.py:384 bw",
+   "ms": 0.013266,
+   "n": 7
+  },
+  {
+   "op": "ttnn.sqrt",
+   "kind": "self",
+   "shapes": "2x256x32",
+   "site": "abodybuilder3_grad.py:332 _sqrt_plus",
+   "ms": 0.013147,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reciprocal",
+   "kind": "self",
+   "shapes": "2x256",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.013031,
+   "n": 8
+  },
+  {
+   "op": "ttnn.reciprocal",
+   "kind": "self",
+   "shapes": "2x256x32",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.012241,
+   "n": 7
+  },
+  {
+   "op": "ttnn.matmul",
+   "kind": "self",
+   "shapes": "512x23 @ 512x128",
+   "site": "abodybuilder3_grad.py:191 bw",
+   "ms": 0.008016,
+   "n": 1
+  },
+  {
+   "op": "ttnn.linear",
+   "kind": "self",
+   "shapes": "2x256x23 @ 23x128",
+   "site": "abodybuilder3_grad.py:183 _linear",
+   "ms": 0.006179,
+   "n": 1
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x1 @ 2x1x1",
+   "site": "abodybuilder3_grad.py:281 _mul",
+   "ms": 0.005766,
+   "n": 2
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "child",
+   "shapes": "2x1x1x256 @ 2x1x1x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.005728,
+   "n": 2
+  },
+  {
+   "op": "ttnn.add",
+   "kind": "self",
+   "shapes": "2x1x1x256 @ 2x1x1x256",
+   "site": "autograd.py:112 add_grad",
+   "ms": 0.00442,
+   "n": 2
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x1 @ 2x1x1",
+   "site": "abodybuilder3_grad.py:286 bw",
+   "ms": 0.003885,
+   "n": 2
+  },
+  {
+   "op": "ttnn.multiply",
+   "kind": "self",
+   "shapes": "2x1x1 @ 2x1x1",
+   "site": "abodybuilder3_grad.py:285 bw",
+   "ms": 0.00382,
+   "n": 2
+  },
+  {
+   "op": "ttnn.sqrt",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:393 _norm_from_sq",
+   "ms": 0.00371,
+   "n": 1
+  },
+  {
+   "op": "ttnn.gtz",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:393 _norm_from_sq",
+   "ms": 0.003301,
+   "n": 1
+  },
+  {
+   "op": "ttnn.relu",
+   "kind": "self",
+   "shapes": "2x1x256x256",
+   "site": "abodybuilder3_grad.py:393 _norm_from_sq",
+   "ms": 0.003261,
+   "n": 1
+  },
+  {
+   "op": "ttnn.reciprocal",
+   "kind": "self",
+   "shapes": "2x512x3584",
+   "site": "abodybuilder3_grad.py:336 bw",
+   "ms": 0.001767,
+   "n": 1
+  }
+ ]
+}
