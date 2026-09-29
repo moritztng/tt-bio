@@ -284,10 +284,30 @@ reasonable thing to ask for:
 unresolved); the rest carry the hotspot.
 ```
 
+Two targets under one `name` are refused too, and this one is worth spelling out: BindCraft 2
+keys a campaign's targets by name, so a repeated name is not a second target -- it replaces the
+first. The campaign designs against the last one alone and the other target's hotspots are gone
+without a word:
+
+```
+2 targets are named 'T' (il2rb.pdb, hPDL1.pdb). BindCraft 2 keys a campaign's targets by name,
+so only the last of them is prepared and the rest are dropped without a word. Give each target
+its own "name".
+```
+
+A target file that holds no polymer -- a ligand-only download, or a structure whose residues are
+all `HETATM` -- is refused by name rather than as an `IndexError` from inside the campaign:
+BindCraft 2 reads the polymer and drops every heteroatom, so such a file has no chain to design
+against at all.
+
 Two settings are refused for the same reason, that they would otherwise cost a whole campaign:
 a confidence threshold written as a percentage (`"min_plddt_final": 80`, where the scale is 0 to
 1) accepts nothing however long it runs, and `"binder_lengths": 80` is not a list, which stops
 BindCraft 2 inside its length sampler. Write `[80]`, or `[60, 90]` for a range.
+
+An NMR ensemble is not refused: BindCraft 2 reads `MODEL 1` and ignores the rest, so a
+20-model ensemble designs against its first model. Split the model you want out first if that is
+not the one you meant.
 
 Numbering is the file's own throughout, never a 1-based position. A target renumbered by a
 modelling tool is self-consistent and cannot be told apart from the original, so hotspots move
