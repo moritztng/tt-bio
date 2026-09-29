@@ -1,0 +1,9 @@
+{
+ "n": 1,
+ "why": "at 704 tokens one trajectory holds about 19.1 GB of the card and a second does not fit in the 28.5 GB it has for them",
+ "tokens": 704,
+ "size_aware": true,
+ "free_host": 217086754816,
+ "free_device": 0,
+ "rss": 18522112
+}
