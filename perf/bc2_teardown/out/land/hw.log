@@ -1,0 +1,28 @@
+.2026-09-29 09:04:23.121 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+
+tokens 175 padded to 192, calls {'primal': 0, 'taped': 2, 'backward': 1}, step 13.4 s (first call: weight load and JAX compile included), loss 11.6555, gradient (60, 20)
+CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work
+host load/core during the step: 0.22
+.
+tokens 175 padded to 192, extra_msa calls {'primal': 0, 'taped': 2, 'backward': 1}, step 6.3 s (first call: weight load and JAX compile included), loss 11.7911
+CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 6 samples, polled DURING the work
+host load/core during the step: 0.21
+.
+tokens 175 padded to 192
+  default exact=False step 11.8 s loss 11.6555 counters {'sm_verb': 0, 'sm_raw': 0, 'sm_raw_elements': 0, 'ln_verb': 0, 'ln_raw': 0, 'ln_elements': 0, 'ln_bw': 0}
+          CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work  host load/core 0.19
+  exact   exact=True  step 149.2 s loss 11.6109 counters {'sm_verb': 192, 'sm_raw': 384, 'sm_raw_elements': 5493030912, 'ln_verb': 576, 'ln_raw': 1152, 'ln_elements': 5492441088, 'ln_bw': 576}
+          CLOCK: dev0 min 1337 / median 1350 / max 1350 MHz over 109 samples, polled DURING the work  host load/core 0.19
+.
+=============================== warnings summary ===============================
+tests/test_bindcraft2_hw.py::test_one_gradient_step_with_the_evoformer_on_card
+  /home/ttuser/.coworker/wt/bc2-teardown-next-job/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+    pid = _os.fork()
+
+tests/test_bindcraft2_hw.py::test_one_gradient_step_with_the_evoformer_on_card
+  /home/ttuser/.coworker/wt/bc2-teardown-next-job/tt_bio/main.py:62: DeprecationWarning: This process (pid=319576) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = _os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 2 warnings in 207.97s (0:03:27)
