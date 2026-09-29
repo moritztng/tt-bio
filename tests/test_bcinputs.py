@@ -281,3 +281,39 @@ def test_chains_written_as_a_json_list_are_refused_before_bindcraft_splits_them(
 def test_hotspots_with_spaces_around_the_commas_are_not_refused(tmp_path):
     path = _target(tmp_path, "whole.pdb")
     assert _problems(_settings(path, hotspots="54, 56 ,115")) == ([], [])
+
+
+# ------------------------------------------------- what a filter enforces is what it prints
+
+def _resolved(**settings):
+    load_settings = pytest.importorskip("bindcraft.settings").load_settings
+    return load_settings({"modality": "binder", "binder_lengths": [60], **settings})
+
+
+def test_a_filter_written_without_a_direction_is_given_the_metrics_own_direction():
+    """A researcher writes {"i_pAE": {"threshold": 0.35}} and means "at most 0.35".
+
+    Nothing in tt_bio checks this, deliberately: `load_settings` fills `higher` from the metric,
+    so the campaign enforces and prints the same bound. The two readers disagree about a MISSING
+    `higher` -- `campaign_filter.declared_thresholds` defaults it True and
+    `campaign_log.acceptance_filters` defaults it False -- so this test is what says the default
+    never reaches them. If it fails, a filter is being enforced backwards from how it is printed.
+    """
+    _bindcraft()
+    resolved = _resolved(filters={"i_pAE": {"threshold": 0.35}})
+    assert resolved["filters"]["i_pAE"]["higher"] is False
+    resolved = _resolved(filters={"i_pTM": {"threshold": 0.8}})
+    assert resolved["filters"]["i_pTM"]["higher"] is True
+
+
+def test_every_resolved_filter_prints_the_bound_it_enforces():
+    _bindcraft()
+    from bindcraft.campaign_filter import declared_thresholds
+    from bindcraft.campaign_log import acceptance_filters
+
+    resolved = _resolved(filters={"i_pAE": {"threshold": 0.35}, "i_pTM": {"threshold": 0.8},
+                                  "Backbone_Clashes": {"threshold": 0}})
+    enforced = {f"{t.metric} {t.comparison} {t.value:g}"
+                for t in declared_thresholds(resolved["filters"])}
+    for line in acceptance_filters(resolved):
+        assert line in enforced, f"printed {line!r}, which is not a bound the campaign enforces"
