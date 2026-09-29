@@ -438,7 +438,8 @@ class DeviceLease:
         """Release the lease: mark the metadata free (best effort) and drop the flock.
 
         Idempotent and safe to call from atexit. The kernel also drops the flock on process
-        death, so a missed release (e.g. SIGKILL) never leaves the card falsely held."""
+        death, so a missed release (e.g. SIGKILL) never leaves the card falsely held; the
+        note it leaves behind is stamped by the next :func:`lease_holder`."""
         with self._lock:
             if self._fd is None:
                 return
@@ -465,6 +466,52 @@ class DeviceLease:
 
     def __exit__(self, *exc):
         self.release()
+
+
+def lease_holder(card, *, host=None):
+    """Who holds ``card``'s lease right now: its metadata, or ``None`` when it is free.
+
+    The flock is the lease and the file is a note about it. A holder that is SIGKILLed, or
+    dies of a SIGBUS, never runs :meth:`DeviceLease.release`, so its note keeps
+    ``"released": null`` and a dead pid while the kernel has already dropped the lock. This
+    asks the lock, never the note. When the lock is free and the note still names a holder,
+    the note is stamped released while this reader holds the lock for that instant, so every
+    reader that only looks at the file (a person, a fleet script) sees the truth from then
+    on. A tt-bio open racing the probe retries every 0.25 s, so the probe delays it by that
+    much at most and never fails it.
+
+    A file this account cannot write is still read; it just stays unstamped.
+    """
+    path = os.path.join(lease_dir(), f"{host or lease_host()}-card{card}.json")
+    try:
+        fd = os.open(path, os.O_RDWR)
+    except PermissionError:
+        fd = os.open(path, os.O_RDONLY)
+    except FileNotFoundError:
+        return None
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            try:
+                return json.loads(os.pread(fd, 4096, 0) or b"{}")
+            except ValueError:
+                return {}
+        try:
+            meta = json.loads(os.pread(fd, 4096, 0) or b"{}")
+            if meta.get("pid") and meta.get("released") is None:
+                meta["released"] = time.time()
+                meta["released_reason"] = "the holder died without releasing; stamped by a reader"
+                body = (json.dumps(meta) + "\n").encode()
+                os.ftruncate(fd, 0)
+                os.pwrite(fd, body, 0)
+        except (OSError, ValueError):
+            pass    # read-only, or not ours to parse: the lock already answered
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        return None
+    finally:
+        os.close(fd)
 
 
 class CardSetLease:

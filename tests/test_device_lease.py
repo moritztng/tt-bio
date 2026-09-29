@@ -20,7 +20,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 from tt_bio.device_lease import (CardSetLease, DeviceInUseError, DeviceLease,
-                                 granted_cards, physical_card, physical_cards)
+                                 granted_cards, lease_holder, physical_card, physical_cards)
 
 try:
     import pytest
@@ -136,6 +136,36 @@ def test_sigterm_release(d):
     lease.release()
     assert waited < 2.0, f"SIGTERMed lease not freed promptly ({waited:.2f}s)"
     print(f"  SIGTERM release: card re-leased {waited:.2f}s after holder terminated  OK")
+
+
+def _note(d):
+    return json.load(open(os.path.join(d, "testhost-card0.json")))
+
+
+def test_a_killed_holders_note_is_stamped_released_by_the_next_reader(d):
+    """SIGKILL skips release(), so the note keeps a dead pid and `released: null` while the
+    kernel has already dropped the flock. The reader asks the flock, says free, and stamps the
+    note, so a reader of the file alone stops believing a dead holder."""
+    p, holder_pid = _spawn_holder(d, os.path.join(d, "ready5"), hold=60.0)
+    assert lease_holder("0")["pid"] == holder_pid            # live: the lock is held
+    assert _note(d)["released"] is None                       # and a live note is not touched
+    os.kill(p.pid, signal.SIGKILL)
+    p.wait()
+    assert _note(d)["released"] is None and _note(d)["pid"] == holder_pid   # the stale note
+    assert lease_holder("0") is None
+    note = _note(d)
+    assert note["pid"] == holder_pid and note["released"] is not None
+    assert "died without releasing" in note["released_reason"]
+    DeviceLease(card="0", timeout=2).acquire().release()      # and the card is simply free
+    print("  a killed holder's note is stamped by the next reader  OK")
+
+
+def test_a_note_without_a_lock_is_not_a_holder(d):
+    """A lease file written without the flock (the fleet dispatcher's) names no holder."""
+    with open(os.path.join(d, "testhost-card0.json"), "w") as f:
+        json.dump({"holder": "worker:x", "pid": 1, "released": None}, f)
+    assert lease_holder("0") is None
+    assert lease_holder("7") is None                           # no file at all
 
 
 def test_no_self_deadlock_against_dispatch_lease(d):
@@ -507,6 +537,8 @@ if __name__ == "__main__":
         test_foreign_holder_is_not_called_a_co_tenant(d)
         test_sigkill_reclaim(d)
         test_sigterm_release(d)
+        test_a_killed_holders_note_is_stamped_released_by_the_next_reader(d)
+        test_a_note_without_a_lock_is_not_a_holder(d)
         test_card_grant_refuses_card_outside_grant(d)
         test_card_grant_allows_granted_and_multi_card_grant(d)
         test_card_grant_absent_or_empty_is_unbounded(d)
