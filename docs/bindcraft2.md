@@ -59,14 +59,16 @@ to choose yourself; 1 is BindCraft 2's own loop.
 
 **The count falls as the design grows.** A trajectory's memory grows with the square of the
 token axis, and at some axes the fused triangle attention does not fit the chip and a slower path
-holds about twice as much: at 544 tokens one trajectory holds 21.5 GB of the card where 512 holds
-10.4. Which axes do that is only known once the card has tried, and a campaign draws several
+holds about twice as much: at 544 tokens one trajectory holds 21.5 GB of a p300 chip where 512
+holds 10.4. Every figure in this section is that chip, and the board moves them a little: the
+p150a in "What fits" below holds 25.75 GB at the same 544-token axis.
+Which axes do that is only known once the card has tried, and a campaign draws several
 binder lengths, so the default prices every design as if it were one of them. On a 32 GB
 Blackhole chip that is three trajectories up to 352 tokens, two at 384 and 416, and one from 448
 up. Where one fits, the default is one, which is BindCraft 2's own loop unchanged.
 
 So the size the line prints is an upper bound, and above about 448 tokens it can be roughly
-twice what the run goes on to hold: a 576-token design is priced at 29.9 GB and holds 14.23 GB
+twice what the run goes on to hold: a 576-token design is priced at 29.9 GB and holds 13.1 GB
 when the fused arm serves. It is not telling you the card is too small. It is saying it will
 not start a second trajectory on a design that might need the slower path.
 
