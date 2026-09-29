@@ -563,6 +563,11 @@ def _validate_offline_msa_db(db_path: Path, require_envdb: bool = False) -> None
         )
 
 
+def _lowest_priority() -> None:
+    """A search's CPU time is what folds leave: host load slows a fold (158 s -> 262 s)."""
+    os.nice(19)
+
+
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
                         pairing_strategy: str = "greedy", pair: bool = True) -> None:
@@ -612,7 +617,8 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
 
         last_error = ""
         for idx, cmd in enumerate(commands):
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    preexec_fn=_lowest_priority)
             if result.returncode == 0:
                 last_error = ""
                 break

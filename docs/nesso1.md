@@ -158,8 +158,8 @@ residue code all raise rather than degrade.
 **Featurization samples.** `center_random_augmentation` applies a random roto-translation to
 every ligand conformer, drawn from the global torch RNG. Two runs of the same input on the same
 machine give affinity values up to ~0.06 apart, and that is upstream behaviour, not a defect.
-Any comparison between two implementations has to share the draw — seed immediately before
-featurizing — or it is measuring the draw rather than the difference.
+Any comparison between two implementations has to share the draw (seed immediately before
+featurizing), or it is measuring the draw rather than the difference.
 
 **RDKit version changes the input.** ETKDG conformer coordinates moved by up to 1.85 A between
 RDKit 2025.09.6 and 2026.03.5 for the same ligand with the same atom order, which moved the

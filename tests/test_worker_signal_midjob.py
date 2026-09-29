@@ -66,11 +66,11 @@ def _stub_load(self, cfg):
     self.config_hash = W.run_config_hash(cfg)
 
 
-def _drive_loop(monkeypatch, url, *, on_predict):
+def _drive_loop(monkeypatch, url, *, on_predict, load=_stub_load):
     """Run the real run_worker_loop in this (main) thread, so the signal handler it
     installs is the one that fires, and restore the suite's handlers afterwards."""
     monkeypatch.delenv("TT_BIO_PARENT_PID", raising=False)
-    monkeypatch.setattr(W._WorkerState, "load_model", _stub_load)
+    monkeypatch.setattr(W._WorkerState, "load_model", load)
     monkeypatch.setattr(W._WorkerState, "predict_one",
                         lambda self, path, cfg: on_predict())
     # Neither belongs in a host test: one downloads weights, one is a heavy import.
@@ -145,5 +145,46 @@ def test_a_signal_between_leases_is_still_a_clean_stop(monkeypatch):
                 monkeypatch, url,
                 on_predict=lambda: (_ for _ in ()).throw(AssertionError("no job to run")),
             ) is None, "an idle worker signalled between leases must return, not raise"
+        finally:
+            server.shutdown()
+
+
+def test_each_job_reports_the_lease_it_held_before_its_clock(monkeypatch):
+    """The model load happens after the lease and before the job's clock starts, so
+    runtime_s alone left a cold load off the bill. The first job on a cold worker
+    carries it as load_s; the next job, on the warm worker, carries ~0."""
+    import time
+    from types import SimpleNamespace
+
+    def slow_load(self, cfg):
+        time.sleep(0.6)
+        _stub_load(self, cfg)
+
+    with tempfile.TemporaryDirectory() as td:
+        tmpdir = Path(td)
+        server, client = _controller(tmpdir)
+        url = f"http://127.0.0.1:{server.port}"
+        try:
+            run_id = client.create_run({
+                "data": "d", "out_dir": str(tmpdir / "out"), "result_dir": str(tmpdir / "res"),
+                "config": {"model": "esmfold2", "kind": "predict"},
+                "jobs": [{"id": f"t{i}", "name": f"t{i}.yaml",
+                          "input_b64": base64.b64encode(b"sequences: []\n").decode()}
+                         for i in (1, 2)]})["run_id"]
+            real_lease, leases = ControllerClient.lease, []
+
+            def lease_twice_then_stop(self, worker, batch_size):
+                leases.append(1)
+                if len(leases) > 2:
+                    signal.raise_signal(signal.SIGINT)
+                return real_lease(self, worker, batch_size=batch_size)
+
+            monkeypatch.setattr(ControllerClient, "lease", lease_twice_then_stop)
+            _drive_loop(monkeypatch, url, load=slow_load, on_predict=lambda: (
+                {"plddt": 1.0}, None, {"record": SimpleNamespace(affinity=None)}))
+            rows = {r["id"]: r for r in client.results(run_id)}
+            assert rows["t1"]["status"] == rows["t2"]["status"] == "ok"
+            assert rows["t1"]["load_s"] >= 0.6 > rows["t1"]["runtime_s"], rows["t1"]
+            assert rows["t2"]["load_s"] < 0.2, rows["t2"]
         finally:
             server.shutdown()

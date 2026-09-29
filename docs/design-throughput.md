@@ -23,13 +23,13 @@ three chains.
 | RFdiffusion3 | `--num_designs 4 --num_timesteps 100` | 29.9 |
 | RFdiffusion3 | `--num_designs 1 --num_timesteps 100` | 20.9 |
 
-BoltzGen's two rows are the generation step alone and the complete pipeline — generation,
+BoltzGen's two rows are the generation step alone and the complete pipeline: generation,
 inverse folding, refolding, analysis and filtering. The full pipeline costs 2.3x the
 generation step and is what you want if you are choosing binders to order: on that run the
 four designs `--budget` kept scored design-to-target ipTM 0.92 to 0.94.
 
-Against a 1536-residue target — larger than any of the competition's own, but the size the
-engine is expected to reach — the same card returns 21.5 PXDesign designs/h (8 per job), 5.2
+Against a 1536-residue target (larger than any of the competition's own, but the size the
+engine is expected to reach) the same card returns 21.5 PXDesign designs/h (8 per job), 5.2
 RFdiffusion3 designs/h (2 per job) and 5.1 BoltzGen designs/h (8 per job, generation step).
 All three run at that size with several designs in one job; those are capacity and rate
 numbers, not a statement about how good the designs are. PXDesign refuses past about 1664
@@ -142,7 +142,7 @@ the two windows move in opposite directions between 512 and 1536, which is why t
 alone could not be read as a size rule. On these two targets no cell above 512 has produced a
 usable design at all: those sizes run, they just return binders that do not refold into the
 shape they were drawn as. (A third target, below, does return a couple at 768 before going to
-zero at 1024 — so treat 512 as the safe extent and anything above it as a gamble whose odds
+zero at 1024, so treat 512 as the safe extent and anything above it as a gamble whose odds
 you would have to measure on your own target.)
 
 Above that ceiling the numbers stop being ordered. The GroEL row starting at residue 1 reads
@@ -173,17 +173,17 @@ chain still designs at 1536 residues**, where every multi-chain cell at that siz
 across the other two targets, returned nothing under 4 A. It holds on a second window of the
 same chain, which came back better than either 512 cell.
 
-The dip at 1024 we cannot explain — the 1536 crop contains the 1024 crop, so the same residues
+The dip at 1024 we cannot explain. The 1536 crop contains the 1024 crop, so the same residues
 that returned nothing usable return good designs once more of the same chain is added, and two
 different windows at 1024 both came back at 0 of 8. The two windows at 1280 are 6 of 8 and 3 of
 8, which is the practical lesson: at these extents on one chain, which window you take moves
 the result more than how big you make it.
 
 Across every crop we have measured, the pattern is one-sided. Eight multi-chain crops, on two
-targets, returned **zero** usable designs between them — eleven runs in all, since some were
+targets, returned **zero** usable designs between them, eleven runs in all, since some were
 repeated. Single-chain crops range from
 nothing to seven of eight. So a second chain looks like enough to sink a run on its own, while
-one chain is no guarantee of anything — four of our single-chain crops also came back at zero,
+one chain is no guarantee of anything: four of our single-chain crops also came back at zero,
 two of them only 512 residues long. A long single chain is not the same problem as a
 multi-chain complex of the same length, and neither is a smooth function of size.
 
@@ -193,7 +193,7 @@ designs still under 4 A, while adding the second chain at the same extent cost 1
 nothing under 4 A. Both directions hurt and the chain hurts more.
 
 So: crop to one chain if you can. If your target IS one chain, the 512 rule is softer than it
-looks — this one designed as well at 1536 as at 512 — but the 1024 dip says do not count on it
+looks (this one designed as well at 1536 as at 512), but the 1024 dip says do not count on it
 without measuring your own target. With two 300-residue chains, try one at a time even though
 the total looks small.
 
@@ -209,7 +209,7 @@ eight against a good one returned four. If your target designs badly, try a diff
 and a different extent before concluding it is too big.
 
 What does *not* degrade is docking. All eight designs against the 512-residue dimer sit on the
-target — closest heavy atom 1.29 to 2.41 A, 478 to 1199 contacts under 5 A. The failure mode
+target: closest heavy atom 1.29 to 2.41 A, 478 to 1199 contacts under 5 A. The failure mode
 at a large target is "this sequence may not fold into the shape it was drawn as", not "the
 model ignored your target", so the response is to generate more and filter harder rather than
 to trust any single design. At the rates above, 8 more designs is minutes.
@@ -223,7 +223,7 @@ python scripts/boltzgen_designability.py --from-output ./binder
 
 **PXDesign: raise `--num_designs`.** It is the batch axis, so all the designs come from one
 batched trajectory and the per-design cost falls. Against the 512-residue target: 65.6 s at 1,
-54.4 s at 4, 45.2 s at 8, 43.2 s at 16, 42.7 s at 32 — 1.54x at the top, flattening from 16
+54.4 s at 4, 45.2 s at 8, 43.2 s at 16, 42.7 s at 32, 1.54x at the top, flattening from 16
 rather than turning back.
 
 **The gain shrinks as the target grows.** Against a 256-residue target the same curve reads
@@ -231,8 +231,8 @@ rather than turning back.
 fixed per-invocation cost, and on a larger target the per-step device work dominates it. Pick
 the batch for the target you have, and there is no penalty for asking for more.
 
-The designs are genuinely independent — pairwise 9.2 to 24.7 A apart in the target's frame at
-batch 8 — and geometry does not degrade with batch size. Every geometry flag any of the three
+The designs are independent, pairwise 9.2 to 24.7 A apart in the target's frame at
+batch 8, and geometry does not degrade with batch size. Every geometry flag any of the three
 designers raises at a batch reproduces at batch 1 on the same target.
 
 **RFdiffusion3: `--batch_size` stops helping at this size, and the runtime knows.** Batching
@@ -255,7 +255,7 @@ added is throughput added.
 
 That is measured, not assumed. Four identical PXDesign jobs started together on four cards of
 one Galaxy returned 43.9, 43.9, 44.0 and 44.0 s per design against 45.2 s for the same job
-alone — 4.12x aggregate, 0.4 % spread across the cards, on a host that was already busy with
+alone: 4.12x aggregate, 0.4 % spread across the cards, on a host that was already busy with
 other work.
 
 ```bash

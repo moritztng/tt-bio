@@ -3,7 +3,7 @@
 [RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967) (from
 the Institute for Protein Design) is an all-atom generative model for de novo
 biomolecular design: instead of folding a given sequence, it generates new
-structures — and the sequences/scaffolds that support them — from a design
+structures, and the sequences/scaffolds that support them, from a design
 specification. `tt-bio` runs it as an independent ttnn reimplementation (no
 upstream RosettaCommons code is vendored).
 
@@ -86,7 +86,7 @@ never replicated in the first place).
 Each design writes one `<id>.cif` to `--out_dir`. `--num_timesteps` controls
 the diffusion sampling steps (default 4, a fast smoke setting; the upstream
 default is 200 for production-quality designs). A design sets up per-step device
-state once before sampling, which on the largest designs costs about a second —
+state once before sampling, which on the largest designs costs about a second,
 so the 4-step smoke setting spends most of its time on setup, and only a real
 run reflects the per-step rate the table below quotes.
 
@@ -150,7 +150,7 @@ Lower `--batch_size` only to cut memory further; raising it above 8 does not hel
 `--devices` is still the parallelism that matters at large design sizes.
 
 `--devices 0,1,2,3` fans the (spec × `--num_designs`) jobs across the listed
-physical TT cards, one pinned subprocess per card (data-parallel — the same
+physical TT cards, one pinned subprocess per card (data-parallel, the same
 pattern `tt-bio embed`/`predict` use). Use in-forward batching on each card and
 `--devices` together when generating a larger set.
 
@@ -163,11 +163,11 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir ./designs \
 ## Checkpoint
 
 The RFD3 checkpoint downloads automatically on first use, straight from the
-[Institute for Protein Design's file server](https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt)
-— the same URL RosettaCommons' own `foundry install rfd3` fetches — so no
+[Institute for Protein Design's file server](https://files.ipd.uw.edu/pub/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt),
+the same URL RosettaCommons' own `foundry install rfd3` fetches, so no
 `rc-foundry`/`foundry` install is needed. The ~2.5 GiB checkpoint downloads to a
 scratch path under `--cache` (default `~/.boltz/rfd3`), gets split into the
-~0.65 GiB of weights `tt-bio design` actually loads, and is then deleted —
+~0.65 GiB of weights `tt-bio design` actually loads, and is then deleted:
 ~0.65 GiB kept on disk after the first run.
 
 ## License
