@@ -235,6 +235,59 @@ with bindcraft2.predictor(trunk="jax") as build:
     ...
 ```
 
+## What your target file can look like
+
+BindCraft 2 reads the target structure, and tt-bio checks the inputs before it opens a card.
+These all work, with the target's own residue numbering kept end to end, so a hotspot is the
+residue the file calls by that number:
+
+- **PDB and mmCIF**, and a file whose header is not the wwPDB's own.
+- **Ligands, cofactors, metals, glycans and waters** left in the file. They are dropped, the
+  protein chains are unchanged, and no residue number shifts.
+- **Selenomethionine and the other modified residues** BindCraft 2 maps to a parent amino acid,
+  and **alternate side-chain conformations**.
+- **Unresolved loops.** A missing stretch stays missing; the residues around it keep their
+  numbers. A hotspot inside the gap is refused rather than dropped, see below.
+- **Multi-chain targets**, with `"chains": "A,B"` to design against several and `"chains": "B"`
+  to pick one out of a complex. Hotspots on the second chain are written in that chain's own
+  numbering, `"B125"`.
+- **A FASTA target**, for a disordered one BindCraft 2 crops itself.
+
+Insertion codes (`100A`, the antibody numbering habit) are refused: renumber first.
+
+## Inputs that are refused
+
+A hotspot that names no residue of the target sets no flag, and BindCraft 2's interface loss
+reads "no hotspots" as "design against the whole surface". The campaign would then run to the
+end and hand back confident designs against an epitope nobody chose. So `tt_bio` refuses it,
+before the card is opened, naming the residue and the reason:
+
+```
+target 'T' hotspot 66: chain A of gap.pdb has no residue 66, it falls in the unresolved stretch
+60-70. A hotspot is read in the file's own residue numbering. Name a residue the structure
+resolves, or model the missing one in first.
+```
+
+Four spellings of the same mistake are refused this way: a residue in an unresolved loop, a
+number outside the chain's range, a number written 1-based against a file that starts at 18, and
+a hotspot on a chain the campaign does not design against. Coldspots are checked the same way. A
+*range* that falls partly in a gap is allowed and says what it dropped, because a region is a
+reasonable thing to ask for:
+
+```
+[tt_bio.bcinputs] target 'T' hotspot 54-70: 11 of 17 residues are not in the structure (60-70
+unresolved); the rest carry the hotspot.
+```
+
+Two settings are refused for the same reason, that they would otherwise cost a whole campaign:
+a confidence threshold written as a percentage (`"min_plddt_final": 80`, where the scale is 0 to
+1) accepts nothing however long it runs, and `"binder_lengths": 80` is not a list, which stops
+BindCraft 2 inside its length sampler. Write `[80]`, or `[60, 90]` for a range.
+
+Numbering is the file's own throughout, never a 1-based position. A target renumbered by a
+modelling tool is self-consistent and cannot be told apart from the original, so hotspots move
+with it: check the numbering of the file you hand in, not the one you downloaded.
+
 ## What fits
 
 Every binder length BindCraft 2 draws against the 115-residue PD-L1 target fits on one card. The
