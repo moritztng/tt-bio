@@ -1,0 +1,20 @@
+{
+  "hPDL1": {"path": "BC2:settings/target/structures/hPDL1.pdb", "chains": "A",
+            "hotspots": "54,56,66,115", "residues": 115, "n_chains": 1,
+            "fold": "Ig-like beta sandwich", "why": "the one input BCX measured; the baseline rung"},
+  "hIL7RA": {"path": "BC2:settings/target/structures/hIL7RA.pdb", "chains": "A",
+             "hotspots": "100,101,102,158,159,161,211,212,213,214", "residues": 195, "n_chains": 1,
+             "fold": "fibronectin III, two domains", "why": "a second single-chain fold, 1.7x PD-L1"},
+  "hCA2": {"path": "perf/bgx_size/targets/hCA2.pdb", "chains": "A",
+           "hotspots": "94,96,119,199", "residues": 257, "n_chains": 1,
+           "fold": "alpha/beta, central twisted sheet", "why": "carbonic anhydrase II (3KS3): an alpha/beta fold rather than an all-beta one, and it carries one unresolved residue (126) so the ladder is not all perfect structures"},
+  "hIL2R": {"path": "BC2:settings/target/structures/hIL2R_beta_gamma.pdb", "chains": "A,B",
+            "hotspots": "A67,A68,A96,A99,A101,A159,A160,B125,B181,B229-231", "residues": 387, "n_chains": 2,
+            "fold": "two-chain cytokine receptor assembly", "why": "the chain count changes, and 387 aa puts a 100 aa binder exactly at the 512 ceiling"},
+  "hTNFa": {"path": "perf/bgx_size/targets/hTNFa.pdb", "chains": "A,B,C",
+            "hotspots": "A31,A32,A86,A87,B31,B143,B145,C86,C143", "residues": 456, "n_chains": 3,
+            "fold": "jellyroll homotrimer", "why": "TNF-alpha (1TNF): three chains, and a real drug target that lands just past the ceiling"},
+  "hHSA": {"path": "perf/bgx_size/targets/hHSA.pdb", "chains": "A",
+           "hotspots": "199,214,218,222", "residues": 578, "n_chains": 1,
+           "fold": "all-alpha, three homologous domains", "why": "serum albumin (1AO6) at Sudlow site I: the largest single-chain target a researcher plausibly brings, and well past the ceiling"}
+}

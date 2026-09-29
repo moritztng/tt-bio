@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""One rung of the BindCraft 2 size ladder: a real target, a real binder length, one card.
+
+`perf/bcx_p10_campaign/campaign_run.py` runs a whole campaign and always on PD-L1. This
+runs the same user-facing entry -- `bindcraft2.run_campaign`, every design stage, the
+compile lock live -- on any target, and can stop after K gradient rounds so a rung can be
+declared healthy without paying for a campaign at every size.
+
+What it records per rung: the token axis, the device resident peak and what was free at it,
+seconds per gradient round with the AICLK sampled DURING the round, what the shipped
+auto-interleave default chose, and, when the size does not fit, the verbatim text the user
+is shown. That last one is the point of the large rungs: a clean refusal that names the
+size is a supported outcome and a traceback is not.
+
+The footprint leg is a SEPARATE run from the timed leg, and that is not fastidiousness:
+`tenstorrent.dram_peak` warns in its own docstring that `get_memory_view` drains the
+pipeline (12.0 s -> 28.8 s on a 117 aa fold), so a run with `--footprint` reports no
+timing and says so in `timing_valid`.
+"""
+import argparse
+import json
+import os
+import pathlib
+import subprocess
+import sys
+import time
+
+HERE = pathlib.Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / "perf" / "bcx_round"))
+sys.path.insert(0, str(ROOT / "perf" / "bcx_predictor"))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+import meter as M                                                       # noqa: E402
+import bc2_state as B                                                   # noqa: E402
+from tt_bio import bindcraft2, duotraj                                  # noqa: E402
+from bindcraft.settings import parse_setting_overrides, read_settings   # noqa: E402
+from bindcraft.preflight import cleaned_campaign_settings               # noqa: E402
+
+TARGETS = json.loads((HERE / "targets.json").read_text())
+
+
+def resolve(path: str) -> str:
+    """A manifest path, either shipped with BindCraft 2 or checked in beside this file."""
+    if path.startswith("BC2:"):
+        return os.path.join(B.BC2, path[4:])
+    return str(ROOT / path)
+
+
+def host_memory() -> dict:
+    out = {}
+    for line in open("/proc/self/status"):
+        if line.startswith(("VmRSS:", "VmHWM:")):
+            out[line.split(":")[0].lower()] = int(line.split()[1]) * 1024
+    for line in open("/proc/meminfo"):
+        if line.startswith("MemAvailable:"):
+            out["mem_available"] = int(line.split()[1]) * 1024
+    return out
+
+
+class Rounds:
+    """A record per gradient round, written to disk as each one lands.
+
+    On disk at every round because the large rungs are expected to die, and a rung that is
+    OOM-killed still has to say how far it got and on how much memory.
+    """
+
+    def __init__(self, path, dram_total):
+        self.path, self.rows, self.dram_total = path, [], dram_total
+        self.free_min = None
+        import threading
+        self.lock = threading.Lock()
+
+    def mark(self, slot):
+        free = duotraj.free_device_bytes()
+        with self.lock:
+            if free and (self.free_min is None or free < self.free_min):
+                self.free_min = free
+            self.rows.append({"t": time.time(), "slot": slot,
+                              "round": sum(1 for r in self.rows if r["slot"] == slot) + 1,
+                              "device_free": free, "load1": round(os.getloadavg()[0], 2),
+                              **host_memory()})
+            self.dump()
+
+    def dump(self):
+        tmp = f"{self.path}.partial"
+        pathlib.Path(tmp).write_text(json.dumps(self.rows))
+        os.replace(tmp, self.path)
+
+    def per_round(self, clock):
+        """Wall seconds per round per slot, each with the clock sampled inside that round.
+
+        The last round of a run has no successor boundary to close it, so it is dropped
+        rather than closed against the run's end: a round whose wall includes teardown is
+        not a round time.
+        """
+        out = []
+        for slot in sorted({r["slot"] for r in self.rows}):
+            rs = [r for r in self.rows if r["slot"] == slot]
+            for a, b in zip(rs, rs[1:]):
+                out.append({"slot": slot, "round": a["round"],
+                            "seconds": round(b["t"] - a["t"], 3),
+                            **clock.window(a["t"], b["t"])})
+        return out
+
+
+def peak_from_probe(path: pathlib.Path) -> dict:
+    """The device high-water mark, read out of `tenstorrent.dram_peak`'s own census file."""
+    if not path.exists():
+        return {}
+    best, line = 0.0, ""
+    for ln in path.read_text().splitlines():
+        if "GiB used" not in ln:
+            continue
+        try:
+            used = float(ln.split(":")[1].strip().split()[0])
+        except (IndexError, ValueError):
+            continue
+        if used > best:
+            best, line = used, ln.strip()
+    return {"resident_peak_gib": best, "peak_line": line} if best else {}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--target", required=True, choices=sorted(TARGETS))
+    ap.add_argument("--binder", type=int, required=True)
+    ap.add_argument("--rounds", type=int, default=0,
+                    help="stop after this many gradient rounds; 0 runs the whole campaign")
+    ap.add_argument("--trajectories", default="auto",
+                    help='a count, or "auto" to leave the argument off and take the shipped '
+                         "default's own resolution")
+    ap.add_argument("--max-trajectories", dest="max_trajectories", type=int, default=2)
+    ap.add_argument("--final-designs", dest="final_designs", type=int, default=2)
+    ap.add_argument("--seed", type=int, default=100)
+    ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
+    ap.add_argument("--validation", default="device", choices=("jax", "device"))
+    ap.add_argument("--footprint", action="store_true",
+                    help="arm tenstorrent.dram_peak. Reports no timing: the probe drains the "
+                         "pipeline and a run with it on measures the probe")
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V")
+    args = ap.parse_args()
+
+    spec = TARGETS[args.target]
+    tokens = bindcraft2._pad32(spec["residues"] + args.binder)
+    project = args.out
+    pathlib.Path(project).mkdir(parents=True, exist_ok=True)
+
+    probe = pathlib.Path(project) / "dram_peak.txt"
+    if args.footprint:
+        os.environ["TT_BIO_DRAM_PEAK"] = str(probe)
+
+    # The settings a user would write: the shipped PD-L1 campaign with its target swapped.
+    # Inline `targets` rather than a `settings/target/<name>.json`, so nothing is written
+    # into the BindCraft 2 install and the rung is reproducible from this repo alone.
+    request = {"modality": "binder", "campaign_name": f"{args.target}_{args.binder}",
+               "number_of_final_designs": args.final_designs,
+               "targets": [{"name": args.target, "target_path": resolve(spec["path"]),
+                            "chains": spec["chains"], "hotspots": spec["hotspots"]}]}
+    req_path = pathlib.Path(project) / "settings_request.json"
+    req_path.write_text(json.dumps(request, indent=1))
+
+    budget = args.max_trajectories
+    overrides = [f"campaign_seed={args.seed}", f"max_trajectories={budget}",
+                 f"project_folder={project}",
+                 f"binder_lengths=[{','.join([str(args.binder)] * budget)}]",
+                 "compile_next_length=0"] + args.sets
+    settings = cleaned_campaign_settings(
+        read_settings(req_path, parse_setting_overrides(overrides)))
+
+    M.CLOCK = M.Clock(1.0)
+    M.CLOCK.start()
+
+    from tt_bio import tenstorrent
+    rounds = Rounds(os.path.join(project, "rounds.json"), 0)
+
+    n = None if args.trajectories == "auto" else int(args.trajectories)
+    cls = bindcraft2.design_model_class()
+    real_sequence_gradients = cls.sequence_gradients
+
+    def sequence_gradients(self, *a, **kw):
+        if not kw.get("compile_only"):
+            rounds.mark(duotraj.slot())
+            if args.rounds and len(rounds.rows) > args.rounds:
+                raise M.StopAfterRounds(f"{args.rounds} rounds collected")
+        return real_sequence_gradients(self, *a, **kw)
+    cls.sequence_gradients = sequence_gradients
+
+    stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
+             "target": args.target, "target_residues": spec["residues"],
+             "target_chains": spec["n_chains"], "target_fold": spec["fold"],
+             "binder": args.binder, "tokens": tokens,
+             "rounds_requested": args.rounds, "footprint_probe": args.footprint,
+             "timing_valid": not args.footprint,
+             "trajectories_arg": args.trajectories,
+             "auto_would_choose": list(duotraj.auto_trajectories()),
+             "max_trajectories": budget, "validation": args.validation, "seed": args.seed,
+             "commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+                                      capture_output=True, text=True).stdout.strip(),
+             "dirty": bool(subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain"],
+                                          capture_output=True, text=True).stdout.strip()),
+             "compile_cache": os.environ.get("JAX_COMPILATION_CACHE_DIR"),
+             "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "nproc": os.cpu_count(),
+             "loadavg_start": os.getloadavg(), "mem_start": host_memory(),
+             "started_utc": time.strftime("%FT%TZ", time.gmtime())}
+    print(json.dumps(stamp, indent=1), flush=True)
+
+    t0 = time.time()
+    trajectories = None
+
+    def close(exc=None, tb=None):
+        """Write the rung out BEFORE the predictor's teardown, which can abort the process
+        on `close_device` and take the record with it."""
+        M.CLOCK.stop()
+        rounds.dump()
+        stamp.update({"wall_seconds": round(time.time() - t0, 2),
+                      "trajectories_returned": trajectories,
+                      "error": exc, "traceback": tb,
+                      "dram_total_bytes": tenstorrent._dram_total_bytes()
+                      if tenstorrent._device is not None else None,
+                      "device_free_min": rounds.free_min,
+                      "rounds_done": len(rounds.rows),
+                      "rounds_per_slot": {s: sum(1 for r in rounds.rows if r["slot"] == s)
+                                          for s in sorted({r["slot"] for r in rounds.rows})},
+                      "per_round": rounds.per_round(M.CLOCK),
+                      "aiclk_run": M.CLOCK.window(t0, time.time()),
+                      **peak_from_probe(probe),
+                      "mem_end": host_memory(), "loadavg_end": os.getloadavg(),
+                      "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
+        pathlib.Path(os.path.join(project, "rung.json")).write_text(json.dumps(stamp, indent=1))
+        print(json.dumps({k: v for k, v in stamp.items() if k != "per_round"}, indent=1),
+              flush=True)
+
+    try:
+        with bindcraft2.campaign_predictor(trunk="device", validation=args.validation,
+                                           checkpoints=args.params, extra_msa=True,
+                                           template=True, exact=False) as build:
+            stamp["fast"] = build.fast
+            per_card = {} if n is None else {"trajectories_per_card": n}
+            trajectories = bindcraft2.run_campaign(
+                settings, project, **per_card, af2_weights=args.params,
+                mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights", "proteinmpnn",
+                                          "weights_neutral"))
+    except M.StopAfterRounds as stop:
+        close(f"StopAfterRounds({stop})")
+        return 0
+    except BaseException as exc:
+        import traceback
+        close(repr(exc), traceback.format_exc())
+        raise
+    close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
