@@ -82,6 +82,16 @@ in bf16. The controls are what make it a result: a permuted cotangent collapses 
 `out/grade/vjp_n288_wh_hifi.json` is kept for honesty rather than for its conclusion. That run,
 scoped to `--blocks 4,5` with no controls, returned evo1 dz 5.21e+32 with `norm_ratio` Infinity
 while its own evo0 was fine and bit-identical to the run above, and while that same evo1's
-forward was fine. It has not reproduced. What differs is what ran on the card before evo1, which
-points at state carried between passes rather than at the block's arithmetic, and a re-run of the
-exact failing arguments was launched to settle it. Do not quote the 1e32 as a Wormhole result.
+forward was fine. A re-run of those exact arguments then died before scoring anything, with
+`Signal: Bus error (7) / Non-existent physical address (2)` inside `ttnn::layer_norm`.
+
+So that configuration has failed twice out of two, once silently and once loudly, and both are
+the signature of a bad memory access rather than of arithmetic. The four-block grade above is
+still the answer to "is the gradient correct on this board" -- it is -- but there is an
+intermittent memory fault reachable from the AF2 backward here, and the silent form of it is a
+wrong gradient that does not crash. Root-cause it before treating Wormhole as ready for
+BindCraft 2. The product path is not implicated: 210 campaign rounds ran clean, and the fault
+has only appeared under this file's teacher-forcing pattern, which re-enters individual blocks
+out of sequence with synthetic cotangents and is not what `run_campaign` does.
+
+Do not quote the 1e32 as a Wormhole performance or accuracy result.
