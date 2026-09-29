@@ -55,8 +55,13 @@ def test_importing_the_backend_pulls_in_neither_ttnn_nor_jax():
 
 
 def test_pinning_a_card_after_ttnn_is_imported_raises():
+    """The child names its own pin rather than inheriting one: `pin_card` returns early when the
+    environment already names the card asked for, so a suite run under `TT_VISIBLE_DEVICES=3`
+    (which is how this fleet runs anything that touches a card) used to fail this test and pass
+    it on every other card."""
     printed = _run_child("""
-        import sys, types
+        import os, sys, types
+        os.environ["TT_VISIBLE_DEVICES"] = "0"
         sys.modules["ttnn"] = types.ModuleType("ttnn")
         from tt_bio import bindcraft2
         try:
@@ -65,6 +70,20 @@ def test_pinning_a_card_after_ttnn_is_imported_raises():
             print("raised", "TT_VISIBLE_DEVICES=3" in str(exc))
     """)
     assert printed.split() == ["raised", "True"]
+
+
+def test_pinning_the_card_the_environment_already_names_is_a_no_op():
+    """The other half of the same branch, and the reason the test above has to set its own pin:
+    a process started with the card already in its environment is pinned, ttnn or no ttnn."""
+    printed = _run_child("""
+        import os, sys, types
+        os.environ["TT_VISIBLE_DEVICES"] = "3"
+        sys.modules["ttnn"] = types.ModuleType("ttnn")
+        from tt_bio import bindcraft2
+        bindcraft2.pin_card(3)
+        print("no-op", os.environ["TT_VISIBLE_DEVICES"])
+    """)
+    assert printed.split() == ["no-op", "3"]
 
 
 def test_a_missing_checkpoint_is_recorded_rather_than_refused(tmp_path):
