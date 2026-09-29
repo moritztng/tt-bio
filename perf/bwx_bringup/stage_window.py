@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+# VERBATIM COPY of perf/bcx_accept/stage_window.py at bbcaf9271, which is BCX branch work and is
+# not on main. Copied rather than forked, and kept here so the Wormhole rows in
+# state/bwx-bringup.md can be reproduced from this branch alone: grading Wormhole with a
+# different script than Blackhole was graded with would not be a comparison. If bcx_accept ever
+# lands on main, delete this and call that one.
+#   python3 perf/bwx_bringup/stage_window.py --device \
+#       wh_t1=perf/bwx_bringup/out/camp1/pdl1_denovo_l146_f453d5c4e1b2f6a4_losses.csv \
+#       wh_t2=perf/bwx_bringup/out/camp1/pdl1_denovo_l146_0924bb473b8aaa41_losses.csv
 """The stage number BindCraft 2 prints is a max over the stage's rounds, so it is not
 comparable between stages of different length.
 
