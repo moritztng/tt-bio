@@ -305,6 +305,14 @@ a confidence threshold written as a percentage (`"min_plddt_final": 80`, where t
 1) accepts nothing however long it runs, and `"binder_lengths": 80` is not a list, which stops
 BindCraft 2 inside its length sampler. Write `[80]`, or `[60, 90]` for a range.
 
+Two settings that BindCraft 2 accepts are refused here because of what they do far from where
+they were written: a negative recycle count (`design_recycles`, `validation_recycles`,
+`betasheet_reopt_recycles`) reaches JAX as an invalid tensor dimension and fails inside the first
+fold with the card already open -- write `0` if you want a single pass with no recycling -- and
+`"number_of_final_designs": 0` ends a campaign before it takes a trajectory, because BindCraft 2
+stops as soon as the accepted count reaches it. Pass `trajectory_only` with `max_trajectories`
+if trajectories without acceptance is what you wanted.
+
 An NMR ensemble is not refused: BindCraft 2 reads `MODEL 1` and ignores the rest, so a
 20-model ensemble designs against its first model. Split the model you want out first if that is
 not the one you meant.
