@@ -3,7 +3,7 @@
 Every model downloads its own weights on first use. `tt-bio weights` shows what this host
 has, what it would load, and what is still missing:
 
-```
+```console
 $ tt-bio weights
 ARTIFACT            MODEL          SOURCE           STATUS       SIZE  PATH
 boltz2-conf         boltz2         huggingface.co   present     2.13G  /home/you/.boltz/boltz2_conf.ckpt
@@ -68,7 +68,7 @@ The four names that predate the registry keep working and still win when both ar
 
 ## Before you start a job: `tt-bio preflight`
 
-```
+```console
 $ tt-bio preflight protenix-v1
 cache /home/you/.boltz  (223 GiB free)
 
@@ -96,7 +96,7 @@ hand, its size and its sha256. Nothing waits forever, on any tool.
 
 A row may list several sources and they are tried in order. `protenix-v1` is the one that
 made this necessary: upstream serves that checkpoint only from a Volcengine bucket in
-Beijing, which some networks cannot pull from at all, and the download simply sat at zero
+Beijing, which some networks cannot pull from at all, and the download sat at zero
 bytes. It now comes from [`moritztng/protenix-v0.5.0`](https://huggingface.co/moritztng/protenix-v0.5.0)
 on the hub, which is upstream's file unmodified, with upstream's Apache-2.0 licence and a
 card naming the original URL. The registry records its sha256, so a truncated download is a
@@ -105,7 +105,7 @@ named error rather than a crash inside `torch.load`. Upstream stays as the fallb
 If no host answers from your network, fetch the file anywhere that can reach one and copy it
 in, or point the row's env var at it:
 
-```
+```bash
 tt-bio preflight protenix-v1     # says which host is reachable from here
 huggingface-cli download moritztng/protenix-v0.5.0 model_v0.5.0.pt --local-dir .
 mv model_v0.5.0.pt ~/.boltz/protenix/   # or: export TT_BIO_PROTENIX_V1=/path/to/it
@@ -117,7 +117,7 @@ A download killed mid-flight leaves a truncated multi-GB file. Gating on "does t
 exist" then treats it as complete and reuses it on every later run, which surfaces much
 later as:
 
-```
+```text
 PytorchStreamReader failed reading zip archive: failed finding central directory
 ```
 

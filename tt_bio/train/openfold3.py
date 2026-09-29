@@ -56,6 +56,7 @@ half its terms.
 
 from __future__ import annotations
 
+import contextlib
 import math
 from pathlib import Path
 from typing import Optional
@@ -64,8 +65,10 @@ import numpy as np
 import torch
 
 from . import catalogue, lineage, losses
+from ..taped_ttnn import shim_scope
 
-__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
+__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw",
+           "sample_data", "trained_state_dict"]
 
 MODEL = "openfold3"
 
@@ -114,30 +117,51 @@ def _frame_atom_index(n_token: int) -> np.ndarray:
                      np.clip(i + 1, 0, n_token - 1)], axis=-1)
 
 
+#: The crop OpenFold3's first training stage uses (`initial_training`).
+CROP = 384
+
+
 class OpenFold3Dataset:
     """Upstream's own featuriser output, one sample per index, plus the af3 labels.
 
-    ``path`` is a ``.pt`` file holding a batch upstream's featuriser produced, or a directory
-    of them. Featurisation is NOT generalised here and that is the catalogue's own position:
-    each family's cropping and MSA handling is the part that is genuinely different, so a
-    model arrives with its featuriser rather than with a shared data layer.
+    ``path`` is either
+
+    * upstream's training-set directory: ``pdb_training_set/`` plus one
+      ``training_cache*.json`` datapoint cache, the layout upstream's preprocessing writes and the public
+      ``openfold3-data`` bucket serves. Each sample is featurised when it is asked for, by
+      upstream's own ``WeightedPDBDataset`` and collator: index ``i`` draws a datapoint from
+      the cache's ``datapoint_probabilities`` and crops it, both under a seed fixed by
+      ``(seed, i)``, so a resumed or data-parallel run sees the same sample at the same step.
+    * a ``.pt`` file holding a batch upstream's featuriser produced, or a directory of them.
+
+    Featurisation is NOT generalised here and that is the catalogue's own position: each
+    family's cropping and MSA handling is the part that is genuinely different, so a model
+    arrives with its featuriser rather than with a shared data layer.
 
     Four members, no base class: ``__len__``, ``tokens``, ``device``, ``batch``. ``device`` is
     resolved lazily on first use, because a data-parallel run is one process per chip and the
     process that spawns the ranks has to reach the launcher holding no card.
     """
 
-    def __init__(self, path, *, tokens: Optional[int] = None):
+    def __init__(self, path, *, tokens: Optional[int] = None, seed: int = 0):
         path = Path(path)
-        self.paths = (sorted(path.glob("*.pt")) if path.is_dir() else [path])
-        if not self.paths:
-            raise FileNotFoundError(f"no featurised batch under {path}")
         self._device = None
         self._cache: dict[int, dict] = {}
         self._tokens = tokens
+        self.seed = int(seed)
+        self.upstream = _Upstream(path, tokens or CROP) if _Upstream.holds(path) else None
+        if self.upstream and tokens is None:
+            self._tokens = CROP
+        self.paths = ([] if self.upstream else
+                      sorted(path.glob("*.pt")) if path.is_dir() else [path])
+        if not (self.upstream or self.paths):
+            raise FileNotFoundError(
+                f"{path} is not OpenFold3 training data. Expected upstream's training-set "
+                f"layout (a pdb_training_set/ directory beside one training_cache*.json) or "
+                f"featurised .pt batches; see docs/training.md#data")
 
     def __len__(self) -> int:
-        return len(self.paths)
+        return len(self.upstream) if self.upstream else len(self.paths)
 
     @property
     def tokens(self) -> int:
@@ -154,7 +178,13 @@ class OpenFold3Dataset:
 
     def _features(self, index: int) -> dict:
         if index not in self._cache:
-            raw = torch.load(self.paths[index], map_location="cpu", weights_only=False)
+            if self.upstream:
+                # One sample is ~0.8 GB of features, so only the last is kept: the census
+                # pass and the first step ask for the same index back to back.
+                self._cache.clear()
+                raw = self.upstream.sample(index, self.seed)
+            else:
+                raw = torch.load(self.paths[index], map_location="cpu", weights_only=False)
             self._cache[index] = {k: _one(v) for k, v in raw.items()}
         return self._cache[index]
 
@@ -190,10 +220,42 @@ class OpenFold3Dataset:
         xyz = gt["atom_positions"].float()
         resolved = gt.get("atom_resolved_mask", gt.get("atom_mask")).float()
         real = np.flatnonzero(tok.numpy() > 0)
-        if len(real) != int(rep.shape[0]):
+
+        # THE CROP IS A SUBSET OF THE GROUND TRUTH, and for anything bigger than the token
+        # budget it is a strict one. Upstream crops the FEATURES and hands back the whole
+        # deposited structure: 4ky2 arrives as 384 cropped tokens against 480 ground-truth
+        # ones and 2wig as 384 against 2512. Lining them up by POSITION would score the
+        # crop's labels against the structure's first 384 tokens, which are not the same
+        # tokens; taking only the targets whose count happens to match would train on the
+        # ones that fit, which is the small pool.
+        #
+        # `token_index` is the join and is carried on both sides: it is each token's index in
+        # the UNCROPPED structure, so `f["token_index"][real]` is a subset of
+        # `gt["token_index"]` and matching the values is exact. On a target that fits, the
+        # permutation is the identity and this is a no-op, which is why it runs
+        # unconditionally rather than only on the mismatch -- a join that is only taken on
+        # the hard case is a join nobody tests.
+        if "token_index" in gt:
+            gt_tok = gt["token_index"].long().numpy().reshape(-1)
+            crop_tok = f["token_index"].long().numpy().reshape(-1)[real]
+            where = {int(t): i for i, t in enumerate(gt_tok)}
+            absent = [int(t) for t in crop_tok if int(t) not in where]
+            if absent:
+                raise ValueError(
+                    f"{len(absent)} cropped tokens are not in ground_truth by token_index "
+                    f"(first {absent[:5]}); the crop is not a subset of the structure it is "
+                    f"scored against")
+            sel = np.fromiter((where[int(t)] for t in crop_tok), np.int64, len(crop_tok))
+            rep = rep[sel]
+        elif len(real) != int(rep.shape[0]):
             raise ValueError(
                 f"{int(tok.sum())} real tokens on the crop axis but {int(rep.shape[0])} in "
-                f"ground_truth; the scatter below would put a label on the wrong token")
+                f"ground_truth, and ground_truth carries no token_index to join them on; the "
+                f"scatter below would put a label on the wrong token")
+        if len(real) != int(rep.shape[0]):
+            raise ValueError(
+                f"{int(tok.sum())} real tokens on the crop axis but {int(rep.shape[0])} "
+                f"representative atoms after the token_index join")
         true_xyz = np.zeros((n, 3), np.float64)
         coord_mask = np.zeros(n, np.float64)
         true_xyz[real] = xyz[rep].numpy().astype(np.float64)
@@ -226,6 +288,118 @@ class OpenFold3Dataset:
         }
 
 
+class _Upstream:
+    """Upstream's ``WeightedPDBDataset`` over a training-set directory, one collated sample
+    per call. The paths are the ones upstream's own ``pdb_subset_helpers`` writes into its
+    runner config; the crop mix and template count are its ``initial_training`` stage."""
+
+    ROOT = "pdb_training_set"
+
+    @classmethod
+    def holds(cls, path: Path) -> bool:
+        return path.is_dir() and (path / cls.ROOT).is_dir()
+
+    def __init__(self, path: Path, crop: int):
+        caches = sorted(path.glob("training_cache*.json"))
+        if len(caches) != 1:
+            raise FileNotFoundError(
+                f"{path} needs exactly one datapoint cache, training_cache*.json, beside "
+                f"{self.ROOT}/; found {[c.name for c in caches] or 'none'}")
+        try:
+            from .._vendor.openfold3.core.data.framework.data_module import \
+                openfold_batch_collator
+            from .._vendor.openfold3.core.data.framework.single_datasets import pdb
+            from .._vendor.openfold3.projects.of3_all_atom.config import dataset_configs
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                f"OpenFold3's training featuriser needs {exc.name!r}: pip install "
+                f"'tt-bio[train]'") from exc
+        root, std = path / self.ROOT, path / self.ROOT / "preprocessed_pdb_data" / "standard"
+        paths = dataset_configs.TrainingDatasetPaths(
+            dataset_cache_file=str(caches[0]),
+            alignment_array_directory=str(root / "alignment_arrays"),
+            target_structures_directory=str(std / "structure_files"),
+            target_structure_file_format="npz",
+            reference_molecule_directory=str(std / "reference_mols"),
+            template_cache_directory=str(root / "templates" / "train_template_cache"),
+            template_structure_array_directory=str(
+                root / "templates" / "template_structure_arrays"),
+            template_file_format="npz")
+        # Upstream's `register_dataset_config` returns None, so the registry is the only way
+        # to reach the config class.
+        cfg = dataset_configs.DATASET_CONFIG_REGISTRY.get("WeightedPDBDataset")(
+            name="weighted-pdb", debug_mode=True, dataset_paths=paths,
+            template={"n_templates": 4, "take_top_k": False},
+            crop={"token_crop": {"enabled": True, "token_budget": crop,
+                                 "crop_weights": {"contiguous": 0.2, "spatial": 0.4,
+                                                  "spatial_interface": 0.4}},
+                  "chain_crop": {"enabled": True}},
+            sample_in_order=True, loss={"loss_weights": {}})
+        self.dataset = pdb.WeightedPDBDataset(cfg)
+        self.collate = openfold_batch_collator
+        dc = self.dataset.datapoint_cache
+        w = (np.asarray(dc["datapoint_probabilities"], np.float64)
+             if "datapoint_probabilities" in dc.columns else np.ones(len(dc)))
+        self.p = w / w.sum()
+
+    def __len__(self) -> int:
+        return len(self.p)
+
+    def sample(self, index: int, seed: int) -> dict:
+        """Draw, crop and collate sample ``index``; global RNGs are restored afterwards."""
+        import random
+        rng = np.random.default_rng([seed, index])
+        dp = int(rng.choice(len(self.p), p=self.p))
+        state = random.getstate(), np.random.get_state(), torch.get_rng_state()
+        try:
+            s = int(rng.integers(2**31))
+            random.seed(s), np.random.seed(s), torch.manual_seed(s)
+            return self.collate([self.dataset[dp]])
+        finally:
+            random.setstate(state[0]), np.random.set_state(state[1])
+            torch.set_rng_state(state[2])
+
+
+#: Upstream's public training-set bucket, and where the 8-structure sample is cached.
+SAMPLE_BUCKET = "https://openfold3-data.s3.amazonaws.com/"
+SAMPLE_DIR = "openfold3-train-sample"
+
+
+def sample_data(root=None, *, quiet: bool = False) -> Path:
+    """Upstream's 8-structure training sample, fetched once into the weight cache.
+
+    The eight are the ones upstream's own ``sample_subset_cache`` draws at seed 42 (1kvu 1wyc
+    1xbs 210l 2wig 3wnm 4ky2 5ron, 292 datapoints). The datapoint cache for them and the list
+    of files with their sha256 ship in ``tt_bio/data``; the files themselves come from the
+    public bucket and are checked against it. About 73 MB.
+    """
+    import json
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+    from .. import weights
+
+    data = Path(__file__).resolve().parent.parent / "data"
+    dest = weights.cache_root(root) / SAMPLE_DIR
+    files = json.loads((data / "openfold3_train_sample_files.json").read_text())
+    todo = [(rel, sha) for rel, sha in files.items()
+            if not (dest / _Upstream.ROOT / rel).is_file()]
+    if todo:
+        if not quiet:
+            print(f"fetching upstream's OpenFold3 training sample, {len(todo)} files, to {dest}",
+                  flush=True)
+        def one(item):
+            rel, sha = item
+            weights.fetch_file((f"{SAMPLE_BUCKET}{_Upstream.ROOT}/{rel}",),
+                               dest / _Upstream.ROOT / rel, sha256=sha, quiet=True,
+                               check_archive=False)
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            list(pool.map(one, todo))
+    cache = dest / "training_cache_with_templates_subset_8.json"
+    if not cache.is_file():
+        shutil.copyfile(data / "openfold3_train_sample.json", cache)
+    return dest
+
+
 # ------------------------------------------------------------------------------- forward
 
 class OpenFold3Forward:
@@ -237,11 +411,22 @@ class OpenFold3Forward:
     """
 
     def __init__(self, checkpoint, *, device=None, num_cycles: int = 1, rollout: int = 20,
-                 seed: int = 0):
+                 seed: int = 0, exact_scope: str = "all"):
         self.checkpoint = Path(checkpoint)
         self.rollout = int(rollout)
         self.num_cycles = int(num_cycles)
         self.seed = int(seed)
+        #: Where an enclosing `exact_training` run is allowed to reach. ``"all"`` is the whole
+        #: differentiated forward. ``"trunk"`` keeps it to the taped trunk -- which is the
+        #: section the campaign's pre-registered tensor clause was measured on -- and runs the
+        #: diffusion half device-native in BOTH arms. It exists because the instrument cannot
+        #: run the diffusion decoder today: the exact ops replace `ttnn.layer_norm` globally,
+        #: an earlier norm in the module hands back a host-built tensor, and
+        #: `openfold3_diffusion_decoder.py:99` then norms a buffer its own `pad_dim` path has
+        #: already deallocated (`TT_FATAL ... tensor.is_allocated()`, four arms, ~400 s in).
+        if exact_scope not in ("all", "trunk"):
+            raise ValueError(f"exact_scope is 'all' or 'trunk', not {exact_scope!r}")
+        self.exact_scope = exact_scope
         self._device = device
         self._model = None
         self._registered = False
@@ -270,20 +455,45 @@ class OpenFold3Forward:
     def model(self):
         """The shipped ``OpenFold3`` module, built once on first use."""
         if self._model is None:
-            import ttnn
-            from ..tenstorrent import walk_device_weights
-            dev = self.device
-            sd = torch.load(self.checkpoint, map_location="cpu", weights_only=False)
-            sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
-            sd = {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
-            ckc = ttnn.init_device_compute_kernel_config(
-                dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
-                fp32_dest_acc_en=True, packer_l1_acc=True)
-            with lineage.recording(sd, _canonical_key) as (sd, lin):
-                self._build(sd, ckc)
-            self._lineage = lin.by_path(walk_device_weights(self._model))
-            self._claimed = {k for k in map(_canonical_key, sd) if not k.startswith(_FROZEN)}
+            self._record()
         return self._model
+
+    def _record(self, *, differentiable: bool = False):
+        """Build the model under a lineage recording. Returns what ``trained_state_dict`` needs:
+        the checkpoint as loaded, the ``Lineage``, the walk and ``{path: (keys, host)}``."""
+        import ttnn
+        from ..tenstorrent import walk_device_weights
+        dev = self.device
+        sd = _load_state_dict(self.checkpoint)
+        ckc = ttnn.init_device_compute_kernel_config(
+            dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+            fp32_dest_acc_en=True, packer_l1_acc=True)
+        with lineage.recording(sd, _canonical_key, differentiable=differentiable) as (traced,
+                                                                                      lin):
+            self._build(traced, ckc)
+        walked = list(walk_device_weights(self._model))
+        uploads = lin.by_path(walked, hosts=True)
+        self._lineage = {p: keys for p, (keys, _h) in uploads.items()}
+        self._claimed = {k for k in map(_canonical_key, sd) if not k.startswith(_FROZEN)}
+        return sd, lin, walked, uploads
+
+    def unsourced(self) -> dict:
+        """``{walk path: bool mask}`` of device-weight elements no checkpoint value reaches.
+
+        Builds a second copy of the model with a differentiable lineage; it is gone on return.
+        """
+        fwd = OpenFold3Forward(self.checkpoint, device=self.device)
+        _sd, lin, _walked, uploads = fwd._record(differentiable=True)
+        return lineage.unsourced(lin, uploads, _canonical_key)
+
+    def write_weights(self, masters: dict, path) -> Path:
+        """Write ``masters`` as an OpenFold3 checkpoint in the shipped format, atomically."""
+        import os
+        path = Path(path)
+        tmp = path.with_suffix(".part")
+        torch.save(trained_state_dict(masters, self.checkpoint, device=self.device), tmp)
+        os.replace(tmp, path)
+        return path
 
     def _build(self, sd, ckc):
         """The shipped module plus everything the training step adds to it."""
@@ -444,11 +654,13 @@ class OpenFold3Forward:
 
         # ---- the taped forward, in two blocks with the rollout raw between them.
         #
-        # The rollout CANNOT be inside the tape, and `ag.no_grad()` is not enough to put it
-        # there. `no_grad` stops the tape differentiating, not wrapping: the hook still
-        # returns a `Tensor` because a registered parameter is on the tape whatever the
-        # activations are, and the sampler's own `ttnn.to_torch` -- the host EDM step it
-        # takes every rollout step -- then meets a taped tensor and refuses, correctly.
+        # The rollout CANNOT be inside the tape, and unwrapping its arguments with `_v` is not
+        # enough to keep it out: it re-enters `ops.linear` at every projection inside itself,
+        # the hook sees a registered parameter on the tape whatever the activations are, and
+        # hands back a `Tensor` again. One of those meets the raw `ttnn.layer_norm` beside it
+        # in `OF3DiffusionConditioning` and pybind refuses it; the next meets the sampler`s own
+        # per-step `ttnn.to_torch`. So the rollout runs under `ag.no_grad()`, where the hook
+        # returns the shipped result RAW instead of rewrapping it.
         #
         # Two blocks is the honest shape rather than a workaround. Upstream detaches the
         # rollout (`model.py:381`), so the gradient genuinely does not cross it, and the tape
@@ -481,33 +693,61 @@ class OpenFold3Forward:
         # between the two, so a parameter gradient that differs differs because of the
         # structure the rollout produced, which is the whole of the rollout's reach into a
         # gradient once upstream has detached it.
-        rep = (f["ground_truth"]["start_atom_index"] if "ground_truth" in f
-               else f["start_atom_index"]).long()
+        # THE CROP OWN representative atoms, not the ground truth ones. `xl` below is the
+        # rollout coordinate array and it holds the CROP atoms; `ground_truth` numbers the
+        # atoms of the UNCROPPED structure, so on anything larger than the token budget its
+        # indices run off the end -- index 2679 into a 2678-atom crop, measured on 2wig at
+        # crop 384. The ground truth indices belong on the LABEL side, where
+        # `OpenFold3Dataset.batch` uses them to read `ground_truth.atom_positions`.
         real = torch.nonzero(tok > 0, as_tuple=True)[0]
+        # At the REAL tokens, not the whole crop axis: both use sites pair `rep` with `real`,
+        # and on a target that does not fill the crop the two lengths differ -- 311 real tokens
+        # against a 384 axis on 5ron, three steps into a twelve-step arm.
+        rep = f["start_atom_index"].long()[real]
         if self.repr_coords_in is not None:
             repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
             self.rollout_ran = False
         else:
-            schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
-            xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
-            xl_d = m.sampler(
-                ft(xl0.unsqueeze(0)), _v(s_trunk), _v(s_input_d), _v(z_trunk), _v(relpos_d),
-                ft(tok.reshape(1, n_token)), pair_mask_dm,
-                ft(tok.reshape(n_token, 1).unsqueeze(0)),
-                dm_aux["cl0_d"], dm_aux["plm0_d"], dm_aux["amc_d"], dm_aux["amc_na_d"],
-                dm_aux["idx_tt"], dm_aux["flat_tt"], dm_aux["zij_mask_d"], dm_aux["kidx_tt"],
-                dm_aux["valid_d"], dm_aux["mb_d"], dm_aux["pm_d"], dm_aux["mean_d"],
-                dm_aux["tok_pad_tt"], dm_aux["tok_col_pad_tt"],
-                n_atom, aux["NP"], aux["nb"], n_token, n_token,
-                schedule, rots, trans, noise, ts, ctau, m.step_scale)
-            xl = torch.Tensor(ttnn.to_torch(_v(xl_d))).float().reshape(n_atom, 3)
-            self.rollout_coords = xl
-            self.rollout_ran = True
-            # Atom scope -> token scope, on the CROP's axis. The representative index is the
-            # real tokens' first atoms; padded rows stay at the origin and the pair mask
-            # drops them.
-            repr_x = torch.zeros(n_token, 3)
-            repr_x[real] = xl[rep]
+            # THE EXACTNESS INSTRUMENT IS OFF HERE WHATEVER THE RUN ASKED FOR, and that is a
+            # scope decision rather than a cost one. `exact_training` replaces softmax and
+            # layer norm to make a GRADIENT exact; upstream detaches the rollout
+            # (`model.py:381`) so nothing computed in it reaches one. Leaving it installed
+            # also broke: `_ln_forward64` downloads its input to host float64 and the shipped
+            # decoder has already deallocated that buffer, so the reference arm died on
+            # `tensor.is_allocated()` 398 s in, inside the discovery pass, before step 0. Both
+            # It takes `without_exact` and not `exact_training(False)`: the second changes what
+            # the SWITCH reports, and `install()` read that switch once when the run started.
+            # Both arms of a comparison run the identical rollout, so scoping it out cannot bias
+            # one against the other -- and it is what keeps the reference arm affordable.
+            #
+            # `no_grad` for the arithmetic and the SHIM for the plumbing, because the two
+            # answer different halves. `no_grad` stops `_tape` building nodes the detached
+            # rollout would never use. The shim is what lets the sampler`s own raw `ttnn.`
+            # verbs accept the `Tensor` the hook hands back at every `ops.linear` inside it --
+            # unwrapping the ARGUMENTS with `_v` cannot reach those, which is why the rollout
+            # died on `ttnn.layer_norm` in `OF3DiffusionConditioning` and then on its own
+            # per-step `ttnn.to_torch`.
+            with ag.no_grad(), shim_scope(), ag.without_exact():
+                schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
+                xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
+                xl_d = m.sampler(
+                    ft(xl0.unsqueeze(0)), _v(s_trunk), _v(s_input_d), _v(z_trunk), _v(relpos_d),
+                    ft(tok.reshape(1, n_token)), pair_mask_dm,
+                    ft(tok.reshape(n_token, 1).unsqueeze(0)),
+                    dm_aux["cl0_d"], dm_aux["plm0_d"], dm_aux["amc_d"], dm_aux["amc_na_d"],
+                    dm_aux["idx_tt"], dm_aux["flat_tt"], dm_aux["zij_mask_d"], dm_aux["kidx_tt"],
+                    dm_aux["valid_d"], dm_aux["mb_d"], dm_aux["pm_d"], dm_aux["mean_d"],
+                    dm_aux["tok_pad_tt"], dm_aux["tok_col_pad_tt"],
+                    n_atom, aux["NP"], aux["nb"], n_token, n_token,
+                    schedule, rots, trans, noise, ts, ctau, m.step_scale)
+                xl = torch.Tensor(ttnn.to_torch(_v(xl_d))).float().reshape(n_atom, 3)
+                self.rollout_coords = xl
+                self.rollout_ran = True
+                # Atom scope -> token scope, on the CROP's axis. The representative index is the
+                # real tokens' first atoms; padded rows stay at the origin and the pair mask
+                # drops them.
+                repr_x = torch.zeros(n_token, 3)
+                repr_x[real] = xl[rep]
         self.repr_coords = repr_x
 
         # ---- the one-step denoise. THIS is what trains the diffusion module.
@@ -528,8 +768,12 @@ class OpenFold3Forward:
             s = m.sampler
             sigma, eps = denoise_draw(self.seed, n_atom)
             amask = aux["atom_mask"].float()
-            xl_true = (f["ground_truth"]["atom_positions"].float()
-                       * amask[:, None])
+            gt_idx = _gt_atom_index(f, f["ground_truth"], real, n_atom)
+            have = torch.from_numpy(gt_idx >= 0)
+            xl_true = torch.zeros(n_atom, 3)
+            xl_true[have] = f["ground_truth"]["atom_positions"].float()[
+                torch.from_numpy(gt_idx[gt_idx >= 0])]
+            xl_true = xl_true * amask[:, None]
             xl_noisy = xl_true + sigma * torch.from_numpy(eps).float()
             xl_noisy = xl_noisy * amask[:, None]
             rl_noisy = xl_noisy / math.sqrt(sigma * sigma + m.sigma_data ** 2)
@@ -538,7 +782,12 @@ class OpenFold3Forward:
             one_hot = torch.zeros(n_token, n_atom)
             one_hot[real, rep] = 1.0
 
-            with ag.tape():
+            # `exact_scope="trunk"` takes the instrument out for the diffusion half. Both
+            # arms then run it device-native, so it cannot bias one against the other, and the
+            # grade narrows to the section the tensor clause named.
+            denoise_exact = (ag.without_exact() if self.exact_scope == "trunk"
+                             else contextlib.nullcontext())
+            with denoise_exact, ag.tape():
                 # THE DTYPE BOUNDARY, crossed through the sampler's own helper rather than a
                 # copy of it. `OF3_DIFFUSION_FP32_DEVICE` (default on) builds the diffusion
                 # weights in fp32 against a bf16 trunk; driving `dc`/`dm` directly without
@@ -606,6 +855,40 @@ class OpenFold3Forward:
                 "resolved_logits": out["experimentally_resolved_logits"]}
 
 
+def _gt_atom_index(f, gt, real, n_atom):
+    """For each atom of the CROP, which row of `ground_truth.atom_positions` it is. -1 = none.
+
+    The denoise arm noises the GROUND TRUTH, and the ground truth is the whole deposited
+    structure: 3580 atoms against the crop's 2678 on 2wig at crop 384. Multiplying one by the
+    other's mask is a shape error when they differ and a SILENT mislabelling when they happen
+    to match, because the crop's atoms are not the structure's first ones.
+
+    The join is the same one the labels use, one level down: tokens match on `token_index`, and
+    a token's atoms are a contiguous run at `start_atom_index` of length `num_atoms_per_token`
+    on each side. A token whose two runs differ in length is refused rather than truncated.
+    """
+    import numpy as np
+    f_start = f["start_atom_index"].long().numpy().reshape(-1)
+    f_n = f["num_atoms_per_token"].long().numpy().reshape(-1)
+    f_tok = f["token_index"].long().numpy().reshape(-1)
+    g_start = gt["start_atom_index"].long().numpy().reshape(-1)
+    g_n = gt["num_atoms_per_token"].long().numpy().reshape(-1)
+    g_tok = gt["token_index"].long().numpy().reshape(-1)
+    where = {int(t): i for i, t in enumerate(g_tok)}
+    idx = np.full(int(n_atom), -1, np.int64)
+    for i in np.asarray(real).reshape(-1):
+        j = where.get(int(f_tok[i]))
+        if j is None:
+            raise ValueError(f"cropped token {int(f_tok[i])} is not in ground_truth")
+        ni, nj = int(f_n[i]), int(g_n[j])
+        if ni != nj:
+            raise ValueError(f"token {int(f_tok[i])} holds {ni} atoms in the crop and {nj} in "
+                             f"ground_truth; the two are not the same token")
+        a, b = int(f_start[i]), int(g_start[j])
+        idx[a:a + ni] = np.arange(b, b + nj)
+    return idx
+
+
 def denoise_draw(seed: int, n_atom: int):
     """The denoise arm's noise level and per-atom noise, a function of the seed alone.
 
@@ -624,16 +907,78 @@ def _v(t):
 # ------------------------------------------------------------------------------ register
 
 def adapter(path, tokens=None, *, checkpoint=None, rollout: int = 20, num_cycles: int = 1,
-            seed: int = 0):
+            seed: int = 0, exact_scope: str = "all"):
     """``(forward, dataset)`` for OpenFold3. ``path`` is the featurised corpus.
 
-    ``checkpoint`` defaults to ``path``'s sibling ``of3.pt`` so the registration stays a
-    one-liner; pass it when the weights live elsewhere.
+    ``checkpoint`` defaults to the weights ``tt-bio predict --model openfold3`` loads, so a
+    run trains the model a user already folds with. Pass it to start from other weights.
     """
-    path = Path(path)
-    ckpt = Path(checkpoint) if checkpoint else (path if path.is_dir() else path.parent) / "of3.pt"
-    return (OpenFold3Forward(ckpt, rollout=rollout, num_cycles=num_cycles, seed=seed),
-            OpenFold3Dataset(path, tokens=tokens))
+    ckpt = Path(checkpoint) if checkpoint else _shipped_weights()
+    return (OpenFold3Forward(ckpt, rollout=rollout, num_cycles=num_cycles, seed=seed,
+                             exact_scope=exact_scope),
+            OpenFold3Dataset(path, tokens=tokens, seed=seed))
+
+
+def _load_state_dict(path) -> dict:
+    """An OpenFold3 checkpoint as ``{key: tensor}``, Lightning's ``model.`` prefix removed."""
+    sd = torch.load(path, map_location="cpu", weights_only=False)
+    sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
+    return {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
+
+
+def trained_state_dict(masters: dict, base, *, device=None) -> dict:
+    """``masters`` (the optimizer's, keyed by walk path) as an OpenFold3 state dict like ``base``.
+
+    The masters are in device coordinates, keyed by where each weight sits in the built model;
+    the model is built from an upstream-format state dict. So this builds the model from
+    ``base`` with a differentiable lineage, reads back every device weight as a run from
+    ``base`` starts from it, and folds each master's movement back into the keys it was built
+    from (``lineage.fold_back``). Keys training never moved come back as the same tensors, so
+    the result folds exactly as ``base`` does everywhere the run did not reach.
+
+    Holds a second copy of the weights on the device until it returns.
+    """
+    from .tensors import to_host
+
+    fwd = OpenFold3Forward(base, device=device)
+    sd, lin, walked, uploads = fwd._record(differentiable=True)
+    found = {p: t for p, _o, _k, t in walked}
+    stray = sorted(set(masters) - set(found))
+    if stray:
+        raise ValueError(f"{len(stray)} trained tensors are not weights of this model, e.g. "
+                         f"{stray[:3]}")
+    # One device tensor reached by two walk paths (the DiT's `w_lg` is also its cache entry
+    # `_wc[(key, True)]`) has a master per path, and the card holds the one the optimizer wrote
+    # last. That master is the weight; the other paths are dropped so it counts once.
+    order = {p: i for i, p in enumerate(masters)}
+    by_object = {}
+    for p, _o, _k, t in walked:
+        if p in masters:
+            by_object.setdefault(id(t), []).append(p)
+    for paths in by_object.values():
+        for p in sorted(paths, key=order.get)[:-1]:
+            uploads.pop(p, None)
+            masters = {q: m for q, m in masters.items() if q != p}
+    moved = {}
+    for p, m in masters.items():
+        d = np.asarray(m, np.float32).reshape(-1) - to_host(found[p]).reshape(-1)
+        if d.any():
+            moved[p] = torch.from_numpy(d)
+    del found, walked, fwd
+    return lineage.fold_back(sd, lin, uploads, moved, _canonical_key)
+
+
+def _shipped_weights() -> Path:
+    """The inference checkpoint, or a refusal that says how to get it."""
+    from .. import weights
+    path = weights.resolve(MODEL)
+    if path is None or not path.is_file():
+        raise FileNotFoundError(
+            f"OpenFold3 weights not found at {path}. They are not downloaded automatically "
+            f"(no parameter licence is published): fetch of3-p2-155k.pt as docs/weights.md "
+            f"describes and put it there, or point OF3_CKPT at it. `tt-bio predict --model "
+            f"openfold3` reads the same file")
+    return path
 
 
 catalogue.register(MODEL, adapter)

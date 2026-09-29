@@ -26,7 +26,8 @@ from typing import Any
 import torch
 
 from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_parent_death_guard
-from tt_bio.host_controller import HEARTBEAT_PER_LEASE, LEASE_S, ControllerClient, HttpProgressQueue
+from tt_bio.host_controller import (HEARTBEAT_PER_LEASE, LEASE_S, ControllerClient,
+                                    HttpProgressQueue, run_config_hash)
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
 from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
@@ -515,6 +516,99 @@ def _paired_a3ms(path, chains, msa_dir, cfg):
             for _c, s, sp, mt, _m in chains]
 
 
+def search_msas(path, chains, cfg, progress=None) -> None:
+    """Search the unpaired a3m of every protein chain the input left to the search and the
+    cache lacks, batched into one call, into ``cfg["msa_dir"]``. Touches no device.
+
+    The one unpaired MSA stage of every model but Boltz-2 (whose CSV cache is
+    :func:`tt_bio.main.search_boltz2_msas`) and OpenFold3 (whose resolver also relinks)."""
+    from tt_bio.main import _generate_esmfold2_a3m
+
+    if cfg.get("single_sequence") or not _msa_source(cfg):
+        return
+    msa_dir = Path(cfg["msa_dir"])
+    need = {seq_hash(s): s for _c, s, spec, mt, _m in chains
+            if mt == "protein" and not msa_pinned(spec)}
+    need = {h: s for h, s in need.items()
+            if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv")}
+    if not need:
+        return
+    if progress:
+        progress("msa")
+    _generate_esmfold2_a3m(
+        need, path.stem, msa_dir, cfg.get("msa_db_path"), cfg.get("use_envdb", False),
+        cfg.get("msa_server_url"), cfg.get("msa_pairing_strategy"),
+        cfg.get("msa_server_username"), cfg.get("msa_server_password"),
+        cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
+
+
+def _msa_source(cfg) -> bool:
+    return bool(cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint"))
+
+
+#: Models that read no alignment at all, so there is nothing to search ahead of the lease.
+_NO_MSA = ("esmfold2-fast", "af2ig")
+#: Models whose upstream pairs a heteromer's MSA (see _paired_msa).
+_PAIRS = ("esmfold2", "opendde", "opendde-abag", "openbind")
+
+
+def prefetch_msas(model: str, paths, cfg) -> None:
+    """Search every alignment a run's targets will fold with, before any chip is leased.
+
+    A worker holds its chip from the moment it leases a target, and JapanFold bills that
+    lease. The search is database and CPU work: on a cold 730-token Protenix-v2 complex it
+    was 191.6 s of a 526.7 s job, all of it a Tensix chip reserved, idle, and charged for.
+    So ``tt-bio predict`` calls this in the submitting process, which holds no chip, and
+    only then submits the run; each worker then runs the same search code, finds everything
+    cached, and goes straight to device work.
+
+    Unpaired searches for the whole run go in one batched call, which is one pass over the
+    database instead of one per target. It changes when the search runs, never what it
+    returns: every file written here is the file the worker would have written, through the
+    same function. And it is best-effort, so a failed search here is only logged and the
+    worker searches, and fails, exactly as it did before this existed."""
+    from tt_bio.main import _read_bio_chains, search_boltz2_msas
+
+    if (model in _NO_MSA or _is_embed_model(model) or cfg.get("single_sequence")
+            or not _msa_source(cfg)):
+        return
+    t0 = time.time()
+    msa_dir = Path(cfg["msa_dir"])
+    msa_dir.mkdir(parents=True, exist_ok=True)
+    targets = []
+    for p in map(Path, paths):
+        try:
+            targets.append((p, _read_bio_chains(p, what=model)))
+        except Exception:  # noqa: BLE001 -- the worker reports an unreadable input
+            continue
+    try:
+        if model == "boltz2":
+            # Boltz-2 searches each complex whole (pairing keys), so one call per target.
+            for p, chains in targets:
+                prot = {seq_hash(s): s for _c, s, spec, mt, _m in chains
+                        if mt == "protein" and not spec}
+                if prot:
+                    search_boltz2_msas(
+                        prot, p.stem, msa_dir, use_msa=cfg.get("use_msa_server"),
+                        msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False),
+                        msa_url=cfg.get("msa_server_url"), msa_strategy=cfg.get("msa_pairing_strategy"),
+                        msa_user=cfg.get("msa_server_username"),
+                        msa_pass=cfg.get("msa_server_password"), api_key=cfg.get("api_key_value"))
+        else:
+            run = [c for _p, chains in targets for c in chains]
+            if run:
+                search_msas(Path(f"{len(targets)}_targets"), run, cfg)
+            if model in _PAIRS or model in _protenix_family():
+                for p, chains in targets:
+                    _paired_msa(p, chains, msa_dir, cfg)
+    except Exception as e:  # noqa: BLE001 -- see the docstring: the worker searches instead
+        print(f"MSA prefetch failed ({e!r}); each target searches on its chip instead",
+              file=sys.stderr)
+        return
+    print(f"MSA ready for {len(targets)} target(s) in {time.time() - t0:.1f} s, "
+          "before any chip was leased", flush=True)
+
+
 def _artifact_residue_names(chains) -> dict:
     """(asym_id, residue_index) -> the CCD code for every token `restype` cannot name.
 
@@ -663,7 +757,7 @@ class _WorkerState:
         # weights are run-independent, so a resident model serves jobs from any
         # run/user of the same model with no reload. Per-run bits (output/MSA
         # paths, progress) are refreshed cheaply in bind_run().
-        return self.model is not None and self.config_hash == _hash_run_config(cfg)
+        return self.model is not None and self.config_hash == run_config_hash(cfg)
 
     def reset(self) -> None:
         self.model = None
@@ -750,7 +844,7 @@ class _WorkerState:
             ckc = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
                 fp32_dest_acc_en=True, packer_l1_acc=True)
-            sd = torch.load(cfg["of3_ckpt"], map_location="cpu", weights_only=False)
+            sd = _of3_state_dict(cfg)
             # CLI --recycling_steps counts recycles; the trunk runs recycles+1 cycles.
             self.model = OpenFold3(sd, ckc, num_cycles=_recycles(cfg, 3) + 1)
         elif model_id == "rf3":
@@ -833,7 +927,7 @@ class _WorkerState:
                     .eval()
                     .to(self.torch_device)
                 )
-        self.config_hash = _hash_run_config(cfg)
+        self.config_hash = run_config_hash(cfg)
         self.model_id = model_id
 
     def bind_run(self, run_id: str, cfg: dict[str, Any]) -> None:
@@ -973,8 +1067,7 @@ class _WorkerState:
         from tt_bio.esmfold2 import report_progress
         from tt_bio.esmfold2_runtime import (ESMFOLD2_MSA_ROWS, fold_complex, pair_keyed_msa,
                                              resolve_msa)
-        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_bonds, _read_bio_chains,
-                                 _write_structure)
+        from tt_bio.main import _read_bio_bonds, _read_bio_chains, _write_structure
 
         chains = _read_bio_chains(path, what=cfg.get("model", "esmfold2"))
         if not chains:
@@ -1003,23 +1096,8 @@ class _WorkerState:
         # generates worker-side in prepare_features). When a source is given we
         # search any chain whose {seq_hash}.a3m/.csv is not already cached, into
         # the shared msa_dir. MSA is optional: with no source, fold single-seq.
-        if uses_msa and (cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")):
-            to_gen = {}
-            for _cid, seq, spec, mt, _mods in chains:
-                if mt != "protein":
-                    continue
-                if msa_pinned(spec):
-                    continue
-                h = seq_hash(seq)
-                if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv"):
-                    to_gen[h] = seq
-            if to_gen:
-                report_progress("msa")
-                _generate_esmfold2_a3m(
-                    to_gen, path.stem, msa_dir, cfg.get("msa_db_path"), cfg.get("use_envdb", False),
-                    cfg.get("msa_server_url"), cfg.get("msa_pairing_strategy"),
-                    cfg.get("msa_server_username"), cfg.get("msa_server_password"),
-                    cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
+        if uses_msa:
+            search_msas(path, chains, cfg, report_progress)
 
         report_progress("prep")
         # Only protein chains carry an MSA; a nucleic or ligand chain keeps msa=None, and a
@@ -1087,7 +1165,7 @@ class _WorkerState:
         CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
         ConfidenceHead / build_complex_features / _write_protenix_structure)."""
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import _generate_esmfold2_a3m, _read_bio_bonds, _read_bio_chains
+        from tt_bio.main import _read_bio_bonds, _read_bio_chains
         from tt_bio.protenix_data import build_complex_features
 
         model = cfg.get("model", "opendde")
@@ -1098,24 +1176,7 @@ class _WorkerState:
         bonds = _read_bio_bonds(path, chains)   # covalent bonds + ring closures -> token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
-        # search any uncached protein chain (batched into one MSA call), reusing the
-        # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path. A
-        # heteromer's paired MSA comes from the shared rule in _paired_msa.
-        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
-        need = {}
-        for _cid, cseq, spec, mt, _mods in chains:
-            if mt == "protein" and want_msa and not msa_pinned(spec):
-                h = seq_hash(cseq)
-                if not cached(msa_dir / f"{h}.a3m"):
-                    need[h] = cseq
-        if need:
-            report_progress("msa")
-            _generate_esmfold2_a3m(
-                need, path.stem, msa_dir, cfg.get("msa_db_path"),
-                cfg.get("use_envdb", False), cfg.get("msa_server_url"),
-                cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                cfg.get("msa_server_password"), cfg.get("api_key_value"),
-                msa_endpoint=cfg.get("msa_endpoint"))
+        search_msas(path, chains, cfg, report_progress)
         chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=False)
 
         # --msa_cache_only: the cache is the only source, so a miss is an error. Without this
@@ -1171,8 +1232,7 @@ class _WorkerState:
         """Sequences -> (optional per-chain MSA) -> model-ready features for one target.
         Shared by the single and batched protenix entry points."""
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_bonds,
-                                 _read_bio_chains)
+        from tt_bio.main import _read_bio_bonds, _read_bio_chains
         from tt_bio.protenix_data import build_complex_features
 
         model = cfg.get("model", "protenix-v2")
@@ -1183,22 +1243,7 @@ class _WorkerState:
         bonds = _read_bio_bonds(path, chains)   # covalent bonds + ring closures -> token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
-        # search any uncached protein chain (batched into one MSA call); NA chains are single-seq
-        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
-        need = {}
-        for _cid, cseq, spec, mt, _mods in chains:
-            if mt == "protein" and want_msa and not msa_pinned(spec):
-                h = seq_hash(cseq)
-                if not cached(msa_dir / f"{h}.a3m"):
-                    need[h] = cseq
-        if need:
-            report_progress("msa")
-            _generate_esmfold2_a3m(
-                need, path.stem, msa_dir, cfg.get("msa_db_path"),
-                cfg.get("use_envdb", False), cfg.get("msa_server_url"),
-                cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                cfg.get("msa_server_password"), cfg.get("api_key_value"),
-                msa_endpoint=cfg.get("msa_endpoint"))
+        search_msas(path, chains, cfg, report_progress)
         chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
         paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg)
 
@@ -1363,8 +1408,7 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
-                                 _read_bio_constraints, _resolve_a3m_path,
+        from tt_bio.main import (_read_bio_chains, _read_bio_constraints, _resolve_a3m_path,
                                  cap_a3m_file)
         from tt_bio.rf3 import confidence as rf3_confidence
         from tt_bio.rf3.featurize import featurize
@@ -1386,25 +1430,7 @@ class _WorkerState:
                                          "rf3")
                            for cid, cseq, *_r in chains if cid in tmpl_map}
 
-        want_msa = (cfg.get("use_msa_server") or cfg.get("msa_db_path")
-                    or cfg.get("msa_endpoint")) and not cfg.get("single_sequence")
-        need = {}
-        for _cid, cseq, spec, mt, _mods in chains:
-            if mt != "protein" or not want_msa:
-                continue
-            if msa_pinned(spec):
-                continue
-            h = seq_hash(cseq)
-            if not cached(msa_dir / f"{h}.a3m"):
-                need[h] = cseq
-        if need:
-            report_progress("msa")
-            _generate_esmfold2_a3m(
-                need, path.stem, msa_dir, cfg.get("msa_db_path"),
-                cfg.get("use_envdb", False), cfg.get("msa_server_url"),
-                cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                cfg.get("msa_server_password"), cfg.get("api_key_value"),
-                msa_endpoint=cfg.get("msa_endpoint"))
+        search_msas(path, chains, cfg, report_progress)
 
         report_progress("prep")
         _CHAIN_TYPE = {"rna": "POLYRIBONUCLEOTIDE", "dna": "POLYDEOXYRIBONUCLEOTIDE"}
@@ -1429,7 +1455,7 @@ class _WorkerState:
                     comp["msa_path"] = str(a3m.resolve())
                     msa_used = True
             components.append(comp)
-        if cfg.get("msa_cache_only") and want_msa and not msa_used:
+        if cfg.get("msa_cache_only") and _msa_source(cfg) and not msa_used:
             raise RuntimeError(
                 "--msa_cache_only: no cached a3m for any protein chain of "
                 f"{path.name} -- refusing to silently fold single-sequence.")
@@ -1670,7 +1696,7 @@ class _WorkerState:
         # filters on (a raw hash-named path parses to ZERO chains and dies on an
         # IndexError deep in the vendored pipeline), and preserves user-specified
         # per-chain MSA paths.
-        want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
+        want_msa = _msa_source(cfg)
         from tt_bio.openfold3_data import (
             attach_openfold3_paired_msas, normalize_openfold3_msa_paths,
             resolve_openfold3_msas)
@@ -1933,14 +1959,18 @@ class _WorkerState:
         return {k: round(pred[k].item(), 6) for k in keys if k in pred}
 
 
-def _hash_run_config(cfg: dict[str, Any]) -> str:
-    """Stable hash of the parts of the config that affect model setup."""
-    import hashlib
-    import json
+def _of3_state_dict(cfg: dict[str, Any]) -> dict:
+    """The weights an OF3-family fold loads: ``--checkpoint`` when given, else the shipped file.
 
-    keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method")}
-    blob = json.dumps(keep, sort_keys=True, default=str).encode("utf-8")
-    return hashlib.sha256(blob).hexdigest()
+    Both are the same format. `tt-bio train` writes its trained weights as OUT/weights.pt for
+    exactly this; its adapter-*.safetensors files hold optimizer state for resuming a run.
+    """
+    ckpt = cfg.get("checkpoint")
+    if ckpt and Path(ckpt).suffix == ".safetensors":
+        raise RuntimeError(
+            f"{ckpt} is a training checkpoint, which resumes a run. Fold with the weights.pt "
+            f"that `tt-bio train` wrote beside it")
+    return torch.load(ckpt or cfg["of3_ckpt"], map_location="cpu", weights_only=False)
 
 
 def _install_orphan_guard(dispatcher_pid: int) -> None:
@@ -2111,6 +2141,7 @@ def run_worker_loop(
                 # Tell the scheduler which model we already have resident so it
                 # can keep us on it (affinity) and avoid a reload.
                 worker_info["model"] = state.model_id
+                worker_info["warm"] = state.config_hash
                 lease = client.lease(worker_info, batch_size=1)
             except Exception:
                 time.sleep(idle_poll)
@@ -2122,6 +2153,10 @@ def run_worker_loop(
 
             run_id = lease["run_id"]
             cfg = dict(lease["config"])
+            # The chip is this run's from here. A cold worker spends the next
+            # ~100 s loading the model, before any job's own clock starts; each
+            # job reports that stretch as load_s so a lease can be billed whole.
+            leased_at = time.time()
 
             # Design shards ride the same scheduler as prediction. They run the
             # BoltzGen single-device pipeline IN-PROCESS on this worker's already-
@@ -2173,8 +2208,9 @@ def run_worker_loop(
                 # finally: a finally runs before the exception reaches the handler
                 # below, which would hide the very case this exists to catch.
                 inflight = job
-                _execute_job(state, job, cfg, run_id, client, worker_id, meta)
+                _execute_job(state, job, cfg, run_id, client, worker_id, meta, leased_at)
                 inflight = None
+                leased_at = time.time()
     except KeyboardInterrupt as exc:
         # SIGINT between leases is how _stop_worker_processes ends a FINISHED run, so
         # that case is an ordinary shutdown: it stays silent and exits 0, as before.
@@ -2221,11 +2257,15 @@ def _execute_job(
     client: ControllerClient,
     worker_id: str,
     meta: dict[str, Any],
+    leased_at: float | None = None,
 ) -> None:
     job_id = job["id"]
     filename = job.get("name") or f"{job_id}.yaml"
-    row: dict[str, Any] = {"id": job_id, "status": "failed"}
     t0 = time.time()
+    # runtime_s is the job; load_s is the lease before it, the model load on a
+    # cold worker and ~0 on a warm one. Their sum is what this attempt held.
+    row: dict[str, Any] = {"id": job_id, "status": "failed",
+                           "load_s": round(t0 - (leased_at or t0), 1)}
 
     def emit(event: str, **kw):
         try:

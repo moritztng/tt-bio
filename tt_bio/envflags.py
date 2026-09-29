@@ -52,3 +52,17 @@ def env_int(name: str, default: int) -> int:
         return int(raw.strip(), 10)
     except ValueError:
         raise ValueError(f"{name}={raw!r} is not an integer") from None
+
+
+def env_float(name: str, default: float) -> float:
+    """Read a float knob from the environment. Unset or empty means the default.
+
+    Same contract as ``env_flag`` and ``env_int``: an unparseable value raises.
+    """
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return float(raw.strip())
+    except ValueError:
+        raise ValueError(f"{name}={raw!r} is not a float") from None

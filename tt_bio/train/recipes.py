@@ -33,9 +33,9 @@ import inspect
 from typing import Callable, Dict
 
 from . import launcher, objectives, provenance
-from ..autograd import backward, exact_training_ops, install, uninstall
+from ..autograd import backward, exact_training_ops, install, release_pins, uninstall
 from .sharding import batches
-from .checkpoint import Checkpointer
+from .checkpoint import Checkpointer, load_adapter
 from .lora import LoraConfig, attach, trainable
 from .mesh import Mesh
 from .optim import AdamW, af3_lr
@@ -48,7 +48,8 @@ __all__ = ["source", "names", "recipe", "train_loop"]
 def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
                betas=(0.9, 0.95), weight_decay=0.0, plateau_until=50000, checkpoint_every=100,
-               tokens=None, weights=None, model=None):
+               tokens=None, weights=None, model=None, on_step=None,
+               displacement_band=None, resume=False):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -85,6 +86,21 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     0.95 is a second-moment horizon twenty times longer, it moves no gradient and no loss
     curve, and over twenty steps it was the whole of a 0.9 % uniform excess in the update.
 
+    ``displacement_band`` is the step control's band, ``None`` for the optimizer's own. It is
+    an argument because a run can legitimately sit under it: at a rate whose step is below the
+    device dtype's spacing every update rounds away by design, and a grading arm needs to
+    RECORD that ratio rather than be stopped by it. Widening it is a pre-registration, not a
+    workaround -- the ratio is in the provenance either way.
+
+    ``on_step(record)`` is called with each step's history row as soon as it exists, before
+    the checkpoint. It is how a long run survives its own death: ``history`` is returned at
+    the end and a run killed at step 90 of 100 returns nothing, so a caller that wants the
+    curve writes it out from here rather than waiting for it.
+
+    ``resume=True`` continues from the newest checkpoint in ``out_dir`` when there is one:
+    weights, both Adam moments and the schedule are loaded and the batch plan picks up at the
+    step after it, which is the order an uninterrupted run would have seen.
+
     ``dataset`` needs ``__len__`` and ``batch(indices) -> dict`` carrying the labels the
     objective row names. No featurizer is imposed -- per-model featurisation is the one thing
     the campaign refused to generalise, because each family's cropping and MSA handling is
@@ -97,15 +113,18 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     Two lines below know about it -- which shard is read, and that ``step()`` is given
     something to reduce -- and the loop is otherwise the loop it was on one chip.
     """
+    # The driver of a data-parallel run computes nothing, so it hands off before anything
+    # below can open a card. Asking a forward for its `model` builds it, and building it
+    # opens the device, which the launcher then refuses: a rank would be a second opener.
+    dp = (mesh or Mesh({"dp": [0]})).axis("dp")
+    if dp.width > 1 and launcher.driving():
+        return launcher.drive(dp, out_dir=out_dir, steps=steps)
     # An adapter that BUILDS the model owns it, so it should not also have to be handed
     # back through every caller. `model=` still wins when it is passed; without it the
     # forward is asked. This is what makes discovery a WALK by default rather than the
     # call-site census, and the census is blind to every weight a module fuses in its own
     # `__init__` -- 2119 of 2531 on OpenFold3's trunk, silently.
     model = model if model is not None else getattr(forward, "model", None)
-    dp = (mesh or Mesh({"dp": [0]})).axis("dp")
-    if dp.width > 1 and launcher.driving():
-        return launcher.drive(dp, out_dir=out_dir, steps=steps)
     dp_rank, dp = launcher.rank(), launcher.reducer(dp)
     # `None` here means "train the weights themselves", and it is the only line that reads
     # `train`. Everything downstream branches on `cfg is None` or not at all.
@@ -140,11 +159,20 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         opt = AdamW(params, lr=lr, data_parallel=dp, betas=betas, weight_decay=weight_decay,
                     schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup_steps,
                                               plateau_until=plateau_until))
+        # A weights run trains the checkpoint's parameters, so elements the build filled with
+        # constants (the k and v thirds of a fused bias whose checkpoint has a q bias only)
+        # stay put. Otherwise they train a parameter the model lacks and weights.pt cannot
+        # carry the run.
+        if cfg is None and hasattr(forward, "unsourced"):
+            opt.hold(forward.unsourced())
         # Rank 0 owns out_dir and the others get a subdirectory of it. The masters are
         # bit-identical across ranks, so one copy is the run's checkpoint; the reason not to
         # let them share the path is that two writers make a truncated safetensors file.
         ckpt = Checkpointer(launcher.out_dir(out_dir), every=checkpoint_every, metric="loss")
-        history, last = [], None
+        history, last, start = [], None, 0
+        if resume and (latest := ckpt.latest()) is not None:
+            start = load_adapter(latest, params, dataset.device, opt=opt)["step"] + 1
+            params.rebind()
 
         with provenance.during(seed=seed, config={
                 "objective": objective, "global_batch": global_batch, "steps": steps,
@@ -154,6 +182,8 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                 "exact_ops": list(exact_training_ops())}) as prov:
             with attach(installed, cfg):
                 for batch in [first, *plan_order]:
+                    if batch.step < start:
+                        continue
                     # ONE SAMPLE AT A TIME. Upstream clips each sample before accumulating it
                     # (`per_sample_clipping: True` at `clip_val 10.0` is OpenFold3's shipped
                     # default), and per-sample clipping is a different ALGORITHM from clipping
@@ -173,6 +203,22 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                         # once per root and land the fan-in sums partial.
                         backward([outputs[k] for k in seeds],
                                  [to_device(g, dataset.device) for g in seeds.values()])
+                        # Every checkpointed block PINNED its own input across its untaped
+                        # forward, and the backward that consumed the pin cannot drop it:
+                        # `checkpoint` takes the pin precisely because the recompute happens
+                        # inside the backward, so the owner of the release is the loop. This
+                        # is that loop, and it is the only one in the tree that runs many
+                        # steps in one process -- `bindcraft2` releases at all four of its
+                        # boundaries and `perf/of3t_stepfloor/fullstep.py` releases per rep,
+                        # which is why neither leaks and this did.
+                        #
+                        # Measured on the OpenFold3 training composition at crop 384: 120
+                        # pins a step (48 pairformer blocks and 24 DiT blocks, inputs held
+                        # twice where a block publishes two), of which ~69 hold a live DRAM
+                        # buffer, 1.02 GB. Six steps of that is 8.1 GB standing under a
+                        # backward whose own transient is ~23 GB, and the seventh step was
+                        # refused a 906 MB buffer with 61.3 MB of contiguous space left.
+                        release_pins()
                         # Clip THIS sample and add it to the accumulator, then clear the tape
                         # so the next sample's backward starts from nothing. Clearing it also
                         # leaves `replicas()` empty at the step, which is correct: under
@@ -180,9 +226,23 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                         opt.clip_and_accumulate()
                         opt.zero_grad()
                         total = total + loss / len(shard)
-                        for term in terms:
-                            breakdown[term] = (breakdown.get(term, 0.0)
-                                               + terms[term] / len(shard))
+                        # A term is a ROW, not a number: `af3_loss` reports
+                        # `{value, weight, contribution}` per term and `{value: None,
+                        # skipped: ...}` for one it could not run. Averaging the row field by
+                        # field keeps the skip reason legible and keeps `contribution`
+                        # summing to the loss; averaging the row itself was a `dict / int`
+                        # TypeError the first time a real objective met this loop.
+                        for term, row_ in terms.items():
+                            if not isinstance(row_, dict):
+                                breakdown[term] = (breakdown.get(term, 0.0)
+                                                   + row_ / len(shard))
+                                continue
+                            acc = breakdown.setdefault(term, {})
+                            for k, v in row_.items():
+                                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                                    acc[k] = v
+                                else:
+                                    acc[k] = acc.get(k, 0.0) + v / len(shard)
                     # The accumulated, per-sample-clipped gradient, summed across the axis
                     # inside step() together with the participation counts it divides by.
                     opt.step(replicas=launcher.replicas(params))
@@ -191,19 +251,32 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                     # reads what the optimizer moved. A no-op for a call-site census, whose
                     # hook hands the forward the leaf itself.
                     params.rebind()
+                    # A rank's `total` is the mean over its own shard. The row reports the
+                    # global batch's, so a two-chip run reads the same loss as one chip does.
+                    if dp.width > 1:
+                        total = dp.sum_scalars([total * len(shard)])[0] / global_batch
                     last = {"step": batch.step, "loss": total, "breakdown": breakdown,
                             "grad_norm": opt.last_grad_norm, "lr": opt.last_lr,
                             "s": launcher.tick()}
                     history.append(last)
+                    if on_step is not None:
+                        on_step(last)
                     ckpt.save(batch.step, opt, metrics={"loss": total},
                               provenance=prov.as_dict())
             if last is not None:
                 ckpt.save(last["step"], opt, metrics={"loss": last["loss"]},
                           provenance=prov.as_dict(), force=True)
+                # The trained weights in the model's own checkpoint format, which is what
+                # `tt-bio predict --checkpoint` folds with. One rank writes it: the masters
+                # are bit-identical across the axis.
+                if train == "weights" and dp_rank == 0 and hasattr(forward, "write_weights"):
+                    forward.write_weights(opt.master, ckpt.weights)
         # The step control, on the cumulative ratio over the whole run. Raises rather than
         # warns: a run whose updates never reached the weight the forward reads produced
         # nothing, and it produced nothing while every number above looked healthy.
-        prov.config["displacement"] = opt.check_displacement()
+        prov.config["displacement"] = (opt.check_displacement()
+                                       if displacement_band is None else
+                                       opt.check_displacement(band=displacement_band))
         # A rank's result leaves with the rank. The driver has no device and no optimizer, so
         # the masters it compares for divergence only exist inside this process. No-op when
         # nothing launched us as a rank.

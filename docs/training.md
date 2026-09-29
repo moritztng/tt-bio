@@ -1,13 +1,13 @@
 # Training: the four tiers, and what each one guarantees
 
-Progressive disclosure, cut where the **unit of user authorship** changes. Not where the
-amount of configuration changes, which is the distinction this whole design turns on: you can
-name your authorship unit before you start, while "how much configuration" is only knowable
-after you hit a wall.
+Training has four tiers, and each one is cut where the **thing you write** changes: a config,
+an objective, the loop, an op. The cut is not where the amount of configuration grows. You know
+which of the four you are writing before you start; how much configuration you need only shows
+once you hit a wall.
 
 | Tier | Surface | You own | Cut line, and its test |
 |---|---|---|---|
-| 0 | `tt-bio finetune ...` | a config | no callables in the signature |
+| 0 | `tt-bio train ...` | a config | no callables in the signature |
 | 1 | `train.finetune(...) -> Run` | the objective | no `for` over steps in your code |
 | 2 | `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer`, `Mesh`, `LoraConfig`, `trainable`, `attach` | the `for` statement | no `ttnn` call in your code |
 | 3 | `tt_bio.autograd` + `train.gradcheck` | an op and its backward | `ttnn` appears here |
@@ -20,14 +20,18 @@ gate rather than by taste.
 
 ## The three calls, and what changes between them
 
-The design is against real usage, so these are the three a user actually writes. They differ by
-one argument each, and none of them is a rewrite of the one before it.
+These are the three commands a user writes. The first two differ by one argument, and the third
+folds with what either of them trained.
 
 ```bash
-tt-bio finetune data/ --model protenix-v2 --out runs/a --global-batch 8 --steps 2000
-tt-bio finetune data/ --model protenix-v2 --out runs/b --global-batch 8 --steps 2000 --chips 0,2
-tt-bio finetune data/ --model protenix-v2 --out runs/c --global-batch 8 --steps 200000 --train weights
+tt-bio train data/ --model openfold3 --out runs/a --global-batch 8 --steps 2000
+tt-bio train data/ --model openfold3 --out runs/b --global-batch 8 --steps 2000 --chips 0,2
+tt-bio predict target.yaml --model openfold3 --checkpoint runs/b/weights.pt
 ```
+
+Every flag after `--model` has a default, so the shortest of these is `tt-bio train --model
+openfold3`: upstream's 8-structure sample, the shipped weights, a 384-token crop, one sample per
+chip, one pass. `--help` shows the flags above and `--help-all` the expert ones.
 
 ```python
 from tt_bio import train
@@ -35,17 +39,18 @@ from tt_bio import train
 run = train.finetune(forward, dataset, out_dir="runs/a", global_batch=8, steps=2000)
 run = train.finetune(forward, dataset, out_dir="runs/b", global_batch=8, steps=2000,
                      mesh=train.Mesh({"dp": [0, 2]}))
-run = train.finetune(forward, dataset, out_dir="runs/c", global_batch=8, steps=200_000,
-                     train="weights")
+run = train.finetune(forward, dataset, out_dir="runs/c", global_batch=8, steps=2000,
+                     train="adapters")
 ```
 
 **Multi-card is `--chips`, and nothing else moves.** The recipe is one process; it sees a wide
 axis and hands the run to the launcher, which re-runs your program once per chip. The loop is
 the loop it was on one chip.
 
-**Pre-training is `--train weights`, and nothing else moves either.** `adapters` puts a LoRA
+**Adapters or weights is `train=`, and nothing else moves either.** `adapters` puts a LoRA
 factor pair beside each site and freezes the trunk; `weights` trains the model's own weights at
-those same sites. The loop, the objective, the optimizer, the checkpointer and the data-parallel
+those same sites. `tt-bio train` refuses `--train adapters` for OpenFold3, the one model it
+trains today: LoRA has no measured run on it, and `predict` loads full weights only. The loop, the objective, the optimizer, the checkpointer and the data-parallel
 axis are the same code, and the escape-hatch test below compares them instruction for
 instruction rather than taking the claim on trust. What does change is the memory arithmetic, so
 `--train weights` is a name a flag can carry and `plan()` answers differently for it.
@@ -115,7 +120,7 @@ the device, because sending the next reader to the wrong file is worse than no r
 
 Level 1 runs anywhere, including a box with no card:
 
-```
+```bash
 pytest tests/test_autograd_reference_gate.py
 ```
 
@@ -187,16 +192,16 @@ Measured, and each carries its source:
 Refused rather than estimated. **A memory wall belongs to a model, not to a token count**, so
 these are per model and `plan()` applies only the one you asked for:
 
-- **Protenix-v2 — 384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB,
+- **Protenix-v2, 384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB,
   536,870,912 B refused. Both in the forward under per-block checkpointing where the forward is
   untaped, so what fails is one block's working set. Distribution does not help: 8 chips each
   run out at 384 aa exactly as one does.
-- **OpenFold3 — 576 aa runs and is the largest measured to. 640 and 768 refuse.** The backward
+- **OpenFold3: 576 aa runs with `--exact` and is the largest measured to; the device path fits to 512. 640 and 768 refuse.** The backward
   peaks at 30,230,471,680 B of the card's 34,225,520,128 B at 576 aa, 88.3 % full, with the
   clock at a median 1350 MHz polled during. 640 and 768 die with the card full, 23,710,208 B
   and 6,231,552 B free. **This frontier moved on 2026-09-23 and the reason is worth reading**:
   576 used to refuse with 6,671,522,304 B still free, short by 77,930,560 B per bank, beaten by
-  contiguity inside `ttnn::concat` rather than by capacity — and splitting the concat-heads
+  contiguity inside `ttnn::concat` rather than by capacity, and splitting the concat-heads
   gradient on `dh` instead of a dim of extent `H` removed exactly that allocation. So one of the
   two walls was never a capacity wall at all, which is also why a capacity extrapolation cannot
   find this frontier and why these are measurements and not a slope. 544 sits below a crop that
@@ -254,7 +259,7 @@ different one per box.
 ### The launcher: one process per chip
 
 A wide axis needs one process per chip, and `tt_bio/train/launcher.py` is what makes one. Ask
-for it and it happens: `tt-bio finetune ... --chips 2`, or `train.finetune(..., mesh=Mesh({"dp":
+for it and it happens: `tt-bio train ... --chips 2`, or `train.finetune(..., mesh=Mesh({"dp":
 [0, 1]}))`. The Tier-1 recipe is a single process, so when it sees a wide axis and nothing
 launched it as a rank, it hands the run to `launcher.drive`.
 
@@ -314,12 +319,90 @@ today, and the interface does not change shape when that changes: an axis is an 
 its chips share a host or not, and going multi-host is meant to be the same one argument that
 going multi-card is. Until it is wired, the honest claim is multi-card on one host.
 
+## Data
+
+`tt-bio train --model openfold3 DATA` reads upstream OpenFold3's training-set layout, the one
+its own `WeightedPDBDataset` reads:
+
+```text
+DATA/
+  pdb_training_set/
+    mmcif_files/ ...  preprocessed/ ...  msas/ ...  templates/ ...
+  training_cache_<anything>.json      exactly one
+```
+
+Each step's sample is drawn from the cache's `datapoint_probabilities` and cropped by
+upstream's own featuriser, in the training process, at about 2 to 4 s a sample on the host.
+Both the draw and the crop are seeded by `(--seed, index)` alone, so a resumed or data-parallel
+run sees the same sample at the same step. The featuriser needs `pytorch_lightning` and
+`ml_collections`, which `pip install 'tt-bio[train]'` adds, and the run says so if they are
+missing. A directory of pre-featurised `.pt` files, one sample each, is also accepted.
+
+Without DATA the run uses upstream's own 8-structure sample (the subset its
+`sample_subset_cache` draws at seed 42): 435 files, 73 MB, fetched once over HTTPS from the
+`openfold3-data` public bucket into the tt-bio cache and checked against the sha256 list in
+`tt_bio/data/openfold3_train_sample_files.json`. It is for trying the command, not for
+training a model.
+
+## What a run writes
+
+`OUT` is `--out`, `runs/<model>` by default.
+
+- `OUT/status.json`: `status` is `running`, `succeeded` or `failed`, JapanFold's words. It
+  carries the config, the chips, the pid and host, `step`/`steps`/`loss`, and after success the
+  provenance summary (seed, commit, the clock sampled during the run, the device nodes the ranks
+  held), the best and the latest checkpoint, and the data-parallel summary. A failure is
+  `error: {title, detail}` plus `OUT/traceback.txt`.
+- `OUT/progress.jsonl`: one line per step, `{step, loss, lr, grad_norm, s, healthy}`. `s` is
+  wall seconds since the previous row, so the first row includes loading the model. A loss or
+  gradient norm that is not finite fails the run at that step.
+- `OUT/run.json`: after success, the history, the full provenance (the parameter census
+  included) and the per-rank data-parallel record.
+- `OUT/adapter-<step>.safetensors`: the fp32 masters and both Adam moments, every
+  `--checkpoint-every` steps and at the last one, three kept. About 6.4 GB each when training
+  OpenFold3's weights. These resume a run; they are not what a model loads.
+- `OUT/weights.pt`: after the last step, the trained weights in the format of the checkpoint
+  the run started from (2.3 GB for OpenFold3), for `tt-bio predict --checkpoint`. A run on
+  several chips writes it once, from rank 0.
+
+### How `weights.pt` is made
+
+The optimizer holds each weight the way the device reads it: transposed, fused with its
+neighbours, padded to tiles. The checkpoint `predict` loads holds upstream's tensors. At the end
+of the run tt-bio rebuilds the model from the starting weights while recording which checkpoint
+tensors each device weight was made from, differentiates that build, and pulls each weight's
+change back into those tensors (`tt_bio.train.lineage.fold_back`). No per-module rule for how a
+weight reaches the card is written down, so a new fused layout cannot fall out of step with it.
+
+It is checked before the file is written: rebuilding each weight training moved must reproduce
+that movement, or the run fails naming the weight. That catches one value that reached the card
+twice and trained apart, which a checkpoint cannot represent. Some modules keep a weight in more
+than one fused layout and read one per call; the layouts the run never read did not move, and
+rebuilt from the file they carry the trained values too. A weights run trains the checkpoint's parameters and nothing else. Where the build fills part of a
+device weight with constants (OpenFold3 fuses q, k and v biases, and its checkpoint has only the q
+bias, so the k and v thirds are zeros), those elements are found before the first step and the
+optimizer never moves them. Every tensor the run did not move is the
+starting file's own tensor, unchanged.
+
+Running the same command on the same `OUT` resumes: it loads the newest checkpoint and starts
+at the step after it, and the rows `progress.jsonl` already has past that checkpoint appear
+again. Different settings on the same `OUT` are refused with the difference named.
+
+A resume restores the fp32 masters, both Adam moments and the optimizer's step count and beta
+powers bit for bit, and the device weights it uploads equal the masters rounded, as an
+uninterrupted run holds them. The losses after it are not bit-identical to an uninterrupted
+run's, and neither are two uninterrupted runs': on OpenFold3 the step-0 loss varies at 1e-7
+between runs and chips, and by the step after the first real update that has grown to about
+1 % (three uninterrupted runs read 1.3684, 1.3723 and 1.3812 at step 2; two resumed ones read
+1.3721 and 1.3944).
+
 ## Featurisation is per model, on purpose
 
 The one thing this design refuses to generalise, and the biggest trap in it rather than the
 biggest win. A shared data layer would have to model every family's cropping and MSA handling,
 and each family's is exactly the part that is genuinely different. So
-`tt_bio/train/catalogue.py` ships empty and a model registers its own:
+`tt_bio/train/catalogue.py` ships one, OpenFold3's (`tt_bio/train/openfold3.py`), and another
+model registers its own:
 
 ```python
 from tt_bio.train import catalogue
@@ -327,7 +410,7 @@ catalogue.register("mymodel", lambda path, tokens=None: (forward, MyDataset(path
 ```
 
 A dataset needs four members (`__len__`, `tokens`, `device`, `batch(indices) -> dict`) and no
-base class. Until a model registers one, `tt-bio finetune --model X` refuses with the name of
+base class. Until a model registers one, `train.finetune` on it refuses with the name of
 what is missing, which is the featuriser and not the interface.
 
 ## Adapting a model: how the weights and the sites are found
@@ -351,7 +434,7 @@ Two things follow from walking, and both are checked rather than assumed.
 * **The discovery forward runs first, and it runs taped.** Weights a module fuses lazily do not
   exist until the first call at a given shape, so a walk of a freshly built model is a walk of a
   smaller model than the one that runs. And several fused kernels decline while a tape is open,
-  which routes the call down a composed path that fuses a different weight again — an untaped
+  which routes the call down a composed path that fuses a different weight again: an untaped
   discovery forward reached 196 of the 204 weights the taped forward then used. `walked_weights`
   spends one `no_grad` forward with the hook installed, which costs the same one inference the
   census costs.
@@ -467,7 +550,7 @@ things decide whether that is the same rule the reference applies. `finetune` do
 you; at Tier 2 you own the loop, so you own them:
 
 * **`disabled=` the parameter names this sample does not activate.** They are excluded from the
-  global norm and from the update, which is what OpenFold3 does — and it is not a corner case.
+  global norm and from the update, which is what OpenFold3 does, and it is not a corner case.
   Their runner disables the confidence head whenever a sample's summed confidence weight is
   zero, which the initial-training config does on four of its five datasets. Norm over a set the
   reference excluded and the coefficient applied to every gradient in the step is different:
@@ -480,8 +563,20 @@ you; at Tier 2 you own the loop, so you own them:
   divides each parameter's accumulated gradient by the number of samples that actually
   activated it, and does not clip again.
 
-Both are verified against OpenFold3's own `grad_manager`, executed rather than transcribed:
-`perf/of3t_leaves/clip_equiv.py`.
+Both clipping rules are verified against OpenFold3's own `grad_manager`, executed rather than
+transcribed: `perf/of3t_leaves/clip_equiv.py`.
+
+## `release_pins()` after every backward, or you run out of card
+
+Checkpointing is what makes a 48-block trunk fit at all, and each checkpointed block pins its
+own input across its untaped forward: the recompute that reads that input happens inside the
+backward, so the block cannot know when the pin is dead. The loop can, and `release_pins()` is
+how it says so. `finetune` calls it for you.
+
+At OpenFold3's crop 384 one step takes 120 pins holding 1.02 GB of card DRAM. A loop that
+never releases them grows by about a gigabyte a step whatever else it does, and is refused its
+seventh step with 61 MB of contiguous DRAM left. `train_loop` itself did exactly that until
+`08cf847df`, which capped every OF3T training run at six steps.
 
 ## The host float64 softmax: for when fp32 is not fp32
 
@@ -506,7 +601,7 @@ already do.
 
 What it is worth. On the OpenFold3 diffusion module's gradient over 547 parameters, 51.1358 % of
 the model's squared gradient norm, against upstream's own bf16 training step, it takes the
-mass-weighted relative error from 7.426217e+00 to 7.777580e-02 — 95.5x of the gap. Against an
+mass-weighted relative error from 7.426217e+00 to 7.777580e-02, 95.5x of the gap. Against an
 exact float64 reference it reads 5.930664e-02, which is 1.013x what upstream's own bf16 step
 reaches against the same reference. It is not free: 167x on the softmax alone, and 1.47x on the
 whole gradient arm, because the softmax is a small share of what the step runs.
@@ -514,8 +609,10 @@ whole gradient arm, because the softmax is a small share of what the step runs.
 Syntax is the one the other per-site softmax flags use. A bare token turns one construction site
 on, a `-` prefix turns it off, and `all` / `-all` move every site without a token of its own:
 
-    TT_BIO_HOST_F64_SOFTMAX_AB=all                          # every site
-    TT_BIO_HOST_F64_SOFTMAX_AB=openfold3.diffusion_transformer
+```bash
+TT_BIO_HOST_F64_SOFTMAX_AB=all                          # every site
+TT_BIO_HOST_F64_SOFTMAX_AB=openfold3.diffusion_transformer
+```
 
 The sites are `openfold3.diffusion_transformer`, `openfold3.atom_transformer` and
 `protenix.atom_transformer`.
@@ -530,7 +627,7 @@ exists because `d_logits = y(g - Σ g·y)` is only row-sum-free when the row sum
 for 1.049x the runtime, which is 99.6 % of the ground the host round trip buys at a tenth of the
 cost. What the round trip still has over it is the forward: the renormalisation cannot fix a
 softmax that was computed imprecisely, only the backward's use of it. Turning both on is safe and
-pointless — a float64 softmax already sums to one, so the division is a no-op there, measured as a
+pointless: a float64 softmax already sums to one, so the division is a no-op there, measured as a
 bit-identical gradient.
 
 Set `TT_BIO_SOFTMAX_BW_RENORM=0` for the old backward. **It cannot change a prediction.** Every
@@ -540,39 +637,42 @@ card and same seed. A prediction never imports the module the branch lives in at
 costs 6.385e-05 s per softmax backward at 16 heads and 384 tokens, 1.0879x that op, measured
 interleaved on a p150a at 1350 MHz against an A/A floor of 1.163e-05 s (`perf/of3t_d56renorm/`).
 
-### Softmax and layer norm run in float64 during training, by default
+### Training runs on the device; float64 is a diagnostic
 
-Every training tape computes softmax and layer norm on the host in float64: the forward, the
-backward, and every forward the backward recomputes. Nothing else changes, and inference never
-does this. On OpenFold3 this is what brings the gradient inside its accuracy bar: the
-model-frame gradient against upstream OpenFold3 0.4.3 reads 1.45x the bar with the device
-kernels, 1.30x with only the softmax exact, and 0.98x with both. The float64-reference error
-falls at the same time (0.167 to 0.112 whole-model), so this is fidelity, not a closer match to
-upstream's own rounding. The measurement is `perf/of3t_stackexact/LADDER.json`.
+A training step keeps softmax and layer norm on the device kernels inference uses, and runs the
+softmax backward in fp32 (`TT_BIO_SOFTMAX_BW_FP32`, on by default). On OpenFold3 that is enough:
+the model-frame gradient against upstream OpenFold3 0.4.3 reads 0.99736x its accuracy bar,
+where the same device kernels with a bf16 softmax backward read 2.168x
+(`perf/of3t_p10exact`). A crop-384 step on a p150a at 1350 MHz takes 54.3 s, 7.1x an H200's 7.620 s
+(`perf/of3t_p10default`).
 
-It is not free. Each softmax and layer norm is a host round trip, and on the OpenFold3 trunk
-step at crop 384 it costs about 25x. A trunk step that runs in 25.24 s on the device kernels
-takes 637.33 s with the exact softmax alone, measured on an idle p150a with the clock sampled at
-1350 MHz throughout (`perf/of3t_exactscope/PRICE.json`). Almost all of that is host time, not
-card time. If you want speed over fidelity, turn it off:
+The device path keeps the attention probabilities on the card for the backward, so on one card it
+fits OpenFold3 up to 512 aa (26.0 GB of 34.2 GB at 512). 544 and 576 fit only with `--exact`, and
+`tt-bio train` turns it on for those crops by itself and says so. Lower `--tokens` to stay on
+the device path.
+
+`--exact` swaps softmax and layer norm for a float64 computation on the host, in the forward,
+the backward, and every forward the backward recomputes. It reads 0.98737x the same bar, so it
+buys almost nothing over the device path, and each call is a PCIe round trip: on the 48-block
+trunk backward at crop 384 it took 1541 s against 37 s without it. Keep it for what it is good
+for, a float64 reference when you are chasing a precision question:
 
 ```bash
-tt-bio finetune ... --device-ops
+tt-bio train ... --exact
 ```
 
-    with tt_bio.autograd.exact_training(False):
-        ...                     # tapes and backwards opened here use the device kernels
+```python
+with tt_bio.autograd.exact_training(True):
+    ...                     # tapes and backwards opened here run softmax and layer norm in float64
+```
 
-What turns it on is the training stack itself, not a flag. `tt_bio.autograd.install()` opens the
-float64 ops until its `uninstall()`, and the recipe holds one install across the whole fit, so
-the discovery forward, every step and the structure rollout between OpenFold3's two tapes all
-run them. The discovery forward has to: the step's gradient depends on what ran before it,
-because the attention kernels size their blocks from what they learned on the first forward.
-`tape()` and `backward()` also open them for their own extent, for a caller that drives a tape
-without `install()`. Each takes out only what it put in. There is no environment variable. No inference module imports the module these live in, so a fold cannot
-reach them: an OpenFold3, Protenix-v2 and AF2-IG fold before and after this default write
-byte-identical structures with the training package never imported (`perf/of3t_stackship/`).
-A run records which ops ran exact in its provenance, under `exact_ops`.
+When it is on, the training stack opens it, not a flag on each call. `tt_bio.autograd.install()`
+opens the float64 ops until its `uninstall()`, and the recipe holds one install across the whole
+fit, so the discovery forward, every step and the structure rollout between OpenFold3's two tapes
+all run them. `tape()` and `backward()` also open them for their own extent, for a caller that
+drives a tape without `install()`. There is no environment variable. No inference module imports
+the module these live in, so a fold cannot reach them. A run records which ops ran exact in its
+provenance, under `exact_ops`, which is empty on the default path.
 
 `tt_bio.autograd.exact_softmax()` and `install(exact_softmax=True)` still exist for scripts that
 want every softmax exact outside a tape as well.
@@ -583,5 +683,5 @@ Importing `tt_bio` does not reach the tape, the optimizer or the loss set, and
 `tests/test_training_opt_in.py` enforces it. Importing `tt_bio.train` costs nothing either:
 every public name resolves lazily, so `plan()`, `batches()`, `Mesh`, `AdamW` and its refusals
 all work with no wheel and no card. That is Tier 0's cut line holding one level down: a dry run
-answers on a laptop. The `finetune` verb is registered on the CLI group by dotted path and
+answers on a laptop. The `train` verb is registered on the CLI group by dotted path and
 loaded only when named, so `tt-bio predict` and `tt-bio --help` never pay for any of it.

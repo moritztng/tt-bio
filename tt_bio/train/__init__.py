@@ -6,7 +6,7 @@ distinction is the whole design: a user can name their authorship unit before th
 while "how much configuration" is only knowable after you hit the wall.
 
     tier  surface                                            you own          the cut line
-    0     tt-bio finetune ...                                a config file    no callables in the signature
+    0     tt-bio train ...                                a config file    no callables in the signature
     1     train.finetune(...) -> Run                         the objective    no `for` over steps in your code
     2     plan, batches, objectives, AdamW, Checkpointer,     the `for`        no ttnn call in your code
           Mesh, LoraConfig, trainable, attach
@@ -51,7 +51,8 @@ TIER2 = (
     "attach", "census",
     "select", "af3_lr", "to_host",
     "to_device", "objectives", "losses", "provenance", "save_adapter", "load_adapter",
-    "install", "uninstall", "backward", "no_grad", "Tensor", "UnreducedGradients",
+    "install", "uninstall", "backward", "release_pins", "no_grad", "Tensor",
+    "UnreducedGradients",
     "exact_training", "exact_training_ops", "UNMEASURED", "launcher",
 )
 
@@ -82,8 +83,13 @@ _WHERE = {
 _SUBMODULES = ("losses", "objectives", "provenance", "recipes", "mesh", "optim", "lora",
                "checkpoint", "tensors", "loop", "cli", "dryrun", "sharding", "checks",
                "catalogue", "launcher")
+# `release_pins` is Tier 2 rather than an engine detail because a Tier-2 user owns the `for`
+# statement, and owning the loop means owning this: `checkpoint` pins each segment's input
+# across its untaped forward and only the loop knows when the backward that needs it has run.
+# A loop that never calls it holds 1.02 GB of card DRAM per step at OF3T's crop 384, which is
+# what capped `train_loop` itself at six steps before `08cf847df`.
 _FROM_AUTOGRAD = ("install", "uninstall", "installed", "is_grad_enabled", "backward",
-                  "no_grad", "Tensor", "exact_training", "exact_training_ops")
+                  "release_pins", "no_grad", "Tensor", "exact_training", "exact_training_ops")
 
 __all__ = sorted({*TIER2, *_WHERE, *_SUBMODULES, *_FROM_AUTOGRAD, "TIER2", "tier2"})
 

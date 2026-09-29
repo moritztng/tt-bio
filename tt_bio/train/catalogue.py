@@ -1,18 +1,13 @@
 """How a model becomes fine-tunable from Tier 0: one registration, per model.
 
-**This registry ships empty, and that is the honest state rather than an oversight.** Tier 0
-needs two things from a model that the interface cannot supply: a forward it can call with a
-batch, and a featuriser that turns a path into batches. The first exists -- it is the shipped
-forward, and A1's dispatch is what makes it adaptable. The second does not, and the plan
-refuses to invent it: *featurisers stay per model*, because each family's cropping and MSA
-handling is exactly the part that is genuinely different, and a shared data layer is the
-biggest trap in this design rather than the biggest win.
-
-So a model arrives here by registering an adapter next to its own featuriser, and until one
-does, ``tt-bio finetune --model X`` refuses with the name of what is missing. Everything Tier
-0 can decide without a device still works: ``--dry-run``, ``--show-recipe``,
-``--list-objectives`` and every flag legality check. That is the whole of Tier 0's cut line,
-and it holds with an empty registry.
+Tier 0 needs two things from a model that the interface cannot supply: a forward it can call
+with a batch, and a featuriser that turns a path into batches. *Featurisers stay per model*,
+because each family's cropping and MSA handling is exactly the part that is genuinely
+different, and a shared data layer is the biggest trap in this design rather than the biggest
+win. OpenFold3 is the one shipped entry (``SHIPPED``, imported on first use, so naming the
+model is enough); any other name refuses with what is missing, and everything Tier 0 decides
+without a device still works for it: ``--dry-run``, ``--show-recipe``, ``--list-objectives``
+and every flag legality check.
 
 Registering is one call and it is deliberately small, so the temptation to centralise the
 featuriser never has a foothold::
@@ -45,6 +40,10 @@ REQUIRED_DATASET_MEMBERS = ("__len__", "tokens", "device", "batch")
 
 _ADAPTERS: Dict[str, Callable] = {}
 
+#: Shipped adapters, imported on first use so naming a model is enough to train it. Importing
+#: one pulls in its model's featuriser, which `tt-bio train --help` and a dry run must not pay.
+SHIPPED = {"openfold3": "tt_bio.train.openfold3"}
+
 
 def register(model: str, adapter: Callable) -> Callable:
     """Register ``model``'s ``(path, tokens=None) -> (forward, dataset)`` adapter."""
@@ -56,11 +55,14 @@ def register(model: str, adapter: Callable) -> Callable:
 
 
 def names() -> list:
-    return sorted(_ADAPTERS)
+    return sorted({*_ADAPTERS, *SHIPPED})
 
 
-def load(model: str, path: Path, *, tokens=None):
+def load(model: str, path: Path, *, tokens=None, **kw):
     """Resolve ``model`` to ``(forward, dataset)``, or refuse with what is missing."""
+    if model not in _ADAPTERS and model in SHIPPED:
+        import importlib
+        importlib.import_module(SHIPPED[model])
     adapter = _ADAPTERS.get(model)
     if adapter is None:
         raise NotImplementedError(
@@ -70,7 +72,7 @@ def load(model: str, path: Path, *, tokens=None):
             f"featurisation is deliberately not generalised -- register one with "
             f"tt_bio.train.catalogue.register({model!r}, adapter). "
             f"Registered today: {names() or 'none'}")
-    forward, dataset = adapter(Path(path), tokens=tokens)
+    forward, dataset = adapter(Path(path), tokens=tokens, **kw)
     # Looked up on the CLASS, then in the instance's own dict -- never with `hasattr`, which
     # CALLS a property to find out whether it is there. `device` is the one that matters: a
     # data-parallel run is one process per chip, so a dataset resolves its device lazily and

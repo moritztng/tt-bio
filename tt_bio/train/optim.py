@@ -47,7 +47,7 @@ from .tensors import to_device, to_host
 if TYPE_CHECKING:
     from .. import autograd as ag
 
-__all__ = ["AdamW", "af3_lr", "DISPLACEMENT_BAND", "round_to_device_dtype"]
+__all__ = ["AdamW", "af3_lr", "DISPLACEMENT_BAND", "round_to_device_dtype", "unit_roundoff"]
 
 
 # The band the cumulative ratio has to stay inside. Wide enough that bf16 rounding of a
@@ -84,7 +84,10 @@ def af3_lr(step: int, lr: float, *, warmup_steps: int = 1000,
     magnitude ~lr per element whatever the gradient is, so without it the first pass over the
     data moves every weight the full step size before the second moment has any history.
     """
-    if step <= warmup_steps:
+    # `warmup_steps=0` is "no warmup", not a division by zero. A short run has to be able to
+    # say it: at 30 steps the 1000-step default leaves the rate at 9e-6 of 3e-4, the weights
+    # barely move, and two arms compared over those steps agree because neither trained.
+    if warmup_steps and step <= warmup_steps:
         return base_lr + step / warmup_steps * lr
     if plateau_until is None:
         return lr * (decay_factor ** (step // decay_every_n_steps))
@@ -175,6 +178,16 @@ class _Moments(dict):
         return v
 
 
+
+def unit_roundoff(dtype) -> float:
+    """Half an ulp, relative, of a device weight's dtype under round-to-nearest.
+
+    bfloat16 keeps 7 explicit mantissa bits, so 2**-8. Matched on the lowercased name because
+    ttnn prints ``DataType.BFLOAT16`` and torch ``torch.bfloat16``; a case-sensitive match
+    read every ttnn weight as fp32 and failed every short run at the default warmup.
+    """
+    return 2.0 ** -8 if "bfloat16" in str(dtype).lower() else 2.0 ** -24
+
 class AdamW:
     """AdamW with fp32 master weights, after ``adamw_full_precision.cpp``.
 
@@ -195,6 +208,9 @@ class AdamW:
     which is AdamW's whole point and what tt-train's kernel implements.
     """
 
+    #: ``{name: bool mask}`` of elements no step moves. `hold` replaces it, never mutates it.
+    held: Dict[str, "np.ndarray"] = {}
+
     def __init__(self, params: Dict[str, ag.Tensor], *, lr: float = 3e-4,
                  betas=(0.9, 0.999), eps: float = 1e-8, weight_decay: float = 0.01,
                  clip_norm: float = 10.0, schedule=None,
@@ -214,6 +230,9 @@ class AdamW:
         self.schedule = schedule
         self.beta1, self.beta2 = float(betas[0]), float(betas[1])
         self.steps = 0
+        #: The largest learning rate a step has run at. The AlphaFold 2 schedule starts at
+        #: lr(0) = 0, so a one-step run moves nothing and is correct to.
+        self.peak_lr = 0.0
         # Multiplicative beta powers rather than pow(beta, step): cheap, and exactly
         # reproducible across a reload because the powers themselves are checkpointed.
         self.beta1_pow, self.beta2_pow = 1.0, 1.0
@@ -258,6 +277,25 @@ class AdamW:
         self.accum: Dict[str, "np.ndarray"] = {}
         self.participation: Dict[str, int] = {}
         self.accum_count = 0
+
+    def hold(self, masks: dict) -> int:
+        """Never move the masked elements of each named parameter; returns how many.
+
+        For elements the build filled with constants rather than checkpoint values: the model
+        has no such parameter, so their gradient is dropped before the clip norm, as it would
+        be for a weight that did not exist, and neither the step nor the decay touches them.
+        """
+        import numpy as np
+        self.held = {n: np.asarray(m, bool).reshape(self.master[n].shape)
+                     for n, m in masks.items() if n in self.master}
+        return int(sum(m.sum() for m in self.held.values()))
+
+    def _grad(self, name, t):
+        import numpy as np
+        g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+        if name in self.held:
+            g[self.held[name]] = 0.0
+        return g
 
     @staticmethod
     def _narrow(arr, dtype):
@@ -367,8 +405,7 @@ class AdamW:
             # does not.
             g = None if name in disabled else (
                 self.accum.get(name) if per_sample else (
-                    None if t.grad is None else
-                    to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)))
+                    None if t.grad is None else self._grad(name, t)))
             if g is None:
                 g = np.zeros_like(self.master[name])
             elif clip != 1.0:
@@ -382,6 +419,8 @@ class AdamW:
             theta = self.master[name]
             upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
                         + self.weight_decay * theta)
+            if name in self.held:
+                upd[self.held[name]] = 0.0
             # The control the brief demands, measured rather than asserted: the step the
             # weight the FORWARD reads actually took, after rounding to the device dtype.
             # A master update that vanishes in the cast is an expensive no-op.
@@ -438,6 +477,7 @@ class AdamW:
                             "kept": (kept / want) if want > 0 else float("nan"),
                             "grad_norm": float(np.linalg.norm(g))}
         self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
+        self.peak_lr = max(self.peak_lr, float(lr))
         self.last_per_sample = per_sample
         # How many parameters this step did not write back because the update rounded away
         # entirely. Reported rather than silent: a step that skips every write is either a
@@ -480,12 +520,16 @@ class AdamW:
             # name order, so two ranks with different key sets would exchange vectors of
             # different lengths and sum the wrong bytes into each other's gradients. Upstream
             # keeps a zeros_like entry for every parameter for the same reason.
-            summed = self.data_parallel.reduce_all(
-                {n: [self.accum[n] if n in self.accum else np.zeros_like(self.master[n])]
-                 for n in self.master})
-            counts = self.data_parallel.reduce_all(
-                {n: [np.float32([self.participation.get(n, 0)])] for n in self.master})
-            self.participation = {n: int(v.ravel()[0]) for n, v in counts.items()}
+            # The participation counts ride in the same message: one barrier a step, and the
+            # collective's timings and byte count describe the gradient rather than a 16 KB
+            # vector of counts.
+            both = self.data_parallel.reduce_all({
+                **{n: [self.accum[n] if n in self.accum else np.zeros_like(self.master[n])]
+                   for n in self.master},
+                **{f"{n}\0count": [np.float32([self.participation.get(n, 0)])]
+                   for n in self.master}})
+            summed = {n: both[n] for n in self.master}
+            self.participation = {n: int(both[f"{n}\0count"].ravel()[0]) for n in self.master}
             # A parameter no rank activated is dropped rather than stepped on a zero
             # gradient. Upstream zeroes its grad and lets Adam step it from momentum alone;
             # ours skips it, and that difference is recorded rather than papered over.
@@ -526,6 +570,11 @@ class AdamW:
         r = d["ratio"]
         if self.steps == 0:
             raise RuntimeError("nothing has stepped yet; there is no displacement to check")
+        if not (r == r) and self.peak_lr == 0.0:
+            # Every step ran at lr 0, the first step of the warmup, so nothing was meant to move.
+            return {**d, "lr_zero": True,
+                    "note": f"all {self.steps} step(s) ran at lr 0 (the warmup's first step), "
+                            f"so the weights are unchanged by design; band not asserted"}
         if not (r == r):  # nan: master has not moved at all
             raise AssertionError(
                 f"the master has not moved after {self.steps} steps (displacement "
@@ -569,11 +618,10 @@ class AdamW:
         m, d = math.sqrt(m), math.sqrt(d)
         # The displacement the device copy CANNOT show. A change smaller than half an ulp of
         # the weight it is applied to rounds away entirely, so below this the ratio is
-        # measuring the dtype and not the optimizer. bfloat16 keeps 7 explicit mantissa bits,
-        # so its unit roundoff -- half an ulp under round-to-nearest -- is 2**-8.
+        # measuring the dtype and not the optimizer.
         res = 0.0
         for n, t in self.params.items():
-            u = 2.0 ** -8 if "bfloat16" in str(t.value.dtype) else 2.0 ** -24
+            u = unit_roundoff(t.value.dtype)
             res += float(np.sum((u * np.abs(self._widen(self.init[n]))) ** 2))
         return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan"),
                 "resolution": math.sqrt(res)}
@@ -595,7 +643,7 @@ class AdamW:
         tot = 0.0
         for name, t in self.params.items():
             if t.grad is not None and name not in disabled:
-                gg = to_host(t.grad).astype(np.float32)
+                gg = self._grad(name, t)
                 tot += float(gg.ravel() @ gg.ravel())
         return math.sqrt(tot)
 
@@ -631,7 +679,7 @@ class AdamW:
         for name, t in self.params.items():
             if t.grad is None or name in disabled:
                 continue
-            g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+            g = self._grad(name, t)
             if clip != 1.0:
                 g = g * clip
             acc = self.accum.get(name)
@@ -644,11 +692,12 @@ class AdamW:
         return {"steps": self.steps, "lr": self.lr, "beta1": self.beta1,
                 "beta2": self.beta2, "eps": self.eps,
                 "weight_decay": self.weight_decay, "clip_norm": self.clip_norm,
-                "beta1_pow": self.beta1_pow, "beta2_pow": self.beta2_pow}
+                "beta1_pow": self.beta1_pow, "beta2_pow": self.beta2_pow,
+                "peak_lr": self.peak_lr}
 
     def load_state_dict(self, d: dict) -> None:
         for k in ("steps", "lr", "beta1", "beta2", "eps", "weight_decay", "clip_norm",
-                  "beta1_pow", "beta2_pow"):
+                  "beta1_pow", "beta2_pow", "peak_lr"):
             if k in d:
                 setattr(self, k, d[k])
 

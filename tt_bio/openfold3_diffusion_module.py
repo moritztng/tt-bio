@@ -296,7 +296,6 @@ class OF3DiffusionModule(Module):
         super().__init__({}, compute_kernel_config)
         self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = dict(state_dict)
-        self._wc = {}
 
         enc = _sub(self._w, "atom_attn_enc")
         self.npe = OF3NoisyPositionEmbedder(
@@ -318,14 +317,12 @@ class OF3DiffusionModule(Module):
         self.ln_a_w = self._w_tt(self._w["layer_norm_a.weight"], False)  # (768,)
 
     def _w_tt(self, w, transpose=True):
-        key = id(w)
-        v = self._wc.get(key)
-        if v is None:
-            v = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                layout=ttnn.TILE_LAYOUT, device=self.device,
-                                dtype=self._act_dtype)
-            self._wc[key] = v
-        return v
+        # No memo: each of the four is uploaded once, here. One keyed by id(w) put the
+        # object's address in the weight's walk path, so a checkpoint named those four
+        # parameters differently in every process and could not be loaded back.
+        return ttnn.from_torch(w.t().contiguous() if transpose else w,
+                               layout=ttnn.TILE_LAYOUT, device=self.device,
+                               dtype=self._act_dtype)
 
     def _lin(self, x, w, activation=None):
         return ops.linear(x, w, activation=activation,

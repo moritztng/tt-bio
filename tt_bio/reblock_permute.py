@@ -28,7 +28,9 @@ from pathlib import Path
 import ttnn
 
 from . import core_split
+from . import genq
 from .envflags import env_flag
+from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "reblock_permute"
 KERNEL_DIR_BACK = Path(__file__).resolve().parent / "kernels" / "reblock_permute_back"
@@ -146,6 +148,27 @@ WALK = os.environ.get("TT_BIO_REBLOCK_WALK", "block")
 _NO_WRAP = 0xFFFFFFFF
 
 
+def _index_of(assign, cx, cy):
+    """This core's position in the placement loop's own order."""
+    return list(assign).index((cx, cy))
+
+
+def _genq_ct(assign, core_grid, shape_words):
+    """The compile-time block the cheap dispatch path needs, or eleven zeros for the old path.
+
+    Refused unless ``WALK`` is ``block``. The other two walks make ``first_group`` depend on the
+    core's index in a way the slice alone does not carry, and both are measured, off by default
+    and documented above as staying off; a mode this cannot express keeps its per-core args.
+    """
+    if not genq.compact():
+        return [0] * 11
+    if WALK != "block":
+        genq.REFUSED["walk_" + WALK] = genq.REFUSED.get("walk_" + WALK, 0) + 1
+        return [0] * 11
+    plan = genq.compact_plan(assign, core_grid)
+    return ([1] + plan + shape_words) if plan else [0] * 11
+
+
 def _walk(mode, i, block, per_core, num_cores):
     """``(first_group, group_stride, group_wrap_hi, group_wrap_lo)`` for linear core index ``i``.
 
@@ -199,7 +222,7 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y, WALK,
+        g.x, g.y, WALK, genq.compact(),
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -234,36 +257,43 @@ def _build(x, out, device, reader_ct, writer_ct):
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
     # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
-    first, placed, block = 0, 0, 0
+    assign, first, placed, block = {}, 0, 0, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
-                    reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
-                    writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
+                    assign[(cx, cy)] = (block, per_core)
                     first += 1
                     block += per_core
                     placed += per_core
     assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
+    genq_ct = _genq_ct(assign, core_grid, [Nt, N, Ct])
+    if genq_ct[0] == 0:
+        for (cx, cy), (blk, per_core) in assign.items():
+            i = _index_of(assign, cx, cy)
+            g0, gs, ghi, glo = _walk(WALK, i, blk, per_core, num_cores)
+            reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
+            compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
+            writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
+    compute_ct = [IN_CB, OUT_CB] + genq_ct[:8] + [GROUP_TILES * Ct]
+
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=[IN_CB, OUT_CB], runtime_args=compute_rt,
+        core_ranges=core_grid, compile_time_args=compute_ct, runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=ttnn.MathFidelity.HiFi2, fp32_dest_acc_en=True
         ),
@@ -296,6 +326,7 @@ def _prepare(x, out, device):
     return entry
 
 
+@_ops.fused_kernel("reblock_permute")
 def reblock_permute(x, memory_config=None, device=None):
     """``ttnn.permute(x, (0, 3, 1, 2))`` for ``x`` of shape ``[1, N, N, C]`` bf16 TILE, C % 32 == 0."""
     device = device or x.device()
@@ -339,7 +370,7 @@ L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
 L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
 
-def eligible(x, memory_config) -> bool:
+def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate, measured against the wheel's own ``ttnn.permute`` on the card that runs it.
 
     Two things decide it: the destination buffer type and ``N``. On DRAM the custom move wins from
@@ -370,10 +401,13 @@ def eligible(x, memory_config) -> bool:
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
     """
     from . import ops
-    if ops.taping():
-        # These moves are `generic_op` kernels with no backward, and eligibility is
-        # exactly where the codebase already says no: every caller falls back to the
-        # unfused transpose/permute, which the tape follows. Inference is untouched.
+    if ops.declines_under_tape("reblock_permute") and not (taped_ok and TAPED_MOVE):
+        # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
+        # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
+        # these two moves the tape can follow the kernel: the move is a pure index reordering
+        # whose VJP is the OTHER kernel in this file, so `taped_ttnn._permute_fwd` records the
+        # node and the reason to refuse is gone. `eligible_gated` keeps the blanket refusal --
+        # it fuses a sigmoid and a multiply and its VJP is not an index move.
         return False
 
     if not _ENABLED:
@@ -393,6 +427,32 @@ def eligible(x, memory_config) -> bool:
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"window_{bt}", shape)
     return True
+
+
+# Whether the two index-move kernels may serve a TAPED forward.
+#
+# Both are `generic_op`, which has no tape entry, so a direct caller under a tape would drop the
+# gradient of everything upstream. `eligible`/`eligible_back` therefore refuse while a tape is
+# open and a gradient round runs the stock `ttnn.permute` forward -- while its BACKWARD runs the
+# kernel, because `taped_ttnn._permute_back` already routes there. That asymmetry is what
+# `bcx-p10-trilay` measured as the triangle multiplication at 31.7 % of the DRAM roof forward
+# against 55.3 % backward.
+#
+# With this on, `taped_ttnn._permute_fwd` takes the kernel and records the node itself. The two
+# moves are each other's inverse -- `permute(0,3,1,2)` sends x[b,i,j,c] to y[b,c,i,j], so its VJP
+# is `permute(0,2,3,1)` -- so the backward is the kernel the backward already used. Both are
+# `torch.equal` against `ttnn.permute`, so the arm is bit-exact by construction.
+#
+# Default OFF, release-gated. A module switch as well as an env var, so an A/B flips it in one
+# process without a second device context.
+TAPED_MOVE = env_flag("TT_BIO_TAPED_CHANNEL_MOVE", False)
+
+
+def set_taped_channel_move(on: bool) -> bool:
+    """Turn the taped channel move on or off. Returns the previous setting."""
+    global TAPED_MOVE
+    prev, TAPED_MOVE = TAPED_MOVE, bool(on)
+    return prev
 
 
 # Whether `_channel_move` reaches for this kernel at all. Bit-exact: a permute is a pure index
@@ -444,7 +504,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y, WALK,
+        g.x, g.y, WALK, genq.compact(),
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -482,30 +542,37 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
     # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
-    first, placed, block = 0, 0, 0
+    assign, first, placed, block = {}, 0, 0, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
-                    reader_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
+                    assign[(cx, cy)] = (block, per_core)
                     first += 1
                     block += per_core
                     placed += per_core
     assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
+    genq_ct = _genq_ct(assign, core_grid, [Nt, 0, Ct])
+    if genq_ct[0] == 0:
+        for (cx, cy), (blk, per_core) in assign.items():
+            i = _index_of(assign, cx, cy)
+            g0, gs, ghi, glo = _walk(WALK, i, blk, per_core, num_cores)
+            reader_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
+            compute_rt[cx][cy] = [per_core * GROUP_TILES]
+            writer_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
+    compute_ct = [IN_CB, OUT_CB] + genq_ct[:8] + [GROUP_TILES]
+
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "reader_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
@@ -513,7 +580,7 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=[IN_CB, OUT_CB], runtime_args=compute_rt,
+        core_ranges=core_grid, compile_time_args=compute_ct, runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=ttnn.MathFidelity.HiFi2, fp32_dest_acc_en=True
         ),
@@ -545,6 +612,7 @@ def _prepare_back(x, out, device):
     return entry
 
 
+@_ops.fused_kernel("reblock_permute_back")
 def reblock_permute_back(x, memory_config=None, device=None):
     """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE."""
     device = device or x.device()
@@ -583,7 +651,7 @@ def set_enabled_back(on: bool) -> bool:
     return prev
 
 
-def eligible_back(x, memory_config) -> bool:
+def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate for the back direction.
 
     Deliberately narrower than the forward one. ``N`` must be a multiple of 32: the forward kernels
@@ -594,10 +662,13 @@ def eligible_back(x, memory_config) -> bool:
     chunk from 352 aa up.
     """
     from . import ops
-    if ops.taping():
-        # These moves are `generic_op` kernels with no backward, and eligibility is
-        # exactly where the codebase already says no: every caller falls back to the
-        # unfused transpose/permute, which the tape follows. Inference is untouched.
+    if ops.declines_under_tape("reblock_permute_back") and not (taped_ok and TAPED_MOVE):
+        # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
+        # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
+        # these two moves the tape can follow the kernel: the move is a pure index reordering
+        # whose VJP is the OTHER kernel in this file, so `taped_ttnn._permute_fwd` records the
+        # node and the reason to refuse is gone. `eligible_gated` keeps the blanket refusal --
+        # it fuses a sigmoid and a multiply and its VJP is not an index move.
         return False
 
     if not _ENABLED_BACK:
@@ -874,10 +945,11 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     slice width must be a whole number of tiles, because the reader addresses slices in tile units.
     """
     from . import ops
-    if ops.taping():
-        # These moves are `generic_op` kernels with no backward, and eligibility is
-        # exactly where the codebase already says no: every caller falls back to the
-        # unfused transpose/permute, which the tape follows. Inference is untouched.
+    if ops.declines_under_tape("reblock_permute_gated"):
+        # No tape entry. This one is not just a permutation -- it slices a four-way fused
+        # projection and folds `p * sigmoid(g)` into the move -- so its VJP is the gate's as
+        # well as the permutation's, and it is deliberately left declining until someone
+        # measures what it covers. `reblock_permute` and `reblock_permute_back` are taped.
         return False
 
     if not _ENABLED_GATED:

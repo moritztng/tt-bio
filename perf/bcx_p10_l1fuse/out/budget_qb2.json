@@ -1,0 +1,65 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "compute_grid_main": [
+  11,
+  10
+ ],
+ "compute_grid_cores": 110,
+ "l1_total_bytes_per_bank": 1461760,
+ "l1_num_banks": 110,
+ "l1_free_bytes_per_bank_idle": 1461760,
+ "l1_bank_bytes_helper": 1461760,
+ "l1_max_worker_unreserved": 1532416,
+ "l1_aggregate_grid_mib": 153.3447265625,
+ "l1_aggregate_banks_mib": 153.3447265625,
+ "dram_total_bytes_per_bank": 4278190016,
+ "dram_num_banks": 8,
+ "dram_total_gib": 31.874999523162842,
+ "trimul_tail_l1_share": 0.5,
+ "trimul_l1_max_seq": 352,
+ "tensors": {
+  "pair 1x288x288x128 bf16": {
+   "mib": 20.25,
+   "bytes_per_bank_if_spread": 193033.30909090908,
+   "share_of_grid_l1": 0.13205540519025633,
+   "fits_grid_l1": true
+  },
+  "pair 1x288x288x128 f32": {
+   "mib": 40.5,
+   "bytes_per_bank_if_spread": 386066.61818181816,
+   "share_of_grid_l1": 0.26411081038051265,
+   "fits_grid_l1": true
+  },
+  "pair 1x288x288x512 bf16": {
+   "mib": 81.0,
+   "bytes_per_bank_if_spread": 772133.2363636363,
+   "share_of_grid_l1": 0.5282216207610253,
+   "fits_grid_l1": true
+  },
+  "pair 1x288x288x384 bf16": {
+   "mib": 60.75,
+   "bytes_per_bank_if_spread": 579099.9272727272,
+   "share_of_grid_l1": 0.396166215570769,
+   "fits_grid_l1": true
+  },
+  "pair 1x288x288x32 bf16": {
+   "mib": 5.0625,
+   "bytes_per_bank_if_spread": 48258.32727272727,
+   "share_of_grid_l1": 0.03301385129756408,
+   "fits_grid_l1": true
+  },
+  "trimul chunk 128x288x288 bf16": {
+   "mib": 20.25,
+   "bytes_per_bank_if_spread": 193033.30909090908,
+   "share_of_grid_l1": 0.13205540519025633,
+   "fits_grid_l1": true
+  },
+  "msa 2x288x256 bf16": {
+   "mib": 0.28125,
+   "bytes_per_bank_if_spread": 2681.018181818182,
+   "share_of_grid_l1": 0.0018341028498646713,
+   "fits_grid_l1": true
+  }
+ }
+}

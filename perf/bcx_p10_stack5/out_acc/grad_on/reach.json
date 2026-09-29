@@ -1,0 +1,42 @@
+{
+ "arm": "on",
+ "fused_hifi_stats": {
+  "served": 12,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "triatt_bw_stats": {
+  "served": 12,
+  "declined": 0,
+  "bw_calls": 12
+ },
+ "triatt_bw_fused": true,
+ "rne_add_stats": [
+  30,
+  0
+ ],
+ "rne_kernel": true,
+ "mm_layout": {
+  "declined: has a program config": 12,
+  "declined: not batched": 96,
+  "served": 24
+ },
+ "mm_layout_on": true,
+ "widen_add": true,
+ "widen_reach": {
+  "served: first": 66,
+  "served: later": 24
+ },
+ "taped_channel_move": true,
+ "kernel_entry_stats": {
+  "rne_add": [
+   30,
+   0
+  ],
+  "tri_att_sdpa_hifi": [
+   12,
+   0
+  ]
+ }
+}

@@ -31,6 +31,7 @@ if it is importable.
 from __future__ import annotations
 
 import contextlib
+import functools
 import os
 import pathlib
 import sys
@@ -40,6 +41,8 @@ from typing import Callable, Iterator
 
 import numpy as np
 import torch
+
+from tt_bio import duotraj
 
 #: tt-bio's token axis buckets to 32, and rounding a design UP is faster than running it ragged:
 #: the PD-L1 complex at 211 tokens costs 4.504 s on the trunk forward and the same design padded
@@ -97,7 +100,7 @@ def _is_multimer(path: pathlib.Path) -> bool:
 class _Trunk:
     """One AlphaFold 2 checkpoint's Evoformer blocks on the card, under tt-bio's tape."""
 
-    def __init__(self, path: pathlib.Path):
+    def __init__(self, path: pathlib.Path, *, template: bool = False):
         import ttnn
 
         from tt_bio import autograd, taped_ttnn
@@ -106,13 +109,17 @@ class _Trunk:
 
         self.ttnn, self.ag, self.taped = ttnn, autograd, taped_ttnn
         self.multimer = _is_multimer(path)
+        # `template` costs two more c=64 pair blocks of weights per checkpoint and is only
+        # wanted by `TemplateOnDevice`, so it stays off unless that swap is armed: five trunks
+        # already sit near the allocator's limit at n=288 (`TrunkPool.resident`).
         self.model = load_af2_device_model(load_af2_state_dict(str(path),
                                                                multimer=self.multimer),
-                                           template=False, multimer=self.multimer,
+                                           template=template, multimer=self.multimer,
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
         self.blocks = len(self.model.device_evoformer)
         self.extra_blocks = len(self.model.device_extra_msa)
+        self.template_blocks = len(self.model.device_template)
 
     def up(self, t: torch.Tensor):
         return self.ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
@@ -172,6 +179,21 @@ class _Trunk:
                 z = block(block._residual(z, const(index)), *pair_masks)
         return z
 
+    def template_stack(self, z, pair_masks, recompute: bool):
+        """The template embedder's two c=64 pair blocks, `act -> act`, left on card throughout.
+
+        `AF2DeviceModel`'s fold path runs these same blocks through
+        `AF2DeviceTemplatePairStack` under `torch.no_grad`. Here they run under tt-bio's tape,
+        which is what a gradient round needs. No `opm_constant`: the template stack has no MSA
+        track for an outer product mean to collapse, unlike `extra_msa` above.
+        """
+        for block in self.model.device_template:
+            if recompute:
+                z = self.ag.checkpoint(lambda t, blk=block: blk(t, *pair_masks), z)
+            else:
+                z = block(z, *pair_masks)
+        return z
+
     def seed(self, t: torch.Tensor, like):
         """A cotangent in the root's own device shape."""
         shape = [int(d) for d in like.value.shape]
@@ -181,6 +203,53 @@ class _Trunk:
 
     def grad(self, leaf, shape) -> torch.Tensor:
         return self.down(leaf.grad, shape) if leaf.grad is not None else torch.zeros(shape)
+
+
+class _Tapes:
+    """The tapes a splice has banked, keyed by the trajectory that banked them.
+
+    One splice object serves every trajectory in flight -- the swap is a process-wide patch
+    of `modules.layer_stack`, so there is one of these per STACK and not one per trajectory
+    -- and each trajectory drops its own superseded tapes on every recycle. A flat sweep
+    would drop the neighbour's live tape between its forward and its backward, and the
+    neighbour would fail with "no live tape for token N" at a point where nothing is wrong
+    with it.
+
+    The slot is PASSED IN, never read off the calling thread. The device seam does not run on
+    the trajectory's thread: measured on this program, 36 seams landed on 11 different
+    `Dummy-N` threads, XLA:CPU's own pool. The slot reaches here as a constant captured when
+    the program was TRACED, which does happen on the trajectory's thread.
+
+    It is "" for a process running one trajectory, so an un-interleaved run sweeps and banks
+    exactly what it always did.
+    """
+
+    def __init__(self):
+        self._live: dict[int, dict] = {}
+        self._next = 0
+        self._lock = threading.Lock()
+
+    def sweep(self, slot: str) -> None:
+        """Drop THIS trajectory's superseded tapes. AlphaFold 2 stops the gradient on every
+        recycle but the last and JAX still routes all of them through the forward rule, so
+        without this the superseded tapes accumulate at several GB an Evoformer block."""
+        with self._lock:
+            for token in [t for t, e in self._live.items() if e["slot"] == slot]:
+                del self._live[token]
+
+    def bank(self, entry: dict, slot: str) -> int:
+        with self._lock:
+            token, self._next = self._next, self._next + 1
+            self._live[token] = {**entry, "slot": slot}
+        return token
+
+    def take(self, token) -> dict | None:
+        with self._lock:
+            return self._live.pop(int(token), None)
+
+    def count(self, slot: str = "") -> int:
+        """How many tapes trajectory `slot` has banked."""
+        return sum(1 for e in self._live.values() if e["slot"] == slot)
 
 
 class TrunkPool:
@@ -204,9 +273,13 @@ class TrunkPool:
     refused, and the predictor folds it on BindCraft 2's own JAX trunk.
     """
 
-    def __init__(self, source=None, *, resident: int | None = None):
+    def __init__(self, source=None, *, resident: int | None = None,
+                 template: bool = False):
         self._source = source
         self.resident = int(resident) if resident else None
+        #: Whether the trunks this pool loads also bring their template pair stack on card.
+        #: Set by `predictor(template=True)`; see `_Trunk.__init__` for why it is not free.
+        self.template = bool(template)
         self.paths: dict[str, pathlib.Path] = {}
         self.absent: dict[str, str] = {}
         self.selections: dict[str, int] = {}
@@ -218,7 +291,12 @@ class TrunkPool:
         # So the trunk cache and the selection are shared state and move under a lock, and the
         # load is deferred to the thread that folds.
         self._lock = threading.RLock()
-        self._current: str | None = None
+        # Keyed by `duotraj.slot()`: two interleaved trajectories select different
+        # checkpoints and the selection happens on the trajectory's own thread, outside the
+        # device seam, so a single `_current` would have whichever thread selected last
+        # decide what the other one folds. "" is the only slot a single-trajectory process
+        # has, so nothing changes for one.
+        self._selected: dict[str, str] = {}
         if isinstance(source, Mapping):
             self.require(source)
 
@@ -299,14 +377,15 @@ class TrunkPool:
         if name not in self.paths:
             raise KeyError(f"{name!r} is not in the trunk pool {self.names}")
         with self._lock:
-            self._current = name
+            self._selected[duotraj.slot()] = name
             self.selections[name] = self.selections.get(name, 0) + 1
 
     def _load(self, name: str) -> _Trunk:
         with self._lock:
             trunk = self._trunks.get(name)
             if trunk is None:
-                trunk = self._trunks[name] = _Trunk(self.paths[name])
+                trunk = self._trunks[name] = _Trunk(self.paths[name],
+                                                    template=self.template)
             if name in self._order:
                 self._order.remove(name)
             self._order.append(name)
@@ -315,12 +394,27 @@ class TrunkPool:
             return trunk
 
     @property
-    def current(self) -> _Trunk:
-        if self._current is None:
+    def selected(self) -> str | None:
+        """The checkpoint THIS thread's trajectory last selected, or None. Only sound on the
+        trajectory's own thread, i.e. in the route selection -- never at a device seam."""
+        return self._selected.get(duotraj.slot())
+
+    def trunk_for(self, slot: str) -> _Trunk:
+        """The trunk trajectory `slot` selected, loading it if this is the first fold to reach
+        it. Takes the slot rather than reading the thread, because a device seam runs on one of
+        XLA:CPU's pool threads and not on the trajectory's."""
+        name = self._selected.get(slot)
+        if name is None:
             if not self.paths:
                 raise RuntimeError("the trunk pool is empty; nothing has asked it for a model")
-            self.use(self.names[0])
-        return self._load(self._current)
+            with self._lock:
+                self._selected.setdefault(slot, self.names[0])
+            name = self._selected[slot]
+        return self._load(name)
+
+    @property
+    def current(self) -> _Trunk:
+        return self.trunk_for(duotraj.slot())
 
 
 # ----------------------------------------------------------------- the Evoformer on card
@@ -350,8 +444,7 @@ class EvoformerOnDevice:
         self.host_folds: dict[str, int] = {}
         self._mask_dev: dict = {}
         self._pair_mask_dev: dict = {}
-        self._live: dict[int, dict] = {}
-        self._next = 0
+        self._tapes = _Tapes()
 
     # ------------------------------------------------------------------ which side folds
 
@@ -445,72 +538,84 @@ class EvoformerOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _trunk(self) -> _Trunk:
-        trunk = self.pool.current
+    def _trunk(self, slot: str) -> _Trunk:
+        trunk = self.pool.trunk_for(slot)
         if trunk.blocks != self.blocks:
-            raise ValueError(f"{self.pool._current!r} holds {trunk.blocks} Evoformer blocks and "
-                             f"this splice was built for {self.blocks}")
+            raise ValueError(f"{self.pool._selected.get(slot)!r} holds {trunk.blocks} Evoformer "
+                             f"blocks and this splice was built for {self.blocks}")
         return trunk
 
-    def _primal(self, msa_np, pair_np, mask_np, pair_mask_np):
+    def _primal(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
         """No tape. `predict` is forward-only and a validation refold calls it once per model, so
         a primal that banks a tape is an out-of-memory bug."""
-        trunk = self._trunk()
+        # `_inputs` is numpy and torch padding and touches no card, so it runs OUTSIDE
+        # `duotraj.card`. Everything after it does touch the card and runs inside.
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
-        mo, zo = trunk.evoformer(trunk.up(m), trunk.up(z), self._msa_mask(trunk, mask),
-                                 self._pair_masks(trunk, pair_mask), recompute=False)
-        trunk.sync()
-        self.calls["primal"] += 1
-        return (trunk.down(mo, tuple(m.shape))[:, :n].numpy(),
-                trunk.down(zo, tuple(z.shape))[:n, :n].numpy())
+        with duotraj.card(slot, "evoformer._primal"):
+            trunk = self._trunk(slot)
+            mo, zo = trunk.evoformer(trunk.up(m), trunk.up(z), self._msa_mask(trunk, mask),
+                                     self._pair_masks(trunk, pair_mask), recompute=False)
+            trunk.sync()
+            self.calls["primal"] += 1
+            return (trunk.down(mo, tuple(m.shape))[:, :n].numpy(),
+                    trunk.down(zo, tuple(z.shape))[:n, :n].numpy())
 
-    def _taped(self, msa_np, pair_np, mask_np, pair_mask_np):
-        trunk = self._trunk()
+    def _taped(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
-        ml, zl = trunk.leaf(m), trunk.leaf(z)
-        with trunk.taped.tape():
-            mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
-                                     self._pair_masks(trunk, pair_mask),
-                                     recompute=self.recompute)
-        trunk.sync()
+        with duotraj.card(slot, "evoformer._taped"):
+            trunk = self._trunk(slot)
+            ml, zl = trunk.leaf(m), trunk.leaf(z)
+            with trunk.taped.tape():
+                mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
+                                         self._pair_masks(trunk, pair_mask),
+                                         recompute=self.recompute)
+            trunk.sync()
         # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
         # of them through the forward rule, so the superseded tapes are dropped here. At several
         # GB an Evoformer block, keeping them is fatal within one trajectory.
-        self._live.clear()
-        trunk.ag.release_pins()
-        token, self._next = self._next, self._next + 1
-        self._live[token] = {"roots": (mo, zo), "leaves": (ml, zl),
-                             "shapes": (tuple(m.shape), tuple(z.shape)), "n": n}
-        self.calls["taped"] += 1
-        return (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
-                trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
+            self._tapes.sweep(slot)
+            trunk.ag.release_pins()
+            token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
+                                      "shapes": (tuple(m.shape), tuple(z.shape)), "n": n},
+                                     slot)
+            self.calls["taped"] += 1
+            return (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
+                    trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
-    def _backward(self, token, g_msa_np, g_pair_np):
-        entry = self._live.pop(int(token), None)
+    def _backward(self, slot, token, g_msa_np, g_pair_np):
+        entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live tape for token {int(token)}")
-        trunk = self.pool.current
         mo, zo = entry["roots"]
         ml, zl = entry["leaves"]
         m_shape, z_shape = entry["shapes"]
         n = entry["n"]
+        # Building the cotangent buffers is torch on the host; only the backward needs the card.
         gm, gz = torch.zeros(m_shape), torch.zeros(z_shape)
         gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
-        trunk.sync()
-        out = (trunk.grad(ml, m_shape)[:, :n].numpy(), trunk.grad(zl, z_shape)[:n, :n].numpy())
-        trunk.ag.release_pins()
+        with duotraj.card(slot, "evoformer._backward"):
+            trunk = self.pool.trunk_for(slot)
+            trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
+            trunk.sync()
+            out = (trunk.grad(ml, m_shape)[:, :n].numpy(),
+                   trunk.grad(zl, z_shape)[:n, :n].numpy())
+            trunk.ag.release_pins()
         self.calls["backward"] += 1
         return out
 
-    def live_tapes(self) -> int:
-        return len(self._live)
+    def live_tapes(self, slot: str = "") -> int:
+        return self._tapes.count(slot)
 
     # ------------------------------------------------------------------ the JAX face
 
-    def as_jax(self):
+    def as_jax(self, slot: str = ""):
         """`(msa, pair, msa_mask, pair_mask) -> (msa, pair)`, differentiable in the first two.
+
+        `slot` is the trajectory this PROGRAM belongs to, captured here and handed to every
+        callback as a constant. It cannot be read at the seam: the seam runs on one of
+        XLA:CPU's own pool threads (measured: 36 seams on 11 different `Dummy-N` threads), and
+        tracing is the last point on the trajectory's own thread.
 
         Both masks are arguments rather than captured host arrays: BindCraft 2 draws a new binder
         length per trajectory, so their shapes change under us. Neither is differentiable, so the
@@ -529,14 +634,15 @@ class EvoformerOnDevice:
 
         @jax.custom_vjp
         def stack(msa, pair, mask, pair_mask):
-            m, z = jax.pure_callback(self._primal, shapes(msa, pair),
+            m, z = jax.pure_callback(functools.partial(self._primal, slot), shapes(msa, pair),
                                      msa.astype(jnp.float32), pair.astype(jnp.float32),
                                      mask.astype(jnp.float32), pair_mask.astype(jnp.float32))
             return m.astype(msa.dtype), z.astype(pair.dtype)
 
         def fwd(msa, pair, mask, pair_mask):
             m, z, token = jax.pure_callback(
-                self._taped, shapes(msa, pair) + (jax.ShapeDtypeStruct((), jnp.int32),),
+                functools.partial(self._taped, slot),
+                shapes(msa, pair) + (jax.ShapeDtypeStruct((), jnp.int32),),
                 msa.astype(jnp.float32), pair.astype(jnp.float32), mask.astype(jnp.float32),
                 pair_mask.astype(jnp.float32))
             return (m.astype(msa.dtype), z.astype(pair.dtype)), (token, mask, pair_mask)
@@ -545,7 +651,7 @@ class EvoformerOnDevice:
             token, mask, pair_mask = res
             g_msa, g_pair = cotangents
             gm, gz = jax.pure_callback(
-                self._backward,
+                functools.partial(self._backward, slot),
                 (jax.ShapeDtypeStruct(g_msa.shape, jnp.float32),
                  jax.ShapeDtypeStruct(g_pair.shape, jnp.float32)),
                 token, g_msa.astype(jnp.float32), g_pair.astype(jnp.float32))
@@ -580,8 +686,7 @@ class ExtraMsaOnDevice:
         self.mask_seen = {"calls": 0, "abs_max": 0.0}
         self.swapped: list[int] = []
         self._pair_mask_dev: dict = {}
-        self._live: dict[int, dict] = {}
-        self._next = 0
+        self._tapes = _Tapes()
 
     # ------------------------------------------------------------------ inputs
 
@@ -612,10 +717,11 @@ class ExtraMsaOnDevice:
         as_t = lambda a: torch.from_numpy(np.asarray(a).copy()).float()  # noqa: E731
         return self._pad(as_t(pair_np), as_t(pair_mask_np))
 
-    def _trunk(self) -> _Trunk:
-        trunk = self.pool.current
+    def _trunk(self, slot: str) -> _Trunk:
+        trunk = self.pool.trunk_for(slot)
         if trunk.extra_blocks == 0:
-            raise ValueError(f"{self.pool._current!r} holds no extra-MSA blocks on card")
+            raise ValueError(f"{self.pool._selected.get(slot)!r} holds no extra-MSA blocks "
+                             f"on card")
         return trunk
 
     def _pair_masks(self, trunk, pair_mask):
@@ -630,53 +736,59 @@ class ExtraMsaOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _primal(self, pair_np, extra_mask_np, pair_mask_np):
-        trunk = self._trunk()
+    def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
-        zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask), recompute=False)
-        trunk.sync()
-        self.calls["primal"] += 1
-        return trunk.down(zo, tuple(z.shape))[:n, :n].numpy()
+        with duotraj.card(slot, "extra_msa._primal"):
+            trunk = self._trunk(slot)
+            zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask),
+                                 recompute=False)
+            trunk.sync()
+            self.calls["primal"] += 1
+            return trunk.down(zo, tuple(z.shape))[:n, :n].numpy()
 
-    def _taped(self, pair_np, extra_mask_np, pair_mask_np):
-        trunk = self._trunk()
+    def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
-        zl = trunk.leaf(z)
-        with trunk.taped.tape():
-            zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
-                                 recompute=self.recompute)
-        trunk.sync()
+        with duotraj.card(slot, "extra_msa._taped"):
+            trunk = self._trunk(slot)
+            zl = trunk.leaf(z)
+            with trunk.taped.tape():
+                zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
+                                     recompute=self.recompute)
+            trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
-        self._live.clear()
-        trunk.ag.release_pins()
-        token, self._next = self._next, self._next + 1
-        self._live[token] = {"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n}
-        self.calls["taped"] += 1
-        return trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token)
+            self._tapes.sweep(slot)
+            trunk.ag.release_pins()
+            token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n},
+                                     slot)
+            self.calls["taped"] += 1
+            return (trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
-    def _backward(self, token, g_pair_np):
-        entry = self._live.pop(int(token), None)
+    def _backward(self, slot, token, g_pair_np):
+        entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live extra-MSA tape for token {int(token)}")
-        trunk = self.pool.current
         shape, n = entry["shape"], entry["n"]
         gz = torch.zeros(shape)
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
-        trunk.sync()
-        out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
-        trunk.ag.release_pins()
+        with duotraj.card(slot, "extra_msa._backward"):
+            trunk = self.pool.trunk_for(slot)
+            trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
+            trunk.sync()
+            out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
+            trunk.ag.release_pins()
         self.calls["backward"] += 1
         return out
 
-    def live_tapes(self) -> int:
-        return len(self._live)
+    def live_tapes(self, slot: str = "") -> int:
+        return self._tapes.count(slot)
 
     # ------------------------------------------------------------------ the JAX face
 
-    def as_jax(self):
-        """`(pair, extra_msa_mask, pair_mask) -> pair`, differentiable in `pair` alone."""
+    def as_jax(self, slot: str = ""):
+        """`(pair, extra_msa_mask, pair_mask) -> pair`, differentiable in `pair` alone.
+
+        `slot` is baked in at TRACE time; see `EvoformerOnDevice.as_jax`."""
         import jax
         import jax.numpy as jnp
 
@@ -689,24 +801,271 @@ class ExtraMsaOnDevice:
 
         @jax.custom_vjp
         def stack(pair, extra_mask, pair_mask):
-            z = jax.pure_callback(self._primal, f32(pair), *args(pair, extra_mask, pair_mask))
+            z = jax.pure_callback(functools.partial(self._primal, slot), f32(pair),
+                                  *args(pair, extra_mask, pair_mask))
             return z.astype(pair.dtype)
 
         def fwd(pair, extra_mask, pair_mask):
             z, token = jax.pure_callback(
-                self._taped, (f32(pair), jax.ShapeDtypeStruct((), jnp.int32)),
+                functools.partial(self._taped, slot),
+                (f32(pair), jax.ShapeDtypeStruct((), jnp.int32)),
                 *args(pair, extra_mask, pair_mask))
             return z.astype(pair.dtype), (token, extra_mask, pair_mask)
 
         def bwd(res, g_pair):
             token, extra_mask, pair_mask = res
-            gz = jax.pure_callback(self._backward, f32(g_pair), token,
+            gz = jax.pure_callback(functools.partial(self._backward, slot), f32(g_pair), token,
                                    g_pair.astype(jnp.float32))
             return (gz.astype(g_pair.dtype), jnp.zeros_like(extra_mask),
                     jnp.zeros_like(pair_mask))
 
         stack.defvjp(fwd, bwd)
         return stack
+
+
+class TemplateOnDevice:
+    """BindCraft 2's multimer template pair stack, run on card, differentiable in `act` alone.
+
+    `EvoformerOnDevice` replaces the 48-block trunk and `ExtraMsaOnDevice` the 4-block
+    extra-MSA stack; this replaces the two c=64 blocks inside the template embedder. The cut is
+    the `template_stack((act, safe_subkey))` call in
+    `modules_multimer.SingleTemplateEmbedding.__call__`, between `construct_input` and
+    `output_layer_norm`: AlphaFold's own feature construction and output norm stay in JAX and
+    only the blocks move, which is where the seconds are (2.549 + 1.211 s of the 4.57 s
+    profiled, `state/perf10/bcx-HOSTMAP.md`).
+
+    Gradient flows back into `act` and nowhere else. The template features are the design's
+    target structure and are constant across a trajectory, and `pair_mask` is a mask.
+
+    Its tapes live in their own registry, for the reason `ExtraMsaOnDevice` gives: the stacks
+    run forward in sequence and backward in reverse, so a shared registry would have one
+    stack's stale-tape sweep drop another's live tape before its backward.
+    """
+
+    def __init__(self, pool: TrunkPool, *, recompute: bool = True):
+        self.pool = pool
+        self.recompute = recompute
+        self.calls = {"primal": 0, "taped": 0, "backward": 0}
+        #: What the JAX side handed over, so an inert swap cannot read as a working one.
+        self.seen = {"calls": 0, "n": None, "channels": None, "blocks_swapped": None}
+        self._pair_mask_dev: dict = {}
+        self._tapes = _Tapes()
+
+    # ------------------------------------------------------------------ inputs
+
+    @staticmethod
+    def _pad(act, pair_mask):
+        """`ExtraMsaOnDevice._pad`, at the template stack's own channel count."""
+        n = act.shape[0]
+        n32 = _pad32(n)
+        if n32 == n:
+            return act, pair_mask, n
+        pad = n32 - n
+        act = torch.nn.functional.pad(act, (0, 0, 0, pad, 0, pad))
+        pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
+        return act, pair_mask, n
+
+    def _inputs(self, act_np, pair_mask_np):
+        as_t = lambda a: torch.from_numpy(np.asarray(a).copy()).float()  # noqa: E731
+        act, pair_mask, n = self._pad(as_t(act_np), as_t(pair_mask_np))
+        self.seen["calls"] += 1
+        self.seen["n"], self.seen["channels"] = n, int(act.shape[-1])
+        return act, pair_mask, n
+
+    def _trunk(self, slot: str) -> _Trunk:
+        trunk = self.pool.trunk_for(slot)
+        if trunk.template_blocks == 0:
+            raise ValueError(
+                f"{self.pool._selected.get(slot)!r} holds no template blocks on card; this "
+                f"swap needs TrunkPool(template=True), which predictor(template=True) sets")
+        return trunk
+
+    def _pair_masks(self, trunk, pair_mask):
+        key = EvoformerOnDevice._key(pair_mask)
+        got = self._pair_mask_dev.get(key)
+        if got is None:
+            from tt_bio.af2 import af2_pair_masks
+            got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
+        return got
+
+    # ------------------------------------------------------------------ forward and backward
+
+    def _primal(self, slot, act_np, pair_mask_np):
+        act, pair_mask, n = self._inputs(act_np, pair_mask_np)
+        with duotraj.card(slot, "template._primal"):
+            trunk = self._trunk(slot)
+            out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
+                                       recompute=False)
+            trunk.sync()
+            self.calls["primal"] += 1
+            return trunk.down(out, tuple(act.shape))[:n, :n].numpy()
+
+    def _taped(self, slot, act_np, pair_mask_np):
+        act, pair_mask, n = self._inputs(act_np, pair_mask_np)
+        with duotraj.card(slot, "template._taped"):
+            trunk = self._trunk(slot)
+            leaf = trunk.leaf(act)
+            with trunk.taped.tape():
+                out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
+                                           recompute=self.recompute)
+            trunk.sync()
+        # Every recycle but the last is stop_gradient'ed and still goes through the forward
+        # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
+            self._tapes.sweep(slot)
+            trunk.ag.release_pins()
+            token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
+                                      "n": n}, slot)
+            self.calls["taped"] += 1
+            return (trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(),
+                    np.int32(token))
+
+    def _backward(self, slot, token, g_act_np):
+        entry = self._tapes.take(token)
+        if entry is None:
+            raise RuntimeError(f"no live template tape for token {int(token)}")
+        shape, n = entry["shape"], entry["n"]
+        g = torch.zeros(shape)
+        g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
+        with duotraj.card(slot, "template._backward"):
+            trunk = self.pool.trunk_for(slot)
+            trunk.ag.backward([entry["root"]], [trunk.seed(g, entry["root"])])
+            trunk.sync()
+            out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
+            trunk.ag.release_pins()
+        self.calls["backward"] += 1
+        return out
+
+    def live_tapes(self, slot: str = "") -> int:
+        return self._tapes.count(slot)
+
+    # ------------------------------------------------------------------ the JAX face
+
+    def as_jax(self, slot: str = ""):
+        """`(act, pair_mask) -> act`, differentiable in `act` alone.
+
+        `slot` is baked in at TRACE time; see `EvoformerOnDevice.as_jax`."""
+        import jax
+        import jax.numpy as jnp
+
+        def f32(act):
+            return jax.ShapeDtypeStruct(act.shape, jnp.float32)
+
+        def args(act, pair_mask):
+            return act.astype(jnp.float32), pair_mask.astype(jnp.float32)
+
+        @jax.custom_vjp
+        def stack(act, pair_mask):
+            out = jax.pure_callback(functools.partial(self._primal, slot), f32(act),
+                                    *args(act, pair_mask))
+            return out.astype(act.dtype)
+
+        def fwd(act, pair_mask):
+            out, token = jax.pure_callback(
+                functools.partial(self._taped, slot),
+                (f32(act), jax.ShapeDtypeStruct((), jnp.int32)),
+                *args(act, pair_mask))
+            return out.astype(act.dtype), (token, pair_mask)
+
+        def bwd(res, g_act):
+            token, pair_mask = res
+            g = jax.pure_callback(functools.partial(self._backward, slot), f32(g_act), token,
+                                  g_act.astype(jnp.float32))
+            return g.astype(g_act.dtype), jnp.zeros_like(pair_mask)
+
+        stack.defvjp(fwd, bwd)
+        return stack
+
+
+def _template_stack_mask(fn, depth: int = 0, seen=None):
+    """`padding_mask_2d` off `template_iteration_fn`'s closure, however deep haiku wrapped it.
+
+    `gc.use_remat` puts `hk.remat` around the function before `layer_stack` ever sees it, so at
+    the seam the only free variable is remat's own `dec_stateful_fun`. Recursing is what
+    `_free_variable` does for the extra-MSA masks, for the same reason.
+    """
+    if depth > 6 or not callable(fn):
+        return None
+    seen = seen if seen is not None else set()
+    if id(fn) in seen:
+        return None
+    seen.add(id(fn))
+    code = getattr(fn, "__code__", None)
+    if code is None:
+        return None
+    inner = []
+    for name, cell in zip(code.co_freevars, fn.__closure__ or ()):
+        try:
+            value = cell.cell_contents
+        except ValueError:                      # a cell still being filled
+            continue
+        if name == "padding_mask_2d":
+            return value
+        inner.append(value)
+    for value in inner:
+        got = _template_stack_mask(value, depth + 1, seen)
+        if got is not None:
+            return got
+    return None
+
+
+@contextlib.contextmanager
+def template_on_device(tmpl: "TemplateOnDevice | None"):
+    """Route the multimer template pair stack through `tmpl` for the duration.
+
+    The two blocks are `template_stack((act, safe_subkey))`, inline in
+    `modules_multimer.SingleTemplateEmbedding.__call__`. Unlike `extra_msa_stack_fn` there is no
+    closure to rewrite, so this swaps the module-global `layer_stack` for a shim and does it
+    only while the template embedder is tracing -- the Evoformer builds its own layer stack
+    through the same name and must keep AlphaFold's.
+    """
+    if tmpl is None:
+        yield None
+        return
+    from bindcraft.af.alphafold.model import modules_multimer
+
+    class _Shim:
+        def __init__(self, real):
+            self._real = real
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+        def layer_stack(self, num_block):
+            def build(fn):
+                # The jax face is built HERE, at trace time, rather than once for the whole
+                # block: this is the last point that runs on the trajectory's own thread, so
+                # it is where the slot can be read and baked into the callbacks.
+                device_stack = tmpl.as_jax(duotraj.slot())
+                mask = _template_stack_mask(fn)
+                if mask is None:
+                    raise ValueError(
+                        "padding_mask_2d is not reachable from the template stack's closure; "
+                        "the splice point in SingleTemplateEmbedding.__call__ moved")
+                tmpl.seen["blocks_swapped"] = int(num_block)
+
+                def run(carry):
+                    act, key = carry
+                    return device_stack(act, mask), key
+
+                return run
+
+            return build
+
+    original = modules_multimer.SingleTemplateEmbedding.__call__
+
+    def patched(self, *args, **kwargs):
+        saved = modules_multimer.layer_stack
+        modules_multimer.layer_stack = _Shim(saved)
+        try:
+            return original(self, *args, **kwargs)
+        finally:
+            modules_multimer.layer_stack = saved
+
+    modules_multimer.SingleTemplateEmbedding.__call__ = patched
+    try:
+        yield tmpl
+    finally:
+        modules_multimer.SingleTemplateEmbedding.__call__ = original
 
 
 def find_evoformer_masks(fn):
@@ -792,11 +1151,11 @@ def evoformer_on_device(evo: EvoformerOnDevice,
     from bindcraft.af.alphafold.model import modules
 
     real = modules.layer_stack.layer_stack
-    device_stack = evo.as_jax()
-    extra_stack = extra_msa.as_jax() if extra_msa is not None else None
     swapped: list[int] = []
 
     def choose_extra(fn, made, num_layers):
+        # Built at TRACE time so the slot is readable; see `EvoformerOnDevice.as_jax`.
+        extra_stack = extra_msa.as_jax(duotraj.slot())
         blocks = extra_msa.pool.current.extra_blocks
         if num_layers != blocks:
             raise ValueError(f"extra_msa_stack_fn has {num_layers} blocks, tt-bio holds "
@@ -824,7 +1183,7 @@ def evoformer_on_device(evo: EvoformerOnDevice,
 
         def choose(fn):
             name = getattr(fn, "__name__", None)
-            if extra_stack is not None and name in EXTRA_MSA_FN_NAMES:
+            if extra_msa is not None and name in EXTRA_MSA_FN_NAMES:
                 return choose_extra(fn, made, int(num_layers))
             if name != "evoformer_fn":
                 return made(fn)
@@ -836,6 +1195,7 @@ def evoformer_on_device(evo: EvoformerOnDevice,
                 raise ValueError(f"evoformer_fn has {num_layers} blocks, tt-bio holds "
                                  f"{evo.blocks}")
             swapped.append(int(num_layers))
+            device_stack = evo.as_jax(duotraj.slot())
             masks = find_evoformer_masks(fn)
             if masks is None:
                 raise RuntimeError(
@@ -1000,6 +1360,10 @@ def design_model_class():
                 return super().predict(protein_states, passed, *args, **kwargs)
 
         def sequence_gradients(self, protein_states, losses, model=None, *args, **kwargs):
+            # One gradient round of one trajectory, on that trajectory's own thread. It is the
+            # only point in the design loop that is both, which is what `run_campaign` starts
+            # the next interleaved trajectory on. A no-op unless trajectories are interleaved.
+            duotraj.round_entered()
             if self.trunk == "jax":
                 with self._route(None):
                     return super().sequence_gradients(protein_states, losses, model,
@@ -1014,7 +1378,8 @@ def design_model_class():
 
 
 def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice | None = None,
-             extra_msa: "ExtraMsaOnDevice | None" = None, exact: bool = True):
+             extra_msa: "ExtraMsaOnDevice | None" = None,
+             template: "TemplateOnDevice | None" = None, exact: bool = False):
     cls = design_model_class()
 
     def build(*args, **kwargs):
@@ -1026,10 +1391,60 @@ def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice
     #: The extra-MSA swap, or None when the stack stayed in BindCraft 2's JAX. Its `calls`,
     #: `swapped` and `mask_seen` counters are how a caller checks the on-card path ran.
     build.extra_msa = extra_msa
+    #: The template pair-stack swap, or None when it stayed in BindCraft 2's JAX. Its `calls`
+    #: and `seen` counters are how a caller checks the on-card path ran.
+    build.template = template
     #: Whether the tape this factory's models open runs softmax and layer norm exact. Inert on
     #: `trunk="jax"`, which opens no tt-bio tape at all.
     build.exact = exact
+    #: What `fast_round` armed for this factory's models, or None.
+    build.fast = None
     return build
+
+
+#: The gradient levers the device round is measured with (`state/perf10/bcx-p10-devtop.md`),
+#: as `(module, object, attribute, env var, value)`. Every one defaults off in tt-bio, so the
+#: other models that open a tape run without them; `fast_round` turns them on for the duration
+#: of a BindCraft 2 predictor only. A named env var still wins, so an A/B can take one lever out.
+#: The rows without one are defaults their module reads live against its own env var already.
+_FAST_ROUND = (
+    ("mm_layout", None, "MM_LAYOUT", "TT_BIO_MM_LAYOUT", True),
+    ("reblock_permute", None, "TAPED_MOVE", "TT_BIO_TAPED_CHANNEL_MOVE", True),
+    ("rne_add", None, "WIDEN_ADD", "TT_BIO_WIDEN_ADD", True),
+    ("taped_ttnn", None, "QKV_GRAD_JOIN", "TT_BIO_QKV_GRAD_JOIN", True),
+    ("triatt_bw", None, "FUSED", "TT_BIO_TRIATT_BW_FUSED", True),
+    ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
+    ("af2", "AF2PairBlock", "rne_kernel", None, True),
+    ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None, "tri_att_sdpa_hifi,rne_add"),
+    # OpenFold3 training turned the fp32 softmax backward on by default; the round above was
+    # measured and graded (1.051x of the bf16 control) with it off, so it stays off here.
+    ("autograd", None, "SOFTMAX_BW_FP32", "TT_BIO_SOFTMAX_BW_FP32", False),
+)
+
+
+@contextlib.contextmanager
+def fast_round():
+    """Arm `_FAST_ROUND` for the duration and put every value back on exit.
+
+    Process-wide, not per thread: interleaved trajectories run on their own threads inside it
+    and must all see the same program. Yields `{attribute: value}` as armed, for a stamp.
+    """
+    import importlib
+
+    from tt_bio.envflags import env_flag
+
+    saved = []
+    try:
+        for module, owner, attr, env, value in _FAST_ROUND:
+            target = importlib.import_module(f"tt_bio.{module}")
+            if owner:
+                target = getattr(target, owner)
+            saved.append((target, attr, getattr(target, attr)))
+            setattr(target, attr, env_flag(env, value) if env else value)
+        yield {attr: getattr(t, attr) for t, attr, _ in saved}
+    finally:
+        for target, attr, old in reversed(saved):
+            setattr(target, attr, old)
 
 
 @contextlib.contextmanager
@@ -1037,7 +1452,9 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               resident: int | None = None, blocks: int = EVOFORMER_BLOCKS,
               recompute: bool = True,
               extra_msa: bool = False,
-              exact: bool = True) -> Iterator[Callable[..., object]]:
+              template: bool = False,
+              exact: bool = False,
+              fast: bool | None = None) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -1057,17 +1474,30 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     independent of the Evoformer swap, so a comparison graded on the Evoformer alone keeps the
     program it was graded on. Read `build.extra_msa.calls` to check the on-card path ran.
 
-    `exact` runs softmax and layer norm on the host in float64 inside the tape, which is
-    tt-bio's default for a gradient and what reproduces AlphaFold 2's own gradient most closely.
-    It is expensive: one `sequence_gradients` call on a PD-L1 draw at n=192 takes 479.59 s with
-    it on against 19.285 s with it off, 24.87x (`perf/bcx_exact/ROUND_AB.json`). That is the
-    gradient call, not the whole design round, which also carries BindCraft 2's own JAX work.
-    `exact=False` runs both ops on the device, as inference does. It moves the worst gradient
-    tensor's distance from a float64 reference by 1.1 %, from 0.087998 to 0.088985, where
-    bfloat16 alone already carries 0.075483 of it (`perf/bcx_exact/grade/VJP_TRIARM_n192.json`),
-    and a PD-L1 design campaign on that setting still accepts binders
-    (`perf/bcx_exact/ACCEPT_GRADE.json`). It stays on by default because it is the more accurate
-    of the two. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one ran.
+    `template` additionally runs the multimer template embedder's two c=64 pair blocks on
+    card. Off by default and independent of the other two swaps. It brings two more blocks of
+    weights per checkpoint onto the card, so it is not free of allocator pressure; read
+    `build.template.calls` to check the on-card path ran. Monomer checkpoints are untouched:
+    the swap is installed on `modules_multimer` only.
+
+    `exact` runs softmax and layer norm on the host in float64 inside the tape, which
+    reproduces AlphaFold 2's own gradient most closely. It is off by default because it is a
+    diagnostic and it is expensive: one `sequence_gradients` call on a PD-L1 draw at n=192 takes
+    479.59 s with it on against 19.285 s with it off, 24.87x (`perf/bcx_exact/ROUND_AB.json`).
+    That is the gradient call, not the whole design round, which also carries BindCraft 2's own
+    JAX work. What it buys is 1.1 % on the worst gradient tensor: at n=192 the MSA cotangent out
+    of Evoformer block 1 sits 0.087998 from a float64 reference with it on and 0.088985 with it
+    off, where bfloat16 alone already carries 0.075483 of that
+    (`perf/bcx_exact/grade/VJP_on_n192.json` and `VJP_off_n192.json`). A PD-L1 campaign on the
+    off setting accepts binders (`perf/bcx_exact/ACCEPT_GRADE.json`), which is the bar a design
+    loop is graded on. Set `exact=True` to reproduce a training-style gradient bar, which
+    BindCraft 2 does not have. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one
+    ran.
+
+    `fast` arms the gradient levers the device round is measured with (`fast_round`) for the
+    duration, and defaults to `not exact`: they change which kernels compute the round, not
+    the work it does, and the exact tape is the arm they are graded against. `build.fast`
+    holds what was armed.
 
     `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
     this same class, which is the control arm every device result should be read against.
@@ -1086,14 +1516,24 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     from tt_bio import autograd
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
-        checkpoints, resident=resident)
+        checkpoints, resident=resident, template=template)
+    if template and not pool.template:
+        raise ValueError("predictor(template=True) needs a TrunkPool built with template=True; "
+                         "the trunks it already loaded hold no template blocks on card")
     evo = EvoformerOnDevice(pool, blocks=blocks, recompute=recompute)
     extra = ExtraMsaOnDevice(pool, recompute=recompute) if extra_msa else None
+    tmpl = TemplateOnDevice(pool, recompute=recompute) if template else None
     # `_EXACT_TRAINING` is a process-wide stack, not thread-local, so this covers every tape
     # opened for the duration -- both `_taped` calls and the backward's recompute -- without
     # either swap having to know about it.
-    with autograd.exact_training(exact), evoformer_on_device(evo, extra):
-        yield _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra, exact=exact)
+    fast = not exact if fast is None else fast
+    with autograd.exact_training(exact), evoformer_on_device(evo, extra), \
+            template_on_device(tmpl), \
+            (fast_round() if fast else contextlib.nullcontext()) as armed:
+        build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
+                         template=tmpl, exact=exact)
+        build.fast = armed
+        yield build
 
 
 @contextlib.contextmanager
@@ -1130,15 +1570,25 @@ def campaign_predictor(*, validation: str = "jax",
         from bindcraft import campaign
         control = None
         built = []
+        # "The first build is the design model" is per TRAJECTORY, not per process: interleaved
+        # trajectories each build their own design model on their own thread, and counting them
+        # together would hand the second trajectory the host control arm as its design model.
+        # A single-trajectory process has one slot and counts exactly as it did before.
+        design_models = {}
+        building = threading.Lock()
 
         def build_for_campaign(*args, **kw):
             nonlocal control
-            if built and validation == "jax" and build.trunk == "device":
-                if control is None:
-                    control = _factory(trunk="jax", pool=None)
-                made = control(*args, **kw)
-            else:
-                made = build(*args, **kw)
+            with building:
+                slot = duotraj.slot()
+                nth = design_models[slot] = design_models.get(slot, 0) + 1
+                if nth > 1 and validation == "jax" and build.trunk == "device":
+                    if control is None:
+                        control = _factory(trunk="jax", pool=None)
+                    factory = control
+                else:
+                    factory = build
+            made = factory(*args, **kw)
             built.append(made)
             return made
 
@@ -1146,7 +1596,9 @@ def campaign_predictor(*, validation: str = "jax",
         build_for_campaign.pool = build.pool
         build_for_campaign.evoformer = build.evoformer
         build_for_campaign.extra_msa = build.extra_msa
+        build_for_campaign.template = build.template
         build_for_campaign.exact = build.exact
+        build_for_campaign.fast = build.fast
         build_for_campaign.validation = validation
         build_for_campaign.built = built
 
@@ -1156,3 +1608,134 @@ def campaign_predictor(*, validation: str = "jax",
             yield build_for_campaign
         finally:
             campaign.AlphaFoldDesignModel = real
+
+
+@contextlib.contextmanager
+def _one_campaign_not_n(campaign, trajectories: int):
+    """Hold the two campaign-wide things N trajectories in one process would each do.
+
+    `write_campaign_summary` reads the whole project and rewrites `summary.csv` through one
+    fixed `summary.csv.partial`, and it takes no lock. N interleaved trajectories share a stop
+    condition, so they reach it within milliseconds of each other and two of them writing that
+    one partial file at once produce a summary that is neither. N worker PROCESSES have the same
+    race and it is upstream's to fix; a process-wide lock is what this module can do about its
+    own threads.
+
+    `print_campaign_header` folds the first design trajectory to report the target it is about
+    to run. It is the same campaign N times over, so it is printed once.
+
+    The closing lines (`campaign stopped: ...`, `campaign done: ...`) are printed inline by
+    `run_campaign` itself, gated on `design_worker_index() is None`, which is how BindCraft 2
+    keeps N worker PROCESSES from each announcing the end. N threads share one environment, so
+    all N pass that gate: the campaign was announced over twice while a trajectory was still
+    printing stage lines. Those two call sites are the only readers of that name in
+    `campaign.py`, so holding it back until the last arm arrives puts the footer last and once.
+    """
+    summary, header = campaign.write_campaign_summary, campaign.print_campaign_header
+    worker_index = campaign.design_worker_index
+    writing = threading.Lock()
+    closing = threading.Lock()
+    printed = []
+    arrived = set()
+
+    @functools.wraps(summary)
+    def write_campaign_summary(*args, **kwargs):
+        with writing:
+            return summary(*args, **kwargs)
+
+    @functools.wraps(header)
+    def print_campaign_header(*args, **kwargs):
+        with writing:
+            if printed:
+                return None
+            printed.append(True)
+        return header(*args, **kwargs)
+
+    @functools.wraps(worker_index)
+    def design_worker_index():
+        if worker_index() is not None:
+            return worker_index()  # A real worker process: upstream's gate already holds.
+        with closing:
+            arrived.add(threading.get_ident())
+            return None if len(arrived) >= trajectories else 0
+
+    campaign.write_campaign_summary = write_campaign_summary
+    campaign.print_campaign_header = print_campaign_header
+    campaign.design_worker_index = design_worker_index
+    try:
+        yield
+    finally:
+        campaign.write_campaign_summary = summary
+        campaign.print_campaign_header = header
+        campaign.design_worker_index = worker_index
+
+
+def run_campaign(settings: Mapping, project_folder: str, *, trajectories_per_card: int = 1,
+                 stagger_timeout: float = 1800.0, **run_campaign_kwargs) -> int:
+    """BindCraft 2's campaign loop, optionally with several trajectories sharing one card.
+
+    Call it where you would call `campaign.run_campaign`, inside `campaign_predictor`::
+
+        with bindcraft2.campaign_predictor(card=0, exact=False):
+            bindcraft2.run_campaign(settings, project, af2_weights=params,
+                                    mpnn_weights=mpnn, trajectories_per_card=3)
+
+    `trajectories_per_card=1` is BindCraft 2's own call, unchanged: no threads, no gate, nothing
+    in tt-bio behaves differently. Above 1 it runs that many design trajectories on their own
+    threads over one chip, each taking its own trajectory number out of the project's file-locked
+    progress exactly as separate worker processes would.
+
+    It is worth doing because a design round is a host column and a device column laid end to
+    end, and one trajectory cannot overlap them: measured on a 288-token PD-L1 round, the card
+    idles 2.6 s of every round with a host thread busy in all of it. Independent trajectories are
+    the only work there is to fill it with. On one Blackhole chip the round goes from 9.06 s
+    serial to 7.23 s at two trajectories and 6.76 s at three, amortised over the trajectories
+    running (`state/perf10/bcx-p10-tritraj.md`).
+
+    It costs host memory: about 3.5 GB per additional trajectory, on top of the ~8 GB one
+    trajectory of this size holds. `duotraj.refuse_if_it_will_not_fit` reads both the box and the
+    card before any thread starts and raises `MemoryError` naming what it wanted and what was
+    free, because a campaign OOM-killed at round 200 is worse than a slower one.
+
+    Trajectory i starts only once i-1 has its first gradient round behind it, so no two
+    trajectories trace and compile at the same time; `stagger_timeout` bounds that wait.
+
+    Returns the campaign's trajectory count. A trajectory that raises re-raises here once the
+    others have finished, rather than leaving them orphaned on the card.
+    """
+    from bindcraft import campaign
+
+    trajectories = int(trajectories_per_card)
+    if trajectories < 1:
+        raise ValueError("trajectories_per_card must be at least 1, not "
+                         f"{trajectories_per_card!r}")
+    if trajectories == 1:
+        return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)
+
+    names = [f"t{i + 1}" for i in range(trajectories)]
+
+    def one(i: int):
+        waits_for = names[i - 1] if i else None
+
+        def go():
+            if waits_for is not None:
+                cleared = duotraj.compile_round_cleared(waits_for)
+                if not cleared.wait(stagger_timeout):
+                    raise TimeoutError(
+                        f"{names[i]}: {waits_for} did not clear its first gradient round in "
+                        f"{stagger_timeout:.0f}s, so nothing was interleaved")
+            try:
+                return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)
+            finally:
+                # A trajectory that stops before its second round sets no event of its own, and
+                # the next one would wait out the whole timeout for one that will never come.
+                duotraj.compile_round_cleared(names[i]).set()
+        return go
+
+    with duotraj.interleave(trajectories=trajectories), \
+            _one_campaign_not_n(campaign, trajectories):
+        counted = duotraj.run([one(i) for i in range(trajectories)], names=names)
+    # Each arm returns the trajectory count it read out of the shared campaign progress as it
+    # left, so the last one out carries the whole campaign's. Summing would count that one file
+    # N times.
+    return max((n for n in counted if isinstance(n, int)), default=0)

@@ -110,7 +110,7 @@ A token count alone does not decide it, though. The outer product mean builds an
 `N x (C*D) x N` product and then permutes it, and a permute is out-of-place, so two of that
 tensor are live at once. Between about 887 and 1088 tokens that pair is 3-4 GiB on a 12 GiB
 part whose address space the trunk has already churned, and the allocator can refuse it with
-half of DRAM free because no single hole is big enough — 992 residues on OpenDDE was refused by
+half of DRAM free because no single hole is big enough: 992 residues on OpenDDE was refused by
 704 bytes per bank. So the same block size that bounds the blocked path also bounds the whole
 one, and that band takes row blocks whatever the token threshold says. Anything below it keeps
 the byte-identical unblocked path, and on a 32 GiB Blackhole part the bound is above every size

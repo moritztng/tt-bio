@@ -1,0 +1,77 @@
+{
+  "verdict": "NO-GO",
+  "start_checkpoint_mean_loss": 6.8024402513580124,
+  "arm_a_mean_loss": 9.629875499825921,
+  "arm_b_mean_loss": 6.8107746381747205,
+  "gap": 2.8191008616512008,
+  "replicate_floor": 0.0005628516043341136,
+  "tolerance": 0.0005628516043341136,
+  "movement": 2.827435248467909,
+  "movement_control_cleared": true,
+  "movement_over_floor": 5023.411547015008,
+  "gap_over_floor": 5008.60411508707,
+  "gap_over_movement": 0.9970523155848665,
+  "steps": [
+    "--corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/train12",
+    "--checkpoint",
+    "/home/ttuser/of3-weights/of3-p2-155k.pt",
+    "--exact",
+    "on",
+    "--steps",
+    "2",
+    "--out-dir",
+    "/home/ttuser/of3t_p10trainout/runs/B2trunk",
+    "--curve",
+    "/home/ttuser/of3t_p10trainout/runs/B2trunk.jsonl",
+    "--out",
+    "/home/ttuser/.coworker/wt/of3t-p10trainout/perf/of3t_p10trainout/out/arm_B2trunk.json",
+    "--checkpoint-every",
+    "9",
+    "--displacement-band",
+    "0.01,100",
+    "--exact-scope",
+    "trunk",
+    "--eval-corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/val",
+    "--seed",
+    "0"
+  ],
+  "arm_a": {
+    "file": "perf/of3t_p10trainout/out/arm_A2s0c.json",
+    "exact_ops": [],
+    "exact_scope": "all",
+    "aiclk": "1350 MHz median sampled DURING, n=48 (min 800, max 1350)",
+    "per_target": {
+      "7kud": 9.24219345264237,
+      "7ohe": 18.92030941086507,
+      "7fb8": 4.71416235019527,
+      "7vus": 5.642836785600977
+    }
+  },
+  "arm_b": {
+    "file": "perf/of3t_p10trainout/out/arm_B2trunk.json",
+    "exact_ops": [
+      "softmax",
+      "layer_norm"
+    ],
+    "exact_scope": "trunk",
+    "aiclk": "1350 MHz median sampled DURING, n=1232 (min 800, max 1350)",
+    "per_target": {
+      "7kud": 9.220224819303205,
+      "7ohe": 10.829830603145222,
+      "7fb8": 4.713988935857652,
+      "7vus": 2.4790541943928024
+    }
+  },
+  "commit": "7f11e8e47",
+  "slot_fix_is_ancestor": true,
+  "seed_floor": 2.826260326588014,
+  "seed_floor_note": "reported, NOT the tolerance: the seed sets the batch order, which the A/B design holds fixed",
+  "per_target_gap": {
+    "7kud": 0.021968633339165322,
+    "7ohe": 8.090478807719848,
+    "7fb8": 0.00017341433761774994,
+    "7vus": 3.1637825912081747
+  }
+}

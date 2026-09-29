@@ -38,6 +38,7 @@ No wall clock from this script is a measurement and none is reported.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import socket
@@ -186,13 +187,9 @@ def main() -> int:
     ap.add_argument("--cycles", type=int, default=4)
     ap.add_argument("--samples", type=int, default=4)
     ap.add_argument("--stage", default="initial_training")
-    ap.add_argument("--no-exact", action="store_true",
-                    help="run the step inside `autograd.exact_training(False)`, which is the "
-                         "configuration the 466.70 s reference step was measured at: `502ed112e` "
-                         "put exact float64 HOST softmax and LayerNorm on by default on the "
-                         "training tape two days after that run, so main's taped step and the "
-                         "step this sprint ranks against are different objects. This arm counts "
-                         "the reference one")
+    ap.add_argument("--exact", action=argparse.BooleanOptionalAction, default=None,
+                    help="count the step inside `autograd.exact_training(ON|OFF)`; omitted, "
+                         "the library default (instrument off)")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -205,7 +202,7 @@ def main() -> int:
         "loadavg_start": os.getloadavg()},
         "config": {"crop": a.tokens, "cycles_pinned": a.cycles,
                    "diffusion_samples": a.samples, "stage": a.stage, "reps": 1,
-                   "exact_training": not a.no_exact,
+                   "exact_training": "default" if a.exact is None else a.exact,
                    "axis": "real ttnn verb calls, one level below the tape proxy"}}
     a.out.parent.mkdir(parents=True, exist_ok=True)
     counts_path = a.out.with_suffix(".counts.json")
@@ -244,7 +241,8 @@ def main() -> int:
             COUNTS.clear()
             # The arm switch. `exact_training` is a stack, not a flag, so this covers the tape,
             # the backward and any recompute inside it -- which is the whole of the difference.
-            exact_ctx = ag.exact_training(not a.no_exact)
+            exact_ctx = (ag.exact_training(a.exact) if a.exact is not None
+                         else contextlib.nullcontext())
             exact_ctx.__enter__()
             out["exact"] = {"ops_a_tape_would_install": list(ag.exact_training_ops()),
                             "softmax_before": dict(ag.EXACT_SOFTMAX_STATS),

@@ -14,6 +14,7 @@ worker in another container or mount namespace too."""
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import sqlite3
 import threading
@@ -36,6 +37,22 @@ from typing import Any
 LEASE_S = 120.0
 #: Renewals per lease: ten seconds between heartbeats at the default lease.
 HEARTBEAT_PER_LEASE = 12
+#: How recently an idle worker must have polled to be left a job it has the weights for. An
+#: idle worker polls every second, so five seconds is a live one that missed a poll or two.
+IDLE_WARM_S = 5.0
+
+
+def run_config_hash(cfg: dict[str, Any]) -> str:
+    """The part of a run's config that decides which weights a worker loads, hashed.
+
+    A worker reloads exactly when this changes, and reports the one it holds as ``warm``, so
+    the lease compares like with like. The model name alone was not that: Boltz-2's config
+    carries no ``model`` key, so every Boltz-2 run was stored as model None and a worker with
+    Boltz-2 resident never matched its own model's work, and ``--fast`` reloads under the
+    same name."""
+    keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method",
+                                    "checkpoint")}
+    return hashlib.sha256(json.dumps(keep, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
@@ -133,6 +150,7 @@ class ControllerStore:
                     device_id TEXT NOT NULL,
                     label TEXT NOT NULL,
                     model TEXT,
+                    warm TEXT,
                     last_seen REAL NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS events (
@@ -148,7 +166,8 @@ class ControllerStore:
             for stmt in ("ALTER TABLE jobs ADD COLUMN stage TEXT",
                          "ALTER TABLE runs ADD COLUMN owner TEXT",
                          "ALTER TABLE runs ADD COLUMN model TEXT",
-                         "ALTER TABLE workers ADD COLUMN model TEXT"):
+                         "ALTER TABLE workers ADD COLUMN model TEXT",
+                         "ALTER TABLE workers ADD COLUMN warm TEXT"):
                 try:
                     conn.execute(stmt)
                 except sqlite3.OperationalError:
@@ -212,7 +231,7 @@ class ControllerStore:
         keep renewing a lease on work nobody is doing."""
         worker = payload["worker"]
         worker_id = worker["worker_id"]
-        warm_model = worker.get("model")  # model this worker already has resident
+        warm = worker.get("warm")  # run_config_hash of the weights this worker has resident
         batch_size = max(1, int(payload.get("batch_size") or 1))
         now = time.time()
         lease_until = now + self.lease_s
@@ -243,6 +262,25 @@ class ControllerStore:
                 """,
                 (now,),
             ).fetchall()
+            hashes: dict[str, str] = {}
+
+            def cold(row):
+                if row["run_id"] not in hashes:
+                    hashes[row["run_id"]] = run_config_hash(json.loads(row["config_json"]))
+                return hashes[row["run_id"]] != warm
+
+            # Leave a job to an idle worker that already holds its weights. Ranking jobs for
+            # the asking worker alone never did that: on a quiet fleet the first of 31 idle
+            # chips to poll took every job, whatever it had loaded, and production reloaded
+            # esmfold2-fast on 31 of 35 folds, 125 s of load for an 11 s fold. The warm
+            # worker polls within a second, and one that is busy or silent is not counted,
+            # so no job waits on a chip that cannot take it now.
+            idle_warm = {r["warm"] for r in conn.execute(
+                "SELECT w.warm FROM workers w WHERE w.warm IS NOT NULL AND w.worker_id != ? "
+                "AND w.last_seen >= ? AND NOT EXISTS (SELECT 1 FROM jobs j WHERE "
+                "j.worker_id = w.worker_id AND j.status = 'running' AND j.lease_until >= ?)",
+                (worker_id, now - IDLE_WARM_S, now))}
+            rows = [r for r in rows if not (cold(r) and hashes[r["run_id"]] in idle_warm)]
             if not rows:
                 return {"jobs": [], "lease_s": self.lease_s}
             # Pick by, in order: (1) fairness — the owner using the fewest devices
@@ -250,12 +288,10 @@ class ControllerStore:
             # prefer a job whose model this worker already has loaded, so it
             # doesn't reload; (3) oldest. So one user alone fills the cluster, many
             # users get a fair share, and each device tends to stay on one model
-            # (reloading only when its model has no waiting work). Work-conserving
-            # throughout — a device never idles while any job waits.
+            # (reloading only when its model has no waiting work). A device idles
+            # while a job waits only for the second an idle warm one takes to poll.
             def rank(row):
-                return (load.get(row["owner"], 0),
-                        0 if row["model"] == warm_model else 1,
-                        row["updated_at"], row["job_id"])
+                return (load.get(row["owner"], 0), cold(row), row["updated_at"], row["job_id"])
             chosen = min(rows, key=rank)
             run_id = chosen["run_id"]
             config_json = chosen["config_json"]
@@ -282,15 +318,16 @@ class ControllerStore:
         """Register/refresh a worker's heartbeat (last_seen) and resident model."""
         conn.execute(
             """
-            INSERT INTO workers (worker_id, host, accelerator, device_id, label, model, last_seen)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO workers (worker_id, host, accelerator, device_id, label, model, warm, last_seen)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(worker_id) DO UPDATE SET
                 host=excluded.host, accelerator=excluded.accelerator,
                 device_id=excluded.device_id, label=excluded.label,
-                model=excluded.model, last_seen=excluded.last_seen
+                model=excluded.model, warm=excluded.warm, last_seen=excluded.last_seen
             """,
             (worker["worker_id"], worker["host"], worker["accelerator"],
-             str(worker["device_id"]), worker["label"], worker.get("model"), now),
+             str(worker["device_id"]), worker["label"], worker.get("model"),
+             worker.get("warm"), now),
         )
 
     def heartbeat(self, payload: dict[str, Any]) -> dict[str, Any]:

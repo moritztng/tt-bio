@@ -1,0 +1,342 @@
+{
+ "arms": [
+  {
+   "arm": "e1",
+   "interleave": false,
+   "commit": "54affe7ee",
+   "card": "3",
+   "warm": {
+    "A": 3,
+    "B": 3
+   },
+   "host_hwm_gb": 13.18,
+   "gate": {
+    "waited_s": {
+     "A": 0.0,
+     "B": 0.0
+    },
+    "held_s": {
+     "A": 28.95,
+     "B": 25.363
+    },
+    "seams": {
+     "A": 36,
+     "B": 36
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 5,
+     "A@Dummy-4": 3,
+     "A@Dummy-5": 6,
+     "A@Dummy-6": 6,
+     "A@Dummy-7": 1,
+     "A@Dummy-8": 3,
+     "A@Dummy-9": 3,
+     "A@Dummy-10": 2,
+     "A@Dummy-11": 1,
+     "A@Dummy-12": 1,
+     "A@Dummy-13": 2,
+     "A@Dummy-14": 1,
+     "A@Dummy-15": 1,
+     "A@Dummy-16": 1,
+     "B@Dummy-8": 4,
+     "B@Dummy-7": 1,
+     "B@Dummy-6": 4,
+     "B@Dummy-13": 6,
+     "B@Dummy-17": 5,
+     "B@Dummy-5": 2,
+     "B@Dummy-18": 1,
+     "B@Dummy-4": 2,
+     "B@Dummy-12": 1,
+     "B@Dummy-11": 6,
+     "B@Dummy-9": 2,
+     "B@Dummy-3": 1,
+     "B@Dummy-15": 1
+    }
+   },
+   "stopped": [
+    "A: 4 rounds collected on 'A'",
+    "B: 4 rounds collected on 'B'"
+   ],
+   "held_per_round_all": 6.789,
+   "waited_s": {
+    "A": 0.0,
+    "B": 0.0
+   },
+   "round_s": 9.289389848709106,
+   "device_s": 6.855852007865906,
+   "n": 6,
+   "wall_min": 8.945408582687378,
+   "wall_max": 11.410200119018555,
+   "clock": {
+    "n": 56,
+    "aiclk_med": 1350,
+    "aiclk_min": 1312,
+    "load1": 13.12
+   }
+  },
+  {
+   "arm": "e2",
+   "interleave": true,
+   "commit": "f346597c8",
+   "card": "3",
+   "warm": {
+    "A": 3,
+    "B": 3
+   },
+   "host_hwm_gb": 15.41,
+   "gate": {
+    "waited_s": {
+     "A": 13.236,
+     "B": 15.709
+    },
+    "held_s": {
+     "A": 29.14,
+     "B": 26.553
+    },
+    "seams": {
+     "A": 36,
+     "B": 36
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 5,
+     "A@Dummy-4": 2,
+     "A@Dummy-5": 2,
+     "A@Dummy-6": 7,
+     "B@Dummy-4": 2,
+     "B@Dummy-7": 2,
+     "B@Dummy-8": 3,
+     "B@Dummy-9": 2,
+     "B@Dummy-10": 6,
+     "B@Dummy-11": 4,
+     "B@Dummy-5": 2,
+     "A@Dummy-7": 3,
+     "B@Dummy-12": 1,
+     "A@Dummy-13": 1,
+     "A@Dummy-14": 2,
+     "B@Dummy-14": 1,
+     "B@Dummy-13": 3,
+     "B@Dummy-15": 2,
+     "A@Dummy-10": 4,
+     "A@Dummy-11": 1,
+     "B@Dummy-3": 3,
+     "A@Dummy-16": 1,
+     "A@Dummy-9": 2,
+     "B@Dummy-16": 3,
+     "A@Dummy-17": 4,
+     "B@Dummy-6": 1,
+     "A@Dummy-12": 2,
+     "B@Dummy-18": 1
+    }
+   },
+   "stopped": [
+    "B: 4 rounds collected on 'B'",
+    "A: 4 rounds collected on 'A'"
+   ],
+   "held_per_round_all": 6.962,
+   "waited_s": {
+    "A": 13.236,
+    "B": 15.709
+   },
+   "round_s": 7.653418579137092,
+   "seam_span_s": 12.374738050361694,
+   "n": 5.99,
+   "window_s": 45.84,
+   "clock": {
+    "n": 44,
+    "aiclk_med": 1350,
+    "aiclk_min": 1318,
+    "load1": 14.25
+   },
+   "device_s": null
+  },
+  {
+   "arm": "e3",
+   "interleave": true,
+   "commit": "f346597c8",
+   "card": "3",
+   "warm": {
+    "A": 3,
+    "B": 3
+   },
+   "host_hwm_gb": 15.0,
+   "gate": {
+    "waited_s": {
+     "A": 12.649,
+     "B": 15.059
+    },
+    "held_s": {
+     "A": 28.884,
+     "B": 26.128
+    },
+    "seams": {
+     "A": 36,
+     "B": 36
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 3,
+     "A@Dummy-4": 8,
+     "A@Dummy-5": 4,
+     "A@Dummy-6": 2,
+     "A@Dummy-7": 3,
+     "A@Dummy-8": 3,
+     "B@Dummy-9": 3,
+     "B@Dummy-10": 1,
+     "B@Dummy-8": 3,
+     "B@Dummy-11": 4,
+     "B@Dummy-12": 5,
+     "B@Dummy-7": 1,
+     "B@Dummy-13": 5,
+     "A@Dummy-14": 3,
+     "B@Dummy-4": 1,
+     "A@Dummy-15": 1,
+     "A@Dummy-9": 2,
+     "A@Dummy-10": 1,
+     "B@Dummy-6": 2,
+     "A@Dummy-12": 1,
+     "B@Dummy-15": 1,
+     "B@Dummy-5": 3,
+     "B@Dummy-16": 1,
+     "A@Dummy-17": 4,
+     "B@Dummy-17": 2,
+     "B@Dummy-14": 2,
+     "B@Dummy-18": 2,
+     "A@Dummy-13": 1
+    }
+   },
+   "stopped": [
+    "B: 4 rounds collected on 'B'",
+    "A: 4 rounds collected on 'A'"
+   ],
+   "held_per_round_all": 6.877,
+   "waited_s": {
+    "A": 12.649,
+    "B": 15.059
+   },
+   "round_s": 7.598152330468528,
+   "seam_span_s": 12.119319264883288,
+   "n": 5.99,
+   "window_s": 45.53,
+   "clock": {
+    "n": 44,
+    "aiclk_med": 1350,
+    "aiclk_min": 1306,
+    "load1": 15.29
+   },
+   "device_s": null
+  },
+  {
+   "arm": "e4",
+   "interleave": false,
+   "commit": "f346597c8",
+   "card": "3",
+   "warm": {
+    "A": 3,
+    "B": 3
+   },
+   "host_hwm_gb": 13.05,
+   "gate": {
+    "waited_s": {
+     "A": 0.0,
+     "B": 0.0
+    },
+    "held_s": {
+     "A": 28.592,
+     "B": 26.087
+    },
+    "seams": {
+     "A": 36,
+     "B": 36
+    },
+    "slot_at_seam": {
+     "A@Dummy-3": 3,
+     "A@Dummy-4": 3,
+     "A@Dummy-5": 5,
+     "A@Dummy-6": 2,
+     "A@Dummy-7": 1,
+     "A@Dummy-8": 3,
+     "A@Dummy-9": 1,
+     "A@Dummy-10": 5,
+     "A@Dummy-11": 3,
+     "A@Dummy-12": 2,
+     "A@Dummy-13": 1,
+     "A@Dummy-14": 2,
+     "A@Dummy-15": 2,
+     "A@Dummy-16": 2,
+     "A@Dummy-17": 1,
+     "B@Dummy-12": 4,
+     "B@Dummy-11": 3,
+     "B@Dummy-14": 5,
+     "B@Dummy-13": 3,
+     "B@Dummy-8": 2,
+     "B@Dummy-4": 2,
+     "B@Dummy-5": 6,
+     "B@Dummy-9": 1,
+     "B@Dummy-16": 1,
+     "B@Dummy-7": 2,
+     "B@Dummy-3": 3,
+     "B@Dummy-18": 2,
+     "B@Dummy-17": 1,
+     "B@Dummy-6": 1
+    }
+   },
+   "stopped": [
+    "A: 4 rounds collected on 'A'",
+    "B: 4 rounds collected on 'B'"
+   ],
+   "held_per_round_all": 6.835,
+   "waited_s": {
+    "A": 0.0,
+    "B": 0.0
+   },
+   "round_s": 9.527128338813782,
+   "device_s": 6.981159687042236,
+   "n": 6,
+   "wall_min": 8.578251123428345,
+   "wall_max": 10.479122877120972,
+   "clock": {
+    "n": 55,
+    "aiclk_med": 1350,
+    "aiclk_min": 1325,
+    "load1": 11.48
+   }
+  }
+ ],
+ "summary": {
+  "serial_round_s": 9.408259093761444,
+  "duo_round_s": 7.62578545480281,
+  "speedup": 1.233742956646651,
+  "ratio_vs_h200": 10.959737647029046,
+  "bar_s": 6.958,
+  "serial_device_s": 6.918505847454071,
+  "leg4": {
+   "all": {
+    "duo_equal_to_serial": 16,
+    "differ": 0,
+    "first_differ": [],
+    "serial_keys_disagreeing_across_serial_arms": 0,
+    "serial_keys": 8
+   },
+   "pred": {
+    "duo_equal_to_serial": 16,
+    "differ": 0,
+    "first_differ": [],
+    "serial_keys_disagreeing_across_serial_arms": 0,
+    "serial_keys": 8
+   },
+   "grad": {
+    "duo_equal_to_serial": 16,
+    "differ": 0,
+    "first_differ": [],
+    "serial_keys_disagreeing_across_serial_arms": 0,
+    "serial_keys": 8
+   },
+   "loss": {
+    "duo_equal_to_serial": 16,
+    "differ": 0,
+    "first_differ": [],
+    "serial_keys_disagreeing_across_serial_arms": 0,
+    "serial_keys": 8
+   }
+  }
+ }
+}

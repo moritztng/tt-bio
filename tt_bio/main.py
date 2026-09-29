@@ -188,7 +188,8 @@ from tt_bio.runtime import (
     detect_tenstorrent_devices,
     discover_jobs,
 )
-from tt_bio.worker import SHARED_OUTPUT_PREFIX, read_worker_capture, run_worker_loop
+from tt_bio.worker import (SHARED_OUTPUT_PREFIX, prefetch_msas, read_worker_capture,
+                            run_worker_loop)
 
 # Every weight and data artifact tt-bio downloads is one row in tt_bio.weights.
 # ARTIFACTS: source, repo/URL, destination, licence and env override in one place,
@@ -562,6 +563,11 @@ def _validate_offline_msa_db(db_path: Path, require_envdb: bool = False) -> None
         )
 
 
+def _lowest_priority() -> None:
+    """A search's CPU time is what folds leave: host load slows a fold (158 s -> 262 s)."""
+    os.nice(19)
+
+
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
                         pairing_strategy: str = "greedy", pair: bool = True) -> None:
@@ -611,7 +617,8 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
 
         last_error = ""
         for idx, cmd in enumerate(commands):
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    preexec_fn=_lowest_priority)
             if result.returncode == 0:
                 last_error = ""
                 break
@@ -631,6 +638,66 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                 click.echo(f"  warning: no A3M for {name}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def search_boltz2_msas(prot, target_id, msa_dir, *, use_msa, msa_db_path, use_envdb,
+                       msa_url, msa_strategy, msa_user, msa_pass, api_key):
+    """Search what Boltz-2 will read for one complex and the cache lacks. ``prot`` maps
+    seq_hash -> sequence for the protein chains the input left to the search. Returns the
+    complex's paired directory the chains read their CSVs from, or None for the per-chain
+    cache. Touches no device, so ``tt-bio predict`` runs it before any chip is leased
+    (worker.prefetch_msas) and the fold's own call finds everything cached.
+
+    A heteromer's CSVs carry pairing keys, which mean something only against the partners
+    they were searched with, so the complex gets its own directory and is searched whole.
+    Keyed per chain, a partner already cached from an earlier fold left the new chain to be
+    searched alone, and nothing paired. A cache-only run reads the complex's CSVs when they
+    are there; an offline run keeps the per-chain cache."""
+    pdir = None if msa_db_path else paired_msa_dir(msa_dir, prot.values())
+    if pdir is not None and not use_msa and not all(cached(pdir / f"{h}.csv") for h in prot):
+        pdir = None
+    if pdir is not None:
+        to_gen = {} if all(cached(pdir / f"{h}.csv") for h in prot) else prot
+    else:
+        to_gen = {h: q for h, q in prot.items()
+                  if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv")}
+    if to_gen:
+        # Serialize MSA generation per sequence across all workers sharing this
+        # msa_dir: each sequence is searched once and reused, never redundantly
+        # re-searched in parallel (which both wasted CPU and raced on the shared
+        # a3m file). Locks are taken in sorted-hash order so concurrent
+        # multi-chain targets can't deadlock.
+        locks = []
+        try:
+            for h in sorted(to_gen):
+                lf = open(msa_dir / f".{h}.lock", "w")
+                fcntl.flock(lf, fcntl.LOCK_EX)
+                locks.append(lf)
+            # Re-check under the locks: another worker may have produced some of
+            # these while we waited, so only generate what is still missing.
+            if pdir is not None:
+                to_gen = prot if not all(cached(pdir / f"{h}.csv") for h in prot) else {}
+            else:
+                to_gen = {h: s for h, s in to_gen.items()
+                          if not cached(msa_dir / f"{h}.a3m")
+                          and not cached(msa_dir / f"{h}.csv")}
+            if to_gen and msa_db_path:
+                compute_msa_offline(to_gen, target_id, msa_dir, msa_db_path,
+                                    use_env=use_envdb, pairing_strategy=msa_strategy)
+            elif to_gen and use_msa:
+                compute_msa(to_gen, target_id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
+            elif to_gen:
+                raise RuntimeError(
+                    "No MSA for this target and no source to search one with. Use:\n"
+                    "  --use_msa_server        the online ColabFold server\n"
+                    "  --msa_db_path <dir>     a local ColabFold DB (`tt-bio msa` downloads one)\n"
+                    "  --single_sequence       fold without an MSA, at a large accuracy cost"
+                )
+        finally:
+            for lf in locks:
+                fcntl.flock(lf, fcntl.LOCK_UN)
+                lf.close()
+    return pdir
 
 
 def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
@@ -670,70 +737,18 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
             searched.append(chain)
         elif chain.msa_id == 0:
             chain.msa_id = -1
-    # A heteromer's CSVs carry pairing keys, which mean something only against the partners
-    # they were searched with, so the complex gets its own directory and is searched whole.
-    # Keyed per chain, a partner already cached from an earlier fold left the new chain to be
-    # searched alone, and nothing paired. A cache-only run reads the complex's CSVs when they
-    # are there; an offline run keeps the per-chain cache.
     prot = {seq_hash(target.sequences[c.entity_id]): target.sequences[c.entity_id]
             for c in searched}
-    pdir = None if msa_db_path else paired_msa_dir(msa_dir, prot.values())
-    if pdir is not None and not use_msa and not all(cached(pdir / f"{h}.csv") for h in prot):
-        pdir = None
+    pdir = search_boltz2_msas(prot, record.id, msa_dir, use_msa=use_msa, msa_db_path=msa_db_path,
+                              use_envdb=use_envdb, msa_url=msa_url, msa_strategy=msa_strategy,
+                              msa_user=msa_user, msa_pass=msa_pass, api_key=api_key)
     for chain in searched:
-        seq = target.sequences[chain.entity_id]
-        h = seq_hash(seq)
+        h = seq_hash(target.sequences[chain.entity_id])
         a3m = msa_dir / f"{h}.a3m"
         if pdir is not None:
             chain.msa_id = str(pdir / f"{h}.csv")
         else:
             chain.msa_id = str(a3m) if cached(a3m) else str(msa_dir / f"{h}.csv")
-        if not cached(chain.msa_id):
-            to_gen[h] = seq
-    if pdir is not None and to_gen:
-        to_gen = prot
-
-    if to_gen:
-        # Serialize MSA generation per sequence across all workers sharing this
-        # msa_dir: each sequence is searched once and reused, never redundantly
-        # re-searched in parallel (which both wasted CPU and raced on the shared
-        # a3m file). Locks are taken in sorted-hash order so concurrent
-        # multi-chain targets can't deadlock.
-        locks = []
-        try:
-            for h in sorted(to_gen):
-                lf = open(msa_dir / f".{h}.lock", "w")
-                fcntl.flock(lf, fcntl.LOCK_EX)
-                locks.append(lf)
-            # Re-check under the locks: another worker may have produced some of
-            # these while we waited, so only generate what is still missing.
-            if pdir is not None:
-                to_gen = prot if not all(cached(pdir / f"{h}.csv") for h in prot) else {}
-            else:
-                to_gen = {h: s for h, s in to_gen.items()
-                          if not cached(msa_dir / f"{h}.a3m")
-                          and not cached(msa_dir / f"{h}.csv")}
-            if to_gen and msa_db_path:
-                compute_msa_offline(to_gen, record.id, msa_dir, msa_db_path,
-                                    use_env=use_envdb, pairing_strategy=msa_strategy)
-            elif to_gen and use_msa:
-                compute_msa(to_gen, record.id, msa_dir, msa_url, msa_strategy, msa_user, msa_pass, api_key)
-            elif to_gen:
-                raise RuntimeError(
-                    "No MSA for this target and no source to search one with. Use:\n"
-                    "  --use_msa_server        the online ColabFold server\n"
-                    "  --msa_db_path <dir>     a local ColabFold DB (`tt-bio msa` downloads one)\n"
-                    "  --single_sequence       fold without an MSA, at a large accuracy cost"
-                )
-        finally:
-            for lf in locks:
-                fcntl.flock(lf, fcntl.LOCK_UN)
-                lf.close()
-        for chain in record.chains:
-            if isinstance(chain.msa_id, str) and not cached(chain.msa_id):
-                a3m = Path(chain.msa_id).with_suffix(".a3m")
-                if cached(a3m):
-                    chain.msa_id = str(a3m)
 
     # Parse MSAs in memory (deduplicated by path)
     msa_cache = {}
@@ -1788,13 +1803,13 @@ class _Cli(click.Group):
     :class:`ControllerUnreachable` and land here.
     """
 
-    # Commands loaded only when named, by dotted path. `finetune` pulls in the training
+    # Commands loaded only when named, by dotted path. `train` pulls in the training
     # stack -- the tape, the optimizer, the loss set -- and none of that may be imported to
     # print `tt-bio --help` or to run `tt-bio predict`. Training is opt-in and inert when
     # off, and an eager import here would make the inference path pay for it. The path is
     # data rather than an import statement, which is also what keeps the opt-in invariant
     # test's census of training importers accurate.
-    LAZY = {"finetune": "tt_bio.train.cli:finetune"}
+    LAZY = {"train": "tt_bio.train.cli:train"}
 
     def list_commands(self, ctx):
         return sorted({*super().list_commands(ctx), *self.LAZY})
@@ -3052,7 +3067,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.argument("data", type=click.Path(exists=True))
 @click.option("--out_dir", default="./")
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
-@click.option("--checkpoint", type=click.Path(exists=True), default=None)
+@click.option("--checkpoint", type=click.Path(exists=True, dir_okay=False), default=None,
+              help="Weights to fold with instead of the shipped ones (boltz2, openfold3, "
+                   "openbind). For openfold3 this can be a checkpoint `tt-bio train` wrote.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
               help="Trunk recycling iterations. Default: "
@@ -3292,7 +3309,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 f"it), so --accelerator {accelerator} cannot be honored. Drop the flag to fold "
                 f"on the card; --model boltz2 is the one model with a CPU/GPU path."
             )
-        for n, on in [("--use_potentials", use_potentials), ("--checkpoint", bool(checkpoint))]:
+        for n, on in [("--use_potentials", use_potentials),
+                      ("--checkpoint", bool(checkpoint) and model not in OF3_FAMILY)]:
             if on:
                 click.secho(f"Note: --model {model} does not read {n}; ignoring it", fg="yellow")
         # --max_msa_seqs left at its default means "the depth this model already uses", not
@@ -3367,10 +3385,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if not jobs:
             raise click.ClickException("\n".join(refused.values()))
 
-        # MSA is resolved + searched worker-side, exactly like Boltz-2: the worker
-        # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
-        # shared msa_dir cache, and folds. MSA is optional here (single-sequence
-        # folding when no source is given), so unlike Boltz-2 it never errors out.
+        # MSA is optional here (single-sequence folding when no source is given), so
+        # unlike Boltz-2 it never errors out.
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
@@ -3395,9 +3411,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
+            "checkpoint": str(Path(checkpoint).resolve()) if checkpoint else None,
         }
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}
+        # The search is CPU and database work, so it runs here, before any chip is leased.
+        prefetch_msas(model, [j.path for j in jobs], worker_cfg)
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
         # --controller mode: the controller's workers fetch their own.
         if not controller:
@@ -3528,6 +3547,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         "config": worker_cfg,
         "owner": owner,
     }
+    prefetch_msas("boltz2", [j.path for j in jobs], worker_cfg)
 
     if controller:
         # Thin client: submit to the shared cluster and stream; no local workers,

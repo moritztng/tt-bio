@@ -1,0 +1,99 @@
+--- 2026-09-27T08:03:04Z load 2.25 1.78 1.25
+    PID     ELAPSED %CPU   RSS COMMAND
+3059255       00:02  3.6  8380 ssh -n -o BatchMode=yes -o ConnectTimeout=8 japanfold-ssh true
+2847899       09:01  2.8 315268 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+    823  4-05:14:08  2.4 202288 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+2986938    22:15:36  1.6 359432 claude --dangerously-skip-permissions --resume
+  27821  3-21:05:37  1.4 342936 claude --dangerously-skip-permissions --resume
+3059258       00:02  1.3 37348 /home/moritz/.local/bin/cloudflared access ssh --hostname ssh.japanfold.com
+  58026  1-17:05:39  1.0 373248 claude --dangerously-skip-permissions --resume
+--- 2026-09-27T08:04:04Z load 2.23 1.93 1.34
+    PID     ELAPSED %CPU   RSS COMMAND
+3059322       01:00  153 12185368 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shipp
+3063524       00:00  106 236100 /home/moritz/.nvm/versions/node/v24.14.0/bin/node /home/moritz/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js gateway --port 18789
+3064184       00:00 14.2  3552 bash /home/moritz/.coworker/unshipped.sh 3
+3060210       00:03 11.6  3976 bash /home/moritz/.coworker/fleet.sh
+2847899       10:01  2.7 288664 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+    823  4-05:15:08  2.4 201636 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+2986938    22:16:36  1.6 355404 claude --dangerously-skip-permissions --resume
+--- 2026-09-27T08:05:04Z load 2.48 2.06 1.43
+    PID     ELAPSED %CPU   RSS COMMAND
+3059322       02:00  182 13673736 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shipp
+3071032       00:02 14.2  4100 find . -name *.bak-* -not -path ./state/* -not -path ./wt/* -not -path ./artifacts/* -not -path ./.git/*
+3070779       00:02  6.4 37572 /home/moritz/.venvs/jfp/bin/python -m japanfold fleet --env dev watch --notify /home/moritz/.coworker/tg.sh status
+3070916       00:02  3.0  8376 ssh -o ConnectTimeout=10 -o BatchMode=yes -n japanfold-ssh df -BG / 2>/dev/null | awk "NR==2{gsub(/G/,\"\",\$4);print \$4}"
+2847899       11:01  2.8 280572 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+    823  4-05:16:08  2.4 201476 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3070928       00:02  1.7 33700 /home/moritz/.local/bin/cloudflared access ssh --hostname ssh.japanfold.com
+--- 2026-09-27T08:06:04Z load 2.68 2.26 1.54
+    PID     ELAPSED %CPU   RSS COMMAND
+3072554       00:28  131 5702816 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shippe
+3079178       00:00 13.6  3536 bash /home/moritz/.coworker/unshipped.sh 3
+3074089       00:02 13.3  3988 bash /home/moritz/.coworker/fleet.sh
+3079393       00:00  9.0  4572 bash /tmp/uslug-fleet-ZbkiK9/.coworker/fleet.sh
+3072062       00:46  6.1 300492 /home/moritz/.local/bin/claude -p --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are the coworker system's hourly SELF-RECURSION pass. 
+2847899       12:01  2.7 281720 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+    823  4-05:17:08  2.4 205544 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-09-27T08:07:04Z load 2.25 2.24 1.58
+    PID     ELAPSED %CPU   RSS COMMAND
+3072554       01:28  162 13351460 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shipp
+3116320       00:02  144 597652 openclaw-gateway
+3072062       01:46  3.2 260428 /home/moritz/.local/bin/claude -p --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are the coworker system's hourly SELF-RECURSION pass. 
+2847899       13:01  2.5 271016 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+    823  4-05:18:08  2.4 203540 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+2986938    22:19:36  1.6 355968 claude --dangerously-skip-permissions --resume
+  27821  3-21:09:37  1.4 343628 claude --dangerously-skip-permissions --resume
+--- 2026-09-27T08:08:04Z load 2.57 2.41 1.69
+    PID     ELAPSED %CPU   RSS COMMAND
+3072554       02:28  182 13799036 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shipp
+3117096       00:02 14.8  4004 bash /home/moritz/.coworker/fleet.sh
+3119616       00:00 13.5  4252 bash /home/moritz/.coworker/reconcile_tasks.sh
+3072062       02:46  2.4 259500 /home/moritz/.local/bin/claude -p --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are the coworker system's hourly SELF-RECURSION pass. 
+2847899       14:01  2.4 268000 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+    823  4-05:19:08  2.4 203976 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3117053       00:02  1.7  8544 ssh -n -o BatchMode=yes -o ConnectTimeout=8 japanfold-ssh true
+--- 2026-09-27T08:09:04Z load 2.44 2.44 1.74
+    PID     ELAPSED %CPU   RSS COMMAND
+3124425       00:57  150 12970588 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shipp
+    823  4-05:20:08  2.4 203872 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+2847899       15:01  2.3 259744 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+3072062       03:46  2.0 234704 /home/moritz/.local/bin/claude -p --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are the coworker system's hourly SELF-RECURSION pass. 
+2986938    22:21:36  1.6 353184 claude --dangerously-skip-permissions --resume
+  27821  3-21:11:37  1.4 340640 claude --dangerously-skip-permissions --resume
+  58026  1-17:11:39  1.0 358352 claude --dangerously-skip-permissions --resume
+--- 2026-09-27T08:10:04Z load 2.47 2.50 1.81
+    PID     ELAPSED %CPU   RSS COMMAND
+3124425       01:57  176 13334564 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shipp
+3135412       00:00 16.3  3576 bash /home/moritz/.coworker/unshipped.sh 3
+3128790       00:03 11.0  4016 bash /home/moritz/.coworker/fleet.sh
+3135418       00:00  9.8  8328 ssh -o ConnectTimeout=8 -o BatchMode=yes qb2 bash -s -- 0 300
+3128808       00:03  4.2 37304 /home/moritz/.venvs/jfp/bin/python -m japanfold fleet --env dev watch --notify /home/moritz/.coworker/tg.sh status
+    823  4-05:21:08  2.4 205572 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+2847899       16:01  2.2 262032 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+--- 2026-09-27T08:11:04Z load 2.63 2.53 1.86
+    PID     ELAPSED %CPU   RSS COMMAND
+3141768       00:23  138 6419384 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shippe
+    823  4-05:22:08  2.4 206088 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+2847899       17:01  2.2 262988 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+2986938    22:23:36  1.6 351808 claude --dangerously-skip-permissions --resume
+  27821  3-21:13:37  1.4 338320 claude --dangerously-skip-permissions --resume
+  58026  1-17:13:39  1.0 358144 claude --dangerously-skip-permissions --resume
+3142030       00:11  1.0 3717024 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shippe
+--- 2026-09-27T08:12:04Z load 2.80 2.56 1.91
+    PID     ELAPSED %CPU   RSS COMMAND
+3141768       01:23  169 13839364 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shipp
+3146603       00:00  103 94876 /home/moritz/.nvm/versions/node/v24.14.0/bin/node /home/moritz/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/dist/index.js gateway --port 18789
+3142996       00:02 13.4  3996 bash /home/moritz/.coworker/fleet.sh
+    823  4-05:23:08  2.4 206600 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+2847899       18:01  2.1 254752 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+2986938    22:24:36  1.6 351684 claude --dangerously-skip-permissions --resume
+  27821  3-21:14:37  1.4 338716 claude --dangerously-skip-permissions --resume
+--- 2026-09-27T08:13:04Z load 2.36 2.50 1.93
+    PID     ELAPSED %CPU   RSS COMMAND
+3141768       02:23  182 13364576 /home/moritz/bcx_hostcut_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 2 --binder 146 --params /home/moritz/bcx_shipp
+3153638       00:02  148 631212 openclaw-gateway
+    823  4-05:24:08  2.4 203364 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+2847899       19:01  2.1 252292 /home/moritz/.local/bin/claude -p --session-id bc86d3a7-1f09-477b-9a02-dcb1ef03d4dd --model claude-opus-5-5 --output-format json --dangerously-skip-permissions You are 
+2986938    22:25:36  1.6 349840 claude --dangerously-skip-permissions --resume
+  27821  3-21:15:37  1.4 337176 claude --dangerously-skip-permissions --resume
+  58026  1-17:15:39  1.0 378340 claude --dangerously-skip-permissions --resume

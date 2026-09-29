@@ -1,0 +1,220 @@
+{
+ "stamp": {
+  "host": "pc",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "6125cc829e56f186cb47c523ea954626d613c8e4",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   3.369140625,
+   2.404296875,
+   2.54736328125
+  ],
+  "utc": "2026-09-26T20:26:30Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"
+ },
+ "grid": [
+  13,
+  10
+ ],
+ "reps": 200,
+ "aiclk": {
+  "n": 0
+ },
+ "points": {
+  "cores1_w2_k3": {
+   "median_ms": 0.00505,
+   "p25_ms": 0.00493,
+   "p75_ms": 0.0052,
+   "min_ms": 0.00452,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 1,
+   "words": 2,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores8_w2_k3": {
+   "median_ms": 0.00693,
+   "p25_ms": 0.00648,
+   "p75_ms": 0.00746,
+   "min_ms": 0.00483,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 8,
+   "words": 2,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores32_w2_k3": {
+   "median_ms": 0.01534,
+   "p25_ms": 0.01161,
+   "p75_ms": 0.01752,
+   "min_ms": 0.00928,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 32,
+   "words": 2,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores64_w2_k3": {
+   "median_ms": 0.01832,
+   "p25_ms": 0.01591,
+   "p75_ms": 0.02163,
+   "min_ms": 0.01365,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 64,
+   "words": 2,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores110_w2_k3": {
+   "median_ms": 0.02135,
+   "p25_ms": 0.02049,
+   "p75_ms": 0.02227,
+   "min_ms": 0.01782,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 110,
+   "words": 2,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores130_w2_k3": {
+   "median_ms": 0.04472,
+   "p25_ms": 0.03901,
+   "p75_ms": 0.04905,
+   "min_ms": 0.0312,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 2,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores130_w0_k3": {
+   "median_ms": 0.0062,
+   "p25_ms": 0.00606,
+   "p75_ms": 0.00636,
+   "min_ms": 0.00559,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 0,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores130_w8_k3": {
+   "median_ms": 0.02598,
+   "p25_ms": 0.0254,
+   "p75_ms": 0.02732,
+   "min_ms": 0.02256,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 8,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores130_w32_k3": {
+   "median_ms": 0.0194,
+   "p25_ms": 0.01921,
+   "p75_ms": 0.0197,
+   "min_ms": 0.0189,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 32,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores130_w2_k1": {
+   "median_ms": 0.01578,
+   "p25_ms": 0.01373,
+   "p75_ms": 0.02237,
+   "min_ms": 0.01197,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 2,
+   "kernels": 1,
+   "common": 1
+  },
+  "cores130_w2_k2": {
+   "median_ms": 0.04634,
+   "p25_ms": 0.0432,
+   "p75_ms": 0.05196,
+   "min_ms": 0.02912,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 2,
+   "kernels": 2,
+   "common": 1
+  },
+  "cores130_w0_k1": {
+   "median_ms": 0.00831,
+   "p25_ms": 0.00698,
+   "p75_ms": 0.0091,
+   "min_ms": 0.0056,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 0,
+   "kernels": 1,
+   "common": 1
+  },
+  "cores130_w0_k3_common1": {
+   "median_ms": 0.01139,
+   "p25_ms": 0.01002,
+   "p75_ms": 0.01219,
+   "min_ms": 0.0077,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 0,
+   "kernels": 3,
+   "common": 1
+  },
+  "cores130_w0_k3_common130": {
+   "median_ms": 0.0103,
+   "p25_ms": 0.00873,
+   "p75_ms": 0.01154,
+   "min_ms": 0.00753,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 0,
+   "kernels": 3,
+   "common": 130
+  },
+  "cores130_w0_k3_common260": {
+   "median_ms": 0.00524,
+   "p25_ms": 0.00515,
+   "p75_ms": 0.0065,
+   "min_ms": 0.005,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 0,
+   "kernels": 3,
+   "common": 260
+  },
+  "cores130_w0_k3_common341": {
+   "median_ms": 0.00533,
+   "p25_ms": 0.00528,
+   "p75_ms": 0.0054,
+   "min_ms": 0.00518,
+   "reps": 200,
+   "load": 3.37,
+   "cores": 130,
+   "words": 0,
+   "kernels": 3,
+   "common": 341
+  }
+ }
+}

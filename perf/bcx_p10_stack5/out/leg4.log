@@ -1,0 +1,9 @@
+=== e1 (serial, 4 rounds) 2026-09-27T02:09:58Z
+=== e2 (duo, 4 rounds) 2026-09-27T02:11:40Z
+perf/bcx_p10_stack5/leg4.sh: line 8: 3946948 Aborted                 (core dumped) perf/bcx_p10_stack5/arm.sh "$tag" "$r" "$mode" > "$o/$tag.log" 2>&1
+  e2 exited 134
+=== e3 (duo, 4 rounds) 2026-09-27T02:13:18Z
+perf/bcx_p10_stack5/leg4.sh: line 8: 3950380 Aborted                 (core dumped) perf/bcx_p10_stack5/arm.sh "$tag" "$r" "$mode" > "$o/$tag.log" 2>&1
+  e3 exited 134
+=== e4 (serial, 4 rounds) 2026-09-27T02:14:55Z
+=== leg4 done 2026-09-27T02:16:39Z

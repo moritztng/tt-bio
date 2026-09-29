@@ -30,6 +30,9 @@ from typing import Optional, Sequence
 import ttnn
 
 from tt_bio.envflags import env_flag
+from tt_bio import mm_layout as _mm_layout
+from tt_bio import fanin_l1 as _fanin_l1
+from tt_bio import rne_add as _rne_add
 
 #: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
 #: what this flag exists to avoid. It was introduced for trace capture, which refuses a host
@@ -163,12 +166,9 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
     first repair of this expression enumerated two callers and routed two, and the one it missed
     was `softmax` itself, which `__all__` exports.
     """
-    # `compute_kernel_config` only under TT_BIO_SOFTMAX_BW_FP32. The caller's `config` is never
-    # None in practice -- `softmax` and `triangle_attention` both pass `config or
-    # precise_config()` -- so honouring it here unconditionally would raise the fidelity of every
-    # taped softmax backward in the package on the shipped default. That is a release-gated
-    # change, not a free one, and it has been graded only at crop 384 on the fp32 arm. With the
-    # flag off this call is exactly what main ships.
+    # `compute_kernel_config` only under TT_BIO_SOFTMAX_BW_FP32, which is on by default. With it
+    # off (`TT_BIO_SOFTMAX_BW_FP32=0`) this call is the bf16 backward that shipped before the
+    # flag existed, config dropped and all.
     inner = (ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True, compute_kernel_config=config)
              if SOFTMAX_BW_FP32 and config is not None
              else ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True))
@@ -199,10 +199,11 @@ SOFTMAX_BW_FUSED = env_flag("TT_BIO_SOFTMAX_BW_FUSED", False)
 # round trip and a numpy float64 softmax and layer norm per call, 1541 s of one 48-block backward
 # against 41 s without it -- be turned off and still clear the bar. `perf/of3t_p10exact`.
 #
-# RELEASE-GATED, hence default off: it moves every trained gradient in the package, and it holds
-# an fp32 copy of the attention probabilities for the length of the backward, which is memory at
-# a crop nobody has run yet. Graded ON at crop 384.
-SOFTMAX_BW_FP32 = env_flag("TT_BIO_SOFTMAX_BW_FP32", False)
+# On by default, with `_EXACT_TRAINING` off: the pair is the device path OpenFold3 training ships
+# on. `TT_BIO_SOFTMAX_BW_FP32=0` is the off switch. The fp32 copies live for one backward call,
+# not for the length of the backward; `perf/of3t_p10default` measures the peak at the recipe's
+# crops.
+SOFTMAX_BW_FP32 = env_flag("TT_BIO_SOFTMAX_BW_FP32", True)
 
 # Reached only from a backward closure, like the renorm counter above, so which path ran is a
 # reading and not an argument.
@@ -560,10 +561,37 @@ class Tensor:
         if FANIN_MIXED:
             self._grad = ttnn.add(self._grad, grad, dtype=ttnn.float32)
             return
+        # The promoted CONTRIBUTION is written and read straight back by this ttnn.add: 576
+        # instances and 24.46 GB a round, the largest write-then-reread edge in
+        # bcx-p10-l1fuse's chain census. `fanin_l1.typecast` puts it in L1 where the grid's own
+        # budget takes it and leaves it in DRAM where it does not. Nothing here is taped, so
+        # `Tensor.evict` never turns the placement back into a DRAM copy the way it does in a
+        # forward.
+        #
+        # ONLY the contribution, and the accumulator and the sum stay in DRAM by name. The
+        # contribution dies on the next line; `self._grad` lives until the whole backward is
+        # done, and an L1 buffer that outlives the op that made it is not this row's chain --
+        # it is a permanent 386 KB a bank that the next kernel's statically allocated circular
+        # buffers collide with. Measured, not guessed: routing the accumulator here too threw
+        # `Statically allocated circular buffers in program 209 clash with L1 buffers ... L1
+        # buffer allocated at 1378304 and static circular buffer region ends at 1427968` on the
+        # first backward. A budget that guards its own allocation does not guard the next
+        # program's CB region, so residency is only safe for a value whose lifetime ends inside
+        # the chain that reads it.
+        #
+        # `TT_BIO_WIDEN_ADD` removes the casts instead of placing them: one kernel widens both
+        # operands in the unpacker and adds in a float32 DEST, the same function at 8-10
+        # B/element against 18-24. Where it serves there is no promoted tensor left for
+        # `fanin_l1` to place, so the two never act on one call.
+        if _rne_add.widen_eligible(self._grad, grad):
+            self._grad = _rne_add.widen_add(self._grad, grad)
+            return
         if self._grad.dtype != ttnn.float32:
             self._grad = ttnn.typecast(self._grad, ttnn.float32)
-        self._grad = ttnn.add(self._grad, grad if grad.dtype == ttnn.float32
-                              else ttnn.typecast(grad, ttnn.float32))
+        self._grad = ttnn.add(
+            self._grad,
+            grad if grad.dtype == ttnn.float32 else _fanin_l1.typecast(grad, ttnn.float32),
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
     def add_grad_slice(self, grad, starts, ends) -> None:
         """Accumulate the gradient of the slice ``[starts, ends)`` of this value.
@@ -946,6 +974,7 @@ def _matmul(a, b, **kw):
     `sampler.dc.w_lin_*` gradients. The narrower operand is promoted to fp32, which is exact,
     and nothing changes where the dtypes already agree.
     """
+    kw = _mm_layout.plan(a, b, kw)
     if not kw.get("transpose_a") or a.dtype == b.dtype:
         return ttnn.matmul(a, b, **kw)
     MIXED_TRANSPOSE_A["promoted"] += 1
@@ -1314,8 +1343,8 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     def make():
         def bw(g):
             if x.requires_grad:
-                x.add_grad(_via2d(g, lambda v: ttnn.matmul(v, w.value, transpose_b=True,
-                                                           compute_kernel_config=bwcfg)))
+                x.add_grad(_via2d(g, lambda v: _matmul(v, w.value, transpose_b=True,
+                                                      compute_kernel_config=bwcfg)))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
@@ -1326,6 +1355,85 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
         return bw
 
     return _tape(out_v, parents, make)
+
+
+# Whether `_row_mean` divides the row sum by K or calls `ttnn.mean`. A module switch so a step
+# A/B can flip it between reps of ONE warm process, the way `SOFTMAX_BW_RENORM` already is: the
+# 384-token step's own rep-to-rep spread is 2.551 s
+# (`perf/of3t_stepfloor/out/step_fp32bw_48_384.json`), and four extra scalar divides per
+# layer-norm backward do not live at that resolution across two separate runs. Default on.
+# `ttnn.mean` is the measured-wrong path; the switch exists to PRICE the fix, not to offer it.
+ROW_MEAN_DIVIDE = True
+ROW_MEAN_STATS = {"divide": 0, "mean": 0}
+
+
+def _row_mean(v, cfg, K: int):
+    """Mean over the last axis, as ``sum`` then an explicit multiply by ``1/K``.
+
+    Not a style choice. ``ttnn.mean`` carries its own ``1/K`` and returns it short at a K that
+    is not a power of two: at K=384 the four means of the closure below all inherit the same
+    signed constant and ``dx`` reads 2.089e-03 relative L2 against a finite-difference-validated
+    float64 reference, a +2.08e-03 systematic at 11327 sigma over 32 draws, where the identical
+    closure at K=128 reads 1.481e-04 and is unbiased. 1/128 is a power of two and exact in any
+    float; 1/384 is not. Summing and scaling by the host's own fp32 constant takes K=384 to
+    1.399e-04 and leaves K=128 bit-identical, which is the control the explanation predicts
+    (``perf/of3t_p10grad/PEROP.md``, SUMSCALE arms).
+
+    ``c_s = 384`` and ``c_z = 128``, so this is the single track's bias and not the pair
+    track's, and it is a function of the channel width rather than of the crop.
+    """
+    if not ROW_MEAN_DIVIDE:
+        ROW_MEAN_STATS["mean"] += 1
+        return ttnn.mean(v, dim=-1, keepdim=True, compute_kernel_config=cfg)
+    ROW_MEAN_STATS["divide"] += 1
+    return ttnn.divide(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg), float(K))
+
+
+def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
+    """The layer-norm backward, shared by ``layer_norm`` and ``_taped_layer_norm``.
+
+    One definition, because the two sites carried verbatim copies of it and a fix to either
+    one was a fix to neither.
+
+    mean and rstd are recomputed here rather than retained from the forward: two reductions,
+    and it is what buys the production ``ttnn.layer_norm`` forward, which returns neither. The
+    two-pass ``E[(x - mean)^2]`` rather than tt-train's ``E[x^2] - E[x]^2``
+    (``ops/layernorm_op.cpp:144``), which cancels catastrophically once the mean dominates the
+    spread. ``x.value`` is read inside ``bw`` and not captured: ``Tensor.free`` may have evicted
+    it to DRAM since the forward, and a captured handle would be freed storage.
+    """
+    def bw(g):
+        xv = x.value
+        K = int(xv.shape[-1])
+        # ONE dtype through the closure. A fan-in accumulator is fp32 and the activation it
+        # meets is bf16, and `ttnn.multiply(bf16, fp32)` is not a function of its inputs: it
+        # repeats bit-exact with the operands swapped and differs run to run as written, on
+        # row, vector and full operands (`perf/of3t_p10trainfix/bcast_det.py`). Here that was
+        # `norm * mean(dnorm * norm)`, rounded to bf16 inside a three-term cancellation, and
+        # two runs handed the same g, x and gamma got dx 7-40 % apart in norm from it.
+        dt = ttnn.float32 if ttnn.float32 in (xv.dtype, g.dtype) else xv.dtype
+        xv, g = (v if v.dtype == dt else ttnn.typecast(v, dt) for v in (xv, g))
+        gv = None if gamma is None else gamma.value
+        if gv is not None and gv.dtype != dt:
+            gv = ttnn.typecast(gv, dt)
+        mean = _row_mean(xv, bwcfg, K)
+        centered = ttnn.subtract(xv, mean)
+        var = _row_mean(ttnn.multiply(centered, centered), bwcfg, K)
+        rstd = ttnn.rsqrt(ttnn.add(var, eps))
+        norm = ttnn.multiply(centered, rstd)
+        if gamma is not None and gamma.requires_grad:
+            gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
+        if beta is not None and beta.requires_grad:
+            beta.add_grad(_sum_leading(g, beta.value.shape))
+        if x.requires_grad:
+            dnorm = ttnn.multiply(g, gv) if gv is not None else g
+            # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
+            dn_mean = _row_mean(dnorm, bwcfg, K)
+            dn_norm_mean = _row_mean(ttnn.multiply(dnorm, norm), bwcfg, K)
+            dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
+                               ttnn.multiply(norm, dn_norm_mean))
+            x.add_grad(ttnn.multiply(dx, rstd))
+    return bw
 
 
 def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor] = None,
@@ -1365,33 +1473,7 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
     parents = [p for p in (x, gamma, beta) if p is not None]
 
     def make():
-        def bw(g):
-            # Recomputed here, not retained from the forward: two reductions, and it is what
-            # buys the production kernel above. The two-pass E[(x - mean)^2] rather than
-            # tt-train's E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels
-            # catastrophically once the mean dominates the spread.
-            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
-            # DRAM since the forward, and the captured handle would be freed storage.
-            xv = x.value
-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
-            centered = ttnn.subtract(xv, mean)
-            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
-                            compute_kernel_config=bwcfg)
-            rstd = ttnn.rsqrt(ttnn.add(var, eps))
-            norm = ttnn.multiply(centered, rstd)
-            if gamma is not None and gamma.requires_grad:
-                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
-            if beta is not None and beta.requires_grad:
-                beta.add_grad(_sum_leading(g, beta.value.shape))
-            if x.requires_grad:
-                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
-                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
-                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                                   ttnn.multiply(norm, dn_norm_mean))
-                x.add_grad(ttnn.multiply(dx, rstd))
-        return bw
+        return _layer_norm_bw(x, gamma, beta, eps, bwcfg)
 
     return _tape(out_v, parents, make)
 
@@ -1503,7 +1585,10 @@ def host_f64_softmax(x, dim: int = -1):
 
 # --- the exact training ops: softmax and layer norm in float64 on the host ----------------
 #
-# ON for every training tape. of3t-stackexact measured the model-frame trunk gradient against
+# OFF by default, ON inside `exact_training(True)`. It was the default until the fp32 softmax
+# backward (`SOFTMAX_BW_FP32`) brought the device-only trunk inside the same bar at 0.99736x
+# (`perf/of3t_p10exact`); it is now the float64 reference for a precision question, not the
+# route to accuracy. of3t-stackexact measured the model-frame trunk gradient against
 # upstream OpenFold3 0.4.3: with the device ops it reads 1.4511706984958472x the
 # 0.15210099830945006 bar, with the exact softmax 1.3037867474869442x, with both exact
 # 0.9822570327981535x, and the float64 contrast space improves at the same time, so this is
@@ -1522,7 +1607,7 @@ def host_f64_softmax(x, dim: int = -1):
 # What is left on the card is `softmax_bw_inner`'s reduction inside `triangle_attention`'s
 # backward, computed on an EXACT p.
 #
-# The GATE is the tape being installed, not a flag. `install()` opens the scope until its
+# When on, the GATE is the tape being installed. `install()` opens the scope until its
 # `uninstall()`, which is the whole fit in `train/recipes.py` and the discovery forward in
 # `walked_weights`; `tape()` and `backward()` open it for their own extent too, for a caller
 # that drives a tape without `install()`. Each takes out only what it put in. While open the
@@ -1530,7 +1615,7 @@ def host_f64_softmax(x, dim: int = -1):
 # fold enters any of them:
 # `tests/test_training_opt_in.py::test_no_inference_module_imports_training` keeps the
 # inference modules from importing this one at all. There is no
-# environment variable; `exact_training(False)` is the off switch.
+# environment variable; `exact_training(True)` is the on switch.
 
 EXACT_SOFTMAX_STATS = {"verb": 0, "raw": 0, "raw_elements": 0}
 EXACT_LAYER_NORM_STATS = {"verb": 0, "raw": 0, "elements": 0, "bw": 0}
@@ -1558,6 +1643,11 @@ def _v_exact_softmax(shipped, args, kwargs):
     The host path never writes the caller's buffer, so the in-place kernel's one advantage is
     gone and its one hazard with it.
     """
+    if not _GRAD_ENABLED:
+        # See `_v_exact_layer_norm` for why `no_grad` takes the raw form. Same arithmetic,
+        # no wrapper, no tape node.
+        ra, rk = _raw(args, kwargs)
+        return _exact_softmax_raw(*ra, **rk)
     x = _wrap(args[0])
     dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
     EXACT_SOFTMAX_STATS["verb"] += 1
@@ -1619,6 +1709,18 @@ def _exact_layer_norm_raw(*args, **kwargs):
 def _v_exact_layer_norm(shipped, args, kwargs):
     """The taped `layer_norm`: float64 forward, and dx, dgamma, dbeta in float64 from x re-read
     off the card. mean and rstd are re-derived in the backward, not held on the host."""
+    if not _GRAD_ENABLED:
+        # Inside `no_grad` there is no tape to pin a wrapper into and no backward to serve it,
+        # so the verb form buys nothing and costs the wrapper map: `_wrap` hands back whatever
+        # wrapper the handle's id already has, and in a `no_grad` census the shipped decoder
+        # frees its activations two lines after each call (`openfold3_diffusion_decoder.py:99`
+        # norms `ql_out_pad` and deallocates it immediately). The forward then read a dead
+        # handle and the reference arm died on `tensor.is_allocated()` in the discovery pass,
+        # before step 0. The raw form is the SAME float64 arithmetic, which matters: the
+        # discovery pass has to run the arithmetic the step will run, because the fused
+        # softmax tail learns its L1 row caps from whatever it sees first (`install`).
+        ra, rk = _raw(args, kwargs)
+        return _exact_layer_norm_raw(*ra, **rk)
     x, gamma, beta, eps, mc = _ln_args(args, kwargs)
     x, gamma, beta = _wrap(x), _wrap(gamma), _wrap(beta)
     EXACT_LAYER_NORM_STATS["verb"] += 1
@@ -1667,12 +1769,12 @@ _EXACT_OPS = {
                    "taped": {"layer_norm": _v_exact_layer_norm},
                    "raw": {"layer_norm": _exact_layer_norm_raw}},
 }
-# The set a training tape runs exact, of3t-stackexact's SL arm: 0.9822570327981535x the bar
-# where the device ops read 1.4511706984958472x.
+# The set a training tape runs exact under `exact_training(True)`, of3t-stackexact's SL arm:
+# 0.9822570327981535x the bar where the device ops read 1.4511706984958472x.
 EXACT_TRAINING_OPS = ("softmax", "layer_norm")
 # op -> (owner, the objects it replaced). Each scope takes out only the ops it put in.
 _EXACT_SAVED: dict = {}
-_EXACT_TRAINING = [True]    # innermost `exact_training()` block wins
+_EXACT_TRAINING = [False]   # innermost `exact_training()` block wins
 
 
 def _install_exact(ops, owner: str) -> tuple:
@@ -1714,6 +1816,29 @@ def _uninstall_exact(ops, owner: Optional[str] = None) -> None:
         tt.forget_shim_bindings(*_EXACT_OPS[op]["verbs"])
 
 
+@contextlib.contextmanager
+def without_exact():
+    """Take the exact ops OUT for the block, and put back exactly what was there.
+
+    `exact_training(False)` changes what `exact_training_ops()` returns; it does not uninstall
+    what an enclosing `install()` already put in, and `install()` reads that function once at
+    the start of a run. So a section that has to run on the device`s own arithmetic whatever
+    the run asked for needs the ops gone, not the answer changed.
+
+    The detached rollout is that section. Upstream detaches it, so nothing computed there
+    reaches a gradient and the instrument has nothing to make exact; leaving it installed also
+    fails outright, because `_ln_forward64` downloads its input to host float64 and the shipped
+    diffusion decoder has already deallocated that buffer.
+    """
+    taken = {op: owner for op, (owner, _saved) in _EXACT_SAVED.items()}
+    _uninstall_exact(list(taken))
+    try:
+        yield
+    finally:
+        for op, owner in taken.items():
+            _install_exact((op,), owner)
+
+
 def exact_softmax_installed() -> bool:
     return "softmax" in _EXACT_SAVED
 
@@ -1740,12 +1865,14 @@ def exact_softmax():
 
 @contextlib.contextmanager
 def exact_training(on: bool = True):
-    """The training off switch. Inside `exact_training(False)`, `install()`, `tape()` and
-    `backward()` leave softmax and layer norm on the device ops, as inference runs them.
+    """The float64 instrument's switch. Inside `exact_training(True)`, `install()`, `tape()`
+    and `backward()` run softmax and layer norm on the host in float64; otherwise they stay on
+    the device ops, as inference runs them.
 
-    ON is the default because it is what reproduces upstream's gradient (of3t-stackexact:
-    0.9822570327981535x the bar against 1.4511706984958472x without). The cost is a host round
-    trip per softmax and per layer norm, in the forward and in the backward's recompute.
+    OFF is the default. With `SOFTMAX_BW_FP32` on, the device-only trunk clears the OpenFold3
+    accuracy clause at 0.99736x the bar against the instrument's 0.98737x (`perf/of3t_p10exact`),
+    and the instrument costs a host round trip per softmax and per layer norm, about 40x on the
+    trunk backward. It stays as a diagnostic: the float64 reference for a precision question.
     """
     _EXACT_TRAINING.append(bool(on))
     try:
@@ -1755,8 +1882,8 @@ def exact_training(on: bool = True):
 
 
 def exact_training_ops() -> tuple:
-    """The ops a tape opened now would run exact: `EXACT_TRAINING_OPS`, or none inside
-    `exact_training(False)`. What a run records in its provenance."""
+    """The ops a tape opened now would run exact: `EXACT_TRAINING_OPS` inside
+    `exact_training(True)`, else none. What a run records in its provenance."""
     return EXACT_TRAINING_OPS if _EXACT_TRAINING[-1] else ()
 
 
@@ -1829,7 +1956,16 @@ def straight_through(value, x: Tensor) -> Tensor:
     weights on the card. Consumers read the precise value; the weights get the gradient of the
     device computation, evaluated where that computation landed. ``value`` is a raw ttnn tensor
     of ``x``'s shape and dtype.
+
+    ``x`` is WRAPPED rather than assumed: the device leg is only a `Tensor` when something on
+    it is registered, and in an inference pass over the same forward it comes back as a raw
+    handle. `_tape` then reads `.value` off a parent that has none -- `AttributeError` on a
+    raw ttnn tensor, in the evaluation of a run that had just finished training. Wrapping is a
+    no-op when it is already a `Tensor`, and it is what makes `add_grad` below well defined
+    either way.
     """
+    x = _wrap(x)
+
     def make():
         def bw(g):
             x.add_grad(g)
@@ -2118,6 +2254,39 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
 
     def make():
         def bw(g):
+            # Counted unconditionally, before any gate. "served 0, declined 0" is ambiguous on its
+            # own -- it reads the same whether this backward never ran or ran and was refused --
+            # and which of those is true decides whether the lever needs a narrower gate or
+            # another row's routing change.
+            from . import triatt_bw as _tbw0
+            _tbw0.STATS["bw_calls"] = _tbw0.STATS.get("bw_calls", 0) + 1
+            # The fused backward, when it is on and the shape fits. It computes the same gradient
+            # over the same blocks with the score tensor never leaving L1: 238.88 MB a call at the
+            # shipped 288-token shape against 9172.90 for the loop below. Default off, and it
+            # refuses rather than approximates -- everything it declines falls through to the
+            # chunked recompute, which is correct at every shape.
+            from . import triatt_bw as _tbw
+            if _tbw.FUSED and bias is not None and bias_bcast:
+                _ok, _why = _tbw.eligible(q.value, k.value, v.value, bias.value)
+                if _ok:
+                    _dev = q.value.device()
+                    _p = _tbw.plan(*(int(x) for x in q.value.padded_shape),
+                                   grid=(_dev.compute_with_storage_grid_size().x,
+                                         _dev.compute_with_storage_grid_size().y))
+                    if _tbw.fits_l1(_p):
+                        _dq, _dk, _dv, _db = _tbw.run(
+                            _dev, q.value, k.value, v.value, bias.value, g, scale,
+                            (ttnn.MathFidelity.HiFi4,))
+                        for _t, _d in ((q, _dq), (k, _dk), (v, _dv), (bias, _db)):
+                            if _t.requires_grad:
+                                _t.add_grad(_d)
+                            else:
+                                ttnn.deallocate(_d)
+                        return
+                    _tbw.STATS["declined"] += 1
+                else:
+                    _tbw.STATS["declined"] += 1
+
             dq_blocks, dk_blocks, dv_blocks, dbias_rows = [], [], [], None
             dbias_blocks = []
             for b0 in range(0, B, cB):
@@ -2322,6 +2491,12 @@ def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) 
 # accumulates one whole segment input per block per forward. Measured: a finite-difference sweep
 # at 384 aa (six extra forwards) left the next training step's backward OOM at 31.9 GB. The run
 # owns the release, and `release_pins` is how it says so.
+# Flat, and it stays flat even when several trajectories share the card. A pin is taken inside
+# a device SEAM (the checkpointed forward, or the recompute inside a backward) and released at
+# the end of that same seam, and `tt_bio.duotraj`'s gate lets only one seam run at a time -- so
+# no pin of one trajectory is ever live while another is taking or releasing its own. Keying
+# this by trajectory would be dead machinery, and it could not be done honestly anyway: the
+# seam does not run on the trajectory's thread.
 _CKPT_PINS: list = []
 
 
@@ -2729,7 +2904,7 @@ def _taped_linear(shipped, args, kwargs):
                 # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
-                x.add_grad(_reduce_to(_via2d(g, lambda v: ttnn.matmul(
+                x.add_grad(_reduce_to(_via2d(g, lambda v: _matmul(
                                           v, w.value, transpose_b=True,
                                           compute_kernel_config=bwcfg)),
                                       x.value.shape))
@@ -2793,33 +2968,7 @@ def _taped_layer_norm(shipped, args, kwargs):
     parents = [t for t in (x, gamma, beta) if t is not None]
 
     def make():
-        def bw(g):
-            # Recomputed here, not retained: two reductions, and it is what buys the
-            # production kernel above. Two-pass E[(x - mean)^2] rather than tt-train's
-            # E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels catastrophically
-            # once the mean dominates the spread.
-            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
-            # DRAM since the forward, and the captured handle would be freed storage.
-            xv = x.value
-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
-            centered = ttnn.subtract(xv, mean)
-            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
-                            compute_kernel_config=bwcfg)
-            rstd = ttnn.rsqrt(ttnn.add(var, eps))
-            norm = ttnn.multiply(centered, rstd)
-            if gamma is not None and gamma.requires_grad:
-                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
-            if beta is not None and beta.requires_grad:
-                beta.add_grad(_sum_leading(g, beta.value.shape))
-            if x.requires_grad:
-                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
-                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
-                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                                   ttnn.multiply(norm, dn_norm_mean))
-                x.add_grad(ttnn.multiply(dx, rstd))
-        return bw
+        return _layer_norm_bw(x, gamma, beta, eps, bwcfg)
 
     return _tape(out_v, parents, make)
 

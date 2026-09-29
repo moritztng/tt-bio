@@ -6,7 +6,7 @@ ttnn implementation of the model, with the consortium's own host-side data pipel
 vendored under `tt_bio/_vendor/openfold3/` for featurization. It folds proteins, RNA
 and DNA, uses an MSA by default, and takes optional per-chain templates.
 
-It is parity-gated against the official CPU reference on seven legs — see
+It is parity-gated against the official CPU reference on seven legs; see
 [`implementation-parity.md`](implementation-parity.md) for the numbers, the noise
 floors, and how to reproduce them.
 
@@ -68,7 +68,7 @@ not comparable with either.
 
 Enumerated against the upstream input schema
 (`of3_all_atom/config/inference_query_format.py`). Every unsupported case is a named
-error, verified by running it — nothing silently degrades. Upstream's own inference suite
+error, verified by running it, so nothing silently degrades. Upstream's own inference suite
 run against this port is reported in
 [openfold3-upstream-suite.md](openfold3-upstream-suite.md), including the `--single_sequence`
 defect it found, which is fixed.
@@ -88,7 +88,7 @@ defect it found, which is fixed.
 | covalent `bond` | supported when one end is on a ligand or a modified residue: the bond is added to the atom array before tokenization, where upstream reads it (`Query.covalent_bonds` is declared upstream and read by nothing). A bond between two standard residues, such as a disulfide, is refused: upstream's cleanup removes those bonds from its training structures. `pocket`/`contact` are refused, no constraint embedder |
 | cyclic chains (`cyclic: true`) | supported: sets upstream's `cyclic_mask`, which `relpos_complex` reads to wrap the relative position encoding of that chain |
 | paired MSA | `--model openbind` only, as upstream: a complex with two or more different protein sequences reads its ColabFold paired MSA as `colabfold_paired`, with 0.5.0's fix that keeps those rows (PR #373). `--model openfold3` folds unpaired, because upstream runs preview2 on 0.4.x, which drops the paired rows; feeding them anyway made 8WT4 worse on six of six seeds |
-| `--write_pae` | **not supported** — the confidence head computes PAE logits but the fold does not return the matrices |
+| `--write_pae` | **not supported**: the confidence head computes PAE logits but the fold does not return the matrices |
 | `--fast` | not gated for OpenFold3; it is a Boltz-2/ESMFold2 lever and no OF3 parity leg runs with it |
 
 ## OpenBind-0
@@ -114,7 +114,7 @@ it is the whole reason preview2 weights do not load on `v0.5.0` or later.
 
 Two more `v0.5.0` changes carry no weights of their own, so the checkpoint has to select
 them: the ending-node triangle-attention bias is built from the untransposed pair
-(AF3 Algorithm 15) rather than the transposed one, and two MSA features are corrected —
+(AF3 Algorithm 15) rather than the transposed one, and two MSA features are corrected:
 `deletion_value` is scaled by 2/pi instead of 8/pi, and the MSA profile's column index is
 built with `np.tile` instead of `np.repeat`, which preview2 permuted for any MSA deeper
 than one row.
@@ -163,7 +163,7 @@ same upstream tree because RDKit generates the reference conformers. Reproduce w
 
 Four MSA featurizer fixes shipped in `v0.5.0` are keyed on the checkpoint, so preview2 is
 byte-identical to before: the AF3-spec `deletion_value` scale, the AF3-spec `profile`
-column index, uppercase at parse, and main-MSA dedup. The dedup is the one with teeth — it
+column index, uppercase at parse, and main-MSA dedup. The dedup is the one with teeth: it
 removes one row of ubiquitin's 9656-row MSA and 474 of FKBP12's 16384.
 
 Two vendoring omissions found by auditing the whole vendored tree against the upstream
@@ -190,7 +190,7 @@ Two numeric boundaries are load-bearing. Both are on by default and you should l
 them alone unless you are measuring.
 
 **fp32 diffusion module** (`OF3_DIFFUSION_FP32_DEVICE`, default `1`). The sampler runs
-on device in fp32, matching the reference rollout's own fp32 boundary — the same lever
+on device in fp32, matching the reference rollout's own fp32 boundary, the same lever
 Protenix-v2 uses for HSA. On 9BK6 the bf16 sampler misses the reference noise floor
 (all-atom Kabsch 1.889 Å vs a 1.821 Å threshold) and fp32 clears it at 1.663 Å. The
 cost is roughly 1.5x wall-clock on that target. Set it to `0` to opt out.

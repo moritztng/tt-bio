@@ -1,0 +1,62 @@
+== the round this table is scaled to ==
+{"host": "pc", "card": "0", "commit": "907808ceb07e5875ea6824d03837ca4cd8636c98", "triatt_hifi": true, "extra_msa_on_device": true, "template_on_device": true, "exact": false, "binder_pinned": 146, "seed": 100}
+median over rounds 2..9: wall 11.191 | DEVICE COLUMN 9.525 | AICLK med 1350.0 min 1343 | load1 3.6
+== the cell this table is measured on ==
+cell E, axis 288, reps 3, hifi True, reach {"served": 112, "declined": 0, "too_short": 0, "taped": 0}
+AICLK during the timed windows: median 1350, min 1350 | loadavg1 3.7-9.8
+roofs: DRAM 442.3 GB/s, 85.90 bf16 TFLOP/s at HiFi4, ridge 194.2 FLOP/byte
+
+== leg 1: the round's matmul family by SHAPE, 52 distinct shapes, top 15 ==
+op           batch x M x K x N      fl   calls   dev_s      GB    GB/s  %dram  TFLOP/s  %cmp  FLOP/B  roofline verdict
+linear       288x288x128x128        -      936   0.218    39.8   182.2  41.2%    11.65 13.6%    63.9  BELOW both roofs: placement + config
+exp.minimal_matmul 288x288x128x512        -      312   0.159    33.2   209.1  47.3%    21.38 24.9%   102.2  BELOW both roofs: placement + config
+matmul       288x128x32x288         -      288   0.133     6.8    51.1  11.5%     1.47  1.7%    28.8  BELOW both roofs: placement + config
+linear       288x288x512x128        -      156   0.128    16.6   129.3  29.2%    13.22 15.4%   102.3  BELOW both roofs: placement + config
+matmul       288x32x768x256         tb      48   0.124     0.9     7.5   1.7%     1.40  1.6%   188.1  BELOW both roofs: placement + config
+matmul       1152x224x32x288        tb     208   0.120    38.8   323.3  73.1%     8.25  9.6%    25.5  DRAM-bound: at roof
+linear       288x288x128x512        -      156   0.100    16.6   166.1  37.6%    16.99 19.8%   102.2  BELOW both roofs: placement + config
+exp.minimal_matmul 288x288x128x384        -      312   0.099    26.5   268.6  60.7%    25.76 30.0%    95.9  BELOW both roofs: placement + config
+matmul       1x82944x512x128        tb     156   0.096    16.6   172.2  38.9%    17.61 20.5%   102.3  BELOW both roofs: placement + config
+matmul       1152x288x224x32        ta     208   0.095    38.8   408.4  92.3%    10.42 12.1%    25.5  DRAM-bound: at roof
+matmul       128x288x288x288        -      104   0.089     6.6    74.7  16.9%     7.18  8.4%    96.0  BELOW both roofs: placement + config
+matmul       288x32x256x256         tb      96   0.084     0.9    10.9   2.5%     1.37  1.6%   126.2  BELOW both roofs: placement + config
+matmul       1x82944x128x128        tb     416   0.068    17.7   260.0  58.8%    16.63 19.4%    64.0  BELOW both roofs: placement + config
+matmul       128x288x288x288        ta     156   0.060     9.9   166.6  37.7%    15.99 18.6%    96.0  BELOW both roofs: placement + config
+matmul       128x288x288x288        tb     156   0.059     9.9   169.0  38.2%    16.22 18.9%    96.0  BELOW both roofs: placement + config
+... 37 more                               5260   0.623   126.3
+MATMUL FAM                                8968   2.255   405.9   180.0  40.7%    11.33 13.2%    63.0
+
+== where each top shape is issued ==
+linear       288x288x128x128        -    triangle multiplication 61%, triangle attention 39% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [pc,bias,omc=DRAM]
+exp.minimal_matmul 288x288x128x512        -    triangle multiplication 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [bias,omc=DRAM]
+matmul       288x128x32x288         -    outer product mean 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED 
+linear       288x288x512x128        -    pair transition 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [g13x10,bias,omc=DRAM]
+matmul       288x32x768x256         tb   MSA column attention 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED 
+matmul       1152x224x32x288        tb   triangle attention 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [pc]
+linear       288x288x128x512        -    pair transition 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [g13x10,bias,omc=DRAM]
+exp.minimal_matmul 288x288x128x384        -    triangle attention 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [pc]
+matmul       1x82944x512x128        tb   triangle multiplication 67%, pair transition 33% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED 
+matmul       1152x288x224x32        ta   triangle attention 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [pc]
+matmul       128x288x288x288        -    triangle multiplication 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED 
+matmul       288x32x256x256         tb   MSA column attention 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED 
+matmul       1x82944x128x128        tb   triangle multiplication 52%, triangle attention 48% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED 
+matmul       128x288x288x288        ta   triangle multiplication 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [pc,omc=DRAM]
+matmul       128x288x288x288        tb   triangle multiplication 100% | a DRAM/bf16/TILE/INTERLEAVED  b DRAM/bf16/TILE/INTERLEAVED  o DRAM/bf16/TILE/INTERLEAVED [pc,omc=DRAM]
+
+== reconciliation: the wider key against the op-name key ==
+term                                                       seconds
+A_shape: whole column on the widened key                     8.053
+  of which the matmul family                                 2.255
+bcx-p10-calls' matmul family on the NAME key                 2.269
+  widening cost: extra per-key zero clamping                -0.014  (-0.6 %)
+MEASURED DEVICE COLUMN (C) of the round                      9.525
+
+== the roofline verdict, by seconds ==
+BELOW both roofs: placement + config             1.897 s   84.1 % of the family
+DRAM-bound: at roof                              0.358 s   15.9 % of the family
+
+== operand placement, by seconds: what the model actually asks for ==
+  2.214 s   98.2 %   a DRAM/bf16/TILE/INTERLEAVED | b DRAM/bf16/TILE/INTERLEAVED | o DRAM/bf16/TILE/INTERLEAVED
+  0.041 s    1.8 %   a DRAM/bf16/TILE/INTERLEAVED | b DRAM/bf16/TILE/INTERLEAVED | o DRAM/fp32/TILE/INTERLEAVED
+
+wrote perf/bcx_p10_mmlay/out/shapes_E.json

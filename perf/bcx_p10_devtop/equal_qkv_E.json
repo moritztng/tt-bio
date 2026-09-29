@@ -1,0 +1,171 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 0,
+  "subsystem_device": "0x0046",
+  "commit": "9f09204136df0561bf04cf7f026ba283f47e6b02",
+  "tt_bio_dirty": true,
+  "torch_threads": 8,
+  "loadavg": [
+   4.43310546875,
+   4.2919921875,
+   2.4453125
+  ],
+  "utc": "2026-09-27T06:42:50Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"
+ },
+ "cell": "E",
+ "device_axis": 288,
+ "armed": {
+  "triatt_bw_fused": true,
+  "rne_kernel": true,
+  "triatt_hifi": true,
+  "mm_layout": true,
+  "taped_kernels": "tri_att_sdpa_hifi,rne_add"
+ },
+ "lever": "qkv_join",
+ "share": 0.35,
+ "loadavg_start": [
+  4.43310546875,
+  4.2919921875,
+  2.4453125
+ ],
+ "arms": {
+  "evo|off": {
+   "flag": false,
+   "reach": {
+    "served": 0
+   },
+   "wall_fwd": 1.0351,
+   "wall_bwd": 2.7121,
+   "aiclk": {
+    "n": 14,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg": 6.20654296875
+  },
+  "evo|on": {
+   "flag": true,
+   "reach": {
+    "served": 12
+   },
+   "wall_fwd": 1.0506,
+   "wall_bwd": 2.9112,
+   "aiclk": {
+    "n": 15,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg": 6.4306640625
+  },
+  "evo|off2": {
+   "flag": false,
+   "reach": {
+    "served": 0
+   },
+   "wall_fwd": 1.4126,
+   "wall_bwd": 2.8969,
+   "aiclk": {
+    "n": 16,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg": 6.63671875
+  },
+  "extra|off": {
+   "flag": false,
+   "reach": {
+    "served": 0
+   },
+   "wall_fwd": 0.9039,
+   "wall_bwd": 2.3404,
+   "aiclk": {
+    "n": 12,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg": 6.63671875
+  },
+  "extra|on": {
+   "flag": true,
+   "reach": {
+    "served": 6
+   },
+   "wall_fwd": 0.997,
+   "wall_bwd": 2.5989,
+   "aiclk": {
+    "n": 12,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg": 6.90625
+  },
+  "extra|off2": {
+   "flag": false,
+   "reach": {
+    "served": 0
+   },
+   "wall_fwd": 0.8651,
+   "wall_bwd": 2.5288,
+   "aiclk": {
+    "n": 13,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg": 6.51318359375
+  }
+ },
+ "evo|on_vs_off": [
+  {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  {
+   "equal": true,
+   "max_abs": 0.0
+  }
+ ],
+ "evo|aa_control": [
+  {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  {
+   "equal": true,
+   "max_abs": 0.0
+  }
+ ],
+ "extra|on_vs_off": [
+  {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  {
+   "equal": true,
+   "max_abs": 0.0
+  }
+ ],
+ "extra|aa_control": [
+  {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  {
+   "equal": true,
+   "max_abs": 0.0
+  }
+ ],
+ "loadavg_end": [
+  6.51318359375,
+  4.876953125,
+  2.72265625
+ ]
+}

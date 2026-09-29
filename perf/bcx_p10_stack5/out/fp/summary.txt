@@ -1,0 +1,4 @@
+card total 31.875 GiB, 528 samples, 4 round boundaries
+round seg 0: floor 0.000  banked 1.368  peak 3.433 at evo46  min contiguous free 28.38  pair worst case 4.801 GiB
+round seg 1: floor 0.577  banked 1.668  peak 3.706 at evo46  min contiguous free 28.12  pair worst case 4.797 GiB
+round seg 2: floor 0.825  banked 1.668  peak 3.706 at evo46  min contiguous free 28.12  pair worst case 4.549 GiB
