@@ -52,16 +52,18 @@ Before any thread starts it prices a trajectory at your design's token axis, rea
 memory and the card, and takes the largest count that fits up to three. It says which it took:
 
 ```
-[tt_bio.bindcraft2] 3 design trajectories on this card: 3 of them at 288 tokens hold about 10 GB
+[tt_bio.bindcraft2] 3 design trajectories on this card: 3 of them at 288 tokens hold about 16 GB
 of the card and peak near 20 GB of the 226.3 GB of host memory free. Pass trajectories_per_card
 to choose yourself; 1 is BindCraft 2's own loop.
 ```
 
-**The count falls as the design grows,** because both footprints grow with the square of the
-token axis. One trajectory of a 288-token design holds about 3 GB of the card and one of a
-704-token design holds 19, so three fit at 288 and one at 704. On a 32 GB Blackhole chip the
-default is three up to about 448 tokens, two to about 608, and one above that. Where one fits,
-the default is one, which is BindCraft 2's own loop unchanged.
+**The count falls as the design grows.** A trajectory's memory grows with the square of the
+token axis, and at some axes the fused triangle attention does not fit the chip and a slower path
+holds about twice as much: at 544 tokens one trajectory holds 21.5 GB of the card where 512 holds
+10.4. Which axes do that is only known once the card has tried, and a campaign draws several
+binder lengths, so the default prices every design as if it were one of them. On a 32 GB
+Blackhole chip that is three trajectories up to 352 tokens, two at 384 and 416, and one from 448
+up. Where one fits, the default is one, which is BindCraft 2's own loop unchanged.
 
 A box whose free memory cannot be read gets one, never three, and so does a design whose token
 axis cannot be read. An explicit `trajectories_per_card=N` is used exactly as given, including a
@@ -465,11 +467,6 @@ count.
 576-token campaign runs, backpropagates and clears both the screen and the refine stage; how
 often it accepts is not yet measured. Treat the range as "the gradient loop runs and completes"
 above 288, and the acceptance rate as measured at 288 only.
-
-How many trajectories run at once is priced separately from any of this, and that estimate is
-calibrated at 288 tokens and does not scale with the axis: on a large complex pass
-`trajectories_per_card=1` rather than letting it choose. See
-[Several trajectories on one card](#several-trajectories-on-one-card).
 
 Binder length inside a campaign costs nothing extra to worry about. Every length BindCraft 2
 draws against the 115-residue PD-L1 target fits: the draw range is 60 to 180 residues, three

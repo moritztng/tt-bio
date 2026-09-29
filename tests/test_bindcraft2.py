@@ -809,12 +809,12 @@ def test_a_box_whose_free_memory_cannot_be_read_runs_one(monkeypatch, capsys):
 def test_auto_does_not_put_more_trajectories_on_the_card_than_it_holds(monkeypatch):
     """The box is roomy and the card is not: the card is read too, when one is open.
 
-    10 GB free holds two 288-token trajectories at 3.2 GB each with the 1 GB reserve left over;
+    12 GB free holds two 288-token trajectories at 5.3 GB each with the 1 GB reserve left over;
     4 GB holds one. The count is what ALL of them need, not what the ones after the first need:
     `auto` runs before any trajectory has started, so none of that memory is spoken for yet, and
     charging the first one nothing is how the old estimate approved a second that had nowhere to
     go."""
-    _box(monkeypatch, free_gb=200.0, card_gb=10.0)
+    _box(monkeypatch, free_gb=200.0, card_gb=12.0)
     assert len(_campaign_calls(monkeypatch)[0]) == 2
     _box(monkeypatch, free_gb=200.0, card_gb=4.0)
     assert len(_campaign_calls(monkeypatch)[0]) == 1
@@ -825,11 +825,12 @@ def test_a_large_design_gets_fewer_trajectories_than_a_small_one(monkeypatch, ca
     so a count chosen at 288 tokens is not a count that fits at 704: measured on qb2 card 0, one
     trajectory of a 704-token design peaks at 19.32 GB of the card's 31.875, and the three the
     size-blind default chose died in round 1 with the card 99.4 % allocated
-    (`state/bgx-traj.md`). The same roomy box, the same card, four sizes."""
+    (`state/bgx-traj.md`). The same roomy box, the same card, five sizes."""
     _box(monkeypatch, free_gb=200.0, tokens=288)
     assert len(_campaign_calls(monkeypatch, tokens=288)[0]) == 3
-    assert len(_campaign_calls(monkeypatch, tokens=448)[0]) == 3
-    assert len(_campaign_calls(monkeypatch, tokens=512)[0]) == 2
+    assert len(_campaign_calls(monkeypatch, tokens=352)[0]) == 3
+    assert len(_campaign_calls(monkeypatch, tokens=384)[0]) == 2
+    assert len(_campaign_calls(monkeypatch, tokens=448)[0]) == 1
     assert len(_campaign_calls(monkeypatch, tokens=704)[0]) == 1
     assert "704 tokens" in capsys.readouterr().out
 
@@ -858,15 +859,20 @@ def test_a_design_whose_token_axis_cannot_be_read_runs_one(monkeypatch, capsys):
 def test_the_estimate_is_above_every_footprint_measured_on_the_card(monkeypatch):
     """The guard errs LOW on the count, which means erring HIGH on the footprint. Measured peak
     minus the shared round-boundary floor, one shipped trajectory, qb2 card 0
-    (`perf/bgx_traj/out/`), against what `trajectory_bytes` charges for it."""
+    (`perf/bgx_traj/out/`), against what `trajectory_bytes` charges for it. 544 is an axis where
+    the fused triangle attention declines and the composed path holds the scores: the estimate
+    prices that path everywhere, because which one runs is not known until the card has tried."""
     from tt_bio import duotraj
 
-    measured = {288: 2.881, 384: 5.084, 448: 6.896, 512: 8.985,
-                576: 11.506, 640: 14.184, 704: 17.139}
-    for tokens, gb in measured.items():
+    fused = {288: 2.881, 384: 5.084, 448: 6.896, 512: 8.985,
+             576: 11.506, 640: 14.184, 704: 17.139}
+    composed = {544: 20.018}
+    for tokens, gb in {**fused, **composed}.items():
         charged = duotraj.trajectory_bytes(tokens) / 2**30
         assert charged > gb, (tokens, charged, gb)
-        assert charged < gb * 1.25, (tokens, charged, gb)
+    assert duotraj.trajectory_bytes(544) / 2**30 < 20.018 * 1.3
+    # qb1's p150a measured 25.75 GB resident at 544, floor included; the charge covers it too.
+    assert (duotraj.trajectory_bytes(544) + duotraj.trajectory_floor_bytes(544)) / 2**30 > 25.75
 
 
 def test_an_explicit_count_is_honoured_even_when_it_will_not_fit(monkeypatch):

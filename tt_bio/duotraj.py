@@ -64,6 +64,16 @@ CARD_BYTES = int(31.875 * 2**30)
 CARD_RESERVE_BYTES = int(1.0 * 2**30)
 
 
+#: What the composed triangle attention adds per token CUBED when the fused arm declines. The
+#: fused arm's circular buffers do not fit L1 at every axis, the fit is not monotone in the axis
+#: and nothing on the host predicts it: the device refuses it in round 1. Where it declines, the
+#: [N,4,N,N] scores are resident and the footprint jumps: one trajectory at 544 tokens peaks
+#: 20.02 GB over its floor on qb2 card 0 where the fused fit says 10.2, and holds 25.75 GB on
+#: qb1's p150a (`state/bgx-traj.md`, `state/bgx-size.md`). That is 65 and 86 bytes per token^3
+#: over the fused figure; 96 covers both.
+COMPOSED_BYTES_PER_TOKEN3 = 96
+
+
 def _scale(tokens: int) -> float:
     """(tokens / 288)^2, and never under 1: the footprint is quadratic in the axis, and a design
     smaller than the one measured is priced as the one measured rather than extrapolated down."""
@@ -73,12 +83,16 @@ def _scale(tokens: int) -> float:
 def trajectory_bytes(tokens: int) -> int:
     """What one in-flight trajectory adds on the card at this token axis, over the shared floor.
 
-    Measured on qb2 card 0, one shipped trajectory, peak minus round-boundary floor: 2.88, 5.08,
-    6.90, 8.98, 11.51, 14.18 and 17.14 GB at 288, 384, 448, 512, 576, 640 and 704 tokens, which is
-    3.46e-5 GB x tokens^2 to within 0.07 GB. `TRAJECTORY_BYTES` scaled by the square prices it
-    1.11-1.12x above every one of those.
+    Priced for the worse of the two paths the triangle attention can take, because which one runs
+    is only known once the card has tried, and a campaign draws several binder lengths. The fused
+    path, measured on qb2 card 0, one shipped trajectory, peak minus round-boundary floor: 2.88,
+    5.08, 6.90, 8.98, 11.51, 14.18 and 17.14 GB at 288, 384, 448, 512, 576, 640 and 704 tokens,
+    3.46e-5 GB x tokens^2 to within 0.07 GB, which `TRAJECTORY_BYTES` scaled by the square covers.
+    The composed path adds `COMPOSED_BYTES_PER_TOKEN3` on top: 20.02 GB measured at 544, 25.8
+    charged.
     """
-    return int(TRAJECTORY_BYTES * _scale(tokens))
+    n = max(int(tokens), REFERENCE_TOKENS)
+    return int(TRAJECTORY_BYTES * _scale(n) + COMPOSED_BYTES_PER_TOKEN3 * n ** 3)
 
 
 def trajectory_floor_bytes(tokens: int) -> int:
