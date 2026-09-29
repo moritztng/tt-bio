@@ -428,7 +428,8 @@ to 28 residues, so a job sized off residue counts comes out one or two buckets l
 target with a 146-residue binder is a 576-token job, not a 544-token one.
 
 Measured end to end on a p150a across eight deposited targets, 115 to 674 residues, one to three
-chains and six folds, at AICLK 1343 to 1350 sampled during each run:
+chains and six folds, with the card's AICLK sampled during each run and its median 1350 MHz in
+all 445 of them:
 
 | tokens | outcome | peak DRAM of 34.226 GB | one gradient round |
 |---|---|---|---|
@@ -445,17 +446,19 @@ against a 277 MB request, and the message says which of the two it is rather tha
 everything fragmentation. Both refusals raise; nothing in the range OOM-killed a process, hung
 one, or returned a wrong answer.
 
-**544 tokens is the axis to avoid**: it costs more memory than the larger 576 does, and it is
-the only rung whose *gradient rounds* make the fused triangle-attention arm decline, which is
-where the extra memory and time come from. The run says so itself when it happens and says
-which way to move; moving the axis by one bucket in either direction is the fix.
+**544 tokens is the axis to avoid**, and the reason is the fused triangle-attention kernel. It
+serves every call in the gradient round from 288 through 512 and again at 576, and it serves
+none at 544, so the round falls back to the composed path and costs 25.75 GB and 67.27 s
+against 11.42 GB and 34.19 s at 512 and 14.23 GB and 47.38 s at 576. The run says so itself
+when it happens and says which way to move; moving the axis by one bucket in either direction
+is the fix.
 
-The arm declines near the top of the range outside the gradient rounds too, and it is a
-fallback rather than a failure: a 576-token campaign against a two-chain 387-residue target
-declined twice going into its mutate stage, carried on through the composed path, and kept
-designing. The 288-token campaign next to it declined nothing at any stage. So expect the
-composed path to serve some calls above about 512 tokens, and expect the round to cost more
-where it does.
+The arm also serves nothing at 192, where it costs nothing worth noticing: that is the cheapest
+rung on the ladder at 2.63 GB and 5.89 s. Declining is a fallback, not a failure. A 576-token
+campaign against a two-chain 387-residue target declined twice going into its mutate stage,
+carried on through the composed path and kept designing, while the 288-token campaign beside it
+declined nothing at any stage. So above about 512 tokens expect some calls on the composed path
+and expect them to cost more.
 
 Within the range, size is the axis that matters and fold and chain count are not: six folds, one
 to three chains, and two structures with unresolved gaps all behave the same at the same token
