@@ -35,20 +35,77 @@ import time
 #: exactly the state layout it had before this module existed.
 _LOCAL = threading.local()
 
-#: Bytes one in-flight trajectory can hold on the CARD at once, measured on the composed
-#: BindCraft 2 round at n=288 (`state/perf10/bcx-p10-duotraj.md` leg 1): 3.746 GB inside a
-#: seam, 1.668 GB banked between seams, over a 0.559 GB floor of weights and masks the
-#: trajectories share. The refusal below prices a new trajectory at the in-seam peak minus
-#: the shared floor, which is the most one of them can add.
+#: The token axis every constant below was measured at: the PD-L1 design, a 146 aa binder.
+REFERENCE_TOKENS = 288
+
+#: Bytes one in-flight trajectory adds on the CARD at `REFERENCE_TOKENS`, measured on the composed
+#: BindCraft 2 round at n=288 (`state/perf10/bcx-p10-duotraj.md` leg 1): 3.746 GB inside a seam
+#: over a 0.559 GB floor of weights and masks the trajectories share. `trajectory_bytes` scales it.
 TRAJECTORY_BYTES = int(3.2 * 2**30)
 
-#: Bytes one more in-flight trajectory takes on the HOST, and this is the one that binds. The
-#: first nine-round interleaved arm was OOM-KILLED by the host at 13.2 GB anon-rss on a 31 GB
-#: box while device DRAM never went past 3.75 GB of 31.9. Measured on the serial arm, where
-#: the two trajectories run in one process one after the other: trajectory 1 reaches 8.22 GB
-#: high-water over nine rounds and trajectory 2 adds 2.75 GB on top of that. 3.5 GB is that
-#: marginal figure with a margin, and it is per ADDITIONAL trajectory, not per trajectory.
+#: Bytes one more in-flight trajectory takes on the HOST at `REFERENCE_TOKENS`. The first
+#: nine-round interleaved arm was OOM-KILLED by the host at 13.2 GB anon-rss on a 31 GB box while
+#: device DRAM never went past 3.75 GB of 31.9. Measured serially, trajectory 2 adds 2.75 GB on
+#: top of trajectory 1's 8.22 GB high-water; 3.5 GB is that with a margin.
 TRAJECTORY_HOST_BYTES = int(3.5 * 2**30)
+
+#: How the host figures grow with the token axis, per token squared, above `REFERENCE_TOKENS`.
+#: Measured on one shipped trajectory (`state/bgx-traj.md`): host high-water 7.79, 8.73, 10.95 and
+#: 15.03 GB at 288, 384, 512 and 704 tokens fits 1.77e-5 GB/token^2, and the second and third
+#: trajectory at 512 add 7.94 GB each against 4.47 at 288, which is 1.94e-5. Rounded up.
+HOST_BYTES_PER_TOKEN2 = 2.0e-5 * 2**30
+
+#: DRAM on one Blackhole chip as the allocator reports it, 31.875 GiB on both the p150a and a
+#: p300 chip. `auto` runs before any card is open, so this is what it prices the card against.
+CARD_BYTES = int(31.875 * 2**30)
+
+#: DRAM `auto` leaves unspent, for the fragmentation a nearly full card refuses on: at 704 tokens
+#: three trajectories died with 197 MB free in total and no contiguous 11.5 MB piece of it.
+CARD_RESERVE_BYTES = int(1.0 * 2**30)
+
+
+#: What the composed triangle attention adds per token CUBED when the fused arm declines. The
+#: fused arm's circular buffers do not fit L1 at every axis, the fit is not monotone in the axis
+#: and nothing on the host predicts it: the device refuses it in round 1. Where it declines, the
+#: [N,4,N,N] scores are resident and the footprint jumps: one trajectory at 544 tokens peaks
+#: 20.02 GB over its floor on qb2 card 0 where the fused fit says 10.2, and holds 25.75 GB on
+#: qb1's p150a (`state/bgx-traj.md`, `state/bgx-size.md`). That is 65 and 86 bytes per token^3
+#: over the fused figure; 96 covers both.
+COMPOSED_BYTES_PER_TOKEN3 = 96
+
+
+def _scale(tokens: int) -> float:
+    """(tokens / 288)^2, and never under 1: the footprint is quadratic in the axis, and a design
+    smaller than the one measured is priced as the one measured rather than extrapolated down."""
+    return max(1.0, (int(tokens) / REFERENCE_TOKENS) ** 2)
+
+
+def trajectory_bytes(tokens: int) -> int:
+    """What one in-flight trajectory adds on the card at this token axis, over the shared floor.
+
+    Priced for the worse of the two paths the triangle attention can take, because which one runs
+    is only known once the card has tried, and a campaign draws several binder lengths. The fused
+    path, measured on qb2 card 0, one shipped trajectory, peak minus round-boundary floor: 2.88,
+    5.08, 6.90, 8.98, 11.51, 14.18 and 17.14 GB at 288, 384, 448, 512, 576, 640 and 704 tokens,
+    3.46e-5 GB x tokens^2 to within 0.07 GB, which `TRAJECTORY_BYTES` scaled by the square covers.
+    The composed path adds `COMPOSED_BYTES_PER_TOKEN3` on top: 20.02 GB measured at 544, 25.8
+    charged.
+    """
+    n = max(int(tokens), REFERENCE_TOKENS)
+    return int(TRAJECTORY_BYTES * _scale(n) + COMPOSED_BYTES_PER_TOKEN3 * n ** 3)
+
+
+def trajectory_floor_bytes(tokens: int) -> int:
+    """What the card holds between rounds, shared by every trajectory: weights, masks, the
+    per-size constants. Measured 0.80 GB at 288 to 2.18 at 704, 3.35e-6 GB x tokens^2 + 0.52,
+    priced here at 3.5e-6 and 0.6."""
+    return int((3.5e-6 * int(tokens) ** 2 + 0.6) * 2**30)
+
+
+def trajectory_host_bytes(tokens: int) -> int:
+    """What one more trajectory takes on the host at this token axis."""
+    grow = max(0, int(tokens) ** 2 - REFERENCE_TOKENS ** 2)
+    return int(TRAJECTORY_HOST_BYTES + HOST_BYTES_PER_TOKEN2 * grow)
 
 
 def slot() -> str:
@@ -178,38 +235,37 @@ def free_host_bytes() -> int:
     return 0
 
 
-def refuse_if_it_will_not_fit(extra: int, *, per_trajectory: int = TRAJECTORY_BYTES,
-                              per_trajectory_host: int = TRAJECTORY_HOST_BYTES) -> None:
+def refuse_if_it_will_not_fit(extra: int, *, tokens: int) -> None:
     """Raise unless BOTH the card and the box have room for `extra` more trajectories.
 
-    The host check is not decoration and it is not second: the card has 28 GB free on the
-    measured round and the box had 14, and it is the box that killed the first interleaved
-    arm. Reading both rather than inferring from a model, because a footprint is the one thing
-    a numerical fixture cannot see and crashing a size a user gets today is worse than being
-    slower than it could have been. Each refusal quotes what it asked for and what was free,
-    since "it does not fit" and "it is fragmented" need different fixes.
+    `tokens` is the design's padded token axis. Both footprints grow with its square, and a
+    guard priced at one size approves a count at another that cannot fit: at 704 tokens three
+    trajectories need about 54 GB of a 31.9 GB card.
+
+    The host check is not decoration: on the 288-token round the card had 28 GB free and the box
+    14, and it is the box that killed the first interleaved arm. Crashing a size a user gets today
+    is worse than being slower than it could have been, so each refusal quotes what it asked for
+    and what was free.
     """
     if extra <= 0:
         return
-    want_host = extra * per_trajectory_host
+    gb = 1 / 2**30
+    want_host = extra * trajectory_host_bytes(tokens)
     free_host = free_host_bytes()
     if free_host and free_host < want_host:
         raise MemoryError(
-            f"interleaving {extra + 1} trajectories needs {want_host / 2**30:.2f} GB of HOST "
-            f"memory beyond what this process already holds and the box has "
-            f"{free_host / 2**30:.2f} GB available. This is the limit that binds: the card "
-            f"has an order of magnitude more headroom than the box. Run them one at a time, "
-            f"or free the box.")
-    free = free_device_bytes()
-    if free == 0:
-        return                      # no card open yet; the host check above still applied
-    want = extra * per_trajectory
+            f"interleaving {extra + 1} trajectories of {tokens} tokens needs "
+            f"{want_host * gb:.2f} GB of HOST memory beyond what this process already holds and "
+            f"the box has {free_host * gb:.2f} GB available. Run them one at a time, or free "
+            f"the box.")
+    # None has started, so the card holds at most the shared floor: all of them are priced.
+    want = (extra + 1) * trajectory_bytes(tokens)
+    free = free_device_bytes() or CARD_BYTES - trajectory_floor_bytes(tokens)
     if free < want:
         raise MemoryError(
-            f"interleaving {extra + 1} trajectories needs {want / 2**30:.2f} GB beyond what "
-            f"is already resident and the card has {free / 2**30:.2f} GB free. Run them one "
-            f"at a time, or lower per_trajectory if this model holds less than "
-            f"{per_trajectory / 2**30:.2f} GB in flight.")
+            f"interleaving {extra + 1} trajectories of {tokens} tokens needs {want * gb:.2f} GB "
+            f"on the card and it has {free * gb:.2f} GB for them. Run them one at a time "
+            f"(trajectories_per_card=1), or use fewer.")
 
 
 #: The most trajectories `auto` will ever choose. A fourth read 6.976 s a round against three
@@ -246,44 +302,48 @@ def host_rss_bytes() -> int:
     return 0
 
 
-def auto_trajectories(cap: int = AUTO_CAP) -> "tuple[int, str]":
-    """How many trajectories this box can hold, and one sentence saying why.
+def auto_trajectories(tokens: "int | None", cap: int = AUTO_CAP) -> "tuple[int, str]":
+    """How many trajectories of `tokens` tokens this box and card can hold, and why.
 
-    Reads the box (and the card, when one is open) and returns the largest count up to `cap`
-    that fits, floored at 1. The caller prints the reason, because a default that silently
-    picks a different number on two boxes is a default nobody can reason about.
+    Returns the largest count up to `cap` that fits on both, floored at 1. The caller prints the
+    reason, because a default that silently picks a different number on two boxes is a default
+    nobody can reason about.
 
-    **An unreadable box chooses 1, never `cap`.** `free_host_bytes()` returns 0 when
-    /proc/meminfo is not there or not readable, and the two ways of being wrong do not cost
-    the same: one is a campaign slower than it could have been, the other is one the kernel
-    kills at round 200 with the designs it had.
+    **When in doubt it is 1.** An unreadable box or an unknown token axis chooses 1, never
+    `cap`: one way of being wrong is a slower campaign, the other is one that dies at round 1 or
+    is killed at round 200 with the designs it had. At sizes where only one fits, 1 is also what
+    it returns, and 1 is BindCraft 2's own loop, unchanged.
     """
     cap = max(1, int(cap))
-    free = free_host_bytes()
     gb = 1 / 2**30
+    if not tokens:
+        return 1, "the design's token axis could not be read, so its footprint is unknown"
+    free = free_host_bytes()
     if not free:
         return 1, "free host memory could not be read, and an unreadable box is not a roomy one"
     held = host_rss_bytes()
+    grow = HOST_BYTES_PER_TOKEN2 * max(0, int(tokens) ** 2 - REFERENCE_TOKENS ** 2)
 
     def peak(n: int) -> int:
-        return AUTO_BASE_HOST_BYTES + AUTO_EXTRA_HOST_BYTES * (n - 1)
+        return int(AUTO_BASE_HOST_BYTES + grow + (AUTO_EXTRA_HOST_BYTES + grow) * (n - 1))
 
     def needs(n: int) -> int:
         return max(0, peak(n) - held) + AUTO_HOST_RESERVE_BYTES
 
-    on_card = free_device_bytes()
-    room_on_card = cap if not on_card else max(1, 1 + on_card // TRAJECTORY_BYTES)
-    for n in range(cap, 1, -1):
-        if n > room_on_card:
-            continue
+    per = trajectory_bytes(tokens)
+    open_card = free_device_bytes()
+    room = (open_card or CARD_BYTES - trajectory_floor_bytes(tokens)) - CARD_RESERVE_BYTES
+    on_card = max(1, min(cap, room // per))
+    for n in range(on_card, 1, -1):
         if needs(n) <= free:
-            return n, (f"{free * gb:.1f} GB of host memory is free and {n} of them peak near "
-                       f"{peak(n) * gb:.0f} GB")
-    if on_card and room_on_card < 2:
-        return 1, (f"the card has {on_card * gb:.1f} GB free, under the "
-                   f"{TRAJECTORY_BYTES * gb:.1f} GB a second trajectory holds in flight")
-    return 1, (f"{free * gb:.1f} GB of host memory is free and a second trajectory needs "
-               f"{needs(2) * gb:.1f} GB")
+            return n, (f"{n} of them at {tokens} tokens hold about {n * per * gb:.0f} GB of the "
+                       f"card and peak near {peak(n) * gb:.0f} GB of the "
+                       f"{free * gb:.1f} GB of host memory free")
+    if on_card < 2:
+        return 1, (f"at {tokens} tokens one trajectory holds about {per * gb:.1f} GB of the card "
+                   f"and a second does not fit in the {room * gb:.1f} GB it has for them")
+    return 1, (f"{free * gb:.1f} GB of host memory is free and a second trajectory at {tokens} "
+               f"tokens needs {needs(2) * gb:.1f} GB")
 
 
 #: Gradient rounds entered per slot, and the event that fires once a slot has its FIRST round
@@ -316,17 +376,17 @@ def round_entered() -> None:
 
 
 @contextlib.contextmanager
-def interleave(trajectories: int = 2, per_trajectory: int = TRAJECTORY_BYTES):
+def interleave(trajectories: int = 2, *, tokens: int):
     """Install the gate so `trajectories` threads can share one card.
 
     The switch, and the whole of it. Outside this block `card()` is a no-op and nothing in
     tt-bio behaves differently, which is what keeps a lever that changes the resident
     footprint off by default.
 
-        with duotraj.interleave(trajectories=2) as gate:
+        with duotraj.interleave(trajectories=2, tokens=288) as gate:
             duotraj.run([lambda: design(0), lambda: design(1)])
     """
-    refuse_if_it_will_not_fit(trajectories - 1, per_trajectory=per_trajectory)
+    refuse_if_it_will_not_fit(trajectories - 1, tokens=tokens)
     global GATE
     _ROUNDS.clear()
     _CLEARED.clear()

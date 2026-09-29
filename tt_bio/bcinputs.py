@@ -542,8 +542,14 @@ def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
     notes: list[str] = []
     if problems:
         return problems, notes                    # a settings error stops the targets resolving
+    # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+    # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+    # target check below silently finds nothing: the campaign then runs unguarded against
+    # whatever it was given, which is the outcome this module exists to prevent. A settings
+    # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+    from bindcraft.settings import build_design_settings
+
     try:
-        from bindcraft.settings import build_design_settings
         targets = build_design_settings(dict(settings)).targets
     except Exception:
         return problems, notes             # BindCraft 2's preflight reports a settings it cannot
