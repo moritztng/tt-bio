@@ -56,6 +56,11 @@ CASES = [
     case("het-insertion-code", targets=target("insertion.pdb", hotspots="54")),
     case("het-trimmed-residue", targets=target("trimmed.pdb", hotspots="54")),
 
+    case("het-no-polymer", targets=target("no_polymer.pdb", hotspots="54")),
+    case("format-nmr-ensemble", targets=target("ensemble.pdb", hotspots="54,56,66,115")),
+    case("two-targets-same-name",
+         targets=target("gap.pdb", hotspots="54") + target("mse.pdb", hotspots="56")),
+
     # --- gaps and numbering
     case("gap-hotspots-outside-gap", targets=target("gap.pdb", hotspots="54,56,115")),
     case("gap-hotspot-in-gap", targets=target("gap.pdb", hotspots="54,56,66,115")),

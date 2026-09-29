@@ -188,6 +188,12 @@ def _span_note(label: str, kind: str, raw: str, chain: str, start: int, end: int
             f"structure ({missing[0]}-{missing[-1]} unresolved); the rest carry the {kind}.")
 
 
+def _target_source(target) -> str:
+    """What to call a target's file in a message: its name on disk, or that it was pasted in."""
+    path = getattr(target, "path", "") or ""
+    return "a pasted-in structure" if "\n" in path else os.path.basename(path) or "no file"
+
+
 def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
     """One target's hotspot and coldspot spans against the residues its file actually holds."""
     from bindcraft.protein import structure_chain_names
@@ -207,6 +213,14 @@ def target_problems(target, name: str = "") -> tuple[list[str], list[str]]:
         return [], []                # an unreadable file is BindCraft 2's own error to report
     source = os.path.basename(path)
     available = [] if is_fasta(path) else structure_chain_names(path)
+    if not is_fasta(path) and not available:
+        # BindCraft 2 reads the polymer and drops every heteroatom, so a file whose every record
+        # is one leaves `receptor_chain_names` empty, and the first hotspot span indexes it:
+        # `chain_qualified_residue_span` raises IndexError before the campaign says anything.
+        return [f"{label}: {source} holds no protein residue to design against. Every record in "
+                f"it was read as a heteroatom, a ligand, a metal, a glycan or a water, so the "
+                f"file has no chain. Point the target at the file that holds the polymer, and "
+                f"check that its residues are ATOM records rather than HETATM."], []
     problems, notes = [], []
     for kind, spans in (("hotspot", target.hotspots), ("coldspot", target.coldspots)):
         for raw in (spans or "").split(","):
@@ -240,6 +254,19 @@ def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
         targets = build_design_settings(dict(settings)).targets
     except Exception:
         return problems, notes             # BindCraft 2's preflight reports a settings it cannot
+    by_name: dict[str, list] = {}
+    for target in targets:
+        by_name.setdefault(getattr(target, "name", ""), []).append(target)
+    for name, group in by_name.items():
+        if len(group) > 1:
+            # `prepare_targets` returns a dict keyed by target name, so a repeated name is not a
+            # second target: it overwrites the first, and the campaign designs against the last
+            # one only. Nothing downstream counts targets, so the loss never notices.
+            files = ", ".join(_target_source(target) for target in group)
+            problems.append(
+                f"{len(group)} targets are named {name!r} ({files}). BindCraft 2 keys a "
+                f"campaign's targets by name, so only the last of them is prepared and the rest "
+                f'are dropped without a word. Give each target its own "name".')
     for target in targets:                 # resolve, with its own message
         target_problem, target_notes = target_problems(target)
         problems += target_problem

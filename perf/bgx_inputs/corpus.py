@@ -104,6 +104,13 @@ def main():
     # 8. A residue stripped to its backbone-minus-CA, the incomplete trim preflight warns about.
     write("trimmed.pdb", [l for l in pdl1 if not (resnum(l) == 80 and l[12:16] == " CA ")])
 
+    # 8b. A file whose protein is all HETATM with no backbone, and nothing else: a ligand-only
+    #     download, or a target whose polymer the reader drops.
+    write("no_polymer.pdb", het)
+
+    # 8c. An NMR ensemble: the same coordinates twice under MODEL 1 and MODEL 2.
+    write("ensemble.pdb", ["MODEL        1", *pdl1, "ENDMDL", "MODEL        2", *pdl1, "ENDMDL"])
+
     # 9. Chain B of the IL-2 receptor alone, to select one chain out of a complex.
     write("twochain.pdb", il2r)
 

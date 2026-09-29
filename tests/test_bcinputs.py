@@ -39,6 +39,16 @@ def _problems(settings):
     return problems, notes
 
 
+def _hetatm_only(tmp_path, name):
+    """A target file whose every record is a heteroatom: a ligand-only download, or a polymer
+    written as HETATM. BindCraft 2 drops all of it and then indexes an empty chain list."""
+    path = tmp_path / name
+    path.write_text("HETATM    1  O   HOH A 401       1.000   2.000   3.000  1.00  0.00           O\n"
+                    "HETATM    2 ZN    ZN A 402       4.000   5.000   6.000  1.00  0.00          ZN\n"
+                    "END\n")
+    return path
+
+
 # ---------------------------------------------------------------- hotspots, the silent case
 
 def test_a_hotspot_in_an_unresolved_loop_is_refused_and_names_the_stretch(tmp_path):
@@ -183,3 +193,42 @@ def test_refuse_unusable_inputs_raises_with_every_problem_on_it(tmp_path):
 def test_a_campaign_whose_inputs_are_sound_passes_through(tmp_path):
     path = _target(tmp_path, "whole.pdb")
     bcinputs.refuse_unusable_inputs(_settings(path, hotspots="54,56,66,115"))
+
+
+# ---------------------------------------------------------------- the file holds no polymer
+
+def test_a_target_of_heteroatoms_only_is_refused_instead_of_indexing_an_empty_chain_list(tmp_path):
+    path = _hetatm_only(tmp_path, "ligand_only.pdb")
+    problems, _ = _problems(_settings(path, hotspots="54"))
+    assert len(problems) == 1
+    assert "holds no protein residue to design against" in problems[0]
+    assert "HETATM" in problems[0] and "ligand_only.pdb" in problems[0]
+
+
+def test_a_target_of_heteroatoms_only_is_refused_even_with_no_hotspot_asked_for(tmp_path):
+    path = _hetatm_only(tmp_path, "ligand_only.pdb")
+    problems, _ = _problems(_settings(path))
+    assert len(problems) == 1 and "holds no protein residue" in problems[0]
+
+
+# ---------------------------------------------------------------- two targets, one name
+
+def test_two_targets_with_one_name_are_refused_because_only_the_last_is_prepared(tmp_path):
+    first = _target(tmp_path, "first.pdb", keep=lambda n: not 60 <= n <= 70)
+    second = _target(tmp_path, "second.pdb")
+    settings = {"binder_lengths": [60],
+                "targets": [{"name": "T", "target_path": str(first), "hotspots": "54"},
+                            {"name": "T", "target_path": str(second), "hotspots": "56"}]}
+    problems, _ = _problems(settings)
+    assert len(problems) == 1
+    assert "2 targets are named 'T'" in problems[0]
+    assert "first.pdb" in problems[0] and "second.pdb" in problems[0]
+
+
+def test_two_targets_with_their_own_names_are_not_refused(tmp_path):
+    first = _target(tmp_path, "first.pdb")
+    second = _target(tmp_path, "second.pdb")
+    settings = {"binder_lengths": [60],
+                "targets": [{"name": "A", "target_path": str(first), "hotspots": "54"},
+                            {"name": "B", "target_path": str(second), "hotspots": "56"}]}
+    assert _problems(settings) == ([], [])

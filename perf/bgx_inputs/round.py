@@ -128,7 +128,10 @@ def main():
     t0 = time.time()
     mpnn = str(BC2 / "bindcraft/weights/proteinmpnn/weights_neutral")
     try:
-        with bindcraft2.campaign_predictor(card=args.card):
+        # The device trunk pool resolves its own checkpoints, and its default directory holds
+        # only `model_1_ptm`: the real leg folds five multimer_v3 designs and would fall back to
+        # host JAX for all of them without this.
+        with bindcraft2.campaign_predictor(card=args.card, checkpoints=AF2):
             # The real leg leaves `trajectories_per_card` off, which is the shipped default's own
             # resolution; the round leg pins 1, because two trajectories would interleave the
             # thing being checked.
