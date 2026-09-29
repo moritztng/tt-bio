@@ -156,6 +156,16 @@ def _refusal_names_the_size(phase: str, n: int, padded: int) -> "Iterator[None]"
         raise better from exc
 
 
+def _fused_hifi_counts() -> "tuple[int, int]":
+    """`(served, declined)` for the fused triangle attention, or `(0, 0)` off the device path."""
+    try:
+        from tt_bio import tenstorrent
+        s = tenstorrent.TRIATT_FUSED_HIFI_STATS
+        return int(s["served"]), int(s["declined"])
+    except Exception:
+        return 0, 0
+
+
 def pin_card(card: int | str) -> None:
     """Pin this process to one physical card.
 
@@ -543,6 +553,8 @@ class EvoformerOnDevice:
         self._mask_dev: dict = {}
         self._pair_mask_dev: dict = {}
         self._tapes = _Tapes()
+        #: Token axes whose fused-arm L1 fit has already been decided and reported.
+        self._fused_checked: set = set()
 
     # ------------------------------------------------------------------ which side folds
 
@@ -661,6 +673,9 @@ class EvoformerOnDevice:
 
     def _taped(self, slot, msa_np, pair_np, mask_np, pair_mask_np):
         m, z, mask, pair_mask, n = self._inputs(msa_np, pair_np, mask_np, pair_mask_np)
+        # The fused arm's L1 fit is a property of the token axis, so one forward at each new
+        # axis decides it for every later fold at that size.
+        watch = _fused_hifi_counts() if z.shape[0] not in self._fused_checked else None
         with _refusal_names_the_size("forward", n, z.shape[0]), \
                 duotraj.card(slot, "evoformer._taped"):
             trunk = self._trunk(slot)
@@ -679,8 +694,40 @@ class EvoformerOnDevice:
                                       "shapes": (tuple(m.shape), tuple(z.shape)), "n": n},
                                      slot)
             self.calls["taped"] += 1
-            return (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
-                    trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
+            out = (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
+                   trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
+        if watch is not None:
+            self._note_if_the_fused_arm_declined(z.shape[0], watch)
+        return out
+
+    def _note_if_the_fused_arm_declined(self, padded: int, before: "tuple[int, int]") -> None:
+        """Say once, per token axis, when the fused triangle attention declined every call.
+
+        The arm's circular buffers do not fit L1 at every token axis, and when it declines the
+        composed path runs in its place and materialises the `[N,4,N,N]` fp32 scores. Nothing in
+        a run says so today, so a size that degrades looks like a size that is merely large. It
+        is not a small effect and it is not monotone in the size: measured on qb1 p150a with
+        hIL2R and a 146- against a 100-residue binder, 512 tokens holds 25.75 GB at 69.2 s a
+        round where 544 holds 14.23 GB at 49.4 s, so the smaller fold is the heavier and the
+        slower one. hTNFa on three chains declines identically at the same 512 axis, so it is
+        the axis and not the target.
+
+        The counters are process-wide, so the window is one forward and the test is a delta over
+        it. Interleaved trajectories can serve inside that window; that direction only silences
+        the note, which is the safe way to be wrong about it.
+        """
+        self._fused_checked.add(padded)
+        served, declined = _fused_hifi_counts()
+        served, declined = served - before[0], declined - before[1]
+        if served or not declined:
+            return
+        print(f"[tt_bio.bindcraft2] the fused triangle attention declined all {declined} calls "
+              f"at {padded} tokens: its circular buffers do not fit L1 at this token axis, so "
+              f"the composed path is running and holding the [{padded},4,{padded},{padded}] "
+              f"fp32 scores. Expect several times the device memory and a slower round than one "
+              f"bucket either side -- on a p150a, 512 tokens measures 25.75 GB and 69.2 s a "
+              f"round where 544 measures 14.23 GB and 49.4 s. Another binder length is the "
+              f"cheap way out.", file=sys.stderr)
 
     def _backward(self, slot, token, g_msa_np, g_pair_np):
         entry = self._tapes.take(token)

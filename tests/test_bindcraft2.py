@@ -1087,3 +1087,50 @@ def test_the_allocators_own_refusal_is_kept_as_the_cause():
             raise original
     assert caught.value.__cause__ is original
     assert "largest free block: 326674368 B" in str(caught.value.__cause__)
+
+
+# ------------------------------------------------- the degradation that used to be silent
+
+def _splice_without_a_card():
+    """An `EvoformerOnDevice` with nothing built: the note reads counters and prints, no more."""
+    splice = object.__new__(bindcraft2.EvoformerOnDevice)
+    splice._fused_checked = set()
+    return splice
+
+
+def test_a_fused_arm_that_declined_every_call_says_so(monkeypatch, capsys):
+    """512 tokens is 1.8x the memory and 1.4x the round of 544 and nothing said why."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (0, 972))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(512, (0, 0))
+    err = capsys.readouterr().err
+    assert "declined all 972 calls at 512 tokens" in err
+    assert "do not fit L1" in err
+    assert "[512,4,512,512]" in err              # what the composed path holds instead
+    assert "544 measures 14.23 GB" in err        # and the bucket that does not
+    assert 512 in splice._fused_checked          # said once, not once a round
+
+
+def test_a_fused_arm_that_served_is_not_reported(monkeypatch, capsys):
+    """544 serves all 972. A note there would train the user to ignore the note."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (972, 0))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(544, (0, 0))
+    assert capsys.readouterr().err == ""
+
+
+def test_the_note_reads_a_delta_not_a_running_total(monkeypatch, capsys):
+    """The counters are process-wide and a campaign varies the binder length, so a trajectory
+    that served at an earlier axis must not silence the note at this one."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (972, 972))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(512, (972, 0))     # 972 served BEFORE this axis
+    assert "declined all 972 calls at 512 tokens" in capsys.readouterr().err
+
+
+def test_a_run_that_never_reached_the_arm_is_silent(monkeypatch, capsys):
+    """`(0, 0)` is the host trunk and every non-device path. Silence is the only honest note."""
+    monkeypatch.setattr(bindcraft2, "_fused_hifi_counts", lambda: (0, 0))
+    splice = _splice_without_a_card()
+    splice._note_if_the_fused_arm_declined(288, (0, 0))
+    assert capsys.readouterr().err == ""
