@@ -77,6 +77,8 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
 .brow.us .bval{color:var(--ink);font-weight:600}
 .bna{font-size:.85rem;color:var(--ink-4)}
 .caption{font-size:.85rem;color:var(--ink-4);margin-top:22px;max-width:66ch}
+.prov{font-size:.92rem;color:var(--ink-3);margin:0;max-width:70ch}
+.prov a{color:var(--ink-2)}
 
 /* models as a typographic index, not boxes */
 .cats{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;margin-top:28px}
@@ -159,6 +161,10 @@ h2{font-size:clamp(1.85rem,3.5vw,2.5rem);margin:0 0 18px;max-width:22ch}
     <h2>Throughput, every model, every system</h2>
     <p class="say measure">Predictions per hour, measured on the same 512-residue protein, with each
       stack on its own shipped settings. Then divided by what the hardware costs.</p>
+    <!-- The sentence is scope.nvidia_code, written here so it reads without JS and replaced from
+         the data on load. check_numbers.py fails if the two differ. -->
+    <p class="prov"><span id="prov">Every NVIDIA figure runs the model's own upstream code, not NVIDIA BioNeMo, a BioNeMo NIM, Anthropic's life-sciences kit or any other vendor-optimised stack, and cuEquivariance is the one NVIDIA library in the path. An optimised serving stack might run faster, and it is not measured here.</span>
+      <a href="benchmarks/#methods">What each GPU row runs</a></p>
     <div class="metricline">
       <div class="seg" id="metric">
         <button data-m="perk" aria-pressed="true">Purchase price</button>
@@ -348,7 +354,8 @@ document.getElementById("metric").addEventListener("click", e => {
 });
 fetch("data/perf-512aa.json", {cache:"no-store"})
   .then(r => r.json())
-  .then(D => { build(D); drawChart(); })
+  .then(D => { build(D); drawChart();
+    document.getElementById("prov").textContent = D.scope.nvidia_code; })
   .catch(e => {
     document.getElementById("cap").textContent =
       "Could not load data/perf-512aa.json (" + e.message + "). Serve this directory over HTTP.";
