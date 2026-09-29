@@ -8,31 +8,34 @@
     768,
     896,
     1024,
+    1152,
     1280,
+    1408,
     1536
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-09-21",
+      "recorded": "2026-09-28",
       "host": "tt-quietbox",
-      "commit": "a2473e47b",
+      "commit": "3af7e8be7",
       "models": {
         "openfold3": {
           "grid": "11x10",
-          "recorded": "2026-09-21",
+          "recorded": "2026-09-28",
           "host": "tt-quietbox",
-          "commit": "a2473e47b",
+          "commit": "3af7e8be7",
+          "host_threads": null,
           "runtime_s": {
-            "256": 14.5,
-            "512": 22.5,
-            "640": 31.3,
-            "768": 43.0,
-            "896": 59.2,
-            "1024": 75.3,
-            "1152": 224.5,
-            "1280": 349.1,
-            "1408": 447.3,
-            "1536": 526.6
+            "256": 11.5,
+            "512": 21.3,
+            "640": 30.0,
+            "768": 41.7,
+            "896": 57.3,
+            "1024": 73.2,
+            "1152": 95.3,
+            "1280": 126.7,
+            "1408": 163.7,
+            "1536": 189.0
           },
           "levers": {
             "256": {
@@ -1428,11 +1431,11 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 384,
-                "declined": 5,
-                "frac": 0.987146529562982,
+                "declined": 4,
+                "frac": 0.9896907216494846,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 5
+                  "l1_budget": 4
                 }
               },
               "SDPA_WIDE_K": {
@@ -1949,14 +1952,14 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 168960,
+                "served": 21504,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -2037,15 +2040,10 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 13,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 3,
-                  "fill_preconditions": 10
-                },
-                "reason": "declines all 13 calls on fill_preconditions x10, l1_budget x3: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -2057,11 +2055,10 @@
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 0,
+                "served": 384,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2178,11 +2175,10 @@
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.trunk",
-                "served": 0,
-                "declined": 384,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "the fused route's L1 ceiling, which is per-core and not N. `_tri_att_sdpa_hifi_inner` exhausts its ladder and returns None, so all 384 calls fall back to `_fp32_softmax_attention`, which is why FP32_SOFTMAX_L1_GRID reads 168960 serves at this rung against 19096 at 1024 aa. The clauses are in `triatt_sdpa.REJECTS` on this same run, reported under TRIATT_PERSISTENT_MASK: fill_preconditions x10, l1_budget x3. `l1_budget` is the device's own allocator throw absorbed at triatt_sdpa.py:451, and once those configs are retired into `_TRIATT_HIFI_OVER_L1` the remaining calls never re-enter. The boundary is measured, not modelled: 384 served at 1024 aa and every call declined at 1088 aa on a p300c (56ad6c0e0), and this ladder reproduces the pre-HiFi baseline within 3 % at 1152-1536 while beating it 2.33x at 1024."
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "1280": {
@@ -2258,16 +2254,16 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 561921,
+                "served": 70401,
                 "declined": 1,
-                "frac": 0.9999982203935778,
+                "frac": 0.9999857958580722,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
@@ -2346,15 +2342,10 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 12,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 3,
-                  "fill_preconditions": 9
-                },
-                "reason": "declines all 12 calls on fill_preconditions x9, l1_budget x3: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -2366,11 +2357,10 @@
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 0,
+                "served": 384,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2487,11 +2477,10 @@
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.trunk",
-                "served": 0,
-                "declined": 384,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "the fused route's L1 ceiling, which is per-core and not N. `_tri_att_sdpa_hifi_inner` exhausts its ladder and returns None, so all 384 calls fall back to `_fp32_softmax_attention`, which is why FP32_SOFTMAX_L1_GRID reads 561921 serves at this rung against 19096 at 1024 aa. The clauses are in `triatt_sdpa.REJECTS` on this same run, reported under TRIATT_PERSISTENT_MASK: fill_preconditions x9, l1_budget x3. `l1_budget` is the device's own allocator throw absorbed at triatt_sdpa.py:451, and once those configs are retired into `_TRIATT_HIFI_OVER_L1` the remaining calls never re-enter. The boundary is measured, not modelled: 384 served at 1024 aa and every call declined at 1088 aa on a p300c (56ad6c0e0), and this ladder reproduces the pre-HiFi baseline within 3 % at 1152-1536 while beating it 2.33x at 1024."
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "1408": {
@@ -2567,16 +2556,16 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 618113,
+                "served": 77441,
                 "declined": 1,
-                "frac": 0.9999983821754563,
+                "frac": 0.9999870871103536,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
@@ -2655,15 +2644,10 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 10,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 3,
-                  "fill_preconditions": 7
-                },
-                "reason": "declines all 10 calls on fill_preconditions x7, l1_budget x3: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -2675,11 +2659,10 @@
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 0,
+                "served": 384,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2796,11 +2779,10 @@
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.trunk",
-                "served": 0,
-                "declined": 384,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "the fused route's L1 ceiling, which is per-core and not N. `_tri_att_sdpa_hifi_inner` exhausts its ladder and returns None, so all 384 calls fall back to `_fp32_softmax_attention`, which is why FP32_SOFTMAX_L1_GRID reads 618113 serves at this rung against 19096 at 1024 aa. The clauses are in `triatt_sdpa.REJECTS` on this same run, reported under TRIATT_PERSISTENT_MASK: fill_preconditions x7, l1_budget x3. `l1_budget` is the device's own allocator throw absorbed at triatt_sdpa.py:451, and once those configs are retired into `_TRIATT_HIFI_OVER_L1` the remaining calls never re-enter. The boundary is measured, not modelled: 384 served at 1024 aa and every call declined at 1088 aa on a p300c (56ad6c0e0), and this ladder reproduces the pre-HiFi baseline within 3 % at 1152-1536 while beating it 2.33x at 1024."
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "1536": {
@@ -2876,14 +2858,14 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 440,
+                "served": 56,
+                "declined": 56,
                 "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(8, 8)",
-                "served": 675840,
+                "served": 86016,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -2918,7 +2900,7 @@
                   "k_tiles=2": 16,
                   "k_tiles=4": 424
                 },
-                "reason": "declines all 440 calls on k_tiles=2 x16, k_tiles=4 x424: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N, so F1 is inert on this model at every size and not dark at this one."
+                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N, so F1 is inert on this model at every size and not dark at this one."
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2965,15 +2947,10 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 15,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 3,
-                  "fill_preconditions": 12
-                },
-                "reason": "declines all 15 calls on fill_preconditions x12, l1_budget x3: openfold3's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768]"
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -2985,11 +2962,10 @@
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 0,
+                "served": 384,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3106,52 +3082,51 @@
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.trunk",
-                "served": 0,
-                "declined": 384,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "the fused route's L1 ceiling, which is per-core and not N. `_tri_att_sdpa_hifi_inner` exhausts its ladder and returns None, so all 384 calls fall back to `_fp32_softmax_attention`, which is why FP32_SOFTMAX_L1_GRID reads 675840 serves at this rung against 19096 at 1024 aa. The clauses are in `triatt_sdpa.REJECTS` on this same run, reported under TRIATT_PERSISTENT_MASK: fill_preconditions x12, l1_budget x3. `l1_budget` is the device's own allocator throw absorbed at triatt_sdpa.py:451, and once those configs are retired into `_TRIATT_HIFI_OVER_L1` the remaining calls never re-enter. The boundary is measured, not modelled: 384 served at 1024 aa and every call declined at 1088 aa on a p300c (56ad6c0e0), and this ladder reproduces the pre-HiFi baseline within 3 % at 1152-1536 while beating it 2.33x at 1024."
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             }
           },
           "runtime_reps_s": {
             "256": [
-              14.1,
-              14.5,
-              14.7,
-              14.6,
-              14.4
+              11.7,
+              11.1,
+              11.4,
+              11.7,
+              11.5
             ],
             "512": [
-              24.3,
-              22.4,
-              22.5,
-              22.3,
-              22.5
+              21.8,
+              21.3,
+              21.7,
+              21.3,
+              21.2
             ],
             "640": [
-              31.3
+              30.0
             ],
             "768": [
-              43.0
+              41.7
             ],
             "896": [
-              59.2
+              57.3
             ],
             "1024": [
-              75.3
+              73.2
             ],
             "1152": [
-              224.5
+              95.3
             ],
             "1280": [
-              349.1
+              126.7
             ],
             "1408": [
-              447.3
+              163.7
             ],
             "1536": [
-              526.6
+              189.0
             ]
           },
           "aiclk": {
@@ -3166,7 +3141,7 @@
                 1350,
                 1350
               ],
-              "n": 38
+              "n": 35
             },
             "512": {
               "card": "0",
@@ -3179,7 +3154,7 @@
                 1350,
                 1350
               ],
-              "n": 41
+              "n": 40
             },
             "640": {
               "card": "0",
@@ -3206,7 +3181,7 @@
               "rep_median": [
                 1350
               ],
-              "n": 15
+              "n": 14
             },
             "1024": {
               "card": "0",
@@ -3224,7 +3199,7 @@
               "rep_median": [
                 1350
               ],
-              "n": 42
+              "n": 21
             },
             "1280": {
               "card": "0",
@@ -3233,7 +3208,7 @@
               "rep_median": [
                 1350
               ],
-              "n": 63
+              "n": 26
             },
             "1408": {
               "card": "0",
@@ -3242,7 +3217,7 @@
               "rep_median": [
                 1350
               ],
-              "n": 79
+              "n": 32
             },
             "1536": {
               "card": "0",
@@ -3251,7 +3226,77 @@
               "rep_median": [
                 1350
               ],
-              "n": 92
+              "n": 36
+            }
+          },
+          "load": {
+            "256": {
+              "max": 0.21,
+              "rep_median": [
+                0.05,
+                0.09,
+                0.18,
+                0.15,
+                0.11
+              ]
+            },
+            "512": {
+              "max": 0.23,
+              "rep_median": [
+                0.11,
+                0.19,
+                0.13,
+                0.13,
+                0.1
+              ]
+            },
+            "640": {
+              "max": 0.27,
+              "rep_median": [
+                0.2
+              ]
+            },
+            "768": {
+              "max": 0.07,
+              "rep_median": [
+                0.06
+              ]
+            },
+            "896": {
+              "max": 0.04,
+              "rep_median": [
+                0.03
+              ]
+            },
+            "1024": {
+              "max": 0.14,
+              "rep_median": [
+                0.08
+              ]
+            },
+            "1152": {
+              "max": 0.15,
+              "rep_median": [
+                0.08
+              ]
+            },
+            "1280": {
+              "max": 0.12,
+              "rep_median": [
+                0.05
+              ]
+            },
+            "1408": {
+              "max": 0.08,
+              "rep_median": [
+                0.06
+              ]
+            },
+            "1536": {
+              "max": 0.15,
+              "rep_median": [
+                0.06
+              ]
             }
           },
           "structure": {
@@ -3259,198 +3304,199 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 98.2795,
-              "radius_of_gyration_A": 80.308,
-              "plddt_mean": 0.343913,
+              "ca_ca_median_A": 101.9346,
+              "radius_of_gyration_A": 81.192,
+              "plddt_mean": 0.308964,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.279 A outside [3.6, 4.0]",
+                "median CA-CA 101.935 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 80.3 A outside [9.0, 45.2]"
+                "radius of gyration 81.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0469,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 101.8469,
-              "radius_of_gyration_A": 82.089,
-              "plddt_mean": 0.337587,
+              "clash_frac": 0.0234,
+              "chain_break_frac": 0.998,
+              "ca_ca_median_A": 100.9463,
+              "radius_of_gyration_A": 82.043,
+              "plddt_mean": 0.299073,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 101.847 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.1 A outside [11.8, 58.9]"
+                "median CA-CA 100.946 A outside [3.6, 4.0]",
+                "99.8% of consecutive CA pairs exceed 5.0 A",
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 82.0 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.025,
+              "clash_frac": 0.0312,
               "chain_break_frac": 0.9984,
-              "ca_ca_median_A": 97.8568,
-              "radius_of_gyration_A": 80.948,
-              "plddt_mean": 0.332809,
+              "ca_ca_median_A": 98.2271,
+              "radius_of_gyration_A": 81.208,
+              "plddt_mean": 0.293767,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 97.857 A outside [3.6, 4.0]",
+                "median CA-CA 98.227 A outside [3.6, 4.0]",
                 "99.8% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.9 A outside [12.8, 64.1]"
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0469,
+              "clash_frac": 0.0273,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 99.802,
-              "radius_of_gyration_A": 78.151,
-              "plddt_mean": 0.337601,
+              "ca_ca_median_A": 98.5695,
+              "radius_of_gyration_A": 78.784,
+              "plddt_mean": 0.297489,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 99.802 A outside [3.6, 4.0]",
+                "median CA-CA 98.569 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.2 A outside [13.7, 68.7]"
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.8 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.029,
+              "clash_frac": 0.0335,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 103.0803,
-              "radius_of_gyration_A": 84.043,
-              "plddt_mean": 0.334527,
+              "ca_ca_median_A": 102.3925,
+              "radius_of_gyration_A": 84.436,
+              "plddt_mean": 0.287743,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 103.080 A outside [3.6, 4.0]",
+                "median CA-CA 102.392 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 84.0 A outside [14.6, 72.8]"
+                "3.4% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 84.4 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0312,
+              "clash_frac": 0.0322,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 99.1444,
-              "radius_of_gyration_A": 80.849,
-              "plddt_mean": 0.342799,
+              "ca_ca_median_A": 99.0339,
+              "radius_of_gyration_A": 81.454,
+              "plddt_mean": 0.295056,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 99.144 A outside [3.6, 4.0]",
+                "median CA-CA 99.034 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.8 A outside [15.3, 76.6]"
+                "3.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.5 A outside [15.3, 76.6]"
               ]
             },
             "1152": {
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.0399,
+              "clash_frac": 0.0538,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 97.8388,
-              "radius_of_gyration_A": 80.473,
-              "plddt_mean": 0.346952,
+              "ca_ca_median_A": 98.8064,
+              "radius_of_gyration_A": 81.146,
+              "plddt_mean": 0.296827,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 97.839 A outside [3.6, 4.0]",
+                "median CA-CA 98.806 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.5 A outside [16.0, 80.1]"
+                "5.4% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.1 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0516,
+              "clash_frac": 0.0578,
               "chain_break_frac": 0.9992,
-              "ca_ca_median_A": 99.3827,
-              "radius_of_gyration_A": 82.337,
-              "plddt_mean": 0.356548,
+              "ca_ca_median_A": 98.2275,
+              "radius_of_gyration_A": 82.873,
+              "plddt_mean": 0.302923,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 99.383 A outside [3.6, 4.0]",
+                "median CA-CA 98.227 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "5.2% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.8% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1408": {
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0611,
+              "clash_frac": 0.0455,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 100.485,
-              "radius_of_gyration_A": 82.507,
-              "plddt_mean": 0.357451,
+              "ca_ca_median_A": 99.4221,
+              "radius_of_gyration_A": 81.985,
+              "plddt_mean": 0.296048,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 100.485 A outside [3.6, 4.0]",
+                "median CA-CA 99.422 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "6.1% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0579,
+              "clash_frac": 0.0521,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 100.5697,
-              "radius_of_gyration_A": 81.042,
-              "plddt_mean": 0.371759,
+              "ca_ca_median_A": 100.7499,
+              "radius_of_gyration_A": 81.976,
+              "plddt_mean": 0.313646,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 100.570 A outside [3.6, 4.0]",
+                "median CA-CA 100.750 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.8% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.2% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.037,
+          "sigma_runtime_512": 0.0126,
           "exponents": {
             "256->512": {
-              "k": 0.634,
+              "k": 0.889,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.597,
+              "k": 1.657,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0159,
-            "512": 0.037
+            "256": 0.0217,
+            "512": 0.0126
           },
           "exponents_measured": {
-            "256->512": 0.634,
-            "512->640": 1.479,
-            "640->768": 1.742,
-            "768->896": 2.074,
-            "896->1024": 1.802,
-            "1024->1152": 9.275,
-            "1152->1280": 4.19,
-            "1280->1408": 2.601,
-            "1408->1536": 1.876
+            "256->512": 0.889,
+            "512->640": 1.535,
+            "640->768": 1.806,
+            "768->896": 2.062,
+            "896->1024": 1.834,
+            "1024->1152": 2.24,
+            "1152->1280": 2.703,
+            "1280->1408": 2.688,
+            "1408->1536": 1.652
           }
         }
-      }
+      },
+      "host_threads": null
     },
     "p300c": {
       "recorded": "2026-09-27",

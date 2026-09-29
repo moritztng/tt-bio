@@ -22,6 +22,8 @@
     "seed": 0,
     "templates": "off",
     "protocol": "Warm folds, one prediction at a time on one accelerator, the same two input files on both sides, each model at its own recycle and sampling-step settings. Each Tenstorrent cell is that model's fastest arm that passes parity.",
+    "nvidia_code": "Every NVIDIA figure runs the model's own upstream code, not NVIDIA BioNeMo, a BioNeMo NIM, Anthropic's life-sciences kit or any other vendor-optimised stack, and cuEquivariance is the one NVIDIA library in the path. An optimised serving stack might run faster, and it is not measured here.",
+  "nvidia_impl": "Each package is installed from its authors' release. cuEquivariance supplies the triangle kernels the upstream packages call themselves: most rows use it by default, and OpenFold3, OpenBind-0 and both ESMFold2 rows switch it on through the model's own option.",
     "split": "Two readings of the same eight rows. Whole fold counts every second a user waits for on both sides. Device only strips the host work off both sides, and it is the reading that says what the silicon does. The Tenstorrent host seconds are inside the published cell on every row; the NVIDIA ones sit outside it on the five folding rows and inside it on RoseTTAFold3, PXDesign and Nesso-1, whose cells time host and device together. Every Tenstorrent host figure is an upper bound, so every device-only ratio here is a lower bound on the real device gap. This table is Blackhole against H200 only.",
     "gpu_generations": "The B200 is not uniformly faster than the H200 on these workloads. Six rows go the H200's way by a clear margin: Boltz-2 by 10.2 %, OpenFold3 15.9 %, OpenBind-0 16.0 %, BoltzGen 27.2 %, ESMFold2-Fast 78.3 % and Nesso-1 84.0 %. PXDesign is the one row where the two are level, 0.7 % to the H200 against within-arm spreads of 5.1 % and 5.5 %. Every other row goes the B200's way. The B200 cells were re-measured on a config-identical machine and reproduce within 4.1 %, so the split is real. It is not the host: cutting the B200 box from 24 cores to 6 with taskset moves Boltz-2 by less than 1.5 % (8.285 / 8.163 / 8.192 s), and on single-threaded featurisation the B200 box's Xeon 8559C is 1.51x faster than the H200 box's Xeon 8480+ (8.275 s against 12.459 s on the same RoseTTAFold3 work), so the host difference runs toward the B200, not against it. The mechanism is saturation. Solving Boltz-2 at four recycle and sampling-step points on both cards gives 0.541 s per recycle on the B200 against 0.620 s on the H200, and 0.0288 s per sampling step against 0.0241 s: the B200 is the faster trunk, the H200 is the faster sampler. The published Boltz-2 cell is 70 % sampler on the B200 and 66 % on the H200, and the sampler phase draws 379 W of the B200's 1000 W limit at 68 % utilisation against 404 W of the H200's 700 W at 90 %. At 512 residues these workloads do not fill a B200. One packaging term was measured and it is small: cuEquivariance's Blackwell triangle-attention kernel ships only in the cu13 wheels and the published cells ran cu12; per call it is 2.69x faster, end to end it moves Boltz-2 by -2.76 % and BoltzGen the wrong way by +4.28 %.",
     "timed_region": "Each cell times what that platform's own harness times, and the regions are not identical: every Tenstorrent number is a whole prediction call with featurisation and structure writing inside it, and on NVIDIA that is true of RoseTTAFold3 and effectively true of ESMFold2, but the Boltz-2, OpenFold3, Protenix-v2 and OpenDDE cells time the network forward and leave host work outside the timer. What they leave out is 0.24 s, 0.43 s, 0.62 s and 6.31 s per prediction, which makes those four ratios larger than a like-for-like comparison would. The host and device table gives both readings for every row."
@@ -168,6 +170,7 @@
       "name": "Boltz-2",
       "recycles": 3,
       "sampling_steps": 200,
+      "nvidia_impl": "boltz 2.2.1, with the cuEquivariance kernels boltz turns on by default.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -209,6 +212,7 @@
       "name": "ESMFold2",
       "recycles": 10,
       "sampling_steps": "100 requested, 68 executed",
+      "nvidia_impl": "ESMFold2Model from transformers 4.57.6 with esm 3.3.0 and the biohub/ESMFold2 weights. The model's own cuequivariance kernel backend is selected; its default is the plain PyTorch path.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -252,6 +256,7 @@
       "recycles": 10,
       "sampling_steps": "100 requested, 68 executed",
       "note": "The same port and the same stack as the ESMFold2 row on a 24-block trunk against 48, so read the two rows as one model at two depths. It folds 1.580x faster than ESMFold2 on one Blackhole AI Processor (29.393 to 18.821 s) and 1.814x faster on an H200 (7.256 to 3.999 s); the two checkpoints differ only in trunk depth, so the smaller Tenstorrent gain is what a large fixed non-trunk term predicts.",
+      "nvidia_impl": "The same ESMFold2 code path on esm 3.4.0 and transformers 4.57.6, with the same cuequivariance backend selected.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -283,6 +288,7 @@
       "name": "Protenix-v2",
       "recycles": 10,
       "sampling_steps": 200,
+      "nvidia_impl": "protenix 2.0.0 (bytedance/Protenix) at the settings protenix predict ships, cuEquivariance and fusion on by default. The B200 cell runs triton 3.4.0 in place of the pinned 3.3.1, which hangs on that GPU.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -324,6 +330,7 @@
       "name": "OpenDDE",
       "recycles": 10,
       "sampling_steps": 200,
+      "nvidia_impl": "opendde 1.0.3 (aurekaresearch) at its shipped settings, kernel selectors on auto, which resolve to cuEquivariance. The B200 cell runs triton 3.4.0 for the same reason as Protenix-v2.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -365,6 +372,7 @@
       "name": "OpenFold3",
       "recycles": 3,
       "sampling_steps": 200,
+      "nvidia_impl": "openfold3 0.4.4 with the of3-p2-155k checkpoint. cuEquivariance is switched on through the runner's use_cueq_triangle_kernels option, which is off by default.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -407,6 +415,7 @@
       "recycles": 10,
       "sampling_steps": "50 requested, 49 executed",
       "note": "AtomWorks host featurisation, not accelerator work, is about half of an RF3 fold on every NVIDIA box measured here: 8.3 s of 16.4 s on the B200, 12.5 s of 22.8 s on the H200, 15.0 s of 30.9 s on the A100. The same featuriser runs inside the Tenstorrent number in 8.3 s or less. This is the only row whose NVIDIA cell already times a whole fold, and the only row where the two readings above are far apart. A shared cost that size compresses a whole-fold ratio, and stripping it off both sides is what the device-only column does. Neither figure alone describes this row.",
+      "nvidia_impl": "rc-foundry 0.2.0 and atomworks 2.2.1, which use cuEquivariance whenever it is installed.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -450,6 +459,7 @@
       "recycles": 3,
       "sampling_steps": 200,
       "note": "OpenBind-0 is the OpenFold3 stack on upstream's v0.5.0 checkpoint. It folds this page's fixture at the same three recycles and 200 sampling steps as the OpenFold3 row, resolved by the same code path, so the two rows are directly comparable. It also takes ligands, which OpenFold3 refuses. Its own GPU reference exists but not on this fixture: on a single-sequence 512-residue apo target an H200 takes 9.311 s of device time (perf/openbind/gpu_reference.json, cell ob_apo_512_s1) against 36.017 s on one Blackhole AI Processor, the latter measured on this host during the port and not committed to this repo. This page's fixture carries a 35-sequence alignment and MSA depth is a trunk cost, so that pair is context, not a cell. The reference also records its own 512-residue rung moving 10.65 % between two independently rented H200s, because the 200-step rollout is launch-bound and carries the landlord's CPU.",
+      "nvidia_impl": "The OpenFold3 runner on upstream 0.5.0 with the of3-ob-2025-06-30-174k checkpoint, cuEquivariance switched on the same way as OpenFold3.",
       "cells": {
         "p150a": {
           "status": "measured",
@@ -486,6 +496,7 @@
         "target": "EBV gp350 D123 (9ma0 chain A), 414 target residues, 100-residue binder, 514 tokens",
         "sampling_steps": 500,
         "batch": 1,
+        "nvidia_impl": "boltzgen 0.1.0 on the H200 and B200 and 0.3.2 on the A100, with the cuEquivariance kernels it turns on by default.",
         "cells": {
           "p150a": {
             "status": "measured",
@@ -551,6 +562,7 @@
         "sampling_steps": 400,
         "batch": 1,
         "note": "This row is what `tt-bio design --model pxdesign` returns: the PXDesign-d generator, which writes a binder backbone with no sequence. The four-model filtering pipeline upstream runs after it (ProteinMPNN, AF2-IG and a Protenix filter) is not on the CLI. Both columns time the same three steps, featurise, generate and write the CIF, with the checkpoint load outside the cell on both sides. The LacZ crop is a cost fixture: the reference records its designs as well-folded and non-binding, because the epitope is an arbitrary exposed loop and one design per target is far below what a real campaign runs. Right fixture for seconds, wrong one for quality. Batching is the lever this protocol does not use, and it does not move the two sides equally. A batch of 8 is worth 1.244x on the Blackhole AI Processor, confirmed at 400 steps on a p300c board in tt-quietbox2, physical card 0. The first reading of this lever came off a p150a in pc whose matmuls are occasionally wrong, so it was a relative result only; this one is not. Batches of 16, 32 and 64 all run and all read slower per design than 8, so the ceiling is arithmetic and not capacity. Capping the model's internal chunk at 8 makes a batch of 32 read 18.56 s a design against the batch-of-8 rate of 18.13 s, so a request four times the ceiling holds that rate, though the CLI has no chunk flag today. The same lever is worth 1.92x at 8 on the H200 and 2.05x at 64 on the B200, which runs one design at 37.5 % utilisation and 64 at 94.4 %; the H200 goes from 20.4 % to 84.5 %. Peak allocation never passes 4.9 GB of the B200's 183, so nothing here runs out of memory. At each side's best batch a design costs 18.69 s on a Blackhole AI Processor against 11.88 s on a B200, so the 1.05x per-accelerator lead becomes 0.64x and the per-server reading falls from 4.20x to 2.54x. Upstream recommends collecting 10000+ designs per target and calls --N_sample 10 a debugging run, so the batched reading is the campaign-relevant one and the seconds above are latency.",
+        "nvidia_impl": "pxdesign 0.1.0 on protenix 0.5.0+pxd (bytedance). torch 2.7.1 replaces the pinned 2.3.1 because a B200 cannot run its CUDA 12.1; on the H200 the two stacks write bit-identical designs.",
         "cells": {
           "p150a": {
             "status": "measured",
@@ -607,6 +619,7 @@
         "target": "CDK2 ladder 512 aa plus one ligand, 532 tokens, no MSA",
         "recycling_steps": 5,
         "batch": 1,
+        "nvidia_impl": "nesso (recursionpharma/nesso) with its kernels extra; the checkpoint turns cuEquivariance on.",
         "cells": {
           "p150a": {
             "status": "measured",

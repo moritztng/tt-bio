@@ -26,6 +26,8 @@ jobs:
         run: python3 -c "import json;json.load(open('site/data/perf-512aa.json'))"
       - name: Check no published row is missing a processor column
         run: python3 scripts/site_publish_guard.py
+      - name: Check every local link resolves
+        run: python3 scripts/site_link_check.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

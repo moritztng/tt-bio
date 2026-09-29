@@ -146,7 +146,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="../assets/" aria-label="TT-Bio, home"><span class="tt">TT-</span>Bio</a>
+    <a class="brand" href="../" aria-label="TT-Bio, home"><span class="tt">TT-</span>Bio</a>
     <span class="sp"></span>
     <a class="lnk" href="../">Overview</a>
     <a class="lnk" aria-current="page" href="./">Benchmarks</a>
@@ -229,7 +229,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 
 <section class="chart" id="c1">
   <div class="chart-head">
-    <div class="chart-title"><h3 class="lead">Throughput per dollar, purchase price</h3><span class="pill">Derived</span></div>
+    <div class="chart-title"><h3 class="lead">Throughput per dollar of purchase price</h3><span class="pill">Derived</span></div>
     <p class="cond" id="c1-cond"></p>
   </div>
   <div class="keys" id="c1-keys"></div>
@@ -239,7 +239,7 @@ details.disclose > div{ padding-top:var(--s-4); }
 
 <section class="chart" id="c1b">
   <div class="chart-head">
-    <div class="chart-title"><h3 class="lead">Throughput per dollar, total cost of ownership</h3><span class="pill">Derived</span></div>
+    <div class="chart-title"><h3 class="lead">Throughput per dollar of total cost of ownership</h3><span class="pill">Derived</span></div>
     <p class="cond" id="c1b-cond"></p>
   </div>
   <div class="keys" id="c1b-keys"></div>
@@ -941,7 +941,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     /* The scope list carries the run conditions and nothing else. How the two NVIDIA generations
      * split across the rows, and what each side's timer covers, are methodology: they read as
      * "H200 against B200" and "Timed region" in Methods below. */
-    scopeRows.push(["Run", s.protocol], ["Updated", D.updated]);
+    scopeRows.push(["Run", s.protocol], ["NVIDIA code", s.nvidia_code + " " + s.nvidia_impl], ["Updated", D.updated]);
     scopeRows.forEach(function (kv) {
       dl.appendChild(Object.assign(document.createElement("dt"), { textContent: kv[0] }));
       dl.appendChild(Object.assign(document.createElement("dd"), { textContent: kv[1] }));
@@ -986,6 +986,10 @@ details.disclose > div{ padding-top:var(--s-4); }
       ", " + s.diffusion_samples + " diffusion sample. Both sides ran these same two files.");
     mrow("Measured", "Wall-clock seconds for one prediction or one design on one accelerator, warm. " +
       "Hover any bar for the run behind it.");
+    mrow("NVIDIA implementation", D.models.concat(catRows().map(function (r) { return r.m; }))
+      .map(function (x) {
+        return x.name + ": " + x.nvidia_impl;
+      }).join(" "));
     if (s.timed_region) mrow("Timed region", s.timed_region);
     if (s.gpu_generations) mrow("H200 against B200", s.gpu_generations);
     mrow("Parity", "Each Tenstorrent figure carries the parity it holds against that model's own " +

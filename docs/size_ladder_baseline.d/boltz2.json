@@ -2711,26 +2711,27 @@
       "host_threads": 2
     },
     "p150a": {
-      "recorded": "2026-09-20",
+      "recorded": "2026-09-28",
       "host": "tt-quietbox",
-      "commit": "e69df58cb",
+      "commit": "3af7e8be7",
       "models": {
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-09-20",
+          "recorded": "2026-09-28",
           "host": "tt-quietbox",
-          "commit": "e69df58cb",
+          "commit": "3af7e8be7",
+          "host_threads": null,
           "runtime_s": {
-            "256": 7.6,
-            "512": 20.1,
-            "640": 27.6,
-            "768": 36.9,
-            "896": 48.7,
-            "1024": 61.2,
-            "1152": 77.1,
-            "1280": 92.4,
-            "1408": 131.2,
-            "1536": 146.2
+            "256": 7.1,
+            "512": 14.5,
+            "640": 21.2,
+            "768": 30.1,
+            "896": 42.5,
+            "1024": 54.7,
+            "1152": 71.6,
+            "1280": 86.6,
+            "1408": 117.1,
+            "1536": 137.7
           },
           "levers": {
             "256": {
@@ -2906,11 +2907,12 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3024,6 +3026,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "512": {
@@ -3184,11 +3193,12 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3302,6 +3312,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "640": {
@@ -3462,11 +3479,12 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3580,6 +3598,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "768": {
@@ -3743,11 +3768,12 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3862,6 +3888,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "896": {
@@ -4025,11 +4058,12 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -4144,6 +4178,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "1024": {
@@ -4307,11 +4348,12 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -4426,6 +4468,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "1152": {
@@ -4588,7 +4637,7 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
@@ -4706,6 +4755,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "1280": {
@@ -4868,7 +4924,7 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
@@ -4986,6 +5042,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "1408": {
@@ -5148,7 +5211,7 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
@@ -5266,6 +5329,13 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "1536": {
@@ -5428,7 +5498,7 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
@@ -5546,38 +5616,471 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             }
           },
-          "reps": 3,
-          "sigma_runtime_512": 0.2121,
+          "runtime_reps_s": {
+            "256": [
+              7.1,
+              7.2,
+              7.0,
+              7.1,
+              7.0
+            ],
+            "512": [
+              14.4,
+              14.6,
+              14.5,
+              14.3,
+              14.7
+            ],
+            "640": [
+              21.4,
+              21.2,
+              21.2
+            ],
+            "768": [
+              30.4,
+              30.1,
+              30.1
+            ],
+            "896": [
+              42.5,
+              42.5,
+              42.5
+            ],
+            "1024": [
+              54.8,
+              54.3,
+              54.7
+            ],
+            "1152": [
+              71.8,
+              71.6,
+              71.6
+            ],
+            "1280": [
+              86.6,
+              86.6,
+              86.7
+            ],
+            "1408": [
+              117.1,
+              117.1,
+              116.8
+            ],
+            "1536": [
+              138.0,
+              137.6,
+              137.7
+            ]
+          },
+          "aiclk": {
+            "256": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800,
+                800,
+                800,
+                800,
+                800
+              ],
+              "n": 25
+            },
+            "512": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350,
+                1343,
+                1350
+              ],
+              "n": 30
+            },
+            "640": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350
+              ],
+              "n": 21
+            },
+            "768": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350
+              ],
+              "n": 25
+            },
+            "896": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350
+              ],
+              "n": 32
+            },
+            "1024": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350
+              ],
+              "n": 39
+            },
+            "1152": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350
+              ],
+              "n": 45
+            },
+            "1280": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350
+              ],
+              "n": 54
+            },
+            "1408": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350
+              ],
+              "n": 69
+            },
+            "1536": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1350
+              ],
+              "n": 78
+            }
+          },
+          "load": {
+            "256": {
+              "max": 0.2,
+              "rep_median": [
+                0.07,
+                0.13,
+                0.12,
+                0.16,
+                0.17
+              ]
+            },
+            "512": {
+              "max": 0.31,
+              "rep_median": [
+                0.13,
+                0.13,
+                0.25,
+                0.23,
+                0.17
+              ]
+            },
+            "640": {
+              "max": 0.2,
+              "rep_median": [
+                0.08,
+                0.18,
+                0.13
+              ]
+            },
+            "768": {
+              "max": 0.16,
+              "rep_median": [
+                0.11,
+                0.12,
+                0.12
+              ]
+            },
+            "896": {
+              "max": 0.18,
+              "rep_median": [
+                0.14,
+                0.09,
+                0.07
+              ]
+            },
+            "1024": {
+              "max": 0.18,
+              "rep_median": [
+                0.04,
+                0.11,
+                0.11
+              ]
+            },
+            "1152": {
+              "max": 0.16,
+              "rep_median": [
+                0.09,
+                0.05,
+                0.08
+              ]
+            },
+            "1280": {
+              "max": 0.14,
+              "rep_median": [
+                0.06,
+                0.08,
+                0.08
+              ]
+            },
+            "1408": {
+              "max": 0.23,
+              "rep_median": [
+                0.13,
+                0.13,
+                0.07
+              ]
+            },
+            "1536": {
+              "max": 0.25,
+              "rep_median": [
+                0.06,
+                0.12,
+                0.12
+              ]
+            }
+          },
+          "structure": {
+            "256": {
+              "file": "cdk2x2_256.cif",
+              "steps": 6,
+              "n_ca": 256,
+              "clash_frac": 0.0078,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 135.1478,
+              "radius_of_gyration_A": 110.35,
+              "plddt_mean": 0.535582,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 135.148 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 110.3 A outside [9.0, 45.2]"
+              ]
+            },
+            "512": {
+              "file": "cdk2x2_512.cif",
+              "steps": 6,
+              "n_ca": 512,
+              "clash_frac": 0.0039,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 136.4595,
+              "radius_of_gyration_A": 107.159,
+              "plddt_mean": 0.507997,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 136.459 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 107.2 A outside [11.8, 58.9]"
+              ]
+            },
+            "640": {
+              "file": "cdk2x2_640.cif",
+              "steps": 6,
+              "n_ca": 640,
+              "clash_frac": 0.0125,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 127.0135,
+              "radius_of_gyration_A": 106.131,
+              "plddt_mean": 0.499365,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 127.013 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 106.1 A outside [12.8, 64.1]"
+              ]
+            },
+            "768": {
+              "file": "cdk2x2_768.cif",
+              "steps": 6,
+              "n_ca": 768,
+              "clash_frac": 0.0326,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 128.8245,
+              "radius_of_gyration_A": 104.384,
+              "plddt_mean": 0.495317,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 128.825 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 104.4 A outside [13.7, 68.7]"
+              ]
+            },
+            "896": {
+              "file": "cdk2x2_896.cif",
+              "steps": 6,
+              "n_ca": 896,
+              "clash_frac": 0.0112,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 136.1965,
+              "radius_of_gyration_A": 107.644,
+              "plddt_mean": 0.503098,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 136.196 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 107.6 A outside [14.6, 72.8]"
+              ]
+            },
+            "1024": {
+              "file": "cdk2x2_1024.cif",
+              "steps": 6,
+              "n_ca": 1024,
+              "clash_frac": 0.0176,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 132.3956,
+              "radius_of_gyration_A": 104.013,
+              "plddt_mean": 0.498665,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 132.396 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 104.0 A outside [15.3, 76.6]"
+              ]
+            },
+            "1152": {
+              "file": "cdk2x2_1152.cif",
+              "steps": 6,
+              "n_ca": 1152,
+              "clash_frac": 0.026,
+              "chain_break_frac": 0.9991,
+              "ca_ca_median_A": 132.2096,
+              "radius_of_gyration_A": 108.334,
+              "plddt_mean": 0.495657,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 132.210 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "2.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 108.3 A outside [16.0, 80.1]"
+              ]
+            },
+            "1280": {
+              "file": "cdk2x2_1280.cif",
+              "steps": 6,
+              "n_ca": 1280,
+              "clash_frac": 0.0234,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 132.2142,
+              "radius_of_gyration_A": 106.788,
+              "plddt_mean": 0.489735,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 132.214 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 106.8 A outside [16.7, 83.4]"
+              ]
+            },
+            "1408": {
+              "file": "cdk2x2_1408.cif",
+              "steps": 6,
+              "n_ca": 1408,
+              "clash_frac": 0.0291,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 133.1451,
+              "radius_of_gyration_A": 107.041,
+              "plddt_mean": 0.495448,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 133.145 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 107.0 A outside [17.3, 86.5]"
+              ]
+            },
+            "1536": {
+              "file": "cdk2x2_1536.cif",
+              "steps": 6,
+              "n_ca": 1536,
+              "clash_frac": 0.0234,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 127.8881,
+              "radius_of_gyration_A": 105.101,
+              "plddt_mean": 0.506187,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 127.888 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 105.1 A outside [17.9, 89.4]"
+              ]
+            }
+          },
+          "reps": 1,
+          "sigma_runtime_512": 0.0109,
           "exponents": {
             "256->512": {
-              "k": 1.403,
-              "tol": 0.531
+              "k": 1.03,
+              "tol": 0.5
             },
             "512->768": {
-              "k": 1.498,
-              "tol": 1.281
+              "k": 1.801,
+              "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0144,
-            "512": 0.2121
+            "256": 0.0118,
+            "512": 0.0109
           },
           "exponents_measured": {
-            "256->512": 1.403,
-            "512->640": 1.421,
-            "640->768": 1.593,
-            "768->896": 1.8,
-            "896->1024": 1.711,
-            "1024->1152": 1.961,
-            "1152->1280": 1.718,
-            "1280->1408": 3.678,
-            "1408->1536": 1.244
+            "256->512": 1.03,
+            "512->640": 1.702,
+            "640->768": 1.923,
+            "768->896": 2.238,
+            "896->1024": 1.89,
+            "1024->1152": 2.286,
+            "1152->1280": 1.805,
+            "1280->1408": 3.166,
+            "1408->1536": 1.862
           }
         }
-      }
+      },
+      "host_threads": null
     },
     "p300c": {
       "recorded": "2026-09-27",
@@ -7618,7 +8121,9 @@
     768,
     896,
     1024,
+    1152,
     1280,
+    1408,
     1536
   ]
 }
