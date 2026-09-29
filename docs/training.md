@@ -188,14 +188,25 @@ Measured, and each carries its source:
   of the 34.23 GB above.
 - **1.87x on two chips, 93.5 % efficiency**: 8.08 tokens/s on one chip, 15.11 on two, 1350 MHz
   sampled during on both.
+- Protenix-v2's **shipped 48-block pairformer forward**, untaped, at the checkpoint's own widths:
+  **0.699 GB at 256 aa, 0.877 GB at 384, 1.055 GB at 512, 1.284 GB at 640, 1.614 GB at 768**,
+  2.0 % to 4.7 % of the card. Measured by `ptx-crop` on qb1 card 1 and re-measured by
+  `train-x-cropunblock` on qb1 card 2 at 256 / 384 / 512, the two runs 16 to 32 KB apart, 1350
+  MHz median sampled during on both.
+- What a **trained Protenix-v2 trunk retains** under per-block checkpointing: **4.074 GB at 256
+  aa, 7.762 GB at 384 (22.7 %), 13.047 GB at 512**. Four terms, two read off the allocator on the
+  card (the 48 block-boundary pairs, and one block's 38 DRAM intermediates in recompute) and two
+  from the checkpoint's censused parameter counts. The 384 aa pair reproduced byte for byte across
+  the two campaigns: 3,638,034,432 B and 2,283,307,008 B.
 
 Refused rather than estimated. **A memory wall belongs to a model, not to a token count**, so
 these are per model and `plan()` applies only the one you asked for:
 
-- **Protenix-v2, 384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB,
-  536,870,912 B refused. Both in the forward under per-block checkpointing where the forward is
-  untaped, so what fails is one block's working set. Distribution does not help: 8 chips each
-  run out at 384 aa exactly as one does.
+- **Protenix-v2: nothing.** 384 and 512 aa used to be refused on 4.14 GB allocated / 75,497,472
+  B refused and 7.15 GB / 536,870,912 B. Those were measured against a differentiable twin of the
+  pair track rather than the shipped module, and the twin has since been deleted. The shipped
+  forward fits at both (above). Its table is kept empty rather than deleted, and any entry put
+  back carries its own citation, which a test checks.
 - **OpenFold3: 576 aa runs with `--exact` and is the largest measured to; the device path fits to 512. 640 and 768 refuse.** The backward
   peaks at 30,230,471,680 B of the card's 34,225,520,128 B at 576 aa, 88.3 % full, with the
   clock at a median 1350 MHz polled during. 640 and 768 die with the card full, 23,710,208 B
@@ -207,7 +218,7 @@ these are per model and `plan()` applies only the one you asked for:
   find this frontier and why these are measurements and not a slope. 544 sits below a crop that
   runs and has not been re-measured since the fix, so it is not claimed in either direction.
 
-**These two do not transfer to each other**, and a model with no entry gets no refusal from this
+**One model's wall does not transfer to another**, and a model with no entry gets no refusal from this
 table. Asking for a 512 aa OpenFold3 crop used to be refused on Protenix-v2's number for a crop
 OpenFold3 is measured to run; asking for 640 used to come back `UNMEASURED` when it is measured
 to refuse. Both were wrong, in opposite directions, and both came from one flat table.
@@ -220,9 +231,11 @@ to refuse. Both were wrong, in opposite directions, and both came from one flat 
   Where the memory fit *is* measured even though the step time is not, the answer says so:
   OpenFold3 at 512 aa comes back `UNMEASURED` and adds that the memory fits up to 512 aa, so
   the crop is expected to run and what is missing is a step time.
-- **Anything above a LoRA adapter on a frozen trunk.** The only source for a trained trunk's
-  memory is `perf/hall_grad/DECISION.md`, a feasibility memo whose 27.58 GB and roughly 40
-  engineer-days are projections of work that is not built, and which says so itself.
+- **Protenix-v2 above a LoRA adapter on a frozen trunk**, for one term rather than the whole
+  arithmetic. Retention is measured, the peak is not: no taped pairformer exists, so the
+  backward's own working set inside the block being recomputed has never been allocated. The
+  27.58 GB feasibility projection in `perf/hall_grad/DECISION.md` is retired: it was at 800 aa
+  for work that is not built, and it is not the same claim as 7.762 GB measured at 384.
 - **A step time on more than two chips.** 1.87x at two chips is the only multi-chip point we
   have, and carrying 93.5 % forward as a per-chip efficiency assumes the host reduce's per-rank
   volume and shard imbalance stay flat in rank count, which is exactly what is unmeasured. Two

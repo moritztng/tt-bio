@@ -554,9 +554,11 @@ def test_invariant_plan_returns_unmeasured_rather_than_guessing():
     assert fits.verdict == "fits" and abs(fits.replica_gb - 5.06) < 1e-9
     assert abs(fits.occupancy - 0.1478) < 5e-4
 
-    # a measured OOM is a refusal, not an extrapolation, and only for the model it was measured on
-    assert plan(tokens=384, model="protenix-v2", chips=1).verdict == "refused"
-    assert plan(tokens=512, model="protenix-v2", chips=1).verdict == "refused"
+    # 384 and 512 were refused here on a twin's OOM. The shipped forward fits at both, so the
+    # answer is UNMEASURED and it names the measured forward peak rather than a refusal.
+    for tokens, peak in ((384, "0.877 GB"), (512, "1.055 GB")):
+        p384 = plan(tokens=tokens, model="protenix-v2", chips=1)
+        assert p384.verdict == UNMEASURED and peak in p384.why
 
     # above the measured crop, and above a LoRA adapter, it says so
     assert plan(tokens=768, chips=1).verdict == UNMEASURED
