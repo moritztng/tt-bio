@@ -1,0 +1,219 @@
+{
+ "host": "tt-quietbox2",
+ "card": "1",
+ "trajectories": null,
+ "trajectories_arg": "auto",
+ "max_trajectories": 3,
+ "auto_would_choose": [
+  3,
+  "227.4 GB of host memory is free and 3 of them peak near 20 GB"
+ ],
+ "validation": "device",
+ "binder": 146,
+ "seed": 100,
+ "project": "perf/bc2_teardown/out/f1_c1/campaign",
+ "commit": "9bd197348c5968bb4efc95b081636f1f9a72f057",
+ "compile_cache": "/home/ttuser/.coworker/wt/bc2-teardown-next-job/perf/bc2_teardown/out/fixtree/perf/bc2_teardown/out/xlacache",
+ "pci": "0000:02:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  2.34912109375,
+  3.21142578125,
+  2.271484375
+ ],
+ "mem_start": {
+  "vmhwm": 465850368,
+  "vmrss": 465850368,
+  "mem_available": 244140843008
+ },
+ "started_utc": "2026-09-29T07:53:11Z"
+}
+2026-09-29 07:53:11.465 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[tt_bio.bindcraft2] 3 design trajectories on this card: 225.1 GB of host memory is free and 3 of them peak near 20 GB. Pass trajectories_per_card to choose yourself; 1 is BindCraft 2's own loop.
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bc2_teardown/out/f1_c1/campaign | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_f0284d8496d4703b | accepted 0/10 ===
+
+=== trajectory 2 | pdl1_denovo_l146_35fac9bf917b3924 | accepted 0/10 ===
+
+=== trajectory 3 | pdl1_denovo_l146_b5454bd49386550a | accepted 0/10 ===
+  rejected at screen design stage  i_pTM=0.13    pLDDT=0.44   due to [pLDDT]
+  rejected at screen design stage  i_pTM=0.14    pLDDT=0.4    due to [pLDDT]
+  rejected at screen design stage  i_pTM=0.11    pLDDT=0.44   due to [pLDDT]
+
+campaign stopped: 3 trajectories ran and none were accepted, so the settings rather than the budget are what to change
+
+campaign done: 0 accepted design(s) after 3 trajectories, ranked by i_pDAE
+{
+ "host": "tt-quietbox2",
+ "card": "1",
+ "trajectories": null,
+ "trajectories_arg": "auto",
+ "max_trajectories": 3,
+ "auto_would_choose": [
+  3,
+  "227.4 GB of host memory is free and 3 of them peak near 20 GB"
+ ],
+ "validation": "device",
+ "binder": 146,
+ "seed": 100,
+ "project": "perf/bc2_teardown/out/f1_c1/campaign",
+ "commit": "9bd197348c5968bb4efc95b081636f1f9a72f057",
+ "compile_cache": "/home/ttuser/.coworker/wt/bc2-teardown-next-job/perf/bc2_teardown/out/fixtree/perf/bc2_teardown/out/xlacache",
+ "pci": "0000:02:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  2.34912109375,
+  3.21142578125,
+  2.271484375
+ ],
+ "mem_start": {
+  "vmhwm": 465850368,
+  "vmrss": 465850368,
+  "mem_available": 244140843008
+ },
+ "started_utc": "2026-09-29T07:53:11Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "wall_seconds": 99.56,
+ "trajectories_returned": 3,
+ "error": null,
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 14832,
+   "declined: has a core grid": 3456,
+   "served": 8352,
+   "declined: not batched": 18432
+  },
+  "taped_channel_move": [
+   9072,
+   7488,
+   6480,
+   0
+  ],
+  "widen_add": {
+   "served: first": 9288,
+   "served: later": 2448
+  },
+  "rne_add": [
+   16632,
+   144
+  ],
+  "qkv_grad_join": {
+   "served": 7344
+  },
+  "triatt_bw": {
+   "served": 1296,
+   "declined": 0,
+   "bw_calls": 1296
+  },
+  "triatt_fused_hifi": {
+   "served": 3888,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    16632,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    3888,
+    0
+   ]
+  }
+ },
+ "rounds_per_slot": {
+  "t1": 4,
+  "t2": 4,
+  "t3": 4
+ },
+ "gate": {
+  "waited_s": {
+   "t1": 9.048,
+   "t2": 17.799,
+   "t3": 7.296
+  },
+  "held_s": {
+   "t1": 31.606,
+   "t2": 24.265,
+   "t3": 23.196
+  },
+  "seams": {
+   "t1": 36,
+   "t2": 36,
+   "t3": 36
+  },
+  "slot_at_seam": {
+   "t1@Dummy-3": 8,
+   "t1@Dummy-4": 2,
+   "t1@Dummy-5": 4,
+   "t1@Dummy-6": 2,
+   "t1@Dummy-7": 1,
+   "t1@Dummy-8": 3,
+   "t1@Dummy-9": 3,
+   "t1@Dummy-10": 4,
+   "t2@Dummy-11": 5,
+   "t2@Dummy-12": 2,
+   "t1@Dummy-11": 2,
+   "t1@Dummy-13": 4,
+   "t2@Dummy-14": 1,
+   "t2@Dummy-15": 3,
+   "t2@Dummy-16": 4,
+   "t2@Dummy-6": 4,
+   "t1@Dummy-16": 2,
+   "t2@Dummy-17": 2,
+   "t2@Dummy-13": 1,
+   "t2@Dummy-8": 4,
+   "t1@Dummy-14": 1,
+   "t2@Dummy-10": 2,
+   "t2@Dummy-9": 2,
+   "t3@Dummy-15": 3,
+   "t3@Dummy-9": 3,
+   "t2@Dummy-3": 2,
+   "t3@Dummy-14": 3,
+   "t3@Dummy-10": 3,
+   "t2@Dummy-18": 3,
+   "t3@Dummy-5": 3,
+   "t3@Dummy-16": 2,
+   "t3@Dummy-6": 2,
+   "t3@Dummy-7": 5,
+   "t2@Dummy-7": 1,
+   "t3@Dummy-4": 4,
+   "t3@Dummy-11": 1,
+   "t3@Dummy-3": 4,
+   "t3@Dummy-13": 2,
+   "t3@Dummy-17": 1
+  }
+ },
+ "mem_end": {
+  "vmhwm": 18369122304,
+  "vmrss": 15517200384,
+  "mem_available": 227370123264
+ },
+ "loadavg_end": [
+  5.03564453125,
+  3.833984375,
+  2.58837890625
+ ],
+ "finished_utc": "2026-09-29T07:54:50Z"
+}
