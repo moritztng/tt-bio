@@ -196,12 +196,16 @@ Leaving them in JAX costs far more on the host than running them costs on the ca
 Galaxy chip a 288-token round is 29.423 s with both in JAX against 16.267 s with both on card,
 1.8087x: the host column falls from 17.188 s to 2.417 s and the device column rises from 12.294 to
 13.856. Eight arms alternated at the process boundary in one sitting on one chip, AICLK 1000 MHz
-median with none of the 454 samples below it. A Blackhole p300 chip agrees to 3 %, 37.675 against
-20.220 s at AICLK 1350.
+median with none of the 454 samples below it. On a Blackhole p150a chip the same change is
+25.762 against 8.495 s, 3.03x, at AICLK 1350.
 
 That is one trajectory. Two interleaved trajectories hide most of the host column behind each
 other's device time, so on a Wormhole chip at its default of two the same change is 15.776 against
-13.923 s a round, 1.1331x.
+13.923 s a round, 1.1331x. A Blackhole chip runs three at 288 tokens, and there it is 9.564
+against 6.278 s a round, 1.52x.
+
+The designed structure moves by 0.54 A on the confident core, inside the 0.60 A bar the other
+levers are held to.
 
 Early on this went the other way: before tt-bio's gradient kernels the card ran the extra-MSA
 stack in 34.0 s where JAX ran it on the host in 10.3 s. The kernels closed that gap, and the

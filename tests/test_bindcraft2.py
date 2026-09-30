@@ -308,6 +308,8 @@ def test_the_campaign_path_can_ask_for_the_extra_msa_swap_too():
         assert isinstance(build.extra_msa, bindcraft2.ExtraMsaOnDevice)
         assert build.extra_msa.pool is build.pool
     with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
+        assert isinstance(build.extra_msa, bindcraft2.ExtraMsaOnDevice)
+    with bindcraft2.campaign_predictor(checkpoints=str(params), extra_msa=False) as build:
         assert build.extra_msa is None
 
 
