@@ -1,0 +1,21 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /home/ttuser/.coworker/wt/bwx-flipgate
+configfile: pyproject.toml
+plugins: anyio-4.14.2, jaxtyping-0.3.11
+collected 69 items
+
+tests/test_bindcraft2.py ............................................... [ 68%]
+......................                                                   [100%]
+
+=============================== warnings summary ===============================
+tests/test_bindcraft2.py::test_the_extra_msa_stack_stays_in_jax_unless_it_is_asked_for
+  /home/ttuser/.coworker/wt/bwx-flipgate/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+    pid = _os.fork()
+
+tests/test_bindcraft2.py::test_the_extra_msa_stack_stays_in_jax_unless_it_is_asked_for
+  /home/ttuser/.coworker/wt/bwx-flipgate/tt_bio/main.py:62: DeprecationWarning: This process (pid=3085665) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = _os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 69 passed, 2 warnings in 135.42s (0:02:15) ==================
