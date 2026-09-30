@@ -6289,6 +6289,15 @@ def get_device(trace=None):
         # holder never leaves a phantom claim. See tt_bio/device_lease.py.
         # And a process that takes a card must not outlive whoever wanted the result:
         # an orphaned holder keeps its flock and defers every later job on that card.
+        # A chip this host does not have is refused here, in a sentence, rather than at ttnn's
+        # device open as a UMD TT_THROW with a C++ backtrace -- and before a lease is taken, so a
+        # mistyped chip number leaves no claim behind. The CLI validates its own --device_ids;
+        # this covers everything that reaches get_device() with TT_VISIBLE_DEVICES set directly,
+        # which is every tool under perf/ and every long design campaign.
+        from tt_bio.runtime import visible_device_indices
+        visible = os.environ.get("TT_VISIBLE_DEVICES")
+        if visible is not None:
+            visible_device_indices(visible)
         from tt_bio.device_lease import CardSetLease, arm_orphan_guard
         arm_orphan_guard()
         # Normally None here. A cleanup() that failed to hand the chip back keeps its lease

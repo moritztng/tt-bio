@@ -51,6 +51,57 @@ class TestVisibleDeviceIndices:
         with pytest.raises(ValueError, match="UMD index"):
             runtime.visible_device_indices("0000:09:00.0")
 
+    def test_an_absent_index_is_refused_rather_than_handed_to_ttnn(self, bdf_map):
+        """A chip number this host does not have is refused here, in a sentence.
+
+        Measured on the Galaxy ``UF-EV-A4-GWH02`` (32 chips) 2026-09-30: with
+        ``TT_VISIBLE_DEVICES=99``, ``tt_bio.tenstorrent.get_device()`` ran 2.6 s and died with
+        ``RuntimeError: TT_THROW @ .../umd/device/pcie/pci_device.cpp:313 ... Invalid device ID
+        in TT_VISIBLE_DEVICES: 99`` under a C++ backtrace. A researcher soaking a long campaign
+        on a 32-chip box mistypes a pin; a backtrace is not an answer to that.
+        """
+        with pytest.raises(ValueError, match="this host does not have"):
+            runtime.visible_device_indices("99")
+
+    def test_the_refusal_says_what_the_host_has_and_what_to_do(self, bdf_map):
+        with pytest.raises(ValueError) as refusal:
+            runtime.visible_device_indices("99")
+        assert "3 Tenstorrent chip" in str(refusal.value)
+        assert "0 to 2" in str(refusal.value)
+        assert "unset TT_VISIBLE_DEVICES" in str(refusal.value)
+
+    def test_a_negative_index_is_refused(self, bdf_map):
+        with pytest.raises(ValueError, match=r"chip\(s\) \[-1\]"):
+            runtime.visible_device_indices("-1")
+
+    def test_one_bad_token_refuses_the_whole_list(self, bdf_map):
+        """Half a pin is not a pin: the good chip must not be opened as if the list parsed."""
+        with pytest.raises(ValueError, match=r"chip\(s\) \[99\]"):
+            runtime.visible_device_indices("0,99")
+
+    def test_a_host_with_no_cards_checks_no_index(self, monkeypatch):
+        """Every CPU fold in CI carries TT_VISIBLE_DEVICES; with no cards there is nothing to
+        check it against, and inventing a refusal there would break card-free runs."""
+        monkeypatch.setattr(runtime, "tt_bdf_to_index", lambda: {})
+        assert runtime.visible_device_indices("0") == [0]
+        assert runtime.visible_device_indices("99") == [99]
+
+    def test_the_predict_path_refuses_instead_of_finding_no_devices(self, monkeypatch, bdf_map):
+        """The same typo used to look like a host with no cards.
+
+        ``detect_tenstorrent_devices`` intersects the present nodes with the visible set, so an
+        absent index left an EMPTY device list and the run reported no Tenstorrent cards on a
+        box with three of them.
+        """
+        monkeypatch.setattr(runtime.glob, "glob",
+                            lambda pat: ["/dev/tenstorrent/0", "/dev/tenstorrent/1",
+                                         "/dev/tenstorrent/2"])
+        monkeypatch.setenv("TT_VISIBLE_DEVICES", "1")
+        assert runtime.detect_tenstorrent_devices(None, 0, 8) == [1]
+        monkeypatch.setenv("TT_VISIBLE_DEVICES", "99")
+        with pytest.raises(ValueError, match="this host does not have"):
+            runtime.detect_tenstorrent_devices(None, 0, 8)
+
     def test_detect_devices_filters_on_a_bdf(self, monkeypatch, bdf_map):
         monkeypatch.setenv("TT_VISIBLE_DEVICES", "0000:02:00.0")
         monkeypatch.setattr(runtime.glob, "glob",

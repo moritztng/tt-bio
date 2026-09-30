@@ -319,6 +319,25 @@ def visible_device_indices(visible: str) -> list[int]:
                     "e.g. TT_VISIBLE_DEVICES=0."
                 )
             indices.append(match)
+    # The index form was the one token that was never checked: a BDF that matches no card has
+    # raised above since issue #11, but an integer went straight through to ttnn, which answers
+    # at device open with a UMD TT_THROW and a C++ backtrace ("Invalid device ID in
+    # TT_VISIBLE_DEVICES: 99"). The chip number is in there, but a backtrace is not a refusal,
+    # and on a 32-chip Galaxy a mistyped pin is the easiest mistake to make. Worse, the predict
+    # path did not even get that far: detect_tenstorrent_devices() intersects the present cards
+    # with this list, so an absent index silently left ZERO devices and the run looked like a
+    # host with no cards. Checked against the same sysfs map the BDF form resolves through, so
+    # both forms refuse on one piece of evidence; on a host with no cards that map is empty and
+    # an index is not checked at all, so a card-free run carrying TT_VISIBLE_DEVICES=0 -- every
+    # CPU fold in CI -- is untouched.
+    chips = len(by_bdf) if bdfs else len(tt_bdf_to_index())
+    absent = [index for index in indices if not 0 <= index < chips] if chips else []
+    if absent:
+        raise ValueError(
+            f"TT_VISIBLE_DEVICES names chip(s) {absent}, which this host does not have: it has "
+            f"{chips} Tenstorrent chip(s), numbered 0 to {chips - 1}. Pin to one of those, or "
+            "unset TT_VISIBLE_DEVICES to use every chip on the host."
+        )
     return indices
 
 
