@@ -1,21 +1,22 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
-# re-recorded on the landing tree.
-RECORDED-AT: 7fca0b1b2d4d9a177f78d9ffb57ecb02c01945c8 scripts/abb3_port/model_gate.py
+# re-recorded on the B2P merge tree.
+RECORDED-AT: 93edb1b2482d58a26e6df049be7c9becc8c07eca scripts/abb3_port/model_gate.py
 #
-# TREE: wk/rel010-train 7fca0b1b2, the v0.10.0 release code tree. Replaces the record taken at
-# 6119788d7, whose import closure had since changed in tt_bio/tenstorrent.py and tt_bio/autograd.py.
+# TREE: wk/b2p-orchestrator 93edb1b24, v0.10.0 plus the six B2P branches. Replaces the record taken at
+# 7fca0b1b2, whose import closure had since changed in tt_bio/tenstorrent.py and tt_bio/autograd.py
+# (the triangle-attention pad-up, the recompute backward's float32 dbias sum, the quarantine refusal).
 #
 # Host qb2, card 3 (/dev/tenstorrent/3), Blackhole p300c. Commands, run in this order:
 #   for sigma in 0.05 0.3; do for tokens in 64 256; do
-#     TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=worker:rel010-train \
+#     TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=worker:b2p-orchestrator \
 #       PYTHONPATH=$PWD python3 scripts/abb3_port/model_gate.py --tokens $tokens --sigma $sigma
 #   done; done
 #
 # NO TIMING CLAIM. Every row is an accuracy comparison against a float64 reference. AICLK on card 3,
-# sampled every 2 s over this run and the step gate after it: 1350 MHz on 203 of 218 samples, 1343 on 6, 800 on 9.
+# sampled every 2 s over this run and the step gate after it: 1350 MHz on 150 of 163 samples, 1343 on 5, 800 on 8.
 #
-# WHAT MOVED since 6119788d7: nothing on the device. All four arms print the same digits as that record,
-# line for line, including the known failure below. Only the float32 torch-vs-torch control moved, at 1e-7.
+# WHAT MOVED since 7fca0b1b2: nothing. The output below is identical to that record line for line,
+# the float32 torch-vs-torch control and the known failure included.
 #
 # STILL FAILING, unchanged: the sigma 0.3 / 256-token stress arm, angles 5.11e-02 against its own
 # 5e-02 bar. Its weights are far wider than any trained checkpoint; the trained-scale arm, sigma
