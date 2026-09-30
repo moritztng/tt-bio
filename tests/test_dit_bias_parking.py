@@ -55,8 +55,7 @@ def test_token_dit_is_the_same_with_parked_biases(monkeypatch, fp32):
 
     biases, resident = dit()
     assert all(b.storage_type() == ttnn.StorageType.DEVICE for b in biases)
-    real = T.place_by_reserve
-    monkeypatch.setattr(T, "place_by_reserve", lambda t, reserve: real(t, 1 << 50))
+    monkeypatch.setattr(T, "dram_free", lambda: 0)
     biases, parked = dit()
     assert all(b.storage_type() != ttnn.StorageType.DEVICE for b in biases)
     assert torch.equal(parked, resident), (parked - resident).abs().max()

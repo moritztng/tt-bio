@@ -76,6 +76,21 @@ def test_without_the_prefetch_the_fold_searches(tmp_path, searches):
     assert searches
 
 
+
+@pytest.mark.parametrize("model", ["protenix-v1", "protenix-v2", "opendde", "rf3"])
+def test_a_boltz2_csv_does_not_stand_in_for_the_a3m(tmp_path, searches, model):
+    """Boltz-2 caches ``<hash>.csv``; these models read only ``<hash>.a3m``. With the CSV
+    counted as cached, a fold after a Boltz-2 fold in the same msa_dir searched nothing and
+    ran single-sequence (protenix-v1 on 7ROA: 6.07 A instead of 1.78 A)."""
+    cfg = _cfg(tmp_path, model)
+    msa_dir = Path(cfg["msa_dir"])
+    msa_dir.mkdir(parents=True)
+    (msa_dir / f"{tmain.seq_hash(A)}.csv").write_text(f"key,sequence\n-1,{A}\n")
+    path = _target(tmp_path, "mono", A)
+    search_msas(path, tmain._read_bio_chains(path, what=model), cfg)
+    assert [c[1] for c in searches] == [{tmain.seq_hash(A): A}]
+    assert tmain._resolve_a3m_text(None, A, msa_dir) is not None
+
 @pytest.mark.skipif(not os.path.exists(os.path.expanduser("~/.boltz/mols")),
                     reason="needs the bundled CCD mol library (~/.boltz/mols)")
 def test_boltz2_featurises_from_the_prefetched_cache(tmp_path, searches):

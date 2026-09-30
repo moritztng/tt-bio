@@ -447,6 +447,42 @@
               "tt_bio_version": "0.8.0",
               "date": "2026-09-11",
               "note": "seed the missing p300c/tt-quietbox2 openbind cell (every other model already had one). Measured with the box co-tenanted by a parity gate on card 0; that costs ~26% on this 20 aa fixture and the loadavg guard does not catch it, so this run and the 5 validating draws were each accepted only if their own 5 timed folds agreed within 3%. Draw median 2.241012 structures/s, band 5.4%."
+            },
+            "af2ig": {
+              "unit": "structures/s",
+              "direction": "higher",
+              "value": 3.264846,
+              "latency_ms": 306.29,
+              "input": "trpcage (20 aa, single-seq)",
+              "sampling_steps": 10,
+              "diffusion_samples": 1,
+              "recycling_steps": 1,
+              "num_timesteps": null,
+              "n_step": null,
+              "num_designs": null,
+              "warmup": 2,
+              "repeat": 5,
+              "hardware": "blackhole",
+              "card_type": "p300c",
+              "machine_id": "tt-quietbox2",
+              "host_load": {
+                "before": {
+                  "load1": 0.18,
+                  "load5": 1.25,
+                  "cpu_count": 16,
+                  "ratio": 0.011
+                },
+                "after": {
+                  "load1": 0.33,
+                  "load5": 1.27,
+                  "cpu_count": 16,
+                  "ratio": 0.02
+                },
+                "peak_ratio": 0.02
+              },
+              "tt_bio_version": "0.10.0",
+              "date": "2026-09-30",
+              "note": "first p300c cell on tt-quietbox2, seeded by the v0.10.0 release gate with the box quiet. The seed run had no in-fold clock sample; a check run right after on the same card (0.2 s sampler) read AICLK 1343-1350 MHz on every non-idle sample and 3.083 structures/s, -5.6 %."
             }
           },
           "date": "2026-08-07",

@@ -150,7 +150,7 @@ verifies the file it is handed and says so if the copy is truncated.
 
 | `--model` | file | put it at, or point | download |
 |---|---|---|---|
-| `openfold3` | `of3-p2-155k.pt` | `~/.boltz/of3-p2-155k.pt`, `OF3_CKPT` | from the consortium |
+| `openfold3` | `of3-p2-155k.pt` | `~/.boltz/of3-p2-155k.pt`, `OF3_CKPT` | `https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt` |
 | `openbind` | `of3-ob-2025-06-30-174k.pt` | `~/.boltz/of3-ob-2025-06-30-174k.pt`, `TT_BIO_OPENBIND` | `https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-ob-2025-06-30-174k.pt` |
 
 The two are different models, not two revisions of one: OpenBind is upstream tag `v0.5.0`,

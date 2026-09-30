@@ -114,6 +114,13 @@ MSA_DEPENDENT = set(tt_bio_main.MSA_DEFAULT_MODELS) & set(FOLD_MODELS)
 # Ab-Ag fixture 1ahw_abag.yaml (the same SAbDab/PDB 1ahw target the benchmark uses
 # elsewhere) instead of trpcage. Every other fold model uses trpcage.
 ABAG_DATA = REPO_ROOT / "examples" / "1ahw_abag.yaml"
+# af2ig scores a designed complex (a structure plus the binder's sequence) and refuses a
+# bare chain list, so it folds the fixture its perf leg and tests/test_af2ig_input.py use.
+FOLD_DATA = {"opendde-abag": ABAG_DATA,
+             "af2ig": REPO_ROOT / "examples" / "af2_designed_complex.yaml"}
+# AF2-IG samples nothing (tt_bio/main.py: "no diffusion, no seed"): its live view runs
+# prep -> trunk -> saving, so a missing diffusion stage is its correct stream.
+NO_DIFFUSION = {"af2ig"}
 # Every embed choice, across both subcommands: `tt-bio embed` for esmc-*, `tt-bio
 # saprot` for saprot-* (SaProt has its own CLI entry, not the esmc embed command).
 # Both write the same npz + manifest.json shape, so the parse/manifest checks are
@@ -318,9 +325,10 @@ def _load_events(cap_path: Path) -> list[dict]:
     return events
 
 
-def _check_progress(events: list[dict]) -> list[str]:
+def _check_progress(events: list[dict], diffusion_model: bool = True) -> list[str]:
     """Assert the event stream advances through trunk → diffusion → done with
-    no phase skipped. Returns a list of problem strings (empty == pass)."""
+    no phase skipped (trunk → done for a model with no diffusion). Returns a list
+    of problem strings (empty == pass)."""
     problems = []
     stages = [(e.get("stage"), e.get("step"), e.get("total"))
               for e in events if e.get("event") == "stage"]
@@ -347,7 +355,10 @@ def _check_progress(events: list[dict]) -> list[str]:
         problems.append(f"trunk phase present but total=0 on every tick — the "
                         f"'0 trunk iterations' bug: {trunk}")
 
-    if not diffusion:
+    if not diffusion_model:
+        if diffusion:
+            problems.append(f"a model with no diffusion reported a diffusion stage: {diffusion}")
+    elif not diffusion:
         problems.append("diffusion phase MISSING — no 'diffusion' stage event")
     elif not any((d[2] or 0) > 0 for d in diffusion):
         # Same defect as a flat trunk bar, one phase along: a total of 0 leaves the bar
@@ -650,15 +661,17 @@ def _assert_full_model_coverage() -> None:
             f"in RUNNERS.")
 
 
+_NANOBIND_EXIT_NOISE = re.compile(r"^nanobind: |leaked (instance|type|function)|refleaks\.html|skipped remainder")
+
+
 # ── per-model runners ──────────────────────────────────────────────────────
 
 def run_fold(model: str, base: Path) -> dict:
     """Fold one model on its canonical tiny fixture, capture its progress stream,
     and gate the three UX legs. Returns a result row."""
-    # opendde-abag is the antibody-antigen checkpoint and is gated on the Ab-Ag
-    # fixture 1ahw_abag.yaml; every other fold model uses trpcage. The CLI path
-    # is identical — only --model and the input file differ.
-    data = ABAG_DATA if model == "opendde-abag" else DATA
+    # FOLD_DATA names the models that need their own fixture; every other fold model
+    # uses trpcage. The CLI path is identical, only --model and the input file differ.
+    data = FOLD_DATA.get(model, DATA)
     name = data.stem
     timeout = ABAG_MODEL_TIMEOUT_S if model == "opendde-abag" else PER_MODEL_TIMEOUT_S
     from tt_bio.main import predict_results_dir_name
@@ -685,14 +698,16 @@ def run_fold(model: str, base: Path) -> dict:
         return row
     row["seconds"] = time.monotonic() - t0
     if proc.returncode != 0:
-        tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        # nanobind prints its leak report after the real error, so skip it for the reason.
+        tail = [l for l in (proc.stderr or proc.stdout or "").strip().splitlines()
+                if not _NANOBIND_EXIT_NOISE.search(l)]
         row["error"] = (f"predict exited {proc.returncode}: "
                         f"{tail[-1] if tail else ''}")
         return row
 
     # Leg 1: live progress view
     events = _load_events(cap_path) if cap_path.exists() else []
-    prog_problems = _check_progress(events)
+    prog_problems = _check_progress(events, model not in NO_DIFFUSION)
     row["checks"].append(f"progress: {'OK' if not prog_problems else 'FAIL'}")
     if prog_problems:
         row["checks"].extend(f"  • {p}" for p in prog_problems)
@@ -1443,7 +1458,7 @@ def main() -> int:
             rows.append(r)
             all_pass &= r["gate"]
         print(f"\n{'#'*78}\nUX GATE — summary (fold fixtures: {DATA.name}"
-              f"{f' / {ABAG_DATA.name} (opendde-abag)' if ABAG_DATA.exists() else ''}, "
+              f"{''.join(f' / {d.name} ({m})' for m, d in FOLD_DATA.items())}, "
               f"recyc={RECYCLING_STEPS}, steps={SAMPLING_STEPS}, "
               f"samples={DIFFUSION_SAMPLES}, seed={SEED})\n{'#'*78}")
         for r in rows:

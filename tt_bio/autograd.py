@@ -3029,16 +3029,28 @@ def _checkpoint_segment(fn, *inputs):
 
 
 def _install_hooks():
-    """The four hooks, and nothing else. What `tape()` re-arms on every entry."""
+    """The four hooks, and nothing else. What `tape()` re-arms on every entry. Returns the four
+    it replaced, in `_restore_hooks` order."""
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
     # Installed together with the verb hook because the two are the same opt-in.
-    ops.set_recycle_hook(no_grad)
-    ops.set_checkpoint_hook(_checkpoint_segment)
-    # The host float64 softmax a construction site may select. Injected rather than imported,
-    # so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape to do it.
-    ops.set_host_softmax_hook(host_f64_softmax)
-    return ops.set_grad_hook(_hook)
+    return (ops.set_recycle_hook(no_grad),
+            ops.set_checkpoint_hook(_checkpoint_segment),
+            # The host float64 softmax a construction site may select. Injected rather than
+            # imported, so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape.
+            ops.set_host_softmax_hook(host_f64_softmax),
+            ops.set_grad_hook(_hook))
+
+
+def _restore_hooks(prev):
+    """Put back what `_install_hooks` replaced. A checkpoint hook left behind sends a later
+    inference forward through `checkpoint`, which hands raw ttnn verbs an `autograd.Tensor`."""
+    from . import ops
+    recycle, ckpt, host_softmax, grad = prev
+    ops.set_recycle_hook(recycle)
+    ops.set_checkpoint_hook(ckpt)
+    ops.set_host_softmax_hook(host_softmax)
+    ops.set_grad_hook(grad)
 
 
 # What each open `install()` armed, innermost last, so `uninstall()` takes out exactly what its
@@ -3066,7 +3078,7 @@ def install(*, exact_softmax: bool = False):
     if exact_softmax and "softmax" not in ops_:
         ops_ = ops_ + ("softmax",)
     _INSTALL_EXACT.append(_install_exact(ops_, "install"))
-    return _install_hooks()
+    return _install_hooks()[-1]
 
 
 def uninstall(*, exact_softmax: bool = False) -> None:
