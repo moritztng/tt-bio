@@ -1859,6 +1859,61 @@ def campaign_predictor(*, validation: str = "jax",
             campaign.AlphaFoldDesignModel = real
 
 
+def stop_conditions(settings: Mapping) -> str:
+    """How this campaign will end, in one line, before a card is opened.
+
+    A campaign has two stop conditions and a researcher sets both: `number_of_final_designs`, the
+    designs they want, and `max_trajectories`, what they will spend getting them. Whichever comes
+    first ends it. Two of the ways of writing that are not what they look like, measured against
+    the real accounting on 2026-09-30:
+
+    * `max_trajectories=0` is **unbounded**, not "none" -- the same as leaving it out. Set to 0 by
+      someone who meant "do not design", with designs still requested, it runs until enough
+      designs are accepted, which on a hard target can be never, holding a leased chip the whole
+      time. A soak is exactly where that gets discovered at 3 a.m.
+    * a negative budget designs nothing at all and produces an empty folder, which reads like a
+      crash rather than a setting.
+
+    The count is also a floor rather than a quota: the stop condition is read when a trajectory is
+    claimed, so interleaved arms already in flight can push the accepted total past the request.
+    """
+    budget = settings.get("max_trajectories")
+    designs = settings.get("number_of_final_designs")
+    if settings.get("trajectory_only"):
+        return ""          # upstream already says a trajectory-only run accepts nothing
+    try:
+        budget = None if budget is None else int(budget)
+        designs = None if designs is None else int(designs)
+    except (TypeError, ValueError):
+        return ""          # a malformed setting is preflight's to refuse, not this line's
+    if budget is not None and budget < 0:
+        return (f"[tt_bio.bindcraft2] max_trajectories={budget} designs NOTHING: no trajectory is "
+                f"started and the campaign folder stays empty, which reads like a crash. Set it to "
+                f"the number of trajectories you are willing to spend.")
+    if designs is not None and designs <= 0:
+        return (f"[tt_bio.bindcraft2] number_of_final_designs={designs} accepts NOTHING: the "
+                f"campaign stops at its first claim. Set it to the number of designs you want.")
+    if not budget:
+        return (f"[tt_bio.bindcraft2] no trajectory budget "
+                f"(max_trajectories={budget!r} means unbounded, not zero): this campaign runs "
+                f"until {designs if designs is not None else 'the requested number of'} designs "
+                f"pass the filters, however long that takes, and holds this chip until it does. "
+                f"Set max_trajectories to bound the spend.")
+    if designs is None:
+        return (f"[tt_bio.bindcraft2] stops after {budget} trajectories.")
+    return (f"[tt_bio.bindcraft2] stops at whichever comes first: {designs} accepted design"
+            f"{'' if designs == 1 else 's'}, or {budget} trajector"
+            f"{'y' if budget == 1 else 'ies'} spent. Interleaved arms already running can carry "
+            f"the accepted count past {designs}, so it is a floor, not a quota.")
+
+
+def print_stop_conditions(settings: Mapping) -> str:
+    line = stop_conditions(settings)
+    if line:
+        print(line, flush=True)
+    return line
+
+
 def print_resumption(project_folder: str, max_trajectories=None) -> str:
     """Say what a resumed campaign inherited, before it claims anything.
 
@@ -2110,6 +2165,7 @@ def _run_campaign(settings: Mapping, project_folder: str, *,
     # BindCraft 2 reads that as a campaign with no epitope rather than as a mistake.
     bcinputs.refuse_unusable_inputs(settings)
     print_resumption(project_folder, settings.get("max_trajectories"))
+    print_stop_conditions(settings)
 
     tokens = design_tokens(settings)
     if isinstance(trajectories_per_card, str):
