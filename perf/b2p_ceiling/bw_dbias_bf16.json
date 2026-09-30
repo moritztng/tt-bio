@@ -1,0 +1,60 @@
+{
+ "heads": 4,
+ "head_dim": 32,
+ "rows": [
+  {
+   "n": 544,
+   "budget_mb": 256,
+   "chunk_leading": 113,
+   "chunk_query": null,
+   "resident_after_fwd_gb": 0.3837,
+   "peak_in_bw_gb": 0.9875,
+   "transient_gb": 0.6038,
+   "bw_s_unsampled": 0.172,
+   "triatt_bw_stats": {
+    "served": 0,
+    "declined": 1,
+    "bw_calls": 1
+   },
+   "rel_l2_vs_f64_first_rows": {
+    "dq": 0.007586381044854195,
+    "dk": 0.00862665017272375,
+    "dv": 0.008136808035045438,
+    "dbias_all_rows": 0.008163247341019265
+   },
+   "rel_l2_vs_first_budget": {
+    "dq": 0.0,
+    "dk": 0.0,
+    "dv": 0.0,
+    "dbias": 0.0
+   }
+  },
+  {
+   "n": 544,
+   "budget_mb": 32,
+   "chunk_leading": 14,
+   "chunk_query": null,
+   "resident_after_fwd_gb": 0.3852,
+   "peak_in_bw_gb": 0.669,
+   "transient_gb": 0.2838,
+   "bw_s_unsampled": 0.202,
+   "triatt_bw_stats": {
+    "served": 0,
+    "declined": 1,
+    "bw_calls": 1
+   },
+   "rel_l2_vs_f64_first_rows": {
+    "dq": 0.007586381044854195,
+    "dk": 0.00862665017272375,
+    "dv": 0.008136808035045438,
+    "dbias_all_rows": 0.014794367847041441
+   },
+   "rel_l2_vs_first_budget": {
+    "dq": 0.0,
+    "dk": 0.0,
+    "dv": 0.0,
+    "dbias": 0.011991629377007484
+   }
+  }
+ ]
+}

@@ -31,9 +31,16 @@ under the one gradient this kernel produces by reduction rather than by matmul.
 The key axis is never chunked, which is what keeps log-sum-exp bookkeeping out of this file. A
 flash kernel chunks keys, so every block sees a partial softmax denominator and has to carry
 running row statistics and rescale. Here each core holds every key for its rows, so each softmax
-is exact and complete the first time. The QUERY axis may be chunked freely -- `dbias` rows are
-indexed by the query row, so a query chunk needs no cross-chunk reduction -- and that is the knob
-that carries this to longer token axes, where `bias + P + dS` stops fitting whole.
+is exact and complete the first time.
+
+THE QUERY AXIS IS NOT CHUNKED EITHER, AND `q_chunk_tiles` IS A COST MODEL, NOT A LEVER. Nothing
+would stop it in principle -- `dbias` rows are indexed by the query row, so query chunks need no
+cross-chunk reduction -- but `compute/triatt_bw.cpp` takes `Nt` as compile-time arg 0 and works in
+`score_tiles = Nt * Nt`; it is never told a chunk and has no loop over one. `cb_table` below DOES
+shrink the three score-sized buffers to `Qt * Nt`, so a plan with `Qt < Nt` prices a config the
+kernel cannot run: it would read `Nt * Nt` tiles out of buffers holding `Qt * Nt`. `build` refuses
+such a plan rather than letting it reach a kernel. Making the knob real means teaching the compute
+kernel a query loop, which is a kernel change and not a host one.
 
 Driven through `tt_bio.sdpa_generic`'s machinery rather than the wheel's SDPA kernels: the forward
 inherits `reader_interleaved.cpp`'s chain-forwarding, multicast, paging and MLA arguments, all of
@@ -71,8 +78,8 @@ TILE = 32
 
 # The whole-query form needs `bias`, `P`, `dS` and a transpose scratch live at once, plus a float32
 # `dbias` accumulator that does not shrink with the query chunk. Past this many tiles on the token
-# axis the whole-query form stops fitting and the caller falls back; `q_chunk_tiles` is what pulls
-# it back under the line at a longer axis.
+# axis it stops fitting and the caller falls back. `q_chunk_tiles` would pull the three
+# score-sized buffers back under the line, but only in the price: see the module docstring.
 # Blackhole has 1.5 MB of L1 per core; tt-metal reserves the bottom of it for the program itself,
 # and `sdpa_generic` already carries the figure the forward was sized against.
 L1_PER_CORE = getattr(SG, "L1_PER_CORE", 1499136)
@@ -145,12 +152,13 @@ def fits_l1(p) -> bool:
 
 
 def largest_fitting_q_chunk(B, H, N, d, grid, **kw):
-    """The biggest query chunk that fits, or None if even one tile row does not.
+    """The biggest query chunk that would fit, or None if even one tile row would not.
 
-    The query axis is the only knob that shrinks the score-sized buffers, and shrinking it costs
-    nothing in DRAM bytes or in arithmetic: `dbias` rows are indexed by the query row, so query
-    chunks do not have to be reduced against each other. It does not touch the key axis, which is
-    what would force log-sum-exp bookkeeping.
+    PRICING ONLY -- a `Qt < Nt` result is not runnable today, because the compute kernel has no
+    query loop (module docstring), and `build` refuses it. This is what says how much L1 a query
+    loop would buy if one were written: on BindCraft 2's shape it moves the serving range from
+    288 tokens to 384 and no further, since `bias` and the float32 `dbias` accumulator are Nt^2
+    tiles each whatever `Qt` is and they alone cross the budget at 512.
     """
     Nt = N // TILE
     for qt in range(Nt, 0, -1):
@@ -354,6 +362,14 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
     num_cores = p["num_cores"]
     core_grid = work_cores(num_cores, gx)
 
+    if p["Qt"] != Nt:
+        # `cb_table` sizes CB_P, CB_DP and CB_T at `Qt * Nt` tiles; the compute kernel works in
+        # `score_tiles = Nt * Nt` and never learns about a chunk. Running one would read past
+        # three buffers rather than refuse, which is the silent-wrong-answer class, so it is
+        # stopped here where the kernels are made rather than left to the price to imply.
+        raise ValueError(
+            f"query chunking is priced but not implemented: Qt={p['Qt']} against Nt={Nt}. "
+            "compute/triatt_bw.cpp has no query loop; teach it one before setting this")
     check_cb_coverage(p)
     cbs = [ttnn.CBDescriptor(
         total_size=n * page, core_ranges=core_grid,

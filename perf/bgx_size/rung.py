@@ -341,6 +341,10 @@ def main():
              # compares them. Pricing a trajectory a bucket low is a default that errs high.
              "design_tokens": design_axis,
              "auto_before_open": auto_now(),
+             # And what the default WOULD choose at that same axis, so a rung records the
+             # decision and not just its input. `design_axis`, not the `tokens` arithmetic:
+             # the default prices on BindCraft 2's own count.
+             "auto_would_choose": list(duotraj.auto_trajectories(design_axis)),
              "max_trajectories": budget, "validation": args.validation, "seed": args.seed,
              "commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"],
                                       capture_output=True, text=True).stdout.strip(),
