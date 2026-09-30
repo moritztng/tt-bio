@@ -1,0 +1,110 @@
+{
+ "model": "openfold3",
+ "size": 608,
+ "target": "examples/hsa.yaml",
+ "a3m": "docs/implementation-parity-data/ref-fixtures/protenix-v2/hsa/msa-server_200step_5sample_10cycle_bf16/msa.a3m",
+ "host": "tt-quietbox2",
+ "chip": "0",
+ "arms": "off,on",
+ "pad_up_shipped": 2,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "seed": 1,
+ "started_utc": "2026-09-30T21:39:56Z",
+ "loadavg_start": [
+  5.44091796875,
+  5.5947265625,
+  3.4814453125
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 54.133,
+   "plddt": 0.909316,
+   "aiclk": {
+    "0": {
+     "min": 1293,
+     "max": 1350,
+     "median": 1350,
+     "n": 43
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1293 / median 1350 / max 1350 MHz over 43 samples, polled DURING the work",
+   "digest": "d8bec1435b18121d1dd7ccaa6ac4fc41e81e9f9ff3397c7c8ff43c658506b51d",
+   "stats": {
+    "served": 0,
+    "declined": 384,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 0
+   },
+   "calls": {
+    "composed:585": 8,
+    "composed:608": 432,
+    "hifi:608:declined": 384
+   },
+   "loadavg": [
+    3.134765625,
+    4.9423828125,
+    3.45556640625
+   ]
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 32.994,
+   "plddt": 0.909254,
+   "aiclk": {
+    "0": {
+     "min": 1306,
+     "max": 1350,
+     "median": 1350,
+     "n": 26
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1306 / median 1350 / max 1350 MHz over 26 samples, polled DURING the work",
+   "digest": "6b8a4d0b35806c517488612171ad362e6e2087f63859e37836138c805d8294d3",
+   "stats": {
+    "served": 384,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 384
+   },
+   "calls": {
+    "composed:585": 8,
+    "composed:608": 48,
+    "hifi:608:padded": 384
+   },
+   "loadavg": [
+    3.15478515625,
+    4.75537109375,
+    3.44775390625
+   ]
+  }
+ ],
+ "cold_s": 35.692,
+ "cold_calls": {
+  "composed:608": 48,
+  "hifi:608:padded": 384,
+  "composed:585": 8
+ },
+ "medians": {
+  "off": 54.133,
+  "on": 32.994
+ },
+ "spread": {
+  "off": null,
+  "on": null
+ },
+ "digests": {
+  "off": [
+   "d8bec1435b18121d1dd7ccaa6ac4fc41e81e9f9ff3397c7c8ff43c658506b51d"
+  ],
+  "on": [
+   "6b8a4d0b35806c517488612171ad362e6e2087f63859e37836138c805d8294d3"
+  ]
+ },
+ "off_over_on": 1.6407
+}

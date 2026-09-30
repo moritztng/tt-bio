@@ -1,0 +1,8 @@
+OpenFold3 HSA 608, CA RMSD (perf/land_standing/ca_rmsd.py, float64 Kabsch)
+AA_off_s0 n_ca=585 rmsd_A=0.000000 max_dev_A=0.0000
+AA_on_s0 n_ca=585 rmsd_A=0.000000 max_dev_A=0.0000
+lever_s0 n_ca=585 rmsd_A=0.023603 max_dev_A=0.2064
+lever_s1 n_ca=585 rmsd_A=0.029799 max_dev_A=0.1327
+seed_off n_ca=585 rmsd_A=0.734144 max_dev_A=2.7829
+seed_on n_ca=585 rmsd_A=0.752006 max_dev_A=2.8130
+lever_and_seed n_ca=585 rmsd_A=0.743205 max_dev_A=2.8052
