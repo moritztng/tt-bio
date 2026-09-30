@@ -91,6 +91,27 @@ def _bytes(path: str | None) -> int | None:
     return total
 
 
+def _disk_free(path: str | None) -> int | None:
+    """Free bytes on the filesystem the project is being written to.
+
+    The project folder does not exist yet when the sampler starts: the campaign creates it after
+    its own preflight, which is minutes of weight loading later. `statvfs` of a path that is not
+    there raises, and the first version of this killed the sampler at its first sample and left a
+    soak running with an empty drift series. So walk up to the first directory that exists.
+    """
+    candidate = os.path.abspath(path or ".")
+    while candidate and not os.path.exists(candidate):
+        parent = os.path.dirname(candidate)
+        if parent == candidate:
+            return None
+        candidate = parent
+    try:
+        stat = os.statvfs(candidate)
+    except OSError:
+        return None
+    return stat.f_bavail * stat.f_frsize
+
+
 def _mem_available() -> int | None:
     for line in open("/proc/meminfo"):
         if line.startswith("MemAvailable:"):
@@ -139,8 +160,7 @@ def sample(pid: int, project: str | None, caches: list[str]) -> dict:
             "tree_rss": _tree_rss(pid),
             "project_bytes": _bytes(project),
             "cache_bytes": {c: _bytes(c) for c in caches},
-            "disk_free": (os.statvfs(project or ".").f_bavail
-                          * os.statvfs(project or ".").f_frsize),
+            "disk_free": _disk_free(project),
             "mem_available": _mem_available(), "load1": round(os.getloadavg()[0], 2),
             "aiclk": _aiclk()}
 
