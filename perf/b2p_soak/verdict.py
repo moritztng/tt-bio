@@ -36,8 +36,8 @@ MEMORY_PER_TRAJECTORY_GB = 0.5
 #: Handles and threads are allowed to settle, not to grow with the work.
 HANDLE_GROWTH = 1.25
 #: ... and settling can take several trajectories. Mapped regions on Blackhole climb in three
-#: steps -- 13.3k, then 19.3k, 22.1k, 25.7k as the refold, MPNN and validation stages each load
-#: their kernels once -- and then hold 25.7k for the next eight trajectories. First-against-last
+#: steps -- 13.3k, then 19.3k, 22.1k, 25.7k, one per MPNN redesign of trajectories 4, 7 and 12 --
+#: and then hold 25.7k through the MPNN runs of trajectories 17 and 22. First-against-last
 #: reads that saturating staircase as 1.93x growth and calls a warmed-up campaign leaky, which is
 #: the same mistake the RSS slope made. So growth is judged on the LAST THIRD of the windows: a
 #: staircase that has stopped climbing is warmup, one still climbing there is a leak.
