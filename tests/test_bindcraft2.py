@@ -7,6 +7,7 @@ device result is read against.
 import contextlib
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import textwrap
@@ -1342,6 +1343,57 @@ def test_a_refusal_on_a_genuinely_full_card_is_not_called_fragmentation():
                                              phase="forward", n=586, padded=608))
     assert "The card is full" in msg
     assert "fragmentation" not in msg
+
+
+def test_a_card_held_to_its_last_percent_is_full_even_when_the_sliver_would_cover_the_request():
+    """Wormhole's boundary, verbatim off the 544-token rung on dev .107 card 30
+    (`perf/bwx_bringup/out/ceiling6/rung_b398/round.logtxt`): 177.5 MB free covers a 151.5 MB
+    request, but the fold holds 98.6 % of the chip. Calling that "not a full card" sent a
+    Wormhole user at 544-608 looking for a fragmentation fix, while a neighbouring rung in the
+    same state, a few MB the other side of its request, was told the card was full."""
+    boundary = ("Out of Memory: Not enough space to allocate 151519232 B DRAM buffer across 12 "
+                "banks, where each bank needs to store 12627968 B, but bank size is 1073741792 B "
+                "(allocated: 1058951296 B, free: 14790496 B, largest free block: 3954656 B)")
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(boundary),
+                                             phase="backward", n=531, padded=544))
+    assert "The card is full: 12.707 GB of 12.885 GB is held by this fold" in msg
+    assert "177.5 MB left is in pieces of at most 4.0 MB a bank" in msg
+    assert "fragmentation" not in msg
+    assert "run a smaller complex" in msg and "512 tokens" in msg
+
+
+@pytest.mark.parametrize("dram,banks,pad_up", [
+    (bindcraft2.P150A_DRAM_BYTES, 8, 2),
+    (bindcraft2.P150A_DRAM_BYTES, 8, 0),
+    (bindcraft2.WH_GALAXY_DRAM_BYTES, 12, 2),
+])
+def test_no_refusal_on_a_measured_board_names_a_size_that_board_refuses(monkeypatch, dram, banks,
+                                                                        pad_up):
+    """Every padded axis from 224 to 1536 and every complex length that pads to it: the size the
+    message sends the user to is at or under this board's measured ceiling, reachable by losing
+    a positive number of residues, and never below the smallest bucket. Once was a 608-token
+    Wormhole fold sent to 576, which refuses too."""
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "_TRIATT_HIFI_PAD_UP_TILES", pad_up)
+    cap = bindcraft2._measured_board(dram)[1]
+    bank = dram // banks
+    line = (f"Out of Memory: Not enough space to allocate {banks * 1024} B DRAM buffer across "
+            f"{banks} banks, where each bank needs to store 1024 B, but bank size is {bank} B "
+            f"(allocated: {bank - 512} B, free: 512 B, largest free block: 512 B)")
+    for padded in range(224, 1537, 32):
+        for n in (padded - 31, padded):
+            msg = str(bindcraft2._size_aware_refusal(RuntimeError(line), phase="backward",
+                                                     n=n, padded=padded))
+            hit = re.search(r"(\d+) residues? (?:off the binder takes this fold to|to reach) "
+                            r"(\d+) tokens", msg)
+            assert hit, msg
+            drop, landing = int(hit.group(1)), int(hit.group(2))
+            assert drop == n - landing and drop > 0
+            assert landing >= bindcraft2.TOKEN_BUCKET
+            if padded > cap:
+                assert landing <= cap and "run a smaller complex" in msg
+            else:
+                assert landing == padded - 32 and "trajectories_per_card=1" in msg
 
 
 def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
