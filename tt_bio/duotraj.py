@@ -41,10 +41,16 @@ _LOCAL = threading.local()
 #: The token axis every constant below was measured at: the PD-L1 design, a 146 aa binder.
 REFERENCE_TOKENS = 288
 
-#: Bytes one in-flight trajectory adds on the CARD at `REFERENCE_TOKENS`, measured on the composed
-#: BindCraft 2 round at n=288 (`state/perf10/bcx-p10-duotraj.md` leg 1): 3.746 GB inside a seam
-#: over a 0.559 GB floor of weights and masks the trajectories share. `trajectory_bytes` scales it.
-TRAJECTORY_BYTES = int(3.2 * 2**30)
+#: Bytes one in-flight trajectory adds on the CARD at `REFERENCE_TOKENS`. Measured twice, and the
+#: charge covers the larger: 3.746 GB inside a seam over a 0.559 GB floor on a Blackhole chip
+#: (`state/perf10/bcx-p10-duotraj.md` leg 1), and **4.119 GB on one chip of a Wormhole Galaxy**
+#: (`state/b2p-wh.md`), where two trajectories ran a campaign to its stop condition and three do
+#: not fit the 11.40 GB the pricing leaves for them. `trajectory_bytes` scales it by the square.
+#:
+#: 3.2 GiB was under both figures and the composed-path surcharge was quietly making up the
+#: difference, so dropping that surcharge where it cannot run has to be paid for here: at 3.2 GiB
+#: and no surcharge, a 12 GiB chip approves the three trajectories it was measured to refuse.
+TRAJECTORY_BYTES = int(3.9 * 2**30)
 
 #: Bytes one more in-flight trajectory takes on the HOST at `REFERENCE_TOKENS`. The first
 #: nine-round interleaved arm was OOM-KILLED by the host at 13.2 GB anon-rss on a 31 GB box while

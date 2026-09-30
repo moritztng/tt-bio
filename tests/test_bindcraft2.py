@@ -847,7 +847,7 @@ def test_a_box_whose_free_memory_cannot_be_read_runs_one(monkeypatch, capsys):
 def test_auto_does_not_put_more_trajectories_on_the_card_than_it_holds(monkeypatch):
     """The box is roomy and the card is not: the card is read too, when one is open.
 
-    12 GB free holds two 288-token trajectories at 5.3 GB each with the 1 GB reserve left over;
+    12 GB free holds two 288-token trajectories at 4.19 GB each with the 1 GB reserve left over;
     4 GB holds one. The count is what ALL of them need, not what the ones after the first need:
     `auto` runs before any trajectory has started, so none of that memory is spoken for yet, and
     charging the first one nothing is how the old estimate approved a second that had nowhere to
@@ -863,11 +863,12 @@ def test_a_twelve_gib_wormhole_chip_is_not_priced_as_a_blackhole_one(monkeypatch
 
     A Wormhole Galaxy chip holds 12 GiB where a Blackhole p150a or p300 chip holds 31.875, and
     `auto` runs before ttnn is imported, so nothing in the allocator can say which it is. Priced
-    as Blackhole, a 288-token design got 3 trajectories at 5.3 GB each: 16 GB asked of a card
-    with 11. Measured on dev Galaxy .107 chip 30, 2 interleaved trajectories at 288 tokens ran a
-    real campaign to its stop condition, and that is what the card reports when it IS open."""
+    as Blackhole, a 288-token design got 3 trajectories: 12.6 GB asked of a card with 11.1.
+    Measured on dev Galaxy .107 chip 30, one 288-token trajectory peaks at 4.119 GB and 2 of them
+    interleaved ran a real campaign to its stop condition, so 2 is the answer whether or not a
+    chip is open, and 3 is refused either way."""
     _box(monkeypatch, free_gb=462.0, part_gb=12.0)
-    assert len(_campaign_calls(monkeypatch, tokens=288)[0]) == 1
+    assert len(_campaign_calls(monkeypatch, tokens=288)[0]) == 2
     # Explicit counts are still the caller's: 2 is honoured on that chip, 3 is refused on it.
     _box(monkeypatch, free_gb=462.0, part_gb=12.0)
     assert len(_campaign_calls(monkeypatch, tokens=288, trajectories_per_card=2)[0]) == 2
@@ -906,9 +907,9 @@ def test_a_large_design_gets_fewer_trajectories_than_a_small_one(monkeypatch, ca
     (`state/bgx-traj.md`). The same roomy box, the same card, five sizes."""
     _box(monkeypatch, free_gb=200.0, tokens=288)
     assert len(_campaign_calls(monkeypatch, tokens=288)[0]) == 3
-    assert len(_campaign_calls(monkeypatch, tokens=352)[0]) == 3
-    assert len(_campaign_calls(monkeypatch, tokens=384)[0]) == 2
-    assert len(_campaign_calls(monkeypatch, tokens=448)[0]) == 1
+    assert len(_campaign_calls(monkeypatch, tokens=448)[0]) == 3
+    assert len(_campaign_calls(monkeypatch, tokens=512)[0]) == 2
+    assert len(_campaign_calls(monkeypatch, tokens=576)[0]) == 1
     assert len(_campaign_calls(monkeypatch, tokens=704)[0]) == 1
     assert "704 tokens" in capsys.readouterr().out
 
@@ -981,10 +982,11 @@ def test_the_pad_up_default_read_before_ttnn_matches_the_one_the_kernel_uses():
     assert default(here / "duotraj.py") == default(here / "tenstorrent.py")
 
 
-@pytest.mark.parametrize("tokens,count", [(512, 2), (544, 2), (608, 2), (640, 1), (832, 1)])
+@pytest.mark.parametrize("tokens,count", [(448, 3), (512, 2), (544, 2), (576, 1), (832, 1)])
 def test_auto_opens_two_trajectories_where_the_served_path_fits_two(monkeypatch, tokens, count):
     """At 544 one trajectory holds 13.00 GB of a p150a on the padded route, so two fit in the
-    29.2 GB `auto` compares against; pricing the composed path's 25.8 GB there opened one."""
+    29.2 GB `auto` compares against; pricing the composed path's 25.8 GB there opened one. 576 is
+    the first axis where two do not fit: 16.01 GB each measured, charged 16.7."""
     from tt_bio import duotraj
 
     monkeypatch.setattr(duotraj, "_PAD_UP_ON", True)
