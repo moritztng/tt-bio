@@ -47,7 +47,8 @@ def test_a_malformed_threshold_is_skipped_rather_than_crashing_the_campaign():
 def test_a_gate_is_named_once_even_though_a_stage_judges_both_metrics():
     line = stage_gates(PDL1)
     assert line.count("min_iptm_harden") == 1
-    assert line.count("harden") == 2       # its pLDDT gate and its i_pTM gate, one each
+    assert line.count("harden pLDDT >=") == 1   # its pLDDT gate and its i_pTM gate,
+    assert line.count("harden i_pTM >=") == 1   # one entry each, neither swallowing the other
 
 
 @pytest.mark.parametrize("threshold", [0.0, 1, 0.65])
