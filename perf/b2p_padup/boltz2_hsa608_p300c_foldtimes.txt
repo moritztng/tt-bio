@@ -1,0 +1,6 @@
+perf/b2p_padup/boltz2_hsa608_p300c/off_0/ hsa_no_msa — 27.0s
+perf/b2p_padup/boltz2_hsa608_p300c/off_2/ hsa_no_msa — 27.4s
+perf/b2p_padup/boltz2_hsa608_p300c/off_4/ hsa_no_msa — 42.4s
+perf/b2p_padup/boltz2_hsa608_p300c/on_1/ hsa_no_msa — 26.6s
+perf/b2p_padup/boltz2_hsa608_p300c/on_3/ hsa_no_msa — 27.9s
+perf/b2p_padup/boltz2_hsa608_p300c/on_5/ hsa_no_msa — 41.9s

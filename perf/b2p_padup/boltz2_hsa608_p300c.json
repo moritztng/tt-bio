@@ -1,0 +1,275 @@
+{
+ "yaml": "examples/hsa_no_msa.yaml",
+ "model": "boltz2",
+ "args": [
+  "--recycling_steps",
+  "3",
+  "--sampling_steps",
+  "200",
+  "--diffusion_samples",
+  "1",
+  "--single_sequence"
+ ],
+ "seed": 0,
+ "chip": "0",
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "rc": 0,
+   "wall_s": 37.151,
+   "aiclk": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 30
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 30 samples, polled DURING the work",
+   "cifs": [
+    "off_0/boltz2_results_hsa_no_msa/structures/hsa_no_msa.cif"
+   ],
+   "digest": "d9d9c575063f7ffcfa1d95e3d051c84ad8b2fe1cbece6351b8dd0fd8281b8e29",
+   "dump": {
+    "processes": 3,
+    "tenstorrent_imported": 2,
+    "stats": [
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     },
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     }
+    ],
+    "padded": [],
+    "pad_up_tiles": [
+     0
+    ]
+   }
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "rc": 0,
+   "wall_s": 36.988,
+   "aiclk": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1343,
+     "n": 30
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 800 / median 1343 / max 1350 MHz over 30 samples, polled DURING the work",
+   "cifs": [
+    "on_1/boltz2_results_hsa_no_msa/structures/hsa_no_msa.cif"
+   ],
+   "digest": "d9d9c575063f7ffcfa1d95e3d051c84ad8b2fe1cbece6351b8dd0fd8281b8e29",
+   "dump": {
+    "processes": 3,
+    "tenstorrent_imported": 2,
+    "stats": [
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     },
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     }
+    ],
+    "padded": [],
+    "pad_up_tiles": [
+     2
+    ]
+   }
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "rc": 0,
+   "wall_s": 37.074,
+   "aiclk": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 30
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 30 samples, polled DURING the work",
+   "cifs": [
+    "off_2/boltz2_results_hsa_no_msa/structures/hsa_no_msa.cif"
+   ],
+   "digest": "d9d9c575063f7ffcfa1d95e3d051c84ad8b2fe1cbece6351b8dd0fd8281b8e29",
+   "dump": {
+    "processes": 3,
+    "tenstorrent_imported": 2,
+    "stats": [
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     },
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     }
+    ],
+    "padded": [],
+    "pad_up_tiles": [
+     0
+    ]
+   }
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "rc": 0,
+   "wall_s": 38.475,
+   "aiclk": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 31
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 31 samples, polled DURING the work",
+   "cifs": [
+    "on_3/boltz2_results_hsa_no_msa/structures/hsa_no_msa.cif"
+   ],
+   "digest": "d9d9c575063f7ffcfa1d95e3d051c84ad8b2fe1cbece6351b8dd0fd8281b8e29",
+   "dump": {
+    "processes": 3,
+    "tenstorrent_imported": 2,
+    "stats": [
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     },
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     }
+    ],
+    "padded": [],
+    "pad_up_tiles": [
+     2
+    ]
+   }
+  },
+  {
+   "i": 4,
+   "arm": "off",
+   "rc": 0,
+   "wall_s": 61.221,
+   "aiclk": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 46
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 46 samples, polled DURING the work",
+   "cifs": [
+    "off_4/boltz2_results_hsa_no_msa/structures/hsa_no_msa.cif"
+   ],
+   "digest": "d9d9c575063f7ffcfa1d95e3d051c84ad8b2fe1cbece6351b8dd0fd8281b8e29",
+   "dump": {
+    "processes": 3,
+    "tenstorrent_imported": 2,
+    "stats": [
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     },
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     }
+    ],
+    "padded": [],
+    "pad_up_tiles": [
+     0
+    ]
+   }
+  },
+  {
+   "i": 5,
+   "arm": "on",
+   "rc": 0,
+   "wall_s": 60.706,
+   "aiclk": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 46
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 46 samples, polled DURING the work",
+   "cifs": [
+    "on_5/boltz2_results_hsa_no_msa/structures/hsa_no_msa.cif"
+   ],
+   "digest": "d9d9c575063f7ffcfa1d95e3d051c84ad8b2fe1cbece6351b8dd0fd8281b8e29",
+   "dump": {
+    "processes": 3,
+    "tenstorrent_imported": 2,
+    "stats": [
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     },
+     {
+      "served": 0,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0,
+      "padded": 0
+     }
+    ],
+    "padded": [],
+    "pad_up_tiles": [
+     2
+    ]
+   }
+  }
+ ]
+}
