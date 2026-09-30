@@ -1,0 +1,176 @@
+{
+ "model": "openfold3",
+ "size": 608,
+ "target": "examples/hsa.yaml",
+ "a3m": "docs/implementation-parity-data/ref-fixtures/protenix-v2/hsa/msa-server_200step_5sample_10cycle_bf16/msa.a3m",
+ "host": "tt-quietbox2",
+ "chip": "0",
+ "arms": "off,on,off,on",
+ "pad_up_shipped": 2,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "seed": 0,
+ "started_utc": "2026-09-30T21:35:09Z",
+ "loadavg_start": [
+  10.97021484375,
+  5.595703125,
+  2.68994140625
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 55.199,
+   "plddt": 0.911393,
+   "aiclk": {
+    "0": {
+     "min": 1331,
+     "max": 1350,
+     "median": 1350,
+     "n": 41
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1331 / median 1350 / max 1350 MHz over 41 samples, polled DURING the work",
+   "digest": "9d0b4386c00c06ce971d71e8a1191ba2037f88f1145e43ef8faab16dd6c69c75",
+   "stats": {
+    "served": 0,
+    "declined": 384,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 0
+   },
+   "calls": {
+    "composed:585": 8,
+    "composed:608": 432,
+    "hifi:608:declined": 384
+   },
+   "loadavg": [
+    6.0068359375,
+    5.6357421875,
+    3.1728515625
+   ]
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 33.602,
+   "plddt": 0.911294,
+   "aiclk": {
+    "0": {
+     "min": 1287,
+     "max": 1350,
+     "median": 1350,
+     "n": 26
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1287 / median 1350 / max 1350 MHz over 26 samples, polled DURING the work",
+   "digest": "b6bc819c4f6719f57c0db01ae1cc7391eddb4c05853bb52eec5126ec6bc98032",
+   "stats": {
+    "served": 384,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 384
+   },
+   "calls": {
+    "composed:585": 8,
+    "composed:608": 48,
+    "hifi:608:padded": 384
+   },
+   "loadavg": [
+    6.375,
+    5.74609375,
+    3.2998046875
+   ]
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 54.303,
+   "plddt": 0.911393,
+   "aiclk": {
+    "0": {
+     "min": 1293,
+     "max": 1350,
+     "median": 1350,
+     "n": 42
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1293 / median 1350 / max 1350 MHz over 42 samples, polled DURING the work",
+   "digest": "9d0b4386c00c06ce971d71e8a1191ba2037f88f1145e43ef8faab16dd6c69c75",
+   "stats": {
+    "served": 0,
+    "declined": 384,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 0
+   },
+   "calls": {
+    "composed:585": 8,
+    "composed:608": 432,
+    "hifi:608:declined": 384
+   },
+   "loadavg": [
+    5.93896484375,
+    5.654296875,
+    3.40478515625
+   ]
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 33.085,
+   "plddt": 0.911294,
+   "aiclk": {
+    "0": {
+     "min": 1318,
+     "max": 1350,
+     "median": 1350,
+     "n": 26
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1318 / median 1350 / max 1350 MHz over 26 samples, polled DURING the work",
+   "digest": "b6bc819c4f6719f57c0db01ae1cc7391eddb4c05853bb52eec5126ec6bc98032",
+   "stats": {
+    "served": 384,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 384
+   },
+   "calls": {
+    "composed:585": 8,
+    "composed:608": 48,
+    "hifi:608:padded": 384
+   },
+   "loadavg": [
+    5.74072265625,
+    5.65576171875,
+    3.48974609375
+   ]
+  }
+ ],
+ "cold_s": 103.67,
+ "cold_calls": {
+  "composed:608": 48,
+  "hifi:608:padded": 384,
+  "composed:585": 8
+ },
+ "medians": {
+  "off": 54.751,
+  "on": 33.3435
+ },
+ "spread": {
+  "off": 0.8960000000000008,
+  "on": 0.5169999999999959
+ },
+ "digests": {
+  "off": [
+   "9d0b4386c00c06ce971d71e8a1191ba2037f88f1145e43ef8faab16dd6c69c75"
+  ],
+  "on": [
+   "b6bc819c4f6719f57c0db01ae1cc7391eddb4c05853bb52eec5126ec6bc98032"
+  ]
+ },
+ "off_over_on": 1.642
+}
