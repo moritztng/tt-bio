@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import json
 import os
 import pathlib
 import re
@@ -1857,6 +1858,61 @@ def campaign_predictor(*, validation: str = "jax",
             campaign.AlphaFoldDesignModel = real
 
 
+def print_resumption(project_folder: str, max_trajectories=None) -> str:
+    """Say what a resumed campaign inherited, before it claims anything.
+
+    A design campaign runs for hours and gets interrupted, and BindCraft 2 carries on into the
+    same folder when `resume: true` is set. What it carries on from is not obvious, because the
+    budget is spent when a trajectory is CLAIMED and its row is written only when it finishes:
+    a campaign killed mid-trajectory has paid for work it has no row for, so it resumes one
+    number further along than its own table, does not retry that recipe, and delivers one
+    trajectory fewer than was asked for. And that memory lives in `.campaign_state.json`; delete
+    that file and the counts are recovered from the tables instead, which cannot see the
+    interrupted claim, so the same trajectory number is used twice across the two runs.
+
+    None of that is wrong -- charging on the claim is what stops a trajectory that kills the
+    process from being retried forever -- but all of it was silent. This prints it. Returns the
+    line it printed, or "" for a fresh folder.
+    """
+    from bindcraft.campaign_output import (TRAJECTORY_STAGE, accepted_table, csv_row_count,
+                                           stage_table)
+
+    state_path = pathlib.Path(project_folder) / ".campaign_state.json"
+    rows = csv_row_count(stage_table(project_folder, TRAJECTORY_STAGE))
+    accepted_rows = csv_row_count(accepted_table(project_folder))
+    if not state_path.exists() and not rows and not accepted_rows:
+        return ""
+    charged = accepted = None
+    if state_path.exists():
+        try:
+            state = json.loads(state_path.read_text())
+            charged, accepted = int(state.get("trajectories", 0)), int(state.get("accepted", 0))
+        except (OSError, ValueError, TypeError):
+            charged = accepted = None
+    where = ("`.campaign_state.json`" if charged is not None
+             else "the campaign tables, since `.campaign_state.json` is absent or unreadable")
+    counted = charged if charged is not None else rows
+    said = [f"[tt_bio.bindcraft2] resuming {project_folder}: {counted} "
+            f"{'trajectory' if counted == 1 else 'trajectories'} already charged according to "
+            f"{where}, {rows} in the trajectory table, "
+            f"{accepted if accepted is not None else accepted_rows} accepted."]
+    if charged is not None and charged > rows:
+        missing = charged - rows
+        said.append(f"{missing} claimed {'trajectory' if missing == 1 else 'trajectories'} "
+                    f"never finished; {'it is' if missing == 1 else 'they are'} charged to the "
+                    f"budget and will not be retried, so this campaign runs {missing} fewer "
+                    f"than you asked for.")
+        if max_trajectories:
+            said.append(f"Raise max_trajectories to {int(max_trajectories) + missing} to get the "
+                        f"{int(max_trajectories)} you wanted.")
+    elif charged is None and rows:
+        said.append("Recovered from the tables, so an interrupted trajectory's number is claimed "
+                    "again; its recipe is still declined, so no design is repeated.")
+    line = " ".join(said)
+    print(line, flush=True)
+    return line
+
+
 @contextlib.contextmanager
 def _one_campaign_not_n(campaign, trajectories: int):
     """Hold the two campaign-wide things N trajectories in one process would each do.
@@ -1967,6 +2023,7 @@ def run_campaign(settings: Mapping, project_folder: str, *,
     # Before a card is opened: a hotspot that names no residue of the target sets no flag, and
     # BindCraft 2 reads that as a campaign with no epitope rather than as a mistake.
     bcinputs.refuse_unusable_inputs(settings)
+    print_resumption(project_folder, settings.get("max_trajectories"))
 
     tokens = design_tokens(settings)
     if isinstance(trajectories_per_card, str):

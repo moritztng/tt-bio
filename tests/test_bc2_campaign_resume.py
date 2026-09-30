@@ -155,3 +155,67 @@ def test_the_budget_stops_a_campaign_that_has_accepted_nothing(tmp_path):
     progress = CampaignProgress(project, requested_designs=500, max_trajectories=4)
     assert progress.claim_trajectory() is None
     assert progress.campaign_status() == (0, 4)
+
+
+def test_a_fresh_folder_says_nothing_about_resumption(tmp_path):
+    from tt_bio import bindcraft2
+
+    assert bindcraft2.print_resumption(str(tmp_path / "fresh")) == ""
+
+
+def test_resumption_names_the_trajectories_the_interruption_cost(tmp_path, capsys):
+    """The report a researcher gets when they restart an interrupted campaign.
+
+    It has to say three numbers -- charged, in the table, accepted -- and then the consequence,
+    because the consequence is the part nothing told them: a campaign asked for 24 trajectories
+    and interrupted twice delivers 22.
+    """
+    from tt_bio import bindcraft2
+
+    project = str(tmp_path / "campaign")
+    pathlib.Path(project).mkdir(parents=True)
+    for number in (1, 2, 3):
+        completed_trajectory(project, number, f"hash{number}")
+    accepted_design(project, "design_1_seq0", "hash1")
+    state_file(project).write_text(json.dumps(
+        {"trajectories": 5, "accepted": 1,
+         "attempted": ["hash1", "hash2", "hash3", "hash4", "hash5"]}))
+
+    line = bindcraft2.print_resumption(project, max_trajectories=24)
+    assert "5 trajectories already charged" in line
+    assert "3 in the trajectory table" in line
+    assert "1 accepted" in line
+    assert "2 claimed trajectories never finished" in line
+    assert "runs 2 fewer than you asked for" in line
+    assert "max_trajectories to 26" in line
+    assert line in capsys.readouterr().out
+
+
+def test_resumption_without_a_state_file_says_which_side_it_read(tmp_path):
+    """Recovered from the tables, the report says so and says what that costs: the interrupted
+    trajectory's number is claimed again, though its recipe is still declined."""
+    from tt_bio import bindcraft2
+
+    project = str(tmp_path / "campaign")
+    pathlib.Path(project).mkdir(parents=True)
+    completed_trajectory(project, 1, "hash1")
+
+    line = bindcraft2.print_resumption(project, max_trajectories=10)
+    assert "`.campaign_state.json` is absent" in line
+    assert "1 trajectory already charged" in line
+    assert "no design is repeated" in line
+
+
+def test_an_unreadable_state_file_does_not_stop_the_campaign(tmp_path):
+    """A truncated state file is read as absent rather than raised out of the campaign's first
+    second. `locked_progress` writes it atomically, so this should not happen, but a full disk
+    or a hard reset is not something to hand a researcher a traceback for."""
+    from tt_bio import bindcraft2
+
+    project = str(tmp_path / "campaign")
+    pathlib.Path(project).mkdir(parents=True)
+    completed_trajectory(project, 1, "hash1")
+    state_file(project).write_text('{"trajectories": 2, "accep')
+
+    line = bindcraft2.print_resumption(project, max_trajectories=10)
+    assert "absent or unreadable" in line
