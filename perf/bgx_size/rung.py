@@ -317,6 +317,10 @@ def main():
         except BaseException as exc:                                   # noqa: BLE001
             return {"error": repr(exc), "tokens_asked": design_axis}
 
+    def auto_would_choose():
+        a = auto_now()
+        return None if "error" in a else [a["count"], a["why"]]
+
     cls = bindcraft2.design_model_class()
     real_sequence_gradients = cls.sequence_gradients
 
@@ -341,6 +345,12 @@ def main():
              # compares them. Pricing a trajectory a bucket low is a default that errs high.
              "design_tokens": design_axis,
              "auto_before_open": auto_now(),
+             # Same answer as `auto_before_open`, in the flat two-element shape four readers of
+             # this JSON already parse (bgx_size/table.py, bgx_size/camp576_watch.sh,
+             # bwx_scale/report.py, bcx_default/campaign_report.py). Priced on `design_axis` and
+             # not on the arithmetic `tokens` for the reason above, and it inherits `auto_now`'s
+             # guard, so a rung still records itself when the default raises.
+             "auto_would_choose": auto_would_choose(),
              "max_trajectories": budget, "validation": args.validation, "seed": args.seed,
              "commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"],
                                       capture_output=True, text=True).stdout.strip(),

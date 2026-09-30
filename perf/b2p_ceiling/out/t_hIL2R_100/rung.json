@@ -1,0 +1,187 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "target": "hIL2R",
+ "target_residues": 387,
+ "target_chains": 2,
+ "target_fold": "two-chain cytokine receptor assembly",
+ "binder": 100,
+ "tokens": 512,
+ "rounds_requested": 4,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "auto_would_choose": [
+  1,
+  "at 512 tokens one trajectory is priced at up to 22.1 GB against the 29.4 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "f32207b34294fa142dfeb62616284b7218bad212",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/b2p-ceiling/perf/b2p_ceiling/out/xlacache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+ "nproc": 32,
+ "loadavg_start": [
+  0.64501953125,
+  1.0234375,
+  0.599609375
+ ],
+ "mem_start": {
+  "vmhwm": 507793408,
+  "vmrss": 507793408,
+  "mem_available": 516381773824
+ },
+ "started_utc": "2026-09-30T14:51:48Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "wall_seconds": 218.87,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(4 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 515,
+ "evoformer_axis": 544,
+ "axis_seen": [
+  544
+ ],
+ "axis_matches_arithmetic": false,
+ "device_free_min": 32328981504,
+ "rounds_done": 5,
+ "rounds_per_slot": {
+  "": 5
+ },
+ "per_round": [
+  {
+   "slot": "",
+   "round": 1,
+   "seconds": 74.62,
+   "n": 66,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 1.9
+  },
+  {
+   "slot": "",
+   "round": 2,
+   "seconds": 45.585,
+   "n": 44,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.3
+  },
+  {
+   "slot": "",
+   "round": 3,
+   "seconds": 43.547,
+   "n": 42,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 1.8
+  },
+  {
+   "slot": "",
+   "round": 4,
+   "seconds": 45.332,
+   "n": 44,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 1.6
+  }
+ ],
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 69168,
+   "declined: has a core grid": 1152,
+   "served": 3360,
+   "declined: not batched": 7808
+  },
+  "taped_channel_move": [
+   3024,
+   2496,
+   2160,
+   0
+  ],
+  "widen_add": {
+   "served: first": 3096,
+   "served: later": 816
+  },
+  "rne_add": [
+   5544,
+   48
+  ],
+  "qkv_grad_join": {
+   "served": 2448
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 432,
+   "bw_calls": 432
+  },
+  "triatt_fused_hifi": {
+   "served": 1296,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    5544,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    1296,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 432,
+  "served": 0,
+  "declined": 432
+ },
+ "aiclk_run": {
+  "n": 205,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 1.8
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 12259811328,
+  "vmrss": 7226425344,
+  "mem_available": 508473716736
+ },
+ "loadavg_end": [
+  1.5234375,
+  1.4912109375,
+  0.91015625
+ ],
+ "finished_utc": "2026-09-30T14:55:27Z"
+}

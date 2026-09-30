@@ -1872,15 +1872,18 @@ SDPA_RAGGED_SITES: dict = {}
 _SDPA_PAD_MASK = -1.0e9
 
 
-def _sdpa_pad_ragged(q, k, v, bias):
+def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
     """Pad the q and k axes to a tile multiple, masking the new keys. Returns (q, k, v, bias, q_pad).
 
     The two axes are padded independently so this is correct for cross-attention as well; for the
     self-attention every caller here runs, `q_pad == k_pad`. The bias' query axis is only padded
     when it is not broadcast, since a bias of shape [..., 1, S] already covers every padded row.
+
+    `to` pads both axes to that length instead of the next tile multiple; `_tri_att_hifi_pad_up`
+    is the one caller that asks.
     """
     Sq, Sk = int(q.shape[2]), int(k.shape[2])
-    q_pad, k_pad = (-Sq) % 32, (-Sk) % 32
+    q_pad, k_pad = (to - Sq, to - Sk) if to else ((-Sq) % 32, (-Sk) % 32)
     if not (q_pad or k_pad):
         return q, k, v, bias, 0
     qp = ttnn.pad(q, [(0, 0)] * (len(q.shape) - 2) + [(0, q_pad), (0, 0)], value=0.0) \
@@ -1899,7 +1902,8 @@ def _sdpa_pad_ragged(q, k, v, bias):
     # ttnn.pad ALIASES here rather than copying: in TILE layout the buffer is already 32-aligned on
     # both tile axes, so the pad is a relabel of the logical shape plus a fill of the physical tail
     # that was already there. Measured -- deallocating the pad output kills the SOURCE tensor. So
-    # nothing here may be freed, and the padding costs no DRAM.
+    # nothing here may be freed, and the padding costs no DRAM. A `to` past the tile boundary is a
+    # real copy, and its caller frees it.
     return qp, kp, vp, bp, q_pad
 
 
@@ -2767,10 +2771,60 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
         return None
+    o = _tri_att_hifi_ladder(q, k, v, bias, scale, one_k_chunk)
+    if o is None:
+        o = _tri_att_hifi_pad_up(q, k, v, bias, scale, one_k_chunk)
+    TRIATT_FUSED_HIFI_STATS["served" if o is not None else "declined"] += 1
+    return o
+
+
+# A padded length of 32 * p for a prime p has exactly two 32-aligned chunk sizes, 32 and itself.
+# From p = 17 up the whole-length chunk is over L1 (`l1_budget`) and 32 fails `fill_preconditions`,
+# so the arm has no legal config and declines every call. On a p150a at BindCraft 2's shape
+# (q/k/v [N, 4, N, 32], `perf/b2p_ceiling/serve_probe_main.json`) that is exactly 544, 608 and 736
+# of the 22 lengths from 192 to 864; every other one serves. The fallback materialises the
+# [N, 4, N, N] fp32 scores, so 544 ran at 25.75 GB against 14.23 at 576, and 608 asked for one
+# 3.596 GB buffer and was refused.
+#
+# So pad the axis up to the next length that serves, mask the new keys with the bias exactly as
+# the ragged-tail pad does, and slice the rows back. The real rows are the same attention over the
+# same keys: a key at -1e9 takes exp(-1e9) = 0 of every row's mass. 32 * (p + 1) always has the
+# divisor 16 * (p + 1), and one tile up served at all three.
+#
+# Self-attention only, which every triangle-attention call is, and bounded to
+# `_TRIATT_HIFI_PAD_UP_TILES` so the padded work stays within (1 + 64 / S)^2 of the native length.
+# 0 turns it off.
+_TRIATT_HIFI_PAD_UP_TILES = env_int("TT_BIO_TRIATT_HIFI_PAD_UP", 2)
+TRIATT_FUSED_HIFI_PADDED: dict = {}   # native length -> the padded length that served
+
+
+def _tri_att_hifi_pad_up(q, k, v, bias, scale: float, one_k_chunk: bool):
+    S = int(q.shape[2])
+    if int(k.shape[2]) != S or S % SDPA_CHUNK_TILE or bias is None:
+        return None
+    for to in range(S + SDPA_CHUNK_TILE, S + (_TRIATT_HIFI_PAD_UP_TILES + 1) * SDPA_CHUNK_TILE,
+                    SDPA_CHUNK_TILE):
+        qp, kp, vp, bp, _ = _sdpa_pad_ragged(q, k, v, bias, to=to)
+        try:
+            o = _tri_att_hifi_ladder(qp, kp, vp, bp, scale, one_k_chunk)
+        finally:
+            for t, src in ((qp, q), (kp, k), (vp, v), (bp, bias)):
+                if t is not src:
+                    ttnn.deallocate(t)
+        if o is not None:
+            TRIATT_FUSED_HIFI_PADDED[S] = to
+            sl = o[:, :, :S, :]
+            ttnn.deallocate(o)
+            return sl
+    return None
+
+
+def _tri_att_hifi_ladder(q, k, v, bias, scale: float, one_k_chunk: bool):
+    """The fused-HiFi configs at this call's own length, first that serves, or None."""
+    q_len, k_len = int(q.shape[2]), int(k.shape[2])
     served = _tri_att_fused_large_s(q, k, v, bias, scale, _TRIATT_FUSED_HIFI_CKC)
     if served is not None:
         o, q_chunk, k_chunk = served
-        TRIATT_FUSED_HIFI_STATS["served"] += 1
         TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, 2]
         return o
     shipped_k = _sdpa_chunks_shipped(q_len, k_len)[1]
@@ -2807,7 +2861,6 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
                     _TRIATT_HIFI_OVER_L1.add(cfg)
                     continue
                 if o is not None:
-                    TRIATT_FUSED_HIFI_STATS["served"] += 1
                     TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, kv_bf]
                     return o
                 # Under a tape None is the kernel declining THIS call (generic_op has no
@@ -2817,7 +2870,6 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
                 # retires the config exactly as before.
                 if not ops.taping():
                     _TRIATT_HIFI_OVER_L1.add(cfg)
-    TRIATT_FUSED_HIFI_STATS["declined"] += 1
     return None
 
 

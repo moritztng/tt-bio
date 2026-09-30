@@ -1,0 +1,196 @@
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "target": "hHSA",
+ "target_residues": 578,
+ "target_chains": 1,
+ "target_fold": "all-alpha, three homologous domains",
+ "binder": 100,
+ "tokens": 704,
+ "rounds_requested": 4,
+ "footprint_probe": true,
+ "timing_valid": false,
+ "trajectories_arg": "1",
+ "auto_would_choose": [
+  1,
+  "at 704 tokens one trajectory is priced at up to 50.3 GB against the 28.5 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "f32207b34294fa142dfeb62616284b7218bad212",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/b2p-ceiling/perf/b2p_ceiling/out/xlacache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+ "nproc": 32,
+ "loadavg_start": [
+  1.88427734375,
+  1.8525390625,
+  1.9365234375
+ ],
+ "mem_start": {
+  "vmhwm": 508821504,
+  "vmrss": 508821504,
+  "mem_available": 515496742912
+ },
+ "started_utc": "2026-09-30T15:34:47Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "wall_seconds": 370.31,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(4 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 706,
+ "evoformer_axis": 736,
+ "axis_seen": [
+  736
+ ],
+ "axis_matches_arithmetic": false,
+ "device_free_min": 31451126272,
+ "rounds_done": 5,
+ "rounds_per_slot": {
+  "": 5
+ },
+ "per_round": [
+  {
+   "slot": "",
+   "round": 1,
+   "seconds": 100.044,
+   "n": 95,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.9
+  },
+  {
+   "slot": "",
+   "round": 2,
+   "seconds": 87.446,
+   "n": 85,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.1
+  },
+  {
+   "slot": "",
+   "round": 3,
+   "seconds": 85.763,
+   "n": 83,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.1
+  },
+  {
+   "slot": "",
+   "round": 4,
+   "seconds": 87.334,
+   "n": 84,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.2
+  }
+ ],
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 341328,
+   "declined: has a core grid": 1152,
+   "served": 3360,
+   "declined: not batched": 9184
+  },
+  "taped_channel_move": [
+   3024,
+   6336,
+   2160,
+   0
+  ],
+  "widen_add": {
+   "served: first": 3096,
+   "served: later": 816
+  },
+  "rne_add": [
+   5544,
+   48
+  ],
+  "qkv_grad_join": {
+   "served": 2448
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 432,
+   "bw_calls": 432
+  },
+  "triatt_fused_hifi": {
+   "served": 1296,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    5544,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    1296,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 432,
+  "served": 0,
+  "declined": 432
+ },
+ "aiclk_run": {
+  "n": 356,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 2.4
+ },
+ "tagged_peak_gib": 17.687,
+ "tagged_peak_line": "[DRAM] tri_att(end) bias built [z=736x736x128]: 17.687 GiB used (of 31.9 GiB) maxfree=1790MiB/bank",
+ "node_probe_samples": 5951,
+ "node_probe_calls": 47608,
+ "resident_peak_gb": 23.0677,
+ "resident_peak_gib": 21.4835,
+ "free_at_peak_gb": 11.1578,
+ "free_at_peak_gib": 10.3915,
+ "device_total_gb": 34.2255,
+ "largest_free_block_at_peak_mb": 1292.9,
+ "mem_end": {
+  "vmhwm": 16956174336,
+  "vmrss": 7572799488,
+  "mem_available": 507945029632
+ },
+ "loadavg_end": [
+  1.63037109375,
+  2.03857421875,
+  2.02978515625
+ ],
+ "finished_utc": "2026-09-30T15:40:58Z"
+}
