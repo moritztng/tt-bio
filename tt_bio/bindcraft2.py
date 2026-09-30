@@ -1951,7 +1951,8 @@ def stage_gates(settings: Mapping) -> str:
     if not parts:
         return ""
     return (f"[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, "
-            f"which the filters line above does not list: {', '.join(parts)}. A trajectory that "
+            f"which the campaign's own `filters` line does not list: {', '.join(parts)}. A trajectory "
+            f"that "
             f"misses one is charged against the budget and counted under `terminated`, and the "
             f"rejection names the metric ({'/'.join(sorted({m for _, _, m in STAGE_GATES}))}), "
             f"not the setting.")

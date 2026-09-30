@@ -64,3 +64,11 @@ def test_printing_returns_the_same_line_it_printed(capsys):
 def test_printing_nothing_prints_nothing(capsys):
     assert print_stage_gates({}) == ""
     assert capsys.readouterr().out == ""
+
+
+def test_the_line_does_not_claim_the_filters_line_is_above_it():
+    # It prints with the stop conditions, before upstream's banner: in the live bh2c campaign log
+    # this line landed at 37 and `filters ...` at 44, so "above" was simply false.
+    line = stage_gates(PDL1)
+    assert "above" not in line
+    assert "`filters` line" in line
