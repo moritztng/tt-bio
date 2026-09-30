@@ -997,8 +997,17 @@ def test_fewer_than_one_trajectory_is_refused(monkeypatch, trajectories):
 
 
 def test_three_trajectories_run_one_campaign_each_under_the_gate(monkeypatch):
+    """Three interleaved trajectories, three campaigns, on a card that holds three.
+
+    The card is pinned like every other expectation in this file. Without that, these gate tests
+    read the part the host happens to have and a three-way gate is REFUSED on a 12 GiB Wormhole
+    chip (3 x 5.34 GB asked of 11.40), so six tests about printing and locking were red on every
+    Wormhole box and green only on Blackhole -- a board split in the suite of a campaign whose
+    bar is both boards. What the gate does with three arms is not a function of the card.
+    """
     from tt_bio import duotraj
 
+    _box(monkeypatch, free_gb=200.0)
     calls, returned = _campaign_calls(monkeypatch, trajectories_per_card=3)
     assert len(calls) == 3
     assert sorted(call["slot"] for call in calls) == ["t1", "t2", "t3"]
@@ -1012,6 +1021,7 @@ def test_three_trajectories_run_one_campaign_each_under_the_gate(monkeypatch):
 def test_a_trajectory_waits_for_the_one_before_it_to_clear_its_compile_round(monkeypatch):
     """No two trajectories trace at the same time: i starts on i-1's SECOND round."""
     _bindcraft_root()
+    _box(monkeypatch, free_gb=200.0)   # a card that holds them; see the three-way gate test
     from bindcraft import campaign
     from tt_bio import duotraj
 
@@ -1035,6 +1045,7 @@ def test_a_trajectory_waits_for_the_one_before_it_to_clear_its_compile_round(mon
 def test_a_trajectory_that_stops_early_does_not_strand_the_next_one(monkeypatch):
     """A campaign that never reaches a second round still releases its follower."""
     _bindcraft_root()
+    _box(monkeypatch, free_gb=200.0)   # a card that holds them; see the three-way gate test
     from bindcraft import campaign
 
     ran = []
@@ -1046,6 +1057,7 @@ def test_a_trajectory_that_stops_early_does_not_strand_the_next_one(monkeypatch)
 
 def test_a_failing_trajectory_comes_back_out(monkeypatch):
     _bindcraft_root()
+    _box(monkeypatch, free_gb=200.0)   # a card that holds them; see the three-way gate test
     from bindcraft import campaign
     from tt_bio import duotraj
 
@@ -1077,6 +1089,7 @@ def test_a_box_that_cannot_hold_them_is_refused_before_any_campaign_starts(monke
 
 def test_the_campaign_header_is_printed_once_not_once_per_trajectory(monkeypatch):
     _bindcraft_root()
+    _box(monkeypatch, free_gb=200.0)   # a card that holds them; see the three-way gate test
     from bindcraft import campaign
 
     real = campaign.print_campaign_header
@@ -1095,6 +1108,7 @@ def test_the_campaign_is_announced_over_once_by_the_last_trajectory_out(monkeypa
     per PROCESS. N threads share one environment, so all N announced the end and the earlier ones
     did it while another trajectory was still printing stage lines."""
     _bindcraft_root()
+    _box(monkeypatch, free_gb=200.0)   # a card that holds them; see the three-way gate test
     from bindcraft import campaign
 
     real = campaign.design_worker_index
@@ -1119,6 +1133,7 @@ def test_a_real_worker_process_keeps_bindcrafts_own_footer_gate(monkeypatch):
     """With BINDCRAFT_WORKER_ID set the process is one of several on the project and upstream
     means nobody to announce the campaign; the thread gate must not talk over that."""
     _bindcraft_root()
+    _box(monkeypatch, free_gb=200.0)   # a card that holds them; see the three-way gate test
     from bindcraft import campaign
 
     monkeypatch.setenv("BINDCRAFT_WORKER_ID", "1")
@@ -1135,6 +1150,7 @@ def test_the_closing_summary_writer_is_serialised(monkeypatch):
     """N trajectories share a stop condition, so they reach the unlocked summary rewrite at
     once; overlapping writes to its one partial file would produce a summary that is neither."""
     _bindcraft_root()
+    _box(monkeypatch, free_gb=200.0)   # a card that holds them; see the three-way gate test
     from bindcraft import campaign
 
     real = campaign.write_campaign_summary
@@ -1163,6 +1179,7 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
     trajectories that is the first build PER TRAJECTORY, or the second one designs on the host
     control arm while its caller believes it is on the card."""
     _bindcraft_root()
+    _box(monkeypatch, free_gb=200.0)   # a card that holds them; see the three-way gate test
     from bindcraft import campaign
     from tt_bio import duotraj
 
