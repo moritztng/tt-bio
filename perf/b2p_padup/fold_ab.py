@@ -32,6 +32,8 @@ def main() -> int:
     ap.add_argument("--arms", default="off,on,off,on,off,on")
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
+    ap.add_argument("--yaml", type=Path, default=None, help="target; default the tiled-CDK2 fixture")
+    ap.add_argument("--a3m", type=Path, default=None)
     ap.add_argument("--savecifs", type=Path, default=None)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -71,14 +73,15 @@ def main() -> int:
 
     T._tri_att_sdpa_hifi, T._fp32_softmax_attention = hifi_counted, fp32_counted
 
-    tgt, a3m = a.fixdir / f"cdk2x2_{a.size}.yaml", a.fixdir / f"cdk2x2_{a.size}.a3m"
-    res = {"model": a.model, "size": a.size, "host": socket.gethostname(),
+    tgt = a.yaml or a.fixdir / f"cdk2x2_{a.size}.yaml"
+    a3m = a.a3m or a.fixdir / f"cdk2x2_{a.size}.a3m"
+    res = {"model": a.model, "size": a.size, "target": str(tgt), "a3m": str(a3m), "host": socket.gethostname(),
            "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arms": a.arms, "pad_up_shipped": SHIPPED,
            "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
            "seed": B.SEED, "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
            "loadavg_start": os.getloadavg(), "legs": []}
     a.out.parent.mkdir(parents=True, exist_ok=True)
-    one_fold, meta, _state = B.build_fold(a.model, ROOT / f".msa_b2p_padup_{a.model}_{a.size}", tgt, a3m)
+    one_fold, meta, _state = B.build_fold(a.model, ROOT / f".msa_b2p_padup_{a.model}_{tgt.stem}_{a.size}", tgt, a3m)
     struct_dir = Path(meta["struct_dir"])
 
     def set_arm(arm):

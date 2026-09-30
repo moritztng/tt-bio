@@ -34,7 +34,7 @@ def main():
         leg_dir.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, TT_BIO_TRIATT_HIFI_PAD_UP={"off": "0", "on": "2"}[arm],
                    B2P_PADUP_DUMP=str(leg_dir / "stats.json"),
-                   PYTHONPATH=f"{Path(__file__).parent / site}:{ROOT}")
+                   PYTHONPATH=f"{Path(__file__).parent / "site"}:{ROOT}")
         cmd = [sys.executable, "-m", "tt_bio.main", "predict", a.yaml, "--model", a.model,
                "--out_dir", str(leg_dir), "--seed", str(a.seed), "--override", *rest]
         t0 = time.perf_counter()
@@ -45,7 +45,12 @@ def main():
         h = hashlib.sha256()
         for f in cifs:
             h.update(f.read_bytes())
-        stats = json.loads((leg_dir / "stats.json").read_text()) if (leg_dir / "stats.json").exists() else None
+        dumps = [json.loads(f.read_text()) for f in sorted(leg_dir.glob("stats.json.*"))]
+        ran = [d for d in dumps if d.get("stats") and any(d["stats"].values())]
+        stats = {"processes": len(dumps), "tenstorrent_imported": sum(d["tenstorrent_imported"] for d in dumps),
+                 "stats": ran[0]["stats"] if len(ran) == 1 else [d["stats"] for d in ran] or
+                          [d.get("stats") for d in dumps if d["tenstorrent_imported"]],
+                 "padded": [d.get("padded") for d in ran], "pad_up_tiles": sorted({d.get("pad_up_tiles") for d in dumps if d["tenstorrent_imported"]}, key=str)}
         leg = {"i": i, "arm": arm, "rc": rc, "wall_s": round(wall, 3), "aiclk": clk.summary(),
                "clock_line": clk.line(0), "cifs": [str(c.relative_to(work)) for c in cifs],
                "digest": h.hexdigest(), "dump": stats}

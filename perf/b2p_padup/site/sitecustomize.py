@@ -14,7 +14,9 @@ def _dump():
                    stats=dict(T.TRIATT_FUSED_HIFI_STATS),
                    padded={str(k): v for k, v in T.TRIATT_FUSED_HIFI_PADDED.items()},
                    picks={str(k): v for k, v in T.TRIATT_FUSED_HIFI_PICKS.items()})
-    with open(out, "w") as fh:
+    # The CLI forks its device worker, so every process writes its own file; the one that ran the
+    # model is the one whose counters are non-zero.
+    with open(f"{out}.{os.getpid()}", "w") as fh:
         json.dump(rec, fh, indent=1)
 
 
