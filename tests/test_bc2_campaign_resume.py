@@ -219,3 +219,67 @@ def test_an_unreadable_state_file_does_not_stop_the_campaign(tmp_path):
 
     line = bindcraft2.print_resumption(project, max_trajectories=10)
     assert "absent or unreadable" in line
+
+
+def test_concurrent_threads_claim_unique_trajectory_numbers(tmp_path):
+    """The claim that tt-bio's interleave rests on, tested where it is cheap to test.
+
+    `trajectories_per_card > 1` runs N trajectories as THREADS in one process, each taking its
+    own number out of the same `.campaign_state.json` (`tt_bio.bindcraft2.run_campaign`). The
+    lock under it is `flock` on the project directory, taken on a freshly opened fd per call.
+    `flock` is held on the open file description rather than the process, so two threads with
+    their own fds do exclude each other -- but that is a property of the syscall, not something
+    the code says, and a campaign that hands two trajectories the same number writes two designs
+    into one folder. So: eight threads, two hundred claims, every number exactly once.
+    """
+    import threading
+
+    project = str(tmp_path / "campaign")
+    progress = CampaignProgress(project, requested_designs=10_000, max_trajectories=200)
+    claimed, lock = [], threading.Lock()
+
+    def claim_until_empty():
+        while True:
+            got = progress.claim_trajectory()
+            if got is None:
+                return
+            with lock:
+                claimed.append(got[0])
+
+    threads = [threading.Thread(target=claim_until_empty) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=120)
+    assert not any(thread.is_alive() for thread in threads), "a claim deadlocked"
+    assert sorted(claimed) == list(range(1, 201))
+
+
+def test_concurrent_processes_do_not_lose_an_accepted_design(tmp_path):
+    """Two campaigns in one project folder, which is what a researcher does by accident.
+
+    BindCraft 2's own design workers are separate processes sharing a folder, so the same path
+    covers a second campaign started against a folder that already has one running. An accepted
+    design is counted with a read-modify-write of the state file, and a lost update there means
+    a campaign hands back fewer designs than it wrote, or stops late.
+    """
+    import multiprocessing
+
+    project = str(tmp_path / "campaign")
+    CampaignProgress(project, requested_designs=10_000).campaign_status()
+
+    def record(count):
+        progress = CampaignProgress(project, requested_designs=10_000)
+        for _ in range(count):
+            progress.record_accepted_design()
+
+    context = multiprocessing.get_context("fork")
+    workers = [context.Process(target=record, args=(20,)) for _ in range(5)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(timeout=120)
+    assert all(worker.exitcode == 0 for worker in workers), (
+        f"a worker did not finish cleanly: {[w.exitcode for w in workers]}")
+    accepted, _trajectories = CampaignProgress(project, requested_designs=10_000).campaign_status()
+    assert accepted == 100, "five processes, twenty designs each, none lost to a lost update"
