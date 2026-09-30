@@ -501,6 +501,15 @@ Wormhole's, on dev `.107` card 30 with the box's agent stopped so the ladder hel
 Nobody should predict either board's number from bank geometry: the guess from 12 GiB in 12 banks
 put the Wormhole wall near 384-416 tokens and five rungs above that run.
 
+A p300c chip reports a p150a's DRAM and behaves like one up to where it has been run: 608 tokens
+at 48.2 s a round and 832 at 108.3 s, AICLK 1350. 864 has not been tried on it.
+
+In residues, which is how a target arrives: the fusion costs 18 to 28, so a Wormhole chip's 512
+tokens is about 484 to 494 residues of target plus binder, and a p150a's 864 is about 836 to 846.
+With a binder in BindCraft 2's default 60-180 draw range that is a target of roughly 300 to 430
+residues on Wormhole and 655 to 785 on Blackhole. Read `design_tokens` rather than trusting the
+arithmetic; it is there because this sum is one or two buckets low often enough to matter.
+
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
 the board. At 864 it is 92 % with the largest free block down to 291 MB, so the next rung is a
 board question rather than a software one. On a Wormhole chip the top is 97 % of a card a third
