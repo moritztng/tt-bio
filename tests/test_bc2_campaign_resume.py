@@ -43,6 +43,13 @@ def accepted_design(project: str, name: str, identity: str) -> None:
                             {"design": name, "length": 146, "hash": identity})
 
 
+def record_accepted_designs(project: str, count: int) -> None:
+    """Module level so a spawned process can reach it."""
+    progress = CampaignProgress(project, requested_designs=10_000)
+    for _ in range(count):
+        progress.record_accepted_design()
+
+
 def state_file(project: str) -> pathlib.Path:
     return pathlib.Path(project) / ".campaign_state.json"
 
@@ -268,13 +275,11 @@ def test_concurrent_processes_do_not_lose_an_accepted_design(tmp_path):
     project = str(tmp_path / "campaign")
     CampaignProgress(project, requested_designs=10_000).campaign_status()
 
-    def record(count):
-        progress = CampaignProgress(project, requested_designs=10_000)
-        for _ in range(count):
-            progress.record_accepted_design()
-
-    context = multiprocessing.get_context("fork")
-    workers = [context.Process(target=record, args=(20,)) for _ in range(5)]
+    # `spawn`, not `fork`: JAX is imported and multithreaded by the time this module is, and
+    # forking a multithreaded process is a deadlock this test should not be teaching.
+    context = multiprocessing.get_context("spawn")
+    workers = [context.Process(target=record_accepted_designs, args=(project, 20))
+               for _ in range(5)]
     for worker in workers:
         worker.start()
     for worker in workers:
