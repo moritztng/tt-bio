@@ -13,5 +13,5 @@ export BINDER=60
 export JAX_COMPILATION_CACHE_DIR=$HOME/b2pship/out/xlacache_wheel
 export PYTHONPATH=$HOME/bcx_e2e/bc2
 rm -rf "$DESIGN_OUT"
-timeout 2700 ~/b2pship_venv312/bin/python -u ~/b2pship/out/design_wheel.py
+timeout 5400 ~/b2pship_venv312/bin/python -u ~/b2pship/out/design_wheel.py
 echo "DESIGN_RC=$? $(date -u +%FT%TZ)"
