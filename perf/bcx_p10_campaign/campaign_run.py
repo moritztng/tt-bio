@@ -107,8 +107,15 @@ def main():
     overrides = [f"campaign_seed={args.seed}", f"max_trajectories={budget}",
                  f"project_folder={project}",
                  # Every trajectory at one binder length, so the amortised round is comparable
-                 # with the harness figure and not a reading of two different shapes.
-                 f"binder_lengths=[{','.join([str(args.binder)] * budget)}]",
+                 # with the harness figure and not a reading of two different shapes. ONE entry,
+                 # which is how BindCraft 2 spells one length ("[80] for one length"): a list
+                 # scaled to the budget resolves to the same 146 but is part of the design
+                 # identity, and `max_trajectories` deliberately is not. Writing the budget into
+                 # `binder_lengths` smuggled it back in, so the same seed under budget 24 and
+                 # budget 3 designed the same binder -- same sequence, i_pTM 0.85, pLDDT 0.88 --
+                 # under two different names, and a reproducibility diff of the accepted sets
+                 # found nothing in common when everything was.
+                 f"binder_lengths=[{args.binder}]",
                  "compile_next_length=0"] + args.sets
     settings = cleaned_campaign_settings(
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
