@@ -514,7 +514,8 @@ at 256 MB against 12.715 GB at 32 MB.
 Every refusal raises, names the token axis, the memory it wanted against what was free, and where
 to move. Nothing in either range OOM-killed a process, hung one, or returned a wrong answer.
 
-A refusal distinguishes a full card from a fragmented one, because the remedies differ:
+A refusal distinguishes a full card from a fragmented one, because the remedies differ. A full
+card means run something smaller:
 
 ```
 The card is full: 243.0 MB free against a 277.1 MB request, with 33.9 GB of 34.2 GB already
@@ -522,10 +523,23 @@ held by this fold.
 ```
 
 ```
+The card is full: 12.707 GB of 12.885 GB is held by this fold, and the 177.5 MB left is in
+pieces of at most 4.0 MB a bank against the 12.6 MB a bank this 151.5 MB request needs.
+```
+
+Fragmentation means a real share of the card is free and the fold could not get a contiguous run
+of it, so a smaller buffer may still go through:
+
+```
 This is fragmentation, not a full card: 4.1 GB is free, which would cover the 3.6 GB request if
 it were in one piece, but the largest contiguous block in a bank is 327 MB against the 449 MB
 that bank needs.
 ```
+
+The second reading needs at least 5 % of the card free. Above a Wormhole chip's 512 tokens the
+fold holds 98 to 99 % of the board, and whether the last 100 to 250 MB happens to cover the next
+request is luck rather than a diagnosis: those refusals say the card is full, which is what they
+are.
 
 It then says where the way down lands, and the size it names is checked against the board in
 hand rather than being one bucket down by reflex: a 608-token fold on a Wormhole chip is told to
