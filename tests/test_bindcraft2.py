@@ -937,28 +937,68 @@ def test_a_design_whose_token_axis_cannot_be_read_runs_one(monkeypatch, capsys):
 def test_the_estimate_is_above_every_footprint_measured_on_the_card(monkeypatch):
     """The guard errs LOW on the count, which means erring HIGH on the footprint. Measured peak
     minus the shared round-boundary floor, one shipped trajectory, qb2 card 0
-    (`perf/bgx_traj/out/`), against what `trajectory_bytes` charges for it. 544 is an axis where
-    the fused triangle attention declines and the composed path holds the scores: the estimate
-    prices that path everywhere, because which one runs is not known until the card has tried."""
+    (`perf/bgx_traj/out/`), against what `trajectory_bytes` charges for it; and the padded
+    route's resident peaks on qb1's p150a with the pad-up on, floor included
+    (`state/b2p-ceiling.md`)."""
     from tt_bio import duotraj
 
     fused = {288: 2.881, 384: 5.084, 448: 6.896, 512: 8.985,
              576: 11.506, 640: 14.184, 704: 17.139}
-    composed = {544: 20.018}
-    for tokens, gb in {**fused, **composed}.items():
+    for tokens, gb in fused.items():
         charged = duotraj.trajectory_bytes(tokens) / 2**30
         assert charged > gb, (tokens, charged, gb)
-    assert duotraj.trajectory_bytes(544) / 2**30 < 20.018 * 1.3
-    # qb1's p150a measured 25.75 GB resident at 544, floor included; the charge covers it too.
+    padded = {544: 13.00e9, 608: 16.01e9, 736: 23.07e9, 832: 29.18e9, 864: 31.39e9}
+    for tokens, resident in padded.items():
+        charged = duotraj.trajectory_bytes(tokens) + duotraj.trajectory_floor_bytes(tokens)
+        assert charged > resident, (tokens, charged / 1e9, resident / 1e9)
+
+
+def test_the_composed_surcharge_is_priced_only_where_the_composed_path_can_run(monkeypatch):
+    """With the pad-up off the fused arm declines at 544 and the composed path held 20.02 GB over
+    the floor there, 25.75 GB resident on qb1's p150a; the charge covers both. With it on, that
+    path does not run and charging it opened one trajectory where two fit at 512 to 608."""
+    from tt_bio import duotraj
+
+    monkeypatch.setattr(duotraj, "_PAD_UP_ON", False)
+    assert duotraj.trajectory_bytes(544) / 2**30 > 20.018
     assert (duotraj.trajectory_bytes(544) + duotraj.trajectory_floor_bytes(544)) / 2**30 > 25.75
+    monkeypatch.setattr(duotraj, "_PAD_UP_ON", True)
+    assert duotraj.trajectory_bytes(544) / 2**30 < 20.018
+
+
+def test_the_pad_up_default_read_before_ttnn_matches_the_one_the_kernel_uses():
+    """`duotraj` cannot import `tenstorrent` (it imports ttnn), so it reads the variable itself.
+    The two defaults must be the same number or `auto` prices a path the fold does not take."""
+    import re
+    from pathlib import Path
+    from tt_bio import duotraj
+
+    def default(mod):
+        src = Path(mod).read_text()
+        return int(re.search(r'env_int\("TT_BIO_TRIATT_HIFI_PAD_UP", (\d+)\)', src).group(1))
+
+    here = Path(duotraj.__file__).parent
+    assert default(here / "duotraj.py") == default(here / "tenstorrent.py")
+
+
+@pytest.mark.parametrize("tokens,count", [(512, 2), (544, 2), (608, 2), (640, 1), (832, 1)])
+def test_auto_opens_two_trajectories_where_the_served_path_fits_two(monkeypatch, tokens, count):
+    """At 544 one trajectory holds 13.00 GB of a p150a on the padded route, so two fit in the
+    29.2 GB `auto` compares against; pricing the composed path's 25.8 GB there opened one."""
+    from tt_bio import duotraj
+
+    monkeypatch.setattr(duotraj, "_PAD_UP_ON", True)
+    monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(200 * 2**30))
+    monkeypatch.setattr(duotraj, "host_rss_bytes", lambda: 0)
+    monkeypatch.setattr(duotraj, "free_device_bytes", lambda: 0)
+    monkeypatch.setattr(duotraj, "card_total_bytes", lambda: int(31.875 * 2**30))
+    assert duotraj.auto_trajectories(tokens)[0] == count
 
 
 def test_the_line_calls_its_own_estimate_an_upper_bound_at_the_largest_axis_that_fits(monkeypatch):
-    """576 tokens is the largest complex one card carries: 14.23 GB of a p150a (`perf/bgx_size`)
-    and 13.14 of a p300 (`perf/bgx_traj`). `trajectory_bytes` prices the composed path at every
-    axis, so it charges 29.9 GB, more than the card has left after the floor and the reserve.
-    Phrased as "one trajectory holds about 29.9 GB of the card" that reads as a refusal at the one
-    axis a user who has read "what fits" is most likely to be sitting on."""
+    """At 832 tokens one trajectory is charged more than half of what a p150a has left, so `auto`
+    runs one. Phrased as "one trajectory holds about N GB of the card" that reads as a refusal at
+    the largest axis that works."""
     from tt_bio import duotraj
 
     monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(200 * 2**30))
@@ -966,12 +1006,9 @@ def test_the_line_calls_its_own_estimate_an_upper_bound_at_the_largest_axis_that
     monkeypatch.setattr(duotraj, "free_device_bytes", lambda: 0)  # what `auto` sees at entry
     monkeypatch.setattr(duotraj, "card_total_bytes", lambda: int(31.875 * 2**30))
 
-    count, why = duotraj.auto_trajectories(576)
+    count, why = duotraj.auto_trajectories(832)
     assert count == 1
-    room = (int(31.875 * 2**30) - duotraj.trajectory_floor_bytes(576)
-            - duotraj.CARD_RESERVE_BYTES)
-    assert duotraj.trajectory_bytes(576) > room, "the premise: the charge is over the card at 576"
-    assert "priced at up to" in why and "composed path" in why, why
+    assert "priced at up to" in why and "does not fit" in why, why
     assert "holds about" not in why, why
 
 
