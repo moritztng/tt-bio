@@ -3,7 +3,8 @@
 
     ladder.py --chip 30 --params ~/bwx/af2_params --out OUT hPDL1:50:t hPDL1:141:t ...
 
-Each rung is `target:binder:mode`, `t` timed and `f` footprint, and runs as its own process
+Each rung is `target:binder:mode[:KEY=VAL,...]`, `t` timed and `f` footprint, the optional
+fourth field an environment the rung alone runs under (`TT_BIO_TRIATT_HIFI_PAD_UP=0`), and runs as its own process
 through `perf/bgx_size/rung.py` -- the same harness that measured the p150a ladder, so the two
 boards are compared through one instrument and not two. A rung that refuses does not stop the
 ladder: a refusal is the measurement at the top of it.
@@ -89,15 +90,16 @@ def main() -> int:
                     help='what every rung is told explicitly. "auto" measures the default '
                          "instead of the size, which is the one thing a size ladder must not do")
     ap.add_argument("--timeout", type=int, default=3600, help="seconds a single rung may take")
-    ap.add_argument("rungs", nargs="+", metavar="target:binder:mode")
+    ap.add_argument("rungs", nargs="+", metavar="target:binder:mode[:KEY=VAL,...]")
     args = ap.parse_args()
 
     plan = []
     for spec in args.rungs:
-        target, binder, mode = spec.split(":")
+        target, binder, mode, *extra = spec.split(":", 3)
         if mode not in ("t", "f"):
             ap.error(f"{spec}: mode is t (timed) or f (footprint)")
-        plan.append((target, int(binder), mode))
+        plan.append((target, int(binder), mode,
+                     dict(kv.split("=", 1) for kv in extra[0].split(",")) if extra else {}))
 
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -118,8 +120,9 @@ def main() -> int:
                TT_BIO_LEASE_CARDS=str(args.chip))
     ledger = out / "ladder.jsonl"
     try:
-        for target, binder, mode in plan:
-            tag = f"{target}_{binder}_{mode}"
+        for target, binder, mode, extra in plan:
+            tag = "_".join([target, str(binder), mode,
+                            *("".join(k.split("_")[-2:]) + v for k, v in extra.items())])
             rung = out / tag
             rung.mkdir(exist_ok=True)
             cmd = [sys.executable, "-u", str(ROOT / "perf/bgx_size/rung.py"),
@@ -133,11 +136,11 @@ def main() -> int:
             t0 = time.time()
             with open(rung / "rung.log", "w") as log:
                 try:
-                    rc = subprocess.call(cmd, stdout=log, stderr=subprocess.STDOUT, env=env,
+                    rc = subprocess.call(cmd, stdout=log, stderr=subprocess.STDOUT, env={**env, **extra},
                                          timeout=args.timeout)
                 except subprocess.TimeoutExpired:
                     rc = "timeout"
-            row = {"tag": tag, "target": target, "binder": binder, "mode": mode, "rc": rc,
+            row = {"tag": tag, "target": target, "binder": binder, "mode": mode, "env": extra, "rc": rc,
                    "seconds": round(time.time() - t0, 1),
                    "finished_utc": time.strftime("%FT%TZ", time.gmtime())}
             # A rung that died still wrote its rung.json before teardown; read the axis back out
