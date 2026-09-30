@@ -1,0 +1,14 @@
+........................................................................ [ 48%]
+........................................................................ [ 97%]
+....                                                                     [100%]
+=============================== warnings summary ===============================
+tests/test_bindcraft2.py::test_the_extra_msa_stack_runs_on_card_by_default
+  /home/ubuntu/b2p-wh/tt-bio/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+    pid = _os.fork()
+
+tests/test_bindcraft2.py::test_the_extra_msa_stack_runs_on_card_by_default
+  /home/ubuntu/b2p-wh/tt-bio/tt_bio/main.py:62: DeprecationWarning: This process (pid=3838861) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = _os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+148 passed, 2 warnings in 114.55s (0:01:54)
