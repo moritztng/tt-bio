@@ -219,6 +219,51 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### The release gate itself
 
+Run on qb2 (`tt-quietbox2`), a four-chip Blackhole p300c box, from a fresh venv holding the
+built release wheel with `[tenstorrent,test,train]`, which resolves the `pyproject.toml` ttnn pin
+(0.68.0), with `PYTHONPATH` on the release tree. Every arm below scores the release code tree
+(`tt_bio/` and `scripts/` at 7fca0b1b2).
+
+**Implementation parity:** PARITY-OWED
+
+**Accuracy against ground truth: PASS.** Every per-model release-gate arm cleared its RMSD/TM floor
+and the geometry bands. Two of them, Protenix-v1 and OpenDDE, failed at 6.07 and 7.85 A on the
+first run of this gate, and the cause was a real regression that would have shipped: a Boltz-2
+MSA cached as `.csv` counted as a finished search for Protenix, OpenDDE and RF3, which then read
+no alignment and folded single-sequence without saying so. It came in after 0.9.0 and was fixed
+before the cut; the same arms now read 1.78 and 1.40 A.
+
+**Performance: PASS.** All 20 recorded p300c cells inside the +-15 % band, on one chip with nothing
+else on the board, AICLK 1350 MHz during the timed folds (1293-1343 on a few samples, 800 only in
+the idle gaps between models). Best: BoltzGen +28.0 %, Boltz-2 +13.2 %. Worst: RF3 and NESSO-1,
+both -10.5 %. The first run of this arm caught OpenDDE and OpenDDE-abag 21 % slow against 0.9.0, a
+regression from reading free DRAM once per pair bias; fixed before the cut, and both are now
+-6 %. AF2-IG had no p300c cell; its first is 3.26 structures/s, and a check against it passes.
+
+**UX: PASS.** Every CLI surface cleared progress output, parse and results/manifest shape,
+including AF2-IG and OpenDDE-abag on inputs they accept.
+
+**Packaging: PASS.** The first wheel built for this release left out
+`tt_bio/kernels/genq/genq_split.h`, which two default kernels include; the kernel globs now carry
+it, and the smoke test finds no dropped data file or dependency.
+
+**Test suite: 8658 passed, 239 skipped** with a device attached. The 15 failures in
+`tests/test_bcinputs.py` need BindCraft 2 installed, which tt-bio does not ship; with it they
+pass, 68 of 68. The first device run also found a library bug, fixed before the cut: a taped
+backward left its checkpoint hook installed, which broke later inference in the same process.
+Two tests with stale fixtures were fixed alongside it.
+
+**Capacity:** CAPACITY-OWED
+
+**Size ladder: PASS.** All nine ladder models walk every rung from 256 tokens to 1024, RF3 to
+1088. One RF3 warm-up fold at 768 tokens stalled on the first run; the rerun walked every rung,
+22.5 s at 256 to 164.4 s at 1088.
+
+**Out of the box: PASS.** In a new venv with an empty home directory, `pip install` of the built
+wheel with `[tenstorrent,train]`, the one `curl` for the OpenFold3 weights the README gives, and
+`tt-bio train --model openfold3` with no other flag: the 73 MB sample downloaded and all 435 files
+matched their sha256, and the first steps ran with finite losses (1.371, 1.592, 1.360).
+
 - **The AF2-IG device-trunk floor is re-recorded at the OuterProductMean output-stage layout.**
   That layout (638187138) is on for every model and makes a 512-residue fold 1.0111x faster. On
   AF2-IG it moves the final structure 0.150 -> 0.210 A CA RMSD from JAX, inside the 0.60 A bar,
@@ -226,6 +271,29 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   layout as its cause. It was measured on qb1 at the p150a's 11x10 grid and reproduced in a second
   process. The `--template-host` arm and both `--mutate` controls still FAIL against it, and the
   template-host arm is now a test.
+
+### What this release does not cover
+
+- **Only Blackhole was gated.** Every arm ran on p300c chips. The Wormhole (p150a) perf, capacity
+  and size-ladder cells were not re-measured at this release and still carry earlier numbers.
+
+- **tt-bio does not download the OpenFold3 weights.** No licence for the parameters is published,
+  so `tt-bio train` and `tt-bio predict --model openfold3` need the one `curl` the README gives
+  (2.3 GB). The training sample is downloaded and checked automatically.
+
+- **opendde and opendde-abag report FAIL at the capacity gate's 1536-token bar**, as in 0.9.0. The
+  engine caps OpenDDE at 1024 tokens on Blackhole because 1536 was measured to freeze the trunk, so
+  it declines the bar before any block runs. That is a shipped limit, not a regression.
+
+- **The capacity gate reduces coverage in the four ways its report names:** one diffusion sample,
+  a committed MSA rather than a fresh search, the 1536 bar tried first, and a polymer-only fixture,
+  so the ligand-token path is untested at that size.
+
+- **BindCraft 2 is not part of the gate.** It is a third-party package; its input checks are
+  tested with it installed, outside the release venv.
+
+- **Outside the gate entirely:** the hosted JapanFold service, tt-metal/ttnn itself, and model
+  weights fetched from a third-party hub at run time.
 
 ## [0.9.0] - 2026-09-18
 
