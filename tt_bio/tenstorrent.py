@@ -5964,6 +5964,15 @@ def host_unpark(t):
     return t if t.storage_type() == ttnn.StorageType.DEVICE else ttnn.to_device(t, get_device())
 
 
+def dram_free():
+    """Bytes an interleaved DRAM allocation can take now: the largest contiguous block per bank
+    times the banks. Reading it drains the pipeline (see `dram_peak`), so ask once per decision,
+    not once per tensor."""
+    mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+    lcf = mv.largest_contiguous_bytes_free_per_bank
+    return (min(lcf) if isinstance(lcf, (list, tuple)) else lcf) * mv.num_banks
+
+
 def place_by_reserve(t, reserve):
     """`t` on the device if DRAM can hold it and still keep `reserve` bytes free, else parked.
 
@@ -5971,15 +5980,11 @@ def place_by_reserve(t, reserve):
     biases are 13.9 GB at 2987 structural tokens in fp32, read once each per diffusion step.
     Placing each in turn keeps what fits on the chip and parks the rest in device layout
     (`host_park`); a parked tensor on the host comes back up by the same test once room frees, and
-    `host_unpark` uploads one for its read. The same bytes either way. Free is the largest
-    contiguous block per bank times the banks, the figure an interleaved allocation is refused on.
+    `host_unpark` uploads one for its read. The same bytes either way.
     """
-    mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
-    lcf = mv.largest_contiguous_bytes_free_per_bank
-    free = (min(lcf) if isinstance(lcf, (list, tuple)) else lcf) * mv.num_banks
     on_device = t.storage_type() == ttnn.StorageType.DEVICE
     own = 0 if on_device else _padded_bytes(tuple(t.shape), 4 if t.dtype == ttnn.float32 else 2)
-    if free >= reserve + own:
+    if dram_free() >= reserve + own:
         return host_unpark(t)
     if not on_device:
         return t

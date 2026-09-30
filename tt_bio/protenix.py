@@ -1313,17 +1313,23 @@ class DiffusionModule(_KeyedWeights):
         # scores, the softmax) beside one bias uploaded for its read: keep that free, park the
         # rest. At 2987 structural tokens the 24 biases are 13.9 GB of fp32 on a 12 GiB chip.
         NT = int(z_dev.shape[-2])
-        reserve = 4 * _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
-                                       4 if self._dit_dtype == ttnn.float32 else 2)
+        one = _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
+                               4 if self._dit_dtype == ttnn.float32 else 2)
+        reserve = 4 * one
+        # Each DRAM reading drains the pipeline, and 48 of them cost a 20-residue fold 100 ms.
+        # When every bias fits beside the reserve, one reading settles all the placements.
+        fits = _T.dram_free() >= reserve + len(self._dit) * one
+        place = (lambda b, reserve: b) if fits else _T.place_by_reserve
         biases = []
         for (_, apb, _, _, _) in self._dit:
             b = apb.compute_bias(z_dev)
             if extra is not None:
                 b = ttnn.add(b, extra)
-            biases.append(_T.place_by_reserve(b, reserve))
+            biases.append(place(b, reserve))
         # z_dev's only reader was this loop, and the room it frees takes parked biases back.
         ttnn.deallocate(z_dev)
-        biases = [_T.place_by_reserve(b, reserve) for b in biases]
+        if not fits:
+            biases = [place(b, reserve) for b in biases]
         parked = sum(b.storage_type() != ttnn.StorageType.DEVICE for b in biases)
         if parked:
             print(f"[dit] {parked} of {len(biases)} pair biases parked on the host at "
