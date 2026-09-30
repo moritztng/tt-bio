@@ -14,8 +14,10 @@ Line 2 of the log records the tree it scored, `/home/ttuser/b2porch/tt_bio (comm
 because a gate launched without `PYTHONPATH` scores the shared checkout instead.
 
 `gate_models_9af9e4152_aiclk.txt` is the card's AICLK read from sysfs every 5 s for the length of
-the run: 1350 MHz in every sample but the first, which caught the card still at its 800 MHz idle
-floor. The gate's own wall column is not used as a perf number here.
+the run: 54 of 58 samples at 1350 MHz. The four 800 MHz samples are the first one, taken before
+the card was opened, the last one, taken after the gate had finished, and two between the two
+models where nothing was folding. No sample inside either model's fold reads below 1350. The
+gate's own wall column carries no clock and is not used as a perf number here.
 
 `suites_9af9e4152.txt` is the card-free suite run at the same tree under `~/bcx_e2e_venv` with
 `PYTHONPATH=~/b2porch:~/bcx_e2e/bc2`: 318 passed, 0 failed, 0 skipped, 156 s, `lsof` empty on all
