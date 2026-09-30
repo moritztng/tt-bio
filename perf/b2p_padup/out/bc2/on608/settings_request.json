@@ -1,0 +1,13 @@
+{
+ "modality": "binder",
+ "campaign_name": "hTNFa_100",
+ "number_of_final_designs": 2,
+ "targets": [
+  {
+   "name": "hTNFa",
+   "target_path": "/home/ttuser/.coworker/wt/b2p-padup/perf/bgx_size/targets/hTNFa.pdb",
+   "chains": "A,B,C",
+   "hotspots": "A31,A32,A86,A87,B31,B143,B145,C86,C143"
+  }
+ ]
+}

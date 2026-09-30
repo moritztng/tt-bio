@@ -41,3 +41,9 @@ CHANGELOG was measured.
 `design_wheel.py` and `wheel312.sh` are the release proof: tt-bio from the built wheel in a clean
 3.12 venv, BindCraft 2 from its own checkout because `pip install` of BindCraft 2 does not carry
 its `settings/` or `examples/` trees.
+
+`wheel_design/` is that proof's result on qb1 UMD card 2 (a p150a), take 3 at `471e4fc59`:
+`DESIGN_CARD_OPEN` at 21:54:49Z, AICLK 1350 MHz on the card during the trajectory, and
+`DESIGN_RESULT` after one PD-L1 trajectory at a 60-residue binder (192 tokens) in 456.9 s, rc=0.
+The trajectory ran to the screen stage (i_pTM 0.77, pLDDT 0.53, rejected on pLDDT), which is the
+expected end for a trajectory-only run with no ProteinMPNN redesign.
