@@ -14,6 +14,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Triangle attention serves the lengths the fused kernel used to decline, so BindCraft 2 on a
+  p150a now runs up to 864 tokens instead of 576, and OpenFold3 is 1.5-1.6x faster at 544,
+  608, 736 and the other 32 * p lengths.** At those lengths the fused HiFi kernel had no legal
+  config and every call fell back to the composed path; it now pads one or two tiles up and masks
+  the extra keys. BindCraft 2's 544 drops from 67.27 s to 45.33 s a round and 608 to 864 run where
+  they were refused. OpenFold3 on HSA (585 aa, axis 608) goes from 54.751 s to 33.344 s on a
+  p300c at AICLK 1350 and its structure moves 0.0236 A CA. Boltz-2 never reaches this kernel and
+  writes the same structure. `TT_BIO_TRIATT_HIFI_PAD_UP=0` restores the old route.
+
 - **`tt_bio.distributed` is `tt_bio.host_controller`**, named for what it is: the controller of one
   host's chips. Code that imported `ControllerClient` or `ControllerServer` from the old path
   imports them from the new one, and `ControllerServer` takes no host argument.

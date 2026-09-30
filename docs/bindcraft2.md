@@ -461,31 +461,31 @@ to a multiple of 32. That is not your target length plus your binder length. The
 to 28 residues, so a job sized off residue counts comes out one or two buckets low. A 387-residue
 target with a 146-residue binder is a 576-token job, not a 544-token one.
 
-Measured end to end on a p150a across eight deposited targets, 115 to 674 residues, one to three
-chains and six folds, with the card's AICLK sampled during each run and its median 1350 MHz in
-all 445 of them:
+Measured end to end on a p150a with the card's AICLK sampled during each run, median 1350 MHz in
+every one of them. 192 to 576 across eight deposited targets, 115 to 674 residues, one to three
+chains and six folds; 544 and 608 to 864 on hIL2R, hTNFa, hHSA and hTF with a 100 or 150-residue
+binder:
 
 | tokens | outcome | peak DRAM of 34.226 GB | one gradient round |
 |---|---|---|---|
 | 192 to 512 | runs and completes | 2.63 to 11.42 GB | 5.89 to 34.19 s |
-| **544** | runs and completes, at 1.8x the memory and 2.0x the round of either neighbour | 25.75 GB | 67.27 s |
+| 544 | runs and completes | 13.00 GB | 45.33 s |
 | 576 | runs and completes | 14.23 GB | 47.38 s |
-| 608 and above | refused, naming the axis and the memory | | |
+| 608 | runs and completes | 16.01 GB | 55.16 s |
+| 736 | runs and completes | 23.07 GB | 87.10 s |
+| 832 | runs and completes | 29.18 GB | 112.83 s |
+| 864 | runs and completes, with 2.84 GB of the card left | 31.39 GB | 124.72 s |
 
-**The card is never the limit inside the supported range.** At the top of it the job holds 42 %
-of the board. What stops 608 is a single `[608, 4, 608, 608]` fp32 score tensor on the composed
-path, 3.6 GB asked for against 4.1 GB free but only 327 MB contiguous, after the fused
-triangle-attention arm declined every call. At 736 the card genuinely is full, 243 MB free
-against a 277 MB request, and the message says which of the two it is rather than calling
-everything fragmentation. Both refusals raise; nothing in the range OOM-killed a process, hung
-one, or returned a wrong answer.
+**864 tokens is the largest size measured, and it is close to the card.** At 864 the job holds
+92 % of the board and the largest free block is 291 MB, so larger complexes are not supported on
+one p150a. Where a size does not fit, the run raises with the axis and the memory rather than
+hanging or returning a wrong answer.
 
-**544 tokens is the axis to avoid**, and the reason is the fused triangle-attention forward. It
-runs at 288 through 512 and again at 576, and at 544 it does not fit the chip, so the round falls
-back to the composed path: 25.75 GB and 67.27 s against 11.42 GB and 34.19 s at 512 and 14.23 GB
-and 47.38 s at 576. Both the memory and the round time jump together, which is the signature. The
-run says so itself when it happens and says which way to move; moving the axis by one bucket in
-either direction is the fix.
+Until this release 544 ran at 1.8x the memory and 2.0x the round of either neighbour and 608 and
+above were refused, because at a padded length of 32 * p the fused triangle-attention forward had
+no legal config and every call fell to the composed path. It now pads the axis up a tile and
+masks the extra keys; `TT_BIO_TRIATT_HIFI_PAD_UP=0` restores the old route
+([tuning flags](tuning-flags.md#tt_bio_triatt_hifi_pad_up)).
 
 The *backward* is a second kernel with its own, narrower limit, and it is the expensive half of a
 gradient round. Counted on the p150a ladder at 108 backward calls a round, it serves all 108 at

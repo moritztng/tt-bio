@@ -1016,8 +1016,9 @@ instead, so a legal k exists at those lengths.
 
 It only ever adds a rung where the route serves nothing today, so no length that folds on the
 fused path now can have its pick moved. Replayed over all 48 tile-aligned lengths from 32 to 1536
-at `openfold3.trunk`, ten serve nothing and this opens exactly one of them: 832. OpenFold3 pads
-its pair axis to a multiple of 64, so 832 is the only one of the ten a user can present.
+at `openfold3.trunk`, ten serve nothing and this opens exactly one of them: 832. OpenFold3 now
+buckets its pair axis to 32, so the other 32 * p lengths are reachable too;
+`TT_BIO_TRIATT_HIFI_PAD_UP` serves those.
 
 **Speed: 1.6351x on OpenFold3 at 832 tokens**, +50.999 s. Arms interleaved in one process on a
 p300c, AICLK sampled during every leg at 1350 MHz, against an A/A floor of 1.306 s. The effect is
@@ -1185,6 +1186,30 @@ charged the 67.1 MB read it gains (`block_ablate_512_whglx_c2.json`). Wormhole's
 is 227.5 GB/s against Blackhole's 424.7, so the deleted bytes are worth roughly 1.9x more there. The
 block A/B has not been run on Wormhole with the kernel built, so the flag ships off on every card.
 `perf/roof_gate_epilogue/FINDINGS.md` has the full record.
+
+## `TT_BIO_TRIATT_HIFI_PAD_UP`
+
+Default: 2 (on). 0 turns it off.
+
+At a padded length of 32 * p with p a prime from 17 up (544, 608, 736, 928, 992, ...) the fused HiFi
+triangle attention has no legal chunk config, so every call used to fall back to the composed
+fp32 softmax, which is slower and materialises the whole score tensor. This pads the axis up by
+at most this many 32-token tiles, masks the new keys through the bias, runs the fused kernel
+there and slices the rows back. It only runs after a native decline, so a length that served
+before takes the same config.
+
+What it changes, per model:
+
+| model | lengths it changes | effect |
+| --- | --- | --- |
+| BindCraft 2 | 544, 608, 736, 832+ | 544 runs 1.48x faster; 608 to 864 tokens run where they were refused (p150a) |
+| OpenFold3, OpenBind | 544, 608, 736, 928, 992, 1184, 1312, 1376, 1504 | 1.548x at 544, 1.642x at 608 (p300c, AICLK 1350) |
+| Boltz-2 | none | never reaches this kernel by default; same CIF with it on or off |
+
+Accuracy on OpenFold3 at 608, HSA with a 1000-sequence MSA (pLDDT 0.911): the structure moves
+0.0236 A CA against the 0.60 A bar. The padded kernel grades 0.0208-0.0227 rel L2 against float64,
+the same as the native kernel at neighbouring lengths. Evidence: `perf/b2p_padup/` and
+`perf/b2p_ceiling/`.
 
 ## `TT_BIO_TRIATT_NARROW_Q_FALLBACK`
 
