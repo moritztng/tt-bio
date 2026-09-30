@@ -68,6 +68,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **A BindCraft 2 design gradient moved 1.2 % between chunkings that are documented to give the
+  same answer.** The recompute backward summed its `dbias` partials in bf16, where the increment
+  from a later chunk is below unit roundoff against the accumulated total, so a gradient invariant
+  to the chunk size was not. It accumulates in fp32 and is graded against a float64 reference.
+
+- **`triatt_bw`'s `q_chunk_tiles` would have returned a silent wrong answer.** The knob is priced
+  by the backward's circular-buffer table and never implemented in its kernel, so setting it
+  changed the budget and not the work. Setting it now raises, and a test holds that.
+
+- **The auto-trajectory default opened one trajectory where two fit.** It charged the composed
+  triangle-attention path at every token axis, which prices a path that no longer runs with the
+  pad-up on, so a 544-token design was priced at 25.8 GB against a served peak of 13.00 GB and got
+  one trajectory on a card with room for two. The surcharge now applies only with the pad-up off,
+  and the per-trajectory charge covers the 4.119 GB measured on a Wormhole Galaxy chip, which the
+  surcharge had been quietly providing the margin for. On a Blackhole chip the default is three
+  trajectories up to 448 tokens, two at 480 through 544 and one from 576; on a Wormhole chip, two
+  up to 288 and one from 352, and two at 288 is the count that ran a campaign to its stop condition
+  there.
+
 - **A BindCraft 2 campaign exits 0.** Every campaign used to finish its work and then abort with
   exit 134 (`pthread_mutex_unlock failed for mutex CHIP_IN_USE_<n>_PCIe`), because the card was
   opened on one of JAX's worker threads and closed on the main thread. `bindcraft2.predictor()`
@@ -145,6 +164,30 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   off; the setting now stops at the verb's edge. Same inputs give the same outputs.
 
 ### Added
+
+- **BindCraft 2 runs complexes up to 832 tokens on a Blackhole p150a, against 576 before, and the
+  544-token axis is no longer slow.** The fused triangle-attention forward had no legal chunk
+  configuration at a padded length of 32 x p for a prime p, so it declined every call at 544, 608
+  and 736, and the fallback held the whole `[N, 4, N, N]` fp32 score tensor: 544 cost 25.75 GB and
+  67.27 s where 512 cost 11.42 GB and 34.19 s, and 608 was refused with 4.1 GB free. It now pads
+  the axis up to the next length that serves, masks the added keys with the bias the ragged tail
+  already uses and slices the rows back, which is the same attention over the same keys. 1296 of
+  1296 calls serve at 544, 608, 736, 832 and 864 on a p150a, graded against a float64 reference
+  forward and VJP. 544 is now 13.00 GB and 45.33 s; 832 tokens is 29.18 GB and 112.83 s, AICLK
+  1343-1350 MHz sampled during every fold. What stops the next rung is the card: 864 holds 31.39 GB
+  of 34.226 with its largest free block down to 291 MB. `TT_BIO_TRIATT_HIFI_PAD_UP=0` turns it off.
+  The pad-up is on the triangle attention every model in the repo shares, and it fires only where
+  the native ladder declines.
+
+  **One chip of a Wormhole Galaxy stays at 512 tokens.** The same forward serves 544 and 608 there
+  (0/239 to 542/0 and 0/226 to 220/0), and 544 then refuses in the Evoformer backward at 12.338 GB
+  resident of 12.885, where the L1 gate is a size gate rather than a divisor gate so padding asks
+  for more L1 rather than less. A smaller score budget does not move it either: 12.711 GB at 256 MB
+  against 12.715 at 32 MB.
+
+- **[docs/bindcraft2.md](docs/bindcraft2.md) carries the supported input range for both boards as
+  one table**, with the token axis explained, every boundary, what a refusal at each looks like and
+  what the auto-trajectory default does with size.
 
 - **[docs/multi-host.md](docs/multi-host.md): the contract for running tt-bio on many machines.**
   The endpoints a scheduler answers and a platform polls, what a host advertises, the lease and
