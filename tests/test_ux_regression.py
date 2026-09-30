@@ -155,6 +155,16 @@ def test_the_trunk_phase_missing_is_caught(mod):
     assert any("trunk phase MISSING" in p for p in problems)
 
 
+def test_a_model_with_no_diffusion_passes_on_trunk_alone(mod):
+    """af2ig samples nothing, so prep -> trunk -> done is its whole stream; a diffusion
+    model with the same stream still fails."""
+    events = drop_stage(fold_events(), "diffusion")
+    assert mod._check_progress(events, diffusion_model=False) == []
+    assert any("diffusion phase MISSING" in p for p in mod._check_progress(events))
+    assert mod._check_progress(fold_events(), diffusion_model=False)
+    assert mod.NO_DIFFUSION <= set(mod.FOLD_MODELS)
+
+
 def test_a_stream_that_opens_on_diffusion_is_caught(mod):
     """loading -> diffusion: the bar jumps to the last phase and never shows the rest."""
     events = drop_stage(drop_stage(fold_events(), "trunk"), "msa")
