@@ -175,9 +175,22 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   1296 calls serve at 544, 608, 736, 832 and 864 on a p150a, graded against a float64 reference
   forward and VJP. 544 is now 13.00 GB and 45.33 s; 832 tokens is 29.18 GB and 112.83 s, AICLK
   1343-1350 MHz sampled during every fold. What stops the next rung is the card: 864 holds 31.39 GB
-  of 34.226 with its largest free block down to 291 MB. `TT_BIO_TRIATT_HIFI_PAD_UP=0` turns it off.
-  The pad-up is on the triangle attention every model in the repo shares, and it fires only where
-  the native ladder declines.
+  of 34.226 with its largest free block down to 291 MB. `TT_BIO_TRIATT_HIFI_PAD_UP=0` turns it off;
+  it fires only where the native ladder declines, only where the axis is already a tile multiple and
+  only with a real bias to mask with. See
+  [docs/tuning-flags.md](docs/tuning-flags.md#tt_bio_triatt_hifi_pad_up).
+
+  **It reaches OpenFold3 too, and does not move what OpenFold3 returns.** The pad-up sits in the
+  triangle attention every model in the repo shares, and OpenFold3's trunk takes the fused HiFi
+  route by default, so all 384 of its trunk calls serve through the pad-up at 544 and at 608
+  residues where all 384 declined before, counted in the process that folds. On human serum albumin
+  at 585 residues, a 608 axis and an MSA 1000 sequences deep, where OpenFold3 is confident (pLDDT
+  0.909), the arm swap moves the structure **0.0298 A** superposed over 585 CA at seed 1 and
+  0.0312 A at seed 2, against a 0.60 A bar and a 0.8326 to 1.1591 A spread between three seeds of
+  the same arm. pLDDT moves 0.909254 to 0.909316 where three seeds span 0.909254 to 0.913107. It is
+  also 1.30x faster there, 66.5 and 68.4 s against 86.6 and 88.7 s warm, AICLK 1350 MHz sampled
+  during every fold. Boltz-2 reaches the fused arm only behind `BOLTZ2_FP32_SOFTMAX`, which is off,
+  and counts served 0 and declined 0 at both lengths, so it is untouched.
 
   **One chip of a Wormhole Galaxy stays at 512 tokens.** The same forward serves 544 and 608 there
   (0/239 to 542/0 and 0/226 to 220/0), and 544 then refuses in the Evoformer backward at 12.338 GB

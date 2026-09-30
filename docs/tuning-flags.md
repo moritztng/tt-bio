@@ -52,6 +52,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIATT_FUSED_QKVGB`](#tt_bio_triatt_fused_qkvgb) | on | | identical |
 | [`TT_BIO_TRIMUL_FUSED_GOUT`](#tt_bio_trimul_fused_gout) | on | | identical |
 | [`TT_BIO_TRIATT_GATE_EPILOGUE`](#tt_bio_triatt_gate_epilogue) | off | | identical |
+| [`TT_BIO_TRIATT_HIFI_PAD_UP`](#tt_bio_triatt_hifi_pad_up) | on | BindCraft 2, and OpenFold3 at 544 and 608 tokens | moves, far inside the bar |
 | [`TT_BIO_TRIATT_NARROW_Q_FALLBACK`](#tt_bio_triatt_narrow_q_fallback) | on | | identical on RoseTTAFold3, moves on OpenBind |
 | [`TT_BIO_TRIATT_SDPA_HIFI_AB`](#tt_bio_triatt_sdpa_hifi_ab) | on at `openfold3.trunk` | OpenFold3 | moves, inside the seed spread |
 | [`TT_BIO_TRIMUL_GP_BANK_SPLIT`](#tt_bio_trimul_gp_bank_split) | on | | identical |
@@ -1185,6 +1186,69 @@ charged the 67.1 MB read it gains (`block_ablate_512_whglx_c2.json`). Wormhole's
 is 227.5 GB/s against Blackhole's 424.7, so the deleted bytes are worth roughly 1.9x more there. The
 block A/B has not been run on Wormhole with the kernel built, so the flag ships off on every card.
 `perf/roof_gate_epilogue/FINDINGS.md` has the full record.
+
+## `TT_BIO_TRIATT_HIFI_PAD_UP`
+
+Default: on, with 2 tiles of headroom.
+
+The fused HiFi triangle attention needs a q chunk and a k chunk that both divide the padded
+sequence length and both fit L1. At a padded length of 32 x p for a prime p there is no such pair,
+so the route declines every call and the fold falls back to the materialised fp32 softmax, which
+holds the whole score tensor. On a Blackhole p150a that is the difference between a 544-token
+BindCraft 2 round at 13.00 GB and 45.33 s and the same round at 25.75 GB and 67.27 s, and at 608
+tokens the fallback is refused outright with 4.1 GB free.
+
+This flag pads the sequence axis up to the next length that does serve, masks the added keys with
+the same bias the ragged tail already uses and slices the rows back. It is the same attention over
+the same keys: the added keys enter the softmax at the mask value and contribute nothing. It fires
+only where the native ladder declines, only where the axis is already a tile multiple, and only
+with a real bias to mask with. The value is how many 32-wide tiles it may add, so `2` allows
+608 -> 640 and `0` turns it off.
+
+**It is not BindCraft 2 only.** The function it sits in is the triangle attention every model in
+the repo shares, and OpenFold3's trunk takes the fused HiFi route by default, so the pad-up serves
+OpenFold3 too. Counted in the process that folds: at 544 and at 608 residues all **384** of
+OpenFold3's trunk calls serve through the pad-up, and all 384 decline with the flag at 0.
+
+**Boltz-2 is untouched, and structurally rather than luckily.** It reaches the fused arm only
+behind `BOLTZ2_FP32_SOFTMAX`, which is off by default, and its counters read served 0 and declined
+0 in the worker as well as in the parent at both 544 and 608, so the arm is never offered a call
+at all rather than being offered one and refusing. 544 and 608 are
+the OpenFold3 lengths that have been counted; 736 is the third axis with no legal config, and
+nobody has folded OpenFold3 there.
+
+**Accuracy, graded twice.** Against a torch float64 reference forward and VJP at heads 4 and
+head_dim 32, which is the per-call shape both BindCraft 2 and OpenFold3 present, a padded rung's
+relative L2 equals its natively-serving neighbour's to four decimals: 544 padded to 576 reads
+0.02162 against 576 native's 0.02162, and 608 padded to 640 reads 0.02189 against 640 native's
+0.02198. What is left is the kernel's own bf16 error, not the pad.
+
+And on the structure OpenFold3 delivers, on human serum albumin at 585 residues, a 608 axis and an
+MSA 1000 sequences deep where the model is confident (pLDDT 0.909). Superposed CA-RMSD over all
+585 CA:
+
+| pair | CA RMSD |
+| --- | --- |
+| this flag on against off, seed 1 | 0.029800 A |
+| this flag on against off, seed 2 | 0.031200 A |
+| a different seed, same arm | 0.832600 to 1.159100 A |
+
+The arm swap is 20x inside the 0.60 A bar and 28x smaller than the smallest move re-seeding makes
+on the same input, and it reproduces at a second seed to within 0.0014 A. pLDDT moves 0.909254 to
+0.909316 between the arms, against 0.909254 to 0.913107 across three seeds of one arm.
+
+**Speed: 1.30x on OpenFold3 at 608 tokens**, 66.5 and 68.4 s on against 86.6 and 88.7 s off, warm,
+one fold at a time on a Blackhole p150a with the AICLK sampled from sysfs during every fold at a
+median and maximum of 1350 MHz. The trunk phase alone is 21 s against 27 to 29 s. On BindCraft 2 it
+is what raises the supported ceiling from 576 to 832 tokens; see
+[docs/bindcraft2.md](bindcraft2.md). `perf/b2p_ship/hsa_ab/README.md` carries the OpenFold3 record,
+one JSON per pid.
+
+**One chip of a Wormhole Galaxy is not helped.** The forward serves 544 and 608 there with the
+pad-up on, and 544 then refuses in the Evoformer backward instead, where the L1 gate is a size gate
+rather than a divisor gate, so padding asks for more L1 and not less.
+
+`TT_BIO_TRIATT_HIFI_PAD_UP=0` is the way back.
 
 ## `TT_BIO_TRIATT_NARROW_Q_FALLBACK`
 
