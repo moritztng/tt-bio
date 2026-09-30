@@ -1,0 +1,20 @@
+[
+  {
+    "id": "hsa",
+    "status": "ok",
+    "load_s": 7.2,
+    "complex_plddt": 0.909649,
+    "plddt": 0.909649,
+    "ptm": 0.8818,
+    "iptm": 0.0,
+    "confidence_score": 0.904079,
+    "n_residues": 585,
+    "n_chains": 1,
+    "n_tokens": 585,
+    "msa": true,
+    "msa_depth": 1001,
+    "n_atoms": 4651,
+    "samples": 1,
+    "runtime_s": 88.7
+  }
+]

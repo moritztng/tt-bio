@@ -57,26 +57,24 @@ of the card and peak near 20 GB of the 226.3 GB of host memory free. Pass trajec
 to choose yourself; 1 is BindCraft 2's own loop.
 ```
 
-**The count falls as the design grows.** A trajectory's memory grows with the square of the
-token axis, and at some axes the fused triangle attention does not fit the chip and a slower path
-holds about twice as much: at 544 tokens one trajectory holds 21.5 GB of a p300 chip where 512
-holds 10.4. Every figure in this section is that chip, and the board moves them a little: the
-p150a in "What fits" below holds 25.75 GB at the same 544-token axis.
-Which axes do that is only known once the card has tried, and a campaign draws several
-binder lengths, so the default prices every design as if it were one of them. On a 32 GB
-Blackhole chip that is three trajectories up to 352 tokens, two at 384 and 416, and one from 448
-up. Where one fits, the default is one, which is BindCraft 2's own loop unchanged.
+**The count falls as the design grows**, because a trajectory's memory grows with the square of
+the token axis. On a 32 GB Blackhole chip that is three trajectories up to 448 tokens, two at 480
+through 544, and one from 576 up. Where one fits, the default is one, which is BindCraft 2's own
+loop unchanged.
 
 **The part matters, and the default reads it.** A Wormhole chip has 12 GB where a Blackhole chip
-has 32, so the counts above are not the counts there: at 288 tokens the default takes one, or two
-when a chip is already open and can report its own free memory. Two at 288 tokens has run a
-campaign to its stop condition on a Wormhole Galaxy chip, so pass `trajectories_per_card=2` if
-your designs stay near that size. Three is refused on that part.
+has 32, so the counts above are not the counts there: two up to 288 tokens and one from 352 up.
+Two at 288 ran a campaign to its stop condition on a Wormhole Galaxy chip, where one trajectory
+peaks at 4.119 GB of 12.885 and three do not fit.
 
-So the size the line prints is an upper bound, and above about 448 tokens it can be roughly
-twice what the run goes on to hold: a 576-token design is priced at 29.9 GB and holds 13.1 GB
-when the fused arm serves. It is not telling you the card is too small. It is saying it will
-not start a second trajectory on a design that might need the slower path.
+The size the line prints is an upper bound. It is fitted on measured peaks and rounded up in both
+places, because the cost of being wrong here is a campaign the kernel kills at round 200. It is
+not telling you the card is nearly full.
+
+The estimate assumes the fused triangle attention serves, which it does at every axis in range
+with `TT_BIO_TRIATT_HIFI_PAD_UP` at its default. Turn the pad-up off and the composed path can
+run instead, holding about twice as much, so the default prices that path and opens fewer
+trajectories.
 
 A box whose free memory cannot be read gets one, never three, and so does a design whose token
 axis cannot be read. An explicit `trajectories_per_card=N` is used exactly as given, including a
@@ -459,61 +457,114 @@ is the two sections above, and how big the complex is, which is this one.
 Size is counted in **tokens**: the residues of the fused complex BindCraft 2 builds, rounded up
 to a multiple of 32. That is not your target length plus your binder length. The fusion adds 18
 to 28 residues, so a job sized off residue counts comes out one or two buckets low. A 387-residue
-target with a 146-residue binder is a 576-token job, not a 544-token one.
+target with a 146-residue binder is a 576-token job, not a 544-token one. The run prints the axis
+it is actually about to use; trust that over any count you compute yourself.
 
-Measured end to end on a p150a across eight deposited targets, 115 to 674 residues, one to three
-chains and six folds, with the card's AICLK sampled during each run and its median 1350 MHz in
-all 445 of them:
+### The supported range, both boards
 
-| tokens | outcome | peak DRAM of 34.226 GB | one gradient round |
-|---|---|---|---|
-| 192 to 512 | runs and completes | 2.63 to 11.42 GB | 5.89 to 34.19 s |
-| **544** | runs and completes, at 1.8x the memory and 2.0x the round of either neighbour | 25.75 GB | 67.27 s |
-| 576 | runs and completes | 14.23 GB | 47.38 s |
-| 608 and above | refused, naming the axis and the memory | | |
+| | Blackhole p150a (34.226 GB) | One chip of a Wormhole Galaxy (12.885 GB) |
+|---|---|---|
+| supported | **192 to 832 tokens** | **192 to 512 tokens** |
+| first size that refuses | 864 | 544 |
+| where it refuses | DRAM, in the forward | DRAM, in the Evoformer backward |
+| held at that refusal | 31.39 GB of 34.226, largest free block 291 MB | 12.338 GB of 12.885 |
+| peak inside the range | 2.63 GB at 192 to 29.18 GB at 832 | 12.7 GB at 512 |
+| one gradient round | 5.89 s at 192 to 112.83 s at 832, AICLK 1343-1350 | 1:45 to 2:12 a rung on the ladder, AICLK 1000 |
+| AICLK ceiling | 1350 MHz | 1000 MHz, the part's own ceiling and not a throttle |
 
-**The card is never the limit inside the supported range.** At the top of it the job holds 42 %
-of the board. What stops 608 is a single `[608, 4, 608, 608]` fp32 score tensor on the composed
-path, 3.6 GB asked for against 4.1 GB free but only 327 MB contiguous, after the fused
-triangle-attention arm declined every call. At 736 the card genuinely is full, 243 MB free
-against a 277 MB request, and the message says which of the two it is rather than calling
-everything fragmentation. Both refusals raise; nothing in the range OOM-killed a process, hung
-one, or returned a wrong answer.
+Blackhole's ladder, every rung run to a completed gradient round on qb1 card 0 with the card's
+AICLK sampled during each fold. The second column is the axis the Evoformer seam ran, which is one
+bucket above the count arithmetic gives and is the number the memory follows:
 
-**544 tokens is the axis to avoid**, and the reason is the fused triangle-attention forward. It
-runs at 288 through 512 and again at 576, and at 544 it does not fit the chip, so the round falls
-back to the composed path: 25.75 GB and 67.27 s against 11.42 GB and 34.19 s at 512 and 14.23 GB
-and 47.38 s at 576. Both the memory and the round time jump together, which is the signature. The
-run says so itself when it happens and says which way to move; moving the axis by one bucket in
-either direction is the fix.
+| tokens | axis at the seam | peak DRAM | one round | free at peak |
+|---|---|---|---|---|
+| 512 | 544 | 13.00 GB | 45.33 s | 21.22 GB |
+| 576 | 608 | 16.01 GB | 55.16 s | 18.22 GB |
+| 704 | 736 | 23.07 GB | 87.10 s | 11.16 GB |
+| 800 | 832 | 29.18 GB | 112.83 s | 5.04 GB |
+| 832 | 864 | 31.39 GB | 124.72 s | 2.84 GB |
+
+Wormhole's, on dev `.107` card 30 with the box's agent stopped so the ladder held the chip alone:
+320, 384, 416, 448, 480 and 512 all complete in a flat 1:45 to 2:12 a rung, and 544 refuses.
+Nobody should predict either board's number from bank geometry: the guess from 12 GiB in 12 banks
+put the Wormhole wall near 384-416 tokens and five rungs above that run.
+
+**The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
+the board. Past 832 it is 92 % with the largest free block down to 291 MB, so the next rung is a
+board question rather than a software one. On a Wormhole chip the top is 97 % of a card a third
+the size, and no software change moves it: padding the forward serves 544 and 608 there, and 544
+then refuses in the backward instead, where the L1 gate is a size gate rather than a divisor gate
+and a pad-up asks for more L1, not less. A smaller score budget does not move it either, 12.711 GB
+at 256 MB against 12.715 GB at 32 MB.
+
+### What a refusal looks like
+
+Every refusal raises, names the token axis, the memory it wanted against what was free, and where
+to move. Nothing in either range OOM-killed a process, hung one, or returned a wrong answer.
+
+A refusal distinguishes a full card from a fragmented one, because the remedies differ:
+
+```
+The card is full: 243.0 MB free against a 277.1 MB request, with 33.9 GB of 34.2 GB already
+held by this fold.
+```
+
+```
+This is fragmentation, not a full card: 4.1 GB is free, which would cover the 3.6 GB request if
+it were in one piece, but the largest contiguous block in a bank is 327 MB against the 449 MB
+that bank needs.
+```
+
+It then says where the way down lands, and the size it names is checked against the board in
+hand rather than being one bucket down by reflex: a 608-token fold on a Wormhole chip is told to
+aim at 512, not at 576, because 576 refuses there too.
+
+The reference point a refusal quotes is **this** board's measured ceiling. A Wormhole user told
+the p150a's number would be told their fold should have fitted, and sent looking for a co-tenant
+that is not there.
+
+### The fused triangle attention, and why it used to matter more
+
+At a padded length of 32 x p for a prime p the fused triangle-attention forward has exactly two
+32-aligned chunk sizes, and from p = 17 up neither is legal, so it declined every call at 544,
+608 and 736 and the composed fallback held the whole `[N, 4, N, N]` fp32 score tensor. That is
+what made 544 cost 25.75 GB and 67.27 s against 11.42 GB and 34.19 s at 512, and what refused 608
+with 4.1 GB free.
+
+The forward now pads the axis up to the next length that serves, masks the added keys with the
+bias the ragged tail already uses and slices the rows back, which is the same attention over the
+same keys. Nothing declines on either board at any size in range: 1296 of 1296 calls served at
+544, 608, 736, 832 and 864 on a p150a, graded against a float64 reference forward and VJP. **544
+is no longer an axis to avoid**: 45.33 s and 13.00 GB where it was 67.27 s and 25.75 GB.
+`TT_BIO_TRIATT_HIFI_PAD_UP=0` turns the pad-up off and restores the old behaviour.
 
 The *backward* is a second kernel with its own, narrower limit, and it is the expensive half of a
-gradient round. Counted on the p150a ladder at 108 backward calls a round, it serves all 108 at
-288 and **0 of 108** at 352, 416, 448, 480, 512 and 576: above 288 the gradient runs on the
-chunked recompute at every size measured. The 576 campaign below confirms it at length, 0 of
-27,000 calls served over 249 rounds. So "the fused arm runs at this size" is a statement about the
-forward, and a round four times the length of the 288-token one is not a round that failed.
+gradient round. It serves all 108 of a round's calls at 288 tokens and none above it, on either
+board, so the gradient runs on the chunked recompute at every size a real campaign uses. A round
+four times the length of the 288-token one is not a round that failed.
 
-The arm also serves nothing at 192, where it costs nothing worth noticing: that is the cheapest
-rung on the ladder at 2.63 GB and 5.89 s. Declining is a fallback, not a failure. Nor is it
-all-or-nothing at a given size: over the whole 576-token campaign the fused forward **served
-81,000 calls and declined 15,232**, one call in six, and the campaign carried those through the
-composed path and kept designing. The 288-token campaign beside it declined nothing at any stage.
-So above about 512 tokens expect a share of the calls on the composed path and expect them to
-cost more.
+### Trajectories, and what the auto default does with size
+
+`bindcraft2.run_campaign` prices one trajectory at your token axis, reads free host memory and the
+card, and runs the largest count up to three that fits on both. The count falls as the design
+grows: on a 32 GB Blackhole chip it is three up to 448 tokens, two at 480 through 544, and one
+from 576 up; on a 12 GB Wormhole chip, two up to 288 and one from 352. It prints which it took
+and why, and `trajectories_per_card=N` overrides it. A box whose free memory cannot be
+read gets one, and so does a design whose token axis cannot be read.
+
+### The rest of the size picture
 
 Within the range, size is the axis that matters and fold and chain count are not: six folds, one
 to three chains, and two structures with unresolved gaps all behave the same at the same token
 count.
 
-**Accepted designs have been measured at 288 tokens**, the PD-L1 example in the table below. One
-576-token campaign has since run to the end, and it is the only one: a two-chain 387-residue
-hIL2R target with a 146-residue binder, two trajectories, 249 gradient rounds at a median 47.20 s
-(p10 46.95, p90 47.46), 3 h 39 m of wall clock, ten redesign candidates screened and refolded, and
-**no design accepted**. It stopped on its trajectory cap, not on an error, and held 19.07 GB of
-host memory at its peak. AICLK median 1350 MHz over 12,461 samples taken during the run, on a
-p150a. The whole record is `perf/bgx_size/CAMP576.md`. Two trajectories cannot put a rate on anything, so treat the range as "the gradient loop
-runs and completes" above 288, and the acceptance rate as measured at 288 only.
+**Accepted designs have been measured at 288 tokens**, the PD-L1 example in the table below.
+Larger campaigns have run to their stop condition without accepting one: a 576-token hIL2R target
+with a 146-residue binder over 249 gradient rounds and 3 h 39 m (`perf/bgx_size/CAMP576.md`), and
+a 608-token hTNFa campaign over 3 h that terminated all four trajectories at the screen stage on
+pLDDT. Both are statements about those targets and settings, not about the size: treat the range
+above 288 as "the gradient loop runs and completes" and the acceptance rate as measured at 288
+only.
 
 Binder length inside a campaign costs nothing extra to worry about. Every length BindCraft 2
 draws against the 115-residue PD-L1 target fits: the draw range is 60 to 180 residues, three
@@ -525,42 +576,6 @@ samples taken during the step.
 Rounding up to the bucket is faster, not slower: the PD-L1 complex at 211 tokens costs 4.504 s on
 the trunk forward and the same design padded to 224 costs 1.369 s, same card and same AICLK 1350
 median.
-
-All of the size numbers above are a p150a. A p300c is a different chip and its own numbers are
-the ones in the two paragraphs before this.
-
-### One chip of a Wormhole Galaxy stops at 512 tokens
-
-A Wormhole Galaxy chip has 12 banks of 1,073,741,792 B, 12.885 GB against the p150a's 34.226 GB,
-and its ceiling is its own: **512 tokens completes a gradient round and every axis above it
-refuses in the Evoformer backward.** Measured on dev `.107` card 30 with the box's agent stopped
-so the ladder held the chip alone, 2026-09-29, at AICLK 1000 MHz median over 109 samples taken
-during the rung -- 1000 is this part's ceiling, not a throttled 1350.
-
-| tokens | outcome | held at the refusal, of 12.885 GB |
-|---|---|---|
-| 320 to 512 | runs and completes | |
-| 544 | refused, card full: 151.5 MB wanted, 128.6 MB free | 12.756 GB |
-| 576 | refused, no contiguous run: 6.3 MB a bank wanted, largest block 1.4 MB | 12.735 GB |
-| 608 | refused, card full: 189.3 MB wanted, 149.3 MB free | 12.736 GB |
-| 640 | refused, no contiguous run: 0.4 MB a bank wanted, largest block 0.2 MB | 12.776 GB |
-
-Every rung above 512 holds about 12.74 GB of the 12.885 GB before it stops, so whether the last
-refusal reads "full" or "fragmented" is only which buffer happened to be next: the chip is
-saturated either way.
-
-**Why the ladder did not stop at the first refusal.** At 544 the fused triangle attention
-declines every call -- the same L1 circular-buffer clash that makes 544 the axis to avoid on a
-p150a -- so the composed path runs and holds a `[544, 4, 544, 544]` fp32 score tensor, 2.576 GB
-the fold would not otherwise need. A single refusal at 544 could therefore have been that clash
-rather than the top of the card, and the run says as much itself. It is not: **576 refuses with
-the fused arm serving every call**, and 544 refuses again with the same numbers when re-run
-alone. The clash follows the token axis and not the board, declining at 544 and 608 and serving
-at 576 and 640 exactly as it does on a p150a.
-
-So a Wormhole chip does **not** reach the p150a's 576, and nobody should predict either number
-from bank geometry: the earlier guess from 12 GiB in 12 banks put this wall near 384-416 tokens,
-and 384, 416, 448, 480 and 512 all run, in a flat 1:45 to 2:12 a rung.
 
 ## What a Galaxy gets through
 

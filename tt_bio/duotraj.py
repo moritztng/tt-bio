@@ -31,6 +31,8 @@ import sys
 import threading
 import time
 
+from tt_bio.envflags import env_int
+
 #: The trajectory this thread is running. "" is the only slot a single-trajectory process
 #: ever has, and every slot-keyed structure defaults to it, so an un-interleaved run keeps
 #: exactly the state layout it had before this module existed.
@@ -39,10 +41,16 @@ _LOCAL = threading.local()
 #: The token axis every constant below was measured at: the PD-L1 design, a 146 aa binder.
 REFERENCE_TOKENS = 288
 
-#: Bytes one in-flight trajectory adds on the CARD at `REFERENCE_TOKENS`, measured on the composed
-#: BindCraft 2 round at n=288 (`state/perf10/bcx-p10-duotraj.md` leg 1): 3.746 GB inside a seam
-#: over a 0.559 GB floor of weights and masks the trajectories share. `trajectory_bytes` scales it.
-TRAJECTORY_BYTES = int(3.2 * 2**30)
+#: Bytes one in-flight trajectory adds on the CARD at `REFERENCE_TOKENS`. Measured twice, and the
+#: charge covers the larger: 3.746 GB inside a seam over a 0.559 GB floor on a Blackhole chip
+#: (`state/perf10/bcx-p10-duotraj.md` leg 1), and **4.119 GB on one chip of a Wormhole Galaxy**
+#: (`state/b2p-wh.md`), where two trajectories ran a campaign to its stop condition and three do
+#: not fit the 11.40 GB the pricing leaves for them. `trajectory_bytes` scales it by the square.
+#:
+#: 3.2 GiB was under both figures and the composed-path surcharge was quietly making up the
+#: difference, so dropping that surcharge where it cannot run has to be paid for here: at 3.2 GiB
+#: and no surcharge, a 12 GiB chip approves the three trajectories it was measured to refuse.
+TRAJECTORY_BYTES = int(3.9 * 2**30)
 
 #: Bytes one more in-flight trajectory takes on the HOST at `REFERENCE_TOKENS`. The first
 #: nine-round interleaved arm was OOM-KILLED by the host at 13.2 GB anon-rss on a 31 GB box while
@@ -111,6 +119,14 @@ def card_total_bytes() -> int:
 #: over the fused figure; 96 covers both.
 COMPOSED_BYTES_PER_TOKEN3 = 96
 
+#: Whether the fused arm's pad-up is on: `tenstorrent._TRIATT_HIFI_PAD_UP_TILES`, read from the
+#: same variable with the same default because importing `tenstorrent` imports ttnn and `auto`
+#: runs before anything has. With it on, the fused HiFi forward served every call at 544, 608,
+#: 736, 832 and 864 on a p150a (1296/0 each) and at 544 and 608 on a Wormhole Galaxy chip, which
+#: were the axes it used to decline at, so the composed surcharge prices a path that no longer
+#: runs (`state/b2p-ceiling.md`).
+_PAD_UP_ON = env_int("TT_BIO_TRIATT_HIFI_PAD_UP", 2) > 0
+
 
 def _scale(tokens: int) -> float:
     """(tokens / 288)^2, and never under 1: the footprint is quadratic in the axis, and a design
@@ -121,16 +137,18 @@ def _scale(tokens: int) -> float:
 def trajectory_bytes(tokens: int) -> int:
     """What one in-flight trajectory adds on the card at this token axis, over the shared floor.
 
-    Priced for the worse of the two paths the triangle attention can take, because which one runs
-    is only known once the card has tried, and a campaign draws several binder lengths. The fused
-    path, measured on qb2 card 0, one shipped trajectory, peak minus round-boundary floor: 2.88,
-    5.08, 6.90, 8.98, 11.51, 14.18 and 17.14 GB at 288, 384, 448, 512, 576, 640 and 704 tokens,
-    3.46e-5 GB x tokens^2 to within 0.07 GB, which `TRAJECTORY_BYTES` scaled by the square covers.
-    The composed path adds `COMPOSED_BYTES_PER_TOKEN3` on top: 20.02 GB measured at 544, 25.8
-    charged.
+    The fused path, measured on qb2 card 0, one shipped trajectory, peak minus round-boundary
+    floor: 2.88, 5.08, 6.90, 8.98, 11.51, 14.18 and 17.14 GB at 288, 384, 448, 512, 576, 640 and
+    704 tokens, 3.46e-5 GB x tokens^2 to within 0.07 GB, which `TRAJECTORY_BYTES` scaled by the
+    square covers. Under the pad-up the same charge covers the padded route's resident peaks on a
+    p150a, floor included: 13.00, 16.01, 23.07, 29.18 and 31.39 GB at 544, 608, 736, 832 and 864.
+
+    Only with the pad-up off can the fused arm decline and the composed path hold the scores,
+    and then `COMPOSED_BYTES_PER_TOKEN3` is added: 20.02 GB measured at 544, 25.8 charged.
     """
     n = max(int(tokens), REFERENCE_TOKENS)
-    return int(TRAJECTORY_BYTES * _scale(n) + COMPOSED_BYTES_PER_TOKEN3 * n ** 3)
+    composed = 0 if _PAD_UP_ON else COMPOSED_BYTES_PER_TOKEN3 * n ** 3
+    return int(TRAJECTORY_BYTES * _scale(n) + composed)
 
 
 def trajectory_floor_bytes(tokens: int) -> int:
@@ -378,14 +396,11 @@ def auto_trajectories(tokens: "int | None", cap: int = AUTO_CAP) -> "tuple[int, 
                        f"card and peak near {peak(n) * gb:.0f} GB of the "
                        f"{free * gb:.1f} GB of host memory free")
     if on_card < 2:
-        # `per` prices the composed path at every axis, so above ~448 tokens it can be twice what
-        # the run goes on to hold and at 576 it exceeds the whole card while the design fits in
-        # 13.1 GB. Said as "one trajectory holds 29.9 GB of the card" that reads as a refusal at
-        # the largest axis that works, which is the opposite of what it means.
+        # `per` is an upper bound, so said as "one trajectory holds N GB of the card" it reads as
+        # a refusal at the largest axis that works, which is the opposite of what it means.
         return 1, (f"at {tokens} tokens one trajectory is priced at up to {per * gb:.1f} GB "
-                   f"against the {room * gb:.1f} GB the card has for them, so it runs one. That "
-                   f"price assumes the slower composed path; where the fused one serves, the run "
-                   f"holds well under it")
+                   f"against the {room * gb:.1f} GB the card has for them, so a second one does "
+                   f"not fit and it runs one")
     return 1, (f"{free * gb:.1f} GB of host memory is free and a second trajectory at {tokens} "
                f"tokens needs {needs(2) * gb:.1f} GB")
 

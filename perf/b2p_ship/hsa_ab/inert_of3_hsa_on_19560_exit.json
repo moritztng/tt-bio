@@ -1,0 +1,1 @@
+{"pid": 19560, "ppid": 19434, "why": "exit", "tag": "of3_hsa_on", "stats": {"served": 384, "declined": 0, "too_short": 0, "taped": 0}, "padded": {"608": 640}, "picks": {"(640, 640)": [320, 640, 2]}, "pad_up_tiles": 2}
