@@ -224,7 +224,11 @@ built release wheel with `[tenstorrent,test,train]`, which resolves the `pyproje
 (0.68.0), with `PYTHONPATH` on the release tree. Every arm below scores the release code tree
 (`tt_bio/` and `scripts/` at 7fca0b1b2).
 
-**Implementation parity:** PARITY-OWED
+**Implementation parity: PASS.** 44 legs, 39 PASS, 4 GAP, 1 PASS-caveated, 2 h 22 min wall. All
+four GAP legs (`boltz2-prot-nomsa`, `boltz2-9ncy-nomsa`, `boltz2-affinity-fkbp12-nomsa`,
+`af2ig-trunk-device`) reproduce the deviation already committed for them, so none is new drift.
+Eight legs came in better than their committed gap: all three MSA Protenix-v2 legs,
+`openfold3-7xi5-notmpl`, two Boltz-2 affinity legs and both OpenDDE legs.
 
 **Accuracy against ground truth: PASS.** Every per-model release-gate arm cleared its RMSD/TM floor
 and the geometry bands. Two of them, Protenix-v1 and OpenDDE, failed at 6.07 and 7.85 A on the
@@ -274,8 +278,10 @@ matched their sha256, and the first steps ran with finite losses (1.371, 1.592, 
 
 ### What this release does not cover
 
-- **Only Blackhole was gated.** Every arm ran on p300c chips. The Wormhole (p150a) perf, capacity
-  and size-ladder cells were not re-measured at this release and still carry earlier numbers.
+- **Only the p300c board was gated.** Every arm ran on Blackhole p300c chips. The Blackhole p150a
+  perf, capacity and size-ladder cells were not re-measured at this release and still carry earlier
+  numbers. Wormhole is not part of the gate either; the Wormhole numbers in these notes come from
+  the work that produced them.
 
 - **tt-bio does not download the OpenFold3 weights.** No licence for the parameters is published,
   so `tt-bio train` and `tt-bio predict --model openfold3` need the one `curl` the README gives
@@ -683,7 +689,7 @@ else on their board.
 
 ### What this release does not cover
 
-- **No p150a (Wormhole) capacity or size-ladder baseline was re-recorded.** qb1 is powered down by
+- **No Blackhole p150a capacity or size-ladder baseline was re-recorded.** qb1 is powered down by
   directive, and the only other p150a this fleet can reach is the card root-caused on 2026-08-17 as
   silently miscomputing matmuls at a low, location-keyed rate. Recording a release baseline on it
   would put a known-bad card into the file every future release is scored against, so the p150a
@@ -732,13 +738,13 @@ else on their board.
   than a clean bill of health for RF3 throughput.
 
 - **Only the p300c size-ladder baseline was re-recorded, not p150a.** Same reason as the capacity
-  column: no trustworthy Wormhole card is reachable. The p150a ladder rows still carry v0.8.0
+  column: no trustworthy p150a card is reachable. The p150a ladder rows still carry v0.8.0
   numbers.
 
 - **The published 512 aa perf page is a 2026-09-13 cell, not a measurement of this tag.**
   `TT_BIO_TRANSITION_L1_ROWS` landed on 2026-09-15 and is worth 1.023-1.035x at 512 aa on
   Blackhole, so the page understates current speed rather than overstating it. Refreshing the
-  Wormhole column needs a p150a this fleet cannot currently reach. Nothing on the page moves from
+  p150a column needs a p150a this fleet cannot currently reach. Nothing on the page moves from
   the fused-attention default flip: that route is offered only above 1024 tokens, and the
   re-recorded baseline confirms it at 0 served across every 512 aa cell.
 
