@@ -393,3 +393,42 @@ def test_a_window_with_no_round_stamps_carries_no_pace_rather_than_vanishing(tmp
     printed = capsys.readouterr().out
     assert "pace not recorded" in printed
     assert "0 trajectories" not in printed
+
+
+def drained(*, windows=9, arms=3, tail_arms=2, tail=1, tail_pace=1.19, mid_short=None):
+    """Round stamps from `arms` arms, one boundary per window; the last `tail` windows run on
+    `tail_arms` arms at `tail_pace` times the amortised round, the shape of `bh24`'s end."""
+    rounds, boundaries, now = [], [], 1_790_000_000.0
+    for index in range(windows):
+        late = index >= windows - tail
+        live = tail_arms if late or index == mid_short else arms
+        step = 6.28 * (tail_pace if late or index == mid_short else 1.0)
+        for n in range(150):          # past MIN_WINDOW_S, as a real window is
+            rounds.append({"t": now, "slot": f"t{n % live + 1}", "round": n + 1})
+            now += step
+        boundaries.append(now)
+    return verdict.boundary_windows(boundaries, rounds)
+
+
+def test_the_drain_at_a_campaigns_end_is_not_a_slowdown():
+    """bh24's last window ran on two of three arms: amortised 6.28 -> 7.48 s while each arm got
+    faster, 18.2 -> 8.5 s a round. That is the budget running out, not the campaign slowing."""
+    windows = drained()
+    assert [w["arms"] for w in windows] == [3] * 8 + [2]
+    drifted, read = verdict.verdict([{"t": 0, "alive": False}], windows)
+    assert not any("slows down" in line for line in drifted), drifted
+    assert any("[9] ran on fewer than 3 arms" in line for line in read), read
+
+
+def test_a_slowdown_with_every_arm_present_is_still_caught():
+    drifted, _read = verdict.verdict([{"t": 0, "alive": False}],
+                                     drained(tail=3, tail_arms=3, tail_pace=1.4))
+    assert any("slows down" in line for line in drifted), drifted
+
+
+def test_a_short_handed_window_mid_campaign_is_still_judged():
+    """An arm in MPNN or validation stamps no rounds, so only the TAIL is a drain."""
+    windows = drained(tail=0, mid_short=7, tail_pace=1.4)
+    drifted, read = verdict.verdict([{"t": 0, "alive": False}], windows)
+    assert not any("arms (the campaign draining)" in line for line in read), read
+    assert any("slows down" in line for line in drifted), drifted

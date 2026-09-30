@@ -144,6 +144,11 @@ def boundary_windows(boundaries: list[float], rounds: list[dict],
     samples were intact the whole time. Memory and handles are read off the samples anyway; only
     the pace needs round stamps, so a window without them carries `rounds: 0` and no pace rather
     than deleting the window.
+
+    Each window also records how many arms stamped a round in it. Once the budget is spent no arm
+    is refilled, so the last windows run on fewer arms: `bh24`'s last had two of three, and its
+    amortised round rose 6.28 -> 7.48 s while each remaining arm got FASTER, 18.2 -> 8.5 s a round,
+    because it had the chip to itself. That window is the campaign draining, not slowing down.
     """
     stamps = sorted(r["t"] for r in rounds)
     starts = [series[0] for series in (stamps, sorted(r["t"] for r in samples or [])) if series]
@@ -158,7 +163,9 @@ def boundary_windows(boundaries: list[float], rounds: list[dict],
     out = []
     for index, (start, end) in enumerate(zip(edges, edges[1:]), 1):
         inside = sum(1 for t in stamps if start < t <= end)
+        arms = len({r.get("slot", "") for r in rounds if start < r["t"] <= end})
         out.append({"n": index, "slot": "all", "start": start, "end": end, "rounds": inside,
+                    "arms": arms,
                     "s_per_round": (end - start) / inside if inside > 1 else None})
     return out
 
@@ -280,6 +287,16 @@ def verdict(samples: list[dict], windows: list[dict]) -> tuple[list[str], list[s
                                  f"and the filesystem holds only {room:.0f} more")
 
     paced = [w for w in windows if w["s_per_round"]]
+    full = max((w.get("arms", 0) for w in paced), default=0)
+    drain = []                  # only the TAIL: an arm in MPNN or validation stamps no rounds
+    for w in reversed(paced):   # either, so a short-handed window mid-campaign is not a drain
+        if w.get("arms", full) >= full:
+            break
+        drain.insert(0, w["n"])
+    if drain:
+        read.append(f"trajectory {drain} ran on fewer than {full} arms (the campaign draining), "
+                    f"so its amortised round is not judged for speed")
+        paced = [w for w in paced if w["n"] not in drain]
     if len(paced) >= 4:
         rates = [w["s_per_round"] for w in paced]
         late = rates[-max(1, len(rates) // 3):]
