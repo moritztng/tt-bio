@@ -1,0 +1,22 @@
+2026-09-30 18:00:43.600 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ubuntu/.cache/ttnn,model_cache_path=/home/ubuntu/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+192 {'served': True, 'pick': [192, 192, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+224 {'served': True, 'pick': [224, 224, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+256 {'served': True, 'pick': [256, 256, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+288 {'served': True, 'pick': [288, 288, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+320 {'served': True, 'pick': [320, 64, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+352 {'served': True, 'pick': [352, 352, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+384 {'served': True, 'pick': [384, 64, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+416 {'served': True, 'pick': [416, 416, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+448 {'served': True, 'pick': [448, 224, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+480 {'served': True, 'pick': [480, 160, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+512 {'served': True, 'pick': [512, 256, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+2026-09-30 18:01:04.637 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1746208 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-09-30 18:01:04.639 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1676576 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+544 {'served': True, 'pick': None, 'padded_to': 576, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {'l1_budget': 2, 'fill_preconditions': 2}}
+576 {'served': True, 'pick': [576, 192, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
+2026-09-30 18:01:07.714 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 2094368 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-09-30 18:01:07.717 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 2016544 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+2026-09-30 18:01:08.925 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 1543456 B which is beyond max L1 size of 1499136 B (assert.hpp:104)
+608 {'served': True, 'pick': None, 'padded_to': 640, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {'l1_budget': 1, 'fill_preconditions': 2}}
+640 {'served': True, 'pick': [320, 160, 2], 'padded_to': None, 'stats_delta': {'served': 1, 'declined': 0, 'too_short': 0, 'taped': 0}, 'rejects': {}}
