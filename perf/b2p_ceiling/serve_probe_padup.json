@@ -1,0 +1,367 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "sizes": {
+  "192": {
+   "served": true,
+   "pick": [
+    192,
+    192,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "224": {
+   "served": true,
+   "pick": [
+    224,
+    224,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "256": {
+   "served": true,
+   "pick": [
+    256,
+    256,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "288": {
+   "served": true,
+   "pick": [
+    288,
+    288,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "320": {
+   "served": true,
+   "pick": [
+    320,
+    160,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "352": {
+   "served": true,
+   "pick": [
+    352,
+    352,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "384": {
+   "served": true,
+   "pick": [
+    384,
+    192,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "416": {
+   "served": true,
+   "pick": [
+    416,
+    416,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "448": {
+   "served": true,
+   "pick": [
+    448,
+    224,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "480": {
+   "served": true,
+   "pick": [
+    480,
+    160,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "512": {
+   "served": true,
+   "pick": [
+    512,
+    256,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "544": {
+   "served": true,
+   "pick": null,
+   "padded_to": 576,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {
+    "l1_budget": 2,
+    "fill_preconditions": 2
+   }
+  },
+  "576": {
+   "served": true,
+   "pick": [
+    576,
+    192,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "608": {
+   "served": true,
+   "pick": null,
+   "padded_to": 640,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {
+    "l1_budget": 2,
+    "fill_preconditions": 2
+   }
+  },
+  "640": {
+   "served": true,
+   "pick": [
+    640,
+    160,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "672": {
+   "served": true,
+   "pick": [
+    224,
+    224,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {
+    "l1_budget": 1
+   }
+  },
+  "704": {
+   "served": true,
+   "pick": [
+    352,
+    704,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {
+    "l1_budget": 2
+   }
+  },
+  "736": {
+   "served": true,
+   "pick": null,
+   "padded_to": 768,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {
+    "l1_budget": 1,
+    "fill_preconditions": 2
+   }
+  },
+  "768": {
+   "served": true,
+   "pick": [
+    384,
+    256,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {}
+  },
+  "800": {
+   "served": true,
+   "pick": [
+    160,
+    160,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {
+    "l1_budget": 1
+   }
+  },
+  "832": {
+   "served": true,
+   "pick": [
+    416,
+    416,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {
+    "l1_budget": 6
+   }
+  },
+  "864": {
+   "served": true,
+   "pick": [
+    288,
+    864,
+    2
+   ],
+   "padded_to": null,
+   "stats_delta": {
+    "served": 1,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0
+   },
+   "rejects": {
+    "l1_budget": 2
+   }
+  }
+ }
+}
