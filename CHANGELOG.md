@@ -31,8 +31,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   0.0312 A at seed 2, against a 0.60 A bar and a 0.8326 to 1.1591 A spread between three seeds of
   the same arm. pLDDT moves 0.909254 to 0.909316 where three seeds span 0.909254 to 0.913107. It is
   also 1.30x faster there, 66.5 and 68.4 s against 86.6 and 88.7 s warm, AICLK 1350 MHz sampled
-  during every fold. Boltz-2 reaches the fused arm only behind `BOLTZ2_FP32_SOFTMAX`, which is off,
-  and counts served 0 and declined 0 at both lengths, so it is untouched.
+  during every fold. Boltz-2 does not take the fused arm by default, and counts served 0 and
+  declined 0 at both lengths, so it is untouched.
 
   **One chip of a Wormhole Galaxy stays at 512 tokens.** The same forward serves 544 and 608 there
   (0/239 to 542/0 and 0/226 to 220/0), and 544 then refuses in the Evoformer backward at 12.338 GB

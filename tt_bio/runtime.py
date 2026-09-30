@@ -15,6 +15,8 @@ import socket
 from dataclasses import dataclass
 from pathlib import Path
 
+from tt_bio.envflags import env_flag
+
 
 INPUT_SUFFIXES = (".fa", ".fas", ".fasta", ".yml", ".yaml")
 
@@ -394,7 +396,7 @@ def quarantined_chips(path: str | None = None, addresses: set[str] | None = None
 
 def refuse_quarantined_chips(indices, path: str | None = None) -> None:
     """Refuse a chip the operators quarantined, unless TT_BIO_ALLOW_QUARANTINED=1 says it is meant."""
-    if os.environ.get("TT_BIO_ALLOW_QUARANTINED") == "1":
+    if env_flag("TT_BIO_ALLOW_QUARANTINED", False):
         return
     bad = quarantined_chips(path)
     hit = [index for index in indices if index in bad]
