@@ -1,0 +1,17 @@
+[release-gate] granted card(s) [0]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/b2p-padup/tt_bio (commit aabb1c717)
+
+======================================================================
+[size-ladder] checking for card p300c: openfold3, boltz2 at rungs 256,512,640,768,896,1024
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa  k256->512  k512->768     wall  result
+openfold3           5.1s    13.1s    20.8s    31.3s    45.1s    59.8s       1.36       2.15    1494s  PASS
+boltz2              4.2s    10.9s    17.3s    25.8s    37.5s    48.6s       1.38       2.12    1494s  PASS
+##############################################################################
+GATE PASS — lever census and scaling exponents match the recorded baseline at every rung
+gate rc=0
