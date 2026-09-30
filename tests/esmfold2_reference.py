@@ -38,12 +38,16 @@ def _load_common():
         return sys.modules[_MODNAME]
 
     # Fake parent packages so relative imports resolve without running the real
-    # transformers __init__.
+    # transformers __init__. They come out again once the module is loaded: left in
+    # sys.modules, the fake `transformers` broke every later real import in the session
+    # (torchmetrics' `from transformers import AutoModel` under a BoltzGen checkpoint load).
+    planted = []
     for name in ("transformers", "transformers.models", "transformers.models.esmfold2"):
         if name not in sys.modules:
             pkg = types.ModuleType(name)
             pkg.__path__ = []  # mark as package
             sys.modules[name] = pkg
+            planted.append(name)
 
     # Stub the relative deps the folding blocks don't need.
     cfg = types.ModuleType("transformers.models.esmfold2.configuration_esmfold2")
@@ -54,13 +58,18 @@ def _load_common():
     sys.modules["transformers.models.esmfold2.kernels"] = types.ModuleType(
         "transformers.models.esmfold2.kernels"
     )
+    planted += [cfg.__name__, "transformers.models.esmfold2.kernels"]
 
     spec = importlib.util.spec_from_file_location(
         _MODNAME, f"{FORK_ESMFOLD2}/modeling_esmfold2_common.py"
     )
     mod = importlib.util.module_from_spec(spec)
     sys.modules[_MODNAME] = mod
-    spec.loader.exec_module(mod)
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        for name in planted:
+            sys.modules.pop(name, None)
     return mod
 
 

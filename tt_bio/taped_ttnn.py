@@ -1632,8 +1632,7 @@ def tape():
     finally:
         _swap(False)
         ag.forget_wrappers()
-        from . import ops
-        ops.set_grad_hook(prev)
+        ag._restore_hooks(prev)
 
 
 # --- padding and reductions ---------------------------------------------------------------

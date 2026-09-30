@@ -193,9 +193,8 @@ def host_softmax_hook():
     lever one `export` away from a user's fold. The path buys gradient fidelity and costs a host
     round trip per softmax, so there was never an inference reading to gain either.
 
-    Two conditions rather than one. `taped_ttnn.tape()` restores the grad hook on the way out
-    and leaves the other slots filled, so the slot on its own would stay live for the rest of
-    the process and a fold after a training block could still reach the path.
+    Two conditions rather than one, so a slot left filled by an `install()` that never met its
+    `uninstall()` still cannot put a fold after a training block on the path.
     """
     return _HOST_SOFTMAX if grad_hook() is not None else None
 
