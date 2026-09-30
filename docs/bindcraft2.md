@@ -562,6 +562,23 @@ So a Wormhole chip does **not** reach the p150a's 576, and nobody should predict
 from bank geometry: the earlier guess from 12 GiB in 12 banks put this wall near 384-416 tokens,
 and 384, 416, 448, 480 and 512 all run, in a flat 1:45 to 2:12 a rung.
 
+## What a Galaxy gets through
+
+A completed design trajectory costs **1390 chip-seconds** on one chip of a Wormhole Galaxy: the
+shipped `examples/pdl1.json` target with a 146-residue binder at 288 tokens, two trajectories
+interleaved, run to BindCraft 2's own stop condition, at an AICLK of 1000 MHz median sampled
+during the run. At that price a 32-chip Galaxy turns out about **83 design trajectories an
+hour**.
+
+The 83 is one chip's rate times 32. Two chips of the same Galaxy running this at once cost each
+other nothing measurable, 1384 and 1389 chip-seconds against 1390 alone, so the chips are
+independent for this workload up to the two that were tried. Nobody has run it on all 32.
+
+How many of those trajectories become designs you would keep is a property of your target and
+your settings, not of the board. These three runs accepted none of their six, which is too few to
+put a rate on. At the [7-in-31 rate](#do-the-designs-pass) the same example reaches on a
+Blackhole card, an accepted design would cost about 1.7 chip-hours.
+
 ## What one step costs
 
 One gradient step through this entry point on a real card, at the small end of the draw range:

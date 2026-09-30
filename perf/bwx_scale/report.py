@@ -47,6 +47,20 @@ def clock(samples: list, node: int | None, t0: float, t1: float) -> dict:
             "load1_median": round(statistics.median(load), 2) if load else None}
 
 
+def accepted(chipdir: pathlib.Path) -> int | None:
+    """Designs the campaign ACCEPTED, from its own summary. `run.json`'s
+    `trajectories_returned` is how many trajectories finished, which is a different number: all
+    three campaigns here returned 2 and accepted 0."""
+    path = chipdir / "proj" / "summary.csv"
+    if not path.exists():
+        return None
+    for line in path.read_text().splitlines():
+        f = line.split(",")
+        if len(f) > 4 and f[2] == "accepted_designs":
+            return int(float(f[4]))
+    return None
+
+
 def phase(d: pathlib.Path, chips_hint: int) -> list:
     samples = []
     jsonl = d / "aiclk.jsonl"
@@ -84,7 +98,8 @@ def phase(d: pathlib.Path, chips_hint: int) -> list:
             "round_amortised": round(statistics.median(gaps) / len(slots), 2) if gaps else None,
             "seconds_per_trajectory": round(span / len(slots), 1),
             "trajectories_an_hour_one_chip": round(3600.0 / (span / len(slots)), 3),
-            "accepted": run.get("trajectories_returned"),
+            "completed": run.get("trajectories_returned"),
+            "accepted": accepted(chipdir),
             "aiclk": clock(samples, node_of(chip, mapping), t0, t1),
             "auto_chose": (run.get("auto_would_choose") or [None])[0],
             "commit": (run.get("commit") or "")[:9],
@@ -128,8 +143,12 @@ def main():
               f"against {a * n:.3f} if they did not interfere")
         print(f"a {args.chips}-chip Galaxy at the measured per-chip rate: "
               f"{b * args.chips:.0f} trajectories an hour")
-        print(f"chip-hours per accepted design at {args.accept_rate:.3f} accepted per "
+        got, ran = (sum(r["accepted"] or 0 for r in out),
+                    sum(r["completed"] or 0 for r in out))
+        print(f"chip-hours per accepted design at an ASSUMED {args.accept_rate:.3f} accepted per "
               f"completed trajectory: {1 / (b * args.accept_rate):.2f}")
+        print(f"  this sitting accepted {got} of its {ran} completed trajectories, which cannot "
+              f"measure a rate; the assumption above is Blackhole's 7/31")
     print()
     print(json.dumps(out, indent=1))
 
