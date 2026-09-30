@@ -1,0 +1,18 @@
+2026-09-29T23:43:07Z holding /home/ttuser/.coworker/state/leases/tt-quietbox-card0.json and /dev/tenstorrent/1
+=== a1 extra_msa=0 template=0 N=1 2026-09-29T23:43:07Z load 5.02
+    a1 rc=0 201s
+=== b1 extra_msa=1 template=1 N=1 2026-09-29T23:46:28Z load 5.68
+    b1 rc=0 87s
+=== b2 extra_msa=1 template=1 N=1 2026-09-29T23:47:55Z load 3.28
+    b2 rc=0 81s
+=== a2 extra_msa=0 template=0 N=1 2026-09-29T23:49:16Z load 2.14
+    a2 rc=0 187s
+=== a3 extra_msa=0 template=0 N=1 2026-09-29T23:52:24Z load 11.76
+    a3 rc=0 187s
+=== b3 extra_msa=1 template=1 N=1 2026-09-29T23:55:30Z load 8.13
+    b3 rc=0 82s
+=== b4 extra_msa=1 template=1 N=1 2026-09-29T23:56:52Z load 3.70
+    b4 rc=0 81s
+=== a4 extra_msa=0 template=0 N=1 2026-09-29T23:58:13Z load 1.76
+    a4 rc=0 187s
+2026-09-30T00:01:20Z sitting done, lease released

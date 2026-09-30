@@ -1,0 +1,369 @@
+{
+ "arms": [
+  {
+   "arm": "a1",
+   "extra_msa": false,
+   "template": false,
+   "n": 1,
+   "interleave": false,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 5,
+   "wall": 25.465578317642212,
+   "device": 5.126143,
+   "host": 20.35176831764221,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1350,
+   "under_floor": 0,
+   "clk_n": 130,
+   "per_round": [
+    {
+     "wall": 27.705,
+     "load1": 5.6
+    },
+    {
+     "wall": 25.466,
+     "load1": 6.42
+    },
+    {
+     "wall": 27.312,
+     "load1": 8.83
+    },
+    {
+     "wall": 25.272,
+     "load1": 7.67
+    },
+    {
+     "wall": 25.251,
+     "load1": 6.14
+    }
+   ],
+   "load1": 6.42
+  },
+  {
+   "arm": "a2",
+   "extra_msa": false,
+   "template": false,
+   "n": 1,
+   "interleave": false,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 5,
+   "wall": 25.889082431793213,
+   "device": 5.380414,
+   "host": 20.439964080032347,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "under_floor": 0,
+   "clk_n": 131,
+   "per_round": [
+    {
+     "wall": 27.192,
+     "load1": 7.22
+    },
+    {
+     "wall": 25.889,
+     "load1": 8.57
+    },
+    {
+     "wall": 27.207,
+     "load1": 10.13
+    },
+    {
+     "wall": 25.344,
+     "load1": 11.88
+    },
+    {
+     "wall": 25.514,
+     "load1": 10.9
+    }
+   ],
+   "load1": 10.13
+  },
+  {
+   "arm": "a3",
+   "extra_msa": false,
+   "template": false,
+   "n": 1,
+   "interleave": false,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 5,
+   "wall": 25.85846495628357,
+   "device": 5.4114059999999995,
+   "host": 20.272731429244995,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 130,
+   "per_round": [
+    {
+     "wall": 27.007,
+     "load1": 5.48
+    },
+    {
+     "wall": 25.858,
+     "load1": 8.96
+    },
+    {
+     "wall": 27.044,
+     "load1": 7.87
+    },
+    {
+     "wall": 25.418,
+     "load1": 6.91
+    },
+    {
+     "wall": 25.363,
+     "load1": 7.54
+    }
+   ],
+   "load1": 7.54
+  },
+  {
+   "arm": "a4",
+   "extra_msa": false,
+   "template": false,
+   "n": 1,
+   "interleave": false,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 5,
+   "wall": 25.664874792099,
+   "device": 5.367097,
+   "host": 20.297777792098998,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1350,
+   "under_floor": 0,
+   "clk_n": 130,
+   "per_round": [
+    {
+     "wall": 26.884,
+     "load1": 3.92
+    },
+    {
+     "wall": 25.665,
+     "load1": 3.42
+    },
+    {
+     "wall": 27.032,
+     "load1": 5.05
+    },
+    {
+     "wall": 25.401,
+     "load1": 6.59
+    },
+    {
+     "wall": 25.654,
+     "load1": 6.14
+    }
+   ],
+   "load1": 5.05
+  },
+  {
+   "arm": "b1",
+   "extra_msa": true,
+   "template": true,
+   "n": 1,
+   "interleave": false,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 5,
+   "wall": 8.37372374534607,
+   "device": 5.926254,
+   "host": 2.389540393127442,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "under_floor": 0,
+   "clk_n": 45,
+   "per_round": [
+    {
+     "wall": 10.361,
+     "load1": 4.79
+    },
+    {
+     "wall": 8.374,
+     "load1": 4.44
+    },
+    {
+     "wall": 10.112,
+     "load1": 4.1
+    },
+    {
+     "wall": 8.273,
+     "load1": 3.74
+    },
+    {
+     "wall": 8.29,
+     "load1": 3.4
+    }
+   ],
+   "load1": 4.1
+  },
+  {
+   "arm": "b2",
+   "extra_msa": true,
+   "template": true,
+   "n": 1,
+   "interleave": false,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 5,
+   "wall": 8.483882188796997,
+   "device": 5.880085,
+   "host": 2.5486232701873783,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "under_floor": 0,
+   "clk_n": 45,
+   "per_round": [
+    {
+     "wall": 10.495,
+     "load1": 3.21
+    },
+    {
+     "wall": 8.409,
+     "load1": 2.9
+    },
+    {
+     "wall": 10.342,
+     "load1": 2.63
+    },
+    {
+     "wall": 8.484,
+     "load1": 2.39
+    },
+    {
+     "wall": 8.303,
+     "load1": 2.28
+    }
+   ],
+   "load1": 2.63
+  },
+  {
+   "arm": "b3",
+   "extra_msa": true,
+   "template": true,
+   "n": 1,
+   "interleave": false,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 5,
+   "wall": 8.580002784729004,
+   "device": 5.903526,
+   "host": 2.569653621902466,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "under_floor": 0,
+   "clk_n": 45,
+   "per_round": [
+    {
+     "wall": 10.423,
+     "load1": 6.26
+    },
+    {
+     "wall": 8.425,
+     "load1": 5.48
+    },
+    {
+     "wall": 10.274,
+     "load1": 4.83
+    },
+    {
+     "wall": 8.465,
+     "load1": 4.23
+    },
+    {
+     "wall": 8.58,
+     "load1": 3.85
+    }
+   ],
+   "load1": 4.83
+  },
+  {
+   "arm": "b4",
+   "extra_msa": true,
+   "template": true,
+   "n": 1,
+   "interleave": false,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 5,
+   "wall": 8.505314111709595,
+   "device": 5.927058,
+   "host": 2.5770724806518555,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 44,
+   "per_round": [
+    {
+     "wall": 10.476,
+     "load1": 2.42
+    },
+    {
+     "wall": 8.421,
+     "load1": 2.22
+    },
+    {
+     "wall": 10.312,
+     "load1": 2.08
+    },
+    {
+     "wall": 8.505,
+     "load1": 1.95
+    },
+    {
+     "wall": 8.389,
+     "load1": 1.84
+    }
+   ],
+   "load1": 2.08
+  }
+ ],
+ "summary": {
+  "extra_msa=0 template=0 N=1": {
+   "arms": [
+    "a1",
+    "a2",
+    "a3",
+    "a4"
+   ],
+   "wall": 25.761669874191284,
+   "spread": [
+    25.465578317642212,
+    25.889082431793213
+   ],
+   "device": 5.3737555,
+   "host": 20.324773054870604,
+   "ratio_vs_h200": 37.02453273094465,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1343,
+   "load1": 6.98
+  },
+  "extra_msa=1 template=1 N=1": {
+   "arms": [
+    "b1",
+    "b2",
+    "b3",
+    "b4"
+   ],
+   "wall": 8.494598150253296,
+   "spread": [
+    8.37372374534607,
+    8.580002784729004
+   ],
+   "device": 5.91489,
+   "host": 2.5591384460449222,
+   "ratio_vs_h200": 12.20839055799554,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1343,
+   "load1": 3.3649999999999998
+  },
+  "ratio": {
+   "faster": "extra_msa=1 template=1 N=1",
+   "slower": "extra_msa=0 template=0 N=1",
+   "x": 3.0327120151555502
+  }
+ }
+}
