@@ -16,7 +16,8 @@ charter asks, each with the number it turned on:
              "A slowdown arriving at trajectory 15" is the case, so the comparison is the LAST
              third against the median of the rest rather than first-against-last.
 
-Exit 0 clean, 1 when something drifted, 2 when the files are not there.
+Exit 0 clean, 1 when something drifted, 2 when the files are not there, 3 when there are too
+few finished trajectories to judge memory yet (never CLEAN by default).
 
   verdict.py <out_dir>            # out_dir holds drift.jsonl and project/rounds.json
 """
@@ -274,8 +275,16 @@ def main() -> int:
         print(f"  trajectory {window['n']} ({window['slot']}): {window['rounds']} rounds, {pace}")
     for line in drifted:
         print(f"DRIFT: {line}")
-    print("DRIFT CLEAN" if not drifted else f"DRIFT FOUND {len(drifted)} THINGS")
-    return 1 if drifted else 0
+    if drifted:
+        print(f"DRIFT FOUND {len(drifted)} THINGS")
+        return 1
+    # Clean is a claim about memory across trajectories; with too few boundaries to judge it,
+    # saying CLEAN would be a pass-shaped reading of nothing (bh24 at 16:40Z said exactly that).
+    if any("no memory-per-trajectory verdict" in line for line in read):
+        print("DRIFT NOT YET JUDGED: too few finished trajectories to judge memory")
+        return 3
+    print("DRIFT CLEAN")
+    return 0
 
 
 if __name__ == "__main__":

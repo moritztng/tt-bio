@@ -284,3 +284,11 @@ def test_the_real_bh24_shape_is_declined_not_called_a_leak(tmp_path):
     drift, read = run_real(out)
     assert not drift
     assert any("fewer than 3 trajectory boundaries" in line for line in read)
+
+
+def test_too_few_trajectories_is_not_yet_judged_rather_than_clean(tmp_path, monkeypatch, capsys):
+    short = series(tmp_path, trajectories=2, rounds=5)
+    monkeypatch.setattr("sys.argv", ["verdict.py", str(short)])
+    assert verdict.main() == 3
+    said = capsys.readouterr().out
+    assert "NOT YET JUDGED" in said and "DRIFT CLEAN" not in said
