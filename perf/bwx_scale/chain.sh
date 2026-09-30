@@ -2,7 +2,7 @@
 # The whole bwx-scale sitting, on a dev Galaxy box, detached: the trajectory price on ONE chip,
 # then the same workload on TWO chips of the same Galaxy at once.
 #
-#   chain.sh <out root>
+#   chain.sh <out root> [tag:chips ...]      default: one:30 two:30,29
 #
 # Two phases, each costing the box one agent restart and holding its chips only for its own
 # length. The agent is UP for both phases: it serves the other 29-30 chips throughout and
@@ -12,8 +12,15 @@
 # Phase two takes a second chip, so it needs its own handover -- the agent's chip worker owns
 # that chip until it is stopped. Between the phases the first chip goes back to the agent and is
 # canaried, which is the health check the campaign price is graded on.
+#
+# A phase takes a chip only once the agent reads it healthy and no tt-smi reset is running. The
+# agent's start-up canary misses on a chip a sitting holds, marks it dirty, and resets it the
+# moment its node is let go; a phase that reopens it inside that reset dies with `Query mappings
+# failed` (chain1's phase two, chip 30).
 set -uo pipefail
-out=${1:?usage: chain.sh <out root>}
+out=${1:?usage: chain.sh <out root> [tag:chips ...]}
+shift
+phases=("$@")
 root=${BWX_ROOT:-$HOME/bwx-scale/tt-bio}
 py=${BWX_PY:-$HOME/bwx/venv/bin/python}
 params=${BWX_PARAMS:-$HOME/bwx/af2_params}
@@ -53,9 +60,25 @@ wait_idle(){
     say "box still busy after an hour, giving up rather than interrupting it"; return 1
 }
 
+healthy(){
+    local c st
+    pgrep -f "bin/tt-smi " >/dev/null && { say "a tt-smi reset is running"; return 1; }
+    for c in ${1//,/ }; do
+        st=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['chips'].get(sys.argv[2], {}).get('state', 'absent'))" \
+             "$HOME/japanfold/state/agent/chips.json" "$c" 2>/dev/null)
+        [ "$st" = healthy ] || { say "chip $c reads $st"; return 1; }
+    done
+}
+
+wait_healthy(){
+    for _ in $(seq 30); do healthy "$1" && return 0; sleep 30; done
+    say "chips $1 not healthy after 15 min, not taking them"; return 1
+}
+
 phase(){
     local tag=$1 chips=$2
     wait_idle || return 1
+    wait_healthy "$chips" || return 1
     say "phase $tag chips=$chips: agent stop"
     sudo -n systemctl stop japanfold-agent@ubuntu; say "agent stop rc=$?"
     for _ in $(seq 90); do pgrep -f japanfold.chipworker >/dev/null || break; sleep 2; done
@@ -82,6 +105,7 @@ phase(){
     say "phase $tag done, scale.log tail: $(tail -1 "$out/$tag/scale.log")"
 }
 
-say "chain start root=$root commit=$(git -C "$root" rev-parse --short HEAD) chips $one then $one,$two"
-phase one "$one" && phase two "$one,$two"
+[ ${#phases[@]} -gt 0 ] || phases=("one:$one" "two:$one,$two")
+say "chain start root=$root commit=$(git -C "$root" rev-parse --short HEAD) phases ${phases[*]}"
+for p in "${phases[@]}"; do phase "${p%%:*}" "${p#*:}" || break; done
 say "chain finished"
