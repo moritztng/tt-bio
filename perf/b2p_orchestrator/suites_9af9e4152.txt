@@ -1,0 +1,16 @@
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 67%]
+........................................................................ [ 90%]
+..............................                                           [100%]
+=============================== warnings summary ===============================
+tt_bio/main.py:62
+  /home/ttuser/b2porch/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+    pid = _os.fork()
+
+tt_bio/main.py:62
+  /home/ttuser/b2porch/tt_bio/main.py:62: DeprecationWarning: This process (pid=96879) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = _os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+318 passed, 2 warnings in 156.16s (0:02:36)
