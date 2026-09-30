@@ -1,0 +1,149 @@
+{
+ "host": "UF-EV-A4-GWH01",
+ "card": "30",
+ "target": "hTNFa",
+ "target_residues": 456,
+ "target_chains": 3,
+ "target_fold": "jellyroll homotrimer",
+ "binder": 100,
+ "tokens": 576,
+ "rounds_requested": 6,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 608,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 608 tokens one trajectory is priced at up to 34.4 GB against the 9.1 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "tokens_asked": 608
+ },
+ "max_trajectories": 1,
+ "validation": "device",
+ "seed": 100,
+ "commit": "2329a5b717e5d20e8e62136ac3e79526b6f7553f",
+ "dirty": false,
+ "compile_cache": "/home/ubuntu/bwx/cache/xla",
+ "pci": "0000:c7:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!6/tt_aiclk",
+ "nproc": 64,
+ "loadavg_start": [
+  2.33056640625,
+  2.15869140625,
+  2.72412109375
+ ],
+ "mem_start": {
+  "vmhwm": 545550336,
+  "vmrss": 545550336,
+  "mem_available": 302659014656
+ },
+ "started_utc": "2026-09-30T15:25:15Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 1,
+  "why": "at 608 tokens one trajectory is priced at up to 34.4 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "tokens_asked": 608
+ },
+ "wall_seconds": 128.85,
+ "trajectories_returned": null,
+ "error": "JaxRuntimeError('INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 816, in _wrapped_callback\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 226, in _callback\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 96, in pure_callback_impl\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 71, in __call__\\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 828, in _backward\\n  File \"/home/ubuntu/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 190, in __exit__\\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 231, in _refusal_names_the_size\\nMemoryError: BindCraft 2 ran out of device memory in the Evoformer backward at 608 tokens.\\n  complex   584 residues, padded to 608 tokens (tt-bio buckets the token axis to 32)\\n  asked for 189.3 MB in one DRAM buffer (15.8 MB in each of 12 banks)\\n  free      246.2 MB of 12.885 GB, largest contiguous block 13.4 MB\\nThis is fragmentation, not a full card: 246.2 MB is free, which would cover the 189.3 MB request if it were in one piece, but the largest contiguous block in a bank is 13.4 MB against the 15.8 MB that bank needs.\\nWhat to do: run a smaller complex. The token axis is the complex BindCraft 2 built, padded to a multiple of 32 -- it is LARGER than target residues + binder length, so size the job off the 584 above and not off that sum. 8 residues off the binder takes this fold to 576 tokens. The largest axis measured to complete a gradient round on one Wormhole Galaxy chip (12.885 GB) is 512 tokens. Trimming the target to the domain you are binding is the other lever and usually the bigger one.\\nThe allocator\\'s own refusal follows.')",
+ "traceback": "Traceback (most recent call last):\n  File \"/home/ubuntu/b2p-wh/tt-bio/perf/bgx_size/rung.py\", line 403, in main\n    trajectories = bindcraft2.run_campaign(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 1987, in run_campaign\n    return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/bwx/bc2/bindcraft/campaign.py\", line 271, in run_campaign\n    return run_campaign_arm(settings, project_folder, alphafold_model, validation_model, mpnn_model, key, max_trajectories, build_validation_model, autotune=settings.get('autotune', True), metadata=metadata)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/bwx/bc2/bindcraft/campaign.py\", line 185, in run_campaign_arm\n    protein_states, predictions, failed_stage = run_trajectory(design_settings, alphafold_model, trajectory_random_key, trajectory_directory=trajectory_directory, targets=trajectory_targets)\n                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/bwx/bc2/bindcraft/trajectory.py\", line 303, in run_trajectory\n    protein_states, predictions = run_gradient_design_stage(trajectory.protein_states, design_model, sequence_optimizer=stage.sequence_optimizer, design_schedule=design_schedule, record_sequence_update=recorder, select_best_round=len(design_settings.prepared_states) < 2, select_filtered_round=rotating_stage_filter_round(design_settings, target_schedule, trajectory.protein_states, stage.name), **induced_fit_reference_arguments(trajectory.losses, trajectory.binder_alone_reference, design_model, design_settings))\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/bwx/bc2/bindcraft/trajectory.py\", line 131, in run_gradient_design_stage\n    predictions, chain_gradients, graph_design_loss = design_model.sequence_gradients(active_protein_states, active_losses, softmax_weight=softmax_weight, one_hot_weight=one_hot_weight, temperature=temperature, logit_scale=logit_scale, reference_predictions=reference_predictions)\n                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/b2p-wh/tt-bio/perf/bgx_size/rung.py\", line 328, in sequence_gradients\n    return real_sequence_gradients(self, *a, **kw)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 1605, in sequence_gradients\n    return super().sequence_gradients(protein_states, losses, passed,\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ubuntu/bwx/bc2/bindcraft/af2.py\", line 406, in sequence_gradients\n    (design_loss, prediction_arrays), shared_chain_gradients = compiled_sequence_gradients(*gradient_arguments)\n                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\njax.errors.JaxRuntimeError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 816, in _wrapped_callback\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 226, in _callback\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 96, in pure_callback_impl\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 71, in __call__\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 828, in _backward\n  File \"/home/ubuntu/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 190, in __exit__\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 231, in _refusal_names_the_size\nMemoryError: BindCraft 2 ran out of device memory in the Evoformer backward at 608 tokens.\n  complex   584 residues, padded to 608 tokens (tt-bio buckets the token axis to 32)\n  asked for 189.3 MB in one DRAM buffer (15.8 MB in each of 12 banks)\n  free      246.2 MB of 12.885 GB, largest contiguous block 13.4 MB\nThis is fragmentation, not a full card: 246.2 MB is free, which would cover the 189.3 MB request if it were in one piece, but the largest contiguous block in a bank is 13.4 MB against the 15.8 MB that bank needs.\nWhat to do: run a smaller complex. The token axis is the complex BindCraft 2 built, padded to a multiple of 32 -- it is LARGER than target residues + binder length, so size the job off the 584 above and not off that sum. 8 residues off the binder takes this fold to 576 tokens. The largest axis measured to complete a gradient round on one Wormhole Galaxy chip (12.885 GB) is 512 tokens. Trimming the target to the domain you are binding is the other lever and usually the bigger one.\nThe allocator's own refusal follows.\n--------------------\nFor simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.\n",
+ "dram_total_bytes": 12884901504,
+ "complex_residues": 584,
+ "evoformer_axis": 608,
+ "axis_seen": [
+  608
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 12884876928,
+ "rounds_done": 1,
+ "rounds_per_slot": {
+  "": 1
+ },
+ "per_round": [],
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 1218,
+   "served": 1011,
+   "declined: has a core grid": 194
+  },
+  "taped_channel_move": [
+   436,
+   353,
+   218,
+   0
+  ],
+  "widen_add": {},
+  "rne_add": [
+   930,
+   8
+  ],
+  "qkv_grad_join": {
+   "served": 0
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 0
+  },
+  "triatt_fused_hifi": {
+   "served": 0,
+   "declined": 226,
+   "too_short": 0,
+   "taped": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    930,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    0,
+    226
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 0,
+  "served": 0,
+  "declined": 0
+ },
+ "aiclk_run": {
+  "n": 85,
+  "aiclk_min": 500,
+  "aiclk_med": 1000,
+  "aiclk_max": 1000,
+  "load1": 3.7
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 13311807488,
+  "vmrss": 7419625472,
+  "mem_available": 295384293376
+ },
+ "loadavg_end": [
+  3.1455078125,
+  2.76220703125,
+  2.89501953125
+ ],
+ "finished_utc": "2026-09-30T15:27:24Z"
+}

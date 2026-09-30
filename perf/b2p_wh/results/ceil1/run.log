@@ -1,0 +1,5 @@
+2026-09-30T17:46:05Z launch tag=ceil1 chip=30 load=0.22 0.17 0.32 commit=b5d1bec34
+2026-09-30T17:46:16Z agent stop rc=0
+2026-09-30T17:46:16Z ladder pid 3961363
+2026-09-30T17:46:17Z lease: {"host": "UF-EV-A4-GWH01", "card": "30", "holder": "worker:b2p-wh", "pid": 3961363, "detached_pid": null, "acquired": 1790790376.1991003, "released": null}
+2026-09-30T17:46:17Z agent start rc=0

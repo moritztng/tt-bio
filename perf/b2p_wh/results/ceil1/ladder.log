@@ -1,0 +1,18 @@
+2026-09-30T17:46:16Z holding /home/ubuntu/japanfold/state/leases/UF-EV-A4-GWH01-card30.json and /dev/tenstorrent/6; 8 rungs
+2026-09-30T17:46:16Z === hIL2R_100_t_PADUP2 load 1.39
+2026-09-30T17:49:14Z     hIL2R_100_t_PADUP2 rc=1 178s axis=544 peak=None err=MemoryError("BindCraft 2 ran out of device memory in the Evoformer backward at 5
+2026-09-30T17:49:14Z === hIL2R_146_t_PADUP2 load 25.43
+2026-09-30T17:50:01Z     hIL2R_146_t_PADUP2 rc=1 47s axis=576 peak=None err=MemoryError("BindCraft 2 ran out of device memory in the Evoformer backward at 5
+2026-09-30T17:50:01Z === hTNFa_100_t_PADUP2 load 22.58
+2026-09-30T17:51:02Z     hTNFa_100_t_PADUP2 rc=1 60s axis=608 peak=None err=MemoryError("BindCraft 2 ran out of device memory in the Evoformer backward at 6
+2026-09-30T17:51:02Z === hPDL1_82_t_PADUP2 load 18.56
+2026-09-30T17:53:22Z     hPDL1_82_t_PADUP2 rc=0 140s axis=224 peak=None err=StopAfterRounds(6 rounds collected)
+2026-09-30T17:53:22Z === hIL2R_100_t_PADUP0 load 3.48
+2026-09-30T17:54:31Z     hIL2R_100_t_PADUP0 rc=1 69s axis=544 peak=None err=MemoryError("BindCraft 2 ran out of device memory in the Evoformer backward at 5
+2026-09-30T17:54:31Z === hIL2R_146_t_PADUP0 load 3.19
+2026-09-30T17:55:14Z     hIL2R_146_t_PADUP0 rc=1 44s axis=576 peak=None err=MemoryError("BindCraft 2 ran out of device memory in the Evoformer backward at 5
+2026-09-30T17:55:14Z === hTNFa_100_t_PADUP0 load 2.58
+2026-09-30T17:56:38Z     hTNFa_100_t_PADUP0 rc=1 84s axis=608 peak=None err=MemoryError("BindCraft 2 ran out of device memory in the Evoformer backward at 6
+2026-09-30T17:56:38Z === hIL2R_100_f_PADUP2 load 1.68
+2026-09-30T17:58:41Z     hIL2R_100_f_PADUP2 rc=1 123s axis=544 peak=12.3384 err=MemoryError("BindCraft 2 ran out of device memory in the Evoformer backward at 5
+2026-09-30T17:58:41Z ladder done, lease released

@@ -4,13 +4,21 @@ Each test is one input a researcher plausibly brings that used to run to complet
 against something nobody asked for, measured on qb2 2026-09-29 (`state/bgx-inputs.md`). The
 targets are built here rather than shipped, so a failure can be read from the test alone.
 """
+import os
 import pathlib
 
 import pytest
 
 from tt_bio import bcinputs
 
-HPDL1 = pathlib.Path("/home/ttuser/bcx_e2e/bc2/settings/target/structures/hPDL1.pdb")
+#: BindCraft 2's checkout, from the environment with qb1's path as the default -- the same
+#: convention `perf/bcx_predictor/bc2_state.py` uses. It is not a constant: these tests guard
+#: five inputs that used to design against something nobody asked for, and every one of them
+#: SKIPS when this path is wrong. A suite that skips is not a suite that holds, so a board where
+#: BindCraft 2 lives somewhere else (a Wormhole Galaxy: `~/bwx/bc2`) has to be able to say so.
+BC2 = pathlib.Path(os.environ.get("BCX_BC2", "/home/ttuser/bcx_e2e/bc2"))
+STRUCTURES = BC2 / "settings/target/structures"
+HPDL1 = STRUCTURES / "hPDL1.pdb"
 
 
 def _bindcraft():
@@ -168,7 +176,7 @@ def test_no_campaign_bindcraft_ships_is_refused():
     from bindcraft.preflight import cleaned_campaign_settings
     from bindcraft.settings import read_settings
 
-    paths = [p for p in sorted(glob.glob("/home/ttuser/bcx_e2e/bc2/examples/*.json"))
+    paths = [p for p in sorted(glob.glob(str(BC2 / "examples" / "*.json")))
              if not p.endswith("metadata.json")]
     if not paths:
         pytest.skip("BindCraft 2's shipped examples are not on this machine")
@@ -528,7 +536,7 @@ def test_a_bare_hotspot_only_one_chain_has_is_not_noted(tmp_path):
     assert (problems, notes) == ([], [])
 
 
-IL2R = pathlib.Path("/home/ttuser/bcx_e2e/bc2/settings/target/structures/hIL2R_beta_gamma.pdb")
+IL2R = STRUCTURES / "hIL2R_beta_gamma.pdb"
 
 
 def _il2r():
