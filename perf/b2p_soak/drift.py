@@ -10,10 +10,12 @@ inside the campaign process dies with it.
 So this runs as its own process, is handed a pid, and appends one JSON object per sample to a
 JSONL file until that pid exits. Every reading is a number a defect can be stated in:
 
-  rss, hwm, threads        /proc/<pid>/status, the process itself
-  fds                      /proc/<pid>/fd, the handle count
-  maps                     /proc/<pid>/maps line count -- a device mmap leak shows here first
-  children_rss             design workers and MPNN subprocesses, summed
+  rss, hwm, threads        summed over the process TREE, since the pid handed over is usually a
+                           wrapper (`timeout`, a shell) holding 1 MB and one thread
+  fds                      open handles over the tree
+  maps                     /proc/<pid>/maps lines over the tree -- a device mmap leak shows here
+                           first
+  procs, root_rss, root_hwm how many processes the tree holds, and the root's own figures
   project_bytes            what the campaign has written, so a disk filling is attributable
   cache_bytes              the JAX and tt-metal caches, which grow per length bucket
   disk_free, mem_available the two limits the box actually enforces
@@ -66,16 +68,21 @@ def _children(pid: int) -> list[int]:
     return [int(kid) for kid in kids]
 
 
-def _tree_rss(pid: int) -> int:
-    total, seen, stack = 0, set(), [pid]
+def _tree(pid: int) -> list[int]:
+    """Every pid in the process tree rooted at this one, the root first.
+
+    The pid a launcher hands over is usually a wrapper -- `timeout`, a shell -- holding 1 MB and
+    one thread, so its own handle and thread counts say nothing about the campaign underneath it.
+    Every reading that can leak is therefore taken over the whole tree.
+    """
+    found, stack = [], [pid]
     while stack:
         current = stack.pop()
-        if current in seen:
+        if current in found:
             continue
-        seen.add(current)
-        total += _status(current).get("vmrss", 0)
+        found.append(current)
         stack += _children(current)
-    return total
+    return found
 
 
 def _bytes(path: str | None) -> int | None:
@@ -152,12 +159,21 @@ def _aiclk() -> int | None:
 
 
 def sample(pid: int, project: str | None, caches: list[str]) -> dict:
-    status = _status(pid)
+    tree = _tree(pid)
+    status = [_status(member) for member in tree]
+    fds = [_fds(member) for member in tree]
+    maps = [_maps(member) for member in tree]
+    root = _status(pid)
     return {"t": round(time.time(), 2), "utc": time.strftime("%FT%TZ", time.gmtime()),
             "alive": os.path.exists(f"/proc/{pid}"),
-            "rss": status.get("vmrss"), "hwm": status.get("vmhwm"),
-            "threads": status.get("threads"), "fds": _fds(pid), "maps": _maps(pid),
-            "tree_rss": _tree_rss(pid),
+            "procs": len(tree),
+            # Tree-wide, because the pid handed over is usually a wrapper.
+            "rss": sum(one.get("vmrss", 0) for one in status),
+            "hwm": sum(one.get("vmhwm", 0) for one in status),
+            "threads": sum(one.get("threads", 0) for one in status),
+            "fds": sum(count for count in fds if count is not None),
+            "maps": sum(count for count in maps if count is not None),
+            "root_rss": root.get("vmrss"), "root_hwm": root.get("vmhwm"),
             "project_bytes": _bytes(project),
             "cache_bytes": {c: _bytes(c) for c in caches},
             "disk_free": _disk_free(project),
