@@ -29,8 +29,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 IN = HERE / "inputs"
-BC2 = pathlib.Path("/home/ttuser/bcx_e2e/bc2")
-AF2 = "/home/ttuser/bcx_e2e/af2_params"
+BC2 = pathlib.Path(os.environ.get("BCX_BC2", "/home/ttuser/bcx_e2e/bc2"))
+AF2 = os.environ.get("BCX_AF2", "/home/ttuser/bcx_e2e/af2_params")
 
 
 def target(path, **kw):

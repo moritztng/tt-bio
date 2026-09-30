@@ -1,0 +1,5 @@
+2026-09-30T16:33:57Z launch tag=dh2 chip=30 load=13.04 10.23 4.75 commit=077886627
+2026-09-30T16:34:06Z agent stop rc=0
+2026-09-30T16:34:06Z sitting pid 3770694
+2026-09-30T16:34:07Z lease: {"host": "UF-EV-A4-GWH01", "card": "30", "holder": "worker:b2p-wh", "pid": 3770694, "detached_pid": null, "acquired": 1790786046.296896, "released": null}
+2026-09-30T16:34:07Z agent start rc=0

@@ -1,0 +1,5 @@
+2026-09-30T17:59:45Z launch tag=probe1 chip=30 load=1.93 4.39 4.41 commit=b5d1bec34
+2026-09-30T17:59:54Z agent stop rc=0
+2026-09-30T17:59:54Z sitting pid 4029401
+2026-09-30T17:59:55Z lease: {"host": "UF-EV-A4-GWH01", "card": "30", "holder": "worker:b2p-wh", "pid": 4029401, "detached_pid": null, "acquired": 1790791194.60167, "released": null}
+2026-09-30T17:59:55Z agent start rc=0

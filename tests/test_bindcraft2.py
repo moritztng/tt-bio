@@ -12,6 +12,7 @@ import sys
 import textwrap
 import threading
 import time
+import traceback
 import types
 
 import numpy as np
@@ -782,6 +783,22 @@ def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0, tokens=288, part_gb=3
     monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: tokens)
 
 
+def _roomy_box(monkeypatch):
+    """Pin the box big enough to hold `duotraj.AUTO_CAP` trajectories, for the tests that are
+    about the GATE and not about memory.
+
+    Six of them asked for three trajectories and read the real hardware, so they passed on a
+    Blackhole box and failed on a Wormhole Galaxy chip with
+    `MemoryError: interleaving 3 trajectories of 0 tokens needs 16.01 GB on the card and it has
+    11.40 GB for them` -- three times the fit's intercept is already more than a 12 GB card,
+    whatever the design. The refusal is correct and is what `auto` errs low for; it is just not
+    what a test of the header, the footer gate, the slot names or the summary lock is measuring.
+    On a host with no BindCraft 2 the same six SKIP, which is why the suite looked green on
+    every box anyone ran it on (`state/b2p-wh.md`).
+    """
+    _box(monkeypatch, free_gb=200.0)
+
+
 def test_the_default_takes_as_many_trajectories_as_the_box_holds(monkeypatch, capsys):
     """The shipped default is `auto`, and on a roomy box that is the cap, not one."""
     from tt_bio import duotraj
@@ -997,6 +1014,7 @@ def test_fewer_than_one_trajectory_is_refused(monkeypatch, trajectories):
 
 
 def test_three_trajectories_run_one_campaign_each_under_the_gate(monkeypatch):
+    _roomy_box(monkeypatch)
     from tt_bio import duotraj
 
     calls, returned = _campaign_calls(monkeypatch, trajectories_per_card=3)
@@ -1034,6 +1052,7 @@ def test_a_trajectory_waits_for_the_one_before_it_to_clear_its_compile_round(mon
 
 def test_a_trajectory_that_stops_early_does_not_strand_the_next_one(monkeypatch):
     """A campaign that never reaches a second round still releases its follower."""
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1076,6 +1095,7 @@ def test_a_box_that_cannot_hold_them_is_refused_before_any_campaign_starts(monke
 
 
 def test_the_campaign_header_is_printed_once_not_once_per_trajectory(monkeypatch):
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1094,6 +1114,7 @@ def test_the_campaign_is_announced_over_once_by_the_last_trajectory_out(monkeypa
     """`run_campaign` prints `campaign done: ...` when `design_worker_index()` is None, which is
     per PROCESS. N threads share one environment, so all N announced the end and the earlier ones
     did it while another trajectory was still printing stage lines."""
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1118,6 +1139,7 @@ def test_the_campaign_is_announced_over_once_by_the_last_trajectory_out(monkeypa
 def test_a_real_worker_process_keeps_bindcrafts_own_footer_gate(monkeypatch):
     """With BINDCRAFT_WORKER_ID set the process is one of several on the project and upstream
     means nobody to announce the campaign; the thread gate must not talk over that."""
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1134,6 +1156,7 @@ def test_a_real_worker_process_keeps_bindcrafts_own_footer_gate(monkeypatch):
 def test_the_closing_summary_writer_is_serialised(monkeypatch):
     """N trajectories share a stop condition, so they reach the unlocked summary rewrite at
     once; overlapping writes to its one partial file would produce a summary that is neither."""
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1274,6 +1297,57 @@ def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
     assert "288 tokens" in msg
 
 
+def test_the_way_down_lands_on_a_size_that_fits_not_one_bucket_down():
+    """The one actionable sentence must not name another size that refuses.
+
+    A 736-token fold on a p150a was told "2 residues off the binder takes this fold to 704
+    tokens". 704 is four buckets above the 576 this board is measured to complete, so the user
+    pays another trace and compile to be refused again -- and the binder in that fold is 100
+    residues long, so the advice was also arithmetically fine and physically impossible to
+    follow beyond a point the message never named. Found on Wormhole at 608 (where the next
+    bucket down, 576, refuses too) and it was latent on Blackhole all along, so the fix is on
+    the shared path and not per board (`state/b2p-wh.md`).
+    """
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
+                                             phase="backward", n=706, padded=736))
+    assert "to reach 576 tokens" in msg              # the ceiling, not 704
+    assert "lose 130 residues" in msg                # 706 - 576, the whole way down
+    assert "704, refuses on this board too" in msg   # why the obvious step is not the answer
+    assert "the binder on its own may not be long enough" in msg
+    assert "takes this fold to 704" not in msg
+
+
+def test_one_bucket_down_is_still_named_when_one_bucket_down_serves():
+    """586 residues at 608 tokens on a p150a is one bucket over a 576 that completes, so the
+    cheap step IS the answer and the message must stay the short version."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
+                                             phase="backward", n=586, padded=608))
+    assert "10 residues off the binder takes this fold to 576 tokens" in msg
+    assert "refuses on this board too" not in msg
+
+
+def test_the_wormhole_way_down_skips_the_buckets_that_also_refuse():
+    """On a Wormhole Galaxy chip 544, 576 and 608 all refuse, measured. A 608-token fold told
+    to try 576 is told to try a size this row watched refuse ten minutes earlier."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=584, padded=608))
+    assert "to reach 512 tokens" in msg              # this board's ceiling
+    assert "lose 72 residues" in msg                 # 584 - 512
+    assert "576, refuses on this board too" in msg
+    assert "takes this fold to 576" not in msg
+
+
+def test_a_board_nobody_laddered_keeps_the_one_bucket_step():
+    """`cap` on an unmeasured card is a p150a's number, so clamping the way down to it would
+    promise a size nobody has run there. One bucket down is the only honest step."""
+    odd = REFUSAL_WORMHOLE.replace("across 12 banks", "across 4 banks")
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(odd),
+                                             phase="backward", n=706, padded=736))
+    assert "2 residues off the binder takes this fold to 704 tokens" in msg
+    assert "refuses on this board too" not in msg
+    assert "its own ceiling is lower" in msg
+
+
 #: A Wormhole Galaxy chip's own words: 12 banks of 1,073,741,792 B, about 12.885 GB. Copied
 #: off the 544-token rung of the ceiling ladder on dev .107 card 30, 2026-09-29.
 REFUSAL_WORMHOLE = (
@@ -1344,6 +1418,106 @@ def test_the_allocators_own_refusal_is_kept_as_the_cause():
             raise original
     assert caught.value.__cause__ is original
     assert "largest free block: 326674368 B" in str(caught.value.__cause__)
+
+
+# ------------------------------- a refusal raised inside a pure_callback, as the user gets it
+
+
+class _JaxRuntimeErrorLookalike(RuntimeError):
+    """What `jax.pure_callback` hands the caller when the callback raised.
+
+    Not `jaxlib`'s own class, deliberately: these tests must run on a host with no jaxlib, and
+    what is under test is that the refusal is recovered from an exception that is NOT a
+    `MemoryError` and only carries the refusal's text. Matching on the class would be matching
+    on the wrong thing -- JAX has moved this exception between modules more than once.
+    """
+
+
+def _jax_wrapped(exc: BaseException) -> _JaxRuntimeErrorLookalike:
+    """`exc`, stringified into a callback error the way JAX does it.
+
+    Measured shape: on a Wormhole Galaxy chip at 544 tokens the refusal reaches the caller as
+    `INTERNAL: CpuCallback error calling callback: Traceback (most recent call last): ...`
+    with six frames of `jax/_src/callback.py` and `contextlib` in front of the refusal's own
+    text (`state/b2p-wh.md`). The frames are built here by raising `exc` for real, so the
+    chained `__cause__` the allocator's line hangs off is in the string exactly as it would be.
+    """
+    try:
+        raise exc
+    except BaseException:                                                 # noqa: BLE001
+        return _JaxRuntimeErrorLookalike(
+            "INTERNAL: CpuCallback error calling callback: " + traceback.format_exc())
+
+
+def test_a_refusal_stringified_by_jax_still_reaches_the_caller_as_a_memory_error():
+    """On a Wormhole Galaxy chip EVERY refusal above 512 tokens is a stringified one.
+
+    The card saturates in the Evoformer backward, which runs inside a `jax.pure_callback`, so
+    the size-aware refusal is turned into a `JaxRuntimeError` carrying its text and six frames
+    of JAX internals in front of it. Two things break at once: the user reads a traceback
+    before the useful message, and `except MemoryError` -- the handler the refusal is written
+    for -- stops catching it. A p150a passes its own 576 ceiling in a forward outside the
+    callback and arrives clean, so without this the same mistake reads differently on the two
+    boards (`state/b2p-wh.md`).
+    """
+    with pytest.raises(MemoryError) as raised:
+        with bindcraft2._refusal_names_the_size("backward", 531, 544):
+            raise RuntimeError(REFUSAL_WORMHOLE)
+    wrapped = _jax_wrapped(raised.value)
+    assert not isinstance(wrapped, MemoryError)        # the defect this test exists for
+
+    with pytest.raises(MemoryError) as caught:
+        with bindcraft2.refusals_unwrapped():
+            raise wrapped
+    msg = str(caught.value)
+    assert "Evoformer backward at 544 tokens" in msg
+    assert "Wormhole Galaxy chip" in msg and "512 tokens" in msg
+    assert "19 residues off the binder" in msg
+    # The refusal is handed back, not reconstructed, so the allocator's own line is still the
+    # cause of the cause and a bug report loses nothing.
+    assert "largest free block: 21491680 B" in str(caught.value.__cause__)
+    assert "CpuCallback" not in msg
+
+
+def test_the_unwrapped_refusal_is_the_object_the_seam_raised():
+    """Handed back, not parsed back out of the traceback it was printed into.
+
+    A parse would have to guess where the message ends, and the message ends with the
+    allocator's own refusal -- so a parse either truncates it or swallows the frames it was
+    meant to remove.
+    """
+    with pytest.raises(MemoryError) as raised:
+        with bindcraft2._refusal_names_the_size("backward", 531, 544):
+            raise RuntimeError(REFUSAL_WORMHOLE)
+    assert bindcraft2.unwrap_device_refusal(_jax_wrapped(raised.value)) is raised.value
+
+
+def test_an_unrelated_callback_failure_is_not_repainted_as_a_refusal():
+    """A callback that died of something else must arrive as itself.
+
+    The recovery matches on the text of a refusal this process actually raised, so a wrapper
+    around an unrelated bug -- or around a refusal from a different fold -- is left alone.
+    """
+    with pytest.raises(MemoryError):
+        with bindcraft2._refusal_names_the_size("backward", 531, 544):
+            raise RuntimeError(REFUSAL_WORMHOLE)          # arms the recovery
+    other = _jax_wrapped(ValueError("no live tape for token 7"))
+    assert bindcraft2.unwrap_device_refusal(other) is other
+    with pytest.raises(_JaxRuntimeErrorLookalike) as caught:
+        with bindcraft2.refusals_unwrapped():
+            raise other
+    assert caught.value is other
+
+
+def test_a_refusal_that_was_never_wrapped_passes_through_untouched():
+    """The common case on a p150a: the ceiling is passed in a forward outside the callback."""
+    clean = MemoryError("BindCraft 2 ran out of device memory")
+    assert bindcraft2.unwrap_device_refusal(clean) is clean
+    with pytest.raises(MemoryError) as caught:
+        with bindcraft2.refusals_unwrapped():
+            raise clean
+    assert caught.value is clean
+    assert caught.value.__cause__ is None      # not re-chained onto itself
 
 
 # ------------------------------------------------- the degradation that used to be silent

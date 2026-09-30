@@ -15,8 +15,8 @@ import sys
 import traceback
 
 HERE = pathlib.Path(__file__).parent
-BC2 = pathlib.Path("/home/ttuser/bcx_e2e/bc2")
-AF2 = "/home/ttuser/bcx_e2e/af2_params"
+BC2 = pathlib.Path(os.environ.get("BCX_BC2", "/home/ttuser/bcx_e2e/bc2"))
+AF2 = os.environ.get("BCX_AF2", "/home/ttuser/bcx_e2e/af2_params")
 IN = HERE / "inputs"
 SKIP_CHECK = False
 
@@ -129,7 +129,7 @@ CASES = [
     case("hot-wrong-chain", targets=target(str(STRUCT / "hPDL1.pdb"), hotspots="B54")),
     case("hot-malformed", targets=target(str(STRUCT / "hPDL1.pdb"), hotspots="fifty-four")),
     case("hot-fasta-out-of-range", target="dynorphin_a",
-         targets=[{"name": "D", "target_path": "/home/ttuser/bcx_e2e/bc2/settings/target/structures/DynorphinA_IDR.fasta", "hotspots": "99"}]),
+         targets=[{"name": "D", "target_path": str(STRUCT / "DynorphinA_IDR.fasta"), "hotspots": "99"}]),
     case("hot-reversed-range", targets=target(str(STRUCT / "hPDL1.pdb"), hotspots="66-54")),
 
     # --- binder length

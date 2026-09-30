@@ -5,10 +5,11 @@ selenomethionine from a SAD phasing experiment, two side-chain conformations, an
 in an antibody, mmCIF instead of PDB. The originals are BindCraft 2's shipped structures; each
 variant is written next to this script so a failure can be reproduced from the file alone.
 """
+import os
 import pathlib
 import sys
 
-BC2 = pathlib.Path("/home/ttuser/bcx_e2e/bc2")
+BC2 = pathlib.Path(os.environ.get("BCX_BC2", "/home/ttuser/bcx_e2e/bc2"))
 SRC = BC2 / "settings/target/structures"
 OUT = pathlib.Path(__file__).parent / "inputs"
 

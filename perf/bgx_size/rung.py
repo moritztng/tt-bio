@@ -302,6 +302,21 @@ def main():
     rounds = Rounds(os.path.join(project, "rounds.json"), 0)
 
     n = None if args.trajectories == "auto" else int(args.trajectories)
+
+    # What the shipped default would pick at THIS rung, asked the way `run_campaign` asks it.
+    # Twice, because the two answers are different numbers with different failure modes: before
+    # a card is open `auto_trajectories` prices the card from a model, and with one open it reads
+    # `free_device_bytes()` and is self-correcting (`state/bwx-perf.md`). A ladder that records
+    # only the second cannot see a pre-open default that errs high.
+    design_axis = bindcraft2.design_tokens(settings)
+
+    def auto_now() -> dict:
+        try:
+            count, why = duotraj.auto_trajectories(design_axis)
+            return {"count": count, "why": why, "tokens_asked": design_axis}
+        except BaseException as exc:                                   # noqa: BLE001
+            return {"error": repr(exc), "tokens_asked": design_axis}
+
     cls = bindcraft2.design_model_class()
     real_sequence_gradients = cls.sequence_gradients
 
@@ -320,7 +335,12 @@ def main():
              "rounds_requested": args.rounds, "footprint_probe": args.footprint,
              "timing_valid": not args.footprint,
              "trajectories_arg": args.trajectories,
-             "auto_would_choose": list(duotraj.auto_trajectories()),
+             # `design_tokens` is BindCraft 2's own `design_residue_count`, which is what prices
+             # the default. It is NOT necessarily the axis the Evoformer seam runs -- the complex
+             # BC2 builds is larger than target + binder -- so both are recorded and `close`
+             # compares them. Pricing a trajectory a bucket low is a default that errs high.
+             "design_tokens": design_axis,
+             "auto_before_open": auto_now(),
              "max_trajectories": budget, "validation": args.validation, "seed": args.seed,
              "commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"],
                                       capture_output=True, text=True).stdout.strip(),
@@ -350,6 +370,11 @@ def main():
                       "axis_seen": axis.get("axis_seen"),
                       "axis_matches_arithmetic": (axis.get("evoformer_axis") == tokens
                                                   if axis.get("evoformer_axis") else None),
+                      # The default prices a trajectory at `design_tokens`. Where the seam runs a
+                      # larger axis than that, every auto count on this board was priced low.
+                      "auto_priced_axis_short_by": (axis["evoformer_axis"] - design_axis
+                                                    if axis.get("evoformer_axis") and design_axis
+                                                    else None),
                       "device_free_min": rounds.free_min,
                       "rounds_done": len(rounds.rows),
                       "rounds_per_slot": {s: sum(1 for r in rounds.rows if r["slot"] == s)
@@ -373,6 +398,7 @@ def main():
                                            checkpoints=args.params, extra_msa=True,
                                            template=True, exact=False) as build:
             stamp["fast"] = build.fast
+            stamp["auto_card_open"] = auto_now()
             per_card = {} if n is None else {"trajectories_per_card": n}
             trajectories = bindcraft2.run_campaign(
                 settings, project, **per_card, af2_weights=args.params,

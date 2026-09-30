@@ -1,0 +1,6 @@
+2026-09-30T17:59:54Z holding /home/ubuntu/japanfold/state/leases/UF-EV-A4-GWH01-card30.json and /dev/tenstorrent/6; 2 commands
+2026-09-30T17:59:54Z === [0] cd /home/ubuntu/b2p-wh/ceil && TT_BIO_TRIATT_HIFI_PAD_UP=0 /home/ubuntu/bwx/venv/bin/python -u perf/b2p_ceiling/serve_probe.py --sizes 192,224,256,288,320,352,384,416,448,480,512,544,576,608,640 --out /home/ubuntu/b2p-wh/out/probe1/serve_probe_wh_main.json
+2026-09-30T18:00:42Z     [0] rc=0 48s
+2026-09-30T18:00:42Z === [1] cd /home/ubuntu/b2p-wh/ceil && TT_BIO_TRIATT_HIFI_PAD_UP=2 /home/ubuntu/bwx/venv/bin/python -u perf/b2p_ceiling/serve_probe.py --sizes 192,224,256,288,320,352,384,416,448,480,512,544,576,608,640 --out /home/ubuntu/b2p-wh/out/probe1/serve_probe_wh_padup.json
+2026-09-30T18:01:12Z     [1] rc=0 30s
+2026-09-30T18:01:12Z sitting done, lease released

@@ -1,0 +1,32 @@
+2026-09-30T16:34:06Z holding /home/ubuntu/japanfold/state/leases/UF-EV-A4-GWH01-card30.json and /dev/tenstorrent/6; 15 commands
+2026-09-30T16:34:06Z === [0] cd /home/ubuntu/b2p-wh/tt-bio && /home/ubuntu/bwx/venv/bin/python -m pytest -q -p no:cacheprovider -rs  tests/test_bindcraft2.py::test_the_extra_msa_stack_runs_on_card_by_default tests/test_bindcraft2.py::test_the_extra_msa_stack_can_be_kept_in_jax tests/test_bindcraft2.py::test_asking_for_the_extra_msa_swap_builds_one_on_the_evoformers_pool tests/test_bindcraft2.py::test_the_campaign_path_can_ask_for_the_extra_msa_swap_too tests/test_bindcraft2.py::test_the_gradient_leaves_softmax_and_layer_norm_on_the_device_by_default tests/test_bindcraft2.py::test_the_exact_instrument_can_be_asked_for_off_explicitly tests/test_bindcraft2.py::test_exact_false_arms_the_measured_round_and_puts_it_back tests/test_bindcraft2.py::test_a_lever_env_var_still_takes_one_lever_out tests/test_bindcraft2.py::test_the_campaign_path_carries_the_exact_argument_both_ways tests/test_bindcraft2.py::test_the_control_arm_takes_one_gradient_step_from_tt_bio_alone
+2026-09-30T16:36:10Z     [0] rc=0 124s
+2026-09-30T16:36:10Z === [1] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case base --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:36:57Z     [1] rc=0 46s
+2026-09-30T16:36:57Z === [2] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case gap --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:37:40Z     [2] rc=0 44s
+2026-09-30T16:37:40Z === [3] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case gap-range --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:38:12Z     [3] rc=0 32s
+2026-09-30T16:38:12Z === [4] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case ligands --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:38:47Z     [4] rc=0 35s
+2026-09-30T16:38:47Z === [5] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case mse --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:39:22Z     [5] rc=0 34s
+2026-09-30T16:39:22Z === [6] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case altloc --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:39:56Z     [6] rc=0 34s
+2026-09-30T16:39:56Z === [7] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case mmcif --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:40:30Z     [7] rc=0 34s
+2026-09-30T16:40:30Z === [8] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case twochain --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:43:03Z     [8] rc=0 153s
+2026-09-30T16:43:03Z === [9] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case onechain --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:44:04Z     [9] rc=0 61s
+2026-09-30T16:44:04Z === [10] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case peptide-short --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:45:24Z     [10] rc=0 80s
+2026-09-30T16:45:24Z === [11] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case binder-long --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:47:12Z     [11] rc=0 108s
+2026-09-30T16:47:12Z === [12] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case length-range --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:47:46Z     [12] rc=0 34s
+2026-09-30T16:47:46Z === [13] cd /home/ubuntu/b2p-wh/tt-bio && BCX_AF2=/home/ubuntu/bwx/af2_params /home/ubuntu/bwx/venv/bin/python -u perf/bgx_inputs/round.py --case no-hotspots --rounds 2 --card 30 --out /home/ubuntu/b2p-wh/out/dh2/rounds
+2026-09-30T16:48:20Z     [13] rc=0 34s
+2026-09-30T16:48:20Z === [14] cd /home/ubuntu/b2p-wh/tt-bio && /home/ubuntu/bwx/venv/bin/python -m pytest -q -p no:cacheprovider -rs tests/test_bindcraft2.py tests/test_bcinputs.py
+2026-09-30T16:50:16Z     [14] rc=0 116s
+2026-09-30T16:50:16Z sitting done, lease released
