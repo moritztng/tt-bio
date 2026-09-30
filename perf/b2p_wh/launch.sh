@@ -17,7 +17,8 @@ out=${B2P_OUT_ROOT:-$HOME/b2p-wh/out}/$tag
 mkdir -p "$out"
 say(){ echo "$(date -u +%FT%TZ) $*" | tee -a "$out/run.log"; }
 . ~/japanfold/env.sh
-export PYTHONPATH=$root BCX_BC2=${BCX_BC2:-$HOME/bwx/bc2}
+export BCX_BC2=${BCX_BC2:-$HOME/bwx/bc2}
+export PYTHONPATH=$root:$BCX_BC2
 export TT_METAL_CACHE=${TT_METAL_CACHE:-$HOME/bwx/cache/tt-metal}
 export JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR:-$HOME/bwx/cache/xla}
 export TT_BIO_LEASE_HOLDER=worker:b2p-wh
