@@ -47,7 +47,11 @@ print("DESIGN_STAMP " + json.dumps(stamp), flush=True)
 t0 = time.time()
 # `card=None` accepts the pin already in the environment: TT_VISIBLE_DEVICES is set by
 # `design_wheel.sh` before this process starts, which is before ttnn is imported.
-with bindcraft2.campaign_predictor(card=None, exact=False):
+# `checkpoints` is separate from `af2_weights`: the latter is BindCraft 2's own JAX
+# AlphaFold, the former is the Evoformer tt-bio puts on card. Without it the device trunk
+# looks in ~/.boltz/af2/params and refuses by name in 20 s, which is the right behaviour
+# and not something to work around.
+with bindcraft2.campaign_predictor(card=None, exact=False, checkpoints=PARAMS):
     print("DESIGN_CARD_OPEN " + json.dumps(
         {"card": os.environ["TT_VISIBLE_DEVICES"], "at": time.strftime("%FT%TZ", time.gmtime())}),
         flush=True)
