@@ -257,7 +257,11 @@ pass, 68 of 68. The first device run also found a library bug, fixed before the 
 backward left its checkpoint hook installed, which broke later inference in the same process.
 Two tests with stale fixtures were fixed alongside it.
 
-**Capacity:** CAPACITY-OWED
+**Capacity: PASS at 1536 tokens** for the 13 models the gate drives, peak DRAM 0.08 to 18.28 GiB
+of 31.9 (ESMFold2 highest). OpenDDE and OpenDDE-abag decline 1536 by design, as below. The six
+design, affinity and re-prediction models the gate cannot hand a plain sequence are reported as
+skipped. One Protenix-v2 run stalled mid-trunk when qb2 hung and reset; the rerun on the same
+code passed in 688 s at the same 4.95 GiB peak as the first chain.
 
 **Size ladder: PASS.** All nine ladder models walk every rung from 256 tokens to 1024, RF3 to
 1088. One RF3 warm-up fold at 768 tokens stalled on the first run; the rerun walked every rung,
