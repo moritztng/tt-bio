@@ -320,7 +320,7 @@ def main():
              "rounds_requested": args.rounds, "footprint_probe": args.footprint,
              "timing_valid": not args.footprint,
              "trajectories_arg": args.trajectories,
-             "auto_would_choose": list(duotraj.auto_trajectories()),
+             "auto_would_choose": list(duotraj.auto_trajectories(tokens)),
              "max_trajectories": budget, "validation": args.validation, "seed": args.seed,
              "commit": subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"],
                                       capture_output=True, text=True).stdout.strip(),
