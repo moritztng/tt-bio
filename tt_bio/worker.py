@@ -521,7 +521,12 @@ def search_msas(path, chains, cfg, progress=None) -> None:
     cache lacks, batched into one call, into ``cfg["msa_dir"]``. Touches no device.
 
     The one unpaired MSA stage of every model but Boltz-2 (whose CSV cache is
-    :func:`tt_bio.main.search_boltz2_msas`) and OpenFold3 (whose resolver also relinks)."""
+    :func:`tt_bio.main.search_boltz2_msas`) and OpenFold3 (whose resolver also relinks).
+
+    Only the a3m counts as cached. Boltz-2's CSV for the same sequence hash is not what
+    Protenix, OpenDDE or RF3 read (``_resolve_a3m_path`` skips it), so counting it let a
+    Boltz-2 fold in the same msa_dir turn a later ``--use_msa_server`` fold of those models
+    into a silent single-sequence one: 6.07 A instead of 1.78 A for protenix-v1 on 7ROA."""
     from tt_bio.main import _generate_esmfold2_a3m
 
     if cfg.get("single_sequence") or not _msa_source(cfg):
@@ -529,8 +534,7 @@ def search_msas(path, chains, cfg, progress=None) -> None:
     msa_dir = Path(cfg["msa_dir"])
     need = {seq_hash(s): s for _c, s, spec, mt, _m in chains
             if mt == "protein" and not msa_pinned(spec)}
-    need = {h: s for h, s in need.items()
-            if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv")}
+    need = {h: s for h, s in need.items() if not cached(msa_dir / f"{h}.a3m")}
     if not need:
         return
     if progress:
