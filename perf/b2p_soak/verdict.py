@@ -86,6 +86,13 @@ def at(samples: list[dict], when: float, key: str):
     return min(usable, key=lambda r: abs(r["t"] - when))[key]
 
 
+def window_median(samples: list[dict], window: dict, key: str):
+    """The median of `key` over one trajectory's window, or None if nothing was sampled in it."""
+    inside = [row[key] for row in samples
+              if window["start"] <= row["t"] <= window["end"] and row.get(key) is not None]
+    return statistics.median(inside) if inside else None
+
+
 def verdict(samples: list[dict], windows: list[dict]) -> tuple[list[str], list[str]]:
     drift, read = [], []
     if not samples:
@@ -110,14 +117,26 @@ def verdict(samples: list[dict], windows: list[dict]) -> tuple[list[str], list[s
     else:
         read.append("fewer than 3 trajectory boundaries: no memory-per-trajectory verdict")
 
+    # Judged per trajectory, not first sample against last. The first sample is taken before the
+    # campaign exists -- the launcher hands over a `timeout` wrapper holding one thread and three
+    # handles -- and the minutes after that are compile workers, 30 processes and 358 handles on
+    # Blackhole, which then go away. Against the wrapper every healthy campaign "leaks" 2408x;
+    # against the compile peak a real leak hides. So: the median of the first trajectory's window
+    # against the median of the last one's, the same shape as the memory floors.
     for key, what in (("fds", "open file handles"), ("threads", "threads"),
                       ("maps", "mapped regions")):
-        start, end = first.get(key), last.get(key)
-        if not start or end is None:
+        if len(windows) < 2:
+            read.append(f"fewer than 2 trajectory boundaries: no {what} verdict")
             continue
-        read.append(f"{what} {start} -> {end}")
-        if end > start * HANDLE_GROWTH:
-            drift.append(f"{what} grew {start} -> {end} ({end / start:.2f}x) over the campaign")
+        early = window_median(samples, windows[0], key)
+        late = window_median(samples, windows[-1], key)
+        if not early or late is None:
+            continue
+        read.append(f"{what} {early:.0f} in trajectory 1 -> {late:.0f} in "
+                    f"trajectory {windows[-1]['n']}")
+        if late > early * HANDLE_GROWTH:
+            drift.append(f"{what} grew {early:.0f} -> {late:.0f} ({late / early:.2f}x) from the "
+                         f"first trajectory to the last")
 
     caches = {name for row in samples for name in (row.get("cache_bytes") or {})}
     for name in sorted(caches):

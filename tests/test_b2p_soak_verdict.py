@@ -100,6 +100,28 @@ def test_a_handle_leak_is_caught(tmp_path):
     assert any("open file handles grew" in line for line in drifted), drifted
 
 
+def test_the_startup_samples_are_not_the_baseline(tmp_path):
+    """**The trap this instrument fell into on the real series.**
+
+    Run against `long24` on dev Galaxy .108 it reported "threads grew 1 -> 2408 (2408.00x)",
+    "mapped regions 400.29x" and "handles 8.00x" on a campaign that was not leaking anything: the
+    first sample is taken before the campaign exists -- the launcher hands over a `timeout`
+    wrapper holding ONE thread and three handles -- and on Blackhole the minutes after that are
+    compile workers, 30 processes and 358 handles, which then go away. So the baseline is the
+    first trajectory's window, not the first sample, and an instrument that cries leak on every
+    healthy campaign would have been switched off before it ever caught one.
+    """
+    out = series(tmp_path, trajectories=6, fds=24, fds_per_trajectory=0)
+    samples = verdict.read_samples(out / "drift.jsonl")
+    wrapper = dict(samples[0], t=samples[0]["t"] - 120, fds=3, threads=1, maps=38, rss=1 << 20)
+    compiling = dict(samples[0], t=samples[0]["t"] - 60, fds=358, threads=261, maps=8135)
+    rounds = json.loads((out / "project" / "rounds.json").read_text())
+    drifted, read = verdict.verdict([wrapper, compiling] + samples,
+                                   verdict.trajectory_windows(rounds))
+    assert drifted == [], drifted
+    assert any("threads 2400 in trajectory 1 -> 2400 in trajectory 6" in line for line in read)
+
+
 def test_a_cache_that_will_fill_the_disk_is_caught(tmp_path):
     drifted, _read = run(series(tmp_path, cache_per_trajectory_gb=6.0, disk_free_gb=40.0))
     assert any("fills" in line or "holds only" in line for line in drifted), drifted
@@ -136,6 +158,13 @@ def test_too_short_a_series_says_so_rather_than_guessing(tmp_path):
     assert any("no slowdown verdict" in line for line in read)
 
 
+def test_one_trajectory_gives_no_handle_verdict(tmp_path):
+    """One window is a baseline with nothing to compare it to, which is not a clean bill."""
+    drifted, read = run(series(tmp_path, trajectories=1, rounds=10))
+    assert drifted == []
+    assert any("no open file handles verdict" in line for line in read)
+
+
 def test_a_missing_series_exits_two(tmp_path, monkeypatch):
     monkeypatch.setattr("sys.argv", ["verdict.py", str(tmp_path / "nothing")])
     assert verdict.main() == 2
@@ -162,3 +191,4 @@ def test_it_works_with_no_round_stamps_at_all(tmp_path):
     drifted, read = verdict.verdict(samples, [])
     assert drifted == []
     assert any("0 trajectories" in line for line in read)
+    assert any("no threads verdict" in line for line in read)
