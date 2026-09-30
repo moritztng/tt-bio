@@ -1,23 +1,21 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the landing tree.
-RECORDED-AT: 6119788d7424aa99d6f1ac533effc2e51fb0e3ae scripts/abb3_port/model_gate.py
+RECORDED-AT: 7fca0b1b2d4d9a177f78d9ffb57ecb02c01945c8 scripts/abb3_port/model_gate.py
 #
-# TREE: main f45a72a98 (the ABodyBuilder3 stack) with wk/of3t-p10batch merged, whose
-# tt_bio/autograd.py change (ag.matmul reduces a broadcast operand gradient) is in this import closure.
-# Replaces model_gate_qb1c1.txt, recorded at db857fe72 on qb1 card 1 (p150a): 22 files in this
-# script's import closure had changed since, so that record no longer described the code.
+# TREE: wk/rel010-train 7fca0b1b2, the v0.10.0 release code tree. Replaces the record taken at
+# 6119788d7, whose import closure had since changed in tt_bio/tenstorrent.py and tt_bio/autograd.py.
 #
 # Host qb2, card 3 (/dev/tenstorrent/3), Blackhole p300c. Commands, run in this order:
 #   for sigma in 0.05 0.3; do for tokens in 64 256; do
-#     TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=1,3 TT_BIO_LEASE_HOLDER=worker:land-of3t-train \
+#     TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=worker:rel010-train \
 #       PYTHONPATH=$PWD python3 scripts/abb3_port/model_gate.py --tokens $tokens --sigma $sigma
 #   done; done
 #
 # NO TIMING CLAIM. Every row is an accuracy comparison against a float64 reference. AICLK on card 3,
-# sampled every 2 s over this run and the step gate after it: 1350 MHz on 157 of 172 samples, 1343 on 7, 800 on 8.
+# sampled every 2 s over this run and the step gate after it: 1350 MHz on 203 of 218 samples, 1343 on 6, 800 on 9.
 #
-# WHAT MOVED since db857fe72, on a different host and board, and since the autograd change: nothing. All four arms print the same
-# digits as the qb1c1 record, line for line, including the known failure below.
+# WHAT MOVED since 6119788d7: nothing on the device. All four arms print the same digits as that record,
+# line for line, including the known failure below. Only the float32 torch-vs-torch control moved, at 1e-7.
 #
 # STILL FAILING, unchanged: the sigma 0.3 / 256-token stress arm, angles 5.11e-02 against its own
 # 5e-02 bar. Its weights are far wider than any trained checkpoint; the trained-scale arm, sigma
@@ -44,9 +42,9 @@ RECORDED-AT: 6119788d7424aa99d6f1ac533effc2e51fb0e3ae scripts/abb3_port/model_ga
   ok   d/d angle[7] linear_out.w  0.999993  4.14e-03  5.59e-03  (bars 0.999 / 5e-02)
   float32 control (torch vs torch, same weights)
        forward states              nan  2.18e-03
-       d/d single             1.000000  9.33e-07
-       d/d pair               1.000000  7.34e-07
-       d/d ipa[0] linear_q.w  1.000000  8.46e-07
+       d/d single             1.000000  9.34e-07
+       d/d pair               1.000000  7.33e-07
+       d/d ipa[0] linear_q.w  1.000000  8.77e-07
 
 PASS
 === sigma=0.05, 256 tokens, 8 blocks, batch 2 ===
@@ -72,7 +70,7 @@ PASS
        forward states              nan  1.30e-03
        d/d single             1.000000  1.68e-06
        d/d pair               1.000000  1.25e-06
-       d/d ipa[0] linear_q.w  1.000000  1.45e-06
+       d/d ipa[0] linear_q.w  1.000000  1.41e-06
 
 PASS
 === sigma=0.3, 64 tokens, 8 blocks, batch 2 ===
