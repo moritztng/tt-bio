@@ -1907,6 +1907,63 @@ def stop_conditions(settings: Mapping) -> str:
             f"the accepted count past {designs}, so it is a floor, not a quota.")
 
 
+STAGE_GATES = (
+    ("screen", "min_plddt_screen", "pLDDT"),
+    ("refine", "min_plddt_refine", "pLDDT"),
+    ("anneal", "min_plddt_anneal", "pLDDT"),
+    ("harden", "min_plddt_harden", "pLDDT"),
+    ("harden", "min_iptm_harden", "i_pTM"),
+    ("mutate", "min_plddt_mutate", "pLDDT"),
+    ("mutate", "min_iptm_mutate", "i_pTM"),
+)
+
+
+def stage_gates(settings: Mapping) -> str:
+    """The per-stage gates a trajectory can die on, which the campaign banner does not announce.
+
+    A campaign prints one `filters ...` line, the acceptance filters, and a researcher reads it as
+    the whole bar. It is not: a trajectory is also judged at the end of every design stage against
+    a second set of thresholds carried in the campaign settings as `min_plddt_<stage>` and
+    `min_iptm_<stage>`, and missing one ends the trajectory there. That is charged against
+    `max_trajectories` and shows up as a `terminated` count in `.campaign_state.json`.
+
+    Measured on the live Wormhole soak leg on 2026-09-30, 2 of the first 4 trajectories ended this
+    way, and what the run said was::
+
+        rejected at refine design stage  i_pTM=0.79    pLDDT=0.59   due to [pLDDT]
+
+    `pLDDT` appears in none of the seven filters the same run announced, so the reason names a bar
+    the reader cannot find, cannot see the value of (0.6 here -- a 0.01 miss), and cannot move
+    without knowing the setting behind it. This line names all three: stage, setting, threshold.
+    """
+    seen, parts = set(), []
+    for stage, key, metric in STAGE_GATES:
+        if key not in settings:
+            continue
+        try:
+            value = float(settings[key])
+        except (TypeError, ValueError):
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        parts.append(f"{stage} {metric} >= {value:g} ({key})")
+    if not parts:
+        return ""
+    return (f"[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, "
+            f"which the filters line above does not list: {', '.join(parts)}. A trajectory that "
+            f"misses one is charged against the budget and counted under `terminated`, and the "
+            f"rejection names the metric ({'/'.join(sorted({m for _, _, m in STAGE_GATES}))}), "
+            f"not the setting.")
+
+
+def print_stage_gates(settings: Mapping) -> str:
+    line = stage_gates(settings)
+    if line:
+        print(line, flush=True)
+    return line
+
+
 def print_stop_conditions(settings: Mapping) -> str:
     line = stop_conditions(settings)
     if line:
@@ -2166,6 +2223,7 @@ def _run_campaign(settings: Mapping, project_folder: str, *,
     bcinputs.refuse_unusable_inputs(settings)
     print_resumption(project_folder, settings.get("max_trajectories"))
     print_stop_conditions(settings)
+    print_stage_gates(settings)
 
     tokens = design_tokens(settings)
     if isinstance(trajectories_per_card, str):
