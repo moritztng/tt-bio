@@ -458,7 +458,18 @@ Size is counted in **tokens**: the residues of the fused complex BindCraft 2 bui
 to a multiple of 32. That is not your target length plus your binder length. The fusion adds 18
 to 28 residues, so a job sized off residue counts comes out one or two buckets low. A 387-residue
 target with a 146-residue binder is a 576-token job, not a 544-token one. The run prints the axis
-it is actually about to use; trust that over any count you compute yourself.
+it is actually about to use, and you can read the same number before you queue anything, without
+a card, in under a second:
+
+```python
+from bindcraft.settings import read_settings
+from tt_bio.bindcraft2 import design_tokens
+
+design_tokens(read_settings("examples/il2_receptor.json"))   # 544
+```
+
+On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrimer.json`, 448 for
+`pdl1_multidomain.json` and 544 for `il2_receptor.json`, so the last needs Blackhole.
 
 ### The supported range, both boards
 
