@@ -72,7 +72,12 @@ def census(project: pathlib.Path) -> dict:
         except ValueError:
             state = "unreadable"
     trajectory_rows = rows(table(project, "trajectories.csv", "!_Trajectories.csv") or project / "_")
-    accepted_rows = rows(table(project, "accepted.csv", "!_Accepted.csv") or project / "_")
+    # A campaign written since the stage folders exist keeps its accepted designs in the RANK
+    # stage table, `3_Ranked/!_Ranked.csv`, and only a project started before them has an
+    # `accepted.csv` at the root (`campaign_output.accepted_table`). Both names, or this reads no
+    # accepted designs at all on every folder a fresh campaign writes and the diff that has to
+    # catch a bad resume compares two empty lists and calls it clean.
+    accepted_rows = rows(table(project, "accepted.csv", "!_Ranked.csv") or project / "_")
     ranked_rows = rows(table(project, "!_Ranked.csv", "ranked.csv") or project / "_")
     files = [path for path in project.rglob("*") if path.is_file()]
     return {

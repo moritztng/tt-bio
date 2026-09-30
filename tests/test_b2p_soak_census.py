@@ -37,15 +37,28 @@ def write_table(path: pathlib.Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def campaign(tmp_path, trajectories: int, accepted: list[str], charged: int | None = None):
+#: Where the two layouts BindCraft 2 has written keep their tables. A project started before the
+#: stage folders existed has `trajectories.csv` and `accepted.csv` at its root; every campaign
+#: started since keeps them under the stage folders, and the accepted designs live in the RANK
+#: stage table rather than a file of their own (`campaign_output.stage_table`/`accepted_table`).
+#: The census is read against BOTH, because a fresh campaign -- the soak's own -- is the second.
+LAYOUTS = {
+    "legacy": ("trajectories.csv", "accepted.csv"),
+    "stages": ("1_Trajectories/!_Trajectories.csv", "3_Ranked/!_Ranked.csv"),
+}
+
+
+def campaign(tmp_path, trajectories: int, accepted: list[str], charged: int | None = None,
+             layout: str = "legacy"):
     """A project folder shaped like one BindCraft 2 writes."""
     project = tmp_path / "project"
     project.mkdir(parents=True, exist_ok=True)
-    write_table(project / "trajectories.csv",
+    trajectory_table, accepted_table = LAYOUTS[layout]
+    write_table(project / trajectory_table,
                 [{"design": f"design_{n}", "trajectory": str(n), "hash": f"hash{n}",
                   "terminated": ""} for n in range(1, trajectories + 1)])
     if accepted:
-        write_table(project / "accepted.csv",
+        write_table(project / accepted_table,
                     [{"design": name, "hash": f"hash{index + 1}"}
                      for index, name in enumerate(accepted)])
         rank = project / "3_Ranked"
@@ -157,3 +170,29 @@ def test_the_exit_code_is_the_verdict(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["census.py", str(project), "--against", str(before_path)])
     assert census.main() == 1
     assert "RESUME BROKE" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("layout", sorted(LAYOUTS))
+def test_both_layouts_bindcraft_has_written_are_read(tmp_path, layout):
+    """The tables a fresh campaign writes, not only the ones a fixture invented.
+
+    Measured on the live soak folder on dev Galaxy .108, 2026-09-30: `3_Ranked/!_Ranked.csv` is
+    where acceptances go ("rewritten as each design is accepted", says the campaign's own
+    header), and an earlier census that looked for `accepted.csv` and `!_Accepted.csv` found
+    neither. It reported `accepted 0` and would have compared two empty lists across the
+    interruption and printed RESUME CLEAN -- an instrument green about nothing.
+    """
+    project = campaign(tmp_path, trajectories=2, accepted=["design_1_seq0"], layout=layout)
+    taken = census.census(project)
+    assert [row["trajectory"] for row in taken["trajectories"]] == ["1", "2"]
+    assert [design["design"] for design in taken["accepted"]] == ["design_1_seq0"]
+    assert taken["accepted"][0]["structures"], "the structure written for an accepted design"
+
+
+@pytest.mark.parametrize("layout", sorted(LAYOUTS))
+def test_a_rewritten_structure_is_caught_in_either_layout(tmp_path, layout):
+    project = campaign(tmp_path, trajectories=2, accepted=["design_1_seq0"], layout=layout)
+    before = census.census(project)
+    (project / "3_Ranked" / "design_1_seq0.cif").write_text("a different structure\n")
+    broken, _moved = census.compare(before, census.census(project))
+    assert any("was rewritten" in line for line in broken)
