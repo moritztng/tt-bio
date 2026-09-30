@@ -97,7 +97,7 @@ def test_breathing_inside_the_budget_is_not_a_leak(tmp_path):
 
 def test_a_handle_leak_is_caught(tmp_path):
     drifted, _read = run(series(tmp_path, fds=24, fds_per_trajectory=6))
-    assert any("open file handles grew" in line for line in drifted), drifted
+    assert any("open file handles is still growing" in line for line in drifted), drifted
 
 
 def test_the_startup_samples_are_not_the_baseline(tmp_path):
@@ -292,3 +292,104 @@ def test_too_few_trajectories_is_not_yet_judged_rather_than_clean(tmp_path, monk
     assert verdict.main() == 3
     said = capsys.readouterr().out
     assert "NOT YET JUDGED" in said and "DRIFT CLEAN" not in said
+
+
+def staircase(tmp_path, *, steps, per_step=3000, base=13300, trajectories=9, still=False):
+    """A campaign whose mapped-region count climbs in steps, as a stage's kernels load once.
+
+    `steps` steps in the first part of the campaign and then a plateau, which is the real bh24
+    shape: 13.3k, 19.3k, 22.1k, 25.7k over the first nine trajectories and flat for the eight
+    after. With `still=True` the last third keeps climbing, which is the leak.
+    """
+    project = tmp_path / "project"
+    (project / "1_Trajectories").mkdir(parents=True)
+    t0, per = 1_790_000_000.0, 1200.0
+    names = [f"d{k}" for k in range(trajectories)]
+    import os
+    for k, name in enumerate(names):
+        folder = project / "1_Trajectories" / name
+        folder.mkdir()
+        stamp = folder / "Trajectory.pdb"
+        stamp.write_text("x")
+        os.utime(stamp, ((t0 + per * (k + 1)),) * 2)
+    with open(project / "1_Trajectories" / "!_Trajectories.csv", "w") as f:
+        f.write("trajectory,design\n" + "".join(f"{i + 1},{n}\n" for i, n in enumerate(names)))
+    rounds, samples = [], []
+    total = per * (trajectories + 1)
+    for i in range(0, int(total), 30):
+        t = t0 + i
+        done = sum(1 for k in range(trajectories) if t >= t0 + per * (k + 1))
+        climbed = min(done, steps) + (max(done - steps, 0) if still else 0)
+        samples.append({"t": t, "alive": True, "rss": int(19.0 * GB), "fds": 25, "threads": 714,
+                        "maps": base + per_step * climbed, "cache_bytes": {},
+                        "disk_free": int(300 * GB)})
+    for i in range(0, int(total), 6):
+        rounds.append({"t": t0 + i, "slot": "t1", "round": i // 6 + 1})
+    (project / "rounds.json").write_text(json.dumps(rounds))
+    (tmp_path / "drift.jsonl").write_text("".join(json.dumps(r) + "\n" for r in samples))
+    return tmp_path
+
+
+def test_a_saturating_map_staircase_is_warmup_not_a_leak(tmp_path):
+    """bh24's own shape: 13.3k -> 25.7k in three steps, then flat for eight trajectories.
+
+    First-against-last reads 1.93x and calls a warmed-up campaign leaky. The steps are the refold,
+    MPNN and validation stages loading their kernels once each, and the count then holds.
+    """
+    drift, read = run_real(staircase(tmp_path, steps=3))
+    assert not any("mapped regions" in d for d in drift), drift
+    assert any("mapped regions settled" in line for line in read), read
+    assert any("vm.max_map_count" in line for line in read), read
+
+
+def test_mapped_regions_still_climbing_at_the_end_are_a_leak(tmp_path):
+    drift, _read = run_real(staircase(tmp_path, steps=3, still=True))
+    assert any("mapped regions is still growing" in d for d in drift), drift
+    assert any("reaches the limit in" in d for d in drift), drift
+
+
+def test_the_map_limit_is_projected_from_the_late_rate_not_the_staircase(tmp_path):
+    """The projection has to use the rate the series still climbs at, not its warmup average."""
+    line = verdict.map_limit_line(25700, 1400, path="/proc/sys/vm/max_map_count")
+    limit = verdict.map_limit()
+    if limit:
+        assert f"{(limit - 25700) / 1400:.0f} more trajectories" in line
+    else:
+        assert "publishes no vm.max_map_count" in line
+
+
+def test_a_host_without_a_map_limit_says_so_rather_than_dividing(tmp_path):
+    line = verdict.map_limit_line(25700, 1400, path=str(tmp_path / "not-here"))
+    assert "publishes no vm.max_map_count" in line
+
+
+def test_a_resumed_leg_that_rewrote_rounds_json_still_cuts_its_windows(tmp_path):
+    """The box-lost drill's own shape, and it cost the Wormhole leg its memory verdict.
+
+    A resumed campaign is handed the same project folder and the harness rewrote `rounds.json`
+    from empty, so every round stamp was NEWER than all ten trajectory completions. The leading
+    edge sat after the last boundary, not one window was cut, and a 4.21 h series with ten
+    finished trajectories printed "0 trajectories" and no memory verdict at all.
+    """
+    out = staircase(tmp_path, steps=3)
+    samples = verdict.read_samples(out / "drift.jsonl")
+    boundaries = verdict.completion_times(out / "project")
+    resumed = [{"t": samples[-1]["t"] + 60 + i * 6, "slot": "t1", "round": i + 1}
+               for i in range(50)]
+    assert verdict.boundary_windows(boundaries, resumed) == []          # the defect
+    windows = verdict.boundary_windows(boundaries, resumed, samples)
+    assert len(windows) >= 3
+    _drift, read = verdict.verdict(samples, windows)
+    assert not any("no memory-per-trajectory verdict" in line for line in read), read
+    assert any("rss at trajectory boundaries" in line for line in read), read
+
+
+def test_a_window_with_no_round_stamps_carries_no_pace_rather_than_vanishing(tmp_path, capsys,
+                                                                            monkeypatch):
+    out = staircase(tmp_path, steps=3)
+    (out / "project" / "rounds.json").write_text(json.dumps([]))
+    monkeypatch.setattr("sys.argv", ["verdict.py", str(out)])
+    verdict.main()
+    printed = capsys.readouterr().out
+    assert "pace not recorded" in printed
+    assert "0 trajectories" not in printed

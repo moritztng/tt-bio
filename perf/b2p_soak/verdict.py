@@ -35,6 +35,18 @@ GB = 1 << 30
 MEMORY_PER_TRAJECTORY_GB = 0.5
 #: Handles and threads are allowed to settle, not to grow with the work.
 HANDLE_GROWTH = 1.25
+#: ... and settling can take several trajectories. Mapped regions on Blackhole climb in three
+#: steps -- 13.3k, then 19.3k, 22.1k, 25.7k as the refold, MPNN and validation stages each load
+#: their kernels once -- and then hold 25.7k for the next eight trajectories. First-against-last
+#: reads that saturating staircase as 1.93x growth and calls a warmed-up campaign leaky, which is
+#: the same mistake the RSS slope made. So growth is judged on the LAST THIRD of the windows: a
+#: staircase that has stopped climbing is warmup, one still climbing there is a leak.
+HANDLE_SETTLED = 1.05
+#: A campaign that keeps mapping regions dies when the kernel's per-process limit is reached, not
+#: when memory runs out: `mmap` returns ENOMEM at `vm.max_map_count` with gigabytes still free.
+MAP_LIMIT_PATH = "/proc/sys/vm/max_map_count"
+#: Trajectories a still-climbing series has to survive before the limit stops being a soak risk.
+MAP_HEADROOM_TRAJECTORIES = 200
 #: A late trajectory this much slower than the median is a slowdown, not noise.
 SLOWDOWN = 1.15
 #: Trajectories finishing closer together than this are one event, not independent boundaries.
@@ -116,16 +128,28 @@ def completion_times(project: pathlib.Path) -> list[float]:
     return sorted(out)
 
 
-def boundary_windows(boundaries: list[float], rounds: list[dict]) -> list[dict]:
+def boundary_windows(boundaries: list[float], rounds: list[dict],
+                     samples: list[dict] | None = None) -> list[dict]:
     """One window per finished trajectory, cut at the campaign's own completion times.
 
     With N arms in flight a window is the stretch between two completions, not one trajectory's
     life, so its pace is the AMORTISED round: the window's duration over every arm's rounds in it.
+
+    The windows are cut against whichever series starts EARLIER, the round stamps or the drift
+    samples, because the round stamps can be younger than the campaign. A resumed campaign shares
+    its project folder, and the harness rewrites `rounds.json` from an empty list, so after the
+    box-lost drill restarted `long24` every stamp was newer than all ten trajectory completions:
+    the leading edge sat after the last boundary, no window was cut, and a 4.21 h drift series
+    with ten finished trajectories reported "0 trajectories" and no memory verdict at all. The
+    samples were intact the whole time. Memory and handles are read off the samples anyway; only
+    the pace needs round stamps, so a window without them carries `rounds: 0` and no pace rather
+    than deleting the window.
     """
     stamps = sorted(r["t"] for r in rounds)
-    if not boundaries or not stamps:
+    starts = [series[0] for series in (stamps, sorted(r["t"] for r in samples or [])) if series]
+    if not boundaries or not starts:
         return []
-    edges = [stamps[0]]
+    edges = [min(starts)]
     for when in sorted(boundaries):
         if when - edges[-1] < MIN_WINDOW_S and len(edges) > 1:
             edges[-1] = when          # the same event as the last boundary: move it, do not add
@@ -152,6 +176,27 @@ def window_median(samples: list[dict], window: dict, key: str):
     inside = [row[key] for row in samples
               if window["start"] <= row["t"] <= window["end"] and row.get(key) is not None]
     return statistics.median(inside) if inside else None
+
+
+def map_limit(path: str = MAP_LIMIT_PATH) -> int | None:
+    """The kernel's per-process mapping limit, or None on a host that does not publish one."""
+    try:
+        return int(pathlib.Path(path).read_text().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def map_limit_line(mapped: float, per_trajectory: float, path: str = MAP_LIMIT_PATH) -> str:
+    """Where a mapping count sits against the limit that makes `mmap` fail with memory to spare."""
+    limit = map_limit(path)
+    if not limit:
+        return f"{mapped:.0f} mapped regions; this host publishes no vm.max_map_count"
+    share = f"{mapped:.0f} mapped regions is {mapped / limit:.0%} of vm.max_map_count {limit}"
+    if per_trajectory <= 0:
+        return f"{share}, and not climbing"
+    room = (limit - mapped) / per_trajectory
+    return (f"{share}, and at {per_trajectory:+.0f} per trajectory it reaches the limit in "
+            f"{room:.0f} more trajectories, where mmap fails with host memory still free")
 
 
 def verdict(samples: list[dict], windows: list[dict]) -> tuple[list[str], list[str]]:
@@ -189,15 +234,31 @@ def verdict(samples: list[dict], windows: list[dict]) -> tuple[list[str], list[s
         if len(windows) < 2:
             read.append(f"fewer than 2 trajectory boundaries: no {what} verdict")
             continue
-        early = window_median(samples, windows[0], key)
-        late = window_median(samples, windows[-1], key)
-        if not early or late is None:
+        series = [(w["n"], window_median(samples, w, key)) for w in windows]
+        series = [(n, value) for n, value in series if value is not None]
+        if len(series) < 2 or not series[0][1]:
             continue
+        early, late = series[0][1], series[-1][1]
         read.append(f"{what} {early:.0f} in trajectory 1 -> {late:.0f} in "
-                    f"trajectory {windows[-1]['n']}")
-        if late > early * HANDLE_GROWTH:
-            drift.append(f"{what} grew {early:.0f} -> {late:.0f} ({late / early:.2f}x) from the "
-                         f"first trajectory to the last")
+                    f"trajectory {series[-1][0]}")
+        # The last third against its own start: a staircase that stopped climbing is warmup.
+        tail = series[-max(2, len(series) // 3):]
+        still = tail[-1][1] > tail[0][1] * HANDLE_SETTLED
+        if late > early * HANDLE_GROWTH and not still:
+            read.append(f"  {what} settled: {tail[0][1]:.0f} in trajectory {tail[0][0]} -> "
+                        f"{tail[-1][1]:.0f} in {tail[-1][0]}, so the {late / early:.2f}x is "
+                        f"warmup rather than growth")
+        elif still:
+            per = (tail[-1][1] - tail[0][1]) / max(tail[-1][0] - tail[0][0], 1)
+            drift.append(f"{what} is still growing at trajectory {tail[-1][0]}: {tail[0][1]:.0f} "
+                         f"-> {tail[-1][1]:.0f} over the last {len(tail)} windows, {per:+.0f} per "
+                         f"trajectory, after {early:.0f} in the first")
+            if key == "maps":
+                drift.append(map_limit_line(late, per))
+        if key == "maps" and not still:
+            # Printed whether or not the count grew: a campaign already near the limit is a soak
+            # risk even if this run's series is flat.
+            read.append(f"  {map_limit_line(late, 0.0)}")
 
     caches = {name for row in samples for name in (row.get("cache_bytes") or {})}
     for name in sorted(caches):
@@ -261,7 +322,7 @@ def main() -> int:
             rounds = []
     boundaries = completion_times(rounds_path.parent)
     if boundaries:
-        windows = boundary_windows(boundaries, rounds)
+        windows = boundary_windows(boundaries, rounds, samples)
         source = f"{len(boundaries)} finished trajectories, from the campaign's trajectory table"
     else:
         windows = trajectory_windows(rounds)
@@ -271,7 +332,8 @@ def main() -> int:
     for line in read:
         print(f"  {line}")
     for window in windows:
-        pace = f"{window['s_per_round']:.2f} s/round" if window["s_per_round"] else "one round"
+        pace = (f"{window['s_per_round']:.2f} s/round" if window["s_per_round"]
+                else "one round" if window["rounds"] else "pace not recorded")
         print(f"  trajectory {window['n']} ({window['slot']}): {window['rounds']} rounds, {pace}")
     for line in drifted:
         print(f"DRIFT: {line}")

@@ -53,11 +53,25 @@ class Rounds:
 
     def __init__(self, path):
         self.path, self.lock, self.rows = path, threading.Lock(), []
+        # A resumed campaign is given the SAME project folder, so it is handed the previous leg's
+        # file. Starting from an empty list and rewriting it throws that leg's series away: the
+        # box-lost drill restarted `long24` in place and every stamp from its first 4.2 hours and
+        # 12 trajectories was gone, which left the drift verdict with no window it could cut. The
+        # rows carry their own `t`, so reading them back extends one series across the restart.
+        try:
+            self.rows = [r for r in json.loads(pathlib.Path(path).read_text()) if "t" in r]
+        except (OSError, ValueError, TypeError):
+            self.rows = []
+        # `round` restarts at 1 for every trajectory a slot runs, and that restart is the only
+        # boundary the round series itself carries, so it counts THIS leg's rounds. Continuing the
+        # inherited count would hide the resumed leg's first boundary.
+        self.inherited = len(self.rows)
 
     def mark(self, slot):
         with self.lock:
+            mine = self.rows[self.inherited:]
             self.rows.append({"t": time.time(), "slot": slot,
-                              "round": sum(1 for r in self.rows if r["slot"] == slot) + 1,
+                              "round": sum(1 for r in mine if r["slot"] == slot) + 1,
                               "load1": round(os.getloadavg()[0], 2), **host_memory()})
             if len(self.rows) % 5 == 0:
                 self.dump()
