@@ -1,0 +1,27 @@
+DESIGN_STAMP {"tt_bio_from": "/home/ttuser/b2pship_venv312/lib/python3.12/site-packages/tt_bio/__init__.py", "python": "3.12.13", "card": "2", "binder": 60, "design_tokens": 192, "auto_would_choose": [3, "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 480.8 GB of host memory free"], "out": "/home/ttuser/b2pship_design", "started_utc": "2026-09-30T21:54:47Z"}
+2026-09-30 21:54:47.791 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+/home/ttuser/b2pship_venv312/lib/python3.12/site-packages/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+DESIGN_CARD_OPEN {"card": "2", "at": "2026-09-30T21:54:49Z"}
+[tt_bio.bindcraft2] 3 design trajectories on this card: 3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 480.5 GB of host memory free. Pass trajectories_per_card to choose yourself; 1 is BindCraft 2's own loop.
+BindCraft 2 v1.0.1
+campaign pdl1
+binder length 60
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/b2pship_design | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+trajectory-only: no ProteinMPNN redesign, no design will be accepted; stopping at max_trajectories=1
+
+=== trajectory 1 | pdl1_denovo_l60_62c1983a745380f5 | accepted 0/10 ===
+[tt_bio.bindcraft2] the fused triangle attention declined all 96 calls at 192 tokens: its circular buffers do not fit L1 at this token axis, so the composed path is running and holding the [192,4,192,192] fp32 scores -- 113.2 MB of device memory this fold would not otherwise need, and a slower round with it. Whether the arm fits is a property of the token axis and is NOT monotone in it, so a neighbouring binder length is often much cheaper: try one 32-token bucket UP as well as one down.
+trajectory-only: no ProteinMPNN redesign, no design will be accepted; stopping at max_trajectories=1
+trajectory-only: no ProteinMPNN redesign, no design will be accepted; stopping at max_trajectories=1
+  rejected at screen design stage  i_pTM=0.77    pLDDT=0.53   due to [pLDDT]
+
+campaign stopped: 1 trajectories ran and none were accepted, so the settings rather than the budget are what to change
+
+campaign done: 0 accepted design(s) after 1 trajectory, ranked by i_pDAE
+DESIGN_RESULT {"trajectories": 1, "wall_seconds": 456.9, "finished_utc": "2026-09-30T22:02:24Z"}
+DESIGN_RC=0 2026-09-30T22:02:27Z
