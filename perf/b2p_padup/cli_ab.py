@@ -34,7 +34,7 @@ def main():
         leg_dir.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, TT_BIO_TRIATT_HIFI_PAD_UP={"off": "0", "on": "2"}[arm],
                    B2P_PADUP_DUMP=str(leg_dir / "stats.json"),
-                   PYTHONPATH=f"{Path(__file__).parent / "site"}:{ROOT}")
+                   PYTHONPATH=f"{Path(__file__).parent / 'site'}:{ROOT}")
         cmd = [sys.executable, "-m", "tt_bio.main", "predict", a.yaml, "--model", a.model,
                "--out_dir", str(leg_dir), "--seed", str(a.seed), "--override", *rest]
         t0 = time.perf_counter()
@@ -56,8 +56,8 @@ def main():
                "digest": h.hexdigest(), "dump": stats}
         res["legs"].append(leg)
         a.out.write_text(json.dumps(res, indent=1))
-        print(f"leg {i} {arm} rc={rc} {wall:.1f}s {leg[digest][:12]} {leg[clock_line]} "
-              f"stats={stats and stats.get(stats)}", flush=True)
+        print(f"leg {i} {arm} rc={rc} {wall:.1f}s {leg['digest'][:12]} {leg['clock_line']} "
+              f"stats={stats and stats.get('stats')}", flush=True)
 
 
 if __name__ == "__main__":
