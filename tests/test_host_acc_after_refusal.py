@@ -145,6 +145,9 @@ def test_a_pairformer_block_is_the_same_with_either_join(monkeypatch):
     monkeypatch.setattr(T, "SEQ_LEN_MORE_CHUNKING", 64)
     monkeypatch.setattr(T, "_CONCAT_HOST_BYTES", 0)
     monkeypatch.setattr(T, "_TRIMUL_DRAM_SHAPES", {L})      # trimul's large (chunk-joined) path
+    # Past the host-join size the triangle attentions and the transition write each block back
+    # into z in place by default and join nothing. This test is about the joins, so it asks for them.
+    monkeypatch.setattr(T, "_PAIR_INPLACE", False)
     ck = ttnn.init_device_compute_kernel_config(
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
     layer = T.PairformerLayer(sd["tri_att_start.mha.linear_q.weight"].shape[0] // heads, heads,
