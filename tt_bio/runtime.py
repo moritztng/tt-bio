@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import glob
 import os
+import subprocess
 import re
 import socket
 from dataclasses import dataclass
@@ -319,7 +320,138 @@ def visible_device_indices(visible: str) -> list[int]:
                     "e.g. TT_VISIBLE_DEVICES=0."
                 )
             indices.append(match)
+    # The index form was the one token that was never checked: a BDF that matches no card has
+    # raised above since issue #11, but an integer went straight through to ttnn, which answers
+    # at device open with a UMD TT_THROW and a C++ backtrace ("Invalid device ID in
+    # TT_VISIBLE_DEVICES: 99"). The chip number is in there, but a backtrace is not a refusal,
+    # and on a 32-chip Galaxy a mistyped pin is the easiest mistake to make. Worse, the predict
+    # path did not even get that far: detect_tenstorrent_devices() intersects the present cards
+    # with this list, so an absent index silently left ZERO devices and the run looked like a
+    # host with no cards. Checked against the same sysfs map the BDF form resolves through, so
+    # both forms refuse on one piece of evidence; on a host with no cards that map is empty and
+    # an index is not checked at all, so a card-free run carrying TT_VISIBLE_DEVICES=0 -- every
+    # CPU fold in CI -- is untouched.
+    chips = len(by_bdf) if bdfs else len(tt_bdf_to_index())
+    absent = [index for index in indices if not 0 <= index < chips] if chips else []
+    if absent:
+        raise ValueError(
+            f"TT_VISIBLE_DEVICES names chip(s) {absent}, which this host does not have: it has "
+            f"{chips} Tenstorrent chip(s), numbered 0 to {chips - 1}. Pin to one of those, or "
+            "unset TT_VISIBLE_DEVICES to use every chip on the host."
+        )
     return indices
+
+
+def local_addresses() -> set[str]:
+    """This host's IPv4 addresses, from ``hostname -I``; empty if that cannot be read."""
+    try:
+        out = subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return set(out.split())
+
+
+def quarantine_path() -> str:
+    return os.path.expanduser(os.environ.get("TT_BIO_QUARANTINE", "~/japanfold/QUARANTINE"))
+
+
+def quarantined_chips(path: str | None = None, addresses: set[str] | None = None) -> dict[int, str]:
+    """UMD index -> reason, for each chip on this host the operators' quarantine list names.
+
+    The list is the one the JapanFold box agent already honours
+    (``<ip> <UMD id> <PCI bdf> <reason>`` per line, ``~/japanfold/QUARANTINE``): chips that flip
+    DRAM bits or fold off the majority. The agent keeps them out of its own pool, but nothing kept
+    them out of anything else -- measured on `.107` on 2026-09-30, UMD 22 ("flipped bit 13 on
+    5/256 DRAM reads") had a lease note naming a holder whose pid was dead and no flock on it, so
+    a campaign pinned there with ``TT_VISIBLE_DEVICES=22`` would have opened it without a word
+    and designed on a chip that corrupts reads. A wrong design is worse than a refused one.
+
+    Matched on this host's address AND the chip's BDF, and the BDF is resolved to the UMD index
+    through sysfs rather than trusting the listed id: a BDF like ``0000:c1:00.0`` exists on every
+    Galaxy, so a line for another box must never quarantine this one's chip. No list, no
+    readable address, or no Tenstorrent sysfs entries: nothing is quarantined.
+    """
+    path = path or quarantine_path()
+    try:
+        with open(path) as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return {}
+    addresses = local_addresses() if addresses is None else addresses
+    if not addresses:
+        return {}
+    by_bdf = tt_bdf_to_index()
+    out: dict[int, str] = {}
+    for line in lines:
+        fields = line.split(None, 3)
+        if len(fields) < 3 or line.lstrip().startswith("#") or fields[0] not in addresses:
+            continue
+        index = by_bdf.get(fields[2].lower())
+        if index is not None:
+            out[index] = fields[3].strip() if len(fields) > 3 else "no reason given"
+    return out
+
+
+def refuse_quarantined_chips(indices, path: str | None = None) -> None:
+    """Refuse a chip the operators quarantined, unless TT_BIO_ALLOW_QUARANTINED=1 says it is meant."""
+    if os.environ.get("TT_BIO_ALLOW_QUARANTINED") == "1":
+        return
+    bad = quarantined_chips(path)
+    hit = [index for index in indices if index in bad]
+    if not hit:
+        return
+    named = "; ".join(f"chip {index}: {bad[index]}" for index in hit)
+    raise RuntimeError(
+        f"Tenstorrent chip(s) {hit} on this host are quarantined by its operators ({named}), per "
+        f"{path or quarantine_path()}. Results on a quarantined chip can be silently wrong, so "
+        f"this run is refused rather than started. Pin to another chip; to test the chip itself "
+        f"on purpose, set TT_BIO_ALLOW_QUARANTINED=1."
+    )
+
+
+def missing_device_nodes(indices) -> list[tuple[int, int]]:
+    """UMD indices whose chip is listed in sysfs but has no ``/dev/tenstorrent`` node.
+
+    A chip can enumerate and still be unusable, and this is the shape a wedged or
+    half-attached card takes: the tenstorrent sysfs class still lists it, so every
+    index check passes, while the character device the driver should have created is
+    gone. Reproduced on `.108` on 2026-09-30 by mounting a tmpfs over
+    ``/dev/tenstorrent`` inside a private mount namespace -- the same view a box has
+    after a driver reload that half-probed, or when the nodes are there but this chip's
+    is not -- and what a user got was a UMD throw 2.0 s in::
+
+        RuntimeError: TT_THROW @ .../umd/device/pcie/pci_device.cpp:313: tt::exception
+        info: Invalid device ID in TT_VISIBLE_DEVICES: 0.  Valid device identifiers are
+        either integers or part of the BDF string. Valid integer IDs are between 0 and
+        18446744073709551615.
+
+    which blames the one thing that was right. ``TT_VISIBLE_DEVICES=0`` is a valid pin
+    on a host with chips; the chip is what is missing, the range it offers is
+    ``0..UINT64_MAX``, and there is no sentence telling anyone what to look at.
+
+    Existence only, deliberately: a node held by another tenant is not a fault and must
+    not be refused here, so this never opens anything. Empty list on a host with no
+    Tenstorrent sysfs entries at all, which is every CPU run.
+    """
+    nodes = umd_index_to_dev_node()
+    if not nodes:
+        return []
+    return [(index, nodes[index]) for index in indices
+            if index in nodes and not os.path.exists(f"/dev/tenstorrent/{nodes[index]}")]
+
+
+def refuse_missing_device_nodes(indices) -> None:
+    """Refuse, in a sentence, before UMD throws a backtrace about the wrong thing."""
+    missing = missing_device_nodes(indices)
+    if not missing:
+        return
+    named = ", ".join(f"chip {index} (/dev/tenstorrent/{node})" for index, node in missing)
+    raise RuntimeError(
+        f"Tenstorrent {named} is listed by the driver's sysfs class but its device node does not "
+        f"exist, so it cannot be opened: the chip is missing, not your TT_VISIBLE_DEVICES. Check "
+        f"`ls /dev/tenstorrent`, `tt-smi -ls` and `dmesg | grep -i tenstorrent` on this host, and "
+        f"reload the driver or reset that chip before pinning to it."
+    )
 
 
 def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_workers: int) -> list[int]:

@@ -33,6 +33,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import functools
+import json
 import os
 import pathlib
 import re
@@ -1688,6 +1689,7 @@ def design_model_class():
             # One gradient round of one trajectory, on that trajectory's own thread. It is the
             # only point in the design loop that is both, which is what `run_campaign` starts
             # the next interleaved trajectory on. A no-op unless trajectories are interleaved.
+            _note_progress()
             duotraj.round_entered()
             if self.trunk == "jax":
                 with self._route(None):
@@ -1953,6 +1955,180 @@ def campaign_predictor(*, validation: str = "jax",
             campaign.AlphaFoldDesignModel = real
 
 
+def stop_conditions(settings: Mapping) -> str:
+    """How this campaign will end, in one line, before a card is opened.
+
+    A campaign has two stop conditions and a researcher sets both: `number_of_final_designs`, the
+    designs they want, and `max_trajectories`, what they will spend getting them. Whichever comes
+    first ends it. Two of the ways of writing that are not what they look like, measured against
+    the real accounting on 2026-09-30:
+
+    * `max_trajectories=0` is **unbounded**, not "none" -- the same as leaving it out. Set to 0 by
+      someone who meant "do not design", with designs still requested, it runs until enough
+      designs are accepted, which on a hard target can be never, holding a leased chip the whole
+      time. A soak is exactly where that gets discovered at 3 a.m.
+    * a negative budget designs nothing at all and produces an empty folder, which reads like a
+      crash rather than a setting.
+
+    The count is also a floor rather than a quota: the stop condition is read when a trajectory is
+    claimed, so interleaved arms already in flight can push the accepted total past the request.
+    """
+    budget = settings.get("max_trajectories")
+    designs = settings.get("number_of_final_designs")
+    if settings.get("trajectory_only"):
+        return ""          # upstream already says a trajectory-only run accepts nothing
+    try:
+        budget = None if budget is None else int(budget)
+        designs = None if designs is None else int(designs)
+    except (TypeError, ValueError):
+        return ""          # a malformed setting is preflight's to refuse, not this line's
+    if budget is not None and budget < 0:
+        return (f"[tt_bio.bindcraft2] max_trajectories={budget} designs NOTHING: no trajectory is "
+                f"started and the campaign folder stays empty, which reads like a crash. Set it to "
+                f"the number of trajectories you are willing to spend.")
+    if designs is not None and designs <= 0:
+        return (f"[tt_bio.bindcraft2] number_of_final_designs={designs} accepts NOTHING: the "
+                f"campaign stops at its first claim. Set it to the number of designs you want.")
+    if not budget:
+        return (f"[tt_bio.bindcraft2] no trajectory budget "
+                f"(max_trajectories={budget!r} means unbounded, not zero): this campaign runs "
+                f"until {designs if designs is not None else 'the requested number of'} designs "
+                f"pass the filters, however long that takes, and holds this chip until it does. "
+                f"Set max_trajectories to bound the spend.")
+    if designs is None:
+        return (f"[tt_bio.bindcraft2] stops after {budget} trajectories.")
+    return (f"[tt_bio.bindcraft2] stops at whichever comes first: {designs} accepted design"
+            f"{'' if designs == 1 else 's'}, or {budget} trajector"
+            f"{'y' if budget == 1 else 'ies'} spent. Interleaved arms already running can carry "
+            f"the accepted count past {designs}, so it is a floor, not a quota.")
+
+
+GATE_METRICS = (("min_monomer_plddt_", "monomer pLDDT"), ("min_plddt_", "pLDDT"),
+                ("min_iptm_", "i_pTM"))
+STAGE_ORDER = ("screen", "refine", "anneal", "harden", "mutate", "final")
+
+
+def stage_gates(settings: Mapping) -> str:
+    """The per-stage gates a trajectory can die on, which the campaign banner does not announce.
+
+    A campaign prints one `filters ...` line, the acceptance filters, and a researcher reads it as
+    the whole bar. It is not: a trajectory is also judged at the end of every design stage against
+    a second set of thresholds carried in the campaign settings as `min_plddt_<stage>`,
+    `min_iptm_<stage>` and `min_monomer_plddt_<stage>`, and missing one ends the trajectory there.
+    That is charged against `max_trajectories` and shows up as a `terminated` count in
+    `.campaign_state.json`.
+
+    Measured on the live Wormhole soak leg on 2026-09-30, 2 of the first 4 trajectories ended this
+    way, and what the run said was::
+
+        rejected at refine design stage  i_pTM=0.79    pLDDT=0.59   due to [pLDDT]
+
+    `pLDDT` appears in none of the seven filters the same run announced, so the reason names a bar
+    the reader cannot find, cannot see the value of (0.6 here -- a 0.01 miss), and cannot move
+    without knowing the setting behind it. This line names all three: stage, setting, threshold.
+
+    The gates are read out of the settings by prefix rather than from a list kept here, because a
+    list kept here goes stale silently: the first version of this named seven gates while the
+    resolved pdl1 settings carried eleven, so it would have told a researcher that
+    `min_iptm_final` and `min_iptm_anneal` -- both of which do end trajectories -- did not exist.
+    """
+    found = {}
+    for key, value in settings.items():
+        for prefix, metric in GATE_METRICS:
+            if not isinstance(key, str) or not key.startswith(prefix):
+                continue
+            try:
+                found[key] = (key[len(prefix):], metric, float(value))
+            except (TypeError, ValueError):
+                pass       # a malformed threshold is preflight's to refuse, not this line's
+            break
+    if not found:
+        return ""
+
+    def order(item):
+        stage, metric, _ = item[1]
+        rank = STAGE_ORDER.index(stage) if stage in STAGE_ORDER else len(STAGE_ORDER)
+        return (rank, stage, metric)
+
+    parts = [f"{stage} {metric} >= {value:g} ({key})"
+             for key, (stage, metric, value) in sorted(found.items(), key=order)]
+    metrics = sorted({metric for _, metric, _ in found.values()})
+    return (f"[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, "
+            f"which the campaign's own `filters` line does not list: {', '.join(parts)}. A "
+            f"trajectory that misses one is charged against the budget and counted under "
+            f"`terminated`, and the rejection names the metric ({'/'.join(metrics)}), not the "
+            f"setting.")
+
+
+def print_stage_gates(settings: Mapping) -> str:
+    line = stage_gates(settings)
+    if line:
+        print(line, flush=True)
+    return line
+
+
+def print_stop_conditions(settings: Mapping) -> str:
+    line = stop_conditions(settings)
+    if line:
+        print(line, flush=True)
+    return line
+
+
+def print_resumption(project_folder: str, max_trajectories=None) -> str:
+    """Say what a resumed campaign inherited, before it claims anything.
+
+    A design campaign runs for hours and gets interrupted, and BindCraft 2 carries on into the
+    same folder when `resume: true` is set. What it carries on from is not obvious, because the
+    budget is spent when a trajectory is CLAIMED and its row is written only when it finishes:
+    a campaign killed mid-trajectory has paid for work it has no row for, so it resumes one
+    number further along than its own table, does not retry that recipe, and delivers one
+    trajectory fewer than was asked for. And that memory lives in `.campaign_state.json`; delete
+    that file and the counts are recovered from the tables instead, which cannot see the
+    interrupted claim, so the same trajectory number is used twice across the two runs.
+
+    None of that is wrong -- charging on the claim is what stops a trajectory that kills the
+    process from being retried forever -- but all of it was silent. This prints it. Returns the
+    line it printed, or "" for a fresh folder.
+    """
+    from bindcraft.campaign_output import (TRAJECTORY_STAGE, accepted_table, csv_row_count,
+                                           stage_table)
+
+    state_path = pathlib.Path(project_folder) / ".campaign_state.json"
+    rows = csv_row_count(stage_table(project_folder, TRAJECTORY_STAGE))
+    accepted_rows = csv_row_count(accepted_table(project_folder))
+    if not state_path.exists() and not rows and not accepted_rows:
+        return ""
+    charged = accepted = None
+    if state_path.exists():
+        try:
+            state = json.loads(state_path.read_text())
+            charged, accepted = int(state.get("trajectories", 0)), int(state.get("accepted", 0))
+        except (OSError, ValueError, TypeError):
+            charged = accepted = None
+    where = ("`.campaign_state.json`" if charged is not None
+             else "the campaign tables, since `.campaign_state.json` is absent or unreadable")
+    counted = charged if charged is not None else rows
+    said = [f"[tt_bio.bindcraft2] resuming {project_folder}: {counted} "
+            f"{'trajectory' if counted == 1 else 'trajectories'} already charged according to "
+            f"{where}, {rows} in the trajectory table, "
+            f"{accepted if accepted is not None else accepted_rows} accepted."]
+    if charged is not None and charged > rows:
+        missing = charged - rows
+        said.append(f"{missing} claimed {'trajectory' if missing == 1 else 'trajectories'} "
+                    f"never finished; {'it is' if missing == 1 else 'they are'} charged to the "
+                    f"budget and will not be retried, so this campaign runs {missing} fewer "
+                    f"than you asked for.")
+        if max_trajectories:
+            said.append(f"Raise max_trajectories to {int(max_trajectories) + missing} to get the "
+                        f"{int(max_trajectories)} you wanted.")
+    elif charged is None and rows:
+        said.append("Recovered from the tables, so an interrupted trajectory's number is claimed "
+                    "again; its recipe is still declined, so no design is repeated.")
+    line = " ".join(said)
+    print(line, flush=True)
+    return line
+
+
 @contextlib.contextmanager
 def _one_campaign_not_n(campaign, trajectories: int):
     """Hold the two campaign-wide things N trajectories in one process would each do.
@@ -2013,9 +2189,94 @@ def _one_campaign_not_n(campaign, trajectories: int):
         campaign.design_worker_index = worker_index
 
 
+#: Seconds with no gradient round begun AND nothing written under the project folder before a
+#: campaign says it may be stuck. A round is 7-16 s; the slowest silent stretch a healthy
+#: campaign has shown is a cold compile of a new length bucket plus the validation ensemble,
+#: minutes, not tens of them. 45 minutes is far past both, so the line never fires on a campaign
+#: that is merely slow -- and it only prints, it never stops anything.
+STALL_WARN_S = float(os.environ.get("TT_BIO_CAMPAIGN_STALL_WARN_S", "2700"))
+
+_LAST_PROGRESS = [0.0]
+
+
+def _note_progress() -> None:
+    import time
+    _LAST_PROGRESS[0] = time.time()
+
+
+def _newest_write(folder: str) -> float:
+    newest = 0.0
+    for root, _dirs, files in os.walk(folder):
+        for name in files:
+            try:
+                newest = max(newest, os.stat(os.path.join(root, name)).st_mtime)
+            except OSError:
+                pass
+    return newest
+
+
+def stall_message(project_folder: str, quiet_s: float) -> str:
+    return (f"[tt_bio.bindcraft2] no gradient round has started and nothing has been written under "
+            f"{project_folder} for {quiet_s / 60:.0f} min. A chip that wedges mid-campaign does not "
+            f"raise: the process just stops, holding the card. If this line repeats, the campaign "
+            f"is not coming back on its own. Stop it (Ctrl-C or kill {os.getpid()}), reset the chip "
+            f"if it stays unresponsive, and rerun on the same folder with resume=true: every design "
+            f"accepted so far is kept, and the trajectory that was running is charged, not "
+            f"repeated.")
+
+
+@contextlib.contextmanager
+def _stall_reporter(project_folder: str, warn_s: float | None = None, every: float = 60.0,
+                    say: Callable[[str], None] | None = None):
+    """Print once per silent stretch when a campaign has made no visible progress for `warn_s`.
+
+    A chip that wedges after bring-up is the one sick-chip case nothing else catches. The
+    bring-up probe is bounded (`tenstorrent._assert_local_dispatch`, 120 s); a busy chip is
+    refused by its lease; an absent chip is refused by `visible_device_indices`. A wedge in
+    round 400 of trajectory 15 blocks inside a C call with no timeout of its own, and the
+    researcher is left looking at a log that simply stopped, with no way to tell a hang from a
+    slow stage. Progress is either signal: a gradient round starting, or any file under the
+    project folder changing, which covers MPNN, validation and acceptance, which run no rounds.
+    """
+    import time
+    warn_s = STALL_WARN_S if warn_s is None else warn_s
+    say = say or (lambda line: print(line, file=sys.stderr, flush=True))
+    stop = threading.Event()
+    _note_progress()
+
+    def watch():
+        warned_at = None
+        while not stop.wait(every):
+            last = max(_LAST_PROGRESS[0], _newest_write(project_folder))
+            quiet = time.time() - last
+            if quiet < warn_s:
+                warned_at = None
+            elif warned_at is None or quiet - warned_at >= warn_s:
+                say(stall_message(project_folder, quiet))
+                warned_at = quiet
+
+    if warn_s <= 0:
+        yield
+        return
+    watcher = threading.Thread(target=watch, name="bindcraft2:stall", daemon=True)
+    watcher.start()
+    try:
+        yield
+    finally:
+        stop.set()
+
+
 def run_campaign(settings: Mapping, project_folder: str, *,
                  trajectories_per_card: "int | str" = "auto",
                  stagger_timeout: float = 1800.0, **run_campaign_kwargs) -> int:
+    with _stall_reporter(project_folder):
+        return _run_campaign(settings, project_folder, trajectories_per_card=trajectories_per_card,
+                             stagger_timeout=stagger_timeout, **run_campaign_kwargs)
+
+
+def _run_campaign(settings: Mapping, project_folder: str, *,
+                  trajectories_per_card: "int | str" = "auto",
+                  stagger_timeout: float = 1800.0, **run_campaign_kwargs) -> int:
     """BindCraft 2's campaign loop, with as many trajectories on one card as the box can hold.
 
     Call it where you would call `campaign.run_campaign`, inside `campaign_predictor`::
@@ -2063,6 +2324,9 @@ def run_campaign(settings: Mapping, project_folder: str, *,
     # Before a card is opened: a hotspot that names no residue of the target sets no flag, and
     # BindCraft 2 reads that as a campaign with no epitope rather than as a mistake.
     bcinputs.refuse_unusable_inputs(settings)
+    print_resumption(project_folder, settings.get("max_trajectories"))
+    print_stop_conditions(settings)
+    print_stage_gates(settings)
 
     tokens = design_tokens(settings)
     if isinstance(trajectories_per_card, str):
@@ -2111,3 +2375,6 @@ def run_campaign(settings: Mapping, project_folder: str, *,
     # left, so the last one out carries the whole campaign's. Summing would count that one file
     # N times.
     return max((n for n in counted if isinstance(n, int)), default=0)
+
+
+run_campaign.__doc__ = _run_campaign.__doc__
