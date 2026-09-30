@@ -2299,7 +2299,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                 else:
                     _tbw.STATS["declined"] += 1
 
-            dq_blocks, dk_blocks, dv_blocks, dbias_rows = [], [], [], None
+            dq_blocks, dk_blocks, dv_blocks = [], [], []
             dbias_blocks = []
             for b0 in range(0, B, cB):
                 b1 = min(b0 + cB, B)
@@ -2338,7 +2338,13 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                 if bias is not None:
                     rows = dbias_acc[0] if len(dbias_acc) == 1 else ttnn.concat(dbias_acc, dim=2)
                     if bias_bcast:
-                        dbias_rows = rows if dbias_rows is None else ttnn.add(dbias_rows, rows)
+                        # Each leading chunk's partial goes straight to the tape, whose
+                        # accumulator is float32. Summing the partials here in bf16 rounded the
+                        # running total once per chunk: at 544 tokens and the default budget
+                        # that is five roundings, and dbias drifted 0.6-1.2 % between chunkings
+                        # that must agree (perf/b2p_ceiling/bw_transient.json).
+                        if bias.requires_grad:
+                            bias.add_grad(rows)
                     else:
                         dbias_blocks.append(rows)
             def cat0(blocks):
@@ -2349,8 +2355,8 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                 k.add_grad(cat0(dk_blocks))
             if v.requires_grad:
                 v.add_grad(cat0(dv_blocks))
-            if bias is not None and bias.requires_grad:
-                bias.add_grad(dbias_rows if bias_bcast else cat0(dbias_blocks))
+            if bias is not None and bias.requires_grad and not bias_bcast:
+                bias.add_grad(cat0(dbias_blocks))
         return bw
 
     return _tape(out_v, parents, make)
