@@ -1907,15 +1907,9 @@ def stop_conditions(settings: Mapping) -> str:
             f"the accepted count past {designs}, so it is a floor, not a quota.")
 
 
-STAGE_GATES = (
-    ("screen", "min_plddt_screen", "pLDDT"),
-    ("refine", "min_plddt_refine", "pLDDT"),
-    ("anneal", "min_plddt_anneal", "pLDDT"),
-    ("harden", "min_plddt_harden", "pLDDT"),
-    ("harden", "min_iptm_harden", "i_pTM"),
-    ("mutate", "min_plddt_mutate", "pLDDT"),
-    ("mutate", "min_iptm_mutate", "i_pTM"),
-)
+GATE_METRICS = (("min_monomer_plddt_", "monomer pLDDT"), ("min_plddt_", "pLDDT"),
+                ("min_iptm_", "i_pTM"))
+STAGE_ORDER = ("screen", "refine", "anneal", "harden", "mutate", "final")
 
 
 def stage_gates(settings: Mapping) -> str:
@@ -1923,9 +1917,10 @@ def stage_gates(settings: Mapping) -> str:
 
     A campaign prints one `filters ...` line, the acceptance filters, and a researcher reads it as
     the whole bar. It is not: a trajectory is also judged at the end of every design stage against
-    a second set of thresholds carried in the campaign settings as `min_plddt_<stage>` and
-    `min_iptm_<stage>`, and missing one ends the trajectory there. That is charged against
-    `max_trajectories` and shows up as a `terminated` count in `.campaign_state.json`.
+    a second set of thresholds carried in the campaign settings as `min_plddt_<stage>`,
+    `min_iptm_<stage>` and `min_monomer_plddt_<stage>`, and missing one ends the trajectory there.
+    That is charged against `max_trajectories` and shows up as a `terminated` count in
+    `.campaign_state.json`.
 
     Measured on the live Wormhole soak leg on 2026-09-30, 2 of the first 4 trajectories ended this
     way, and what the run said was::
@@ -1935,27 +1930,38 @@ def stage_gates(settings: Mapping) -> str:
     `pLDDT` appears in none of the seven filters the same run announced, so the reason names a bar
     the reader cannot find, cannot see the value of (0.6 here -- a 0.01 miss), and cannot move
     without knowing the setting behind it. This line names all three: stage, setting, threshold.
+
+    The gates are read out of the settings by prefix rather than from a list kept here, because a
+    list kept here goes stale silently: the first version of this named seven gates while the
+    resolved pdl1 settings carried eleven, so it would have told a researcher that
+    `min_iptm_final` and `min_iptm_anneal` -- both of which do end trajectories -- did not exist.
     """
-    seen, parts = set(), []
-    for stage, key, metric in STAGE_GATES:
-        if key not in settings:
-            continue
-        try:
-            value = float(settings[key])
-        except (TypeError, ValueError):
-            continue
-        if key in seen:
-            continue
-        seen.add(key)
-        parts.append(f"{stage} {metric} >= {value:g} ({key})")
-    if not parts:
+    found = {}
+    for key, value in settings.items():
+        for prefix, metric in GATE_METRICS:
+            if not isinstance(key, str) or not key.startswith(prefix):
+                continue
+            try:
+                found[key] = (key[len(prefix):], metric, float(value))
+            except (TypeError, ValueError):
+                pass       # a malformed threshold is preflight's to refuse, not this line's
+            break
+    if not found:
         return ""
+
+    def order(item):
+        stage, metric, _ = item[1]
+        rank = STAGE_ORDER.index(stage) if stage in STAGE_ORDER else len(STAGE_ORDER)
+        return (rank, stage, metric)
+
+    parts = [f"{stage} {metric} >= {value:g} ({key})"
+             for key, (stage, metric, value) in sorted(found.items(), key=order)]
+    metrics = sorted({metric for _, metric, _ in found.values()})
     return (f"[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, "
-            f"which the campaign's own `filters` line does not list: {', '.join(parts)}. A trajectory "
-            f"that "
-            f"misses one is charged against the budget and counted under `terminated`, and the "
-            f"rejection names the metric ({'/'.join(sorted({m for _, _, m in STAGE_GATES}))}), "
-            f"not the setting.")
+            f"which the campaign's own `filters` line does not list: {', '.join(parts)}. A "
+            f"trajectory that misses one is charged against the budget and counted under "
+            f"`terminated`, and the rejection names the metric ({'/'.join(metrics)}), not the "
+            f"setting.")
 
 
 def print_stage_gates(settings: Mapping) -> str:

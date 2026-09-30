@@ -6,20 +6,38 @@ a bar the log names but never states. See `bindcraft2.stage_gates`.
 """
 import pytest
 
-from tt_bio.bindcraft2 import STAGE_GATES, print_stage_gates, stage_gates
+from tt_bio.bindcraft2 import print_stage_gates, stage_gates
 
 PDL1 = {                       # the resolved pdl1 campaign settings, read on .108 2026-09-30
     "min_plddt_screen": 0.6, "min_plddt_refine": 0.6, "min_plddt_anneal": 0.65,
-    "min_plddt_harden": 0.65, "min_iptm_harden": 0.5,
+    "min_plddt_harden": 0.65, "min_iptm_harden": 0.5, "min_iptm_anneal": 0.5,
     "min_plddt_mutate": 0.6, "min_iptm_mutate": 0.5,
+    "min_plddt_final": 0.7, "min_iptm_final": 0.7, "min_monomer_plddt_final": 0.7,
 }
 
 
 def test_every_gate_in_the_settings_is_named_with_its_threshold():
     line = stage_gates(PDL1)
-    for stage, key, _ in STAGE_GATES:
+    for key in PDL1:
         assert key in line, f"{key} is a gate this campaign runs and the line does not name it"
     assert "refine pLDDT >= 0.6 (min_plddt_refine)" in line
+
+
+def test_the_gates_are_read_from_the_settings_so_the_list_cannot_go_stale():
+    # The first version of this carried a seven-entry tuple while pdl1 resolved eleven gates,
+    # so it silently told a researcher that min_iptm_final and min_iptm_anneal did not exist.
+    line = stage_gates(PDL1)
+    assert "min_iptm_final" in line and "min_iptm_anneal" in line
+    assert "monomer pLDDT >= 0.7 (min_monomer_plddt_final)" in line
+    invented = stage_gates({"min_plddt_invented_stage": 0.42})
+    assert "invented_stage pLDDT >= 0.42" in invented
+
+
+def test_the_gates_are_printed_in_the_order_the_stages_run():
+    line = stage_gates(PDL1)
+    positions = [line.index(s) for s in ("screen ", "refine ", "anneal ", "harden ", "mutate ")]
+    assert positions == sorted(positions)
+    assert line.index("mutate ") < line.index("final ")
 
 
 def test_the_gate_the_live_leg_died_on_is_the_one_a_reader_could_not_find():
