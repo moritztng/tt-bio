@@ -173,7 +173,6 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
         f"The card is full: {_gb(free_total)} free against a {_gb(want)} request, with "
         f"{_gb(held)} of {_gb(card_total)} already held by this fold.")
 
-    drop = n - (padded - TOKEN_BUCKET)
     # The ceiling to compare against is THIS board's, where one has been measured. A Wormhole
     # Galaxy chip stops at 512 and a p150a at 576, so a Wormhole user told the p150a number is
     # told their 544-token fold should have fitted, and sent looking for a phantom co-tenant.
@@ -183,6 +182,27 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
     # A card nobody laddered and smaller than a p150a has no ceiling to compare against, so
     # a refusal there is always read as the size.
     unmeasured_smaller = board is None and card_total < P150A_DRAM_BYTES
+
+    # Where the way down LANDS. One bucket down is the right answer only when that bucket is at
+    # or under this board's ceiling. It often is not: a 608-token fold on a Wormhole Galaxy chip
+    # was told to try 576, which refuses too, and a 736-token fold on a p150a was told to try
+    # 704, which refuses twice over -- so the one actionable sentence in the message sent the
+    # user to another failure and cost them the compile to find out. Measured at 544, 576 and
+    # 608 on one Galaxy chip: `state/b2p-wh.md`. A board nobody laddered keeps the one-bucket
+    # step, because `cap` there is a p150a's number and not this card's.
+    landing = padded - TOKEN_BUCKET
+    if board is not None and padded > cap:
+        landing = min(landing, cap)
+    drop = n - landing
+    way_down = (
+        f"{drop} residues off the binder takes this fold to {landing} tokens"
+        if landing == padded - TOKEN_BUCKET else
+        f"this fold has to lose {drop} residues to reach {landing} tokens -- the next bucket "
+        f"down, {padded - TOKEN_BUCKET}, refuses on this board too, so {landing} is the size to "
+        f"aim at and the binder on its own may not be long enough to give them up")
+    # It opens a sentence in one branch and closes one in the other.
+    sentence = way_down[0].upper() + way_down[1:] if way_down[0].isalpha() else way_down
+
     if padded > cap or unmeasured_smaller:
         reference = (
             f"The largest axis measured to complete a gradient round on one {board_name} "
@@ -195,8 +215,7 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
             f"What to do: run a smaller complex. The token axis is the complex BindCraft 2 "
             f"built, padded to a multiple of {TOKEN_BUCKET} -- it is LARGER than target "
             f"residues + binder length, so size the job off the {n} above and not off that "
-            f"sum. {drop} residues off the "
-            f"binder takes this fold to {padded - TOKEN_BUCKET} tokens. {reference} Trimming the "
+            f"sum. {sentence}. {reference} Trimming the "
             f"target to the domain you are binding is the other lever and usually the bigger "
             f"one.")
     else:
@@ -205,8 +224,7 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
             f"largest axis measured to complete a gradient round is {cap}), so something else "
             f"is holding this card. Interleaved trajectories are the usual cause: pass "
             f"trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise "
-            f"{drop} residues off the binder takes this fold to {padded - TOKEN_BUCKET} "
-            f"tokens.")
+            f"{way_down}.")
 
     return MemoryError(
         f"BindCraft 2 ran out of device memory in the Evoformer {phase} at {padded} tokens.\n"

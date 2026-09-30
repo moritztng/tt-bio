@@ -1275,6 +1275,57 @@ def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
     assert "288 tokens" in msg
 
 
+def test_the_way_down_lands_on_a_size_that_fits_not_one_bucket_down():
+    """The one actionable sentence must not name another size that refuses.
+
+    A 736-token fold on a p150a was told "2 residues off the binder takes this fold to 704
+    tokens". 704 is four buckets above the 576 this board is measured to complete, so the user
+    pays another trace and compile to be refused again -- and the binder in that fold is 100
+    residues long, so the advice was also arithmetically fine and physically impossible to
+    follow beyond a point the message never named. Found on Wormhole at 608 (where the next
+    bucket down, 576, refuses too) and it was latent on Blackhole all along, so the fix is on
+    the shared path and not per board (`state/b2p-wh.md`).
+    """
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
+                                             phase="backward", n=706, padded=736))
+    assert "to reach 576 tokens" in msg              # the ceiling, not 704
+    assert "lose 130 residues" in msg                # 706 - 576, the whole way down
+    assert "704, refuses on this board too" in msg   # why the obvious step is not the answer
+    assert "the binder on its own may not be long enough" in msg
+    assert "takes this fold to 704" not in msg
+
+
+def test_one_bucket_down_is_still_named_when_one_bucket_down_serves():
+    """586 residues at 608 tokens on a p150a is one bucket over a 576 that completes, so the
+    cheap step IS the answer and the message must stay the short version."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
+                                             phase="backward", n=586, padded=608))
+    assert "10 residues off the binder takes this fold to 576 tokens" in msg
+    assert "refuses on this board too" not in msg
+
+
+def test_the_wormhole_way_down_skips_the_buckets_that_also_refuse():
+    """On a Wormhole Galaxy chip 544, 576 and 608 all refuse, measured. A 608-token fold told
+    to try 576 is told to try a size this row watched refuse ten minutes earlier."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=584, padded=608))
+    assert "to reach 512 tokens" in msg              # this board's ceiling
+    assert "lose 72 residues" in msg                 # 584 - 512
+    assert "576, refuses on this board too" in msg
+    assert "takes this fold to 576" not in msg
+
+
+def test_a_board_nobody_laddered_keeps_the_one_bucket_step():
+    """`cap` on an unmeasured card is a p150a's number, so clamping the way down to it would
+    promise a size nobody has run there. One bucket down is the only honest step."""
+    odd = REFUSAL_WORMHOLE.replace("across 12 banks", "across 4 banks")
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(odd),
+                                             phase="backward", n=706, padded=736))
+    assert "2 residues off the binder takes this fold to 704 tokens" in msg
+    assert "refuses on this board too" not in msg
+    assert "its own ceiling is lower" in msg
+
+
 #: A Wormhole Galaxy chip's own words: 12 banks of 1,073,741,792 B, about 12.885 GB. Copied
 #: off the 544-token rung of the ceiling ladder on dev .107 card 30, 2026-09-29.
 REFUSAL_WORMHOLE = (
