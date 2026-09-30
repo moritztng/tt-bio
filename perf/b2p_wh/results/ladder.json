@@ -1,0 +1,712 @@
+[
+ {
+  "axis": 192,
+  "target": "hPDL1",
+  "chains": 1,
+  "binder": 50,
+  "mode": "timed",
+  "s_round_median": 7.403,
+  "s_round_spread": [
+   7.107,
+   9.032
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 17.5,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 11.81,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 2,
+  "auto_card_open_why": "2 of them at 192 tokens hold about 11 GB of the card and peak near 14 GB of the 429.8 GB of host memory free",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 1944,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 648,
+   "declined": 0,
+   "bw_calls": 648
+  },
+  "rounds_done": 7,
+  "complex_residues": 179,
+  "error": "StopAfterRounds(6 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/timed1/hPDL1_50_t"
+ },
+ {
+  "axis": 192,
+  "target": "hPDL1",
+  "chains": 1,
+  "binder": 50,
+  "mode": "footprint",
+  "s_round_median": 15.6495,
+  "s_round_spread": [
+   15.042,
+   16.257
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 21.8,
+  "resident_peak_gb": 2.2377,
+  "free_at_peak_gb": 10.6472,
+  "largest_free_block_at_peak_mb": 840.0,
+  "device_free_min_gb": 12.117,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 2,
+  "auto_card_open_why": "2 of them at 192 tokens hold about 11 GB of the card and peak near 14 GB of the 429.6 GB of host memory free",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 972,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 324,
+   "declined": 0,
+   "bw_calls": 324
+  },
+  "rounds_done": 4,
+  "complex_residues": 179,
+  "error": "StopAfterRounds(3 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/fp1/hPDL1_50_f"
+ },
+ {
+  "axis": 288,
+  "target": "hPDL1",
+  "chains": 1,
+  "binder": 141,
+  "mode": "timed",
+  "s_round_median": 15.447,
+  "s_round_spread": [
+   15.242,
+   17.081
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 23.8,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 11.638,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 2,
+  "auto_card_open_why": "2 of them at 288 tokens hold about 11 GB of the card and peak near 14 GB of the 320.6 GB of host memory free",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 1944,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 648,
+   "declined": 0,
+   "bw_calls": 648
+  },
+  "rounds_done": 7,
+  "complex_residues": 275,
+  "error": "StopAfterRounds(6 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/timed1/hPDL1_141_t"
+ },
+ {
+  "axis": 288,
+  "target": "hPDL1",
+  "chains": 1,
+  "binder": 141,
+  "mode": "footprint",
+  "s_round_median": 17.759999999999998,
+  "s_round_spread": [
+   16.922,
+   18.598
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 22.0,
+  "resident_peak_gb": 4.1187,
+  "free_at_peak_gb": 8.7662,
+  "largest_free_block_at_peak_mb": 693.5,
+  "device_free_min_gb": 11.945,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 2,
+  "auto_card_open_why": "2 of them at 288 tokens hold about 11 GB of the card and peak near 14 GB of the 324.0 GB of host memory free",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 972,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 324,
+   "declined": 0,
+   "bw_calls": 324
+  },
+  "rounds_done": 4,
+  "complex_residues": 275,
+  "error": "StopAfterRounds(3 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/fp1/hPDL1_141_f"
+ },
+ {
+  "axis": 352,
+  "target": "hIL7RA",
+  "chains": 1,
+  "binder": 100,
+  "mode": "timed",
+  "s_round_median": 26.887,
+  "s_round_spread": [
+   26.779,
+   28.27
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 6.5,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 11.488,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 352 tokens one trajectory is priced at up to 8.7 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 1944,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 648,
+   "bw_calls": 648
+  },
+  "rounds_done": 7,
+  "complex_residues": 323,
+  "error": "StopAfterRounds(6 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/timed1/hIL7RA_100_t"
+ },
+ {
+  "axis": 352,
+  "target": "hIL7RA",
+  "chains": 1,
+  "binder": 100,
+  "mode": "footprint",
+  "s_round_median": 27.3735,
+  "s_round_spread": [
+   26.559,
+   28.188
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 22.9,
+  "resident_peak_gb": 5.8155,
+  "free_at_peak_gb": 7.0694,
+  "largest_free_block_at_peak_mb": 556.1,
+  "device_free_min_gb": 11.794,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 352 tokens one trajectory is priced at up to 8.7 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 972,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 324,
+   "bw_calls": 324
+  },
+  "rounds_done": 4,
+  "complex_residues": 323,
+  "error": "StopAfterRounds(3 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/fp1/hIL7RA_100_f"
+ },
+ {
+  "axis": 416,
+  "target": "hCA2",
+  "chains": 1,
+  "binder": 100,
+  "mode": "timed",
+  "s_round_median": 39.073,
+  "s_round_spread": [
+   38.985,
+   40.747
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 1.9,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 11.308,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 416 tokens one trajectory is priced at up to 13.1 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 1944,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 648,
+   "bw_calls": 648
+  },
+  "rounds_done": 7,
+  "complex_residues": 385,
+  "error": "StopAfterRounds(6 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/timed1/hCA2_100_t"
+ },
+ {
+  "axis": 416,
+  "target": "hCA2",
+  "chains": 1,
+  "binder": 100,
+  "mode": "footprint",
+  "s_round_median": 39.841499999999996,
+  "s_round_spread": [
+   39.096,
+   40.587
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 8.9,
+  "resident_peak_gb": 7.843,
+  "free_at_peak_gb": 5.0419,
+  "largest_free_block_at_peak_mb": 395.2,
+  "device_free_min_gb": 11.614,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 416 tokens one trajectory is priced at up to 13.1 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 972,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 324,
+   "bw_calls": 324
+  },
+  "rounds_done": 4,
+  "complex_residues": 385,
+  "error": "StopAfterRounds(3 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/fp1/hCA2_100_f"
+ },
+ {
+  "axis": 448,
+  "target": "hCA2",
+  "chains": 1,
+  "binder": 150,
+  "mode": "timed",
+  "s_round_median": 44.855,
+  "s_round_spread": [
+   44.644,
+   46.331
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 3.8,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 11.208,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 448 tokens one trajectory is priced at up to 15.8 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 1944,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 648,
+   "bw_calls": 648
+  },
+  "rounds_done": 7,
+  "complex_residues": 417,
+  "error": "StopAfterRounds(6 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/timed1/hCA2_150_t"
+ },
+ {
+  "axis": 448,
+  "target": "hCA2",
+  "chains": 1,
+  "binder": 150,
+  "mode": "footprint",
+  "s_round_median": 45.581,
+  "s_round_spread": [
+   44.812,
+   46.35
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 2.0,
+  "resident_peak_gb": 8.9806,
+  "free_at_peak_gb": 3.9043,
+  "largest_free_block_at_peak_mb": 304.4,
+  "device_free_min_gb": 11.515,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 448 tokens one trajectory is priced at up to 15.8 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 972,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 324,
+   "bw_calls": 324
+  },
+  "rounds_done": 4,
+  "complex_residues": 417,
+  "error": "StopAfterRounds(3 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/fp1/hCA2_150_f"
+ },
+ {
+  "axis": 480,
+  "target": "hIL2R",
+  "chains": 2,
+  "binder": 50,
+  "mode": "timed",
+  "s_round_median": 54.564,
+  "s_round_spread": [
+   54.523,
+   56.22
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 2.3,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 11.103,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 480 tokens one trajectory is priced at up to 18.8 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 1944,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 648,
+   "bw_calls": 648
+  },
+  "rounds_done": 7,
+  "complex_residues": 451,
+  "error": "StopAfterRounds(6 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/timed1/hIL2R_50_t"
+ },
+ {
+  "axis": 480,
+  "target": "hIL2R",
+  "chains": 2,
+  "binder": 50,
+  "mode": "footprint",
+  "s_round_median": 55.304,
+  "s_round_spread": [
+   54.58,
+   56.028
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 2.5,
+  "resident_peak_gb": 10.1995,
+  "free_at_peak_gb": 2.6854,
+  "largest_free_block_at_peak_mb": 207.2,
+  "device_free_min_gb": 11.409,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 480 tokens one trajectory is priced at up to 18.8 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 972,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 324,
+   "bw_calls": 324
+  },
+  "rounds_done": 4,
+  "complex_residues": 451,
+  "error": "StopAfterRounds(3 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/fp1/hIL2R_50_f"
+ },
+ {
+  "axis": 512,
+  "target": "hIL2R",
+  "chains": 2,
+  "binder": 90,
+  "mode": "timed",
+  "s_round_median": 59.993,
+  "s_round_spread": [
+   59.716,
+   61.483
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 1.8,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 10.989,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 512 tokens one trajectory is priced at up to 22.1 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 1944,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 648,
+   "bw_calls": 648
+  },
+  "rounds_done": 7,
+  "complex_residues": 483,
+  "error": "StopAfterRounds(6 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/timed1/hIL2R_90_t"
+ },
+ {
+  "axis": 512,
+  "target": "hIL2R",
+  "chains": 2,
+  "binder": 90,
+  "mode": "footprint",
+  "s_round_median": 60.504999999999995,
+  "s_round_spread": [
+   59.657,
+   61.353
+  ],
+  "aiclk_med_range": [
+   1000,
+   1000
+  ],
+  "aiclk_min": 1000,
+  "load1": 1.7,
+  "resident_peak_gb": 11.5064,
+  "free_at_peak_gb": 1.3785,
+  "largest_free_block_at_peak_mb": 100.3,
+  "device_free_min_gb": 11.296,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 512 tokens one trajectory is priced at up to 22.1 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 972,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 324,
+   "bw_calls": 324
+  },
+  "rounds_done": 4,
+  "complex_residues": 483,
+  "error": "StopAfterRounds(3 rounds collected)",
+  "outcome": "completes",
+  "dir": "/tmp/b2p/out/fp1/hIL2R_90_f"
+ },
+ {
+  "axis": 544,
+  "target": "hIL2R",
+  "chains": 2,
+  "binder": 100,
+  "mode": "timed",
+  "s_round_median": null,
+  "s_round_spread": null,
+  "aiclk_med_range": null,
+  "aiclk_min": null,
+  "load1": 1.9,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 12.885,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 544 tokens one trajectory is priced at up to 25.8 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 0,
+   "declined": 239,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 0
+  },
+  "rounds_done": 1,
+  "complex_residues": 515,
+  "error": "JaxRuntimeError('INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 816, in _wrapped_callback\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 226, in _callback\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 96, in pure_callback_impl\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 71, in __call__\\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 828, in _backward\\n  File \"/home/ubuntu/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 190, in __exit__\\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 231, in _refusal_names_the_size\\nMemoryError: BindCraft 2 ran out of device memory in the Evoformer backward at 544 tokens.\\n  complex   515 residues, padded to 544 tokens (tt-bio buckets the token axis to 32)\\n  asked for 151.5 MB in one DRAM buffer (12.6 MB in each of 12 banks)\\n  free      155.6 MB of 12.885 GB, largest contiguous block 7.0 MB\\nThis is fragmentation, not a full card: 155.6 MB is free, which would cover the 151.5 MB request if it were in one piece, but the largest contiguous block in a bank is 7.0 MB against the 12.6 MB that bank needs.\\nWhat to do: run a smaller complex. The token axis is the complex BindCraft 2 built, padded to a multiple of 32 -- it is LARGER than target residues + binder length, so size the job off the 515 above and not off that sum. 3 residues off the binder takes this fold to 512 tokens. The largest axis measured to complete a gradient round on one Wormhole Galaxy chip (12.885 GB) is 512 tokens. Trimming the target to the domain you are binding is the other lever and usually the bigger one.\\nThe allocator\\'s own refusal follows.')",
+  "outcome": "REFUSES/dies: JaxRuntimeError('INTERNAL: CpuCallback error calling callbac",
+  "dir": "/tmp/b2p/out/timed1/hIL2R_100_t"
+ },
+ {
+  "axis": 576,
+  "target": "hIL2R",
+  "chains": 2,
+  "binder": 146,
+  "mode": "timed",
+  "s_round_median": null,
+  "s_round_spread": null,
+  "aiclk_med_range": null,
+  "aiclk_min": null,
+  "load1": 2.8,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 12.885,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 576 tokens one trajectory is priced at up to 29.9 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 218,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 0
+  },
+  "rounds_done": 1,
+  "complex_residues": 547,
+  "error": "JaxRuntimeError('INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 816, in _wrapped_callback\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 226, in _callback\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 96, in pure_callback_impl\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 71, in __call__\\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 828, in _backward\\n  File \"/home/ubuntu/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 190, in __exit__\\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 231, in _refusal_names_the_size\\nMemoryError: BindCraft 2 ran out of device memory in the Evoformer backward at 576 tokens.\\n  complex   547 residues, padded to 576 tokens (tt-bio buckets the token axis to 32)\\n  asked for 18.9 MB in one DRAM buffer (1.6 MB in each of 12 banks)\\n  free      112.8 MB of 12.885 GB, largest contiguous block 1.2 MB\\nThis is fragmentation, not a full card: 112.8 MB is free, which would cover the 18.9 MB request if it were in one piece, but the largest contiguous block in a bank is 1.2 MB against the 1.6 MB that bank needs.\\nWhat to do: run a smaller complex. The token axis is the complex BindCraft 2 built, padded to a multiple of 32 -- it is LARGER than target residues + binder length, so size the job off the 547 above and not off that sum. 3 residues off the binder takes this fold to 544 tokens. The largest axis measured to complete a gradient round on one Wormhole Galaxy chip (12.885 GB) is 512 tokens. Trimming the target to the domain you are binding is the other lever and usually the bigger one.\\nThe allocator\\'s own refusal follows.')",
+  "outcome": "REFUSES/dies: JaxRuntimeError('INTERNAL: CpuCallback error calling callbac",
+  "dir": "/tmp/b2p/out/timed1/hIL2R_146_t"
+ },
+ {
+  "axis": 608,
+  "target": "hTNFa",
+  "chains": 3,
+  "binder": 100,
+  "mode": "timed",
+  "s_round_median": null,
+  "s_round_spread": null,
+  "aiclk_med_range": null,
+  "aiclk_min": null,
+  "load1": 3.7,
+  "resident_peak_gb": null,
+  "free_at_peak_gb": null,
+  "largest_free_block_at_peak_mb": null,
+  "device_free_min_gb": 12.885,
+  "dram_total_gb": 12.885,
+  "auto_before_open": 1,
+  "auto_card_open": 1,
+  "auto_card_open_why": "at 608 tokens one trajectory is priced at up to 34.4 GB against the 11.0 GB the card has for them, so it runs one. That price assumes the slower composed path; where the fused one serves, the run holds well under it",
+  "auto_priced_axis_short_by": 0,
+  "fused_fwd": {
+   "served": 0,
+   "declined": 226,
+   "too_short": 0,
+   "taped": 0
+  },
+  "fused_bw": {
+   "served": 0,
+   "declined": 0
+  },
+  "rounds_done": 1,
+  "complex_residues": 584,
+  "error": "JaxRuntimeError('INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 816, in _wrapped_callback\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 226, in _callback\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 96, in pure_callback_impl\\n  File \"/home/ubuntu/bwx/venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 71, in __call__\\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 828, in _backward\\n  File \"/home/ubuntu/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 190, in __exit__\\n  File \"/home/ubuntu/b2p-wh/tt-bio/tt_bio/bindcraft2.py\", line 231, in _refusal_names_the_size\\nMemoryError: BindCraft 2 ran out of device memory in the Evoformer backward at 608 tokens.\\n  complex   584 residues, padded to 608 tokens (tt-bio buckets the token axis to 32)\\n  asked for 189.3 MB in one DRAM buffer (15.8 MB in each of 12 banks)\\n  free      246.2 MB of 12.885 GB, largest contiguous block 13.4 MB\\nThis is fragmentation, not a full card: 246.2 MB is free, which would cover the 189.3 MB request if it were in one piece, but the largest contiguous block in a bank is 13.4 MB against the 15.8 MB that bank needs.\\nWhat to do: run a smaller complex. The token axis is the complex BindCraft 2 built, padded to a multiple of 32 -- it is LARGER than target residues + binder length, so size the job off the 584 above and not off that sum. 8 residues off the binder takes this fold to 576 tokens. The largest axis measured to complete a gradient round on one Wormhole Galaxy chip (12.885 GB) is 512 tokens. Trimming the target to the domain you are binding is the other lever and usually the bigger one.\\nThe allocator\\'s own refusal follows.')",
+  "outcome": "REFUSES/dies: JaxRuntimeError('INTERNAL: CpuCallback error calling callbac",
+  "dir": "/tmp/b2p/out/timed1/hTNFa_100_t"
+ }
+]
