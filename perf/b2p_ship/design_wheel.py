@@ -37,8 +37,21 @@ stamp = {"tt_bio_from": tt_bio.__file__, "python": sys.version.split()[0],
          "out": OUT, "started_utc": time.strftime("%FT%TZ", time.gmtime())}
 print("DESIGN_STAMP " + json.dumps(stamp), flush=True)
 
+# `campaign_predictor` is not optional decoration: it is the whole integration. `run_campaign`
+# called outside it runs BindCraft 2's own JAX AlphaFold on the host and never opens the card, so
+# a "design ran from the wheel" claim made without it proves a CPU run. The first take of this
+# proof did exactly that and spent 45 minutes inside `sequence_gradients` with
+# `/dev/tenstorrent/3` unopened and its AICLK at the 800 MHz idle floor.
+# `validation="jax"` is the default and stays: the validation ensemble is the instrument that
+# decides whether a design is accepted, so it folds on the host reference.
 t0 = time.time()
-n = bindcraft2.run_campaign(settings, OUT, af2_weights=PARAMS)
+# `card=None` accepts the pin already in the environment: TT_VISIBLE_DEVICES is set by
+# `design_wheel.sh` before this process starts, which is before ttnn is imported.
+with bindcraft2.campaign_predictor(card=None, exact=False):
+    print("DESIGN_CARD_OPEN " + json.dumps(
+        {"card": os.environ["TT_VISIBLE_DEVICES"], "at": time.strftime("%FT%TZ", time.gmtime())}),
+        flush=True)
+    n = bindcraft2.run_campaign(settings, OUT, af2_weights=PARAMS)
 print("DESIGN_RESULT " + json.dumps(
     {"trajectories": n, "wall_seconds": round(time.time() - t0, 1),
      "finished_utc": time.strftime("%FT%TZ", time.gmtime())}), flush=True)
