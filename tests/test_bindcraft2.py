@@ -1282,10 +1282,13 @@ REFUSAL_608 = (
     "(+0x3aad4e1) [0x70a33d99d4e1]\n")
 
 
-def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down():
+def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down(monkeypatch):
     """The four things the traceback does not say: how big, how much, why, and what to do."""
     # The allocator line is verbatim; the complex length is a fixture, since the message logic
-    # is what is under test and the seam reports the real one at runtime.
+    # is what is under test and the seam reports the real one at runtime. 608 refuses only with
+    # the pad-up off, and that is the ceiling the message must then quote.
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "_TRIATT_HIFI_PAD_UP_TILES", 0)
     got = bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
                                          phase="backward", n=586, padded=608)
     msg = str(got)
@@ -1298,14 +1301,28 @@ def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down():
     assert "backward" in msg
 
 
-def test_the_refusal_does_not_teach_the_false_token_arithmetic():
+def test_the_p150a_ceiling_quoted_follows_the_pad_up(monkeypatch):
+    """864 with the pad-up on (the default), 576 with it off: a refusal at 608 with the pad-up off
+    must not tell the user 608 fits, and one at 896 with it on must quote 864, not 576."""
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "_TRIATT_HIFI_PAD_UP_TILES", 2)
+    assert bindcraft2._measured_board(bindcraft2.P150A_DRAM_BYTES)[1] == 864
+    monkeypatch.setattr(tenstorrent, "_TRIATT_HIFI_PAD_UP_TILES", 0)
+    assert bindcraft2._measured_board(bindcraft2.P150A_DRAM_BYTES)[1] == 576
+    assert bindcraft2._measured_board(bindcraft2.WH_GALAXY_DRAM_BYTES)[1] == 512
+
+
+def test_the_refusal_does_not_teach_the_false_token_arithmetic(monkeypatch):
     """The axis is the padded complex, NOT target + binder.
 
     hHSA at 736 tokens carries a 706-residue complex where the target counts 578 residues and
     the binder 100 -- the sum is 678, a whole two buckets low. A refusal that explains the axis
     as that sum sends the user to re-size against a number the seam does not use, which is the
     mistake this ladder made in its own harness before `axis_census.sh` measured the seam.
+    736 is over the card's ceiling with the pad-up off, which is the branch whose wording this pins.
     """
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "_TRIATT_HIFI_PAD_UP_TILES", 0)
     better = bindcraft2._size_aware_refusal(
         RuntimeError(REFUSAL_608), phase="backward", n=706, padded=736)
     assert better is not None

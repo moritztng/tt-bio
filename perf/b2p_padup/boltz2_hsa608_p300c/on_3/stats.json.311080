@@ -1,0 +1,15 @@
+{
+ "pid": 311080,
+ "pad_up_env": "2",
+ "tenstorrent_imported": true,
+ "pad_up_tiles": 2,
+ "stats": {
+  "served": 0,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0,
+  "padded": 0
+ },
+ "padded": {},
+ "picks": {}
+}

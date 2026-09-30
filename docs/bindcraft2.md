@@ -464,19 +464,20 @@ it is actually about to use; trust that over any count you compute yourself.
 
 | | Blackhole p150a (34.226 GB) | One chip of a Wormhole Galaxy (12.885 GB) |
 |---|---|---|
-| supported | **192 to 832 tokens** | **192 to 512 tokens** |
-| first size that refuses | 864 | 544 |
-| where it refuses | DRAM, in the forward | DRAM, in the Evoformer backward |
-| held at that refusal | 31.39 GB of 34.226, largest free block 291 MB | 12.338 GB of 12.885 |
-| peak inside the range | 2.63 GB at 192 to 29.18 GB at 832 | 12.7 GB at 512 |
-| one gradient round | 5.89 s at 192 to 112.83 s at 832, AICLK 1343-1350 | 1:45 to 2:12 a rung on the ladder, AICLK 1000 |
+| supported | **192 to 864 tokens** | **192 to 512 tokens** |
+| first size that refuses | not measured: 864 is the largest run, with 2.84 GB left | 544 |
+| where it refuses | | DRAM, in the Evoformer backward |
+| held at the top | 31.39 GB of 34.226 at 864, largest free block 291 MB | 12.338 GB of 12.885 at 544 |
+| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 |
+| one gradient round | 5.89 s at 192 to 124.72 s at 864, AICLK 1343-1350 | 1:45 to 2:12 a rung on the ladder, AICLK 1000 |
 | AICLK ceiling | 1350 MHz | 1000 MHz, the part's own ceiling and not a throttle |
 
 Blackhole's ladder, every rung run to a completed gradient round on qb1 card 0 with the card's
-AICLK sampled during each fold. The second column is the axis the Evoformer seam ran, which is one
-bucket above the count arithmetic gives and is the number the memory follows:
+AICLK sampled during each fold. The first column is target plus binder; the second is the token
+axis the Evoformer ran, one bucket higher because of the fusion, and it is the number the memory
+follows and the one the table above uses:
 
-| tokens | axis at the seam | peak DRAM | one round | free at peak |
+| target + binder | tokens at the seam | peak DRAM | one round | free at peak |
 |---|---|---|---|---|
 | 512 | 544 | 13.00 GB | 45.33 s | 21.22 GB |
 | 576 | 608 | 16.01 GB | 55.16 s | 18.22 GB |
@@ -490,7 +491,7 @@ Nobody should predict either board's number from bank geometry: the guess from 1
 put the Wormhole wall near 384-416 tokens and five rungs above that run.
 
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
-the board. Past 832 it is 92 % with the largest free block down to 291 MB, so the next rung is a
+the board. At 864 it is 92 % with the largest free block down to 291 MB, so the next rung is a
 board question rather than a software one. On a Wormhole chip the top is 97 % of a card a third
 the size, and no software change moves it: padding the forward serves 544 and 608 there, and 544
 then refuses in the backward instead, where the L1 gate is a size gate rather than a divisor gate
@@ -576,6 +577,10 @@ samples taken during the step.
 Rounding up to the bucket is faster, not slower: the PD-L1 complex at 211 tokens costs 4.504 s on
 the trunk forward and the same design padded to 224 costs 1.369 s, same card and same AICLK 1350
 median.
+
+A p300c is a different chip. One p300c chip completes 608 tokens at 48.2 s a round and 832 at
+108.3 s, AICLK 1350, and with the pad-up off it refuses 608 exactly as a p150a does. 864 has not
+been run on it.
 
 ## What a Galaxy gets through
 

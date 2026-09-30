@@ -1017,8 +1017,9 @@ instead, so a legal k exists at those lengths.
 
 It only ever adds a rung where the route serves nothing today, so no length that folds on the
 fused path now can have its pick moved. Replayed over all 48 tile-aligned lengths from 32 to 1536
-at `openfold3.trunk`, ten serve nothing and this opens exactly one of them: 832. OpenFold3 pads
-its pair axis to a multiple of 64, so 832 is the only one of the ten a user can present.
+at `openfold3.trunk`, ten serve nothing and this opens exactly one of them: 832. OpenFold3 now
+buckets its pair axis to 32, so the other 32 * p lengths are reachable too;
+`TT_BIO_TRIATT_HIFI_PAD_UP` serves those.
 
 **Speed: 1.6351x on OpenFold3 at 832 tokens**, +50.999 s. Arms interleaved in one process on a
 p300c, AICLK sampled during every leg at 1350 MHz, against an A/A floor of 1.306 s. The effect is
@@ -1213,9 +1214,9 @@ OpenFold3's trunk calls serve through the pad-up, and all 384 decline with the f
 **Boltz-2 is untouched, and structurally rather than luckily.** It reaches the fused arm only
 behind `BOLTZ2_FP32_SOFTMAX`, which is off by default, and its counters read served 0 and declined
 0 in the worker as well as in the parent at both 544 and 608, so the arm is never offered a call
-at all rather than being offered one and refusing. 544 and 608 are
-the OpenFold3 lengths that have been counted; 736 is the third axis with no legal config, and
-nobody has folded OpenFold3 there.
+at all rather than being offered one and refusing. On OpenFold3's trunk shape the route
+changes at 9 lengths from 64 to 1536: 544, 608, 736, 928, 992, 1184, 1312, 1376 and 1504, the
+32 x p lengths with p prime from 17 to 47. Every other length takes the same config either way.
 
 **Accuracy, graded twice.** Against a torch float64 reference forward and VJP at heads 4 and
 head_dim 32, which is the per-call shape both BindCraft 2 and OpenFold3 present, a padded rung's
@@ -1240,9 +1241,13 @@ on the same input, and it reproduces at a second seed to within 0.0014 A. pLDDT 
 **Speed: 1.30x on OpenFold3 at 608 tokens**, 66.5 and 68.4 s on against 86.6 and 88.7 s off, warm,
 one fold at a time on a Blackhole p150a with the AICLK sampled from sysfs during every fold at a
 median and maximum of 1350 MHz. The trunk phase alone is 21 s against 27 to 29 s. On BindCraft 2 it
-is what raises the supported ceiling from 576 to 832 tokens; see
+is what raises the supported ceiling from 576 to 864 tokens; see
 [docs/bindcraft2.md](bindcraft2.md). `perf/b2p_ship/hsa_ab/README.md` carries the OpenFold3 record,
 one JSON per pid.
+
+On a p300c chip the same comparison reads 1.548x at 544 (40.06 s against 25.88 s) and 1.642x at
+608 (54.75 s against 33.34 s), AICLK median 1350 MHz on every leg, with the structure moving
+0.0236 A at seed 0; `perf/b2p_padup/` carries it.
 
 **One chip of a Wormhole Galaxy is not helped.** The forward serves 544 and 608 there with the
 pad-up on, and 544 then refuses in the Evoformer backward instead, where the L1 gate is a size gate

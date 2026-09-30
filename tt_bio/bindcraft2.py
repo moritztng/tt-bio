@@ -81,12 +81,18 @@ def design_tokens(settings: Mapping) -> int:
 
 
 #: The largest token axis measured to complete a BindCraft 2 gradient round on one p150a
-#: (34.226 GB of DRAM): 576 tokens holds 14.23 GB resident and 608 refuses. Measured on qb1,
-#: 2026-09-29, `state/bgx-size.md`, where the axis is the one the Evoformer seam ran rather
-#: than `target_residues + binder` -- those differ, and an earlier value of 544 here came from
-#: the arithmetic. It is quoted in a refusal as a reference point and is enforced nowhere: the
-#: allocator decides, and a board with more DRAM has a different answer.
-MEASURED_MAX_TOKENS_P150A = 576
+#: (34.226 GB of DRAM): 864 tokens, holding 31.39 GB resident with 2.84 GB free, once the fused
+#: triangle attention serves 32 * p axes by padding up (`tenstorrent._tri_att_hifi_pad_up`).
+#: Measured on qb1, 2026-09-30, `perf/b2p_ceiling/`, where the axis is the one the Evoformer seam
+#: ran rather than `target_residues + binder` -- those differ, and an earlier value of 544 here
+#: came from the arithmetic. It is quoted in a refusal as a reference point and is enforced
+#: nowhere: the allocator decides, and a board with more DRAM has a different answer.
+MEASURED_MAX_TOKENS_P150A = 864
+#: The same card with the pad-up off (`TT_BIO_TRIATT_HIFI_PAD_UP=0`): 576 completes and 608
+#: refuses, because the fused arm declines every call at 608 and the composed path asks for one
+#: 3.596 GB score tensor. Measured on qb1, 2026-09-29, `state/bgx-size.md`, and again on a
+#: p300c chip (same DRAM) on 2026-09-30, `perf/b2p_padup/out/bc2/off608`.
+MEASURED_MAX_TOKENS_P150A_NO_PAD_UP = 576
 #: The DRAM that figure was measured against, as the allocator reports it: 8 banks of
 #: 4,278,190,016 B. A card with less refuses smaller complexes, so the 576 is no reference
 #: point there -- which is why the Wormhole row below exists.
@@ -136,8 +142,16 @@ def _measured_board(card_total: int):
     """
     for dram, cap, name in _MEASURED_CEILINGS:
         if abs(card_total - dram) <= dram // 20:
+            if cap == MEASURED_MAX_TOKENS_P150A and not _pad_up_on():
+                cap = MEASURED_MAX_TOKENS_P150A_NO_PAD_UP
             return dram, cap, name
     return None
+
+
+def _pad_up_on() -> bool:
+    """Whether the fused triangle attention pads 32 * p axes up, which the p150a ceiling rests on."""
+    from tt_bio import tenstorrent
+    return tenstorrent._TRIATT_HIFI_PAD_UP_TILES > 0
 
 
 def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):

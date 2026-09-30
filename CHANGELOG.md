@@ -7,7 +7,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Added
 
-- **BindCraft 2 runs complexes up to 832 tokens on a Blackhole p150a, against 576 before, and the
+- **BindCraft 2 runs complexes up to 864 tokens on a Blackhole p150a, against 576 before, and the
   544-token axis is no longer slow.** The fused triangle-attention forward had no legal chunk
   configuration at a padded length of 32 x p for a prime p, so it declined every call at 544, 608
   and 736, and the fallback held the whole `[N, 4, N, N]` fp32 score tensor: 544 cost 25.75 GB and

@@ -2195,8 +2195,9 @@ _SDPA_QK_OVER_L1: set = set()
 # is NOT: enumerated over all 48 tile-aligned lengths from 32 to 1536 with the budget model this
 # file already carries, six lengths below the cap land on no fused pair at all and fall to the
 # materialised fp32 softmax -- 544, 608, 736, 832, 928 and 992 (`perf/land_standing/capreach.py`,
-# validated against six device outcomes). 832 is the one of them OpenFold3 can present, since it
-# pads its pair axis to a multiple of 64.
+# validated against six device outcomes). OpenFold3 buckets its pair axis to 32
+# (`token_axis.TOKEN_BUCKET`), so it can present all six; `_TRIATT_HIFI_DIVIDING_K_DEFAULT` opens
+# 832 and `_tri_att_hifi_pad_up` serves the other five.
 #
 # The reason to keep the cap is the one below, and it survives the correction: `fused_pairs`
 # orders its preferences for the regime above 1024 and degrades below it. At 704 it offers
@@ -2477,7 +2478,9 @@ def _fused_hifi_on(pinned: bool | None) -> bool:
     return _TRIATT_FUSED_HIFI if pinned is None else pinned
 
 
-TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0, "taped": 0}
+# `padded` counts the served calls that only served after `_tri_att_hifi_pad_up` raised the axis,
+# so a fold says how often it took the padded route rather than leaving it to be inferred.
+TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0, "taped": 0, "padded": 0}
 # (q_len, k_len) -> [q_chunk, k_chunk] actually served. A declined config is
 # indistinguishable from an absent one from the outside, so an A/B on this path is only
 # believable if the run says which pair it ran.
@@ -2734,8 +2737,10 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
 # six device outcomes of this row's before it is used), at `openfold3.trunk` -- the only site with
 # `tri_att_sdpa_hifi` on, and therefore the only one that gets `one_k_chunk` and its prepended
 # full-width k -- **10** of the 48 lengths serve nothing, not 20, and this lever opens exactly
-# **one** of them and changes the pick at **none** that serve today. OpenFold3 pads its pair axis
-# to a multiple of 64, so 832 is the only one of the ten a user can present.
+# **one** of them and changes the pick at **none** that serve today. That count was taken when
+# OpenFold3 padded its pair axis to a multiple of 64; it now buckets to 32
+# (`token_axis.TOKEN_BUCKET`), so the other 32 * p lengths are reachable too, and
+# `_tri_att_hifi_pad_up` below is what serves them.
 #
 # What 832 is worth, on a p300c with the clock sampled DURING every leg at 1350 MHz and the arms
 # interleaved: **+50.999 s, 1.6351x**, against an A/A floor of 1.306 s -- 39x the floor.
@@ -2794,6 +2799,15 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
 # Self-attention only, which every triangle-attention call is, and bounded to
 # `_TRIATT_HIFI_PAD_UP_TILES` so the padded work stays within (1 + 64 / S)^2 of the native length.
 # 0 turns it off.
+#
+# The other models on this path, counted at runtime on a p300c (`perf/b2p_padup/`):
+#   * OpenFold3 (`openfold3.trunk`, one_k_chunk) serves nothing natively at 9 of the 47 lengths
+#     from 64 to 1536 -- 544, 608, 736, 928, 992, 1184, 1312, 1376, 1504 -- and this serves all 9,
+#     at rel L2 0.0208-0.0227 against float64. Everywhere else the pick is unchanged. A fold at
+#     608 moves 384 trunk calls here: HSA (585 aa, 1000-sequence MSA, pLDDT 0.911) runs 54.751 s
+#     -> 33.344 s, 1.642x, AICLK 1350, and the structure moves 0.0236 A CA against the 0.60 A bar.
+#   * Boltz-2 never reaches the fused arm by default (`boltz2.trunk` off, `fp32_softmax` off): 0
+#     calls on its 608-token parity fixture, and the same CIF on both arms.
 _TRIATT_HIFI_PAD_UP_TILES = env_int("TT_BIO_TRIATT_HIFI_PAD_UP", 2)
 TRIATT_FUSED_HIFI_PADDED: dict = {}   # native length -> the padded length that served
 
@@ -2813,6 +2827,7 @@ def _tri_att_hifi_pad_up(q, k, v, bias, scale: float, one_k_chunk: bool):
                     ttnn.deallocate(t)
         if o is not None:
             TRIATT_FUSED_HIFI_PADDED[S] = to
+            TRIATT_FUSED_HIFI_STATS["padded"] += 1
             sl = o[:, :, :S, :]
             ttnn.deallocate(o)
             return sl

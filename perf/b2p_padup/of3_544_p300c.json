@@ -1,0 +1,169 @@
+{
+ "model": "openfold3",
+ "size": 544,
+ "host": "tt-quietbox2",
+ "chip": "0",
+ "arms": "off,on,off,on",
+ "pad_up_shipped": 2,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "seed": 0,
+ "started_utc": "2026-09-30T21:17:00Z",
+ "loadavg_start": [
+  0.1435546875,
+  0.5048828125,
+  0.318359375
+ ],
+ "legs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 40.057,
+   "plddt": 0.576868,
+   "aiclk": {
+    "0": {
+     "min": 1318,
+     "max": 1350,
+     "median": 1350,
+     "n": 32
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1318 / median 1350 / max 1350 MHz over 32 samples, polled DURING the work",
+   "digest": "0d4dedce4e4b533974355c2715cd575c55eebd2a96a322f4d26f38c9c77e1497",
+   "stats": {
+    "served": 0,
+    "declined": 384,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 0
+   },
+   "calls": {
+    "composed:544": 440,
+    "hifi:544:declined": 384
+   },
+   "loadavg": [
+    2.388671875,
+    1.6171875,
+    0.79541015625
+   ]
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 25.872,
+   "plddt": 0.614118,
+   "aiclk": {
+    "0": {
+     "min": 1300,
+     "max": 1350,
+     "median": 1350,
+     "n": 21
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1300 / median 1350 / max 1350 MHz over 21 samples, polled DURING the work",
+   "digest": "e4edf84bce52aa5cacebb384e1e48b47fffaa046e5c69234abd335bdaeac3237",
+   "stats": {
+    "served": 384,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 384
+   },
+   "calls": {
+    "composed:544": 56,
+    "hifi:544:padded": 384
+   },
+   "loadavg": [
+    2.2353515625,
+    1.6533203125,
+    0.8349609375
+   ]
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 40.065,
+   "plddt": 0.576868,
+   "aiclk": {
+    "0": {
+     "min": 1318,
+     "max": 1350,
+     "median": 1350,
+     "n": 32
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1318 / median 1350 / max 1350 MHz over 32 samples, polled DURING the work",
+   "digest": "0d4dedce4e4b533974355c2715cd575c55eebd2a96a322f4d26f38c9c77e1497",
+   "stats": {
+    "served": 0,
+    "declined": 384,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 0
+   },
+   "calls": {
+    "composed:544": 440,
+    "hifi:544:declined": 384
+   },
+   "loadavg": [
+    2.38427734375,
+    1.734375,
+    0.896484375
+   ]
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 25.877,
+   "plddt": 0.614118,
+   "aiclk": {
+    "0": {
+     "min": 1306,
+     "max": 1350,
+     "median": 1350,
+     "n": 21
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1306 / median 1350 / max 1350 MHz over 21 samples, polled DURING the work",
+   "digest": "e4edf84bce52aa5cacebb384e1e48b47fffaa046e5c69234abd335bdaeac3237",
+   "stats": {
+    "served": 384,
+    "declined": 0,
+    "too_short": 0,
+    "taped": 0,
+    "padded": 384
+   },
+   "calls": {
+    "composed:544": 56,
+    "hifi:544:padded": 384
+   },
+   "loadavg": [
+    1.91064453125,
+    1.67431640625,
+    0.9013671875
+   ]
+  }
+ ],
+ "cold_s": 115.904,
+ "cold_calls": {
+  "composed:544": 56,
+  "hifi:544:padded": 384
+ },
+ "medians": {
+  "off": 40.061,
+  "on": 25.874499999999998
+ },
+ "spread": {
+  "off": 0.007999999999995566,
+  "on": 0.004999999999999005
+ },
+ "digests": {
+  "off": [
+   "0d4dedce4e4b533974355c2715cd575c55eebd2a96a322f4d26f38c9c77e1497"
+  ],
+  "on": [
+   "e4edf84bce52aa5cacebb384e1e48b47fffaa046e5c69234abd335bdaeac3237"
+  ]
+ },
+ "off_over_on": 1.5483
+}
