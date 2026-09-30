@@ -6294,10 +6294,13 @@ def get_device(trace=None):
         # mistyped chip number leaves no claim behind. The CLI validates its own --device_ids;
         # this covers everything that reaches get_device() with TT_VISIBLE_DEVICES set directly,
         # which is every tool under perf/ and every long design campaign.
-        from tt_bio.runtime import visible_device_indices
+        # A chip that enumerates and has no device node is refused in the same place and for
+        # the same reason: sysfs lists it, so the index check above passes, and UMD then throws
+        # a backtrace blaming TT_VISIBLE_DEVICES for a chip that is simply not there.
+        from tt_bio.runtime import refuse_missing_device_nodes, visible_device_indices
         visible = os.environ.get("TT_VISIBLE_DEVICES")
         if visible is not None:
-            visible_device_indices(visible)
+            refuse_missing_device_nodes(visible_device_indices(visible))
         from tt_bio.device_lease import CardSetLease, arm_orphan_guard
         arm_orphan_guard()
         # Normally None here. A cleanup() that failed to hand the chip back keeps its lease

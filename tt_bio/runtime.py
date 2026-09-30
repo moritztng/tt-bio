@@ -341,6 +341,51 @@ def visible_device_indices(visible: str) -> list[int]:
     return indices
 
 
+def missing_device_nodes(indices) -> list[tuple[int, int]]:
+    """UMD indices whose chip is listed in sysfs but has no ``/dev/tenstorrent`` node.
+
+    A chip can enumerate and still be unusable, and this is the shape a wedged or
+    half-attached card takes: the tenstorrent sysfs class still lists it, so every
+    index check passes, while the character device the driver should have created is
+    gone. Reproduced on `.108` on 2026-09-30 by mounting a tmpfs over
+    ``/dev/tenstorrent`` inside a private mount namespace -- the same view a box has
+    after a driver reload that half-probed, or when the nodes are there but this chip's
+    is not -- and what a user got was a UMD throw 2.0 s in::
+
+        RuntimeError: TT_THROW @ .../umd/device/pcie/pci_device.cpp:313: tt::exception
+        info: Invalid device ID in TT_VISIBLE_DEVICES: 0.  Valid device identifiers are
+        either integers or part of the BDF string. Valid integer IDs are between 0 and
+        18446744073709551615.
+
+    which blames the one thing that was right. ``TT_VISIBLE_DEVICES=0`` is a valid pin
+    on a host with chips; the chip is what is missing, the range it offers is
+    ``0..UINT64_MAX``, and there is no sentence telling anyone what to look at.
+
+    Existence only, deliberately: a node held by another tenant is not a fault and must
+    not be refused here, so this never opens anything. Empty list on a host with no
+    Tenstorrent sysfs entries at all, which is every CPU run.
+    """
+    nodes = umd_index_to_dev_node()
+    if not nodes:
+        return []
+    return [(index, nodes[index]) for index in indices
+            if index in nodes and not os.path.exists(f"/dev/tenstorrent/{nodes[index]}")]
+
+
+def refuse_missing_device_nodes(indices) -> None:
+    """Refuse, in a sentence, before UMD throws a backtrace about the wrong thing."""
+    missing = missing_device_nodes(indices)
+    if not missing:
+        return
+    named = ", ".join(f"chip {index} (/dev/tenstorrent/{node})" for index, node in missing)
+    raise RuntimeError(
+        f"Tenstorrent {named} is listed by the driver's sysfs class but its device node does not "
+        f"exist, so it cannot be opened: the chip is missing, not your TT_VISIBLE_DEVICES. Check "
+        f"`ls /dev/tenstorrent`, `tt-smi -ls` and `dmesg | grep -i tenstorrent` on this host, and "
+        f"reload the driver or reset that chip before pinning to it."
+    )
+
+
 def detect_tenstorrent_devices(device_ids: str | None, num_devices: int, max_workers: int) -> list[int]:
     """Return TT device IDs selected for this run without importing ttnn.
 
