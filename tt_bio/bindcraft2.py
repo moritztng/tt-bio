@@ -1596,6 +1596,7 @@ def design_model_class():
             # One gradient round of one trajectory, on that trajectory's own thread. It is the
             # only point in the design loop that is both, which is what `run_campaign` starts
             # the next interleaved trajectory on. A no-op unless trajectories are interleaved.
+            _note_progress()
             duotraj.round_entered()
             if self.trunk == "jax":
                 with self._route(None):
@@ -1973,9 +1974,94 @@ def _one_campaign_not_n(campaign, trajectories: int):
         campaign.design_worker_index = worker_index
 
 
+#: Seconds with no gradient round begun AND nothing written under the project folder before a
+#: campaign says it may be stuck. A round is 7-16 s; the slowest silent stretch a healthy
+#: campaign has shown is a cold compile of a new length bucket plus the validation ensemble,
+#: minutes, not tens of them. 45 minutes is far past both, so the line never fires on a campaign
+#: that is merely slow -- and it only prints, it never stops anything.
+STALL_WARN_S = float(os.environ.get("TT_BIO_CAMPAIGN_STALL_WARN_S", "2700"))
+
+_LAST_PROGRESS = [0.0]
+
+
+def _note_progress() -> None:
+    import time
+    _LAST_PROGRESS[0] = time.time()
+
+
+def _newest_write(folder: str) -> float:
+    newest = 0.0
+    for root, _dirs, files in os.walk(folder):
+        for name in files:
+            try:
+                newest = max(newest, os.stat(os.path.join(root, name)).st_mtime)
+            except OSError:
+                pass
+    return newest
+
+
+def stall_message(project_folder: str, quiet_s: float) -> str:
+    return (f"[tt_bio.bindcraft2] no gradient round has started and nothing has been written under "
+            f"{project_folder} for {quiet_s / 60:.0f} min. A chip that wedges mid-campaign does not "
+            f"raise: the process just stops, holding the card. If this line repeats, the campaign "
+            f"is not coming back on its own. Stop it (Ctrl-C or kill {os.getpid()}), reset the chip "
+            f"if it stays unresponsive, and rerun on the same folder with resume=true: every design "
+            f"accepted so far is kept, and the trajectory that was running is charged, not "
+            f"repeated.")
+
+
+@contextlib.contextmanager
+def _stall_reporter(project_folder: str, warn_s: float | None = None, every: float = 60.0,
+                    say: Callable[[str], None] | None = None):
+    """Print once per silent stretch when a campaign has made no visible progress for `warn_s`.
+
+    A chip that wedges after bring-up is the one sick-chip case nothing else catches. The
+    bring-up probe is bounded (`tenstorrent._assert_local_dispatch`, 120 s); a busy chip is
+    refused by its lease; an absent chip is refused by `visible_device_indices`. A wedge in
+    round 400 of trajectory 15 blocks inside a C call with no timeout of its own, and the
+    researcher is left looking at a log that simply stopped, with no way to tell a hang from a
+    slow stage. Progress is either signal: a gradient round starting, or any file under the
+    project folder changing, which covers MPNN, validation and acceptance, which run no rounds.
+    """
+    import time
+    warn_s = STALL_WARN_S if warn_s is None else warn_s
+    say = say or (lambda line: print(line, file=sys.stderr, flush=True))
+    stop = threading.Event()
+    _note_progress()
+
+    def watch():
+        warned_at = None
+        while not stop.wait(every):
+            last = max(_LAST_PROGRESS[0], _newest_write(project_folder))
+            quiet = time.time() - last
+            if quiet < warn_s:
+                warned_at = None
+            elif warned_at is None or quiet - warned_at >= warn_s:
+                say(stall_message(project_folder, quiet))
+                warned_at = quiet
+
+    if warn_s <= 0:
+        yield
+        return
+    watcher = threading.Thread(target=watch, name="bindcraft2:stall", daemon=True)
+    watcher.start()
+    try:
+        yield
+    finally:
+        stop.set()
+
+
 def run_campaign(settings: Mapping, project_folder: str, *,
                  trajectories_per_card: "int | str" = "auto",
                  stagger_timeout: float = 1800.0, **run_campaign_kwargs) -> int:
+    with _stall_reporter(project_folder):
+        return _run_campaign(settings, project_folder, trajectories_per_card=trajectories_per_card,
+                             stagger_timeout=stagger_timeout, **run_campaign_kwargs)
+
+
+def _run_campaign(settings: Mapping, project_folder: str, *,
+                  trajectories_per_card: "int | str" = "auto",
+                  stagger_timeout: float = 1800.0, **run_campaign_kwargs) -> int:
     """BindCraft 2's campaign loop, with as many trajectories on one card as the box can hold.
 
     Call it where you would call `campaign.run_campaign`, inside `campaign_predictor`::
@@ -2070,3 +2156,6 @@ def run_campaign(settings: Mapping, project_folder: str, *,
     # left, so the last one out carries the whole campaign's. Summing would count that one file
     # N times.
     return max((n for n in counted if isinstance(n, int)), default=0)
+
+
+run_campaign.__doc__ = _run_campaign.__doc__
