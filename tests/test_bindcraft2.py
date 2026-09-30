@@ -1353,7 +1353,7 @@ def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
     assert "288 tokens" in msg
 
 
-def test_the_way_down_lands_on_a_size_that_fits_not_one_bucket_down():
+def test_the_way_down_lands_on_a_size_that_fits_not_one_bucket_down(monkeypatch):
     """The one actionable sentence must not name another size that refuses.
 
     A 736-token fold on a p150a was told "2 residues off the binder takes this fold to 704
@@ -1362,8 +1362,11 @@ def test_the_way_down_lands_on_a_size_that_fits_not_one_bucket_down():
     residues long, so the advice was also arithmetically fine and physically impossible to
     follow beyond a point the message never named. Found on Wormhole at 608 (where the next
     bucket down, 576, refuses too) and it was latent on Blackhole all along, so the fix is on
-    the shared path and not per board (`state/b2p-wh.md`).
+    the shared path and not per board (`state/b2p-wh.md`). 576 is the ceiling with the pad-up
+    off, so that is the branch this pins; with it on, 736 is inside the range.
     """
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "_TRIATT_HIFI_PAD_UP_TILES", 0)
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
                                              phase="backward", n=706, padded=736))
     assert "to reach 576 tokens" in msg              # the ceiling, not 704
