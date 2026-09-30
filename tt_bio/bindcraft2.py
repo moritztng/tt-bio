@@ -30,6 +30,7 @@ if it is importable.
 """
 from __future__ import annotations
 
+import collections
 import contextlib
 import functools
 import os
@@ -219,6 +220,14 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
         f"The allocator's own refusal follows.")
 
 
+#: Every refusal `_refusal_names_the_size` has raised, newest last. A refusal raised inside a
+#: `jax.pure_callback` reaches the caller only as a STRING inside a `JaxRuntimeError`, so the
+#: object is kept here and handed back by `unwrap_device_refusal` rather than parsed back out of
+#: a traceback. Bounded, because only the text of a refusal still in flight can be matched.
+_REFUSALS_RAISED: "collections.deque[MemoryError]" = collections.deque(maxlen=8)
+_REFUSALS_LOCK = threading.Lock()
+
+
 @contextlib.contextmanager
 def _refusal_names_the_size(phase: str, n: int, padded: int) -> "Iterator[None]":
     """Name the token axis on the way out of a device seam. A no-op unless it refuses."""
@@ -227,6 +236,58 @@ def _refusal_names_the_size(phase: str, n: int, padded: int) -> "Iterator[None]"
     except Exception as exc:
         better = _size_aware_refusal(exc, phase=phase, n=n, padded=padded)
         if better is None:
+            raise
+        with _REFUSALS_LOCK:
+            _REFUSALS_RAISED.append(better)
+        raise better from exc
+
+
+def unwrap_device_refusal(exc: BaseException) -> BaseException:
+    """`exc` itself, or the clean refusal that `exc` is a stringified copy of.
+
+    A refusal raised in the Evoformer BACKWARD does not reach the caller as it was raised. The
+    backward runs inside a `jax.pure_callback`, and JAX turns any exception a callback raises
+    into `JaxRuntimeError("INTERNAL: CpuCallback error calling callback: Traceback (most recent
+    call last): ...")`. The refusal's text survives inside that string, but six frames of
+    `jax/_src/callback.py` and `contextlib` arrive in front of it and `except MemoryError` no
+    longer catches it -- so the size-aware refusal is there and the user reads JAX internals
+    first.
+
+    Which seam refuses is a property of the BOARD, which is why this is needed at all. On a
+    Wormhole Galaxy chip the card saturates in the backward, so every refusal above 512 tokens
+    is wrapped; on a p150a the 576-token ceiling is passed in a forward that runs outside the
+    callback and the same mistake arrives clean (`state/b2p-wh.md`). Without this the two boards
+    give a researcher who made one mistake two different answers, and only one of them is
+    readable.
+
+    Matching is by the identity of the text, not a parse of it: the refusal object raised at the
+    seam is kept in `_REFUSALS_RAISED`, and `exc` is replaced only when it carries that exact
+    message. Anything else is returned untouched -- a wrapper that guesses at the shape of an
+    unrelated bug is worse than no wrapper.
+    """
+    if isinstance(exc, MemoryError):
+        return exc
+    text = str(exc)
+    with _REFUSALS_LOCK:
+        raised = list(_REFUSALS_RAISED)
+    for refusal in reversed(raised):
+        if str(refusal) in text:
+            return refusal
+    return exc
+
+
+@contextlib.contextmanager
+def refusals_unwrapped() -> "Iterator[None]":
+    """Let a device refusal out of this block as the `MemoryError` it was raised as.
+
+    Wrapped around the user-facing entries, so `except MemoryError` holds on both boards no
+    matter which seam ran out of room. See `unwrap_device_refusal`.
+    """
+    try:
+        yield
+    except BaseException as exc:                                          # noqa: BLE001
+        better = unwrap_device_refusal(exc)
+        if better is exc:
             raise
         raise better from exc
 
@@ -1774,7 +1835,10 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # opened for the duration -- both `_taped` calls and the backward's recompute -- without
     # either swap having to know about it.
     fast = not exact if fast is None else fast
-    with autograd.exact_training(exact), evoformer_on_device(evo, extra), \
+    # Outermost, so a refusal from any seam under it reaches the caller as the `MemoryError`
+    # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
+    with refusals_unwrapped(), \
+            autograd.exact_training(exact), evoformer_on_device(evo, extra), \
             template_on_device(tmpl), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
@@ -1984,7 +2048,8 @@ def run_campaign(settings: Mapping, project_folder: str, *,
         raise ValueError("trajectories_per_card must be at least 1, not "
                          f"{trajectories_per_card!r}")
     if trajectories == 1:
-        return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)
+        with refusals_unwrapped():
+            return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)
 
     names = [f"t{i + 1}" for i in range(trajectories)]
 
@@ -2006,7 +2071,8 @@ def run_campaign(settings: Mapping, project_folder: str, *,
                 duotraj.compile_round_cleared(names[i]).set()
         return go
 
-    with duotraj.interleave(trajectories=trajectories, tokens=tokens), \
+    with refusals_unwrapped(), \
+            duotraj.interleave(trajectories=trajectories, tokens=tokens), \
             _one_campaign_not_n(campaign, trajectories):
         counted = duotraj.run([one(i) for i in range(trajectories)], names=names)
     # Each arm returns the trajectory count it read out of the shared campaign progress as it

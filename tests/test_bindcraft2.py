@@ -12,6 +12,7 @@ import sys
 import textwrap
 import threading
 import time
+import traceback
 import types
 
 import numpy as np
@@ -1344,6 +1345,106 @@ def test_the_allocators_own_refusal_is_kept_as_the_cause():
             raise original
     assert caught.value.__cause__ is original
     assert "largest free block: 326674368 B" in str(caught.value.__cause__)
+
+
+# ------------------------------- a refusal raised inside a pure_callback, as the user gets it
+
+
+class _JaxRuntimeErrorLookalike(RuntimeError):
+    """What `jax.pure_callback` hands the caller when the callback raised.
+
+    Not `jaxlib`'s own class, deliberately: these tests must run on a host with no jaxlib, and
+    what is under test is that the refusal is recovered from an exception that is NOT a
+    `MemoryError` and only carries the refusal's text. Matching on the class would be matching
+    on the wrong thing -- JAX has moved this exception between modules more than once.
+    """
+
+
+def _jax_wrapped(exc: BaseException) -> _JaxRuntimeErrorLookalike:
+    """`exc`, stringified into a callback error the way JAX does it.
+
+    Measured shape: on a Wormhole Galaxy chip at 544 tokens the refusal reaches the caller as
+    `INTERNAL: CpuCallback error calling callback: Traceback (most recent call last): ...`
+    with six frames of `jax/_src/callback.py` and `contextlib` in front of the refusal's own
+    text (`state/b2p-wh.md`). The frames are built here by raising `exc` for real, so the
+    chained `__cause__` the allocator's line hangs off is in the string exactly as it would be.
+    """
+    try:
+        raise exc
+    except BaseException:                                                 # noqa: BLE001
+        return _JaxRuntimeErrorLookalike(
+            "INTERNAL: CpuCallback error calling callback: " + traceback.format_exc())
+
+
+def test_a_refusal_stringified_by_jax_still_reaches_the_caller_as_a_memory_error():
+    """On a Wormhole Galaxy chip EVERY refusal above 512 tokens is a stringified one.
+
+    The card saturates in the Evoformer backward, which runs inside a `jax.pure_callback`, so
+    the size-aware refusal is turned into a `JaxRuntimeError` carrying its text and six frames
+    of JAX internals in front of it. Two things break at once: the user reads a traceback
+    before the useful message, and `except MemoryError` -- the handler the refusal is written
+    for -- stops catching it. A p150a passes its own 576 ceiling in a forward outside the
+    callback and arrives clean, so without this the same mistake reads differently on the two
+    boards (`state/b2p-wh.md`).
+    """
+    with pytest.raises(MemoryError) as raised:
+        with bindcraft2._refusal_names_the_size("backward", 531, 544):
+            raise RuntimeError(REFUSAL_WORMHOLE)
+    wrapped = _jax_wrapped(raised.value)
+    assert not isinstance(wrapped, MemoryError)        # the defect this test exists for
+
+    with pytest.raises(MemoryError) as caught:
+        with bindcraft2.refusals_unwrapped():
+            raise wrapped
+    msg = str(caught.value)
+    assert "Evoformer backward at 544 tokens" in msg
+    assert "Wormhole Galaxy chip" in msg and "512 tokens" in msg
+    assert "19 residues off the binder" in msg
+    # The refusal is handed back, not reconstructed, so the allocator's own line is still the
+    # cause of the cause and a bug report loses nothing.
+    assert "largest free block: 21491680 B" in str(caught.value.__cause__)
+    assert "CpuCallback" not in msg
+
+
+def test_the_unwrapped_refusal_is_the_object_the_seam_raised():
+    """Handed back, not parsed back out of the traceback it was printed into.
+
+    A parse would have to guess where the message ends, and the message ends with the
+    allocator's own refusal -- so a parse either truncates it or swallows the frames it was
+    meant to remove.
+    """
+    with pytest.raises(MemoryError) as raised:
+        with bindcraft2._refusal_names_the_size("backward", 531, 544):
+            raise RuntimeError(REFUSAL_WORMHOLE)
+    assert bindcraft2.unwrap_device_refusal(_jax_wrapped(raised.value)) is raised.value
+
+
+def test_an_unrelated_callback_failure_is_not_repainted_as_a_refusal():
+    """A callback that died of something else must arrive as itself.
+
+    The recovery matches on the text of a refusal this process actually raised, so a wrapper
+    around an unrelated bug -- or around a refusal from a different fold -- is left alone.
+    """
+    with pytest.raises(MemoryError):
+        with bindcraft2._refusal_names_the_size("backward", 531, 544):
+            raise RuntimeError(REFUSAL_WORMHOLE)          # arms the recovery
+    other = _jax_wrapped(ValueError("no live tape for token 7"))
+    assert bindcraft2.unwrap_device_refusal(other) is other
+    with pytest.raises(_JaxRuntimeErrorLookalike) as caught:
+        with bindcraft2.refusals_unwrapped():
+            raise other
+    assert caught.value is other
+
+
+def test_a_refusal_that_was_never_wrapped_passes_through_untouched():
+    """The common case on a p150a: the ceiling is passed in a forward outside the callback."""
+    clean = MemoryError("BindCraft 2 ran out of device memory")
+    assert bindcraft2.unwrap_device_refusal(clean) is clean
+    with pytest.raises(MemoryError) as caught:
+        with bindcraft2.refusals_unwrapped():
+            raise clean
+    assert caught.value is clean
+    assert caught.value.__cause__ is None      # not re-chained onto itself
 
 
 # ------------------------------------------------- the degradation that used to be silent
