@@ -693,8 +693,9 @@ else on their board.
 
 ### What this release does not cover
 
-- **No Blackhole p150a capacity or size-ladder baseline was re-recorded.** qb1 is powered down by
-  directive, and the only other p150a this fleet can reach is the card root-caused on 2026-08-17 as
+- **No Blackhole p150a capacity or size-ladder baseline was re-recorded.** The one reachable p150a
+  box was carrying other device work through the release window, so a baseline taken on it would
+  have been contended, and the only other p150a is the card root-caused on 2026-08-17 as
   silently miscomputing matmuls at a low, location-keyed rate. Recording a release baseline on it
   would put a known-bad card into the file every future release is scored against, so the p150a
   cells still carry v0.8.0 numbers and 15 of them are stale. Blackhole (p300c) coverage is complete,
