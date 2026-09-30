@@ -69,6 +69,11 @@ def sysfs_node(visible=None):
     root = "/sys/class/tenstorrent"
     nodes = sorted(os.listdir(root),
                    key=lambda n: os.path.basename(os.path.realpath(f"{root}/{n}/device")))
+    if not 0 <= int(visible) < len(nodes):
+        # A 32-chip Galaxy makes this reachable by a typo, and the bare IndexError names
+        # neither the index nor the box.
+        raise SystemExit(f"TT_VISIBLE_DEVICES={visible} is outside this host's "
+                         f"{len(nodes)} Tenstorrent nodes, so no clock can be sampled for it")
     node = nodes[int(visible)]
     return f"{root}/{node}", os.path.basename(os.path.realpath(f"{root}/{node}/device"))
 

@@ -1,0 +1,337 @@
+{
+ "arms": [
+  {
+   "arm": "a1",
+   "extra_msa": false,
+   "template": false,
+   "n": 1,
+   "interleave": false,
+   "commit": "5eba2312a",
+   "card": "30",
+   "warm": 4,
+   "wall": 28.338539958000183,
+   "device": 12.2936485,
+   "host": 16.00984474650574,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "under_floor": 0,
+   "clk_n": 112,
+   "per_round": [
+    {
+     "wall": 28.935,
+     "load1": 12.39
+    },
+    {
+     "wall": 27.516,
+     "load1": 16.59
+    },
+    {
+     "wall": 30.262,
+     "load1": 13.44
+    },
+    {
+     "wall": 27.742,
+     "load1": 14.24
+    }
+   ],
+   "load1": 13.84
+  },
+  {
+   "arm": "a2",
+   "extra_msa": false,
+   "template": false,
+   "n": 1,
+   "interleave": false,
+   "commit": "5eba2312a",
+   "card": "30",
+   "warm": 4,
+   "wall": 29.44157648086548,
+   "device": 12.2758225,
+   "host": 17.232396480873106,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "under_floor": 0,
+   "clk_n": 116,
+   "per_round": [
+    {
+     "wall": 30.577,
+     "load1": 6.29
+    },
+    {
+     "wall": 28.841,
+     "load1": 6.94
+    },
+    {
+     "wall": 29.991,
+     "load1": 7.64
+    },
+    {
+     "wall": 28.892,
+     "load1": 5.93
+    }
+   ],
+   "load1": 6.62
+  },
+  {
+   "arm": "a3",
+   "extra_msa": false,
+   "template": false,
+   "n": 1,
+   "interleave": false,
+   "commit": "5eba2312a",
+   "card": "30",
+   "warm": 4,
+   "wall": 29.523555278778076,
+   "device": 12.3046065,
+   "host": 17.218948778778078,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "under_floor": 0,
+   "clk_n": 116,
+   "per_round": [
+    {
+     "wall": 30.613,
+     "load1": 4.38
+    },
+    {
+     "wall": 28.754,
+     "load1": 3.9
+    },
+    {
+     "wall": 30.226,
+     "load1": 4.03
+    },
+    {
+     "wall": 28.821,
+     "load1": 6.83
+    }
+   ],
+   "load1": 4.2
+  },
+  {
+   "arm": "a4",
+   "extra_msa": false,
+   "template": false,
+   "n": 1,
+   "interleave": false,
+   "commit": "5eba2312a",
+   "card": "30",
+   "warm": 4,
+   "wall": 29.405168771743774,
+   "device": 12.293379,
+   "host": 17.15669629071045,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "under_floor": 0,
+   "clk_n": 116,
+   "per_round": [
+    {
+     "wall": 30.781,
+     "load1": 4.13
+    },
+    {
+     "wall": 28.921,
+     "load1": 3.63
+    },
+    {
+     "wall": 29.89,
+     "load1": 3.21
+    },
+    {
+     "wall": 28.642,
+     "load1": 6.8
+    }
+   ],
+   "load1": 3.88
+  },
+  {
+   "arm": "b1",
+   "extra_msa": true,
+   "template": true,
+   "n": 1,
+   "interleave": false,
+   "commit": "5eba2312a",
+   "card": "30",
+   "warm": 4,
+   "wall": 16.23917305469513,
+   "device": 13.901907,
+   "host": 2.3979453202056886,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "under_floor": 0,
+   "clk_n": 62,
+   "per_round": [
+    {
+     "wall": 17.369,
+     "load1": 5.75
+    },
+    {
+     "wall": 15.57,
+     "load1": 4.62
+    },
+    {
+     "wall": 16.908,
+     "load1": 3.85
+    },
+    {
+     "wall": 15.558,
+     "load1": 3.45
+    }
+   ],
+   "load1": 4.23
+  },
+  {
+   "arm": "b2",
+   "extra_msa": true,
+   "template": true,
+   "n": 1,
+   "interleave": false,
+   "commit": "5eba2312a",
+   "card": "30",
+   "warm": 4,
+   "wall": 16.295573592185974,
+   "device": 13.8596835,
+   "host": 2.435890092185975,
+   "aiclk_med": 1000,
+   "aiclk_min": 1000,
+   "under_floor": 0,
+   "clk_n": 63,
+   "per_round": [
+    {
+     "wall": 17.445,
+     "load1": 6.65
+    },
+    {
+     "wall": 15.606,
+     "load1": 5.34
+    },
+    {
+     "wall": 16.985,
+     "load1": 4.35
+    },
+    {
+     "wall": 15.447,
+     "load1": 3.6
+    }
+   ],
+   "load1": 4.85
+  },
+  {
+   "arm": "b3",
+   "extra_msa": true,
+   "template": true,
+   "n": 1,
+   "interleave": false,
+   "commit": "5eba2312a",
+   "card": "30",
+   "warm": 4,
+   "wall": 16.189693212509155,
+   "device": 13.817684499999999,
+   "host": 2.372008712509156,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "under_floor": 0,
+   "clk_n": 62,
+   "per_round": [
+    {
+     "wall": 17.332,
+     "load1": 4.66
+    },
+    {
+     "wall": 15.421,
+     "load1": 3.89
+    },
+    {
+     "wall": 16.922,
+     "load1": 3.19
+    },
+    {
+     "wall": 15.457,
+     "load1": 3.4
+    }
+   ],
+   "load1": 3.64
+  },
+  {
+   "arm": "b4",
+   "extra_msa": true,
+   "template": true,
+   "n": 1,
+   "interleave": false,
+   "commit": "5eba2312a",
+   "card": "30",
+   "warm": 4,
+   "wall": 16.314489483833313,
+   "device": 13.8520515,
+   "host": 2.4860399838333134,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "under_floor": 0,
+   "clk_n": 62,
+   "per_round": [
+    {
+     "wall": 17.375,
+     "load1": 3.45
+    },
+    {
+     "wall": 15.701,
+     "load1": 2.88
+    },
+    {
+     "wall": 16.928,
+     "load1": 2.71
+    },
+    {
+     "wall": 15.615,
+     "load1": 2.32
+    }
+   ],
+   "load1": 2.8
+  }
+ ],
+ "summary": {
+  "extra_msa=0 template=0 N=1": {
+   "arms": [
+    "a1",
+    "a2",
+    "a3",
+    "a4"
+   ],
+   "wall": 29.423372626304626,
+   "spread": [
+    28.338539958000183,
+    29.523555278778076
+   ],
+   "device": 12.293513749999999,
+   "host": 17.187822534744264,
+   "ratio_vs_h200": 42.28711213898337,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "load1": 5.41
+  },
+  "extra_msa=1 template=1 N=1": {
+   "arms": [
+    "b1",
+    "b2",
+    "b3",
+    "b4"
+   ],
+   "wall": 16.26737332344055,
+   "spread": [
+    16.189693212509155,
+    16.314489483833313
+   ],
+   "device": 13.855867499999999,
+   "host": 2.416917706195832,
+   "ratio_vs_h200": 23.379381033976074,
+   "aiclk_med": 1000.0,
+   "aiclk_min": 1000,
+   "load1": 3.9350000000000005
+  },
+  "ratio": {
+   "faster": "extra_msa=1 template=1 N=1",
+   "slower": "extra_msa=0 template=0 N=1",
+   "x": 1.808735315855011
+  }
+ }
+}
