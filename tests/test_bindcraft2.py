@@ -783,6 +783,22 @@ def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0, tokens=288, part_gb=3
     monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: tokens)
 
 
+def _roomy_box(monkeypatch):
+    """Pin the box big enough to hold `duotraj.AUTO_CAP` trajectories, for the tests that are
+    about the GATE and not about memory.
+
+    Six of them asked for three trajectories and read the real hardware, so they passed on a
+    Blackhole box and failed on a Wormhole Galaxy chip with
+    `MemoryError: interleaving 3 trajectories of 0 tokens needs 16.01 GB on the card and it has
+    11.40 GB for them` -- three times the fit's intercept is already more than a 12 GB card,
+    whatever the design. The refusal is correct and is what `auto` errs low for; it is just not
+    what a test of the header, the footer gate, the slot names or the summary lock is measuring.
+    On a host with no BindCraft 2 the same six SKIP, which is why the suite looked green on
+    every box anyone ran it on (`state/b2p-wh.md`).
+    """
+    _box(monkeypatch, free_gb=200.0)
+
+
 def test_the_default_takes_as_many_trajectories_as_the_box_holds(monkeypatch, capsys):
     """The shipped default is `auto`, and on a roomy box that is the cap, not one."""
     from tt_bio import duotraj
@@ -998,6 +1014,7 @@ def test_fewer_than_one_trajectory_is_refused(monkeypatch, trajectories):
 
 
 def test_three_trajectories_run_one_campaign_each_under_the_gate(monkeypatch):
+    _roomy_box(monkeypatch)
     from tt_bio import duotraj
 
     calls, returned = _campaign_calls(monkeypatch, trajectories_per_card=3)
@@ -1035,6 +1052,7 @@ def test_a_trajectory_waits_for_the_one_before_it_to_clear_its_compile_round(mon
 
 def test_a_trajectory_that_stops_early_does_not_strand_the_next_one(monkeypatch):
     """A campaign that never reaches a second round still releases its follower."""
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1077,6 +1095,7 @@ def test_a_box_that_cannot_hold_them_is_refused_before_any_campaign_starts(monke
 
 
 def test_the_campaign_header_is_printed_once_not_once_per_trajectory(monkeypatch):
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1095,6 +1114,7 @@ def test_the_campaign_is_announced_over_once_by_the_last_trajectory_out(monkeypa
     """`run_campaign` prints `campaign done: ...` when `design_worker_index()` is None, which is
     per PROCESS. N threads share one environment, so all N announced the end and the earlier ones
     did it while another trajectory was still printing stage lines."""
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1119,6 +1139,7 @@ def test_the_campaign_is_announced_over_once_by_the_last_trajectory_out(monkeypa
 def test_a_real_worker_process_keeps_bindcrafts_own_footer_gate(monkeypatch):
     """With BINDCRAFT_WORKER_ID set the process is one of several on the project and upstream
     means nobody to announce the campaign; the thread gate must not talk over that."""
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
@@ -1135,6 +1156,7 @@ def test_a_real_worker_process_keeps_bindcrafts_own_footer_gate(monkeypatch):
 def test_the_closing_summary_writer_is_serialised(monkeypatch):
     """N trajectories share a stop condition, so they reach the unlocked summary rewrite at
     once; overlapping writes to its one partial file would produce a summary that is neither."""
+    _roomy_box(monkeypatch)
     _bindcraft_root()
     from bindcraft import campaign
 
