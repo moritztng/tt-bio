@@ -35,8 +35,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   [docs/training.md](docs/training.md).
 
 - **BindCraft 2 designs on a card through `tt_bio.bindcraft2`.** BindCraft 2 is a third-party
-  design loop you install yourself; tt-bio gives it an AlphaFold 2 Evoformer that runs on the chip,
-  gradient loop included, and interleaves as many design trajectories on one chip as the box and
+  design loop you install yourself; tt-bio runs its AlphaFold 2 Evoformer, extra-MSA stack and
+  template embedder on the chip, gradient loop included, and interleaves as many design trajectories on one chip as the box and
   card hold. On the shipped PD-L1 example it accepts 7 binders per 31 trajectories against the
   reference JAX's 1 per 5, which Fisher exact does not separate (p = 1.00). One p150a carries a
   complex up to 576 tokens and one Wormhole Galaxy chip up to 512; a larger one is refused with the
