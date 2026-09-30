@@ -158,6 +158,17 @@ def _aiclk() -> int | None:
         return None
 
 
+def _charged(project: str | None):
+    """Trajectories the campaign has charged, from its `.campaign_state.json`; None if unreadable."""
+    if not project:
+        return None
+    try:
+        with open(os.path.join(project, ".campaign_state.json")) as f:
+            return json.load(f).get("trajectories")
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def sample(pid: int, project: str | None, caches: list[str]) -> dict:
     tree = _tree(pid)
     status = [_status(member) for member in tree]
@@ -175,6 +186,9 @@ def sample(pid: int, project: str | None, caches: list[str]) -> dict:
             "maps": sum(count for count in maps if count is not None),
             "root_rss": root.get("vmrss"), "root_hwm": root.get("vmhwm"),
             "project_bytes": _bytes(project),
+            # The campaign's own count, so a trajectory boundary is stamped where it happens
+            # rather than inferred from round numbers that do not restart per trajectory.
+            "charged": _charged(project),
             "cache_bytes": {c: _bytes(c) for c in caches},
             "disk_free": _disk_free(project),
             "mem_available": _mem_available(), "load1": round(os.getloadavg()[0], 2),

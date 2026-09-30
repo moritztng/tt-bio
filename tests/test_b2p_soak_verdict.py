@@ -192,3 +192,95 @@ def test_it_works_with_no_round_stamps_at_all(tmp_path):
     assert drifted == []
     assert any("0 trajectories" in line for line in read)
     assert any("no threads verdict" in line for line in read)
+
+
+def interleaved(tmp_path, *, finished=4, arms=3, rss_step_gb=0.0, stage_load_gb=0.0):
+    """The shape a REAL interleaved campaign writes: `round` counts up per arm and never restarts,
+    and each finished trajectory is a row in the table plus a folder whose newest file is when it
+    finished. bh24 on qb1, 2026-09-30, had `round == 1` three times in five charged trajectories."""
+    out = tmp_path
+    project = out / "project"
+    (project / "1_Trajectories").mkdir(parents=True, exist_ok=True)
+    t0, rounds, samples, names = 1_790_000_000.0, [], [], []
+    per_trajectory_s = 40 * 60
+    total = per_trajectory_s * (finished + 1)
+    for arm in range(arms):
+        t, step = t0 + arm * 60, 1
+        while t < t0 + total:
+            rounds.append({"t": t, "slot": f"t{arm + 1}", "round": step})
+            t, step = t + 18.3, step + 1
+    for k in range(finished):
+        name = f"traj_{k}"
+        names.append(name)
+        folder = project / "1_Trajectories" / name
+        folder.mkdir()
+        stamp = folder / "Trajectory.pdb"
+        stamp.write_text("x")
+        when = t0 + per_trajectory_s * (k + 1)
+        import os
+        os.utime(stamp, (when, when))
+    with open(project / "1_Trajectories" / "!_Trajectories.csv", "w") as f:
+        f.write("trajectory,design\n" + "".join(f"{i + 1},{n}\n" for i, n in enumerate(names)))
+    for i in range(0, int(total), 30):
+        t = t0 + i
+        done = sum(1 for k in range(finished) if t >= t0 + per_trajectory_s * (k + 1))
+        # a one-off step when the first trajectory reaches a new stage, and optionally a leak
+        rss = 19.0 + (stage_load_gb if done >= 1 else 0.0) + rss_step_gb * done
+        samples.append({"t": t, "alive": True, "rss": int(rss * GB), "fds": 25, "threads": 714,
+                        "maps": 13300, "cache_bytes": {}, "disk_free": int(300 * GB)})
+    (project / "rounds.json").write_text(json.dumps(rounds))
+    (out / "drift.jsonl").write_text("".join(json.dumps(r) + "\n" for r in samples))
+    return out
+
+
+def run_real(out):
+    samples = verdict.read_samples(out / "drift.jsonl")
+    rounds = json.loads((out / "project" / "rounds.json").read_text())
+    windows = verdict.boundary_windows(verdict.completion_times(out / "project"), rounds)
+    return verdict.verdict(samples, windows)
+
+
+def test_arms_starting_up_are_not_trajectory_boundaries(tmp_path):
+    out = interleaved(tmp_path)
+    rounds = json.loads((out / "project" / "rounds.json").read_text())
+    assert len(verdict.trajectory_windows(rounds)) == 3            # one per arm: the old reading
+    assert len(verdict.completion_times(out / "project")) == 4     # the campaign's own count
+
+
+def test_a_new_stage_loading_once_is_not_a_leak(tmp_path):
+    drift, _ = run_real(interleaved(tmp_path, stage_load_gb=0.9))
+    assert not drift
+
+
+def test_a_real_leak_on_an_interleaved_campaign_is_still_caught(tmp_path):
+    drift, _ = run_real(interleaved(tmp_path, rss_step_gb=1.5))
+    assert any("host memory climbs" in d for d in drift)
+
+
+def test_the_window_pace_is_the_amortised_round(tmp_path):
+    out = interleaved(tmp_path, arms=3)
+    windows = verdict.boundary_windows(verdict.completion_times(out / "project"),
+                                       json.loads((out / "project" / "rounds.json").read_text()))
+    later = windows[1:]
+    assert all(abs(w["s_per_round"] - 18.3 / 3) < 0.3 for w in later)
+
+
+def test_no_trajectory_table_yet_means_no_completion_times(tmp_path):
+    (tmp_path / "project").mkdir()
+    assert verdict.completion_times(tmp_path / "project") == []
+
+
+def test_arms_finishing_together_are_one_boundary_not_three(tmp_path):
+    rounds = [{"t": 1_790_000_000.0 + i * 6.0, "slot": "t1", "round": i + 1} for i in range(600)]
+    start = rounds[0]["t"]
+    together = [start + 2400, start + 2640, start + 2670]           # bh24: 16:27:33, :31:34, :32:04
+    windows = verdict.boundary_windows(together + [start + 3500], rounds)
+    assert len(windows) == 2
+    assert windows[0]["end"] == start + 2670
+
+
+def test_the_real_bh24_shape_is_declined_not_called_a_leak(tmp_path):
+    out = interleaved(tmp_path, finished=1, stage_load_gb=0.9)
+    drift, read = run_real(out)
+    assert not drift
+    assert any("fewer than 3 trajectory boundaries" in line for line in read)

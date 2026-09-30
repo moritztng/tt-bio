@@ -21,6 +21,7 @@ Exit 0 clean, 1 when something drifted, 2 when the files are not there.
   verdict.py <out_dir>            # out_dir holds drift.jsonl and project/rounds.json
 """
 import argparse
+import csv
 import json
 import pathlib
 import statistics
@@ -35,6 +36,12 @@ MEMORY_PER_TRAJECTORY_GB = 0.5
 HANDLE_GROWTH = 1.25
 #: A late trajectory this much slower than the median is a slowdown, not noise.
 SLOWDOWN = 1.15
+#: Trajectories finishing closer together than this are one event, not independent boundaries.
+#: Interleaved arms start together and so finish together: bh24's first three finished within
+#: 4.5 minutes of each other, at the moment the refold stage first loaded (+2 700 mapped regions,
+#: +0.9 GB), and reading those as three floors divided one stage load by two and called it a
+#: 1.37 GB/trajectory leak. A trajectory takes 20-40 minutes on either board.
+MIN_WINDOW_S = 600
 
 
 def read_samples(path: pathlib.Path) -> list[dict]:
@@ -75,6 +82,59 @@ def trajectory_windows(rounds: list[dict]) -> list[dict]:
         out.append({"n": index, "slot": slot, "start": rows[0]["t"], "end": rows[-1]["t"],
                     "rounds": len(rows),
                     "s_per_round": span / (len(rows) - 1) if len(rows) > 1 else None})
+    return out
+
+
+def completion_times(project: pathlib.Path) -> list[float]:
+    """When each finished trajectory finished, from the campaign's own record.
+
+    The round stamps cannot say this. On a real interleaved campaign `round` does NOT restart at
+    1 when an arm moves on to its next trajectory -- measured on qb1's bh24 on 2026-09-30: 5
+    trajectories charged, `round == 1` exactly three times, all in the first four minutes, one per
+    arm -- so windows cut there are arm windows, and the first version of this read three arms
+    starting up during compile as three trajectory boundaries and reported a 0.98 GB/trajectory
+    leak. The campaign's trajectory table has one row per FINISHED trajectory, and each names its
+    folder under `1_Trajectories/`; that folder's newest file is when it finished.
+    """
+    for table in (project / "1_Trajectories" / "!_Trajectories.csv", project / "trajectories.csv"):
+        if table.is_file():
+            break
+    else:
+        return []
+    try:
+        with open(table, newline="") as f:
+            names = [row.get("design") or row.get("trajectory") or "" for row in csv.DictReader(f)]
+    except (OSError, csv.Error):
+        return []
+    out = []
+    for name in names:
+        folder = project / "1_Trajectories" / name
+        stamps = [child.stat().st_mtime for child in folder.iterdir()] if folder.is_dir() else []
+        if stamps:
+            out.append(max(stamps))
+    return sorted(out)
+
+
+def boundary_windows(boundaries: list[float], rounds: list[dict]) -> list[dict]:
+    """One window per finished trajectory, cut at the campaign's own completion times.
+
+    With N arms in flight a window is the stretch between two completions, not one trajectory's
+    life, so its pace is the AMORTISED round: the window's duration over every arm's rounds in it.
+    """
+    stamps = sorted(r["t"] for r in rounds)
+    if not boundaries or not stamps:
+        return []
+    edges = [stamps[0]]
+    for when in sorted(boundaries):
+        if when - edges[-1] < MIN_WINDOW_S and len(edges) > 1:
+            edges[-1] = when          # the same event as the last boundary: move it, do not add
+        elif when - edges[-1] >= MIN_WINDOW_S:
+            edges.append(when)
+    out = []
+    for index, (start, end) in enumerate(zip(edges, edges[1:]), 1):
+        inside = sum(1 for t in stamps if start < t <= end)
+        out.append({"n": index, "slot": "all", "start": start, "end": end, "rounds": inside,
+                    "s_per_round": (end - start) / inside if inside > 1 else None})
     return out
 
 
@@ -198,8 +258,15 @@ def main() -> int:
             rounds = json.loads(rounds_path.read_text())
         except ValueError:
             rounds = []
-    windows = trajectory_windows(rounds)
+    boundaries = completion_times(rounds_path.parent)
+    if boundaries:
+        windows = boundary_windows(boundaries, rounds)
+        source = f"{len(boundaries)} finished trajectories, from the campaign's trajectory table"
+    else:
+        windows = trajectory_windows(rounds)
+        source = "round stamps (no trajectory table yet; on an interleaved run these are arms)"
     drifted, read = verdict(samples, windows)
+    print(f"  boundaries: {source}")
     for line in read:
         print(f"  {line}")
     for window in windows:
