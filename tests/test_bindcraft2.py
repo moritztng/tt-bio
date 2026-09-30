@@ -244,15 +244,30 @@ def test_validation_can_be_put_on_card_explicitly(monkeypatch):
     assert _campaign_factory_trunks(monkeypatch, validation="device") == ["device"] * 3
 
 
-def test_the_extra_msa_stack_stays_in_jax_unless_it_is_asked_for():
-    """The second swap is off by default, so an Evoformer-only comparison keeps its program.
+def test_the_extra_msa_stack_runs_on_card_by_default():
+    """Both AF2 swaps default ON, because leaving them in JAX is what costs the round.
 
-    `bcx-seeds` grades matched pairs on the Evoformer swap alone. A second default moving
-    underneath that set would void it.
+    On a Wormhole Galaxy chip a 288-token round is 29.423 s with them in JAX against 16.267 s
+    on card, 1.8087x, host 17.188 -> 2.417 s (`perf/bwx_perf/results/`); Blackhole agrees to
+    3 %. Before this the shipped default was the one arm nobody had measured: every headline
+    was taken through a harness that hardcoded them on.
     """
     _bindcraft_root()
     params = _af2_params()
     with bindcraft2.predictor(trunk="device", checkpoints=str(params)) as build:
+        assert build.extra_msa is not None
+
+
+def test_the_extra_msa_stack_can_be_kept_in_jax():
+    """`extra_msa=False` is the opt-out an Evoformer-only comparison needs.
+
+    `bcx-seeds` grades matched pairs on the Evoformer swap alone, so that set is re-run on
+    this flag rather than on the default.
+    """
+    _bindcraft_root()
+    params = _af2_params()
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params),
+                              extra_msa=False) as build:
         assert build.extra_msa is None
 
 
@@ -293,6 +308,8 @@ def test_the_campaign_path_can_ask_for_the_extra_msa_swap_too():
         assert isinstance(build.extra_msa, bindcraft2.ExtraMsaOnDevice)
         assert build.extra_msa.pool is build.pool
     with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
+        assert isinstance(build.extra_msa, bindcraft2.ExtraMsaOnDevice)
+    with bindcraft2.campaign_predictor(checkpoints=str(params), extra_msa=False) as build:
         assert build.extra_msa is None
 
 
@@ -749,15 +766,19 @@ def test_one_trajectory_per_card_is_bindcrafts_own_call(monkeypatch):
     assert duotraj.GATE is None
 
 
-def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0, tokens=288):
+def _box(monkeypatch, *, free_gb, rss_gb=0.0, card_gb=0.0, tokens=288, part_gb=31.875):
     """Pretend the box has this much free host memory, this process holds that much, the card has
-    that much DRAM free (0 = no card open, which is what `auto` sees at entry), and the design
-    runs at this token axis."""
+    that much DRAM free (0 = no card open, which is what `auto` sees at entry), the part in the
+    box is this big, and the design runs at this token axis.
+
+    `part_gb` is pinned rather than read, so these expectations are the same on every box the
+    suite runs on. 31.875 is Blackhole, which is where all of them were measured."""
     from tt_bio import duotraj
 
     monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(free_gb * 2**30))
     monkeypatch.setattr(duotraj, "host_rss_bytes", lambda: int(rss_gb * 2**30))
     monkeypatch.setattr(duotraj, "free_device_bytes", lambda: int(card_gb * 2**30))
+    monkeypatch.setattr(duotraj, "card_total_bytes", lambda: int(part_gb * 2**30))
     monkeypatch.setattr(bindcraft2, "design_tokens", lambda settings: tokens)
 
 
@@ -818,6 +839,46 @@ def test_auto_does_not_put_more_trajectories_on_the_card_than_it_holds(monkeypat
     assert len(_campaign_calls(monkeypatch)[0]) == 2
     _box(monkeypatch, free_gb=200.0, card_gb=4.0)
     assert len(_campaign_calls(monkeypatch)[0]) == 1
+
+
+def test_a_twelve_gib_wormhole_chip_is_not_priced_as_a_blackhole_one(monkeypatch):
+    """The card `auto` prices before one is open is the part THIS host has.
+
+    A Wormhole Galaxy chip holds 12 GiB where a Blackhole p150a or p300 chip holds 31.875, and
+    `auto` runs before ttnn is imported, so nothing in the allocator can say which it is. Priced
+    as Blackhole, a 288-token design got 3 trajectories at 5.3 GB each: 16 GB asked of a card
+    with 11. Measured on dev Galaxy .107 chip 30, 2 interleaved trajectories at 288 tokens ran a
+    real campaign to its stop condition, and that is what the card reports when it IS open."""
+    _box(monkeypatch, free_gb=462.0, part_gb=12.0)
+    assert len(_campaign_calls(monkeypatch, tokens=288)[0]) == 1
+    # Explicit counts are still the caller's: 2 is honoured on that chip, 3 is refused on it.
+    _box(monkeypatch, free_gb=462.0, part_gb=12.0)
+    assert len(_campaign_calls(monkeypatch, tokens=288, trajectories_per_card=2)[0]) == 2
+    with pytest.raises(MemoryError, match="on the card"):
+        _campaign_calls(monkeypatch, tokens=288, trajectories_per_card=3)
+    # With the chip open and reporting its own free bytes, the count is the measured 2.
+    _box(monkeypatch, free_gb=462.0, part_gb=12.0, card_gb=11.9)
+    assert len(_campaign_calls(monkeypatch, tokens=288)[0]) == 2
+
+
+def test_an_unknown_part_is_priced_as_the_smallest_one(monkeypatch, tmp_path):
+    """A host that will not say which part it has gets the tighter answer, the way
+    `tenstorrent.l1_resident_budget_bytes()` falls back to Wormhole's L1. Over-pricing the card
+    starts trajectories that do not fit; under-pricing it starts one that does."""
+    from tt_bio import duotraj
+
+    monkeypatch.setattr(duotraj, "TT_SYSFS_CLASS", str(tmp_path / "nothing-here"))
+    assert duotraj.card_total_bytes() == duotraj.CARD_BYTES == int(12 * 2**30)
+
+    monkeypatch.setattr(duotraj, "TT_SYSFS_CLASS", str(tmp_path))
+    node = tmp_path / "tenstorrent!0" / "device"
+    node.mkdir(parents=True)
+    (node / "device").write_text("0xdead\n")          # a part this table has never seen
+    assert duotraj.card_total_bytes() == int(12 * 2**30)
+    (node / "device").write_text("0xb140\n")
+    assert duotraj.card_total_bytes() == int(31.875 * 2**30)
+    (node / "device").write_text("0x401e\n")
+    assert duotraj.card_total_bytes() == int(12 * 2**30)
 
 
 def test_a_large_design_gets_fewer_trajectories_than_a_small_one(monkeypatch, capsys):
@@ -886,10 +947,12 @@ def test_the_line_calls_its_own_estimate_an_upper_bound_at_the_largest_axis_that
     monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(200 * 2**30))
     monkeypatch.setattr(duotraj, "host_rss_bytes", lambda: 0)
     monkeypatch.setattr(duotraj, "free_device_bytes", lambda: 0)  # what `auto` sees at entry
+    monkeypatch.setattr(duotraj, "card_total_bytes", lambda: int(31.875 * 2**30))
 
     count, why = duotraj.auto_trajectories(576)
     assert count == 1
-    room = duotraj.CARD_BYTES - duotraj.trajectory_floor_bytes(576) - duotraj.CARD_RESERVE_BYTES
+    room = (int(31.875 * 2**30) - duotraj.trajectory_floor_bytes(576)
+            - duotraj.CARD_RESERVE_BYTES)
     assert duotraj.trajectory_bytes(576) > room, "the premise: the charge is over the card at 576"
     assert "priced at up to" in why and "composed path" in why, why
     assert "holds about" not in why, why

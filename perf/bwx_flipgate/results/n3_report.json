@@ -1,0 +1,689 @@
+{
+ "arms": [
+  {
+   "arm": "a1",
+   "extra_msa": false,
+   "template": false,
+   "n": 3,
+   "interleave": true,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 15,
+   "wall": 9.5522692044576,
+   "device": null,
+   "host": null,
+   "aiclk_med": 1350,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 141,
+   "per_round": [
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": -0.0,
+     "load1": null
+    },
+    {
+     "wall": 31.043,
+     "load1": 7.97
+    },
+    {
+     "wall": 4.338,
+     "load1": 9.96
+    },
+    {
+     "wall": 3.642,
+     "load1": 11.09
+    },
+    {
+     "wall": 20.418,
+     "load1": 13.43
+    },
+    {
+     "wall": 10.05,
+     "load1": 15.34
+    },
+    {
+     "wall": 1.813,
+     "load1": 16.36
+    },
+    {
+     "wall": 15.646,
+     "load1": 18.83
+    },
+    {
+     "wall": 11.513,
+     "load1": 19.92
+    },
+    {
+     "wall": 3.082,
+     "load1": 19.13
+    },
+    {
+     "wall": 13.377,
+     "load1": 17.69
+    },
+    {
+     "wall": 12.379,
+     "load1": 17.52
+    },
+    {
+     "wall": 3.319,
+     "load1": 16.62
+    },
+    {
+     "wall": 12.666,
+     "load1": 17.55
+    }
+   ],
+   "load1": 16.62
+  },
+  {
+   "arm": "a2",
+   "extra_msa": false,
+   "template": false,
+   "n": 3,
+   "interleave": true,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 15,
+   "wall": 9.576571528116862,
+   "device": null,
+   "host": null,
+   "aiclk_med": 1350,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 141,
+   "per_round": [
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": -0.0,
+     "load1": null
+    },
+    {
+     "wall": 31.147,
+     "load1": 6.73
+    },
+    {
+     "wall": 4.17,
+     "load1": 8.29
+    },
+    {
+     "wall": 3.759,
+     "load1": 9.77
+    },
+    {
+     "wall": 19.973,
+     "load1": 11.23
+    },
+    {
+     "wall": 8.454,
+     "load1": 11.5
+    },
+    {
+     "wall": 4.432,
+     "load1": 11.11
+    },
+    {
+     "wall": 15.316,
+     "load1": 11.23
+    },
+    {
+     "wall": 11.55,
+     "load1": 14.51
+    },
+    {
+     "wall": 2.57,
+     "load1": 14.57
+    },
+    {
+     "wall": 13.643,
+     "load1": 16.5
+    },
+    {
+     "wall": 12.475,
+     "load1": 17.85
+    },
+    {
+     "wall": 3.036,
+     "load1": 17.77
+    },
+    {
+     "wall": 13.123,
+     "load1": 18.29
+    }
+   ],
+   "load1": 11.5
+  },
+  {
+   "arm": "a3",
+   "extra_msa": false,
+   "template": false,
+   "n": 3,
+   "interleave": true,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 15,
+   "wall": 9.505497296651205,
+   "device": null,
+   "host": null,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 140,
+   "per_round": [
+    {
+     "wall": -0.0,
+     "load1": null
+    },
+    {
+     "wall": -0.0,
+     "load1": null
+    },
+    {
+     "wall": 31.395,
+     "load1": 5.57
+    },
+    {
+     "wall": 4.408,
+     "load1": 9.3
+    },
+    {
+     "wall": 3.653,
+     "load1": 10.84
+    },
+    {
+     "wall": 19.445,
+     "load1": 11.71
+    },
+    {
+     "wall": 10.269,
+     "load1": 11.41
+    },
+    {
+     "wall": 3.419,
+     "load1": 11.05
+    },
+    {
+     "wall": 13.441,
+     "load1": 12.3
+    },
+    {
+     "wall": 12.497,
+     "load1": 13.04
+    },
+    {
+     "wall": 3.313,
+     "load1": 14.43
+    },
+    {
+     "wall": 13.143,
+     "load1": 14.18
+    },
+    {
+     "wall": 12.454,
+     "load1": 12.78
+    },
+    {
+     "wall": 3.599,
+     "load1": 12.51
+    },
+    {
+     "wall": 11.546,
+     "load1": 13.17
+    }
+   ],
+   "load1": 12.3
+  },
+  {
+   "arm": "a4",
+   "extra_msa": false,
+   "template": false,
+   "n": 3,
+   "interleave": true,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 15,
+   "wall": 9.716739384333293,
+   "device": null,
+   "host": null,
+   "aiclk_med": 1350,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 143,
+   "per_round": [
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": 31.997,
+     "load1": 9.87
+    },
+    {
+     "wall": 4.398,
+     "load1": 9.92
+    },
+    {
+     "wall": 3.583,
+     "load1": 9.52
+    },
+    {
+     "wall": 19.623,
+     "load1": 11.6
+    },
+    {
+     "wall": 10.337,
+     "load1": 12.81
+    },
+    {
+     "wall": 2.768,
+     "load1": 13.64
+    },
+    {
+     "wall": 14.11,
+     "load1": 14.93
+    },
+    {
+     "wall": 11.683,
+     "load1": 14.13
+    },
+    {
+     "wall": 3.993,
+     "load1": 13.61
+    },
+    {
+     "wall": 13.397,
+     "load1": 13.71
+    },
+    {
+     "wall": 12.398,
+     "load1": 14.54
+    },
+    {
+     "wall": 4.664,
+     "load1": 14.38
+    },
+    {
+     "wall": 12.8,
+     "load1": 14.19
+    }
+   ],
+   "load1": 13.64
+  },
+  {
+   "arm": "b1",
+   "extra_msa": true,
+   "template": true,
+   "n": 3,
+   "interleave": true,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 15,
+   "wall": 6.281802765528361,
+   "device": null,
+   "host": null,
+   "aiclk_med": 1350,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 91,
+   "per_round": [
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": 21.273,
+     "load1": 5.38
+    },
+    {
+     "wall": 0.11,
+     "load1": null
+    },
+    {
+     "wall": 0.044,
+     "load1": null
+    },
+    {
+     "wall": 18.087,
+     "load1": 4.4
+    },
+    {
+     "wall": 0.13,
+     "load1": null
+    },
+    {
+     "wall": 0.044,
+     "load1": null
+    },
+    {
+     "wall": 17.96,
+     "load1": 3.55
+    },
+    {
+     "wall": 0.019,
+     "load1": null
+    },
+    {
+     "wall": 0.15,
+     "load1": null
+    },
+    {
+     "wall": 17.988,
+     "load1": 2.93
+    },
+    {
+     "wall": 0.001,
+     "load1": null
+    },
+    {
+     "wall": 0.05,
+     "load1": null
+    },
+    {
+     "wall": 18.37,
+     "load1": 2.68
+    }
+   ],
+   "load1": 3.55
+  },
+  {
+   "arm": "b2",
+   "extra_msa": true,
+   "template": true,
+   "n": 3,
+   "interleave": true,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 15,
+   "wall": 6.247829882303874,
+   "device": null,
+   "host": null,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1350,
+   "under_floor": 0,
+   "clk_n": 90,
+   "per_round": [
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": -0.0,
+     "load1": null
+    },
+    {
+     "wall": 21.437,
+     "load1": 2.03
+    },
+    {
+     "wall": 0.11,
+     "load1": null
+    },
+    {
+     "wall": 0.051,
+     "load1": null
+    },
+    {
+     "wall": 17.793,
+     "load1": 1.84
+    },
+    {
+     "wall": 0.108,
+     "load1": null
+    },
+    {
+     "wall": 0.036,
+     "load1": null
+    },
+    {
+     "wall": 18.111,
+     "load1": 1.86
+    },
+    {
+     "wall": 0.013,
+     "load1": null
+    },
+    {
+     "wall": 0.134,
+     "load1": null
+    },
+    {
+     "wall": 17.856,
+     "load1": 1.73
+    },
+    {
+     "wall": 0.109,
+     "load1": null
+    },
+    {
+     "wall": 0.038,
+     "load1": null
+    },
+    {
+     "wall": 17.92,
+     "load1": 2.33
+    }
+   ],
+   "load1": 1.86
+  },
+  {
+   "arm": "b3",
+   "extra_msa": true,
+   "template": true,
+   "n": 3,
+   "interleave": true,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 15,
+   "wall": 6.273462152481079,
+   "device": null,
+   "host": null,
+   "aiclk_med": 1350,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 91,
+   "per_round": [
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": -0.0,
+     "load1": null
+    },
+    {
+     "wall": 21.35,
+     "load1": 5.69
+    },
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": 0.063,
+     "load1": null
+    },
+    {
+     "wall": 18.192,
+     "load1": 4.58
+    },
+    {
+     "wall": 0.121,
+     "load1": null
+    },
+    {
+     "wall": 0.037,
+     "load1": null
+    },
+    {
+     "wall": 18.118,
+     "load1": 4.35
+    },
+    {
+     "wall": 0.013,
+     "load1": null
+    },
+    {
+     "wall": 0.118,
+     "load1": null
+    },
+    {
+     "wall": 17.822,
+     "load1": 3.76
+    },
+    {
+     "wall": 0.014,
+     "load1": null
+    },
+    {
+     "wall": 0.181,
+     "load1": null
+    },
+    {
+     "wall": 18.074,
+     "load1": 3.8
+    }
+   ],
+   "load1": 4.35
+  },
+  {
+   "arm": "b4",
+   "extra_msa": true,
+   "template": true,
+   "n": 3,
+   "interleave": true,
+   "commit": "412b35d6f",
+   "card": "0",
+   "warm": 15,
+   "wall": 6.301435931523641,
+   "device": null,
+   "host": null,
+   "aiclk_med": 1350,
+   "aiclk_min": 1343,
+   "under_floor": 0,
+   "clk_n": 91,
+   "per_round": [
+    {
+     "wall": 0.0,
+     "load1": null
+    },
+    {
+     "wall": -0.0,
+     "load1": null
+    },
+    {
+     "wall": 21.631,
+     "load1": 3.59
+    },
+    {
+     "wall": 0.002,
+     "load1": null
+    },
+    {
+     "wall": 0.065,
+     "load1": null
+    },
+    {
+     "wall": 18.219,
+     "load1": 3.34
+    },
+    {
+     "wall": 0.016,
+     "load1": null
+    },
+    {
+     "wall": 0.136,
+     "load1": null
+    },
+    {
+     "wall": 17.845,
+     "load1": 2.76
+    },
+    {
+     "wall": 0.097,
+     "load1": null
+    },
+    {
+     "wall": 0.037,
+     "load1": null
+    },
+    {
+     "wall": 17.942,
+     "load1": 2.66
+    },
+    {
+     "wall": 0.031,
+     "load1": null
+    },
+    {
+     "wall": 0.225,
+     "load1": null
+    },
+    {
+     "wall": 18.276,
+     "load1": 2.65
+    }
+   ],
+   "load1": 2.76
+  }
+ ],
+ "summary": {
+  "extra_msa=0 template=0 N=3": {
+   "arms": [
+    "a1",
+    "a2",
+    "a3",
+    "a4"
+   ],
+   "wall": 9.56442036628723,
+   "spread": [
+    9.505497296651205,
+    9.716739384333293
+   ],
+   "device": null,
+   "host": null,
+   "ratio_vs_h200": 13.745933265718929,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1343,
+   "load1": 12.97
+  },
+  "extra_msa=1 template=1 N=3": {
+   "arms": [
+    "b1",
+    "b2",
+    "b3",
+    "b4"
+   ],
+   "wall": 6.277632459004719,
+   "spread": [
+    6.247829882303874,
+    6.301435931523641
+   ],
+   "device": null,
+   "host": null,
+   "ratio_vs_h200": 9.022179446686863,
+   "aiclk_med": 1350.0,
+   "aiclk_min": 1343,
+   "load1": 3.155
+  },
+  "ratio": {
+   "faster": "extra_msa=1 template=1 N=3",
+   "slower": "extra_msa=0 template=0 N=3",
+   "x": 1.5235712553652132
+  }
+ }
+}

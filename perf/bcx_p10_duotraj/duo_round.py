@@ -138,6 +138,10 @@ def main():
     ap.add_argument("--params", default="/home/moritz/bcx_shipped/af2_params")
     ap.add_argument("--out", required=True)
     ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V")
+    ap.add_argument("--extra-msa", dest="extra_msa", type=int, default=1,
+                    help="predictor(extra_msa=...); 0 leaves the extra-MSA stack in JAX")
+    ap.add_argument("--template", type=int, default=1,
+                    help="predictor(template=...); 0 leaves the template embedder in JAX")
     args = ap.parse_args()
     if args.rounds > 9:
         raise SystemExit("9 rounds is the ceiling per process, see bcx-p10-rne")
@@ -181,6 +185,8 @@ def main():
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "tt_bio_file": tt_bio.__file__, "interleave": bool(args.interleave),
              "trajectories": n_traj,
+             "extra_msa_on_device": bool(args.extra_msa),
+             "template_on_device": bool(args.template),
              "levers_expected": _expect,
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
              "seed": args.seed, "binder": args.binder, "rounds_requested": args.rounds,
@@ -266,8 +272,9 @@ def main():
     evo = None
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation="device",
-                                           checkpoints=args.params, extra_msa=True,
-                                           template=True, exact=False) as build:
+                                           checkpoints=args.params,
+                                           extra_msa=bool(args.extra_msa),
+                                           template=bool(args.template), exact=False) as build:
             evo = build.evoformer
             stamp["fast"] = build.fast
             # The gate goes on BOTH arms. On the serial arm it is one thread taking an

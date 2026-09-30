@@ -67,6 +67,12 @@ binder lengths, so the default prices every design as if it were one of them. On
 Blackhole chip that is three trajectories up to 352 tokens, two at 384 and 416, and one from 448
 up. Where one fits, the default is one, which is BindCraft 2's own loop unchanged.
 
+**The part matters, and the default reads it.** A Wormhole chip has 12 GB where a Blackhole chip
+has 32, so the counts above are not the counts there: at 288 tokens the default takes one, or two
+when a chip is already open and can report its own free memory. Two at 288 tokens has run a
+campaign to its stop condition on a Wormhole Galaxy chip, so pass `trajectories_per_card=2` if
+your designs stay near that size. Three is refused on that part.
+
 So the size the line prints is an upper bound, and above about 448 tokens it can be roughly
 twice what the run goes on to hold: a 576-token design is priced at 29.9 GB and holds 13.1 GB
 when the fused arm serves. It is not telling you the card is too small. It is saying it will
@@ -175,28 +181,40 @@ with bindcraft2.campaign_predictor(card=0, validation="device"):  # both on card
 `validation="device"` is a reasonable choice for throughput, but an accepted count measured that
 way is a different measurement. Re-measure before quoting it, and say which path produced it.
 
-### The extra-MSA stack
+### The extra-MSA stack and the template embedder
 
-BindCraft 2 runs a four-block extra-MSA stack before the Evoformer. It stays in JAX unless you ask
-for it:
+BindCraft 2 runs a four-block extra-MSA stack before the Evoformer, and a multimer template
+embedder with two more pair blocks. Both run on the card by default. Pass False to leave either
+in BindCraft 2's JAX:
 
 ```python
-with bindcraft2.predictor(card=0, extra_msa=True) as build:
+with bindcraft2.predictor(card=0, extra_msa=False) as build:
     ...
 ```
 
-Off by default, and switchable independently of the Evoformer, so a comparison graded on the
-Evoformer alone keeps the program it was graded on.
+Leaving them in JAX costs far more on the host than running them costs on the card. On a Wormhole
+Galaxy chip a 288-token round is 29.423 s with both in JAX against 16.267 s with both on card,
+1.8087x: the host column falls from 17.188 s to 2.417 s and the device column rises from 12.294 to
+13.856. Eight arms alternated at the process boundary in one sitting on one chip, AICLK 1000 MHz
+median with none of the 454 samples below it. On a Blackhole p150a chip the same change is
+25.762 against 8.495 s, 3.03x, at AICLK 1350.
 
-Before tt-bio's gradient kernels it made a round slower: the card ran the stack in 34.0 s where
-BindCraft 2's JAX ran it on the host in 10.3 s, about 4 % on the round, measured with both arms
-interleaved in one process on one card, 16 rounds, seven per arm. The interleaved round in the
-table above was measured with it on and has not been re-measured with it off.
+That is one trajectory. Two interleaved trajectories hide most of the host column behind each
+other's device time, so on a Wormhole chip at its default of two the same change is 15.776 against
+13.923 s a round, 1.1331x. A Blackhole chip runs three at 288 tokens, and there it is 9.564
+against 6.278 s a round, 1.52x.
 
-The reason is what the Evoformer swap already did. With the Evoformer on the card a round is 97 %
-device time and only 13 s of 454 s is left on the host, so even a free extra-MSA swap could win
-2 %. The two levers do not add up: the first one takes the host time the second one was going to
-save. Read `build.extra_msa.calls` to confirm the card ran it.
+The designed structure moves by 0.54 A on the confident core, inside the 0.60 A bar the other
+levers are held to.
+
+Early on this went the other way: before tt-bio's gradient kernels the card ran the extra-MSA
+stack in 34.0 s where JAX ran it on the host in 10.3 s. The kernels closed that gap, and the
+host cost is what is left.
+
+The template swap brings two more blocks of weights per checkpoint onto the card, so it is not
+free of allocator pressure. Monomer checkpoints are untouched; the swap is installed on the
+multimer modules only. Read `build.extra_msa.calls` and `build.template.calls` to confirm the
+card ran them.
 
 BindCraft 2 feeds an all-zero extra-MSA mask, so there is no gradient into the extra MSA to lose:
 it measures exactly zero on BindCraft 2's own JAX, and the card's path returns zero by
@@ -543,6 +561,23 @@ at 576 and 640 exactly as it does on a p150a.
 So a Wormhole chip does **not** reach the p150a's 576, and nobody should predict either number
 from bank geometry: the earlier guess from 12 GiB in 12 banks put this wall near 384-416 tokens,
 and 384, 416, 448, 480 and 512 all run, in a flat 1:45 to 2:12 a rung.
+
+## What a Galaxy gets through
+
+A completed design trajectory costs **1390 chip-seconds** on one chip of a Wormhole Galaxy: the
+shipped `examples/pdl1.json` target with a 146-residue binder at 288 tokens, two trajectories
+interleaved, run to BindCraft 2's own stop condition, at an AICLK of 1000 MHz median sampled
+during the run. At that price a 32-chip Galaxy turns out about **83 design trajectories an
+hour**.
+
+The 83 is one chip's rate times 32. Two chips of the same Galaxy running this at once cost each
+other nothing measurable, 1384 and 1389 chip-seconds against 1390 alone, so the chips are
+independent for this workload up to the two that were tried. Nobody has run it on all 32.
+
+How many of those trajectories become designs you would keep is a property of your target and
+your settings, not of the board. These three runs accepted none of their six, which is too few to
+put a rate on. At the [7-in-31 rate](#do-the-designs-pass) the same example reaches on a
+Blackhole card, an accepted design would cost about 1.7 chip-hours.
 
 ## What one step costs
 

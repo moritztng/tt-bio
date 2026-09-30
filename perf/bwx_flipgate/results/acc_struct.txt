@@ -1,0 +1,12 @@
+ rnd  lever all  floor all  lever bind  lever conf  floor conf  n_conf  plddt base  plddt lever
+   1     9.5424     0.0000     10.7596      0.5376      0.0000     759      52.000       54.613
+   2    19.9466     0.0000     23.7917      0.5625      0.0000     774      60.658       62.310
+   3    15.9874     0.0000     18.6033      0.5512      0.0000     768      61.567       65.668
+   4    13.2811     0.0000     11.3476      0.6108      0.0000     761      66.420       62.538
+
+round 1 is the only paired reading: from round 2 the two arms have different sequences,
+so everything after it is the optimiser diverging, not the arithmetic.
+  lever  9.5424 A all-atom, 0.5376 A over the 759 atoms both arms call plDDT >= 70
+  floor  0.0000 A all-atom, 0.0000 A confident
+  plDDT  52.000 -> 54.613
+-> /home/ttuser/.coworker/wt/bwx-flipgate/perf/bwx_flipgate/out/acc_struct.json

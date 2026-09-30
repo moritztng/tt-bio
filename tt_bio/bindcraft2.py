@@ -1683,8 +1683,8 @@ def fast_round():
 def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoints=None,
               resident: int | None = None, blocks: int = EVOFORMER_BLOCKS,
               recompute: bool = True,
-              extra_msa: bool = False,
-              template: bool = False,
+              extra_msa: bool = True,
+              template: bool = True,
               exact: bool = False,
               fast: bool | None = None) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
@@ -1702,15 +1702,22 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     `params_<name>.npz`, a mapping of model name to file, a single file, or None for tt-bio's own
     weights cache. `resident` caps how many trunks stay on card at once.
 
-    `extra_msa` additionally runs the 4-block extra-MSA stack on card. It is off by default and
-    independent of the Evoformer swap, so a comparison graded on the Evoformer alone keeps the
-    program it was graded on. Read `build.extra_msa.calls` to check the on-card path ran.
+    `extra_msa` additionally runs the 4-block extra-MSA stack on card and `template` the
+    multimer template embedder's two c=64 pair blocks. Both default ON, because leaving them in
+    BindCraft 2's JAX costs a round far more on the host than running them costs on the card:
+    on a Wormhole Galaxy chip the round is 29.423 s with them in JAX against 16.267 s on card,
+    1.8087x, host 17.188 -> 2.417 s against device 12.294 -> 13.856 (eight arms alternated at
+    288 tokens, AICLK 1000 with 0 of 454 samples under it, `perf/bwx_perf/results/`). Blackhole
+    agrees to 3 %: 37.675 against 20.220 s, 1.863x (`bcx-p10-resident`). That is one
+    trajectory; two interleaved hide most of the host column, and there it is 1.1331x
+    (15.776 -> 13.923 s on the same chip). Pass False to keep a
+    comparison graded on the Evoformer alone on the program it was graded on. Read
+    `build.extra_msa.calls` and `build.template.calls` to check the on-card paths ran.
 
-    `template` additionally runs the multimer template embedder's two c=64 pair blocks on
-    card. Off by default and independent of the other two swaps. It brings two more blocks of
-    weights per checkpoint onto the card, so it is not free of allocator pressure; read
-    `build.template.calls` to check the on-card path ran. Monomer checkpoints are untouched:
-    the swap is installed on `modules_multimer` only.
+    The template swap brings two more blocks of weights per checkpoint onto the card, so it is
+    not free of allocator pressure, and `duotraj.auto_trajectories` prices the card from
+    `free_device_bytes()` once a chip is open, which counts them. Monomer checkpoints are
+    untouched: the swap is installed on `modules_multimer` only.
 
     `exact` runs softmax and layer norm on the host in float64 inside the tape, which
     reproduces AlphaFold 2's own gradient most closely. It is off by default because it is a
