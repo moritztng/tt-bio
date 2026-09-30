@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import glob
 import os
+import subprocess
 import re
 import socket
 from dataclasses import dataclass
@@ -339,6 +340,73 @@ def visible_device_indices(visible: str) -> list[int]:
             "unset TT_VISIBLE_DEVICES to use every chip on the host."
         )
     return indices
+
+
+def local_addresses() -> set[str]:
+    """This host's IPv4 addresses, from ``hostname -I``; empty if that cannot be read."""
+    try:
+        out = subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return set(out.split())
+
+
+def quarantine_path() -> str:
+    return os.path.expanduser(os.environ.get("TT_BIO_QUARANTINE", "~/japanfold/QUARANTINE"))
+
+
+def quarantined_chips(path: str | None = None, addresses: set[str] | None = None) -> dict[int, str]:
+    """UMD index -> reason, for each chip on this host the operators' quarantine list names.
+
+    The list is the one the JapanFold box agent already honours
+    (``<ip> <UMD id> <PCI bdf> <reason>`` per line, ``~/japanfold/QUARANTINE``): chips that flip
+    DRAM bits or fold off the majority. The agent keeps them out of its own pool, but nothing kept
+    them out of anything else -- measured on `.107` on 2026-09-30, UMD 22 ("flipped bit 13 on
+    5/256 DRAM reads") had a lease note naming a holder whose pid was dead and no flock on it, so
+    a campaign pinned there with ``TT_VISIBLE_DEVICES=22`` would have opened it without a word
+    and designed on a chip that corrupts reads. A wrong design is worse than a refused one.
+
+    Matched on this host's address AND the chip's BDF, and the BDF is resolved to the UMD index
+    through sysfs rather than trusting the listed id: a BDF like ``0000:c1:00.0`` exists on every
+    Galaxy, so a line for another box must never quarantine this one's chip. No list, no
+    readable address, or no Tenstorrent sysfs entries: nothing is quarantined.
+    """
+    path = path or quarantine_path()
+    try:
+        with open(path) as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return {}
+    addresses = local_addresses() if addresses is None else addresses
+    if not addresses:
+        return {}
+    by_bdf = tt_bdf_to_index()
+    out: dict[int, str] = {}
+    for line in lines:
+        fields = line.split(None, 3)
+        if len(fields) < 3 or line.lstrip().startswith("#") or fields[0] not in addresses:
+            continue
+        index = by_bdf.get(fields[2].lower())
+        if index is not None:
+            out[index] = fields[3].strip() if len(fields) > 3 else "no reason given"
+    return out
+
+
+def refuse_quarantined_chips(indices, path: str | None = None) -> None:
+    """Refuse a chip the operators quarantined, unless TT_BIO_ALLOW_QUARANTINED=1 says it is meant."""
+    if os.environ.get("TT_BIO_ALLOW_QUARANTINED") == "1":
+        return
+    bad = quarantined_chips(path)
+    hit = [index for index in indices if index in bad]
+    if not hit:
+        return
+    named = "; ".join(f"chip {index}: {bad[index]}" for index in hit)
+    raise RuntimeError(
+        f"Tenstorrent chip(s) {hit} on this host are quarantined by its operators ({named}), per "
+        f"{path or quarantine_path()}. Results on a quarantined chip can be silently wrong, so "
+        f"this run is refused rather than started. Pin to another chip; to test the chip itself "
+        f"on purpose, set TT_BIO_ALLOW_QUARANTINED=1."
+    )
 
 
 def missing_device_nodes(indices) -> list[tuple[int, int]]:
