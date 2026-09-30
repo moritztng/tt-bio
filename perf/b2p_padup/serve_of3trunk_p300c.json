@@ -1,0 +1,556 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "heads": 4,
+ "head_dim": 32,
+ "one_k_chunk": true,
+ "pad_up_tiles": 2,
+ "sizes": {
+  "64": {
+   "off": {
+    "served": false,
+    "padded_to": null,
+    "pick": null,
+    "wall_s_first_call": 0.0
+   },
+   "on": {
+    "served": false,
+    "padded_to": null,
+    "pick": null,
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "128": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     128,
+     128,
+     2
+    ],
+    "wall_s_first_call": 0.592
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     128,
+     128,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "192": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     192,
+     192,
+     2
+    ],
+    "wall_s_first_call": 0.558
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     192,
+     192,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "256": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     256,
+     2
+    ],
+    "wall_s_first_call": 0.569
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     256,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "320": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     320,
+     320,
+     2
+    ],
+    "wall_s_first_call": 0.551
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     320,
+     320,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "384": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     384,
+     384,
+     2
+    ],
+    "wall_s_first_call": 0.557
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     384,
+     384,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "448": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     448,
+     448,
+     2
+    ],
+    "wall_s_first_call": 0.56
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     448,
+     448,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "512": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     512,
+     512,
+     1
+    ],
+    "wall_s_first_call": 0.557
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     512,
+     512,
+     1
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "576": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     288,
+     576,
+     2
+    ],
+    "wall_s_first_call": 1.134
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     288,
+     576,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "640": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     320,
+     640,
+     2
+    ],
+    "wall_s_first_call": 1.111
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     320,
+     640,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "704": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     352,
+     704,
+     2
+    ],
+    "wall_s_first_call": 1.093
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     352,
+     704,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "768": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     768,
+     2
+    ],
+    "wall_s_first_call": 1.698
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     768,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "832": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     416,
+     416,
+     2
+    ],
+    "wall_s_first_call": 2.306
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     416,
+     416,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "896": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     224,
+     896,
+     2
+    ],
+    "wall_s_first_call": 1.677
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     224,
+     896,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "960": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     192,
+     960,
+     2
+    ],
+    "wall_s_first_call": 2.287
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     192,
+     960,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1024": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     1024,
+     1
+    ],
+    "wall_s_first_call": 1.7
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     1024,
+     1
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1088": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     64,
+     1088,
+     2
+    ],
+    "wall_s_first_call": 0.553
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     64,
+     1088,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1152": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     384,
+     288,
+     2
+    ],
+    "wall_s_first_call": 0.621
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     384,
+     288,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1216": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     64,
+     1216,
+     2
+    ],
+    "wall_s_first_call": 0.553
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     64,
+     1216,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1280": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     640,
+     2
+    ],
+    "wall_s_first_call": 0.631
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     640,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1344": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     224,
+     672,
+     2
+    ],
+    "wall_s_first_call": 0.605
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     224,
+     672,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1408": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     352,
+     128,
+     2
+    ],
+    "wall_s_first_call": 0.612
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     352,
+     128,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1472": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     64,
+     1472,
+     2
+    ],
+    "wall_s_first_call": 0.555
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     64,
+     1472,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  },
+  "1536": {
+   "off": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     512,
+     2
+    ],
+    "wall_s_first_call": 0.635
+   },
+   "on": {
+    "served": true,
+    "padded_to": null,
+    "pick": [
+     256,
+     512,
+     2
+    ],
+    "wall_s_first_call": 0.0
+   },
+   "route_changes": false
+  }
+ }
+}

@@ -2477,7 +2477,9 @@ def _fused_hifi_on(pinned: bool | None) -> bool:
     return _TRIATT_FUSED_HIFI if pinned is None else pinned
 
 
-TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0, "taped": 0}
+# `padded` counts the served calls that only served after `_tri_att_hifi_pad_up` raised the axis,
+# so a fold says how often it took the padded route rather than leaving it to be inferred.
+TRIATT_FUSED_HIFI_STATS = {"served": 0, "declined": 0, "too_short": 0, "taped": 0, "padded": 0}
 # (q_len, k_len) -> [q_chunk, k_chunk] actually served. A declined config is
 # indistinguishable from an absent one from the outside, so an A/B on this path is only
 # believable if the run says which pair it ran.
@@ -2813,6 +2815,7 @@ def _tri_att_hifi_pad_up(q, k, v, bias, scale: float, one_k_chunk: bool):
                     ttnn.deallocate(t)
         if o is not None:
             TRIATT_FUSED_HIFI_PADDED[S] = to
+            TRIATT_FUSED_HIFI_STATS["padded"] += 1
             sl = o[:, :, :S, :]
             ttnn.deallocate(o)
             return sl
