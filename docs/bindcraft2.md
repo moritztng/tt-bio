@@ -527,7 +527,9 @@ the trunk forward and the same design padded to 224 costs 1.369 s, same card and
 median.
 
 All of the size numbers above are a p150a. A p300c is a different chip and its own numbers are
-the ones in the two paragraphs before this.
+the ones in the two paragraphs before this, plus two rungs of the size ladder: one p300c chip
+completes 608 tokens at 48.2 s a round and 832 at 108.3 s, AICLK 1350, and 864 has not been run
+on it.
 
 ### One chip of a Wormhole Galaxy stops at 512 tokens
 
