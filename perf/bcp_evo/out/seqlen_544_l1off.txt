@@ -1,0 +1,40 @@
+   ],
+   "rne_add": [
+    1386,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    324,
+    0
+   ],
+   "pair_transpose": [
+    324,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 108,
+  "served": 0,
+  "declined": 108
+ },
+ "aiclk_run": {
+  "n": 52,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 10.2
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 11161362432,
+  "vmrss": 5493276672,
+  "mem_available": 175914684416
+ },
+ "loadavg_end": [
+  10.9248046875,
+  9.96533203125,
+  8.51513671875
+ ],
+ "finished_utc": "2026-10-01T13:19:54Z"
+}

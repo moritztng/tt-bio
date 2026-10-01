@@ -372,6 +372,26 @@ def _fast_round_now():
     return out
 
 
+def test_fast_round_keeps_blackhole_only_levers_off_on_wormhole(monkeypatch):
+    """The levers graded on Blackhole alone stay where they were on a Wormhole chip."""
+    from tt_bio import tenstorrent
+    for _module, _owner, _attr, env, _value in bindcraft2._FAST_ROUND:
+        if env:
+            monkeypatch.delenv(env, raising=False)
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
+    before = _fast_round_now()
+    with bindcraft2.fast_round() as armed:
+        for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND:
+            if attr == "TAPED_KERNELS_DEFAULT":
+                assert armed[attr] == bindcraft2._FAST_ROUND_WORMHOLE_KERNELS
+            elif attr in bindcraft2._BLACKHOLE_ONLY:
+                assert armed[attr] == before[attr]
+            else:
+                assert armed[attr] == value
+    assert _fast_round_now() == before
+    assert bindcraft2._BLACKHOLE_ONLY <= {a for _m, _o, a, _e, _v in bindcraft2._FAST_ROUND}
+
+
 def test_exact_false_arms_the_measured_round_and_puts_it_back(monkeypatch):
     """The round `docs/bindcraft2.md` quotes needs no env var: `exact=False` arms its levers.
 
@@ -382,6 +402,8 @@ def test_exact_false_arms_the_measured_round_and_puts_it_back(monkeypatch):
     for _module, _owner, _attr, env, _value in bindcraft2._FAST_ROUND:
         if env:
             monkeypatch.delenv(env, raising=False)
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: False)
     params = _af2_params()
     before = _fast_round_now()
     want = {attr: value for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND}
@@ -692,7 +714,7 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             built.append(Buf())
             return built[-1]
 
-    def checkpoint(fn, z):
+    def checkpoint(fn, z, offload=False):
         out = fn(z)     # the forward
         fn(z)           # the recompute the backward performs on the same closure
         return out
@@ -1759,3 +1781,185 @@ def test_a_run_that_never_reached_the_arm_is_silent(monkeypatch, capsys):
     splice = _splice_without_a_card()
     splice._note_if_the_fused_arm_declined(288, (0, 0))
     assert capsys.readouterr().err == ""
+
+
+# --- the memory modes -------------------------------------------------------------------
+#
+# `memory='auto'` is a DEFAULT, so the first thing these pin is the thing a user would never
+# forgive: that nothing which runs today starts running differently. The rest pin the one
+# actionable sentence a refusal gives and the direction the retry ladder may move in.
+
+def test_auto_leaves_every_size_that_runs_today_in_the_fast_mode():
+    """The modes buy room by spending time, so a fold that already fits must not pay.
+
+    Both boards, every bucket up to the measured ceiling: `auto` has to answer `fast`. A single
+    bucket answering `lean` here would make every campaign on that board slower for nothing, and
+    it is the kind of regression a footprint ladder never catches because the fold still runs.
+    """
+    for card, cap in ((bindcraft2.WH_GALAXY_DRAM_BYTES, bindcraft2.MEASURED_MAX_TOKENS_WH_GALAXY),
+                      (bindcraft2.P150A_DRAM_BYTES, bindcraft2.MEASURED_MAX_TOKENS_P150A)):
+        for padded in range(bindcraft2.TOKEN_BUCKET, cap + 1, bindcraft2.TOKEN_BUCKET):
+            assert bindcraft2.memory_mode("auto", padded, card) == "fast", (padded, card)
+
+
+def test_auto_takes_the_cheapest_mode_that_fits_and_never_skips_one():
+    """Above the fast ceiling `auto` steps one mode at a time, not straight to the slowest."""
+    card = bindcraft2.WH_GALAXY_DRAM_BYTES
+    caps = {m: bindcraft2.max_tokens(m, card) for m in bindcraft2.MEMORY_MODES}
+    assert caps["fast"] < caps["lean"] < caps["offload"], caps
+    assert bindcraft2.memory_mode("auto", caps["fast"] + bindcraft2.TOKEN_BUCKET, card) == "lean"
+    assert bindcraft2.memory_mode("auto", caps["lean"] + bindcraft2.TOKEN_BUCKET, card) == "offload"
+    # Too big for every mode: the leanest one still runs, so the user gets the allocator's own
+    # numbers at the size they asked for rather than a guess from a table.
+    assert bindcraft2.memory_mode("auto", caps["offload"] * 2, card) == "offload"
+
+
+def test_an_unknown_memory_mode_is_refused_by_name():
+    with pytest.raises(ValueError) as caught:
+        bindcraft2.memory_mode("cheap", 512, bindcraft2.WH_GALAXY_DRAM_BYTES)
+    assert "cheap" in str(caught.value) and "auto" in str(caught.value)
+
+
+def test_a_refusal_in_a_lean_mode_does_not_send_the_user_below_what_lean_already_clears():
+    """The measured board rows are FAST-mode ladders, and a lean fold is already past them.
+
+    A Wormhole chip's row says 512. A `lean` fold that refuses is running a size `fast` could
+    never reach, so capping its way down at 512 would tell that user to drop below a size they
+    have already completed -- 544 runs in `lean`, measured, at a 7.527 GB peak.
+    """
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=700, padded=736, mode="lean"))
+    assert "512 tokens" not in msg
+    assert str(bindcraft2.max_tokens("lean", bindcraft2.WH_GALAXY_DRAM_BYTES)) in msg
+
+
+def test_a_mode_ceiling_claims_exactly_the_evidence_it_has_and_no_more():
+    """The number a refusal sends the user to must not claim more evidence than it has.
+
+    Three kinds of ceiling, and the message has to say which it is holding, because the user
+    resizes their job around that one figure:
+
+    * a board's FAST-mode row is a ladder of folds that were run, so it is measured;
+    * `offload` on a Wormhole chip is now measured too, on ADJACENT buckets -- 896 completes,
+      928 refuses -- so the ceiling is 896 and the message may say so;
+    * `lean` is not. It completes at 544 and refuses at 768, and nobody ran the buckets in
+      between, so the law's estimate inside that bracket is the best available number and must
+      be offered as an estimate.
+
+    The case this pins is the second one changing. Before the `wh7` ladder the `offload` ceiling
+    was the law's 960, and a researcher who trimmed to 960 would have refused again -- sent to a
+    second failure by the message meant to rescue the first.
+    """
+    card = bindcraft2.WH_GALAXY_DRAM_BYTES
+    fast = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                              phase="backward", n=520, padded=544, mode="fast"))
+    assert "largest axis measured" in fast, "a measured board row is still quoted as measured"
+
+    # An estimate inside a wide bracket stays an estimate, and never exceeds the known refusal.
+    lean_top, lean_measured = bindcraft2.mode_ceiling("lean", card)
+    assert not lean_measured and lean_top <= 768 - bindcraft2.TOKEN_BUCKET
+    lean = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                              n=716, padded=736, mode="lean"))
+    assert f"{lean_top} tokens" in lean and "estimated" in lean
+    assert "measured to complete a gradient round on one" not in lean, lean
+
+    # The adjacent bracket IS a measurement, and the message says so rather than hedging.
+    off_top, off_measured = bindcraft2.mode_ceiling("offload", card)
+    assert (off_top, off_measured) == (896, True)
+    off = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                             n=972, padded=992, mode="offload"))
+    assert "largest axis measured to complete a gradient round" in off, off
+    # 896 is the size to aim at, and it is the ONLY size offered as one that holds. 960 may still
+    # appear -- the way-down sentence names it to say it refuses too, which is the message
+    # working -- so what matters is that no sentence offers 960 as a size that fits.
+    assert "tops out at 896 tokens" in off and "in the 'offload' mode is 896 tokens" in off, off
+    for wrong in ("tops out near 960", "tops out at 960", "should hold 960", "is 960 tokens",
+                  "reach 960"):
+        assert wrong not in off, (wrong, off)
+
+
+def test_a_measured_refusal_caps_the_memory_law_everywhere_it_is_quoted():
+    """`auto`, the roomier-mode offer and the ceiling sentence must not disagree.
+
+    The law puts `offload` near 960 on a Wormhole Galaxy chip and 928 was measured to refuse, so
+    a 928-token fold must not be told that `offload` will hold it. One ceiling, three readers.
+    """
+    card = bindcraft2.WH_GALAXY_DRAM_BYTES
+    assert bindcraft2.max_tokens("offload", card) == 896
+    assert bindcraft2.round_device_bytes("offload", 960) <= card * bindcraft2._MODE_USABLE, (
+        "if the law no longer reaches 960 this test has stopped covering the disagreement")
+
+    # The roomier-mode offer is the sentence a refusing fold acts on first.
+    at_928 = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                                n=908, padded=928, mode="lean"))
+    assert "should hold 928 tokens" not in at_928, at_928
+    # And a size offload DOES hold is still offered it.
+    at_768 = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                                n=748, padded=768, mode="lean"))
+    assert "'offload' mode should hold 768 tokens" in at_768, at_768
+
+    # `auto` decides on the same number: 896 is the last axis it sends to offload.
+    assert bindcraft2.memory_mode("auto", 896, card) == "offload"
+    assert bindcraft2.memory_mode("auto", 544, card) == "lean"
+    assert bindcraft2.memory_mode("auto", 512, card) == "fast"
+
+
+def test_a_refusal_names_the_roomier_mode_and_how_to_reach_it():
+    """A refusal that does not mention the escape hatch is a user who crops their target."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=520, padded=544, mode="fast"))
+    assert "'lean'" in msg
+    assert "memory='auto'" in msg and "memory='lean'" in msg
+    assert "docs/bindcraft2.md" in msg
+
+
+def test_the_k_block_ladder_only_ever_narrows_what_the_plan_already_chose():
+    """The L1 retry must start at today's width, so a call that fits is never re-planned.
+
+    `bmm_k_blocks` is the ladder `_bmm_narrower_k` walks, and it skips its own first entry. If
+    that first entry were not exactly what `bmm_program_config` picks, the retry would either
+    re-try the width that just refused or quietly skip a width that fits.
+    """
+    from tt_bio import autograd as ag
+
+    class _Shape:
+        def __init__(self, shape):
+            self.shape = shape
+
+    for k, expected_first in ((768, 8), (128, 4), (256, 8), (32, 1), (96, 3)):
+        widths = ag.bmm_k_blocks(_Shape([2, 8, 768, k]), _Shape([2, 8, k, 32]))
+        kt = -(-k // 32)
+        assert widths[0] == expected_first, (k, widths)
+        assert widths == sorted(widths, reverse=True), (k, widths)
+        assert all(kt % w == 0 for w in widths), (k, widths)
+
+
+L1_REFUSAL = (
+    "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\n"
+    "info:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=0,y=8)] grow to "
+    "1856800 B which is beyond max L1 size of 1499136 B\nbacktrace:\n --- 0x1aa6601\n")
+
+
+def test_an_l1_refusal_is_not_reported_as_the_card_running_out_of_memory():
+    """L1 is 1.5 MB inside each Tensix and the card can be gigabytes free when it refuses.
+
+    Read as an OOM it costs a user their target: they crop, or they reach for a slower memory
+    mode, and neither touches a per-core buffer. Measured at 768 tokens in the offload mode with
+    7.2 GB of DRAM free.
+    """
+    better = bindcraft2._l1_refusal_names_the_size(RuntimeError(L1_REFUSAL),
+                                                   phase="Evoformer backward", n=738, padded=768)
+    assert better is not None
+    msg = str(better)
+    assert "768 tokens" in msg and "738 residues" in msg
+    assert "1.9 MB" in msg and "1.5 MB" in msg
+    assert "NOT the card running out of memory" in msg
+    assert "800" in msg                       # the next bucket, which is measured to run
+    assert bindcraft2._l1_refusal_names_the_size(RuntimeError("something else"),
+                                                 phase="x", n=1, padded=32) is None
+
+
+def test_an_allocator_refusal_is_still_read_as_a_size_and_not_as_an_l1_clash():
+    """The two wrappers must not catch each other's refusal: the remedies are opposites."""
+    assert bindcraft2._l1_refusal_names_the_size(RuntimeError(REFUSAL_WORMHOLE),
+                                                 phase="backward", n=520, padded=544) is None

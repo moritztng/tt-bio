@@ -1,0 +1,286 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "trajectories": null,
+ "trajectories_arg": "auto",
+ "max_trajectories": 6,
+ "auto_would_choose": [
+  3,
+  "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 225.9 GB of host memory free"
+ ],
+ "validation": "device",
+ "binder": 146,
+ "seed": 100,
+ "project": "perf/bcp_evo/out/campaign/on",
+ "commit": "6943e3100b04aa29d2ee6e73d9fb88b644297274",
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  0.17236328125,
+  1.37255859375,
+  2.12109375
+ ],
+ "mem_start": {
+  "vmhwm": 486948864,
+  "vmrss": 486948864,
+  "mem_available": 242596044800
+ },
+ "started_utc": "2026-10-01T08:57:39Z"
+}
+2026-10-01 08:57:39.045 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+/home/ttuser/.coworker/wt/bcp-evo/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 10 accepted designs, or 6 trajectories spent. Interleaved arms already running can carry the accepted count past 10, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+[tt_bio.bindcraft2] 3 design trajectories on this card: 3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 224.6 GB of host memory free. Pass trajectories_per_card to choose yourself; 1 is BindCraft 2's own loop.
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/campaign/on | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_b60b37ab688fd0f2 | accepted 0/10 ===
+
+=== trajectory 2 | pdl1_denovo_l146_d949e23fe8129baf | accepted 0/10 ===
+
+=== trajectory 3 | pdl1_denovo_l146_bbd8cbf4be3e7802 | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.76    pLDDT=0.67  
+  passed screen design stage  i_pTM=0.78    pLDDT=0.8   
+  passed screen design stage  i_pTM=0.83    pLDDT=0.84  
+  passed refine design stage  i_pTM=0.78    pLDDT=0.87  
+  passed refine design stage  i_pTM=0.75    pLDDT=0.81  
+  passed refine design stage  i_pTM=0.84    pLDDT=0.84  
+  passed anneal design stage  i_pTM=0.83    pLDDT=0.89  
+  passed anneal design stage  i_pTM=0.8     pLDDT=0.89  
+  passed harden design stage  i_pTM=0.82    pLDDT=0.87  
+  passed anneal design stage  i_pTM=0.85    pLDDT=0.91  
+  passed harden design stage  i_pTM=0.75    pLDDT=0.83  
+  passed harden design stage  i_pTM=0.79    pLDDT=0.67  
+  rejected at mutate design stage  i_pTM=0.29    pLDDT=0.73   due to [i_pTM]
+
+=== trajectory 4 | pdl1_denovo_l146_4025ee0d56de59ff | accepted 0/10 ===
+  passed mutate design stage  i_pTM=0.59    pLDDT=0.81  
+  trajectory rejected  i_pTM=0.59    pLDDT=0.81   due to [i_pTM]
+
+=== trajectory 5 | pdl1_denovo_l146_1f65054b4e989107 | accepted 0/10 ===
+  rejected at mutate design stage  i_pTM=0.13    pLDDT=0.47   due to [i_pTM, pLDDT]
+
+=== trajectory 6 | pdl1_denovo_l146_db572e7bcb497179 | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.4     pLDDT=0.72  
+  passed screen design stage  i_pTM=0.86    pLDDT=0.93  
+  passed screen design stage  i_pTM=0.85    pLDDT=0.94  
+  passed refine design stage  i_pTM=0.61    pLDDT=0.79  
+  passed refine design stage  i_pTM=0.86    pLDDT=0.92  
+  passed refine design stage  i_pTM=0.82    pLDDT=0.91  
+  passed anneal design stage  i_pTM=0.68    pLDDT=0.81  
+  passed anneal design stage  i_pTM=0.86    pLDDT=0.94  
+  passed harden design stage  i_pTM=0.71    pLDDT=0.73  
+  passed anneal design stage  i_pTM=0.79    pLDDT=0.74  
+  passed harden design stage  i_pTM=0.84    pLDDT=0.78  
+  rejected at harden design stage  i_pTM=0.48    pLDDT=0.71   due to [i_pTM]
+  rejected at mutate design stage  i_pTM=0.39    pLDDT=0.65   due to [i_pTM]
+  passed mutate design stage  i_pTM=0.84    pLDDT=0.79  
+  binder hallucination successful
+  binder optimization, 10 MPNN redesigns
+   1/10  rejected  Binder_RMSD=1.3     Hotspot_Contact_Fraction=0.75    Interface_Residues=14   Off_Epitope_Contact_Fraction=0.05    Target_pLDDT=0.92    i_pAE=0.47    i_pTM=0.71    pLDDT=0.61    pTM=0.69    Unbound_Binder_pLDDT=0.64    failed [pLDDT, Unbound_Binder_pLDDT]
+   2/10  rejected  Binder_RMSD=10.0    Hotspot_Contact_Fraction=0.75    Interface_Residues=16   Off_Epitope_Contact_Fraction=0.05    Target_pLDDT=0.93    i_pAE=0.47    i_pTM=0.77    pLDDT=0.62    pTM=0.7     failed [pLDDT]
+   3/10  rejected  Binder_RMSD=3.2     Hotspot_Contact_Fraction=0.75    Interface_Residues=6    Off_Epitope_Contact_Fraction=0.0     Target_pLDDT=0.9     i_pAE=0.79    i_pTM=0.16    pLDDT=0.71    pTM=0.49    failed [i_pTM, pTM]
+   4/10  rejected  Binder_RMSD=0.51    Hotspot_Contact_Fraction=1.0     Interface_Residues=8    Off_Epitope_Contact_Fraction=0.1     Target_pLDDT=0.91    i_pAE=0.65    i_pTM=0.34    pLDDT=0.69    pTM=0.57    failed [i_pTM, pLDDT]
+   5/10  rejected  Binder_RMSD=1.1     Hotspot_Contact_Fraction=0.75    Interface_Residues=13   Off_Epitope_Contact_Fraction=0.06    Target_pLDDT=0.92    i_pAE=0.43    i_pTM=0.77    pLDDT=0.67    pTM=0.71    failed [pLDDT]
+   6/10  rejected  Binder_RMSD=6.7     Hotspot_Contact_Fraction=1.0     Interface_Residues=17   Off_Epitope_Contact_Fraction=0.04    Target_pLDDT=0.91    i_pAE=0.45    i_pTM=0.76    pLDDT=0.63    pTM=0.7     failed [pLDDT]
+   7/10  rejected  Binder_RMSD=4.8     Hotspot_Contact_Fraction=0.75    Interface_Residues=15   Off_Epitope_Contact_Fraction=0.05    Target_pLDDT=0.91    i_pAE=0.49    i_pTM=0.74    pLDDT=0.59    pTM=0.68    Unbound_Binder_pLDDT=0.65    failed [pLDDT, Unbound_Binder_pLDDT]
+   8/10  rejected  Binder_RMSD=1.0     Hotspot_Contact_Fraction=0.75    Interface_Residues=15   Off_Epitope_Contact_Fraction=0.05    Target_pLDDT=0.92    i_pAE=0.35    i_pTM=0.77    pLDDT=0.72    pTM=0.76    failed [i_pAE]
+   9/10  rejected  Binder_RMSD=1.1     Hotspot_Contact_Fraction=1.0     Interface_Residues=19   Off_Epitope_Contact_Fraction=0.04    Target_pLDDT=0.93    i_pAE=0.56    i_pTM=0.46    pLDDT=0.81    pTM=0.65    failed [i_pTM, pTM]
+  10/10  ACCEPTED  Binder_RMSD=3.2     Hotspot_Contact_Fraction=1.0     Interface_Residues=20   Off_Epitope_Contact_Fraction=0.04    Target_pLDDT=0.93    i_pAE=0.25    i_pTM=0.81    pLDDT=0.85    pTM=0.83  
+  1 of 10 redesigns passed, keeping the best 1 by i_pDAE: candidate 10 (0.18)
+
+campaign stopped at max_trajectories=6: 1/10 accepted in 6 trajectories, so 10 needs roughly 60 at this rate
+
+campaign done: 1 accepted design(s) after 6 trajectories, ranked by i_pDAE
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "trajectories": null,
+ "trajectories_arg": "auto",
+ "max_trajectories": 6,
+ "auto_would_choose": [
+  3,
+  "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 225.9 GB of host memory free"
+ ],
+ "validation": "device",
+ "binder": 146,
+ "seed": 100,
+ "project": "perf/bcp_evo/out/campaign/on",
+ "commit": "6943e3100b04aa29d2ee6e73d9fb88b644297274",
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  0.17236328125,
+  1.37255859375,
+  2.12109375
+ ],
+ "mem_start": {
+  "vmhwm": 486948864,
+  "vmrss": 486948864,
+  "mem_available": 242596044800
+ },
+ "started_utc": "2026-10-01T08:57:39Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated",
+  "SOFTMAX_BW_FP32": false
+ },
+ "wall_seconds": 3842.45,
+ "trajectories_returned": 6,
+ "error": null,
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 927000,
+   "declined: has a core grid": 216000,
+   "served": 522000,
+   "declined: not batched": 1152000
+  },
+  "taped_channel_move": [
+   81000,
+   489632,
+   287736,
+   0
+  ],
+  "widen_add": {
+   "served: first": 580500,
+   "served: later": 153000
+  },
+  "rne_add": [
+   1160428,
+   10056
+  ],
+  "qkv_grad_join": {
+   "served": 459000
+  },
+  "triatt_bw": {
+   "served": 81000,
+   "declined": 0,
+   "bw_calls": 81000
+  },
+  "triatt_fused_hifi": {
+   "served": 265688,
+   "declined": 5408,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "reblock_permute_gated": [
+    486000,
+    0
+   ],
+   "rne_add": [
+    1039500,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    243000,
+    0
+   ]
+  }
+ },
+ "rounds_per_slot": {
+  "t1": 250,
+  "t2": 250,
+  "t3": 250
+ },
+ "gate": {
+  "waited_s": {
+   "t1": 1511.341,
+   "t2": 1476.329,
+   "t3": 1501.311
+  },
+  "held_s": {
+   "t1": 1163.337,
+   "t2": 1236.886,
+   "t3": 1135.86
+  },
+  "seams": {
+   "t1": 2442,
+   "t2": 2650,
+   "t3": 2346
+  },
+  "slot_at_seam": {
+   "t1@Dummy-3": 134,
+   "t1@Dummy-4": 164,
+   "t1@Dummy-5": 169,
+   "t1@Dummy-6": 163,
+   "t1@Dummy-7": 135,
+   "t1@Dummy-8": 134,
+   "t1@Dummy-9": 155,
+   "t1@Dummy-10": 162,
+   "t1@Dummy-11": 139,
+   "t1@Dummy-12": 150,
+   "t1@Dummy-13": 153,
+   "t2@Dummy-8": 162,
+   "t1@Dummy-14": 179,
+   "t2@Dummy-5": 160,
+   "t2@Dummy-3": 161,
+   "t2@Dummy-15": 176,
+   "t2@Dummy-12": 163,
+   "t2@Dummy-14": 174,
+   "t2@Dummy-6": 198,
+   "t1@Dummy-16": 170,
+   "t2@Dummy-17": 164,
+   "t2@Dummy-18": 174,
+   "t1@Dummy-17": 143,
+   "t2@Dummy-9": 174,
+   "t2@Dummy-4": 152,
+   "t2@Dummy-13": 178,
+   "t2@Dummy-11": 146,
+   "t2@Dummy-16": 163,
+   "t2@Dummy-10": 168,
+   "t1@Dummy-18": 144,
+   "t3@Dummy-11": 174,
+   "t3@Dummy-12": 148,
+   "t3@Dummy-18": 138,
+   "t3@Dummy-13": 147,
+   "t3@Dummy-15": 162,
+   "t3@Dummy-16": 170,
+   "t3@Dummy-9": 130,
+   "t3@Dummy-6": 144,
+   "t3@Dummy-7": 140,
+   "t2@Dummy-7": 137,
+   "t3@Dummy-14": 143,
+   "t3@Dummy-5": 117,
+   "t3@Dummy-8": 143,
+   "t1@Dummy-15": 148,
+   "t3@Dummy-3": 122,
+   "t3@Dummy-10": 166,
+   "t3@Dummy-17": 143,
+   "t3@Dummy-4": 159
+  }
+ },
+ "mem_end": {
+  "vmhwm": 20944125952,
+  "vmrss": 18130276352,
+  "mem_available": 220242186240
+ },
+ "loadavg_end": [
+  9.59423828125,
+  10.81005859375,
+  8.5302734375
+ ],
+ "finished_utc": "2026-10-01T10:01:41Z"
+}

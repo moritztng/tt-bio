@@ -1,0 +1,8 @@
+=== block grade qkv_packed 2026-10-01T09:44:37Z card 1
+grade qkv_packed exit 0 2026-10-01T09:48:48Z
+=== block grade fanin_cast 2026-10-01T09:48:48Z card 1
+grade fanin_cast exit 0 2026-10-01T09:53:00Z
+=== block grade pair_transpose 2026-10-01T09:53:00Z card 1
+grade pair_transpose exit 0 2026-10-01T09:57:13Z
+=== block grade gated_packed 2026-10-01T09:57:13Z card 1
+grade gated_packed exit 0 2026-10-01T10:01:34Z

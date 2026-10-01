@@ -234,8 +234,11 @@ def _v_matmul(shipped, args, kwargs):
             # so the ordinary path pays one shape comparison.
             if a.requires_grad:
                 rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
-                da = (rows(g, lambda v: ag.bmm(v, b.value, False, not tb,
-                                                compute_kernel_config=cfg))
+                da = (rows(g, lambda v: ag._pair_mm_or(
+                                v, b.value, not tb, lambda: ag.bmm(v, b.value, False, not tb,
+                                                                   compute_kernel_config=cfg),
+                                cfg) if len(b.value.shape) == 2 else
+                           ag.bmm(v, b.value, False, not tb, compute_kernel_config=cfg))
                       if not ta else
                       ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg))
                 a.add_grad(_reduce_to(da, a.value.shape))
@@ -607,7 +610,8 @@ def _activation(kwargs, key, probe=None):
         f"read 4.88x high.")
 
 
-def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=None):
+def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=None,
+            gate=False):
     """Register a binary eltwise verb. The second operand may be a python scalar, which the
     shipped chain does often enough (`ttnn.multiply(s, 1 / sqrt(d))`) that treating it as a
     tensor would be wrong rather than merely slow.
@@ -628,6 +632,9 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
     operands wanting a gradient, and no broadcast for `_reduce_to` to undo. Outside that it
     composes as before, because `mul_bw` carries neither a fused-activation correction nor a
     reducing output.
+    gate marks the multiply verbs: `multiply(o, g, input_tensor_b_activations=[SIGMOID])`
+    with both sides wanting a gradient and no broadcast runs as one kernel,
+    `gate_bw.gate_bw`, where it would otherwise be seven ops.
     """
     def impl(shipped, args, kwargs):
         a = _wrap(args[0])
@@ -663,6 +670,7 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
         # An operand is read in the backward if a rule reads it, or if a non-constant fused
         # unary sits on it. Everything else is dead the moment the shipped forward is done,
         # and naming it here is what lets `_tape` leave it unpinned.
+        gate_b = gate and fa is None and _is_sigmoid(kwargs.get("input_tensor_b_activations"))
         reads_a = needs[0] or (fa is not None and not _act_const(kwargs,
                                                                  "input_tensor_a_activations"))
         reads_b = needs[1] or (fb is not None and not _act_const(kwargs,
@@ -687,6 +695,14 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
                     a.add_grad(da)
                     b.add_grad(db)
                     return
+                if (gate_b and a.requires_grad and b.requires_grad
+                        and tuple(av.shape) == tuple(bv.shape) == tuple(g.shape)):
+                    from . import gate_bw as _gb
+                    if _gb.eligible(g, av, bv):
+                        do, dg = _gb.gate_bw(g, av, bv)
+                        a.add_grad(do)
+                        b.add_grad(dg)
+                        return
                 ea = (fa[0](av) if fa else av) if reads_a else None
                 eb = (fb[0](bv) if fb else bv) if reads_b else None
                 if a.requires_grad:
@@ -742,8 +758,18 @@ _VERBS["subtract"] = _binary(
     lambda g, av, bv: g, lambda g, av, bv: ttnn.multiply(g, -1.0), lambda g, f: g,
     needs=(False, False))
 _MUL_BOTH = lambda g, av, bv: ttnn.mul_bw(g, av, bv)
-_VERBS["multiply"] = _binary(*_MUL, both=_MUL_BOTH)
-_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply, both=_MUL_BOTH)
+
+
+def _is_sigmoid(acts) -> bool:
+    acts = list(acts or ())
+    u = getattr(ttnn, "UnaryOpType", None)
+    return (len(acts) == 1 and u is not None and hasattr(u, "SIGMOID")
+            and getattr(acts[0], "op_type", acts[0]) == u.SIGMOID)
+
+
+_VERBS["multiply"] = _binary(*_MUL, both=_MUL_BOTH, gate=True)
+_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply, both=_MUL_BOTH,
+                               gate=True)
 _VERBS["divide"] = _binary(
     lambda g, av, bv: ttnn.divide(g, bv),
     lambda g, av, bv: ttnn.multiply(ttnn.divide(g, ttnn.multiply(bv, bv)),
@@ -1200,6 +1226,135 @@ _kernel("reblock_permute")(_reblock_vjp((0, 2, 3, 1)))
 _kernel("reblock_permute_back")(_reblock_vjp((0, 3, 1, 2)))
 
 
+
+@_kernel("reblock_permute_gated")
+def _k_reblock_permute_gated(shipped, args, kwargs):
+    """`reblock_permute_gated`'s entry: the gated channel move of a triangle multiplication.
+
+    The forward is ``a = permute(p * sigmoid(g), (0, 3, 1, 2))`` with ``p`` and ``g`` two
+    channel slices of the four-way in-projection ``xw``. Under the tape it replaces the four
+    `ttnn.chunk` slices, the two gate multiplies and the two plain moves the composed path runs,
+    so a round with it on computes the same forward values (the kernel is `torch.equal` to that
+    chain) through fewer, larger programs.
+
+    The VJP, with ``da' = permute(da, (0, 2, 3, 1))`` and ``s = sigmoid(g)``:
+    ``dp = da' * s`` and ``dg = da' * p * s * (1 - s)``. Both go into ``xw`` as slice gradients,
+    which `Tensor.add_grad_slice` joins with the other role's two in one concat, exactly where the
+    composed path's four `chunk` gradients were joined. `reblock_permute.GATED_BW_FUSED` runs it as
+    one kernel (`reblock_permute_gated_bw`, float32 between cotangent and pack); otherwise, or
+    outside that kernel's window, it is the composed chain on stock verbs.
+
+    `reads=(0,)`: the closure reads ``xw`` (p and g) and nothing else. The gate refuses the
+    row-block mode under a tape, so ``out`` is always this call's own allocation.
+    """
+    from . import reblock_permute as R
+    xw = _wrap(args[0])
+    p_off, g_off, slice_c = (int(v) for v in args[1:4])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+
+    def make():
+        def bw(g):
+            x = xw.value
+            N = int(x.shape[1])
+            if R.GATED_BW_FUSED and R.eligible_gated_bw(g, x):
+                if R.GATED_GRAD_PACKED and xw.requires_grad:
+                    slab = xw.grad_slab()
+                    R.reblock_permute_gated_bw(g, x, p_off, g_off, out=slab)
+                    xw.slab_written(p_off, p_off + slice_c)
+                    xw.slab_written(g_off, g_off + slice_c)
+                    return
+                dp, dg = R.reblock_permute_gated_bw(g, x, p_off, g_off)
+            else:
+                dap = ttnn.permute(g, (0, 2, 3, 1))
+                pv = ttnn.slice(x, [0, 0, 0, p_off], [1, N, N, p_off + slice_c])
+                s = ttnn.sigmoid(ttnn.slice(x, [0, 0, 0, g_off], [1, N, N, g_off + slice_c]))
+                dp = ttnn.multiply(dap, s)
+                dg = ttnn.multiply(ttnn.multiply(dap, pv), ttnn.multiply(s, ttnn.rsub(s, 1.0)))
+            xw.add_grad_slice(dp, [0, 0, 0, p_off], [1, N, N, p_off + slice_c])
+            xw.add_grad_slice(dg, [0, 0, 0, g_off], [1, N, N, g_off + slice_c])
+        return bw
+
+    return ag._tape(out_v, [xw], make, reads=(0,))
+
+@_kernel("pair_transpose")
+def _k_pair_transpose(shipped, args, kwargs):
+    """`tt_bio.pair_transpose`'s entry: a permutation of S1 and S2, so its VJP is the same swap of
+    the cotangent, through the same kernel where it covers the shape and `ttnn.permute` where not.
+    Bit-exact both ways. `reads=()`: the gradient needs no operand."""
+    from . import pair_transpose as PT
+    x = _wrap(args[0])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    perm = (1, 0, 2) if len(x.value.shape) == 3 else (0, 2, 1, 3)
+
+    def make():
+        def bw(g):
+            if PT.shape_ok(g):
+                x.add_grad(PT.pair_transpose.__wrapped__(g))
+            else:
+                x.add_grad(ttnn.permute(g, perm))
+        return bw
+
+    return ag._tape(out_v, [x], make, reads=())
+
+
+def _weight_vjp(a, b, g, cfg):
+    """The gradient `_v_matmul` gives `a @ b` for a 2-D weight `b` and no transposes: the same
+    calls in the same order, so the two are bit-identical."""
+    if a.requires_grad:
+        a.add_grad(_reduce_to(
+            _via2d(g, lambda v: ag.bmm(v, b.value, False, True, compute_kernel_config=cfg)),
+            a.value.shape))
+    if b.requires_grad:
+        b.add_grad(_reduce_to(_matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
+                                      compute_kernel_config=cfg, dtype=ttnn.float32),
+                              b.value.shape))
+
+
+@_kernel("triatt_qkv_heads")
+def _k_triatt_qkv_heads(shipped, args, kwargs):
+    """`triatt_qkv.qkv_heads`: the qkv projection written head-major, so the taped recompute
+    stops paying `nlp_create_qkv_heads` (a packed-width read and write per triangle attention).
+    The head split is a permutation, so the VJP is the projection's matmul VJP on the packed
+    cotangent. `triatt_bw` writes that cotangent in one pass when `QKV_PACKED` is on and hands
+    it to the slots' shared sink; a slot that gets its own gradient goes through its third of
+    the weight instead."""
+    x, w = _wrap(args[0]), _wrap(args[1])
+    cfg = _unwrap(args[2] if len(args) > 2 else kwargs.get("ckc")) or precise_config()
+    ra, rk = _raw(args, kwargs)
+    outs = shipped(*ra, **rk)
+    if outs is None:
+        return None
+    B, H, L, dh = (int(d) for d in outs[0].shape)
+    width, K = H * dh, int(w.value.shape[0])
+
+    class _Sink:
+        def add_grad(self, G):
+            _weight_vjp(x, w, ttnn.reshape(G, [B, L, 3 * width]), cfg)
+
+    sink = _Sink()
+
+    def slot(s):
+        def make():
+            def bw(g):
+                rows = ttnn.reshape(ag.merge_heads_value(g), [B, L, width])
+                if x.requires_grad:
+                    ws = ttnn.slice(w.value, [0, s * width], [K, (s + 1) * width])
+                    x.add_grad(_reduce_to(_via2d(rows, lambda v: ag.bmm(
+                        v, ws, False, True, compute_kernel_config=cfg)), x.value.shape))
+                if w.requires_grad:
+                    w.add_grad_slice(_matmul(_flat2d(x.value), _flat2d(rows), transpose_a=True,
+                                             compute_kernel_config=cfg, dtype=ttnn.float32),
+                                     [0, s * width], [K, (s + 1) * width])
+            bw.qkv_slot = s
+            bw.packed_sink = sink
+            return bw
+        return make
+
+    return tuple(_tape(o, [x, w], slot(s), reads=(0, 1)) for s, o in enumerate(outs))
+
+
 @_kernel("rne_add")
 def _k_rne_add(shipped, args, kwargs):
     """`tt_bio.rne_add`'s entry: the VJP of a sum is the cotangent, to both operands.
@@ -1331,6 +1486,9 @@ def _v_create_qkv_heads(shipped, args, kwargs):
                 zero = ag.grad_zeros([B, 1, L, H * dh], rows.dtype, rows.device())
                 parts = [rows if i == s else zero for i in range(3)]
                 x.add_grad(ttnn.concat(parts, dim=-1))
+            # Which slot this is, for a consumer that can write all three at once into `x`'s
+            # layout (`triatt_bw.QKV_PACKED`): it then gives `x` one gradient and these none.
+            bw.qkv_slot = s
             return bw
         return make
 

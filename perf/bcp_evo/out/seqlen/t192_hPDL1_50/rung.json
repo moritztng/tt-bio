@@ -1,0 +1,197 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hPDL1",
+ "target_residues": 115,
+ "target_chains": 1,
+ "target_fold": "Ig-like beta sandwich",
+ "binder": 50,
+ "tokens": 192,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 192,
+ "auto_before_open": {
+  "count": 3,
+  "why": "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 137.6 GB of host memory free, after the 11.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 192
+ },
+ "auto_would_choose": [
+  3,
+  "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 137.6 GB of host memory free, after the 11.7 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.9384765625,
+  10.1025390625,
+  9.1015625
+ ],
+ "mem_start": {
+  "vmhwm": 532127744,
+  "vmrss": 532127744,
+  "mem_available": 160299028480
+ },
+ "started_utc": "2026-10-01T13:28:10Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "tri_att_g_in_matmul": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 3,
+  "why": "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 150.7 GB of host memory free, after the 11.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 192
+ },
+ "wall_seconds": 58.11,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(2 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 179,
+ "evoformer_axis": 192,
+ "axis_seen": [
+  192
+ ],
+ "axis_matches_arithmetic": true,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 33434872320,
+ "rounds_done": 3,
+ "rounds_per_slot": {
+  "": 3
+ },
+ "per_round": [
+  {
+   "slot": "",
+   "round": 1,
+   "seconds": 11.625,
+   "n": 11,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 12.2
+  },
+  {
+   "slot": "",
+   "round": 2,
+   "seconds": 6.035,
+   "n": 6,
+   "aiclk_min": 1331,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.9
+  }
+ ],
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 4552,
+   "declined: not DRAM interleaved": 32,
+   "declined: has a core grid": 576,
+   "served": 1440,
+   "declined: not batched": 1616
+  },
+  "taped_channel_move": [
+   0,
+   4272,
+   0,
+   0
+  ],
+  "widen_add": {
+   "served: round": 1448,
+   "served: first": 412,
+   "served: later": 96
+  },
+  "rne_add": [
+   2772,
+   24
+  ],
+  "qkv_grad_join": {
+   "served": 1224
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 0,
+   "packed": 0
+  },
+  "triatt_fused_hifi": {
+   "served": 0,
+   "declined": 648,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    2772,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    0,
+    648
+   ],
+   "pair_transpose": [
+    648,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 0,
+  "served": 0,
+  "declined": 0
+ },
+ "aiclk_run": {
+  "n": 57,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 11.7
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 7585492992,
+  "vmrss": 7031160832,
+  "mem_available": 172135456768
+ },
+ "loadavg_end": [
+  11.81689453125,
+  10.35400390625,
+  9.24267578125
+ ],
+ "finished_utc": "2026-10-01T13:29:08Z"
+}

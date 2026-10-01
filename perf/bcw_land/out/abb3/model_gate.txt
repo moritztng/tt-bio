@@ -1,0 +1,206 @@
+=== sigma=0.05, 64 tokens, 8 blocks, batch 2 ===
+2026-10-01 15:46:12.830 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  sigma 0.05, 8 blocks, batch 2 x 64 tokens
+  output                    rel err   on vs off
+  ok   frames              8.14e-04    0.00e+00  (bars 5e-2 / 0)
+  ok   angles              1.54e-02    0.00e+00  (bars 5e-2 / 0)  [unconditional 2.39e-02 on 7000 angles; 6927 well-conditioned]
+  ok   unnormalized_angles   3.05e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   states              4.94e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   single              4.42e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   plddt               1.63e-03    0.00e+00  (bars 5e-2 / 0)
+  grad off  atom14 positions: max 0.018 A, rmsd 0.004 A, median 0.0020 A over 1037 atoms
+  grad on   atom14 positions: max 0.018 A, rmsd 0.004 A, median 0.0020 A over 1037 atoms
+  gradient                         cos    L2 rel   max rel   sigma 0.05, bars tight
+  ok   d/d single             0.999694  2.48e-02  6.36e-02  (bars 0.999 / 5e-02)
+  ok   d/d pair               0.999748  2.25e-02  4.83e-02  (bars 0.999 / 5e-02)
+  ok   d/d linear_in_node.w   0.999665  2.60e-02  3.78e-02  (bars 0.999 / 5e-02)
+  ok   d/d linear_in_edge.w   0.999568  2.97e-02  2.62e-02  (bars 0.999 / 5e-02)
+  ok   d/d ipa[0] linear_q.w  0.999844  1.77e-02  1.90e-02  (bars 0.999 / 5e-02)
+  ok   d/d bb_update[7].w[0]  0.999988  5.96e-03  6.73e-03  (bars 0.999 / 5e-02)
+  ok   d/d angle[7] linear_out.w  0.999993  4.14e-03  5.59e-03  (bars 0.999 / 5e-02)
+  float32 control (torch vs torch, same weights)
+       forward states              nan  2.18e-03
+       d/d single             1.000000  9.33e-07
+       d/d pair               1.000000  7.34e-07
+       d/d ipa[0] linear_q.w  1.000000  8.46e-07
+
+PASS
+rc=0
+=== sigma=0.05, 256 tokens, 8 blocks, batch 2 ===
+2026-10-01 15:46:21.865 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcw-land/tt_bio/device_lease.py", line 405, in acquire
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcw-land/scripts/abb3_port/model_gate.py", line 335, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ttuser/.coworker/wt/bcw-land/scripts/abb3_port/model_gate.py", line 258, in main
+    dev = get_device()
+          ^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcw-land/tt_bio/tenstorrent.py", line 6397, in get_device
+    _device_lease = CardSetLease().acquire()
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcw-land/tt_bio/device_lease.py", line 511, in acquire
+    timeout=max(0.0, deadline - time.time())).acquire())
+                                              ^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcw-land/tt_bio/device_lease.py", line 424, in acquire
+    raise DeviceInUseError(
+tt_bio.device_lease.DeviceInUseError: physical card 1 on tt-quietbox2 is in use by worker:bcp-evo (pid 2031503); waited 120s. Refusing to open it concurrently (would collide at the fd level).
+nanobind: leaked 583 instances!
+ - leaked instance 0x761f9624fef8 of type "ttnn._ttnn.operations.experimental.ccl_experimental.all_gather_matmul_async_t"
+ - leaked instance 0x761f9625e4e0 of type "ttnn._ttnn.operations.complex_unary.real_t"
+ - leaked instance 0x761f96259ff0 of type "ttnn._ttnn.operations.unary.signbit_t"
+ - leaked instance 0x761f9625a308 of type "ttnn._ttnn.operations.unary.asinh_t"
+ - leaked instance 0x761f96254798 of type "ttnn._ttnn.operations.normalization.group_norm_t"
+ - leaked instance 0x761f9625a590 of type "ttnn._ttnn.operations.unary.erfc_t"
+ - leaked instance 0x761f962516c8 of type "ttnn._ttnn.operations.experimental.ccl_experimental.all_gather_async_t"
+ - leaked instance 0x761f9625e6d8 of type "ttnn._ttnn.operations.complex_unary_backward.polar_bw_t"
+ - leaked instance 0x761f96255fa0 of type "ttnn._ttnn.operations.moreh.moreh_arange_t"
+ - leaked instance 0x761f96254310 of type "ttnn._ttnn.operations.normalization.scale_mask_softmax_in_place_t"
+ - leaked instance 0x761f9625a6b0 of type "ttnn._ttnn.operations.unary.log2_t"
+ - leaked instance 0x761f9625abc0 of type "ttnn._ttnn.operations.unary.cosh_t"
+ - leaked instance 0x761f962554e0 of type "ttnn._ttnn.operations.moreh.moreh_matmul_backward_t"
+ - leaked instance 0x761f9625ca70 of type "ttnn._ttnn.operations.quantization.quantize_t"
+ - leaked instance 0x761f9625b820 of type "ttnn._ttnn.operations.unary_backward.acosh_bw_t"
+ - leaked instance 0x761f9625eda0 of type "ttnn._ttnn.operations.data_movement.untilize_with_unpadding_t"
+ - leaked instance 0x761f9625d958 of type "ttnn._ttnn.operations.binary.floor_div_t"
+ - leaked instance 0x761f962542c8 of type "ttnn._ttnn.operations.normalization.softmax_in_place_t"
+ - leaked instance 0x761f96257760 of type "ttnn._ttnn.operations.experimental.nlp_concat_heads_t"
+ - leaked instance 0x761f9625f1e0 of type "ttnn._ttnn.operations.data_movement.interleaved_to_sharded_t"
+ - ... skipped remainder
+nanobind: leaked 638 types!
+ - leaked type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+ - leaked type "ttnn._ttnn.operations.reduction.var_t"
+ - leaked type "DispatchCoreAxis"
+ - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+ - leaked type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+ - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+ - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked type "ttnn._ttnn.operations.ternary.where_t"
+ - ... skipped remainder
+nanobind: leaked 2749 functions!
+ - leaked function "from_json"
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function "__call__"
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function "pad_to_tile_shape"
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.htmlrc=1
+=== sigma=0.3, 64 tokens, 8 blocks, batch 2 ===
+2026-10-01 15:48:29.965 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  sigma 0.3, 8 blocks, batch 2 x 64 tokens
+  output                    rel err   on vs off
+  ok   frames              7.06e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   angles              3.67e-02    0.00e+00  (bars 5e-2 / 0)  [unconditional 7.03e-02 on 7000 angles; 6964 well-conditioned]
+  ok   unnormalized_angles   7.66e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   states              1.39e-02    0.00e+00  (bars 5e-2 / 0)
+  ok   single              1.89e-02    0.00e+00  (bars 5e-2 / 0)
+  ok   plddt               9.29e-03    0.00e+00  (bars 5e-2 / 0)
+  grad off  atom14 positions: max 0.152 A, rmsd 0.047 A, median 0.0386 A over 1037 atoms
+  grad on   atom14 positions: max 0.152 A, rmsd 0.047 A, median 0.0386 A over 1037 atoms
+  gradient                         cos    L2 rel   max rel   sigma 0.3, bars stress
+  ok   d/d single             0.994580  1.04e-01  8.13e-02  (bars 0.75 / 2e+00)
+  ok   d/d pair               0.994256  1.07e-01  1.25e-01  (bars 0.75 / 2e+00)
+  ok   d/d linear_in_node.w   0.993747  1.12e-01  1.04e-01  (bars 0.75 / 2e+00)
+  ok   d/d linear_in_edge.w   0.994455  1.05e-01  1.18e-01  (bars 0.75 / 2e+00)
+  ok   d/d ipa[0] linear_q.w  0.995376  9.61e-02  1.39e-01  (bars 0.75 / 2e+00)
+  ok   d/d bb_update[7].w[0]  0.999992  1.24e-02  1.37e-02  (bars 0.75 / 2e+00)
+  ok   d/d angle[7] linear_out.w  0.999868  1.63e-02  1.37e-02  (bars 0.75 / 2e+00)
+  float32 control (torch vs torch, same weights)
+       forward states              nan  4.43e-02
+       d/d single             0.999999  1.38e-03
+       d/d pair               0.999998  2.16e-03
+       d/d ipa[0] linear_q.w  0.999998  2.07e-03
+
+PASS
+rc=0
+=== sigma=0.3, 256 tokens, 8 blocks, batch 2 ===
+2026-10-01 15:49:15.943 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcw-land/tt_bio/device_lease.py", line 405, in acquire
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcw-land/scripts/abb3_port/model_gate.py", line 335, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ttuser/.coworker/wt/bcw-land/scripts/abb3_port/model_gate.py", line 258, in main
+    dev = get_device()
+          ^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcw-land/tt_bio/tenstorrent.py", line 6397, in get_device
+    _device_lease = CardSetLease().acquire()
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcw-land/tt_bio/device_lease.py", line 511, in acquire
+    timeout=max(0.0, deadline - time.time())).acquire())
+                                              ^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcw-land/tt_bio/device_lease.py", line 424, in acquire
+    raise DeviceInUseError(
+tt_bio.device_lease.DeviceInUseError: physical card 1 on tt-quietbox2 is in use by worker:bcp-evo (pid 2034227); waited 120s. Refusing to open it concurrently (would collide at the fd level).
+nanobind: leaked 583 instances!
+ - leaked instance 0x7d585cc56500 of type "ttnn._ttnn.operations.loss.mse_loss_t"
+ - leaked instance 0x7d585cc53b70 of type "ttnn._ttnn.operations.reduction.std_t"
+ - leaked instance 0x7d585cc609b0 of type "ttnn._ttnn.operations.creation.from_buffer_t"
+ - leaked instance 0x7d585cc54160 of type "ttnn._ttnn.operations.pool.grid_sample_t"
+ - leaked instance 0x7d585cc60368 of type "ttnn._ttnn.operations.data_movement.assign_t"
+ - leaked instance 0x7d585cc5b8f8 of type "ttnn._ttnn.operations.unary_backward.rad2deg_bw_t"
+ - leaked instance 0x7d585cc56d78 of type "ttnn._ttnn.operations.experimental.gelu_bw_t"
+ - leaked instance 0x7d585cc55a40 of type "ttnn._ttnn.operations.moreh.moreh_fold_t"
+ - leaked instance 0x7d585cc5bd78 of type "ttnn._ttnn.operations.unary_backward.relu6_bw_t"
+ - leaked instance 0x7d585cc55ad0 of type "ttnn._ttnn.operations.moreh.moreh_group_norm_t"
+ - leaked instance 0x7d585cc5d010 of type "ttnn._ttnn.operations.binary.logical_and_t"
+ - leaked instance 0x7d585cc5b868 of type "ttnn._ttnn.operations.unary_backward.acos_bw_t"
+ - leaked instance 0x7d585cc59348 of type "ttnn._ttnn.operations.unary.sigmoid_accurate_t"
+ - leaked instance 0x7d585cc5d8c8 of type "ttnn._ttnn.operations.binary.div_t"
+ - leaked instance 0x7d585cc5bb80 of type "ttnn._ttnn.operations.unary_backward.neg_bw_t"
+ - leaked instance 0x7d585cc51710 of type "ttnn._ttnn.operations.experimental.ccl_experimental.all_gather_async_reversed_t"
+ - leaked instance 0x7d585cc5c4c8 of type "ttnn._ttnn.operations.unary_backward.erf_bw_t"
+ - leaked instance 0x7d585cc582f8 of type "ttnn._ttnn.operations.experimental.masked_bincount_t"
+ - leaked instance 0x7d585cc5dbe0 of type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked instance 0x7d585cc5dc70 of type "ttnn._ttnn.operations.binary.eq__t"
+ - ... skipped remainder
+nanobind: leaked 638 types!
+ - leaked type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+ - leaked type "ttnn._ttnn.operations.reduction.var_t"
+ - leaked type "DispatchCoreAxis"
+ - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+ - leaked type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+ - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+ - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked type "ttnn._ttnn.operations.ternary.where_t"
+ - ... skipped remainder
+nanobind: leaked 2749 functions!
+ - leaked function "__call__"
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function "__call__"
+ - leaked function "__call__"
+ - leaked function ""
+ - leaked function "__call__"
+ - leaked function "__call__"
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.htmlrc=1

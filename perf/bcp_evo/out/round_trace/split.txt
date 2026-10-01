@@ -1,0 +1,6 @@
+off1 N=3 round 4.105 s, held 3.963, idle 0.142, AICLK {'n': 94, 'aiclk_med': 1350, 'aiclk_min': 1312, 'under_1200': 0, 'load1': 4.88}, hwm 19.4 GB
+on1 N=3 round 4.701 s, held 4.475, idle 0.226, AICLK {'n': 9, 'aiclk_med': 1350, 'aiclk_min': 1312, 'under_1200': 0, 'load1': 5.09}, hwm 18.19 GB
+on2 N=3 round 4.529 s, held 4.312, idle 0.217, AICLK {'n': 9, 'aiclk_med': 1350, 'aiclk_min': 1337, 'under_1200': 0, 'load1': 3.7}, hwm 18.29 GB
+off2 N=3 round 4.165 s, held 4.007, idle 0.158, AICLK {'n': 96, 'aiclk_med': 1350, 'aiclk_min': 1312, 'under_1200': 0, 'load1': 5.65}, hwm 19.3 GB
+off3 N=3 round 4.286 s, held 4.117, idle 0.168, AICLK {'n': 98, 'aiclk_med': 1350, 'aiclk_min': 1306, 'under_1200': 0, 'load1': 9.02}, hwm 19.31 GB
+on3 N=3 round 4.972 s, held 4.582, idle 0.389, AICLK {'n': 10, 'aiclk_med': 1350, 'aiclk_min': 1331, 'under_1200': 0, 'load1': 10.01}, hwm 18.37 GB

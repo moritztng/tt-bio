@@ -27,6 +27,14 @@
 #include "api/debug/dprint.h"
 #include "../../triatt_sdpa/compute/compute_common.hpp"
 
+// Per-phase device-profiler zones, behind BW_ZONES (TT_BIO_TRIATT_BW_ZONES).
+#ifdef BW_ZONES
+#include "tools/profiler/kernel_profiler.hpp"
+#define ZONE(n) DeviceZoneScopedN(n)
+#else
+#define ZONE(n)
+#endif
+
 namespace {
 
 // out_cb[M, N] = in0_cb[M, K] @ in1_cb[K, N], and NEITHER input is popped.
@@ -180,6 +188,28 @@ ALWI void dump_row0(const char* tag, uint32_t cb, uint32_t tile) {
 }
 #endif
 
+// out_cb = in0_cb + in1_cb, both float32 partials, and both popped. dK and dV sum over query rows,
+// so with the query axis chunked each chunk adds its contribution to what the previous chunk left
+// in DRAM. The add goes through srcA/srcB, which hold 19 bits, so each chunk's sum is rounded to a
+// 10-bit mantissa once; that is graded against float64, not assumed.
+ALWI void add_partials(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32_t num_tiles) {
+    add_tiles_init(in0_cb, in1_cb);
+    reconfig_data_format(in0_cb, in1_cb);
+    pack_reconfig_data_format(out_cb);
+    cb_wait_front(in0_cb, num_tiles);
+    cb_wait_front(in1_cb, num_tiles);
+    cb_reserve_back(out_cb, num_tiles);
+    for (uint32_t i = 0; i < num_tiles; ++i) {
+        acquire_dst();
+        add_tiles(in0_cb, in1_cb, i, i, 0);
+        pack_tile<true>(0, out_cb, i);
+        release_dst();
+    }
+    cb_push_back(out_cb, num_tiles);
+    cb_pop_front(in0_cb, num_tiles);
+    cb_pop_front(in1_cb, num_tiles);
+}
+
 }  // namespace
 
 void kernel_main() {
@@ -187,10 +217,12 @@ void kernel_main() {
     constexpr uint32_t Dt = get_compile_time_arg_val(1);          // head dim, in tiles
     constexpr uint32_t H = get_compile_time_arg_val(2);
     constexpr uint32_t scale_fp32 = get_compile_time_arg_val(3);  // head_dim ** -0.5
-    constexpr uint32_t sq_sbh = get_compile_time_arg_val(4);      // subblock for a [Nt, Nt] result
+    constexpr uint32_t sq_sbh = get_compile_time_arg_val(4);      // subblock for a [Qt, Nt] result
     constexpr uint32_t sq_sbw = get_compile_time_arg_val(5);
     constexpr uint32_t col_sbh = get_compile_time_arg_val(6);     // subblock for a [Nt, Dt] result
     constexpr uint32_t col_sbw = get_compile_time_arg_val(7);
+    constexpr uint32_t Qt = get_compile_time_arg_val(8);          // query chunk, in tiles
+    constexpr uint32_t qcol_sbh = get_compile_time_arg_val(9);    // subblock height for [Qt, *]
 
     const uint32_t row_start = get_arg_val<uint32_t>(0);          // this core's leading-axis group
     const uint32_t row_end = get_arg_val<uint32_t>(1);
@@ -203,11 +235,13 @@ void kernel_main() {
     constexpr uint32_t cb_scalar = tt::CBIndex::c_5;   // packed bf16 1.0, the reductions' scale
     constexpr uint32_t cb_zero = tt::CBIndex::c_6;
     constexpr uint32_t cb_scale = tt::CBIndex::c_7;    // the attention scale, as one bf16 tile
-    // Nt copies of the column identity. A [Nt, Nt] block matmul'd by this gives the row sums in
+    // Nt copies of the column identity. A [Qt, Nt] block matmul'd by this gives the row sums in
     // one op: within a tile the ones-column sums the row, and the k loop sums across the tiles.
     // reduce_c<SUM> is NOT the route -- the shipped forward never issues one, it reduces with
     // matmul_reduce against this same tile, and a SUM reduce_c in this kernel hangs the core.
     constexpr uint32_t cb_ones = tt::CBIndex::c_8;
+    constexpr uint32_t cb_prev = tt::CBIndex::c_9;     // the previous chunk's dV, then dK, float32
+    constexpr uint32_t cb_tmp = tt::CBIndex::c_10;     // this chunk's dV or dK before the add
     constexpr uint32_t cb_p = tt::CBIndex::c_24;
     constexpr uint32_t cb_dp = tt::CBIndex::c_25;
     constexpr uint32_t cb_t = tt::CBIndex::c_26;
@@ -219,148 +253,156 @@ void kernel_main() {
     constexpr uint32_t cb_dk = tt::CBIndex::c_17;
     constexpr uint32_t cb_dv = tt::CBIndex::c_18;
 
-    constexpr uint32_t score_tiles = Nt * Nt;
+    constexpr uint32_t chunks = Nt / Qt;
+    constexpr uint32_t score_tiles = Qt * Nt;          // one chunk of the score block
     constexpr uint32_t col_tiles = Nt * Dt;
+    constexpr uint32_t qcol_tiles = Qt * Dt;
 
     mm_init(cb_q, cb_k, cb_p);
-
-    // The bias is [1, H, N, N] broadcast over the leading axis, so this core's head slice is read
-    // once by the reader and indexed for every row of the group rather than re-read per row. That
-    // is the same argument the forward's persistent-mask CB makes, and it is worth more here
-    // because the backward touches the bias twice.
-    cb_wait_front(cb_bias, score_tiles);
     cb_wait_front(cb_scalar, 1);
     cb_wait_front(cb_scale, 1);
 
-    DPRINT << "@CONST" << ENDL();
-    seed_zeros(cb_dbias, cb_zero, score_tiles);
-    DPRINT << "@SEED" << ENDL();
+    // QUERY CHUNK OUTSIDE, LEADING AXIS INSIDE. dbias[h, i, j] sums over the leading axis and is
+    // indexed by the query row, so a chunk's rows of dbias are final once every leading row has
+    // passed through it: the accumulator is [Qt, Nt] and so is the fronted bias, where the
+    // whole-query form needed [Nt, Nt] of each and stopped fitting at 320 tokens. dQ is complete
+    // per chunk because every key is here. dK and dV sum over query rows, so they are what pays:
+    // with more than one chunk they go out as float32 partials and come back for the next chunk.
+    // With one chunk (Qt == Nt) this is the whole-query kernel exactly, bf16 dK/dV and all.
+    for (uint32_t c = 0; c < chunks; ++c) {
+        // The writer drains the accumulator straight out of its L1 and pops cb_done when it has;
+        // cb_done holds one page, so this reserve is the wait for that before the reseed.
+        cb_reserve_back(cb_done, 1);
+        if (c > 0) {
+            cb_pop_front(cb_dbias, score_tiles);
+        }
+        // The bias is [1, H, N, N] broadcast over the leading axis, so this chunk's rows of it are
+        // read once by the reader and indexed for every leading row rather than re-read per row.
+        cb_wait_front(cb_bias, score_tiles);
+        seed_zeros(cb_dbias, cb_zero, score_tiles);
 
-    for (uint32_t row = row_start; row < row_end; ++row) {
-        // ---- S = (Q K^T) * scale + bias, then P = softmax(S) --------------------------------
-        // cb_k holds K's Nt tiles. Read as [Dt, Nt] with the faces transposed, those same tiles
-        // are K^T's tile grid, which is why no second copy of k is read from DRAM.
-#ifdef BW_DUMP
-        cb_wait_front(cb_q, col_tiles);
-        cb_wait_front(cb_k, col_tiles);
-        cb_wait_front(cb_do, col_tiles);
-        dump_row0("q0 ", cb_q, 0);
-        dump_row0("k0 ", cb_k, 0);
-        cb_wait_front(cb_v, col_tiles);
-        dump_row0("v0 ", cb_v, 0);
-        dump_row0("do0", cb_do, 0);
-        dump_row0("bi0", cb_bias, 0);
-#endif
-        mm_keep<Nt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_q, cb_k, cb_p);
-        DPRINT << "@S" << ENDL();
-        mul_block_bcast_scalar_inplace<cb_scale, score_tiles>(cb_p);
-        DPRINT << "@SCALE" << ENDL();
-        add_block_inplace<false>(cb_p, cb_bias, score_tiles);
-        DPRINT << "@BIAS" << ENDL();
+        for (uint32_t row = row_start; row < row_end; ++row) {
+            // ---- S = (Q K^T) * scale + bias, then P = softmax(S) ----------------------------
+            {
+            ZONE("S");
+            mm_keep<Qt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_q, cb_k, cb_p);
+            }
+            {
+            ZONE("SCALE");
+            mul_block_bcast_scalar_inplace<cb_scale, score_tiles>(cb_p);
+            }
+            {
+            ZONE("BIAS");
+            add_block_inplace<false>(cb_p, cb_bias, score_tiles);
+            }
 
-        reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Nt, (int)VectorMode::RC>(
-            cb_row_a, cb_row_a, Nt, false);
-        // `do_reduce` OFF, explicitly. Its default is true, and what it then produces is NOT the
-        // row sum: it is a partial, TILE-WISE sum across the key tiles accumulated in L1, which
-        // the shipped forward finishes with a separate row reduction after its k-chunk loop
-        // ("Partial reduce_sum is used to push the final row_reduction within a tile outside of
-        // the loop over K chunks", compute_common.hpp:2011). This kernel has exactly one k chunk,
-        // so the partial form buys nothing and a single reduce_c over cb_p is both the row sum
-        // and one fewer buffer to carry.
-        // The ACCURATE exponential. The forward keeps the fast approximate one by default; a
-        // gradient graded against a float64 VJP cannot afford it.
-        sub_exp_block_bcast_cols_inplace<cb_p, Nt, 0x3F800000 /*1.0f*/, true, false,
-                                         (int)VectorMode::RC, false /*approx_exp*/>(
-            cb_row_a, cb_row_b, Nt);
-        DPRINT << "@EXP" << ENDL();
-        cb_pop_front(cb_row_a, Nt);                      // sub_exp keeps in1, so pop it here
-        mm_keep<Nt, 1, Nt, col_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(exp)
-        recip_block_inplace(cb_row_b, Nt);
-        // immediate_pop, and it has to be: the other arm of mul_block_bcast_cols reserves on
-        // out_cb BEFORE popping in0_cb, so with in0 and out the same CB sized to exactly its
-        // contents the reserve can never be satisfied and the kernel hangs on the first row.
-        mul_block_bcast_cols<Nt, Nt, true, false>(cb_p, cb_row_b, cb_p);    // P = exp / rowsum
-        DPRINT << "@P" << ENDL();
+            {
+            ZONE("EXP");
+            reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Qt, (int)VectorMode::RC>(
+                cb_row_a, cb_row_a, Nt, false);
+            // `do_reduce` OFF: with every key in one block a single reduce_c is the row sum. The
+            // ACCURATE exponential: a gradient graded against a float64 VJP cannot afford the
+            // forward's fast approximate one.
+            sub_exp_block_bcast_cols_inplace<cb_p, Qt, 0x3F800000 /*1.0f*/, true, false,
+                                             (int)VectorMode::RC, false /*approx_exp*/>(
+                cb_row_a, cb_row_b, Nt);
+            }
+            {
+            ZONE("P");
+            cb_pop_front(cb_row_a, Qt);                  // sub_exp keeps in1, so pop it here
+            mm_keep<Qt, 1, Nt, qcol_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(exp)
+            recip_block_inplace(cb_row_b, Qt);
+            // immediate_pop: the other arm reserves on out_cb before popping in0_cb, and with in0
+            // and out the same CB sized to exactly its contents that reserve never succeeds.
+            mul_block_bcast_cols<Qt, Nt, true, false>(cb_p, cb_row_b, cb_p);    // P = exp / rowsum
+            }
 
-        // ---- dV = P^T dO -------------------------------------------------------------------
-        transpose_block<Nt, Nt>(cb_p, cb_t);
-        DPRINT << "@PT" << ENDL();
-        mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_t, cb_do, cb_dv);
-        DPRINT << "@DV" << ENDL();
-        cb_pop_front(cb_t, score_tiles);
+            // ---- dV = P^T dO, plus what the earlier chunks left ---------------------------
+            {
+            ZONE("PT");
+            transpose_block<Qt, Nt>(cb_p, cb_t);
+            }
+            {
+            ZONE("DV");
+            if (c == 0) {
+                mm_keep<Nt, Dt, Qt, col_sbh, col_sbw, false>(cb_t, cb_do, cb_dv);
+            } else {
+                mm_keep<Nt, Dt, Qt, col_sbh, col_sbw, false>(cb_t, cb_do, cb_tmp);
+                add_partials(cb_tmp, cb_prev, cb_dv, col_tiles);
+            }
+            }
+            {
+            ZONE("DP");
+            cb_pop_front(cb_t, score_tiles);
 
-        // ---- dP = dO V^T, then dS = P * (dP - rowsum(dP * P) / rowsum(P)) --------------------
-        mm_keep<Nt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_do, cb_v, cb_dp);      // cb_dp = dP
-        DPRINT << "@DP" << ENDL();
-        mul_block_to(cb_dp, cb_p, cb_t, score_tiles);    // cb_t = dP * P, both inputs kept
-        DPRINT << "@DPP" << ENDL();
-        mm_keep<Nt, 1, Nt, col_sbh, 1, false>(cb_t, cb_ones, cb_row_a);   // rowsum(dP * P)
-        cb_pop_front(cb_t, score_tiles);
-        // The row-sum correction is carried, not dropped. P is normalised when it is formed, so
-        // rowsum(P) is 1 up to bf16 rounding and dividing by it is exactly what removes that
-        // rounding. Dropping it is worth up to 13.09x on the norm of dq, so it is taken fresh off
-        // the normalised P rather than reusing the pre-normalisation sum.
-        mm_keep<Nt, 1, Nt, col_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(P)
-        recip_block_inplace(cb_row_b, Nt);
-        mul_block_inplace(cb_row_a, cb_row_b, Nt);       // mul_block_inplace keeps in1
-        cb_pop_front(cb_row_b, Nt);
+            // ---- dP = dO V^T, then dS = P * (dP - rowsum(dP * P) / rowsum(P)) ----------------
+            mm_keep<Qt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_do, cb_v, cb_dp);      // cb_dp = dP
+            }
+            {
+            ZONE("DPP");
+            mul_block_to(cb_dp, cb_p, cb_t, score_tiles);    // cb_t = dP * P, both inputs kept
+            }
+            {
+            ZONE("SUB");
+            mm_keep<Qt, 1, Nt, qcol_sbh, 1, false>(cb_t, cb_ones, cb_row_a);   // rowsum(dP * P)
+            cb_pop_front(cb_t, score_tiles);
+            // The row-sum correction is carried, not dropped: rowsum(P) is 1 only up to bf16
+            // rounding, and dropping it is worth up to 13.09x on the norm of dq.
+            mm_keep<Qt, 1, Nt, qcol_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(P)
+            recip_block_inplace(cb_row_b, Qt);
+            mul_block_inplace(cb_row_a, cb_row_b, Qt);       // mul_block_inplace keeps in1
+            cb_pop_front(cb_row_b, Qt);
 
-        sub_block_bcast_cols_inplace<Nt, Nt>(cb_dp, cb_row_a);
-        DPRINT << "@SUB" << ENDL();
-        cb_pop_front(cb_row_a, Nt);
-        mul_block_inplace(cb_dp, cb_p, score_tiles);     // cb_dp = dS
-        DPRINT << "@DS" << ENDL();
-        cb_pop_front(cb_p, score_tiles);
+            sub_block_bcast_cols_inplace<Qt, Nt>(cb_dp, cb_row_a);
+            }
+            {
+            ZONE("DS");
+            cb_pop_front(cb_row_a, Qt);
+            mul_block_inplace(cb_dp, cb_p, score_tiles);     // cb_dp = dS
+            }
+            {
+            ZONE("DBIAS");
+            cb_pop_front(cb_p, score_tiles);
 
-        // ---- dbias += dS, the only term that reduces across the leading axis ----------------
-        accumulate_fp32(cb_dbias, cb_dp, score_tiles);
-        DPRINT << "@DBIAS" << ENDL();
+            // ---- dbias += dS, the only term that reduces across the leading axis ------------
+            accumulate_fp32(cb_dbias, cb_dp, score_tiles);
+            }
 
-        // ---- dQ = (dS K) * scale, dK = (dS^T Q) * scale --------------------------------------
-        //
-        // The scale goes on dS, once, BEFORE both matmuls, and it has to. Scaling cb_dq and cb_dk
-        // in place after mm_keep pushed them is a race with the writer and a corruption besides:
-        // the in-place helpers pop, reserve and push, which on a double-buffered output CB rotates
-        // the read pointer into the OTHER slot, and that slot was never written. The writer then
-        // reads it. dK came back exactly zero every run and dQ came back partly stale, which is
-        // the same defect caught at two different points in the rotation.
-        //
-        // dbias is accumulated above this line for the same reason it has to be: dbias is the
-        // gradient with respect to the bias, which is the UNSCALED score gradient.
-        // accumulate_fp32 just left the packer configured for float32. Anything that packs
-        // bfloat16 after it has to say so, or it writes float32 words into a bfloat16 buffer --
-        // which reads back as ~1e33, not as a small error.
-        reconfig_data_format_srca(cb_dp);
-        pack_reconfig_data_format(cb_dp);
-        mul_block_bcast_scalar_inplace<cb_scale, score_tiles>(cb_dp);
+            // ---- dQ = (dS K) * scale, dK = (dS^T Q) * scale ----------------------------------
+            // The scale goes on dS once, before both matmuls: scaling the pushed outputs in place
+            // rotates a double-buffered CB into a slot that was never written. dbias is taken
+            // above this line because it is the gradient of the UNSCALED scores. accumulate_fp32
+            // left the packer on float32, so the bf16 pack below has to say so.
+            {
+            ZONE("DQ");
+            reconfig_data_format_srca(cb_dp);
+            pack_reconfig_data_format(cb_dp);
+            mul_block_bcast_scalar_inplace<cb_scale, score_tiles>(cb_dp);
 
-        mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_dp, cb_k, cb_dq);
-        DPRINT << "@DQ" << ENDL();
-        transpose_block<Nt, Nt>(cb_dp, cb_t);
-        cb_pop_front(cb_dp, score_tiles);
-#ifdef BW_DUMP
-        dump_row0("dSt", cb_t, 0);
-        dump_row0("q  ", cb_q, 0);
-#endif
-        mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_t, cb_q, cb_dk);
-        DPRINT << "@DK" << ENDL();
-#ifdef BW_DUMP
-        dump_row0("dk ", cb_dk, 0);
-        dump_row0("dv ", cb_dv, 0);
-        dump_row0("dq ", cb_dq, 0);
-#endif
-        cb_pop_front(cb_t, score_tiles);
+            mm_keep<Qt, Dt, Nt, qcol_sbh, col_sbw, false>(cb_dp, cb_k, cb_dq);
+            }
+            {
+            ZONE("DK");
+            transpose_block<Qt, Nt>(cb_dp, cb_t);
+            cb_pop_front(cb_dp, score_tiles);
+            if (c == 0) {
+                mm_keep<Nt, Dt, Qt, col_sbh, col_sbw, false>(cb_t, cb_q, cb_dk);
+            } else {
+                mm_keep<Nt, Dt, Qt, col_sbh, col_sbw, false>(cb_t, cb_q, cb_tmp);
+                add_partials(cb_tmp, cb_prev, cb_dk, col_tiles);
+            }
+            }
+            cb_pop_front(cb_t, score_tiles);
 
-        cb_pop_front(cb_q, col_tiles);
-        cb_pop_front(cb_k, col_tiles);
-        cb_pop_front(cb_v, col_tiles);
-        cb_pop_front(cb_do, col_tiles);
+            cb_pop_front(cb_q, qcol_tiles);
+            cb_pop_front(cb_k, col_tiles);
+            cb_pop_front(cb_v, col_tiles);
+            cb_pop_front(cb_do, qcol_tiles);
+        }
+
+        // The writer drains cb_dbias's L1 directly rather than through a second buffer; this is
+        // the handshake that says this chunk's accumulator is final.
+        cb_push_back(cb_done, 1);
+        cb_pop_front(cb_bias, score_tiles);          // the reader fronts the next chunk's rows
     }
-
-    // The writer drains cb_dbias's L1 directly rather than through a second buffer, so this is the
-    // handshake that says the accumulator is final. A copy would have cost 331.8 KB of L1, which
-    // at the shipped shape is the difference between fitting and not.
-    DPRINT << "@ROWSDONE" << ENDL();
-    cb_reserve_back(cb_done, 1);
-    cb_push_back(cb_done, 1);
 }

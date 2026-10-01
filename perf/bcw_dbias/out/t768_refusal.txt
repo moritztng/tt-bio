@@ -1,0 +1,1 @@
+MMREFUSE [2, 8, 768, 768] DataType.BFLOAT16 [2, 8, 768, 32] DataType.BFLOAT16 {'transpose_a': True, 'transpose_b': False} pc=MatmulMultiCoreReuseProgramConfig  Statically allocated circular buffers on core range [(x=0,y=0) - (x=0,y=9)] grow to 1864192 B which is beyond max L1 size of 1572864 B backtrace:  --- /home/tt

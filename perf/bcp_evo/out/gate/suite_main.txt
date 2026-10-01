@@ -1,0 +1,911 @@
+..............s.........sss...............................s............. [  0%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+.................................................s...................... [  3%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+.......................................................s.s.............. [ 41%]
+sssssssssss.......sssFFssssssssssssFssssssFFFFsFFssssssFFFFFFsssssss.... [ 42%]
+.........................sssssssssssssss....sss..sssssss.sss............ [ 43%]
+.sssssssssssssss...........................ssss..............ss.....s... [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 45%]
+..............................s..........s...ss...ss.s...ss.ss.sssss.... [ 46%]
+ss.sssss..ss.sss...s.s...ssss.s.ss...................................... [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 52%]
+...............................sss...................................... [ 53%]
+sssss...............................................sssssss.s.sssssss... [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+..................................................................sss... [ 56%]
+.........s........................................ssss.................. [ 57%]
+....................s...s.......s...s................................... [ 58%]
+........s...s...............................s...s....................... [ 59%]
+......................................................sssss............. [ 60%]
+...................................................s.s.................. [ 60%]
+.......................sssssssss........................................ [ 61%]
+.............................sss.....................ssssss.sssssss..... [ 62%]
+........................................................................ [ 63%]
+...............................sss.ss....sss...........ss...........s... [ 64%]
+..........s......sssssssssssssssssssss.................................. [ 64%]
+sssss................................................................... [ 65%]
+................ssssssss................................................ [ 66%]
+.....ssss............................................................... [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 71%]
+........................................................................ [ 72%]
+....ssssssssssssssssssssssssssss............sssssssssss.....ssssss...... [ 73%]
+...ssssss............................................................... [ 74%]
+.s..sssss..ssss......................................................... [ 75%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+..........s............................................................. [ 83%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+.....s.................................................................. [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+............................................................ssssssssss.. [ 90%]
+........................................sssss........................... [ 91%]
+.........sssssssssssssss.....sssssssssssssssssssssssssss................ [ 92%]
+...................................................................s.... [ 93%]
+........................................................................ [ 94%]
+...........................s..ss..s..................................... [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+.................................................ssssssss..F............ [ 98%]
+........................................................................ [ 99%]
+.................................                                        [100%]
+=================================== FAILURES ===================================
+_ test_a_target_of_heteroatoms_only_is_refused_instead_of_indexing_an_empty_chain_list _
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_a_target_of_heteroatoms_o0')
+
+    def test_a_target_of_heteroatoms_only_is_refused_instead_of_indexing_an_empty_chain_list(tmp_path):
+        path = _hetatm_only(tmp_path, "ligand_only.pdb")
+>       problems, _ = _problems(_settings(path, hotspots="54"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:210: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_a_target_of_heteroatoms_o0/ligand_only.pdb', 'hotspots': '54'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_ test_a_target_of_heteroatoms_only_is_refused_even_with_no_hotspot_asked_for __
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_a_target_of_heteroatoms_o1')
+
+    def test_a_target_of_heteroatoms_only_is_refused_even_with_no_hotspot_asked_for(tmp_path):
+        path = _hetatm_only(tmp_path, "ligand_only.pdb")
+>       problems, _ = _problems(_settings(path))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:218: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_a_target_of_heteroatoms_o1/ligand_only.pdb'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_______________ test_an_mmcif_named_pdb_is_refused_the_same_way ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_an_mmcif_named_pdb_is_ref0')
+
+    def test_an_mmcif_named_pdb_is_refused_the_same_way(tmp_path):
+        path = tmp_path / "really_a_cif.pdb"
+        path.write_text("data_structure\n#\nloop_\n_atom_site.group_PDB\n_atom_site.id\nATOM 1\n")
+>       problems, _ = _problems(_settings(path, hotspots="54"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:342: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_an_mmcif_named_pdb_is_ref0/really_a_cif.pdb', 'hotspots': '54'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_____________ test_hotspots_on_a_cropped_fasta_target_are_refused ______________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_hotspots_on_a_cropped_fas0')
+
+    def test_hotspots_on_a_cropped_fasta_target_are_refused(tmp_path):
+        """The crop is a random window and it slices the hotspot flags with the sequence.
+    
+        Measured: a 60-residue FASTA with hotspots 5,50 kept no hotspot at all in 5 of 6 campaign
+        seeds, which is the silent whole-surface case with a random draw in front of it.
+        """
+>       problems, _ = _problems(_settings(_fasta(tmp_path), hotspots="5,50"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:432: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_hotspots_on_a_cropped_fas0/target.fasta', 'hotspots': '5,50'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+__________ test_hotspots_on_a_fasta_target_with_cropping_off_are_kept __________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_hotspots_on_a_fasta_targe0')
+
+    def test_hotspots_on_a_fasta_target_with_cropping_off_are_kept(tmp_path):
+        settings = _settings(_fasta(tmp_path), hotspots="5,50") | {"crop_fasta_sequence": False}
+>       assert _problems(settings) == ([], [])
+               ^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:440: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_hotspots_on_a_fasta_targe0/target.fasta', 'hotspots': '5,50'}], 'crop_fasta_sequence': False}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_______________ test_a_crop_as_long_as_the_target_is_not_refused _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_a_crop_as_long_as_the_tar0')
+
+    def test_a_crop_as_long_as_the_target_is_not_refused(tmp_path):
+        """BindCraft 2's own IDR example: a 13-residue FASTA with crop_fasta_sequence [13, 13]."""
+        settings = _settings(_fasta(tmp_path, 13), hotspots="5") | {"crop_fasta_sequence": [13, 13]}
+>       assert _problems(settings) == ([], [])
+               ^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:446: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_a_crop_as_long_as_the_tar0/target.fasta', 'hotspots': '5'}], 'crop_fasta_sequence': [13, 13]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_________ test_a_cropped_fasta_target_with_no_hotspots_is_not_refused __________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_a_cropped_fasta_target_wi0')
+
+    def test_a_cropped_fasta_target_with_no_hotspots_is_not_refused(tmp_path):
+        settings = {"binder_lengths": [60],
+                    "targets": [{"name": "T", "target_path": str(_fasta(tmp_path))}]}
+>       assert _problems(settings) == ([], [])
+               ^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:452: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_a_cropped_fasta_target_wi0/target.fasta'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_ test_a_scalar_binder_length_is_refused_by_name_before_bindcraft_cannot_name_it _
+
+    def test_a_scalar_binder_length_is_refused_by_name_before_bindcraft_cannot_name_it():
+        """`load_settings` raises `TypeError: 'int' object is not iterable` on this, naming nothing."""
+>       from bindcraft.settings import load_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tests/test_bcinputs.py:463: ModuleNotFoundError
+_ test_a_binder_length_range_is_refused_before_the_int_parse_that_cannot_name_it _
+
+    def test_a_binder_length_range_is_refused_before_the_int_parse_that_cannot_name_it():
+        request = {"campaign_name": "x", "binder_lengths": "60-90", "targets": [{"name": "T"}]}
+        with pytest.raises(ValueError, match="invalid literal for int"):
+>           load_settings_module().load_settings(dict(request))
+            ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:475: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def load_settings_module():
+>       from bindcraft import settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tests/test_bcinputs.py:481: ModuleNotFoundError
+_____ test_the_spelling_the_note_suggests_resolves_to_a_different_residue ______
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_the_spelling_the_note_sug0')
+
+    def test_the_spelling_the_note_suggests_resolves_to_a_different_residue(tmp_path):
+        """The advice has to work: `A57` and `B57` must name two residues, not one. `B57` lands at
+        283 through the chain-break offset `merge_receptor_chains` applies."""
+>       from bindcraft.protein import ResidueFlags, has_residue_flag
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tests/test_bcinputs.py:561: ModuleNotFoundError
+_____ test_a_nucleotide_sequence_pasted_in_as_a_protein_target_is_refused ______
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_a_nucleotide_sequence_pas0')
+
+    def test_a_nucleotide_sequence_pasted_in_as_a_protein_target_is_refused(tmp_path):
+        """BindCraft 2 folds it as a poly-Ala/Cys/Gly/Thr peptide of the same length and nothing
+        downstream can tell: the peptide is valid, it is just not what the researcher meant."""
+>       problems, _ = _problems(_settings(_fasta_of(tmp_path, CDS), chains="A"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:592: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_a_nucleotide_sequence_pas0/target.fasta', 'chains': 'A'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_________________ test_a_real_protein_sequence_is_not_refused __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_a_real_protein_sequence_i0')
+
+    def test_a_real_protein_sequence_is_not_refused(tmp_path):
+>       assert _problems(_settings(_fasta_of(tmp_path, REAL_PROTEIN), chains="A")) == ([], [])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:600: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_a_real_protein_sequence_i0/target.fasta', 'chains': 'A'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+____________ test_a_low_complexity_designed_peptide_is_not_refused _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_a_low_complexity_designed0')
+
+    def test_a_low_complexity_designed_peptide_is_not_refused(tmp_path):
+        """The false positives this check must not produce: poly-alanine, an (GA)n elastin-like
+        design and a (GT)n repeat are real research sequences spelled in nucleotide letters."""
+        for sequence in ("A" * 40, "GA" * 25, "GT" * 20, "AG" * 30):
+>           assert _problems(_settings(_fasta_of(tmp_path, sequence), chains="A")) == ([], []), sequence
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:607: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_a_low_complexity_designed0/target.fasta', 'chains': 'A'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_______________ test_a_short_nucleotide_sequence_is_not_refused ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_a_short_nucleotide_sequen0')
+
+    def test_a_short_nucleotide_sequence_is_not_refused(tmp_path):
+        """Under 30 letters a real peptide is plausible enough that refusing costs more than it
+        saves -- GATTACA is a peptide as much as it is a joke."""
+>       assert _problems(_settings(_fasta_of(tmp_path, CDS[:27]), chains="A")) == ([], [])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:613: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_a_short_nucleotide_sequen0/target.fasta', 'chains': 'A'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+_________ test_an_rna_sequence_is_bindcrafts_own_refusal_not_this_one __________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_an_rna_sequence_is_bindcr0')
+
+    def test_an_rna_sequence_is_bindcrafts_own_refusal_not_this_one(tmp_path):
+        """RNA gives itself away with the U, which `from_fasta` already names."""
+>       problems, _ = _problems(_settings(_fasta_of(tmp_path, CDS.replace("T", "U")), chains="A"))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bcinputs.py:618: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bcinputs.py:46: in _problems
+    problems, notes = bcinputs.input_problems(settings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+settings = {'binder_lengths': [60, 90], 'targets': [{'name': 'T', 'target_path': '/tmp/pytest-of-ttuser/pytest-97/test_an_rna_sequence_is_bindcr0/target.fasta', 'chains': 'A'}]}
+
+    def input_problems(settings: Mapping) -> tuple[list[str], list[str]]:
+        """Everything wrong with a campaign's inputs that this module can name, and what to note."""
+        problems = threshold_problems(settings) + binder_length_problems(settings) \
+            + count_problems(settings)
+        notes: list[str] = []
+        if problems:
+            return problems, notes                    # a settings error stops the targets resolving
+        # The import is outside the try on purpose, as it is in the two arms below. Inside it, a
+        # symbol BindCraft 2 renames or moves raises ImportError, the arm swallows it, and every
+        # target check below silently finds nothing: the campaign then runs unguarded against
+        # whatever it was given, which is the outcome this module exists to prevent. A settings
+        # BindCraft 2 cannot resolve is a different thing, and that is what the try is for.
+>       from bindcraft.settings import build_design_settings
+E       ModuleNotFoundError: No module named 'bindcraft'
+
+tt_bio/bcinputs.py:550: ModuleNotFoundError
+__________________ test_lock_is_released_when_the_holder_dies __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ttuser/pytest-97/test_lock_is_released_when_the0')
+
+    def test_lock_is_released_when_the_holder_dies(tmp_path):
+        """A killed downloader must not wedge every other process out of the cache."""
+        ctx = mp.get_context("fork")
+        q = ctx.Queue()
+        a = ctx.Process(target=_hold, args=("rf3", tmp_path, q))
+        a.start()
+        assert q.get(timeout=30) == "held"
+        a.kill()
+        a.join(30)
+        b = ctx.Process(target=_grab, args=("rf3", tmp_path, q))
+        b.start()
+>       waited = q.get(timeout=60)
+                 ^^^^^^^^^^^^^^^^^
+
+tests/test_weights_download_lock.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <multiprocessing.queues.Queue object at 0x757b4b886f90>, block = True
+timeout = 59.9999949799967
+
+    def get(self, block=True, timeout=None):
+        if self._closed:
+            raise ValueError(f"Queue {self!r} is closed")
+        if block and timeout is None:
+            with self._rlock:
+                res = self._recv_bytes()
+            self._sem.release()
+        else:
+            if block:
+                deadline = time.monotonic() + timeout
+            if not self._rlock.acquire(block, timeout):
+                raise Empty
+            try:
+                if block:
+                    timeout = deadline - time.monotonic()
+                    if not self._poll(timeout):
+>                       raise Empty
+E                       _queue.Empty
+
+/usr/lib/python3.12/multiprocessing/queues.py:114: Empty
+=============================== warnings summary ===============================
+tt_bio/main.py:62
+  /tmp/bcpevo-main-ctl/tt_bio/main.py:62: DeprecationWarning: This process (pid=1900153) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = _os.fork()
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:629: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    record = np.char.array(np.where(array.hetero, "HETATM", "ATOM"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:638: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    b_factor = np.char.array(np.full(natoms, "  0.00", dtype="U6"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:642: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    occupancy = np.char.array(np.full(natoms, "  1.00", dtype="U6"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:653: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    charge = np.char.array(np.full(natoms, "  ", dtype="U2"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:661: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    pdb_atom_id = np.char.array(
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:668: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    pdb_res_id = np.char.array(
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:676: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    names = np.char.array(
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:682: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    res_names = np.char.array(array.res_name)
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:683: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    chain_ids = np.char.array(array.chain_id)
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:684: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    ins_codes = np.char.array(array.ins_code)
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:685: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    spaces = np.char.array(np.full(natoms, " ", dtype="U1"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:686: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    elements = np.char.array(array.element)
+
+tests/test_argparse_help_renders.py::test_help_strings_survive_percent_expansion[scripts/train_xhost/exchange_probe.py]
+  <unknown>:2: SyntaxWarning: invalid escape sequence '\ '
+
+tests/test_boltzgen_seed.py::test_same_seed_same_features
+tests/test_boltzgen_seed.py::test_same_seed_same_features
+tests/test_boltzgen_seed.py::test_other_seed_or_no_seed_draws_fresh
+tests/test_boltzgen_seed.py::test_other_seed_or_no_seed_draws_fresh
+tests/test_boltzgen_seed.py::test_other_seed_or_no_seed_draws_fresh
+tests/test_boltzgen_seed.py::test_other_seed_or_no_seed_draws_fresh
+  /tmp/bcpevo-main-ctl/tt_bio/boltzgen/data/featurizer.py:1600: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    deletion = np.pi / 2 * np.arctan(deletion / 3)
+
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[boltz2]
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdbx/convert.py:461: UserWarning: Attribute 'auth_atom_id' not found within 'atom_site' category. The fallback attribute 'label_atom_id' will be used instead
+    warnings.warn(
+
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[openfold3]
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[openbind]
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/openfold3/core/data/io/sequence/msa.py:477: UserWarning: Expected MSA file for chain P of type PROTEIN in query ids, but no MSA files found. No MSA features will be computed for this chain.
+    maps = self.create_maps(input=input)
+
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[openfold3]
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[openbind]
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/openfold3/core/data/io/sequence/msa.py:477: UserWarning: Expected MSA file for chain R of type RNA in query ids, but no MSA files found. No MSA features will be computed for this chain.
+    maps = self.create_maps(input=input)
+
+tests/test_chain_ids_survive_the_fold.py: 1 warning
+tests/test_constraint_plumbing.py: 18 warnings
+tests/test_nesso1_input.py: 2 warnings
+tests/test_rf3_featurizer.py: 83 warnings
+tests/test_template_cif.py: 42 warnings
+tests/test_weights_download_lock.py: 6 warnings
+tests/test_worker_liveness.py: 1 warning
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=1900153) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/test_chain_ids_survive_the_fold.py: 1 warning
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:387: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_protein[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:392: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_protein[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:397: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_protein[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:402: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:407: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:412: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 2 warnings
+tests/test_rf3_featurizer.py: 10 warnings
+tests/test_template_cif.py: 2 warnings
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:419: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    frame_idxs[:, 1] = np.where(c_alpha_atoms | c_one_prime_atoms | ligand_atoms)[0]
+
+tests/test_constraint_plumbing.py::test_of3_features_see_the_bond_and_the_ring
+tests/test_template_cif.py::test_of3_family_featurizes_the_cif_route_like_the_npz_route[openfold3]
+tests/test_template_cif.py::test_of3_family_featurizes_the_cif_route_like_the_npz_route[openbind]
+  /tmp/bcpevo-main-ctl/tt_bio/_vendor/openfold3/core/data/io/sequence/msa.py:477: UserWarning: Expected MSA file for chain A of type PROTEIN in query t, but no MSA files found. No MSA features will be computed for this chain.
+    maps = self.create_maps(input=input)
+
+tests/test_msa_before_lease.py::test_boltz2_featurises_from_the_prefetched_cache
+  /tmp/bcpevo-main-ctl/tt_bio/data/featurizer.py:1622: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    deletion = np.pi / 2 * np.arctan(deletion / 3)
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:636: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    b_factor = np.char.array([f"{b:>6.2f}" for b in array.b_factor])
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:640: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    occupancy = np.char.array([f"{o:>6.2f}" for o in array.occupancy])
+
+tests/test_trace_region_sizing.py::test_no_call_passes_trace_region_bytes
+tests/test_trace_region_sizing.py::test_every_named_capture_has_an_entry
+tests/test_trace_region_sizing.py::test_every_named_capture_has_an_entry
+  /tmp/bcpevo-main-ctl/scripts/train_xhost/exchange_probe.py:2: SyntaxWarning: invalid escape sequence '\ '
+    """What one step's gradient exchange costs, with the real payload and the real transport.
+
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[predict]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[warmup]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[embed]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[affinity]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[saprot]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[design]
+  /tmp/bcpevo-main-ctl/tests/test_verbs_scope_autograd.py:75: DeprecationWarning: 'isolated_filesystem' is deprecated and will be removed in Click 9.0. Use 'tempfile.TemporaryDirectory' or pytest's 'tmp_path' fixture with absolute paths instead.
+    with runner.isolated_filesystem():
+
+tests/test_weights_registry.py::test_tar_extraction_promotes_the_single_top_level_dir
+  /usr/lib/python3.12/tarfile.py:2301: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
+    warnings.warn(
+
+tests/test_worker_liveness.py::test_silence_subprocess_output_preserves_real_stderr
+  /tmp/bcpevo-main-ctl/tests/test_worker_liveness.py:109: DeprecationWarning: This process (pid=1900153) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_bcinputs.py::test_a_target_of_heteroatoms_only_is_refused_instead_of_indexing_an_empty_chain_list
+FAILED tests/test_bcinputs.py::test_a_target_of_heteroatoms_only_is_refused_even_with_no_hotspot_asked_for
+FAILED tests/test_bcinputs.py::test_an_mmcif_named_pdb_is_refused_the_same_way
+FAILED tests/test_bcinputs.py::test_hotspots_on_a_cropped_fasta_target_are_refused
+FAILED tests/test_bcinputs.py::test_hotspots_on_a_fasta_target_with_cropping_off_are_kept
+FAILED tests/test_bcinputs.py::test_a_crop_as_long_as_the_target_is_not_refused
+FAILED tests/test_bcinputs.py::test_a_cropped_fasta_target_with_no_hotspots_is_not_refused
+FAILED tests/test_bcinputs.py::test_a_scalar_binder_length_is_refused_by_name_before_bindcraft_cannot_name_it
+FAILED tests/test_bcinputs.py::test_a_binder_length_range_is_refused_before_the_int_parse_that_cannot_name_it
+FAILED tests/test_bcinputs.py::test_the_spelling_the_note_suggests_resolves_to_a_different_residue
+FAILED tests/test_bcinputs.py::test_a_nucleotide_sequence_pasted_in_as_a_protein_target_is_refused
+FAILED tests/test_bcinputs.py::test_a_real_protein_sequence_is_not_refused - ...
+FAILED tests/test_bcinputs.py::test_a_low_complexity_designed_peptide_is_not_refused
+FAILED tests/test_bcinputs.py::test_a_short_nucleotide_sequence_is_not_refused
+FAILED tests/test_bcinputs.py::test_an_rna_sequence_is_bindcrafts_own_refusal_not_this_one
+FAILED tests/test_weights_download_lock.py::test_lock_is_released_when_the_holder_dies
+16 failed, 8694 passed, 398 skipped, 472 warnings in 470.82s (0:07:50)

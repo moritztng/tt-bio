@@ -1,0 +1,36 @@
+prof start 2026-10-01T11:12:21Z
+2026-10-01 11:12:21.956 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /dev/shm/bcp-evo-profblk
+2026-10-01 11:12:21.957 | INFO     | __main__:main:309 - Using port 8086
+2026-10-01 11:12:21.957 | INFO     | tracy:run_report_setup:88 - Verifying tracy profiling tools
+2026-10-01 11:12:21.968 | INFO     | __main__:main:374 - Test process started
+2026-10-01 11:12:23.183 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /dev/shm/bcp-evo-profblk
+2026-10-01 11:12:23.433 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+== arm on kernels=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose GATED_BW_FUSED=True {'gate_bw': True, 'g_bias': True, 'lead_sum': True, 'qkv_packed': True, 'fanin_cast': True, 'pair_transpose': True, 'gated_packed': True}
+{"block": "evo3", "reach": 217, "nodes": 142, "dz": {"rel_l2": 0.036306349260343956, "cos": 0.999340942423141, "norm_ref": 1.270511008652487, "norm_ratio": 0.9996235804585007}, "dz_torch_bf16": {"rel_l2": 0.033939490649701004, "cos": 0.9994240701024385, "norm_ratio": 1.0000248409990125}, "dz_torch_f32": {"rel_l2": 0.00026815868349055723, "cos": 0.9999999640452848, "norm_ratio": 0.9999999318432127}, "dm": {"rel_l2": 0.03391421312842915, "cos": 0.9994247806704509, "norm_ref": 5.825999125177129, "norm_ratio": 0.9991694456854735}, "dm_torch_bf16": {"rel_l2": 0.03445477545869893, "cos": 0.9994064589637583, "norm_ratio": 1.0000403125656263}, "dm_torch_f32": {"rel_l2": 0.00011059030113709158, "cos": 0.9999999938855074, "norm_ratio": 1.0000011130264088}, "fwd_m": {"rel_l2": 0.0033117160845050285, "cos": 0.999994517072127}, "fwd_z": {"rel_l2": 0.00606812767348873, "cos": 0.9999817598392334}}
+wrote /home/ttuser/.coworker/wt/bcp-evo/perf/bcx_afgrad/vjp_n288_bcp_evo_gated_packed_on.json
+== arm on reach gated_move [4, 0] entry [4, 0] gated_bw [4, 0] gate_bw [6, 0] lead_sum [2, 0] pair_bias {'o_in_matmul_exit_cfg': 6, 'g_in_matmul': 2} triatt_bw {'served': 2, 'declined': 0, 'packed': 2, 'bw_calls': 2} fanin_cast {'served': 15, 'flushed': 4} pair_transpose [4, 0] slab {'whole': 2, 'cut': 0}
+2026-10-01 11:14:10.344 | INFO     | tracy:generate_report:154 - Host side ops time report generated at /dev/shm/bcp-evo-profblk/.logs/tracy_ops_times.csv
+2026-10-01 11:14:10.424 | INFO     | tracy:generate_report:165 - Host side ops data report generated at /dev/shm/bcp-evo-profblk/.logs/tracy_ops_data.csv
+2026-10-01 11:14:10.424 | INFO     | tracy.process_ops_logs:import_tracy_op_logs:299 - Importing ops logs
+2026-10-01 11:14:12.096 | INFO     | tracy.perf_counter_analysis:get_device_op_data:327 - Getting device ops
+2026-10-01 11:14:12.097 | INFO     | tracy.process_ops_logs:append_device_data:1066 - Appending device data
+2026-10-01 11:14:12.220 | INFO     | tracy.process_ops_logs:generate_reports:1687 - OPs' perf analysis is finished! Generating reports ...
+2026-10-01 11:14:12.220 | INFO     | tracy.process_ops_logs:generate_reports:1705 - Copying runtime artifacts
+2026-10-01 11:14:12.283 | INFO     | tracy.process_ops_logs:generate_reports:1714 - Generating OPs CSV
+2026-10-01 11:14:12.342 | INFO     | tracy.process_ops_logs:generate_reports:2108 - OPs csv generated at: /dev/shm/bcp-evo-profblk/reports/2026_10_01_11_14_12/ops_perf_results_2026_10_01_11_14_12.csv
+PROF EXIT 0 2026-10-01T11:14:12Z
+/dev/shm/bcp-evo-profblk:
+total 0
+drwxrwxr-x 4 ttuser ttuser   80 Oct  1 11:14 .
+drwxrwxrwt 3 root   root   7700 Oct  1 11:13 ..
+drwxrwxr-x 2 ttuser ttuser  180 Oct  1 11:14 .logs
+drwxrwxr-x 3 ttuser ttuser   60 Oct  1 11:14 reports
+
+/dev/shm/bcp-evo-profblk/reports/2026_10_01_11_14_12:
+total 176216
+drwxrwxr-x 2 ttuser ttuser       100 Oct  1 11:14 .
+drwxrwxr-x 3 ttuser ttuser        60 Oct  1 11:14 ..
+-rw-rw-r-- 1 ttuser ttuser    666377 Oct  1 11:14 ops_perf_results_2026_10_01_11_14_12.csv
+-rw-rw-r-- 1 ttuser ttuser 105775618 Oct  1 11:14 profile_log_device.csv
+-rw-rw-r-- 1 ttuser ttuser  73997369 Oct  1 11:14 tracy_profile_log_host.tracy

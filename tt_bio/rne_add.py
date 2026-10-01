@@ -441,6 +441,16 @@ def widen_add(a, b):
     return _dispatch(a, b, ttnn.float32, _WIDEN_MODE, ttnn.DRAM_MEMORY_CONFIG, None, None)
 
 
+def round_add(a, b):
+    """``round_rne_bf16(f32(a) + f32(b))``: `widen_add`'s sum, rounded once to bfloat16 at pack.
+
+    The last add of a fan-in whose value is bf16 (`autograd.FANIN_CAST_FUSED`), so the float32
+    sum is never written and cast. Same gate as `widen_add`; neither operand is deallocated.
+    """
+    WIDEN_REACH["served: round"] += 1
+    return _dispatch(a, b, ttnn.bfloat16, (1, 1), ttnn.DRAM_MEMORY_CONFIG, None, None)
+
+
 def widen_reach() -> dict:
     """A snapshot of `WIDEN_REACH`, for a round boundary or a run stamp."""
     return dict(WIDEN_REACH)

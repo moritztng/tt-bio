@@ -293,6 +293,23 @@ void recip_block_inplace(uint32_t in_cb, uint32_t num_tiles) {
     cb_push_back(in_cb, num_tiles);
 }
 
+#if defined(EXP_21F) && defined(TRISC_MATH)
+namespace ckernel::sfpu {
+// exp as 2^int * poly(2^frac), the LLK's bf16-accurate "21f" split, in float32 lanes. Only the
+// accurate path of `sub_exp_block_bcast_cols_inplace` takes it, and only under EXP_21F (the
+// triangle-attention backward's `triatt_bw.EXP_21F`): its result is packed to a bfloat16 P, so
+// the float32-accurate exp's extra bits are rounded away at the pack.
+template <bool APPROXIMATE, int ITERATIONS>
+inline void calculate_exp_21f() {
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat v = sfpi::dst_reg[0];
+        sfpi::dst_reg[0] = _sfpu_exp_21f_bf16_<true>(v);
+        sfpi::dst_reg++;
+    }
+}
+}  // namespace ckernel::sfpu
+#endif
+
 /**
  * in0_cb = exp((in0_cb - in1_cb) * scale_fp32)
  */
@@ -355,6 +372,13 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                 // The clamping is only consulted when approx && fast_and_approx, so it stays
                 // None: on the accurate path it is ignored, on the approximate path this is the
                 // behaviour the forward has always had.
+#if defined(EXP_21F)
+                if constexpr (!approx_exp && vector_mode == (int)VectorMode::RC) {
+                    MATH((SFPU_UNARY_NO_PARAM_KERNEL_FN_ITERATIONS(
+                        calculate_exp_21f, None, false, j, iterations)));
+                } else
+#endif
+                {
                 exp_tile<
                     approx_exp /* approx */,
                     approx_exp /* fast+approx */,
@@ -362,6 +386,7 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                     false /* skip +ve check */,
                     InputClamping::None,
                     iterations>(j, vector_mode_exp);
+                }
 #endif
             }
             tile_regs_commit();

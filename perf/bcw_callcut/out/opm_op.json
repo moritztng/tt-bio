@@ -1,0 +1,20 @@
+{
+ "C": 32,
+ "D": 32,
+ "c_z": 128,
+ "rel_l2_vs_f64_shipped": 0.0035220346218958554,
+ "maxabs_vs_f64_shipped": 0.519979608758149,
+ "programs_shipped": 22,
+ "rel_l2_vs_f64_rows_in_k": 0.002928746593823966,
+ "maxabs_vs_f64_rows_in_k": 0.44123067236796487,
+ "programs_rows_in_k": 21,
+ "ms_median": {
+  "shipped": 1.7158,
+  "rows_in_k": 1.1345
+ },
+ "aiclk": {
+  "median": 1350.0,
+  "min": 1350,
+  "n": 40
+ }
+}
