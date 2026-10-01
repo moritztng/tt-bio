@@ -7,6 +7,7 @@ VJP on the same inputs. Under `bindcraft2.fast_round()`, the round's program, wi
   off    the entry not installed (the four-way split, as on main)
   entry  the entry installed, its composed backward
   on     the entry installed, the fused backward (`reblock_permute_gated_bw`)
+`--lever gate_bw` grades stage 3 instead: both arms with stage 1 on, `gate_bw` off / on.
 """
 import argparse, os, pathlib, sys
 
@@ -19,25 +20,31 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, default=288)
 ap.add_argument("--evo", type=int, default=8)
 ap.add_argument("--blocks", default="0,3,7")
-ap.add_argument("--arms", default="off,entry,on")
+ap.add_argument("--arms", default=None)
+ap.add_argument("--lever", choices=("gated", "gate_bw"), default="gated")
 a = ap.parse_args()
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
-from tt_bio import bindcraft2, reblock_permute as R, taped_ttnn as T
+from tt_bio import bindcraft2, gate_bw as GB, reblock_permute as R, taped_ttnn as T
+arms = a.arms or ("off,entry,on" if a.lever == "gated" else "off,on")
 ns = argparse.Namespace(params=A.DEFAULT_PARAMS, card=0, n=a.n, extra=0, evo=a.evo,
                         blocks=a.blocks, controls_all=False, controls_only=False, seed=0,
                         msa_mask=False, threads=8)
 with bindcraft2.fast_round():
-    for arm in a.arms.split(","):
-        os.environ["TT_BIO_TAPED_KERNELS"] = BASE + ("" if arm == "off" else ",reblock_permute_gated")
-        R.GATED_BW_FUSED = arm == "on"
+    for arm in arms.split(","):
+        stage1 = a.lever == "gate_bw" or arm != "off"
+        os.environ["TT_BIO_TAPED_KERNELS"] = BASE + (",reblock_permute_gated" if stage1 else "")
+        R.GATED_BW_FUSED = a.lever == "gate_bw" or arm == "on"
+        GB.FUSED = a.lever == "gate_bw" and arm == "on"
+        s0 = list(GB.STATS)
         g0, b0 = list(R.STATS_GATED), list(R.STATS_GATED_BW)
         e0 = list(T.KERNEL_STATS.get("reblock_permute_gated", [0, 0]))
-        ns.tag = f"bcp_evo_gated_{arm}"
+        ns.tag = f"bcp_evo_{a.lever}_{arm}"
         print(f"== arm {arm} kernels={os.environ['TT_BIO_TAPED_KERNELS']} "
               f"GATED_BW_FUSED={R.GATED_BW_FUSED}", flush=True)
         A.cmd_vjp(ns)
         e1 = T.KERNEL_STATS.get("reblock_permute_gated", [0, 0])
         print(f"== arm {arm} reach gated_move {[x - y for x, y in zip(R.STATS_GATED, g0)]} "
               f"entry {[x - y for x, y in zip(e1, e0)]} "
-              f"gated_bw {[x - y for x, y in zip(R.STATS_GATED_BW, b0)]}", flush=True)
+              f"gated_bw {[x - y for x, y in zip(R.STATS_GATED_BW, b0)]} "
+              f"gate_bw {[x - y for x, y in zip(GB.STATS, s0)]}", flush=True)
