@@ -60,10 +60,10 @@ compared against it.
 
 - **A BindCraft 2 gradient round is 1.028x faster again on a p300c.** The ReLU backward gates its
   multiply in place (bit-exact, no flag) and the outer product mean sums its MSA rows inside one
-  contraction (`TT_BIO_AF2_OPM_ROWS_IN_K`, a forward closer to float64: rel L2 3.52e-3 to 2.93e-3).
+  contraction, a forward closer to float64 (rel L2 3.52e-3 to 2.93e-3).
   At 288 tokens, three trajectories, the round went from 4.055 to 3.946 s, six arms alternated at
   AICLK 1350 with disjoint ranges. A PD-L1 campaign with both on accepted 1 of 6 at i_pTM 0.85.
-  `TT_BIO_AF2_OPM_ROWS_IN_K=0` turns the second off. See
+  The row contraction has an off switch like every other BindCraft 2 round kernel. See
   [docs/tuning-flags.md](docs/tuning-flags.md#bindcraft-2-round-kernels).
 
 - **Large BindCraft 2 rounds on Blackhole are 1.17-1.67x faster.** The fused triangle-attention
