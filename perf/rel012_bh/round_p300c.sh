@@ -2,6 +2,8 @@
 # The same paired 288-token round on qb2 card 0, a p300c. This is the OPTIONAL leg: bcp-evo and
 # bcw-callcut were graded on a p300c and it is worth confirming at the merge tree, but it is a
 # DIFFERENT BOARD from the p150a the release quotes and its number never joins that trail.
+# `--rounds` counts across all three interleaved slots, so 30 is ten a slot; a round is reported
+# pro rata, as v0.11.0 computed its 6.00 s.
 # Card 0's lease was released by rel012-integrate at 22:21Z and the box rebooted an hour ago;
 # this run reacquires it as worker:rel012-verify-bh through tt-bio's own lease write.
 set -u
@@ -23,7 +25,7 @@ sit () {  # sit <arm> <tree> <n>
   export JAX_COMPILATION_CACHE_DIR=$out/xlacache_$arm
   echo "=== $(date -u +%FT%TZ) START $arm sitting $n tree=$(git -C "$tree" rev-parse --short HEAD)" >> "$log"
   timeout 3000 $PY -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params \
-    --out "$out/${arm}$n" --target hPDL1 --binder 146 --rounds 4 --trajectories 3 \
+    --out "$out/${arm}$n" --target hPDL1 --binder 146 --rounds 30 --trajectories 3 \
     > "$out/${arm}$n.log" 2>&1
   echo "=== rc=$? $(date -u +%FT%TZ) END $arm sitting $n" >> "$log"
 }

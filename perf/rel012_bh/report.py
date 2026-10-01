@@ -56,27 +56,36 @@ def main():
         print(f"{d.name:>6}  axis={ax} rounds={j.get('rounds_done')} "
               f"secs={[round(s, 1) for s in secs]} aiclk={w} err={err}")
     print()
-    print("== ROUND (288 tokens, hPDL1 + 146 aa, 3 trajectories)")
+    for sub in ("round", "round_p300c"):
+        if (OUT / sub).exists():
+            print(f"== {sub} (288 tokens, hPDL1 + 146 aa, 3 trajectories, pro rata)")
+            round_table(OUT / sub, clk)
+    return 0
+
+
+def round_table(root, clk):
+    """A round is PRO RATA: three interleaved slots finish three rounds in one slot-to-slot
+    interval, which is how v0.11.0 computed the 6.00 s this release is measured against."""
     for arm in ("tree", "tag011"):
         allr, wins = [], []
-        for d in sorted((OUT / "round").glob(f"{arm}[0-9]")):
+        for d in sorted(root.glob(f"{arm}[0-9]")):
             if not (d / "rung.json").exists():
                 continue
             j, rs = rounds_of(d)
+            slots = len({r["slot"] for r in j.get("per_round", [])}) or 1
             for r in rs:
-                allr.append(r["seconds"])
+                allr.append(r["seconds"] / slots)
             rows = json.loads((d / "rounds.json").read_text())
             for a, b in zip(rows, rows[1:]):
                 wins.append((a["t"], b["t"]))
         if not allr:
-            print(f"{arm}: no rounds yet")
+            print(f"  {arm}: no rounds yet")
             continue
         cs = [c for t0, t1 in wins for t, c in clk if t0 <= t <= t1]
-        print(f"{arm}: n={len(allr)} median={statistics.median(allr):.3f}s "
+        print(f"  {arm}: n={len(allr)} median={statistics.median(allr):.3f}s "
               f"min={min(allr):.3f} max={max(allr):.3f} "
               f"| AICLK med={statistics.median(cs) if cs else '-'} "
               f"min={min(cs) if cs else '-'} under1200={sum(1 for c in cs if c < 1200)} n={len(cs)}")
-    return 0
 
 
 if __name__ == "__main__":
