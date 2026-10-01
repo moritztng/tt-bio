@@ -7,7 +7,8 @@ VJP on the same inputs. Under `bindcraft2.fast_round()`, the round's program, wi
   off    the entry not installed (the four-way split, as on main)
   entry  the entry installed, its composed backward
   on     the entry installed, the fused backward (`reblock_permute_gated_bw`)
-`--lever gate_bw` grades stage 3 instead: both arms with stage 1 on, `gate_bw` off / on.
+`--lever gate_bw|g_bias|lead_sum` grades a later stage instead: arms off / on with every earlier
+stage on and every later one off (stage order gate_bw, g_bias, lead_sum).
 """
 import argparse, os, pathlib, sys
 
@@ -21,30 +22,40 @@ ap.add_argument("--n", type=int, default=288)
 ap.add_argument("--evo", type=int, default=8)
 ap.add_argument("--blocks", default="0,3,7")
 ap.add_argument("--arms", default=None)
-ap.add_argument("--lever", choices=("gated", "gate_bw"), default="gated")
+LATER = ("gate_bw", "g_bias", "lead_sum")
+ap.add_argument("--lever", choices=("gated",) + LATER, default="gated")
 a = ap.parse_args()
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
-from tt_bio import bindcraft2, gate_bw as GB, reblock_permute as R, taped_ttnn as T
+from tt_bio import af2, bindcraft2, gate_bw as GB, lead_sum as LS, reblock_permute as R
+from tt_bio import taped_ttnn as T, tenstorrent as TN
+SWITCH = {"gate_bw": (GB, "GATE_BW_FUSED"), "g_bias": (af2.AF2PairBlock, "tri_att_g_in_matmul"),
+          "lead_sum": (LS, "LEAD_SUM_FUSED")}
 arms = a.arms or ("off,entry,on" if a.lever == "gated" else "off,on")
 ns = argparse.Namespace(params=A.DEFAULT_PARAMS, card=0, n=a.n, extra=0, evo=a.evo,
                         blocks=a.blocks, controls_all=False, controls_only=False, seed=0,
                         msa_mask=False, threads=8)
 with bindcraft2.fast_round():
     for arm in arms.split(","):
-        stage1 = a.lever == "gate_bw" or arm != "off"
+        stage1 = a.lever in LATER or arm != "off"
         os.environ["TT_BIO_TAPED_KERNELS"] = BASE + (",reblock_permute_gated" if stage1 else "")
-        R.GATED_BW_FUSED = a.lever == "gate_bw" or arm == "on"
-        GB.GATE_BW_FUSED = a.lever == "gate_bw" and arm == "on"
-        s0 = list(GB.STATS)
+        R.GATED_BW_FUSED = a.lever in LATER or arm == "on"
+        for lv, (obj, attr) in SWITCH.items():
+            mine = a.lever in LATER and LATER.index(lv) <= LATER.index(a.lever)
+            setattr(obj, attr, mine and (lv != a.lever or arm == "on"))
+        s0, l0, p0 = list(GB.STATS), list(LS.STATS), dict(TN.PAIR_BIAS_STATS)
         g0, b0 = list(R.STATS_GATED), list(R.STATS_GATED_BW)
         e0 = list(T.KERNEL_STATS.get("reblock_permute_gated", [0, 0]))
         ns.tag = f"bcp_evo_{a.lever}_{arm}"
         print(f"== arm {arm} kernels={os.environ['TT_BIO_TAPED_KERNELS']} "
-              f"GATED_BW_FUSED={R.GATED_BW_FUSED}", flush=True)
+              f"GATED_BW_FUSED={R.GATED_BW_FUSED} "
+              f"{ {lv: getattr(o, at) for lv, (o, at) in SWITCH.items()} }", flush=True)
         A.cmd_vjp(ns)
         e1 = T.KERNEL_STATS.get("reblock_permute_gated", [0, 0])
         print(f"== arm {arm} reach gated_move {[x - y for x, y in zip(R.STATS_GATED, g0)]} "
               f"entry {[x - y for x, y in zip(e1, e0)]} "
               f"gated_bw {[x - y for x, y in zip(R.STATS_GATED_BW, b0)]} "
-              f"gate_bw {[x - y for x, y in zip(GB.STATS, s0)]}", flush=True)
+              f"gate_bw {[x - y for x, y in zip(GB.STATS, s0)]} "
+              f"lead_sum {[x - y for x, y in zip(LS.STATS, l0)]} "
+              f"pair_bias {({k: v - p0.get(k, 0) for k, v in TN.PAIR_BIAS_STATS.items()})}",
+              flush=True)
