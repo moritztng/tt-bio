@@ -66,21 +66,54 @@ def prepare_weights(w, b, device, memory_config=None):
     is zero) and ``[1, 1, 4C, K]`` when not; ``ones`` is a [1, 1, 32, 32] tile with column 0 = 1,
     the x-side operand that makes the bias one more K step of the same matmul.
     """
-    import torch
-    K, C4 = int(w.shape[0]), int(w.shape[1])
-    wt = w.detach().float().t().contiguous()
+    C4 = int(w.shape[1])
+    wt = ttnn.from_torch(w.detach().float().t().contiguous().reshape(1, 1, C4, -1),
+                         dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
+                         memory_config=memory_config or ttnn.DRAM_MEMORY_CONFIG)
     if b is not None:
-        pad = torch.zeros(C4, R.TILE_W)
-        pad[:, 0] = b.detach().float().reshape(-1)
-        wt = torch.cat([wt, pad], dim=1)
-    mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
-    wt_tt = ttnn.from_torch(wt.reshape(1, 1, C4, -1), dtype=ttnn.bfloat16,
-                            layout=ttnn.TILE_LAYOUT, device=device, memory_config=mc)
-    ones = torch.zeros(1, 1, R.TILE_H, R.TILE_W)
-    ones[..., 0] = 1.0
-    ones_tt = ttnn.from_torch(ones, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
-                              memory_config=mc)
-    return wt_tt, ones_tt
+        wt = ttnn.concat([wt, bias_column(b, device)], dim=-1)
+    return wt, ones_tile(device)
+
+
+def bias_column(b, device):
+    """Torch ``b`` [4C] as the ``[1, 1, 4C, 32]`` bf16 tile column ``wt`` ends in: column 0 = b."""
+    import torch
+    pad = torch.zeros(1, 1, int(b.numel()), R.TILE_W)
+    pad[..., 0] = b.detach().float().reshape(-1)
+    return ttnn.from_torch(pad, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
+                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
+_ONES: dict = {}
+
+
+def ones_tile(device):
+    t = _ONES.get(device.id())
+    if t is None:
+        import torch
+        ones = torch.zeros(1, 1, R.TILE_H, R.TILE_W)
+        ones[..., 0] = 1.0
+        t = _ONES[device.id()] = ttnn.from_torch(
+            ones, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    return t
+
+
+def device_weights(w, bias_col):
+    """``wt`` from the live device weight ``w`` [..., K, 4C], on card, every call.
+
+    The trimul's fused in-projection weight is cut out of the model's leaves afresh each forward,
+    so nothing keyed on its buffer can be cached: a fresh buffer misses (a host round trip and a
+    device sync a call) and a reused address hits another weight. A transpose (and a concat with
+    the cached ``bias_column``) is two small device ops instead. bf16 only: ttnn's fp32 -> bf16
+    typecast does not round to nearest even, so the caller declines any other dtype.
+    """
+    assert w.dtype == ttnn.bfloat16, w.dtype
+    K, C4 = int(w.shape[-2]), int(w.shape[-1])
+    wt = ttnn.reshape(ttnn.transpose(w, -2, -1), [1, 1, C4, K])
+    if bias_col is not None:
+        wt = ttnn.concat([wt, bias_col], dim=-1)
+    return wt
 
 
 def _defines():

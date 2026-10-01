@@ -21,7 +21,8 @@ import report as R  # noqa: E402
 
 def serial(d):
     ev, clk = d["events"], d["aiclk"]
-    starts = sorted(e["t0"] for e in ev if e["kind"] == "round_start")
+    rs = sorted((e["t0"], e.get("flip")) for e in ev if e["kind"] == "round_start")
+    starts = [t for t, _ in rs]
     stop = [e["t0"] for e in ev if e["kind"] == "round_stop"]
     b = starts + stop[:1]
     rows = []
@@ -30,8 +31,20 @@ def serial(d):
         dev = sum(e["dt"] for e in ev if e["kind"] == "device"
                   and e["t0"] >= t0 - 1e-6 and e["t1"] <= t1 + 1e-6)
         c = sorted(x[1] for x in clk if t0 <= x[0] <= t1)
-        rows.append((t1 - t0, dev, c[len(c) // 2] if c else None, c[0] if c else None))
+        rows.append((t1 - t0, dev, c[len(c) // 2] if c else None, c[0] if c else None, rs[i][1]))
     return rows
+
+
+def flip(rows):
+    """A `duo_round.py --flip` arm: rounds 3.. run ABBA (off on on off ...), so each quad of four
+    gives one paired delta with a linear drift cancelled."""
+    for k, name in ((0, "wall"), (1, "device")):
+        arm = {f: [r[k] for r in rows if r[4] is f] for f in (False, True)}
+        quads = [rows[i:i + 4] for i in range(0, len(rows) - 3, 4)]
+        d = [st.mean(r[k] for r in q if r[4]) - st.mean(r[k] for r in q if not r[4]) for q in quads]
+        print(f"  flip {name}: off med {st.median(arm[False]):.3f} (n {len(arm[False])}), on med "
+              f"{st.median(arm[True]):.3f} (n {len(arm[True])}); ABBA deltas {[round(x, 3) for x in d]}"
+              f", mean {st.mean(d):+.3f} s" if d else "")
 
 
 for p in sys.argv[1:]:
@@ -45,6 +58,8 @@ for p in sys.argv[1:]:
         print(f"{pathlib.Path(p).name} N=1 warm rounds {len(rows)}: wall {w:.3f} s, device {dv:.3f} s, "
               f"host {h:.3f} s ({h / w * 100:.1f} %), AICLK med {st.median(r[2] for r in rows):.0f} "
               f"min {min(r[3] for r in rows)}; walls {[round(r[0], 3) for r in rows]}")
+        if rows[0][4] is not None:
+            flip(rows)
     else:
         o, _ = R.one(p)
         print(f"{o['arm']} N={n} round {o['round_s']:.3f} s, held {o['held_per_round']:.3f}, "

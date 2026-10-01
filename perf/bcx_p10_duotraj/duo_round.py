@@ -82,8 +82,13 @@ class DuoMeter:
     trajectories' rounds into one numbering that belongs to neither.
     """
 
-    def __init__(self, rounds, trajectories=1):
+    def __init__(self, rounds, trajectories=1, flip=""):
         self.rounds = rounds
+        self.flip = []
+        if flip:
+            import importlib
+            mod, attrs = flip.split(":")
+            self.flip = [(importlib.import_module(mod), a) for a in attrs.split(",")]
         self.counts: dict[str, int] = {}
         #: Set per slot when that trajectory clears its compile round, which is when the next
         #: one may start without the two of them measuring each other's compile.
@@ -115,8 +120,13 @@ class DuoMeter:
                 self.warm.wait(timeout=1800)
             except threading.BrokenBarrierError:
                 pass
+        # Set inside the predictor, which armed the levers from the env on entry, so it sticks.
+        on = n == 1 or (n >= 3 and n % 4 in (0, 1))
+        for mod, a in self.flip:
+            setattr(mod, a, on)
         M.EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
                          "slot": s, "round": n, "load1": os.getloadavg()[0],
+                         "flip": on if self.flip else None,
                          "triatt_bw": M.reach(), "mm_layout": M._mm_reach(),
                          "reach": M._reach()})
         if M.DUMP:
@@ -142,9 +152,15 @@ def main():
                     help="predictor(extra_msa=...); 0 leaves the extra-MSA stack in JAX")
     ap.add_argument("--template", type=int, default=1,
                     help="predictor(template=...); 0 leaves the template embedder in JAX")
+    ap.add_argument("--flip", default="", metavar="MODULE:ATTR[,ATTR]",
+                    help="serial N=1 only: set these lever attributes per round, on in round 1, "
+                         "off in round 2 (both paths compiled in the dropped rounds), then ABBA "
+                         "from round 3; split.py pairs the arms round by round")
     args = ap.parse_args()
-    if args.rounds > 9:
-        raise SystemExit("9 rounds is the ceiling per process, see bcx-p10-rne")
+    if args.flip and (args.interleave or args.trajectories != 1):
+        raise SystemExit("--flip needs --interleave 0 --trajectories 1")
+    if args.rounds > (25 if args.flip else 9):
+        raise SystemExit("9 rounds is the ceiling per process at N>1, see bcx-p10-rne; 25 with --flip")
 
     if not 1 <= args.trajectories <= 26:
         raise SystemExit("--trajectories must be 1..26")
@@ -232,7 +248,7 @@ def main():
         "gated_move": list(_rp.STATS_GATED), "gated_bw": list(_rp.STATS_GATED_BW),
         "gate_bw": list(_gb.STATS),
         "lead_sum": list(_ls.STATS),
-        "pair_mm": list(_pm.STATS),
+        "pair_mm": list(_pm.STATS), "pair_mm_wt_cached": len(_pm._WT),
         "inproj_gated": list(_ig.STATS), "inproj_gated_rejects": dict(_ig.REJECTS),
         "fanin_cast": dict(_ag.FANIN_CAST_STATS),
         "pair_transpose": list(_pt.STATS),
@@ -255,7 +271,8 @@ def main():
 
     out = pathlib.Path(project) / "round_events.json"
     M.DUMP = (str(out), stamp)
-    mt = DuoMeter(args.rounds, n_traj if args.interleave else 1)
+    mt = DuoMeter(args.rounds, n_traj if args.interleave else 1, flip=args.flip)
+    stamp["flip"] = args.flip
     M.install(mt, bindcraft2, bindcraft2.design_model_class(), trajectory, seqopt)
     _digest_outputs(bindcraft2.design_model_class(), mt)
 

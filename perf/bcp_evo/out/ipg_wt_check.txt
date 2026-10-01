@@ -1,0 +1,8 @@
+128 512 DataType.BFLOAT16 nobias (1, 1, 512, 128) EQUAL
+128 512 DataType.BFLOAT16 bias (1, 1, 512, 160) EQUAL
+128 256 DataType.BFLOAT16 nobias (1, 1, 256, 128) EQUAL
+128 256 DataType.BFLOAT16 bias (1, 1, 256, 160) EQUAL
+64 512 DataType.BFLOAT16 nobias (1, 1, 512, 64) EQUAL
+64 512 DataType.BFLOAT16 bias (1, 1, 512, 96) EQUAL
+ALL EQUAL
+ttnn.typecast fp32->bf16 vs torch RNE: mismatch fraction 0.0

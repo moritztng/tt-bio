@@ -14,7 +14,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from perf.bcx_stack.stack import Clock          # noqa: E402
 
-LEVERS = {"lnbw": ("tt_bio.lnbw", "FUSED", "REACH")}
+LEVERS = {"lnbw": ("tt_bio.lnbw", "FUSED", "REACH"),
+          "inproj_gated": ("tt_bio.inproj_gated", "INPROJ_GATED", "STATS")}
 
 
 def main():
@@ -26,6 +27,7 @@ def main():
     ap.add_argument("--K", type=int, default=8)
     ap.add_argument("--reps", type=int, default=6)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--arms", default="off,on", help="off, on or both: one arm alone is what a profile wants")
     a = ap.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
@@ -34,7 +36,13 @@ def main():
     from tt_bio.af2 import af2_pair_masks
     mod_name, flag, reach_name = LEVERS[a.lever]
     mod = importlib.import_module(mod_name)
-    reach = getattr(mod, reach_name)
+    reach_obj = getattr(mod, reach_name)
+    # A [served, declined] list counts as a dict of its two fields.
+    reach = (reach_obj if isinstance(reach_obj, dict) else
+             type("_R", (), {"items": lambda self: zip(("served", "declined"), reach_obj),
+                             "keys": lambda self: ("served", "declined"),
+                             "__getitem__": lambda self, k: reach_obj[("served", "declined").index(k)],
+                             "__iter__": lambda self: iter(("served", "declined"))})())
     tr = bindcraft2._Trunk(pathlib.Path(a.params))
     ag, T = tr.ag, tr.taped
     n, K = a.n, a.K
@@ -56,6 +64,7 @@ def main():
             m, z = ml, zl
             for blk in blocks:
                 m, z = ag.checkpoint(lambda x, y, b=blk: b(x, y, msa_mask, *pm), m, z)
+        t1e = time.time()
         tr.sync(); t1 = time.time()
         seeds = [tr.seed(wm, m), tr.seed(wz, z)]
         tr.sync(); t2 = time.time()
@@ -65,27 +74,30 @@ def main():
         ag.release_pins()
         del m, z, ml, zl, seeds
         d = collections.Counter(reach); d.subtract(before)
-        return {"on": on, "fwd": t1 - t0, "bwd": t3 - t2, "aiclk": clock.window([(t0, t3)]),
+        return {"on": on, "fwd": t1 - t0, "fwd_enqueue": t1e - t0, "bwd": t3 - t2, "aiclk": clock.window([(t0, t3)]),
                 "reach": {k: v for k, v in d.items() if v}, "loadavg": os.getloadavg()[0]}, g
 
     rows, grads = [], {}
     with bindcraft2.fast_round() as armed:
         print(json.dumps({"pci": clock.pci, "armed": {k: str(v) for k, v in armed.items()}}), flush=True)
-        for on in (False, True):
+        arms = [x == "on" for x in a.arms.split(",")]
+        for on in arms:
             setattr(mod, flag, on); step(on)
         for rep in range(a.reps):
-            for on in ((False, True) if rep % 2 == 0 else (True, False)):
+            for on in (arms if rep % 2 == 0 else arms[::-1]):
                 setattr(mod, flag, on)
                 r, g = step(on)
                 r["rep"] = rep
                 rows.append(r); grads.setdefault(on, g)
                 print(json.dumps(r), flush=True)
     summary = {}
-    for on in (False, True):
+    for on in arms:
         b = sorted(r["bwd"] for r in rows if r["on"] == on)
         f = sorted(r["fwd"] for r in rows if r["on"] == on)
-        summary["on" if on else "off"] = {"bwd_median": b[len(b) // 2], "fwd_median": f[len(f) // 2]}
-    for name, i in (("dm", 0), ("dz", 1)):
+        e = sorted(r["fwd_enqueue"] for r in rows if r["on"] == on)
+        summary["on" if on else "off"] = {"bwd_median": b[len(b) // 2], "fwd_median": f[len(f) // 2],
+                                          "fwd_enqueue_median": e[len(e) // 2]}
+    for name, i in ((("dm", 0), ("dz", 1)) if len(arms) == 2 else ()):
         x, y = grads[True][i].double(), grads[False][i].double()
         summary[f"{name}_on_vs_off_rel_l2"] = float((x - y).norm() / y.norm())
     print(json.dumps(summary), flush=True)

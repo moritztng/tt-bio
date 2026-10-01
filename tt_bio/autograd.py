@@ -3147,6 +3147,7 @@ def _hook(name, shipped, args, kwargs):
 # nothing. `raw` is how `ops.fused_kernel` hands such a forward's kernel its operands.
 _hook.recording = is_grad_enabled
 _hook.raw = lambda args, kwargs: _raw(args, kwargs)
+_hook.wrap = _wrap
 
 
 def _checkpoint_segment(fn, *inputs):

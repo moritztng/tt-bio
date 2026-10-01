@@ -7863,7 +7863,14 @@ class TriangleMultiplication(Module):
         if realloc:
             ops.append((ttnn.reallocate,))
         if ig is not None:
+            from .ops import grad_hook
             chunk = _inproj_gated.inproj_gated(*ig, *gate, memory_config=memory_config)
+            hook = grad_hook()
+            if hook is not None:
+                # Untracked, as the gated moves tape entry returns it: on a raw handle the tails
+                # `ttnn.permute` misses the shim and its one-pass kernel (2.0 ms against 0.165 ms
+                # at 288, perf/bcp_evo/out/prof_ipg_{off,on}).
+                chunk = hook.wrap(chunk)
         else:
             chunk = _reblock.reblock_permute_gated(gp, *gate, memory_config=memory_config)
         old = chunk
@@ -7911,6 +7918,10 @@ class TriangleMultiplication(Module):
                 or x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
                 or int(w.shape[-1]) % 128 or int(w.shape[-2]) != shp[3]):
             return no("shape")
+        # ttnn's fp32 -> bf16 typecast is not round-to-nearest-even (1 ulp off on 6 % of a random
+        # weight, perf/bcp_evo/ipg_wt_check.py), so only a bf16 weight is taken.
+        if w.dtype != ttnn.bfloat16:
+            return no("w_dtype")
         bt = memory_config.buffer_type
         if not ((bt == ttnn.BufferType.DRAM)
                 or (bt == ttnn.BufferType.L1 and _TRIMUL_GATED_MOVE_L1
@@ -7918,14 +7929,18 @@ class TriangleMultiplication(Module):
             return no(f"window_{bt}")
         if _inproj_gated.clash_key(x) in _inproj_gated.CLASH:
             return no("l1_clash")
-        key = (w.buffer_address(), None if bias is None else bias.buffer_address())
-        cache = self.__dict__.setdefault("_inproj_gated_wts", {})
-        if key not in cache:
-            wt = torch.Tensor(ttnn.to_torch(w)).float().reshape(shp[3], -1)
-            bt_ = (None if bias is None else
-                   torch.Tensor(ttnn.to_torch(bias)).float().reshape(-1, int(w.shape[-1]))[0])
-            cache[key] = _inproj_gated.prepare_weights(wt, bt_, x.device())
-        return (x, *cache[key])
+        # The bias is `_gp_in_biases`' cached tensor, built once from the module's host weights,
+        # so its column is cached against that object; the weight is cut afresh each forward and
+        # so is transposed on card each call (`inproj_gated.device_weights`).
+        bias_col = None
+        if bias is not None:
+            cols = self.__dict__.setdefault("_inproj_gated_bias_cols", {})
+            hit = cols.get(id(bias))
+            if hit is None or hit[0] is not bias:
+                b = torch.Tensor(ttnn.to_torch(bias)).float().reshape(-1, int(w.shape[-1]))[0]
+                hit = cols[id(bias)] = (bias, _inproj_gated.bias_column(b, x.device()))
+            bias_col = hit[1]
+        return (x, _inproj_gated.device_weights(w, bias_col), _inproj_gated.ones_tile(x.device()))
 
     def _in_proj_rows(self, x, w, H, batch, memory_config, bias=None):
         """`LN(x) @ w`, computed in row blocks so the full-size LN'd pair tensor never exists.

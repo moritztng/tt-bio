@@ -1,0 +1,153 @@
+--- 2026-10-01T15:35:30Z load 7.68 10.85 12.19
+    PID     ELAPSED %CPU   RSS COMMAND
+2012651       00:00 1900 305136 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2012498       00:01  227 506900 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+1795135    02:55:52  200 18084276 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2012340       00:03  105 492380 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_1024.yaml --model boltz2 --single_sequence -
+2002711       03:44 40.2 5277852 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -p no:cacheprovider -rf tests/
+   4036    23:45:08  9.2 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1900153    01:07:37  5.7 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+--- 2026-10-01T15:36:30Z load 9.32 10.78 12.08
+    PID     ELAPSED %CPU   RSS COMMAND
+2012498       01:01  309 5345752 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2012679       01:00  210 18573300 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    02:56:52  200 17245824 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2002711       04:44 46.0 5279060 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -p no:cacheprovider -rf tests/
+   4036    23:46:08  9.2 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1900153    01:08:37  5.6 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+2012340       01:03  5.6 496472 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_1024.yaml --model boltz2 --single_sequence -
+--- 2026-10-01T15:37:30Z load 10.62 10.90 12.04
+    PID     ELAPSED %CPU   RSS COMMAND
+2014723       00:40  274 18137236 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2012679       02:00  247 18540376 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    02:57:52  199 18067624 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2014357       00:55  150 11828420 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/perf/bcw_land/duo_fast.py --rounds 4 --interleave 1 --trajectories 3 --binder 146 --params
+2002711       05:44 41.4 5283616 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -p no:cacheprovider -rf tests/
+   4036    23:47:08  9.2 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+2014681       00:42  8.9 506284 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_256.yaml --model esmfold2 --single_sequence 
+--- 2026-10-01T15:38:30Z load 13.91 11.76 12.26
+    PID     ELAPSED %CPU   RSS COMMAND
+2018456       00:22  314 14920124 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+1795135    02:58:52  199 17150672 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2017002       00:36  169 10361164 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+2018902       00:08  133 4113480 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/.cc/perf/bcx_p10_duotraj/duo_round.py --rounds 4 --interleave 1 --trajectories 3 --binder 1
+2002711       06:44 43.7 5291084 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -p no:cacheprovider -rf tests/
+2018401       00:24 14.6 506228 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_256.yaml --model esmfold2 --single_sequence 
+   4036    23:48:08  9.2 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-10-01T15:39:30Z load 16.95 13.03 12.67
+    PID     ELAPSED %CPU   RSS COMMAND
+2021639       00:10  446 13454904 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2017002       01:36  206 18327632 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    02:59:52  199 17982428 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2018902       01:08  125 17510384 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/.cc/perf/bcx_p10_duotraj/duo_round.py --rounds 4 --interleave 1 --trajectories 3 --binder 
+2002711       07:44 45.0 5304252 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -p no:cacheprovider -rf tests/
+2021535       00:12 28.2 503888 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_256.yaml --model esmfold2 --single_sequence 
+   4036    23:49:08  9.2 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-10-01T15:40:30Z load 13.70 12.90 12.65
+    PID     ELAPSED %CPU   RSS COMMAND
+2021639       01:10  329 3205908 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2017002       02:36  229 18999288 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    03:00:52  199 17142076 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2002711       08:44 47.9 3933116 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -p no:cacheprovider -rf tests/
+   4036    23:50:08  9.2 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+2021535       01:12  5.4 507156 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_256.yaml --model esmfold2 --single_sequence 
+1900153    01:12:37  5.3 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+--- 2026-10-01T15:41:30Z load 10.60 12.24 12.45
+    PID     ELAPSED %CPU   RSS COMMAND
+2023558       00:53  407 3703288 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+1795135    03:01:52  198 17956384 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2023419       00:55  186 18461920 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+2024516       00:08  119 1025636 /home/ttuser/bcx_e2e_venv/bin/python3 -c  import pathlib, sys import jax from tt_bio import bindcraft2, weights from bindcraft.preflight import cleaned_campaign_settin
+2024262       00:19 48.1 754708 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -rs -p no:cacheprovider tests/test_bindcraft2.py tests/test_bindcraft2_hw.py tests/test_bindcraft2_stall.py tests/tes
+   4036    23:51:08  9.2 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+2023446       00:55  7.0 507072 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_256.yaml --model esmfold2 --single_sequence 
+--- 2026-10-01T15:42:30Z load 13.37 12.92 12.68
+    PID     ELAPSED %CPU   RSS COMMAND
+2024516       01:08  395 3746000 /home/ttuser/bcx_e2e_venv/bin/python3 -c  import pathlib, sys import jax from tt_bio import bindcraft2, weights from bindcraft.preflight import cleaned_campaign_settin
+2024859       00:45  259 19052292 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2023419       01:55  236 17860064 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    03:02:52  198 16517728 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2024262       01:19 11.7 754708 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -rs -p no:cacheprovider tests/test_bindcraft2.py tests/test_bindcraft2_hw.py tests/test_bindcraft2_stall.py tests/tes
+2024810       00:49 10.3 506624 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_512.yaml --model esmfold2 --single_sequence 
+   4036    23:52:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-10-01T15:43:30Z load 13.19 12.83 12.66
+    PID     ELAPSED %CPU   RSS COMMAND
+2026269       00:17  535 24663340 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/perf/bcw_land/stack_grade.py bcw_land_base
+2024859       01:45  244 18988968 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+1795135    03:03:52  198 18117336 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2026126       00:18  181 6186240 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+2026455       00:07  104 226732 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -p no:cacheprovider tests/test_perf_citations.py tests/test_recorded_claims.py
+2026517       00:00  100  4516 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+2024262       02:19 26.6 976036 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -rs -p no:cacheprovider tests/test_bindcraft2.py tests/test_bindcraft2_hw.py tests/test_bindcraft2_stall.py tests/tes
+--- 2026-10-01T15:44:30Z load 15.25 13.48 12.89
+    PID     ELAPSED %CPU   RSS COMMAND
+2026269       01:17  613 13221236 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/perf/bcw_land/stack_grade.py bcw_land_base
+2026918       00:24  303 14921980 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+1795135    03:04:52  197 16902772 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2026126       01:18  169 18399528 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+2026806       00:28 15.6 506116 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_512.yaml --model esmfold2 --single_sequence 
+   4036    23:54:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1900153    01:16:37  5.1 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+--- 2026-10-01T15:45:30Z load 16.85 14.20 13.17
+    PID     ELAPSED %CPU   RSS COMMAND
+2026269       02:17  569 6966280 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/perf/bcw_land/stack_grade.py bcw_land_base
+2026918       01:24  217 19405000 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2026126       02:18  212 17497648 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    03:05:52  197 17624528 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+   4036    23:55:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+2026806       01:28  5.4 506900 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_512.yaml --model esmfold2 --single_sequence 
+1900153    01:17:37  5.0 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+--- 2026-10-01T15:46:30Z load 17.86 15.11 13.56
+    PID     ELAPSED %CPU   RSS COMMAND
+2031393       00:22  508 29929480 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/perf/bcw_land/stack_grade.py bcw_land_stack
+2031720       00:09  297 556676 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/abb3_port/model_gate.py --tokens 256 --sigma 0.05
+2026918       02:24  229 3207808 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+1795135    03:06:52  197 17952288 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2031503       00:16  142 5226680 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+2032007       00:01  136 376332 /home/ttuser/bcx_e2e_venv/bin/python3 scripts/release_gate.py --list-arms
+   4036    23:56:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-10-01T15:47:30Z load 17.37 15.43 13.77
+    PID     ELAPSED %CPU   RSS COMMAND
+2031393       01:22  595 7611296 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/perf/bcw_land/stack_grade.py bcw_land_stack
+2032220       00:49  241 19115640 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+1795135    03:07:52  197 17202752 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2031503       01:16  163 18375072 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+2031720       01:09 42.2 556676 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/abb3_port/model_gate.py --tokens 256 --sigma 0.05
+2032111       00:53  9.4 506260 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_512.yaml --model esmfold2 --single_sequence 
+   4036    23:57:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-10-01T15:48:30Z load 18.22 15.83 13.99
+    PID     ELAPSED %CPU   RSS COMMAND
+2031393       02:22  584 11294352 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/perf/bcw_land/stack_grade.py bcw_land_stack
+2032220       01:49  228 19393812 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2033699       00:01  225 398204 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/abb3_port/model_gate.py --tokens 64 --sigma 0.3
+2031503       02:16  205 17151140 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    03:08:52  196 18060120 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+   4036    23:58:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1900153    01:20:37  4.8 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+--- 2026-10-01T15:49:30Z load 11.42 14.45 13.64
+    PID     ELAPSED %CPU   RSS COMMAND
+2034030       00:22  341 15235060 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+1795135    03:09:52  196 17876372 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2034227       00:18  182 7319664 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+2034345       00:15 87.1 558428 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/abb3_port/model_gate.py --tokens 256 --sigma 0.3
+2033980       00:23 14.3 506300 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_512.yaml --model esmfold2 --single_sequence 
+   4036    23:59:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1900153    01:21:37  4.8 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+--- 2026-10-01T15:50:30Z load 9.72 13.48 13.36
+    PID     ELAPSED %CPU   RSS COMMAND
+2034030       01:22  293 19048216 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2034227       01:18  219 18707684 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    03:10:52  196 18041580 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2034927       00:42  116 10802900 /home/ttuser/bcx_e2e_venv/bin/python3 -u /home/ttuser/.coworker/wt/bcw-land/.cs/perf/bcx_p10_duotraj/duo_round.py --rounds 4 --interleave 1 --trajectories 3 --binder 
+2034345       01:15 17.8 558428 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/abb3_port/model_gate.py --tokens 256 --sigma 0.3
+   4036  1-00:00:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1900153    01:22:37  4.7 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+--- 2026-10-01T15:51:30Z load 11.77 13.35 13.32
+    PID     ELAPSED %CPU   RSS COMMAND
+2038374       00:32  265 17909264 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12) --multiprocessing-fork
+2034227       02:18  243 17691136 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1795135    03:11:52  196 17868188 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/camp_off --target hIL2R --binder 100 
+2038685       00:11 15.6 298404 /home/ttuser/tt-bio-dev/env/bin/python3 scripts/abb3_port/step_gate.py --micro 8 --accumulate 8 --steps 1 --warmup 1
+2038326       00:35 11.0 506144 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-evo/perf/size512/fixtures/cdk2x2_640.yaml --model esmfold2 --single_sequence 
+   4036  1-00:01:08  9.3 717952 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1900153    01:23:37  4.7 4830592 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
