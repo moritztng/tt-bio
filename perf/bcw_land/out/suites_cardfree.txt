@@ -1,0 +1,31 @@
+tree 8335f90ba start 2026-10-01T15:27:08Z
+...........ssssss.sss................................................... [ 19%]
+...................................ssss................................. [ 38%]
+........................................................................ [ 58%]
+........................................................................ [ 77%]
+........................................................................ [ 97%]
+...........                                                              [100%]
+=============================== warnings summary ===============================
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[predict]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[warmup]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[embed]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[affinity]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[saprot]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[design]
+  /home/ttuser/.coworker/wt/bcw-land/tests/test_verbs_scope_autograd.py:75: DeprecationWarning: 'isolated_filesystem' is deprecated and will be removed in Click 9.0. Use 'tempfile.TemporaryDirectory' or pytest's 'tmp_path' fixture with absolute paths instead.
+    with runner.isolated_filesystem():
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_bindcraft2.py:249: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [1] tests/test_bindcraft2.py:263: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [1] tests/test_bindcraft2.py:276: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [1] tests/test_bindcraft2.py:301: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [1] tests/test_bindcraft2.py:318: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [1] tests/test_bindcraft2.py:343: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [1] tests/test_bindcraft2.py:395: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [1] tests/test_bindcraft2.py:427: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [1] tests/test_bindcraft2.py:439: opened a TT card with none present -- mark it @pytest.mark.device so it skips before it takes a lease
+SKIPPED [4] tests/test_bindcraft2_hw.py: TT_VISIBLE_DEVICES is set empty: a deliberate CPU-only run
+358 passed, 13 skipped, 6 warnings in 123.16s (0:02:03)
+rc=0 end 2026-10-01T15:29:13Z
