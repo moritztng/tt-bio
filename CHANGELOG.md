@@ -5,13 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [0.12.0] - 2026-10-02
 
-BindCraft 2 reaches 896 tokens on one Wormhole Galaxy chip, where 0.11.0 stopped at 512, and the
-768-token axis that crashes 0.11.0 on Blackhole now runs. A gradient round is faster on Blackhole:
-on a p300c chip at 288 tokens it reads 3.946 s, 5.67x an H200's 0.6958 s, at AICLK 1350. That
-figure was measured on the `bcw-callcut` branch before the release was assembled, not on the
-release tree; the levers behind it are listed below with the paired ratio each was measured at.
-The v0.11.0 p150a figure, 6.00 s a round and 8.6x an H200, is a different board and is not
-compared against it.
+BindCraft 2 reaches 800 tokens on one Wormhole Galaxy chip, where 0.11.0 stopped at 512, so the
+EGFR ectodomain plus a 150 aa binder folds uncropped. The 768-token axis that crashes 0.11.0 on
+Blackhole now runs, at `memory='lean'`. A gradient round is faster on Blackhole: on a p300c chip
+at 288 tokens the release tree reads 4.189 s against 0.11.0's 6.167 s on the same card, 1.472x,
+six sittings with the arms alternating at AICLK median 1350, no sample under 1200. Against an
+H200's 0.696 s round that is 6.02x where 0.11.0 reads 8.86x, both p300c figures. The v0.11.0
+headline, 6.00 s a round and 8.6x an H200, is a p150a number and is not compared against them;
+this release's p150a round has not been measured.
 
 ### Added
 
@@ -29,19 +30,21 @@ compared against it.
   chip at AICLK 1000 MHz: 544 tokens refuse in `fast` holding 12.70 GB, and complete in `lean` at
   a 7.527 GB peak and 84.3 s a round against 61.3 s for the 512 tokens `fast` does carry. At the
   same token axis the mode costs +10.6 % a round (512: 61.3 s in `fast`, 67.8 s in `lean`). The
-  largest fold measured to complete a gradient round on one Wormhole Galaxy chip is now **896
-  tokens** -- `offload`, 11.051 GB peak with 1.83 GB free, 285.6 s a round -- 1.75x the axis the
-  fast mode carries, with 832 and 864 measured in between at 242.0 s and 264.9 s. 928 refuses,
-  and the mode's ceiling is that measured pair rather than a figure computed from what a fold
-  that size would need: 928 peaked at 11.197 GB with 1.687 GB free and was refused an 882 MB
-  buffer because the largest free block was 70 MB, so what ends the mode is fragmentation. A
-  refusal quotes 896 as a size that has run, not 960 as one that should fit. 800 tokens, a whole
-  EGFR ectodomain plus a 150 aa binder, costs 225.1 s at an 8.952 GB peak. 768 completes too,
-  at an 8.282 GB peak and 200.2 s: it needs an L1 escape the other axes do not, because
-  `in0_block_w` is the largest
+  largest axis supported on one Wormhole Galaxy chip is now **800 tokens**: `offload`, 8.934 GB
+  peak, 222.9 s a round over three rounds at AICLK 1000, 1.56x the axis the fast mode carries, and
+  a whole EGFR ectodomain plus a 150 aa binder with nothing cropped. 896 is not offered: it
+  completes two gradient rounds at 295.3 and 282.7 s and is refused on the third with 4.386 GB
+  free, because the largest contiguous block in a bank is 67.8 MB against the 68.5 MB needed, so
+  what ends the mode is fragmentation and a fold can reach it on a later round. The refusal
+  message still quotes 896 as the largest measured axis, which is that two-round reading;
+  [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes) says to size against
+  800 until it is re-measured. On a Blackhole p150a the modes matter too: `auto` picks the mode
+  from a memory law rather than a measured ladder there, and leaves 768 and 832 in `fast`, where
+  both refuse. `memory='lean'` runs them, 41.5 s a round at 768 and 50.0 s at 832. 768 needs an L1
+  escape the other axes do not, because `in0_block_w` is the largest
   divisor of the axis in tiles that is at most 8 and 768 alone in this range takes the widest
   block, so `tt_bio.autograd.bmm` retries such a refusal in narrower passes over K. The price on
-  Wormhole: `offload` rounds at 768 to 896 tokens run 3.3-4.7x the 512-token `fast` round.
+  Wormhole: the `offload` round at 800 tokens is 3.6x the 512-token `fast` round.
   `memory='fast'` turns the slower modes off, and a fold too large for `fast` then refuses as in
   0.11.0. See [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
 
@@ -94,10 +97,11 @@ compared against it.
   a core's L1, so at 768 one product of the backward asked for 1,864,192 B of circular buffers
   on a 1,572,864 B core and the device refused it. 736 and 800 fit only because their tile counts
   have smaller divisors. The planner now prices each plan against the L1 the device reports and
-  narrows the block until it fits, falling back to ttnn's own plan if nothing does. Every
-  32-token axis from 288 to 864 now completes a gradient round on a p300c chip; 768 is the only
-  one whose plan changed, and 288 gives gradients bit-identical to before. See
-  [docs/bindcraft2.md](docs/bindcraft2.md).
+  narrows the block until it fits, falling back to ttnn's own plan if nothing does. 768 is the only
+  axis whose plan changed, and 288 gives gradients bit-identical to before. On the release tree a
+  p150a runs 768 at `memory='lean'` in 41.5 s a round where 0.11.0 crashes; at the default it
+  refuses with a message naming the size. See
+  [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
 
 - **A BindCraft 2 refusal on a card held to its last percent called itself fragmentation.**
   Above a Wormhole Galaxy chip's 512 tokens the fold holds 98 to 99 % of the board, and whether
@@ -133,6 +137,11 @@ regression:
   yet measured on a round, so it stays on its branch for 0.12.1.
 - **bfloat8 cotangents in the BindCraft 2 backward.** Accurate to the bar but 0.953x a round on a
   p300c at AICLK 1350, a loss, so it is not shipped.
+- **768 and 832 at the default on a Blackhole p150a.** Both run at `memory='lean'`; `auto` leaves
+  them in `fast`, where they refuse, because the mode ladder carries a measured row for a Wormhole
+  Galaxy chip and none for Blackhole. 0.11.0 serves 832 at the default (97.8 s a round against
+  50.0 s here at `lean`) and crashes at 768, so a p150a user at 832 has to name the mode on this
+  release where they did not before.
 - **The chunked triangle-attention backward on Wormhole.** Not yet graded on a Wormhole chip, so
   above 288 tokens Wormhole keeps the chunked recompute.
 
