@@ -1,2 +1,4 @@
 CLUSTER-BEFORE 2026-10-01T22:40:17Z {"accounts_waiting":0,"busy":0,"chips":346,"enabled":true,"jobs":{"queued":0,"running":0},"online_agents":11,"out_of_service":0}
 CLUSTER-AFTER-LAUNCH 2026-10-01T22:42:15Z {"accounts_waiting":0,"busy":0,"chips":346,"enabled":true,"jobs":{"queued":0,"running":0},"online_agents":11,"out_of_service":31}
+CLUSTER-RECOVERED 2026-10-01T22:45:49Z {"accounts_waiting":0,"busy":0,"chips":346,"enabled":true,"jobs":{"queued":0,"running":0},"online_agents":11,"out_of_service":6}
+CLUSTER-SETTLED 2026-10-01T22:46:17Z {"accounts_waiting":0,"busy":0,"chips":346,"enabled":true,"jobs":{"queued":0,"running":0},"online_agents":11,"out_of_service":1}
