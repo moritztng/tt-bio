@@ -1765,6 +1765,7 @@ _FAST_ROUND = (
     ("reblock_permute", None, "GATED_BW_FUSED", "TT_BIO_GATED_BW_FUSED", True),
     ("gate_bw", None, "GATE_BW_FUSED", "TT_BIO_GATE_BW_FUSED", True),
     ("lead_sum", None, "LEAD_SUM_FUSED", "TT_BIO_LEAD_SUM_FUSED", True),
+    ("pair_mm", None, "PAIR_MM_FUSED", "TT_BIO_PAIR_MM", True),
     ("ops", None, "NOGRAD_IS_INFERENCE", "TT_BIO_NOGRAD_INFERENCE", True),
     ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
     ("af2", "AF2PairBlock", "rne_kernel", None, True),

@@ -36,6 +36,7 @@ import ttnn
 
 from .dispatch import OpSurface
 from .envflags import env_flag
+from . import pair_mm as _pair_mm
 
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
            "set_recycle_hook", "recycle_region", "taping", "recording",
@@ -289,6 +290,11 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
         # and no flag has to be threaded through.
         in_l1 = x.memory_config().buffer_type == ttnn.BufferType.L1
         out = _NARROW_PROJ(x, w, compute_kernel_config, dtype, l1_out=in_l1)
+        if out is not None:
+            return out
+    if activation is None and _pair_mm.PAIR_MM_FUSED and set(kw) <= {"memory_config"}:
+        out = _pair_mm.matmul(x, w, bias, compute_kernel_config, dtype,
+                              memory_config=kw.get("memory_config"))
         if out is not None:
             return out
     return ttnn.linear(x, w, bias=bias, activation=activation,

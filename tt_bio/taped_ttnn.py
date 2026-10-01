@@ -234,8 +234,11 @@ def _v_matmul(shipped, args, kwargs):
             # so the ordinary path pays one shape comparison.
             if a.requires_grad:
                 rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
-                da = (rows(g, lambda v: ag.bmm(v, b.value, False, not tb,
-                                                compute_kernel_config=cfg))
+                da = (rows(g, lambda v: ag._pair_mm_or(
+                                v, b.value, not tb, lambda: ag.bmm(v, b.value, False, not tb,
+                                                                   compute_kernel_config=cfg),
+                                cfg) if len(b.value.shape) == 2 else
+                           ag.bmm(v, b.value, False, not tb, compute_kernel_config=cfg))
                       if not ta else
                       ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg))
                 a.add_grad(_reduce_to(da, a.value.shape))
