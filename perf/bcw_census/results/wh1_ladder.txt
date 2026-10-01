@@ -1,0 +1,8 @@
+2026-10-01T10:31:12Z holding /home/ubuntu/japanfold/state/leases/UF-EV-A4-GWH01-card30.json and /dev/tenstorrent/6; 3 rungs
+2026-10-01T10:31:12Z === hIL7RA_100_f load 1.77
+2026-10-01T10:32:56Z     hIL7RA_100_f rc=0 104s axis=352 peak=5.6886 err=StopAfterRounds(2 rounds collected)
+2026-10-01T10:32:56Z === hIL2R_90_f load 43.62
+2026-10-01T10:35:49Z     hIL2R_90_f rc=0 173s axis=512 peak=11.238 err=StopAfterRounds(2 rounds collected)
+2026-10-01T10:35:49Z === hIL2R_100_f load 28.97
+2026-10-01T10:37:58Z     hIL2R_100_f rc=3 128s axis=544 peak=12.3385 err=MemoryError("BindCraft 2 ran out of device memory in the Evoformer backward at 5
+2026-10-01T10:37:58Z ladder done, lease released
