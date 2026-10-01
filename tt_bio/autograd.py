@@ -2554,11 +2554,14 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                 _ok, _why = _tbw.eligible(q.value, k.value, v.value, bias.value)
                 if _ok:
                     _dev = q.value.device()
-                    _p = _tbw.plan(*(int(x) for x in q.value.padded_shape),
-                                   grid=(_dev.compute_with_storage_grid_size().x,
-                                         _dev.compute_with_storage_grid_size().y))
-                    if _tbw.fits_l1(_p):
-                        _src = _packed_qkv_source(q, k, v) if _tbw.QKV_PACKED else None
+                    _p = _tbw.serving_plan(*(int(x) for x in q.value.padded_shape),
+                                           grid=(_dev.compute_with_storage_grid_size().x,
+                                                 _dev.compute_with_storage_grid_size().y))
+                    if _p is not None:
+                        # The packed gradient is the whole-query kernel's only: a chunked plan's
+                        # dK/dV are float32 running sums, so those take the three-tensor path.
+                        _src = (_packed_qkv_source(q, k, v)
+                                if _tbw.QKV_PACKED and _p["Qt"] == _p["Nt"] else None)
                         _dq, _dk, _dv, _db = _tbw.run(
                             _dev, q.value, k.value, v.value, bias.value, g, scale,
                             (ttnn.MathFidelity.HiFi4,), packed=_src is not None)

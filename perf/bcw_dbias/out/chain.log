@@ -1,0 +1,24 @@
+=== 2026-10-01T11:22:35Z n512_b64_qt4
+=== rc=0 n512_b64_qt4
+=== 2026-10-01T11:22:42Z n768_b48_qt2
+=== rc=0 n768_b48_qt2
+=== 2026-10-01T11:22:48Z f_on_hTF_150
+=== rc=0 f_on_hTF_150
+=== 2026-10-01T11:26:51Z t_on_hIL2R_100
+=== rc=0 t_on_hIL2R_100
+=== 2026-10-01T11:29:32Z t_off_hIL2R_100
+=== rc=0 t_off_hIL2R_100
+=== 2026-10-01T11:33:15Z t_off2_hIL2R_100
+=== rc=0 t_off2_hIL2R_100
+=== 2026-10-01T11:36:41Z t_on2_hIL2R_100
+=== rc=0 t_on2_hIL2R_100
+=== 2026-10-01T11:39:10Z t_on_hHSA_180
+=== rc=0 t_on_hHSA_180
+=== 2026-10-01T11:43:38Z t_off_hHSA_180
+=== rc=0 t_off_hHSA_180
+=== CHAIN DONE 2026-10-01T11:48:55Z
+=== 2026-10-01T11:49:29Z bitexact288
+rc=0 old
+rc=0 new
+{"dq": {"bit_identical": true, "max_abs": 0.0}, "dk": {"bit_identical": true, "max_abs": 0.0}, "dv": {"bit_identical": true, "max_abs": 0.0}, "dbias": {"bit_identical": true, "max_abs": 0.0}}
+=== FOLLOWUP DONE 2026-10-01T11:49:42Z

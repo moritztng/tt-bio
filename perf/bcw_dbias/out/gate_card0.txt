@@ -1,0 +1,52 @@
+........................................................................ [ 35%]
+........................................................................ [ 71%]
+..........................................................               [100%]
+202 passed in 14.72s
+nanobind: leaked 583 instances!
+ - leaked instance 0x7889c5db6948 of type "ttnn._ttnn.operations.normalization.SoftmaxDefaultProgramConfig"
+ - leaked instance 0x7889c8e57c78 of type "ttnn._ttnn.operations.experimental.slice_write_t"
+ - leaked instance 0x7889c8e56c58 of type "ttnn._ttnn.operations.experimental.rotary_embedding_llama_t"
+ - leaked instance 0x7889c8e5b7d8 of type "ttnn._ttnn.operations.unary_backward.cos_bw_t"
+ - leaked instance 0x7889c8e5c630 of type "ttnn._ttnn.operations.examples.composite_example_t"
+ - leaked instance 0x7889c8e5ed10 of type "ttnn._ttnn.operations.data_movement.unsqueeze_t"
+ - leaked instance 0x7889c8e57be8 of type "ttnn._ttnn.operations.experimental.deepseek_moe_fast_reduce_nc_t"
+ - leaked instance 0x7889c92fa5c8 of type "ttnn._ttnn.tensor.MemoryConfig"
+ - leaked instance 0x7889c8e54870 of type "ttnn._ttnn.operations.normalization.layer_norm_t"
+ - leaked instance 0x7889c8e5bfb8 of type "ttnn._ttnn.operations.unary_backward.asin_bw_t"
+ - leaked instance 0x7889c8e58268 of type "ttnn._ttnn.operations.experimental.paged_fused_update_cache_t"
+ - leaked instance 0x7889c8e54dd0 of type "ttnn._ttnn.operations.moreh.moreh_norm_t"
+ - leaked instance 0x7889c8e5b430 of type "ttnn._ttnn.operations.unary_backward.softplus_bw_t"
+ - leaked instance 0x7889c8e51638 of type "ttnn._ttnn.operations.ccl.all_reduce_t"
+ - leaked instance 0x7889c8e4f8c0 of type "ttnn._ttnn.operations.experimental.ccl_experimental.send_async_t"
+ - leaked instance 0x7889c8e54fc8 of type "ttnn._ttnn.operations.moreh.moreh_softmin_backward_t"
+ - leaked instance 0x7889c8e5b700 of type "ttnn._ttnn.operations.unary_backward.lgamma_bw_t"
+ - leaked instance 0x7889c8e5dc28 of type "ttnn._ttnn.operations.binary.le__t"
+ - leaked instance 0x7889c8e534a8 of type "ttnn._ttnn.operations.transformer.joint_scaled_dot_product_attention_t"
+ - leaked instance 0x7889c8e5bca0 of type "ttnn._ttnn.operations.unary_backward.rpow_bw_t"
+ - ... skipped remainder
+nanobind: leaked 638 types!
+ - leaked type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+ - leaked type "ttnn._ttnn.operations.reduction.var_t"
+ - leaked type "DispatchCoreAxis"
+ - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+ - leaked type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+ - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+ - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked type "ttnn._ttnn.operations.ternary.where_t"
+ - ... skipped remainder
+nanobind: leaked 2749 functions!
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function "to_rank"
+ - leaked function "rmsnorm_default_compute_config"
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.html
