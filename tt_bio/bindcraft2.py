@@ -1756,6 +1756,7 @@ _FAST_ROUND = (
     ("rne_add", None, "WIDEN_ADD", "TT_BIO_WIDEN_ADD", True),
     ("taped_ttnn", None, "QKV_GRAD_JOIN", "TT_BIO_QKV_GRAD_JOIN", True),
     ("triatt_bw", None, "FUSED", "TT_BIO_TRIATT_BW_FUSED", True),
+    ("lnbw", None, "FUSED", "TT_BIO_LNBW_FUSED", True),
     ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
     ("af2", "AF2PairBlock", "rne_kernel", None, True),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None, "tri_att_sdpa_hifi,rne_add"),

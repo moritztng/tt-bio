@@ -29,6 +29,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_FUSE_SCALE_ADD`](#tt_bio_fuse_scale_add) | on | fp32 operands | identical |
 | [`TT_BIO_GATE_GRANULARITY`](#tt_bio_gate_granularity) | 2 | | identical at every value |
 | [`TT_BIO_HOST_LEVERS`](#tt_bio_host_levers) | on | Boltz-2 | switches two other flags together |
+| [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | off | training | gradients only |
 | [`TT_BIO_MM_LAYOUT`](#tt_bio_mm_layout) | off | training | moves |
 | [`TT_BIO_MSA_LADDER`](#tt_bio_msa_ladder) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
 | [`TT_BIO_OPM_LEGACY_LAYOUT`](#tt_bio_opm_legacy_layout) | off | | moves, inside the seed spread |
@@ -394,6 +395,29 @@ Default: on, Boltz-2 only.
 Not an optimization of its own. It gates `TT_BIO_FUSE_BIAS_STACKS` and `TT_BIO_HOST_BLOCK_PAIRWISE` together, so `0` takes the pre-lever host path for both in one variable. Each flag still answers to its own name; this one is the AND in front of them.
 
 Bisecting a host-side result is what it is for: turn the group off, confirm the result moves, then put the members back one at a time.
+
+## `TT_BIO_LNBW_FUSED`
+
+Default: off, training only.
+
+Sends the input gradient of `autograd.layer_norm` through one kernel (`tt_bio/lnbw.py`) instead of
+the composed path's ~22 ttnn calls, about 14 of them full passes over the activation. It runs
+when only dx is asked for, which is every norm in a BindCraft 2 sequence gradient: gamma and beta
+are frozen weights there. A norm whose weights need a gradient keeps the composed path, which
+already computes the `norm` those gradients read.
+
+On a BindCraft 2 gradient round at 288 tokens it serves 11 of the 12 norms in every Evoformer
+block's backward. The one it declines is the [288,2,256] MSA norm, whose 2-row axis is not a
+tile. Op level, 0.315 against 1.986 ms at [1,288,288,128]. Eight checkpointed blocks' backward
+goes from 0.5553 to 0.4421 s, alternated in one sitting at AICLK 1350 (qb1 p150a).
+
+Off by default because it has not been through a release gate, except inside
+`bindcraft2.predictor(exact=False)`, which turns it on through `fast_round` along with the other
+gradient kernels its round is measured with. The gradient is closer to float64 than the composed
+path's: dx rel L2 1.81e-3 against 3.84e-3 on the same bf16 operands, and nearer float64 on every
+block of the teacher-forced float64 VJP (`perf/bcx_afgrad/vjp_n288_bcp_lnbw_{off,on}.json`). A
+float32 cotangent declines, because there the composed path is exact float32 (1.5e-4) and the
+kernel's FPU stages read TF32 (1.3e-3). `TT_BIO_LNBW_FUSED=0` is the way back.
 
 ## `TT_BIO_MM_LAYOUT`
 

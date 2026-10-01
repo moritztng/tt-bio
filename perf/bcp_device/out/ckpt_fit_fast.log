@@ -1,0 +1,15 @@
+{"pci": "0000:01:00.0", "n": 288, "K": 8, "dram_total_note": "allocated bytes"}
+{"fast_round": {"MM_LAYOUT": "True", "TAPED_MOVE": "True", "WIDEN_ADD": "True", "QKV_GRAD_JOIN": "True", "FUSED": "True", "_TRIATT_FUSED_HIFI": "True", "rne_kernel": "True", "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add", "SOFTMAX_BW_FP32": "False"}}
+{"u": 0, "fwd": 0.1386244297027588, "bwd": 0.5544841289520264, "held_after_fwd": 193757184, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "loadavg": 3.58984375, "rep": 0}
+{"u": 4, "fwd": 0.14055538177490234, "bwd": 0.4830939769744873, "held_after_fwd": 8554774528, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "loadavg": 3.58984375, "rep": 0}
+{"u": 8, "fwd": 0.1421210765838623, "bwd": 0.4140045642852783, "held_after_fwd": 16966516736, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "loadavg": 3.58984375, "rep": 0}
+{"u": 8, "fwd": 0.14206695556640625, "bwd": 0.41401076316833496, "held_after_fwd": 16990502912, "aiclk": {"n": 2, "min": 1343, "median": 1350, "max": 1350}, "loadavg": 3.58984375, "rep": 1}
+{"u": 4, "fwd": 0.14055824279785156, "bwd": 0.4831995964050293, "held_after_fwd": 8602746880, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "loadavg": 3.58984375, "rep": 1}
+{"u": 0, "fwd": 0.13850665092468262, "bwd": 0.5547804832458496, "held_after_fwd": 169771008, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "loadavg": 3.54248046875, "rep": 1}
+{"u": 0, "fwd": 0.13878941535949707, "bwd": 0.5547363758087158, "held_after_fwd": 145784832, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "loadavg": 3.54248046875, "rep": 2}
+{"u": 4, "fwd": 0.14061188697814941, "bwd": 0.48313045501708984, "held_after_fwd": 8554774528, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "loadavg": 3.54248046875, "rep": 2}
+{"u": 8, "fwd": 0.14284491539001465, "bwd": 0.41475510597229004, "held_after_fwd": 16966516736, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "loadavg": 3.54248046875, "rep": 2}
+{"grad_vs_u0": 4, "dm": 0.033160123974084854, "equal": false}
+{"grad_vs_u0": 4, "dz": 0.030873596668243408, "equal": false}
+{"grad_vs_u0": 8, "dm": 0.04321885481476784, "equal": false}
+{"grad_vs_u0": 8, "dz": 0.04339335113763809, "equal": false}

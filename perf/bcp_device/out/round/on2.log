@@ -1,0 +1,310 @@
+arm on2: trajectories=3 interleave=1 TT_BIO_LNBW_FUSED=1
+2026-10-01 01:09:15.351 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/.coworker/wt/bcp-device/tt_bio/__init__.py",
+ "interleave": true,
+ "trajectories": 3,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "widen_add": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true
+ },
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+ "commit": "aa6b2a5443eef47e0215a4eeb922408d78c8ea2c",
+ "seed": 100,
+ "binder": 146,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "started_utc": "2026-10-01T01:09:15Z",
+ "loadavg_start": [
+  3.30517578125,
+  5.16162109375,
+  5.666015625
+ ],
+ "nproc": 32,
+ "project": "perf/bcp_device/out/round/on2"
+}
+/home/ttuser/.coworker/wt/bcp-device/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 v1.0.1
+campaign pdl1
+binder length 146, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_device/out/round/on2 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_65b794fd11eadc4b | accepted 0/10 ===
+BindCraft 2 v1.0.1
+campaign pdl1
+binder length 146, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_device/out/round/on2 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 2 | pdl1_denovo_l146_95577589ca04600d | accepted 0/10 ===
+BindCraft 2 v1.0.1
+campaign pdl1
+binder length 146, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_device/out/round/on2 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 3 | pdl1_denovo_l146_617507eef6bea406 | accepted 0/10 ===
+{
+ "host": "tt-quietbox",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/.coworker/wt/bcp-device/tt_bio/__init__.py",
+ "interleave": true,
+ "trajectories": 3,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "widen_add": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true
+ },
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+ "commit": "aa6b2a5443eef47e0215a4eeb922408d78c8ea2c",
+ "seed": 100,
+ "binder": 146,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "started_utc": "2026-10-01T01:09:15Z",
+ "loadavg_start": [
+  3.30517578125,
+  5.16162109375,
+  5.666015625
+ ],
+ "nproc": 32,
+ "project": "perf/bcp_device/out/round/on2",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "gate": {
+  "waited_s": {
+   "A": 59.865,
+   "B": 62.07,
+   "C": 62.262
+  },
+  "held_s": {
+   "A": 51.894,
+   "B": 47.761,
+   "C": 45.887
+  },
+  "seams": {
+   "A": 81,
+   "B": 81,
+   "C": 81
+  },
+  "slot_at_seam": {
+   "A@Dummy-3": 5,
+   "A@Dummy-4": 7,
+   "A@Dummy-5": 10,
+   "A@Dummy-6": 2,
+   "A@Dummy-7": 4,
+   "A@Dummy-8": 3,
+   "A@Dummy-9": 4,
+   "A@Dummy-10": 5,
+   "B@Dummy-11": 4,
+   "B@Dummy-3": 2,
+   "B@Dummy-8": 2,
+   "B@Dummy-12": 8,
+   "B@Dummy-13": 4,
+   "B@Dummy-6": 5,
+   "B@Dummy-14": 2,
+   "C@Dummy-15": 5,
+   "C@Dummy-16": 2,
+   "C@Dummy-6": 2,
+   "C@Dummy-17": 1,
+   "C@Dummy-3": 3,
+   "C@Dummy-18": 4,
+   "C@Dummy-19": 3,
+   "C@Dummy-11": 2,
+   "C@Dummy-5": 6,
+   "A@Dummy-20": 3,
+   "B@Dummy-21": 3,
+   "A@Dummy-22": 3,
+   "B@Dummy-23": 5,
+   "C@Dummy-14": 2,
+   "C@Dummy-24": 3,
+   "B@Dummy-18": 3,
+   "A@Dummy-25": 4,
+   "B@Dummy-26": 4,
+   "B@Dummy-25": 2,
+   "A@Dummy-11": 2,
+   "B@Dummy-27": 4,
+   "C@Dummy-13": 4,
+   "A@Dummy-28": 3,
+   "B@Dummy-29": 4,
+   "C@Dummy-30": 3,
+   "C@Dummy-20": 5,
+   "A@Dummy-15": 4,
+   "A@Dummy-21": 5,
+   "B@Dummy-4": 1,
+   "A@Dummy-31": 1,
+   "C@Dummy-32": 2,
+   "A@Dummy-13": 2,
+   "C@Dummy-7": 2,
+   "A@Dummy-12": 2,
+   "C@Dummy-28": 3,
+   "B@Dummy-33": 3,
+   "A@Dummy-23": 2,
+   "B@Dummy-31": 4,
+   "A@Dummy-32": 3,
+   "C@Dummy-8": 4,
+   "C@Dummy-23": 2,
+   "B@Dummy-15": 3,
+   "B@Dummy-24": 1,
+   "C@Dummy-31": 5,
+   "B@Dummy-16": 3,
+   "C@Dummy-12": 1,
+   "B@Dummy-30": 1,
+   "C@Dummy-26": 3,
+   "B@Dummy-34": 2,
+   "B@Dummy-9": 1,
+   "C@Dummy-27": 2,
+   "A@Dummy-30": 1,
+   "A@Dummy-34": 1,
+   "B@Dummy-7": 2,
+   "C@Dummy-10": 4,
+   "A@Dummy-33": 1,
+   "A@Dummy-27": 1,
+   "A@Dummy-19": 1,
+   "C@Dummy-22": 1,
+   "B@Dummy-10": 2,
+   "B@Dummy-22": 2,
+   "B@Dummy-32": 3,
+   "A@Dummy-26": 1,
+   "A@Dummy-29": 1,
+   "C@Dummy-34": 1,
+   "C@Dummy-33": 2,
+   "C@Dummy-21": 3,
+   "C@Dummy-9": 1,
+   "B@Dummy-17": 1
+  }
+ },
+ "wall_seconds": 194.44,
+ "stopped": [
+  "A: 9 rounds collected on 'A'",
+  "C: 9 rounds collected on 'C'",
+  "B: 9 rounds collected on 'B'"
+ ],
+ "triatt_bw_stats": {
+  "served": 2916,
+  "declined": 0,
+  "bw_calls": 2916
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 54,
+  "backward": 27
+ },
+ "kernel_entry_stats": {
+  "rne_add": [
+   37422,
+   0
+  ],
+  "tri_att_sdpa_hifi": [
+   8748,
+   0
+  ]
+ },
+ "rne_add_stats": {
+  "served": 37422,
+  "declined": 324
+ },
+ "mm_layout": {
+  "declined: has a program config": 33372,
+  "declined: has a core grid": 7776,
+  "served": 18792,
+  "declined: not batched": 41472
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 33372,
+   "declined: has a core grid": 7776,
+   "served": 18792,
+   "declined: not batched": 41472
+  },
+  "taped_channel_move": [
+   20412,
+   16848,
+   14580,
+   0
+  ],
+  "widen_add": {
+   "served: first": 20898,
+   "served: later": 5508
+  },
+  "rne_add": [
+   37422,
+   324
+  ],
+  "qkv_grad_join": {
+   "served": 16524
+  },
+  "triatt_bw": {
+   "served": 2916,
+   "declined": 0,
+   "bw_calls": 2916
+  },
+  "triatt_fused_hifi": {
+   "served": 8748,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    37422,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    8748,
+    0
+   ]
+  }
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "host_folds": {},
+ "loadavg_end": [
+  4.044921875,
+  4.72998046875,
+  5.39697265625
+ ],
+ "finished_utc": "2026-10-01T01:12:29Z"
+}
+events -> perf/bcp_device/out/round/on2/round_events.json
