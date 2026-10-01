@@ -1,0 +1,12 @@
+bwd                        14.8133 GB
+bwd:r:BFLOAT16              6.7561 GB
+bwd:r:BFLOAT8_B             0.5059 GB
+bwd:r:FLOAT32               1.4472 GB
+bwd:w:BFLOAT16              4.4289 GB
+bwd:w:BFLOAT8_B             0.5059 GB
+bwd:w:FLOAT32               1.1694 GB
+fwd                         4.5077 GB
+fwd:r:BFLOAT16              2.4328 GB
+fwd:r:FLOAT32               0.0159 GB
+fwd:w:BFLOAT16              2.0378 GB
+fwd:w:FLOAT32               0.0212 GB
