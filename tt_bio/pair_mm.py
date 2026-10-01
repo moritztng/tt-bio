@@ -6,7 +6,7 @@ a core grid, and their VJP's dX through ``ttnn.matmul(transpose_b=True)``; both 
 (M = 82944) minimal_matmul with a swept block config runs the same products 1.2-2.2x faster and
 reads closer to float64 (rel L2 0.00169 against 0.00172; not bit-identical, the K blocks fold
 differently): pair-transition fc2 810 -> 367 us, the OPM out-projection 1098 -> 686 us
-(perf/bcp_evo/mm_pair_bench.json against the block profile perf/bcp_evo/out/prof_blk).
+(perf/bcp_evo/out/mm_pair_bench.json against the block profile perf/bcp_evo/out/prof_blk).
 
 ``matmul`` returns the product or None, and None means the caller runs its own call unchanged.
 minimal_matmul takes no transpose, so a ``transpose_b`` call gets the weight transposed once and
