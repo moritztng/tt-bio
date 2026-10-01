@@ -1,0 +1,13 @@
+{
+ "modality": "binder",
+ "campaign_name": "hIL2R_180",
+ "number_of_final_designs": 2,
+ "targets": [
+  {
+   "name": "hIL2R",
+   "target_path": "/home/moritz/bcx_shipped/bc2/settings/target/structures/hIL2R_beta_gamma.pdb",
+   "chains": "A,B",
+   "hotspots": "A67,A68,A96,A99,A101,A159,A160,B125,B181,B229-231"
+  }
+ ]
+}
