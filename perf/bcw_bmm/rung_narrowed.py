@@ -24,22 +24,33 @@ def _write():
 
 
 atexit.register(_write)
-cls = bindcraft2.design_model_class()
-real = cls.sequence_gradients
+_design_model_class = bindcraft2.design_model_class
 
 
-def sequence_gradients(self, *a, **kw):
-    res = real(self, *a, **kw)
-    if not kw.get("compile_only"):
-        _, grads, loss = res
-        h = hashlib.sha256()
-        for leaf in jax.tree_util.tree_leaves((grads, loss)):
-            h.update(np.ascontiguousarray(np.asarray(leaf)).tobytes())
-        DIGESTS.append({"round": len(DIGESTS) + 1, "sha256": h.hexdigest(),
-                        "loss": float(np.asarray(jax.tree_util.tree_leaves(loss)[0]).ravel()[0])})
-    return res
+def design_model_class():
+    """The class with the digest installed on first use: BindCraft 2 is only importable once
+    rung.py has put it on sys.path."""
+    cls = _design_model_class()
+    if getattr(cls, "_bcw_bmm_digest", False):
+        return cls
+    real = cls.sequence_gradients
+
+    def sequence_gradients(self, *a, **kw):
+        res = real(self, *a, **kw)
+        if not kw.get("compile_only"):
+            _, grads, loss = res
+            h = hashlib.sha256()
+            for leaf in jax.tree_util.tree_leaves((grads, loss)):
+                h.update(np.ascontiguousarray(np.asarray(leaf)).tobytes())
+            DIGESTS.append({"round": len(DIGESTS) + 1, "sha256": h.hexdigest(),
+                            "loss": float(np.asarray(jax.tree_util.tree_leaves(loss)[0]).ravel()[0])})
+        return res
+
+    cls.sequence_gradients = sequence_gradients
+    cls._bcw_bmm_digest = True
+    return cls
 
 
-cls.sequence_gradients = sequence_gradients
+bindcraft2.design_model_class = design_model_class
 sys.argv = ["rung.py"] + sys.argv[1:]
 runpy.run_path("perf/bgx_size/rung.py", run_name="__main__")
