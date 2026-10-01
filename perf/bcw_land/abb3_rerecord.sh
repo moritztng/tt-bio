@@ -2,7 +2,7 @@
 # abb3 re-record on the bcw-land merge tree (perf/bcp_evo/abb3_rerecord.sh, this tree, card $1).
 # Raw outputs under perf/bcw_land/out/abb3/. Waits for the card to be free first.
 cd "$(dirname "$0")/../.."
-card=$1; O=perf/bcw_land/out/abb3; mkdir -p $O
+card=$1; O=${O:-perf/bcw_land/out/abb3}; mkdir -p $O
 while fuser /dev/tenstorrent/$card >/dev/null 2>&1; do sleep 20; done
 export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=worker:bcw-land PYTHONPATH=$PWD
 PY=~/tt-bio-dev/env/bin/python3
