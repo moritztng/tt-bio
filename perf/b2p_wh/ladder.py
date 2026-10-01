@@ -90,6 +90,9 @@ def main() -> int:
                     help='what every rung is told explicitly. "auto" measures the default '
                          "instead of the size, which is the one thing a size ladder must not do")
     ap.add_argument("--timeout", type=int, default=3600, help="seconds a single rung may take")
+    ap.add_argument("--attrib", action="store_true",
+                    help="run footprint rungs under perf/bcw_census/attrib.py, which lists every "
+                         "live DRAM buffer at the high-water mark")
     ap.add_argument("rungs", nargs="+", metavar="target:binder:mode[:KEY=VAL,...]")
     args = ap.parse_args()
 
@@ -132,6 +135,9 @@ def main() -> int:
                    "--rounds", str(args.fp_rounds if mode == "f" else args.rounds)]
             if mode == "f":
                 cmd.append("--footprint")
+                if args.attrib:
+                    cmd[2:3] = [str(ROOT / "perf/bcw_census/attrib.py"), "--every", "2",
+                                "--step-mb", "24", "--"]
             say(f"=== {tag} load {os.getloadavg()[0]:.2f}")
             t0 = time.time()
             with open(rung / "rung.log", "w") as log:

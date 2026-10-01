@@ -21,7 +21,7 @@ export BCX_BC2=${BCX_BC2:-$HOME/bwx/bc2}
 export PYTHONPATH=$root:$BCX_BC2
 export TT_METAL_CACHE=${TT_METAL_CACHE:-$HOME/bwx/cache/tt-metal}
 export JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR:-$HOME/bwx/cache/xla}
-export TT_BIO_LEASE_HOLDER=worker:b2p-wh
+export TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:b2p-wh}
 say "launch tag=$tag chip=$chip load=$(cut -d' ' -f1-3 /proc/loadavg) commit=$(git -C "$root" rev-parse --short HEAD)"
 sudo -n systemctl stop japanfold-agent@ubuntu; say "agent stop rc=$?"
 for _ in $(seq 60); do pgrep -f japanfold.chipworker >/dev/null || break; sleep 2; done
