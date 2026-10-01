@@ -564,7 +564,7 @@ levers buy room by spending time, and `memory=` picks between them:
 |---|---|---|
 | `fast` | checkpoints each Evoformer, extra-MSA and template block | 512, measured |
 | `lean` | also checkpoints each residual step inside a block, so a block's backward holds one step's tape instead of nine; every block's forward runs once more a round | 544 measured, 704 estimated |
-| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | **800 measured**, 960 estimated |
+| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | **896 measured**; 928 refuses |
 | `auto` | the cheapest of the three that the fold fits in. **The default.** | |
 
 They are the same arithmetic on the same values: a `lean` gradient is bit-identical to an
@@ -591,10 +591,19 @@ Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 | 544 | `fast` | refuses, 12.70 GB held | |
 | 544 | `lean` | 7.527 GB | 84.3 s |
 | 768 | `offload` | 8.282 GB, 4.60 GB still free | 200.2 s |
-| **800** | `offload` | **8.952 GB**, 3.93 GB still free | **225.1 s** |
+| 800 | `offload` | 8.952 GB, 3.93 GB still free | 225.1 s |
+| 832 | `offload` | 9.625 GB, 3.26 GB still free | 242.0 s |
+| 864 | `offload` | 10.324 GB, 2.56 GB still free | 264.9 s |
+| **896** | `offload` | **11.051 GB**, 1.83 GB still free | **285.6 s** |
+| 928 | `offload` | refuses, 11.197 GB held | |
 
-800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder: **the largest fold measured
-to complete a gradient round on one Wormhole Galaxy chip, 1.56x the 512 the fast mode carries.**
+**896 tokens is the largest fold measured to complete a gradient round on one Wormhole Galaxy
+chip, 1.75x the 512 the fast mode carries.** 928 refuses, and not because the card is out of
+room: the round peaked at 11.197 GB with 1.687 GB free and was then refused an 882 MB buffer,
+because the largest free block left was 70 MB. The mode ends on fragmentation, which is why the
+ceiling is a measured number here and not one computed from how much a fold of that size would
+need. 800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder, so the competition
+case has three buckets of headroom above it.
 768 is two different complexes, measured separately and landing on the same numbers: serum
 albumin plus a 150 aa binder (738 residues at the seam, 200.2 s) and **the EGFR ectodomain plus a
 100 aa minibinder** (742 residues, 200.5 s), which is the smaller of the two shapes the
