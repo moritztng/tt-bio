@@ -1,0 +1,2304 @@
+{
+ "n": 288,
+ "depth": 2,
+ "armed": {
+  "MM_LAYOUT": "True",
+  "TAPED_MOVE": "True",
+  "WIDEN_ADD": "True",
+  "QKV_GRAD_JOIN": "True",
+  "FUSED": "True",
+  "_TRIATT_FUSED_HIFI": "True",
+  "rne_kernel": "True",
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": "False"
+ },
+ "totals_gb": {
+  "bwd": 13.970814976,
+  "bwd:r:BFLOAT16": 7.153887232,
+  "bwd:r:FLOAT32": 1.266720768,
+  "bwd:w:BFLOAT16": 4.826714112,
+  "bwd:w:FLOAT32": 0.723492864,
+  "fwd": 4.50767872,
+  "fwd:r:BFLOAT16": 2.432751616,
+  "fwd:r:FLOAT32": 0.015925248,
+  "fwd:w:BFLOAT16": 2.037768192,
+  "fwd:w:FLOAT32": 0.021233664
+ },
+ "rows": [
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "rne_add.py:441:widen_add <- autograd.py:587:add_grad",
+   "in": "BFLOAT16,FLOAT32",
+   "out": "FLOAT32",
+   "calls": 19,
+   "gb": 1.631748096,
+   "by": {
+    "r:BFLOAT16": 0.45858816,
+    "r:FLOAT32": 0.650575872,
+    "w:FLOAT32": 0.522584064
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "autograd.py:1425:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 11,
+   "gb": 0.68313088,
+   "by": {
+    "r:BFLOAT16": 0.512376832,
+    "w:BFLOAT16": 0.170754048
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "concat",
+   "site": "autograd.py:620:grad <- autograd.py:725:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 8,
+   "gb": 0.624771072,
+   "by": {
+    "r:BFLOAT16": 0.312385536,
+    "w:BFLOAT16": 0.312385536
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "autograd.py:1139:bmm <- taped_ttnn.py:237:<lambda>",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 15,
+   "gb": 0.618668032,
+   "by": {
+    "r:BFLOAT16": 0.452890624,
+    "w:BFLOAT16": 0.165777408
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:693:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 14,
+   "gb": 0.610136064,
+   "by": {
+    "r:BFLOAT16": 0.392712192,
+    "w:BFLOAT16": 0.217423872
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "typecast",
+   "site": "autograd.py:706:backward <- autograd.py:2601:_recompute",
+   "in": "FLOAT32",
+   "out": "BFLOAT16",
+   "calls": 18,
+   "gb": 0.595095552,
+   "by": {
+    "r:FLOAT32": 0.396730368,
+    "w:BFLOAT16": 0.198365184
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "autograd.py:2933:<lambda> <- autograd.py:1075:_via2d",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 18,
+   "gb": 0.554958848,
+   "by": {
+    "r:BFLOAT16": 0.254738432,
+    "w:BFLOAT16": 0.300220416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:697:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 10,
+   "gb": 0.524648448,
+   "by": {
+    "r:BFLOAT16": 0.349765632,
+    "w:BFLOAT16": 0.174882816
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sigmoid_bw",
+   "site": "taped_ttnn.py:454:_chain_fused <- taped_ttnn.py:698:bw",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 10,
+   "gb": 0.524648448,
+   "by": {
+    "r:BFLOAT16": 0.349765632,
+    "w:BFLOAT16": 0.174882816
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "generic_op",
+   "site": "rne_add.py:348:_dispatch <- rne_add.py:325:rne_add",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 9,
+   "gb": 0.51314688,
+   "by": {
+    "r:BFLOAT16": 0.38486016,
+    "w:BFLOAT16": 0.12828672
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "rne_add.py:348:_dispatch <- rne_add.py:325:rne_add",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 9,
+   "gb": 0.51314688,
+   "by": {
+    "r:BFLOAT16": 0.38486016,
+    "w:BFLOAT16": 0.12828672
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "autograd.py:2297:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16,FLOAT32",
+   "out": "FLOAT32",
+   "calls": 2,
+   "gb": 0.441925632,
+   "by": {
+    "r:BFLOAT16": 0.2985984,
+    "r:FLOAT32": 0.071663616,
+    "w:FLOAT32": 0.071663616
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "chunk",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8240:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.339738624,
+   "by": {
+    "r:BFLOAT16": 0.169869312,
+    "w:BFLOAT16": 0.169869312
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "chunk",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8240:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.339738624,
+   "by": {
+    "r:BFLOAT16": 0.169869312,
+    "w:BFLOAT16": 0.169869312
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "linear",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:5446:_pair_proj_linear",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 9,
+   "gb": 0.334700544,
+   "by": {
+    "r:BFLOAT16": 0.191373312,
+    "w:BFLOAT16": 0.143327232
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "linear",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:5446:_pair_proj_linear",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 9,
+   "gb": 0.334700544,
+   "by": {
+    "r:BFLOAT16": 0.191373312,
+    "w:BFLOAT16": 0.143327232
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "experimental.nlp_concat_heads",
+   "site": "taped_ttnn.py:1313:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 12,
+   "gb": 0.284884992,
+   "by": {
+    "r:BFLOAT16": 0.142442496,
+    "w:BFLOAT16": 0.142442496
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "relu_bw",
+   "site": "autograd.py:735:_backward <- autograd.py:706:backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.258342912,
+   "by": {
+    "r:BFLOAT16": 0.172228608,
+    "w:BFLOAT16": 0.086114304
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "linear",
+   "site": "ops.py:264:linear <- autograd.py:3013:_hook",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 10,
+   "gb": 0.258203648,
+   "by": {
+    "r:BFLOAT16": 0.125493248,
+    "w:BFLOAT16": 0.1327104
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "linear",
+   "site": "ops.py:264:linear <- autograd.py:2919:_taped_linear",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 10,
+   "gb": 0.258203648,
+   "by": {
+    "r:BFLOAT16": 0.125493248,
+    "w:BFLOAT16": 0.1327104
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "generic_op",
+   "site": "reblock_permute.py:352:reblock_permute <- ops.py:158:call",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 4,
+   "gb": 0.254803968,
+   "by": {
+    "r:BFLOAT16": 0.169869312,
+    "w:BFLOAT16": 0.084934656
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "unsqueeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9209:attend",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.254803968,
+   "by": {
+    "r:BFLOAT16": 0.127401984,
+    "w:BFLOAT16": 0.127401984
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "experimental.nlp_create_qkv_heads",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9213:attend",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.254803968,
+   "by": {
+    "r:BFLOAT16": 0.127401984,
+    "w:BFLOAT16": 0.127401984
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "reblock_permute.py:352:reblock_permute <- ops.py:158:call",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 4,
+   "gb": 0.254803968,
+   "by": {
+    "r:BFLOAT16": 0.169869312,
+    "w:BFLOAT16": 0.084934656
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "unsqueeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9209:attend",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.254803968,
+   "by": {
+    "r:BFLOAT16": 0.127401984,
+    "w:BFLOAT16": 0.127401984
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "experimental.nlp_create_qkv_heads",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9213:attend",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.254803968,
+   "by": {
+    "r:BFLOAT16": 0.127401984,
+    "w:BFLOAT16": 0.127401984
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "ops.py:158:call <- taped_ttnn.py:831:_permute_back",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 4,
+   "gb": 0.254803968,
+   "by": {
+    "r:BFLOAT16": 0.169869312,
+    "w:BFLOAT16": 0.084934656
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "permute",
+   "site": "taped_ttnn.py:784:_v_permute <- taped_ttnn.py:1489:call",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 15,
+   "gb": 0.218013696,
+   "by": {
+    "r:BFLOAT16": 0.115642368,
+    "w:BFLOAT16": 0.102371328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "permute",
+   "site": "taped_ttnn.py:784:_v_permute <- taped_ttnn.py:1489:call",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 15,
+   "gb": 0.218013696,
+   "by": {
+    "r:BFLOAT16": 0.115642368,
+    "w:BFLOAT16": 0.102371328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "permute",
+   "site": "taped_ttnn.py:788:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 15,
+   "gb": 0.218013696,
+   "by": {
+    "r:BFLOAT16": 0.102371328,
+    "w:BFLOAT16": 0.115642368
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "generic_op",
+   "site": "sdpa_generic.py:613:sdpa <- triatt_sdpa.py:434:sdpa",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.213663744,
+   "by": {
+    "r:BFLOAT16": 0.171196416,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "sdpa_generic.py:613:sdpa <- triatt_sdpa.py:434:sdpa",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.213663744,
+   "by": {
+    "r:BFLOAT16": 0.171196416,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "experimental.minimal_matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7292:_in_proj_matmul",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.21266432,
+   "by": {
+    "r:BFLOAT16": 0.042795008,
+    "w:BFLOAT16": 0.169869312
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "experimental.minimal_matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7292:_in_proj_matmul",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.21266432,
+   "by": {
+    "r:BFLOAT16": 0.042795008,
+    "w:BFLOAT16": 0.169869312
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "transpose",
+   "site": "taped_ttnn.py:1262:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 8,
+   "gb": 0.189923328,
+   "by": {
+    "r:BFLOAT16": 0.094961664,
+    "w:BFLOAT16": 0.094961664
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "to_layout",
+   "site": "taped_ttnn.py:1393:<lambda> <- taped_ttnn.py:1489:call",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 8,
+   "gb": 0.18874368,
+   "by": {
+    "r:BFLOAT16": 0.09437184,
+    "w:BFLOAT16": 0.09437184
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "to_layout",
+   "site": "taped_ttnn.py:1393:<lambda> <- taped_ttnn.py:1489:call",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 8,
+   "gb": 0.18874368,
+   "by": {
+    "r:BFLOAT16": 0.09437184,
+    "w:BFLOAT16": 0.09437184
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "to_layout",
+   "site": "autograd.py:735:_backward <- autograd.py:706:backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 8,
+   "gb": 0.18874368,
+   "by": {
+    "r:BFLOAT16": 0.09437184,
+    "w:BFLOAT16": 0.09437184
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "relu",
+   "site": "autograd.py:2958:_taped_linear <- autograd.py:3020:_hook",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.172228608,
+   "by": {
+    "r:BFLOAT16": 0.086114304,
+    "w:BFLOAT16": 0.086114304
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "experimental.minimal_matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9549:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.17006592,
+   "by": {
+    "r:BFLOAT16": 0.042663936,
+    "w:BFLOAT16": 0.127401984
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "experimental.minimal_matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9549:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.17006592,
+   "by": {
+    "r:BFLOAT16": 0.042663936,
+    "w:BFLOAT16": 0.127401984
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8275:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.127401984,
+   "by": {
+    "r:BFLOAT16": 0.084934656,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "generic_op",
+   "site": "reblock_permute.py:638:reblock_permute_back <- ops.py:158:call",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.127401984,
+   "by": {
+    "r:BFLOAT16": 0.084934656,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8275:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.127401984,
+   "by": {
+    "r:BFLOAT16": 0.084934656,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "reblock_permute.py:638:reblock_permute_back <- ops.py:158:call",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.127401984,
+   "by": {
+    "r:BFLOAT16": 0.084934656,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "empty",
+   "site": "triatt_bw.py:466:run <- autograd.py:2297:bw",
+   "in": "",
+   "out": "BFLOAT16",
+   "calls": 6,
+   "gb": 0.127401984,
+   "by": {
+    "w:BFLOAT16": 0.127401984
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "generic_op",
+   "site": "ops.py:158:call <- taped_ttnn.py:833:_permute_back",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.127401984,
+   "by": {
+    "r:BFLOAT16": 0.084934656,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "autograd.py:1139:bmm <- taped_ttnn.py:255:bw",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 5,
+   "gb": 0.098500608,
+   "by": {
+    "r:BFLOAT16": 0.067239936,
+    "w:BFLOAT16": 0.031260672
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "experimental.minimal_matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9565:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.085000192,
+   "by": {
+    "r:BFLOAT16": 0.042532864,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "experimental.minimal_matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9565:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.085000192,
+   "by": {
+    "r:BFLOAT16": 0.042532864,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8023:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084967424,
+   "by": {
+    "r:BFLOAT16": 0.042500096,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8454:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084967424,
+   "by": {
+    "r:BFLOAT16": 0.042500096,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9181:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084967424,
+   "by": {
+    "r:BFLOAT16": 0.042500096,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8023:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084967424,
+   "by": {
+    "r:BFLOAT16": 0.042500096,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8454:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084967424,
+   "by": {
+    "r:BFLOAT16": 0.042500096,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9181:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084967424,
+   "by": {
+    "r:BFLOAT16": 0.042500096,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "experimental.nlp_concat_heads",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9308:_attend_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084934656,
+   "by": {
+    "r:BFLOAT16": 0.042467328,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "squeeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9310:_attend_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084934656,
+   "by": {
+    "r:BFLOAT16": 0.042467328,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "experimental.nlp_concat_heads",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9308:_attend_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084934656,
+   "by": {
+    "r:BFLOAT16": 0.042467328,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "squeeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9310:_attend_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.084934656,
+   "by": {
+    "r:BFLOAT16": 0.042467328,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sum",
+   "site": "autograd.py:2297:bw <- autograd.py:735:_backward",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 2,
+   "gb": 0.074317824,
+   "by": {
+    "r:FLOAT32": 0.071663616,
+    "w:FLOAT32": 0.002654208
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "empty",
+   "site": "autograd.py:2297:bw <- autograd.py:735:_backward",
+   "in": "",
+   "out": "FLOAT32",
+   "calls": 2,
+   "gb": 0.071663616,
+   "by": {
+    "w:FLOAT32": 0.071663616
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "autograd.py:735:_backward <- autograd.py:706:backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 8,
+   "gb": 0.070500352,
+   "by": {
+    "r:BFLOAT16": 0.040861696,
+    "w:BFLOAT16": 0.029638656
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- af2.py:677:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.063700992,
+   "by": {
+    "r:BFLOAT16": 0.042467328,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- af2.py:677:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.063700992,
+   "by": {
+    "r:BFLOAT16": 0.042467328,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "autograd.py:1139:bmm <- taped_ttnn.py:240:bw",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.063700992,
+   "by": {
+    "r:BFLOAT16": 0.042467328,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "autograd.py:1139:bmm <- taped_ttnn.py:256:bw",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.063700992,
+   "by": {
+    "r:BFLOAT16": 0.042467328,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "divide",
+   "site": "taped_ttnn.py:1489:call <- af2.py:716:masked",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.047775744,
+   "by": {
+    "r:BFLOAT16": 0.02654208,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "divide",
+   "site": "taped_ttnn.py:1489:call <- af2.py:716:masked",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.047775744,
+   "by": {
+    "r:BFLOAT16": 0.02654208,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "divide",
+   "site": "taped_ttnn.py:693:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.047775744,
+   "by": {
+    "r:BFLOAT16": 0.02654208,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:252:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "FLOAT32",
+   "calls": 2,
+   "gb": 0.047259648,
+   "by": {
+    "r:BFLOAT16": 0.04718592,
+    "w:FLOAT32": 7.3728e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:1489:call <- af2.py:675:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.047222784,
+   "by": {
+    "r:BFLOAT16": 0.004755456,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:1489:call <- af2.py:675:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.047222784,
+   "by": {
+    "r:BFLOAT16": 0.004755456,
+    "w:BFLOAT16": 0.042467328
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- af2.py:214:_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.043106304,
+   "by": {
+    "r:BFLOAT16": 0.021577728,
+    "w:BFLOAT16": 0.021528576
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- af2.py:214:_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.043106304,
+   "by": {
+    "r:BFLOAT16": 0.021577728,
+    "w:BFLOAT16": 0.021528576
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8816:_pair_bias_from_z",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.042483712,
+   "by": {
+    "r:BFLOAT16": 0.021250048,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8816:_pair_bias_from_z",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.042483712,
+   "by": {
+    "r:BFLOAT16": 0.021250048,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- af2.py:678:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.04247552,
+   "by": {
+    "r:BFLOAT16": 0.021241856,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- af2.py:678:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.04247552,
+   "by": {
+    "r:BFLOAT16": 0.021241856,
+    "w:BFLOAT16": 0.021233664
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "autograd.py:2933:<lambda> <- autograd.py:1074:_via2d",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 3,
+   "gb": 0.038404096,
+   "by": {
+    "r:BFLOAT16": 0.02424832,
+    "w:BFLOAT16": 0.014155776
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:3344:batched_matmul",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 4,
+   "gb": 0.034799616,
+   "by": {
+    "r:BFLOAT16": 0.022413312,
+    "w:BFLOAT16": 0.012386304
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:3344:batched_matmul",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 4,
+   "gb": 0.034799616,
+   "by": {
+    "r:BFLOAT16": 0.022413312,
+    "w:BFLOAT16": 0.012386304
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "subtract",
+   "site": "autograd.py:735:_backward <- autograd.py:706:backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 3,
+   "gb": 0.034209792,
+   "by": {
+    "r:BFLOAT16": 0.020054016,
+    "w:BFLOAT16": 0.014155776
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "unsqueeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7166:_split_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.030081024,
+   "by": {
+    "r:BFLOAT16": 0.015040512,
+    "w:BFLOAT16": 0.015040512
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "experimental.nlp_create_qkv_heads",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7167:_split_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.030081024,
+   "by": {
+    "r:BFLOAT16": 0.015040512,
+    "w:BFLOAT16": 0.015040512
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "unsqueeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7166:_split_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.030081024,
+   "by": {
+    "r:BFLOAT16": 0.015040512,
+    "w:BFLOAT16": 0.015040512
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "experimental.nlp_create_qkv_heads",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7167:_split_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.030081024,
+   "by": {
+    "r:BFLOAT16": 0.015040512,
+    "w:BFLOAT16": 0.015040512
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "unsqueeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9194:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.021233664,
+   "by": {
+    "r:BFLOAT16": 0.010616832,
+    "w:BFLOAT16": 0.010616832
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "unsqueeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9194:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.021233664,
+   "by": {
+    "r:BFLOAT16": 0.010616832,
+    "w:BFLOAT16": 0.010616832
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sum",
+   "site": "autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.018874368,
+   "by": {
+    "r:BFLOAT16": 0.009437184,
+    "w:BFLOAT16": 0.009437184
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.015925248,
+   "by": {
+    "r:FLOAT32": 0.010616832,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:327:bw <- autograd.py:735:_backward",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.015925248,
+   "by": {
+    "r:FLOAT32": 0.010616832,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "typecast",
+   "site": "autograd.py:735:_backward <- autograd.py:706:backward",
+   "in": "FLOAT32",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.015925248,
+   "by": {
+    "r:FLOAT32": 0.010616832,
+    "w:BFLOAT16": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.014155776,
+   "by": {
+    "r:BFLOAT16": 0.009437184,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "divide",
+   "site": "autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.014155776,
+   "by": {
+    "r:BFLOAT16": 0.009437184,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "subtract",
+   "site": "taped_ttnn.py:327:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.014155776,
+   "by": {
+    "r:BFLOAT16": 0.009437184,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:327:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.014155776,
+   "by": {
+    "r:BFLOAT16": 0.009437184,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:656:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 3,
+   "gb": 0.012091392,
+   "by": {
+    "r:BFLOAT16": 0.006045696,
+    "w:BFLOAT16": 0.006045696
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sum",
+   "site": "autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 2,
+   "gb": 0.01179648,
+   "by": {
+    "r:FLOAT32": 0.010616832,
+    "w:FLOAT32": 0.001179648
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "subtract",
+   "site": "taped_ttnn.py:327:bw <- autograd.py:735:_backward",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.011206656,
+   "by": {
+    "r:FLOAT32": 0.00589824,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "unsqueeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8846:_pair_bias_from_z",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.010616832,
+   "by": {
+    "r:BFLOAT16": 0.005308416,
+    "w:BFLOAT16": 0.005308416
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4449:_fp32_softmax_bias",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.010616832,
+   "by": {
+    "r:FLOAT32": 0.005308416,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "softmax",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4543:_fp32_softmax_tail",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.010616832,
+   "by": {
+    "r:FLOAT32": 0.005308416,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "unsqueeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:8846:_pair_bias_from_z",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.010616832,
+   "by": {
+    "r:BFLOAT16": 0.005308416,
+    "w:BFLOAT16": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4449:_fp32_softmax_bias",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.010616832,
+   "by": {
+    "r:FLOAT32": 0.005308416,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "softmax",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4543:_fp32_softmax_tail",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.010616832,
+   "by": {
+    "r:FLOAT32": 0.005308416,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:694:bw <- autograd.py:735:_backward",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.010616832,
+   "by": {
+    "r:FLOAT32": 0.005308416,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:656:bw <- autograd.py:735:_backward",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.010616832,
+   "by": {
+    "r:FLOAT32": 0.005308416,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- af2.py:601:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.010092544,
+   "by": {
+    "r:BFLOAT16": 0.00507904,
+    "w:BFLOAT16": 0.005013504
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- af2.py:601:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.010092544,
+   "by": {
+    "r:BFLOAT16": 0.00507904,
+    "w:BFLOAT16": 0.005013504
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "experimental.nlp_concat_heads",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7177:_merge_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.010027008,
+   "by": {
+    "r:BFLOAT16": 0.005013504,
+    "w:BFLOAT16": 0.005013504
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "squeeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7176:_merge_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.010027008,
+   "by": {
+    "r:BFLOAT16": 0.005013504,
+    "w:BFLOAT16": 0.005013504
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- af2.py:576:_attend",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.010027008,
+   "by": {
+    "r:BFLOAT16": 0.005308416,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "experimental.nlp_concat_heads",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7177:_merge_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.010027008,
+   "by": {
+    "r:BFLOAT16": 0.005013504,
+    "w:BFLOAT16": 0.005013504
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "squeeze",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:7176:_merge_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.010027008,
+   "by": {
+    "r:BFLOAT16": 0.005013504,
+    "w:BFLOAT16": 0.005013504
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- af2.py:576:_attend",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.010027008,
+   "by": {
+    "r:BFLOAT16": 0.005308416,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "softmax",
+   "site": "taped_ttnn.py:1489:call <- af2.py:577:_attend",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.009437184,
+   "by": {
+    "r:BFLOAT16": 0.004718592,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "softmax",
+   "site": "taped_ttnn.py:1489:call <- af2.py:577:_attend",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.009437184,
+   "by": {
+    "r:BFLOAT16": 0.004718592,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "typecast",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4513:_fp32_softmax_tail",
+   "in": "BFLOAT16",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.007962624,
+   "by": {
+    "r:BFLOAT16": 0.002654208,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "typecast",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4448:_fp32_softmax_bias",
+   "in": "BFLOAT16",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.007962624,
+   "by": {
+    "r:BFLOAT16": 0.002654208,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "typecast",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4565:_fp32_softmax_tail",
+   "in": "FLOAT32",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.007962624,
+   "by": {
+    "r:FLOAT32": 0.005308416,
+    "w:BFLOAT16": 0.002654208
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "typecast",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4513:_fp32_softmax_tail",
+   "in": "BFLOAT16",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.007962624,
+   "by": {
+    "r:BFLOAT16": 0.002654208,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "typecast",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4448:_fp32_softmax_bias",
+   "in": "BFLOAT16",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.007962624,
+   "by": {
+    "r:BFLOAT16": 0.002654208,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "typecast",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:4565:_fp32_softmax_tail",
+   "in": "FLOAT32",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.007962624,
+   "by": {
+    "r:FLOAT32": 0.005308416,
+    "w:BFLOAT16": 0.002654208
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "typecast",
+   "site": "autograd.py:735:_backward <- autograd.py:706:backward",
+   "in": "BFLOAT16",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.007962624,
+   "by": {
+    "r:BFLOAT16": 0.002654208,
+    "w:FLOAT32": 0.005308416
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sum",
+   "site": "autograd.py:1439:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.005308416,
+   "by": {
+    "r:BFLOAT16": 0.004718592,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sum",
+   "site": "autograd.py:1441:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.005308416,
+   "by": {
+    "r:BFLOAT16": 0.004718592,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sum",
+   "site": "autograd.py:1451:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.005308416,
+   "by": {
+    "r:BFLOAT16": 0.004718592,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sum",
+   "site": "autograd.py:1452:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.005308416,
+   "by": {
+    "r:BFLOAT16": 0.004718592,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:1489:call <- af2.py:667:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.005279744,
+   "by": {
+    "r:BFLOAT16": 0.000561152,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "taped_ttnn.py:1489:call <- af2.py:667:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.005279744,
+   "by": {
+    "r:BFLOAT16": 0.000561152,
+    "w:BFLOAT16": 0.004718592
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- af2.py:615:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.004018176,
+   "by": {
+    "r:BFLOAT16": 0.001363968,
+    "w:BFLOAT16": 0.002654208
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- af2.py:615:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.004018176,
+   "by": {
+    "r:BFLOAT16": 0.001363968,
+    "w:BFLOAT16": 0.002654208
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "sum",
+   "site": "taped_ttnn.py:695:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.003981312,
+   "by": {
+    "r:BFLOAT16": 0.002654208,
+    "w:BFLOAT16": 0.001327104
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9525:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.002691072,
+   "by": {
+    "r:BFLOAT16": 0.001363968,
+    "w:BFLOAT16": 0.001327104
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "add",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9525:_attend_pair",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.002691072,
+   "by": {
+    "r:BFLOAT16": 0.001363968,
+    "w:BFLOAT16": 0.001327104
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9235:_attend_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.002654208,
+   "by": {
+    "r:BFLOAT16": 0.001327104,
+    "w:BFLOAT16": 0.001327104
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:1159:_k_tri_att_sdpa_hifi <- taped_ttnn.py:146:counted",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.002654208,
+   "by": {
+    "r:BFLOAT16": 0.001327104,
+    "w:BFLOAT16": 0.001327104
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:1489:call <- tenstorrent.py:9235:_attend_heads",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.002654208,
+   "by": {
+    "r:BFLOAT16": 0.001327104,
+    "w:BFLOAT16": 0.001327104
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "taped_ttnn.py:1159:_k_tri_att_sdpa_hifi <- taped_ttnn.py:146:counted",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.002654208,
+   "by": {
+    "r:BFLOAT16": 0.001327104,
+    "w:BFLOAT16": 0.001327104
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "divide",
+   "site": "autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw",
+   "in": "FLOAT32",
+   "out": "FLOAT32",
+   "calls": 1,
+   "gb": 0.001769472,
+   "by": {
+    "r:FLOAT32": 0.001179648,
+    "w:FLOAT32": 0.000589824
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "fill_implicit_tile_padding",
+   "site": "af2.py:846:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.001179648,
+   "by": {
+    "r:BFLOAT16": 0.000589824,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "fill_implicit_tile_padding",
+   "site": "af2.py:846:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.001179648,
+   "by": {
+    "r:BFLOAT16": 0.000589824,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "divide",
+   "site": "autograd.py:1439:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.001179648,
+   "by": {
+    "r:BFLOAT16": 0.000589824,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "divide",
+   "site": "autograd.py:1441:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.001179648,
+   "by": {
+    "r:BFLOAT16": 0.000589824,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "add",
+   "site": "autograd.py:735:_backward <- autograd.py:706:backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.001179648,
+   "by": {
+    "r:BFLOAT16": 0.000589824,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "rsqrt",
+   "site": "autograd.py:735:_backward <- autograd.py:706:backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.001179648,
+   "by": {
+    "r:BFLOAT16": 0.000589824,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "divide",
+   "site": "autograd.py:1451:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.001179648,
+   "by": {
+    "r:BFLOAT16": 0.000589824,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "divide",
+   "site": "autograd.py:1452:bw <- autograd.py:735:_backward",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.001179648,
+   "by": {
+    "r:BFLOAT16": 0.000589824,
+    "w:BFLOAT16": 0.000589824
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:8098:mask_moved <- tenstorrent.py:8272:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.000663552,
+   "by": {
+    "r:BFLOAT16": 0.000331776,
+    "w:BFLOAT16": 0.000331776
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "unsqueeze",
+   "site": "tenstorrent.py:8098:mask_moved <- tenstorrent.py:8272:_multiply",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.000663552,
+   "by": {
+    "r:BFLOAT16": 0.000331776,
+    "w:BFLOAT16": 0.000331776
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- af2.py:689:masked",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000622592,
+   "by": {
+    "r:BFLOAT16": 0.00032768,
+    "w:BFLOAT16": 0.000294912
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "layer_norm",
+   "site": "taped_ttnn.py:1489:call <- af2.py:689:masked",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000622592,
+   "by": {
+    "r:BFLOAT16": 0.00032768,
+    "w:BFLOAT16": 0.000294912
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "linear",
+   "site": "taped_ttnn.py:1489:call <- af2.py:692:masked",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000350208,
+   "by": {
+    "r:BFLOAT16": 0.000313344,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "linear",
+   "site": "taped_ttnn.py:1489:call <- af2.py:695:masked",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000350208,
+   "by": {
+    "r:BFLOAT16": 0.000313344,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "linear",
+   "site": "taped_ttnn.py:1489:call <- af2.py:692:masked",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000350208,
+   "by": {
+    "r:BFLOAT16": 0.000313344,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "linear",
+   "site": "taped_ttnn.py:1489:call <- af2.py:695:masked",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000350208,
+   "by": {
+    "r:BFLOAT16": 0.000313344,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "add_",
+   "site": "af2.py:714:masked <- af2.py:866:<lambda>",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000331776,
+   "by": {
+    "r:BFLOAT16": 0.000165888,
+    "w:BFLOAT16": 0.000165888
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "add_",
+   "site": "af2.py:714:masked <- af2.py:866:<lambda>",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000331776,
+   "by": {
+    "r:BFLOAT16": 0.000165888,
+    "w:BFLOAT16": 0.000165888
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "matmul",
+   "site": "af2.py:712:masked <- af2.py:866:<lambda>",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000202752,
+   "by": {
+    "r:BFLOAT16": 3.6864e-05,
+    "w:BFLOAT16": 0.000165888
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "matmul",
+   "site": "af2.py:712:masked <- af2.py:866:<lambda>",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 0.000202752,
+   "by": {
+    "r:BFLOAT16": 3.6864e-05,
+    "w:BFLOAT16": 0.000165888
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "slice",
+   "site": "autograd.py:421:__getitem__ <- af2.py:666:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.000110592,
+   "by": {
+    "r:BFLOAT16": 7.3728e-05,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "slice",
+   "site": "autograd.py:421:__getitem__ <- af2.py:673:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.000110592,
+   "by": {
+    "r:BFLOAT16": 7.3728e-05,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "slice",
+   "site": "autograd.py:421:__getitem__ <- af2.py:666:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.000110592,
+   "by": {
+    "r:BFLOAT16": 7.3728e-05,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "slice",
+   "site": "autograd.py:421:__getitem__ <- af2.py:673:_sum_rows",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 2,
+   "gb": 0.000110592,
+   "by": {
+    "r:BFLOAT16": 7.3728e-05,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "fill_implicit_tile_padding",
+   "site": "af2.py:844:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 7.3728e-05,
+   "by": {
+    "r:BFLOAT16": 3.6864e-05,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "fill_implicit_tile_padding",
+   "site": "af2.py:844:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 7.3728e-05,
+   "by": {
+    "r:BFLOAT16": 3.6864e-05,
+    "w:BFLOAT16": 3.6864e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "subtract",
+   "site": "af2.py:843:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 3.6864e-05,
+   "by": {
+    "r:BFLOAT16": 1.8432e-05,
+    "w:BFLOAT16": 1.8432e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "multiply",
+   "site": "af2.py:843:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 3.6864e-05,
+   "by": {
+    "r:BFLOAT16": 1.8432e-05,
+    "w:BFLOAT16": 1.8432e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "permute",
+   "site": "af2.py:845:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 3.6864e-05,
+   "by": {
+    "r:BFLOAT16": 1.8432e-05,
+    "w:BFLOAT16": 1.8432e-05
+   }
+  },
+  {
+   "phase": "fwd",
+   "op": "permute",
+   "site": "af2.py:711:masked <- af2.py:866:<lambda>",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 3.6864e-05,
+   "by": {
+    "r:BFLOAT16": 1.8432e-05,
+    "w:BFLOAT16": 1.8432e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "subtract",
+   "site": "af2.py:843:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 3.6864e-05,
+   "by": {
+    "r:BFLOAT16": 1.8432e-05,
+    "w:BFLOAT16": 1.8432e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "multiply",
+   "site": "af2.py:843:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 3.6864e-05,
+   "by": {
+    "r:BFLOAT16": 1.8432e-05,
+    "w:BFLOAT16": 1.8432e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "permute",
+   "site": "af2.py:845:_mask_biases <- af2.py:872:__call__",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 3.6864e-05,
+   "by": {
+    "r:BFLOAT16": 1.8432e-05,
+    "w:BFLOAT16": 1.8432e-05
+   }
+  },
+  {
+   "phase": "bwd",
+   "op": "permute",
+   "site": "af2.py:711:masked <- af2.py:866:<lambda>",
+   "in": "BFLOAT16",
+   "out": "BFLOAT16",
+   "calls": 1,
+   "gb": 3.6864e-05,
+   "by": {
+    "r:BFLOAT16": 1.8432e-05,
+    "w:BFLOAT16": 1.8432e-05
+   }
+  }
+ ]
+}
