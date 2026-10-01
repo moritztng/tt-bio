@@ -19,10 +19,15 @@ import torch
 from tt_bio import bindcraft2 as B, duotraj, evo_trace
 
 
+#: Every TracedEvo built in this process, so a harness can read the wires' stats at exit.
+LIVE: list = []
+
+
 class TracedEvo(B.EvoformerOnDevice):
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
         self._wires: dict = {}
+        LIVE.append(self)
 
     def wire(self, slot: str, trunk=None):
         w = self._wires.get(slot)

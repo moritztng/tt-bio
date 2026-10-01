@@ -25,6 +25,6 @@ json.dump({"n": n, "why": why, "levers": sys.argv[2:]}, open(sys.argv[1], "w"), 
 print(n)' "$out/auto.json" "${levers[@]}")
 inter=$([ "$n" -gt 1 ] && echo 1 || echo 0)
 echo "arm $tag: trajectories=$n interleave=$inter ${levers[*]}"
-exec $py -u perf/bcx_p10_duotraj/duo_round.py \
+exec $py -u ${BCP_DUO:-perf/bcx_p10_duotraj/duo_round.py} \
     --rounds "$rounds" --interleave "$inter" --trajectories "$n" --binder 146 \
     --params /home/ttuser/bcx_e2e/af2_params --out "$out" "$@"

@@ -230,7 +230,9 @@ class TraceWire:
                 return
             for o in (out if isinstance(out, (list, tuple)) else (out,)):
                 try:
-                    if (not isinstance(o, ttnn.Tensor) or not o.is_allocated()
+                    if (not isinstance(o, ttnn.Tensor)
+                            or o.storage_type() != ttnn.StorageType.DEVICE
+                            or not o.is_allocated()
                             or o.memory_config().buffer_type != ttnn.BufferType.DRAM):
                         continue
                     a = o.buffer_address()
