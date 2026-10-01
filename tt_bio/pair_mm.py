@@ -87,10 +87,18 @@ def _decline(x, w, transpose_b, why):
     DECLINED[key] = DECLINED.get(key, 0) + 1
 
 
+#: Activations minimal_matmul applies at pack, on the fp32 DST. ReLU only: it is a sign test, so
+#: relu(round(v)) == round(relu(v)) and fusing it moves no bit against a separate relu.
+_ACTIVATIONS = {"relu": ttnn.UnaryOpType.RELU}
+
+
 def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b: bool = False,
-           memory_config=None):
-    """``x @ op(w) (+ bias)`` on minimal_matmul, DRAM out, or None to leave the call alone."""
+           memory_config=None, activation=None):
+    """``act(x @ op(w) (+ bias))`` on minimal_matmul, DRAM out, or None to leave the call alone."""
     if not PAIR_MM_FUSED:
+        return None
+    if activation is not None and activation not in _ACTIVATIONS:
+        _decline(x, w, transpose_b, "activation")
         return None
     if memory_config is not None and memory_config.buffer_type != ttnn.BufferType.DRAM:
         _decline(x, w, transpose_b, "l1_out")
@@ -103,6 +111,8 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
         out = ttnn.experimental.minimal_matmul(
             input_tensor=x, weight_tensor=_transposed(w) if transpose_b else w,
             bias_tensor=bias, compute_kernel_config=compute_kernel_config,
+            fused_activation=(ttnn.UnaryWithParam(_ACTIVATIONS[activation])
+                              if activation else None),
             dtype=dtype, config=cfg)
     except Exception:
         _decline(x, w, transpose_b, "refused")

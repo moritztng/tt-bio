@@ -86,3 +86,17 @@ def test_armed_by_fast_round():
         assert armed["PAIR_MM_FUSED"] is True and pair_mm.PAIR_MM_FUSED is True
     assert pair_mm.PAIR_MM_FUSED is False
     assert ops._pair_mm is pair_mm
+
+
+def test_relu_rides_the_pack_and_other_activations_decline(monkeypatch):
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
+    seen = {}
+    monkeypatch.setattr(ttnn.experimental, "minimal_matmul",
+                        lambda **kw: seen.update(kw) or "out")
+    x, w = _t((1, 288, 288, 128)), _t((128, 512))
+    assert pair_mm.matmul(x, w, activation="relu") == "out"
+    assert seen["fused_activation"].op_type == ttnn.UnaryOpType.RELU
+    assert pair_mm.matmul(x, w) == "out" and seen["fused_activation"] is None
+    before = pair_mm.STATS[1]
+    assert pair_mm.matmul(x, w, activation="gelu") is None
+    assert pair_mm.STATS[1] == before + 1
