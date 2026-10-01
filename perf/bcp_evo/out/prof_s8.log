@@ -1,0 +1,1944 @@
+prof start 2026-10-01T10:30:51Z
+2026-10-01 10:30:51.846 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /dev/shm/bcp-evo-prof
+2026-10-01 10:30:51.846 | INFO     | __main__:main:309 - Using port 8086
+2026-10-01 10:30:51.846 | INFO     | tracy:run_report_setup:88 - Verifying tracy profiling tools
+2026-10-01 10:30:51.854 | INFO     | __main__:main:374 - Test process started
+2026-10-01 10:30:52.462 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /dev/shm/bcp-evo-prof
+2026-10-01 10:30:52.716 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "tt_bio_file": "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/__init__.py",
+ "interleave": false,
+ "trajectories": 1,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "widen_add": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true
+ },
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "c12bde11970c86e18a57ada23ada20b0ac63c4e1",
+ "seed": 100,
+ "binder": 146,
+ "rounds_requested": 4,
+ "length_bucket_size": 32,
+ "started_utc": "2026-10-01T10:30:54Z",
+ "loadavg_start": [
+  6.50830078125,
+  5.78759765625,
+  4.97705078125
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/prof_s8"
+}
+/home/ttuser/.coworker/wt/bcp-evo/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/prof_s8 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_b60b37ab688fd0f2 | accepted 0/10 ===
+2026-10-01 10:31:02.207 | INFO     | tracy:signpost:44 - bcp_round
+2026-10-01 10:31:18.408 | INFO     | tracy:signpost:44 - seam_begin:template:taped
+2026-10-01 10:31:22.595 | INFO     | tracy:signpost:44 - seam_end:template:taped
+2026-10-01 10:31:22.974 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:taped
+2026-10-01 10:31:23.918 | INFO     | tracy:signpost:44 - seam_end:extra_msa:taped
+2026-10-01 10:31:24.309 | INFO     | tracy:signpost:44 - seam_begin:evoformer:taped
+2026-10-01 10:31:25.783 | INFO     | tracy:signpost:44 - seam_end:evoformer:taped
+2026-10-01 10:31:28.893 | INFO     | tracy:signpost:44 - seam_begin:template:taped
+2026-10-01 10:31:28.922 | INFO     | tracy:signpost:44 - seam_end:template:taped
+2026-10-01 10:31:29.347 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:taped
+2026-10-01 10:31:29.437 | INFO     | tracy:signpost:44 - seam_end:extra_msa:taped
+2026-10-01 10:31:29.828 | INFO     | tracy:signpost:44 - seam_begin:evoformer:taped
+2026-10-01 10:31:30.534 | INFO     | tracy:signpost:44 - seam_end:evoformer:taped
+2026-10-01 10:31:34.650 | INFO     | tracy:signpost:44 - seam_begin:evoformer:backward
+2026-10-01 10:31:41.987 | INFO     | tracy:signpost:44 - seam_end:evoformer:backward
+2026-10-01 10:31:49.769 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:backward
+2026-10-01 10:31:49.966 | INFO     | tracy:signpost:44 - seam_end:extra_msa:backward
+2026-10-01 10:31:50.740 | INFO     | tracy:signpost:44 - seam_begin:template:backward
+2026-10-01 10:31:52.993 | INFO     | tracy:signpost:44 - seam_end:template:backward
+2026-10-01 10:31:54.574 | INFO     | tracy:signpost:44 - bcp_round
+2026-10-01 10:31:54.696 | INFO     | tracy:signpost:44 - seam_begin:template:taped
+2026-10-01 10:31:55.421 | INFO     | tracy:signpost:44 - seam_end:template:taped
+2026-10-01 10:31:55.787 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:taped
+2026-10-01 10:31:55.864 | INFO     | tracy:signpost:44 - seam_end:extra_msa:taped
+2026-10-01 10:31:56.236 | INFO     | tracy:signpost:44 - seam_begin:evoformer:taped
+2026-10-01 10:31:57.108 | INFO     | tracy:signpost:44 - seam_end:evoformer:taped
+2026-10-01 10:32:00.628 | INFO     | tracy:signpost:44 - seam_begin:template:taped
+2026-10-01 10:32:00.658 | INFO     | tracy:signpost:44 - seam_end:template:taped
+2026-10-01 10:32:01.121 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:taped
+2026-10-01 10:32:01.208 | INFO     | tracy:signpost:44 - seam_end:extra_msa:taped
+2026-10-01 10:32:01.776 | INFO     | tracy:signpost:44 - seam_begin:evoformer:taped
+2026-10-01 10:32:02.975 | INFO     | tracy:signpost:44 - seam_end:evoformer:taped
+2026-10-01 10:32:06.799 | INFO     | tracy:signpost:44 - seam_begin:evoformer:backward
+2026-10-01 10:32:08.754 | INFO     | tracy:signpost:44 - seam_end:evoformer:backward
+2026-10-01 10:32:17.128 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:backward
+2026-10-01 10:32:17.291 | INFO     | tracy:signpost:44 - seam_end:extra_msa:backward
+2026-10-01 10:32:17.825 | INFO     | tracy:signpost:44 - seam_begin:template:backward
+2026-10-01 10:32:17.908 | INFO     | tracy:signpost:44 - seam_end:template:backward
+2026-10-01 10:32:18.410 | INFO     | tracy:signpost:44 - bcp_round
+2026-10-01 10:32:18.546 | INFO     | tracy:signpost:44 - seam_begin:template:taped
+2026-10-01 10:32:18.583 | INFO     | tracy:signpost:44 - seam_end:template:taped
+2026-10-01 10:32:18.940 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:taped
+2026-10-01 10:32:19.018 | INFO     | tracy:signpost:44 - seam_end:extra_msa:taped
+2026-10-01 10:32:19.425 | INFO     | tracy:signpost:44 - seam_begin:evoformer:taped
+2026-10-01 10:32:20.130 | INFO     | tracy:signpost:44 - seam_end:evoformer:taped
+2026-10-01 10:32:23.837 | INFO     | tracy:signpost:44 - seam_begin:template:taped
+2026-10-01 10:32:23.866 | INFO     | tracy:signpost:44 - seam_end:template:taped
+2026-10-01 10:32:24.392 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:taped
+2026-10-01 10:32:24.473 | INFO     | tracy:signpost:44 - seam_end:extra_msa:taped
+2026-10-01 10:32:24.882 | INFO     | tracy:signpost:44 - seam_begin:evoformer:taped
+2026-10-01 10:32:25.753 | INFO     | tracy:signpost:44 - seam_end:evoformer:taped
+2026-10-01 10:32:30.598 | INFO     | tracy:signpost:44 - seam_begin:evoformer:backward
+2026-10-01 10:32:32.689 | INFO     | tracy:signpost:44 - seam_end:evoformer:backward
+2026-10-01 10:32:41.530 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:backward
+2026-10-01 10:32:41.695 | INFO     | tracy:signpost:44 - seam_end:extra_msa:backward
+2026-10-01 10:32:42.260 | INFO     | tracy:signpost:44 - seam_begin:template:backward
+2026-10-01 10:32:42.339 | INFO     | tracy:signpost:44 - seam_end:template:backward
+2026-10-01 10:32:42.850 | INFO     | tracy:signpost:44 - bcp_round
+2026-10-01 10:32:43.005 | INFO     | tracy:signpost:44 - seam_begin:template:taped
+2026-10-01 10:32:43.734 | INFO     | tracy:signpost:44 - seam_end:template:taped
+2026-10-01 10:32:44.128 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:taped
+2026-10-01 10:32:44.202 | INFO     | tracy:signpost:44 - seam_end:extra_msa:taped
+2026-10-01 10:32:44.591 | INFO     | tracy:signpost:44 - seam_begin:evoformer:taped
+2026-10-01 10:32:45.294 | INFO     | tracy:signpost:44 - seam_end:evoformer:taped
+2026-10-01 10:32:49.126 | INFO     | tracy:signpost:44 - seam_begin:template:taped
+2026-10-01 10:32:49.158 | INFO     | tracy:signpost:44 - seam_end:template:taped
+2026-10-01 10:32:49.646 | INFO     | tracy:signpost:44 - seam_begin:extra_msa:taped
+2026-10-01 10:32:49.749 | INFO     | tracy:signpost:44 - seam_end:extra_msa:taped
+2026-10-01 10:32:50.447 | INFO     | tracy:signpost:44 - seam_begin:evoformer:taped
+2026-10-01 10:32:51.603 | INFO     | tracy:signpost:44 - seam_end:evoformer:taped
+2026-10-01 10:32:55.530 | INFO     | tracy:signpost:44 - seam_begin:evoformer:backward
+2026-10-01 10:32:57.474 | INFO     | tracy:signpost:44 - seam_end:evoformer:backward
+2026-10-01 10:33:06.424 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 318981
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.424 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 319763
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.425 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 198495
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.425 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 184946
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.425 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 237634
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.425 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 221747
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.426 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 272630
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.426 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 256034
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.426 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 299465
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.426 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 282197
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.427 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 311304
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.427 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 309963
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.427 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 200198
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.427 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 175588
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.428 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 225419
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.428 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 213984
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.428 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 305769
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.428 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 260094
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.429 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 243378
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.429 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 287109
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.429 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 268981
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.429 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 298456
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.429 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 274300
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.430 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 299080
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.430 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 288554
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.430 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 221675
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.430 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 237682
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.430 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 182851
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.430 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 319186
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.430 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 168425
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.431 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 320170
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.431 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 274479
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.431 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 214967
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.432 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 201490
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.432 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 198027
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.432 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 184503
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.433 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 240272
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.433 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 228762
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.433 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 234780
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.434 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 218410
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.434 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 258587
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.435 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 252742
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.435 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 269091
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.435 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 305157
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.436 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 278832
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.436 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 295127
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.436 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 303193
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.436 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 306095
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.437 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 305108
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.437 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 315084
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.437 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 173394
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.438 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 205094
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.438 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 191849
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.438 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 204696
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.438 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 221376
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.439 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 286389
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.439 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 240179
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.439 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 256422
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.440 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 314319
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.440 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 263871
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.440 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 282817
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.440 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 179532
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.441 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 294776
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.441 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 296112
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.441 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 258952
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.441 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 215043
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.441 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (3, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 288269
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.442 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 243934
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.442 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64087040, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 11)
+RISC: BRISC
+Marker ID: 25661
+Marker Name: BRISC-FW
+Marker Type: ZONE_END
+Marker Name Keywords: [-FW, BRISC-FW]
+Timestamp: 434127
+Data: 0
+Op Name: GenericOpDeviceOperation
+Line: 430
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisc.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.442 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 271793
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.442 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 204105
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.443 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 302377
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.443 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 169317
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.443 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 317178
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.444 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 318010
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.444 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 201198
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.444 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 183003
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.445 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 213419
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.445 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 228893
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.445 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (4, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 195844
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.446 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 248324
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.446 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 259740
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.446 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (5, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 231001
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.446 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 231128
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.447 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 290083
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.447 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (6, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 265360
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.447 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 254536
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.447 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 301602
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.448 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 289869
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.448 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 185653
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.448 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 179582
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.448 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 217264
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.449 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 304506
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.449 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (7, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 273483
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.449 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 212367
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.450 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 305018
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.450 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 186839
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.450 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (10, 11)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 169416
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.451 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 9)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 203413
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.451 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 245617
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.451 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (11, 8)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 220017
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.452 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 272174
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.452 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 6)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 249616
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.452 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 277336
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.453 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (12, 7)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 236254
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.453 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 2)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 291862
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.453 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (13, 5)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 259455
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.453 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 10)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 186177
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.454 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 3)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 289894
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+ (assert.hpp:104)
+2026-10-01 10:33:06.454 | critical |          Always | TT_FATAL: End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64087040, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (14, 11)
+RISC: BRISC
+Marker ID: 25661
+Marker Name: BRISC-FW
+Marker Type: ZONE_END
+Marker Name Keywords: [-FW, BRISC-FW]
+Timestamp: 435905
+Data: 0
+Op Name: GenericOpDeviceOperation
+Line: 430
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisc.cc
+Meta Data: null
+ (assert.hpp:104)
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  TT_FATAL @ /home/ttuser/tt-metal-b2z/tt_metal/impl/profiler/profiler.cpp:1990: !start_marker_stack.empty()
+info:
+End marker found without a corresponding start marker.
+End marker: Program Execution UID: (64086016, 9223372036854775808, 9223372036854775808)
+Chip ID: 0
+Physical Core: (2, 4)
+RISC: BRISC
+Marker ID: 62666
+Marker Name: BRISC-KERNEL
+Marker Type: ZONE_END
+Marker Name Keywords: [-KERNEL, BRISC-KERNEL]
+Timestamp: 305769
+Data: 0
+Op Name: MatmulDeviceOperation
+Line: 77
+File: /home/ttuser/tt-metal-b2z/tt_metal/hw/firmware/src/tt-1xx/brisck.cc
+Meta Data: null
+
+backtrace:
+ --- void tt::assert::detail::tt_throw<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, char*>(char const*, int, char const*, char const*, fmt::v11::fstring<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, char* const&>::t, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, char* const&)
+ --- tt::tt_metal::DeviceProfiler::processDeviceMarkerData(std::set<tracy::TTDeviceMarker, std::less<tracy::TTDeviceMarker>, std::allocator<tracy::TTDeviceMarker> >&)
+ --- /home/ttuser/tt-metal-b2z/build_Release/lib/libtt_metal.so(+0x634d6c) [0x7ba580634d6c]
+ --- /home/ttuser/tt-metal-b2z/build_Release/lib/libtt_metal.so(+0x7cd463) [0x7ba5807cd463]
+ --- /lib/x86_64-linux-gnu/libstdc++.so.6(+0xf5c79) [0x7ba5e6ef5c79]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x9cb84) [0x7ba5eaa9cb84]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x129ecc) [0x7ba5eab29ecc]
+
+Aborted (core dumped)
+2026-10-01 10:34:10.497 | INFO     | tracy:generate_report:154 - Host side ops time report generated at /dev/shm/bcp-evo-prof/.logs/tracy_ops_times.csv
+2026-10-01 10:34:12.859 | INFO     | tracy:generate_report:165 - Host side ops data report generated at /dev/shm/bcp-evo-prof/.logs/tracy_ops_data.csv
+2026-10-01 10:34:12.859 | INFO     | tracy.process_ops_logs:import_tracy_op_logs:299 - Importing ops logs
+2026-10-01 10:35:21.098 | INFO     | tracy.perf_counter_analysis:get_device_op_data:327 - Getting device ops
+2026-10-01 10:35:21.290 | INFO     | tracy.process_ops_logs:append_device_data:1066 - Appending device data
+2026-10-01 10:35:21.290 | WARNING  | tracy.process_ops_logs:append_device_data:1084 - Device perf report cpp_device_perf_report.csv not found in /dev/shm/bcp-evo-prof/.logs. Falling back to legacy device-log parsing via import_log_run_stats(); this will take longer.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/__main__.py", line 415, in <module>
+    main()
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/__main__.py", line 392, in main
+    generate_report(
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/__init__.py", line 167, in generate_report
+    process_ops(
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/process_ops_logs.py", line 2153, in process_ops
+    deviceOps, traceOps = append_device_data(
+                          ^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/process_ops_logs.py", line 1089, in append_device_data
+    host_ops_by_device = _enrich_ops_from_device_logs(
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/process_ops_logs.py", line 600, in _enrich_ops_from_device_logs
+    raise AssertionError(
+AssertionError: cpp_device_perf_report.csv not found and legacy device log profile_log_device.csv is also missing in /dev/shm/bcp-evo-prof/.logs.
+PROF EXIT 1 2026-10-01T10:35:24Z
+/dev/shm/bcp-evo-prof:
+total 0
+drwxrwxr-x 3 ttuser ttuser   60 Oct  1 10:30 .
+drwxrwxrwt 3 root   root   6980 Oct  1 10:34 ..
+drwxrwxr-x 2 ttuser ttuser  140 Oct  1 10:34 .logs

@@ -1,0 +1,20 @@
+triatt_bw per-phase device zones, one (row, head) unit per core, [27, 4, 288, 32], qb2 card 1,
+2026-10-01 11:25Z, TT_BIO_TRIATT_BW_ZONES=1, medians over 216 core-units, cycles -> us at 1350 MHz
+(TRISC_1, math; TRISC_0/2 within 2 %). Source: profile_log_device.csv of prof.sh + triatt_bw_bench.py.
+
+phase   us     what
+S       4.1    S = Q K^T (81 tile matmuls)
+SCALE   6.1    S *= scale
+BIAS    3.1    S += bias
+EXP   144.5    row max + exp(S - max), exact fp32 SFPU exp (_sfpu_exp_fp32_accurate_), 81 tiles
+P      12.1    rowsum(exp) by matmul, recip, P = exp / rowsum
+PT      3.2    P^T
+DV      3.7    dV = P^T dO
+DP      4.5    dP = dO V^T
+DPP     6.0    dP * P
+SUB    14.3    rowsum(dP*P), rowsum(P), recip, delta, dP - delta
+DS      5.7    dS = (dP - delta) * P
+DBIAS   4.2    float32 dbias accumulate
+DQ      9.6    dS *= scale, dQ = dS K
+DK      7.3    dS^T, dK = dS^T Q
+sum   228.2    (2.66 ms a call = ~11 units a core x ~236 us)

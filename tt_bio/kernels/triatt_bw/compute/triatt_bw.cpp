@@ -27,6 +27,14 @@
 #include "api/debug/dprint.h"
 #include "../../triatt_sdpa/compute/compute_common.hpp"
 
+// Per-phase device-profiler zones for the first row only, behind BW_ZONES (TT_BIO_TRIATT_BW_ZONES).
+#ifdef BW_ZONES
+#include "tools/profiler/kernel_profiler.hpp"
+#define ZONE(n) DeviceZoneScopedN(n)
+#else
+#define ZONE(n)
+#endif
+
 namespace {
 
 // out_cb[M, N] = in0_cb[M, K] @ in1_cb[K, N], and NEITHER input is popped.
@@ -251,12 +259,23 @@ void kernel_main() {
         dump_row0("do0", cb_do, 0);
         dump_row0("bi0", cb_bias, 0);
 #endif
+        {
+        ZONE("S");
         mm_keep<Nt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_q, cb_k, cb_p);
         DPRINT << "@S" << ENDL();
+        }
+        {
+        ZONE("SCALE");
         mul_block_bcast_scalar_inplace<cb_scale, score_tiles>(cb_p);
         DPRINT << "@SCALE" << ENDL();
+        }
+        {
+        ZONE("BIAS");
         add_block_inplace<false>(cb_p, cb_bias, score_tiles);
         DPRINT << "@BIAS" << ENDL();
+        }
+        {
+        ZONE("EXP");
 
         reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Nt, (int)VectorMode::RC>(
             cb_row_a, cb_row_a, Nt, false);
@@ -273,6 +292,9 @@ void kernel_main() {
                                          (int)VectorMode::RC, false /*approx_exp*/>(
             cb_row_a, cb_row_b, Nt);
         DPRINT << "@EXP" << ENDL();
+        }
+        {
+        ZONE("P");
         cb_pop_front(cb_row_a, Nt);                      // sub_exp keeps in1, so pop it here
         mm_keep<Nt, 1, Nt, col_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(exp)
         recip_block_inplace(cb_row_b, Nt);
@@ -281,19 +303,34 @@ void kernel_main() {
         // contents the reserve can never be satisfied and the kernel hangs on the first row.
         mul_block_bcast_cols<Nt, Nt, true, false>(cb_p, cb_row_b, cb_p);    // P = exp / rowsum
         DPRINT << "@P" << ENDL();
+        }
+        {
+        ZONE("PT");
 
         // ---- dV = P^T dO -------------------------------------------------------------------
         transpose_block<Nt, Nt>(cb_p, cb_t);
         DPRINT << "@PT" << ENDL();
+        }
+        {
+        ZONE("DV");
         mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_t, cb_do, cb_dv);
         DPRINT << "@DV" << ENDL();
+        }
+        {
+        ZONE("DP");
         cb_pop_front(cb_t, score_tiles);
 
         // ---- dP = dO V^T, then dS = P * (dP - rowsum(dP * P) / rowsum(P)) --------------------
         mm_keep<Nt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_do, cb_v, cb_dp);      // cb_dp = dP
         DPRINT << "@DP" << ENDL();
+        }
+        {
+        ZONE("DPP");
         mul_block_to(cb_dp, cb_p, cb_t, score_tiles);    // cb_t = dP * P, both inputs kept
         DPRINT << "@DPP" << ENDL();
+        }
+        {
+        ZONE("SUB");
         mm_keep<Nt, 1, Nt, col_sbh, 1, false>(cb_t, cb_ones, cb_row_a);   // rowsum(dP * P)
         cb_pop_front(cb_t, score_tiles);
         // The row-sum correction is carried, not dropped. P is normalised when it is formed, so
@@ -307,14 +344,23 @@ void kernel_main() {
 
         sub_block_bcast_cols_inplace<Nt, Nt>(cb_dp, cb_row_a);
         DPRINT << "@SUB" << ENDL();
+        }
+        {
+        ZONE("DS");
         cb_pop_front(cb_row_a, Nt);
         mul_block_inplace(cb_dp, cb_p, score_tiles);     // cb_dp = dS
         DPRINT << "@DS" << ENDL();
+        }
+        {
+        ZONE("DBIAS");
         cb_pop_front(cb_p, score_tiles);
 
         // ---- dbias += dS, the only term that reduces across the leading axis ----------------
         accumulate_fp32(cb_dbias, cb_dp, score_tiles);
         DPRINT << "@DBIAS" << ENDL();
+        }
+        {
+        ZONE("DQ");
 
         // ---- dQ = (dS K) * scale, dK = (dS^T Q) * scale --------------------------------------
         //
@@ -336,6 +382,9 @@ void kernel_main() {
 
         mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_dp, cb_k, cb_dq);
         DPRINT << "@DQ" << ENDL();
+        }
+        {
+        ZONE("DK");
         transpose_block<Nt, Nt>(cb_dp, cb_t);
         cb_pop_front(cb_dp, score_tiles);
 #ifdef BW_DUMP
@@ -344,6 +393,7 @@ void kernel_main() {
 #endif
         mm_keep<Nt, Dt, Nt, col_sbh, col_sbw, false>(cb_t, cb_q, cb_dk);
         DPRINT << "@DK" << ENDL();
+        }
 #ifdef BW_DUMP
         dump_row0("dk ", cb_dk, 0);
         dump_row0("dv ", cb_dv, 0);

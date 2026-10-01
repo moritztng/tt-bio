@@ -442,7 +442,8 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
                      ("STATS_GRANULARITY", "1"), ("SUB_EXP_GRANULARITY", "1"),
                      ("MUL_BCAST_GRANULARITY", "1"), ("DHT_GRANULARITY", "1"),
                      ("EXP_APPROX_MODE", "0")]
-                    + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else []),
+                    + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else [])
+                    + ([("BW_ZONES", "1")] if os.environ.get("TT_BIO_TRIATT_BW_ZONES") else []),
             runtime_args=cr,
             config=ttnn.ComputeConfigDescriptor(
                 math_fidelity=ckc[0], math_approx_mode=False,
