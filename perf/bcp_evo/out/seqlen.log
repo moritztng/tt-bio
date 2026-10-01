@@ -1,0 +1,1412 @@
+=== 2026-10-01T13:21:57Z rung hTF/150 -> 864 tokens  ===
+2026-10-01 13:21:59.113 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hTF",
+ "target_residues": 674,
+ "target_chains": 1,
+ "target_fold": "bilobal transferrin, two homologous lobes",
+ "binder": 150,
+ "tokens": 832,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 864,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 8.8 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 864
+ },
+ "auto_would_choose": [
+  1,
+  "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 8.8 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  9.21044921875,
+  9.6748046875,
+  8.591796875
+ ],
+ "mem_start": {
+  "vmhwm": 546906112,
+  "vmrss": 540119040,
+  "mem_available": 177522343936
+ },
+ "started_utc": "2026-10-01T13:21:59Z"
+}
+/home/ttuser/.coworker/wt/bcp-evo/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 2 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 2, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 (unreleased)
+campaign hTF_150
+binder length 150
+target hTF (target) | 674 residues | hotspots 63,95,188,249
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/seqlen/t864_hTF_150 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | hTF_150_denovo_l150_920a140287ca8fd0 | accepted 0/2 ===
+2026-10-01 13:22:12.203 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3822080 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-10-01 13:22:12.206 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3711488 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hTF",
+ "target_residues": 674,
+ "target_chains": 1,
+ "target_fold": "bilobal transferrin, two homologous lobes",
+ "binder": 150,
+ "tokens": 832,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 864,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 8.8 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 864
+ },
+ "auto_would_choose": [
+  1,
+  "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 8.8 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  9.21044921875,
+  9.6748046875,
+  8.591796875
+ ],
+ "mem_start": {
+  "vmhwm": 546906112,
+  "vmrss": 540119040,
+  "mem_available": 177522343936
+ },
+ "started_utc": "2026-10-01T13:21:59Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "tri_att_g_in_matmul": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 30.9 GB the card has for them, so a second one does not fit and it runs one, after the 10.3 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 864
+ },
+ "wall_seconds": 239.29,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(2 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 834,
+ "evoformer_axis": 864,
+ "axis_seen": [
+  864
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 30886750208,
+ "rounds_done": 3,
+ "rounds_per_slot": {
+  "": 3
+ },
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 304584,
+   "declined: has a core grid": 576,
+   "served": 1680,
+   "declined: not batched": 2192
+  },
+  "taped_channel_move": [
+   216,
+   3552,
+   648,
+   0
+  ],
+  "widen_add": {
+   "served: round": 1664,
+   "served: first": 628,
+   "served: later": 3768
+  },
+  "rne_add": [
+   2772,
+   24
+  ],
+  "qkv_grad_join": {
+   "served": 1224
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 216,
+   "packed": 0,
+   "bw_calls": 216
+  },
+  "triatt_fused_hifi": {
+   "served": 648,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "reblock_permute_gated": [
+    1296,
+    0
+   ],
+   "rne_add": [
+    2772,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    648,
+    0
+   ],
+   "pair_transpose": [
+    648,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 216,
+  "served": 0,
+  "declined": 216
+ },
+ "aiclk_run": {
+  "n": 222,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 9.8
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 20411109376,
+  "vmrss": 7362469888,
+  "mem_available": 169698353152
+ },
+ "loadavg_end": [
+  8.935546875,
+  9.63916015625,
+  8.85107421875
+ ],
+ "finished_utc": "2026-10-01T13:25:58Z"
+}
+=== rc=0 2026-10-01T13:26:03Z ===
+=== 2026-10-01T13:26:03Z rung hTF/150 -> 864 tokens --footprint ===
+2026-10-01 13:26:06.403 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hTF",
+ "target_residues": 674,
+ "target_chains": 1,
+ "target_fold": "bilobal transferrin, two homologous lobes",
+ "binder": 150,
+ "tokens": 832,
+ "rounds_requested": 2,
+ "footprint_probe": true,
+ "timing_valid": false,
+ "trajectories_arg": "1",
+ "design_tokens": 864,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 9.5 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 864
+ },
+ "auto_would_choose": [
+  1,
+  "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 9.5 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  9.2470703125,
+  9.68408203125,
+  8.87451171875
+ ],
+ "mem_start": {
+  "vmhwm": 546799616,
+  "vmrss": 541466624,
+  "mem_available": 174700982272
+ },
+ "started_utc": "2026-10-01T13:26:06Z"
+}
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hTF",
+ "target_residues": 674,
+ "target_chains": 1,
+ "target_fold": "bilobal transferrin, two homologous lobes",
+ "binder": 150,
+ "tokens": 832,
+ "rounds_requested": 2,
+ "footprint_probe": true,
+ "timing_valid": false,
+ "trajectories_arg": "1",
+ "design_tokens": 864,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 9.5 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 864
+ },
+ "auto_would_choose": [
+  1,
+  "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 9.5 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  9.2470703125,
+  9.68408203125,
+  8.87451171875
+ ],
+ "mem_start": {
+  "vmhwm": 546799616,
+  "vmrss": 541466624,
+  "mem_available": 174700982272
+ },
+ "started_utc": "2026-10-01T13:26:06Z",
+ "wall_seconds": 120.17,
+ "trajectories_returned": null,
+ "error": "DeviceInUseError('physical card 3 on tt-quietbox2 is in use by worker:bcp-evo (pid 1844596) -- the same holder identity in a DIFFERENT process, so this is a real co-tenant, not a stale lease; waited 120s. Refusing to open it concurrently (would collide at the fd level).')",
+ "traceback": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/bcp-evo/tt_bio/device_lease.py\", line 405, in acquire\n    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\nBlockingIOError: [Errno 11] Resource temporarily unavailable\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/bcp-evo/perf/bgx_size/rung.py\", line 407, in main\n    with bindcraft2.campaign_predictor(trunk=\"device\", validation=args.validation,\n  File \"/usr/lib/python3.12/contextlib.py\", line 137, in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/bcp-evo/tt_bio/bindcraft2.py\", line 1959, in campaign_predictor\n    with predictor(**kwargs) as build:\n  File \"/usr/lib/python3.12/contextlib.py\", line 137, in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/bcp-evo/tt_bio/bindcraft2.py\", line 1903, in predictor\n    get_device()\n  File \"/home/ttuser/.coworker/wt/bcp-evo/tt_bio/tenstorrent.py\", line 6397, in get_device\n    _device_lease = CardSetLease().acquire()\n                    ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/bcp-evo/tt_bio/device_lease.py\", line 511, in acquire\n    timeout=max(0.0, deadline - time.time())).acquire())\n                                              ^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/bcp-evo/tt_bio/device_lease.py\", line 424, in acquire\n    raise DeviceInUseError(\ntt_bio.device_lease.DeviceInUseError: physical card 3 on tt-quietbox2 is in use by worker:bcp-evo (pid 1844596) -- the same holder identity in a DIFFERENT process, so this is a real co-tenant, not a stale lease; waited 120s. Refusing to open it concurrently (would collide at the fd level).\n",
+ "dram_total_bytes": null,
+ "complex_residues": null,
+ "evoformer_axis": null,
+ "axis_seen": null,
+ "axis_matches_arithmetic": null,
+ "auto_priced_axis_short_by": null,
+ "device_free_min": null,
+ "rounds_done": 0,
+ "rounds_per_slot": {},
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {},
+  "taped_channel_move": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "widen_add": {},
+  "rne_add": [
+   0,
+   0
+  ],
+  "qkv_grad_join": {
+   "served": 0
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 0,
+   "packed": 0
+  },
+  "triatt_fused_hifi": {
+   "served": 0,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {}
+ },
+ "triatt_reach": {
+  "bw_calls": 0,
+  "served": 0,
+  "declined": 0
+ },
+ "aiclk_run": {
+  "n": 120,
+  "aiclk_min": 1306,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 9.2
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 546799616,
+  "vmrss": 542212096,
+  "mem_available": 159612485632
+ },
+ "loadavg_end": [
+  11.236328125,
+  9.93505859375,
+  9.04248046875
+ ],
+ "finished_utc": "2026-10-01T13:28:06Z"
+}
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/device_lease.py", line 405, in acquire
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcp-evo/perf/bgx_size/rung.py", line 429, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/perf/bgx_size/rung.py", line 407, in main
+    with bindcraft2.campaign_predictor(trunk="device", validation=args.validation,
+  File "/usr/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/bindcraft2.py", line 1959, in campaign_predictor
+    with predictor(**kwargs) as build:
+  File "/usr/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/bindcraft2.py", line 1903, in predictor
+    get_device()
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/tenstorrent.py", line 6397, in get_device
+    _device_lease = CardSetLease().acquire()
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/device_lease.py", line 511, in acquire
+    timeout=max(0.0, deadline - time.time())).acquire())
+                                              ^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/device_lease.py", line 424, in acquire
+    raise DeviceInUseError(
+tt_bio.device_lease.DeviceInUseError: physical card 3 on tt-quietbox2 is in use by worker:bcp-evo (pid 1844596) -- the same holder identity in a DIFFERENT process, so this is a real co-tenant, not a stale lease; waited 120s. Refusing to open it concurrently (would collide at the fd level).
+=== rc=1 2026-10-01T13:28:08Z ===
+=== 2026-10-01T13:28:08Z rung hPDL1/50 -> 192 tokens  ===
+2026-10-01 13:28:10.176 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hPDL1",
+ "target_residues": 115,
+ "target_chains": 1,
+ "target_fold": "Ig-like beta sandwich",
+ "binder": 50,
+ "tokens": 192,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 192,
+ "auto_before_open": {
+  "count": 3,
+  "why": "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 137.6 GB of host memory free, after the 11.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 192
+ },
+ "auto_would_choose": [
+  3,
+  "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 137.6 GB of host memory free, after the 11.7 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.9384765625,
+  10.1025390625,
+  9.1015625
+ ],
+ "mem_start": {
+  "vmhwm": 532127744,
+  "vmrss": 532127744,
+  "mem_available": 160299028480
+ },
+ "started_utc": "2026-10-01T13:28:10Z"
+}
+/home/ttuser/.coworker/wt/bcp-evo/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 2 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 2, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 (unreleased)
+campaign hPDL1_50
+binder length 50
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/seqlen/t192_hPDL1_50 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | hPDL1_50_denovo_l50_40084ac297b34b37 | accepted 0/2 ===
+[tt_bio.bindcraft2] the fused triangle attention declined all 96 calls at 192 tokens: its circular buffers do not fit L1 at this token axis, so the composed path is running and holding the [192,4,192,192] fp32 scores -- 113.2 MB of device memory this fold would not otherwise need, and a slower round with it. Whether the arm fits is a property of the token axis and is NOT monotone in it, so a neighbouring binder length is often much cheaper: try one 32-token bucket UP as well as one down.
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hPDL1",
+ "target_residues": 115,
+ "target_chains": 1,
+ "target_fold": "Ig-like beta sandwich",
+ "binder": 50,
+ "tokens": 192,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 192,
+ "auto_before_open": {
+  "count": 3,
+  "why": "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 137.6 GB of host memory free, after the 11.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 192
+ },
+ "auto_would_choose": [
+  3,
+  "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 137.6 GB of host memory free, after the 11.7 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.9384765625,
+  10.1025390625,
+  9.1015625
+ ],
+ "mem_start": {
+  "vmhwm": 532127744,
+  "vmrss": 532127744,
+  "mem_available": 160299028480
+ },
+ "started_utc": "2026-10-01T13:28:10Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "tri_att_g_in_matmul": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 3,
+  "why": "3 of them at 192 tokens hold about 12 GB of the card and peak near 20 GB of the 150.7 GB of host memory free, after the 11.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 192
+ },
+ "wall_seconds": 58.11,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(2 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 179,
+ "evoformer_axis": 192,
+ "axis_seen": [
+  192
+ ],
+ "axis_matches_arithmetic": true,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 33434872320,
+ "rounds_done": 3,
+ "rounds_per_slot": {
+  "": 3
+ },
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 4552,
+   "declined: not DRAM interleaved": 32,
+   "declined: has a core grid": 576,
+   "served": 1440,
+   "declined: not batched": 1616
+  },
+  "taped_channel_move": [
+   0,
+   4272,
+   0,
+   0
+  ],
+  "widen_add": {
+   "served: round": 1448,
+   "served: first": 412,
+   "served: later": 96
+  },
+  "rne_add": [
+   2772,
+   24
+  ],
+  "qkv_grad_join": {
+   "served": 1224
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 0,
+   "packed": 0
+  },
+  "triatt_fused_hifi": {
+   "served": 0,
+   "declined": 648,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    2772,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    0,
+    648
+   ],
+   "pair_transpose": [
+    648,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 0,
+  "served": 0,
+  "declined": 0
+ },
+ "aiclk_run": {
+  "n": 57,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 11.7
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 7585492992,
+  "vmrss": 7031160832,
+  "mem_available": 172135456768
+ },
+ "loadavg_end": [
+  11.81689453125,
+  10.35400390625,
+  9.24267578125
+ ],
+ "finished_utc": "2026-10-01T13:29:08Z"
+}
+=== rc=0 2026-10-01T13:29:11Z ===
+=== 2026-10-01T13:29:11Z rung hIL7RA/100 -> 320 tokens  ===
+2026-10-01 13:29:13.446 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hIL7RA",
+ "target_residues": 195,
+ "target_chains": 1,
+ "target_fold": "fibronectin III, two domains",
+ "binder": 100,
+ "tokens": 320,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 352,
+ "auto_before_open": {
+  "count": 3,
+  "why": "3 of them at 352 tokens hold about 17 GB of the card and peak near 23 GB of the 153.5 GB of host memory free, after the 10.8 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 352
+ },
+ "auto_would_choose": [
+  3,
+  "3 of them at 352 tokens hold about 17 GB of the card and peak near 23 GB of the 153.5 GB of host memory free, after the 10.8 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.19091796875,
+  10.248046875,
+  9.21435546875
+ ],
+ "mem_start": {
+  "vmhwm": 534138880,
+  "vmrss": 534138880,
+  "mem_available": 176331603968
+ },
+ "started_utc": "2026-10-01T13:29:13Z"
+}
+/home/ttuser/.coworker/wt/bcp-evo/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 2 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 2, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 (unreleased)
+campaign hIL7RA_100
+binder length 100
+target hIL7RA (target) | 195 residues | hotspots 100,101,102,158,159,161,211,212,213,214
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/seqlen/t320_hIL7RA_100 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | hIL7RA_100_denovo_l100_6e7a36b2a434f4cb | accepted 0/2 ===
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hIL7RA",
+ "target_residues": 195,
+ "target_chains": 1,
+ "target_fold": "fibronectin III, two domains",
+ "binder": 100,
+ "tokens": 320,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 352,
+ "auto_before_open": {
+  "count": 3,
+  "why": "3 of them at 352 tokens hold about 17 GB of the card and peak near 23 GB of the 153.5 GB of host memory free, after the 10.8 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 352
+ },
+ "auto_would_choose": [
+  3,
+  "3 of them at 352 tokens hold about 17 GB of the card and peak near 23 GB of the 153.5 GB of host memory free, after the 10.8 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "a45dca2b8d2c1545d23038a1c78d51ab78f4bd38",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.19091796875,
+  10.248046875,
+  9.21435546875
+ ],
+ "mem_start": {
+  "vmhwm": 534138880,
+  "vmrss": 534138880,
+  "mem_available": 176331603968
+ },
+ "started_utc": "2026-10-01T13:29:13Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "tri_att_g_in_matmul": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 3,
+  "why": "3 of them at 352 tokens hold about 17 GB of the card and peak near 23 GB of the 153.8 GB of host memory free, after the 8.3 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 352
+ },
+ "wall_seconds": 153.22,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(2 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 323,
+ "evoformer_axis": 352,
+ "axis_seen": [
+  352
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 33114845184,
+ "rounds_done": 3,
+ "rounds_per_slot": {
+  "": 3
+ },
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 8952,
+   "declined: has a core grid": 576,
+   "served": 1392,
+   "declined: not batched": 1616
+  },
+  "taped_channel_move": [
+   216,
+   1248,
+   648,
+   0
+  ],
+  "widen_add": {
+   "served: round": 1664,
+   "served: first": 412,
+   "served: later": 96
+  },
+  "rne_add": [
+   2772,
+   24
+  ],
+  "qkv_grad_join": {
+   "served": 1224
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 216,
+   "packed": 0,
+   "bw_calls": 216
+  },
+  "triatt_fused_hifi": {
+   "served": 648,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "reblock_permute_gated": [
+    1296,
+    0
+   ],
+   "rne_add": [
+    2772,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    648,
+    0
+   ],
+   "pair_transpose": [
+    648,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 216,
+  "served": 0,
+  "declined": 216
+ },
+ "aiclk_run": {
+  "n": 109,
+  "aiclk_min": 1318,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 11.4
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 9342033920,
+  "vmrss": 7384797184,
+  "mem_available": 170502225920
+ },
+ "loadavg_end": [
+  11.0185546875,
+  10.6953125,
+  9.54541015625
+ ],
+ "finished_utc": "2026-10-01T13:31:46Z"
+}
+=== rc=0 2026-10-01T13:31:50Z ===
+=== 2026-10-01T13:31:50Z rung hIL2R/146 -> 544 tokens  ===
+2026-10-01 13:31:52.970 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hIL2R",
+ "target_residues": 387,
+ "target_chains": 2,
+ "target_fold": "two-chain cytokine receptor assembly",
+ "binder": 146,
+ "tokens": 544,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 576,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 576 tokens one trajectory is priced at up to 15.6 GB against the 29.1 GB the card has for them, so a second one does not fit and it runs one, after the 9.5 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 576
+ },
+ "auto_would_choose": [
+  1,
+  "at 576 tokens one trajectory is priced at up to 15.6 GB against the 29.1 GB the card has for them, so a second one does not fit and it runs one, after the 9.5 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "55c836866eee646f17bc746901cefbbf9ee984f8",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.0166015625,
+  10.70068359375,
+  9.5537109375
+ ],
+ "mem_start": {
+  "vmhwm": 544059392,
+  "vmrss": 544059392,
+  "mem_available": 177927028736
+ },
+ "started_utc": "2026-10-01T13:31:53Z"
+}
+/home/ttuser/.coworker/wt/bcp-evo/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 2 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 2, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 (unreleased)
+campaign hIL2R_146
+binder length 146
+target hIL2R (target) | 387 residues | hotspots A67,A68,A96,A99,A101,A159,A160,B125,B181,B229-231
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/seqlen/t544_hIL2R_146 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | hIL2R_146_denovo_l146_cec30e904f4d88f3 | accepted 0/2 ===
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hIL2R",
+ "target_residues": 387,
+ "target_chains": 2,
+ "target_fold": "two-chain cytokine receptor assembly",
+ "binder": 146,
+ "tokens": 544,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 576,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 576 tokens one trajectory is priced at up to 15.6 GB against the 29.1 GB the card has for them, so a second one does not fit and it runs one, after the 9.5 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 576
+ },
+ "auto_would_choose": [
+  1,
+  "at 576 tokens one trajectory is priced at up to 15.6 GB against the 29.1 GB the card has for them, so a second one does not fit and it runs one, after the 9.5 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "55c836866eee646f17bc746901cefbbf9ee984f8",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.0166015625,
+  10.70068359375,
+  9.5537109375
+ ],
+ "mem_start": {
+  "vmhwm": 544059392,
+  "vmrss": 544059392,
+  "mem_available": 177927028736
+ },
+ "started_utc": "2026-10-01T13:31:53Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "tri_att_g_in_matmul": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 1,
+  "why": "at 576 tokens one trajectory is priced at up to 15.6 GB against the 30.9 GB the card has for them, so a second one does not fit and it runs one, after the 8.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 576
+ },
+ "wall_seconds": 93.08,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(2 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 547,
+ "evoformer_axis": 576,
+ "axis_seen": [
+  576
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 32365843456,
+ "rounds_done": 3,
+ "rounds_per_slot": {
+  "": 3
+ },
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 41352,
+   "declined: has a core grid": 576,
+   "served": 1392,
+   "declined: not batched": 1616
+  },
+  "taped_channel_move": [
+   216,
+   1248,
+   648,
+   0
+  ],
+  "widen_add": {
+   "served: round": 1664,
+   "served: first": 628,
+   "served: later": 744
+  },
+  "rne_add": [
+   2772,
+   24
+  ],
+  "qkv_grad_join": {
+   "served": 1224
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 216,
+   "packed": 0,
+   "bw_calls": 216
+  },
+  "triatt_fused_hifi": {
+   "served": 648,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "reblock_permute_gated": [
+    1296,
+    0
+   ],
+   "rne_add": [
+    2772,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    648,
+    0
+   ],
+   "pair_transpose": [
+    648,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 216,
+  "served": 0,
+  "declined": 216
+ },
+ "aiclk_run": {
+  "n": 90,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 12.8
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 12184432640,
+  "vmrss": 6442541056,
+  "mem_available": 170014961664
+ },
+ "loadavg_end": [
+  12.40869140625,
+  11.4462890625,
+  9.9443359375
+ ],
+ "finished_utc": "2026-10-01T13:33:26Z"
+}
+=== rc=0 2026-10-01T13:33:28Z ===
+=== SEQLEN DONE 2026-10-01T13:33:28Z ===
+=== 2026-10-01T13:33:34Z rung hTF/150 -> 864 tokens --footprint (re-run) ===
+2026-10-01 13:33:36.174 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hTF",
+ "target_residues": 674,
+ "target_chains": 1,
+ "target_fold": "bilobal transferrin, two homologous lobes",
+ "binder": 150,
+ "tokens": 832,
+ "rounds_requested": 1,
+ "footprint_probe": true,
+ "timing_valid": false,
+ "trajectories_arg": "1",
+ "design_tokens": 864,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 8.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 864
+ },
+ "auto_would_choose": [
+  1,
+  "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 8.7 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "55c836866eee646f17bc746901cefbbf9ee984f8",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.1826171875,
+  11.21630859375,
+  9.88525390625
+ ],
+ "mem_start": {
+  "vmhwm": 547127296,
+  "vmrss": 540663808,
+  "mem_available": 177085636608
+ },
+ "started_utc": "2026-10-01T13:33:36Z"
+}
+/home/ttuser/.coworker/wt/bcp-evo/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 2 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 2, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 (unreleased)
+campaign hTF_150
+binder length 150
+target hTF (target) | 674 residues | hotspots 63,95,188,249
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/seqlen/t864_hTF_150_fp | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | hTF_150_denovo_l150_920a140287ca8fd0 | accepted 0/2 ===
+2026-10-01 13:33:50.392 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3822080 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-10-01 13:33:50.397 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3711488 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "target": "hTF",
+ "target_residues": 674,
+ "target_chains": 1,
+ "target_fold": "bilobal transferrin, two homologous lobes",
+ "binder": 150,
+ "tokens": 832,
+ "rounds_requested": 1,
+ "footprint_probe": true,
+ "timing_valid": false,
+ "trajectories_arg": "1",
+ "design_tokens": 864,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 8.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 864
+ },
+ "auto_would_choose": [
+  1,
+  "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one, after the 8.7 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "55c836866eee646f17bc746901cefbbf9ee984f8",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/out/xlacache",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  11.1826171875,
+  11.21630859375,
+  9.88525390625
+ ],
+ "mem_start": {
+  "vmhwm": 547127296,
+  "vmrss": 540663808,
+  "mem_available": 177085636608
+ },
+ "started_utc": "2026-10-01T13:33:36Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "tri_att_g_in_matmul": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 30.9 GB the card has for them, so a second one does not fit and it runs one, after the 8.7 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 864
+ },
+ "wall_seconds": 123.64,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(1 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 834,
+ "evoformer_axis": 864,
+ "axis_seen": [
+  864
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 31204239360,
+ "rounds_done": 2,
+ "rounds_per_slot": {
+  "": 2
+ },
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 152292,
+   "declined: has a core grid": 288,
+   "served": 840,
+   "declined: not batched": 1096
+  },
+  "taped_channel_move": [
+   108,
+   1776,
+   324,
+   0
+  ],
+  "widen_add": {
+   "served: round": 832,
+   "served: first": 314,
+   "served: later": 1884
+  },
+  "rne_add": [
+   1386,
+   12
+  ],
+  "qkv_grad_join": {
+   "served": 612
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 108,
+   "packed": 0,
+   "bw_calls": 108
+  },
+  "triatt_fused_hifi": {
+   "served": 324,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "reblock_permute_gated": [
+    648,
+    0
+   ],
+   "rne_add": [
+    1386,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    324,
+    0
+   ],
+   "pair_transpose": [
+    324,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 108,
+  "served": 0,
+  "declined": 108
+ },
+ "aiclk_run": {
+  "n": 118,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 10.4
+ },
+ "tagged_peak_gib": 20.64,
+ "tagged_peak_line": "[DRAM] tri_att(end) bias built [z=864x864x128]: 20.640 GiB used (of 31.9 GiB) maxfree=1419MiB/bank",
+ "node_probe_samples": 1428,
+ "node_probe_calls": 11430,
+ "resident_peak_gb": 27.0381,
+ "resident_peak_gib": 25.1812,
+ "free_at_peak_gb": 7.1874,
+ "free_at_peak_gib": 6.6938,
+ "device_total_gb": 34.2255,
+ "largest_free_block_at_peak_mb": 812.4,
+ "mem_end": {
+  "vmhwm": 19393896448,
+  "vmrss": 6380601344,
+  "mem_available": 171935776768
+ },
+ "loadavg_end": [
+  10.14013671875,
+  10.7802734375,
+  9.888671875
+ ],
+ "finished_utc": "2026-10-01T13:35:40Z"
+}
+=== rc=0 2026-10-01T13:35:42Z ===
