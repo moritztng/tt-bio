@@ -586,9 +586,16 @@ Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 
 | token axis | mode | peak DRAM | one round |
 |---|---|---|---|
-| 512 | `fast` | 12.7 GB | 61 s |
+| 512 | `fast` | 12.7 GB | 61.3 s |
+| 512 | `lean` | | 67.8 s |
 | 544 | `fast` | refuses, 12.70 GB held | |
-| 544 | `lean` | 7.527 GB | |
+| 544 | `lean` | 7.527 GB | 84.3 s |
+
+**At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s), which is the price
+of running every block's forward a second time. The 544 row costs more than that because it is
+also a bigger fold. A trajectory is 125 gradient rounds, so 544 in `lean` is 2.93 chip-hours
+against 2.13 for the 512 `fast` can carry -- you are buying 32 tokens of complex for about 38 %
+more chip time, and the alternative is not a faster run, it is cropping the target.
 
 A Blackhole p150a has the modes too and does not need them below 864 tokens; `auto` leaves it in
 `fast` all the way up.

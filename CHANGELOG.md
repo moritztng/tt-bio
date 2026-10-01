@@ -19,7 +19,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   which: every fold that runs today stays in `fast` and is unchanged. A refusal now names the
   next roomier mode, what it costs and how to ask for it. Measured on one dev Wormhole Galaxy
   chip at AICLK 1000 MHz: 544 tokens refuse in `fast` holding 12.70 GB, and complete in `lean` at
-  a 7.527 GB peak and 84.3 s a round against 61.3 s for the 512 tokens `fast` does carry. See
+  a 7.527 GB peak and 84.3 s a round against 61.3 s for the 512 tokens `fast` does carry. At the
+  same token axis the mode costs +10.6 % a round (512: 61.3 s in `fast`, 67.8 s in `lean`). See
   [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
 
 ### Changed
