@@ -537,7 +537,7 @@ On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrime
 | | Blackhole p150a (34.226 GB) | One chip of a Wormhole Galaxy (12.885 GB) |
 |---|---|---|
 | supported | **192 to 864 tokens**, with 768 and 832 needing `memory='lean'` (below) | **192 to 800 tokens**: up to 512 in `fast`, 544 to 800 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
-| first size that refuses | 896 is the largest run, over two rounds, so 864 is the size to plan on | 896, in `offload`, on the third gradient round |
+| first size that refuses | not measured: 864 is the documented top | 896, in `offload`, on the third gradient round |
 | where it refuses | | fragmentation: 4.386 GB free, largest block 67.8 MB against a 68.5 MB request a bank |
 | held at the top | 31.39 GB of 34.226 at 864 | 8.934 GB at 800, largest free block 244.1 MB |
 | peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 in `fast`, 7.5 to 8.9 GB from 544 up |
