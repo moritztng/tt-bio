@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start arm A on the first qb2 card that is GENUINELY idle, and nothing sooner.
+# Start an arm on the first qb2 card that is GENUINELY idle, and nothing sooner.
 #
 # qb2 carries bcw-land's gate and bcp-evo, and both run short sittings back to back: at 17:14Z
 # cards 1 and 3 had held a fd for 51 and 61 seconds respectively, which is a sweep between
@@ -13,14 +13,14 @@ set -uo pipefail
 cd /home/ttuser/.coworker/wt/bcw-accept
 IDLE_FOR=${IDLE_FOR:-1200}
 DEADLINE=$(( $(date +%s) + ${LIVE_FOR:-86400} ))
-tag=${1:-armA1}
+tag=${1:-armA1}; arm=${2:-a}; seed=${3:-100}; cards=${CARDS:-"0 1 3"}
 log=perf/bcw_accept/out/wait_card.log
 mkdir -p perf/bcw_accept/out
 declare -A since
-echo "=== $(date -u +%FT%TZ) waiting for a card idle $IDLE_FOR s, for arm A tag=$tag, pid $$" >> "$log"
+echo "=== $(date -u +%FT%TZ) waiting for a card idle $IDLE_FOR s, for arm $arm tag=$tag seed=$seed cards=$cards, pid $$" >> "$log"
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     now=$(date +%s)
-    for n in 0 1 3; do
+    for n in $cards; do
         if fuser "/dev/tenstorrent/$n" >/dev/null 2>&1; then
             unset "since[$n]"
             continue
@@ -28,14 +28,14 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         [ -n "${since[$n]:-}" ] || since[$n]=$now
         held=$(( now - ${since[$n]} ))
         if [ "$held" -ge "$IDLE_FOR" ]; then
-            echo "=== $(date -u +%FT%TZ) card $n empty for ${held}s, taking it for arm A" >> "$log"
+            echo "=== $(date -u +%FT%TZ) card $n empty for ${held}s, taking it for arm $arm tag=$tag" >> "$log"
             # Re-check immediately before the launch: the gap can close in the last second.
             if fuser "/dev/tenstorrent/$n" >/dev/null 2>&1; then
                 echo "    card $n taken by someone in the last tick, backing off" >> "$log"
                 unset "since[$n]"
                 continue
             fi
-            exec bash perf/bcw_accept/campaign.sh a "$n" "$tag"
+            exec bash perf/bcw_accept/campaign.sh "$arm" "$n" "$tag" "$seed"
         fi
     done
     sleep 60
