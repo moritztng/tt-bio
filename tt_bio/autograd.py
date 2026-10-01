@@ -269,6 +269,14 @@ _GRAD_ENABLED = True
 # 1e-9 widened (`perf/bcx_reduce/probe.json`). Graded as a stack in `perf/bcx_reduce`.
 FANIN_MIXED = False
 
+# The cast after a fan-in, folded into the fan-in's last add. A bf16 value read by k consumers
+# sums its k gradients in float32 (`add_grad`) and `_backward` then cast the sum back to bf16
+# for the closure: 1,719 Typecast calls a BindCraft 2 round right after a widen_add, 0.249 s of
+# card. On, `add_grad` holds the last contribution back and the closure's read does that add with
+# a bf16 output, rounded once at pack (`rne_add.round_add`). Any other read flushes it as before.
+FANIN_CAST_FUSED = env_flag("TT_BIO_FANIN_CAST_FUSED", False)
+FANIN_CAST_STATS = {"served": 0, "flushed": 0}
+
 
 def is_grad_enabled() -> bool:
     """Whether taping is on. ``no_grad`` is the only thing that turns it off, and a caller
@@ -325,12 +333,14 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("_value", "_grad", "_parts", "requires_grad", "node", "pinned", "evictable",
+    __slots__ = ("_value", "_grad", "_pend", "_parts", "requires_grad", "node", "pinned", "evictable",
                  "box", "shares", "__weakref__")
 
     def __init__(self, value, requires_grad: bool = False):
         self._value = value
         self._grad = None
+        # The last float32-widened contribution, not yet added (`FANIN_CAST_FUSED`).
+        self._pend = None
         # Gradients of slices of this value, (starts, ends, g), until `grad` is read.
         self._parts = None
         self.requires_grad = requires_grad
@@ -583,7 +593,13 @@ class Tensor:
         # operands in the unpacker and adds in a float32 DEST, the same function at 8-10
         # B/element against 18-24. Where it serves there is no promoted tensor left for
         # `fanin_l1` to place, so the two never act on one call.
+        if self._pend is not None:
+            self._flush_pend()
         if _rne_add.widen_eligible(self._grad, grad):
+            if (FANIN_CAST_FUSED and grad.dtype == ttnn.bfloat16
+                    and self.value.dtype == ttnn.bfloat16):
+                self._pend = grad
+                return
             self._grad = _rne_add.widen_add(self._grad, grad)
             return
         if self._grad.dtype != ttnn.float32:
@@ -613,17 +629,44 @@ class Tensor:
             self._parts = []
         self._parts.append(([int(v) for v in starts], [int(v) for v in ends], grad))
 
-    @property
-    def grad(self):
+    def _flush_pend(self):
+        pend, self._pend = self._pend, None
+        FANIN_CAST_STATS["flushed"] += 1
+        self._grad = _rne_add.widen_add(self._grad, pend)
+
+    def _join_parts(self):
         if self._parts:
             parts, self._parts = self._parts, None
             for g in _join_slices(parts, [int(d) for d in self.value.shape]):
                 self.add_grad(g)
+
+    @property
+    def grad(self):
+        self._join_parts()
+        if self._pend is not None:
+            self._flush_pend()
         return self._grad
 
     @grad.setter
     def grad(self, g):
-        self._grad, self._parts = g, None
+        self._grad, self._parts, self._pend = g, None, None
+
+    def closure_grad(self):
+        """The gradient a closure is handed: `grad` in this value's dtype.
+
+        With a held-back contribution (`FANIN_CAST_FUSED`) the last add writes bf16 directly,
+        so there is no float32 sum to cast.
+        """
+        self._join_parts()
+        if self._pend is not None:
+            pend, self._pend = self._pend, None
+            FANIN_CAST_STATS["served"] += 1
+            self._grad = _rne_add.round_add(self._grad, pend)
+            return self._grad
+        g = self.grad
+        if g is not None and g.dtype != self.value.dtype:
+            g = ttnn.typecast(g, self.value.dtype)
+        return g
 
     def backward(self, seed=None) -> None:
         """Replay the tape from here. ``seed`` defaults to ones, i.e. d(sum(self))/d(self)."""
@@ -722,10 +765,8 @@ def _backward(roots, seeds) -> None:
             pending[t.node.group] = pending.get(t.node.group, 0) + 1
     for t in order:
         if t.node is not None:
-            g = t.grad
+            g = t.closure_grad()
             if g is not None:
-                if g.dtype != t.value.dtype:
-                    g = ttnn.typecast(g, t.value.dtype)
                 # A gradient inherits the forward's SHARD PLAN, and a backward is not planned
                 # against it. `ttnn.matmul` refuses a height-sharded operand B outright ("operand
                 # B can only be interleaved or L1 width sharded", measured at crop 384 in the
