@@ -55,6 +55,9 @@ SLOWDOWN = 1.15
 #: +0.9 GB), and reading those as three floors divided one stage load by two and called it a
 #: 1.37 GB/trajectory leak. A trajectory takes 20-40 minutes on either board.
 MIN_WINDOW_S = 600
+#: A trajectory boundary lands between two ticks of the 30 s sampler, so a window ending within
+#: one tick of the last sample was still watched. Anything later was not.
+SERIES_SLACK_S = 60
 
 
 def read_samples(path: pathlib.Path) -> list[dict]:
@@ -206,85 +209,126 @@ def map_limit_line(mapped: float, per_trajectory: float, path: str = MAP_LIMIT_P
             f"{room:.0f} more trajectories, where mmap fails with host memory still free")
 
 
+def watched(samples: list[dict], windows: list[dict]) -> tuple[list[dict], list[dict], list[str]]:
+    """The live part of the series, and the trajectories it actually watched.
+
+    Two ways a verdict gets cut over something the sampler never saw, both measured on `long24`
+    after the box-lost drill killed it at trajectory 12 on 2026-09-30:
+
+    * The sampler outlives the campaign by one tick and stamps what a dead process reports:
+      `{"alive": false, "rss": 0, "threads": 0, "fds": 0, "maps": 0}`. Those zeros are not a
+      reading. The window holding the kill takes their median with the live ones and halves it,
+      so the verdict said `open file handles 24 in trajectory 1 -> 12 in trajectory 10` and
+      `12039 mapped regions ... and not climbing` about a campaign that had been dead for a
+      minute. A handle leak ending in a crash reads as handles settling -- clean, from a corpse.
+    * The completion times come from the project FOLDER, which a resumed leg keeps filling. So a
+      killed leg's verdict was cut over 16 boundaries when its series covered 9, and every
+      boundary past the end snapped to the last live sample: a real 3.7 GB rise divided by 15
+      trajectories instead of 9.
+
+    So: drop the samples taken after the campaign died, and judge only the windows that end
+    inside the live series (one sampling interval of slack, because a boundary lands between
+    ticks).
+    """
+    live = [row for row in samples if row.get("alive", True)]
+    if not live:
+        # The pace is read off the round stamps, so every window still gets judged on it.
+        return live, windows, ["every sample was taken after the campaign died"]
+    note = []
+    if len(live) < len(samples):
+        note.append(f"{len(samples) - len(live)} samples taken after the campaign died, dropped")
+    inside = [w for w in windows if w["end"] <= live[-1]["t"] + SERIES_SLACK_S]
+    if len(inside) < len(windows):
+        note.append(f"{len(windows) - len(inside)} of {len(windows)} finished trajectories "
+                    f"finished after this series ended, not judged")
+    return live, inside, note
+
+
 def verdict(samples: list[dict], windows: list[dict]) -> tuple[list[str], list[str]]:
     drift, read = [], []
     if not samples:
         return ["no drift samples"], read
+    ended = samples[-1].get("alive") is False
+    samples, windows, note = watched(samples, windows)
+    read.extend(note)
 
-    first, last = samples[0], samples[-1]
-    hours = (last["t"] - first["t"]) / 3600
-    read.append(f"{len(samples)} samples over {hours:.2f} h, {len(windows)} trajectories")
+    # Memory, handles and disk are read off the samples; the pace is read off the round
+    # stamps, so a campaign whose series is entirely dead still gets a pace verdict.
+    if samples:
+        first, last = samples[0], samples[-1]
+        hours = (last["t"] - first["t"]) / 3600
+        read.append(f"{len(samples)} samples over {hours:.2f} h, {len(windows)} trajectories")
 
-    floors = [(w["n"], at(samples, w["end"], "rss")) for w in windows]
-    floors = [(n, value) for n, value in floors if value]
-    if len(floors) >= 3:
-        rise_gb = (floors[-1][1] - floors[0][1]) / GB
-        per = rise_gb / (len(floors) - 1)
-        read.append(f"rss at trajectory boundaries {floors[0][1] / GB:.2f} -> "
-                    f"{floors[-1][1] / GB:.2f} GB, {per:+.2f} GB per trajectory")
-        if per > MEMORY_PER_TRAJECTORY_GB:
-            drift.append(f"host memory climbs {per:.2f} GB per trajectory "
-                         f"({floors[0][1] / GB:.2f} -> {floors[-1][1] / GB:.2f} GB over "
-                         f"{len(floors)} trajectory boundaries); a campaign long enough will be "
-                         f"OOM-killed")
-    else:
-        read.append("fewer than 3 trajectory boundaries: no memory-per-trajectory verdict")
+        floors = [(w["n"], at(samples, w["end"], "rss")) for w in windows]
+        floors = [(n, value) for n, value in floors if value]
+        if len(floors) >= 3:
+            rise_gb = (floors[-1][1] - floors[0][1]) / GB
+            per = rise_gb / (len(floors) - 1)
+            read.append(f"rss at trajectory boundaries {floors[0][1] / GB:.2f} -> "
+                        f"{floors[-1][1] / GB:.2f} GB, {per:+.2f} GB per trajectory")
+            if per > MEMORY_PER_TRAJECTORY_GB:
+                drift.append(f"host memory climbs {per:.2f} GB per trajectory "
+                             f"({floors[0][1] / GB:.2f} -> {floors[-1][1] / GB:.2f} GB over "
+                             f"{len(floors)} trajectory boundaries); a campaign long enough will be "
+                             f"OOM-killed")
+        else:
+            read.append("fewer than 3 trajectory boundaries: no memory-per-trajectory verdict")
 
-    # Judged per trajectory, not first sample against last. The first sample is taken before the
-    # campaign exists -- the launcher hands over a `timeout` wrapper holding one thread and three
-    # handles -- and the minutes after that are compile workers, 30 processes and 358 handles on
-    # Blackhole, which then go away. Against the wrapper every healthy campaign "leaks" 2408x;
-    # against the compile peak a real leak hides. So: the median of the first trajectory's window
-    # against the median of the last one's, the same shape as the memory floors.
-    for key, what in (("fds", "open file handles"), ("threads", "threads"),
-                      ("maps", "mapped regions")):
-        if len(windows) < 2:
-            read.append(f"fewer than 2 trajectory boundaries: no {what} verdict")
-            continue
-        series = [(w["n"], window_median(samples, w, key)) for w in windows]
-        series = [(n, value) for n, value in series if value is not None]
-        if len(series) < 2 or not series[0][1]:
-            continue
-        early, late = series[0][1], series[-1][1]
-        read.append(f"{what} {early:.0f} in trajectory 1 -> {late:.0f} in "
-                    f"trajectory {series[-1][0]}")
-        # The last third against its own start: a staircase that stopped climbing is warmup.
-        tail = series[-max(2, len(series) // 3):]
-        still = tail[-1][1] > tail[0][1] * HANDLE_SETTLED
-        if late > early * HANDLE_GROWTH and not still:
-            read.append(f"  {what} settled: {tail[0][1]:.0f} in trajectory {tail[0][0]} -> "
-                        f"{tail[-1][1]:.0f} in {tail[-1][0]}, so the {late / early:.2f}x is "
-                        f"warmup rather than growth")
-        elif still:
-            per = (tail[-1][1] - tail[0][1]) / max(tail[-1][0] - tail[0][0], 1)
-            drift.append(f"{what} is still growing at trajectory {tail[-1][0]}: {tail[0][1]:.0f} "
-                         f"-> {tail[-1][1]:.0f} over the last {len(tail)} windows, {per:+.0f} per "
-                         f"trajectory, after {early:.0f} in the first")
-            if key == "maps":
-                drift.append(map_limit_line(late, per))
-        if key == "maps" and not still:
-            # Printed whether or not the count grew: a campaign already near the limit is a soak
-            # risk even if this run's series is flat.
-            read.append(f"  {map_limit_line(late, 0.0)}")
+        # Judged per trajectory, not first sample against last. The first sample is taken before the
+        # campaign exists -- the launcher hands over a `timeout` wrapper holding one thread and three
+        # handles -- and the minutes after that are compile workers, 30 processes and 358 handles on
+        # Blackhole, which then go away. Against the wrapper every healthy campaign "leaks" 2408x;
+        # against the compile peak a real leak hides. So: the median of the first trajectory's window
+        # against the median of the last one's, the same shape as the memory floors.
+        for key, what in (("fds", "open file handles"), ("threads", "threads"),
+                          ("maps", "mapped regions")):
+            if len(windows) < 2:
+                read.append(f"fewer than 2 trajectory boundaries: no {what} verdict")
+                continue
+            series = [(w["n"], window_median(samples, w, key)) for w in windows]
+            series = [(n, value) for n, value in series if value is not None]
+            if len(series) < 2 or not series[0][1]:
+                continue
+            early, late = series[0][1], series[-1][1]
+            read.append(f"{what} {early:.0f} in trajectory 1 -> {late:.0f} in "
+                        f"trajectory {series[-1][0]}")
+            # The last third against its own start: a staircase that stopped climbing is warmup.
+            tail = series[-max(2, len(series) // 3):]
+            still = tail[-1][1] > tail[0][1] * HANDLE_SETTLED
+            if late > early * HANDLE_GROWTH and not still:
+                read.append(f"  {what} settled: {tail[0][1]:.0f} in trajectory {tail[0][0]} -> "
+                            f"{tail[-1][1]:.0f} in {tail[-1][0]}, so the {late / early:.2f}x is "
+                            f"warmup rather than growth")
+            elif still:
+                per = (tail[-1][1] - tail[0][1]) / max(tail[-1][0] - tail[0][0], 1)
+                drift.append(f"{what} is still growing at trajectory {tail[-1][0]}: {tail[0][1]:.0f} "
+                             f"-> {tail[-1][1]:.0f} over the last {len(tail)} windows, {per:+.0f} per "
+                             f"trajectory, after {early:.0f} in the first")
+                if key == "maps":
+                    drift.append(map_limit_line(late, per))
+            if key == "maps" and not still:
+                # Printed whether or not the count grew: a campaign already near the limit is a soak
+                # risk even if this run's series is flat.
+                read.append(f"  {map_limit_line(late, 0.0)}")
 
-    caches = {name for row in samples for name in (row.get("cache_bytes") or {})}
-    for name in sorted(caches):
-        values = [(row["t"], (row.get("cache_bytes") or {}).get(name)) for row in samples]
-        values = [(t, v) for t, v in values if v is not None]
-        if len(values) < 2:
-            continue
-        grew = values[-1][1] - values[0][1]
-        read.append(f"cache {name} {values[0][1] / GB:.3f} -> {values[-1][1] / GB:.3f} GB")
-        free = last.get("disk_free")
-        if grew > 0 and free and windows:
-            per_trajectory = grew / max(len(windows), 1)
-            if per_trajectory > 0:
-                room = free / per_trajectory
-                read.append(f"  at {per_trajectory / GB:.3f} GB per trajectory that fills the "
-                            f"filesystem in {room:.0f} more trajectories")
-                if room < 100:
-                    drift.append(f"cache {name} grows {per_trajectory / GB:.3f} GB per trajectory "
-                                 f"and the filesystem holds only {room:.0f} more")
+        caches = {name for row in samples for name in (row.get("cache_bytes") or {})}
+        for name in sorted(caches):
+            values = [(row["t"], (row.get("cache_bytes") or {}).get(name)) for row in samples]
+            values = [(t, v) for t, v in values if v is not None]
+            if len(values) < 2:
+                continue
+            grew = values[-1][1] - values[0][1]
+            read.append(f"cache {name} {values[0][1] / GB:.3f} -> {values[-1][1] / GB:.3f} GB")
+            free = last.get("disk_free")
+            if grew > 0 and free and windows:
+                per_trajectory = grew / max(len(windows), 1)
+                if per_trajectory > 0:
+                    room = free / per_trajectory
+                    read.append(f"  at {per_trajectory / GB:.3f} GB per trajectory that fills the "
+                                f"filesystem in {room:.0f} more trajectories")
+                    if room < 100:
+                        drift.append(f"cache {name} grows {per_trajectory / GB:.3f} GB per trajectory "
+                                     f"and the filesystem holds only {room:.0f} more")
 
     paced = [w for w in windows if w["s_per_round"]]
     full = max((w.get("arms", 0) for w in paced), default=0)
@@ -312,7 +356,7 @@ def verdict(samples: list[dict], windows: list[dict]) -> tuple[list[str], list[s
     else:
         read.append("fewer than 4 paced trajectories: no slowdown verdict")
 
-    if last.get("alive") is False:
+    if ended:
         read.append("the campaign had ended by the last sample")
     return drift, read
 
@@ -348,7 +392,10 @@ def main() -> int:
     print(f"  boundaries: {source}")
     for line in read:
         print(f"  {line}")
-    for window in windows:
+    # The per-trajectory lines are the windows the verdict judged, not every completion in the
+    # folder: a resumed leg keeps filling that folder, and printing its trajectories under a
+    # killed leg's verdict reads as a campaign that ran longer than this series ever watched.
+    for window in watched(samples, windows)[1]:
         pace = (f"{window['s_per_round']:.2f} s/round" if window["s_per_round"]
                 else "one round" if window["rounds"] else "pace not recorded")
         print(f"  trajectory {window['n']} ({window['slot']}): {window['rounds']} rounds, {pace}")
