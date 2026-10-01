@@ -1,0 +1,28 @@
+== arm off tt_bio.inproj_gated:INPROJ_GATED=False reach before [0, 0]
+{"fwd_s": 2.133247137069702, "bwd_s": 4.332480192184448} 102
+device vs f64 {'rel_l2': 0.19165080475287236, 'cos': 0.98185447658648}
+bf16 {'rel_l2': 0.18456377310272284, 'cos': 0.9829166181102329}
+f32 {'rel_l2': 0.0007371109359638781, 'cos': 0.999999730730356}
+{"eps": 0.1, "L+": 2.9819605487784013, "L-": -1.336241976952527, "fd_slope": 21.591012628654642, "device_predicted": 24.728620998060947, "f64_predicted": 25.446975264663056, "ratio_fd_over_device": 0.8731183445428544}
+{"eps": 0.03, "L+": 1.7604851245453759, "L-": 0.2311988109091061, "fd_slope": 25.488105227271163, "device_predicted": 24.728620998060947, "f64_predicted": 25.446975264663056, "ratio_fd_over_device": 1.0307127611066451}
+{"eps": 0.01, "L+": 1.2599288745463788, "L-": 0.733135760166153, "fd_slope": 26.33965571901129, "device_predicted": 24.728620998060947, "f64_predicted": 25.446975264663056, "ratio_fd_over_device": 1.0651485871806872}
+{"eps": 0.003, "L+": 1.0721712968444752, "L-": 0.9165473349298052, "fd_slope": 25.93732698577833, "device_predicted": 24.728620998060947, "f64_predicted": 25.446975264663056, "ratio_fd_over_device": 1.0488788270001859}
+{"eps": 0.001, "L+": 1.019763094920819, "L-": 0.9689386948021985, "fd_slope": 25.41220005931022, "device_predicted": 24.728620998060947, "f64_predicted": 25.446975264663056, "ratio_fd_over_device": 1.027643234182079}
+{"device_repeat_max_abs_diff": 0.0, "zero_seed_max_abs": 8.025090570147938e-37, "reach_across_steps": [102, 102, 102, 102], "permuted_device_grad_vs_f64": {"rel_l2": 1.3725147825212844, "cos": 0.013929379848625738}}
+wrote /home/ttuser/.coworker/wt/bcp-evo/perf/bcx_afgrad/stack_n128_e4_v48_ckpt.json
+== arm off reach after [0, 0]
+== arm off device_vs_f64 {'rel_l2': 0.19165080475287236, 'cos': 0.98185447658648} loss dev 0.7299783140913512 f64 0.9943437102904387 fd 1.027643234182079
+== arm on tt_bio.inproj_gated:INPROJ_GATED=True reach before [0, 0]
+{"fwd_s": 0.36278700828552246, "bwd_s": 1.0420629978179932} 102
+device vs f64 {'rel_l2': 0.1751865528105671, 'cos': 0.9867718459309175}
+bf16 {'rel_l2': 0.18456377310272284, 'cos': 0.9829166181102329}
+f32 {'rel_l2': 0.0007371109359638781, 'cos': 0.999999730730356}
+{"eps": 0.1, "L+": 2.977414154235026, "L-": -1.2747592860562982, "fd_slope": 21.26086720145662, "device_predicted": 27.29533451534961, "f64_predicted": 25.574419992022428, "ratio_fd_over_device": 0.7789194592761085}
+{"eps": 0.03, "L+": 1.7610469892654983, "L-": 0.2343102988854362, "fd_slope": 25.44561150633437, "device_predicted": 27.29533451534961, "f64_predicted": 25.574419992022428, "ratio_fd_over_device": 0.9322329972554452}
+{"eps": 0.01, "L+": 1.2615397676690208, "L-": 0.7326222254939543, "fd_slope": 26.445877108753322, "device_predicted": 27.29533451534961, "f64_predicted": 25.574419992022428, "ratio_fd_over_device": 0.968879025603493}
+{"eps": 0.003, "L+": 1.07268132582014, "L-": 0.9162124416697734, "fd_slope": 26.07814735839442, "device_predicted": 27.29533451534961, "f64_predicted": 25.574419992022428, "ratio_fd_over_device": 0.9554067690113598}
+{"eps": 0.001, "L+": 1.0199345026236877, "L-": 0.9688471350581684, "fd_slope": 25.54368378275962, "device_predicted": 27.29533451534961, "f64_predicted": 25.574419992022428, "ratio_fd_over_device": 0.9358260023666336}
+{"device_repeat_max_abs_diff": 0.0, "zero_seed_max_abs": 8.025090570147938e-37, "reach_across_steps": [102, 102, 102, 102], "permuted_device_grad_vs_f64": {"rel_l2": 1.4419677136561109, "cos": 0.01419556631465207}}
+wrote /home/ttuser/.coworker/wt/bcp-evo/perf/bcx_afgrad/stack_n128_e4_v48_ckpt.json
+== arm on reach after [1040, 520]
+== arm on device_vs_f64 {'rel_l2': 0.1751865528105671, 'cos': 0.9867718459309175} loss dev 1.2074572856567523 f64 0.9943437102904387 fd 0.9358260023666336
