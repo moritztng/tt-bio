@@ -122,12 +122,22 @@ binder against the 115-residue PD-L1 target at 288 tokens.
 
 The two campaigns accepted the same two designs, with bit-identical coordinates and the same
 metrics on all six trajectories. Interleaving buys time and changes nothing else about the
-result. An H200 runs this round in 0.696 s, so the default went from 10.6x that to 8.6x.
+result. An H200 runs this round in 0.696 s, so interleaving took the default from 10.6x that
+to 8.6x.
+
+Both campaigns above predate the fused layer-norm backward, which is why their round reads 6.00 s.
+On the current default the same campaign is faster: **5.186 s a round and 630.1 s per completed
+trajectory** on a p300c chip at AICLK 1350, 7.45x the H200. That run accepted 1 of 6 trajectories,
+3,781 chip-seconds per accepted design. Read that against the 2,321 above with care: a
+six-trajectory budget cannot separate one accepted design from two (Fisher exact, p = 1.0), so
+per-design cost is the one column here that a single campaign does not settle.
 
 The round on its own, measured tighter: eight arms alternating in one sitting on one card, nine
 rounds each, first round dropped. One trajectory reads **7.204 s** a round (7.183-7.258 across
 four arms) against **5.899 s** at three (5.891-5.912), **1.221x**. AICLK was 1350 MHz in every
-arm, sampled during the rounds, with no sample under 1200.
+arm, sampled during the rounds, with no sample under 1200. Both figures are without the fused
+layer-norm backward; with it, three trajectories read **5.186 s** a round (5.169-5.210) against
+5.969 s with it off, six arms alternated in one sitting at AICLK 1350.
 
 Three is the cap because a fourth bought nothing: 6.976 s a round against three at 6.992 in the
 same sitting, with only 0.26 s of idle a round left to fill. How busy your host is moves the round
@@ -508,7 +518,9 @@ On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrime
 | AICLK ceiling | 1350 MHz | 1000 MHz, the part's own ceiling and not a throttle |
 
 Blackhole's ladder, every rung run to a completed gradient round on qb1 card 0 with the card's
-AICLK sampled during each fold. The first column is target plus binder; the second is the token
+AICLK sampled during each fold. Its round column was measured before the fused layer-norm backward
+landed and was not re-measured across the ladder; at 288 tokens that lever is worth 1.15x, so
+rounds at these sizes are faster than shown. The first column is target plus binder; the second is the token
 axis the Evoformer ran, one bucket higher because of the fusion, and it is the number the memory
 follows and the one the table above uses:
 
