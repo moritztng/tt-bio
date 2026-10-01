@@ -28,6 +28,8 @@ json.dump({"n": n, "why": why, "free_host": duotraj.free_host_bytes(),
            "rss": duotraj.host_rss_bytes()}, open(sys.argv[1], "w"), indent=1)
 print(n)' "$out/auto.json")
     inter=$([ "$n" -gt 1 ] && echo 1 || echo 0)
+elif [ "${want#i}" != "$want" ]; then
+    n=${want#i}; inter=1                   # iN: N trajectories interleaved, auto overridden
 else
     n=$want; inter=0
 fi
