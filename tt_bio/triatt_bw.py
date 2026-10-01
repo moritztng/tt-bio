@@ -469,8 +469,11 @@ def run(device, q, k, v, bias, g, scale, ckc):
     e = build(device, q, k, v, g, bias, dq, dk, dv, part, p, ckc, scale)
     ttnn.generic_op([q, k, v, g, bias, dq, dk, dv, part], e["pd"])
     # The one reduction the host does. Every core accumulated its own group of the leading axis in
-    # its own L1; this sums the groups.
-    dbias = ttnn.sum(part, dim=0, keepdim=True)
+    # its own L1; this sums the groups. `ttnn.sum(dim=0)` is permute, reduce, permute (0.78 ms at
+    # [27, 4, 288, 288]); `lead_sum` reads the slabs in page order and adds in float32 DST.
+    from . import lead_sum as _ls
+    dbias = (_ls.lead_sum(part) if _ls.eligible(part)
+             else ttnn.sum(part, dim=0, keepdim=True))
     ttnn.deallocate(part)
     STATS["served"] += 1
     return dq, dk, dv, dbias
