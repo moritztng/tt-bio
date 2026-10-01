@@ -607,7 +607,8 @@ def _activation(kwargs, key, probe=None):
         f"read 4.88x high.")
 
 
-def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=None):
+def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=None,
+            gate=False):
     """Register a binary eltwise verb. The second operand may be a python scalar, which the
     shipped chain does often enough (`ttnn.multiply(s, 1 / sqrt(d))`) that treating it as a
     tensor would be wrong rather than merely slow.
@@ -628,6 +629,9 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
     operands wanting a gradient, and no broadcast for `_reduce_to` to undo. Outside that it
     composes as before, because `mul_bw` carries neither a fused-activation correction nor a
     reducing output.
+    gate marks the multiply verbs: `multiply(o, g, input_tensor_b_activations=[SIGMOID])`
+    with both sides wanting a gradient and no broadcast runs as one kernel,
+    `gate_bw.gate_bw`, where it would otherwise be seven ops.
     """
     def impl(shipped, args, kwargs):
         a = _wrap(args[0])
@@ -663,6 +667,7 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
         # An operand is read in the backward if a rule reads it, or if a non-constant fused
         # unary sits on it. Everything else is dead the moment the shipped forward is done,
         # and naming it here is what lets `_tape` leave it unpinned.
+        gate_b = gate and fa is None and _is_sigmoid(kwargs.get("input_tensor_b_activations"))
         reads_a = needs[0] or (fa is not None and not _act_const(kwargs,
                                                                  "input_tensor_a_activations"))
         reads_b = needs[1] or (fb is not None and not _act_const(kwargs,
@@ -687,6 +692,14 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
                     a.add_grad(da)
                     b.add_grad(db)
                     return
+                if (gate_b and a.requires_grad and b.requires_grad
+                        and tuple(av.shape) == tuple(bv.shape) == tuple(g.shape)):
+                    from . import gate_bw as _gb
+                    if _gb.eligible(g, av, bv):
+                        do, dg = _gb.gate_bw(g, av, bv)
+                        a.add_grad(do)
+                        b.add_grad(dg)
+                        return
                 ea = (fa[0](av) if fa else av) if reads_a else None
                 eb = (fb[0](bv) if fb else bv) if reads_b else None
                 if a.requires_grad:
@@ -742,8 +755,18 @@ _VERBS["subtract"] = _binary(
     lambda g, av, bv: g, lambda g, av, bv: ttnn.multiply(g, -1.0), lambda g, f: g,
     needs=(False, False))
 _MUL_BOTH = lambda g, av, bv: ttnn.mul_bw(g, av, bv)
-_VERBS["multiply"] = _binary(*_MUL, both=_MUL_BOTH)
-_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply, both=_MUL_BOTH)
+
+
+def _is_sigmoid(acts) -> bool:
+    acts = list(acts or ())
+    u = getattr(ttnn, "UnaryOpType", None)
+    return (len(acts) == 1 and u is not None and hasattr(u, "SIGMOID")
+            and getattr(acts[0], "op_type", acts[0]) == u.SIGMOID)
+
+
+_VERBS["multiply"] = _binary(*_MUL, both=_MUL_BOTH, gate=True)
+_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply, both=_MUL_BOTH,
+                               gate=True)
 _VERBS["divide"] = _binary(
     lambda g, av, bv: ttnn.divide(g, bv),
     lambda g, av, bv: ttnn.multiply(ttnn.divide(g, ttnn.multiply(bv, bv)),
