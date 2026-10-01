@@ -1296,6 +1296,62 @@ def _k_pair_transpose(shipped, args, kwargs):
     return ag._tape(out_v, [x], make, reads=())
 
 
+def _weight_vjp(a, b, g, cfg):
+    """The gradient `_v_matmul` gives `a @ b` for a 2-D weight `b` and no transposes: the same
+    calls in the same order, so the two are bit-identical."""
+    if a.requires_grad:
+        a.add_grad(_reduce_to(
+            _via2d(g, lambda v: ag.bmm(v, b.value, False, True, compute_kernel_config=cfg)),
+            a.value.shape))
+    if b.requires_grad:
+        b.add_grad(_reduce_to(_matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
+                                      compute_kernel_config=cfg, dtype=ttnn.float32),
+                              b.value.shape))
+
+
+@_kernel("triatt_qkv_heads")
+def _k_triatt_qkv_heads(shipped, args, kwargs):
+    """`triatt_qkv.qkv_heads`: the qkv projection written head-major, so the taped recompute
+    stops paying `nlp_create_qkv_heads` (a packed-width read and write per triangle attention).
+    The head split is a permutation, so the VJP is the projection's matmul VJP on the packed
+    cotangent. `triatt_bw` writes that cotangent in one pass when `QKV_PACKED` is on and hands
+    it to the slots' shared sink; a slot that gets its own gradient goes through its third of
+    the weight instead."""
+    x, w = _wrap(args[0]), _wrap(args[1])
+    cfg = _unwrap(args[2] if len(args) > 2 else kwargs.get("ckc")) or precise_config()
+    ra, rk = _raw(args, kwargs)
+    outs = shipped(*ra, **rk)
+    if outs is None:
+        return None
+    B, H, L, dh = (int(d) for d in outs[0].shape)
+    width, K = H * dh, int(w.value.shape[0])
+
+    class _Sink:
+        def add_grad(self, G):
+            _weight_vjp(x, w, ttnn.reshape(G, [B, L, 3 * width]), cfg)
+
+    sink = _Sink()
+
+    def slot(s):
+        def make():
+            def bw(g):
+                rows = ttnn.reshape(ag.merge_heads_value(g), [B, L, width])
+                if x.requires_grad:
+                    ws = ttnn.slice(w.value, [0, s * width], [K, (s + 1) * width])
+                    x.add_grad(_reduce_to(_via2d(rows, lambda v: ag.bmm(
+                        v, ws, False, True, compute_kernel_config=cfg)), x.value.shape))
+                if w.requires_grad:
+                    w.add_grad_slice(_matmul(_flat2d(x.value), _flat2d(rows), transpose_a=True,
+                                             compute_kernel_config=cfg, dtype=ttnn.float32),
+                                     [0, s * width], [K, (s + 1) * width])
+            bw.qkv_slot = s
+            bw.packed_sink = sink
+            return bw
+        return make
+
+    return tuple(_tape(o, [x, w], slot(s), reads=(0, 1)) for s, o in enumerate(outs))
+
+
 @_kernel("rne_add")
 def _k_rne_add(shipped, args, kwargs):
     """`tt_bio.rne_add`'s entry: the VJP of a sum is the cotangent, to both operands.

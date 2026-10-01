@@ -2293,6 +2293,12 @@ def _packed_qkv_source(q, k, v):
     nodes = [t.node for t in (q, k, v)]
     if any(n is None or getattr(n.fn, "qkv_slot", None) != s for s, n in enumerate(nodes)):
         return None
+    # The fused head-major projection (`taped_ttnn` entry `triatt_qkv_heads`) never builds the
+    # packed tensor; its slots share a sink that takes the packed gradient straight into the
+    # projection's VJP.
+    sink = getattr(nodes[0].fn, "packed_sink", None)
+    if sink is not None:
+        return sink if all(getattr(n.fn, "packed_sink", None) is sink for n in nodes) else None
     x = nodes[0].parents[0]
     if any(n.parents[0] is not x for n in nodes) or not x.requires_grad:
         return None
