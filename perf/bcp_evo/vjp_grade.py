@@ -35,7 +35,7 @@ with bindcraft2.fast_round():
         stage1 = a.lever == "gate_bw" or arm != "off"
         os.environ["TT_BIO_TAPED_KERNELS"] = BASE + (",reblock_permute_gated" if stage1 else "")
         R.GATED_BW_FUSED = a.lever == "gate_bw" or arm == "on"
-        GB.FUSED = a.lever == "gate_bw" and arm == "on"
+        GB.GATE_BW_FUSED = a.lever == "gate_bw" and arm == "on"
         s0 = list(GB.STATS)
         g0, b0 = list(R.STATS_GATED), list(R.STATS_GATED_BW)
         e0 = list(T.KERNEL_STATS.get("reblock_permute_gated", [0, 0]))

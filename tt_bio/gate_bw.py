@@ -30,8 +30,9 @@ D_CB, O_CB, G_CB, DO_CB, DG_CB = 0, 1, 2, 16, 17
 GRAN = 4
 _ELEM = {ttnn.bfloat16: 2, ttnn.float32: 4}
 
-#: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
-FUSED = env_flag("TT_BIO_GATE_BW_FUSED", False)
+#: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`. Not `FUSED`:
+#: the round stamp keys levers by attribute name and `triatt_bw.FUSED` already has it.
+GATE_BW_FUSED = env_flag("TT_BIO_GATE_BW_FUSED", False)
 
 #: (calls served, calls declined), cumulative; sample at a round boundary.
 STATS = [0, 0]
@@ -50,7 +51,7 @@ def _reject(reason, d):
 
 def eligible(d, o, g) -> bool:
     """Same tile grid on all three, TILE interleaved, o and g bfloat16, d bfloat16 or float32."""
-    if not FUSED:
+    if not GATE_BW_FUSED:
         return False
     if o.dtype != ttnn.bfloat16 or g.dtype != ttnn.bfloat16 or d.dtype not in _ELEM:
         return _reject("dtype", d)

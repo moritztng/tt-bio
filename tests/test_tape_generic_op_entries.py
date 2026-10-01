@@ -288,8 +288,8 @@ def test_a_sigmoid_gates_vjp_takes_gate_bw_and_nothing_else_does(monkeypatch, ta
     monkeypatch.setattr(TT, "_wrap", lambda t: t)
     monkeypatch.setattr(TT, "Tensor", _Leaf)
     monkeypatch.setattr(TT, "_reduce_to", lambda g, shape: g)
-    monkeypatch.setattr(GB, "FUSED", fused)
-    monkeypatch.setattr(GB, "eligible", lambda d, o, g: GB.FUSED)
+    monkeypatch.setattr(GB, "GATE_BW_FUSED", fused)
+    monkeypatch.setattr(GB, "eligible", lambda d, o, g: GB.GATE_BW_FUSED)
     monkeypatch.setattr(GB, "gate_bw", lambda d, o, g: ("do*", "dg*"))
     calls = []
     for verb in ("multiply", "sigmoid", "sigmoid_bw", "relu", "relu_bw", "rsub", "gtz"):

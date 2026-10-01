@@ -27,7 +27,7 @@ def main():
     import ttnn
     from tt_bio import gate_bw as GB
     from tt_bio.tenstorrent import get_device
-    GB.FUSED = True
+    GB.GATE_BW_FUSED = True
     dev = get_device()
     clock = Clock()
     put = lambda t, dt: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, dtype=dt, device=dev,  # noqa
