@@ -19,7 +19,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--shapes", default="288x288,128x128,256x256")
     ap.add_argument("--heads", type=int, default=4)
-    ap.add_argument("--reps", type=int, default=10)
+    ap.add_argument("--reps", type=int, default=40)
     ap.add_argument("--out", default=str(ROOT / "perf/bcp_evo/out/qkv_packed_bench.json"))
     a = ap.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -28,6 +28,7 @@ def main():
     from tt_bio import autograd as ag, taped_ttnn as T, triatt_bw as TB
     from tt_bio.tenstorrent import get_device
     TB.FUSED = True
+    T.QKV_GRAD_JOIN = True   # as fast_round arms it: the off arm is the round off arm
     dev = get_device()
     H, d = a.heads, 32
     up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16, device=dev,  # noqa: E731
