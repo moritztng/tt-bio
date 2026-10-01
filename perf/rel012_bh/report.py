@@ -14,9 +14,14 @@ import sys
 OUT = pathlib.Path(__file__).resolve().parent / "out"
 
 
-def clock():
+def clock(path=None):
+    """The 1 Hz log that covers these rounds. Each chain writes its own: the pc chains share
+    out/aiclk.tsv, the qb2 round keeps one beside its rungs."""
+    path = path or (OUT / "aiclk.tsv")
+    if not path.exists():
+        return []
     rows = []
-    for ln in (OUT / "aiclk.tsv").read_text().splitlines():
+    for ln in path.read_text().splitlines():
         if ln.startswith("#"):
             continue
         t, c, _ = ln.split("\t")
@@ -59,7 +64,8 @@ def main():
     for sub in ("round", "round_p300c"):
         if (OUT / sub).exists():
             print(f"== {sub} (288 tokens, hPDL1 + 146 aa, 3 trajectories, pro rata)")
-            round_table(OUT / sub, clk)
+            own = OUT / sub / "aiclk.tsv"
+            round_table(OUT / sub, clock(own) if own.exists() else clk)
     return 0
 
 
