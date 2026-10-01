@@ -7,12 +7,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 BindCraft 2 reaches 800 tokens on one Wormhole Galaxy chip, where 0.11.0 stopped at 512, so the
 EGFR ectodomain plus a 150 aa binder folds uncropped. The 768-token axis that crashes 0.11.0 on
-Blackhole now runs, at `memory='lean'`. A gradient round is faster on Blackhole: on a p300c chip
-at 288 tokens the release tree reads 4.189 s against 0.11.0's 6.167 s on the same card, 1.472x,
-six sittings with the arms alternating at AICLK median 1350, no sample under 1200. Against an
-H200's 0.696 s round that is 6.02x where 0.11.0 reads 8.86x, both p300c figures. The v0.11.0
-headline, 6.00 s a round and 8.6x an H200, is a p150a number and is not compared against them;
-this release's p150a round has not been measured.
+Blackhole now runs, at `memory='lean'`. A gradient round is faster on Blackhole. At 288 tokens and
+three trajectories, with the release and 0.11.0 alternating on the same card at AICLK median 1350
+and no sample under 1200: on a p150a the round is 3.603 s against 0.11.0's 5.836 s, 1.62x, which
+takes it from 8.39x an H200's 0.696 s round to 5.18x; on a p300c chip it is 3.653 s against
+5.883 s, 1.61x, 8.45x to 5.25x. 0.11.0's own headline, 6.00 s and 8.6x an H200, was a p150a figure.
 
 ### Added
 

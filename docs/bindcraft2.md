@@ -141,16 +141,19 @@ arm:
 Each row is its own sitting, so read each ratio on its own rather than multiplying them, and each
 was taken on the branch that built that lever.
 
-**What the release is worth, measured on the shipped tree:** on a p300c chip the 288-token round
-reads **4.189 s against the previous release's 6.167 s on the same card, 1.472x**. Six sittings
-with the two arms alternating, 84 counted rounds an arm, AICLK median 1350 and minimum 1300 with
-no sample under 1200, the per-sitting medians disjoint between arms (4.033-4.321 against
-6.117-6.266). Against an H200's 0.696 s round that is 6.02x, where the previous release reads
-8.86x on this board.
+**What the release is worth, measured on the shipped tree:** three trajectories at 288 tokens,
+the release and v0.11.0 alternating on the same card, first round of each slot dropped, round
+counted pro rata as v0.11.0 counted its 6.00 s. Each board is its own measurement:
 
-On a p150a the last paired reading is the layer-norm backward's: 6.216 s off against 5.463 s on,
-three trajectories at 288 tokens, AICLK 1350, taken before the eleven kernels landed. The p150a
-round of the full release has not been measured, so this page does not quote one.
+| board | this release | v0.11.0 | ratio | vs an H200's 0.696 s | AICLK during the rounds |
+|---|---|---|---|---|---|
+| p150a | 3.603 s | 5.836 s | 1.62x | 5.18x, was 8.39x | median 1350, min 1343, none under 1200 |
+| p300c chip | 3.653 s | 5.883 s | 1.61x | 5.25x, was 8.45x | median 1350, min 1300, none under 1200 |
+
+On the p150a, the board v0.11.0's 6.00 s and 8.6x were quoted on, that is three sittings and 81
+counted rounds an arm, per-sitting medians 3.590-3.616 s against 5.815-5.944 s. v0.11.0 reads
+5.836 s there against the 5.899 s it documented, so the baseline reproduces. The p300c figure is
+two sittings and 54 rounds an arm (3.652-3.675 s against 5.878-5.939 s).
 
 A whole campaign shows the same thing at lower resolution. On a p300c, with the layer-norm
 backward on and the eleven kernels not yet in, the PD-L1 campaign above ran **5.186 s a round and
