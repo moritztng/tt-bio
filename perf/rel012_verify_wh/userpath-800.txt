@@ -1,0 +1,1 @@
+[tt_bio.bindcraft2] 800 tokens runs in the 'offload' memory mode (chosen because the fast mode fits this card only to 512 tokens): each gradient round runs every Evoformer block's forward once more and moves the block inputs to host memory and back. See docs/bindcraft2.md, 'Large complexes'.
