@@ -1,0 +1,163 @@
+[
+ {
+  "n": 288,
+  "Kt": 9,
+  "asked": 3,
+  "given": 3,
+  "narrowed": {},
+  "priced": {
+   "rel_l2": 0.001713471982111176,
+   "max_abs": 0.24111607670783997,
+   "finite": true
+  },
+  "ttnn_own": {
+   "rel_l2": 0.0017232827908103255,
+   "max_abs": 0.24111607670783997,
+   "finite": true
+  },
+  "unpriced": {
+   "rel_l2": 0.001713471982111176,
+   "max_abs": 0.24111607670783997,
+   "finite": true
+  },
+  "priced_equals_unpriced_bitwise": true
+ },
+ {
+  "n": 544,
+  "Kt": 17,
+  "asked": 1,
+  "given": 1,
+  "narrowed": {},
+  "priced": {
+   "rel_l2": 0.0017233028831955233,
+   "max_abs": 0.31231944262981415,
+   "finite": true
+  },
+  "ttnn_own": {
+   "rel_l2": 0.0017233028831955233,
+   "max_abs": 0.31231944262981415,
+   "finite": true
+  },
+  "unpriced": {
+   "rel_l2": 0.0017233028831955233,
+   "max_abs": 0.31231944262981415,
+   "finite": true
+  },
+  "priced_equals_unpriced_bitwise": true
+ },
+ {
+  "n": 736,
+  "Kt": 23,
+  "asked": 1,
+  "given": 1,
+  "narrowed": {},
+  "priced": {
+   "rel_l2": 0.0017219923186881723,
+   "max_abs": 0.3198508992791176,
+   "finite": true
+  },
+  "ttnn_own": {
+   "rel_l2": 0.0017219923186881723,
+   "max_abs": 0.3198508992791176,
+   "finite": true
+  },
+  "unpriced": {
+   "rel_l2": 0.0017219923186881723,
+   "max_abs": 0.3198508992791176,
+   "finite": true
+  },
+  "priced_equals_unpriced_bitwise": true
+ },
+ {
+  "n": 768,
+  "Kt": 24,
+  "asked": 8,
+  "given": 6,
+  "narrowed": {
+   "(24, 1, 24, True)": [
+    8,
+    6
+   ]
+  },
+  "priced": {
+   "rel_l2": 0.0017211603056024264,
+   "max_abs": 0.4336067344993353,
+   "finite": true
+  },
+  "ttnn_own": {
+   "rel_l2": 0.0017296667871243916,
+   "max_abs": 0.4336067344993353,
+   "finite": true
+  },
+  "unpriced": "refused: CBs exceed the core"
+ },
+ {
+  "n": 800,
+  "Kt": 25,
+  "asked": 5,
+  "given": 5,
+  "narrowed": {},
+  "priced": {
+   "rel_l2": 0.0017200755383959064,
+   "max_abs": 0.3688798937946558,
+   "finite": true
+  },
+  "ttnn_own": {
+   "rel_l2": 0.0017264043932636115,
+   "max_abs": 0.3688798937946558,
+   "finite": true
+  },
+  "unpriced": {
+   "rel_l2": 0.0017200755383959064,
+   "max_abs": 0.3688798937946558,
+   "finite": true
+  },
+  "priced_equals_unpriced_bitwise": true
+ },
+ {
+  "n": 864,
+  "Kt": 27,
+  "asked": 3,
+  "given": 3,
+  "narrowed": {},
+  "priced": {
+   "rel_l2": 0.0017236637611811195,
+   "max_abs": 0.31567811965942383,
+   "finite": true
+  },
+  "ttnn_own": {
+   "rel_l2": 0.0017271664691095648,
+   "max_abs": 0.3219451755285263,
+   "finite": true
+  },
+  "unpriced": {
+   "rel_l2": 0.0017236637611811195,
+   "max_abs": 0.31567811965942383,
+   "finite": true
+  },
+  "priced_equals_unpriced_bitwise": true
+ },
+ {
+  "n": 1024,
+  "Kt": 32,
+  "asked": 8,
+  "given": 4,
+  "narrowed": {
+   "(32, 1, 32, True)": [
+    8,
+    4
+   ]
+  },
+  "priced": {
+   "rel_l2": 0.0017271555708596614,
+   "max_abs": 0.5104032382369041,
+   "finite": true
+  },
+  "ttnn_own": {
+   "rel_l2": 0.0017293033794227907,
+   "max_abs": 0.5104032382369041,
+   "finite": true
+  },
+  "unpriced": "refused: CBs exceed the core"
+ }
+]

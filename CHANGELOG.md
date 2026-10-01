@@ -61,6 +61,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **BindCraft 2 crashed at 768 tokens on Blackhole.** The batched matmul planner behind every
+  taped gradient picked its contraction block from the shape alone and never checked it against
+  a core's L1, so at 768 one product of the backward asked for 1,864,192 B of circular buffers
+  on a 1,572,864 B core and the device refused it. 736 and 800 fit only because their tile counts
+  have smaller divisors. The planner now prices each plan against the L1 the device reports and
+  narrows the block until it fits, falling back to ttnn's own plan if nothing does. Every
+  32-token axis from 288 to 864 now completes a gradient round on a p300c chip; 768 is the only
+  one whose plan changed, and 288 gives gradients bit-identical to before. See
+  [docs/bindcraft2.md](docs/bindcraft2.md).
+
 - **A BindCraft 2 refusal on a card held to its last percent called itself fragmentation.**
   Above a Wormhole Galaxy chip's 512 tokens the fold holds 98 to 99 % of the board, and whether
   the 100 to 250 MB left happened to cover the next request decided between "the card is full"

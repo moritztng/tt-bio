@@ -1,0 +1,93 @@
+=== 2026-10-01T18:18:08Z a768_hHSA_163 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=10e5ab830
+=== rc=0 2026-10-01T18:21:45Z a768_hHSA_163
+=== 2026-10-01T18:21:45Z a288_hPDL1_152 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=7c2b1c02a
+=== rc=0 2026-10-01T18:22:21Z a288_hPDL1_152
+=== SWEEP DONE 2026-10-01T18:22:21Z
+=== 2026-10-01T18:22:21Z a288_hPDL1_152_main tree=/home/ttuser/.coworker/wt/bcw-bmm/perf/bcw_bmm/main_tree commit=7c2b1c02a
+=== 2026-10-01T18:23Z relabel: a768_hHSA_163 read back axis 800 (complex = target + pad32(binder)), renamed a800_hHSA_163; chain restarted with binder buckets
+=== rc=0 2026-10-01T18:23:04Z a288_hPDL1_152_main
+=== SWEEP DONE 2026-10-01T18:23:04Z
+=== 2026-10-01T18:23:07Z a768_hHSA_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=7c2b1c02a
+=== rc=0 2026-10-01T18:26:16Z a768_hHSA_150
+=== 2026-10-01T18:26:16Z a320_hPDL1_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:17Z a320_hPDL1_180
+=== 2026-10-01T18:26:17Z a352_hPDL1_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:18Z a352_hPDL1_210
+=== 2026-10-01T18:26:18Z a384_hIL7RA_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:19Z a384_hIL7RA_150
+=== 2026-10-01T18:26:19Z a416_hIL7RA_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:21Z a416_hIL7RA_180
+=== 2026-10-01T18:26:21Z a448_hIL7RA_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:23Z a448_hIL7RA_210
+=== 2026-10-01T18:26:23Z a480_hIL7RA_240 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:24Z a480_hIL7RA_240
+=== 2026-10-01T18:26:24Z a512_hIL2R_90 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:25Z a512_hIL2R_90
+=== 2026-10-01T18:26:25Z a544_hIL2R_110 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:26Z a544_hIL2R_110
+=== 2026-10-01T18:26:26Z a576_hIL2R_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:27Z a576_hIL2R_150
+=== 2026-10-01T18:26:27Z a608_hIL2R_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:28Z a608_hIL2R_180
+=== 2026-10-01T18:26:28Z a640_hIL2R_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:30Z a640_hIL2R_210
+=== 2026-10-01T18:26:30Z a672_hHSA_60 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:32Z a672_hHSA_60
+=== 2026-10-01T18:26:32Z a704_hHSA_90 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:35Z a704_hHSA_90
+=== 2026-10-01T18:26:35Z a736_hHSA_110 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:37Z a736_hHSA_110
+=== 2026-10-01T18:26:37Z a832_hHSA_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:38Z a832_hHSA_210
+=== 2026-10-01T18:26:38Z a864_hHSA_240 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:39Z a864_hHSA_240
+=== SWEEP DONE 2026-10-01T18:26:39Z
+=== CHAIN DONE 2026-10-01T18:26:39Z
+=== 2026-10-01T18:26:45Z a288_hPDL1_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=1 2026-10-01T18:26:46Z a288_hPDL1_150
+=== SWEEP DONE 2026-10-01T18:26:46Z
+=== 2026-10-01T18:26:46Z a288_hPDL1_150_main tree=/home/ttuser/.coworker/wt/bcw-bmm/perf/bcw_bmm/main_tree commit=5e855a581
+=== rc=1 2026-10-01T18:26:47Z a288_hPDL1_150_main
+=== SWEEP DONE 2026-10-01T18:26:47Z
+=== CHAIN2 DONE 2026-10-01T18:26:47Z
+=== 2026-10-01T18:27:14Z 16 rungs above rc=1 in ~1 s: the digest wrapper asked for the BC2 class before rung.py put BC2 on sys.path; moved to failed_import/, relaunched
+=== 2026-10-01T18:27:16Z a288_hPDL1_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=5e855a581
+=== rc=0 2026-10-01T18:27:45Z a288_hPDL1_150
+=== SWEEP DONE 2026-10-01T18:27:45Z
+=== 2026-10-01T18:27:45Z a288_hPDL1_150_main tree=/home/ttuser/.coworker/wt/bcw-bmm/perf/bcw_bmm/main_tree commit=5e855a581
+=== rc=0 2026-10-01T18:28:14Z a288_hPDL1_150_main
+=== SWEEP DONE 2026-10-01T18:28:14Z
+=== 2026-10-01T18:28:14Z a320_hPDL1_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=7492b2808
+=== rc=0 2026-10-01T18:29:07Z a320_hPDL1_180
+=== 2026-10-01T18:29:07Z a352_hPDL1_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:30:06Z a352_hPDL1_210
+=== 2026-10-01T18:30:06Z a384_hIL7RA_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:31:17Z a384_hIL7RA_150
+=== 2026-10-01T18:31:17Z a416_hIL7RA_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:33:00Z a416_hIL7RA_180
+=== 2026-10-01T18:33:00Z a448_hIL7RA_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:34:07Z a448_hIL7RA_210
+=== 2026-10-01T18:34:07Z a480_hIL7RA_240 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:35:30Z a480_hIL7RA_240
+=== 2026-10-01T18:35:30Z a512_hIL2R_90 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:36:51Z a512_hIL2R_90
+=== 2026-10-01T18:36:51Z a544_hIL2R_110 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:38:35Z a544_hIL2R_110
+=== 2026-10-01T18:38:35Z a576_hIL2R_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:40:22Z a576_hIL2R_150
+=== 2026-10-01T18:40:22Z a608_hIL2R_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:42:18Z a608_hIL2R_180
+=== 2026-10-01T18:42:18Z a640_hIL2R_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:44:22Z a640_hIL2R_210
+=== 2026-10-01T18:44:22Z a672_hHSA_60 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:47:34Z a672_hHSA_60
+=== 2026-10-01T18:47:34Z a704_hHSA_90 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:50:07Z a704_hHSA_90
+=== 2026-10-01T18:50:07Z a736_hHSA_110 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:53:57Z a736_hHSA_110
+=== 2026-10-01T18:53:57Z a832_hHSA_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:57:49Z a832_hHSA_210
+=== 2026-10-01T18:57:49Z a864_hHSA_240 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T19:01:52Z a864_hHSA_240
+=== SWEEP DONE 2026-10-01T19:01:52Z
+=== CHAIN DONE 2026-10-01T19:01:52Z

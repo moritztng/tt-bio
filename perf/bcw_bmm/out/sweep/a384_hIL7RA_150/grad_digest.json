@@ -1,0 +1,12 @@
+[
+ {
+  "round": 1,
+  "sha256": "ab17b6a1dd3987158535d4f3e8f5cbdf92e67b4e7caed5e045fcc168842cfb56",
+  "loss": 11.235726356506348
+ },
+ {
+  "round": 2,
+  "sha256": "c0a7ac1b2fb4324534708522497db5ac215cefdd4c3aaad336fbb24a66352688",
+  "loss": 9.526775360107422
+ }
+]

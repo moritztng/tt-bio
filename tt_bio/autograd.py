@@ -32,6 +32,7 @@ import ttnn
 from tt_bio.envflags import env_flag
 from tt_bio import mm_layout as _mm_layout
 from tt_bio import fanin_l1 as _fanin_l1
+from tt_bio import mm_generic as _mm_generic
 from tt_bio import rne_add as _rne_add
 
 #: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
@@ -1175,9 +1176,43 @@ TRIATT_BMM_CONFIG = True
 # partials. `triangle_attention` narrows its query chunk so a score block fits under it.
 BMM_OUT_TILES = 64
 
+# {(Mt, Nt, Kt, transpose_a): (asked, given)} for every product whose first-choice K block did
+# not fit a core and was narrowed; `given` is None where no block fit and ttnn planned it. Empty
+# on every axis the narrowing does not touch, which is how a sweep proves that it did not.
+BMM_NARROWED: dict = {}
 
-def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False,
-                       in0_block_w: int | None = None):
+_L1_BANK: dict = {}
+
+
+def _l1_bank(device) -> int:
+    """Bytes of L1 per core a program's circular buffers may grow into, read off the device.
+
+    The allocator's bank size, which is exactly the room above the CB base: on a p300c the
+    refusals quote a 1572864 B ceiling and the CBs start 111104 B up it, and the bank reads
+    1461760 (`perf/bcw_bmm/out/cb_probe2_bh.json`). Wormhole's bank is 1395424. One read per
+    device, because the view drains the pipeline.
+    """
+    k = id(device)
+    if k not in _L1_BANK:
+        _L1_BANK[k] = int(ttnn.get_memory_view(device, ttnn.BufferType.L1).total_bytes_per_bank)
+    return _L1_BANK[k]
+
+
+def bmm_cb_bytes(Mt, Nt, in0_block_w, transpose_a, a_tile, b_tile, out_tile, fp32_partials):
+    """Circular-buffer bytes one core of the batched reuse matmul asks for.
+
+    Fitted on Blackhole to the byte, fifteen refusals over both transposes, M, N, the block
+    width, both operand dtypes, the output dtype and the compute config
+    (`perf/bcw_bmm/out/cb_probe2_bh.json`). in0 and in1 are double-buffered, and in0 twice
+    over with `transpose_a`, which transposes each block in L1. `fp32_partials` is the float32
+    intermediate a packer- or dest-accumulating config adds beside a narrower output.
+    """
+    return ((4 if transpose_a else 2) * Mt * in0_block_w * a_tile + 2 * in0_block_w * Nt * b_tile
+            + Mt * Nt * (out_tile + (4096 if fp32_partials else 0)))
+
+
+def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False, *,
+                       dtype=None, compute_kernel_config=None, in0_block_w: int | None = None):
     """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's plan.
 
     With a real batch axis on both operands and no program config, ttnn's matmul plans a
@@ -1203,6 +1238,15 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     number of tiles counts its padded tiles, which is what every plan computes on; at depth 1
     the column-attention products are bit-identical to ttnn's own plan. Anything else returns
     None and ttnn plans it as before.
+
+    The K block is the widest divisor of Kt up to 8 whose circular buffers fit the core
+    (`bmm_cb_bytes` against `_l1_bank`). Without that check BindCraft 2 crashed at the 768 axis:
+    the dA product of its attention VJP, ``[2,8,768,768]^T @ [2,8,768,32]``, took 8 of Kt = 24
+    and asked for 1753088 B. 800 and 864 escaped only because Kt = 25 and 27 divide by 5 and 3.
+    The block width only splits the contraction, so a narrower one is the same product in more
+    steps; a plan that fits today is never changed. If no width fits, None. A caller-named
+    `in0_block_w` replaces the priced pick: it is how `bmm`'s refusal retry walks narrower where
+    the pricing, fitted on Blackhole, still let a refusal through.
     """
     sa = [int(d) for d in a.shape]
     sb = [int(d) for d in b.shape]
@@ -1217,12 +1261,34 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     def largest_divisor(n, cap):
         return max(d for d in range(1, min(n, cap) + 1) if n % d == 0)
 
+    # `_matmul` runs a mixed-dtype transpose_a product in fp32, and the output takes a's dtype
+    # unless the caller names one.
+    da, db = (ttnn.float32,) * 2 if transpose_a and a.dtype != b.dtype else (a.dtype, b.dtype)
+    do = da if dtype is None else dtype
+    try:
+        tiles = [_mm_generic.tile_bytes(d) for d in (da, db, do)]
+    except ValueError:
+        return None
+    cfg = compute_kernel_config
+    partials = do != ttnn.float32 and bool(getattr(cfg, "packer_l1_acc", False)
+                                           or getattr(cfg, "fp32_dest_acc_en", False))
+    if in0_block_w is not None:
+        w = in0_block_w
+    else:
+        budget = _l1_bank(a.device())
+        asked = largest_divisor(Kt, 8)
+        w = next((d for d in range(asked, 0, -1) if Kt % d == 0
+                  and bmm_cb_bytes(Mt, Nt, d, transpose_a, *tiles, partials) <= budget), None)
+        if w != asked:
+            BMM_NARROWED[(Mt, Nt, Kt, bool(transpose_a))] = (asked, w)
+        if w is None:
+            return None
     # The dest register holds 4 fp32 tiles, which bounds the subblock.
     sw = largest_divisor(Nt, 4)
     sh = largest_divisor(Mt, max(1, 4 // sw))
     return ttnn.MatmulMultiCoreReuseProgramConfig(
         compute_with_storage_grid_size=a.device().compute_with_storage_grid_size(),
-        in0_block_w=in0_block_w or largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
+        in0_block_w=w, out_subblock_h=sh, out_subblock_w=sw,
         per_core_M=Mt, per_core_N=Nt)
 
 
@@ -1245,7 +1311,7 @@ def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
     retry is on the REFUSAL and not on the shape: every call that fits today takes the plan it
     took yesterday, to the bit.
     """
-    plan = bmm_program_config(a, b, transpose_a, transpose_b)
+    plan = bmm_program_config(a, b, transpose_a, transpose_b, **_bmm_plan_kw(kw))
     try:
         return _matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
                        program_config=plan, **kw)
@@ -1261,6 +1327,11 @@ def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
         if blocked is None:
             raise
         return blocked
+
+
+def _bmm_plan_kw(kw):
+    """The output dtype and compute config of a `bmm` call, which `bmm_program_config` prices."""
+    return {"dtype": kw.get("dtype"), "compute_kernel_config": kw.get("compute_kernel_config")}
 
 
 def _bmm_narrower_k(a, b, transpose_a: bool, transpose_b: bool, kw):
@@ -1284,7 +1355,8 @@ def _bmm_narrower_k(a, b, transpose_a: bool, transpose_b: bool, kw):
         try:
             out = _matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
                           program_config=bmm_program_config(a, b, transpose_a, transpose_b,
-                                                            in0_block_w=w), **kw)
+                                                            in0_block_w=w, **_bmm_plan_kw(kw)),
+                          **kw)
         except Exception as exc:                                         # noqa: BLE001
             from .tenstorrent import report_l1_refusal
             if not report_l1_refusal(f"autograd.bmm in0_block_w={w}", exc):
@@ -1353,7 +1425,7 @@ def _bmm_blocked(a, b, transpose_a: bool, transpose_b: bool, kw):
         block = ttnn.slice(a, starts, ends)
         parts.append(_matmul(block, b, transpose_a=transpose_a, transpose_b=transpose_b,
                              program_config=bmm_program_config(block, b, transpose_a,
-                                                               transpose_b),
+                                                               transpose_b, **_bmm_plan_kw(kw)),
                              **kw))
         ttnn.deallocate(block)
     out = ttnn.concat(parts, dim=len(sa) - 2)
