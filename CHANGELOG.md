@@ -3,7 +3,15 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.12.0] - 2026-10-02
+
+BindCraft 2 reaches 896 tokens on one Wormhole Galaxy chip, where 0.11.0 stopped at 512, and the
+768-token axis that crashes 0.11.0 on Blackhole now runs. A gradient round is faster on Blackhole:
+on a p300c chip at 288 tokens it reads 3.946 s, 5.67x an H200's 0.6958 s, at AICLK 1350. That
+figure was measured on the `bcw-callcut` branch before the release was assembled, not on the
+release tree; the levers behind it are listed below with the paired ratio each was measured at.
+The v0.11.0 p150a figure, 6.00 s a round and 8.6x an H200, is a different board and is not
+compared against it.
 
 ### Added
 
@@ -32,8 +40,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   at an 8.282 GB peak and 200.2 s: it needs an L1 escape the other axes do not, because
   `in0_block_w` is the largest
   divisor of the axis in tiles that is at most 8 and 768 alone in this range takes the widest
-  block, so `tt_bio.autograd.bmm` retries such a refusal in narrower passes over K. See
-  [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
+  block, so `tt_bio.autograd.bmm` retries such a refusal in narrower passes over K. The price on
+  Wormhole: `offload` rounds at 768 to 896 tokens run 3.3-4.7x the 512-token `fast` round.
+  `memory='fast'` turns the slower modes off, and a fold too large for `fast` then refuses as in
+  0.11.0. See [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
 
 ### Changed
 
@@ -48,12 +58,30 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   chip still completes every size from 192 to 864 tokens with them on. See
   [docs/tuning-flags.md](docs/tuning-flags.md#bindcraft-2-round-kernels).
 
+- **A BindCraft 2 gradient round is 1.028x faster again on a p300c.** The ReLU backward gates its
+  multiply in place (bit-exact, no flag) and the outer product mean sums its MSA rows inside one
+  contraction (`TT_BIO_AF2_OPM_ROWS_IN_K`, a forward closer to float64: rel L2 3.52e-3 to 2.93e-3).
+  At 288 tokens, three trajectories, the round went from 4.055 to 3.946 s, six arms alternated at
+  AICLK 1350 with disjoint ranges. A PD-L1 campaign with both on accepted 1 of 6 at i_pTM 0.85.
+  `TT_BIO_AF2_OPM_ROWS_IN_K=0` turns the second off. See
+  [docs/tuning-flags.md](docs/tuning-flags.md#bindcraft-2-round-kernels).
+
+- **Large BindCraft 2 rounds on Blackhole are 1.17-1.67x faster.** The fused triangle-attention
+  backward held the whole `[N, N]` float32 bias gradient in one core's L1, which fits only at 288
+  tokens, so every larger round fell back to the chunked recompute. It now walks the query axis in
+  chunks and serves every call from 288 to 864 tokens on Blackhole, bit-identical at 288. On a
+  p300c at AICLK 1350: 1.17-1.32x a round at 544, 1.62-1.67x at 768, 1.44x at 800, 1.00x at 288,
+  measured on the `bcw-dbias` branch. No ceiling moves. Wormhole keeps the chunked recompute above
+  288 until the chunked kernel is graded there. `TT_BIO_TRIATT_BW_FUSED=0` turns the fused backward
+  off. See [docs/tuning-flags.md](docs/tuning-flags.md#tt_bio_triatt_bw_fused).
+
 - **A BindCraft 2 gradient round is 1.15x faster on Blackhole.** The layer-norm backward ran as
   about 22 ttnn calls, 14 of them full passes over the activation, 384 times a round at 288 tokens;
   it is now one kernel (`tt_bio/lnbw.py`) that reads the activation and the cotangent once. At the
   shipped default (three interleaved trajectories, 288 tokens) the round went from 5.969 to 5.186 s
   on a p300c chip and from 6.216 to 5.463 s on a p150a, arms alternated in one sitting, AICLK 1350
-  MHz sampled during every arm. Against an H200's 0.6958 s that is 7.45x rather than 8.58x. The
+  MHz sampled during every arm. On the p300c, against an H200's 0.6958 s, that is 7.45x rather
+  than 8.58x. The
   gradient is closer to float64 than before (dx rel L2 1.81e-3 against 3.84e-3 on the same bf16
   operands). It serves only a BindCraft 2 round on Blackhole: other models' tapes and Wormhole keep
   the composed path, and `TT_BIO_LNBW_FUSED=0` turns it off. See
@@ -94,6 +122,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   numpy ends at 1.26, and the jax 0.11 that BindCraft 2 pins does not import on it. The page now
   says to keep the numpy 2 that the install gives you: ttnn runs on it even though `pip check`
   reports ttnn's `numpy<2` declaration.
+
+### Not in this release
+
+Nothing was dropped while assembling the release: every branch that graded GO merged and the
+card-free suite passed on the merged tree. These are absent on purpose, so their absence is not a
+regression:
+
+- **The fused gated input projection (`inproj_gated`, bcp-evo stage 14).** Off by default and not
+  yet measured on a round, so it stays on its branch for 0.12.1.
+- **bfloat8 cotangents in the BindCraft 2 backward.** Accurate to the bar but 0.953x a round on a
+  p300c at AICLK 1350, a loss, so it is not shipped.
+- **The chunked triangle-attention backward on Wormhole.** Not yet graded on a Wormhole chip, so
+  above 288 tokens Wormhole keeps the chunked recompute.
 
 ## [0.11.0] - 2026-10-01
 
