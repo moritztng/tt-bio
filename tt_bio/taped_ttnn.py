@@ -1399,6 +1399,9 @@ def _v_create_qkv_heads(shipped, args, kwargs):
                 zero = ag.grad_zeros([B, 1, L, H * dh], rows.dtype, rows.device())
                 parts = [rows if i == s else zero for i in range(3)]
                 x.add_grad(ttnn.concat(parts, dim=-1))
+            # Which slot this is, for a consumer that can write all three at once into `x`'s
+            # layout (`triatt_bw.QKV_PACKED`): it then gives `x` one gradient and these none.
+            bw.qkv_slot = s
             return bw
         return make
 

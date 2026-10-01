@@ -1756,6 +1756,7 @@ _FAST_ROUND = (
     ("rne_add", None, "WIDEN_ADD", "TT_BIO_WIDEN_ADD", True),
     ("taped_ttnn", None, "QKV_GRAD_JOIN", "TT_BIO_QKV_GRAD_JOIN", True),
     ("triatt_bw", None, "FUSED", "TT_BIO_TRIATT_BW_FUSED", True),
+    ("triatt_bw", None, "QKV_PACKED", "TT_BIO_TRIATT_BW_QKV_PACKED", True),
     ("lnbw", None, "FUSED", "TT_BIO_LNBW_FUSED", True),
     ("reblock_permute", None, "GATED_BW_FUSED", "TT_BIO_GATED_BW_FUSED", True),
     ("gate_bw", None, "GATE_BW_FUSED", "TT_BIO_GATE_BW_FUSED", True),

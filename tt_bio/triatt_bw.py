@@ -87,7 +87,14 @@ PROGRAM_RESERVE = getattr(SG, "PROGRAM_RESERVE", 0)
 
 FUSED = env_flag("TT_BIO_TRIATT_BW_FUSED", False)
 
-STATS = {"served": 0, "declined": 0}
+# Write dq, dk and dv straight into one [B, 1, N, 3*H*d] gradient when q, k and v are the three
+# slots of one `nlp_create_qkv_heads` (the triangle attentions' own split). The tape otherwise
+# merges each head set (`nlp_concat_heads`, 0.12 ms) and joins the three (0.34 ms) after this
+# kernel: 0.69 ms and 254 MB a call at 288 tokens that only reorder tiles. Same tiles, new pages,
+# so bit-identical. Its own name: the round stamp keys levers by attribute.
+QKV_PACKED = env_flag("TT_BIO_TRIATT_BW_QKV_PACKED", False)
+
+STATS = {"served": 0, "declined": 0, "packed": 0}
 
 
 def _kdir() -> Path:
@@ -349,7 +356,7 @@ def work_cores(num_cores: int, gx: int):
     return ttnn.CoreRangeSet(ranges)
 
 
-def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
+def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, packed=False):
     """The ProgramDescriptor for one triangle-attention backward.
 
     Deliberately its own program rather than an arm of `sdpa_generic.build`. The forward's reader
@@ -424,7 +431,8 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
         ttnn.KernelDescriptor(
             kernel_source=str(kd / "dataflow/writer.cpp"),
             source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-            core_ranges=core_grid, compile_time_args=writer_ct, defines=[], runtime_args=wr,
+            core_ranges=core_grid, compile_time_args=writer_ct,
+            defines=[("PACKED_QKV", "1")] if packed else [], runtime_args=wr,
             config=ttnn.WriterConfigDescriptor()),
         ttnn.KernelDescriptor(
             kernel_source=str(kd / "compute/triatt_bw.cpp"),
@@ -445,8 +453,11 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
             "addrs": addrs}
 
 
-def run(device, q, k, v, bias, g, scale, ckc):
+def run(device, q, k, v, bias, g, scale, ckc, packed=False):
     """The whole backward for one triangle-attention call. Returns (dq, dk, dv, dbias).
+
+    With `packed`, dq, dk and dv are one and the same [B, 1, N, 3*H*d] tensor, laid out as the
+    `nlp_create_qkv_heads` input they came from (see `QKV_PACKED`).
 
     `q`, `k`, `v`, `bias` and `g` are raw ttnn tensors, not taped ones: the caller owns the tape.
     Outputs are allocated here and written in full by the program -- every leading-axis row is
@@ -463,10 +474,14 @@ def run(device, q, k, v, bias, g, scale, ckc):
         return ttnn.empty(t.padded_shape, t.dtype, ttnn.TILE_LAYOUT, device,
                           ttnn.DRAM_MEMORY_CONFIG)
 
-    dq, dk, dv = like(q), like(k), like(v)
+    if packed:
+        dq = dk = dv = ttnn.empty(ttnn.Shape([B, 1, N, 3 * H * d]), q.dtype, ttnn.TILE_LAYOUT,
+                                  device, ttnn.DRAM_MEMORY_CONFIG)
+    else:
+        dq, dk, dv = like(q), like(k), like(v)
     part = ttnn.empty(ttnn.Shape(partial_shape(p)), ttnn.float32, ttnn.TILE_LAYOUT, device,
                       ttnn.DRAM_MEMORY_CONFIG)
-    e = build(device, q, k, v, g, bias, dq, dk, dv, part, p, ckc, scale)
+    e = build(device, q, k, v, g, bias, dq, dk, dv, part, p, ckc, scale, packed)
     ttnn.generic_op([q, k, v, g, bias, dq, dk, dv, part], e["pd"])
     # The one reduction the host does. Every core accumulated its own group of the leading axis in
     # its own L1; this sums the groups. `ttnn.sum(dim=0)` is permute, reduce, permute (0.78 ms at
@@ -476,4 +491,5 @@ def run(device, q, k, v, bias, g, scale, ckc):
              else ttnn.sum(part, dim=0, keepdim=True))
     ttnn.deallocate(part)
     STATS["served"] += 1
+    STATS["packed"] += bool(packed)
     return dq, dk, dv, dbias

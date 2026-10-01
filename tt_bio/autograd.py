@@ -2185,6 +2185,30 @@ def merge_heads(x: Tensor) -> Tensor:
     return _tape(out_v, [x], make)
 
 
+def _packed_qkv_source(q, k, v):
+    """The packed tensor q, k and v were split from, when `triatt_bw` can write their gradient
+    into its layout in one pass; else None.
+
+    Only when they are slots 0, 1 and 2 of ONE `nlp_create_qkv_heads` call, all three
+    differentiated, with one-tile heads on a whole-tile token axis, so the packed pages and the
+    slot closures' `merge_heads` + join name the same elements. A slot that is read elsewhere too
+    still gets that consumer's gradient through its own closure; this only replaces the part
+    that came from here.
+    """
+    nodes = [t.node for t in (q, k, v)]
+    if any(n is None or getattr(n.fn, "qkv_slot", None) != s for s, n in enumerate(nodes)):
+        return None
+    x = nodes[0].parents[0]
+    if any(n.parents[0] is not x for n in nodes) or not x.requires_grad:
+        return None
+    B, H, N, d = (int(i) for i in q.value.shape)
+    if d != 32 or N % 32 or tuple(int(i) for i in x.value.shape) != (B, 1, N, 3 * H * d):
+        return None
+    if x.value.layout != ttnn.TILE_LAYOUT or x.value.dtype != q.value.dtype:
+        return None
+    return x
+
+
 def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,
                        *, scale: Optional[float] = None, chunk: Optional[int] = None,
                        q_chunk: Optional[int] = None, config=None, value=None) -> Tensor:
@@ -2294,9 +2318,17 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                                    grid=(_dev.compute_with_storage_grid_size().x,
                                          _dev.compute_with_storage_grid_size().y))
                     if _tbw.fits_l1(_p):
+                        _src = _packed_qkv_source(q, k, v) if _tbw.QKV_PACKED else None
                         _dq, _dk, _dv, _db = _tbw.run(
                             _dev, q.value, k.value, v.value, bias.value, g, scale,
-                            (ttnn.MathFidelity.HiFi4,))
+                            (ttnn.MathFidelity.HiFi4,), packed=_src is not None)
+                        if _src is not None:
+                            _src.add_grad(_dq)
+                            if bias.requires_grad:
+                                bias.add_grad(_db)
+                            else:
+                                ttnn.deallocate(_db)
+                            return
                         for _t, _d in ((q, _dq), (k, _dk), (v, _dv), (bias, _db)):
                             if _t.requires_grad:
                                 _t.add_grad(_d)
