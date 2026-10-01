@@ -2539,7 +2539,39 @@ def release_pins() -> None:
 _ALL_PARAMS = object()
 
 
-def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
+def substep(fn, *inputs: Tensor):
+    """``fn(*inputs)``, checkpointed on its own when a tape is being recorded.
+
+    This is how a checkpointed block checkpoints its sub-modules. Its untaped first forward
+    runs ``fn`` straight through: nothing is taped there, so nothing could be saved. Its
+    recompute runs with gradients on, and there each sub-module becomes a `checkpoint` of its
+    own, so the block's backward holds the sub-module boundaries plus ONE sub-module's tape
+    instead of every sub-module's tape at once. The values are the same ops on the same inputs
+    either way, so the gradient does not move; what it costs is one more forward of every
+    sub-module.
+    """
+    if not _GRAD_ENABLED or not any(isinstance(t, Tensor) and t.requires_grad for t in inputs):
+        return fn(*inputs)
+    return checkpoint(fn, *inputs, _nested=True)
+
+
+def _to_host(t: Tensor):
+    """Move a pinned segment input off the card, or None if it must stay.
+
+    A view stays: its buffer is shared with another taped tensor and moving one moves neither.
+    Returns what the recompute needs to put it back."""
+    v = t.value
+    if t.shares is not None or v.storage_type() != ttnn.StorageType.DEVICE \
+            or not v.is_allocated():
+        return None
+    home = (v.device(), v.memory_config())
+    t.value = ttnn.from_device(v)
+    ttnn.deallocate(v)
+    return home
+
+
+def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool = False,
+               _nested: bool = False) -> Tensor:
     """Run ``fn`` untaped, and re-run it taped inside its own backward.
 
     Trades one extra forward for dropping every intermediate ``fn`` produced. The
@@ -2563,6 +2595,16 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     parents is what keeps that from happening. Fine-tuning is exactly the case where the
     input can be frozen while the weights are not, so the old signature was correct for
     hallucination and wrong here.
+
+    ``offload`` moves the pinned inputs to host memory once the forward has read them and
+    brings them back for the recompute. It is for a chain of segments, each fed the previous
+    one's output, where nothing but the next segment reads an input: it frees one segment
+    input of device memory per segment for one download and one upload of it.
+
+    ``_nested`` is `substep`'s: a segment taken inside another one's recompute. Its pins are
+    not the run's to release, because the enclosing recompute drops its whole inner tape
+    the moment its backward is done, and parking them on `_CKPT_PINS` would keep every
+    sub-module input of every block alive to the end of the backward.
     """
     # PIN the inputs across the untaped forward. A shipped block deallocates the tensor it was
     # handed the moment it has read it -- that is what the tuned forward is -- and under
@@ -2575,7 +2617,8 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     held = [t for t in inputs if isinstance(t, Tensor)]
     for t in held:
         t.pinned = True
-        _CKPT_PINS.append(t)
+        if not _nested:
+            _CKPT_PINS.append(t)
     _TOUCHED.clear()
     with no_grad():
         produced = fn(*inputs)
@@ -2590,7 +2633,7 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         """Re-run the segment on fresh nodes over the same input VALUES and replay its tape
         ONCE, seeding every output in `seeded`, a list of (output index or None, gradient)."""
         from .taped_ttnn import recompute_scope
-        inner = [Tensor(t.value, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
+        inner = [Tensor(_home(t), requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
                  for t in inputs]
         with recompute_scope():
             y = fn(*inner)
@@ -2608,9 +2651,25 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         # groups it could reach from the roots -- which missed every group off that path.
         del y, inner, roots
 
+    # Where each offloaded input lives on the card, by identity. Filled after the outputs are
+    # taped, so `_tape`'s view test still sees the inputs on the card.
+    homes: dict = {}
+
+    def _home(t):
+        home = homes.get(id(t))
+        return t.value if home is None else ttnn.to_device(t.value, home[0], home[1])
+
+    def _offload(out):
+        if offload:
+            for t in held:
+                home = _to_host(t)
+                if home is not None:
+                    homes[id(t)] = home
+        return out
+
     if not isinstance(produced, (tuple, list)):
-        return _tape(produced.value if isinstance(produced, Tensor) else produced, parents,
-                     lambda: (lambda g: _recompute([(None, g)])))
+        return _offload(_tape(produced.value if isinstance(produced, Tensor) else produced,
+                              parents, lambda: (lambda g: _recompute([(None, g)]))))
 
     # A segment with SEVERAL outputs, which is what a real block is: a `PairformerLayer`
     # returns the pair (s, z) and the single-output form cannot express it.
@@ -2639,7 +2698,7 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         if out.node is not None:
             out.node.group = fire
         outs.append(out)
-    return tuple(outs)
+    return _offload(tuple(outs))
 
 
 # ---------------------------------------------------------------------------------------

@@ -692,7 +692,7 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             built.append(Buf())
             return built[-1]
 
-    def checkpoint(fn, z):
+    def checkpoint(fn, z, offload=False):
         out = fn(z)     # the forward
         fn(z)           # the recompute the backward performs on the same closure
         return out

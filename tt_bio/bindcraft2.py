@@ -119,6 +119,58 @@ _MEASURED_CEILINGS = (
     (WH_GALAXY_DRAM_BYTES, MEASURED_MAX_TOKENS_WH_GALAXY, "Wormhole Galaxy chip"),
 )
 
+#: How the gradient round spends device memory, cheapest in time first.
+#:
+#: ``fast`` checkpoints each Evoformer, extra-MSA and template block and keeps everything else on
+#: the card. Its peak is one block's recompute plus one pinned input per block.
+#: ``lean`` also checkpoints each residual step inside a block (the outer product mean, the three
+#: MSA steps, both triangle multiplications, both triangle attentions, the transition), so a
+#: block's backward holds one step's tape instead of nine. It runs every block's forward once
+#: more a round.
+#: ``offload`` is ``lean`` with the pinned block inputs moved to host memory between the forward
+#: and the backward: one download and one upload of each a round, and no pins on the card.
+#: All three run the same ops on the same values; only what the card holds in between differs.
+MEMORY_MODES = ("fast", "lean", "offload")
+
+#: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
+#: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
+#: Wormhole and Blackhole ladders fit to 0.01-0.03 GB (`state/bcw/MEMORY.md`); `lean` and
+#: `offload` are measured the same way on the same rungs (`perf/bcw_slowmode/`).
+_MODE_BASE_BYTES = 0.71e9
+_MODE_PAIR_TENSORS = {"fast": 161, "lean": 95, "offload": 40}
+#: The share of a card's DRAM a round can actually hold. A Wormhole Galaxy chip refused 544
+#: tokens with a 12.701 GB resident frontier on 12.885 GB: past ~98 % the next pair-sized
+#: buffer finds no contiguous room.
+_MODE_USABLE = 0.978
+
+
+def round_device_bytes(mode: str, padded: int) -> int:
+    """What a gradient round at this token axis peaks at on the card in `mode`."""
+    return int(_MODE_BASE_BYTES + _MODE_PAIR_TENSORS[mode] * 256 * int(padded) ** 2)
+
+
+def memory_mode(requested: str, padded: int, card_bytes: int) -> str:
+    """The mode a fold at `padded` tokens runs in. ``auto`` is the cheapest that fits the card,
+    and the last one when none does, so a fold too big for every mode still tries the leanest
+    and refuses with the allocator's numbers rather than a guess."""
+    if requested != "auto":
+        if requested not in MEMORY_MODES:
+            raise ValueError(f"memory={requested!r}: expected 'auto' or one of {MEMORY_MODES}")
+        return requested
+    for mode in MEMORY_MODES:
+        if round_device_bytes(mode, padded) <= card_bytes * _MODE_USABLE:
+            return mode
+    return MEMORY_MODES[-1]
+
+
+def max_tokens(mode: str, card_bytes: int) -> int:
+    """The largest 32-token bucket `mode` fits on a card of `card_bytes`."""
+    n = TOKEN_BUCKET
+    while round_device_bytes(mode, n + TOKEN_BUCKET) <= card_bytes * _MODE_USABLE:
+        n += TOKEN_BUCKET
+    return n
+
+
 #: tt-metal's allocator refusal, which carries every number a user needs and is buried under
 #: forty lines of C++ backtrace by the time JAX has finished wrapping it. Per bank, except the
 #: buffer size itself.
@@ -159,7 +211,8 @@ def _pad_up_on() -> bool:
     return tenstorrent._TRIATT_HIFI_PAD_UP_TILES > 0
 
 
-def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
+def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
+                        mode: str = "fast"):
     """An allocator refusal rewritten to name the size that caused it, or None.
 
     What a researcher sees without this is a `JaxRuntimeError` wrapping ten Python frames, a
@@ -234,6 +287,22 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
     # It opens a sentence in one branch and closes one in the other.
     sentence = way_down[0].upper() + way_down[1:] if way_down[0].isalpha() else way_down
 
+    # The slower memory modes are the way to keep the whole complex, and a refusal that does not
+    # name them leaves a researcher cropping a target the card could have held.
+    later = MEMORY_MODES[MEMORY_MODES.index(mode) + 1:] if mode in MEMORY_MODES else ()
+    roomier = [m for m in later if max_tokens(m, card_total) >= padded]
+    if roomier:
+        escape = (f"This fold ran in the {mode!r} memory mode. The {roomier[0]!r} mode should "
+                  f"hold {padded} tokens on this card, slower: {_MODE_COST[roomier[0]]}. Pass "
+                  f"memory={roomier[0]!r}, or leave memory='auto' and it is picked for you "
+                  f"(docs/bindcraft2.md, 'Large complexes'). ")
+    elif mode != MEMORY_MODES[-1]:
+        escape = (f"Even the slowest memory mode, 'offload', tops out near "
+                  f"{max_tokens('offload', card_total)} tokens on this card. ")
+    else:
+        escape = (f"This fold already ran in the slowest memory mode, 'offload', which tops out "
+                  f"near {max_tokens('offload', card_total)} tokens on this card. ")
+
     if padded > cap or unmeasured_smaller:
         reference = (
             f"The largest axis measured to complete a gradient round on one {board_name} "
@@ -242,8 +311,8 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
             f"This card has {_gb(card_total)}, less than the {_gb(P150A_DRAM_BYTES)} of the "
             f"p150a where {MEASURED_MAX_TOKENS_P150A} tokens is the largest axis measured to "
             f"complete a gradient round, so its own ceiling is lower.")
-        action = (
-            f"What to do: run a smaller complex. The token axis is the complex BindCraft 2 "
+        action = "What to do: " + escape + (
+            f"Otherwise run a smaller complex. The token axis is the complex BindCraft 2 "
             f"built, padded to a multiple of {TOKEN_BUCKET} -- it is LARGER than target "
             f"residues + binder length, so size the job off the {n} above and not off that "
             f"sum. {sentence}. {reference} Trimming the "
@@ -278,12 +347,14 @@ _REFUSALS_LOCK = threading.Lock()
 
 
 @contextlib.contextmanager
-def _refusal_names_the_size(phase: str, n: int, padded: int) -> "Iterator[None]":
+def _refusal_names_the_size(phase: str, n: int, padded: int,
+                            memory: "_Memory | None" = None) -> "Iterator[None]":
     """Name the token axis on the way out of a device seam. A no-op unless it refuses."""
     try:
         yield
     except Exception as exc:
-        better = _size_aware_refusal(exc, phase=phase, n=n, padded=padded)
+        mode = memory.used.get(padded, "fast") if memory is not None else "fast"
+        better = _size_aware_refusal(exc, phase=phase, n=n, padded=padded, mode=mode)
         if better is None:
             raise
         with _REFUSALS_LOCK:
@@ -433,16 +504,32 @@ class _Trunk:
     def sync(self) -> None:
         self.ttnn.synchronize_device(self.device)
 
-    def evoformer(self, m, z, msa_mask, pair_masks, recompute: bool):
+    def card_bytes(self) -> int:
+        """This chip's DRAM as the allocator reports it."""
+        mv = self.ttnn.get_memory_view(self.device, self.ttnn.BufferType.DRAM)
+        return int(mv.total_bytes_per_bank) * int(mv.num_banks)
+
+    def arm(self, mode: str) -> bool:
+        """Set every block of this trunk to `mode` (see `MEMORY_MODES`). True when the
+        checkpoint pins go to host. Called at every seam, forward and backward, because the
+        blocks are shared by every trajectory on the card and only one seam runs at a time."""
+        run = self.ag.substep if mode != "fast" else None
+        model = self.model
+        for block in (*model.device_evoformer, *model.device_extra_msa, *model.device_template):
+            block.step_runner = run
+        return mode == "offload"
+
+    def evoformer(self, m, z, msa_mask, pair_masks, recompute: bool, offload: bool = False):
         for block in self.model.device_evoformer:
             if recompute:
                 m, z = self.ag.checkpoint(
-                    lambda a, b, blk=block: blk(a, b, msa_mask, *pair_masks), m, z)
+                    lambda a, b, blk=block: blk(a, b, msa_mask, *pair_masks), m, z,
+                    offload=offload)
             else:
                 m, z = block(m, z, msa_mask, *pair_masks)
         return m, z
 
-    def extra_msa(self, z, pair_masks, recompute: bool):
+    def extra_msa(self, z, pair_masks, recompute: bool, offload: bool = False):
         """The extra-MSA stack's four pair blocks, `pair -> pair`, left on card throughout.
 
         `AF2DeviceModel.extra_msa_stack` is this same loop with the dead MSA track written for
@@ -467,12 +554,13 @@ class _Trunk:
         for index, block in enumerate(model.device_extra_msa):
             if recompute:
                 z = self.ag.checkpoint(
-                    lambda t, blk=block, i=index: blk(blk._residual(t, const(i)), *pair_masks), z)
+                    lambda t, blk=block, i=index: blk(blk._residual(t, const(i)), *pair_masks), z,
+                    offload=offload)
             else:
                 z = block(block._residual(z, const(index)), *pair_masks)
         return z
 
-    def template_stack(self, z, pair_masks, recompute: bool):
+    def template_stack(self, z, pair_masks, recompute: bool, offload: bool = False):
         """The template embedder's two c=64 pair blocks, `act -> act`, left on card throughout.
 
         `AF2DeviceModel`'s fold path runs these same blocks through
@@ -482,7 +570,8 @@ class _Trunk:
         """
         for block in self.model.device_template:
             if recompute:
-                z = self.ag.checkpoint(lambda t, blk=block: blk(t, *pair_masks), z)
+                z = self.ag.checkpoint(lambda t, blk=block: blk(t, *pair_masks), z,
+                                       offload=offload)
             else:
                 z = block(z, *pair_masks)
         return z
@@ -713,6 +802,45 @@ class TrunkPool:
 # ----------------------------------------------------------------- the Evoformer on card
 
 
+class _Memory:
+    """The memory mode the on-card stacks run a fold in, decided once per token axis.
+
+    One per predictor, shared by the Evoformer, extra-MSA and template swaps, so the three
+    stacks of one fold always agree. ``requested`` is ``auto`` or one of `MEMORY_MODES`.
+    """
+
+    def __init__(self, requested: str = "auto"):
+        if requested != "auto" and requested not in MEMORY_MODES:
+            raise ValueError(f"memory={requested!r}: expected 'auto' or one of {MEMORY_MODES}")
+        self.requested = requested
+        #: The mode each token axis ran in.
+        self.used: dict[int, str] = {}
+        self._card = 0
+
+    def mode(self, trunk: "_Trunk", padded: int) -> str:
+        got = self.used.get(padded)
+        if got is None:
+            self._card = self._card or trunk.card_bytes()
+            got = self.used[padded] = memory_mode(self.requested, padded, self._card)
+            if got != "fast":
+                fast_top = max_tokens("fast", self._card)
+                print(f"[tt_bio.bindcraft2] {padded} tokens runs in the {got!r} memory mode "
+                      f"({'chosen because the fast mode fits this card only to ' + str(fast_top) + ' tokens' if self.requested == 'auto' else 'as requested'}): "
+                      f"{_MODE_COST[got]}. See docs/bindcraft2.md, 'Large complexes'.",
+                      file=sys.stderr, flush=True)
+        return got
+
+
+#: What each slower mode costs, in the words a refusal and the announcement use. Measured on a
+#: Wormhole Galaxy chip, `perf/bcw_slowmode/`.
+_MODE_COST = {
+    "fast": "the default",
+    "lean": "each gradient round runs every Evoformer block's forward once more",
+    "offload": "each gradient round runs every Evoformer block's forward once more and moves "
+               "the block inputs to host memory and back",
+}
+
+
 class EvoformerOnDevice:
     """BindCraft 2's Evoformer stack, run on card, differentiable.
 
@@ -726,10 +854,11 @@ class EvoformerOnDevice:
     """
 
     def __init__(self, pool: TrunkPool, *, blocks: int = EVOFORMER_BLOCKS,
-                 recompute: bool = True):
+                 recompute: bool = True, memory: "_Memory | str" = "auto"):
         self.pool = pool
         self.blocks = blocks
         self.recompute = recompute
+        self.memory = memory if isinstance(memory, _Memory) else _Memory(memory)
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
         #: True while `on_host` is open. Read where haiku TRACES, by the stack replacement.
         self.host_only = False
@@ -861,14 +990,16 @@ class EvoformerOnDevice:
         # The fused arm's L1 fit is a property of the token axis, so one forward at each new
         # axis decides it for every later fold at that size.
         watch = _fused_hifi_counts() if z.shape[0] not in self._fused_checked else None
-        with _refusal_names_the_size("forward", n, z.shape[0]), \
+        with _refusal_names_the_size("forward", n, z.shape[0], self.memory), \
                 duotraj.card(slot, "evoformer._taped"):
             trunk = self._trunk(slot)
+            mode = self.memory.mode(trunk, z.shape[0])
+            offload = trunk.arm(mode)
             ml, zl = trunk.leaf(m), trunk.leaf(z)
             with trunk.taped.tape():
                 mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
                                          self._pair_masks(trunk, pair_mask),
-                                         recompute=self.recompute)
+                                         recompute=self.recompute, offload=offload)
             trunk.sync()
         # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
         # of them through the forward rule, so the superseded tapes are dropped here. At several
@@ -876,7 +1007,8 @@ class EvoformerOnDevice:
             self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
-                                      "shapes": (tuple(m.shape), tuple(z.shape)), "n": n},
+                                      "shapes": (tuple(m.shape), tuple(z.shape)), "n": n,
+                                      "mode": mode},
                                      slot)
             self.calls["taped"] += 1
             out = (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
@@ -935,9 +1067,10 @@ class EvoformerOnDevice:
         gm, gz = torch.zeros(m_shape), torch.zeros(z_shape)
         gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        with _refusal_names_the_size("backward", n, z_shape[0]), \
+        with _refusal_names_the_size("backward", n, z_shape[0], self.memory), \
                 duotraj.card(slot, "evoformer._backward"):
             trunk = self.pool.trunk_for(slot)
+            trunk.arm(entry["mode"])
             trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
             trunk.sync()
             out = (trunk.grad(ml, m_shape)[:, :n].numpy(),
@@ -1020,9 +1153,11 @@ class ExtraMsaOnDevice:
     would have the Evoformer's stale-tape sweep drop this stack's live tape before its backward.
     """
 
-    def __init__(self, pool: TrunkPool, *, recompute: bool = True):
+    def __init__(self, pool: TrunkPool, *, recompute: bool = True,
+                 memory: "_Memory | str" = "auto"):
         self.pool = pool
         self.recompute = recompute
+        self.memory = memory if isinstance(memory, _Memory) else _Memory(memory)
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
         #: What the mask actually carried, so a refusal can be explained after the fact.
         self.mask_seen = {"calls": 0, "abs_max": 0.0}
@@ -1092,17 +1227,19 @@ class ExtraMsaOnDevice:
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
         with duotraj.card(slot, "extra_msa._taped"):
             trunk = self._trunk(slot)
+            mode = self.memory.mode(trunk, z.shape[0])
+            offload = trunk.arm(mode)
             zl = trunk.leaf(z)
             with trunk.taped.tape():
                 zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
-                                     recompute=self.recompute)
+                                     recompute=self.recompute, offload=offload)
             trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
             self._tapes.sweep(slot)
             trunk.ag.release_pins()
-            token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n},
-                                     slot)
+            token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n,
+                                      "mode": mode}, slot)
             self.calls["taped"] += 1
             return (trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
@@ -1115,6 +1252,7 @@ class ExtraMsaOnDevice:
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
         with duotraj.card(slot, "extra_msa._backward"):
             trunk = self.pool.trunk_for(slot)
+            trunk.arm(entry["mode"])
             trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
             trunk.sync()
             out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
@@ -1184,9 +1322,11 @@ class TemplateOnDevice:
     stack's stale-tape sweep drop another's live tape before its backward.
     """
 
-    def __init__(self, pool: TrunkPool, *, recompute: bool = True):
+    def __init__(self, pool: TrunkPool, *, recompute: bool = True,
+                 memory: "_Memory | str" = "auto"):
         self.pool = pool
         self.recompute = recompute
+        self.memory = memory if isinstance(memory, _Memory) else _Memory(memory)
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
         #: What the JAX side handed over, so an inert swap cannot read as a working one.
         self.seen = {"calls": 0, "n": None, "channels": None, "blocks_swapped": None}
@@ -1246,17 +1386,19 @@ class TemplateOnDevice:
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
         with duotraj.card(slot, "template._taped"):
             trunk = self._trunk(slot)
+            mode = self.memory.mode(trunk, act.shape[0])
+            offload = trunk.arm(mode)
             leaf = trunk.leaf(act)
             with trunk.taped.tape():
                 out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
-                                           recompute=self.recompute)
+                                           recompute=self.recompute, offload=offload)
             trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
             self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
-                                      "n": n}, slot)
+                                      "n": n, "mode": mode}, slot)
             self.calls["taped"] += 1
             return (trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(),
                     np.int32(token))
@@ -1270,6 +1412,7 @@ class TemplateOnDevice:
         g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
         with duotraj.card(slot, "template._backward"):
             trunk = self.pool.trunk_for(slot)
+            trunk.arm(entry["mode"])
             trunk.ag.backward([entry["root"]], [trunk.seed(g, entry["root"])])
             trunk.sync()
             out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
@@ -1795,6 +1938,7 @@ def fast_round():
 def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoints=None,
               resident: int | None = None, blocks: int = EVOFORMER_BLOCKS,
               recompute: bool = True,
+              memory: str = "auto",
               extra_msa: bool = True,
               template: bool = True,
               exact: bool = False,
@@ -1845,6 +1989,12 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     BindCraft 2 does not have. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one
     ran.
 
+    `memory` is how the round spends device memory, one of `MEMORY_MODES` or ``"auto"``, the
+    default, which picks the fastest mode that fits this card at each fold's token axis. A
+    Wormhole Galaxy chip runs ``fast`` to 512 tokens; past that, ``lean`` and ``offload`` trade
+    seconds for room (`MEMORY_MODES` says how, docs/bindcraft2.md what they cost). Read
+    `build.memory.used` for the mode each token axis ran in.
+
     `fast` arms the gradient levers the device round is measured with (`fast_round`) for the
     duration, and defaults to `not exact`: they change which kernels compute the round, not
     the work it does, and the exact tape is the arm they are graded against. `build.fast`
@@ -1879,9 +2029,10 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     if template and not pool.template:
         raise ValueError("predictor(template=True) needs a TrunkPool built with template=True; "
                          "the trunks it already loaded hold no template blocks on card")
-    evo = EvoformerOnDevice(pool, blocks=blocks, recompute=recompute)
-    extra = ExtraMsaOnDevice(pool, recompute=recompute) if extra_msa else None
-    tmpl = TemplateOnDevice(pool, recompute=recompute) if template else None
+    mem = _Memory(memory)
+    evo = EvoformerOnDevice(pool, blocks=blocks, recompute=recompute, memory=mem)
+    extra = ExtraMsaOnDevice(pool, recompute=recompute, memory=mem) if extra_msa else None
+    tmpl = TemplateOnDevice(pool, recompute=recompute, memory=mem) if template else None
     # `_EXACT_TRAINING` is a process-wide stack, not thread-local, so this covers every tape
     # opened for the duration -- both `_taped` calls and the backward's recompute -- without
     # either swap having to know about it.
@@ -1895,6 +2046,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)
         build.fast = armed
+        build.memory = mem
         yield build
 
 
