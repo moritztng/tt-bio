@@ -29,6 +29,11 @@ run () {  # run <tag> <tree> <binder> [extra rung.py args...]
   echo "=== rc=$? $(date -u +%FT%TZ) END $t" >> "$log"
 }
 
+# 864 SERVED two rounds on the same card right after 832 refused, so the first question is
+# whether 768 and 832 refuse again at all, or whether the refusals are fragmentation that moves
+# run to run. Both re-runs come first, at the same memory='auto' the walk used.
+run t768_auto2   "$wt"  150
+run t832_auto2   "$wt"  210
 run t768_lean    "$wt"  150 --memory lean
 run t768_offload "$wt"  150 --memory offload
 run g768_tag     "$tag" 150
