@@ -1,0 +1,90 @@
+--- 2026-10-01T01:35:46Z load 0.10 0.07 0.22
+    PID     ELAPSED %CPU   RSS COMMAND
+   4036    09:45:25  7.1 699764 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:45:54  0.3 28576 /usr/libexec/bluetooth/bluetoothd
+    926    09:45:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:45:54  0.0 30696 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:45:47  0.0 194464 /usr/bin/gnome-shell
+ 808452       08:07  0.0     0 [kworker/u64:2-flush-259:0]
+   1119    09:45:54  0.0  7500 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+--- 2026-10-01T01:36:46Z load 1.92 0.63 0.41
+    PID     ELAPSED %CPU   RSS COMMAND
+ 818117       01:00  193 18698816 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    09:46:25  7.1 699796 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:46:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+    926    09:46:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:46:54  0.0 30724 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:46:47  0.0 194400 /usr/bin/gnome-shell
+ 808452       09:07  0.0     0 [kworker/u64:2-flush-259:0]
+--- 2026-10-01T01:37:46Z load 1.51 0.75 0.46
+    PID     ELAPSED %CPU   RSS COMMAND
+ 818117       02:00  211 18616376 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 819643       00:00  100  4476 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   4036    09:47:25  7.1 699820 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:47:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+    926    09:47:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:47:54  0.0 30736 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:47:47  0.0 194496 /usr/bin/gnome-shell
+--- 2026-10-01T01:38:46Z load 2.03 1.10 0.61
+    PID     ELAPSED %CPU   RSS COMMAND
+ 818117       03:00  217 19148356 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    09:48:25  7.1 699856 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:48:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+    926    09:48:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:48:54  0.0 30768 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:48:47  0.0 194364 /usr/bin/gnome-shell
+   1119    09:48:54  0.0  7500 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+--- 2026-10-01T01:39:46Z load 3.09 1.48 0.77
+    PID     ELAPSED %CPU   RSS COMMAND
+ 819932       00:52  192 18573356 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    09:49:25  7.1 699884 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:49:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+    926    09:49:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:49:54  0.0 30804 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:49:47  0.0 194412 /usr/bin/gnome-shell
+   1119    09:49:54  0.0  7500 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+--- 2026-10-01T01:40:46Z load 2.12 1.50 0.82
+    PID     ELAPSED %CPU   RSS COMMAND
+ 819932       01:52  209 17830180 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    09:50:25  7.1 699912 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:50:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+    926    09:50:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:50:54  0.0 30980 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:50:47  0.0 194372 /usr/bin/gnome-shell
+   1119    09:50:54  0.0  7500 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+--- 2026-10-01T01:41:46Z load 1.54 1.45 0.85
+    PID     ELAPSED %CPU   RSS COMMAND
+ 819932       02:52  217 18683308 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    09:51:25  7.1 699944 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:51:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+    926    09:51:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:51:54  0.0 30980 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:51:47  0.0 194468 /usr/bin/gnome-shell
+ 821429       01:35  0.0     0 [kworker/u64:1-flush-259:0]
+--- 2026-10-01T01:42:46Z load 1.60 1.47 0.90
+    PID     ELAPSED %CPU   RSS COMMAND
+ 822352       00:50  195 18441544 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    09:52:25  7.1 699972 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:52:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+    926    09:52:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:52:54  0.0 30980 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:52:47  0.0 194372 /usr/bin/gnome-shell
+ 821429       02:36  0.0     0 [kworker/u64:1-flush-259:0]
+--- 2026-10-01T01:43:46Z load 1.45 1.46 0.93
+    PID     ELAPSED %CPU   RSS COMMAND
+ 822352       01:50  209 17721640 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    09:53:25  7.1 700000 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 823745       00:30  0.7 48472 /usr/libexec/fwupd/fwupd
+   1118    09:53:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+    926    09:53:56  0.2     0 [irq/114-rtw89_pci]
+ 823736       00:30  0.0     0 [kworker/u64:5-flush-259:0]
+   1141    09:53:54  0.0 30980 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T01:44:46Z load 3.43 1.95 1.13
+    PID     ELAPSED %CPU   RSS COMMAND
+ 822352       02:50  217 18535108 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    09:54:25  7.1 700032 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    09:54:54  0.3 28612 /usr/libexec/bluetooth/bluetoothd
+ 823745       01:30  0.2 48472 /usr/libexec/fwupd/fwupd
+    926    09:54:56  0.2     0 [irq/114-rtw89_pci]
+   1141    09:54:54  0.0 30980 /usr/lib/polkit-1/polkitd --no-debug
+   2222    09:54:47  0.0 194452 /usr/bin/gnome-shell
