@@ -11,3 +11,5 @@
 === 2026-10-01T22:53:35Z START t832_lean tree=ec124cd3e binder=210 --memory lean
 === rc=0 2026-10-01T22:56:30Z END t832_lean
 === 2026-10-01T22:56:30Z START t832_offload tree=14d801f51 binder=210 --memory offload
+=== rc=137 2026-10-01T22:57:39Z END t832_offload
+=== 2026-10-01T22:57:39Z START g832_tag tree=8dbaa61b1 binder=210 
