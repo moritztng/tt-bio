@@ -27,7 +27,7 @@ def main():
     from tt_bio import autograd as ag, taped_ttnn as TT, triatt_qkv as Q
     dev = get_device()
     torch.manual_seed(0)
-    B, L, C, H, dh = 288, 288, 128, 8, 32
+    B, L, C, H, dh = 288, 288, 128, 4, 32  # AF2 triangle attention: 4 heads, kt=4, nt=12
     W = 3 * H * dh
     x64 = torch.randn(B, L, C, dtype=torch.float64)
     w64 = torch.randn(C, W, dtype=torch.float64) * C ** -0.5
@@ -53,11 +53,13 @@ def main():
             cfg = _qkv_mm_config(xv, wv)
             qkv = Q.qkv_heads(xt, wt, ckc, H, dh, ttnn.bfloat16, cfg)
             if qkv is None:
-                y = ttnn.experimental.minimal_matmul(input_tensor=xt, weight_tensor=wt,
+                # A script is not a tt_bio module, so the tape does not rebind its `ttnn`.
+                T = TT.taped_ttnn()
+                y = T.experimental.minimal_matmul(input_tensor=xt, weight_tensor=wt,
                                                      compute_kernel_config=ckc,
                                                      dtype=ttnn.bfloat16, config=cfg)
-                qkv = ttnn.experimental.nlp_create_qkv_heads(
-                    ttnn.unsqueeze(y, 1), num_heads=H, num_kv_heads=H,
+                qkv = T.experimental.nlp_create_qkv_heads(
+                    T.unsqueeze(y, 1), num_heads=H, num_kv_heads=H,
                     transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             q, k, v = (ag._wrap(t) for t in qkv)
             gd = [up(g) for g in g64]
@@ -70,7 +72,10 @@ def main():
                 ag.backward([q, k, v], gd)
         dx = ttnn.to_torch(xt.grad).double()
         dw = ttnn.to_torch(wt.grad).double()
+        rejects = {str(k): n for k, n in Q.REJECTS.items()}
+        Q.REJECTS.clear()
         return {"entry_served_declined": TT.KERNEL_STATS.get("triatt_qkv_heads", [0, 0]),
+                "rejects": rejects,
                 "dx_rel_l2": rel(dx, ref_dx), "dw_rel_l2": rel(dw, ref_dw),
                 "dx_max_abs": float((dx - ref_dx).abs().max()),
                 "dw_max_abs": float((dw - ref_dw).abs().max())}
