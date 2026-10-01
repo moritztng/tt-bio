@@ -19,6 +19,7 @@
 #include "api/compute/common.h"
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/eltwise_binary_sfpu.h"
+#include "api/compute/reconfig_data_format.h"
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/transpose_wh.h"
 
@@ -39,8 +40,11 @@ void kernel_main() {
         cb_reserve_back(dg_cb, 1);
 
         tile_regs_acquire();
+        // da may be float32 (a promoted cotangent) and p, g are bfloat16: srcA follows each operand.
+        reconfig_data_format_srca(p_cb, da_cb);
         transpose_wh_init_short(da_cb);
         transpose_wh_tile(da_cb, 0, 0);
+        reconfig_data_format_srca(da_cb, g_cb);
         copy_tile_to_dst_init_short(g_cb);
         copy_tile(g_cb, 0, 1);
         copy_tile_to_dst_init_short(p_cb);

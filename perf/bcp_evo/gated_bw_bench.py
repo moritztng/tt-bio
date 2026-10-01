@@ -27,7 +27,7 @@ def ref_bw(xw, da, p_off, g_off, C):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--shapes", default="288x128,288x64,64x128,512x128,864x128")
+    ap.add_argument("--shapes", default="288x128,288x128f,288x64,64x128,512x128,864x128")
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--out", default=str(ROOT / "perf/bcp_evo/out/gated_bw_bench.json"))
     a = ap.parse_args()
@@ -44,12 +44,16 @@ def main():
     down = lambda t: torch.Tensor(ttnn.to_torch(t)).double()  # noqa: E731
     res = {"pci": clock.pci, "shapes": {}}
     for spec in a.shapes.split(","):
-        N, C = (int(v) for v in spec.split("x"))
+        # A trailing f: the cotangent arrives float32, as a promoted (two-consumer) one does.
+        f32 = spec.endswith("f")
+        N, C = (int(v) for v in spec.rstrip("f").split("x"))
         torch.manual_seed(0)
         # The projection's own scale at block 0 of the round, roughly: values O(1), gates O(2).
         xw = (torch.randn(1, N, N, 4 * C) * 1.5).bfloat16().float()
         da = (torch.randn(1, C, N, N) * 1e-2).bfloat16().float()
-        xd, dad = up(xw), up(da)
+        xd = up(xw)
+        dad = (ttnn.from_torch(da, layout=ttnn.TILE_LAYOUT, dtype=ttnn.float32, device=dev,
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG) if f32 else up(da))
         out = {}
         # Forward: the gated kernel vs the four-way-split chain, both roles.
         q = ttnn.chunk(xd, chunks=4, dim=-1)
