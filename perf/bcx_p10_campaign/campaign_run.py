@@ -94,6 +94,10 @@ def main():
     ap.add_argument("--params", default="/home/moritz/bcx_shipped/af2_params")
     ap.add_argument("--validation", default="device", choices=("jax", "device"))
     ap.add_argument("--out", required=True)
+    ap.add_argument("--memory", default="auto",
+                    help="bindcraft2.campaign_predictor(memory=...): auto, fast, lean or offload. "
+                         "A campaign at a size `fast` carries is the way to ask whether a slower "
+                         "memory mode still has designs ACCEPTED, which a footprint rung cannot.")
     ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V")
     args = ap.parse_args()
 
@@ -185,9 +189,11 @@ def main():
 
     with bindcraft2.campaign_predictor(trunk="device", validation=args.validation,
                                        checkpoints=args.params, extra_msa=True,
-                                       template=True, exact=False) as build:
+                                       template=True, exact=False, memory=args.memory) as build:
         # `exact=False` arms the measured levers itself (`bindcraft2.fast_round`).
         stamp["fast"] = build.fast
+        stamp["memory_requested"] = args.memory
+        stamp["memory"] = build.memory.used
         try:
             per_card = {} if n is None else {"trajectories_per_card": n}
             trajectories = bindcraft2.run_campaign(
