@@ -1,0 +1,189 @@
+{
+ "host": "pc",
+ "card": "0",
+ "target": "hTF",
+ "target_residues": 674,
+ "target_chains": 1,
+ "target_fold": "bilobal transferrin, two homologous lobes",
+ "binder": 150,
+ "tokens": 832,
+ "rounds_requested": 2,
+ "footprint_probe": true,
+ "timing_valid": false,
+ "trajectories_arg": "1",
+ "design_tokens": 864,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one",
+  "tokens_asked": 864
+ },
+ "auto_would_choose": [
+  1,
+  "at 864 tokens one trajectory is priced at up to 35.1 GB against the 27.7 GB the card has for them, so a second one does not fit and it runs one"
+ ],
+ "max_trajectories": 1,
+ "validation": "device",
+ "seed": 100,
+ "commit": "0e6c193a7650c99a66fa9143a0292743d93bf334",
+ "dirty": true,
+ "compile_cache": "/tmp/bindcraft_xla_cache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 12,
+ "loadavg_start": [
+  2.111328125,
+  2.97216796875,
+  2.16357421875
+ ],
+ "mem_start": {
+  "vmhwm": 547471360,
+  "vmrss": 537444352,
+  "mem_available": 25006219264
+ },
+ "started_utc": "2026-10-01T10:38:35Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 1,
+  "why": "at 864 tokens one trajectory is priced at up to 35.1 GB against the 30.9 GB the card has for them, so a second one does not fit and it runs one",
+  "tokens_asked": 864
+ },
+ "wall_seconds": 298.09,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(2 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 834,
+ "evoformer_axis": 864,
+ "axis_seen": [
+  864
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 30988822528,
+ "rounds_done": 3,
+ "rounds_per_slot": {
+  "": 3
+ },
+ "per_round": [
+  {
+   "slot": "",
+   "round": 1,
+   "seconds": 178.995,
+   "n": 140,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 3.4
+  },
+  {
+   "slot": "",
+   "round": 2,
+   "seconds": 114.019,
+   "n": 109,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 3.4
+  }
+ ],
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 304584,
+   "declined: has a core grid": 576,
+   "served": 1680,
+   "declined: not batched": 4896
+  },
+  "taped_channel_move": [
+   1512,
+   3552,
+   1080,
+   0
+  ],
+  "widen_add": {
+   "served: first": 1764,
+   "served: later": 4296
+  },
+  "rne_add": [
+   2772,
+   24
+  ],
+  "qkv_grad_join": {
+   "served": 1224
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 216,
+   "bw_calls": 216
+  },
+  "triatt_fused_hifi": {
+   "served": 648,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    2772,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    648,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 216,
+  "served": 0,
+  "declined": 216
+ },
+ "aiclk_run": {
+  "n": 254,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 3.4
+ },
+ "tagged_peak_gib": 23.78,
+ "tagged_peak_line": "[DRAM] tri_att(end) bias built [z=864x864x128]: 23.780 GiB used (of 31.9 GiB) maxfree=1003MiB/bank",
+ "node_probe_samples": 3100,
+ "node_probe_calls": 24804,
+ "resident_peak_gb": 31.2635,
+ "resident_peak_gib": 29.1164,
+ "free_at_peak_gb": 2.9621,
+ "free_at_peak_gib": 2.7586,
+ "device_total_gb": 34.2255,
+ "largest_free_block_at_peak_mb": 299.4,
+ "mem_end": {
+  "vmhwm": 19044564992,
+  "vmrss": 5995364352,
+  "mem_available": 19285024768
+ },
+ "loadavg_end": [
+  2.36474609375,
+  3.11865234375,
+  2.4921875
+ ],
+ "finished_utc": "2026-10-01T10:43:33Z"
+}
