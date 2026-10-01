@@ -1,0 +1,50 @@
+Evoformer, 48 blocks, per round (N=1). fwd = 2 untaped passes, rcp = the backward's checkpoint recompute, bwd = the VJP.
+'_l' columns: with lnbw's chains replaced (modelled, see docstring).
+
+sub-block      ph   calls  kern s      GB | calls_l  kern_l    GB_l GB/s_l
+opm            fwd   3168   0.147    38.5 |    3168   0.147    38.5    261
+opm            rcp   1584   0.074    19.2 |    1584   0.074    19.2    261
+opm            bwd   2400   0.098    16.7 |    1536   0.094    16.3    174
+msa_row        fwd   2016   0.053    14.9 |    2016   0.053    14.9    281
+msa_row        rcp   1008   0.028     7.5 |    1008   0.028     7.5    269
+msa_row        bwd   3839   0.156    45.7 |    2111   0.075    16.8    224
+msa_col        fwd   1536   0.076    17.0 |    1536   0.076    17.0    224
+msa_col        rcp    768   0.038     8.5 |     768   0.038     8.5    224
+msa_col        bwd   2736   0.109    28.3 |    2736   0.109    28.3    260
+msa_trans      fwd    384   0.004     0.5 |     384   0.004     0.5    143
+msa_trans      rcp    240   0.002     0.4 |     240   0.002     0.4    175
+msa_trans      bwd   1200   0.008     1.0 |     336   0.004     0.6    147
+tri_mul_out    fwd   1728   0.323   102.0 |    1728   0.323   102.0    315
+tri_mul_out    rcp    864   0.162    51.0 |     864   0.162    51.0    315
+tri_mul_out    bwd   3552   0.487   178.9 |    1824   0.332   121.8    367
+tri_mul_in     fwd   1728   0.324   102.0 |    1728   0.324   102.0    315
+tri_mul_in     rcp    864   0.162    51.0 |     864   0.162    51.0    315
+tri_mul_in     bwd   3504   0.477   172.8 |    1776   0.322   115.7    359
+tri_att_start  fwd   1440   0.206    68.8 |    1440   0.206    68.8    334
+tri_att_start  rcp    720   0.103    34.4 |     720   0.103    34.4    333
+tri_att_start  bwd   2352   0.444   122.2 |    1488   0.367    93.6    255
+tri_att_end    fwd   1440   0.206    68.8 |    1440   0.206    68.8    333
+tri_att_end    rcp    720   0.103    34.4 |     720   0.103    34.4    333
+tri_att_end    bwd   2304   0.434   116.0 |    1440   0.356    87.5    245
+pair_T         fwd    576   0.120    24.5 |     576   0.120    24.5    205
+pair_T         rcp    288   0.060    12.2 |     288   0.060    12.2    205
+pair_T         bwd    288   0.060    12.2 |     288   0.060    12.2    204
+pair_trans     fwd    384   0.162    30.6 |     384   0.162    30.6    189
+pair_trans     rcp    240   0.102    23.5 |     240   0.102    23.5    231
+pair_trans     bwd   1152   0.206    67.5 |     288   0.129    39.0    302
+mask           fwd    768   0.005     0.2 |     768   0.005     0.2     38
+mask           rcp    384   0.003     0.1 |     384   0.003     0.1     38
+
+sub-block, all phases  calls_l kern_l s    GB_l  share
+tri_mul_out               4416    0.817   274.8  19.0%
+tri_mul_in                4368    0.807   268.6  18.7%
+tri_att_start             3648    0.676   196.8  15.7%
+tri_att_end               3600    0.666   190.7  15.5%
+pair_trans                 912    0.393    93.1   9.1%
+opm                       6288    0.315    74.0   7.3%
+msa_col                   5040    0.223    53.8   5.2%
+pair_T                    1152    0.240    48.9   5.6%
+msa_row                   5135    0.156    39.2   3.6%
+msa_trans                  960    0.010     1.6   0.2%
+mask                      1152    0.008     0.3   0.2%
+Evoformer total          36671    4.310  1241.9

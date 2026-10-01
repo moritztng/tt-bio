@@ -1,0 +1,10 @@
+=== block grade 2026-10-01T08:37:07Z card 0
+grade exit 0 2026-10-01T08:40:18Z
+=== off1 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated TT_BIO_GATED_BW_FUSED=1 TT_BIO_NOGRAD_INFERENCE=1 TT_BIO_GATE_BW_FUSED=0, 9 rounds) 2026-10-01T08:40:18Z
+=== on1 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated TT_BIO_GATED_BW_FUSED=1 TT_BIO_NOGRAD_INFERENCE=1 TT_BIO_GATE_BW_FUSED=1, 9 rounds) 2026-10-01T08:42:47Z
+=== on2 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated TT_BIO_GATED_BW_FUSED=1 TT_BIO_NOGRAD_INFERENCE=1 TT_BIO_GATE_BW_FUSED=1, 9 rounds) 2026-10-01T08:45:10Z
+=== off2 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated TT_BIO_GATED_BW_FUSED=1 TT_BIO_NOGRAD_INFERENCE=1 TT_BIO_GATE_BW_FUSED=0, 9 rounds) 2026-10-01T08:47:35Z
+=== off3 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated TT_BIO_GATED_BW_FUSED=1 TT_BIO_NOGRAD_INFERENCE=1 TT_BIO_GATE_BW_FUSED=0, 9 rounds) 2026-10-01T08:50:03Z
+=== on3 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated TT_BIO_GATED_BW_FUSED=1 TT_BIO_NOGRAD_INFERENCE=1 TT_BIO_GATE_BW_FUSED=1, 9 rounds) 2026-10-01T08:52:32Z
+=== sitting done 2026-10-01T08:54:56Z
+sitting exit 0 2026-10-01T08:54:56Z

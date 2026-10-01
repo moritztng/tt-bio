@@ -90,6 +90,25 @@ void kernel_main() {
         uint32_t qp = get_read_ptr(cb_dq);
         uint32_t kp = get_read_ptr(cb_dk);
         uint32_t vp = get_read_ptr(cb_dv);
+#ifdef PACKED_QKV
+        // dq, dk and dv are one [B, 1, N, 3*H*d] buffer, the layout nlp_create_qkv_heads read
+        // them out of: slot s, head h sits at channel tiles s*H*Dt + h*Dt. A head is whole
+        // tiles, so only the page each tile goes to changes, and the head merges and the join
+        // the tape would otherwise run after this kernel are not needed.
+        (void)base;
+        constexpr uint32_t W = 3 * H * Dt;
+        for (uint32_t nt = 0; nt < Nt; ++nt) {
+            const uint32_t at = (row * Nt + nt) * W + head * Dt;
+            for (uint32_t dt = 0; dt < Dt; ++dt) {
+                noc_async_write_tile(at + dt, dq_writer, qp);
+                noc_async_write_tile(at + H * Dt + dt, dk_writer, kp);
+                noc_async_write_tile(at + 2 * H * Dt + dt, dv_writer, vp);
+                qp += qkv_tile_bytes;
+                kp += qkv_tile_bytes;
+                vp += qkv_tile_bytes;
+            }
+        }
+#else
         for (uint32_t i = 0; i < col_tiles; ++i) {
             noc_async_write_tile(base + i, dq_writer, qp);
             noc_async_write_tile(base + i, dk_writer, kp);
@@ -98,6 +117,7 @@ void kernel_main() {
             kp += qkv_tile_bytes;
             vp += qkv_tile_bytes;
         }
+#endif
         noc_async_write_barrier();
         cb_pop_front(cb_dq, col_tiles);
         cb_pop_front(cb_dk, col_tiles);

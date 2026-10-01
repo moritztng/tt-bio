@@ -269,6 +269,16 @@ _GRAD_ENABLED = True
 # 1e-9 widened (`perf/bcx_reduce/probe.json`). Graded as a stack in `perf/bcx_reduce`.
 FANIN_MIXED = False
 
+# The cast after a fan-in, folded into the fan-in's last add. A bf16 value read by k consumers
+# sums its k gradients in float32 (`add_grad`) and `_backward` then cast the sum back to bf16
+# for the closure: 1,719 Typecast calls a BindCraft 2 round right after a widen_add, 0.249 s of
+# card. On, `add_grad` holds the last contribution back and the closure's read does that add with
+# a bf16 output, rounded once at pack (`rne_add.round_add`). Any other read flushes it as before.
+FANIN_CAST_FUSED = env_flag("TT_BIO_FANIN_CAST_FUSED", False)
+FANIN_CAST_STATS = {"served": 0, "flushed": 0}
+#: `Tensor.grad_slab` joins: whole (every slice written, no concat) or cut back out.
+SLAB_STATS = {"whole": 0, "cut": 0}
+
 
 def is_grad_enabled() -> bool:
     """Whether taping is on. ``no_grad`` is the only thing that turns it off, and a caller
@@ -325,12 +335,18 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("_value", "_grad", "_parts", "requires_grad", "node", "pinned", "evictable",
+    __slots__ = ("_value", "_grad", "_pend", "_slab", "_parts", "requires_grad", "node", "pinned",
+                 "evictable",
                  "box", "shares", "__weakref__")
 
     def __init__(self, value, requires_grad: bool = False):
         self._value = value
         self._grad = None
+        # The last float32-widened contribution, not yet added (`FANIN_CAST_FUSED`).
+        self._pend = None
+        # A full-shape gradient buffer kernels write slices of in place, and the last-axis ranges
+        # they wrote (`grad_slab`).
+        self._slab = None
         # Gradients of slices of this value, (starts, ends, g), until `grad` is read.
         self._parts = None
         self.requires_grad = requires_grad
@@ -583,7 +599,13 @@ class Tensor:
         # operands in the unpacker and adds in a float32 DEST, the same function at 8-10
         # B/element against 18-24. Where it serves there is no promoted tensor left for
         # `fanin_l1` to place, so the two never act on one call.
+        if self._pend is not None:
+            self._flush_pend()
         if _rne_add.widen_eligible(self._grad, grad):
+            if (FANIN_CAST_FUSED and grad.dtype == ttnn.bfloat16
+                    and self.value.dtype == ttnn.bfloat16):
+                self._pend = grad
+                return
             self._grad = _rne_add.widen_add(self._grad, grad)
             return
         if self._grad.dtype != ttnn.float32:
@@ -613,17 +635,80 @@ class Tensor:
             self._parts = []
         self._parts.append(([int(v) for v in starts], [int(v) for v in ends], grad))
 
-    @property
-    def grad(self):
+    def _flush_pend(self):
+        pend, self._pend = self._pend, None
+        FANIN_CAST_STATS["flushed"] += 1
+        self._grad = _rne_add.widen_add(self._grad, pend)
+
+    def grad_slab(self):
+        """An uninitialised gradient buffer in this value's shape (bf16 TILE DRAM) that kernels
+        write last-axis slices of directly, with `slab_written` recording each. It becomes ONE
+        contribution when the gradient is read: whole if the slices cover the axis, else the
+        written slices are cut back out and joined like any `add_grad_slice`."""
+        if self._slab is None:
+            self._slab = (ttnn.empty(self.value.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                                     self.value.device(), ttnn.DRAM_MEMORY_CONFIG), [])
+        return self._slab[0]
+
+    def slab_written(self, start, end) -> None:
+        self._slab[1].append((int(start), int(end)))
+
+    def _join_slab(self):
+        slab, spans = self._slab
+        self._slab = None
+        W = int(self.value.shape[-1])
+        at = 0
+        for s, e in sorted(spans):
+            if s > at:
+                break
+            at = max(at, e)
+        if at >= W:
+            SLAB_STATS["whole"] += 1
+            self.add_grad(slab)
+            return
+        SLAB_STATS["cut"] += 1
+        shape = [int(d) for d in self.value.shape]
+        for s, e in spans:
+            starts, ends = [0] * len(shape), list(shape)
+            starts[-1], ends[-1] = s, e
+            self.add_grad_slice(ttnn.slice(slab, starts, ends), starts, ends)
+        ttnn.deallocate(slab)
+
+    def _join_parts(self):
+        if self._slab is not None:
+            self._join_slab()
         if self._parts:
             parts, self._parts = self._parts, None
             for g in _join_slices(parts, [int(d) for d in self.value.shape]):
                 self.add_grad(g)
+
+    @property
+    def grad(self):
+        self._join_parts()
+        if self._pend is not None:
+            self._flush_pend()
         return self._grad
 
     @grad.setter
     def grad(self, g):
-        self._grad, self._parts = g, None
+        self._grad, self._parts, self._pend, self._slab = g, None, None, None
+
+    def closure_grad(self):
+        """The gradient a closure is handed: `grad` in this value's dtype.
+
+        With a held-back contribution (`FANIN_CAST_FUSED`) the last add writes bf16 directly,
+        so there is no float32 sum to cast.
+        """
+        self._join_parts()
+        if self._pend is not None:
+            pend, self._pend = self._pend, None
+            FANIN_CAST_STATS["served"] += 1
+            self._grad = _rne_add.round_add(self._grad, pend)
+            return self._grad
+        g = self.grad
+        if g is not None and g.dtype != self.value.dtype:
+            g = ttnn.typecast(g, self.value.dtype)
+        return g
 
     def backward(self, seed=None) -> None:
         """Replay the tape from here. ``seed`` defaults to ones, i.e. d(sum(self))/d(self)."""
@@ -722,10 +807,8 @@ def _backward(roots, seeds) -> None:
             pending[t.node.group] = pending.get(t.node.group, 0) + 1
     for t in order:
         if t.node is not None:
-            g = t.grad
+            g = t.closure_grad()
             if g is not None:
-                if g.dtype != t.value.dtype:
-                    g = ttnn.typecast(g, t.value.dtype)
                 # A gradient inherits the forward's SHARD PLAN, and a backward is not planned
                 # against it. `ttnn.matmul` refuses a height-sharded operand B outright ("operand
                 # B can only be interleaved or L1 width sharded", measured at crop 384 in the
@@ -2185,6 +2268,30 @@ def merge_heads(x: Tensor) -> Tensor:
     return _tape(out_v, [x], make)
 
 
+def _packed_qkv_source(q, k, v):
+    """The packed tensor q, k and v were split from, when `triatt_bw` can write their gradient
+    into its layout in one pass; else None.
+
+    Only when they are slots 0, 1 and 2 of ONE `nlp_create_qkv_heads` call, all three
+    differentiated, with one-tile heads on a whole-tile token axis, so the packed pages and the
+    slot closures' `merge_heads` + join name the same elements. A slot that is read elsewhere too
+    still gets that consumer's gradient through its own closure; this only replaces the part
+    that came from here.
+    """
+    nodes = [t.node for t in (q, k, v)]
+    if any(n is None or getattr(n.fn, "qkv_slot", None) != s for s, n in enumerate(nodes)):
+        return None
+    x = nodes[0].parents[0]
+    if any(n.parents[0] is not x for n in nodes) or not x.requires_grad:
+        return None
+    B, H, N, d = (int(i) for i in q.value.shape)
+    if d != 32 or N % 32 or tuple(int(i) for i in x.value.shape) != (B, 1, N, 3 * H * d):
+        return None
+    if x.value.layout != ttnn.TILE_LAYOUT or x.value.dtype != q.value.dtype:
+        return None
+    return x
+
+
 def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,
                        *, scale: Optional[float] = None, chunk: Optional[int] = None,
                        q_chunk: Optional[int] = None, config=None, value=None) -> Tensor:
@@ -2294,9 +2401,17 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                                    grid=(_dev.compute_with_storage_grid_size().x,
                                          _dev.compute_with_storage_grid_size().y))
                     if _tbw.fits_l1(_p):
+                        _src = _packed_qkv_source(q, k, v) if _tbw.QKV_PACKED else None
                         _dq, _dk, _dv, _db = _tbw.run(
                             _dev, q.value, k.value, v.value, bias.value, g, scale,
-                            (ttnn.MathFidelity.HiFi4,))
+                            (ttnn.MathFidelity.HiFi4,), packed=_src is not None)
+                        if _src is not None:
+                            _src.add_grad(_dq)
+                            if bias.requires_grad:
+                                bias.add_grad(_db)
+                            else:
+                                ttnn.deallocate(_db)
+                            return
                         for _t, _d in ((q, _dq), (k, _dk), (v, _dv), (bias, _db)):
                             if _t.requires_grad:
                                 _t.add_grad(_d)
@@ -3018,6 +3133,12 @@ def _hook(name, shipped, args, kwargs):
             f"tt_bio.autograd._TAPED; declining here would silently drop the gradient.")
     with _no_param_scan():
         return impl(shipped, args, kwargs)
+
+
+# What `ops.recording()` asks under `NOGRAD_IS_INFERENCE`: a forward inside `no_grad` records
+# nothing. `raw` is how `ops.fused_kernel` hands such a forward's kernel its operands.
+_hook.recording = is_grad_enabled
+_hook.raw = lambda args, kwargs: _raw(args, kwargs)
 
 
 def _checkpoint_segment(fn, *inputs):
