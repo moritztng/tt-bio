@@ -1,0 +1,2 @@
+t1a N=1 warm rounds 5: wall 30.498 s, device 25.930 s, host 4.546 s (14.9 %), AICLK med 1350 min 1300; walls [30.498, 31.361, 30.467, 30.463, 31.04]
+t1b N=1 warm rounds 5: wall 30.611 s, device 25.953 s, host 4.656 s (15.2 %), AICLK med 1350 min 1300; walls [30.569, 31.51, 30.611, 30.587, 31.185]

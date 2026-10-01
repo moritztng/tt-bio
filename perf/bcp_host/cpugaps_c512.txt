@@ -1,0 +1,63 @@
+round 3  wall 30.56 s  AICLK med 1350 min 1318
+  host   0.28 s  cores 14.1   -> template/taped
+  seam   0.11 s  cores None   template/taped
+  host   0.07 s  cores None   -> extra_msa/taped
+  seam   0.32 s  cores 1.0   extra_msa/taped
+  host   0.06 s  cores None   -> evoformer/taped
+  seam   2.77 s  cores 1.0   evoformer/taped
+  host   0.61 s  cores 5.9   -> template/taped
+  seam   0.12 s  cores None   template/taped
+  host   0.08 s  cores None   -> extra_msa/taped
+  seam   0.33 s  cores 1.0   extra_msa/taped
+  host   0.06 s  cores None   -> evoformer/taped
+  seam   2.77 s  cores 1.0   evoformer/taped
+  host   3.05 s  cores 5.7   -> evoformer/backward
+  seam  17.37 s  cores 1.0   evoformer/backward
+  host   0.07 s  cores None   -> extra_msa/backward
+  seam   1.48 s  cores 1.0   extra_msa/backward
+  host   0.06 s  cores None   -> template/backward
+  seam   0.68 s  cores 1.0   template/backward
+  host   0.28 s  cores 3.6   -> round/end
+  threads 186
+round 4  wall 31.46 s  AICLK med 1350 min 1300
+  host   0.28 s  cores 12.9   -> template/taped
+  seam   0.99 s  cores 1.2   template/taped
+  host   0.07 s  cores None   -> extra_msa/taped
+  seam   0.32 s  cores 1.0   extra_msa/taped
+  host   0.06 s  cores None   -> evoformer/taped
+  seam   2.77 s  cores 1.0   evoformer/taped
+  host   0.62 s  cores 5.8   -> template/taped
+  seam   0.11 s  cores None   template/taped
+  host   0.07 s  cores None   -> extra_msa/taped
+  seam   0.32 s  cores 0.9   extra_msa/taped
+  host   0.06 s  cores None   -> evoformer/taped
+  seam   2.77 s  cores 1.0   evoformer/taped
+  host   3.08 s  cores 5.6   -> evoformer/backward
+  seam  17.36 s  cores 1.0   evoformer/backward
+  host   0.06 s  cores None   -> extra_msa/backward
+  seam   1.48 s  cores 1.1   extra_msa/backward
+  host   0.06 s  cores None   -> template/backward
+  seam   0.69 s  cores 1.0   template/backward
+  host   0.27 s  cores 1.0   -> round/end
+  threads 207
+round 5  wall 30.57 s  AICLK med 1350 min 1337
+  host   0.27 s  cores 13.4   -> template/taped
+  seam   0.11 s  cores None   template/taped
+  host   0.07 s  cores None   -> extra_msa/taped
+  seam   0.32 s  cores 1.0   extra_msa/taped
+  host   0.06 s  cores None   -> evoformer/taped
+  seam   2.77 s  cores 1.0   evoformer/taped
+  host   0.64 s  cores 5.8   -> template/taped
+  seam   0.12 s  cores None   template/taped
+  host   0.07 s  cores None   -> extra_msa/taped
+  seam   0.32 s  cores 1.0   extra_msa/taped
+  host   0.07 s  cores None   -> evoformer/taped
+  seam   2.77 s  cores 1.1   evoformer/taped
+  host   3.04 s  cores 5.9   -> evoformer/backward
+  seam  17.36 s  cores 1.0   evoformer/backward
+  host   0.06 s  cores None   -> extra_msa/backward
+  seam   1.48 s  cores 1.1   extra_msa/backward
+  host   0.06 s  cores None   -> template/backward
+  seam   0.68 s  cores 1.0   template/backward
+  host   0.30 s  cores 1.2   -> round/end
+  threads 214

@@ -1,0 +1,33 @@
+== s288a  host gaps (median s)
+    0.804  evoformer/taped -> evoformer/backward
+    0.177  evoformer/taped -> template/taped
+    0.078  round start -> template/taped
+    0.078  template/backward -> round end
+    0.045  template/taped -> extra_msa/taped
+    0.036  extra_msa/taped -> evoformer/taped
+    0.018  evoformer/backward -> extra_msa/backward
+    0.013  extra_msa/backward -> template/backward
+    1.248  total
+  seams: evoformer/backward 3.357, evoformer/taped 1.697, extra_msa/backward 0.270, extra_msa/taped 0.173, template/backward 0.119, template/taped 0.064
+== s512a  host gaps (median s)
+    3.019  evoformer/taped -> evoformer/backward
+    0.622  evoformer/taped -> template/taped
+    0.290  template/backward -> round end
+    0.272  round start -> template/taped
+    0.149  template/taped -> extra_msa/taped
+    0.127  extra_msa/taped -> evoformer/taped
+    0.065  evoformer/backward -> extra_msa/backward
+    0.058  extra_msa/backward -> template/backward
+    4.602  total
+  seams: evoformer/backward 17.362, evoformer/taped 5.540, extra_msa/backward 1.475, extra_msa/taped 0.645, template/backward 0.684, template/taped 0.235
+== s512b  host gaps (median s)
+    3.014  evoformer/taped -> evoformer/backward
+    0.631  evoformer/taped -> template/taped
+    0.294  template/backward -> round end
+    0.272  round start -> template/taped
+    0.148  template/taped -> extra_msa/taped
+    0.125  extra_msa/taped -> evoformer/taped
+    0.067  evoformer/backward -> extra_msa/backward
+    0.059  extra_msa/backward -> template/backward
+    4.611  total
+  seams: evoformer/backward 17.363, evoformer/taped 5.535, extra_msa/backward 1.479, extra_msa/taped 0.642, template/backward 0.687, template/taped 0.230
