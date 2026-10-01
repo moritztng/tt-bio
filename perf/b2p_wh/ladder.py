@@ -132,11 +132,15 @@ def main() -> int:
                    "--rounds", str(args.fp_rounds if mode == "f" else args.rounds)]
             if mode == "f":
                 cmd.append("--footprint")
+            if "memory" in extra:
+                cmd += ["--memory", extra["memory"]]
             say(f"=== {tag} load {os.getloadavg()[0]:.2f}")
             t0 = time.time()
             with open(rung / "rung.log", "w") as log:
                 try:
-                    rc = subprocess.call(cmd, stdout=log, stderr=subprocess.STDOUT, env={**env, **extra},
+                    rc = subprocess.call(cmd, stdout=log, stderr=subprocess.STDOUT,
+                                         env={**env, **{k: v for k, v in extra.items()
+                                                        if k != "memory"}},
                                          timeout=args.timeout)
                 except subprocess.TimeoutExpired:
                     rc = "timeout"

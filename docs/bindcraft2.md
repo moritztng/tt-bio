@@ -550,10 +550,95 @@ arithmetic; it is there because this sum is one or two buckets low often enough 
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
 the board. At 864 it is 92 % with the largest free block down to 291 MB, so the next rung is a
 board question rather than a software one. On a Wormhole chip the top is 97 % of a card a third
-the size, and no software change moves it: padding the forward serves 544 and 608 there, and 544
-then refuses in the backward instead, where the L1 gate is a size gate rather than a divisor gate
-and a pad-up asks for more L1, not less. A smaller score budget does not move it either, 12.711 GB
+the size, and nothing that keeps the round's speed moves it: padding the forward serves 544 and
+608 there, and 544 then refuses in the backward instead, where the L1 gate is a size gate rather
+than a divisor gate and a pad-up asks for more L1, not less. Spending time does move it, which is
+what the memory modes below are. A smaller score budget does not move it either, 12.711 GB
 at 256 MB against 12.715 GB at 32 MB.
+
+### Large complexes: the memory modes
+
+A Wormhole chip's 512 tokens is the ceiling of the mode that runs fastest, not of the card. Two
+levers buy room by spending time, and `memory=` picks between them:
+
+| `memory=` | what it does | largest token axis on a Wormhole chip |
+|---|---|---|
+| `fast` | checkpoints each Evoformer, extra-MSA and template block | 512, measured |
+| `lean` | also checkpoints each residual step inside a block, so a block's backward holds one step's tape instead of nine; every block's forward runs once more a round | 544 measured, 704 estimated |
+| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | **896 measured**; 928 refuses |
+| `auto` | the cheapest of the three that the fold fits in. **The default.** | |
+
+They are the same arithmetic on the same values: a `lean` gradient is bit-identical to an
+`offload` one, and both sit 0.0035 rel L2 from `fast` on top of the 0.0817 that separates `fast`
+from a float64 reference -- inside the 0.0668 that bf16 alone costs. What changes is what the card
+holds between the forward and the backward, not what it computes.
+
+You do not normally pass `memory=`. `auto` leaves every fold that runs today in `fast`, so nothing
+that works now gets slower, and reaches for a slower mode only where the faster one would refuse.
+It decides per token axis, prints which mode it chose, and a refusal names the next roomier mode
+and what it costs:
+
+```
+This fold ran in the 'lean' memory mode. The 'offload' mode should hold 768 tokens on this
+card, slower: ... Pass memory='offload', or leave memory='auto' and it is picked for you.
+```
+
+Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
+
+| token axis | mode | peak DRAM | one round |
+|---|---|---|---|
+| 512 | `fast` | 12.7 GB | 61.3 s |
+| 512 | `lean` | | 67.8 s |
+| 544 | `fast` | refuses, 12.70 GB held | |
+| 544 | `lean` | 7.527 GB | 84.3 s |
+| 768 | `offload` | 8.282 GB, 4.60 GB still free | 200.2 s |
+| 800 | `offload` | 8.952 GB, 3.93 GB still free | 225.1 s |
+| 832 | `offload` | 9.625 GB, 3.26 GB still free | 242.0 s |
+| 864 | `offload` | 10.324 GB, 2.56 GB still free | 264.9 s |
+| **896** | `offload` | **11.051 GB**, 1.83 GB still free | **285.6 s** |
+| 928 | `offload` | refuses, 11.197 GB held | |
+
+**896 tokens is the largest fold measured to complete a gradient round on one Wormhole Galaxy
+chip, 1.75x the 512 the fast mode carries.** 928 refuses, and not because the card is out of
+room: the round peaked at 11.197 GB with 1.687 GB free and was then refused an 882 MB buffer,
+because the largest free block left was 70 MB. The mode ends on fragmentation, which is why the
+ceiling is a measured number here and not one computed from how much a fold of that size would
+need. 800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder, so the competition
+case has three buckets of headroom above it. The ladder above 800 is the same target with a
+longer binder, so it also says how long a binder the ectodomain takes: 190 aa lands on 832 tokens,
+220 on 864, 250 on 896, and 280 refuses. Every binder length you are likely to design against
+EGFR fits on one chip.
+768 is two different complexes, measured separately and landing on the same numbers: serum
+albumin plus a 150 aa binder (738 residues at the seam, 200.2 s) and **the EGFR ectodomain plus a
+100 aa minibinder** (742 residues, 200.5 s), which is the smaller of the two shapes the
+competition case takes. Both peak at 8.282 GB. So both EGFR sizes run, and `auto` picks `offload`
+for each without being asked.
+
+Every axis in this table is the one the Evoformer seam was *observed* to run, never the one
+target-plus-binder arithmetic predicts. BindCraft 2 buckets the complex it builds, which is
+larger than the sum, and at a bucket boundary the two answers differ: 614 + 100 = 714 predicts
+736 tokens and the seam ran 768. Size a job off the axis a run reports, not off the sum.
+
+768 is the one axis in this range that needs a second escape, and it is worth knowing why. The
+contraction block a matmul plan takes, `in0_block_w`, is the largest divisor of the token axis in
+tiles that is at most 8, so 768 (24 tiles, divisible by 8) asks for the widest block in the range
+while 800 (25) and 832 (26) do not -- and at 768 that block does not fit a core's L1. Without the
+escape the Evoformer backward refuses with the card several GB free, which does not look like a
+size problem at all; with it, the same contraction runs in narrower passes and the round completes.
+We cannot price the escape on its own, because the fold it rescues does not run without it; what we
+can say is that 768 still lands under the larger 800, so the narrower passes cost less than the 32
+tokens between them. The 200.2 s is the median of four steady rounds in a timed leg; a separate
+footprint leg of the same fold gave 200.8 s, so the two independent runs agree to half a percent. If some other axis one day refuses with the card visibly free, this is the
+shape of it, and the next bucket up is worth trying before you crop the target.
+
+**At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s), which is the price
+of running every block's forward a second time. The 544 row costs more than that because it is
+also a bigger fold. A trajectory is 125 gradient rounds, so 544 in `lean` is 2.93 chip-hours
+against 2.13 for the 512 `fast` can carry -- you are buying 32 tokens of complex for about 38 %
+more chip time, and the alternative is not a faster run, it is cropping the target.
+
+A Blackhole p150a has the modes too and does not need them below 864 tokens; `auto` leaves it in
+`fast` all the way up.
 
 ### What a refusal looks like
 

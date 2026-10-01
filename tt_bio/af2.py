@@ -349,6 +349,16 @@ class AF2PairBlock(Module):
     #: same form with a sign that flips with sequence length (`tenstorrent._bias_in_matmul`).
     tri_att_g_in_matmul = False
 
+    #: `run(step, *inputs)` that every residual step goes through, or None to call each one
+    #: directly. `tt_bio.autograd.substep` is the one runner there is: it checkpoints each step
+    #: inside a checkpointed block's recompute, so the block's backward holds one step's tape at
+    #: a time rather than all nine. Set per block by `bindcraft2`'s lean memory mode.
+    step_runner = None
+
+    def _step(self, step, *inputs):
+        run = self.step_runner
+        return step(*inputs) if run is None else run(step, *inputs)
+
     def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor | None) -> ttnn.Tensor:
         """`x + update`, and it owns `update`.
 
@@ -449,7 +459,8 @@ class AF2PairBlock(Module):
         if not self.evoformer_order:
             order = order[2:] + order[:2]
         for name, device in order + [("pair_transition", self.pair_transition)]:
-            z = self._residual(z, self._update(name, device, z))
+            z = self._step(lambda t, name=name, device=device:
+                           self._residual(t, self._update(name, device, t)), z)
         return z
 class AF2DeviceTemplatePairStack:
     """The template's two `PairBlock`s in ttnn: host torch in, host torch out.
@@ -878,11 +889,12 @@ class AF2EvoformerBlock(AF2PairBlock):
     def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor,
                    row_bias: ttnn.Tensor | None = None,
                    col_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        msa = self._residual(msa, self._update("msa_row_attn", self.msa_row_attn, msa, pair,
-                                               row_bias))
-        msa = self._residual(msa, self._update("msa_col_attn", self.msa_col_attn, msa, None,
-                                               col_bias))
-        msa = self._residual(msa, self._update("msa_transition", self.msa_transition, msa))
+        msa = self._step(lambda m, p: self._residual(
+            m, self._update("msa_row_attn", self.msa_row_attn, m, p, row_bias)), msa, pair)
+        msa = self._step(lambda m: self._residual(
+            m, self._update("msa_col_attn", self.msa_col_attn, m, None, col_bias)), msa)
+        msa = self._step(lambda m: self._residual(
+            m, self._update("msa_transition", self.msa_transition, m)), msa)
         return msa
 
     def _opm_update(self, msa: ttnn.Tensor, msa_mask: ttnn.Tensor | None) -> ttnn.Tensor:
@@ -899,7 +911,7 @@ class AF2EvoformerBlock(AF2PairBlock):
             # multimer_v3 sets `outer_product_mean.first`, so the pair carries the MSA before
             # the row attention reads it as a bias. Same ops and same weights as the monomer
             # block; only this order differs, and it differs for all 52 blocks.
-            z = self._residual(z, self._opm_update(msa, msa_mask))
+            z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask)), z, msa)
         msa = self._msa_track(msa, z, row_bias, col_bias)
         # AF2 divides the outer product mean by `eps + norm`, and at an all-ones mask the norm
         # is the MSA depth everywhere. `eps` is 1e-3 and the trunk is bfloat16, whose spacing at
@@ -908,7 +920,7 @@ class AF2EvoformerBlock(AF2PairBlock):
         # Evoformer 0 and 47 (`device_gate.py --opm-eps 1e-3`). `None` reads the depth off the
         # tensor, which is that divisor.
         if not self.opm_first:
-            z = self._residual(z, self._opm_update(msa, msa_mask))
+            z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask)), z, msa)
         return msa, super().__call__(z, mask, attn_mask)
 
 

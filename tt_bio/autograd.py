@@ -1169,7 +1169,8 @@ TRIATT_BMM_CONFIG = True
 BMM_OUT_TILES = 64
 
 
-def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False):
+def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False,
+                       in0_block_w: int | None = None):
     """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's plan.
 
     With a real batch axis on both operands and no program config, ttnn's matmul plans a
@@ -1214,13 +1215,144 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     sh = largest_divisor(Mt, max(1, 4 // sw))
     return ttnn.MatmulMultiCoreReuseProgramConfig(
         compute_with_storage_grid_size=a.device().compute_with_storage_grid_size(),
-        in0_block_w=largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
+        in0_block_w=in0_block_w or largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
         per_core_M=Mt, per_core_N=Nt)
 
+
+def bmm_k_blocks(a, b, transpose_a: bool = False, transpose_b: bool = False):
+    """The `in0_block_w` values to try, widest first: the divisors of Kt that are at most 8.
+
+    `in0_block_w` is how many tiles of the contraction a core holds at once, so the in0 circular
+    buffer is `per_core_M * in0_block_w` tiles and the widest choice is the one that blows L1
+    first. Narrowing it blocks the SAME contraction into more passes over K rather than changing
+    what is contracted.
+    """
+    K = (a.shape[-2] if transpose_a else a.shape[-1])
+    Kt = -(-int(K) // ttnn.TILE_SIZE)
+    return [d for d in range(min(Kt, 8), 0, -1) if Kt % d == 0]
+
 def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
-    """``ttnn.matmul`` under `bmm_program_config`'s plan where it has one, ttnn's otherwise."""
-    return _matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
-                   program_config=bmm_program_config(a, b, transpose_a, transpose_b), **kw)
+    """``ttnn.matmul`` under `bmm_program_config`'s plan where it has one, ttnn's otherwise.
+
+    A call ttnn's own planner cannot fit in L1 is retried in ROW BLOCKS (`_bmm_blocked`). The
+    retry is on the REFUSAL and not on the shape: every call that fits today takes the plan it
+    took yesterday, to the bit.
+    """
+    plan = bmm_program_config(a, b, transpose_a, transpose_b)
+    try:
+        return _matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
+                       program_config=plan, **kw)
+    except Exception as exc:                                             # noqa: BLE001
+        from .tenstorrent import report_l1_refusal
+        if not report_l1_refusal("autograd.bmm", exc):
+            raise
+        if plan is not None:
+            narrower = _bmm_narrower_k(a, b, transpose_a, transpose_b, kw)
+            if narrower is not None:
+                return narrower
+        blocked = _bmm_blocked(a, b, transpose_a, transpose_b, kw)
+        if blocked is None:
+            raise
+        return blocked
+
+
+def _bmm_narrower_k(a, b, transpose_a: bool, transpose_b: bool, kw):
+    """The same product under a narrower `in0_block_w`, or None if no width fits.
+
+    What refuses at 768 tokens is not a wide output but a deep contraction under a tall one:
+    `a[2, 8, 768, 768]` against `b[2, 8, 768, 32]` transposed gives `per_core_M = 24` output
+    tiles against `per_core_N = 1`, and `in0_block_w = 8` makes the in0 circular buffer
+    24 x 8 tiles. That is 1.86 MB against the 1.5 MB a Tensix has, and the round dies at compile
+    inside the Evoformer backward with 7 GB of DRAM free (measured on one Wormhole Galaxy chip,
+    2026-10-01, `perf/bcw_slowmode/`). Row blocking cannot help: the output is 32 wide, so it is
+    already inside one block, which is what `_bmm_blocked` says when it declines.
+
+    Narrowing `in0_block_w` passes over K more times with less held at once. It is the same
+    contraction in the same order over the same operands, blocked differently, so the result
+    moves only by fp32 accumulation grouping -- and only for a call that otherwise does not run
+    at all. Tried widest first, so a card that can afford more holds more.
+    """
+    widths = bmm_k_blocks(a, b, transpose_a, transpose_b)
+    for w in widths[1:]:
+        try:
+            out = _matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
+                          program_config=bmm_program_config(a, b, transpose_a, transpose_b,
+                                                            in0_block_w=w), **kw)
+        except Exception as exc:                                         # noqa: BLE001
+            from .tenstorrent import report_l1_refusal
+            if not report_l1_refusal(f"autograd.bmm in0_block_w={w}", exc):
+                raise
+            continue
+        return out
+    return None
+
+
+def _bmm_blocked(a, b, transpose_a: bool, transpose_b: bool, kw):
+    """A batched product whose output is too large for one core-block, done a row block at a
+    time, or None when this is not that case.
+
+    `bmm_program_config` gives the whole output matrix of a batch element to one core-block.
+    At 768 tokens a `[128, 768, 768]` triangle-multiplication VJP is laid out on ONE COLUMN of
+    nine cores, whichever planner lays it, and the circular buffers grow to 1.86 MB against the
+    1.5 MB a Tensix has: the gradient round dies at compile, inside the backward, with the card
+    7 GB free. Measured on one chip of a Wormhole Galaxy on 2026-10-01 (`perf/bcw_slowmode/`,
+    hHSA + 150 at 768 in the offload memory mode), and it is a program-config limit rather than
+    a memory one. The first cut of this retry fired only where `bmm_program_config` had
+    DECLINED, on the reading that ttnn's own planner was the one at fault; the refusal came
+    back unchanged, because at this size the plan exists and is itself too wide. So the retry
+    now fires on the refusal alone, whoever planned the call.
+
+    A row block of `A` times `B` IS the matching row block of `AB`: the rows of a product do
+    not interact. So the output is cut into blocks of at most `BMM_OUT_TILES` tiles, each one a
+    complete product under the plan the kernel was proven on -- `per_core_M` is the block's own
+    whole M, never a split of it, which is the hazard `bmm_program_config` documents -- and
+    `in0_block_w` is the same for every block, so the contraction runs in the same order and
+    the result is bit-identical to what one call under that plan would give.
+    """
+    sa, sb = [int(d) for d in a.shape], [int(d) for d in b.shape]
+
+    def decline(why):
+        """Say why the row-block retry does not apply, because the caller then RE-RAISES.
+
+        Without this the refusal that follows is indistinguishable from the retry never having
+        been reached, which is exactly the hour this cost once already.
+        """
+        import os
+        line = (f"[tt-bio] autograd.bmm: row blocking does not apply ({why}): a{sa} b{sb} "
+                f"transpose_a={transpose_a} transpose_b={transpose_b}\n")
+        try:
+            os.write(2, line.encode("utf-8", "replace"))
+        except OSError:
+            pass
+        return None
+
+    if len(sa) < 3 or len(sa) != len(sb) or sa[:-2] != sb[:-2]:
+        return decline("not a batched product with matching batch dims")
+    ax = len(sa) - (1 if transpose_a else 2)                 # a's axis that carries the output's M
+    M = sa[ax]
+    if M % ttnn.TILE_SIZE:
+        return decline(f"M={M} is not a whole number of tiles")
+    N = sb[-2] if transpose_b else sb[-1]
+    Nt = -(-N // ttnn.TILE_SIZE)
+    rows = max(1, BMM_OUT_TILES // max(1, Nt)) * ttnn.TILE_SIZE
+    if Nt > BMM_OUT_TILES or M <= rows:
+        return decline(f"M={M} is already within one block of {rows} rows (N={N})")
+    parts = []
+    for start in range(0, M, rows):
+        end = min(start + rows, M)
+        starts = [0] * len(sa)
+        ends = list(sa)
+        starts[ax], ends[ax] = start, end
+        block = ttnn.slice(a, starts, ends)
+        parts.append(_matmul(block, b, transpose_a=transpose_a, transpose_b=transpose_b,
+                             program_config=bmm_program_config(block, b, transpose_a,
+                                                               transpose_b),
+                             **kw))
+        ttnn.deallocate(block)
+    out = ttnn.concat(parts, dim=len(sa) - 2)
+    for p in parts:
+        ttnn.deallocate(p)
+    return out
 
 
 def _reduce_to(g, shape):
@@ -2672,7 +2804,43 @@ def release_pins() -> None:
 _ALL_PARAMS = object()
 
 
-def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
+def substep(fn, *inputs: Tensor):
+    """``fn(*inputs)``, checkpointed on its own when a tape is being recorded.
+
+    This is how a checkpointed block checkpoints its sub-modules. Its untaped first forward
+    runs ``fn`` straight through: nothing is taped there, so nothing could be saved. Its
+    recompute runs with gradients on, and there each sub-module becomes a `checkpoint` of its
+    own, so the block's backward holds the sub-module boundaries plus ONE sub-module's tape
+    instead of every sub-module's tape at once. The values are the same ops on the same inputs
+    either way, so the gradient does not move; what it costs is one more forward of every
+    sub-module.
+    """
+    if not _GRAD_ENABLED or not any(isinstance(t, Tensor) and t.requires_grad for t in inputs):
+        return fn(*inputs)
+    return checkpoint(fn, *inputs, _nested=True)
+
+
+def _to_host(t: Tensor):
+    """Move a pinned segment input off the card, or None if it must stay.
+
+    A view stays: its buffer is shared with another taped tensor and moving one moves neither.
+    Returns what the recompute needs to put it back."""
+    v = t.value
+    if t.shares is not None or v.storage_type() != ttnn.StorageType.DEVICE \
+            or not v.is_allocated():
+        return None
+    home = (v.device(), v.memory_config())
+    t.value = ttnn.from_device(v)
+    ttnn.deallocate(v)
+    # Off the card is off the card: `free` and `evict` have nothing to release or move, and
+    # they would ask a HOST tensor for its allocation and its memory config on the way to
+    # finding that out. `evictable` is the flag both of them test first.
+    t.evictable = False
+    return home
+
+
+def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool = False,
+               _nested: bool = False) -> Tensor:
     """Run ``fn`` untaped, and re-run it taped inside its own backward.
 
     Trades one extra forward for dropping every intermediate ``fn`` produced. The
@@ -2696,6 +2864,16 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     parents is what keeps that from happening. Fine-tuning is exactly the case where the
     input can be frozen while the weights are not, so the old signature was correct for
     hallucination and wrong here.
+
+    ``offload`` moves the pinned inputs to host memory once the forward has read them and
+    brings them back for the recompute. It is for a chain of segments, each fed the previous
+    one's output, where nothing but the next segment reads an input: it frees one segment
+    input of device memory per segment for one download and one upload of it.
+
+    ``_nested`` is `substep`'s: a segment taken inside another one's recompute. Its pins are
+    not the run's to release, because the enclosing recompute drops its whole inner tape
+    the moment its backward is done, and parking them on `_CKPT_PINS` would keep every
+    sub-module input of every block alive to the end of the backward.
     """
     # PIN the inputs across the untaped forward. A shipped block deallocates the tensor it was
     # handed the moment it has read it -- that is what the tuned forward is -- and under
@@ -2708,7 +2886,8 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     held = [t for t in inputs if isinstance(t, Tensor)]
     for t in held:
         t.pinned = True
-        _CKPT_PINS.append(t)
+        if not _nested:
+            _CKPT_PINS.append(t)
     _TOUCHED.clear()
     with no_grad():
         produced = fn(*inputs)
@@ -2723,7 +2902,7 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         """Re-run the segment on fresh nodes over the same input VALUES and replay its tape
         ONCE, seeding every output in `seeded`, a list of (output index or None, gradient)."""
         from .taped_ttnn import recompute_scope
-        inner = [Tensor(t.value, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
+        inner = [Tensor(_home(t), requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
                  for t in inputs]
         with recompute_scope():
             y = fn(*inner)
@@ -2741,9 +2920,25 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         # groups it could reach from the roots -- which missed every group off that path.
         del y, inner, roots
 
+    # Where each offloaded input lives on the card, by identity. Filled after the outputs are
+    # taped, so `_tape`'s view test still sees the inputs on the card.
+    homes: dict = {}
+
+    def _home(t):
+        home = homes.get(id(t))
+        return t.value if home is None else ttnn.to_device(t.value, home[0], home[1])
+
+    def _offload(out):
+        if offload:
+            for t in held:
+                home = _to_host(t)
+                if home is not None:
+                    homes[id(t)] = home
+        return out
+
     if not isinstance(produced, (tuple, list)):
-        return _tape(produced.value if isinstance(produced, Tensor) else produced, parents,
-                     lambda: (lambda g: _recompute([(None, g)])))
+        return _offload(_tape(produced.value if isinstance(produced, Tensor) else produced,
+                              parents, lambda: (lambda g: _recompute([(None, g)]))))
 
     # A segment with SEVERAL outputs, which is what a real block is: a `PairformerLayer`
     # returns the pair (s, z) and the single-output form cannot express it.
@@ -2772,7 +2967,7 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         if out.node is not None:
             out.node.group = fire
         outs.append(out)
-    return tuple(outs)
+    return _offload(tuple(outs))
 
 
 # ---------------------------------------------------------------------------------------

@@ -5,6 +5,36 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **BindCraft 2 keeps going past a card's fast ceiling instead of refusing: `memory=`.** A
+  Wormhole Galaxy chip's 512 tokens was the ceiling of the mode that runs fastest, not of the
+  card. Two levers buy room by spending time -- `lean` checkpoints each residual step inside a
+  block as well as each block, so a block's backward holds one step's tape instead of nine, and
+  `offload` additionally keeps the pinned block inputs in host memory between the forward and the
+  backward. Both run the same ops on the same values: an `offload` gradient is bit-identical to a
+  `lean` one, and both sit 0.0035 rel L2 from `fast` on top of the 0.0817 that separates `fast`
+  from a float64 reference, inside the 0.0668 that bf16 alone costs. The default is
+  `memory='auto'`, which picks the cheapest mode the fold fits in, per token axis, and prints
+  which: every fold that runs today stays in `fast` and is unchanged. A refusal now names the
+  next roomier mode, what it costs and how to ask for it. Measured on one dev Wormhole Galaxy
+  chip at AICLK 1000 MHz: 544 tokens refuse in `fast` holding 12.70 GB, and complete in `lean` at
+  a 7.527 GB peak and 84.3 s a round against 61.3 s for the 512 tokens `fast` does carry. At the
+  same token axis the mode costs +10.6 % a round (512: 61.3 s in `fast`, 67.8 s in `lean`). The
+  largest fold measured to complete a gradient round on one Wormhole Galaxy chip is now **896
+  tokens** -- `offload`, 11.051 GB peak with 1.83 GB free, 285.6 s a round -- 1.75x the axis the
+  fast mode carries, with 832 and 864 measured in between at 242.0 s and 264.9 s. 928 refuses,
+  and the mode's ceiling is that measured pair rather than a figure computed from what a fold
+  that size would need: 928 peaked at 11.197 GB with 1.687 GB free and was refused an 882 MB
+  buffer because the largest free block was 70 MB, so what ends the mode is fragmentation. A
+  refusal quotes 896 as a size that has run, not 960 as one that should fit. 800 tokens, a whole
+  EGFR ectodomain plus a 150 aa binder, costs 225.1 s at an 8.952 GB peak. 768 completes too,
+  at an 8.282 GB peak and 200.2 s: it needs an L1 escape the other axes do not, because
+  `in0_block_w` is the largest
+  divisor of the axis in tiles that is at most 8 and 768 alone in this range takes the widest
+  block, so `tt_bio.autograd.bmm` retries such a refusal in narrower passes over K. See
+  [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
+
 ### Changed
 
 - **A BindCraft 2 gradient round is 1.15x faster on Blackhole.** The layer-norm backward ran as
