@@ -3,6 +3,7 @@
 under fast_round with the real MSA mask, so the masked OPM's `_sum_rows` is on the path. Arms:
 off = rows summed after S products, on = rows joined along the contraction."""
 import argparse, pathlib, sys
+import torch
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from perf.bcx_afgrad import afgrad as A     # noqa: E402
