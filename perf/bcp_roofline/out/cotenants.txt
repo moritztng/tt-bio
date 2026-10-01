@@ -1,0 +1,135 @@
+--- 2026-09-30T23:47:06Z load 0.15 0.30 0.41
+    PID     ELAPSED %CPU   RSS COMMAND
+   4036    07:56:44  6.9 697096 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    07:57:13  0.2 25936 /usr/libexec/bluetooth/bluetoothd
+    926    07:57:16  0.2     0 [irq/114-rtw89_pci]
+ 665539       02:10  0.1     0 [kworker/u64:2-events_power_efficient]
+   2222    07:57:06  0.0 211452 /usr/bin/gnome-shell
+   1141    07:57:13  0.0 26528 /usr/lib/polkit-1/polkitd --no-debug
+   1119    07:57:13  0.0  7508 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+--- 2026-09-30T23:47:56Z load 0.39 0.33 0.41
+    PID     ELAPSED %CPU   RSS COMMAND
+ 669242       00:14  129 855892 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+   4036    07:57:35  6.9 697120 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    07:58:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    07:58:06  0.2     0 [irq/114-rtw89_pci]
+   2222    07:57:57  0.0 211416 /usr/bin/gnome-shell
+   1141    07:58:04  0.0 26680 /usr/lib/polkit-1/polkitd --no-debug
+ 669328       00:12  0.0     0 [python3] <defunct>
+--- 2026-09-30T23:48:56Z load 4.75 1.57 0.84
+    PID     ELAPSED %CPU   RSS COMMAND
+ 671030       00:43  519 3612004 /home/ttuser/bcx_e2e_venv/bin/python3 -c  import pathlib, sys import jax from tt_bio import bindcraft2, weights from bindcraft.preflight import cleaned_campaign_settin
+ 669497       01:00  149 9363392 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --trajectories 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+ 669242       01:14 67.3 5013836 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+ 669808       00:51 12.3 762244 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q tests/test_bindcraft2.py
+   4036    07:58:35  6.9 697164 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    07:59:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    07:59:06  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-30T23:49:56Z load 5.29 2.41 1.18
+    PID     ELAPSED %CPU   RSS COMMAND
+ 673808       00:17  174 5998608 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+ 669242       02:14 57.4 5082176 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+   4036    07:59:35  6.9 697176 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:00:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:00:06  0.2     0 [irq/114-rtw89_pci]
+   2222    07:59:57  0.0 211444 /usr/bin/gnome-shell
+   1141    08:00:04  0.0 26776 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-30T23:50:56Z load 4.94 2.78 1.38
+    PID     ELAPSED %CPU   RSS COMMAND
+ 679815       00:00  295 710276 /home/ttuser/scratch/rel010/relvenv/bin/python3 scripts/abb3_port/model_gate.py --tokens 256 --sigma 0.3
+ 673808       01:17  195 18603844 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 669242       03:14 50.1 5084624 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+   4036    08:00:35  6.9 697208 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:01:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:01:06  0.2     0 [irq/114-rtw89_pci]
+ 672700       02:22  0.0     0 [kworker/u64:5-flush-259:0]
+--- 2026-09-30T23:51:56Z load 5.58 3.49 1.72
+    PID     ELAPSED %CPU   RSS COMMAND
+ 673808       02:17  216 18615472 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 680762       00:34  152 2548428 /home/ttuser/scratch/rel010/relvenv/bin/python3 scripts/abb3_port/step_gate.py
+ 669242       04:14 46.2 5092996 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+   4036    08:01:35  6.9 697236 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:02:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:02:06  0.2     0 [irq/114-rtw89_pci]
+   1141    08:02:04  0.0 26812 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-30T23:52:56Z load 8.03 4.68 2.25
+    PID     ELAPSED %CPU   RSS COMMAND
+ 684140       00:10  144 5235796 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+ 680762       01:34  130 2549748 /home/ttuser/scratch/rel010/relvenv/bin/python3 scripts/abb3_port/step_gate.py
+ 669242       05:14 49.0 5109076 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+   4036    08:02:35  6.9 697264 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:03:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:03:06  0.2     0 [irq/114-rtw89_pci]
+   1141    08:03:04  0.0 26904 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-30T23:53:56Z load 6.51 4.78 2.44
+    PID     ELAPSED %CPU   RSS COMMAND
+ 684140       01:10  174 17637228 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 680762       02:34  140 2671788 /home/ttuser/scratch/rel010/relvenv/bin/python3 scripts/abb3_port/step_gate.py
+ 686669       00:00  100  4488 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+ 686666       00:00 95.8 52716 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s
+   4036    08:03:35  6.9 697296 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:04:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:04:06  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-30T23:54:56Z load 4.36 4.49 2.49
+    PID     ELAPSED %CPU   RSS COMMAND
+ 684140       02:10  200 18569136 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 680762       03:34  159 2673460 /home/ttuser/scratch/rel010/relvenv/bin/python3 scripts/abb3_port/step_gate.py
+   4036    08:04:35  6.9 697328 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:05:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:05:06  0.2     0 [irq/114-rtw89_pci]
+   1141    08:05:04  0.0 27144 /usr/lib/polkit-1/polkitd --no-debug
+   2222    08:04:57  0.0 211420 /usr/bin/gnome-shell
+--- 2026-09-30T23:55:56Z load 8.54 5.45 2.93
+    PID     ELAPSED %CPU   RSS COMMAND
+ 689003       00:32  472 3682284 /home/ttuser/bcx_e2e_venv/bin/python3 -c  import pathlib, sys import jax from tt_bio import bindcraft2, weights from bindcraft.preflight import cleaned_campaign_settin
+ 684140       03:10  210 18709884 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 680762       04:34  173 2784376 /home/ttuser/scratch/rel010/relvenv/bin/python3 scripts/abb3_port/step_gate.py
+ 688492       00:40 18.4 754992 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q tests/test_bindcraft2.py tests/test_bindcraft2_stall.py tests/test_bcinputs.py tests/test_triatt_hifi_pad_up.py tests
+   4036    08:05:35  6.9 697356 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:06:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:06:06  0.2     0 [irq/114-rtw89_pci]
+--- 2026-09-30T23:56:56Z load 8.78 6.09 3.31
+    PID     ELAPSED %CPU   RSS COMMAND
+ 689878       00:51  168 9034700 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --trajectories 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+ 688492       01:40  8.6 774404 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q tests/test_bindcraft2.py tests/test_bindcraft2_stall.py tests/test_bcinputs.py tests/test_triatt_hifi_pad_up.py tests
+   4036    08:06:35  6.9 697384 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:07:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:07:06  0.2     0 [irq/114-rtw89_pci]
+   1141    08:07:04  0.0 27324 /usr/lib/polkit-1/polkitd --no-debug
+   2222    08:06:57  0.0 211456 /usr/bin/gnome-shell
+--- 2026-09-30T23:57:56Z load 5.01 5.50 3.28
+    PID     ELAPSED %CPU   RSS COMMAND
+ 692225       00:24  180 8183864 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 0 --trajectories 1 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+   4036    08:07:35  6.9 697416 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+ 691443       00:56  0.2 48480 /usr/libexec/fwupd/fwupd
+   1118    08:08:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:08:06  0.2     0 [irq/114-rtw89_pci]
+   1141    08:08:04  0.0 27484 /usr/lib/polkit-1/polkitd --no-debug
+   2222    08:07:57  0.0 211464 /usr/bin/gnome-shell
+--- 2026-09-30T23:58:56Z load 3.15 4.85 3.19
+    PID     ELAPSED %CPU   RSS COMMAND
+ 693700       00:07  181 5230892 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+ 693300       00:29  117 1602696 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+   4036    08:08:35  6.9 697448 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:09:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:09:06  0.2     0 [irq/114-rtw89_pci]
+ 691443       01:56  0.1 48480 /usr/libexec/fwupd/fwupd
+   1141    08:09:04  0.0 27484 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-09-30T23:59:56Z load 2.04 4.22 3.07
+    PID     ELAPSED %CPU   RSS COMMAND
+ 695232       00:00  220 359460 /home/ttuser/bcx_e2e_venv/bin/python3 /home/ttuser/scratch/b2po-rv/scripts/full_parity_gate.py --leg openfold3-8hel-nomsa --seeds abc --workdir /tmp/pytest-of-ttuser/py
+ 693700       01:07  198 18524580 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 693300       01:29 49.5 5008908 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+   4036    08:09:35  6.9 697476 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:10:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:10:06  0.2     0 [irq/114-rtw89_pci]
+ 691443       02:56  0.0 48480 /usr/libexec/fwupd/fwupd
+--- 2026-10-01T00:00:56Z load 2.80 4.15 3.13
+    PID     ELAPSED %CPU   RSS COMMAND
+ 693700       02:07  208 18903812 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 693300       02:29 56.6 5054180 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -p no:cacheprovider -q tests
+   4036    08:10:35  6.9 697504 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    08:11:04  0.2 25992 /usr/libexec/bluetooth/bluetoothd
+    926    08:11:06  0.2     0 [irq/114-rtw89_pci]
+   1141    08:11:04  0.0 27532 /usr/lib/polkit-1/polkitd --no-debug
+   2222    08:10:57  0.0 211464 /usr/bin/gnome-shell

@@ -1,0 +1,6 @@
+a1 N=1 warm rounds 7: wall 7.641 s, device 5.898 s, host 1.655 s (21.7 %), AICLK med 1350 min 1325; walls [7.525, 8.645, 7.524, 7.844, 8.587, 7.641, 7.064]
+b1 N=3 round 6.017 s, held 5.849, idle 0.168, AICLK {'n': 140, 'aiclk_med': 1350, 'aiclk_min': 1312, 'under_1200': 0, 'load1': 6.2}, hwm 19.48 GB
+b2 N=3 round 6.128 s, held 5.954, idle 0.174, AICLK {'n': 142, 'aiclk_med': 1350, 'aiclk_min': 1318, 'under_1200': 0, 'load1': 5.54}, hwm 19.41 GB
+a2 N=1 warm rounds 7: wall 7.046 s, device 5.697 s, host 1.323 s (18.8 %), AICLK med 1350 min 1325; walls [7.911, 8.336, 7.001, 7.046, 7.924, 6.985, 6.962]
+a3 N=1 warm rounds 7: wall 7.118 s, device 5.693 s, host 1.278 s (17.9 %), AICLK med 1350 min 1312; walls [6.97, 7.536, 6.946, 6.998, 7.855, 7.157, 7.118]
+b3 N=3 round 5.923 s, held 5.805, idle 0.118, AICLK {'n': 137, 'aiclk_med': 1350, 'aiclk_min': 1312, 'under_1200': 0, 'load1': 2.98}, hwm 19.46 GB
