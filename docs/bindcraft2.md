@@ -563,8 +563,8 @@ levers buy room by spending time, and `memory=` picks between them:
 | `memory=` | what it does | largest token axis on a Wormhole chip |
 |---|---|---|
 | `fast` | checkpoints each Evoformer, extra-MSA and template block | 512, measured |
-| `lean` | also checkpoints each residual step inside a block, so a block's backward holds one step's tape instead of nine; every block's forward runs once more a round | 704 estimated, 544 measured |
-| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | see below |
+| `lean` | also checkpoints each residual step inside a block, so a block's backward holds one step's tape instead of nine; every block's forward runs once more a round | 544 measured, 704 estimated |
+| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | **800 measured**, 960 estimated |
 | `auto` | the cheapest of the three that the fold fits in. **The default.** | |
 
 They are the same arithmetic on the same values: a `lean` gradient is bit-identical to an
