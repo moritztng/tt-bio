@@ -17,5 +17,6 @@ run() {   # run <target> <binder> <tokens> [--footprint]
 run hTF   150 864
 run hTF   150 864 --footprint
 run hPDL1 50  192
+run hIL7RA 100 320
 run hIL2R 146 544
 echo "=== SEQLEN DONE $(date -u +%FT%TZ) ===" >> "$log"
