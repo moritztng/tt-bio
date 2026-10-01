@@ -23,7 +23,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   same token axis the mode costs +10.6 % a round (512: 61.3 s in `fast`, 67.8 s in `lean`). The
   largest fold measured to complete a gradient round on one Wormhole Galaxy chip is now **800
   tokens** -- `offload`, 8.952 GB peak with 3.93 GB free, 225.1 s a round -- which is a whole EGFR
-  ectodomain plus a 150 aa binder, 1.56x the axis the fast mode carries. See
+  ectodomain plus a 150 aa binder, 1.56x the axis the fast mode carries. 768 tokens completes too,
+  at 238.0 s: it needs an L1 escape the other axes do not, because `in0_block_w` is the largest
+  divisor of the axis in tiles that is at most 8 and 768 alone in this range takes the widest
+  block, so `tt_bio.autograd.bmm` retries such a refusal in narrower passes over K. See
   [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
 
 ### Changed
