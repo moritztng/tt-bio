@@ -38,6 +38,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   not yet grown into their plans counts that memory as taken. See
   [docs/bindcraft2.md](docs/bindcraft2.md).
 
+- **The 0.11.0 BindCraft 2 install advice broke BindCraft 2.** [docs/bindcraft2.md](docs/bindcraft2.md)
+  said to pin `numpy<2` after installing BindCraft 2, or to install BindCraft 2 first. Either way
+  numpy ends at 1.26, and the jax 0.11 that BindCraft 2 pins does not import on it. The page now
+  says to keep the numpy 2 that the install gives you: ttnn runs on it even though `pip check`
+  reports ttnn's `numpy<2` declaration.
+
 ## [0.11.0] - 2026-10-01
 
 ### Added
