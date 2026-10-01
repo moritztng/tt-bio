@@ -1,33 +1,6 @@
-# scripts/abb3_port/step_gate.py at its default and at the --micro 8 value that does not fit, on
-# qb2 card 3 (/dev/tenstorrent/3), Blackhole p300c, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
-RECORDED-AT: 0bf40c90b5b9cc20e954d7802619ab587639fb11 scripts/abb3_port/step_gate.py
-#
-# TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (lnbw). Replaces the record taken at
-# 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw was wired into the layer-norm
-# backward. Interpreter ~/tt-bio-dev/env, TT-NN 0.68.0 (the same version as the release venv).
-#
-# --micro 8 still does not fit, and dies on the same request: 100 663 296 B with 25 830 976 B free.
-# The default, 4 x 16, fits and runs 10 complete steps at the same DRAM peak, 30981 MB of 32640 MB
-# with 1659 MB spare, 500 taped device parameters. Loss 4.9937 and 4.9918 at steps 1 and 5 as at
-# 93edb1b24; 4.9910 at step 10 against 4.9911, a last-digit move.
-#
-# CLOCK: card 3 from ~/qbcard/cardtel.tsv over the model gate and this run: 1350 MHz on 204 of 225
-# samples, 1343 on 12, 800 on 9 (between processes). The 19.013 s median (18.926 s at 93edb1b24, which
-# shared the host with a tenant on card 0; this run had none) is a fit-and-clock record for the shipped
-# default on this board, not a perf claim for the model.
-#
-# RE-RECORDED on the bcp-evo merge tree, run at bde26276c, 14:29-14:36Z 2026-10-01, qb2 card 3. Losses
-# 4.9937 / 4.9918 / 4.9910 at steps 1, 5, 10 and the 30981 MB DRAM peak are identical to 3e617f520;
-# --micro 8 still OOMs. The 20.383 s median ran with 2 cotenants elsewhere on the box (19.013 s
-# uncontended at 3e617f520), so it is a fit record, not a perf claim. Raw: perf/bcp_evo/out/abb3/step_gate.txt.
-#
-# RE-RECORDED on the rel012 integration tree, run at 0bf40c90b, 22:15-22:21Z 2026-10-01, qb2 card 0,
-# no cotenant on the box. Losses 4.9937 / 4.9918 / 4.9910 at steps 1, 5, 10, 500 taped parameters and
-# the 30981 MB DRAM peak are identical to the bcp-evo record; --micro 8 still OOMs on the same
-# 100 663 296 B request. Median 18.703 s at AICLK median 1350 (min 1343); a fit record, not a perf
-# claim. Raw: perf/rel012_integrate/out/abb3/step_gate.txt.
-#
 == --micro 8 --accumulate 8 --steps 1 --warmup 1 ==
+2026-10-01 22:16:06.939 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
 2026-10-01 22:16:14.981 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252359040 B, free: 25830976 B, largest free block: 8388608 B) (assert.hpp:104)
 host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 0 elsewhere, 328 pid(s) unreadable
   unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14] ...
@@ -88,7 +61,10 @@ backtrace:
  --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x74d627e2a28b]
  --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]
 
+rc=1
 == default: --micro 4 --accumulate 16 --steps 10 --warmup 1 ==
+2026-10-01 22:16:16.464 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
 host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 0 elsewhere, 329 pid(s) unreadable
   unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14] ...
   sidechain FAPE on the card
@@ -118,3 +94,4 @@ CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 81
 DRAM: peak 30981 MB of the card's 32640 MB at micro 4 x 16 and 256 tokens, 1659 MB spare. Sampled after every abodybuilder3_ops call of the warmup step; the timed steps run uninstrumented
 INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
 TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
+rc=0

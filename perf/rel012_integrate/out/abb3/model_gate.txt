@@ -1,45 +1,6 @@
-# The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
-# re-recorded on the BCP merge tree.
-RECORDED-AT: 0bf40c90b5b9cc20e954d7802619ab587639fb11 scripts/abb3_port/model_gate.py
-#
-# TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
-# Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
-# was wired into the layer-norm backward. lnbw is armed only inside a BindCraft 2 fast round, so this
-# gate's path is unchanged.
-#
-# Host qb2, card 3 (/dev/tenstorrent/3), Blackhole p300c, interpreter ~/tt-bio-dev/env. Commands, in order:
-#   for sigma in 0.05 0.3; do for tokens in 64 256; do
-#     TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=orch:bcp-merge-abb3 \
-#       PYTHONPATH=$PWD python3 scripts/abb3_port/model_gate.py --tokens $tokens --sigma $sigma
-#   done; done
-#
-# NO TIMING CLAIM. Every row is an accuracy comparison against a float64 reference. AICLK on card 3
-# from ~/qbcard/cardtel.tsv over this run and the step gate after it: 1350 MHz on 204 of 225 samples, 1343 on 12, 800 on 9 (between processes).
-#
-# WHAT MOVED since 93edb1b24: nothing on the device. Every ok/FAIL row is identical to that record;
-# only the float32 torch-vs-torch CPU control differs, in its third significant digit at ~1e-6.
-#
-# STILL FAILING, unchanged: the sigma 0.3 / 256-token stress arm, angles 5.11e-02 against its own
-# 5e-02 bar. Its weights are far wider than any trained checkpoint; the trained-scale arm, sigma
-# 0.05, passes every row at both token counts. Owned by tt_bio/abodybuilder3.py, not this record.
-#
-# RE-RECORDED on the bcp-evo merge tree (wk/bcp-evo, origin/main 563d306b9 plus the eleven BindCraft 2
-# round kernels), run at bde26276c, 14:29-14:36Z 2026-10-01, qb2 card 3, ~/tt-bio-dev/env. The closure moved
-# in tt_bio/autograd.py, ops.py, tenstorrent.py and others; every new path is armed only inside a BindCraft
-# 2 fast round, so this gate's path is unchanged, and every ok/FAIL row and every gradient row is
-# identical to the 3e617f520 record. 834b50a41 differs from the run tree only by a comment in pair_mm.py
-# and by moving the unimported tt_bio/evo_trace.py to perf/bcp_evo.
-# Raw output: perf/bcp_evo/out/abb3/model_gate.txt. NO TIMING CLAIM.
-#
-# RE-RECORDED on the rel012 integration tree (wk/rel012-integrate: origin/main 563d306b9 plus
-# wk/bcw-land 78e5aa065, wk/bcw-slowmode be84acd10, wk/bcw-bmm 2f801c099), run at 0bf40c90b,
-# 22:15-22:21Z 2026-10-01, qb2 card 0 (p300c), ~/tt-bio-dev/env. The closure moved in
-# tt_bio/autograd.py and tt_bio/triatt_qkv.py. Every ok/FAIL row and every gradient row is identical
-# to the bcp-evo record; the sigma 0.3 / 256-token stress arm still FAILs angles at 5.11e-02.
-# AICLK on card 0 over this run and the step gate: 1350 MHz on 58 of 68 samples, 1343 on 6, 800 on 4
-# (between processes). Raw output: perf/rel012_integrate/out/abb3/model_gate.txt. NO TIMING CLAIM.
-#
 === sigma=0.05, 64 tokens, 8 blocks, batch 2 ===
+2026-10-01 22:15:38.632 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
   sigma 0.05, 8 blocks, batch 2 x 64 tokens
   output                    rel err   on vs off
   ok   frames              8.14e-04    0.00e+00  (bars 5e-2 / 0)
@@ -65,7 +26,10 @@ RECORDED-AT: 0bf40c90b5b9cc20e954d7802619ab587639fb11 scripts/abb3_port/model_ga
        d/d ipa[0] linear_q.w  1.000000  8.46e-07
 
 PASS
+rc=0
 === sigma=0.05, 256 tokens, 8 blocks, batch 2 ===
+2026-10-01 22:15:42.407 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
   sigma 0.05, 8 blocks, batch 2 x 256 tokens
   output                    rel err   on vs off
   ok   frames              8.33e-04    0.00e+00  (bars 5e-2 / 0)
@@ -91,7 +55,10 @@ PASS
        d/d ipa[0] linear_q.w  1.000000  1.45e-06
 
 PASS
+rc=0
 === sigma=0.3, 64 tokens, 8 blocks, batch 2 ===
+2026-10-01 22:15:52.788 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
   sigma 0.3, 8 blocks, batch 2 x 64 tokens
   output                    rel err   on vs off
   ok   frames              7.06e-03    0.00e+00  (bars 5e-2 / 0)
@@ -117,7 +84,10 @@ PASS
        d/d ipa[0] linear_q.w  0.999998  2.07e-03
 
 PASS
+rc=0
 === sigma=0.3, 256 tokens, 8 blocks, batch 2 ===
+2026-10-01 22:15:56.450 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
   sigma 0.3, 8 blocks, batch 2 x 256 tokens
   output                    rel err   on vs off
   ok   frames              1.01e-02    0.00e+00  (bars 5e-2 / 0)
@@ -143,3 +113,4 @@ PASS
        d/d ipa[0] linear_q.w  1.000000  7.42e-04
 
 FAIL
+rc=1
