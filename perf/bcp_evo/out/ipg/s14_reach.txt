@@ -1,0 +1,296 @@
+=== start 2026-10-01T15:33:45Z card 1
+arm s14_reach: trajectories=3 interleave=1 TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose TT_BIO_GATED_BW_FUSED=1 TT_BIO_NOGRAD_INFERENCE=1 TT_BIO_GATE_BW_FUSED=1 TT_BIO_AF2_G_BIAS_IN_MATMUL=1 TT_BIO_LEAD_SUM_FUSED=1 TT_BIO_TRIATT_BW_QKV_PACKED=1 TT_BIO_FANIN_CAST_FUSED=1 TT_BIO_PAIR_TRANSPOSE_FUSED=1 TT_BIO_GATED_GRAD_PACKED=1 TT_BIO_TRIATT_BW_EXP_21F=1 TT_BIO_PAIR_MM=1 TT_BIO_INPROJ_GATED=1
+2026-10-01 15:33:47.509 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "1",
+ "tt_bio_file": "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/__init__.py",
+ "interleave": true,
+ "trajectories": 3,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "widen_add": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true
+ },
+ "pci": "0000:02:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+ "commit": "993aa51fdff4aeb0b21d6e89fbd578c3cf5b8661",
+ "seed": 100,
+ "binder": 146,
+ "rounds_requested": 3,
+ "length_bucket_size": 32,
+ "started_utc": "2026-10-01T15:33:47Z",
+ "loadavg_start": [
+  11.47119140625,
+  12.33642578125,
+  12.763671875
+ ],
+ "nproc": 16,
+ "project": "perf/bcp_evo/out/round/s14_reach"
+}
+/home/ttuser/.coworker/wt/bcp-evo/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/round/s14_reach | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_65b794fd11eadc4b | accepted 0/10 ===
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/round/s14_reach | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 2 | pdl1_denovo_l146_95577589ca04600d | accepted 0/10 ===
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcp_evo/out/round/s14_reach | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 3 | pdl1_denovo_l146_617507eef6bea406 | accepted 0/10 ===
+{
+ "host": "tt-quietbox2",
+ "card": "1",
+ "tt_bio_file": "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/__init__.py",
+ "interleave": true,
+ "trajectories": 3,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "levers_expected": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "taped_channel_move": true,
+  "mm_layout": true,
+  "widen_add": true,
+  "triatt_bw": true,
+  "triatt_hifi": true,
+  "rne_kernel": true
+ },
+ "pci": "0000:02:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+ "commit": "993aa51fdff4aeb0b21d6e89fbd578c3cf5b8661",
+ "seed": 100,
+ "binder": 146,
+ "rounds_requested": 3,
+ "length_bucket_size": 32,
+ "started_utc": "2026-10-01T15:33:47Z",
+ "loadavg_start": [
+  11.47119140625,
+  12.33642578125,
+  12.763671875
+ ],
+ "nproc": 16,
+ "project": "perf/bcp_evo/out/round/s14_reach",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "tri_att_g_in_matmul": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose",
+  "SOFTMAX_BW_FP32": false
+ },
+ "gate": {
+  "waited_s": {
+   "A": 13.192,
+   "B": 13.213,
+   "C": 14.291
+  },
+  "held_s": {
+   "A": 14.773,
+   "B": 13.604,
+   "C": 12.599
+  },
+  "seams": {
+   "A": 27,
+   "B": 27,
+   "C": 27
+  },
+  "slot_at_seam": {
+   "A@Dummy-3": 6,
+   "A@Dummy-4": 1,
+   "A@Dummy-5": 5,
+   "A@Dummy-6": 3,
+   "A@Dummy-7": 1,
+   "A@Dummy-8": 4,
+   "A@Dummy-9": 1,
+   "B@Dummy-5": 2,
+   "B@Dummy-10": 1,
+   "B@Dummy-7": 4,
+   "B@Dummy-6": 2,
+   "B@Dummy-11": 3,
+   "B@Dummy-12": 2,
+   "B@Dummy-3": 3,
+   "C@Dummy-3": 4,
+   "C@Dummy-9": 3,
+   "C@Dummy-12": 1,
+   "C@Dummy-4": 1,
+   "C@Dummy-7": 4,
+   "C@Dummy-10": 1,
+   "C@Dummy-5": 4,
+   "B@Dummy-13": 2,
+   "C@Dummy-11": 2,
+   "C@Dummy-14": 1,
+   "B@Dummy-4": 1,
+   "C@Dummy-15": 2,
+   "A@Dummy-11": 1,
+   "B@Dummy-8": 4,
+   "A@Dummy-13": 2,
+   "B@Dummy-9": 2,
+   "C@Dummy-16": 1,
+   "C@Dummy-13": 1,
+   "B@Dummy-16": 1,
+   "C@Dummy-17": 1,
+   "A@Dummy-12": 1,
+   "C@Dummy-8": 1,
+   "A@Dummy-17": 1,
+   "A@Dummy-10": 1
+  }
+ },
+ "wall_seconds": 67.0,
+ "stopped": [
+  "B: 3 rounds collected on 'B'",
+  "C: 3 rounds collected on 'C'",
+  "A: 3 rounds collected on 'A'"
+ ],
+ "triatt_bw_stats": {
+  "served": 972,
+  "declined": 0,
+  "packed": 972,
+  "bw_calls": 972
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "kernel_entry_stats": {
+  "rne_add": [
+   12474,
+   0
+  ],
+  "tri_att_sdpa_hifi": [
+   2916,
+   0
+  ],
+  "pair_transpose": [
+   2916,
+   0
+  ],
+  "reblock_permute_gated": [
+   1944,
+   0
+  ]
+ },
+ "rne_add_stats": {
+  "served": 12474,
+  "declined": 108
+ },
+ "mm_layout": {
+  "declined: has a core grid": 2592,
+  "served": 6264,
+  "declined: has a program config": 9180,
+  "declined: not batched": 7272
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a core grid": 2592,
+   "served": 6264,
+   "declined: has a program config": 9180,
+   "declined: not batched": 7272
+  },
+  "taped_channel_move": [
+   972,
+   5616,
+   972,
+   0
+  ],
+  "widen_add": {
+   "served: round": 6516,
+   "served: first": 1854,
+   "served: later": 432
+  },
+  "rne_add": [
+   12474,
+   108
+  ],
+  "qkv_grad_join": {
+   "served": 2592
+  },
+  "triatt_bw": {
+   "served": 972,
+   "declined": 0,
+   "packed": 972,
+   "bw_calls": 972
+  },
+  "triatt_fused_hifi": {
+   "served": 2916,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    12474,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    2916,
+    0
+   ],
+   "pair_transpose": [
+    2916,
+    0
+   ],
+   "reblock_permute_gated": [
+    1944,
+    0
+   ]
+  }
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "host_folds": {},
+ "loadavg_end": [
+  9.92822265625,
+  11.67041015625,
+  12.4990234375
+ ],
+ "finished_utc": "2026-10-01T15:34:54Z"
+}
+events -> perf/bcp_evo/out/round/s14_reach/round_events.json
+exit 0 2026-10-01T15:34:57Z

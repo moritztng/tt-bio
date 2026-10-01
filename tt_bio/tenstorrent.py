@@ -7892,9 +7892,16 @@ class TriangleMultiplication(Module):
         if other_loop:
             return no("row_norm_or_grouped")
         # A forward the tape runs under its own `no_grad` is not recorded, and that is where this
-        # kernel serves: `fused_kernel` hands it raw operands there.
-        if ops.recording():
-            return no("taped")
+        # kernel serves, on operands unwrapped here through the hook's own `raw`. Not through
+        # `ops.fused_kernel`: that runs the kernel inside `untaped_kernel()`, whose `_RAW_DEPTH` is
+        # process-global, and with interleaved trajectories another thread's recording forward
+        # then reads `taping()` False and sends tape tensors into raw ttnn (a layer_norm and this
+        # kernel's own TensorAccessorArgs both raised that way in perf/bcp_evo/out/s14_reach.log).
+        hook = ops.grad_hook()
+        if hook is not None:
+            if not ops.NOGRAD_IS_INFERENCE or getattr(hook, "recording", lambda: True)():
+                return no("taped")
+            (x, w, bias), _ = hook.raw((x, w, bias), {})
         if (not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE) or _FAST_MODE
                 or _TRIMUL_RAW_CHANNEL_MOVES or not (mask is None or mask_moved_ok)):
             return no("move_config")

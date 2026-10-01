@@ -23,7 +23,6 @@ import ttnn
 
 from . import reblock_permute as R
 from .envflags import env_flag
-from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "inproj_gated"
 
@@ -167,7 +166,6 @@ def _build(x, wt, out, device, has_bias, S, reader_ct, writer_ct):
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-@_ops.fused_kernel("inproj_gated")
 def inproj_gated(x, wt, ones, p_slice, g_slice, slice_c, out=None, memory_config=None):
     """``permute((x @ W + b)[..., p] * sigmoid((x @ W + b)[..., g]), (0, 3, 1, 2))``.
 
