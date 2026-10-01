@@ -2023,6 +2023,7 @@ _FAST_ROUND = (
     ("taped_ttnn", None, "QKV_GRAD_JOIN", "TT_BIO_QKV_GRAD_JOIN", True),
     ("triatt_bw", None, "FUSED", "TT_BIO_TRIATT_BW_FUSED", True),
     ("triatt_bw", None, "QKV_PACKED", "TT_BIO_TRIATT_BW_QKV_PACKED", True),
+    ("triatt_bw", None, "EXP_21F", "TT_BIO_TRIATT_BW_EXP_21F", True),
     ("autograd", None, "FANIN_CAST_FUSED", "TT_BIO_FANIN_CAST_FUSED", True),
     ("pair_transpose", None, "PAIR_TRANSPOSE_FUSED", "TT_BIO_PAIR_TRANSPOSE_FUSED", True),
     ("reblock_permute", None, "GATED_GRAD_PACKED", "TT_BIO_GATED_GRAD_PACKED", True),
@@ -2030,6 +2031,7 @@ _FAST_ROUND = (
     ("reblock_permute", None, "GATED_BW_FUSED", "TT_BIO_GATED_BW_FUSED", True),
     ("gate_bw", None, "GATE_BW_FUSED", "TT_BIO_GATE_BW_FUSED", True),
     ("lead_sum", None, "LEAD_SUM_FUSED", "TT_BIO_LEAD_SUM_FUSED", True),
+    ("pair_mm", None, "PAIR_MM_FUSED", "TT_BIO_PAIR_MM", True),
     ("ops", None, "NOGRAD_IS_INFERENCE", "TT_BIO_NOGRAD_INFERENCE", True),
     ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
     ("af2", "AF2PairBlock", "rne_kernel", None, True),
@@ -2041,6 +2043,16 @@ _FAST_ROUND = (
     # measured and graded (1.051x of the bf16 control) with it off, so it stays off here.
     ("autograd", None, "SOFTMAX_BW_FP32", "TT_BIO_SOFTMAX_BW_FP32", False),
 )
+
+#: Rows graded on Blackhole only (qb2 p300c, `state/bcp-evo.md`). On Wormhole `fast_round` leaves
+#: them at the value it found, or for the taped-kernel list at `_FAST_ROUND_WORMHOLE_KERNELS`, until
+#: each has a float64 grade and a round on a Wormhole chip. A named env var still wins.
+_BLACKHOLE_ONLY = frozenset({
+    "QKV_PACKED", "EXP_21F", "FANIN_CAST_FUSED", "PAIR_TRANSPOSE_FUSED", "GATED_GRAD_PACKED",
+    "GATED_BW_FUSED", "GATE_BW_FUSED", "LEAD_SUM_FUSED", "PAIR_MM_FUSED", "NOGRAD_IS_INFERENCE",
+    "tri_att_g_in_matmul", "TAPED_KERNELS_DEFAULT",
+})
+_FAST_ROUND_WORMHOLE_KERNELS = "tri_att_sdpa_hifi,rne_add"
 
 
 @contextlib.contextmanager
@@ -2054,6 +2066,9 @@ def fast_round():
 
     from tt_bio.envflags import env_flag
 
+    from tt_bio import tenstorrent
+
+    wormhole = tenstorrent.is_wormhole()
     saved = []
     try:
         for module, owner, attr, env, value in _FAST_ROUND:
@@ -2061,6 +2076,9 @@ def fast_round():
             if owner:
                 target = getattr(target, owner)
             saved.append((target, attr, getattr(target, attr)))
+            if wormhole and attr in _BLACKHOLE_ONLY:
+                value = (_FAST_ROUND_WORMHOLE_KERNELS if attr == "TAPED_KERNELS_DEFAULT"
+                         else getattr(target, attr))
             setattr(target, attr, env_flag(env, value) if env else value)
         yield {attr: getattr(t, attr) for t, attr, _ in saved}
     finally:

@@ -309,3 +309,21 @@ def test_a_sigmoid_gates_vjp_takes_gate_bw_and_nothing_else_does(monkeypatch, ta
         assert (o.got, g.got, calls) == (["do*"], ["dg*"], [])
     else:
         assert len(o.got) == len(g.got) == 1 and calls and "do*" not in o.got
+
+
+def test_nograd_inference_does_not_lift_l1_placement(monkeypatch):
+    """`_l1_fits` declines whenever a tape is open, `no_grad` or not: the L1 half of
+    NOGRAD_IS_INFERENCE crashed a BindCraft 2 round at 576 and 864 tokens."""
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(ops, "NOGRAD_IS_INFERENCE", True)
+    monkeypatch.setattr(tenstorrent.ttnn, "get_max_worker_l1_unreserved_size", lambda: 1 << 30, raising=False)
+    assert tenstorrent._l1_fits(1, 1.0)
+    from tt_bio import autograd as ag
+    prev = ops.set_grad_hook(ag._hook)
+    try:
+        with ag.no_grad():
+            assert ops.taping() and not ops.recording()
+            assert not tenstorrent._l1_fits(1, 1.0)
+    finally:
+        ops.set_grad_hook(prev)
+    assert tenstorrent._l1_fits(1, 1.0)

@@ -94,6 +94,12 @@ FUSED = env_flag("TT_BIO_TRIATT_BW_FUSED", False)
 # so bit-identical. Its own name: the round stamp keys levers by attribute.
 QKV_PACKED = env_flag("TT_BIO_TRIATT_BW_QKV_PACKED", False)
 
+# The softmax recompute's exp by the LLK's bf16-accurate 21f split instead of the float32-accurate
+# one. The exp is 144 of the kernel's 228 us a (row, head) unit at 288 tokens (device zones), and
+# its result is packed to a bfloat16 P. The approximate exp is NOT this: graded 3x further from
+# float64 (see `sub_exp_block_bcast_cols_inplace`).
+EXP_21F = env_flag("TT_BIO_TRIATT_BW_EXP_21F", False)
+
 STATS = {"served": 0, "declined": 0, "packed": 0}
 
 
@@ -442,7 +448,9 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
                      ("STATS_GRANULARITY", "1"), ("SUB_EXP_GRANULARITY", "1"),
                      ("MUL_BCAST_GRANULARITY", "1"), ("DHT_GRANULARITY", "1"),
                      ("EXP_APPROX_MODE", "0")]
-                    + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else []),
+                    + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else [])
+                    + ([("BW_ZONES", "1")] if os.environ.get("TT_BIO_TRIATT_BW_ZONES") else [])
+                    + ([("EXP_21F", "1")] if EXP_21F else []),
             runtime_args=cr,
             config=ttnn.ComputeConfigDescriptor(
                 math_fidelity=ckc[0], math_approx_mode=False,

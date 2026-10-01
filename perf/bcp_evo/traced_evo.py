@@ -2,7 +2,7 @@
 """`bindcraft2.EvoformerOnDevice` with its taped forward and its backward replayed from traces.
 
 The first cut of the TRACE stage, kept out of tt_bio until it is exact and measured: a subclass
-that overrides the two seams and hands their bodies to `tt_bio.evo_trace.TraceWire`, one wire
+that overrides the two seams and hands their bodies to `evo_trace.TraceWire` (perf/bcp_evo), one wire
 per trajectory slot. Everything else, `_primal` included, is the shipped class's.
 
 Two things the override has to get right that the eager seams do not care about:
@@ -16,7 +16,9 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from tt_bio import bindcraft2 as B, duotraj, evo_trace
+from tt_bio import bindcraft2 as B, duotraj
+
+import evo_trace  # perf/bcp_evo, beside this file
 
 
 #: Every TracedEvo built in this process, so a harness can read the wires' stats at exit.

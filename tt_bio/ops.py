@@ -36,6 +36,7 @@ import ttnn
 
 from .dispatch import OpSurface
 from .envflags import env_flag
+from . import pair_mm as _pair_mm
 
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
            "set_recycle_hook", "recycle_region", "taping", "recording",
@@ -72,14 +73,14 @@ def set_recycle_hook(fn):
     return prev
 
 
-#: Whether a forward the tape runs under its own `no_grad` gets the inference program's L1
-#: placements and fused kernels. Off is the old answer: with the hook installed every L1
-#: placement went to DRAM (`tenstorrent._l1_fits`) and every `fused_kernel` declined, even though
-#: nothing in that forward is recorded. A BindCraft 2 round runs two of its three Evoformer
-#: forwards that way, so on, those two take the inference program and only the backward's
-#: recompute runs the taped one. Armed by `bindcraft2.fast_round()`. `taping()` itself does not
-#: change: a kernel that asks it directly still declines, because its operands are still
-#: `autograd.Tensor`s and only `fused_kernel` unwraps them.
+#: Whether a forward the tape runs under its own `no_grad` gets the inference program's fused
+#: kernels. Off is the old answer: with the hook installed every `fused_kernel` declined, even
+#: though nothing in that forward is recorded. A BindCraft 2 round runs two of its three
+#: Evoformer forwards that way, so on, those two take the fused kernels and only the backward's
+#: recompute runs the taped program. Armed by `bindcraft2.fast_round()`. `taping()` itself does
+#: not change: a kernel that asks it directly still declines, because its operands are still
+#: `autograd.Tensor`s and only `fused_kernel` unwraps them. L1 placement is NOT lifted with it
+#: (`tenstorrent._l1_fits` asks `taping()`): that half crashed 576 and 864 tokens.
 NOGRAD_IS_INFERENCE = env_flag("TT_BIO_NOGRAD_INFERENCE", False)
 
 
@@ -289,6 +290,11 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
         # and no flag has to be threaded through.
         in_l1 = x.memory_config().buffer_type == ttnn.BufferType.L1
         out = _NARROW_PROJ(x, w, compute_kernel_config, dtype, l1_out=in_l1)
+        if out is not None:
+            return out
+    if _pair_mm.PAIR_MM_FUSED and set(kw) <= {"memory_config"}:
+        out = _pair_mm.matmul(x, w, bias, compute_kernel_config, dtype,
+                              memory_config=kw.get("memory_config"), activation=activation)
         if out is not None:
             return out
     return ttnn.linear(x, w, bias=bias, activation=activation,

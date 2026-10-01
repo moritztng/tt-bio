@@ -1,0 +1,56 @@
+[
+ {
+  "shape": [
+   288,
+   128,
+   512
+  ],
+  "equal_fused_vs_mm_relu": true,
+  "ms": {
+   "fused": 0.4270225501386449,
+   "mm_then_relu": 0.8563940995372832,
+   "ttnn_linear_relu": 0.6406996501027606
+  },
+  "rel_l2_vs_f64": {
+   "fused": 0.002890261644260018,
+   "mm_then_relu": 0.002890261644260018,
+   "ttnn_linear_relu": 0.0028902632957516798
+  }
+ },
+ {
+  "shape": [
+   256,
+   128,
+   512
+  ],
+  "equal_fused_vs_mm_relu": true,
+  "ms": {
+   "fused": 0.3473782002402004,
+   "mm_then_relu": 0.6954172502446454,
+   "ttnn_linear_relu": 0.5413127997599076
+  },
+  "rel_l2_vs_f64": {
+   "fused": 0.0028902417641053983,
+   "mm_then_relu": 0.0028902417641053983,
+   "ttnn_linear_relu": 0.002890244470003877
+  }
+ },
+ {
+  "shape": [
+   512,
+   128,
+   512
+  ],
+  "equal_fused_vs_mm_relu": true,
+  "ms": {
+   "fused": 1.2622567999642342,
+   "mm_then_relu": 2.663795350235887,
+   "ttnn_linear_relu": 1.9767353995121086
+  },
+  "rel_l2_vs_f64": {
+   "fused": 0.0028918179824201553,
+   "mm_then_relu": 0.0028918179824201553,
+   "ttnn_linear_relu": 0.0028918208469584047
+  }
+ }
+]

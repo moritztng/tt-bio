@@ -1,6 +1,6 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the BCP merge tree.
-RECORDED-AT: 3e617f5200fca19042f38214edc7aef3df94950a scripts/abb3_port/model_gate.py
+RECORDED-AT: 834b50a413b45d5ee2a6cdabfe9e59300c477201 scripts/abb3_port/model_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
 # Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
@@ -22,6 +22,14 @@ RECORDED-AT: 3e617f5200fca19042f38214edc7aef3df94950a scripts/abb3_port/model_ga
 # STILL FAILING, unchanged: the sigma 0.3 / 256-token stress arm, angles 5.11e-02 against its own
 # 5e-02 bar. Its weights are far wider than any trained checkpoint; the trained-scale arm, sigma
 # 0.05, passes every row at both token counts. Owned by tt_bio/abodybuilder3.py, not this record.
+#
+# RE-RECORDED on the bcp-evo merge tree (wk/bcp-evo, origin/main 563d306b9 plus the eleven BindCraft 2
+# round kernels), run at bde26276c, 14:29-14:36Z 2026-10-01, qb2 card 3, ~/tt-bio-dev/env. The closure moved
+# in tt_bio/autograd.py, ops.py, tenstorrent.py and others; every new path is armed only inside a BindCraft
+# 2 fast round, so this gate's path is unchanged, and every ok/FAIL row and every gradient row is
+# identical to the 3e617f520 record. 834b50a41 differs from the run tree only by a comment in pair_mm.py
+# and by moving the unimported tt_bio/evo_trace.py to perf/bcp_evo.
+# Raw output: perf/bcp_evo/out/abb3/model_gate.txt. NO TIMING CLAIM.
 #
 === sigma=0.05, 64 tokens, 8 blocks, batch 2 ===
   sigma 0.05, 8 blocks, batch 2 x 64 tokens
@@ -49,7 +57,6 @@ RECORDED-AT: 3e617f5200fca19042f38214edc7aef3df94950a scripts/abb3_port/model_ga
        d/d ipa[0] linear_q.w  1.000000  8.46e-07
 
 PASS
-
 === sigma=0.05, 256 tokens, 8 blocks, batch 2 ===
   sigma 0.05, 8 blocks, batch 2 x 256 tokens
   output                    rel err   on vs off
@@ -76,7 +83,6 @@ PASS
        d/d ipa[0] linear_q.w  1.000000  1.45e-06
 
 PASS
-
 === sigma=0.3, 64 tokens, 8 blocks, batch 2 ===
   sigma 0.3, 8 blocks, batch 2 x 64 tokens
   output                    rel err   on vs off
@@ -103,7 +109,6 @@ PASS
        d/d ipa[0] linear_q.w  0.999998  2.07e-03
 
 PASS
-
 === sigma=0.3, 256 tokens, 8 blocks, batch 2 ===
   sigma 0.3, 8 blocks, batch 2 x 256 tokens
   output                    rel err   on vs off

@@ -1,0 +1,47 @@
+prof start 2026-10-01T11:25:00Z
+2026-10-01 11:25:01.166 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /dev/shm/bcp-evo-profz
+2026-10-01 11:25:01.167 | INFO     | __main__:main:309 - Using port 8086
+2026-10-01 11:25:01.167 | INFO     | tracy:run_report_setup:88 - Verifying tracy profiling tools
+2026-10-01 11:25:01.173 | INFO     | __main__:main:374 - Test process started
+2026-10-01 11:25:02.338 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /dev/shm/bcp-evo-profz
+2026-10-01 11:25:02.587 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/__main__.py", line 415, in <module>
+    main()
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/__main__.py", line 352, in main
+    runctx(code, globs, None, options.partial)
+  File "/home/ttuser/tt-metal-b2z/tools/tracy/__init__.py", line 79, in runctx
+    exec(cmd, globals, locals)
+  File "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/triatt_bw_gran_bench.py", line 72, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/triatt_bw_gran_bench.py", line 63, in main
+    out[arm] = {"median_ms": 1e3 * ts[len(ts) // 2], "min_ms": 1e3 * ts[0]}
+                                   ~~^^^^^^^^^^^^^^
+IndexError: list index out of range
+2026-10-01 11:25:11.823 | INFO     | tracy:generate_report:154 - Host side ops time report generated at /dev/shm/bcp-evo-profz/.logs/tracy_ops_times.csv
+2026-10-01 11:25:11.841 | INFO     | tracy:generate_report:165 - Host side ops data report generated at /dev/shm/bcp-evo-profz/.logs/tracy_ops_data.csv
+2026-10-01 11:25:11.841 | INFO     | tracy.process_ops_logs:import_tracy_op_logs:299 - Importing ops logs
+2026-10-01 11:25:11.996 | INFO     | tracy.perf_counter_analysis:get_device_op_data:327 - Getting device ops
+2026-10-01 11:25:11.996 | INFO     | tracy.process_ops_logs:append_device_data:1066 - Appending device data
+2026-10-01 11:25:11.997 | INFO     | tracy.process_ops_logs:generate_reports:1687 - OPs' perf analysis is finished! Generating reports ...
+2026-10-01 11:25:11.997 | INFO     | tracy.process_ops_logs:generate_reports:1705 - Copying runtime artifacts
+2026-10-01 11:25:12.005 | INFO     | tracy.process_ops_logs:generate_reports:1714 - Generating OPs CSV
+2026-10-01 11:25:12.007 | INFO     | tracy.process_ops_logs:generate_reports:2108 - OPs csv generated at: /dev/shm/bcp-evo-profz/reports/2026_10_01_11_25_11/ops_perf_results_2026_10_01_11_25_11.csv
+PROF EXIT 0 2026-10-01T11:25:12Z
+/dev/shm/bcp-evo-profz:
+total 0
+drwxrwxr-x 4 ttuser ttuser   80 Oct  1 11:25 .
+drwxrwxrwt 3 root   root   8080 Oct  1 11:25 ..
+drwxrwxr-x 2 ttuser ttuser  180 Oct  1 11:25 .logs
+drwxrwxr-x 3 ttuser ttuser   60 Oct  1 11:25 reports
+
+/dev/shm/bcp-evo-profz/reports/2026_10_01_11_25_11:
+total 17568
+drwxrwxr-x 2 ttuser ttuser      100 Oct  1 11:25 .
+drwxrwxr-x 3 ttuser ttuser       60 Oct  1 11:25 ..
+-rw-rw-r-- 1 ttuser ttuser    15191 Oct  1 11:25 ops_perf_results_2026_10_01_11_25_11.csv
+-rw-rw-r-- 1 ttuser ttuser  4566430 Oct  1 11:25 profile_log_device.csv
+-rw-rw-r-- 1 ttuser ttuser 13403460 Oct  1 11:25 tracy_profile_log_host.tracy

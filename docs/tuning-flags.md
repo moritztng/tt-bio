@@ -17,24 +17,33 @@ move against the accuracy bar and the seed-to-seed spread.
 | flag | default | scope | output with the flag on |
 |---|---|---|---|
 | [`BOLTZ2_TOKEN_DIT_SDPA`](#boltz2_token_dit_sdpa) | on | Boltz-2 | moves, inside the 298-residue bar |
+| [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
+| [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2 | moves, inside the 298-residue bar |
 | [`TT_BIO_FUSE_MASK_ADD`](#tt_bio_fuse_mask_add) | on | | identical |
 | [`TT_BIO_FUSE_NORM_RESIDUAL`](#tt_bio_fuse_norm_residual) | on | | identical |
 | [`TT_BIO_FUSE_SCALE_ADD`](#tt_bio_fuse_scale_add) | on | fp32 operands | identical |
+| [`TT_BIO_GATED_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_GATED_GRAD_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_GATE_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_GATE_GRANULARITY`](#tt_bio_gate_granularity) | 2 | | identical at every value |
 | [`TT_BIO_HOST_LEVERS`](#tt_bio_host_levers) | on | Boltz-2 | switches two other flags together |
+| [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | off | training | gradients only |
 | [`TT_BIO_MM_LAYOUT`](#tt_bio_mm_layout) | off | training | moves |
 | [`TT_BIO_MSA_LADDER`](#tt_bio_msa_ladder) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
+| [`TT_BIO_NOGRAD_INFERENCE`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_OPM_LEGACY_LAYOUT`](#tt_bio_opm_legacy_layout) | off | | moves, inside the seed spread |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
+| [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
@@ -47,7 +56,9 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TOKEN_BUCKET`](#tt_bio_token_bucket) | on | | switches every model's token bucket |
 | [`TT_BIO_TRANSITION_L1_ROWS`](#tt_bio_transition_l1_rows) | on | Blackhole | identical on the measured shapes |
 | [`TT_BIO_TRIATT_B8`](#tt_bio_triatt_b8) | off | | moves, and depends on the core grid |
+| [`TT_BIO_TRIATT_BW_EXP_21F`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused) | off | training | gradients only |
+| [`TT_BIO_TRIATT_BW_QKV_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_TRIATT_DIVIDING_K`](#tt_bio_triatt_dividing_k) | on | OpenFold3 at 832 tokens | moves, inside the bar |
 | [`TT_BIO_TRIATT_FUSED_QKVG`](#tt_bio_triatt_fused_qkvg) | on | | identical |
 | [`TT_BIO_TRIATT_FUSED_QKVGB`](#tt_bio_triatt_fused_qkvgb) | on | | identical |
@@ -69,6 +80,44 @@ A blank scope means the flag names no model: it applies wherever a model reaches
 changes, and its section says which ones do. The OpenMP thread settings tt-bio fills in for per-card
 workers are not flags of ours; they are covered at the end, under
 [Idle host threads when a box is full](#idle-host-threads-when-a-box-is-full).
+
+## BindCraft 2 round kernels
+
+Default: on inside a BindCraft 2 round on Blackhole, off elsewhere.
+
+Eleven kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is
+armed by `bindcraft2.predictor(exact=False)` through `fast_round`, alongside
+[`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused); outside a BindCraft 2 round, and on Wormhole, every one
+keeps the composed path. Setting a flag to `0` turns that kernel off even inside the round.
+
+| flag | what it replaces |
+|---|---|
+| `TT_BIO_GATED_BW_FUSED` | The triangle multiplication's move back plus its two sigmoid-gate gradients, about 16 calls, become one kernel. |
+| `TT_BIO_GATED_GRAD_PACKED` | That kernel writes its gradients straight into the in-projection's gradient, so the concat that joined four slices is gone. |
+| `TT_BIO_GATE_BW_FUSED` | Every other sigmoid-gate multiply's gradient as one kernel instead of seven eltwise calls. |
+| `TT_BIO_NOGRAD_INFERENCE` | The round's two forwards that record nothing run the fused forward kernels the gradient hook used to turn off. |
+| `TT_BIO_AF2_G_BIAS_IN_MATMUL` | Triangle attention's gate bias joins its matmul instead of a separate broadcast add. |
+| `TT_BIO_LEAD_SUM_FUSED` | The triangle-attention backward's bias-gradient sum as one kernel instead of permute, reduce, permute. |
+| `TT_BIO_TRIATT_BW_QKV_PACKED` | The triangle-attention backward writes q, k and v gradients packed, so their concat is gone. |
+| `TT_BIO_TRIATT_BW_EXP_21F` | A shorter exp in the triangle-attention backward's softmax recompute. |
+| `TT_BIO_FANIN_CAST_FUSED` | A gradient with several consumers is summed and cast in one pass instead of two. |
+| `TT_BIO_PAIR_TRANSPOSE_FUSED` | The pair tensor's i/j swap as one move kernel, forward and backward. |
+| `TT_BIO_PAIR_MM` | Pair-track linears and their input gradients on `minimal_matmul` with a per-shape block table, ReLU fused at pack. |
+
+**Accuracy.** Each was graded on its own against a float64 reference of an Evoformer block's VJP
+at 288 tokens, blocks 0, 3 and 7. The largest move any of them makes is 6e-4 rel L2 (pair_mm on
+block 0's MSA gradient) against a bf16 floor of 0.034 to 0.074; four move nothing at six digits,
+and the kernels that replace eltwise chains are closer to float64 than the chains they replace
+(the fused gate gradient reads 1.66e-3 against 2.2e-3 to 4.2e-3). With a float32 cotangent the
+composed gate gradient came back bfloat16 at 0.117 rel L2; the fused one keeps float32.
+
+**Speed.** On a BindCraft 2 round at 288 tokens, three trajectories on one p300c chip, the eleven
+together take the round from 5.70 to 4.50 s (1.27x; arm means of three, 5.48-5.81 against 4.40-4.64), arms alternated in one
+sitting at AICLK 1350 sampled during every arm. The host was shared with other campaigns
+(load1 8 to 13), which slows both arms; a second sitting under the same load read 1.275x.
+
+**Sizes.** With all of them on, a p300c chip runs 192, 352, 576 and 864 tokens to a completed
+gradient round; 864 peaks at 27.04 GB resident with 7.19 GB free.
 
 ## `BOLTZ2_TOKEN_DIT_SDPA`
 

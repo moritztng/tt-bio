@@ -1131,6 +1131,13 @@ def _flat2d(t):
     return ttnn.reshape(t, [int(math.prod(s[:-1])), s[-1]])
 
 
+def _pair_mm_or(v, w, transpose_b, fallback, cfg):
+    """A 2-D-weight dX on `pair_mm` when its lever serves the shape, else `fallback()`."""
+    from tt_bio import pair_mm
+    out = pair_mm.matmul(v, w, compute_kernel_config=cfg, transpose_b=transpose_b)
+    return fallback() if out is None else out
+
+
 def _via2d(x, fn, kw=None):
     """``fn(x)`` on ``x`` with its leading dims collapsed, when collapsing them is a view.
 
@@ -3258,9 +3265,10 @@ def _taped_linear(shipped, args, kwargs):
                 # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
-                x.add_grad(_reduce_to(_via2d(g, lambda v: _matmul(
-                                          v, w.value, transpose_b=True,
-                                          compute_kernel_config=bwcfg)),
+                x.add_grad(_reduce_to(_via2d(g, lambda v: _pair_mm_or(
+                                          v, w.value, True, lambda: _matmul(
+                                              v, w.value, transpose_b=True,
+                                              compute_kernel_config=bwcfg), bwcfg)),
                                       x.value.shape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,

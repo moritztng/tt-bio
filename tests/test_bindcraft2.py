@@ -372,6 +372,26 @@ def _fast_round_now():
     return out
 
 
+def test_fast_round_keeps_blackhole_only_levers_off_on_wormhole(monkeypatch):
+    """The levers graded on Blackhole alone stay where they were on a Wormhole chip."""
+    from tt_bio import tenstorrent
+    for _module, _owner, _attr, env, _value in bindcraft2._FAST_ROUND:
+        if env:
+            monkeypatch.delenv(env, raising=False)
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
+    before = _fast_round_now()
+    with bindcraft2.fast_round() as armed:
+        for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND:
+            if attr == "TAPED_KERNELS_DEFAULT":
+                assert armed[attr] == bindcraft2._FAST_ROUND_WORMHOLE_KERNELS
+            elif attr in bindcraft2._BLACKHOLE_ONLY:
+                assert armed[attr] == before[attr]
+            else:
+                assert armed[attr] == value
+    assert _fast_round_now() == before
+    assert bindcraft2._BLACKHOLE_ONLY <= {a for _m, _o, a, _e, _v in bindcraft2._FAST_ROUND}
+
+
 def test_exact_false_arms_the_measured_round_and_puts_it_back(monkeypatch):
     """The round `docs/bindcraft2.md` quotes needs no env var: `exact=False` arms its levers.
 
@@ -382,6 +402,8 @@ def test_exact_false_arms_the_measured_round_and_puts_it_back(monkeypatch):
     for _module, _owner, _attr, env, _value in bindcraft2._FAST_ROUND:
         if env:
             monkeypatch.delenv(env, raising=False)
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: False)
     params = _af2_params()
     before = _fast_round_now()
     want = {attr: value for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND}
