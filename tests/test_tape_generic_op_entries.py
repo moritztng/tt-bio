@@ -97,7 +97,8 @@ def test_the_registry_holds_exactly_the_kernels_that_declare_an_entry():
     """Pinned on purpose: a kernel that registers no entry declines under every tape, silently,
     and reads in an A/B as a lever that measured nothing."""
     assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi",
-                               "rne_add"}
+                               "rne_add", "reblock_permute_gated", "pair_transpose",
+                               "triatt_qkv_heads"}
 
 
 def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping):
@@ -173,3 +174,138 @@ def test_a_declining_kernel_returns_none_so_the_caller_falls_through(taping):
     assert entry(lambda *a, **kw: None, (None, None, None, None, 1.0), {}) is None
     after = TT.KERNEL_STATS["tri_att_sdpa_hifi"]
     assert after[1] == before[1] + 1, "a decline is counted as a decline, not as a serve"
+
+
+class _Projection(_Parent):
+    """The four-way in-projection: a value with a shape, recording its slice gradients."""
+    requires_grad = True
+
+    def __init__(self, shape):
+        super().__init__(shape)
+        self.value = self
+        self.slices = []
+
+    def add_grad_slice(self, g, starts, ends):
+        self.slices.append((g, starts, ends))
+
+
+@pytest.mark.parametrize("fused", [True, False])
+def test_the_gated_moves_vjp_lands_both_gradients_on_their_own_slices(monkeypatch, taping, fused):
+    """`reblock_permute_gated` reads two slices of the projection, so its VJP is two slice
+    gradients of that one parent -- dp on the value slice, dg on the gate slice -- and the closure
+    keeps the projection (`reads=(0,)`) because p and g are re-read from it. Both arms of the
+    backward land in the same places; which one ran is the module switch's business."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    R = pytest.importorskip("tt_bio.reblock_permute")
+    monkeypatch.setattr(ag, "_tape", lambda out, parents, make, **kw: (out, parents, make(), kw))
+    monkeypatch.setattr(TT, "_wrap", lambda t: t)
+    monkeypatch.setattr(R, "GATED_BW_FUSED", fused)
+    monkeypatch.setattr(R, "eligible_gated_bw", lambda g, x: True)
+    monkeypatch.setattr(R, "reblock_permute_gated_bw", lambda g, x, po, go: ("dp*", "dg*"))
+    # The composed arm on stock verbs, recorded rather than run.
+    calls = []
+    for verb in ("permute", "slice", "sigmoid", "multiply", "rsub"):
+        monkeypatch.setattr(TT.ttnn, verb,
+                            lambda *a, _v=verb, **k: calls.append(_v) or f"{_v}{len(calls)}")
+    xw = _Projection([1, 64, 64, 512])
+    out, parents, bw, kw = TT.KERNELS["reblock_permute_gated"](
+        lambda *a, **k: "moved", (xw, 256, 384, 128), {"memory_config": None})
+    assert (out, parents, kw) == ("moved", [xw], {"reads": (0,)})
+    bw("da")
+    assert [s[1:] for s in xw.slices] == [([0, 0, 0, 256], [1, 64, 64, 384]),
+                                          ([0, 0, 0, 384], [1, 64, 64, 512])]
+    if fused:
+        assert [s[0] for s in xw.slices] == ["dp*", "dg*"] and calls == []
+    else:
+        assert calls.count("multiply") == 4 and calls.count("slice") == 2
+
+
+def test_the_gated_move_refuses_a_row_block_under_a_tape(monkeypatch, taping):
+    """A row block writes a caller-owned destination across calls and no one tape node owns it."""
+    R = pytest.importorskip("tt_bio.reblock_permute")
+    monkeypatch.setattr(ops, "_KERNEL_ENTRIES", {"reblock_permute_gated": object()})
+    blk = type("Blk", (), {"shape": [1, 64, 288, 512]})()
+    before = dict(R.REJECTS)
+    assert R.eligible_gated(blk, 128, None) is False
+    key = ("gated_rowblock_taped", (1, 64, 288, 512))
+    assert R.REJECTS.get(key, 0) == before.get(key, 0) + 1
+
+
+def test_nograd_is_inference_only_when_armed(monkeypatch):
+    """`ops.recording()` under `no_grad`: True as before with the switch off, False with it on;
+    `taping()` is True in both; a recording forward records either way. A `fused_kernel` in an
+    unrecorded forward gets raw operands and runs with its tape gate lifted."""
+    from tt_bio import autograd as ag, ops
+    seen = []
+
+    @ops.fused_kernel("test_probe_kernel")
+    def probe(x):
+        seen.append((type(x), ops.taping()))
+        return x
+
+    prev = ops.set_grad_hook(ag._hook)
+    try:
+        for armed in (False, True):
+            monkeypatch.setattr(ops, "NOGRAD_IS_INFERENCE", armed)
+            assert ops.recording()
+            with ag.no_grad():
+                assert ops.taping()
+                assert ops.recording() is not armed
+                seen.clear()
+                class Raw:
+                    pass
+                probe(ag.Tensor(Raw()))
+                assert seen == [(Raw if armed else ag.Tensor, not armed)]
+            assert ops.recording()
+    finally:
+        ops.set_grad_hook(prev)
+    assert not ops.taping() and not ops.recording()
+
+
+class _Leaf:
+    """An operand the binary rule can read and hand gradients to, without a device."""
+
+    def __init__(self, value):
+        self.value, self.requires_grad, self.got = value, True, []
+
+    def add_grad(self, g):
+        self.got.append(g)
+
+
+class _V:
+    def __init__(self, shape):
+        self.shape = shape
+
+
+@pytest.mark.parametrize("fused", [True, False])
+@pytest.mark.parametrize("act", ["SIGMOID", "RELU"])
+def test_a_sigmoid_gates_vjp_takes_gate_bw_and_nothing_else_does(monkeypatch, taping, fused, act):
+    """`multiply(o, g, input_tensor_b_activations=[SIGMOID])` backpropagates through
+    `gate_bw` when it is armed and eligible: do to o, dg to g, no stock verb. Off, or under any
+    other activation, the composed rule runs as before."""
+    GB = pytest.importorskip("tt_bio.gate_bw")
+    u = TT.ttnn.UnaryOpType
+    monkeypatch.setattr(TT, "_tape", lambda out, parents, make, **kw: make())
+    monkeypatch.setattr(TT, "_wrap", lambda t: t)
+    monkeypatch.setattr(TT, "Tensor", _Leaf)
+    monkeypatch.setattr(TT, "_reduce_to", lambda g, shape: g)
+    monkeypatch.setattr(GB, "GATE_BW_FUSED", fused)
+    monkeypatch.setattr(GB, "eligible", lambda d, o, g: GB.GATE_BW_FUSED)
+    monkeypatch.setattr(GB, "gate_bw", lambda d, o, g: ("do*", "dg*"))
+    calls = []
+    for verb in ("multiply", "sigmoid", "sigmoid_bw", "relu", "relu_bw", "rsub", "gtz"):
+        monkeypatch.setattr(TT.ttnn, verb,
+                            lambda *a, _v=verb, **k: calls.append(_v) or [f"{_v}{len(calls)}"])
+    # The activation pairs hold the wheel's functions, captured at import; stand in for them.
+    monkeypatch.setattr(TT, "_activation", lambda kw, key, probe=None: (
+        lambda x: calls.append("act") or "e", lambda x, y: "deriv",
+        lambda d, x, y: calls.append("act_bw") or "dact") if kw.get(key) else None)
+    o, g = _Leaf(_V((1, 64, 64, 128))), _Leaf(_V((1, 64, 64, 128)))
+    bw = TT._VERBS["multiply"](lambda *a, **k: _V((1, 64, 64, 128)), (o, g),
+                               {"input_tensor_b_activations": [getattr(u, act)]})
+    calls.clear()
+    bw(_V((1, 64, 64, 128)))
+    if fused and act == "SIGMOID":
+        assert (o.got, g.got, calls) == (["do*"], ["dg*"], [])
+    else:
+        assert len(o.got) == len(g.got) == 1 and calls and "do*" not in o.got

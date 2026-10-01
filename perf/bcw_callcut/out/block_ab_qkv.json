@@ -1,0 +1,103 @@
+{
+ "blocks": 8,
+ "summary": {
+  "composed": {
+   "bwd_enq": 0.18042,
+   "bwd_wall": 0.32296
+  },
+  "gated": {
+   "bwd_enq": 0.13773,
+   "bwd_wall": 0.30224
+  }
+ },
+ "reach_per_backward": {
+  "composed": {
+   "create_qkv_heads": 32,
+   "entry_served": 0,
+   "entry_declined": 0
+  },
+  "gated": {
+   "create_qkv_heads": 16,
+   "entry_served": 16,
+   "entry_declined": 0
+  }
+ },
+ "grads_bit_equal_dm_dz": [
+  true,
+  true
+ ],
+ "aiclk": {
+  "median": 1350.0,
+  "min": 1337
+ },
+ "reps": {
+  "composed": [
+   {
+    "bwd_enq": 0.15944229399610776,
+    "bwd_wall": 0.3142596190009499,
+    "aiclk": [
+     1350,
+     1337
+    ]
+   },
+   {
+    "bwd_enq": 0.20139812599518336,
+    "bwd_wall": 0.3316640620032558,
+    "aiclk": [
+     1350,
+     1350
+    ]
+   },
+   {
+    "bwd_enq": 0.2861694900057046,
+    "bwd_wall": 0.3615631080028834,
+    "aiclk": [
+     1350,
+     1343
+    ]
+   },
+   {
+    "bwd_enq": 0.13819556699309032,
+    "bwd_wall": 0.308017839997774,
+    "aiclk": [
+     1343,
+     1350
+    ]
+   }
+  ],
+  "gated": [
+   {
+    "bwd_enq": 0.16039396899577696,
+    "bwd_wall": 0.30249339099100325,
+    "aiclk": [
+     1350,
+     1350
+    ]
+   },
+   {
+    "bwd_enq": 0.12002874599420466,
+    "bwd_wall": 0.301900560996728,
+    "aiclk": [
+     1343,
+     1350
+    ]
+   },
+   {
+    "bwd_enq": 0.11968056501063984,
+    "bwd_wall": 0.30198302200005855,
+    "aiclk": [
+     1350,
+     1350
+    ]
+   },
+   {
+    "bwd_enq": 0.15542239700153004,
+    "bwd_wall": 0.3065428980044089,
+    "aiclk": [
+     1337,
+     1350
+    ]
+   }
+  ]
+ }
+}

@@ -14,6 +14,7 @@ from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodTyp
 from . import ops
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
+from . import pair_transpose as _pair_tr
 from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
@@ -4648,6 +4649,11 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
 
 
 def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
+    # One read and one write of whole tiles, the row moves done in L1 (`tt_bio.pair_transpose`):
+    # 0.648 -> 0.234 ms at [288, 288, 128] bf16 against the ROW_MAJOR round trip below,
+    # torch.equal. Off unless `PAIR_TRANSPOSE_FUSED`; under a recording tape only with its entry.
+    if _pair_tr.eligible(t):
+        return _pair_tr.pair_transpose(t, memory_config)
     if (_PT_ROW_MAJOR and len(t.shape) == 3
             and memory_config.buffer_type == ttnn.BufferType.DRAM
             and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
@@ -4921,7 +4927,7 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     # INFERENCE-ONLY. Declining here sends every such result to DRAM, which is also what the
     # tape would otherwise pay for twice -- keep it in L1 AND evict it to DRAM for the backward.
     from . import ops
-    if ops.taping():
+    if ops.recording():
         return False
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())

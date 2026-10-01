@@ -1,0 +1,38 @@
+{
+ "288x288x128": {
+  "y_equal": true,
+  "grad_equal": true,
+  "stats_off": [
+   0,
+   0
+  ],
+  "stats_on": [
+   2,
+   0
+  ]
+ },
+ "256x256x64": {
+  "y_equal": true,
+  "grad_equal": true,
+  "stats_off": [
+   0,
+   0
+  ],
+  "stats_on": [
+   2,
+   0
+  ]
+ },
+ "512x512x128": {
+  "y_equal": true,
+  "grad_equal": true,
+  "stats_off": [
+   0,
+   0
+  ],
+  "stats_on": [
+   2,
+   0
+  ]
+ }
+}

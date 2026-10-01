@@ -1,0 +1,7 @@
+=== off1 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose, 9 rounds) 2026-10-01T14:11:10Z
+=== on1 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose,triatt_qkv_heads, 9 rounds) 2026-10-01T14:13:53Z
+=== on2 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose,triatt_qkv_heads, 9 rounds) 2026-10-01T14:16:31Z
+=== off2 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose, 9 rounds) 2026-10-01T14:19:07Z
+=== off3 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose, 9 rounds) 2026-10-01T14:21:45Z
+=== on3 (TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose,triatt_qkv_heads, 9 rounds) 2026-10-01T14:24:26Z
+=== sitting done 2026-10-01T14:26:59Z

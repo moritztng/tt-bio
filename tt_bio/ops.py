@@ -35,9 +35,10 @@ import contextlib
 import ttnn
 
 from .dispatch import OpSurface
+from .envflags import env_flag
 
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
-           "set_recycle_hook", "recycle_region", "taping",
+           "set_recycle_hook", "recycle_region", "taping", "recording",
            "set_checkpoint_hook", "checkpoint_segment",
            "set_host_softmax_hook", "host_softmax_hook",
            "set_kernel_entries", "kernel_entry", "declines_under_tape",
@@ -71,6 +72,17 @@ def set_recycle_hook(fn):
     return prev
 
 
+#: Whether a forward the tape runs under its own `no_grad` gets the inference program's L1
+#: placements and fused kernels. Off is the old answer: with the hook installed every L1
+#: placement went to DRAM (`tenstorrent._l1_fits`) and every `fused_kernel` declined, even though
+#: nothing in that forward is recorded. A BindCraft 2 round runs two of its three Evoformer
+#: forwards that way, so on, those two take the inference program and only the backward's
+#: recompute runs the taped one. Armed by `bindcraft2.fast_round()`. `taping()` itself does not
+#: change: a kernel that asks it directly still declines, because its operands are still
+#: `autograd.Tensor`s and only `fused_kernel` unwraps them.
+NOGRAD_IS_INFERENCE = env_flag("TT_BIO_NOGRAD_INFERENCE", False)
+
+
 def taping():
     """Is a tape open? Asked by the fused kernels that have no backward.
 
@@ -91,6 +103,19 @@ def taping():
     failure mode a decline path cannot distinguish from a shape it does not cover.
     """
     return grad_hook() is not None and not _RAW_DEPTH
+
+
+def recording():
+    """Is the open tape recording this forward? `taping()`, except that under
+    `NOGRAD_IS_INFERENCE` a forward inside the tape's `no_grad` is not. The hook answers through
+    its `recording` attribute; a hook without one is always recording."""
+    if not taping():
+        return False
+    return not NOGRAD_IS_INFERENCE or getattr(grad_hook(), "recording", _always)()
+
+
+def _always():
+    return True
 
 
 # --- tape entries for the `generic_op` kernels ---------------------------------------------
@@ -155,6 +180,11 @@ def fused_kernel(name):
         def call(*args, **kwargs):
             entry = kernel_entry(name)
             if entry is None:
+                if taping() and not recording():
+                    # Nothing to differentiate: the kernel's inference path, on raw operands.
+                    args, kwargs = grad_hook().raw(args, kwargs)
+                    with untaped_kernel():
+                        return fn(*args, **kwargs)
                 return fn(*args, **kwargs)
 
             def shipped(*a, **k):

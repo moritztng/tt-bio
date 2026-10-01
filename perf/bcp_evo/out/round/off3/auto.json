@@ -1,0 +1,8 @@
+{
+ "n": 3,
+ "why": "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 225.7 GB of host memory free",
+ "levers": [
+  "TT_BIO_TAPED_KERNELS=tri_att_sdpa_hifi,rne_add",
+  "TT_BIO_GATED_BW_FUSED=0"
+ ]
+}

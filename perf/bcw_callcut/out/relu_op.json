@@ -1,0 +1,25 @@
+{
+ "fwd_equal": true,
+ "bwd_equal": true,
+ "bwd_maxabs_vs_f64": [
+  0.0,
+  0.0
+ ],
+ "ms_median": {
+  "fwd_composed": 1.6828,
+  "fwd_fused": 1.6832,
+  "bwd_relu_bw": 1.0152,
+  "bwd_gtz_mul": 0.5976
+ },
+ "ms_min": {
+  "fwd_composed": 1.6763,
+  "fwd_fused": 1.6788,
+  "bwd_relu_bw": 1.0087,
+  "bwd_gtz_mul": 0.5904
+ },
+ "aiclk": {
+  "median": 1350.0,
+  "min": 1343,
+  "n": 120
+ }
+}
