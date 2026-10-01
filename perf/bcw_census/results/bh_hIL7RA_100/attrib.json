@@ -1,0 +1,1641 @@
+{
+ "axis": 352,
+ "frontier_peak_bytes": 5700308480,
+ "walked_peak_used_bytes": 5700308480,
+ "device_total_bytes": 34225520128,
+ "largest_free_bytes_at_walk": 28432252416,
+ "banks": 8,
+ "walk_at_retire_call": 9382,
+ "recomputes_entered": 56,
+ "recompute_depth": 0,
+ "listed_bytes": 5120249856,
+ "unlisted_bytes": 580058624,
+ "n_buffers": 416,
+ "by_role": {
+  "recompute_tape": 3124858880,
+  "outer_tape": 1666351104,
+  "grad:recompute_tape": 158957568,
+  "leaf_input": 138002432,
+  "grad:outer_tape": 32079872
+ },
+ "by_exponent": {
+  "2": 4954425344,
+  "0": 8511488,
+  "1": 157313024
+ },
+ "groups": [
+  {
+   "role": "outer_tape",
+   "exp": 2,
+   "verb": "checkpoint",
+   "site": "bindcraft2.py:evoformer",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 47,
+   "bytes": 1490812928
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_matmul",
+   "site": "tenstorrent.py:_in_proj_matmul",
+   "shape": [
+    1,
+    352,
+    352,
+    512
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 253755392
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_sliced",
+   "site": "tenstorrent.py:_multiply",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 8,
+   "bytes": 253755392
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_k_rne_add",
+   "site": "ops.py:call",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 6,
+   "bytes": 190316544
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_matmul",
+   "site": "tenstorrent.py:_attend_pair",
+   "shape": [
+    352,
+    352,
+    384
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 190316544
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "<genexpr>",
+   "site": "tenstorrent.py:attend",
+   "shape": [
+    352,
+    4,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 6,
+   "bytes": 190316544
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_layer_norm",
+   "site": "tenstorrent.py:_multiply",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 126877696
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_linear",
+   "site": "tenstorrent.py:_pair_proj_linear",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 126877696
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_identity_grad",
+   "site": "tenstorrent.py:_pair_transpose_impl",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 126877696
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_linear",
+   "site": "dispatch.py:call",
+   "shape": [
+    1,
+    352,
+    352,
+    512
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 126877696
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "relu",
+   "site": "dispatch.py:call",
+   "shape": [
+    1,
+    352,
+    352,
+    512
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 126877696
+  },
+  {
+   "role": "grad:recompute_tape",
+   "exp": 2,
+   "verb": "relu",
+   "site": "dispatch.py:call",
+   "shape": [
+    1,
+    352,
+    352,
+    512
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 126877696
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_permute",
+   "site": "tenstorrent.py:_channel_move",
+   "shape": [
+    1,
+    128,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 126877696
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "tenstorrent.py:_multiply",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 126877696
+  },
+  {
+   "role": "outer_tape",
+   "exp": 2,
+   "verb": "checkpoint",
+   "site": "bindcraft2.py:extra_msa",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 126877696
+  },
+  {
+   "role": "leaf_input",
+   "exp": 2,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 3,
+   "bytes": 95158272
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_permute",
+   "site": "tenstorrent.py:_channel_move_back",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_layer_norm",
+   "site": "tenstorrent.py:_attend_pair",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_matmul",
+   "site": "tenstorrent.py:_attend_pair",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "tenstorrent.py:_attend_pair",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "triangle_attention",
+   "site": "ops.py:call",
+   "shape": [
+    352,
+    4,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_concat_heads",
+   "site": "tenstorrent.py:_attend_heads",
+   "shape": [
+    352,
+    1,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "tenstorrent.py:gate_and_project",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_linear",
+   "site": "tenstorrent.py:_pair_proj_linear",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_permute",
+   "site": "tenstorrent.py:_pair_transpose_impl",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_permute",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_matmul",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    128,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "tenstorrent.py:_multiply",
+   "shape": [
+    1,
+    128,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_matmul",
+   "site": "tenstorrent.py:_multiply",
+   "shape": [
+    1,
+    128,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "grad:recompute_tape",
+   "exp": 2,
+   "verb": "_k_rne_add",
+   "site": "ops.py:call",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_layer_norm",
+   "site": "af2.py:_rows",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_reshape",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_layer_norm",
+   "site": "tenstorrent.py:_pair_bias_from_z",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "outer_tape",
+   "exp": 2,
+   "verb": "checkpoint",
+   "site": "bindcraft2.py:template_stack",
+   "shape": [
+    1,
+    352,
+    352,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 31719424
+  },
+  {
+   "role": "grad:outer_tape",
+   "exp": 2,
+   "verb": "checkpoint",
+   "site": "bindcraft2.py:evoformer",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "<genexpr>",
+   "site": "tenstorrent.py:_split_heads",
+   "shape": [
+    352,
+    8,
+    32,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 3,
+   "bytes": 17301504
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_reshape",
+   "site": "tenstorrent.py:_split_heads",
+   "shape": [
+    352,
+    1,
+    32,
+    768
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 17301504
+  },
+  {
+   "role": "outer_tape",
+   "exp": 1,
+   "verb": "checkpoint",
+   "site": "bindcraft2.py:evoformer",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 47,
+   "bytes": 16941056
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_linear",
+   "site": "tenstorrent.py:_pair_proj_linear",
+   "shape": [
+    352,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 15859712
+  },
+  {
+   "role": "leaf_input",
+   "exp": 2,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1,
+    352,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 15859712
+  },
+  {
+   "role": "leaf_input",
+   "exp": 2,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1,
+    352,
+    352,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 15859712
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_linear",
+   "site": "dispatch.py:call",
+   "shape": [
+    352,
+    32,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 11534336
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_matmul",
+   "site": "tenstorrent.py:batched_matmul",
+   "shape": [
+    352,
+    8,
+    32,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 11534336
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_reshape",
+   "site": "tenstorrent.py:_pair_bias_from_z",
+   "shape": [
+    1,
+    352,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 7929856
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_softmax",
+   "site": "tenstorrent.py:_fp32_softmax_tail",
+   "shape": [
+    2,
+    8,
+    352,
+    352
+   ],
+   "dtype": "FLOAT32",
+   "count": 1,
+   "bytes": 7929856
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "tenstorrent.py:_fp32_softmax_bias",
+   "shape": [
+    2,
+    8,
+    352,
+    352
+   ],
+   "dtype": "FLOAT32",
+   "count": 1,
+   "bytes": 7929856
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_typecast",
+   "site": "tenstorrent.py:_fp32_softmax_bias",
+   "shape": [
+    2,
+    8,
+    352,
+    352
+   ],
+   "dtype": "FLOAT32",
+   "count": 1,
+   "bytes": 7929856
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_permute",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    128,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_identity_grad",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    32,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_reshape",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    32,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_identity_grad",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    4096
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_matmul",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    4096
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "impl",
+   "site": "af2.py:sigmoid_gate",
+   "shape": [
+    352,
+    32,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_reshape",
+   "site": "tenstorrent.py:_merge_heads",
+   "shape": [
+    352,
+    32,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_layer_norm",
+   "site": "af2.py:__call__",
+   "shape": [
+    352,
+    32,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_permute",
+   "site": "af2.py:__call__",
+   "shape": [
+    352,
+    32,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_softmax",
+   "site": "af2.py:_attend",
+   "shape": [
+    352,
+    8,
+    32,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "impl",
+   "site": "af2.py:_attend",
+   "shape": [
+    352,
+    8,
+    32,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_permute",
+   "site": "af2.py:_attend",
+   "shape": [
+    352,
+    8,
+    32,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 5767168
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "af2.py:__call__",
+   "shape": [
+    2,
+    8,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 3964928
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_typecast",
+   "site": "tenstorrent.py:_fp32_softmax_tail",
+   "shape": [
+    2,
+    8,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 3964928
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_matmul",
+   "site": "tenstorrent.py:batched_matmul",
+   "shape": [
+    2,
+    8,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 3964928
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_permute",
+   "site": "tenstorrent.py:_attend_pair",
+   "shape": [
+    1,
+    4,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 1982464
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "tenstorrent.py:_attend_pair",
+   "shape": [
+    1,
+    4,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 1982464
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "tenstorrent.py:_attend_heads",
+   "shape": [
+    1,
+    4,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 1982464
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "scale",
+   "site": "ops.py:call",
+   "shape": [
+    1,
+    4,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 1982464
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_permute",
+   "site": "tenstorrent.py:_pair_bias_from_z",
+   "shape": [
+    1,
+    8,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 1982464
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    256,
+    768
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 1572864
+  },
+  {
+   "role": "leaf_input",
+   "exp": 1,
+   "verb": null,
+   "site": null,
+   "shape": [
+    352,
+    1,
+    32,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 1441792
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "relu",
+   "site": "dispatch.py:call",
+   "shape": [
+    1,
+    2,
+    352,
+    1024
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 1441792
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_linear",
+   "site": "dispatch.py:call",
+   "shape": [
+    1,
+    2,
+    352,
+    1024
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 1441792
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_linear",
+   "site": "dispatch.py:call",
+   "shape": [
+    2,
+    352,
+    768
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 1081344
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "<genexpr>",
+   "site": "tenstorrent.py:_split_heads",
+   "shape": [
+    2,
+    8,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 3,
+   "bytes": 1081344
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_k_rne_add",
+   "site": "ops.py:call",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 3,
+   "bytes": 1081344
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    256,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 8,
+   "bytes": 1048576
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    256,
+    1024
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 1048576
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1024,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 1048576
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    512
+   ],
+   "dtype": "BFLOAT16",
+   "count": 6,
+   "bytes": 786432
+  },
+  {
+   "role": "leaf_input",
+   "exp": 1,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 720896
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_linear",
+   "site": "dispatch.py:call",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 720896
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 16,
+   "bytes": 524288
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    4096
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 524288
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 52,
+   "bytes": 425984
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 26,
+   "bytes": 425984
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    384
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 393216
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_layer_norm",
+   "site": "af2.py:__call__",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_reshape",
+   "site": "tenstorrent.py:_merge_heads",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "impl",
+   "site": "af2.py:sigmoid_gate",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_matmul",
+   "site": "tenstorrent.py:batched_matmul",
+   "shape": [
+    2,
+    8,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_permute",
+   "site": "tenstorrent.py:_fp32_softmax_attention_block",
+   "shape": [
+    2,
+    8,
+    32,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_layer_norm",
+   "site": "af2.py:masked",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "grad:recompute_tape",
+   "exp": 1,
+   "verb": "_k_rne_add",
+   "site": "ops.py:call",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_linear",
+   "site": "dispatch.py:call",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_permute",
+   "site": "af2.py:__call__",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_layer_norm",
+   "site": "af2.py:_rows",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "grad:outer_tape",
+   "exp": 1,
+   "verb": "checkpoint",
+   "site": "bindcraft2.py:evoformer",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    512,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 262144
+  },
+  {
+   "role": "leaf_input",
+   "exp": 2,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1,
+    1,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 247808
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    512
+   ],
+   "dtype": "BFLOAT16",
+   "count": 6,
+   "bytes": 196608
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    1024
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 131072
+  },
+  {
+   "role": "leaf_input",
+   "exp": 1,
+   "verb": null,
+   "site": null,
+   "shape": [
+    2,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 90112
+  },
+  {
+   "role": "leaf_input",
+   "exp": 1,
+   "verb": null,
+   "site": null,
+   "shape": [
+    2,
+    1,
+    32,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 90112
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_reshape",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 90112
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "impl",
+   "site": "af2.py:masked",
+   "shape": [
+    2,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 90112
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_linear",
+   "site": "af2.py:masked",
+   "shape": [
+    2,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 90112
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    256,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 65536
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 6,
+   "bytes": 49152
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_permute",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    32,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 2,
+   "bytes": 45056
+  },
+  {
+   "role": "leaf_input",
+   "exp": 1,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1,
+    1,
+    32,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "count": 1,
+   "bytes": 22528
+  },
+  {
+   "role": "leaf_input",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "count": 4,
+   "bytes": 8192
+  }
+ ],
+ "history": [
+  [
+   2,
+   5350690304
+  ],
+  [
+   180,
+   5393862144
+  ],
+  [
+   9204,
+   5659479552
+  ],
+  [
+   9382,
+   5700308480
+  ]
+ ],
+ "refusal": null
+}

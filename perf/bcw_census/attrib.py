@@ -271,7 +271,8 @@ class Census:
                 role = "raw_no_N"
             by_role[role] += r["bytes"]
             by_exp[str(r["exp"])] += r["bytes"]
-            k = (role, r["exp"], r["verb"], r["site"], tuple(r["shape"]), r["dtype"])
+            k = (role, r["exp"], r["verb"], r["site"], tuple(r["shape"]), r["dtype"],
+                 r["tape_rule"])
             e = by_key.setdefault(k, [0, 0])
             e[0] += 1
             e[1] += r["bytes"]
@@ -286,7 +287,8 @@ class Census:
             "unlisted_bytes": b["used"] - listed, "n_buffers": len(rows),
             "by_role": dict(by_role.most_common()), "by_exponent": dict(by_exp),
             "groups": [{"role": k[0], "exp": k[1], "verb": k[2], "site": k[3],
-                        "shape": list(k[4]), "dtype": k[5], "count": v[0], "bytes": v[1]}
+                        "shape": list(k[4]), "dtype": k[5], "tape_rule": k[6], "count": v[0],
+                        "bytes": v[1]}
                        for k, v in top[:200]],
             "history": self.history[-400:], "refusal": self.refusal,
         }
