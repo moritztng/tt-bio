@@ -95,6 +95,11 @@ with `TT_BIO_TRIATT_HIFI_PAD_UP` at its default. Turn the pad-up off and the com
 run instead, holding about twice as much, so the default prices that path and opens fewer
 trajectories.
 
+Campaigns started together on one box, one per chip, see each other. Each records the host
+memory it planned for, and a campaign starting while others have not yet grown into their plans
+counts that memory as taken. The line then says how much it set aside for them. Without this,
+32 campaigns launched from one loop on a Galaxy would each read the whole box as free.
+
 A box whose free memory cannot be read gets one, never three, and so does a design whose token
 axis cannot be read. An explicit `trajectories_per_card=N` is used exactly as given, including a
 number that will not fit, which raises `MemoryError` naming what it wanted and what was free
@@ -612,6 +617,11 @@ hour**.
 The 83 is one chip's rate times 32. Two chips of the same Galaxy running this at once cost each
 other nothing measurable, 1384 and 1389 chip-seconds against 1390 alone, so the chips are
 independent for this workload up to the two that were tried. Nobody has run it on all 32.
+
+The host is where 32 could fall short. Each of those campaigns used about 2 host cores and held
+about 16 GB of host memory, so 32 at once ask for roughly 65 of a Galaxy host's 64 hardware threads
+and most of its 566 GB. Expect fewer than 83 an hour if you run every chip at once, and expect the
+default to give later campaigns one trajectory instead of two when memory runs short.
 
 How many of those trajectories become designs you would keep is a property of your target and
 your settings, not of the board. These three runs accepted none of their six, which is too few to

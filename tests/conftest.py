@@ -95,6 +95,13 @@ def _release_device_after_test():
 
 
 @pytest.fixture(autouse=True)
+def _private_host_claims(monkeypatch, tmp_path):
+    # `auto` records its host plan where every campaign on the box reads it. A test's plan is not a
+    # campaign, and a real campaign's plan must not move a test's count.
+    monkeypatch.setattr("tt_bio.duotraj.HOST_CLAIMS_DIR", str(tmp_path / "host-claims"))
+
+
+@pytest.fixture(autouse=True)
 def _restore_device_env():
     before = {k: os.environ.get(k) for k in _DEVICE_ENV}
     try:
