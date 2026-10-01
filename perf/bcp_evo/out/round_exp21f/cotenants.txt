@@ -1,0 +1,144 @@
+--- 2026-10-01T11:36:52Z load 6.44 11.41 9.63
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       18:35  290 18212820 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1734726       00:11  183 8717312 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_on2_hIL2R_100 --target hIL2R --binde
+   4036    19:46:30  8.5 717476 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1735048       00:00  1.6 10964 sshd: ttuser [priv]
+   1118    19:46:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+1733756       03:10  0.2 48532 /usr/libexec/fwupd/fwupd
+    926    19:47:01  0.1     0 [irq/114-rtw89_pci]
+--- 2026-10-01T11:37:52Z load 5.77 10.37 9.39
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       19:35  291 18188372 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1735138       01:00  197 17916972 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1734726       01:11  175 11087048 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_on2_hIL2R_100 --target hIL2R --bind
+   4036    19:47:30  8.5 717488 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:47:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:48:01  0.1     0 [irq/114-rtw89_pci]
+1733756       04:10  0.1 48532 /usr/libexec/fwupd/fwupd
+--- 2026-10-01T11:38:52Z load 6.41 9.74 9.23
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       20:35  292 18783016 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1735138       02:00  250 18901912 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1734726       02:11  177 11925156 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_on2_hIL2R_100 --target hIL2R --bind
+   4036    19:48:30  8.5 717504 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:48:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:49:01  0.1     0 [irq/114-rtw89_pci]
+1733756       05:10  0.1 48532 /usr/libexec/fwupd/fwupd
+--- 2026-10-01T11:39:52Z load 8.23 9.66 9.23
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       21:35  292 18459060 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1736542       00:29  158 10558532 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1736328       00:41  128 13609872 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_on_hHSA_180 --target hHSA --binder 
+   4036    19:49:30  8.5 717528 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:49:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:50:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:49:59  0.1 50560 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T11:40:52Z load 9.12 9.71 9.28
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       22:35  292 18296700 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1736542       01:29  221 17864344 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1736328       01:41  139 16294192 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_on_hHSA_180 --target hHSA --binder 
+   4036    19:50:30  8.5 717548 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:50:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:51:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:50:59  0.1 50568 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T11:41:52Z load 8.93 9.52 9.24
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       23:35  292 18798060 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1736542       02:29  257 18744384 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1736328       02:41  149 16359580 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_on_hHSA_180 --target hHSA --binder 
+   4036    19:51:30  8.5 717564 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:51:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:52:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:51:59  0.1 50580 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T11:42:52Z load 8.11 9.17 9.14
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       24:35  293 18729652 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1745166       00:51  198 18483264 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1736328       03:41  156 15972160 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_on_hHSA_180 --target hHSA --binder 
+   4036    19:52:30  8.5 717580 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:52:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:53:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:52:59  0.1 50588 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T11:43:52Z load 7.93 8.78 8.99
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       25:35  293 18498944 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1745166       01:51  249 18135780 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1745757       00:14  148 5234256 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_off_hHSA_180 --target hHSA --binder 
+1745972       00:10 95.0 702716 /home/ttuser/tt-bio-dev/env/bin/python -m pytest tests/test_bindcraft2.py tests/test_bindcraft2_hw.py tests/test_autograd_reference_gate.py tests/test_verbs_scope_autog
+   4036    19:53:30  8.5 717592 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:53:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:54:01  0.1     0 [irq/114-rtw89_pci]
+--- 2026-10-01T11:44:52Z load 8.34 8.76 8.97
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       26:35  294 18352020 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1745757       01:14  190 16162872 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_off_hHSA_180 --target hHSA --binder
+1747275       00:19  167 7525136 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+   4036    19:54:30  8.5 717600 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:54:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:55:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:54:59  0.1 50632 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T11:45:52Z load 7.62 8.35 8.81
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       27:35  294 17915624 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1747275       01:19  227 18699604 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1745757       02:14  162 13729652 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_off_hHSA_180 --target hHSA --binder
+   4036    19:55:30  8.5 717612 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:55:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:56:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:55:59  0.1 50680 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T11:46:52Z load 5.82 7.80 8.60
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       28:35  294 18144436 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1747275       02:19  260 18606732 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1745757       03:14  165 17291248 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_off_hHSA_180 --target hHSA --binder
+   4036    19:56:30  8.5 717612 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:56:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:57:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:56:59  0.1 50776 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T11:47:52Z load 8.68 8.19 8.68
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       29:35  295 18331284 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1745757       04:14  174 17595432 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_off_hHSA_180 --target hHSA --binder
+1750240       00:49  163 17339344 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1750742       00:09 96.6 544740 /home/ttuser/tt-bio-dev/env/bin/python -m pytest tests/test_bindcraft2.py tests/test_bindcraft2_hw.py tests/test_autograd_reference_gate.py tests/test_verbs_scope_autog
+   4036    19:57:30  8.5 717612 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:57:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:58:01  0.1     0 [irq/114-rtw89_pci]
+--- 2026-10-01T11:48:52Z load 7.09 7.89 8.55
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       30:35  295 18289944 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1750240       01:49  238 18713960 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1745757       05:14  160 17221564 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params --out perf/bcw_dbias/out/t_off_hHSA_180 --target hHSA --binder
+   4036    19:58:30  8.5 717612 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:58:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    19:59:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:58:59  0.1 50920 /usr/lib/polkit-1/polkitd --no-debug
+--- 2026-10-01T11:49:52Z load 7.60 7.80 8.47
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       31:35  294 18088192 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1751460       00:14  187 7299744 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+   4036    19:59:30  8.5 717628 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    19:59:59  1.4 45160 /usr/libexec/bluetooth/bluetoothd
+    926    20:00:01  0.1     0 [irq/114-rtw89_pci]
+   1141    19:59:59  0.1 50920 /usr/lib/polkit-1/polkitd --no-debug
+   2222    19:59:52  0.1 196920 /usr/bin/gnome-shell
+--- 2026-10-01T11:50:52Z load 6.68 7.54 8.34
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       32:35  294 18073740 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1751460       01:14  238 18901092 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   4036    20:00:30  8.5 717644 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    20:00:59  1.4 45176 /usr/libexec/bluetooth/bluetoothd
+    926    20:01:01  0.1     0 [irq/114-rtw89_pci]
+   1141    20:00:59  0.1 50920 /usr/lib/polkit-1/polkitd --no-debug
+1752795       00:17  0.1     0 [kworker/u64:2-events_power_efficient]
+--- 2026-10-01T11:51:52Z load 5.88 7.06 8.12
+    PID     ELAPSED %CPU   RSS COMMAND
+1700764       33:35  293 17791456 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --binder 146 --params /home/ttuser/bcx_e2e/af2
+1751460       02:15  271 18945116 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+1753027       00:06 55.6     0 [python] <defunct>
+   4036    20:01:30  8.5 717660 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    20:01:59  1.4 45184 /usr/libexec/bluetooth/bluetoothd
+    926    20:02:01  0.1     0 [irq/114-rtw89_pci]
+1752979       00:06  0.1 10892 sshd: ttuser [priv]
