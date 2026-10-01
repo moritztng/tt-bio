@@ -8,8 +8,25 @@ ttnn = pytest.importorskip("ttnn")
 from tt_bio import ops, pair_mm  # noqa: E402
 
 
+class _Shape:
+    """Indexable and iterable but NOT sliceable, like ttnn.Shape."""
+    def __init__(self, dims):
+        self._d = list(dims)
+
+    def __len__(self):
+        return len(self._d)
+
+    def __iter__(self):
+        return iter(self._d)
+
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            raise TypeError("ttnn.Shape does not support slicing")
+        return self._d[i]
+
+
 def _t(shape, dtype=None, layout=None):
-    return types.SimpleNamespace(shape=tuple(shape), dtype=dtype or ttnn.bfloat16,
+    return types.SimpleNamespace(shape=_Shape(shape), dtype=dtype or ttnn.bfloat16,
                                  layout=layout or ttnn.TILE_LAYOUT)
 
 

@@ -54,12 +54,13 @@ def config(x, w, transpose_b: bool = False):
     if (x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16 or len(w.shape) != 2
             or x.layout != ttnn.TILE_LAYOUT or w.layout != ttnn.TILE_LAYOUT):
         return None
+    shape = [int(d) for d in x.shape]      # ttnn.Shape does not support slicing
     K, N = (int(w.shape[1]), int(w.shape[0])) if transpose_b else (int(w.shape[0]), int(w.shape[1]))
-    if int(x.shape[-1]) != K or K % 32 or N % 32:
+    if shape[-1] != K or K % 32 or N % 32:
         return None
     rows = 1
-    for d in x.shape[:-1]:
-        rows *= int(d)
+    for d in shape[:-1]:
+        rows *= d
     blk = _BLOCK.get((K // 32, N // 32))
     if blk is None or rows < MIN_ROWS or rows % 32:
         return None

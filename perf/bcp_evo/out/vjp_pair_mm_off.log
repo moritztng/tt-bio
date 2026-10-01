@@ -1,0 +1,56 @@
+== arm off kernels=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose GATED_BW_FUSED=True {'gate_bw': True, 'g_bias': True, 'lead_sum': True, 'qkv_packed': True, 'fanin_cast': True, 'pair_transpose': True, 'gated_packed': True, 'exp21f': True, 'pair_mm': False}
+{"block": "evo0", "reach": 217, "nodes": 142, "dz": {"rel_l2": 0.07375559918634732, "cos": 0.9972785186875137, "norm_ref": 4.443792673746203, "norm_ratio": 0.9988328862483138}, "dz_torch_bf16": {"rel_l2": 0.062556968115297, "cos": 0.998045778191918, "norm_ratio": 1.0010037549461501}, "dz_torch_f32": {"rel_l2": 0.0002410132720079988, "cos": 0.9999999709571531, "norm_ratio": 1.0000013871875217}, "dm": {"rel_l2": 0.0679542566606809, "cos": 0.9976890664329633, "norm_ref": 94.84645080421204, "norm_ratio": 0.9988115074228777}, "dm_torch_bf16": {"rel_l2": 0.062277389702850204, "cos": 0.998060791153953, "norm_ratio": 1.0000142770267177}, "dm_torch_f32": {"rel_l2": 0.00013956683837154884, "cos": 0.999999990267747, "norm_ratio": 1.000003787353521}, "fwd_m": {"rel_l2": 0.0028268693777095417, "cos": 0.9999960262786823}, "fwd_z": {"rel_l2": 0.018867038620391113, "cos": 0.9998295132493772}, "permuted": {"dz": {"rel_l2": 1.3695642587476256, "cos": -0.0016956108075229356}, "dm": {"rel_l2": 1.276127639523237, "cos": -0.0157050773581569}}, "zero_seed_max_abs": {"dz": 2.19486835817599e-38, "dm": 1.1020259538958945e-37}}
+{"block": "evo3", "reach": 217, "nodes": 142, "dz": {"rel_l2": 0.03630889366348762, "cos": 0.9993408519807067, "norm_ref": 1.270511008652487, "norm_ratio": 0.999626489121197}, "dz_torch_bf16": {"rel_l2": 0.033939490649701004, "cos": 0.9994240701024385, "norm_ratio": 1.0000248409990125}, "dz_torch_f32": {"rel_l2": 0.00026815868349055723, "cos": 0.9999999640452848, "norm_ratio": 0.9999999318432127}, "dm": {"rel_l2": 0.033850000069970076, "cos": 0.9994269758448002, "norm_ref": 5.825999125177129, "norm_ratio": 0.9991088793363394}, "dm_torch_bf16": {"rel_l2": 0.03445477545869893, "cos": 0.9994064589637583, "norm_ratio": 1.0000403125656263}, "dm_torch_f32": {"rel_l2": 0.00011059030113709158, "cos": 0.9999999938855074, "norm_ratio": 1.0000011130264088}, "fwd_m": {"rel_l2": 0.0033117160845050285, "cos": 0.999994517072127}, "fwd_z": {"rel_l2": 0.00606812767348873, "cos": 0.9999817598392334}}
+{"block": "evo7", "reach": 217, "nodes": 142, "dz": {"rel_l2": 0.04036370738237119, "cos": 0.9991852061055333, "norm_ref": 1.0091022759000736, "norm_ratio": 0.9993994747314688}, "dz_torch_bf16": {"rel_l2": 0.038237784177953024, "cos": 0.9992689303292904, "norm_ratio": 0.9999922976527689}, "dz_torch_f32": {"rel_l2": 2.784744419129739e-07, "cos": 0.999999999999785, "norm_ratio": 0.9999999965483355}, "dm": {"rel_l2": 0.050904164068953275, "cos": 0.9987035845423143, "norm_ref": 1.8955573613885883, "norm_ratio": 0.998416168329893}, "dm_torch_bf16": {"rel_l2": 0.04674027375037405, "cos": 0.9989100904941205, "norm_ratio": 1.0013640834095339}, "dm_torch_f32": {"rel_l2": 6.171891844402024e-07, "cos": 0.9999999999998045, "norm_ratio": 0.9999999284091479}, "fwd_m": {"rel_l2": 0.002443703230721657, "cos": 0.9999972508090075}, "fwd_z": {"rel_l2": 0.00496261629916338, "cos": 0.9999877412509833}, "permuted": {"dz": {"rel_l2": 1.4138407599143008, "cos": -0.00029766179788616107}, "dm": {"rel_l2": 1.429589925597749, "cos": -0.015607951506197693}}, "zero_seed_max_abs": {"dz": 0.0, "dm": 0.0}}
+wrote /home/ttuser/.coworker/wt/bcp-evo/perf/bcx_afgrad/vjp_n288_bcp_evo_pair_mm_off.json
+== arm off reach gated_move [28, 0] entry [28, 0] gated_bw [28, 0] gate_bw [42, 0] lead_sum [14, 0] pair_bias {'o_in_matmul_exit_cfg': 42, 'g_in_matmul': 14} triatt_bw {'served': 14, 'declined': 0, 'packed': 14, 'bw_calls': 14} fanin_cast {'served': 105, 'flushed': 28} pair_transpose [28, 0] slab {'whole': 14, 'cut': 0} pair_mm [0, 0]
+== arm on kernels=tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose GATED_BW_FUSED=True {'gate_bw': True, 'g_bias': True, 'lead_sum': True, 'qkv_packed': True, 'fanin_cast': True, 'pair_transpose': True, 'gated_packed': True, 'exp21f': True, 'pair_mm': True}
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcp-evo/perf/bcp_evo/vjp_grade.py", line 59, in <module>
+    A.cmd_vjp(ns)
+  File "/home/ttuser/.coworker/wt/bcp-evo/perf/bcx_afgrad/afgrad.py", line 436, in cmd_vjp
+    d, fwd, census = device_vjp(gm, gz)
+                     ^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/perf/bcx_afgrad/afgrad.py", line 422, in device_vjp
+    mo, zo = dev.evo(i, ml, zl, mask)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/perf/bcx_afgrad/afgrad.py", line 195, in evo
+    return self.dm.device_evoformer[i](m, z, msa_mask, *pair_masks)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/af2.py", line 891, in __call__
+    msa = self._msa_track(msa, z, row_bias, col_bias)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/af2.py", line 869, in _msa_track
+    msa = self._residual(msa, self._update("msa_row_attn", self.msa_row_attn, msa, pair,
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/af2.py", line 437, in _update
+    return device(x, *args)
+           ^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/af2.py", line 620, in __call__
+    qkv = self._lin(x, self.qkv_weight, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/tenstorrent.py", line 7165, in _lin
+    return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/dispatch.py", line 67, in call
+    out = hook(name, fn, args, kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/autograd.py", line 3143, in _hook
+    return impl(shipped, args, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/autograd.py", line 3041, in _taped_linear
+    out_v = shipped(x.value, w.value, bias=(bias.value if bias is not None else None),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/ops.py", line 296, in linear
+    out = _pair_mm.matmul(x, w, bias, compute_kernel_config, dtype,
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/pair_mm.py", line 83, in matmul
+    cfg = config(x, w, transpose_b)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/pair_mm.py", line 61, in config
+    for d in x.shape[:-1]:
+             ~~~~~~~^^^^^
+TypeError: __getitem__(): incompatible function arguments. The following argument types are supported:
+    1. __getitem__(self, arg: int, /) -> int
+
+Invoked with types: ttnn._ttnn.types.Shape, slice
