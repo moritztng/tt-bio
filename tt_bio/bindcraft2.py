@@ -2113,6 +2113,7 @@ def campaign_predictor(*, validation: str = "jax",
         build_for_campaign.template = build.template
         build_for_campaign.exact = build.exact
         build_for_campaign.fast = build.fast
+        build_for_campaign.memory = getattr(build, "memory", None)
         build_for_campaign.validation = validation
         build_for_campaign.built = built
 

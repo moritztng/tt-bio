@@ -41,7 +41,7 @@ from tt_bio import autograd as ag                                      # noqa: E
 def ns(**kw):
     base = dict(params=A.DEFAULT_PARAMS, card=int(os.environ.get("TT_VISIBLE_DEVICES", "0")),
                 n=288, extra=4, evo=48, blocks=None, controls_all=False, controls_only=False,
-                seed=0, eps="1e-1,3e-2,1e-2,3e-3,1e-3", ckpt=False, msa_mask=False,
+                seed=0, eps="1e-1,3e-2,1e-2,3e-3,1e-3", ckpt=False, msa_mask=False, memory="fast",
                 ns="288", ks="1,2,4", stacks="evo,extra", steps=30, warm=3, out="time.json",
                 tag="", threads=8)
     base.update(kw)

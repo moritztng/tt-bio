@@ -262,6 +262,8 @@ def main():
     ap.add_argument("--probe-every", dest="probe_every", type=int, default=8,
                     help="sample device DRAM at every Nth tape node, with --footprint")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--memory", default="auto",
+                    help="bindcraft2.predictor(memory=...): auto, fast, lean or offload")
     ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V")
     args = ap.parse_args()
 
@@ -406,8 +408,11 @@ def main():
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation=args.validation,
                                            checkpoints=args.params, extra_msa=True,
-                                           template=True, exact=False) as build:
+                                           template=True, exact=False,
+                                           memory=args.memory) as build:
             stamp["fast"] = build.fast
+            stamp["memory_requested"] = args.memory
+            stamp["memory_used"] = build.memory.used
             stamp["auto_card_open"] = auto_now()
             per_card = {} if n is None else {"trajectories_per_card": n}
             trajectories = bindcraft2.run_campaign(
