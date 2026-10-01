@@ -36,7 +36,9 @@ sys.path.insert(0, str(ROOT / "perf" / "b2p_wh"))
 
 import ladder as L                                                      # noqa: E402
 
-MODES = ("fast", "lean", "offload")
+#: `auto` is a leg kind of its own: it asks what a USER gets, which is the mode the predictor
+#: picks, and the rung stamps the answer as `memory_used`.
+MODES = ("auto", "fast", "lean", "offload")
 
 
 def parse(spec: str):
