@@ -223,7 +223,7 @@ def main():
             pass
         return out
     from tt_bio import autograd as _ag, gate_bw as _gb, lead_sum as _ls, reblock_permute as _rp
-    from tt_bio import pair_mm as _pm
+    from tt_bio import pair_mm as _pm, inproj_gated as _ig
     from tt_bio import pair_transpose as _pt, tenstorrent as _tt
     M.REACH.append(_host_rss)
     M.REACH.append(lambda: {
@@ -233,6 +233,7 @@ def main():
         "gate_bw": list(_gb.STATS),
         "lead_sum": list(_ls.STATS),
         "pair_mm": list(_pm.STATS),
+        "inproj_gated": list(_ig.STATS),
         "fanin_cast": dict(_ag.FANIN_CAST_STATS),
         "pair_transpose": list(_pt.STATS),
         "grad_slab": dict(_ag.SLAB_STATS),
