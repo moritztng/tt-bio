@@ -4926,8 +4926,12 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     # `ptx-fastpath` left open as the honest possibility: the L1 residency lever is
     # INFERENCE-ONLY. Declining here sends every such result to DRAM, which is also what the
     # tape would otherwise pay for twice -- keep it in L1 AND evict it to DRAM for the backward.
+    # That includes a forward the tape runs under its own `no_grad` (`ops.NOGRAD_IS_INFERENCE`):
+    # answering `recording()` here instead of `taping()` passed at 288 tokens and crashed a
+    # BindCraft 2 round at 576 and 864 with the same clash, inside the checkpointed forward's
+    # trimul in-projection (perf/bcp_evo/out/seqlen.log); with `taping()` both run.
     from . import ops
-    if ops.recording():
+    if ops.taping():
         return False
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())
