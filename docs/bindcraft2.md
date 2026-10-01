@@ -590,6 +590,17 @@ Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 | 512 | `lean` | | 67.8 s |
 | 544 | `fast` | refuses, 12.70 GB held | |
 | 544 | `lean` | 7.527 GB | 84.3 s |
+| 768 | `offload` | 5.685 GB, and then refuses in L1 — see below | |
+| **800** | `offload` | **8.952 GB**, 3.93 GB still free | **225.1 s** |
+
+800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder: **the largest fold measured
+to complete a gradient round on one Wormhole Galaxy chip, 1.56x the 512 the fast mode carries.**
+
+768 is the exception, and it is not a memory one: the card is 7.2 GB free there and the round dies
+at compile on a per-core L1 circular buffer. `in0_block_w` is the largest divisor of the token
+axis in tiles that is at most 8, so 768 (24 tiles, divisible by 8) asks for the widest contraction
+block in the range while 800 (25 tiles) and 832 (26) do not. If a fold refuses with the card
+visibly free, try the next bucket up before you crop the target.
 
 **At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s), which is the price
 of running every block's forward a second time. The 544 row costs more than that because it is

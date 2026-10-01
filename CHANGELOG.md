@@ -20,7 +20,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   next roomier mode, what it costs and how to ask for it. Measured on one dev Wormhole Galaxy
   chip at AICLK 1000 MHz: 544 tokens refuse in `fast` holding 12.70 GB, and complete in `lean` at
   a 7.527 GB peak and 84.3 s a round against 61.3 s for the 512 tokens `fast` does carry. At the
-  same token axis the mode costs +10.6 % a round (512: 61.3 s in `fast`, 67.8 s in `lean`). See
+  same token axis the mode costs +10.6 % a round (512: 61.3 s in `fast`, 67.8 s in `lean`). The
+  largest fold measured to complete a gradient round on one Wormhole Galaxy chip is now **800
+  tokens** -- `offload`, 8.952 GB peak with 3.93 GB free, 225.1 s a round -- which is a whole EGFR
+  ectodomain plus a 150 aa binder, 1.56x the axis the fast mode carries. See
   [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
 
 ### Changed
