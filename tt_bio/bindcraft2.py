@@ -186,6 +186,16 @@ _MEASURED_MODE_LADDERS = {
         "lean": (544, 768),
         "offload": (896, 928),
     },
+    # The law puts fast's top at 864 on a p150a, and fast refuses 768 and 832 there, each twice
+    # (768 fragments in the forward with 2.2 GB free, 832 fills the card in the backward), while
+    # lean serves both and serves 896. 864 completed in fast once, but a ladder with a refusal
+    # under it is not a ceiling, so fast is held at the bracket below 768. No `offload` row: on
+    # pc every offload rung was killed by the HOST for want of RAM, which is not a device answer.
+    # Measured on pc card 0, 2026-10-01, `rel012-verify-bh`.
+    "p150a": {
+        "fast": (544, 768),
+        "lean": (896, None),
+    },
 }
 
 
