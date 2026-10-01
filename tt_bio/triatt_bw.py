@@ -395,9 +395,10 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
 
     # Subblocks are what keep a result inside DST. A [Nt, Nt] score block and a [Nt, Dt] gradient
     # column have different aspect ratios, so they get different ones.
-    sq_h, sq_w = SG.largest_subblock(Nt, Nt, p["dst_size"])
+    sq_h, sq_w = SG.largest_subblock(p["Qt"], Nt, p["dst_size"])
     col_h, col_w = SG.largest_subblock(Nt, Dt, p["dst_size"])
-    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w]
+    qcol_h, _ = SG.largest_subblock(p["Qt"], Dt, p["dst_size"])
+    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w, p["Qt"], qcol_h]
 
     kd = _kdir()
     rr, wr, cr = [], [], []
