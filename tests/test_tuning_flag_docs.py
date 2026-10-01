@@ -33,6 +33,11 @@ NOT_A_TUNING_ROW: dict[str, str] = {
                                 "documented in docs/multi-host.md",
     "TT_BIO_CAMPAIGN_STALL_WARN_S": "the silence window of a BindCraft 2 campaign's wedge warning, "
                                     "documented in docs/bindcraft2.md",
+    # An A/B hatch for a leg nobody has closed: it runs the softmax reduction in fp32 to match
+    # the Boltz-2 reference recipe, and ships off because no measurement has argued for it. A
+    # README row would offer a user a choice between a measured default and an unmeasured arm.
+    # `tt_bio/tenstorrent.py` says the same thing where the flag is read.
+    "BOLTZ2_FP32_SOFTMAX": "an unclosed A/B hatch, not a tuning choice",
 }
 
 

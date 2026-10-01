@@ -3,6 +3,28 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Fixed
+
+- **A BindCraft 2 refusal on a card held to its last percent called itself fragmentation.**
+  Above a Wormhole Galaxy chip's 512 tokens the fold holds 98 to 99 % of the board, and whether
+  the 100 to 250 MB left happened to cover the next request decided between "the card is full"
+  and "this is fragmentation, not a full card" for the same state: seven of the ten boundary
+  refusals on record read as fragmentation and sent the user after a fix that does not exist.
+  Fragmentation is now the diagnosis only with at least 5 % of the card free, and the full-card
+  message says how the remainder is split. The size a refusal sends the user to is swept across
+  every axis from 224 to 1536 tokens on both measured boards, pad-up on and off, so it can never
+  name a size that board also refuses.
+
+- **BindCraft 2 campaigns started together on one box each read the whole host as free.**
+  `trajectories_per_card=auto` sized its trajectory count from host memory read once at start,
+  before any sibling campaign had grown, so 32 campaigns launched together on a Wormhole Galaxy
+  would each have taken two trajectories at 288 tokens, 464 GB of plan against 278.6 GB free. Each
+  campaign now records the host memory it planned for, and a campaign starting while others have
+  not yet grown into their plans counts that memory as taken. See
+  [docs/bindcraft2.md](docs/bindcraft2.md).
+
 ## [0.11.0] - 2026-10-01
 
 ### Added

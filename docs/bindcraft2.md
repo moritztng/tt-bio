@@ -482,7 +482,18 @@ Size is counted in **tokens**: the residues of the fused complex BindCraft 2 bui
 to a multiple of 32. That is not your target length plus your binder length. The fusion adds 18
 to 28 residues, so a job sized off residue counts comes out one or two buckets low. A 387-residue
 target with a 146-residue binder is a 576-token job, not a 544-token one. The run prints the axis
-it is actually about to use; trust that over any count you compute yourself.
+it is actually about to use, and you can read the same number before you queue anything, without
+a card, in under a second:
+
+```python
+from bindcraft.settings import read_settings
+from tt_bio.bindcraft2 import design_tokens
+
+design_tokens(read_settings("examples/il2_receptor.json"))   # 544
+```
+
+On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrimer.json`, 448 for
+`pdl1_multidomain.json` and 544 for `il2_receptor.json`, so the last needs Blackhole.
 
 ### The supported range, both boards
 
@@ -514,6 +525,15 @@ Wormhole's, on dev `.107` card 30 with the box's agent stopped so the ladder hel
 Nobody should predict either board's number from bank geometry: the guess from 12 GiB in 12 banks
 put the Wormhole wall near 384-416 tokens and five rungs above that run.
 
+A p300c chip reports a p150a's DRAM and behaves like one up to where it has been run: 608 tokens
+at 48.2 s a round and 832 at 108.3 s, AICLK 1350. 864 has not been tried on it.
+
+In residues, which is how a target arrives: the fusion costs 18 to 28, so a Wormhole chip's 512
+tokens is about 484 to 494 residues of target plus binder, and a p150a's 864 is about 836 to 846.
+With a binder in BindCraft 2's default 60-180 draw range that is a target of roughly 300 to 430
+residues on Wormhole and 655 to 785 on Blackhole. Read `design_tokens` rather than trusting the
+arithmetic; it is there because this sum is one or two buckets low often enough to matter.
+
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
 the board. At 864 it is 92 % with the largest free block down to 291 MB, so the next rung is a
 board question rather than a software one. On a Wormhole chip the top is 97 % of a card a third
@@ -527,7 +547,8 @@ at 256 MB against 12.715 GB at 32 MB.
 Every refusal raises, names the token axis, the memory it wanted against what was free, and where
 to move. Nothing in either range OOM-killed a process, hung one, or returned a wrong answer.
 
-A refusal distinguishes a full card from a fragmented one, because the remedies differ:
+A refusal distinguishes a full card from a fragmented one, because the remedies differ. A full
+card means run something smaller:
 
 ```
 The card is full: 243.0 MB free against a 277.1 MB request, with 33.9 GB of 34.2 GB already
@@ -535,10 +556,23 @@ held by this fold.
 ```
 
 ```
+The card is full: 12.707 GB of 12.885 GB is held by this fold, and the 177.5 MB left is in
+pieces of at most 4.0 MB a bank against the 12.6 MB a bank this 151.5 MB request needs.
+```
+
+Fragmentation means a real share of the card is free and the fold could not get a contiguous run
+of it, so a smaller buffer may still go through:
+
+```
 This is fragmentation, not a full card: 4.1 GB is free, which would cover the 3.6 GB request if
 it were in one piece, but the largest contiguous block in a bank is 327 MB against the 449 MB
 that bank needs.
 ```
+
+The second reading needs at least 5 % of the card free. Above a Wormhole chip's 512 tokens the
+fold holds 98 to 99 % of the board, and whether the last 100 to 250 MB happens to cover the next
+request is luck rather than a diagnosis: those refusals say the card is full, which is what they
+are.
 
 It then says where the way down lands, and the size it names is checked against the board in
 hand rather than being one bucket down by reflex: a 608-token fold on a Wormhole chip is told to

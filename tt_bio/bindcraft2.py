@@ -130,6 +130,10 @@ _ALLOCATOR_REFUSAL = re.compile(
     r"largest free block: (?P<largest>\d+) B\)")
 
 
+#: Below this share of the card free, a refusal is a full card however the rest is scattered.
+_FRAGMENTED_MIN_FREE = 0.05
+
+
 def _gb(b: float) -> str:
     return f"{b / 1e9:.3f} GB" if b >= 1e9 else f"{b / 1e6:.1f} MB"
 
@@ -176,17 +180,29 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int):
     free_total, largest, bank_size = g["free"] * banks, g["largest"], g["bank_size"]
     card_total, held = bank_size * banks, g["allocated"] * banks
 
-    # Two refusals wear the same words and take different remedies. The card is genuinely full
-    # only when the free memory could not hold the request even in one piece; when it could,
-    # the request was refused for want of a contiguous run and a smaller buffer still fits.
-    fragmented = free_total >= want and largest < per_bank
-    diagnosis = (
-        f"This is fragmentation, not a full card: {_gb(free_total)} is free, which would "
-        f"cover the {_gb(want)} request if it were in one piece, but the largest contiguous "
-        f"block in a bank is {_gb(largest)} against the {_gb(per_bank)} that bank needs."
-        if fragmented else
-        f"The card is full: {_gb(free_total)} free against a {_gb(want)} request, with "
-        f"{_gb(held)} of {_gb(card_total)} already held by this fold.")
+    # Two refusals wear the same words and take different remedies. The card is full when the
+    # free memory could not hold the request even in one piece, and also when what is free is
+    # a sliver of the card: at Wormhole's 544-608 boundary the fold holds 98-99 % of the chip,
+    # and whether the last 100-250 MB happens to cover the next request decided between "full"
+    # and "not a full card" for the same state (`perf/b2p_wh/results/`, `perf/bwx_bringup/`).
+    # Fragmentation is the diagnosis only when a real share of the card is free and scattered.
+    fragmented = (free_total >= want and largest < per_bank
+                  and free_total >= card_total * _FRAGMENTED_MIN_FREE)
+    if fragmented:
+        diagnosis = (
+            f"This is fragmentation, not a full card: {_gb(free_total)} is free, which would "
+            f"cover the {_gb(want)} request if it were in one piece, but the largest "
+            f"contiguous block in a bank is {_gb(largest)} against the {_gb(per_bank)} that "
+            f"bank needs.")
+    elif free_total >= want:
+        diagnosis = (
+            f"The card is full: {_gb(held)} of {_gb(card_total)} is held by this fold, and the "
+            f"{_gb(free_total)} left is in pieces of at most {_gb(largest)} a bank against the "
+            f"{_gb(per_bank)} a bank this {_gb(want)} request needs.")
+    else:
+        diagnosis = (
+            f"The card is full: {_gb(free_total)} free against a {_gb(want)} request, with "
+            f"{_gb(held)} of {_gb(card_total)} already held by this fold.")
 
     # The ceiling to compare against is THIS board's, where one has been measured. A Wormhole
     # Galaxy chip stops at 512 and a p150a at 576, so a Wormhole user told the p150a number is
