@@ -222,10 +222,13 @@ def main():
         except (OSError, StopIteration):
             pass
         return out
+    from tt_bio import reblock_permute as _rp
     M.REACH.append(_host_rss)
     M.REACH.append(lambda: {
         "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
         "rne_add_entry": list(taped_ttnn.KERNEL_STATS.get("rne_add", [0, 0])),
+        "gated_move": list(_rp.STATS_GATED), "gated_bw": list(_rp.STATS_GATED_BW),
+        "gated_entry": list(taped_ttnn.KERNEL_STATS.get("reblock_permute_gated", [0, 0])),
     })
     # Checked at every round boundary, all of which fall inside the predictor that arms them.
     M.REACH.append(M.lever_reach(_expect))
