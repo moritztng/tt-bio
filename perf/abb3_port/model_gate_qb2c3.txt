@@ -1,22 +1,23 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
-# re-recorded on the B2P merge tree.
-RECORDED-AT: 93edb1b2482d58a26e6df049be7c9becc8c07eca scripts/abb3_port/model_gate.py
+# re-recorded on the BCP merge tree.
+RECORDED-AT: 3e617f5200fca19042f38214edc7aef3df94950a scripts/abb3_port/model_gate.py
 #
-# TREE: wk/b2p-orchestrator 93edb1b24, v0.10.0 plus the six B2P branches. Replaces the record taken at
-# 7fca0b1b2, whose import closure had since changed in tt_bio/tenstorrent.py and tt_bio/autograd.py
-# (the triangle-attention pad-up, the recompute backward's float32 dbias sum, the quarantine refusal).
+# TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
+# Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
+# was wired into the layer-norm backward. lnbw is armed only inside a BindCraft 2 fast round, so this
+# gate's path is unchanged.
 #
-# Host qb2, card 3 (/dev/tenstorrent/3), Blackhole p300c. Commands, run in this order:
+# Host qb2, card 3 (/dev/tenstorrent/3), Blackhole p300c, interpreter ~/tt-bio-dev/env. Commands, in order:
 #   for sigma in 0.05 0.3; do for tokens in 64 256; do
-#     TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=worker:b2p-orchestrator \
+#     TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=orch:bcp-merge-abb3 \
 #       PYTHONPATH=$PWD python3 scripts/abb3_port/model_gate.py --tokens $tokens --sigma $sigma
 #   done; done
 #
-# NO TIMING CLAIM. Every row is an accuracy comparison against a float64 reference. AICLK on card 3,
-# sampled every 2 s over this run and the step gate after it: 1350 MHz on 150 of 163 samples, 1343 on 5, 800 on 8.
+# NO TIMING CLAIM. Every row is an accuracy comparison against a float64 reference. AICLK on card 3
+# from ~/qbcard/cardtel.tsv over this run and the step gate after it: 1350 MHz on 204 of 225 samples, 1343 on 12, 800 on 9 (between processes).
 #
-# WHAT MOVED since 7fca0b1b2: nothing. The output below is identical to that record line for line,
-# the float32 torch-vs-torch control and the known failure included.
+# WHAT MOVED since 93edb1b24: nothing on the device. Every ok/FAIL row is identical to that record;
+# only the float32 torch-vs-torch CPU control differs, in its third significant digit at ~1e-6.
 #
 # STILL FAILING, unchanged: the sigma 0.3 / 256-token stress arm, angles 5.11e-02 against its own
 # 5e-02 bar. Its weights are far wider than any trained checkpoint; the trained-scale arm, sigma
@@ -43,11 +44,12 @@ RECORDED-AT: 93edb1b2482d58a26e6df049be7c9becc8c07eca scripts/abb3_port/model_ga
   ok   d/d angle[7] linear_out.w  0.999993  4.14e-03  5.59e-03  (bars 0.999 / 5e-02)
   float32 control (torch vs torch, same weights)
        forward states              nan  2.18e-03
-       d/d single             1.000000  9.34e-07
-       d/d pair               1.000000  7.33e-07
-       d/d ipa[0] linear_q.w  1.000000  8.77e-07
+       d/d single             1.000000  9.33e-07
+       d/d pair               1.000000  7.34e-07
+       d/d ipa[0] linear_q.w  1.000000  8.46e-07
 
 PASS
+
 === sigma=0.05, 256 tokens, 8 blocks, batch 2 ===
   sigma 0.05, 8 blocks, batch 2 x 256 tokens
   output                    rel err   on vs off
@@ -71,9 +73,10 @@ PASS
        forward states              nan  1.30e-03
        d/d single             1.000000  1.68e-06
        d/d pair               1.000000  1.25e-06
-       d/d ipa[0] linear_q.w  1.000000  1.41e-06
+       d/d ipa[0] linear_q.w  1.000000  1.45e-06
 
 PASS
+
 === sigma=0.3, 64 tokens, 8 blocks, batch 2 ===
   sigma 0.3, 8 blocks, batch 2 x 64 tokens
   output                    rel err   on vs off
@@ -100,6 +103,7 @@ PASS
        d/d ipa[0] linear_q.w  0.999998  2.07e-03
 
 PASS
+
 === sigma=0.3, 256 tokens, 8 blocks, batch 2 ===
   sigma 0.3, 8 blocks, batch 2 x 256 tokens
   output                    rel err   on vs off
