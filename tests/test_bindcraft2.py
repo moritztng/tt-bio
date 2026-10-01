@@ -1846,8 +1846,14 @@ def test_a_mode_ceiling_claims_exactly_the_evidence_it_has_and_no_more():
     assert (off_top, off_measured) == (896, True)
     off = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
                                              n=972, padded=992, mode="offload"))
-    assert "896 tokens" in off and "960" not in off, off
     assert "largest axis measured to complete a gradient round" in off, off
+    # 896 is the size to aim at, and it is the ONLY size offered as one that holds. 960 may still
+    # appear -- the way-down sentence names it to say it refuses too, which is the message
+    # working -- so what matters is that no sentence offers 960 as a size that fits.
+    assert "tops out at 896 tokens" in off and "in the 'offload' mode is 896 tokens" in off, off
+    for wrong in ("tops out near 960", "tops out at 960", "should hold 960", "is 960 tokens",
+                  "reach 960"):
+        assert wrong not in off, (wrong, off)
 
 
 def test_a_measured_refusal_caps_the_memory_law_everywhere_it_is_quoted():
