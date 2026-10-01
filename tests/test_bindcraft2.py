@@ -1796,11 +1796,12 @@ def test_auto_leaves_every_size_that_runs_today_in_the_fast_mode():
     bucket answering `lean` here would make every campaign on that board slower for nothing, and
     it is the kind of regression a footprint ladder never catches because the fold still runs.
 
-    "Measured to hold" is fast's own top, not the board's: on a p150a fast refuses 768 and 832
-    while the board serves both in lean, so the buckets above 736 are the ones that MUST pay.
+    "Measured to hold" is fast's own top, not the board's: on a p150a fast refuses 704, 768 and
+    832 while the board serves all three in lean, so the buckets above 672 are the ones that MUST
+    pay.
     """
     for card, top in ((bindcraft2.WH_GALAXY_DRAM_BYTES, bindcraft2.MEASURED_MAX_TOKENS_WH_GALAXY),
-                      (bindcraft2.P150A_DRAM_BYTES, 736)):
+                      (bindcraft2.P150A_DRAM_BYTES, 672)):
         assert bindcraft2.max_tokens("fast", card) == top, card
         for padded in range(bindcraft2.TOKEN_BUCKET, top + 1, bindcraft2.TOKEN_BUCKET):
             assert bindcraft2.memory_mode("auto", padded, card) == "fast", (padded, card)
@@ -1883,16 +1884,16 @@ def test_a_mode_ceiling_claims_exactly_the_evidence_it_has_and_no_more():
 
 
 def test_auto_runs_lean_where_fast_was_measured_to_refuse_on_a_p150a():
-    """On a p150a the law puts fast's top at 864, and fast refused 768 and 832 there, twice each,
-    while lean served both. Without a measured row `auto` chose fast at both and the default
-    refused a size v0.11.0 runs (832) and one it crashes on (768). With it, every axis from 768
-    up runs lean, and the axes fast was measured to hold still run fast.
+    """On a p150a the law puts fast's top at 864, and fast refused 704, 768 and 832 there while
+    lean served all three. Without a measured row `auto` chose fast at each and the default
+    refused a size v0.11.0 runs (832) and one it crashes on (768). With it, every axis from 704
+    up runs lean, and the axes fast was measured to hold (576 to 672) still run fast.
     """
     card = bindcraft2.P150A_DRAM_BYTES
-    assert bindcraft2.mode_ceiling("fast", card) == (736, False)
-    for padded in (512, 544, 736):
+    assert bindcraft2.mode_ceiling("fast", card) == (672, True)
+    for padded in (512, 544, 576, 608, 640, 672):
         assert bindcraft2.memory_mode("auto", padded, card) == "fast", padded
-    for padded in (768, 800, 832, 864, 896):
+    for padded in (704, 736, 768, 800, 832, 864, 896):
         assert bindcraft2.memory_mode("auto", padded, card) == "lean", padded
     # The 896 lean served is a floor under lean, not its ceiling, so lean is not capped there.
     assert bindcraft2.max_tokens("lean", card) >= 896
