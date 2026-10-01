@@ -165,7 +165,15 @@ def main() -> int:
         for leg in plan:
             rung = out / leg["tag"]
             rung.mkdir(exist_ok=True)
-            say(f"=== {leg['tag']} load {os.getloadavg()[0]:.2f}")
+            # Say the cap, because an `a` leg is an uncapped campaign and the default is 90
+            # minutes. The first acceptance run was killed at 65 of ~125 gradient rounds by this
+            # timeout and recorded `rc=timeout` with no rung.json, which reads at a glance like
+            # the campaign failed at size when it was the harness that stopped it. A cap shorter
+            # than the leg is a harness bug, and it belongs in the log before the leg runs rather
+            # than in the ledger 90 minutes later.
+            say(f"=== {leg['tag']} load {os.getloadavg()[0]:.2f} cap {args.timeout}s"
+                + ("  <- an acceptance campaign is ~125 rounds plus the validation tail; at the "
+                   "544-token round time that is about 3 h" if leg.get("how") == "a" else ""))
             t0 = time.time()
             with open(rung / "leg.log", "w") as log:
                 try:
