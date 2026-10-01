@@ -1,0 +1,461 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "target": "hPDL1",
+ "target_residues": 115,
+ "target_chains": 1,
+ "target_fold": "Ig-like beta sandwich",
+ "binder": 146,
+ "tokens": 288,
+ "rounds_requested": 30,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "3",
+ "design_tokens": 288,
+ "auto_before_open": {
+  "count": 3,
+  "why": "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 204.8 GB of host memory free",
+  "tokens_asked": 288
+ },
+ "auto_would_choose": [
+  3,
+  "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 204.8 GB of host memory free"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "8dbaa61b13ba2c1737804ad18c03adc55cef963c",
+ "dirty": false,
+ "compile_cache": "/home/ttuser/.coworker/wt/rel012-verify-bh/perf/rel012_bh/out/round_p300c/xlacache_tag011",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  13.43603515625,
+  11.39404296875,
+  7.97802734375
+ ],
+ "mem_start": {
+  "vmhwm": 532090880,
+  "vmrss": 532090880,
+  "mem_available": 219900190720
+ },
+ "started_utc": "2026-10-01T22:54:51Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 3,
+  "why": "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 203.3 GB of host memory free",
+  "tokens_asked": 288
+ },
+ "wall_seconds": 227.71,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(30 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 275,
+ "evoformer_axis": 288,
+ "axis_seen": [
+  288
+ ],
+ "axis_matches_arithmetic": true,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 32279527424,
+ "rounds_done": 32,
+ "rounds_per_slot": {
+  "t1": 17,
+  "t2": 15
+ },
+ "per_round": [
+  {
+   "slot": "t1",
+   "round": 1,
+   "seconds": 30.775,
+   "n": 23,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 12.9
+  },
+  {
+   "slot": "t1",
+   "round": 2,
+   "seconds": 10.698,
+   "n": 10,
+   "aiclk_min": 1325,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.1
+  },
+  {
+   "slot": "t1",
+   "round": 3,
+   "seconds": 12.529,
+   "n": 12,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.7
+  },
+  {
+   "slot": "t1",
+   "round": 4,
+   "seconds": 14.852,
+   "n": 15,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.3
+  },
+  {
+   "slot": "t1",
+   "round": 5,
+   "seconds": 12.12,
+   "n": 12,
+   "aiclk_min": 1331,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 10.4
+  },
+  {
+   "slot": "t1",
+   "round": 6,
+   "seconds": 12.09,
+   "n": 11,
+   "aiclk_min": 1325,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.2
+  },
+  {
+   "slot": "t1",
+   "round": 7,
+   "seconds": 12.075,
+   "n": 12,
+   "aiclk_min": 1337,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 8.6
+  },
+  {
+   "slot": "t1",
+   "round": 8,
+   "seconds": 12.611,
+   "n": 12,
+   "aiclk_min": 1318,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.3
+  },
+  {
+   "slot": "t1",
+   "round": 9,
+   "seconds": 12.257,
+   "n": 12,
+   "aiclk_min": 1337,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.3
+  },
+  {
+   "slot": "t1",
+   "round": 10,
+   "seconds": 13.46,
+   "n": 13,
+   "aiclk_min": 1312,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 10.1
+  },
+  {
+   "slot": "t1",
+   "round": 11,
+   "seconds": 12.643,
+   "n": 12,
+   "aiclk_min": 1325,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.8
+  },
+  {
+   "slot": "t1",
+   "round": 12,
+   "seconds": 12.238,
+   "n": 12,
+   "aiclk_min": 1337,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.5
+  },
+  {
+   "slot": "t1",
+   "round": 13,
+   "seconds": 12.471,
+   "n": 12,
+   "aiclk_min": 1325,
+   "aiclk_med": 1343,
+   "aiclk_max": 1350,
+   "load1": 10.0
+  },
+  {
+   "slot": "t1",
+   "round": 14,
+   "seconds": 12.15,
+   "n": 12,
+   "aiclk_min": 1325,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.7
+  },
+  {
+   "slot": "t1",
+   "round": 15,
+   "seconds": 12.23,
+   "n": 11,
+   "aiclk_min": 1318,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.3
+  },
+  {
+   "slot": "t1",
+   "round": 16,
+   "seconds": 12.16,
+   "n": 12,
+   "aiclk_min": 1337,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 12.0
+  },
+  {
+   "slot": "t2",
+   "round": 1,
+   "seconds": 18.043,
+   "n": 17,
+   "aiclk_min": 1325,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.4
+  },
+  {
+   "slot": "t2",
+   "round": 2,
+   "seconds": 14.876,
+   "n": 15,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.3
+  },
+  {
+   "slot": "t2",
+   "round": 3,
+   "seconds": 12.094,
+   "n": 12,
+   "aiclk_min": 1331,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 10.4
+  },
+  {
+   "slot": "t2",
+   "round": 4,
+   "seconds": 12.078,
+   "n": 11,
+   "aiclk_min": 1325,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.2
+  },
+  {
+   "slot": "t2",
+   "round": 5,
+   "seconds": 12.068,
+   "n": 12,
+   "aiclk_min": 1337,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 8.6
+  },
+  {
+   "slot": "t2",
+   "round": 6,
+   "seconds": 12.672,
+   "n": 12,
+   "aiclk_min": 1318,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.3
+  },
+  {
+   "slot": "t2",
+   "round": 7,
+   "seconds": 12.168,
+   "n": 12,
+   "aiclk_min": 1337,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.3
+  },
+  {
+   "slot": "t2",
+   "round": 8,
+   "seconds": 13.521,
+   "n": 13,
+   "aiclk_min": 1312,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 10.1
+  },
+  {
+   "slot": "t2",
+   "round": 9,
+   "seconds": 12.668,
+   "n": 12,
+   "aiclk_min": 1325,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.8
+  },
+  {
+   "slot": "t2",
+   "round": 10,
+   "seconds": 12.173,
+   "n": 12,
+   "aiclk_min": 1337,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.5
+  },
+  {
+   "slot": "t2",
+   "round": 11,
+   "seconds": 12.496,
+   "n": 12,
+   "aiclk_min": 1325,
+   "aiclk_med": 1343,
+   "aiclk_max": 1350,
+   "load1": 10.0
+  },
+  {
+   "slot": "t2",
+   "round": 12,
+   "seconds": 12.162,
+   "n": 11,
+   "aiclk_min": 1325,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 9.6
+  },
+  {
+   "slot": "t2",
+   "round": 13,
+   "seconds": 12.243,
+   "n": 12,
+   "aiclk_min": 1318,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.2
+  },
+  {
+   "slot": "t2",
+   "round": 14,
+   "seconds": 12.208,
+   "n": 12,
+   "aiclk_min": 1337,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 12.0
+  }
+ ],
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 37080,
+   "declined: has a core grid": 8640,
+   "served": 20880,
+   "declined: not batched": 46080
+  },
+  "taped_channel_move": [
+   22680,
+   18720,
+   16200,
+   0
+  ],
+  "widen_add": {
+   "served: first": 23220,
+   "served: later": 6120
+  },
+  "rne_add": [
+   41580,
+   360
+  ],
+  "qkv_grad_join": {
+   "served": 18360
+  },
+  "triatt_bw": {
+   "served": 3240,
+   "declined": 0,
+   "bw_calls": 3240
+  },
+  "triatt_fused_hifi": {
+   "served": 9720,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    41580,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    9720,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 3240,
+  "served": 3240,
+  "declined": 0
+ },
+ "aiclk_run": {
+  "n": 211,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 10.7
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 18031853568,
+  "vmrss": 15111204864,
+  "mem_available": 193758629888
+ },
+ "loadavg_end": [
+  11.6328125,
+  10.9267578125,
+  8.50390625
+ ],
+ "finished_utc": "2026-10-01T22:58:39Z"
+}
