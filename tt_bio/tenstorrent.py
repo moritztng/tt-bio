@@ -7918,8 +7918,8 @@ class TriangleMultiplication(Module):
                 or x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
                 or int(w.shape[-1]) % 128 or int(w.shape[-2]) != shp[3]):
             return no("shape")
-        # ttnn's fp32 -> bf16 typecast is not round-to-nearest-even (1 ulp off on 6 % of a random
-        # weight, perf/bcp_evo/ipg_wt_check.py), so only a bf16 weight is taken.
+        # An fp32 weight transposed on card and then cast to bf16 is 1 ulp off on 6 % of elements
+        # (a bare cast is exact, perf/bcp_evo/ipg_wt_check.py), so only a bf16 weight is taken.
         if w.dtype != ttnn.bfloat16:
             return no("w_dtype")
         bt = memory_config.buffer_type

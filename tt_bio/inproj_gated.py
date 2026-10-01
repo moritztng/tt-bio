@@ -105,8 +105,10 @@ def device_weights(w, bias_col):
     The trimul's fused in-projection weight is cut out of the model's leaves afresh each forward,
     so nothing keyed on its buffer can be cached: a fresh buffer misses (a host round trip and a
     device sync a call) and a reused address hits another weight. A transpose (and a concat with
-    the cached ``bias_column``) is two small device ops instead. bf16 only: ttnn's fp32 -> bf16
-    typecast does not round to nearest even, so the caller declines any other dtype.
+    the cached ``bias_column``) is two small device ops instead. bf16 only: an fp32 weight
+    transposed on card and then cast came out 1 ulp off on 6.4 % of elements, while a bare cast
+    matched torch's round-to-nearest-even (perf/bcp_evo/ipg_wt_check.py), so the caller declines
+    any other dtype.
     """
     assert w.dtype == ttnn.bfloat16, w.dtype
     K, C4 = int(w.shape[-2]), int(w.shape[-1])
