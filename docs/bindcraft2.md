@@ -590,7 +590,7 @@ Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 | 512 | `lean` | | 67.8 s |
 | 544 | `fast` | refuses, 12.70 GB held | |
 | 544 | `lean` | 7.527 GB | 84.3 s |
-| 768 | `offload` | 8.282 GB, 4.60 GB still free | 200.8 s |
+| 768 | `offload` | 8.282 GB, 4.60 GB still free | 200.2 s |
 | **800** | `offload` | **8.952 GB**, 3.93 GB still free | **225.1 s** |
 
 800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder: **the largest fold measured
@@ -609,7 +609,8 @@ escape the Evoformer backward refuses with the card several GB free, which does 
 size problem at all; with it, the same contraction runs in narrower passes and the round completes.
 We cannot price the escape on its own, because the fold it rescues does not run without it; what we
 can say is that 768 still lands under the larger 800, so the narrower passes cost less than the 32
-tokens between them. If some other axis one day refuses with the card visibly free, this is the
+tokens between them. The 200.2 s is the median of four steady rounds in a timed leg; a separate
+footprint leg of the same fold gave 200.8 s, so the two independent runs agree to half a percent. If some other axis one day refuses with the card visibly free, this is the
 shape of it, and the next bucket up is worth trying before you crop the target.
 
 **At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s), which is the price
