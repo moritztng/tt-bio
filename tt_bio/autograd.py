@@ -1148,7 +1148,7 @@ def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
     except Exception as exc:                                             # noqa: BLE001
         from .tenstorrent import report_l1_refusal
         blocked = (_bmm_blocked(a, b, transpose_a, transpose_b, kw)
-                   if plan is None and report_l1_refusal("autograd.bmm", exc) else None)
+                   if report_l1_refusal("autograd.bmm", exc) else None)
         if blocked is None:
             raise
         return blocked
@@ -1158,13 +1158,16 @@ def _bmm_blocked(a, b, transpose_a: bool, transpose_b: bool, kw):
     """A batched product whose output is too large for one core-block, done a row block at a
     time, or None when this is not that case.
 
-    `bmm_program_config` gives the whole output matrix of a batch element to one core-block and
-    declines above `BMM_OUT_TILES`, which hands the call to ttnn's own planner. At 768 tokens
-    that planner lays a `[128, 768, 768]` triangle-multiplication VJP out on ONE COLUMN of
-    cores and its circular buffers grow to 1.86 MB against the 1.5 MB a Tensix has: the
-    gradient round dies at compile, inside the backward, with the card 7 GB free. Measured on
-    one chip of a Wormhole Galaxy on 2026-10-01 (`perf/bcw_slowmode/`, hHSA + 150 at 768 in
-    the offload memory mode), and it is a program-config limit rather than a memory one.
+    `bmm_program_config` gives the whole output matrix of a batch element to one core-block.
+    At 768 tokens a `[128, 768, 768]` triangle-multiplication VJP is laid out on ONE COLUMN of
+    nine cores, whichever planner lays it, and the circular buffers grow to 1.86 MB against the
+    1.5 MB a Tensix has: the gradient round dies at compile, inside the backward, with the card
+    7 GB free. Measured on one chip of a Wormhole Galaxy on 2026-10-01 (`perf/bcw_slowmode/`,
+    hHSA + 150 at 768 in the offload memory mode), and it is a program-config limit rather than
+    a memory one. The first cut of this retry fired only where `bmm_program_config` had
+    DECLINED, on the reading that ttnn's own planner was the one at fault; the refusal came
+    back unchanged, because at this size the plan exists and is itself too wide. So the retry
+    now fires on the refusal alone, whoever planned the call.
 
     A row block of `A` times `B` IS the matching row block of `AB`: the rows of a product do
     not interact. So the output is cut into blocks of at most `BMM_OUT_TILES` tiles, each one a
