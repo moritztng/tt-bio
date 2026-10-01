@@ -230,18 +230,32 @@ def test_the_gated_move_refuses_a_row_block_under_a_tape(monkeypatch, taping):
     assert R.REJECTS.get(key, 0) == before.get(key, 0) + 1
 
 
-def test_nograd_counts_as_inference_only_when_armed(monkeypatch):
-    """`ops.taping()` under `no_grad`: True as before with the switch off, False with it on,
-    and a recording forward is taping either way."""
+def test_nograd_is_inference_only_when_armed(monkeypatch):
+    """`ops.recording()` under `no_grad`: True as before with the switch off, False with it on;
+    `taping()` is True in both; a recording forward records either way. A `fused_kernel` in an
+    unrecorded forward gets raw operands and runs with its tape gate lifted."""
     from tt_bio import autograd as ag, ops
+    seen = []
+
+    @ops.fused_kernel("test_probe_kernel")
+    def probe(x):
+        seen.append((type(x), ops.taping()))
+        return x
+
     prev = ops.set_grad_hook(ag._hook)
     try:
         for armed in (False, True):
             monkeypatch.setattr(ops, "NOGRAD_IS_INFERENCE", armed)
-            assert ops.taping()
+            assert ops.recording()
             with ag.no_grad():
-                assert ops.taping() is not armed
-            assert ops.taping()
+                assert ops.taping()
+                assert ops.recording() is not armed
+                seen.clear()
+                class Raw:
+                    pass
+                probe(ag.Tensor(Raw()))
+                assert seen == [(Raw if armed else ag.Tensor, not armed)]
+            assert ops.recording()
     finally:
         ops.set_grad_hook(prev)
-    assert not ops.taping()
+    assert not ops.taping() and not ops.recording()

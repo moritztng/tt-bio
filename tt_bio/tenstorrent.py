@@ -4921,7 +4921,7 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     # INFERENCE-ONLY. Declining here sends every such result to DRAM, which is also what the
     # tape would otherwise pay for twice -- keep it in L1 AND evict it to DRAM for the backward.
     from . import ops
-    if ops.taping():
+    if ops.recording():
         return False
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())

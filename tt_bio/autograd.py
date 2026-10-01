@@ -3020,8 +3020,10 @@ def _hook(name, shipped, args, kwargs):
         return impl(shipped, args, kwargs)
 
 
-# What `ops.taping()` asks under `NOGRAD_IS_INFERENCE`: a forward inside `no_grad` records nothing.
+# What `ops.recording()` asks under `NOGRAD_IS_INFERENCE`: a forward inside `no_grad` records
+# nothing. `raw` is how `ops.fused_kernel` hands such a forward's kernel its operands.
 _hook.recording = is_grad_enabled
+_hook.raw = lambda args, kwargs: _raw(args, kwargs)
 
 
 def _checkpoint_segment(fn, *inputs):
