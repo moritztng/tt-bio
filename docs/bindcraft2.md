@@ -139,6 +139,12 @@ four arms) against **5.899 s** at three (5.891-5.912), **1.221x**. AICLK was 135
 arm, sampled during the rounds, with no sample under 1200. Both figures are without the fused
 layer-norm backward; with it, three trajectories read **5.186 s** a round (5.169-5.210) against
 5.969 s with it off, six arms alternated in one sitting at AICLK 1350.
+Eleven further gradient kernels (listed under
+[BindCraft 2 round kernels](tuning-flags.md#bindcraft-2-round-kernels)) take it 1.27x lower again:
+4.50 against 5.70 s a round, six arms alternated in one sitting at AICLK 1350 on a host other
+campaigns held at load1 8 to 13, which slows both arms. A second sitting under the same load read
+4.56 against 5.77 s. No quiet-host reading of the full stack exists yet, so the headline above
+stays at 5.186 s until one does.
 
 Three is the cap because a fourth bought nothing: 6.976 s a round against three at 6.992 in the
 same sitting, with only 0.26 s of idle a round left to fill. How busy your host is moves the round

@@ -7,6 +7,17 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **A BindCraft 2 gradient round is 1.27x faster again on Blackhole.** Eleven kernels delete DRAM
+  round trips from the Evoformer's gradient: the triangle multiplication's gated move and its
+  backward, every sigmoid-gate gradient, triangle attention's bias and q/k/v gradient joins, the
+  pair transpose, multi-consumer gradient casts and the pair-track matmuls. With three trajectories
+  at 288 tokens on a p300c chip the round went from 5.70 to 4.50 s, arms alternated in
+  one sitting at AICLK 1350 on a shared host. Each kernel was graded alone against a float64
+  Evoformer VJP and moves no block gradient by more than 6e-4 rel L2, against a bf16 floor of 0.034
+  to 0.074. They serve only a BindCraft 2 round on Blackhole, each has an off switch, and a p300c
+  chip still completes every size from 192 to 864 tokens with them on. See
+  [docs/tuning-flags.md](docs/tuning-flags.md#bindcraft-2-round-kernels).
+
 - **A BindCraft 2 gradient round is 1.15x faster on Blackhole.** The layer-norm backward ran as
   about 22 ttnn calls, 14 of them full passes over the activation, 384 times a round at 288 tokens;
   it is now one kernel (`tt_bio/lnbw.py`) that reads the activation and the cotangent once. At the
