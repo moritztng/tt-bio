@@ -11,10 +11,3 @@
 === 2026-10-01T23:01:25Z START tag011 sitting 3 tree=8dbaa61b1
 === rc=0 2026-10-01T23:05:11Z END tag011 sitting 3
 === ROUND_P300C DONE 2026-10-01T23:05:11Z
-=== 2026-10-01T23:14:30Z START tree sitting 1 tree=9ac189a88
-=== rc=0 2026-10-01T23:17:03Z END tree sitting 1
-=== 2026-10-01T23:17:03Z START tag011 sitting 1 tree=8dbaa61b1
-=== rc=0 2026-10-01T23:20:41Z END tag011 sitting 1
-=== 2026-10-01T23:20:41Z START tree sitting 2 tree=9ac189a88
-=== rc=0 2026-10-01T23:23:13Z END tree sitting 2
-=== 2026-10-01T23:23:13Z START tag011 sitting 2 tree=8dbaa61b1

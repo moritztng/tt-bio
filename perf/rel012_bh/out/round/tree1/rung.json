@@ -1,5 +1,5 @@
 {
- "host": "tt-quietbox2",
+ "host": "pc",
  "card": "0",
  "target": "hPDL1",
  "target_residues": 115,
@@ -14,51 +14,68 @@
  "design_tokens": 288,
  "auto_before_open": {
   "count": 3,
-  "why": "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 201.7 GB of host memory free",
+  "why": "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 23.5 GB of host memory free",
   "tokens_asked": 288
  },
  "auto_would_choose": [
   3,
-  "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 201.7 GB of host memory free"
+  "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 23.5 GB of host memory free"
  ],
  "max_trajectories": 6,
  "validation": "device",
  "seed": 100,
- "commit": "8dbaa61b13ba2c1737804ad18c03adc55cef963c",
- "dirty": false,
- "compile_cache": "/home/ttuser/.coworker/wt/rel012-verify-bh/perf/rel012_bh/out/round_p300c/xlacache_tag011",
+ "commit": "5b1e60e344805c221ed2b0b84ef442fa70b54919",
+ "dirty": true,
+ "compile_cache": "/home/moritz/.coworker/wt/rel012-verify-bh/perf/rel012_bh/out/round/xlacache_tree",
  "pci": "0000:01:00.0",
  "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
- "nproc": 16,
+ "nproc": 12,
  "loadavg_start": [
-  8.6708984375,
-  8.46826171875,
-  8.4033203125
+  3.5556640625,
+  3.4306640625,
+  3.48828125
  ],
  "mem_start": {
-  "vmhwm": 531697664,
-  "vmrss": 531697664,
-  "mem_available": 216611274752
+  "vmhwm": 536969216,
+  "vmrss": 536969216,
+  "mem_available": 25166163968
  },
- "started_utc": "2026-10-01T23:17:05Z",
+ "started_utc": "2026-10-01T23:14:03Z",
  "fast": {
   "MM_LAYOUT": true,
   "TAPED_MOVE": true,
   "WIDEN_ADD": true,
   "QKV_GRAD_JOIN": true,
   "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
   "_TRIATT_FUSED_HIFI": true,
   "rne_kernel": true,
-  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "tri_att_g_in_matmul": true,
+  "rows_in_k": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose,triatt_qkv_heads",
   "SOFTMAX_BW_FP32": false
+ },
+ "memory_requested": "auto",
+ "memory_used": {
+  "288": "fast"
  },
  "auto_card_open": {
   "count": 3,
-  "why": "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 200.1 GB of host memory free",
+  "why": "3 of them at 288 tokens hold about 12 GB of the card and peak near 20 GB of the 23.1 GB of host memory free",
   "tokens_asked": 288
  },
- "wall_seconds": 213.57,
+ "wall_seconds": 133.76,
  "trajectories_returned": null,
+ "accepted": null,
  "error": "StopAfterRounds(30 rounds collected)",
  "traceback": null,
  "dram_total_bytes": 34225520128,
@@ -69,7 +86,7 @@
  ],
  "axis_matches_arithmetic": true,
  "auto_priced_axis_short_by": 0,
- "device_free_min": 30469357568,
+ "device_free_min": 21290795008,
  "rounds_done": 33,
  "rounds_per_slot": {
   "t1": 13,
@@ -80,302 +97,302 @@
   {
    "slot": "t1",
    "round": 1,
-   "seconds": 25.66,
-   "n": 22,
-   "aiclk_min": 1343,
+   "seconds": 14.926,
+   "n": 15,
+   "aiclk_min": 1350,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 9.0
+   "load1": 3.2
   },
   {
    "slot": "t1",
    "round": 2,
-   "seconds": 11.802,
+   "seconds": 8.283,
+   "n": 8,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.9
+  },
+  {
+   "slot": "t1",
+   "round": 3,
+   "seconds": 7.57,
+   "n": 7,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.7
+  },
+  {
+   "slot": "t1",
+   "round": 4,
+   "seconds": 11.977,
+   "n": 12,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.7
+  },
+  {
+   "slot": "t1",
+   "round": 5,
+   "seconds": 10.107,
+   "n": 10,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 2.6
+  },
+  {
+   "slot": "t1",
+   "round": 6,
+   "seconds": 10.797,
+   "n": 10,
+   "aiclk_min": 1343,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 3.0
+  },
+  {
+   "slot": "t1",
+   "round": 7,
+   "seconds": 10.94,
+   "n": 11,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 3.3
+  },
+  {
+   "slot": "t1",
+   "round": 8,
+   "seconds": 10.934,
+   "n": 10,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 3.3
+  },
+  {
+   "slot": "t1",
+   "round": 9,
+   "seconds": 10.703,
    "n": 11,
    "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 9.4
-  },
-  {
-   "slot": "t1",
-   "round": 3,
-   "seconds": 11.87,
-   "n": 12,
-   "aiclk_min": 1337,
-   "aiclk_med": 1350,
-   "aiclk_max": 1350,
-   "load1": 9.2
-  },
-  {
-   "slot": "t1",
-   "round": 4,
-   "seconds": 17.156,
-   "n": 16,
-   "aiclk_min": 1331,
-   "aiclk_med": 1350,
-   "aiclk_max": 1350,
-   "load1": 8.2
-  },
-  {
-   "slot": "t1",
-   "round": 5,
-   "seconds": 16.507,
-   "n": 16,
-   "aiclk_min": 1325,
-   "aiclk_med": 1350,
-   "aiclk_max": 1350,
-   "load1": 8.4
-  },
-  {
-   "slot": "t1",
-   "round": 6,
-   "seconds": 17.684,
-   "n": 17,
-   "aiclk_min": 1318,
-   "aiclk_med": 1350,
-   "aiclk_max": 1350,
-   "load1": 7.5
-  },
-  {
-   "slot": "t1",
-   "round": 7,
-   "seconds": 17.504,
-   "n": 17,
-   "aiclk_min": 1318,
-   "aiclk_med": 1350,
-   "aiclk_max": 1350,
-   "load1": 6.2
-  },
-  {
-   "slot": "t1",
-   "round": 8,
-   "seconds": 17.636,
-   "n": 17,
-   "aiclk_min": 1325,
-   "aiclk_med": 1343,
-   "aiclk_max": 1350,
-   "load1": 6.6
-  },
-  {
-   "slot": "t1",
-   "round": 9,
-   "seconds": 18.037,
-   "n": 18,
-   "aiclk_min": 1325,
-   "aiclk_med": 1350,
-   "aiclk_max": 1350,
-   "load1": 6.0
+   "load1": 3.4
   },
   {
    "slot": "t1",
    "round": 10,
-   "seconds": 17.702,
-   "n": 17,
-   "aiclk_min": 1325,
+   "seconds": 11.102,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.3
+   "load1": 3.3
   },
   {
    "slot": "t1",
    "round": 11,
-   "seconds": 17.524,
-   "n": 16,
-   "aiclk_min": 1318,
+   "seconds": 10.843,
+   "n": 11,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.8
+   "load1": 4.1
   },
   {
    "slot": "t1",
    "round": 12,
-   "seconds": 17.829,
-   "n": 17,
-   "aiclk_min": 1318,
+   "seconds": 10.736,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.8
+   "load1": 4.3
   },
   {
    "slot": "t2",
    "round": 1,
-   "seconds": 17.672,
-   "n": 18,
-   "aiclk_min": 1337,
+   "seconds": 11.541,
+   "n": 12,
+   "aiclk_min": 1350,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 9.2
+   "load1": 2.7
   },
   {
    "slot": "t2",
    "round": 2,
-   "seconds": 17.011,
-   "n": 16,
-   "aiclk_min": 1331,
+   "seconds": 11.892,
+   "n": 11,
+   "aiclk_min": 1350,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 8.2
+   "load1": 2.7
   },
   {
    "slot": "t2",
    "round": 3,
-   "seconds": 16.679,
-   "n": 16,
-   "aiclk_min": 1325,
+   "seconds": 10.278,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 8.4
+   "load1": 2.6
   },
   {
    "slot": "t2",
    "round": 4,
-   "seconds": 17.656,
-   "n": 17,
-   "aiclk_min": 1318,
+   "seconds": 10.739,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 7.5
+   "load1": 3.0
   },
   {
    "slot": "t2",
    "round": 5,
-   "seconds": 17.56,
-   "n": 17,
-   "aiclk_min": 1318,
+   "seconds": 11.001,
+   "n": 11,
+   "aiclk_min": 1350,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 6.2
+   "load1": 3.3
   },
   {
    "slot": "t2",
    "round": 6,
-   "seconds": 17.643,
-   "n": 17,
-   "aiclk_min": 1325,
-   "aiclk_med": 1343,
+   "seconds": 10.605,
+   "n": 10,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 6.6
+   "load1": 3.3
   },
   {
    "slot": "t2",
    "round": 7,
-   "seconds": 18.004,
-   "n": 17,
-   "aiclk_min": 1325,
+   "seconds": 10.809,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 6.0
+   "load1": 3.4
   },
   {
    "slot": "t2",
    "round": 8,
-   "seconds": 17.67,
-   "n": 18,
-   "aiclk_min": 1325,
+   "seconds": 10.925,
+   "n": 11,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.3
+   "load1": 3.3
   },
   {
    "slot": "t2",
    "round": 9,
-   "seconds": 17.554,
-   "n": 16,
-   "aiclk_min": 1318,
+   "seconds": 10.923,
+   "n": 11,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.8
+   "load1": 4.1
   },
   {
    "slot": "t2",
    "round": 10,
-   "seconds": 17.903,
-   "n": 17,
-   "aiclk_min": 1318,
+   "seconds": 10.804,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.8
+   "load1": 4.3
   },
   {
    "slot": "t3",
    "round": 1,
-   "seconds": 28.714,
-   "n": 28,
-   "aiclk_min": 1325,
+   "seconds": 16.023,
+   "n": 16,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 8.2
+   "load1": 2.6
   },
   {
    "slot": "t3",
    "round": 2,
-   "seconds": 17.637,
-   "n": 17,
-   "aiclk_min": 1318,
+   "seconds": 10.703,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 7.5
+   "load1": 3.0
   },
   {
    "slot": "t3",
    "round": 3,
-   "seconds": 17.561,
-   "n": 17,
-   "aiclk_min": 1318,
+   "seconds": 11.066,
+   "n": 11,
+   "aiclk_min": 1350,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 6.2
+   "load1": 3.3
   },
   {
    "slot": "t3",
    "round": 4,
-   "seconds": 17.602,
-   "n": 17,
-   "aiclk_min": 1325,
-   "aiclk_med": 1343,
+   "seconds": 10.706,
+   "n": 10,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 6.6
+   "load1": 3.3
   },
   {
    "slot": "t3",
    "round": 5,
-   "seconds": 18.057,
-   "n": 17,
-   "aiclk_min": 1325,
+   "seconds": 10.791,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 6.0
+   "load1": 3.4
   },
   {
    "slot": "t3",
    "round": 6,
-   "seconds": 17.597,
-   "n": 17,
-   "aiclk_min": 1325,
+   "seconds": 11.014,
+   "n": 11,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.3
+   "load1": 3.3
   },
   {
    "slot": "t3",
    "round": 7,
-   "seconds": 17.633,
-   "n": 17,
-   "aiclk_min": 1318,
+   "seconds": 10.833,
+   "n": 11,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.8
+   "load1": 4.1
   },
   {
    "slot": "t3",
    "round": 8,
-   "seconds": 17.909,
-   "n": 17,
-   "aiclk_min": 1318,
+   "seconds": 10.924,
+   "n": 10,
+   "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 5.8
+   "load1": 4.3
   }
  ],
  "levers": {
@@ -392,29 +409,31 @@
   "mm_layout": {
    "declined: has a program config": 37080,
    "declined: has a core grid": 8640,
-   "served": 20880,
-   "declined: not batched": 46080
+   "served": 16560,
+   "declined: not batched": 24480
   },
   "taped_channel_move": [
-   22680,
+   3240,
    18720,
-   16200,
+   9720,
    0
   ],
   "widen_add": {
-   "served: first": 23220,
-   "served: later": 6120
+   "served: round": 21720,
+   "served: first": 6180,
+   "served: later": 1440
   },
   "rne_add": [
    41580,
    360
   ],
   "qkv_grad_join": {
-   "served": 18360
+   "served": 8640
   },
   "triatt_bw": {
    "served": 3240,
    "declined": 0,
+   "packed": 3240,
    "bw_calls": 3240
   },
   "triatt_fused_hifi": {
@@ -425,11 +444,23 @@
    "padded": 0
   },
   "taped_kernels": {
+   "reblock_permute_gated": [
+    19440,
+    0
+   ],
    "rne_add": [
     41580,
     0
    ],
+   "triatt_qkv_heads": [
+    9360,
+    360
+   ],
    "tri_att_sdpa_hifi": [
+    9720,
+    0
+   ],
+   "pair_transpose": [
     9720,
     0
    ]
@@ -441,22 +472,22 @@
   "declined": 0
  },
  "aiclk_run": {
-  "n": 200,
-  "aiclk_min": 1318,
+  "n": 129,
+  "aiclk_min": 1343,
   "aiclk_med": 1350,
   "aiclk_max": 1350,
-  "load1": 7.2
+  "load1": 3.2
  },
  "node_probe_samples": 0,
  "mem_end": {
-  "vmhwm": 19805298688,
-  "vmrss": 15564918784,
-  "mem_available": 205024829440
+  "vmhwm": 19036434432,
+  "vmrss": 14805622784,
+  "mem_available": 10221686784
  },
  "loadavg_end": [
-  6.70751953125,
-  7.48974609375,
-  8.03857421875
+  4.32177734375,
+  3.55419921875,
+  3.50830078125
  ],
- "finished_utc": "2026-10-01T23:20:38Z"
+ "finished_utc": "2026-10-01T23:16:17Z"
 }
