@@ -1,0 +1,7 @@
+=== 2026-10-01T22:47:34Z START t768_auto2 tree=38e5a87fa binder=150 
+=== rc=1 2026-10-01T22:48:44Z END t768_auto2
+=== 2026-10-01T22:48:44Z START t832_auto2 tree=e548f285b binder=210 
+=== rc=1 2026-10-01T22:49:36Z END t832_auto2
+=== 2026-10-01T22:49:36Z START t768_lean tree=e548f285b binder=150 --memory lean
+=== rc=0 2026-10-01T22:51:57Z END t768_lean
+=== 2026-10-01T22:51:57Z START t768_offload tree=d6023785c binder=150 --memory offload
