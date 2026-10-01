@@ -549,10 +549,49 @@ arithmetic; it is there because this sum is one or two buckets low often enough 
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
 the board. At 864 it is 92 % with the largest free block down to 291 MB, so the next rung is a
 board question rather than a software one. On a Wormhole chip the top is 97 % of a card a third
-the size, and no software change moves it: padding the forward serves 544 and 608 there, and 544
-then refuses in the backward instead, where the L1 gate is a size gate rather than a divisor gate
-and a pad-up asks for more L1, not less. A smaller score budget does not move it either, 12.711 GB
+the size, and nothing that keeps the round's speed moves it: padding the forward serves 544 and
+608 there, and 544 then refuses in the backward instead, where the L1 gate is a size gate rather
+than a divisor gate and a pad-up asks for more L1, not less. Spending time does move it, which is
+what the memory modes below are. A smaller score budget does not move it either, 12.711 GB
 at 256 MB against 12.715 GB at 32 MB.
+
+### Large complexes: the memory modes
+
+A Wormhole chip's 512 tokens is the ceiling of the mode that runs fastest, not of the card. Two
+levers buy room by spending time, and `memory=` picks between them:
+
+| `memory=` | what it does | largest token axis on a Wormhole chip |
+|---|---|---|
+| `fast` | checkpoints each Evoformer, extra-MSA and template block | 512, measured |
+| `lean` | also checkpoints each residual step inside a block, so a block's backward holds one step's tape instead of nine; every block's forward runs once more a round | 704 estimated, 544 measured |
+| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | see below |
+| `auto` | the cheapest of the three that the fold fits in. **The default.** | |
+
+They are the same arithmetic on the same values: a `lean` gradient is bit-identical to an
+`offload` one, and both sit 0.0035 rel L2 from `fast` on top of the 0.0817 that separates `fast`
+from a float64 reference -- inside the 0.0668 that bf16 alone costs. What changes is what the card
+holds between the forward and the backward, not what it computes.
+
+You do not normally pass `memory=`. `auto` leaves every fold that runs today in `fast`, so nothing
+that works now gets slower, and reaches for a slower mode only where the faster one would refuse.
+It decides per token axis, prints which mode it chose, and a refusal names the next roomier mode
+and what it costs:
+
+```
+This fold ran in the 'lean' memory mode. The 'offload' mode should hold 768 tokens on this
+card, slower: ... Pass memory='offload', or leave memory='auto' and it is picked for you.
+```
+
+Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
+
+| token axis | mode | peak DRAM | one round |
+|---|---|---|---|
+| 512 | `fast` | 12.7 GB | 61 s |
+| 544 | `fast` | refuses, 12.70 GB held | |
+| 544 | `lean` | 7.527 GB | |
+
+A Blackhole p150a has the modes too and does not need them below 864 tokens; `auto` leaves it in
+`fast` all the way up.
 
 ### What a refusal looks like
 

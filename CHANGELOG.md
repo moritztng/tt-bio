@@ -5,6 +5,23 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+
+- **BindCraft 2 keeps going past a card's fast ceiling instead of refusing: `memory=`.** A
+  Wormhole Galaxy chip's 512 tokens was the ceiling of the mode that runs fastest, not of the
+  card. Two levers buy room by spending time -- `lean` checkpoints each residual step inside a
+  block as well as each block, so a block's backward holds one step's tape instead of nine, and
+  `offload` additionally keeps the pinned block inputs in host memory between the forward and the
+  backward. Both run the same ops on the same values: an `offload` gradient is bit-identical to a
+  `lean` one, and both sit 0.0035 rel L2 from `fast` on top of the 0.0817 that separates `fast`
+  from a float64 reference, inside the 0.0668 that bf16 alone costs. The default is
+  `memory='auto'`, which picks the cheapest mode the fold fits in, per token axis, and prints
+  which: every fold that runs today stays in `fast` and is unchanged. A refusal now names the
+  next roomier mode, what it costs and how to ask for it. Measured on one dev Wormhole Galaxy
+  chip at AICLK 1000 MHz: 544 tokens refuse in `fast` holding 12.70 GB, and complete in `lean` at
+  a 7.527 GB peak and 84.3 s a round against 61.3 s for the 512 tokens `fast` does carry. See
+  [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
+
 ### Changed
 
 - **A BindCraft 2 gradient round is 1.15x faster on Blackhole.** The layer-norm backward ran as
