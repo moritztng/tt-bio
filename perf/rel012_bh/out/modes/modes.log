@@ -15,3 +15,7 @@
 === 2026-10-01T22:57:39Z START g832_tag tree=8dbaa61b1 binder=210 
 === rc=0 2026-10-01T23:03:25Z END g832_tag
 === 2026-10-01T23:03:25Z START t864_offload tree=a559cfec1 binder=240 --memory offload
+=== rc=137 2026-10-01T23:03:54Z END t864_offload
+=== 2026-10-01T23:03:54Z START g864_tag tree=8dbaa61b1 binder=240 
+=== rc=0 2026-10-01T23:09:52Z END g864_tag
+=== MODES DONE 2026-10-01T23:09:52Z
