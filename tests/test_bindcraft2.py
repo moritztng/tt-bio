@@ -1759,3 +1759,83 @@ def test_a_run_that_never_reached_the_arm_is_silent(monkeypatch, capsys):
     splice = _splice_without_a_card()
     splice._note_if_the_fused_arm_declined(288, (0, 0))
     assert capsys.readouterr().err == ""
+
+
+# --- the memory modes -------------------------------------------------------------------
+#
+# `memory='auto'` is a DEFAULT, so the first thing these pin is the thing a user would never
+# forgive: that nothing which runs today starts running differently. The rest pin the one
+# actionable sentence a refusal gives and the direction the retry ladder may move in.
+
+def test_auto_leaves_every_size_that_runs_today_in_the_fast_mode():
+    """The modes buy room by spending time, so a fold that already fits must not pay.
+
+    Both boards, every bucket up to the measured ceiling: `auto` has to answer `fast`. A single
+    bucket answering `lean` here would make every campaign on that board slower for nothing, and
+    it is the kind of regression a footprint ladder never catches because the fold still runs.
+    """
+    for card, cap in ((bindcraft2.WH_GALAXY_DRAM_BYTES, bindcraft2.MEASURED_MAX_TOKENS_WH_GALAXY),
+                      (bindcraft2.P150A_DRAM_BYTES, bindcraft2.MEASURED_MAX_TOKENS_P150A)):
+        for padded in range(bindcraft2.TOKEN_BUCKET, cap + 1, bindcraft2.TOKEN_BUCKET):
+            assert bindcraft2.memory_mode("auto", padded, card) == "fast", (padded, card)
+
+
+def test_auto_takes_the_cheapest_mode_that_fits_and_never_skips_one():
+    """Above the fast ceiling `auto` steps one mode at a time, not straight to the slowest."""
+    card = bindcraft2.WH_GALAXY_DRAM_BYTES
+    caps = {m: bindcraft2.max_tokens(m, card) for m in bindcraft2.MEMORY_MODES}
+    assert caps["fast"] < caps["lean"] < caps["offload"], caps
+    assert bindcraft2.memory_mode("auto", caps["fast"] + bindcraft2.TOKEN_BUCKET, card) == "lean"
+    assert bindcraft2.memory_mode("auto", caps["lean"] + bindcraft2.TOKEN_BUCKET, card) == "offload"
+    # Too big for every mode: the leanest one still runs, so the user gets the allocator's own
+    # numbers at the size they asked for rather than a guess from a table.
+    assert bindcraft2.memory_mode("auto", caps["offload"] * 2, card) == "offload"
+
+
+def test_an_unknown_memory_mode_is_refused_by_name():
+    with pytest.raises(ValueError) as caught:
+        bindcraft2.memory_mode("cheap", 512, bindcraft2.WH_GALAXY_DRAM_BYTES)
+    assert "cheap" in str(caught.value) and "auto" in str(caught.value)
+
+
+def test_a_refusal_in_a_lean_mode_does_not_send_the_user_below_what_lean_already_clears():
+    """The measured board rows are FAST-mode ladders, and a lean fold is already past them.
+
+    A Wormhole chip's row says 512. A `lean` fold that refuses is running a size `fast` could
+    never reach, so capping its way down at 512 would tell that user to drop below a size they
+    have already completed -- 544 runs in `lean`, measured, at a 7.527 GB peak.
+    """
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=700, padded=736, mode="lean"))
+    assert "512 tokens" not in msg
+    assert str(bindcraft2.max_tokens("lean", bindcraft2.WH_GALAXY_DRAM_BYTES)) in msg
+
+
+def test_a_refusal_names_the_roomier_mode_and_how_to_reach_it():
+    """A refusal that does not mention the escape hatch is a user who crops their target."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=520, padded=544, mode="fast"))
+    assert "'lean'" in msg
+    assert "memory='auto'" in msg and "memory='lean'" in msg
+    assert "docs/bindcraft2.md" in msg
+
+
+def test_the_k_block_ladder_only_ever_narrows_what_the_plan_already_chose():
+    """The L1 retry must start at today's width, so a call that fits is never re-planned.
+
+    `bmm_k_blocks` is the ladder `_bmm_narrower_k` walks, and it skips its own first entry. If
+    that first entry were not exactly what `bmm_program_config` picks, the retry would either
+    re-try the width that just refused or quietly skip a width that fits.
+    """
+    from tt_bio import autograd as ag
+
+    class _Shape:
+        def __init__(self, shape):
+            self.shape = shape
+
+    for k, expected_first in ((768, 8), (128, 4), (256, 8), (32, 1), (96, 3)):
+        widths = ag.bmm_k_blocks(_Shape([2, 8, 768, k]), _Shape([2, 8, k, 32]))
+        kt = -(-k // 32)
+        assert widths[0] == expected_first, (k, widths)
+        assert widths == sorted(widths, reverse=True), (k, widths)
+        assert all(kt % w == 0 for w in widths), (k, widths)
