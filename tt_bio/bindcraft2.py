@@ -137,11 +137,12 @@ MEMORY_MODES = ("fast", "lean", "offload")
 #: Wormhole and Blackhole ladders fit to 0.01-0.03 GB (`state/bcw/MEMORY.md`).
 #: `lean` is fitted to a measured round: 544 tokens peaked at 7.527 GB on a Wormhole Galaxy
 #: chip, which is 90 pair tensors, not the 95 the census projected.
-#: `offload` is still the census estimate. The 768-token offload round reached 5.685 GB before
-#: a separate L1 limit stopped it in the backward, so 33 is all that has been SEEN and the
-#: true peak is above it; the estimate stands until a round completes at that size.
+#: `offload` is fitted to the 800-token round that COMPLETED: 8.952 GB is 50 pair tensors. The
+#: earlier 768 figure (5.685 GB, 33 tensors) was what the round had reached when a separate L1
+#: limit stopped it in the backward, so it was a floor and not a peak -- a refused round cannot
+#: calibrate a mode, and this constant is what `auto` decides on.
 _MODE_BASE_BYTES = 0.71e9
-_MODE_PAIR_TENSORS = {"fast": 161, "lean": 90, "offload": 40}
+_MODE_PAIR_TENSORS = {"fast": 161, "lean": 90, "offload": 50}
 #: The share of a card's DRAM a round can actually hold. A Wormhole Galaxy chip refused 544
 #: tokens with a 12.701 GB resident frontier on 12.885 GB: past ~98 % the next pair-sized
 #: buffer finds no contiguous room.
