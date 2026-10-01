@@ -39,6 +39,8 @@ _BLOCK = {
 
 #: (calls served, calls declined), cumulative; sample at a round boundary.
 STATS = [0, 0]
+#: Declines by (rows, K, N, transpose_b, why), for finding the next shape worth sweeping.
+DECLINED: dict = {}
 _WT: dict = {}
 
 
@@ -73,17 +75,29 @@ def config(x, w, transpose_b: bool = False):
         compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
 
 
+def _decline(x, w, transpose_b, why):
+    STATS[1] += 1
+    try:
+        rows = 1
+        for d in [int(d) for d in x.shape][:-1]:
+            rows *= d
+        key = (rows, int(x.shape[-1]), int(w.shape[0 if transpose_b else -1]), transpose_b, why)
+    except Exception:
+        key = ("?", why)
+    DECLINED[key] = DECLINED.get(key, 0) + 1
+
+
 def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b: bool = False,
            memory_config=None):
     """``x @ op(w) (+ bias)`` on minimal_matmul, DRAM out, or None to leave the call alone."""
     if not PAIR_MM_FUSED:
         return None
     if memory_config is not None and memory_config.buffer_type != ttnn.BufferType.DRAM:
-        STATS[1] += 1
+        _decline(x, w, transpose_b, "l1_out")
         return None
     cfg = config(x, w, transpose_b)
     if cfg is None:
-        STATS[1] += 1
+        _decline(x, w, transpose_b, "class")
         return None
     try:
         out = ttnn.experimental.minimal_matmul(
@@ -91,7 +105,7 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
             bias_tensor=bias, compute_kernel_config=compute_kernel_config,
             dtype=dtype, config=cfg)
     except Exception:
-        STATS[1] += 1
+        _decline(x, w, transpose_b, "refused")
         return None
     STATS[0] += 1
     return out

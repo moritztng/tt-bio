@@ -68,5 +68,6 @@ with bindcraft2.fast_round():
               f"fanin_cast {({k: v - x0[1].get(k, 0) for k, v in AG.FANIN_CAST_STATS.items()})} "
               f"pair_transpose {[x - y for x, y in zip(PT.STATS, x0[2])]} "
               f"slab {({k: v - x0[3].get(k, 0) for k, v in AG.SLAB_STATS.items()})} "
-              f"pair_mm {[x - y for x, y in zip(PM.STATS, m0)]}",
+              f"pair_mm {[x - y for x, y in zip(PM.STATS, m0)]} "
+              f"declined {sorted(PM.DECLINED.items(), key=lambda kv: -kv[1])[:12]}",
               flush=True)
