@@ -163,17 +163,68 @@ def memory_mode(requested: str, padded: int, card_bytes: int) -> str:
             raise ValueError(f"memory={requested!r}: expected 'auto' or one of {MEMORY_MODES}")
         return requested
     for mode in MEMORY_MODES:
-        if round_device_bytes(mode, padded) <= card_bytes * _MODE_USABLE:
+        if padded <= max_tokens(mode, card_bytes):
             return mode
     return MEMORY_MODES[-1]
 
 
+#: Per board and mode, the ladder that was actually run: the largest token axis measured to
+#: COMPLETE a gradient round, and the smallest measured to REFUSE. Both halves are needed,
+#: because only the pair brackets a ceiling. A completing axis on its own is a FLOOR on what the
+#: mode holds, and the memory law alone is an estimate that can sit either side of the truth.
+#:
+#: The `offload` row is why this table exists. The law puts `offload` near 960 tokens on a
+#: Wormhole Galaxy chip, and 928 was measured to refuse: it peaked at 11.197 GB with 1.687 GB
+#: free and was then refused an 882 MB buffer, because the largest free block was 70 MB. The law
+#: tracks the PEAK to within 0.07 GB across 768/800/832/864/896 -- what it cannot see is
+#: fragmentation, and that is what ends the mode. So the law overshot by two buckets, in the one
+#: sentence of a refusal the user acts on. Measured on dev .107 card 30, 2026-10-01, chain `wh7`.
+_MEASURED_MODE_LADDERS = {
+    "Wormhole Galaxy chip": {
+        # mode: (largest axis measured to complete, smallest measured to refuse or None)
+        "fast": (512, 544),
+        "lean": (544, 768),
+        "offload": (896, 928),
+    },
+}
+
+
+def mode_ceiling(mode: str, card_bytes: int):
+    """``(tokens, measured)``: the largest axis to offer for `mode` on this card, and whether a
+    fold of that size has actually completed one.
+
+    Three cases, and the difference between them is what the refusal is allowed to claim:
+
+    * the ladder bracketed the ceiling on ADJACENT buckets -- 896 completes, 928 refuses -- so
+      the ceiling IS 896 and it is measured;
+    * the ladder found a refusal further up, with a gap nobody ran. `lean` completes at 544 and
+      refuses at 768, so the ceiling is somewhere in 544-736: the law's estimate is the best
+      number inside that bracket, and 736 is the most that may be claimed whatever it says;
+    * no ladder for this board and mode, so the law's estimate stands on its own.
+    """
+    law = TOKEN_BUCKET
+    while round_device_bytes(mode, law + TOKEN_BUCKET) <= card_bytes * _MODE_USABLE:
+        law += TOKEN_BUCKET
+    board = _measured_board(card_bytes)
+    rung = _MEASURED_MODE_LADDERS.get(board[2], {}).get(mode) if board else None
+    if rung is None:
+        return law, False
+    completes, refuses = rung
+    if refuses is None:
+        return max(law, completes), law <= completes
+    if refuses == completes + TOKEN_BUCKET:
+        return completes, True
+    return min(law, refuses - TOKEN_BUCKET), False
+
+
 def max_tokens(mode: str, card_bytes: int) -> int:
-    """The largest 32-token bucket `mode` fits on a card of `card_bytes`."""
-    n = TOKEN_BUCKET
-    while round_device_bytes(mode, n + TOKEN_BUCKET) <= card_bytes * _MODE_USABLE:
-        n += TOKEN_BUCKET
-    return n
+    """The largest token axis to offer for `mode` on a card of `card_bytes`.
+
+    Capped by a measured refusal where the ladder found one: the law is fitted to peak bytes and
+    is blind to the fragmentation that actually stops `offload`, so where the two disagree the
+    card's own answer wins.
+    """
+    return mode_ceiling(mode, card_bytes)[0]
 
 
 #: tt-metal's allocator refusal, which carries every number a user needs and is buried under
@@ -278,9 +329,11 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
     # the largest axis anyone has actually completed is 800. Calling the estimate "measured" in
     # a refusal would have the message overstate exactly the number the user is about to act on.
     cap_measured = True
+    cap_mode = None
     if mode != MEMORY_MODES[0]:
-        if max_tokens(mode, card_total) > cap:
-            cap, cap_measured = max_tokens(mode, card_total), False
+        mode_cap, mode_cap_measured = mode_ceiling(mode, card_total)
+        if mode_cap > cap:
+            cap, cap_measured, cap_mode = mode_cap, mode_cap_measured, mode
     # A card nobody laddered and smaller than a p150a has no ceiling to compare against, so
     # a refusal there is always read as the size.
     unmeasured_smaller = board is None and card_total < P150A_DRAM_BYTES
@@ -314,19 +367,26 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
                   f"hold {padded} tokens on this card, slower: {_MODE_COST[roomier[0]]}. Pass "
                   f"memory={roomier[0]!r}, or leave memory='auto' and it is picked for you "
                   f"(docs/bindcraft2.md, 'Large complexes'). ")
-    elif mode != MEMORY_MODES[-1]:
-        escape = (f"Even the slowest memory mode, 'offload', tops out near "
-                  f"{max_tokens('offload', card_total)} tokens on this card. ")
     else:
-        escape = (f"This fold already ran in the slowest memory mode, 'offload', which tops out "
-                  f"near {max_tokens('offload', card_total)} tokens on this card. ")
+        last_top, last_measured = mode_ceiling(MEMORY_MODES[-1], card_total)
+        # "tops out NEAR 960" and "tops out AT 896" are different promises, and the user trims to
+        # whichever number is in the sentence.
+        tops = (f"tops out at {last_top} tokens on this card, the largest axis measured to "
+                f"complete a gradient round in it" if last_measured else
+                f"tops out near {last_top} tokens on this card")
+        if mode != MEMORY_MODES[-1]:
+            escape = f"Even the slowest memory mode, 'offload', {tops}. "
+        else:
+            escape = f"This fold already ran in the slowest memory mode, 'offload', which {tops}. "
 
     how_cap = ("the largest axis measured to complete a gradient round is" if cap_measured
                else "this mode should hold about")
     if padded > cap or unmeasured_smaller:
         reference = (
             (f"The largest axis measured to complete a gradient round on one {board_name} "
-             f"({_gb(board[0])}) is {cap} tokens."
+             f"({_gb(board[0])})"
+             + (f" in the {cap_mode!r} mode" if cap_mode else "")
+             + f" is {cap} tokens."
              if cap_measured else
              f"About {cap} tokens is what one {board_name} ({_gb(board[0])}) should hold in the "
              f"{mode!r} mode -- estimated from the memory folds in this mode were measured to "
