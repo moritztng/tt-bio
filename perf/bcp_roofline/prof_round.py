@@ -38,14 +38,11 @@ def _drain():
 
 
 def _close_on_seam_thread():
-    """Write the device log by closing the device on the thread that opened it.
+    """Stop after the last profiled seam: close the device and end the run there.
 
-    The profiler's device CSV is written at close, and qb2 aborts (exit 134) when the device is
-    torn down at interpreter exit from a thread other than the one that opened it -- which is
-    always the case here, because BindCraft 2's device seams run on XLA:CPU's pool threads. A
-    synchronize or a profiler read from the main thread aborts the same way. So the close happens
-    inside the last profiled seam, after its readback, and the round meter's stop at the next
-    round entry ends the run before anything else reaches the card.
+    The per-seam drains have already written the device data by now. The close itself still
+    aborts on qb2 (exit 134, from this thread as from the main one), which is harmless: it only
+    cuts the run short after the last round that was wanted.
     """
     from tt_bio import tenstorrent
     tenstorrent.cleanup()

@@ -1,0 +1,322 @@
+{
+ "rows": [
+  {
+   "name": "MatmulDeviceOperation",
+   "calls": 7056.0,
+   "kernel_s": 1.0085828032499942,
+   "dram_gb": 201.123690496,
+   "l1_gb": 0.0,
+   "tflop": 23.677545480192,
+   "gbs": 199.41217503204655,
+   "floor_s": 0.45472233890119823
+  },
+  {
+   "name": "BinaryNg:MUL",
+   "calls": 9893.0,
+   "kernel_s": 0.9924158482500095,
+   "dram_gb": 362.936788992,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 365.710392102252,
+   "floor_s": 0.8205670110603662
+  },
+  {
+   "name": "MinimalMatmulDeviceOperation",
+   "calls": 963.0,
+   "kernel_s": 0.2872671109999998,
+   "dram_gb": 74.134380544,
+   "l1_gb": 0.0,
+   "tflop": 6.822631047168,
+   "gbs": 258.0677623899662,
+   "floor_s": 0.16761107968347275
+  },
+  {
+   "name": "Generic:triatt_bw.cpp",
+   "calls": 105.0,
+   "kernel_s": 0.27907432475,
+   "dram_gb": 26.96343552,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 96.61739948364777,
+   "floor_s": 0.06096187094732082
+  },
+  {
+   "name": "Generic:compute_rne_add.cpp",
+   "calls": 2340.0,
+   "kernel_s": 0.2777202235000001,
+   "dram_gb": 140.306743296,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 505.20895283666647,
+   "floor_s": 0.3172207625955234
+  },
+  {
+   "name": "Generic:compute_reblock_permute.cpp",
+   "calls": 1278.0,
+   "kernel_s": 0.26021727175000003,
+   "dram_gb": 106.762862592,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 410.2835368075447,
+   "floor_s": 0.24138110466199414
+  },
+  {
+   "name": "PermuteDeviceOperation",
+   "calls": 1264.0,
+   "kernel_s": 0.23750063775000002,
+   "dram_gb": 34.686527488,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 146.04814461387693,
+   "floor_s": 0.07842307820031653
+  },
+  {
+   "name": "BinaryNg:SUB",
+   "calls": 2062.75,
+   "kernel_s": 0.19871435549999975,
+   "dram_gb": 68.565712896,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 345.0466008028297,
+   "floor_s": 0.15502082951842638
+  },
+  {
+   "name": "SliceDeviceOperation",
+   "calls": 1871.0,
+   "kernel_s": 0.18315672325000018,
+   "dram_gb": 54.082142208,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 295.27795239151806,
+   "floor_s": 0.12227479585801491
+  },
+  {
+   "name": "LayerNormDeviceOperation",
+   "calls": 1843.5,
+   "kernel_s": 0.17117744174999963,
+   "dram_gb": 54.662926336,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 319.33487133096565,
+   "floor_s": 0.1235878958534931
+  },
+  {
+   "name": "ReduceDeviceOperation",
+   "calls": 2729.0,
+   "kernel_s": 0.16137388050000004,
+   "dram_gb": 55.270977536,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 342.5026241219996,
+   "floor_s": 0.12496264421433415
+  },
+  {
+   "name": "BinaryNg:ADD",
+   "calls": 2125.0,
+   "kernel_s": 0.1562562202500002,
+   "dram_gb": 38.926745088,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 249.12125114584006,
+   "floor_s": 0.08800982384806691
+  },
+  {
+   "name": "UnaryDeviceOperation",
+   "calls": 1639.5,
+   "kernel_s": 0.14864468125000002,
+   "dram_gb": 40.604073984,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 273.16197015962854,
+   "floor_s": 0.0918021116527244
+  },
+  {
+   "name": "NlpCreateHeadsDeviceOperation",
+   "calls": 609.0,
+   "kernel_s": 0.1227164992500001,
+   "dram_gb": 45.22770432,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 368.554388337475,
+   "floor_s": 0.10225571856206195
+  },
+  {
+   "name": "Generic:sdpa.cpp",
+   "calls": 321.0,
+   "kernel_s": 0.10092835550000008,
+   "dram_gb": 41.109037056,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 407.3090941821594,
+   "floor_s": 0.09294378714899389
+  },
+  {
+   "name": "TilizeDeviceOperation",
+   "calls": 846.0,
+   "kernel_s": 0.09474714450000027,
+   "dram_gb": 19.624624128,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 207.12628577423718,
+   "floor_s": 0.04436948706307936
+  },
+  {
+   "name": "BinaryNg:DIV",
+   "calls": 2718.0,
+   "kernel_s": 0.0914374794999995,
+   "dram_gb": 27.85148928,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 304.59598659431714,
+   "floor_s": 0.06296967958399276
+  },
+  {
+   "name": "TransposeDeviceOperation",
+   "calls": 2633.0,
+   "kernel_s": 0.09003084850000001,
+   "dram_gb": 32.512323584,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 361.1242604694545,
+   "floor_s": 0.07350740127515261
+  },
+  {
+   "name": "TypecastDeviceOperation",
+   "calls": 1574.75,
+   "kernel_s": 0.08879116125,
+   "dram_gb": 37.120475136,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 418.0649809442604,
+   "floor_s": 0.08392601206420981
+  },
+  {
+   "name": "ConcatDeviceOperation",
+   "calls": 405.0,
+   "kernel_s": 0.08601460150000004,
+   "dram_gb": 32.537051136,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 378.2735787713902,
+   "floor_s": 0.07356330801718292
+  },
+  {
+   "name": "NLPConcatHeadsDeviceOperation",
+   "calls": 1201.0,
+   "kernel_s": 0.08433348500000006,
+   "dram_gb": 29.429858304,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 348.97002423177435,
+   "floor_s": 0.06653822813475016
+  },
+  {
+   "name": "UntilizeDeviceOperation",
+   "calls": 846.0,
+   "kernel_s": 0.06756665275000011,
+   "dram_gb": 19.624624128,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 290.44836956200953,
+   "floor_s": 0.04436948706307936
+  },
+  {
+   "name": "BinaryNg:RSUB",
+   "calls": 516.0,
+   "kernel_s": 0.04647554974999987,
+   "dram_gb": 18.062770176,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 388.6510277589573,
+   "floor_s": 0.04083827758534931
+  },
+  {
+   "name": "UnaryNgDeviceOperation",
+   "calls": 201.5,
+   "kernel_s": 0.04495870875,
+   "dram_gb": 17.68587264,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 393.38035125397147,
+   "floor_s": 0.03998614659733213
+  },
+  {
+   "name": "ReshapeViewDeviceOperation",
+   "calls": 1010.0,
+   "kernel_s": 0.027292860000000026,
+   "dram_gb": 3.168534528,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 116.09389884387333,
+   "floor_s": 0.007163767867962921
+  },
+  {
+   "name": "FillPadDeviceOperation",
+   "calls": 576.0,
+   "kernel_s": 0.026146015999999987,
+   "dram_gb": 2.898395136,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 110.85417893112287,
+   "floor_s": 0.006553007316301153
+  },
+  {
+   "name": "SoftmaxDeviceOperation",
+   "calls": 288.0,
+   "kernel_s": 0.01758953074999997,
+   "dram_gb": 2.887778304,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 164.1759717779853,
+   "floor_s": 0.006529003626497851
+  },
+  {
+   "name": "UntilizeWithUnpaddingDeviceOperation",
+   "calls": 6.0,
+   "kernel_s": 0.005051430500000001,
+   "dram_gb": 0.191102976,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 37.83145704964168,
+   "floor_s": 0.0004320664164594167
+  },
+  {
+   "name": "TilizeWithValPaddingDeviceOperation",
+   "calls": 3.0,
+   "kernel_s": 0.0018844575,
+   "dram_gb": 0.127401984,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 67.60671652186372,
+   "floor_s": 0.0002880442776396111
+  },
+  {
+   "name": "FastReduceNCDeviceOperation",
+   "calls": 48.0,
+   "kernel_s": 0.0004909985,
+   "dram_gb": 0.191102976,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 389.21295278906143,
+   "floor_s": 0.0004320664164594167
+  },
+  {
+   "name": "CloneOperation",
+   "calls": 3.0,
+   "kernel_s": 0.00032220249999999996,
+   "dram_gb": 0.127401984,
+   "l1_gb": 0.0,
+   "tflop": 0.0,
+   "gbs": 395.40966938493654,
+   "floor_s": 0.0002880442776396111
+  }
+ ],
+ "total": {
+  "kernel": 5.358879504750004,
+  "calls": 48975.0,
+  "dram": 1589404554752.0,
+  "l1": 0.0,
+  "flops": 30500176527360.0
+ },
+ "unmatched": 0
+}

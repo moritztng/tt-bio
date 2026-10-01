@@ -1,0 +1,8 @@
+evoformer:backward   n= 5 wall 3.356 enqueue 3.192 blocked 0.162 readbacks 3
+evoformer:taped      n=10 wall 0.846 enqueue 0.672 blocked 0.176 readbacks 3
+extra_msa:backward   n= 5 wall 0.272 enqueue 0.055 blocked 0.218 readbacks 2
+extra_msa:taped      n=10 wall 0.093 enqueue 0.034 blocked 0.059 readbacks 2
+template:backward    n= 5 wall 0.116 enqueue 0.026 blocked 0.092 readbacks 2
+template:taped       n=10 wall 0.032 enqueue 0.016 blocked 0.017 readbacks 2
+per warm round (5): seam wall 6.021 s, enqueue 5.047 s
+AICLK during warm rounds: med 1350 min 1312 n 35
