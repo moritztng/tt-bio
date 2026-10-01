@@ -272,8 +272,15 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
     # the fast ceiling -- 544 tokens run in `lean` on a chip whose measured row says 512 -- so
     # quoting the row would tell that user to drop to a size they are already above. A leaner
     # mode's ceiling is its own, and never below the measured row's.
+    # Whether `cap` is still a MEASURED number. A mode's own ceiling comes from the memory law
+    # fitted to the folds that mode was measured on, which is not the same thing as a fold of
+    # that size having been run: on a Wormhole Galaxy chip the law puts `offload` near 960 and
+    # the largest axis anyone has actually completed is 800. Calling the estimate "measured" in
+    # a refusal would have the message overstate exactly the number the user is about to act on.
+    cap_measured = True
     if mode != MEMORY_MODES[0]:
-        cap = max(cap, max_tokens(mode, card_total))
+        if max_tokens(mode, card_total) > cap:
+            cap, cap_measured = max_tokens(mode, card_total), False
     # A card nobody laddered and smaller than a p150a has no ceiling to compare against, so
     # a refusal there is always read as the size.
     unmeasured_smaller = board is None and card_total < P150A_DRAM_BYTES
@@ -314,10 +321,16 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
         escape = (f"This fold already ran in the slowest memory mode, 'offload', which tops out "
                   f"near {max_tokens('offload', card_total)} tokens on this card. ")
 
+    how_cap = ("the largest axis measured to complete a gradient round is" if cap_measured
+               else "this mode should hold about")
     if padded > cap or unmeasured_smaller:
         reference = (
-            f"The largest axis measured to complete a gradient round on one {board_name} "
-            f"({_gb(board[0])}) is {cap} tokens."
+            (f"The largest axis measured to complete a gradient round on one {board_name} "
+             f"({_gb(board[0])}) is {cap} tokens."
+             if cap_measured else
+             f"About {cap} tokens is what one {board_name} ({_gb(board[0])}) should hold in the "
+             f"{mode!r} mode -- estimated from the memory folds in this mode were measured to "
+             f"use, rather than a fold of that size anyone has run.")
             if board else
             f"This card has {_gb(card_total)}, less than the {_gb(P150A_DRAM_BYTES)} of the "
             f"p150a where {MEASURED_MAX_TOKENS_P150A} tokens is the largest axis measured to "
@@ -331,8 +344,8 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
             f"one.")
     else:
         action = (
-            f"What to do: {padded} tokens fits on a {board_name} with the card to itself (the "
-            f"largest axis measured to complete a gradient round is {cap}), so something else "
+            f"What to do: {padded} tokens fits on a {board_name} with the card to itself "
+            f"({how_cap} {cap}), so something else "
             f"is holding this card. Interleaved trajectories are the usual cause: pass "
             f"trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise "
             f"{way_down}.")

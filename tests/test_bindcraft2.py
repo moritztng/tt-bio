@@ -1811,6 +1811,31 @@ def test_a_refusal_in_a_lean_mode_does_not_send_the_user_below_what_lean_already
     assert str(bindcraft2.max_tokens("lean", bindcraft2.WH_GALAXY_DRAM_BYTES)) in msg
 
 
+def test_a_mode_ceiling_is_offered_as_an_estimate_and_not_as_a_measured_fold():
+    """The number a refusal sends the user to must not claim more evidence than it has.
+
+    A board's measured row is a FAST-mode ladder of folds that were actually run. A leaner
+    mode's ceiling is not: it comes from the memory law fitted to that mode's measured folds,
+    and on a Wormhole Galaxy chip it puts `offload` near 960 while the largest axis anyone has
+    completed is 800. Both numbers belong in a refusal -- they are the best guidance there is --
+    but calling the estimate "measured" would overstate exactly the figure the user is about to
+    resize their job around, and a researcher who trims to 960 and refuses again has been sent
+    to a second failure by the message that was meant to rescue the first.
+    """
+    fast = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                              phase="backward", n=520, padded=544, mode="fast"))
+    assert "largest axis measured" in fast, "a measured board row is still quoted as measured"
+
+    for mode, padded in (("lean", 736), ("offload", 992)):
+        msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                                 phase="backward", n=padded - 20, padded=padded,
+                                                 mode=mode))
+        ceiling = bindcraft2.max_tokens(mode, bindcraft2.WH_GALAXY_DRAM_BYTES)
+        assert f"{ceiling} tokens" in msg, (mode, msg)
+        assert f"measured to complete a gradient round on one" not in msg, (mode, msg)
+        assert "estimated" in msg, (mode, msg)
+
+
 def test_a_refusal_names_the_roomier_mode_and_how_to_reach_it():
     """A refusal that does not mention the escape hatch is a user who crops their target."""
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
