@@ -13,6 +13,7 @@ from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodTyp
 
 from . import ops
 from . import reblock_permute as _reblock
+from . import inproj_gated as _inproj_gated
 from . import triatt_qkv as _triatt_qkv
 from . import pair_transpose as _pair_tr
 from . import triatt_sdpa as _triatt_sdpa
@@ -7840,8 +7841,12 @@ class TriangleMultiplication(Module):
     def _transform_chunk_gated(
         self, gp: ttnn.Tensor, gate: tuple[int, int, int], permute_dims: tuple[int, ...],
         memory_config: ttnn.MemoryConfig, realloc: bool, defer_transpose: bool = False,
+        ig: tuple | None = None,
     ) -> ttnn.Tensor:
         """`_transform_chunk` when the gate rides along inside the channel move.
+
+        With `ig` (`_inproj_gated_operands`) the move's input is the LN'd pair itself and the
+        projection happens inside the kernel; `gp` is then None.
 
         The fused projection is never split and never gated in DRAM: the move's reader takes the
         value and gate slices in place and its compute kernel applies the sigmoid and the multiply
@@ -7857,13 +7862,47 @@ class TriangleMultiplication(Module):
             ops.append((ttnn.transpose, -2, -1))
         if realloc:
             ops.append((ttnn.reallocate,))
-        chunk = _reblock.reblock_permute_gated(gp, *gate, memory_config=memory_config)
+        if ig is not None:
+            chunk = _inproj_gated.inproj_gated(*ig, *gate, memory_config=memory_config)
+        else:
+            chunk = _reblock.reblock_permute_gated(gp, *gate, memory_config=memory_config)
         old = chunk
         for op, *args in ops:
             chunk = op(chunk, *args, memory_config=memory_config)
             ttnn.deallocate(old)
             old = chunk
         return chunk
+
+    def _inproj_gated_operands(self, x, w, bias, memory_config, mask, mask_moved_ok, other_loop):
+        """``(x, wt, ones)`` for `inproj_gated`, or None where the two-op path has to run.
+
+        The window is the gated move's own, narrowed to one channel group over the whole pair,
+        untaped. The transposed weights are built once per weight buffer from the device copy.
+        """
+        from . import ops
+        if not (_inproj_gated.INPROJ_GATED and _reblock._ENABLED_GATED) or other_loop:
+            return None
+        if ops.taping() or ops.declines_under_tape("reblock_permute_gated"):
+            return None
+        if (not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE) or _FAST_MODE
+                or _TRIMUL_RAW_CHANNEL_MOVES or not (mask is None or mask_moved_ok)
+                or memory_config.buffer_type != ttnn.BufferType.DRAM):
+            return None
+        shp = [int(d) for d in x.shape]
+        if (len(shp) != 4 or shp[0] != 1 or shp[1] != shp[2] or shp[3] % 32
+                or x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT
+                or x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
+                or int(w.shape[-1]) % 128 or int(w.shape[-2]) != shp[3]):
+            _inproj_gated.STATS[1] += 1
+            return None
+        key = (w.buffer_address(), None if bias is None else bias.buffer_address())
+        cache = self.__dict__.setdefault("_inproj_gated_wts", {})
+        if key not in cache:
+            wt = torch.Tensor(ttnn.to_torch(w)).float().reshape(shp[3], -1)
+            bt = (None if bias is None else
+                  torch.Tensor(ttnn.to_torch(bias)).float().reshape(-1, int(w.shape[-1]))[0])
+            cache[key] = _inproj_gated.prepare_weights(wt, bt, x.device())
+        return (x, *cache[key])
 
     def _in_proj_rows(self, x, w, H, batch, memory_config, bias=None):
         """`LN(x) @ w`, computed in row blocks so the full-size LN'd pair tensor never exists.
@@ -8181,7 +8220,12 @@ class TriangleMultiplication(Module):
                         tail_mc = out_mc = memory_config
                     else:
                         gp_in_fused = None
-                        if fuse_gout and bias_i is None and n_pairs // group == 1:
+                        # Stage 14: the projection and both gated moves as one kernel per role, so
+                        # the [1, N, N, 4C] projection is never written. None outside its window.
+                        ig = self._inproj_gated_operands(
+                            x_norm_in, gp_in_chunks[i], bias_i, memory_config, mask,
+                            mask_moved_ok, row_norm or n_pairs // group != 1)
+                        if ig is None and fuse_gout and bias_i is None and n_pairs // group == 1:
                             pair = _in_proj_matmul(
                                 x_norm_in, self._gp_in_gout(chunk_size, group),
                                 self.compute_kernel_config, memory_config, None,
@@ -8191,7 +8235,7 @@ class TriangleMultiplication(Module):
                                 fuse_gout = False
                             else:
                                 gp_in_fused, g_out_fused = pair
-                        if gp_in_fused is None:
+                        if gp_in_fused is None and ig is None:
                             gp_in_fused = (
                                 self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config,
                                                    bias_i)
@@ -8199,7 +8243,7 @@ class TriangleMultiplication(Module):
                                 _in_proj_matmul(x_norm_in, gp_in_chunks[i],
                                                 self.compute_kernel_config, memory_config, bias_i)
                             )
-                        slice_c = int(gp_in_fused.shape[-1]) // 4
+                        slice_c = int(gp_in_chunks[i].shape[-1]) // 4
                         _eb = 4 if _dtype() == ttnn.float32 else 2
                         # Two configs, because the tail's three tensors are not one decision. The two
                         # operands are read twice each (the transform writes them, the matmul reads
@@ -8225,7 +8269,8 @@ class TriangleMultiplication(Module):
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (_TRIMUL_GATED_MOVE_L1
                                  or memory_config.buffer_type == ttnn.BufferType.DRAM)
-                            and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
+                            and (ig is not None
+                                 or _reblock.eligible_gated(gp_in_fused, slice_c, memory_config))
                         )
                         branch = "gated-move" if gated else "four-way-split"
                         if gated:
@@ -8233,15 +8278,16 @@ class TriangleMultiplication(Module):
                                 gp_in_fused,
                                 (gp_off("p_a", slice_c), gp_off("g_a", slice_c), slice_c),
                                 perm_a, memory_config,
-                                n_pairs // group > 1, defer_transpose=defer,
+                                n_pairs // group > 1, defer_transpose=defer, ig=ig,
                             )
                             b_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
                                 (gp_off("p_b", slice_c), gp_off("g_b", slice_c), slice_c),
                                 perm_b, memory_config,
-                                n_pairs // group > 1, defer_transpose=defer,
+                                n_pairs // group > 1, defer_transpose=defer, ig=ig,
                             )
-                            ttnn.deallocate(gp_in_fused)
+                            if gp_in_fused is not None:
+                                ttnn.deallocate(gp_in_fused)
                             if defer:
                                 defer_a = perm_a == (0, 3, 2, 1)
                                 defer_b = perm_b == (0, 3, 2, 1)
