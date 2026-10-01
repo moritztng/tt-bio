@@ -595,11 +595,16 @@ Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 
 800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder: **the largest fold measured
 to complete a gradient round on one Wormhole Galaxy chip, 1.56x the 512 the fast mode carries.**
-768 is serum albumin plus a 150 aa binder. Both axes are the ones the Evoformer seam was observed
-to run, not the ones the arithmetic predicts: the complexes BindCraft 2 built are 774 and 738
-residues, a little above target-plus-binder, and it is the built complex that gets bucketed. The
-EGFR ectodomain with a 100 aa minibinder -- the smaller of the two shapes the competition case
-takes -- lands a bucket lower at 736, and needs `offload` as well, since `lean` holds about 704.
+768 is two different complexes, measured separately and landing on the same numbers: serum
+albumin plus a 150 aa binder (738 residues at the seam, 200.2 s) and **the EGFR ectodomain plus a
+100 aa minibinder** (742 residues, 200.5 s), which is the smaller of the two shapes the
+competition case takes. Both peak at 8.282 GB. So both EGFR sizes run, and `auto` picks `offload`
+for each without being asked.
+
+Every axis in this table is the one the Evoformer seam was *observed* to run, never the one
+target-plus-binder arithmetic predicts. BindCraft 2 buckets the complex it builds, which is
+larger than the sum, and at a bucket boundary the two answers differ: 614 + 100 = 714 predicts
+736 tokens and the seam ran 768. Size a job off the axis a run reports, not off the sum.
 
 768 is the one axis in this range that needs a second escape, and it is worth knowing why. The
 contraction block a matmul plan takes, `in0_block_w`, is the largest divisor of the token axis in

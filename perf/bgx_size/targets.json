@@ -78,6 +78,6 @@
   "residues": 614,
   "n_chains": 1,
   "fold": "four-domain receptor ectodomain, L1-CR1-L2-CR2",
-  "why": "EGFR's whole extracellular region (3NJP chain A, residues 1-614 of the mature chain = 25-638 of the precursor) at the domain III epitope cetuximab binds. This is the case the Anthropic x Adaptyv 2026 competition specifies, and the one a Wormhole user has to crop today: 614 aa plus a 100 aa minibinder is ~736 tokens."
+  "why": "EGFR's whole extracellular region (3NJP chain A, residues 1-614 of the mature chain = 25-638 of the precursor) at the domain III epitope cetuximab binds. This is the case the Anthropic x Adaptyv 2026 competition specifies, and the one a Wormhole user has to crop today: 614 aa plus a 100 aa minibinder is ~736 tokens by arithmetic, but the seam runs 768: BindCraft 2 built a 742-residue complex and it is the built complex that gets bucketed (measured 2026-10-01, one Wormhole Galaxy chip, offload, 8.282 GB peak, 200.5 s a round). With a 150 aa binder the complex is 774 residues and the axis is 800."
  }
 }
