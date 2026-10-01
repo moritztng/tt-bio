@@ -7,7 +7,7 @@ shape: 1.81e-3 rel L2 for the kernel, 3.84e-3 for the composed path.
 import pytest
 import torch
 
-pytestmark = pytest.mark.device
+device = pytest.mark.device
 
 
 def _ref(x, g, gamma, eps):
@@ -42,6 +42,7 @@ def _rel(dx_dev, ref):
     return float((got - ref).norm() / ref.norm())
 
 
+@device
 @pytest.mark.parametrize("shape", [(1, 288, 288, 128), (2, 288, 256), (64, 64, 128)])
 @pytest.mark.parametrize("with_gamma", [True, False])
 def test_kernel_is_at_least_as_close_to_float64_as_the_composed_path(shape, with_gamma,
@@ -65,6 +66,7 @@ def test_kernel_is_at_least_as_close_to_float64_as_the_composed_path(shape, with
     assert r_fused <= r_comp * 1.05, (r_fused, r_comp)
 
 
+@device
 def test_the_composed_backward_routes_through_the_kernel_when_armed(monkeypatch):
     from tt_bio import autograd as ag, lnbw
     x, g, gamma, xd, gd, gmd = _case((64, 64, 128), "bf16", True)
@@ -80,6 +82,7 @@ def test_the_composed_backward_routes_through_the_kernel_when_armed(monkeypatch)
     assert lnbw.REACH["served"] == before + 1 and gw.grad is not None
 
 
+@device
 def test_declines_a_float32_cotangent(monkeypatch):
     """The composed path is exact float32 there (1.5e-4); the kernel's FPU reads TF32 (1.3e-3)."""
     from tt_bio import lnbw
@@ -88,6 +91,7 @@ def test_declines_a_float32_cotangent(monkeypatch):
     assert not lnbw.eligible(xd, gd, gmd)
 
 
+@device
 def test_declines_a_width_whose_reciprocal_is_not_exact(monkeypatch):
     import ttnn
     from tt_bio import lnbw
@@ -96,3 +100,13 @@ def test_declines_a_width_whose_reciprocal_is_not_exact(monkeypatch):
     t = ttnn.from_torch(torch.randn(64, 384).bfloat16(), layout=ttnn.TILE_LAYOUT,
                         dtype=ttnn.bfloat16, device=get_device())
     assert not lnbw.eligible(t, t, None)
+
+
+def test_declines_on_wormhole(monkeypatch):
+    """Card-free: the kernel was graded on Blackhole, so a Wormhole chip keeps the composed path."""
+    from tt_bio import lnbw, tenstorrent
+    monkeypatch.setattr(lnbw, "FUSED", True)
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
+    before = lnbw.REACH["declined: arch"]
+    assert not lnbw.eligible(None, None, None)
+    assert lnbw.REACH["declined: arch"] == before + 1

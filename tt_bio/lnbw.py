@@ -48,6 +48,11 @@ def eligible(x, g, gamma) -> bool:
     absent or one row of K."""
     if not FUSED:
         return False
+    # Graded on Blackhole only (qb1 p150a, qb2 p300c). Wormhole keeps the composed path until the
+    # kernel's float64 grade and device test have run on a Wormhole chip.
+    from tt_bio import tenstorrent
+    if tenstorrent.is_wormhole():
+        return _decline("arch")
     # A float32 cotangent (a fan-in accumulator) is declined: the composed path computes that
     # case in exact float32 (1.5e-4 rel L2 against float64 at 64x64x128), and this kernel's FPU
     # stages read float32 CBs at TF32 (1.3e-3), which would spend accuracy the gradient has now.
