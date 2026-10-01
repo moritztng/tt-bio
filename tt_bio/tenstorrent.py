@@ -7876,32 +7876,48 @@ class TriangleMultiplication(Module):
     def _inproj_gated_operands(self, x, w, bias, memory_config, mask, mask_moved_ok, other_loop):
         """``(x, wt, ones)`` for `inproj_gated`, or None where the two-op path has to run.
 
-        The window is the gated move's own, narrowed to one channel group over the whole pair,
-        untaped. The transposed weights are built once per weight buffer from the device copy.
+        The window is the gated move's own (`eligible_gated`: DRAM, or L1 at its L1 widths),
+        narrowed to one channel group over the whole pair, untaped. The transposed weights are
+        built once per weight buffer from the device copy. Each decline is counted by reason in
+        `inproj_gated.REJECTS`.
         """
         from . import ops
-        if not (_inproj_gated.INPROJ_GATED and _reblock._ENABLED_GATED) or other_loop:
+        if not (_inproj_gated.INPROJ_GATED and _reblock._ENABLED_GATED):
             return None
-        if ops.taping() or ops.declines_under_tape("reblock_permute_gated"):
+
+        def no(reason):
+            _inproj_gated.STATS[1] += 1
+            _inproj_gated.REJECTS[reason] = _inproj_gated.REJECTS.get(reason, 0) + 1
             return None
+        if other_loop:
+            return no("row_norm_or_grouped")
+        # A forward the tape runs under its own `no_grad` is not recorded, and that is where this
+        # kernel serves: `fused_kernel` hands it raw operands there.
+        if ops.recording():
+            return no("taped")
         if (not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE) or _FAST_MODE
-                or _TRIMUL_RAW_CHANNEL_MOVES or not (mask is None or mask_moved_ok)
-                or memory_config.buffer_type != ttnn.BufferType.DRAM):
-            return None
+                or _TRIMUL_RAW_CHANNEL_MOVES or not (mask is None or mask_moved_ok)):
+            return no("move_config")
         shp = [int(d) for d in x.shape]
         if (len(shp) != 4 or shp[0] != 1 or shp[1] != shp[2] or shp[3] % 32
                 or x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT
                 or x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
                 or int(w.shape[-1]) % 128 or int(w.shape[-2]) != shp[3]):
-            _inproj_gated.STATS[1] += 1
-            return None
+            return no("shape")
+        bt = memory_config.buffer_type
+        if not ((bt == ttnn.BufferType.DRAM)
+                or (bt == ttnn.BufferType.L1 and _TRIMUL_GATED_MOVE_L1
+                    and _reblock.L1_N_MIN <= shp[2] <= _reblock.L1_N_MAX)):
+            return no(f"window_{bt}")
+        if _inproj_gated.clash_key(x) in _inproj_gated.CLASH:
+            return no("l1_clash")
         key = (w.buffer_address(), None if bias is None else bias.buffer_address())
         cache = self.__dict__.setdefault("_inproj_gated_wts", {})
         if key not in cache:
             wt = torch.Tensor(ttnn.to_torch(w)).float().reshape(shp[3], -1)
-            bt = (None if bias is None else
-                  torch.Tensor(ttnn.to_torch(bias)).float().reshape(-1, int(w.shape[-1]))[0])
-            cache[key] = _inproj_gated.prepare_weights(wt, bt, x.device())
+            bt_ = (None if bias is None else
+                   torch.Tensor(ttnn.to_torch(bias)).float().reshape(-1, int(w.shape[-1]))[0])
+            cache[key] = _inproj_gated.prepare_weights(wt, bt_, x.device())
         return (x, *cache[key])
 
     def _in_proj_rows(self, x, w, H, batch, memory_config, bias=None):
@@ -8273,21 +8289,44 @@ class TriangleMultiplication(Module):
                                  or _reblock.eligible_gated(gp_in_fused, slice_c, memory_config))
                         )
                         branch = "gated-move" if gated else "four-way-split"
-                        if gated:
+                        if gated and ig is not None:
+                            # A circular-buffer clash with live L1 buffers throws at program
+                            # validation, before anything runs: record the shape, build the
+                            # projection after all and take the two-op path below.
+                            try:
+                                a_chunk = self._transform_chunk_gated(
+                                    None,
+                                    (gp_off("p_a", slice_c), gp_off("g_a", slice_c), slice_c),
+                                    perm_a, memory_config, False, defer_transpose=defer, ig=ig)
+                                b_chunk = self._transform_chunk_gated(
+                                    None,
+                                    (gp_off("p_b", slice_c), gp_off("g_b", slice_c), slice_c),
+                                    perm_b, memory_config, False, defer_transpose=defer, ig=ig)
+                            except RuntimeError as e:
+                                if "clash" not in str(e):
+                                    raise
+                                _inproj_gated.CLASH.add(_inproj_gated.clash_key(ig[0]))
+                                if a_chunk is not None:
+                                    ttnn.deallocate(a_chunk)
+                                a_chunk = b_chunk = ig = None
+                                gp_in_fused = _in_proj_matmul(
+                                    x_norm_in, gp_in_chunks[i], self.compute_kernel_config,
+                                    memory_config, bias_i)
+                        if gated and ig is None:
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
                                 (gp_off("p_a", slice_c), gp_off("g_a", slice_c), slice_c),
                                 perm_a, memory_config,
-                                n_pairs // group > 1, defer_transpose=defer, ig=ig,
+                                n_pairs // group > 1, defer_transpose=defer,
                             )
                             b_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
                                 (gp_off("p_b", slice_c), gp_off("g_b", slice_c), slice_c),
                                 perm_b, memory_config,
-                                n_pairs // group > 1, defer_transpose=defer, ig=ig,
+                                n_pairs // group > 1, defer_transpose=defer,
                             )
-                            if gp_in_fused is not None:
-                                ttnn.deallocate(gp_in_fused)
+                            ttnn.deallocate(gp_in_fused)
+                        if gated:
                             if defer:
                                 defer_a = perm_a == (0, 3, 2, 1)
                                 defer_b = perm_b == (0, 3, 2, 1)

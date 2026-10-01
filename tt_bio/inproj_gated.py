@@ -23,6 +23,7 @@ import ttnn
 
 from . import reblock_permute as R
 from .envflags import env_flag
+from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "inproj_gated"
 
@@ -32,7 +33,7 @@ INPROJ_GATED = env_flag("TT_BIO_INPROJ_GATED", False)
 S_FORCE = int(os.environ.get("TT_BIO_INPROJ_GATED_S", "0"))
 # Groups of x the reader may run ahead by. 2 overlaps the next group's read with this one's math;
 # the CB is 32 x Kt tiles a group (256 KB at K = 128), which is what an L1 clash would hit first.
-X_BUFFERS = int(os.environ.get("TT_BIO_INPROJ_GATED_XBUF", "2"))
+X_BUFFERS = int(os.environ.get("TT_BIO_INPROJ_GATED_XBUF", "1"))
 # Diagnostic ablations, never set in production: comma list of NO_GATHER (writer consumes without
 # writing), NO_SFPU (no sigmoid or multiply), ONE_K (one K step). Each makes the output wrong.
 # The reblock in compute (pack-untilize then tilize) instead of the writer's face-row gather.
@@ -50,6 +51,13 @@ OUT_CB, STAGE_CB = R.OUT_CB, R.STAGE_CB
 
 _CACHE: dict = {}
 STATS = [0, 0]  # served, declined
+REJECTS: dict = {}
+# Shapes whose program clashed with live L1 buffers once; declined from then on.
+CLASH: set = set()
+
+
+def clash_key(x):
+    return tuple(int(d) for d in x.shape)
 
 
 def prepare_weights(w, b, device, memory_config=None):
@@ -159,6 +167,7 @@ def _build(x, wt, out, device, has_bias, S, reader_ct, writer_ct):
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
+@_ops.fused_kernel("inproj_gated")
 def inproj_gated(x, wt, ones, p_slice, g_slice, slice_c, out=None, memory_config=None):
     """``permute((x @ W + b)[..., p] * sigmoid((x @ W + b)[..., g]), (0, 3, 1, 2))``.
 

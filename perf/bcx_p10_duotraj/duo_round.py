@@ -233,7 +233,7 @@ def main():
         "gate_bw": list(_gb.STATS),
         "lead_sum": list(_ls.STATS),
         "pair_mm": list(_pm.STATS),
-        "inproj_gated": list(_ig.STATS),
+        "inproj_gated": list(_ig.STATS), "inproj_gated_rejects": dict(_ig.REJECTS),
         "fanin_cast": dict(_ag.FANIN_CAST_STATS),
         "pair_transpose": list(_pt.STATS),
         "grad_slab": dict(_ag.SLAB_STATS),
