@@ -26,6 +26,13 @@ NOT_A_TUNING_ROW: dict[str, str] = {
     # leaks a row sum. It is a variable at all so a training run that regresses can get the old
     # backward back; the CHANGELOG entry says how.
     "TT_BIO_SOFTMAX_BW_RENORM": "a correctness repair on the training tape, not a tuning choice",
+    # The next two are not device optimizations either, so a row in that table would misdescribe
+    # what they do. Each is documented on the page where a user meets it, and the release note that
+    # names it says how to set it.
+    "TT_BIO_ALLOW_QUARANTINED": "a safety override for a chip the operators excluded, "
+                                "documented in docs/multi-host.md",
+    "TT_BIO_CAMPAIGN_STALL_WARN_S": "the silence window of a BindCraft 2 campaign's wedge warning, "
+                                    "documented in docs/bindcraft2.md",
 }
 
 

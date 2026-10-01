@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.11.0] - 2026-10-01
 
 ### Added
 
@@ -64,6 +64,49 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   trajectories up to 448 tokens, two at 480 through 544 and one from 576; on a Wormhole chip, two
   up to 288 and one from 352, and two at 288 is the count that ran a campaign to its stop condition
   there.
+
+- **`max_trajectories=0` ran a BindCraft 2 campaign without end.** `0` and `None` both grant
+  trajectories with no limit, so a campaign written with `0` by someone who meant "design nothing"
+  ran until the filters accepted enough designs, which on a hard target is never, and held its chip
+  the whole time. A negative budget did the opposite and left an empty folder that read like a
+  crash. `run_campaign` now prints, before a card is opened, which condition will end the campaign
+  and with what numbers, and names both traps when a setting hits one. The line also says the
+  design count is a floor: arms already in flight finish, so three arms against a request of two
+  deliver three.
+
+- **A BindCraft 2 campaign whose chip hung mid-run held its card in silence.** A wedge after
+  bring-up blocks inside a device call with no timeout, so nothing raised and the log simply
+  stopped. The campaign now prints a warning, once per silent stretch, when no gradient round has
+  started and nothing in the project folder has changed for 45 minutes, naming the pid and the way
+  out: stop it, reset the chip if it stays unresponsive, and rerun on the same folder with
+  `resume=true`. It only warns, because a campaign folder is resumable and a false alarm should
+  cost nothing. `TT_BIO_CAMPAIGN_STALL_WARN_S` sets the window and `0` turns it off.
+
+- **A BindCraft 2 campaign announced one filters line, and trajectories died on gates it never
+  named.** Every design stage also checks `min_plddt_<stage>` and `min_iptm_<stage>`, and the
+  rejection said only "due to [pLDDT]". The campaign now prints every per-stage gate with its
+  stage, metric, threshold and setting before it opens a card.
+
+- **A resumed BindCraft 2 campaign delivers one trajectory fewer than asked after a mid-trajectory
+  kill, and now says so.** The budget is charged when a trajectory is claimed, so the interrupted
+  one is not retried. On resume the campaign prints what it inherited (charged, in the table,
+  accepted), the consequence, and the `max_trajectories` that restores it.
+
+- **Three ways of pinning a bad chip now get a sentence instead of a C++ backtrace.** A
+  `TT_VISIBLE_DEVICES` index the host does not have, and a chip that enumerates with no device node,
+  both died inside UMD with "Invalid device ID ... between 0 and 18446744073709551615", and on the
+  predict path an absent index left a 32-chip box reporting zero devices. Both are now refused
+  before the lease is taken, so a mistyped pin leaves no claim behind. A chip listed in the host's
+  `~/japanfold/QUARANTINE` file is refused with the operators' reason;
+  `TT_BIO_ALLOW_QUARANTINED=1` opens it on purpose.
+
+### Corrections
+
+- **The 0.9.0 release notes gave a false reason for the missing p150a baseline.** They said the
+  p150a box was powered down by directive and called the p150a a Wormhole board. The p150a is
+  Blackhole, and the box was up, carrying other device work through that release window, which is
+  why a baseline taken there would have been contended. The CHANGELOG entry was corrected before
+  0.10.0; the 0.9.0 GitHub release text still carries the old sentence.
 
 ## [0.10.0] - 2026-09-30
 

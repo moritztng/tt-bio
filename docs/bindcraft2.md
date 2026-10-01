@@ -11,7 +11,14 @@ yourself, and BindCraft 2's own licence governs what you may do with it.
 
 ## What you need
 
-- BindCraft 2 installed and importable.
+- BindCraft 2 installed and importable. Install it from its own checkout rather than from PyPI:
+  its packaging carries `bindcraft*` only, so an installed copy has no `settings/` or `examples/`
+  tree and dies looking for `settings/core/default.json`. Put the checkout on `PYTHONPATH`, which
+  is how upstream's own README runs it.
+- numpy below 2. BindCraft 2 does not pin numpy, so installing it after
+  `tt-bio[tenstorrent]` pulls numpy 2.5.3 and breaks ttnn's `numpy<2` requirement. Nothing in
+  either dependency graph resolves it for you, so pin it yourself in the same environment:
+  `pip install 'numpy<2'` after both, or install BindCraft 2 first.
 - AlphaFold 2 parameters: `tt-bio weights --download af2ig` puts `params_model_1_ptm.npz` in
   tt-bio's weights cache, which is also a valid `data_dir` for BindCraft 2. A multi-model campaign
   needs one `params_<model>.npz` per model it draws from, in one directory.
@@ -40,6 +47,18 @@ card](#several-trajectories-on-one-card) below is how to read that line and how 
 `card` has to be set before ttnn is imported, because that is when ttnn reads the pin. Leave it
 out to accept whatever `TT_VISIBLE_DEVICES` already says; pass it and `bindcraft2` raises rather
 than silently running on the wrong chip.
+
+## When a chip stops answering
+
+A wedge after bring-up blocks inside a device call that has no timeout of its own, so nothing
+raises and the log just stops. A campaign watches for that: when no gradient round has started and
+nothing under the project folder has changed for 45 minutes, it prints the pid and what to do,
+once per silent stretch. It only prints. A campaign folder is resumable, so stop the run yourself,
+reset the chip if it stays unresponsive, and start again on the same folder with `resume=true`.
+
+`TT_BIO_CAMPAIGN_STALL_WARN_S` sets the window in seconds and `0` turns the warning off. MPNN,
+validation and acceptance run no gradient rounds, so files written under the project folder count
+as progress too and a long non-gradient stage does not trip it.
 
 ## Several trajectories on one card
 

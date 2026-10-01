@@ -131,6 +131,15 @@ settles one job. `status` is `ok` or `failed`. `outputs` maps each file's path r
 the output directory to its base64 bytes. A worker that proved it shares the submitter's
 filesystem writes the file in place and sends `"tt-bio-shared-path:<path>"` instead.
 
+## Chips the operators quarantined
+
+A host can keep a list of chips that are not to be used, at `~/japanfold/QUARANTINE`
+(`TT_BIO_QUARANTINE` moves it), one chip per line as `<ip> <UMD id> <PCI bdf> <reason>`. tt-bio
+refuses a pinned chip on that list before it takes a lease, and quotes the reason the operators
+wrote. A chip that flips DRAM bits folds without complaining, so this is a refusal rather than a
+warning. `TT_BIO_ALLOW_QUARANTINED=1` opens it anyway, which is what you want when you are testing
+the chip itself.
+
 ## Leases
 
 A lease is a promise with an expiry. It lasts `lease_s`, 120 s unless you start the
