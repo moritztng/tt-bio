@@ -1,0 +1,6 @@
+{
+ "n": 3,
+ "why": "3 of them at 288 tokens hold about 16 GB of the card and peak near 20 GB of the 223.5 GB of host memory free",
+ "free_host": 239953084416,
+ "rss": 18464768
+}
