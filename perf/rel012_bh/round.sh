@@ -1,0 +1,37 @@
+#!/bin/bash
+# The paired p150a round: the rel012 integration tree against the v0.11.0 tag, same box, same
+# card, same harness interface, sittings ALTERNATING so a host-load drift lands on both arms.
+# PD-L1 + a 146 aa binder is 288 tokens, three trajectories: the headline v0.11.0 documents.
+# Three sittings an arm, four gradient rounds a sitting, round 1 of each sitting dropped as
+# compile-laden -> nine counted rounds an arm.
+set -u
+wt=/home/moritz/.coworker/wt/rel012-verify-bh
+tag=$wt/tagtree011
+out=$wt/perf/rel012_bh/out/round; mkdir -p "$out"
+log=$out/round.log
+PY=/home/moritz/bcx_hostcut_venv/bin/python3
+export BCX_BC2=/home/moritz/bcx_shipped/bc2
+export TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:rel012-verify-bh
+
+# One card, one arm at a time: wait out the ceiling walk rather than contend with it.
+while ! grep -q "CEILING DONE" "$wt/perf/rel012_bh/out/ceiling/ceiling.log" 2>/dev/null; do
+  sleep 30
+done
+
+sit () {  # sit <arm> <tree> <n>
+  local arm=$1 tree=$2 n=$3
+  cd "$tree"
+  export PYTHONPATH=$tree
+  export JAX_COMPILATION_CACHE_DIR=$out/xlacache_$arm
+  echo "=== $(date -u +%FT%TZ) START $arm sitting $n tree=$(git -C "$tree" rev-parse --short HEAD)" >> "$log"
+  timeout 3000 $PY -u perf/bgx_size/rung.py --params /home/moritz/bcx_shipped/af2_params \
+    --out "$out/${arm}$n" --target hPDL1 --binder 146 --rounds 4 --trajectories 3 \
+    > "$out/${arm}$n.log" 2>&1
+  echo "=== rc=$? $(date -u +%FT%TZ) END $arm sitting $n" >> "$log"
+}
+
+for n in 1 2 3; do
+  sit tree "$wt" "$n"
+  sit tag011 "$tag" "$n"
+done
+echo "=== ROUND DONE $(date -u +%FT%TZ)" >> "$log"
