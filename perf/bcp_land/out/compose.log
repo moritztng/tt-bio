@@ -1,0 +1,9 @@
+compose start 2026-10-01T04:04:46Z head e6b0b9812 card 1
+=== off1 (want=auto, TT_BIO_LNBW_FUSED=0, 9 rounds) 2026-10-01T04:04:46Z
+=== on1 (want=auto, 9 rounds) 2026-10-01T04:07:58Z
+=== on2 (want=auto, 9 rounds) 2026-10-01T04:10:45Z
+=== off2 (want=auto, TT_BIO_LNBW_FUSED=0, 9 rounds) 2026-10-01T04:13:30Z
+=== off3 (want=auto, TT_BIO_LNBW_FUSED=0, 9 rounds) 2026-10-01T04:16:37Z
+=== on3 (want=auto, 9 rounds) 2026-10-01T04:19:45Z
+=== sitting done 2026-10-01T04:22:32Z
+compose done 2026-10-01T04:22:32Z

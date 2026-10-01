@@ -2,7 +2,8 @@
 # The bcx-default round sitting on one qb2 card: the OLD default (one trajectory, no gate)
 # against the NEW one (whatever `duotraj.auto_trajectories()` picks on this box), alternated at
 # the process boundary so neither arm owns the quiet half of the sitting.
-#   sit.sh [rounds] [arms]        arms: space-separated tag:1|auto
+#   sit.sh [rounds] [arms]        arms: space-separated tag:1|auto[:VAR=value]
+# The optional third field sets one env var for that arm only (the composed sitting's off arms).
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 r=${1:-9}
@@ -14,8 +15,8 @@ o=perf/bcp_land/out; mkdir -p "$o"
 snap=$!
 trap 'kill $snap 2>/dev/null' EXIT
 for a in $arms; do
-    IFS=: read -r tag want <<< "$a"
-    echo "=== $tag (want=$want, $r rounds) $(date -u +%FT%TZ)"
-    perf/bcp_land/arm.sh "$tag" "$r" "$want" > "$o/$tag.log" 2>&1 || echo "  $tag exited $?"
+    IFS=: read -r tag want flag <<< "$a"
+    echo "=== $tag (want=$want${flag:+, $flag}, $r rounds) $(date -u +%FT%TZ)"
+    env ${flag:-} perf/bcp_land/arm.sh "$tag" "$r" "$want" > "$o/$tag.log" 2>&1 || echo "  $tag exited $?"
 done
 echo "=== sitting done $(date -u +%FT%TZ)"
