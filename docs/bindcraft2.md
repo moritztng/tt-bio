@@ -639,9 +639,12 @@ shape of it, and the next bucket up is worth trying before you crop the target.
 
 **At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s), which is the price
 of running every block's forward a second time. The 544 row costs more than that because it is
-also a bigger fold. A trajectory is 125 gradient rounds, so 544 in `lean` is 2.93 chip-hours
-against 2.13 for the 512 `fast` can carry -- you are buying 32 tokens of complex for about 38 %
-more chip time, and the alternative is not a faster run, it is cropping the target.
+also a bigger fold. A trajectory is 125 gradient rounds plus the refold of its candidates, and one
+measured end to end at 544 in `lean` took **11,201 s, 3.11 chip-hours**, against 2.29 for the 512
+`fast` can carry. You are buying 32 tokens of complex for about 36 % more chip time, and the
+alternative is not a faster run, it is cropping the target. Budget from that number rather than
+from the round: 125 rounds alone come to 10,388 s, so the validation tail adds 7.8 % that an
+estimate built from the round time misses.
 
 A Blackhole p150a has the modes too and does not need them below 864 tokens; `auto` leaves it in
 `fast` all the way up.
@@ -821,6 +824,20 @@ that the loop accepts more often.
 One caution when you read your own verdicts, and it is BindCraft 2's behaviour rather than the
 card's: `predicted_tm_score` is a maximum over the PAE rows, so a single collapsed row pins pTM
 and i_pTM at that length's ceiling on either arm. Grade a `mutate`-stage verdict on pLDDT.
+
+### Above 288 tokens the rate is not known yet
+
+Every number above was measured at 288 tokens. One trajectory has been run to a verdict at **544**
+in `lean`, on a Wormhole Galaxy chip: 125 rounds, ten candidates, none accepted, all ten rejected
+on `i_pTM`. One trajectory cannot tell you much, and it does not tell you that large folds stopped
+working. At the rate in the table a single trajectory rejects 77 % of the time with nothing
+changed, and against the 31-trajectory count this reads p = 1.00. Separating a real drop needs six
+to ten trajectories.
+
+So if you are budgeting a campaign above 288 tokens, use the 0.226 rate for planning and expect
+the usual spread, but do not treat acceptance at those sizes as measured. The memory modes change
+what fits and what it costs; they do not touch the filters, the gradient grades against a float64
+reference, and `offload` is bit-identical to `lean`.
 
 ## Licence
 
