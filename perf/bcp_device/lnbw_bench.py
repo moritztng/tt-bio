@@ -83,9 +83,13 @@ def main():
                 t1 = time.perf_counter()
                 out[arm]["t"].append((t0, t1))
                 del dx
+        # The calls are ~ms and the clock samples every 0.25 s, so the window is the whole
+        # alternated sitting, which both arms share.
+        span = [(min(t[0] for v in out.values() for t in v["t"]),
+                 max(t[1] for v in out.values() for t in v["t"]))]
         for arm in arms:
             ts = sorted(t1 - t0 for t0, t1 in out[arm]["t"])
-            out[arm]["aiclk"] = clock.window([(t0, t1) for t0, t1 in out[arm]["t"]])
+            out[arm]["aiclk"] = clock.window(span)
             out[arm]["median_ms"] = 1e3 * ts[len(ts) // 2]
             out[arm]["min_ms"] = 1e3 * ts[0]
             del out[arm]["t"]
