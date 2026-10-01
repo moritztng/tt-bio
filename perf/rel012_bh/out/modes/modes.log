@@ -5,3 +5,5 @@
 === 2026-10-01T22:49:36Z START t768_lean tree=e548f285b binder=150 --memory lean
 === rc=0 2026-10-01T22:51:57Z END t768_lean
 === 2026-10-01T22:51:57Z START t768_offload tree=d6023785c binder=150 --memory offload
+=== rc=137 2026-10-01T22:52:24Z END t768_offload
+=== 2026-10-01T22:52:24Z START g768_tag tree=8dbaa61b1 binder=150 

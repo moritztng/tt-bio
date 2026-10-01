@@ -1,0 +1,60 @@
+2026-10-02 00:52:28.474 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "pc",
+ "card": "0",
+ "target": "hHSA",
+ "target_residues": 578,
+ "target_chains": 1,
+ "target_fold": "all-alpha, three homologous domains",
+ "binder": 150,
+ "tokens": 736,
+ "rounds_requested": 3,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 768,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 768 tokens one trajectory is priced at up to 27.7 GB against the 28.2 GB the card has for them, so a second one does not fit and it runs one",
+  "tokens_asked": 768
+ },
+ "auto_would_choose": [
+  1,
+  "at 768 tokens one trajectory is priced at up to 27.7 GB against the 28.2 GB the card has for them, so a second one does not fit and it runs one"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "8dbaa61b13ba2c1737804ad18c03adc55cef963c",
+ "dirty": false,
+ "compile_cache": "/home/moritz/.coworker/wt/rel012-verify-bh/perf/rel012_bh/out/modes/xlacache_tagtree011",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 12,
+ "loadavg_start": [
+  3.5703125,
+  3.4150390625,
+  2.8212890625
+ ],
+ "mem_start": {
+  "vmhwm": 560435200,
+  "vmrss": 553725952,
+  "mem_available": 25192022016
+ },
+ "started_utc": "2026-10-01T22:52:29Z"
+}
+/home/moritz/.coworker/wt/rel012-verify-bh/tagtree011/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 2 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 2, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 v1.0.1
+campaign hHSA_150
+binder length 150
+target hHSA (target) | 578 residues | hotspots 199,214,218,222
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/moritz/.coworker/wt/rel012-verify-bh/perf/rel012_bh/out/modes/g768_tag | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | hHSA_150_denovo_l150_b0173dc7e2558d74 | accepted 0/2 ===
+2026-10-02 00:52:51.853 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)

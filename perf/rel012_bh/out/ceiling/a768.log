@@ -1,0 +1,493 @@
+2026-10-02 00:37:19.516 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "pc",
+ "card": "0",
+ "target": "hHSA",
+ "target_residues": 578,
+ "target_chains": 1,
+ "target_fold": "all-alpha, three homologous domains",
+ "binder": 150,
+ "tokens": 736,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 768,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 768 tokens one trajectory is priced at up to 27.7 GB against the 28.2 GB the card has for them, so a second one does not fit and it runs one",
+  "tokens_asked": 768
+ },
+ "auto_would_choose": [
+  1,
+  "at 768 tokens one trajectory is priced at up to 27.7 GB against the 28.2 GB the card has for them, so a second one does not fit and it runs one"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "75757b3d598e5e352c402f627a7fd1096ad5b458",
+ "dirty": true,
+ "compile_cache": "/home/moritz/.coworker/wt/rel012-verify-bh/perf/rel012_bh/out/xlacache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 12,
+ "loadavg_start": [
+  2.7158203125,
+  2.08056640625,
+  1.490234375
+ ],
+ "mem_start": {
+  "vmhwm": 550690816,
+  "vmrss": 541913088,
+  "mem_available": 24680255488
+ },
+ "started_utc": "2026-10-01T22:37:19Z"
+}
+/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 2 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 2, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 v1.0.1
+campaign hHSA_150
+binder length 150
+target hHSA (target) | 578 residues | hotspots 199,214,218,222
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/moritz/.coworker/wt/rel012-verify-bh/perf/rel012_bh/out/ceiling/a768 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | hHSA_150_denovo_l150_b0173dc7e2558d74 | accepted 0/2 ===
+2026-10-02 00:37:39.393 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-10-02 00:39:22.504 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 150994944 B DRAM buffer across 8 banks, where each bank needs to store 18874368 B, but bank size is 4278190016 B (allocated: 4001701248 B, free: 276488768 B, largest free block: 14155776 B) (assert.hpp:104)
+[tt-bio] trimul DRAM refused the fused in-projection at chunk 32 x group 4 (seq 768): retrying at chunk 32 x group 2. The tt-metal 'Out of Memory' line above is expected and handled; the result is unchanged.
+2026-10-02 00:39:22.988 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 150994944 B DRAM buffer across 8 banks, where each bank needs to store 18874368 B, but bank size is 4278190016 B (allocated: 4003059072 B, free: 275130944 B, largest free block: 14155776 B) (assert.hpp:104)
+[tri_att] DRAM refused the single pass at ((1, 768, 768, 128), False); re-running it in 512-row blocks
+2026-10-02 00:39:30.049 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 150994944 B DRAM buffer across 8 banks, where each bank needs to store 18874368 B, but bank size is 4278190016 B (allocated: 4003124608 B, free: 275065408 B, largest free block: 14155776 B) (assert.hpp:104)
+[tri_att] DRAM refused the single pass at ((1, 768, 768, 128), True); re-running it in 512-row blocks
+2026-10-02 00:39:31.382 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 301989888 B DRAM buffer across 8 banks, where each bank needs to store 37748736 B, but bank size is 4278190016 B (allocated: 3984014720 B, free: 294175296 B, largest free block: 29294528 B) (assert.hpp:104)
+[tt-bio] trimul DRAM refused the fused in-projection at chunk 32 x group 2 (seq 768): retrying at chunk 32 x group 1. The tt-metal 'Out of Memory' line above is expected and handled; the result is unchanged.
+2026-10-02 00:39:32.823 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 150994944 B DRAM buffer across 8 banks, where each bank needs to store 18874368 B, but bank size is 4278190016 B (allocated: 4002923904 B, free: 275266112 B, largest free block: 14155776 B) (assert.hpp:104)
+[tt-bio] trimul DRAM refused the whole-tensor output norm at 1x768x768x128: re-running the tail in 128-row blocks. The tt-metal 'Out of Memory' line above is expected and handled; the blocks compute the same row-local math.
+2026-10-02 00:39:34.136 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 150994944 B DRAM buffer across 8 banks, where each bank needs to store 18874368 B, but bank size is 4278190016 B (allocated: 4003300736 B, free: 274889280 B, largest free block: 14155776 B) (assert.hpp:104)
+jax.pure_callback failed
+Traceback (most recent call last):
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 438, in _refusal_names_the_size
+    yield
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 1123, in _taped
+    mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 648, in evoformer
+    m, z = self.ag.checkpoint(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/autograd.py", line 2975, in checkpoint
+    produced = fn(*inputs)
+               ^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 649, in <lambda>
+    lambda a, b, blk=block: blk(a, b, msa_mask, *pair_masks), m, z,
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/af2.py", line 924, in __call__
+    return msa, super().__call__(z, mask, attn_mask)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/af2.py", line 462, in __call__
+    z = self._step(lambda t, name=name, device=device:
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/af2.py", line 360, in _step
+    return step(*inputs) if run is None else run(step, *inputs)
+           ^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/af2.py", line 463, in <lambda>
+    self._residual(t, self._update(name, device, t)), z)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/af2.py", line 447, in _update
+    return device(x, *args)
+           ^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/af2.py", line 455, in <lambda>
+    order = [("tri_mul_out", lambda t: self.tri_mul_out(t, mask)),
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/tenstorrent.py", line 8013, in __call__
+    u = host_acc_after_refusal(
+        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/tenstorrent.py", line 6713, in host_acc_after_refusal
+    return run()
+           ^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/tenstorrent.py", line 8014, in <lambda>
+    ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
+                                                               ^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/tenstorrent.py", line 6901, in _inplace_guarded
+    out = run()
+          ^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/tenstorrent.py", line 8015, in <lambda>
+    "triangle multiplication", lambda: self._multiply(x, mask, add_to_input)))
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/tenstorrent.py", line 8199, in _multiply
+    _in_proj_matmul(x_norm_in, gp_in_chunks[i],
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/tenstorrent.py", line 7302, in _in_proj_matmul
+    return ttnn.experimental.minimal_matmul(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/taped_ttnn.py", line 1647, in call
+    out = impl(shipped, args, kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/taped_ttnn.py", line 223, in _v_matmul
+    out_v = shipped(*ra, **rk)
+            ^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 150994944 B DRAM buffer across 8 banks, where each bank needs to store 18874368 B, but bank size is 4278190016 B (allocated: 4003300736 B, free: 274889280 B, largest free block: 14155776 B)
+backtrace:
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7f1a472d2697]
+ --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)
+ --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)
+ --- tt::tt_metal::Buffer::allocate_impl()
+ --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)
+ --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)
+ --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)
+ --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)
+ --- ttnn::experimental::prim::MinimalMatmulDeviceOperation::create_output_tensors(ttnn::experimental::prim::MinimalMatmulParams const&, ttnn::experimental::prim::MinimalMatmulInputs const&)
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_12experimental4prim28MinimalMatmulDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x149) [0x7f1a8159cc59]
+ --- ttnn::prim::minimal_matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<ttnn::operations::unary::BasicUnaryWithParam<float> >, std::optional<ttnn::experimental::prim::MinimalMatmulConfig const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::DataType const>, std::optional<ttnn::ComputeKernelConfig>)
+ --- ttnn::experimental::minimal_matmul(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<ttnn::operations::unary::BasicUnaryWithParam<float> >, std::optional<ttnn::experimental::prim::MinimalMatmulConfig const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::DataType const>, std::optional<ttnn::ComputeKernelConfig>)
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x44d2f5) [0x7f1a8244d2f5]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x44d157) [0x7f1a8244d157]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7f1a8226daa5]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x1876122]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x1686e59]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyEval_EvalFrameDefault+0xe920) [0x1621aa0]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x1876122]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x1686e59]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyEval_EvalFrameDefault+0xe920) [0x1621aa0]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyObject_Call_Prepend+0x9a) [0x1686f1a]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x1686e59]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyEval_EvalFrameDefault+0x36f1) [0x1616871]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyObject_Call_Prepend+0x9a) [0x1686f1a]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x1686e59]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyEval_EvalFrameDefault+0xe920) [0x1621aa0]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x1612849]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x173770f]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyEval_EvalFrameDefault+0xe840) [0x16219c0]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyObject_Call_Prepend+0x9a) [0x1686f1a]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3() [0x1686e59]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(_PyEval_EvalFrameDefault+0xe920) [0x1621aa0]
+ --- /home/moritz/bcx_hostcut_venv/bin/python3(PyObject_Vectorcall+0x3a) [0x16d933a]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3aad4e1) [0x7f1b54f9d4e1]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a68dc2) [0x7f1b54f58dc2]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a70c68) [0x7f1b54f60c68]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a6aae9) [0x7f1b54f5aae9]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db6e3c) [0x7f1b552a6e3c]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db7021) [0x7f1b552a7021]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2c3d3) [0x7f1b5a41c3d3]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2ba3e) [0x7f1b5a41ba3e]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde1e94b) [0x7f1b5f30e94b]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde21f1f) [0x7f1b5f311f1f]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde23a06) [0x7f1b5f313a06]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde24873) [0x7f1b5f314873]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x80d7d7a) [0x7f1b595c7d7a]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x95d959c) [0x7f1b5aac959c]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x95d9cf2) [0x7f1b5aac9cf2]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78ce044) [0x7f1b58dbe044]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78cded1) [0x7f1b58dbded1]
+ --- /home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78bd28f) [0x7f1b58dad28f]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x891f5) [0x7f1b611851f5]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x1098dc) [0x7f1b612058dc]
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 93, in pure_callback_impl
+    return tree_util.tree_map(np.asarray, callback(*args))
+                                          ^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+    return tree_util.tree_leaves(self.callback_func(*args, **kwargs))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 1116, in _taped
+    with _refusal_names_the_size("forward", n, z.shape[0], self.memory), \
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 447, in _refusal_names_the_size
+    raise better from exc
+MemoryError: BindCraft 2 ran out of device memory in the Evoformer forward at 768 tokens.
+  complex   738 residues, padded to 768 tokens (tt-bio buckets the token axis to 32)
+  asked for 151.0 MB in one DRAM buffer (18.9 MB in each of 8 banks)
+  free      2.199 GB of 34.226 GB, largest contiguous block 14.2 MB
+This is fragmentation, not a full card: 2.199 GB is free, which would cover the 151.0 MB request if it were in one piece, but the largest contiguous block in a bank is 14.2 MB against the 18.9 MB that bank needs.
+What to do: 768 tokens fits on a p150a with the card to itself (the largest axis measured to complete a gradient round is 864), so something else is holding this card. Interleaved trajectories are the usual cause: pass trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise 2 residues off the binder takes this fold to 736 tokens.
+The allocator's own refusal follows.
+{
+ "host": "pc",
+ "card": "0",
+ "target": "hHSA",
+ "target_residues": 578,
+ "target_chains": 1,
+ "target_fold": "all-alpha, three homologous domains",
+ "binder": 150,
+ "tokens": 736,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 768,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 768 tokens one trajectory is priced at up to 27.7 GB against the 28.2 GB the card has for them, so a second one does not fit and it runs one",
+  "tokens_asked": 768
+ },
+ "auto_would_choose": [
+  1,
+  "at 768 tokens one trajectory is priced at up to 27.7 GB against the 28.2 GB the card has for them, so a second one does not fit and it runs one"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "75757b3d598e5e352c402f627a7fd1096ad5b458",
+ "dirty": true,
+ "compile_cache": "/home/moritz/.coworker/wt/rel012-verify-bh/perf/rel012_bh/out/xlacache",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 12,
+ "loadavg_start": [
+  2.7158203125,
+  2.08056640625,
+  1.490234375
+ ],
+ "mem_start": {
+  "vmhwm": 550690816,
+  "vmrss": 541913088,
+  "mem_available": 24680255488
+ },
+ "started_utc": "2026-10-01T22:37:19Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "QKV_PACKED": true,
+  "EXP_21F": true,
+  "FANIN_CAST_FUSED": true,
+  "PAIR_TRANSPOSE_FUSED": true,
+  "GATED_GRAD_PACKED": true,
+  "GATED_BW_FUSED": true,
+  "GATE_BW_FUSED": true,
+  "LEAD_SUM_FUSED": true,
+  "PAIR_MM_FUSED": true,
+  "NOGRAD_IS_INFERENCE": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "tri_att_g_in_matmul": true,
+  "rows_in_k": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose,triatt_qkv_heads",
+  "SOFTMAX_BW_FP32": false
+ },
+ "memory_requested": "auto",
+ "memory_used": {
+  "768": "fast"
+ },
+ "auto_card_open": {
+  "count": 1,
+  "why": "at 768 tokens one trajectory is priced at up to 27.7 GB against the 30.9 GB the card has for them, so a second one does not fit and it runs one",
+  "tokens_asked": 768
+ },
+ "wall_seconds": 134.58,
+ "trajectories_returned": null,
+ "accepted": null,
+ "error": "MemoryError(\"BindCraft 2 ran out of device memory in the Evoformer forward at 768 tokens.\\n  complex   738 residues, padded to 768 tokens (tt-bio buckets the token axis to 32)\\n  asked for 151.0 MB in one DRAM buffer (18.9 MB in each of 8 banks)\\n  free      2.199 GB of 34.226 GB, largest contiguous block 14.2 MB\\nThis is fragmentation, not a full card: 2.199 GB is free, which would cover the 151.0 MB request if it were in one piece, but the largest contiguous block in a bank is 14.2 MB against the 18.9 MB that bank needs.\\nWhat to do: 768 tokens fits on a p150a with the card to itself (the largest axis measured to complete a gradient round is 864), so something else is holding this card. Interleaved trajectories are the usual cause: pass trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise 2 residues off the binder takes this fold to 736 tokens.\\nThe allocator's own refusal follows.\")",
+ "traceback": "Traceback (most recent call last):\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 530, in refusals_unwrapped\n    yield\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 2670, in _run_campaign\n    return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/bcx_shipped/bc2/bindcraft/campaign.py\", line 271, in run_campaign\n    return run_campaign_arm(settings, project_folder, alphafold_model, validation_model, mpnn_model, key, max_trajectories, build_validation_model, autotune=settings.get('autotune', True), metadata=metadata)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/bcx_shipped/bc2/bindcraft/campaign.py\", line 185, in run_campaign_arm\n    protein_states, predictions, failed_stage = run_trajectory(design_settings, alphafold_model, trajectory_random_key, trajectory_directory=trajectory_directory, targets=trajectory_targets)\n                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/bcx_shipped/bc2/bindcraft/trajectory.py\", line 303, in run_trajectory\n    protein_states, predictions = run_gradient_design_stage(trajectory.protein_states, design_model, sequence_optimizer=stage.sequence_optimizer, design_schedule=design_schedule, record_sequence_update=recorder, select_best_round=len(design_settings.prepared_states) < 2, select_filtered_round=rotating_stage_filter_round(design_settings, target_schedule, trajectory.protein_states, stage.name), **induced_fit_reference_arguments(trajectory.losses, trajectory.binder_alone_reference, design_model, design_settings))\n                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/bcx_shipped/bc2/bindcraft/trajectory.py\", line 131, in run_gradient_design_stage\n    predictions, chain_gradients, graph_design_loss = design_model.sequence_gradients(active_protein_states, active_losses, softmax_weight=softmax_weight, one_hot_weight=one_hot_weight, temperature=temperature, logit_scale=logit_scale, reference_predictions=reference_predictions)\n                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/perf/bgx_size/rung.py\", line 334, in sequence_gradients\n    return real_sequence_gradients(self, *a, **kw)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 1982, in sequence_gradients\n    return super().sequence_gradients(protein_states, losses, passed,\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/bcx_shipped/bc2/bindcraft/af2.py\", line 406, in sequence_gradients\n    (design_loss, prediction_arrays), shared_chain_gradients = compiled_sequence_gradients(*gradient_arguments)\n                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):\n  File \"/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 816, in _wrapped_callback\n  File \"/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 226, in _callback\n  File \"/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 96, in pure_callback_impl\n  File \"/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 71, in __call__\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 1116, in _taped\n  File \"/home/moritz/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 190, in __exit__\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 447, in _refusal_names_the_size\nMemoryError: BindCraft 2 ran out of device memory in the Evoformer forward at 768 tokens.\n  complex   738 residues, padded to 768 tokens (tt-bio buckets the token axis to 32)\n  asked for 151.0 MB in one DRAM buffer (18.9 MB in each of 8 banks)\n  free      2.199 GB of 34.226 GB, largest contiguous block 14.2 MB\nThis is fragmentation, not a full card: 2.199 GB is free, which would cover the 151.0 MB request if it were in one piece, but the largest contiguous block in a bank is 14.2 MB against the 18.9 MB that bank needs.\nWhat to do: 768 tokens fits on a p150a with the card to itself (the largest axis measured to complete a gradient round is 864), so something else is holding this card. Interleaved trajectories are the usual cause: pass trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise 2 residues off the binder takes this fold to 736 tokens.\nThe allocator's own refusal follows.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/perf/bgx_size/rung.py\", line 436, in main\n    trajectories = bindcraft2.run_campaign(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 2595, in run_campaign\n    return _run_campaign(settings, project_folder, trajectories_per_card=trajectories_per_card,\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 2669, in _run_campaign\n    with refusals_unwrapped():\n         ^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 158, in __exit__\n    self.gen.throw(value)\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 535, in refusals_unwrapped\n    raise better from exc\n  File \"/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 816, in _wrapped_callback\n    out_vals = callback(*args)\n               ^^^^^^^^^^^^^^^\n  File \"/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 226, in _callback\n    pure_callback_impl(\n  File \"/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 93, in pure_callback_impl\n    return tree_util.tree_map(np.asarray, callback(*args))\n                                          ^^^^^^^^^^^^^^^\n  File \"/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 71, in __call__\n    return tree_util.tree_leaves(self.callback_func(*args, **kwargs))\n                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 1116, in _taped\n    with _refusal_names_the_size(\"forward\", n, z.shape[0], self.memory), \\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/moritz/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/contextlib.py\", line 158, in __exit__\n    self.gen.throw(value)\n  File \"/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py\", line 447, in _refusal_names_the_size\n    raise better from exc\nMemoryError: BindCraft 2 ran out of device memory in the Evoformer forward at 768 tokens.\n  complex   738 residues, padded to 768 tokens (tt-bio buckets the token axis to 32)\n  asked for 151.0 MB in one DRAM buffer (18.9 MB in each of 8 banks)\n  free      2.199 GB of 34.226 GB, largest contiguous block 14.2 MB\nThis is fragmentation, not a full card: 2.199 GB is free, which would cover the 151.0 MB request if it were in one piece, but the largest contiguous block in a bank is 14.2 MB against the 18.9 MB that bank needs.\nWhat to do: 768 tokens fits on a p150a with the card to itself (the largest axis measured to complete a gradient round is 864), so something else is holding this card. Interleaved trajectories are the usual cause: pass trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise 2 residues off the binder takes this fold to 736 tokens.\nThe allocator's own refusal follows.\n",
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 738,
+ "evoformer_axis": 768,
+ "axis_seen": [
+  768
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 13427380736,
+ "rounds_done": 2,
+ "rounds_per_slot": {
+  "": 2
+ },
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 1690,
+   "declined: has a core grid": 428,
+   "served": 622,
+   "declined: not batched": 1264
+  },
+  "taped_channel_move": [
+   108,
+   2172,
+   498,
+   0
+  ],
+  "widen_add": {
+   "served: round": 724,
+   "served: first": 206,
+   "served: later": 256
+  },
+  "rne_add": [
+   2071,
+   20
+  ],
+  "qkv_grad_join": {
+   "served": 300
+  },
+  "triatt_bw": {
+   "served": 108,
+   "declined": 0,
+   "packed": 0,
+   "bw_calls": 108
+  },
+  "triatt_fused_hifi": {
+   "served": 490,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "reblock_permute_gated": [
+    997,
+    0
+   ],
+   "rne_add": [
+    2071,
+    0
+   ],
+   "triatt_qkv_heads": [
+    472,
+    20
+   ],
+   "tri_att_sdpa_hifi": [
+    490,
+    0
+   ],
+   "pair_transpose": [
+    495,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 108,
+  "served": 108,
+  "declined": 0
+ },
+ "aiclk_run": {
+  "n": 92,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 3.6
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 15611998208,
+  "vmrss": 7042027520,
+  "mem_available": 18458771456
+ },
+ "loadavg_end": [
+  3.79296875,
+  2.7978515625,
+  1.841796875
+ ],
+ "finished_utc": "2026-10-01T22:39:34Z"
+}
+Traceback (most recent call last):
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 530, in refusals_unwrapped
+    yield
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 2670, in _run_campaign
+    return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_shipped/bc2/bindcraft/campaign.py", line 271, in run_campaign
+    return run_campaign_arm(settings, project_folder, alphafold_model, validation_model, mpnn_model, key, max_trajectories, build_validation_model, autotune=settings.get('autotune', True), metadata=metadata)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_shipped/bc2/bindcraft/campaign.py", line 185, in run_campaign_arm
+    protein_states, predictions, failed_stage = run_trajectory(design_settings, alphafold_model, trajectory_random_key, trajectory_directory=trajectory_directory, targets=trajectory_targets)
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_shipped/bc2/bindcraft/trajectory.py", line 303, in run_trajectory
+    protein_states, predictions = run_gradient_design_stage(trajectory.protein_states, design_model, sequence_optimizer=stage.sequence_optimizer, design_schedule=design_schedule, record_sequence_update=recorder, select_best_round=len(design_settings.prepared_states) < 2, select_filtered_round=rotating_stage_filter_round(design_settings, target_schedule, trajectory.protein_states, stage.name), **induced_fit_reference_arguments(trajectory.losses, trajectory.binder_alone_reference, design_model, design_settings))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_shipped/bc2/bindcraft/trajectory.py", line 131, in run_gradient_design_stage
+    predictions, chain_gradients, graph_design_loss = design_model.sequence_gradients(active_protein_states, active_losses, softmax_weight=softmax_weight, one_hot_weight=one_hot_weight, temperature=temperature, logit_scale=logit_scale, reference_predictions=reference_predictions)
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/perf/bgx_size/rung.py", line 334, in sequence_gradients
+    return real_sequence_gradients(self, *a, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 1982, in sequence_gradients
+    return super().sequence_gradients(protein_states, losses, passed,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_shipped/bc2/bindcraft/af2.py", line 406, in sequence_gradients
+    (design_loss, prediction_arrays), shared_chain_gradients = compiled_sequence_gradients(*gradient_arguments)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 96, in pure_callback_impl
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 1116, in _taped
+  File "/home/moritz/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 190, in __exit__
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 447, in _refusal_names_the_size
+MemoryError: BindCraft 2 ran out of device memory in the Evoformer forward at 768 tokens.
+  complex   738 residues, padded to 768 tokens (tt-bio buckets the token axis to 32)
+  asked for 151.0 MB in one DRAM buffer (18.9 MB in each of 8 banks)
+  free      2.199 GB of 34.226 GB, largest contiguous block 14.2 MB
+This is fragmentation, not a full card: 2.199 GB is free, which would cover the 151.0 MB request if it were in one piece, but the largest contiguous block in a bank is 14.2 MB against the 18.9 MB that bank needs.
+What to do: 768 tokens fits on a p150a with the card to itself (the largest axis measured to complete a gradient round is 864), so something else is holding this card. Interleaved trajectories are the usual cause: pass trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise 2 residues off the binder takes this fold to 736 tokens.
+The allocator's own refusal follows.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/perf/bgx_size/rung.py", line 452, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/perf/bgx_size/rung.py", line 436, in main
+    trajectories = bindcraft2.run_campaign(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 2595, in run_campaign
+    return _run_campaign(settings, project_folder, trajectories_per_card=trajectories_per_card,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 2669, in _run_campaign
+    with refusals_unwrapped():
+         ^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 535, in refusals_unwrapped
+    raise better from exc
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+    out_vals = callback(*args)
+               ^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+    pure_callback_impl(
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 93, in pure_callback_impl
+    return tree_util.tree_map(np.asarray, callback(*args))
+                                          ^^^^^^^^^^^^^^^
+  File "/home/moritz/bcx_hostcut_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+    return tree_util.tree_leaves(self.callback_func(*args, **kwargs))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 1116, in _taped
+    with _refusal_names_the_size("forward", n, z.shape[0], self.memory), \
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/moritz/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/moritz/.coworker/wt/rel012-verify-bh/tt_bio/bindcraft2.py", line 447, in _refusal_names_the_size
+    raise better from exc
+MemoryError: BindCraft 2 ran out of device memory in the Evoformer forward at 768 tokens.
+  complex   738 residues, padded to 768 tokens (tt-bio buckets the token axis to 32)
+  asked for 151.0 MB in one DRAM buffer (18.9 MB in each of 8 banks)
+  free      2.199 GB of 34.226 GB, largest contiguous block 14.2 MB
+This is fragmentation, not a full card: 2.199 GB is free, which would cover the 151.0 MB request if it were in one piece, but the largest contiguous block in a bank is 14.2 MB against the 18.9 MB that bank needs.
+What to do: 768 tokens fits on a p150a with the card to itself (the largest axis measured to complete a gradient round is 864), so something else is holding this card. Interleaved trajectories are the usual cause: pass trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise 2 residues off the binder takes this fold to 736 tokens.
+The allocator's own refusal follows.
