@@ -134,10 +134,14 @@ MEMORY_MODES = ("fast", "lean", "offload")
 
 #: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
 #: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
-#: Wormhole and Blackhole ladders fit to 0.01-0.03 GB (`state/bcw/MEMORY.md`); `lean` and
-#: `offload` are measured the same way on the same rungs (`perf/bcw_slowmode/`).
+#: Wormhole and Blackhole ladders fit to 0.01-0.03 GB (`state/bcw/MEMORY.md`).
+#: `lean` is fitted to a measured round: 544 tokens peaked at 7.527 GB on a Wormhole Galaxy
+#: chip, which is 90 pair tensors, not the 95 the census projected.
+#: `offload` is still the census estimate. The 768-token offload round reached 5.685 GB before
+#: a separate L1 limit stopped it in the backward, so 33 is all that has been SEEN and the
+#: true peak is above it; the estimate stands until a round completes at that size.
 _MODE_BASE_BYTES = 0.71e9
-_MODE_PAIR_TENSORS = {"fast": 161, "lean": 95, "offload": 40}
+_MODE_PAIR_TENSORS = {"fast": 161, "lean": 90, "offload": 40}
 #: The share of a card's DRAM a round can actually hold. A Wormhole Galaxy chip refused 544
 #: tokens with a 12.701 GB resident frontier on 12.885 GB: past ~98 % the next pair-sized
 #: buffer finds no contiguous room.
@@ -263,6 +267,12 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
     board = _measured_board(card_total)
     cap = board[1] if board else MEASURED_MAX_TOKENS_P150A
     board_name = board[2] if board else "p150a"
+    # Those rows are `fast`-mode ladders. A fold refusing in a leaner mode has already passed
+    # the fast ceiling -- 544 tokens run in `lean` on a chip whose measured row says 512 -- so
+    # quoting the row would tell that user to drop to a size they are already above. A leaner
+    # mode's ceiling is its own, and never below the measured row's.
+    if mode != MEMORY_MODES[0]:
+        cap = max(cap, max_tokens(mode, card_total))
     # A card nobody laddered and smaller than a p150a has no ceiling to compare against, so
     # a refusal there is always read as the size.
     unmeasured_smaller = board is None and card_total < P150A_DRAM_BYTES
