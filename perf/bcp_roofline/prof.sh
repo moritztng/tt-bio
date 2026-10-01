@@ -19,7 +19,7 @@ export TT_VISIBLE_DEVICES=${TT_VISIBLE_DEVICES:-0} TT_BIO_LEASE_CARDS=${TT_BIO_L
 export TT_BIO_LEASE_HOLDER=worker:bcp-roofline
 echo "prof start $(date -u +%FT%TZ)"
 timeout 2700 /home/ttuser/bcx_e2e_venv/bin/python3 -m tracy -r --no-op-info-cache \
-  -o "$out" --op-support-count 600000 -- \
+  -o "$out" --op-support-count ${OPS:-60000} -- \
   "$PWD/perf/bcp_roofline/prof_round.py" --rounds "$r" --interleave 0 --trajectories 1 \
   --binder 146 --params /home/ttuser/bcx_e2e/af2_params --out "$PWD/$tag"
 echo "PROF EXIT $? $(date -u +%FT%TZ)"
