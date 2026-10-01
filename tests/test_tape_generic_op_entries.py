@@ -259,3 +259,52 @@ def test_nograd_is_inference_only_when_armed(monkeypatch):
     finally:
         ops.set_grad_hook(prev)
     assert not ops.taping() and not ops.recording()
+
+
+class _Leaf:
+    """An operand the binary rule can read and hand gradients to, without a device."""
+
+    def __init__(self, value):
+        self.value, self.requires_grad, self.got = value, True, []
+
+    def add_grad(self, g):
+        self.got.append(g)
+
+
+class _V:
+    def __init__(self, shape):
+        self.shape = shape
+
+
+@pytest.mark.parametrize("fused", [True, False])
+@pytest.mark.parametrize("act", ["SIGMOID", "RELU"])
+def test_a_sigmoid_gates_vjp_takes_gate_bw_and_nothing_else_does(monkeypatch, taping, fused, act):
+    """`multiply(o, g, input_tensor_b_activations=[SIGMOID])` backpropagates through
+    `gate_bw` when it is armed and eligible: do to o, dg to g, no stock verb. Off, or under any
+    other activation, the composed rule runs as before."""
+    GB = pytest.importorskip("tt_bio.gate_bw")
+    u = TT.ttnn.UnaryOpType
+    monkeypatch.setattr(TT, "_tape", lambda out, parents, make, **kw: make())
+    monkeypatch.setattr(TT, "_wrap", lambda t: t)
+    monkeypatch.setattr(TT, "Tensor", _Leaf)
+    monkeypatch.setattr(TT, "_reduce_to", lambda g, shape: g)
+    monkeypatch.setattr(GB, "FUSED", fused)
+    monkeypatch.setattr(GB, "eligible", lambda d, o, g: GB.FUSED)
+    monkeypatch.setattr(GB, "gate_bw", lambda d, o, g: ("do*", "dg*"))
+    calls = []
+    for verb in ("multiply", "sigmoid", "sigmoid_bw", "relu", "relu_bw", "rsub", "gtz"):
+        monkeypatch.setattr(TT.ttnn, verb,
+                            lambda *a, _v=verb, **k: calls.append(_v) or [f"{_v}{len(calls)}"])
+    # The activation pairs hold the wheel's functions, captured at import; stand in for them.
+    monkeypatch.setattr(TT, "_activation", lambda kw, key, probe=None: (
+        lambda x: calls.append("act") or "e", lambda x, y: "deriv",
+        lambda d, x, y: calls.append("act_bw") or "dact") if kw.get(key) else None)
+    o, g = _Leaf(_V((1, 64, 64, 128))), _Leaf(_V((1, 64, 64, 128)))
+    bw = TT._VERBS["multiply"](lambda *a, **k: _V((1, 64, 64, 128)), (o, g),
+                               {"input_tensor_b_activations": [getattr(u, act)]})
+    calls.clear()
+    bw(_V((1, 64, 64, 128)))
+    if fused and act == "SIGMOID":
+        assert (o.got, g.got, calls) == (["do*"], ["dg*"], [])
+    else:
+        assert len(o.got) == len(g.got) == 1 and calls and "do*" not in o.got
