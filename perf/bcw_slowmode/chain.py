@@ -11,9 +11,11 @@ Two leg kinds, each its own process, each written to the ledger as it lands:
                          a memory mode is graded, and it is graded against float64 rather
                          than against the fast mode: two approximations agreeing proves
                          nothing.
-    r:TARGET:BINDER:f|t:MODE   `perf/bgx_size/rung.py --memory MODE`, footprint or timed: a
-                         real BindCraft 2 campaign at a real token axis, which is where a
-                         mode either reaches a size or refuses.
+    r:TARGET:BINDER:f|t|a:MODE `perf/bgx_size/rung.py --memory MODE`: footprint, timed, or
+                         `a` for acceptance -- uncapped, so the campaign runs to its own stop
+                         condition through MPNN and the validation ensemble and the rung stamps
+                         what it ACCEPTED. A real BindCraft 2 campaign at a real token axis,
+                         which is where a mode either reaches a size or refuses.
 
 The lease, the held device node and the clock sampler are `perf/b2p_wh/ladder.py`'s, imported
 rather than repeated: the Galaxy's agent takes a chip back the moment its holder lets go, and
@@ -50,10 +52,13 @@ def parse(spec: str):
                 "extra": int(extra), "evo": int(evo), "mode": mode}
     if kind == "r":
         target, binder, how, mode = rest.split(":")
-        assert how in ("f", "t") and mode in MODES, spec
+        # `a` is the acceptance leg: no round cap, so the campaign reaches MPNN, the validation
+        # ensemble and its own accept/reject. A footprint says a size fits and a timed leg says
+        # what it costs; only this one says the designs are still good.
+        assert how in ("f", "t", "a") and mode in MODES, spec
         return {"kind": "r", "tag": f"{target}_{binder}_{how}_{mode}", "target": target,
                 "binder": int(binder), "how": how, "mode": mode}
-    raise SystemExit(f"{spec}: leg is g:N:EXTRA:EVO:MODE or r:TARGET:BINDER:f|t:MODE")
+    raise SystemExit(f"{spec}: leg is g:N:EXTRA:EVO:MODE or r:TARGET:BINDER:f|t|a:MODE")
 
 
 def command(leg, args, out: pathlib.Path):
@@ -67,7 +72,7 @@ def command(leg, args, out: pathlib.Path):
            "--trajectories", "1", "--max-trajectories", "1",
            "--params", args.params, "--out", str(out),
            "--memory", leg["mode"],
-           "--rounds", str(args.fp_rounds if leg["how"] == "f" else args.rounds)]
+           "--rounds", str({"f": args.fp_rounds, "t": args.rounds, "a": 0}[leg["how"]])]
     if leg["how"] == "f":
         cmd.append("--footprint")
     return cmd
