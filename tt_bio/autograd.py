@@ -269,23 +269,6 @@ _GRAD_ENABLED = True
 # 1e-9 widened (`perf/bcx_reduce/probe.json`). Graded as a stack in `perf/bcx_reduce`.
 FANIN_MIXED = False
 
-#: The activation-shaped cotangent written as bfloat8_b by the op that produces it: a linear's dX,
-#: a taped matmul's activation gradients, a multiply's VJP products. On ttnn 0.68 an eltwise or
-#: linear op pays by the byte (1.67-1.90x in bfp8 at the pair-track shape, mixed operands at their
-#: byte ratio, `perf/bcw_precision/opbench.py`), so the saving lands at the producer and at every
-#: consumer, with no typecast added. Excluded by construction: a fan-in accumulator (stays float32
-#: in `add_grad`), every weight gradient (a reduction over every token, float32 out), the stored
-#: weights, and any tensor not in TILE layout. Default OFF and release-gated (`state/bcw-precision.md`).
-COTANGENT_B8 = env_flag("TT_BIO_COTANGENT_B8", False)
-
-
-def ct_dtype(like):
-    """`bfloat8_b` for a cotangent shaped like ``like`` under `COTANGENT_B8`, else None (the op's own)."""
-    if COTANGENT_B8 and like.layout == ttnn.TILE_LAYOUT and like.dtype in (ttnn.bfloat16, ttnn.bfloat8_b):
-        return ttnn.bfloat8_b
-    return None
-
-
 
 def is_grad_enabled() -> bool:
     """Whether taping is on. ``no_grad`` is the only thing that turns it off, and a caller
@@ -571,8 +554,6 @@ class Tensor:
         # [8192,8192] -> [256,1024,256] was a ReshapeView kernel at 5.5 % of the copy roof,
         # 11.95 ms per AF2 Evoformer block at n=256 (`perf/bcx_realcensus`).
         if grad.layout != self.value.layout:
-            if grad.dtype == ttnn.bfloat8_b:  # block float exists only in TILE
-                grad = ttnn.typecast(grad, ttnn.bfloat16)
             grad = ttnn.to_layout(grad, self.value.layout)
         if self._grad is None:
             self._grad = grad
@@ -996,13 +977,6 @@ def _matmul(a, b, **kw):
     kw = _mm_layout.plan(a, b, kw)
     if not kw.get("transpose_a") or a.dtype == b.dtype:
         return ttnn.matmul(a, b, **kw)
-    if {a.dtype, b.dtype} == {ttnn.bfloat16, ttnn.bfloat8_b}:
-        # Every bfloat8_b value is a bfloat16 value, so this cast is exact and one operand wide.
-        MIXED_TRANSPOSE_A["b8 widened"] = MIXED_TRANSPOSE_A.get("b8 widened", 0) + 1
-        t = ttnn.typecast(a if a.dtype == ttnn.bfloat8_b else b, ttnn.bfloat16)
-        out = ttnn.matmul(t, b, **kw) if a.dtype == ttnn.bfloat8_b else ttnn.matmul(a, t, **kw)
-        ttnn.deallocate(t)
-        return out
     MIXED_TRANSPOSE_A["promoted"] += 1
     tmp = []
     if a.dtype != ttnn.float32:
@@ -2958,7 +2932,7 @@ def _taped_linear(shipped, args, kwargs):
                 # its value's shape, correctly.
                 x.add_grad(_reduce_to(_via2d(g, lambda v: _matmul(
                                           v, w.value, transpose_b=True,
-                                          compute_kernel_config=bwcfg, dtype=ct_dtype(v))),
+                                          compute_kernel_config=bwcfg)),
                                       x.value.shape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,

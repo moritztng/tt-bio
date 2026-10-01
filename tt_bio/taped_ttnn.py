@@ -235,10 +235,9 @@ def _v_matmul(shipped, args, kwargs):
             if a.requires_grad:
                 rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
                 da = (rows(g, lambda v: ag.bmm(v, b.value, False, not tb,
-                                                compute_kernel_config=cfg, dtype=ag.ct_dtype(v)))
+                                                compute_kernel_config=cfg))
                       if not ta else
-                      ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg,
-                             dtype=ag.ct_dtype(g)))
+                      ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg))
                 a.add_grad(_reduce_to(da, a.value.shape))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
@@ -253,10 +252,8 @@ def _v_matmul(shipped, args, kwargs):
                     db = _matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
                                  compute_kernel_config=cfg, dtype=ttnn.float32)
                 else:
-                    db = (ag.bmm(a.value, g, not ta, compute_kernel_config=cfg,
-                                 dtype=ag.ct_dtype(g)) if not tb else
-                          ag.bmm(g, a.value, True, ta, compute_kernel_config=cfg,
-                                 dtype=ag.ct_dtype(g)))
+                    db = (ag.bmm(a.value, g, not ta, compute_kernel_config=cfg) if not tb else
+                          ag.bmm(g, a.value, True, ta, compute_kernel_config=cfg))
                 b.add_grad(_reduce_to(db, b.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
@@ -737,9 +734,8 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
 
 
 _ADD = (lambda g, av, bv: g, lambda g, av, bv: g, lambda g, f: g)
-_MUL = (lambda g, av, bv: ttnn.multiply(g, bv, dtype=ag.ct_dtype(g)),
-        lambda g, av, bv: ttnn.multiply(g, av, dtype=ag.ct_dtype(g)),
-        lambda g, f: ttnn.multiply(g, f, dtype=ag.ct_dtype(g)))
+_MUL = (lambda g, av, bv: ttnn.multiply(g, bv), lambda g, av, bv: ttnn.multiply(g, av),
+        lambda g, f: ttnn.multiply(g, f))
 _VERBS["add"] = _binary(*_ADD, needs=(False, False))
 _VERBS["add_"] = _binary(*_ADD, out_of_place=ttnn.add, needs=(False, False))
 _VERBS["subtract"] = _binary(
