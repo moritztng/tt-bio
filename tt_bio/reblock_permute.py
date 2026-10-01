@@ -875,6 +875,7 @@ GATE_FP32_ACC = False
 GATE_SKIP_SIGMOID = False
 
 
+@_ops.fused_kernel("reblock_permute_gated")
 def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, device=None,
                           out=None, row_off=0):
     """``permute(chunk(xw, 4, -1)[p_slice] * sigmoid(chunk(xw, 4, -1)[g_slice]), (0, 3, 1, 2))``.
@@ -946,10 +947,10 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     """
     from . import ops
     if ops.declines_under_tape("reblock_permute_gated"):
-        # No tape entry. This one is not just a permutation -- it slices a four-way fused
-        # projection and folds `p * sigmoid(g)` into the move -- so its VJP is the gate's as
-        # well as the permutation's, and it is deliberately left declining until someone
-        # measures what it covers. `reblock_permute` and `reblock_permute_back` are taped.
+        # No tape entry installed. This one is not just a permutation -- it slices a four-way
+        # fused projection and folds `p * sigmoid(g)` into the move -- so its VJP is the gate's
+        # as well as the permutation's: `taped_ttnn._k_reblock_permute_gated`, with the fused
+        # `reblock_permute_gated_bw` below. Off TT_BIO_TAPED_KERNELS it declines.
         return False
 
     if not _ENABLED_GATED:
@@ -964,6 +965,10 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
         return _reject("gated_shape", shape)
     if shape[1] != shape[2] and not (shape[1] < shape[2] and shape[1] % TILE_H == 0):
         return _reject("gated_rowblock", shape)
+    if shape[1] != shape[2] and ops.taping():
+        # A row block writes into a caller-owned destination across calls, which no single tape
+        # node owns. The tape entry covers the whole-tensor move only.
+        return _reject("gated_rowblock_taped", shape)
     if shape[3] != 4 * slice_c or slice_c % TILE_W:
         return _reject("gated_slice", shape)
     N = shape[2]
@@ -978,3 +983,131 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"gated_window_{bt}", shape)
     return True
+
+
+# --- the gated move's backward ---------------------------------------------------------------------
+#
+# Under a tape the forward above needs a VJP, and the composed one costs more than the forward it
+# differentiates: per role, the move back and then sigmoid, rsub and five multiplies, each a full
+# [1, N, N, C] bf16 round trip through DRAM (perf/bcp_evo/census_blocks.txt: ~1.0 ms a role at
+# 288 tokens on p300c).
+#
+# This kernel is the move back with the gate's VJP folded into its compute stage:
+#   da' = permute(da, (0, 2, 3, 1));  s = sigmoid(g);  dp = da' * s;  dg = da' * p * s * (1 - s)
+# The reader is reader_reblock_permute_back.cpp, verbatim. The writer also fetches the p and g
+# tiles at each output position (whole aligned tiles, off the reader RISC, which is the busy one)
+# and writes dp and dg as two [1, N, N, C] tensors in the projection's layout, so the tape joins
+# them into the projection's gradient exactly where it joins the slices' gradients today.
+#
+# Precision: everything between the cotangent and the two gradients stays in a float32 DST and is
+# rounded once, at the pack. The composed chain rounds six times. Graded against float64.
+
+KERNEL_DIR_GATED_BW = Path(__file__).resolve().parent / "kernels" / "reblock_permute_gated_bw"
+# Whether the tape entry's backward runs this kernel or the composed chain. Default off like every
+# gradient lever; `bindcraft2.fast_round` arms it. Read live, so one process can A/B both arms.
+GATED_BW_FUSED = env_flag("TT_BIO_GATED_BW_FUSED", False)
+P_BW_CB, G_BW_CB, DP_CB, DG_CB = 1, 2, 16, 17
+_CACHE_GATED_BW: dict = {}
+STATS_GATED_BW = [0, 0]
+
+
+def eligible_gated_bw(da, xw) -> bool:
+    """Whether the fused backward serves ``da [1, C, N, N]`` against ``xw [1, N, N, Cw]``.
+
+    The back move's window minus its DRAM floor: N and C whole tiles, bf16 TILE, interleaved. A
+    shape outside it takes the composed VJP, which is correct everywhere.
+    """
+    sd, sx = [int(d) for d in da.shape], [int(d) for d in xw.shape]
+    ok = (len(sd) == 4 and len(sx) == 4 and sd[0] == 1 and sx[0] == 1 and sd[2] == sd[3]
+          and sx[1] == sd[2] and sx[2] == sd[2] and sd[1] % TILE_W == 0
+          and sd[2] % TILE_H == 0 and sx[3] % TILE_W == 0)
+    ok = ok and all(t.dtype == _DTYPE and t.layout == ttnn.TILE_LAYOUT
+                    and t.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
+                    for t in (da, xw))
+    if not ok:
+        STATS_GATED_BW[1] += 1
+    return ok
+
+
+def _build_gated_bw(da, xw, device, reader_ct, writer_ct):
+    C, N = int(da.shape[1]), int(da.shape[2])
+    Nt, Ct, Ctw = N // TILE_H, C // TILE_W, int(xw.shape[3]) // TILE_W
+    num_groups = Nt * Nt * Ct
+    plan = _split_plan(device, num_groups)
+    assert plan is not None, f"no expressible work split for {num_groups} groups"
+    _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
+    tile_bytes = TILE_H * TILE_W * _elem()
+
+    def cb(idx, depth):
+        fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=_DTYPE, page_size=tile_bytes)
+        return ttnn.CBDescriptor(total_size=depth * tile_bytes, core_ranges=core_grid,
+                                 format_descriptors=[fmt])
+
+    # The scratch window and the four group-wide CBs each hold one whole 32-tile group.
+    cbs = [cb(IN_CB, 2), cb(STAGE_CB, GROUP_TILES * 2), cb(P_BW_CB, GROUP_TILES),
+           cb(G_BW_CB, GROUP_TILES), cb(DP_CB, GROUP_TILES), cb(DG_CB, GROUP_TILES)]
+    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    block = 0
+    for group, per_core in ((cg1, work1), (cg2, work2)):
+        for cr in group.ranges():
+            for cx in range(cr.start.x, cr.end.x + 1):
+                for cy in range(cr.start.y, cr.end.y + 1):
+                    # Blocked walk, always: the writer walks the same contiguous run.
+                    reader_rt[cx][cy] = [block, per_core, Nt, Ct, 1, _NO_WRAP, 0]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
+                    writer_rt[cx][cy] = [block, per_core, Nt, Ct, Ctw]
+                    block += per_core
+    assert block == num_groups, (block, num_groups)
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR_BACK / "reader_reblock_permute_back.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=[0] * 11 + reader_ct, runtime_args=reader_rt,
+        common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
+    )
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR_GATED_BW / "writer_reblock_permute_gated_bw.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        common_runtime_args=[0] * 5, config=ttnn.WriterConfigDescriptor(),
+    )
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(KERNEL_DIR_GATED_BW / "compute_reblock_permute_gated_bw.cpp"),
+        source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
+        core_ranges=core_grid, compile_time_args=[IN_CB, P_BW_CB, G_BW_CB, DP_CB, DG_CB],
+        runtime_args=compute_rt,
+        config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
+                                            fp32_dest_acc_en=True),
+    )
+    return {"kernels": [reader, writer, compute], "cbs": cbs}
+
+
+def reblock_permute_gated_bw(da, xw, p_slice, g_slice):
+    """``(dp, dg)``, the VJP of ``reblock_permute_gated(xw, p_slice, g_slice, C)`` at ``da``.
+
+    ``da`` is ``[1, C, N, N]`` (the move's output layout) and ``xw`` the ``[1, N, N, Cw]``
+    projection the forward read; both results are ``[1, N, N, C]`` bf16 TILE in DRAM. The slice
+    offsets are in CHANNELS, like the forward's.
+    """
+    device = da.device()
+    C, N = int(da.shape[1]), int(da.shape[2])
+    dp, dg = (ttnn.allocate_tensor_on_device(ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT,
+                                             device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(2))
+    reader_ct = [_elem(), STAGE_CB, IN_CB, TILE_H, TILE_W, FACE_H, FACE_W]
+    reader_ct.extend(ttnn.TensorAccessorArgs(da).get_compile_time_args())
+    writer_ct = [P_BW_CB, G_BW_CB, DP_CB, DG_CB]
+    for t in (xw, dp, dg):
+        writer_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+    g = device.compute_with_storage_grid_size()
+    key = (device.id(), C, N, int(xw.shape[3]), g.x, g.y, REBLOCK_CORES,
+           tuple(reader_ct), tuple(writer_ct))
+    entry = _CACHE_GATED_BW.get(key)
+    if entry is None:
+        entry = _CACHE_GATED_BW[key] = _build_gated_bw(da, xw, device, reader_ct, writer_ct)
+    reader, writer, compute = entry["kernels"]
+    reader.common_runtime_args = [da.buffer_address()]
+    writer.common_runtime_args = [xw.buffer_address(), p_slice // TILE_W, g_slice // TILE_W,
+                                  dp.buffer_address(), dg.buffer_address()]
+    pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"])
+    STATS_GATED_BW[0] += 1
+    ttnn.generic_op([da, xw, dp, dg], pd)
+    return dp, dg

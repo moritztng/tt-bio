@@ -1200,6 +1200,51 @@ _kernel("reblock_permute")(_reblock_vjp((0, 2, 3, 1)))
 _kernel("reblock_permute_back")(_reblock_vjp((0, 3, 1, 2)))
 
 
+
+@_kernel("reblock_permute_gated")
+def _k_reblock_permute_gated(shipped, args, kwargs):
+    """`reblock_permute_gated`'s entry: the gated channel move of a triangle multiplication.
+
+    The forward is ``a = permute(p * sigmoid(g), (0, 3, 1, 2))`` with ``p`` and ``g`` two
+    channel slices of the four-way in-projection ``xw``. Under the tape it replaces the four
+    `ttnn.chunk` slices, the two gate multiplies and the two plain moves the composed path runs,
+    so a round with it on computes the same forward values (the kernel is `torch.equal` to that
+    chain) through fewer, larger programs.
+
+    The VJP, with ``da' = permute(da, (0, 2, 3, 1))`` and ``s = sigmoid(g)``:
+    ``dp = da' * s`` and ``dg = da' * p * s * (1 - s)``. Both go into ``xw`` as slice gradients,
+    which `Tensor.add_grad_slice` joins with the other role's two in one concat, exactly where the
+    composed path's four `chunk` gradients were joined. `reblock_permute.GATED_BW_FUSED` runs it as
+    one kernel (`reblock_permute_gated_bw`, float32 between cotangent and pack); otherwise, or
+    outside that kernel's window, it is the composed chain on stock verbs.
+
+    `reads=(0,)`: the closure reads ``xw`` (p and g) and nothing else. The gate refuses the
+    row-block mode under a tape, so ``out`` is always this call's own allocation.
+    """
+    from . import reblock_permute as R
+    xw = _wrap(args[0])
+    p_off, g_off, slice_c = (int(v) for v in args[1:4])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+
+    def make():
+        def bw(g):
+            x = xw.value
+            N = int(x.shape[1])
+            if R.GATED_BW_FUSED and R.eligible_gated_bw(g, x):
+                dp, dg = R.reblock_permute_gated_bw(g, x, p_off, g_off)
+            else:
+                dap = ttnn.permute(g, (0, 2, 3, 1))
+                pv = ttnn.slice(x, [0, 0, 0, p_off], [1, N, N, p_off + slice_c])
+                s = ttnn.sigmoid(ttnn.slice(x, [0, 0, 0, g_off], [1, N, N, g_off + slice_c]))
+                dp = ttnn.multiply(dap, s)
+                dg = ttnn.multiply(ttnn.multiply(dap, pv), ttnn.multiply(s, ttnn.rsub(s, 1.0)))
+            xw.add_grad_slice(dp, [0, 0, 0, p_off], [1, N, N, p_off + slice_c])
+            xw.add_grad_slice(dg, [0, 0, 0, g_off], [1, N, N, g_off + slice_c])
+        return bw
+
+    return ag._tape(out_v, [xw], make, reads=(0,))
+
 @_kernel("rne_add")
 def _k_rne_add(shipped, args, kwargs):
     """`tt_bio.rne_add`'s entry: the VJP of a sum is the cotangent, to both operands.

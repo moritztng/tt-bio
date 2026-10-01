@@ -97,7 +97,7 @@ def test_the_registry_holds_exactly_the_kernels_that_declare_an_entry():
     """Pinned on purpose: a kernel that registers no entry declines under every tape, silently,
     and reads in an A/B as a lever that measured nothing."""
     assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi",
-                               "rne_add"}
+                               "rne_add", "reblock_permute_gated"}
 
 
 def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping):
@@ -173,3 +173,58 @@ def test_a_declining_kernel_returns_none_so_the_caller_falls_through(taping):
     assert entry(lambda *a, **kw: None, (None, None, None, None, 1.0), {}) is None
     after = TT.KERNEL_STATS["tri_att_sdpa_hifi"]
     assert after[1] == before[1] + 1, "a decline is counted as a decline, not as a serve"
+
+
+class _Projection(_Parent):
+    """The four-way in-projection: a value with a shape, recording its slice gradients."""
+    requires_grad = True
+
+    def __init__(self, shape):
+        super().__init__(shape)
+        self.value = self
+        self.slices = []
+
+    def add_grad_slice(self, g, starts, ends):
+        self.slices.append((g, starts, ends))
+
+
+@pytest.mark.parametrize("fused", [True, False])
+def test_the_gated_moves_vjp_lands_both_gradients_on_their_own_slices(monkeypatch, taping, fused):
+    """`reblock_permute_gated` reads two slices of the projection, so its VJP is two slice
+    gradients of that one parent -- dp on the value slice, dg on the gate slice -- and the closure
+    keeps the projection (`reads=(0,)`) because p and g are re-read from it. Both arms of the
+    backward land in the same places; which one ran is the module switch's business."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    R = pytest.importorskip("tt_bio.reblock_permute")
+    monkeypatch.setattr(ag, "_tape", lambda out, parents, make, **kw: (out, parents, make(), kw))
+    monkeypatch.setattr(TT, "_wrap", lambda t: t)
+    monkeypatch.setattr(R, "GATED_BW_FUSED", fused)
+    monkeypatch.setattr(R, "eligible_gated_bw", lambda g, x: True)
+    monkeypatch.setattr(R, "reblock_permute_gated_bw", lambda g, x, po, go: ("dp*", "dg*"))
+    # The composed arm on stock verbs, recorded rather than run.
+    calls = []
+    for verb in ("permute", "slice", "sigmoid", "multiply", "rsub"):
+        monkeypatch.setattr(TT.ttnn, verb,
+                            lambda *a, _v=verb, **k: calls.append(_v) or f"{_v}{len(calls)}")
+    xw = _Projection([1, 64, 64, 512])
+    out, parents, bw, kw = TT.KERNELS["reblock_permute_gated"](
+        lambda *a, **k: "moved", (xw, 256, 384, 128), {"memory_config": None})
+    assert (out, parents, kw) == ("moved", [xw], {"reads": (0,)})
+    bw("da")
+    assert [s[1:] for s in xw.slices] == [([0, 0, 0, 256], [1, 64, 64, 384]),
+                                          ([0, 0, 0, 384], [1, 64, 64, 512])]
+    if fused:
+        assert [s[0] for s in xw.slices] == ["dp*", "dg*"] and calls == []
+    else:
+        assert calls.count("multiply") == 4 and calls.count("slice") == 2
+
+
+def test_the_gated_move_refuses_a_row_block_under_a_tape(monkeypatch, taping):
+    """A row block writes a caller-owned destination across calls and no one tape node owns it."""
+    R = pytest.importorskip("tt_bio.reblock_permute")
+    monkeypatch.setattr(ops, "_KERNEL_ENTRIES", {"reblock_permute_gated": object()})
+    blk = type("Blk", (), {"shape": [1, 64, 288, 512]})()
+    before = dict(R.REJECTS)
+    assert R.eligible_gated(blk, 128, None) is False
+    key = ("gated_rowblock_taped", (1, 64, 288, 512))
+    assert R.REJECTS.get(key, 0) == before.get(key, 0) + 1
