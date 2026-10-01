@@ -58,3 +58,36 @@
 === rc=0 2026-10-01T18:28:14Z a288_hPDL1_150_main
 === SWEEP DONE 2026-10-01T18:28:14Z
 === 2026-10-01T18:28:14Z a320_hPDL1_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=7492b2808
+=== rc=0 2026-10-01T18:29:07Z a320_hPDL1_180
+=== 2026-10-01T18:29:07Z a352_hPDL1_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:30:06Z a352_hPDL1_210
+=== 2026-10-01T18:30:06Z a384_hIL7RA_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:31:17Z a384_hIL7RA_150
+=== 2026-10-01T18:31:17Z a416_hIL7RA_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:33:00Z a416_hIL7RA_180
+=== 2026-10-01T18:33:00Z a448_hIL7RA_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:34:07Z a448_hIL7RA_210
+=== 2026-10-01T18:34:07Z a480_hIL7RA_240 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:35:30Z a480_hIL7RA_240
+=== 2026-10-01T18:35:30Z a512_hIL2R_90 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:36:51Z a512_hIL2R_90
+=== 2026-10-01T18:36:51Z a544_hIL2R_110 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:38:35Z a544_hIL2R_110
+=== 2026-10-01T18:38:35Z a576_hIL2R_150 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:40:22Z a576_hIL2R_150
+=== 2026-10-01T18:40:22Z a608_hIL2R_180 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:42:18Z a608_hIL2R_180
+=== 2026-10-01T18:42:18Z a640_hIL2R_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:44:22Z a640_hIL2R_210
+=== 2026-10-01T18:44:22Z a672_hHSA_60 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:47:34Z a672_hHSA_60
+=== 2026-10-01T18:47:34Z a704_hHSA_90 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:50:07Z a704_hHSA_90
+=== 2026-10-01T18:50:07Z a736_hHSA_110 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:53:57Z a736_hHSA_110
+=== 2026-10-01T18:53:57Z a832_hHSA_210 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T18:57:49Z a832_hHSA_210
+=== 2026-10-01T18:57:49Z a864_hHSA_240 tree=/home/ttuser/.coworker/wt/bcw-bmm commit=db9c3be56
+=== rc=0 2026-10-01T19:01:52Z a864_hHSA_240
+=== SWEEP DONE 2026-10-01T19:01:52Z
+=== CHAIN DONE 2026-10-01T19:01:52Z
