@@ -242,9 +242,19 @@ class Census:
             box = object.__getattribute__(t, "box")
             if box:
                 add(box[0], role + ":box", t)
+        # A nanobind ttnn.Tensor is not gc-tracked, so it never appears in get_objects():
+        # reach raw handles (weights, masks, constants) through whatever holds them.
         for o in objs:
             if isinstance(o, ttnn.Tensor):
                 add(o, "raw")
+                continue
+            if isinstance(o, (dict, list, tuple, set)) or hasattr(o, "__dict__"):
+                try:
+                    for r in gc.get_referents(o):
+                        if type(r) is ttnn.Tensor:
+                            add(r, "raw")
+                except Exception:                                          # noqa: BLE001
+                    pass
         del objs, tensors
         return rows
 
