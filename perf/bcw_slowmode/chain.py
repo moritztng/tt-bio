@@ -24,6 +24,7 @@ import json
 import os
 import pathlib
 import signal
+import statistics
 import subprocess
 import sys
 import threading
@@ -70,6 +71,26 @@ def command(leg, args, out: pathlib.Path):
     return cmd
 
 
+def round_seconds(rung: pathlib.Path) -> dict:
+    """Seconds per round, from the stamps `rounds.json` writes as each round opens.
+
+    The gap between two stamps is the round that ran between them, so N stamps time N-1
+    rounds; the first gap carries whatever compiling the round still had to do, which is why
+    the median is reported beside the list rather than a mean over it.
+    """
+    try:
+        rows = json.loads((rung / "rounds.json").read_text())
+        ts = [float(r["t"]) for r in rows]
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+    gaps = [round(b - a, 1) for a, b in zip(ts, ts[1:])]
+    if not gaps:
+        return {}
+    return {"per_round_seconds": gaps,
+            "round_seconds_median": round(statistics.median(gaps), 1),
+            "round_seconds_steady": round(statistics.median(gaps[1:] or gaps), 1)}
+
+
 def harvest(leg, rung: pathlib.Path) -> dict:
     """The numbers a leg's own artifact carries, so the ledger alone answers the question."""
     got: dict = {}
@@ -82,6 +103,7 @@ def harvest(leg, rung: pathlib.Path) -> dict:
                     "memory_used", "aiclk_run", "per_round_seconds", "round_seconds_median")}
         except (OSError, ValueError) as exc:
             got = {"note": f"no rung.json: {exc!r}"}
+        got.update(round_seconds(rung))
         return got
     stem = (f"stack_n{leg['n']}_e{leg['extra']}_v{leg['evo']}_ckpt"
             f"{'' if leg['mode'] == 'fast' else '_' + leg['mode']}.json")
