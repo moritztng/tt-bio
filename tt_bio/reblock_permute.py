@@ -1006,6 +1006,11 @@ KERNEL_DIR_GATED_BW = Path(__file__).resolve().parent / "kernels" / "reblock_per
 # Whether the tape entry's backward runs this kernel or the composed chain. Default off like every
 # gradient lever; `bindcraft2.fast_round` arms it. Read live, so one process can A/B both arms.
 GATED_BW_FUSED = env_flag("TT_BIO_GATED_BW_FUSED", False)
+# Write dp and dg straight into the wide projection's gradient (`autograd.Tensor.grad_slab`) at the
+# channel offsets they were read from. The tape otherwise keeps the four slice gradients of a
+# triangle multiplication's in-projection and joins them with one concat into [1, N, N, 4C]
+# (0.446 ms at 288 tokens) before the projection's matmul VJP. Same tiles, new pages: bit-exact.
+GATED_GRAD_PACKED = env_flag("TT_BIO_GATED_GRAD_PACKED", False)
 P_BW_CB, G_BW_CB, DP_CB, DG_CB = 1, 2, 16, 17
 _CACHE_GATED_BW: dict = {}
 STATS_GATED_BW = [0, 0]
@@ -1031,7 +1036,7 @@ def eligible_gated_bw(da, xw) -> bool:
     return ok
 
 
-def _build_gated_bw(da, xw, device, reader_ct, writer_ct):
+def _build_gated_bw(da, xw, device, reader_ct, writer_ct, packed=False):
     C, N = int(da.shape[1]), int(da.shape[2])
     Nt, Ct, Ctw = N // TILE_H, C // TILE_W, int(xw.shape[3]) // TILE_W
     num_groups = Nt * Nt * Ct
@@ -1071,6 +1076,7 @@ def _build_gated_bw(da, xw, device, reader_ct, writer_ct):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0] * 5, config=ttnn.WriterConfigDescriptor(),
+        defines=[("PACKED_GRAD", "1")] if packed else [],
     )
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED_BW / "compute_reblock_permute_gated_bw.cpp"),
@@ -1083,17 +1089,24 @@ def _build_gated_bw(da, xw, device, reader_ct, writer_ct):
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def reblock_permute_gated_bw(da, xw, p_slice, g_slice):
+def reblock_permute_gated_bw(da, xw, p_slice, g_slice, out=None):
     """``(dp, dg)``, the VJP of ``reblock_permute_gated(xw, p_slice, g_slice, C)`` at ``da``.
 
     ``da`` is ``[1, C, N, N]`` (the move's output layout) and ``xw`` the ``[1, N, N, Cw]``
     projection the forward read; both results are ``[1, N, N, C]`` bf16 TILE in DRAM. The slice
     offsets are in CHANNELS, like the forward's.
+
+    With `out`, a bf16 ``[1, N, N, Cw]`` tensor, dp and dg are written into it at ``p_slice`` and
+    ``g_slice`` instead (`GATED_GRAD_PACKED`) and ``(out, out)`` is returned.
     """
     device = da.device()
     C, N = int(da.shape[1]), int(da.shape[2])
-    dp, dg = (ttnn.allocate_tensor_on_device(ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT,
-                                             device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(2))
+    if out is not None:
+        dp = dg = out
+    else:
+        dp, dg = (ttnn.allocate_tensor_on_device(ttnn.Shape([1, N, N, C]), _DTYPE,
+                                                 ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+                  for _ in range(2))
     reader_ct = [_ELEM_BYTES[da.dtype], STAGE_CB, IN_CB, TILE_H, TILE_W, FACE_H, FACE_W]
     reader_ct.extend(ttnn.TensorAccessorArgs(da).get_compile_time_args())
     writer_ct = [P_BW_CB, G_BW_CB, DP_CB, DG_CB]
@@ -1101,15 +1114,16 @@ def reblock_permute_gated_bw(da, xw, p_slice, g_slice):
         writer_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     g = device.compute_with_storage_grid_size()
     key = (device.id(), C, N, int(xw.shape[3]), g.x, g.y, REBLOCK_CORES,
-           tuple(reader_ct), tuple(writer_ct))
+           tuple(reader_ct), tuple(writer_ct), out is not None)
     entry = _CACHE_GATED_BW.get(key)
     if entry is None:
-        entry = _CACHE_GATED_BW[key] = _build_gated_bw(da, xw, device, reader_ct, writer_ct)
+        entry = _CACHE_GATED_BW[key] = _build_gated_bw(da, xw, device, reader_ct, writer_ct,
+                                                       packed=out is not None)
     reader, writer, compute = entry["kernels"]
     reader.common_runtime_args = [da.buffer_address()]
     writer.common_runtime_args = [xw.buffer_address(), p_slice // TILE_W, g_slice // TILE_W,
                                   dp.buffer_address(), dg.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"])
     STATS_GATED_BW[0] += 1
-    ttnn.generic_op([da, xw, dp, dg], pd)
+    ttnn.generic_op([da, xw, dp] if out is not None else [da, xw, dp, dg], pd)
     return dp, dg

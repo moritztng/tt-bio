@@ -80,6 +80,20 @@ void kernel_main() {
         cb_wait_front(cb_dg, TILE_HEIGHT);
         uint32_t ldp = get_read_ptr(cb_dp);
         uint32_t ldg = get_read_ptr(cb_dg);
+#ifdef PACKED_GRAD
+        // dp and dg are both the wide gradient [1, N, N, Cw] (dp_addr == dg_addr), written at the
+        // pages the p and g tiles were read from: the slice gradients land joined.
+        uint32_t op = (it * TILE_HEIGHT * Nt + jt) * Ctw + p_off + ct;
+        uint32_t og = (it * TILE_HEIGHT * Nt + jt) * Ctw + g_off + ct;
+        for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
+            noc_async_write_page(op, dp, ldp);
+            noc_async_write_page(og, dg, ldg);
+            ldp += tile_bytes;
+            ldg += tile_bytes;
+            op += row_in;
+            og += row_in;
+        }
+#else
         uint32_t op = (it * TILE_HEIGHT) * NtCt + jt * Ct + ct;
         for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
             noc_async_write_page(op, dp, ldp);
@@ -88,6 +102,7 @@ void kernel_main() {
             ldg += tile_bytes;
             op += NtCt;
         }
+#endif
         noc_async_write_barrier();
         cb_pop_front(cb_dp, TILE_HEIGHT);
         cb_pop_front(cb_dg, TILE_HEIGHT);

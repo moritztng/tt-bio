@@ -1255,6 +1255,12 @@ def _k_reblock_permute_gated(shipped, args, kwargs):
             x = xw.value
             N = int(x.shape[1])
             if R.GATED_BW_FUSED and R.eligible_gated_bw(g, x):
+                if R.GATED_GRAD_PACKED and xw.requires_grad:
+                    slab = xw.grad_slab()
+                    R.reblock_permute_gated_bw(g, x, p_off, g_off, out=slab)
+                    xw.slab_written(p_off, p_off + slice_c)
+                    xw.slab_written(g_off, g_off + slice_c)
+                    return
                 dp, dg = R.reblock_permute_gated_bw(g, x, p_off, g_off)
             else:
                 dap = ttnn.permute(g, (0, 2, 3, 1))

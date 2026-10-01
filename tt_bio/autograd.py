@@ -276,6 +276,8 @@ FANIN_MIXED = False
 # a bf16 output, rounded once at pack (`rne_add.round_add`). Any other read flushes it as before.
 FANIN_CAST_FUSED = env_flag("TT_BIO_FANIN_CAST_FUSED", False)
 FANIN_CAST_STATS = {"served": 0, "flushed": 0}
+#: `Tensor.grad_slab` joins: whole (every slice written, no concat) or cut back out.
+SLAB_STATS = {"whole": 0, "cut": 0}
 
 
 def is_grad_enabled() -> bool:
@@ -333,7 +335,8 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("_value", "_grad", "_pend", "_parts", "requires_grad", "node", "pinned", "evictable",
+    __slots__ = ("_value", "_grad", "_pend", "_slab", "_parts", "requires_grad", "node", "pinned",
+                 "evictable",
                  "box", "shares", "__weakref__")
 
     def __init__(self, value, requires_grad: bool = False):
@@ -341,6 +344,9 @@ class Tensor:
         self._grad = None
         # The last float32-widened contribution, not yet added (`FANIN_CAST_FUSED`).
         self._pend = None
+        # A full-shape gradient buffer kernels write slices of in place, and the last-axis ranges
+        # they wrote (`grad_slab`).
+        self._slab = None
         # Gradients of slices of this value, (starts, ends, g), until `grad` is read.
         self._parts = None
         self.requires_grad = requires_grad
@@ -634,7 +640,43 @@ class Tensor:
         FANIN_CAST_STATS["flushed"] += 1
         self._grad = _rne_add.widen_add(self._grad, pend)
 
+    def grad_slab(self):
+        """An uninitialised gradient buffer in this value's shape (bf16 TILE DRAM) that kernels
+        write last-axis slices of directly, with `slab_written` recording each. It becomes ONE
+        contribution when the gradient is read: whole if the slices cover the axis, else the
+        written slices are cut back out and joined like any `add_grad_slice`."""
+        if self._slab is None:
+            self._slab = (ttnn.empty(self.value.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                                     self.value.device(), ttnn.DRAM_MEMORY_CONFIG), [])
+        return self._slab[0]
+
+    def slab_written(self, start, end) -> None:
+        self._slab[1].append((int(start), int(end)))
+
+    def _join_slab(self):
+        slab, spans = self._slab
+        self._slab = None
+        W = int(self.value.shape[-1])
+        at = 0
+        for s, e in sorted(spans):
+            if s > at:
+                break
+            at = max(at, e)
+        if at >= W:
+            SLAB_STATS["whole"] += 1
+            self.add_grad(slab)
+            return
+        SLAB_STATS["cut"] += 1
+        shape = [int(d) for d in self.value.shape]
+        for s, e in spans:
+            starts, ends = [0] * len(shape), list(shape)
+            starts[-1], ends[-1] = s, e
+            self.add_grad_slice(ttnn.slice(slab, starts, ends), starts, ends)
+        ttnn.deallocate(slab)
+
     def _join_parts(self):
+        if self._slab is not None:
+            self._join_slab()
         if self._parts:
             parts, self._parts = self._parts, None
             for g in _join_slices(parts, [int(d) for d in self.value.shape]):
@@ -649,7 +691,7 @@ class Tensor:
 
     @grad.setter
     def grad(self, g):
-        self._grad, self._parts, self._pend = g, None, None
+        self._grad, self._parts, self._pend, self._slab = g, None, None, None
 
     def closure_grad(self):
         """The gradient a closure is handed: `grad` in this value's dtype.
