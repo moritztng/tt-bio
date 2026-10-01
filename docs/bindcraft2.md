@@ -590,20 +590,23 @@ Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 | 512 | `lean` | | 67.8 s |
 | 544 | `fast` | refuses, 12.70 GB held | |
 | 544 | `lean` | 7.527 GB | 84.3 s |
-| 768 | `offload` | 5.685 GB | 238.0 s |
+| 768 | `offload` | 8.282 GB, 4.60 GB still free | 200.8 s |
 | **800** | `offload` | **8.952 GB**, 3.93 GB still free | **225.1 s** |
 
 800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder: **the largest fold measured
 to complete a gradient round on one Wormhole Galaxy chip, 1.56x the 512 the fast mode carries.**
 768 is the same ectodomain with a 100 aa binder.
 
-768 costs more than the larger 800 does, which is not a mistake. The contraction block a matmul
-plan takes, `in0_block_w`, is the largest divisor of the token axis in tiles that is at most 8, so
-768 (24 tiles, divisible by 8) asks for the widest block in the range while 800 (25) and 832 (26)
-do not -- and at 768 that block does not fit a core's L1, so the Evoformer backward runs it in
-narrower passes instead. It is correct and it is slower. If some other axis one day refuses with
-the card visibly free, this is the shape of it, and the next bucket up is worth trying before you
-crop the target.
+768 is the one axis in this range that needs a second escape, and it is worth knowing why. The
+contraction block a matmul plan takes, `in0_block_w`, is the largest divisor of the token axis in
+tiles that is at most 8, so 768 (24 tiles, divisible by 8) asks for the widest block in the range
+while 800 (25) and 832 (26) do not -- and at 768 that block does not fit a core's L1. Without the
+escape the Evoformer backward refuses with the card several GB free, which does not look like a
+size problem at all; with it, the same contraction runs in narrower passes and the round completes.
+We cannot price the escape on its own, because the fold it rescues does not run without it; what we
+can say is that 768 still lands under the larger 800, so the narrower passes cost less than the 32
+tokens between them. If some other axis one day refuses with the card visibly free, this is the
+shape of it, and the next bucket up is worth trying before you crop the target.
 
 **At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s), which is the price
 of running every block's forward a second time. The 544 row costs more than that because it is
