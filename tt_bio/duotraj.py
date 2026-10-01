@@ -25,7 +25,10 @@ from the environment and nothing changes behaviour for a process that never call
 """
 from __future__ import annotations
 
+import atexit
 import contextlib
+import fcntl
+import os
 import pathlib
 import sys
 import threading
@@ -347,15 +350,78 @@ AUTO_EXTRA_HOST_BYTES = int(6.0 * 2**30)
 AUTO_HOST_RESERVE_BYTES = int(2.0 * 2**30)
 
 
-def host_rss_bytes() -> int:
-    """What this process already holds, or 0 when it cannot be read."""
+def host_rss_bytes(pid: "int | str" = "self") -> int:
+    """What a process already holds, this one by default, or 0 when it cannot be read."""
     try:
-        for line in open("/proc/self/status"):
+        for line in open(f"/proc/{pid}/status"):
             if line.startswith("VmRSS:"):
                 return int(line.split()[1]) * 1024
     except OSError:
         pass
     return 0
+
+
+#: Where each `auto` leaves the host peak it planned for. One campaign per chip is how a box with
+#: several chips is used, and a Galaxy owner starts 32 of them from one shell loop: every one reads
+#: MemAvailable before any has grown and every one sees the whole box. On a Wormhole Galaxy with
+#: 278 GB free that is 32 x 2 trajectories planned at 14.5 GB each, 464 GB. A campaign that started
+#: first and has not yet grown into its plan is memory this one cannot have, so `auto` subtracts
+#: what live siblings planned and do not hold yet. A file per process, named by pid and start time
+#: so a recycled pid is not read as the campaign that left it.
+HOST_CLAIMS_DIR = "/tmp/tt-bio-host-claims"
+
+
+def _start_time(pid: int) -> str:
+    try:
+        return pathlib.Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19]
+    except (OSError, IndexError):
+        return ""
+
+
+@contextlib.contextmanager
+def _host_claims():
+    """Yield what live sibling campaigns planned and do not hold yet, and a function that records
+    this process's own plan.
+
+    Both happen under one lock, so two campaigns deciding in the same second still see each
+    other. Anything unreadable counts as nothing, which is what `auto` did before claims existed.
+    """
+    me = os.getpid()
+    d = pathlib.Path(HOST_CLAIMS_DIR)
+    try:
+        if not d.is_dir():
+            d.mkdir()
+            d.chmod(0o1777)                  # every user's campaigns share one view of the box
+        lock = open(d / ".lock", "a")
+        if (d / ".lock").stat().st_uid == os.getuid():
+            (d / ".lock").chmod(0o666)
+    except OSError:
+        yield 0, lambda peak: None
+        return
+    with lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        pending = 0
+        for f in d.glob("*-*"):
+            pid, _, start = f.name.partition("-")
+            if not pid.isdigit() or int(pid) == me:
+                continue
+            try:
+                if _start_time(int(pid)) != start:
+                    f.unlink(missing_ok=True)
+                    continue
+                pending += max(0, int(f.read_text()) - host_rss_bytes(int(pid)))
+            except (OSError, ValueError):
+                pass
+
+        def record(peak: int) -> None:
+            ours = d / f"{me}-{_start_time(me)}"
+            try:
+                ours.write_text(str(int(peak)))
+            except OSError:
+                return
+            atexit.register(ours.unlink, missing_ok=True)
+
+        yield pending, record
 
 
 def auto_trajectories(tokens: "int | None", cap: int = AUTO_CAP) -> "tuple[int, str]":
@@ -386,6 +452,17 @@ def auto_trajectories(tokens: "int | None", cap: int = AUTO_CAP) -> "tuple[int, 
     def needs(n: int) -> int:
         return max(0, peak(n) - held) + AUTO_HOST_RESERVE_BYTES
 
+    with _host_claims() as (siblings, record):
+        n, why = _choose(tokens, cap, free - siblings, peak, needs)
+        record(peak(n))
+    if siblings:
+        why += (f", after the {siblings * gb:.1f} GB other campaigns on this box planned for and "
+                f"do not hold yet")
+    return n, why
+
+
+def _choose(tokens: int, cap: int, free: int, peak, needs) -> "tuple[int, str]":
+    gb = 1 / 2**30
     per = trajectory_bytes(tokens)
     open_card = free_device_bytes()
     room = (open_card or card_total_bytes() - trajectory_floor_bytes(tokens)) - CARD_RESERVE_BYTES

@@ -997,6 +997,74 @@ def test_auto_opens_two_trajectories_where_the_served_path_fits_two(monkeypatch,
     assert duotraj.auto_trajectories(tokens)[0] == count
 
 
+def _galaxy_chip(monkeypatch, free_gb):
+    from tt_bio import duotraj
+
+    monkeypatch.setattr(duotraj, "free_host_bytes", lambda: int(free_gb * 2**30))
+    monkeypatch.setattr(duotraj, "host_rss_bytes", lambda pid="self": 0)
+    monkeypatch.setattr(duotraj, "free_device_bytes", lambda: 0)
+    monkeypatch.setattr(duotraj, "card_total_bytes", lambda: int(12 * 2**30))
+    return duotraj
+
+
+def test_campaigns_started_together_on_a_galaxy_do_not_plan_more_host_than_the_box_has(monkeypatch):
+    """32 campaigns from one shell loop all read MemAvailable before any has grown. Measured on a
+    Wormhole Galaxy (.107, 2026-10-01): 278.6 GB free, and each alone would take 2 at 288 tokens,
+    32 x 14.5 GB = 464 GB of plan. With claims a second trajectory opens only where it fits; past
+    that every campaign runs one, which is the floor `auto` cannot go under."""
+    duotraj = _galaxy_chip(monkeypatch, 278.6)
+    alive = {}
+    monkeypatch.setattr(duotraj, "_start_time", lambda pid: alive.get(pid, ""))
+    counts = []
+    for pid in range(1000, 1032):
+        alive[pid] = "1"
+        monkeypatch.setattr(duotraj.os, "getpid", lambda pid=pid: pid)
+        counts.append(duotraj.auto_trajectories(288)[0])
+    assert counts[0] == 2 and counts[-1] == 1, counts
+    assert counts == sorted(counts, reverse=True), counts
+    # Every second trajectory was opened with room for it: the campaigns that took two, and the
+    # one-trajectory floor every later campaign still needs, fit in what was free.
+    two = counts.count(2)
+    planned = (two * (duotraj.AUTO_BASE_HOST_BYTES + duotraj.AUTO_EXTRA_HOST_BYTES)
+               + duotraj.AUTO_HOST_RESERVE_BYTES) / 2**30
+    assert planned <= 278.6, (planned, counts)
+    assert two < 32
+
+
+def test_a_sibling_counts_only_for_what_it_has_not_grown_into(monkeypatch):
+    """A sibling holding its whole plan is already out of MemAvailable; charging it again would
+    open fewer trajectories than fit."""
+    duotraj = _galaxy_chip(monkeypatch, 20.0)
+    monkeypatch.setattr(duotraj, "_start_time", lambda pid: "1")
+    claims = pathlib.Path(duotraj.HOST_CLAIMS_DIR)
+    claims.mkdir()
+    (claims / "4242-1").write_text(str(int(14.5 * 2**30)))
+    monkeypatch.setattr(duotraj, "host_rss_bytes", lambda pid="self": 0)
+    n, why = duotraj.auto_trajectories(288)
+    assert n == 1 and "other campaigns on this box planned" in why, why
+    monkeypatch.setattr(duotraj, "host_rss_bytes",
+                        lambda pid="self": int(14.5 * 2**30) if pid == 4242 else 0)
+    assert duotraj.auto_trajectories(288)[0] == 2
+
+
+def test_a_claim_left_by_a_dead_campaign_is_dropped(monkeypatch):
+    duotraj = _galaxy_chip(monkeypatch, 20.0)
+    claims = pathlib.Path(duotraj.HOST_CLAIMS_DIR)
+    claims.mkdir()
+    dead = claims / "4242-1"
+    dead.write_text(str(int(500 * 2**30)))
+    monkeypatch.setattr(duotraj, "_start_time", lambda pid: "" if pid == 4242 else "7")
+    assert duotraj.auto_trajectories(288)[0] == 2
+    assert not dead.exists()
+    assert [f.name for f in claims.glob("*-*")] == [f"{os.getpid()}-7"]
+
+
+def test_an_unwritable_claims_dir_leaves_auto_as_it_was(monkeypatch):
+    duotraj = _galaxy_chip(monkeypatch, 278.6)
+    monkeypatch.setattr(duotraj, "HOST_CLAIMS_DIR", "/proc/no-such-dir/claims")
+    assert duotraj.auto_trajectories(288)[0] == 2
+
+
 def test_the_line_calls_its_own_estimate_an_upper_bound_at_the_largest_axis_that_fits(monkeypatch):
     """At 832 tokens one trajectory is charged more than half of what a p150a has left, so `auto`
     runs one. Phrased as "one trajectory holds about N GB of the card" that reads as a refusal at
