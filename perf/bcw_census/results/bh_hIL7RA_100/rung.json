@@ -14,33 +14,33 @@
  "design_tokens": 352,
  "auto_before_open": {
   "count": 2,
-  "why": "2 of them at 352 tokens hold about 12 GB of the card and peak near 16 GB of the 23.8 GB of host memory free",
+  "why": "2 of them at 352 tokens hold about 12 GB of the card and peak near 16 GB of the 23.3 GB of host memory free",
   "tokens_asked": 352
  },
  "auto_would_choose": [
   2,
-  "2 of them at 352 tokens hold about 12 GB of the card and peak near 16 GB of the 23.8 GB of host memory free"
+  "2 of them at 352 tokens hold about 12 GB of the card and peak near 16 GB of the 23.3 GB of host memory free"
  ],
  "max_trajectories": 1,
  "validation": "device",
  "seed": 100,
- "commit": "78fe49871b39a858cd56b323a2db7aeeeda1ee38",
+ "commit": "549eff004beb9df22d96b2e76b753ada42f4887b",
  "dirty": true,
  "compile_cache": "/tmp/bindcraft_xla_cache",
  "pci": "0000:01:00.0",
  "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
  "nproc": 12,
  "loadavg_start": [
-  1.46923828125,
-  0.833984375,
-  0.34814453125
+  2.15478515625,
+  3.03076171875,
+  2.47314453125
  ],
  "mem_start": {
-  "vmhwm": 524935168,
-  "vmrss": 524935168,
-  "mem_available": 25508941824
+  "vmhwm": 532496384,
+  "vmrss": 532496384,
+  "mem_available": 24972832768
  },
- "started_utc": "2026-10-01T10:25:41Z",
+ "started_utc": "2026-10-01T10:43:45Z",
  "fast": {
   "MM_LAYOUT": true,
   "TAPED_MOVE": true,
@@ -53,11 +53,11 @@
   "SOFTMAX_BW_FP32": false
  },
  "auto_card_open": {
-  "count": 2,
-  "why": "2 of them at 352 tokens hold about 12 GB of the card and peak near 16 GB of the 23.6 GB of host memory free",
+  "count": 1,
+  "why": "13.7 GB of host memory is free and a second trajectory at 352 tokens needs 17.4 GB, after the 8.8 GB other campaigns on this box planned for and do not hold yet",
   "tokens_asked": 352
  },
- "wall_seconds": 171.27,
+ "wall_seconds": 76.84,
  "trajectories_returned": null,
  "error": "StopAfterRounds(2 rounds collected)",
  "traceback": null,
@@ -78,22 +78,22 @@
   {
    "slot": "",
    "round": 1,
-   "seconds": 122.948,
-   "n": 68,
+   "seconds": 31.436,
+   "n": 30,
    "aiclk_min": 1343,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 3.8
+   "load1": 2.5
   },
   {
    "slot": "",
    "round": 2,
-   "seconds": 34.648,
-   "n": 34,
+   "seconds": 40.463,
+   "n": 39,
    "aiclk_min": 1350,
    "aiclk_med": 1350,
    "aiclk_max": 1350,
-   "load1": 4.1
+   "load1": 2.5
   }
  ],
  "levers": {
@@ -159,11 +159,11 @@
   "declined": 216
  },
  "aiclk_run": {
-  "n": 114,
+  "n": 74,
   "aiclk_min": 800,
   "aiclk_med": 1350,
   "aiclk_max": 1350,
-  "load1": 3.7
+  "load1": 2.5
  },
  "tagged_peak_gib": 4.42,
  "tagged_peak_line": "[DRAM] tri_att(end) bias built [z=352x352x128]: 4.420 GiB used (of 31.9 GiB) maxfree=3507MiB/bank",
@@ -176,14 +176,14 @@
  "device_total_gb": 34.2255,
  "largest_free_block_at_peak_mb": 3359.1,
  "mem_end": {
-  "vmhwm": 7493455872,
-  "vmrss": 5688492032,
-  "mem_available": 19630460928
+  "vmhwm": 7734898688,
+  "vmrss": 5748883456,
+  "mem_available": 19649662976
  },
  "loadavg_end": [
-  3.39501953125,
-  2.3046875,
-  1.01611328125
+  2.2880859375,
+  2.9208984375,
+  2.4794921875
  ],
- "finished_utc": "2026-10-01T10:28:33Z"
+ "finished_utc": "2026-10-01T10:45:02Z"
 }

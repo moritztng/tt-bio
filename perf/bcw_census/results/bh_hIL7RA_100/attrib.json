@@ -8,19 +8,21 @@
  "walk_at_retire_call": 9382,
  "recomputes_entered": 56,
  "recompute_depth": 0,
- "listed_bytes": 5120249856,
- "unlisted_bytes": 580058624,
- "n_buffers": 416,
+ "listed_bytes": 5633175552,
+ "unlisted_bytes": 67132928,
+ "n_buffers": 8251,
  "by_role": {
   "recompute_tape": 3124858880,
-  "outer_tape": 1666351104,
+  "outer_tape": 1698430976,
+  "raw_no_N": 481206272,
   "grad:recompute_tape": 158957568,
-  "leaf_input": 138002432,
-  "grad:outer_tape": 32079872
+  "leaf_input": 105922560,
+  "grad:outer_tape": 32079872,
+  "raw": 31719424
  },
  "by_exponent": {
-  "2": 4954425344,
-  "0": 8511488,
+  "0": 489717760,
+  "2": 4986144768,
   "1": 157313024
  },
  "groups": [
@@ -36,8 +38,9 @@
     128
    ],
    "dtype": "BFLOAT16",
-   "count": 47,
-   "bytes": 1490812928
+   "tape_rule": "pinall",
+   "count": 48,
+   "bytes": 1522532352
   },
   {
    "role": "recompute_tape",
@@ -51,6 +54,7 @@
     512
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 253755392
   },
@@ -66,6 +70,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 8,
    "bytes": 253755392
   },
@@ -81,6 +86,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 6,
    "bytes": 190316544
   },
@@ -95,6 +101,7 @@
     384
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 190316544
   },
@@ -110,6 +117,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 6,
    "bytes": 190316544
   },
@@ -125,6 +133,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 4,
    "bytes": 126877696
   },
@@ -140,6 +149,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 4,
    "bytes": 126877696
   },
@@ -154,6 +164,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 4,
    "bytes": 126877696
   },
@@ -169,6 +180,7 @@
     512
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 126877696
   },
@@ -184,6 +196,7 @@
     512
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 126877696
   },
@@ -199,7 +212,24 @@
     512
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
+   "bytes": 126877696
+  },
+  {
+   "role": "outer_tape",
+   "exp": 2,
+   "verb": "checkpoint",
+   "site": "bindcraft2.py:extra_msa",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 4,
    "bytes": 126877696
   },
   {
@@ -214,6 +244,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 4,
    "bytes": 126877696
   },
@@ -229,53 +260,37 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 4,
    "bytes": 126877696
   },
   {
-   "role": "outer_tape",
-   "exp": 2,
-   "verb": "checkpoint",
-   "site": "bindcraft2.py:extra_msa",
-   "shape": [
-    1,
-    352,
-    352,
-    128
-   ],
-   "dtype": "BFLOAT16",
-   "count": 4,
-   "bytes": 126877696
-  },
-  {
-   "role": "leaf_input",
-   "exp": 2,
+   "role": "raw_no_N",
+   "exp": 0,
    "verb": null,
    "site": null,
    "shape": [
-    1,
-    352,
-    352,
-    128
+    256,
+    768
    ],
    "dtype": "BFLOAT16",
-   "count": 3,
-   "bytes": 95158272
+   "tape_rule": null,
+   "count": 188,
+   "bytes": 73924608
   },
   {
-   "role": "recompute_tape",
-   "exp": 2,
-   "verb": "_v_permute",
-   "site": "tenstorrent.py:_channel_move_back",
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
    "shape": [
-    1,
-    352,
-    352,
-    128
+    128,
+    512
    ],
    "dtype": "BFLOAT16",
-   "count": 2,
-   "bytes": 63438848
+   "tape_rule": null,
+   "count": 514,
+   "bytes": 67371008
   },
   {
    "role": "recompute_tape",
@@ -288,6 +303,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
   },
@@ -302,6 +318,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
   },
@@ -316,6 +333,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 2,
    "bytes": 63438848
   },
@@ -331,6 +349,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
   },
@@ -346,6 +365,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
   },
@@ -360,6 +380,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 2,
    "bytes": 63438848
   },
@@ -374,6 +395,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
   },
@@ -388,6 +410,23 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "leaf_input",
+   "exp": 2,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
    "bytes": 63438848
   },
@@ -402,6 +441,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
   },
@@ -416,6 +456,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
   },
@@ -431,6 +472,23 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
+   "count": 2,
+   "bytes": 63438848
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_permute",
+   "site": "tenstorrent.py:_channel_move_back",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
   },
@@ -446,8 +504,51 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 63438848
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    256,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 376,
+   "bytes": 49283072
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    256,
+    1024
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 94,
+   "bytes": 49283072
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1024,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 94,
+   "bytes": 49283072
   },
   {
    "role": "grad:recompute_tape",
@@ -461,6 +562,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 1,
    "bytes": 31719424
   },
@@ -476,49 +578,7 @@
     128
    ],
    "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 31719424
-  },
-  {
-   "role": "recompute_tape",
-   "exp": 2,
-   "verb": "_v_reshape",
-   "site": "af2.py:_sum_rows",
-   "shape": [
-    1,
-    352,
-    352,
-    128
-   ],
-   "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 31719424
-  },
-  {
-   "role": "recompute_tape",
-   "exp": 2,
-   "verb": "impl",
-   "site": "af2.py:_sum_rows",
-   "shape": [
-    352,
-    352,
-    128
-   ],
-   "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 31719424
-  },
-  {
-   "role": "recompute_tape",
-   "exp": 2,
-   "verb": "_taped_layer_norm",
-   "site": "tenstorrent.py:_pair_bias_from_z",
-   "shape": [
-    352,
-    352,
-    128
-   ],
-   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 31719424
   },
@@ -534,6 +594,7 @@
     64
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 31719424
   },
@@ -549,8 +610,171 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 31719424
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_reshape",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    1,
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "af2.py:_sum_rows",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "reads",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_taped_layer_norm",
+   "site": "tenstorrent.py:_pair_bias_from_z",
+   "shape": [
+    352,
+    352,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "raw",
+   "exp": 2,
+   "verb": null,
+   "site": null,
+   "shape": [
+    352,
+    4,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 1,
+   "bytes": 31719424
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    544
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 208,
+   "bytes": 28966912
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 816,
+   "bytes": 26738688
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1024,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 96,
+   "bytes": 25165824
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 2632,
+   "bytes": 21561344
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 1230,
+   "bytes": 20152320
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    384
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 204,
+   "bytes": 20054016
+  },
+  {
+   "role": "outer_tape",
+   "exp": 1,
+   "verb": "checkpoint",
+   "site": "bindcraft2.py:evoformer",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 48,
+   "bytes": 17301504
   },
   {
    "role": "recompute_tape",
@@ -564,6 +788,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 3,
    "bytes": 17301504
   },
@@ -579,23 +804,9 @@
     768
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 17301504
-  },
-  {
-   "role": "outer_tape",
-   "exp": 1,
-   "verb": "checkpoint",
-   "site": "bindcraft2.py:evoformer",
-   "shape": [
-    1,
-    2,
-    352,
-    256
-   ],
-   "dtype": "BFLOAT16",
-   "count": 47,
-   "bytes": 16941056
   },
   {
    "role": "recompute_tape",
@@ -608,21 +819,7 @@
     32
    ],
    "dtype": "BFLOAT16",
-   "count": 2,
-   "bytes": 15859712
-  },
-  {
-   "role": "leaf_input",
-   "exp": 2,
-   "verb": null,
-   "site": null,
-   "shape": [
-    1,
-    352,
-    352,
-    32
-   ],
-   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 15859712
   },
@@ -638,8 +835,53 @@
     64
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 1,
    "bytes": 15859712
+  },
+  {
+   "role": "leaf_input",
+   "exp": 2,
+   "verb": null,
+   "site": null,
+   "shape": [
+    1,
+    352,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 2,
+   "bytes": 15859712
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    512,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 102,
+   "bytes": 13369344
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    4096
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 46,
+   "bytes": 12058624
   },
   {
    "role": "recompute_tape",
@@ -652,6 +894,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 11534336
   },
@@ -667,23 +910,23 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 11534336
   },
   {
-   "role": "recompute_tape",
-   "exp": 2,
-   "verb": "_v_reshape",
-   "site": "tenstorrent.py:_pair_bias_from_z",
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
    "shape": [
-    1,
-    352,
-    352,
-    32
+    32,
+    512
    ],
    "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 7929856
+   "tape_rule": null,
+   "count": 306,
+   "bytes": 10027008
   },
   {
    "role": "recompute_tape",
@@ -697,6 +940,7 @@
     352
    ],
    "dtype": "FLOAT32",
+   "tape_rule": "reads",
    "count": 1,
    "bytes": 7929856
   },
@@ -712,6 +956,7 @@
     352
    ],
    "dtype": "FLOAT32",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 7929856
   },
@@ -727,8 +972,39 @@
     352
    ],
    "dtype": "FLOAT32",
+   "tape_rule": "reads",
    "count": 1,
    "bytes": 7929856
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "_v_reshape",
+   "site": "tenstorrent.py:_pair_bias_from_z",
+   "shape": [
+    1,
+    352,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 7929856
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    1024
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 94,
+   "bytes": 6160384
   },
   {
    "role": "recompute_tape",
@@ -741,6 +1017,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 5767168
   },
@@ -755,6 +1032,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 2,
    "bytes": 5767168
   },
@@ -769,6 +1047,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 5767168
   },
@@ -782,6 +1061,7 @@
     4096
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 2,
    "bytes": 5767168
   },
@@ -795,6 +1075,7 @@
     4096
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 5767168
   },
@@ -809,6 +1090,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 1,
    "bytes": 5767168
   },
@@ -823,6 +1105,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 5767168
   },
@@ -837,6 +1120,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 5767168
   },
@@ -851,6 +1135,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 5767168
   },
@@ -866,6 +1151,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 1,
    "bytes": 5767168
   },
@@ -881,6 +1167,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 5767168
   },
@@ -896,23 +1183,9 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 5767168
-  },
-  {
-   "role": "recompute_tape",
-   "exp": 2,
-   "verb": "impl",
-   "site": "af2.py:__call__",
-   "shape": [
-    2,
-    8,
-    352,
-    352
-   ],
-   "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 3964928
   },
   {
    "role": "recompute_tape",
@@ -926,6 +1199,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 1,
    "bytes": 3964928
   },
@@ -941,8 +1215,53 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 3964928
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 2,
+   "verb": "impl",
+   "site": "af2.py:__call__",
+   "shape": [
+    2,
+    8,
+    352,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "reads",
+   "count": 1,
+   "bytes": 3964928
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    256,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 188,
+   "bytes": 3080192
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 298,
+   "bytes": 2441216
   },
   {
    "role": "recompute_tape",
@@ -956,6 +1275,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 1982464
   },
@@ -971,6 +1291,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 2,
    "bytes": 1982464
   },
@@ -986,6 +1307,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 1982464
   },
@@ -1001,6 +1323,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 1982464
   },
@@ -1016,6 +1339,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 1982464
   },
@@ -1029,6 +1353,7 @@
     768
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 4,
    "bytes": 1572864
   },
@@ -1044,6 +1369,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
    "bytes": 1441792
   },
@@ -1059,6 +1385,7 @@
     1024
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 1441792
   },
@@ -1074,21 +1401,24 @@
     1024
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 1441792
   },
   {
    "role": "recompute_tape",
    "exp": 1,
-   "verb": "_taped_linear",
-   "site": "dispatch.py:call",
+   "verb": "_k_rne_add",
+   "site": "ops.py:call",
    "shape": [
+    1,
     2,
     352,
-    768
+    256
    ],
    "dtype": "BFLOAT16",
-   "count": 1,
+   "tape_rule": "reads",
+   "count": 3,
    "bytes": 1081344
   },
   {
@@ -1103,22 +1433,24 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 3,
    "bytes": 1081344
   },
   {
    "role": "recompute_tape",
    "exp": 1,
-   "verb": "_k_rne_add",
-   "site": "ops.py:call",
+   "verb": "_v_reshape",
+   "site": "tenstorrent.py:_split_heads",
    "shape": [
-    1,
     2,
+    1,
     352,
-    256
+    768
    ],
    "dtype": "BFLOAT16",
-   "count": 3,
+   "tape_rule": "pinall",
+   "count": 1,
    "bytes": 1081344
   },
   {
@@ -1131,6 +1463,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 8,
    "bytes": 1048576
   },
@@ -1144,6 +1477,7 @@
     1024
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
    "bytes": 1048576
   },
@@ -1157,6 +1491,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
    "bytes": 1048576
   },
@@ -1170,23 +1505,9 @@
     512
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 6,
    "bytes": 786432
-  },
-  {
-   "role": "leaf_input",
-   "exp": 1,
-   "verb": null,
-   "site": null,
-   "shape": [
-    1,
-    2,
-    352,
-    256
-   ],
-   "dtype": "BFLOAT16",
-   "count": 2,
-   "bytes": 720896
   },
   {
    "role": "recompute_tape",
@@ -1199,6 +1520,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 720896
   },
@@ -1212,6 +1534,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 16,
    "bytes": 524288
   },
@@ -1225,6 +1548,7 @@
     4096
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
    "bytes": 524288
   },
@@ -1238,6 +1562,7 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 52,
    "bytes": 425984
   },
@@ -1251,6 +1576,7 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 26,
    "bytes": 425984
   },
@@ -1264,100 +1590,71 @@
     384
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 4,
    "bytes": 393216
   },
   {
-   "role": "recompute_tape",
-   "exp": 1,
-   "verb": "_taped_layer_norm",
-   "site": "af2.py:__call__",
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
    "shape": [
-    2,
-    352,
-    256
+    64,
+    384
    ],
    "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
+   "tape_rule": null,
+   "count": 8,
+   "bytes": 393216
   },
   {
-   "role": "recompute_tape",
-   "exp": 1,
-   "verb": "_v_reshape",
-   "site": "tenstorrent.py:_merge_heads",
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
    "shape": [
-    2,
-    352,
-    256
+    256,
+    384
    ],
    "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
+   "tape_rule": null,
+   "count": 2,
+   "bytes": 393216
   },
   {
-   "role": "recompute_tape",
-   "exp": 1,
-   "verb": "impl",
-   "site": "af2.py:sigmoid_gate",
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
    "shape": [
-    2,
-    352,
-    256
-   ],
-   "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
-  },
-  {
-   "role": "recompute_tape",
-   "exp": 1,
-   "verb": "_v_matmul",
-   "site": "tenstorrent.py:batched_matmul",
-   "shape": [
-    2,
-    8,
-    352,
+    32,
     32
    ],
    "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
+   "tape_rule": null,
+   "count": 188,
+   "bytes": 385024
   },
   {
-   "role": "recompute_tape",
-   "exp": 1,
-   "verb": "_v_permute",
-   "site": "tenstorrent.py:_fp32_softmax_attention_block",
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
    "shape": [
-    2,
-    8,
     32,
-    352
+    64
    ],
    "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
+   "tape_rule": null,
+   "count": 92,
+   "bytes": 376832
   },
   {
-   "role": "recompute_tape",
+   "role": "leaf_input",
    "exp": 1,
-   "verb": "_taped_layer_norm",
-   "site": "af2.py:masked",
-   "shape": [
-    2,
-    352,
-    256
-   ],
-   "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
-  },
-  {
-   "role": "grad:recompute_tape",
-   "exp": 1,
-   "verb": "_k_rne_add",
-   "site": "ops.py:call",
+   "verb": null,
+   "site": null,
    "shape": [
     1,
     2,
@@ -1365,50 +1662,7 @@
     256
    ],
    "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
-  },
-  {
-   "role": "recompute_tape",
-   "exp": 1,
-   "verb": "_taped_linear",
-   "site": "dispatch.py:call",
-   "shape": [
-    1,
-    2,
-    352,
-    256
-   ],
-   "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
-  },
-  {
-   "role": "recompute_tape",
-   "exp": 1,
-   "verb": "_v_permute",
-   "site": "af2.py:__call__",
-   "shape": [
-    2,
-    352,
-    256
-   ],
-   "dtype": "BFLOAT16",
-   "count": 1,
-   "bytes": 360448
-  },
-  {
-   "role": "recompute_tape",
-   "exp": 1,
-   "verb": "_taped_layer_norm",
-   "site": "af2.py:_rows",
-   "shape": [
-    1,
-    2,
-    352,
-    256
-   ],
-   "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 1,
    "bytes": 360448
   },
@@ -1424,6 +1678,162 @@
     256
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_layer_norm",
+   "site": "af2.py:masked",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "grad:recompute_tape",
+   "exp": 1,
+   "verb": "_k_rne_add",
+   "site": "ops.py:call",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "reads",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_linear",
+   "site": "dispatch.py:call",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_permute",
+   "site": "af2.py:__call__",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_layer_norm",
+   "site": "af2.py:_rows",
+   "shape": [
+    1,
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "impl",
+   "site": "af2.py:sigmoid_gate",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "reads",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_reshape",
+   "site": "tenstorrent.py:_merge_heads",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_taped_layer_norm",
+   "site": "af2.py:__call__",
+   "shape": [
+    2,
+    352,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_matmul",
+   "site": "tenstorrent.py:batched_matmul",
+   "shape": [
+    2,
+    8,
+    352,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
+   "count": 1,
+   "bytes": 360448
+  },
+  {
+   "role": "recompute_tape",
+   "exp": 1,
+   "verb": "_v_permute",
+   "site": "tenstorrent.py:_fp32_softmax_attention_block",
+   "shape": [
+    2,
+    8,
+    32,
+    352
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 1,
    "bytes": 360448
   },
@@ -1437,7 +1847,36 @@
     128
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
+   "bytes": 262144
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    64,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 32,
+   "bytes": 262144
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    64,
+    256
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 8,
    "bytes": 262144
   },
   {
@@ -1452,6 +1891,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 1,
    "bytes": 247808
   },
@@ -1465,6 +1905,7 @@
     512
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 6,
    "bytes": 196608
   },
@@ -1478,6 +1919,7 @@
     1024
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
    "bytes": 131072
   },
@@ -1492,6 +1934,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
    "bytes": 90112
   },
@@ -1507,6 +1950,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 2,
    "bytes": 90112
   },
@@ -1520,6 +1964,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 4,
    "bytes": 90112
   },
@@ -1534,6 +1979,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "reads",
    "count": 2,
    "bytes": 90112
   },
@@ -1548,6 +1994,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 90112
   },
@@ -1561,6 +2008,35 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 4,
+   "bytes": 65536
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    64,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 4,
+   "bytes": 65536
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    128,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 4,
    "bytes": 65536
   },
@@ -1574,7 +2050,22 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 6,
+   "bytes": 49152
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    32,
+    384
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 2,
    "bytes": 49152
   },
   {
@@ -1587,8 +2078,23 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": "pinall",
    "count": 2,
    "bytes": 45056
+  },
+  {
+   "role": "raw_no_N",
+   "exp": 0,
+   "verb": null,
+   "site": null,
+   "shape": [
+    64,
+    32
+   ],
+   "dtype": "BFLOAT16",
+   "tape_rule": null,
+   "count": 8,
+   "bytes": 32768
   },
   {
    "role": "leaf_input",
@@ -1602,6 +2108,7 @@
     352
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 1,
    "bytes": 22528
   },
@@ -1615,6 +2122,7 @@
     32
    ],
    "dtype": "BFLOAT16",
+   "tape_rule": null,
    "count": 4,
    "bytes": 8192
   }
