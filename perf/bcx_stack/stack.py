@@ -258,10 +258,10 @@ class Levers:
 
         bmm = ag.bmm_program_config
 
-        def _bmm(a, b, transpose_a=False, transpose_b=False):
+        def _bmm(a, b, transpose_a=False, transpose_b=False, **kw):
             # AF2 never reaches `autograd.triangle_attention` (`reach_n256.json`), so every call
             # here is a VJP product through `autograd.bmm`, which had no config before bwd1.
-            pc = bmm(a, b, transpose_a, transpose_b) if "1" in self.bwd else None
+            pc = bmm(a, b, transpose_a, transpose_b, **kw) if "1" in self.bwd else None
             sa, sb = _shape(a), _shape(b)
             if pc is not None:
                 why = "config"
