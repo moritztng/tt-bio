@@ -79,5 +79,14 @@
   "n_chains": 1,
   "fold": "four-domain receptor ectodomain, L1-CR1-L2-CR2",
   "why": "EGFR's whole extracellular region (3NJP chain A, residues 1-614 of the mature chain = 25-638 of the precursor) at the domain III epitope cetuximab binds. This is the case the Anthropic x Adaptyv 2026 competition specifies, and the one a Wormhole user has to crop today: 614 aa plus a 100 aa minibinder is ~736 tokens."
+ },
+ "hEGFR_d3": {
+  "path": "perf/bgx_size/targets/hEGFR_d3.pdb",
+  "chains": "A",
+  "hotspots": "384,412,465,467",
+  "residues": 171,
+  "n_chains": 1,
+  "fold": "domain III (L2) of the EGFR ectodomain, a beta-solenoid",
+  "why": "the crop we tell a Wormhole user to make: hEGFR cut to residues 310-480, the domain III subdomain the competition recommends and cetuximab binds, with the same four hotspots as the whole ectodomain. Paired with hEGFR it isolates the token axis from target difficulty: same protein, same epitope, same binder length, 352 against 768."
  }
 }
