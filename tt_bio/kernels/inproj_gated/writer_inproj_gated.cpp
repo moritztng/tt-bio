@@ -83,6 +83,37 @@ void kernel_main() {
             const uint32_t ct = sub * CPG + q;
             uint32_t out_page = page_base + ct * TILE_HEIGHT * NtNt;
             cb_wait_front(cb_id_in, TILE_HEIGHT);
+#ifdef TILIZE_PATH
+            // The compute kernel already tilized the output: zero the padding rows in place (rows
+            // il >= rows_valid of every tile, two face-row segments each) and write whole tiles.
+            {
+                const uint32_t base = get_read_ptr(cb_id_in);
+                for (uint32_t c = 0; c < TILE_HEIGHT; ++c) {
+                    const uint32_t tb = base + c * tile_bytes;
+                    for (uint32_t il = rows_valid; il < TILE_HEIGHT; ++il) {
+                        for (uint32_t face_w = 0; face_w < NUM_FACES_W; ++face_w) {
+                            const uint32_t e = ((il / FACE_HEIGHT) * NUM_FACES_W + face_w) *
+                                                   face_height_width + (il % FACE_HEIGHT) * FACE_WIDTH;
+                            volatile tt_l1_ptr uint32_t* z =
+                                reinterpret_cast<volatile tt_l1_ptr uint32_t*>(tb + e * element_size);
+                            for (uint32_t k = 0; k < FACE_ROW_BYTES / 4; ++k) {
+                                z[k] = 0;
+                            }
+                        }
+                    }
+                    noc_async_write(tb, s.get_noc_addr(out_page), tile_bytes);
+                    out_page += NtNt;
+                }
+                noc_async_write_barrier();
+                cb_pop_front(cb_id_in, TILE_HEIGHT);
+                continue;
+            }
+#endif
+#ifdef DIAG_NO_GATHER
+            // Diagnostic only (TT_BIO_INPROJ_GATED_DIAG): consume without writing, to time the rest.
+            cb_pop_front(cb_id_in, TILE_HEIGHT);
+            continue;
+#endif
             const uint32_t group_l1_base = get_read_ptr(cb_id_in);
             for (uint32_t c = 0; c < TILE_HEIGHT; ++c) {
                 const uint32_t slot = c & 1u;

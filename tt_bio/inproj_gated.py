@@ -33,9 +33,19 @@ S_FORCE = int(os.environ.get("TT_BIO_INPROJ_GATED_S", "0"))
 # Groups of x the reader may run ahead by. 2 overlaps the next group's read with this one's math;
 # the CB is 32 x Kt tiles a group (256 KB at K = 128), which is what an L1 clash would hit first.
 X_BUFFERS = int(os.environ.get("TT_BIO_INPROJ_GATED_XBUF", "2"))
+# Diagnostic ablations, never set in production: comma list of NO_GATHER (writer consumes without
+# writing), NO_SFPU (no sigmoid or multiply), ONE_K (one K step). Each makes the output wrong.
+# The reblock in compute (pack-untilize then tilize) instead of the writer's face-row gather.
+TILIZE_PATH = env_flag("TT_BIO_INPROJ_GATED_TILIZE", True)
+# Sigmoid and multiply as one SFPU pass, and the Newton steps after the reciprocal estimate.
+GATE_FUSED = env_flag("TT_BIO_INPROJ_GATED_GATE_FUSED", True)
+RECIP_ITERS = int(os.environ.get("TT_BIO_INPROJ_GATED_RECIP_ITERS", "1"))
+# Rows of x a reader push carries (divides 32). 32 is the whole group in one push.
+X_ROWS = int(os.environ.get("TT_BIO_INPROJ_GATED_XROWS", "2"))
+DIAG = tuple(f"DIAG_{d}" for d in os.environ.get("TT_BIO_INPROJ_GATED_DIAG", "").split(",") if d)
 FIDELITY = getattr(ttnn.MathFidelity, os.environ.get("TT_BIO_INPROJ_GATED_FIDELITY", "HiFi4"))
 
-W_CB, X_CB, ONES_CB = 0, 1, 2
+W_CB, X_CB, ONES_CB, SLAB_CB = 0, 1, 2, 3
 OUT_CB, STAGE_CB = R.OUT_CB, R.STAGE_CB
 
 _CACHE: dict = {}
@@ -64,6 +74,12 @@ def prepare_weights(w, b, device, memory_config=None):
     ones_tt = ttnn.from_torch(ones, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device,
                               memory_config=mc)
     return wt_tt, ones_tt
+
+
+def _defines():
+    return ([(d, "1") for d in DIAG + (("TILIZE_PATH",) if TILIZE_PATH else ())
+             + (("GATE_FUSED",) if GATE_FUSED else ())]
+            + [("GATE_RECIP_ITERS", str(RECIP_ITERS)), ("X_ROWS", str(X_ROWS))])
 
 
 def _pick_s(device, Nt, Ct):
@@ -98,6 +114,8 @@ def _build(x, wt, out, device, has_bias, S, reader_ct, writer_ct):
 
     cbs = [cb(W_CB, 2 * Ct * Kt1), cb(X_CB, X_BUFFERS * R.GROUP_TILES * Kt),
            cb(OUT_CB, 2 * R.GROUP_TILES), cb(STAGE_CB, 2)]
+    if TILIZE_PATH:
+        cbs.append(cb(SLAB_CB, R.GROUP_TILES))
     if has_bias:
         cbs.append(cb(ONES_CB, 1))
 
@@ -121,19 +139,21 @@ def _build(x, wt, out, device, has_bias, S, reader_ct, writer_ct):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0, 0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
+        defines=_defines(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer_inproj_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+        defines=_defines(),
     )
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_inproj_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[W_CB, X_CB, ONES_CB, OUT_CB, Kt, Ct, int(has_bias)],
-        runtime_args=compute_rt,
+        compile_time_args=[W_CB, X_CB, ONES_CB, OUT_CB, Kt, Ct, int(has_bias), SLAB_CB],
+        runtime_args=compute_rt, defines=_defines(),
         config=ttnn.ComputeConfigDescriptor(math_fidelity=FIDELITY, fp32_dest_acc_en=True),
     )
     return {"kernels": [reader, writer, compute], "cbs": cbs}
@@ -165,7 +185,7 @@ def inproj_gated(x, wt, ones, p_slice, g_slice, slice_c, out=None, memory_config
     g = device.compute_with_storage_grid_size()
     # The shape is in the key explicitly: interleaved accessor args do not carry it, and Nt / N
     # are runtime args baked into the cached descriptor.
-    key = (device.id(), g.x, g.y, N, K, slice_c, R.WALK, S, X_BUFFERS, str(FIDELITY), has_bias,
+    key = (device.id(), g.x, g.y, N, K, slice_c, R.WALK, S, X_BUFFERS, str(FIDELITY), has_bias, DIAG, TILIZE_PATH, GATE_FUSED, RECIP_ITERS, X_ROWS,
            tuple(reader_ct), tuple(writer_ct))
     entry = _CACHE.get(key)
     if entry is None:

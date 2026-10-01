@@ -37,6 +37,9 @@ void kernel_main() {
     constexpr uint32_t Ct = get_compile_time_arg_val(4);
     constexpr uint32_t HAS_BIAS = get_compile_time_arg_val(5);
     constexpr uint32_t Kt1 = Kt + HAS_BIAS;
+#ifndef X_ROWS
+#define X_ROWS 32
+#endif
     constexpr uint32_t TILE_HEIGHT = 32;
     constexpr auto x_args = TensorAccessorArgs<6>();
     constexpr auto w_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
@@ -75,20 +78,25 @@ void kernel_main() {
         const uint32_t row_abs = it * TILE_HEIGHT;
         const uint32_t rows_valid = (row_abs + TILE_HEIGHT <= D1) ? TILE_HEIGHT : (D1 - row_abs);
 
-        cb_reserve_back(cb_x, TILE_HEIGHT * Kt);
-        uint32_t l1 = get_write_ptr(cb_x);
-        for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
-            // Padding rows read row 0's tiles so the group stays a fixed size; the writer zeroes
-            // those rows of the output.
-            const uint32_t row = il < rows_valid ? row_abs + il : 0;
-            const uint32_t page = (row * Nt + jt) * Kt;
-            for (uint32_t k = 0; k < Kt; ++k) {
-                noc_async_read_page(page + k, sx, l1);
-                l1 += tile_bytes;
+        // Pushed X_ROWS rows at a time, so the compute kernel starts on the first channel tile
+        // while the rest of the group is still in flight. With ~one group a core at 288 aa
+        // (81 groups, 110 cores) a whole-group push serialises read, math and write per core.
+        for (uint32_t il0 = 0; il0 < TILE_HEIGHT; il0 += X_ROWS) {
+            cb_reserve_back(cb_x, X_ROWS * Kt);
+            uint32_t l1 = get_write_ptr(cb_x);
+            for (uint32_t il = il0; il < il0 + X_ROWS; ++il) {
+                // Padding rows read row 0's tiles so the group stays a fixed size; the writer
+                // zeroes those rows of the output.
+                const uint32_t row = il < rows_valid ? row_abs + il : 0;
+                const uint32_t page = (row * Nt + jt) * Kt;
+                for (uint32_t k = 0; k < Kt; ++k) {
+                    noc_async_read_page(page + k, sx, l1);
+                    l1 += tile_bytes;
+                }
             }
+            noc_async_read_barrier();
+            cb_push_back(cb_x, X_ROWS * Kt);
         }
-        noc_async_read_barrier();
-        cb_push_back(cb_x, TILE_HEIGHT * Kt);
 
         group += group_stride;
         if (group == group_wrap_hi) {
