@@ -1839,3 +1839,34 @@ def test_the_k_block_ladder_only_ever_narrows_what_the_plan_already_chose():
         assert widths[0] == expected_first, (k, widths)
         assert widths == sorted(widths, reverse=True), (k, widths)
         assert all(kt % w == 0 for w in widths), (k, widths)
+
+
+L1_REFUSAL = (
+    "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\n"
+    "info:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=0,y=8)] grow to "
+    "1856800 B which is beyond max L1 size of 1499136 B\nbacktrace:\n --- 0x1aa6601\n")
+
+
+def test_an_l1_refusal_is_not_reported_as_the_card_running_out_of_memory():
+    """L1 is 1.5 MB inside each Tensix and the card can be gigabytes free when it refuses.
+
+    Read as an OOM it costs a user their target: they crop, or they reach for a slower memory
+    mode, and neither touches a per-core buffer. Measured at 768 tokens in the offload mode with
+    7.2 GB of DRAM free.
+    """
+    better = bindcraft2._l1_refusal_names_the_size(RuntimeError(L1_REFUSAL),
+                                                   phase="Evoformer backward", n=738, padded=768)
+    assert better is not None
+    msg = str(better)
+    assert "768 tokens" in msg and "738 residues" in msg
+    assert "1.9 MB" in msg and "1.5 MB" in msg
+    assert "NOT the card running out of memory" in msg
+    assert "800" in msg                       # the next bucket, which is measured to run
+    assert bindcraft2._l1_refusal_names_the_size(RuntimeError("something else"),
+                                                 phase="x", n=1, padded=32) is None
+
+
+def test_an_allocator_refusal_is_still_read_as_a_size_and_not_as_an_l1_clash():
+    """The two wrappers must not catch each other's refusal: the remedies are opposites."""
+    assert bindcraft2._l1_refusal_names_the_size(RuntimeError(REFUSAL_WORMHOLE),
+                                                 phase="backward", n=520, padded=544) is None

@@ -364,12 +364,51 @@ def _refusal_names_the_size(phase: str, n: int, padded: int,
         yield
     except Exception as exc:
         mode = memory.used.get(padded, "fast") if memory is not None else "fast"
-        better = _size_aware_refusal(exc, phase=phase, n=n, padded=padded, mode=mode)
+        better = (_size_aware_refusal(exc, phase=phase, n=n, padded=padded, mode=mode)
+                  or _l1_refusal_names_the_size(exc, phase=phase, n=n, padded=padded))
         if better is None:
             raise
         with _REFUSALS_LOCK:
             _REFUSALS_RAISED.append(better)
         raise better from exc
+
+
+#: tt-metal's L1 refusal. Not an allocator refusal: it names core coordinates and a per-core
+#: limit, and the card can be GB-free when it fires.
+_L1_REFUSAL = re.compile(
+    r"[Cc]ircular buffers on core range .*? grow to (?P<want>\d+) B which is beyond max L1 size "
+    r"of (?P<limit>\d+) B")
+
+
+def _l1_refusal_names_the_size(exc: BaseException, *, phase: str, n: int, padded: int):
+    """An L1 circular-buffer refusal rewritten so it does not read as an out-of-memory, or None.
+
+    The two are told apart by where the memory is: DRAM is the card and L1 is 1.5 MB inside each
+    Tensix, so this one fires with the card gigabytes free and no amount of offloading or
+    checkpointing touches it. A user who reads it as an OOM crops their target for nothing.
+
+    It is a property of the TOKEN AXIS and not of the fold's size in bytes, and not even monotone
+    in it: `in0_block_w` is the largest divisor of the axis in tiles that is at most 8, so a 768
+    axis (24 tiles, divisible by 8) asks for the widest K block and refuses where 800 (25 tiles)
+    and 832 (26) do not. Measured on one Wormhole Galaxy chip, 2026-10-01: 800 tokens completed a
+    gradient round while 768 refused. So the way out is a different axis, up OR down, which is the
+    opposite of the advice an OOM deserves -- and `tt_bio.autograd.bmm` already retries a narrower
+    K block before any of this is reached, so arriving here means even the narrowest did not fit.
+    """
+    hit = _L1_REFUSAL.search(str(exc))
+    if hit is None:
+        return None
+    want, limit = int(hit.group("want")), int(hit.group("limit"))
+    return MemoryError(
+        f"BindCraft 2 could not fit a kernel of the {phase} at {padded} tokens into a core's L1.\n"
+        f"  complex   {n} residues, padded to {padded} tokens (tt-bio buckets the token axis "
+        f"to {TOKEN_BUCKET})\n"
+        f"  asked     {_gb(want)} of circular buffers against the {_gb(limit)} one Tensix has\n"
+        f"This is NOT the card running out of memory -- L1 is per-core and the card's DRAM is "
+        f"unrelated, so a slower memory mode will not help and cropping the target may not "
+        f"either. It depends on the token axis in tiles rather than on the size: this axis "
+        f"happens to ask for the widest contraction block. Another bucket, up or down, is likely "
+        f"to run; {padded + TOKEN_BUCKET} is the one to try first.")
 
 
 def unwrap_device_refusal(exc: BaseException) -> BaseException:
