@@ -1,0 +1,15 @@
+2026-10-01T22:40:23Z
+-- leases not held by the agent:
+/home/ubuntu/japanfold/state/leases/UF-EV-A4-GWH01-card22.json
+-- holders:
+{'agent:UF-EV-A4-GWH01': 31, 'agent:jfmr canary': 1}
+-- card30:
+{"host": "UF-EV-A4-GWH01", "card": "30", "holder": "agent:UF-EV-A4-GWH01", "pid": 2841831, "acquired": 1790871881.413687, "released": null}
+
+-- running tasks in the workspace:
+-- agent job lines, last 45 min:
+0
+Oct 01 22:17:39 UF-EV-A4-GWH01 sh[2457327]: [agent] 2026-10-01T22:17:39 backup copy: kept 20261001T215755Z (32369541 bytes); 54 dumps, 1647890988 bytes here
+-- load:
+0.15 0.16 0.17 1/3252 4170495
+/dev/tenstorrent/30: 2469899m
