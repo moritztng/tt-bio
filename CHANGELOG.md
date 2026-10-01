@@ -5,6 +5,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+
+- **A BindCraft 2 gradient round is 1.15x faster on Blackhole.** The layer-norm backward ran as
+  about 22 ttnn calls, 14 of them full passes over the activation, 384 times a round at 288 tokens;
+  it is now one kernel (`tt_bio/lnbw.py`) that reads the activation and the cotangent once. At the
+  shipped default (three interleaved trajectories, 288 tokens) the round went from 5.969 to 5.186 s
+  on a p300c chip and from 6.216 to 5.463 s on a p150a, arms alternated in one sitting, AICLK 1350
+  MHz sampled during every arm. Against an H200's 0.6958 s that is 7.45x rather than 8.58x. The
+  gradient is closer to float64 than before (dx rel L2 1.81e-3 against 3.84e-3 on the same bf16
+  operands). It serves only a BindCraft 2 round on Blackhole: other models' tapes and Wormhole keep
+  the composed path, and `TT_BIO_LNBW_FUSED=0` turns it off. See
+  [docs/tuning-flags.md](docs/tuning-flags.md#tt_bio_lnbw_fused).
+
 ### Fixed
 
 - **A BindCraft 2 refusal on a card held to its last percent called itself fragmentation.**

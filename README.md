@@ -921,6 +921,7 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_FUSE_SCALE_ADD` | on | Attention's scale-then-bias as one `ttnn.addalpha`, fp32 operands only. Bit-identical at every call shape. |
 | `TT_BIO_GATE_GRANULARITY` | 2 | Tiles per DST acquire in the reblock-permute gate kernel. Bit for bit at every value. |
 | `TT_BIO_HOST_LEVERS` | on | Master switch for the host-side Boltz-2 levers (`TT_BIO_FUSE_BIAS_STACKS` and `TT_BIO_HOST_BLOCK_PAIRWISE`); `0` takes the host path for all of them. |
+| `TT_BIO_LNBW_FUSED` | on inside a BindCraft 2 round on Blackhole, off elsewhere | The layer-norm backward as one kernel instead of about 22 ttnn calls: 1.15x on a BindCraft 2 gradient round at 288 tokens, with a gradient closer to float64 than the composed path's. Wormhole and every other model keep the composed path. |
 | `TT_BIO_MSA_LADDER` | on | Boltz-2 and BoltzGen: pads the MSA depth to the smallest of 64, 128, 256, 512, 1024 that holds the alignment instead of always 1024. Not bit-exact; scored against 1HCL it is as accurate or closer. |
 | `TT_BIO_OPM_LEGACY_LAYOUT` | off | Restores `OuterProductMean`'s old output stage in every model that builds it (Boltz-2, BoltzGen, Protenix, OpenFold3, RF3, AF2). The default differs by one bf16 step: 0.29 to 1.59 A worst pseudo-domain on the hinged 512-residue fixture, against 1.09 to 1.42 A for the old path against its own seeds. |
 | `TT_BIO_PAIR_FFN_L1_FC1` | on | ESMFold2 only: keeps the pair transition's first matmul in L1 up to 512 residues. Bit for bit. |

@@ -417,7 +417,9 @@ gradient kernels its round is measured with. The gradient is closer to float64 t
 path's: dx rel L2 1.81e-3 against 3.84e-3 on the same bf16 operands, and nearer float64 on every
 block of the teacher-forced float64 VJP (`perf/bcx_afgrad/vjp_n288_bcp_lnbw_{off,on}.json`). A
 float32 cotangent declines, because there the composed path is exact float32 (1.5e-4) and the
-kernel's FPU stages read TF32 (1.3e-3). `TT_BIO_LNBW_FUSED=0` is the way back.
+kernel's FPU stages read TF32 (1.3e-3). On Wormhole it declines (reason `arch`): it was graded
+and device-tested on Blackhole only. `TT_BIO_LNBW_FUSED=0` is the way back. At the BindCraft 2
+round it is worth 5.969 to 5.186 s on a qb2 p300c chip (1.151x, six arms alternated, AICLK 1350).
 
 ## `TT_BIO_MM_LAYOUT`
 
