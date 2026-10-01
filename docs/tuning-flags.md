@@ -18,6 +18,7 @@ move against the accuracy bar and the seed-to-seed spread.
 |---|---|---|---|
 | [`BOLTZ2_TOKEN_DIT_SDPA`](#boltz2_token_dit_sdpa) | on | Boltz-2 | moves, inside the 298-residue bar |
 | [`TT_BIO_AF2_G_BIAS_IN_MATMUL`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
@@ -35,7 +36,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_GATE_GRANULARITY`](#tt_bio_gate_granularity) | 2 | | identical at every value |
 | [`TT_BIO_HOST_LEVERS`](#tt_bio_host_levers) | on | Boltz-2 | switches two other flags together |
 | [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | off | training | gradients only |
+| [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_MM_LAYOUT`](#tt_bio_mm_layout) | off | training | moves |
 | [`TT_BIO_MSA_LADDER`](#tt_bio_msa_ladder) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
 | [`TT_BIO_NOGRAD_INFERENCE`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
@@ -57,7 +58,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRANSITION_L1_ROWS`](#tt_bio_transition_l1_rows) | on | Blackhole | identical on the measured shapes |
 | [`TT_BIO_TRIATT_B8`](#tt_bio_triatt_b8) | off | | moves, and depends on the core grid |
 | [`TT_BIO_TRIATT_BW_EXP_21F`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused) | off | training | gradients only |
+| [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2 | gradients only |
 | [`TT_BIO_TRIATT_BW_QKV_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_TRIATT_DIVIDING_K`](#tt_bio_triatt_dividing_k) | on | OpenFold3 at 832 tokens | moves, inside the bar |
 | [`TT_BIO_TRIATT_FUSED_QKVG`](#tt_bio_triatt_fused_qkvg) | on | | identical |
@@ -85,10 +86,12 @@ workers are not flags of ours; they are covered at the end, under
 
 Default: on inside a BindCraft 2 round on Blackhole, off elsewhere.
 
-Eleven kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is
-armed by `bindcraft2.predictor(exact=False)` through `fast_round`, alongside
-[`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused); outside a BindCraft 2 round, and on Wormhole, every one
-keeps the composed path. Setting a flag to `0` turns that kernel off even inside the round.
+Kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is armed by
+`bindcraft2.predictor(exact=False)` through `fast_round`, alongside
+[`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) and [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused).
+Outside a BindCraft 2 round every one keeps the composed path, and so do the first eleven on
+Wormhole, where they have not been graded. Setting a flag to `0` turns that kernel off even inside
+the round; `bindcraft2.predictor(fast=False)` turns all of them off together.
 
 | flag | what it replaces |
 |---|---|
@@ -103,6 +106,7 @@ keeps the composed path. Setting a flag to `0` turns that kernel off even inside
 | `TT_BIO_FANIN_CAST_FUSED` | A gradient with several consumers is summed and cast in one pass instead of two. |
 | `TT_BIO_PAIR_TRANSPOSE_FUSED` | The pair tensor's i/j swap as one move kernel, forward and backward. |
 | `TT_BIO_PAIR_MM` | Pair-track linears and their input gradients on `minimal_matmul` with a per-shape block table, ReLU fused at pack. |
+| `TT_BIO_AF2_OPM_ROWS_IN_K` | The outer product mean sums its MSA rows inside one contraction instead of one product per row. Acts only with more than one MSA row, which a BindCraft 2 round has. Both boards. |
 
 **Accuracy.** Each was graded on its own against a float64 reference of an Evoformer block's VJP
 at 288 tokens, blocks 0, 3 and 7. The largest move any of them makes is 6e-4 rel L2 (pair_mm on
@@ -118,6 +122,13 @@ sitting at AICLK 1350 sampled during every arm. The host was shared with other c
 
 **Sizes.** With all of them on, a p300c chip runs 192, 352, 576 and 864 tokens to a completed
 gradient round; 864 peaks at 27.04 GB resident with 7.19 GB free.
+
+`TT_BIO_AF2_OPM_ROWS_IN_K` came later and is graded separately. It changes the forward, closer to
+float64 (outer-product rel L2 3.52e-3 to 2.93e-3), and leaves the VJP's per-row products as they
+were; on the teacher-forced float64 block VJP with two MSA rows no block moves by more than
+0.0017. Together with a ReLU backward that now gates its multiply in place (bit-exact, no flag),
+it takes the 288-token round on a p300c from 4.055 to 3.946 s, 1.028x, six arms alternated at
+AICLK 1350 with disjoint ranges.
 
 ## `BOLTZ2_TOKEN_DIT_SDPA`
 
@@ -1065,21 +1076,48 @@ the grid-dependence evidence are in `perf/c14_bfp8/compose_result.md`.
 
 ## `TT_BIO_TRIATT_BW_FUSED`
 
-Default: off, training only.
+Default: on inside a BindCraft 2 round, off elsewhere.
 
 Sends the BACKWARD of `autograd.triangle_attention` through a fused kernel that keeps the
 attention scores in L1 and never writes them: 238.88 MB a call against the chunked-recompute
-path's 9172.90. On a BindCraft 2 gradient round at 288 tokens it is served 108 times a round and
-cuts the round's device seconds by 1.1398x.
+path's 9172.90 at 288 tokens. On a BindCraft 2 gradient round at 288 tokens it is served 108 times
+a round and cuts the round's device seconds by 1.1398x.
+
+Above 288 tokens the whole `[N, N]` float32 bias gradient no longer fits one core's L1, so on
+Blackhole the kernel walks the query axis in chunks and keeps one chunk's rows of it. That serves
+every call from 288 to 864 tokens (216 of 216 at 864, 432 of 432 at 544), bit-identical to the
+whole-query kernel at 288, inside the gradient bar at every size. Measured on a p300c at AICLK
+1350 against the chunked recompute: 1.17-1.32x a round at 544, 1.62-1.67x at 768, 1.44x at 800,
+1.00x at 288. It moves no size ceiling. On Wormhole the chunked form has not been graded, so it
+declines there above the size the whole query fits and the chunked recompute runs.
 
 It only reaches a route that enters `autograd.triangle_attention` at all, which means the fused
 SDPA or HiFi route. On the materialised path it fires zero times. Anything outside its shape gate
 falls through to the chunked recompute rather than approximating, so the answer is the same
 function at every shape it declines.
 
-Off by default because it has not been through a release gate. Graded at 1.0133-1.046x against a
-1.1-1.2x bar on dq/dk/dv/dbias, and 1.0511x on the composed round's float64 VJP against a 1.2x
-bar.
+Outside a BindCraft 2 round it stays off. Graded at 1.0133-1.046x against a 1.1-1.2x bar on
+dq/dk/dv/dbias, and 1.0511x on the composed round's float64 VJP against a 1.2x bar.
+`TT_BIO_TRIATT_BW_FUSED=0` turns it off inside the round too.
+
+## BindCraft 2 `memory=`
+
+Not an environment variable: an argument of `bindcraft2.predictor` and
+`bindcraft2.campaign_predictor`. Default `'auto'`.
+
+It picks, per token axis, the cheapest of three ways to hold the Evoformer's activations between
+the forward and the backward: `fast` (checkpoint each block), `lean` (also each residual step
+inside a block, so every block's forward runs once more a round) and `offload` (`lean`, with the
+pinned block inputs in host memory between forward and backward). `auto` keeps every fold that
+fits in `fast` there and moves to a slower mode only where `fast` would refuse, so on a p150a it
+never leaves `fast` below 864 tokens, and on one Wormhole Galaxy chip it is what carries 544 to
+896 tokens. The modes compute the same values: `lean` and `offload` are bit-identical to each
+other and 0.0035 rel L2 from `fast`. On Wormhole, `lean` costs 10.6 % a round at a fixed axis and
+`offload` rounds run 3.3-4.7x the 512-token `fast` round at 768 to 896 tokens, AICLK 1000.
+
+`memory='fast'` turns the slower modes off: a fold too large for `fast` then refuses instead of
+running slower. Full measurements:
+[docs/bindcraft2.md](bindcraft2.md#large-complexes-the-memory-modes).
 
 ## `TT_BIO_TRIATT_DIVIDING_K`
 
