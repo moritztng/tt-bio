@@ -10,6 +10,7 @@ Card-free and dependency-free: `verdict.py` is stdlib only.
 """
 import importlib.util
 import json
+import os
 import pathlib
 
 import pytest
@@ -217,7 +218,6 @@ def interleaved(tmp_path, *, finished=4, arms=3, rss_step_gb=0.0, stage_load_gb=
         stamp = folder / "Trajectory.pdb"
         stamp.write_text("x")
         when = t0 + per_trajectory_s * (k + 1)
-        import os
         os.utime(stamp, (when, when))
     with open(project / "1_Trajectories" / "!_Trajectories.csv", "w") as f:
         f.write("trajectory,design\n" + "".join(f"{i + 1},{n}\n" for i, n in enumerate(names)))
@@ -305,7 +305,6 @@ def staircase(tmp_path, *, steps, per_step=3000, base=13300, trajectories=9, sti
     (project / "1_Trajectories").mkdir(parents=True)
     t0, per = 1_790_000_000.0, 1200.0
     names = [f"d{k}" for k in range(trajectories)]
-    import os
     for k, name in enumerate(names):
         folder = project / "1_Trajectories" / name
         folder.mkdir()
@@ -432,3 +431,81 @@ def test_a_short_handed_window_mid_campaign_is_still_judged():
     drifted, read = verdict.verdict([{"t": 0, "alive": False}], windows)
     assert not any("arms (the campaign draining)" in line for line in read), read
     assert any("slows down" in line for line in drifted), drifted
+
+
+def killed(tmp_path, *, trajectories=9, watched=5, fds_per_trajectory=0, rss_per_trajectory_gb=0.0):
+    """`long24`'s own shape: the box-lost drill kills the campaign mid-budget, the sampler stamps
+    one dead tick, and a resumed leg keeps filling the SAME project folder afterwards.
+
+    So the folder holds `trajectories` completions while the series only watched `watched` of
+    them, and its last sample is the zeros a dead process reports.
+    """
+    project = tmp_path / "project"
+    (project / "1_Trajectories").mkdir(parents=True)
+    t0, per = 1_790_000_000.0, 1200.0
+    names = [f"d{k}" for k in range(trajectories)]
+    for k, name in enumerate(names):
+        folder = project / "1_Trajectories" / name
+        folder.mkdir()
+        stamp = folder / "Trajectory.pdb"
+        stamp.write_text("x")
+        os.utime(stamp, ((t0 + per * (k + 1)),) * 2)
+    with open(project / "1_Trajectories" / "!_Trajectories.csv", "w") as f:
+        f.write("trajectory,design\n" + "".join(f"{i + 1},{n}\n" for i, n in enumerate(names)))
+    killed_at = t0 + per * (watched + 0.5)
+    rounds, samples = [], []
+    for i in range(0, int(killed_at - t0), 30):
+        t = t0 + i
+        done = sum(1 for k in range(trajectories) if t >= t0 + per * (k + 1))
+        samples.append({"t": t, "alive": True,
+                        "rss": int((18.0 + rss_per_trajectory_gb * done) * GB),
+                        "fds": 24 + fds_per_trajectory * done, "threads": 2400, "maps": 15000,
+                        "cache_bytes": {}, "disk_free": int(300 * GB)})
+    for i in range(0, int(killed_at - t0), 6):
+        rounds.append({"t": t0 + i, "slot": "t1", "round": i // 6 + 1})
+    samples.append({"t": killed_at, "alive": False, "procs": 1, "rss": 0, "hwm": 0,
+                    "threads": 0, "fds": 0, "maps": 0, "cache_bytes": {},
+                    "disk_free": int(300 * GB)})
+    (project / "rounds.json").write_text(json.dumps(rounds))
+    (tmp_path / "drift.jsonl").write_text("".join(json.dumps(r) + "\n" for r in samples))
+    return tmp_path
+
+
+def test_a_dead_campaigns_zeros_are_not_a_reading(tmp_path):
+    """A handle leak that ends in a kill must not read as handles settling.
+
+    `long24` killed at trajectory 12: the sampler's next tick stamped `alive: false` with every
+    counter at zero, the window holding the kill took their median with the live ones, and the
+    verdict printed `open file handles 24 in trajectory 1 -> 12 in trajectory 10` and `12039
+    mapped regions ... and not climbing` about a process that no longer existed.
+    """
+    drift, read = run_real(killed(tmp_path, fds_per_trajectory=8))
+    assert any("open file handles" in d for d in drift), (drift, read)
+    assert any("samples taken after the campaign died, dropped" in line for line in read), read
+    assert not any("-> 0 in" in line or "-> 12 in" in line for line in read), read
+
+
+def test_trajectories_that_finished_after_the_series_ended_are_not_judged(tmp_path):
+    """The completion times come from the project folder, which a resumed leg keeps filling.
+
+    `long24`'s series covered 9 trajectories and the folder held 16 by the time it was read, so
+    the memory verdict divided its real rise by 15 boundaries it never watched and the handle
+    verdict took medians of windows with no live sample in them at all.
+    """
+    out = killed(tmp_path, trajectories=9, watched=5, rss_per_trajectory_gb=1.0)
+    _drift, read = run_real(out)
+    assert any("finished after this series ended, not judged" in line for line in read), read
+    judged = [line for line in read if "rss at trajectory boundaries" in line]
+    assert judged and "+1.00 GB per trajectory" in judged[0], read
+
+
+def test_a_campaign_whose_whole_series_is_dead_says_so(tmp_path):
+    out = killed(tmp_path, watched=5)
+    rows = [json.loads(line) for line in (out / "drift.jsonl").read_text().splitlines()]
+    for row in rows:
+        row["alive"] = False
+    (out / "drift.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    _drift, read = run_real(out)
+    assert any("every sample was taken after the campaign died" in line for line in read), read
+    assert not any("rss at trajectory boundaries" in line for line in read), read
+    assert not any("open file handles" in line for line in read), read
