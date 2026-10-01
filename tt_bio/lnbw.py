@@ -43,12 +43,15 @@ def _decline(reason: str) -> bool:
 
 
 def eligible(x, g, gamma) -> bool:
-    """What the kernel serves: bf16 x, bf16 or fp32 g of x's shape, TILE, interleaved, a channel
+    """What the kernel serves: bf16 x and g of one shape, TILE, interleaved, a channel
     width that is a power-of-two multiple of 32 (1/K exact in the bf16 reduce scaler), and gamma
     absent or one row of K."""
     if not FUSED:
         return False
-    if x.dtype != ttnn.bfloat16 or g.dtype not in _BYTES:
+    # A float32 cotangent (a fan-in accumulator) is declined: the composed path computes that
+    # case in exact float32 (1.5e-4 rel L2 against float64 at 64x64x128), and this kernel's FPU
+    # stages read float32 CBs at TF32 (1.3e-3), which would spend accuracy the gradient has now.
+    if x.dtype != ttnn.bfloat16 or g.dtype != ttnn.bfloat16:
         return _decline("dtype")
     if x.layout != ttnn.TILE_LAYOUT or g.layout != ttnn.TILE_LAYOUT:
         return _decline("layout")
@@ -130,8 +133,8 @@ def _build(x, g, gamma, out, eps, device):
 
 
 def layer_norm_bw(x, g, gamma, eps):
-    """dx of `layer_norm(x) * gamma (+ beta)` for cotangent g. float32 if g is, else bfloat16,
-    the dtype `autograd._layer_norm_bw` returns. Nothing is deallocated."""
+    """dx of `layer_norm(x) * gamma (+ beta)` for cotangent g, in the dtype
+    `autograd._layer_norm_bw` returns (float32 if g is, else bfloat16). Nothing is deallocated."""
     device = x.device()
     out_dtype = ttnn.float32 if g.dtype == ttnn.float32 else ttnn.bfloat16
     out = ttnn.allocate_tensor_on_device(x.shape, out_dtype, ttnn.TILE_LAYOUT, device,

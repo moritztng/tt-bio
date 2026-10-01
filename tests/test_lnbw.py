@@ -43,13 +43,13 @@ def _rel(dx_dev, ref):
 
 
 @pytest.mark.parametrize("shape", [(1, 288, 288, 128), (2, 288, 256), (64, 64, 128)])
-@pytest.mark.parametrize("g_dtype", ["bf16", "fp32"])
 @pytest.mark.parametrize("with_gamma", [True, False])
-def test_kernel_is_at_least_as_close_to_float64_as_the_composed_path(shape, g_dtype, with_gamma,
+def test_kernel_is_at_least_as_close_to_float64_as_the_composed_path(shape, with_gamma,
                                                                      monkeypatch):
     import ttnn
     from tt_bio import autograd as ag, lnbw
     eps = 1e-5
+    g_dtype = "bf16"
     x, g, gamma, xd, gd, gmd = _case(shape, g_dtype, with_gamma)
     ref = _ref(x, g, gamma, eps)
     monkeypatch.setattr(lnbw, "FUSED", True)
@@ -78,6 +78,14 @@ def test_the_composed_backward_routes_through_the_kernel_when_armed(monkeypatch)
     gw = ag.Tensor(gmd, requires_grad=True)
     ag._layer_norm_bw(xt, gw, None, 1e-5, ag.precise_config())(gd)
     assert lnbw.REACH["served"] == before + 1 and gw.grad is not None
+
+
+def test_declines_a_float32_cotangent(monkeypatch):
+    """The composed path is exact float32 there (1.5e-4); the kernel's FPU reads TF32 (1.3e-3)."""
+    from tt_bio import lnbw
+    monkeypatch.setattr(lnbw, "FUSED", True)
+    _, _, _, xd, gd, gmd = _case((64, 64, 128), "fp32", True)
+    assert not lnbw.eligible(xd, gd, gmd)
 
 
 def test_declines_a_width_whose_reciprocal_is_not_exact(monkeypatch):
