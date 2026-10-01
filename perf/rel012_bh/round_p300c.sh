@@ -25,7 +25,7 @@ sit () {  # sit <arm> <tree> <n>
   export JAX_COMPILATION_CACHE_DIR=$out/xlacache_$arm
   echo "=== $(date -u +%FT%TZ) START $arm sitting $n tree=$(git -C "$tree" rev-parse --short HEAD)" >> "$log"
   timeout 3000 $PY -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e2e/af2_params \
-    --out "$out/${arm}$n" --target hPDL1 --binder 146 --rounds 30 --trajectories 3 \
+    --out "$out/${arm}$n" --target hPDL1 --binder 146 --rounds 30 --trajectories 3 --max-trajectories 6 \
     > "$out/${arm}$n.log" 2>&1
   echo "=== rc=$? $(date -u +%FT%TZ) END $arm sitting $n" >> "$log"
 }
