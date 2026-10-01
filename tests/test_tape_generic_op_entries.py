@@ -228,3 +228,20 @@ def test_the_gated_move_refuses_a_row_block_under_a_tape(monkeypatch, taping):
     assert R.eligible_gated(blk, 128, None) is False
     key = ("gated_rowblock_taped", (1, 64, 288, 512))
     assert R.REJECTS.get(key, 0) == before.get(key, 0) + 1
+
+
+def test_nograd_counts_as_inference_only_when_armed(monkeypatch):
+    """`ops.taping()` under `no_grad`: True as before with the switch off, False with it on,
+    and a recording forward is taping either way."""
+    from tt_bio import autograd as ag, ops
+    prev = ops.set_grad_hook(ag._hook)
+    try:
+        for armed in (False, True):
+            monkeypatch.setattr(ops, "NOGRAD_IS_INFERENCE", armed)
+            assert ops.taping()
+            with ag.no_grad():
+                assert ops.taping() is not armed
+            assert ops.taping()
+    finally:
+        ops.set_grad_hook(prev)
+    assert not ops.taping()

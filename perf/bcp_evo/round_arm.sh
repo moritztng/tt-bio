@@ -9,7 +9,7 @@ tag=$1; rounds=$2; shift 2
 levers=()
 while [ $# -gt 0 ] && [ "$1" != "--" ]; do levers+=("$1"); shift; done
 [ "${1:-}" = "--" ] && shift
-out=perf/bcp_evo/out/round/$tag
+out=${OUT_DIR:-perf/bcp_evo/out/round}/$tag
 rm -rf "$out"; mkdir -p "$out"
 export PYTHONPATH=$PWD
 export BCX_BC2=/home/ttuser/bcx_e2e/bc2

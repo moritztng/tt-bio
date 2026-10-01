@@ -35,6 +35,7 @@ import contextlib
 import ttnn
 
 from .dispatch import OpSurface
+from .envflags import env_flag
 
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
            "set_recycle_hook", "recycle_region", "taping",
@@ -71,6 +72,17 @@ def set_recycle_hook(fn):
     return prev
 
 
+#: Whether a forward the tape runs under its own `no_grad` still counts as taping. Off is the
+#: old answer: the hook is installed, so every kernel with no backward declines and every L1
+#: placement goes to DRAM (`tenstorrent._l1_fits`), even though nothing in that forward is
+#: recorded. A BindCraft 2 round runs two of its three Evoformer forwards that way (the
+#: checkpointed first pass of each block, and the stop-gradient recycle), so on, those two run
+#: the shipped inference program and only the backward's recompute runs the taped one. Armed by
+#: `bindcraft2.fast_round()`. The hook answers through its `recording` attribute; a hook
+#: without one is always recording.
+NOGRAD_IS_INFERENCE = env_flag("TT_BIO_NOGRAD_INFERENCE", False)
+
+
 def taping():
     """Is a tape open? Asked by the fused kernels that have no backward.
 
@@ -90,7 +102,14 @@ def taping():
     decline inside its own tape entry and the lever would go silently inert, which is the one
     failure mode a decline path cannot distinguish from a shape it does not cover.
     """
-    return grad_hook() is not None and not _RAW_DEPTH
+    hook = grad_hook()
+    if hook is None or _RAW_DEPTH:
+        return False
+    return not NOGRAD_IS_INFERENCE or getattr(hook, "recording", _always)()
+
+
+def _always():
+    return True
 
 
 # --- tape entries for the `generic_op` kernels ---------------------------------------------

@@ -3020,6 +3020,10 @@ def _hook(name, shipped, args, kwargs):
         return impl(shipped, args, kwargs)
 
 
+# What `ops.taping()` asks under `NOGRAD_IS_INFERENCE`: a forward inside `no_grad` records nothing.
+_hook.recording = is_grad_enabled
+
+
 def _checkpoint_segment(fn, *inputs):
     """`ops.checkpoint_segment`'s implementation: checkpoint a block, or just run it.
 

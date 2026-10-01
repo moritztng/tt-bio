@@ -1758,6 +1758,7 @@ _FAST_ROUND = (
     ("triatt_bw", None, "FUSED", "TT_BIO_TRIATT_BW_FUSED", True),
     ("lnbw", None, "FUSED", "TT_BIO_LNBW_FUSED", True),
     ("reblock_permute", None, "GATED_BW_FUSED", "TT_BIO_GATED_BW_FUSED", True),
+    ("ops", None, "NOGRAD_IS_INFERENCE", "TT_BIO_NOGRAD_INFERENCE", True),
     ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
     ("af2", "AF2PairBlock", "rne_kernel", None, True),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None, "tri_att_sdpa_hifi,rne_add,reblock_permute_gated"),
