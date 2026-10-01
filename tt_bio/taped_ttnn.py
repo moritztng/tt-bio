@@ -1268,6 +1268,28 @@ def _k_reblock_permute_gated(shipped, args, kwargs):
 
     return ag._tape(out_v, [xw], make, reads=(0,))
 
+@_kernel("pair_transpose")
+def _k_pair_transpose(shipped, args, kwargs):
+    """`tt_bio.pair_transpose`'s entry: a permutation of S1 and S2, so its VJP is the same swap of
+    the cotangent, through the same kernel where it covers the shape and `ttnn.permute` where not.
+    Bit-exact both ways. `reads=()`: the gradient needs no operand."""
+    from . import pair_transpose as PT
+    x = _wrap(args[0])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    perm = (1, 0, 2) if len(x.value.shape) == 3 else (0, 2, 1, 3)
+
+    def make():
+        def bw(g):
+            if PT.shape_ok(g):
+                x.add_grad(PT.pair_transpose.__wrapped__(g))
+            else:
+                x.add_grad(ttnn.permute(g, perm))
+        return bw
+
+    return ag._tape(out_v, [x], make, reads=())
+
+
 @_kernel("rne_add")
 def _k_rne_add(shipped, args, kwargs):
     """`tt_bio.rne_add`'s entry: the VJP of a sum is the cotangent, to both operands.
