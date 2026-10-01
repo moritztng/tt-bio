@@ -223,7 +223,7 @@ def main():
             pass
         return out
     from tt_bio import autograd as _ag, gate_bw as _gb, lead_sum as _ls, reblock_permute as _rp
-    from tt_bio import tenstorrent as _tt
+    from tt_bio import pair_transpose as _pt, tenstorrent as _tt
     M.REACH.append(_host_rss)
     M.REACH.append(lambda: {
         "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
@@ -232,6 +232,8 @@ def main():
         "gate_bw": list(_gb.STATS),
         "lead_sum": list(_ls.STATS),
         "fanin_cast": dict(_ag.FANIN_CAST_STATS),
+        "pair_transpose": list(_pt.STATS),
+        "grad_slab": dict(_ag.SLAB_STATS),
         "pair_bias": dict(_tt.PAIR_BIAS_STATS),
         "gated_entry": list(taped_ttnn.KERNEL_STATS.get("reblock_permute_gated", [0, 0])),
     })
