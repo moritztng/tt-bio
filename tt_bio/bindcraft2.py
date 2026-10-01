@@ -1777,6 +1777,16 @@ _FAST_ROUND = (
     ("autograd", None, "SOFTMAX_BW_FP32", "TT_BIO_SOFTMAX_BW_FP32", False),
 )
 
+#: Rows graded on Blackhole only (qb2 p300c, `state/bcp-evo.md`). On Wormhole `fast_round` leaves
+#: them at the value it found, or for the taped-kernel list at `_FAST_ROUND_WORMHOLE_KERNELS`, until
+#: each has a float64 grade and a round on a Wormhole chip. A named env var still wins.
+_BLACKHOLE_ONLY = frozenset({
+    "QKV_PACKED", "EXP_21F", "FANIN_CAST_FUSED", "PAIR_TRANSPOSE_FUSED", "GATED_GRAD_PACKED",
+    "GATED_BW_FUSED", "GATE_BW_FUSED", "LEAD_SUM_FUSED", "PAIR_MM_FUSED", "NOGRAD_IS_INFERENCE",
+    "tri_att_g_in_matmul", "TAPED_KERNELS_DEFAULT",
+})
+_FAST_ROUND_WORMHOLE_KERNELS = "tri_att_sdpa_hifi,rne_add"
+
 
 @contextlib.contextmanager
 def fast_round():
@@ -1789,6 +1799,9 @@ def fast_round():
 
     from tt_bio.envflags import env_flag
 
+    from tt_bio import tenstorrent
+
+    wormhole = tenstorrent.is_wormhole()
     saved = []
     try:
         for module, owner, attr, env, value in _FAST_ROUND:
@@ -1796,6 +1809,9 @@ def fast_round():
             if owner:
                 target = getattr(target, owner)
             saved.append((target, attr, getattr(target, attr)))
+            if wormhole and attr in _BLACKHOLE_ONLY:
+                value = (_FAST_ROUND_WORMHOLE_KERNELS if attr == "TAPED_KERNELS_DEFAULT"
+                         else getattr(target, attr))
             setattr(target, attr, env_flag(env, value) if env else value)
         yield {attr: getattr(t, attr) for t, attr, _ in saved}
     finally:
