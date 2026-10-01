@@ -603,7 +603,10 @@ room: the round peaked at 11.197 GB with 1.687 GB free and was then refused an 8
 because the largest free block left was 70 MB. The mode ends on fragmentation, which is why the
 ceiling is a measured number here and not one computed from how much a fold of that size would
 need. 800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder, so the competition
-case has three buckets of headroom above it.
+case has three buckets of headroom above it. The ladder above 800 is the same target with a
+longer binder, so it also says how long a binder the ectodomain takes: 190 aa lands on 832 tokens,
+220 on 864, 250 on 896, and 280 refuses. Every binder length you are likely to design against
+EGFR fits on one chip.
 768 is two different complexes, measured separately and landing on the same numbers: serum
 albumin plus a 150 aa binder (738 residues at the seam, 200.2 s) and **the EGFR ectodomain plus a
 100 aa minibinder** (742 residues, 200.5 s), which is the smaller of the two shapes the
