@@ -3,7 +3,8 @@
 The compute kernel runs query chunk outside and leading axis inside, so the fronted bias and the
 float32 dbias accumulator are `Qt * Nt` tiles, not `Nt * Nt`. Until this loop existed the
 whole-query form stopped fitting at 320 tokens and a chunked plan was refused at build, because
-the kernel would have read past buffers sized for a chunk. These hold the new contract.
+the kernel would have read past buffers sized for a chunk. These hold the new contract, priced
+per board: the two boards' L1 differ, and only Blackhole has run the loop.
 """
 import re
 from pathlib import Path
@@ -16,15 +17,37 @@ KDIR = Path(T.__file__).parent / "kernels" / "triatt_bw"
 
 def test_whole_query_is_kept_where_it_fits():
     """288 is the shipped BindCraft 2 axis: it must take the unchanged single-chunk kernel."""
-    p = T.serving_plan(64, 4, 288, 32, GRID)
-    assert p["Qt"] == p["Nt"] == 9
+    for wh in (False, True):
+        p = T.serving_plan(64, 4, 288, 32, GRID, wormhole=wh)
+        assert p["Qt"] == p["Nt"] == 9
 
 
-def test_every_bucket_up_to_1024_is_served():
+def test_every_bucket_up_to_1024_is_served_on_blackhole():
+    for grid in (GRID, (13, 10), (8, 8)):
+        for n in range(288, 1025, 32):
+            p = T.serving_plan(64, 4, n, 32, grid, wormhole=False)
+            assert p is not None and T.fits_l1(p, False), (grid, n)
+            assert p["Nt"] % p["Qt"] == 0, n
+
+
+def test_each_board_is_priced_by_its_own_l1():
+    """Wormhole has 1464 KiB of L1 to Blackhole's 1536. At 480 the chunk Blackhole takes would be
+    refused by tt-metal on a Wormhole chip, inside a backward, so the price must not carry over."""
+    assert T.cb_budget(False) == 1572864 - 109056
+    assert T.cb_budget(True) == 1395424
+    p = T.largest_fitting_q_chunk(480, 4, 480, 32, (8, 8), wormhole=False)
+    assert p["Qt"] == 5
+    assert not T.fits_l1(p, True)
+    assert T.largest_fitting_q_chunk(480, 4, 480, 32, (8, 8), wormhole=True)["Qt"] == 3
+    # every bucket would still fit on Wormhole's own budget, for when the chunk is graded there
     for n in range(288, 1025, 32):
-        p = T.serving_plan(64, 4, n, 32, GRID)
-        assert p is not None and T.fits_l1(p), n
-        assert p["Nt"] % p["Qt"] == 0, n
+        assert T.largest_fitting_q_chunk(n, 4, n, 32, (8, 8), wormhole=True) is not None, n
+
+
+def test_wormhole_declines_the_chunked_form_until_it_is_graded_there():
+    """The loop has a float64 grade on Blackhole only. On Wormhole the caller keeps the fallback."""
+    assert T.serving_plan(512, 4, 512, 32, (8, 8), wormhole=True) is None
+    assert T.serving_plan(512, 4, 512, 32, (8, 8), wormhole=False)["Qt"] == 4
 
 
 def test_bias_and_dbias_shrink_with_the_chunk():

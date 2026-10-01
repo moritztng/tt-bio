@@ -22,25 +22,32 @@ crosses DRAM is q, k, v, dO in and dq, dk, dv out, which is 9x less than the sco
 THE BIAS GRADIENT IS WHY THIS CANNOT BE TWO OPS. The bias is `[1, H, S, S]` broadcast over the
 leading axis, so `dbias` is the score gradient summed over that axis -- and dS exists only inside
 this kernel. Splitting the gradient computation from the bias reduction would mean materialising
-dS, which is the thing being avoided. So each core carries a `[S, S]` float32 accumulator in its
-own L1 for its own group of the leading axis, writes it once at the end, and a single `ttnn.sum`
-over the group axis finishes it. Float32 and not bf16: the accumulator sums a few hundred terms
-and the reduce sums the partials on top of that, and a bf16 accumulator would put a rounding floor
-under the one gradient this kernel produces by reduction rather than by matmul.
+dS, which is the thing being avoided. So each core carries a float32 accumulator in its own L1
+for its own group of the leading axis, writes it once at the end, and a single `ttnn.sum` over the
+group axis finishes it. Float32 and not bf16: the accumulator sums the core's rows and the reduce
+sums the partials on top of that, and a bf16 accumulator would put a rounding floor under the one
+gradient this kernel produces by reduction rather than by matmul.
 
 The key axis is never chunked, which is what keeps log-sum-exp bookkeeping out of this file. A
 flash kernel chunks keys, so every block sees a partial softmax denominator and has to carry
 running row statistics and rescale. Here each core holds every key for its rows, so each softmax
 is exact and complete the first time.
 
-THE QUERY AXIS IS NOT CHUNKED EITHER, AND `q_chunk_tiles` IS A COST MODEL, NOT A LEVER. Nothing
-would stop it in principle -- `dbias` rows are indexed by the query row, so query chunks need no
-cross-chunk reduction -- but `compute/triatt_bw.cpp` takes `Nt` as compile-time arg 0 and works in
-`score_tiles = Nt * Nt`; it is never told a chunk and has no loop over one. `cb_table` below DOES
-shrink the three score-sized buffers to `Qt * Nt`, so a plan with `Qt < Nt` prices a config the
-kernel cannot run: it would read `Nt * Nt` tiles out of buffers holding `Qt * Nt`. `build` refuses
-such a plan rather than letting it reach a kernel. Making the knob real means teaching the compute
-kernel a query loop, which is a kernel change and not a host one.
+THE QUERY AXIS IS CHUNKED, OUTSIDE THE LEADING AXIS, when the whole query does not fit. Whole,
+`bias` and the `dbias` accumulator are `[Nt, Nt]` each and alone cross the L1 budget at 512 tokens.
+With a chunk of `Qt` query tiles the core fronts `bias[h, chunk]` and seeds `dbias[chunk]`, both
+`[Qt, Nt]`, and streams every row of its group through them before moving to the next chunk.
+`dbias` rows are indexed by the query row, so they need no cross-chunk reduction. dK and dV do:
+they sum over query rows, so with more than one chunk they are float32 running sums in DRAM, each
+chunk adding to what the previous one wrote for the same row (`SEM_WRITTEN` orders the read after
+the write), and one cast to bf16 at the end. `serving_plan` takes the whole query when it fits and
+otherwise the largest chunk that divides `Nt` and fits, which serves every bucket from 288 to 1024
+tokens. At a shape where the whole query fits, the program is the pre-loop one, bit for bit.
+
+WORMHOLE SERVES THE WHOLE-QUERY FORM ONLY. The chunked form has been graded against float64 on
+Blackhole and has not run on a Wormhole chip, so `serving_plan` declines a chunk there and the
+caller keeps the chunked-recompute fallback. Lifting that is deleting one line in `serving_plan`,
+after `perf/bcw_dbias/grade.py` has run on Wormhole at 288, 544 and 768.
 
 Driven through `tt_bio.sdpa_generic`'s machinery rather than the wheel's SDPA kernels: the forward
 inherits `reader_interleaved.cpp`'s chain-forwarding, multicast, paging and MLA arguments, all of
@@ -76,14 +83,25 @@ from .envflags import env_flag, env_int
 
 TILE = 32
 
-# The whole-query form needs `bias`, `P`, `dS` and a transpose scratch live at once, plus a float32
-# `dbias` accumulator that does not shrink with the query chunk. Past this many tiles on the token
-# axis it stops fitting and the caller falls back. `q_chunk_tiles` would pull the three
-# score-sized buffers back under the line, but only in the price: see the module docstring.
-# Blackhole has 1.5 MB of L1 per core; tt-metal reserves the bottom of it for the program itself,
-# and `sdpa_generic` already carries the figure the forward was sized against.
-L1_PER_CORE = getattr(SG, "L1_PER_CORE", 1499136)
-PROGRAM_RESERVE = getattr(SG, "PROGRAM_RESERVE", 0)
+# CB bytes one core may hold: its L1 less what tt-metal reserves below the CBs. Blackhole's figure
+# is `sdpa_generic`'s, exact on ten measured refusals. Wormhole has 1464 KiB of L1, not 1536, and
+# its L1 bank is 1395424 B (a Galaxy's own allocator report, `perf/ceilrfd3/results`). Priced
+# against Blackhole's figure, a Wormhole plan at 480 tokens takes a chunk of 5 query tiles that
+# tt-metal refuses at program creation, inside a backward, with no fallback; against its own it
+# takes 3.
+L1_PER_CORE = getattr(SG, "L1_PER_CORE", 1572864)
+PROGRAM_RESERVE = getattr(SG, "PROGRAM_RESERVE", 109056)
+WH_CB_BUDGET = 1395424
+
+
+def _wormhole() -> bool:
+    from . import tenstorrent
+    return tenstorrent.is_wormhole()
+
+
+def cb_budget(wormhole=None) -> int:
+    wormhole = _wormhole() if wormhole is None else wormhole
+    return WH_CB_BUDGET if wormhole else L1_PER_CORE - PROGRAM_RESERVE
 
 FUSED = env_flag("TT_BIO_TRIATT_BW_FUSED", False)
 
@@ -146,34 +164,35 @@ def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
     return p
 
 
-def fits_l1(p) -> bool:
-    """Whether tt-metal will accept this config's CBs, priced the way `sdpa_generic` prices."""
-    return p["l1_bytes"] + PROGRAM_RESERVE <= L1_PER_CORE
+def fits_l1(p, wormhole=None) -> bool:
+    """Whether tt-metal will accept this config's CBs on this board."""
+    return p["l1_bytes"] <= cb_budget(wormhole)
 
 
-def largest_fitting_q_chunk(B, H, N, d, grid, **kw):
-    """The biggest query chunk that would fit, or None if even one tile row would not.
-
-    PRICING ONLY -- a `Qt < Nt` result is not runnable today, because the compute kernel has no
-    query loop (module docstring), and `build` refuses it. This is what says how much L1 a query
-    loop would buy if one were written: on BindCraft 2's shape it moves the serving range from
-    288 tokens to 384 and no further, since `bias` and the float32 `dbias` accumulator are Nt^2
-    tiles each whatever `Qt` is and they alone cross the budget at 512.
-    """
+def largest_fitting_q_chunk(B, H, N, d, grid, wormhole=None, **kw):
+    """The biggest query chunk that divides `Nt` and fits, or None if one tile row does not."""
     Nt = N // TILE
     for qt in range(Nt, 0, -1):
         if Nt % qt:
             continue
         p = plan(B, H, N, d, grid, q_chunk_tiles=qt, **kw)
-        if fits_l1(p):
+        if fits_l1(p, wormhole):
             return p
     return None
 
 
-def serving_plan(B, H, N, d, grid, **kw):
-    """The plan `run` uses: the whole-query form when it fits, else the largest query chunk."""
+def serving_plan(B, H, N, d, grid, wormhole=None, **kw):
+    """The plan `run` uses: the whole-query form when it fits, else the largest query chunk.
+
+    `wormhole` defaults to the board this process sees; tests pass it to price the other one.
+    """
+    wormhole = _wormhole() if wormhole is None else wormhole
     p = plan(B, H, N, d, grid, **kw)
-    return p if fits_l1(p) else largest_fitting_q_chunk(B, H, N, d, grid, **kw)
+    if fits_l1(p, wormhole):
+        return p
+    if wormhole:
+        return None   # the chunked form is ungraded on Wormhole (module docstring)
+    return largest_fitting_q_chunk(B, H, N, d, grid, wormhole, **kw)
 
 
 def eligible(q, k, v, bias, *, taping=False):
@@ -465,7 +484,7 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
             "addrs": addrs}
 
 
-def run(device, q, k, v, bias, g, scale, ckc, q_chunk_tiles=None):
+def run(device, q, k, v, bias, g, scale, ckc, q_chunk_tiles=None, grid=None):
     """The whole backward for one triangle-attention call. Returns (dq, dk, dv, dbias).
 
     `q`, `k`, `v`, `bias` and `g` are raw ttnn tensors, not taped ones: the caller owns the tape.
@@ -474,11 +493,14 @@ def run(device, q, k, v, bias, g, scale, ckc, q_chunk_tiles=None):
     they are allocated uninitialised rather than zeroed.
     """
     B, H, N, d = (int(x) for x in q.padded_shape)
-    grid = device.compute_with_storage_grid_size()
+    if grid is None:
+        cg = device.compute_with_storage_grid_size()
+        grid = (cg.x, cg.y)
     # `q_chunk_tiles` forces a chunk, which is how the grader reaches the looped kernel at a
-    # shape the whole-query form would also fit.
-    p = (serving_plan(B, H, N, d, (grid.x, grid.y)) if q_chunk_tiles is None
-         else plan(B, H, N, d, (grid.x, grid.y), q_chunk_tiles=q_chunk_tiles))
+    # shape the whole-query form would also fit, and on a board `serving_plan` declines it on.
+    # `grid` forces a smaller work split, which is how Wormhole's 8x8 runs on a Blackhole card.
+    p = (serving_plan(B, H, N, d, grid) if q_chunk_tiles is None
+         else plan(B, H, N, d, grid, q_chunk_tiles=q_chunk_tiles))
     if p is None or not fits_l1(p):
         raise ValueError(f"does not fit L1 at any query chunk: N={N}")
 
