@@ -1,0 +1,198 @@
+--- 2026-10-01T01:01:56Z load 9.91 10.66 7.01
+    PID     ELAPSED %CPU   RSS COMMAND
+ 316199       08:23 98.0 5279444 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:39:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:39:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:39:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:39:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:42:35  0.2     0 [kworker/1:0-mm_percpu_wq]
+      1  5-01:40:56  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:02:56Z load 5.31 9.17 6.73
+    PID     ELAPSED %CPU   RSS COMMAND
+ 354612       01:00  216 11016728 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 316199       09:23 95.2 5280772 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:40:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:40:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:40:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:40:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:43:35  0.2     0 [kworker/1:0-events]
+--- 2026-10-01T01:03:56Z load 2.93 7.80 6.41
+    PID     ELAPSED %CPU   RSS COMMAND
+ 354612       02:00  228 19565060 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:41:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:41:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:41:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:41:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:44:35  0.2     0 [kworker/1:0-events]
+      1  5-01:42:56  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:04:56Z load 5.72 7.57 6.41
+    PID     ELAPSED %CPU   RSS COMMAND
+ 354612       03:00  253 19041492 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:42:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:42:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:42:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:42:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:45:35  0.2     0 [kworker/1:0-mm_percpu_wq]
+      1  5-01:43:56  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:05:56Z load 3.32 6.57 6.13
+    PID     ELAPSED %CPU   RSS COMMAND
+ 359384       00:05  264 980436 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_par
+   1239  5-01:43:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:43:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:43:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:43:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:46:35  0.2     0 [kworker/1:0-events]
+      1  5-01:44:56  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:06:56Z load 5.37 6.37 6.08
+    PID     ELAPSED %CPU   RSS COMMAND
+ 360130       00:46  217 1502036 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+ 359384       01:05  198 14417084 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:44:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:44:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:44:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:44:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:47:35  0.2     0 [kworker/1:0-events]
+--- 2026-10-01T01:07:56Z load 3.82 5.73 5.88
+    PID     ELAPSED %CPU   RSS COMMAND
+ 359384       02:05  261 19053348 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 360130       01:46  125 4876188 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:45:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:45:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:45:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:45:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:48:35  0.2     0 [kworker/1:0-events]
+--- 2026-10-01T01:08:56Z load 3.82 5.38 5.75
+    PID     ELAPSED %CPU   RSS COMMAND
+ 359384       03:05  274 18475936 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 360130       02:46  136 5439252 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:46:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:46:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:46:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:46:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:49:35  0.2     0 [kworker/1:0-mm_percpu_wq]
+--- 2026-10-01T01:09:56Z load 5.00 5.28 5.68
+    PID     ELAPSED %CPU   RSS COMMAND
+ 366473       00:43  212 10278512 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 360130       03:46  128 5464016 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:47:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:47:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:47:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:47:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:50:35  0.2     0 [kworker/1:0-mm_percpu_wq]
+--- 2026-10-01T01:10:56Z load 3.03 4.68 5.45
+    PID     ELAPSED %CPU   RSS COMMAND
+ 366473       01:43  243 18367856 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 360130       04:46  110 5465068 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:48:44  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:48:44  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:48:44  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:48:44  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:51:35  0.2     0 [kworker/1:0-events]
+--- 2026-10-01T01:11:56Z load 4.89 4.93 5.49
+    PID     ELAPSED %CPU   RSS COMMAND
+ 366473       02:44  267 19464800 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 360130       05:47 95.2 5468332 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+ 371503       00:01  9.0 5139096 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:49:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:49:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:49:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:49:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-10-01T01:12:56Z load 5.01 4.87 5.42
+    PID     ELAPSED %CPU   RSS COMMAND
+ 373921       00:01  382 222876 /home/ttuser/scratch/rel011/relvenv/bin/python3 /home/ttuser/.coworker/wt/rel011-bc2/scripts/abb3_port/heartbeat.py --out /tmp/pytest-of-ttuser/pytest-70/test_a_jump_ba
+ 373086       00:24  236 6554956 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_pa
+ 360130       06:47 93.0 5474780 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:50:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:50:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:50:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:50:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+--- 2026-10-01T01:13:56Z load 5.25 5.02 5.44
+    PID     ELAPSED %CPU   RSS COMMAND
+ 373086       01:24  219 18833916 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 360130       07:47 91.5 5482844 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:51:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:51:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:51:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:51:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:54:36  0.2     0 [kworker/1:0-events]
+--- 2026-10-01T01:14:56Z load 3.48 4.54 5.25
+    PID     ELAPSED %CPU   RSS COMMAND
+ 373086       02:24  242 19285616 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+ 360130       08:47 88.8 4694128 /home/ttuser/scratch/rel011/relvenv/bin/python3 -m pytest -q --tb=line -p no:cacheprovider
+   1239  5-01:52:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:52:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:52:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:52:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:55:36  0.2     0 [kworker/1:0-mm_percpu_wq]
+--- 2026-10-01T01:15:56Z load 4.11 4.61 5.23
+    PID     ELAPSED %CPU   RSS COMMAND
+ 373086       03:24  259 18690172 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:53:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:53:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:53:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:53:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:56:36  0.2     0 [kworker/1:0-events]
+      1  5-01:54:57  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:16:57Z load 3.02 4.19 5.05
+    PID     ELAPSED %CPU   RSS COMMAND
+ 379781       00:43  206 10126076 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:54:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:54:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:54:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:54:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:57:36  0.2     0 [kworker/1:0-mm_percpu_wq]
+      1  5-01:55:57  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:17:57Z load 2.18 3.71 4.82
+    PID     ELAPSED %CPU   RSS COMMAND
+ 379781       01:43  236 19108328 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:55:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:55:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:55:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:55:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:58:36  0.2     0 [kworker/1:0-mm_percpu_wq]
+      1  5-01:56:57  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:18:57Z load 1.93 3.33 4.62
+    PID     ELAPSED %CPU   RSS COMMAND
+ 379781       02:43  253 19520664 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:56:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:56:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:56:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:56:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    22:59:36  0.2     0 [kworker/1:0-events]
+      1  5-01:57:57  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:19:57Z load 2.35 3.14 4.47
+    PID     ELAPSED %CPU   RSS COMMAND
+   1239  5-01:57:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:57:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:57:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:57:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    23:00:36  0.2     0 [kworker/1:0-events]
+      1  5-01:58:57  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+   1044  5-01:57:45  0.1  6928 /lib/systemd/systemd-oomd
+--- 2026-10-01T01:20:57Z load 1.65 2.81 4.27
+    PID     ELAPSED %CPU   RSS COMMAND
+ 383114       01:00  202 13942560 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:58:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:58:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:58:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:58:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    23:01:36  0.2     0 [kworker/1:0-mm_percpu_wq]
+      1  5-01:59:57  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:21:57Z load 1.87 2.67 4.13
+    PID     ELAPSED %CPU   RSS COMMAND
+ 383114       02:00  255 18218052 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-01:59:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-01:59:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-01:59:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-01:59:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    23:02:36  0.2     0 [kworker/1:0-events]
+      1  5-02:00:57  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
+--- 2026-10-01T01:22:57Z load 3.12 2.93 4.13
+    PID     ELAPSED %CPU   RSS COMMAND
+ 383114       03:00  279 19322864 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_duotraj/duo_round.py --rounds 9 --interleave 1 --trajectories 3 --binder 146 --params /home/ttuser/bcx_e2e/af2_p
+   1239  5-02:00:45  1.4 12400 /usr/libexec/polkitd --no-debug
+   1218  5-02:00:45  0.3  6484 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+   1220  5-02:00:45  0.2 20656 /usr/sbin/NetworkManager --no-daemon
+   1378  5-02:00:45  0.2 62524 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641
+3237237    23:03:36  0.2     0 [kworker/1:0-mm_percpu_wq]
+      1  5-02:01:57  0.1 14072 /lib/systemd/systemd --system --deserialize 46 splash
