@@ -1811,29 +1811,69 @@ def test_a_refusal_in_a_lean_mode_does_not_send_the_user_below_what_lean_already
     assert str(bindcraft2.max_tokens("lean", bindcraft2.WH_GALAXY_DRAM_BYTES)) in msg
 
 
-def test_a_mode_ceiling_is_offered_as_an_estimate_and_not_as_a_measured_fold():
+def test_a_mode_ceiling_claims_exactly_the_evidence_it_has_and_no_more():
     """The number a refusal sends the user to must not claim more evidence than it has.
 
-    A board's measured row is a FAST-mode ladder of folds that were actually run. A leaner
-    mode's ceiling is not: it comes from the memory law fitted to that mode's measured folds,
-    and on a Wormhole Galaxy chip it puts `offload` near 960 while the largest axis anyone has
-    completed is 800. Both numbers belong in a refusal -- they are the best guidance there is --
-    but calling the estimate "measured" would overstate exactly the figure the user is about to
-    resize their job around, and a researcher who trims to 960 and refuses again has been sent
-    to a second failure by the message that was meant to rescue the first.
+    Three kinds of ceiling, and the message has to say which it is holding, because the user
+    resizes their job around that one figure:
+
+    * a board's FAST-mode row is a ladder of folds that were run, so it is measured;
+    * `offload` on a Wormhole chip is now measured too, on ADJACENT buckets -- 896 completes,
+      928 refuses -- so the ceiling is 896 and the message may say so;
+    * `lean` is not. It completes at 544 and refuses at 768, and nobody ran the buckets in
+      between, so the law's estimate inside that bracket is the best available number and must
+      be offered as an estimate.
+
+    The case this pins is the second one changing. Before the `wh7` ladder the `offload` ceiling
+    was the law's 960, and a researcher who trimmed to 960 would have refused again -- sent to a
+    second failure by the message meant to rescue the first.
     """
+    card = bindcraft2.WH_GALAXY_DRAM_BYTES
     fast = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
                                               phase="backward", n=520, padded=544, mode="fast"))
     assert "largest axis measured" in fast, "a measured board row is still quoted as measured"
 
-    for mode, padded in (("lean", 736), ("offload", 992)):
-        msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
-                                                 phase="backward", n=padded - 20, padded=padded,
-                                                 mode=mode))
-        ceiling = bindcraft2.max_tokens(mode, bindcraft2.WH_GALAXY_DRAM_BYTES)
-        assert f"{ceiling} tokens" in msg, (mode, msg)
-        assert f"measured to complete a gradient round on one" not in msg, (mode, msg)
-        assert "estimated" in msg, (mode, msg)
+    # An estimate inside a wide bracket stays an estimate, and never exceeds the known refusal.
+    lean_top, lean_measured = bindcraft2.mode_ceiling("lean", card)
+    assert not lean_measured and lean_top <= 768 - bindcraft2.TOKEN_BUCKET
+    lean = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                              n=716, padded=736, mode="lean"))
+    assert f"{lean_top} tokens" in lean and "estimated" in lean
+    assert "measured to complete a gradient round on one" not in lean, lean
+
+    # The adjacent bracket IS a measurement, and the message says so rather than hedging.
+    off_top, off_measured = bindcraft2.mode_ceiling("offload", card)
+    assert (off_top, off_measured) == (896, True)
+    off = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                             n=972, padded=992, mode="offload"))
+    assert "896 tokens" in off and "960" not in off, off
+    assert "largest axis measured to complete a gradient round" in off, off
+
+
+def test_a_measured_refusal_caps_the_memory_law_everywhere_it_is_quoted():
+    """`auto`, the roomier-mode offer and the ceiling sentence must not disagree.
+
+    The law puts `offload` near 960 on a Wormhole Galaxy chip and 928 was measured to refuse, so
+    a 928-token fold must not be told that `offload` will hold it. One ceiling, three readers.
+    """
+    card = bindcraft2.WH_GALAXY_DRAM_BYTES
+    assert bindcraft2.max_tokens("offload", card) == 896
+    assert bindcraft2.round_device_bytes("offload", 960) <= card * bindcraft2._MODE_USABLE, (
+        "if the law no longer reaches 960 this test has stopped covering the disagreement")
+
+    # The roomier-mode offer is the sentence a refusing fold acts on first.
+    at_928 = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                                n=908, padded=928, mode="lean"))
+    assert "should hold 928 tokens" not in at_928, at_928
+    # And a size offload DOES hold is still offered it.
+    at_768 = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                                n=748, padded=768, mode="lean"))
+    assert "'offload' mode should hold 768 tokens" in at_768, at_768
+
+    # `auto` decides on the same number: 896 is the last axis it sends to offload.
+    assert bindcraft2.memory_mode("auto", 896, card) == "offload"
+    assert bindcraft2.memory_mode("auto", 544, card) == "lean"
+    assert bindcraft2.memory_mode("auto", 512, card) == "fast"
 
 
 def test_a_refusal_names_the_roomier_mode_and_how_to_reach_it():
