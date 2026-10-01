@@ -1135,9 +1135,72 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
         per_core_M=Mt, per_core_N=Nt)
 
 def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
-    """``ttnn.matmul`` under `bmm_program_config`'s plan where it has one, ttnn's otherwise."""
-    return _matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
-                   program_config=bmm_program_config(a, b, transpose_a, transpose_b), **kw)
+    """``ttnn.matmul`` under `bmm_program_config`'s plan where it has one, ttnn's otherwise.
+
+    A call ttnn's own planner cannot fit in L1 is retried in ROW BLOCKS (`_bmm_blocked`). The
+    retry is on the REFUSAL and not on the shape: every call that fits today takes the plan it
+    took yesterday, to the bit.
+    """
+    plan = bmm_program_config(a, b, transpose_a, transpose_b)
+    try:
+        return _matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
+                       program_config=plan, **kw)
+    except Exception as exc:                                             # noqa: BLE001
+        from .tenstorrent import report_l1_refusal
+        blocked = (_bmm_blocked(a, b, transpose_a, transpose_b, kw)
+                   if plan is None and report_l1_refusal("autograd.bmm", exc) else None)
+        if blocked is None:
+            raise
+        return blocked
+
+
+def _bmm_blocked(a, b, transpose_a: bool, transpose_b: bool, kw):
+    """A batched product whose output is too large for one core-block, done a row block at a
+    time, or None when this is not that case.
+
+    `bmm_program_config` gives the whole output matrix of a batch element to one core-block and
+    declines above `BMM_OUT_TILES`, which hands the call to ttnn's own planner. At 768 tokens
+    that planner lays a `[128, 768, 768]` triangle-multiplication VJP out on ONE COLUMN of
+    cores and its circular buffers grow to 1.86 MB against the 1.5 MB a Tensix has: the
+    gradient round dies at compile, inside the backward, with the card 7 GB free. Measured on
+    one chip of a Wormhole Galaxy on 2026-10-01 (`perf/bcw_slowmode/`, hHSA + 150 at 768 in
+    the offload memory mode), and it is a program-config limit rather than a memory one.
+
+    A row block of `A` times `B` IS the matching row block of `AB`: the rows of a product do
+    not interact. So the output is cut into blocks of at most `BMM_OUT_TILES` tiles, each one a
+    complete product under the plan the kernel was proven on -- `per_core_M` is the block's own
+    whole M, never a split of it, which is the hazard `bmm_program_config` documents -- and
+    `in0_block_w` is the same for every block, so the contraction runs in the same order and
+    the result is bit-identical to what one call under that plan would give.
+    """
+    sa, sb = [int(d) for d in a.shape], [int(d) for d in b.shape]
+    if len(sa) < 3 or len(sa) != len(sb) or sa[:-2] != sb[:-2]:
+        return None
+    ax = len(sa) - (1 if transpose_a else 2)                 # a's axis that carries the output's M
+    M = sa[ax]
+    if M % ttnn.TILE_SIZE:
+        return None                                          # a ragged block is not a tile slice
+    N = sb[-2] if transpose_b else sb[-1]
+    Nt = -(-N // ttnn.TILE_SIZE)
+    rows = max(1, BMM_OUT_TILES // max(1, Nt)) * ttnn.TILE_SIZE
+    if Nt > BMM_OUT_TILES or M <= rows:
+        return None                                          # one row of tiles is already too wide
+    parts = []
+    for start in range(0, M, rows):
+        end = min(start + rows, M)
+        starts = [0] * len(sa)
+        ends = list(sa)
+        starts[ax], ends[ax] = start, end
+        block = ttnn.slice(a, starts, ends)
+        parts.append(_matmul(block, b, transpose_a=transpose_a, transpose_b=transpose_b,
+                             program_config=bmm_program_config(block, b, transpose_a,
+                                                               transpose_b),
+                             **kw))
+        ttnn.deallocate(block)
+    out = ttnn.concat(parts, dim=len(sa) - 2)
+    for p in parts:
+        ttnn.deallocate(p)
+    return out
 
 
 def _reduce_to(g, shape):
@@ -2567,6 +2630,10 @@ def _to_host(t: Tensor):
     home = (v.device(), v.memory_config())
     t.value = ttnn.from_device(v)
     ttnn.deallocate(v)
+    # Off the card is off the card: `free` and `evict` have nothing to release or move, and
+    # they would ask a HOST tensor for its allocation and its memory config on the way to
+    # finding that out. `evictable` is the flag both of them test first.
+    t.evictable = False
     return home
 
 
