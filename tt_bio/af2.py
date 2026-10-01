@@ -265,6 +265,9 @@ def sigmoid_gate(x: ttnn.Tensor, gate: ttnn.Tensor, wide: bool) -> ttnn.Tensor:
     return out
 
 
+_O, _G_O = frozenset({"o"}), frozenset({"g", "o"})
+
+
 class AF2PairBlock(Module):
     """AF2's pair track: two triangle multiplications, two triangle attentions, a transition.
 
@@ -338,6 +341,13 @@ class AF2PairBlock(Module):
     #: OFF by default and release-gated. Under a tape it also needs `rne_add`'s entry in
     #: TT_BIO_TAPED_KERNELS; without it `rne_add.eligible` declines and the four calls run.
     rne_kernel = False
+
+    #: Ride linear_g.bias inside the triangle attentions' gate matmul as well as linear_o.bias, one
+    #: rounding instead of a matmul then a 200 us row-broadcast add at 1x288x288x128. Read at call
+    #: time because the blocks are built before `bindcraft2.fast_round()` arms it, which is the
+    #: only place it is armed: AF2-IG's tap gate was scored with "o" alone, and RF3 measured the
+    #: same form with a sign that flips with sequence length (`tenstorrent._bias_in_matmul`).
+    tri_att_g_in_matmul = False
 
     def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor | None) -> ttnn.Tensor:
         """`x + update`, and it owns `update`.
@@ -430,6 +440,8 @@ class AF2PairBlock(Module):
 
     def __call__(self, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
                  attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        self.tri_att_start.bias_in_matmul = self.tri_att_end.bias_in_matmul = (
+            _G_O if self.tri_att_g_in_matmul else _O)
         order = [("tri_mul_out", lambda t: self.tri_mul_out(t, mask)),
                  ("tri_mul_in", lambda t: self.tri_mul_in(t, mask)),
                  ("tri_att_start", lambda t: self.tri_att_start(t, attn_mask)),

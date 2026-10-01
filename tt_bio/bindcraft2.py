@@ -1762,6 +1762,7 @@ _FAST_ROUND = (
     ("ops", None, "NOGRAD_IS_INFERENCE", "TT_BIO_NOGRAD_INFERENCE", True),
     ("tenstorrent", None, "_TRIATT_FUSED_HIFI", "TT_BIO_TRIATT_FUSED_HIFI", True),
     ("af2", "AF2PairBlock", "rne_kernel", None, True),
+    ("af2", "AF2PairBlock", "tri_att_g_in_matmul", "TT_BIO_AF2_G_BIAS_IN_MATMUL", True),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None, "tri_att_sdpa_hifi,rne_add,reblock_permute_gated"),
     # OpenFold3 training turned the fp32 softmax backward on by default; the round above was
     # measured and graded (1.051x of the bf16 control) with it off, so it stays off here.
