@@ -23,7 +23,7 @@ ap.add_argument("--evo", type=int, default=8)
 ap.add_argument("--blocks", default="0,3,7")
 ap.add_argument("--arms", default=None)
 LATER = ("gate_bw", "g_bias", "lead_sum", "qkv_packed", "fanin_cast", "pair_transpose",
-         "gated_packed")
+         "gated_packed", "exp21f")
 ap.add_argument("--lever", choices=("gated",) + LATER, default="gated")
 a = ap.parse_args()
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -34,7 +34,7 @@ from tt_bio import taped_ttnn as T, tenstorrent as TN
 SWITCH = {"gate_bw": (GB, "GATE_BW_FUSED"), "g_bias": (af2.AF2PairBlock, "tri_att_g_in_matmul"),
           "lead_sum": (LS, "LEAD_SUM_FUSED"), "qkv_packed": (TB, "QKV_PACKED"),
           "fanin_cast": (AG, "FANIN_CAST_FUSED"), "pair_transpose": (PT, "PAIR_TRANSPOSE_FUSED"),
-          "gated_packed": (R, "GATED_GRAD_PACKED")}
+          "gated_packed": (R, "GATED_GRAD_PACKED"), "exp21f": (TB, "EXP_21F")}
 arms = a.arms or ("off,entry,on" if a.lever == "gated" else "off,on")
 ns = argparse.Namespace(params=A.DEFAULT_PARAMS, card=0, n=a.n, extra=0, evo=a.evo,
                         blocks=a.blocks, controls_all=False, controls_only=False, seed=0,
