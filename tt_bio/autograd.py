@@ -1416,6 +1416,14 @@ def _layer_norm_bw(x, gamma, beta, eps, bwcfg):
     """
     def bw(g):
         xv = x.value
+        # dx alone, which is all a sequence gradient asks for, in one kernel when it serves
+        # (`tt_bio.lnbw`). A weight gradient needs the composed path's `norm`.
+        if x.requires_grad and not any(p is not None and p.requires_grad for p in (gamma, beta)):
+            from . import lnbw
+            gv = None if gamma is None else gamma.value
+            if lnbw.eligible(xv, g, gv):
+                x.add_grad(lnbw.layer_norm_bw(xv, g, gv, eps))
+                return
         K = int(xv.shape[-1])
         # ONE dtype through the closure. A fan-in accumulator is fp32 and the activation it
         # meets is bf16, and `ttnn.multiply(bf16, fp32)` is not a function of its inputs: it

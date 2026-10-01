@@ -1,0 +1,14 @@
+{"pci": "0000:01:00.0", "armed": {"MM_LAYOUT": "True", "TAPED_MOVE": "True", "WIDEN_ADD": "True", "QKV_GRAD_JOIN": "True", "FUSED": "True", "_TRIATT_FUSED_HIFI": "True", "rne_kernel": "True", "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add", "SOFTMAX_BW_FP32": "False"}}
+{"on": false, "fwd": 0.13818764686584473, "bwd": 0.5546665191650391, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "reach": {}, "loadavg": 6.08203125, "rep": 0}
+{"on": true, "fwd": 0.13843250274658203, "bwd": 0.4420907497406006, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "reach": {"served": 88, "declined: width": 8}, "loadavg": 8.71826171875, "rep": 0}
+{"on": true, "fwd": 0.13912272453308105, "bwd": 0.44255709648132324, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "reach": {"served": 88, "declined: width": 8}, "loadavg": 8.71826171875, "rep": 1}
+{"on": false, "fwd": 0.13905048370361328, "bwd": 0.5552735328674316, "aiclk": {"n": 3, "min": 1350, "median": 1350, "max": 1350}, "reach": {}, "loadavg": 8.71826171875, "rep": 1}
+{"on": false, "fwd": 0.13927102088928223, "bwd": 0.5546731948852539, "aiclk": {"n": 3, "min": 1343, "median": 1350, "max": 1350}, "reach": {}, "loadavg": 8.71826171875, "rep": 2}
+{"on": true, "fwd": 0.13866972923278809, "bwd": 0.4425642490386963, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "reach": {"served": 88, "declined: width": 8}, "loadavg": 8.71826171875, "rep": 2}
+{"on": true, "fwd": 0.13918042182922363, "bwd": 0.44177722930908203, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "reach": {"served": 88, "declined: width": 8}, "loadavg": 8.71826171875, "rep": 3}
+{"on": false, "fwd": 0.13863348960876465, "bwd": 0.5550110340118408, "aiclk": {"n": 3, "min": 1350, "median": 1350, "max": 1350}, "reach": {}, "loadavg": 8.8212890625, "rep": 3}
+{"on": false, "fwd": 0.13878273963928223, "bwd": 0.5553374290466309, "aiclk": {"n": 3, "min": 1350, "median": 1350, "max": 1350}, "reach": {}, "loadavg": 8.8212890625, "rep": 4}
+{"on": true, "fwd": 0.13898134231567383, "bwd": 0.44185423851013184, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "reach": {"served": 88, "declined: width": 8}, "loadavg": 8.8212890625, "rep": 4}
+{"on": true, "fwd": 0.13939714431762695, "bwd": 0.44185352325439453, "aiclk": {"n": 2, "min": 1350, "median": 1350, "max": 1350}, "reach": {"served": 88, "declined: width": 8}, "loadavg": 8.8212890625, "rep": 5}
+{"on": false, "fwd": 0.13948726654052734, "bwd": 0.5553581714630127, "aiclk": {"n": 3, "min": 1350, "median": 1350, "max": 1350}, "reach": {}, "loadavg": 8.8212890625, "rep": 5}
+{"off": {"bwd_median": 0.5552735328674316, "fwd_median": 0.13905048370361328}, "on": {"bwd_median": 0.4420907497406006, "fwd_median": 0.13912272453308105}, "dm_on_vs_off_rel_l2": 0.03114486408150154, "dz_on_vs_off_rel_l2": 0.028617479865587443}
