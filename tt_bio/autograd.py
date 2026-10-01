@@ -1177,17 +1177,33 @@ def _bmm_blocked(a, b, transpose_a: bool, transpose_b: bool, kw):
     the result is bit-identical to what one call under that plan would give.
     """
     sa, sb = [int(d) for d in a.shape], [int(d) for d in b.shape]
-    if len(sa) < 3 or len(sa) != len(sb) or sa[:-2] != sb[:-2]:
+
+    def decline(why):
+        """Say why the row-block retry does not apply, because the caller then RE-RAISES.
+
+        Without this the refusal that follows is indistinguishable from the retry never having
+        been reached, which is exactly the hour this cost once already.
+        """
+        import os
+        line = (f"[tt-bio] autograd.bmm: row blocking does not apply ({why}): a{sa} b{sb} "
+                f"transpose_a={transpose_a} transpose_b={transpose_b}\n")
+        try:
+            os.write(2, line.encode("utf-8", "replace"))
+        except OSError:
+            pass
         return None
+
+    if len(sa) < 3 or len(sa) != len(sb) or sa[:-2] != sb[:-2]:
+        return decline("not a batched product with matching batch dims")
     ax = len(sa) - (1 if transpose_a else 2)                 # a's axis that carries the output's M
     M = sa[ax]
     if M % ttnn.TILE_SIZE:
-        return None                                          # a ragged block is not a tile slice
+        return decline(f"M={M} is not a whole number of tiles")
     N = sb[-2] if transpose_b else sb[-1]
     Nt = -(-N // ttnn.TILE_SIZE)
     rows = max(1, BMM_OUT_TILES // max(1, Nt)) * ttnn.TILE_SIZE
     if Nt > BMM_OUT_TILES or M <= rows:
-        return None                                          # one row of tiles is already too wide
+        return decline(f"M={M} is already within one block of {rows} rows (N={N})")
     parts = []
     for start in range(0, M, rows):
         end = min(start + rows, M)

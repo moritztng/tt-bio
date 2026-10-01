@@ -367,6 +367,23 @@ def main():
     t0 = time.time()
     trajectories = None
 
+    def _accepted(project):
+        """Designs the campaign ACCEPTED, off its own ranked table, or None if it never wrote one.
+
+        A rung that stops after K rounds never reaches validation and reports None rather than 0:
+        "no designs accepted" and "acceptance was never asked" are different answers, and only a
+        campaign run to its own stop condition gives the first one.
+        """
+        import csv
+        table = os.path.join(project, "3_Ranked", "!_Ranked.csv")
+        if not os.path.exists(table):
+            return None
+        try:
+            with open(table, newline="") as fh:
+                return sum(1 for _ in csv.DictReader(fh))
+        except OSError:
+            return None
+
     def close(exc=None, tb=None):
         """Write the rung out BEFORE the predictor's teardown, which can abort the process
         on `close_device` and take the record with it."""
@@ -374,6 +391,7 @@ def main():
         rounds.dump()
         stamp.update({"wall_seconds": round(time.time() - t0, 2),
                       "trajectories_returned": trajectories,
+                      "accepted": _accepted(project),
                       "error": exc, "traceback": tb,
                       "dram_total_bytes": tenstorrent._dram_total_bytes()
                       if tenstorrent._device is not None else None,
