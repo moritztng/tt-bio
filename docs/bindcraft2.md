@@ -15,10 +15,11 @@ yourself, and BindCraft 2's own licence governs what you may do with it.
   its packaging carries `bindcraft*` only, so an installed copy has no `settings/` or `examples/`
   tree and dies looking for `settings/core/default.json`. Put the checkout on `PYTHONPATH`, which
   is how upstream's own README runs it.
-- numpy below 2. BindCraft 2 does not pin numpy, so installing it after
-  `tt-bio[tenstorrent]` pulls numpy 2.5.3 and breaks ttnn's `numpy<2` requirement. Nothing in
-  either dependency graph resolves it for you, so pin it yourself in the same environment:
-  `pip install 'numpy<2'` after both, or install BindCraft 2 first.
+- numpy 2, which is what installing BindCraft 2 after `tt-bio[tenstorrent]` gives you. BindCraft
+  2 pins `jax>=0.11,<0.12`, and jax 0.11 needs numpy 2 and fails to import on numpy 1.26. ttnn
+  declares `numpy<2`, so `pip` prints a conflict and `pip check` exits 1, but ttnn runs on numpy
+  2.5.3 and a design runs end to end there. Do not downgrade numpy to silence the warning: that
+  breaks jax, and with it BindCraft 2.
 - AlphaFold 2 parameters: `tt-bio weights --download af2ig` puts `params_model_1_ptm.npz` in
   tt-bio's weights cache, which is also a valid `data_dir` for BindCraft 2. A multi-model campaign
   needs one `params_<model>.npz` per model it draws from, in one directory.
