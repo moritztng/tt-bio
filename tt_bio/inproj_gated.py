@@ -163,7 +163,9 @@ def inproj_gated(x, wt, ones, p_slice, g_slice, slice_c, out=None, memory_config
     writer_ct = [R._elem(), OUT_CB, R.TILE_H, R.TILE_W, R.FACE_H, R.FACE_W, STAGE_CB]
     writer_ct += list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     g = device.compute_with_storage_grid_size()
-    key = (device.id(), g.x, g.y, R.WALK, S, X_BUFFERS, str(FIDELITY), has_bias,
+    # The shape is in the key explicitly: interleaved accessor args do not carry it, and Nt / N
+    # are runtime args baked into the cached descriptor.
+    key = (device.id(), g.x, g.y, N, K, slice_c, R.WALK, S, X_BUFFERS, str(FIDELITY), has_bias,
            tuple(reader_ct), tuple(writer_ct))
     entry = _CACHE.get(key)
     if entry is None:
