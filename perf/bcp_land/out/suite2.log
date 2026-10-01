@@ -1,0 +1,510 @@
+..............s.........sss...............................s............. [  0%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+.................................................s...................... [  3%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+.......................................................s................ [ 41%]
+........................................................................ [ 42%]
+........................................................sssssssss....... [ 43%]
+.....................................................................sss [ 44%]
+s..............ss.....s................................................. [ 44%]
+........................................................................ [ 45%]
+........................................................s..........s...s [ 46%]
+s...ss.s...ss.ss.sssss....ss.sssss..ss.sss...s.s...ssss.s.ss............ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 52%]
+.........................................................sss............ [ 53%]
+..........................sssss......................................... [ 54%]
+......sssssss.s.sssssss................................................. [ 55%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+....................sss............s.................................... [ 57%]
+....ssss......................................s...s.......s...s......... [ 58%]
+..................................s...s...............................s. [ 59%]
+..s..................................................................... [ 59%]
+........sssss........................................................... [ 60%]
+.....s.s.........................................sssssssss.............. [ 61%]
+.......................................................sss.............. [ 62%]
+.......ssssss.sssssss................................................... [ 63%]
+.........................................................sss.ss....sss.. [ 63%]
+.........ss...........s.............s......sssssssssssssssssssss........ [ 64%]
+..........................sssss......................................... [ 65%]
+..........................................ssssssss...................... [ 66%]
+...............................ssss..................................... [ 67%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 72%]
+..............................ssssssssssssssssssssssssssss............ss [ 73%]
+sssssssss.....ssssss.........ssssss..................................... [ 74%]
+...........................s..sssss..ssss............................... [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+.....................................................FF................. [ 81%]
+........................................................................ [ 82%]
+....................................s................................... [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+...............................s........................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+..............ssssssssss..........................................sssss. [ 91%]
+...................................sssssssssssssss.....sssssssssssssssss [ 92%]
+ssssssssss.............................................................. [ 93%]
+.....................s.................................................. [ 93%]
+.....................................................s..ss..s........... [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+...ssssssss............................................................. [ 99%]
+...........................................................              [100%]
+=================================== FAILURES ===================================
+___ test_recorded_artifact_is_not_stale[perf/abb3_port/model_gate_qb2c3.txt] ___
+
+artifact = 'perf/abb3_port/model_gate_qb2c3.txt'
+sha = '93edb1b2482d58a26e6df049be7c9becc8c07eca'
+script = 'scripts/abb3_port/model_gate.py'
+
+    @pytest.mark.parametrize("artifact,sha,script", _artifacts(),
+                             ids=[a for a, _, _ in _artifacts()])
+    def test_recorded_artifact_is_not_stale(artifact, sha, script):
+        if _git("rev-parse", "--is-inside-work-tree") is None:
+            pytest.skip("not a git work tree: there is no history to compare against")
+        assert (REPO / script).is_file(), f"{artifact} names a producing script that is gone: {script}"
+        assert _git("cat-file", "-e", f"{sha}^{{commit}}") is not None, (
+            f"{artifact} names commit {sha}, which is not in this repository")
+        assert _git("merge-base", "--is-ancestor", sha, "HEAD") is not None, (
+            f"{artifact} was recorded at {sha}, which is not an ancestor of HEAD. The numbers in it "
+            f"were produced by code this branch does not contain")
+        changed, commits = _drifted(sha, _closure(REPO / script))
+>       assert not changed, (
+            f"{artifact} was recorded at {sha}, and {len(changed)} file(s) that feed it differ from "
+            f"what it was recorded against:\n  " + "\n  ".join(changed)
+            + f"\nchanged by:\n  " + "\n  ".join(commits)
+            + f"\nThe numbers are unconfirmed, not known wrong. Re-run {script} and update both the "
+            f"numbers and the RECORDED-AT line; until then the file is a historical measurement "
+            f"rather than evidence about this branch. Expect this on a work branch: this "
+            f"closure takes ~19 code-changing commits a day, so a recording goes unconfirmed within "
+            f"a median of 15 minutes and the affordable place to re-record is the release commit")
+E       AssertionError: perf/abb3_port/model_gate_qb2c3.txt was recorded at 93edb1b2482d58a26e6df049be7c9becc8c07eca, and 1 file(s) that feed it differ from what it was recorded against:
+E           tt_bio/autograd.py
+E         changed by:
+E           45f923be0 lnbw: wired into the layer-norm backward and armed by fast_round
+E         The numbers are unconfirmed, not known wrong. Re-run scripts/abb3_port/model_gate.py and update both the numbers and the RECORDED-AT line; until then the file is a historical measurement rather than evidence about this branch. Expect this on a work branch: this closure takes ~19 code-changing commits a day, so a recording goes unconfirmed within a median of 15 minutes and the affordable place to re-record is the release commit
+E       assert not ['tt_bio/autograd.py']
+
+tests/test_recorded_claims.py:175: AssertionError
+_ test_recorded_artifact_is_not_stale[perf/abb3_port/step_gate_default_qb2c3.txt] _
+
+artifact = 'perf/abb3_port/step_gate_default_qb2c3.txt'
+sha = '93edb1b2482d58a26e6df049be7c9becc8c07eca'
+script = 'scripts/abb3_port/step_gate.py'
+
+    @pytest.mark.parametrize("artifact,sha,script", _artifacts(),
+                             ids=[a for a, _, _ in _artifacts()])
+    def test_recorded_artifact_is_not_stale(artifact, sha, script):
+        if _git("rev-parse", "--is-inside-work-tree") is None:
+            pytest.skip("not a git work tree: there is no history to compare against")
+        assert (REPO / script).is_file(), f"{artifact} names a producing script that is gone: {script}"
+        assert _git("cat-file", "-e", f"{sha}^{{commit}}") is not None, (
+            f"{artifact} names commit {sha}, which is not in this repository")
+        assert _git("merge-base", "--is-ancestor", sha, "HEAD") is not None, (
+            f"{artifact} was recorded at {sha}, which is not an ancestor of HEAD. The numbers in it "
+            f"were produced by code this branch does not contain")
+        changed, commits = _drifted(sha, _closure(REPO / script))
+>       assert not changed, (
+            f"{artifact} was recorded at {sha}, and {len(changed)} file(s) that feed it differ from "
+            f"what it was recorded against:\n  " + "\n  ".join(changed)
+            + f"\nchanged by:\n  " + "\n  ".join(commits)
+            + f"\nThe numbers are unconfirmed, not known wrong. Re-run {script} and update both the "
+            f"numbers and the RECORDED-AT line; until then the file is a historical measurement "
+            f"rather than evidence about this branch. Expect this on a work branch: this "
+            f"closure takes ~19 code-changing commits a day, so a recording goes unconfirmed within "
+            f"a median of 15 minutes and the affordable place to re-record is the release commit")
+E       AssertionError: perf/abb3_port/step_gate_default_qb2c3.txt was recorded at 93edb1b2482d58a26e6df049be7c9becc8c07eca, and 1 file(s) that feed it differ from what it was recorded against:
+E           tt_bio/autograd.py
+E         changed by:
+E           45f923be0 lnbw: wired into the layer-norm backward and armed by fast_round
+E         The numbers are unconfirmed, not known wrong. Re-run scripts/abb3_port/step_gate.py and update both the numbers and the RECORDED-AT line; until then the file is a historical measurement rather than evidence about this branch. Expect this on a work branch: this closure takes ~19 code-changing commits a day, so a recording goes unconfirmed within a median of 15 minutes and the affordable place to re-record is the release commit
+E       assert not ['tt_bio/autograd.py']
+
+tests/test_recorded_claims.py:175: AssertionError
+=============================== warnings summary ===============================
+tt_bio/main.py:62
+  /home/ttuser/bcp-land-compose/tt_bio/main.py:62: DeprecationWarning: This process (pid=1365142) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = _os.fork()
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:629: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    record = np.char.array(np.where(array.hetero, "HETATM", "ATOM"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:638: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    b_factor = np.char.array(np.full(natoms, "  0.00", dtype="U6"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:642: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    occupancy = np.char.array(np.full(natoms, "  1.00", dtype="U6"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:653: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    charge = np.char.array(np.full(natoms, "  ", dtype="U2"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:661: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    pdb_atom_id = np.char.array(
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:668: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    pdb_res_id = np.char.array(
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:676: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    names = np.char.array(
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:682: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    res_names = np.char.array(array.res_name)
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:683: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    chain_ids = np.char.array(array.chain_id)
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:684: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    ins_codes = np.char.array(array.ins_code)
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:685: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    spaces = np.char.array(np.full(natoms, " ", dtype="U1"))
+
+tests/test_af2ig_input.py::test_mmcif_is_accepted_because_that_is_what_a_design_job_returns
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:686: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    elements = np.char.array(array.element)
+
+tests/test_argparse_help_renders.py::test_help_strings_survive_percent_expansion[scripts/train_xhost/exchange_probe.py]
+  <unknown>:2: SyntaxWarning: invalid escape sequence '\ '
+
+tests/test_boltzgen_seed.py::test_same_seed_same_features
+tests/test_boltzgen_seed.py::test_same_seed_same_features
+tests/test_boltzgen_seed.py::test_other_seed_or_no_seed_draws_fresh
+tests/test_boltzgen_seed.py::test_other_seed_or_no_seed_draws_fresh
+tests/test_boltzgen_seed.py::test_other_seed_or_no_seed_draws_fresh
+tests/test_boltzgen_seed.py::test_other_seed_or_no_seed_draws_fresh
+  /home/ttuser/bcp-land-compose/tt_bio/boltzgen/data/featurizer.py:1600: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    deletion = np.pi / 2 * np.arctan(deletion / 3)
+
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[boltz2]
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdbx/convert.py:461: UserWarning: Attribute 'auth_atom_id' not found within 'atom_site' category. The fallback attribute 'label_atom_id' will be used instead
+    warnings.warn(
+
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[openfold3]
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[openbind]
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/openfold3/core/data/io/sequence/msa.py:477: UserWarning: Expected MSA file for chain P of type PROTEIN in query ids, but no MSA files found. No MSA features will be computed for this chain.
+    maps = self.create_maps(input=input)
+
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[openfold3]
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[openbind]
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/openfold3/core/data/io/sequence/msa.py:477: UserWarning: Expected MSA file for chain R of type RNA in query ids, but no MSA files found. No MSA features will be computed for this chain.
+    maps = self.create_maps(input=input)
+
+tests/test_chain_ids_survive_the_fold.py::test_every_chain_comes_back_under_its_submitted_id[rf3]
+tests/test_constraint_plumbing.py::test_rf3_features_see_the_ligand_bond
+tests/test_nesso1_input.py::test_inline_and_pooled_agree_on_everything_but_the_conformer
+tests/test_rf3_featurizer.py::test_rf3_featurizer_parity
+tests/test_template_cif.py::test_rf3_cif_route_is_upstreams_template_selection
+tests/test_weights_download_lock.py::test_one_lock_per_artifact_key[rf3-True]
+tests/test_weights_download_lock.py::test_one_lock_per_artifact_key[boltz2-conf-False]
+tests/test_weights_download_lock.py::test_lock_is_released_when_the_holder_dies
+tests/test_worker_liveness.py::test_orphan_guard_exits_when_dispatcher_is_gone
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+    self.pid = os.fork()
+
+tests/test_chain_ids_survive_the_fold.py: 1 warning
+tests/test_constraint_plumbing.py: 18 warnings
+tests/test_nesso1_input.py: 2 warnings
+tests/test_rf3_featurizer.py: 83 warnings
+tests/test_template_cif.py: 42 warnings
+tests/test_weights_download_lock.py: 6 warnings
+tests/test_worker_liveness.py: 1 warning
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=1365142) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/test_chain_ids_survive_the_fold.py: 1 warning
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:387: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_protein[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:392: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_protein[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:397: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_protein[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:402: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:407: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 4 warnings
+tests/test_rf3_featurizer.py: 20 warnings
+tests/test_template_cif.py: 4 warnings
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:412: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+
+tests/test_constraint_plumbing.py: 2 warnings
+tests/test_rf3_featurizer.py: 10 warnings
+tests/test_template_cif.py: 2 warnings
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:419: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    frame_idxs[:, 1] = np.where(c_alpha_atoms | c_one_prime_atoms | ligand_atoms)[0]
+
+tests/test_constraint_plumbing.py::test_of3_features_see_the_bond_and_the_ring
+tests/test_template_cif.py::test_of3_family_featurizes_the_cif_route_like_the_npz_route[openfold3]
+tests/test_template_cif.py::test_of3_family_featurizes_the_cif_route_like_the_npz_route[openbind]
+  /home/ttuser/bcp-land-compose/tt_bio/_vendor/openfold3/core/data/io/sequence/msa.py:477: UserWarning: Expected MSA file for chain A of type PROTEIN in query t, but no MSA files found. No MSA features will be computed for this chain.
+    maps = self.create_maps(input=input)
+
+tests/test_msa_before_lease.py::test_boltz2_featurises_from_the_prefetched_cache
+  /home/ttuser/bcp-land-compose/tt_bio/data/featurizer.py:1622: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    deletion = np.pi / 2 * np.arctan(deletion / 3)
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:636: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    b_factor = np.char.array([f"{b:>6.2f}" for b in array.b_factor])
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:640: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    occupancy = np.char.array([f"{o:>6.2f}" for o in array.occupancy])
+
+tests/test_trace_region_sizing.py::test_no_call_passes_trace_region_bytes
+tests/test_trace_region_sizing.py::test_every_named_capture_has_an_entry
+tests/test_trace_region_sizing.py::test_every_named_capture_has_an_entry
+  /home/ttuser/bcp-land-compose/scripts/train_xhost/exchange_probe.py:2: SyntaxWarning: invalid escape sequence '\ '
+    """What one step's gradient exchange costs, with the real payload and the real transport.
+
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[predict]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[warmup]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[embed]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[affinity]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[saprot]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[design]
+  /home/ttuser/bcp-land-compose/tests/test_verbs_scope_autograd.py:75: DeprecationWarning: 'isolated_filesystem' is deprecated and will be removed in Click 9.0. Use 'tempfile.TemporaryDirectory' or pytest's 'tmp_path' fixture with absolute paths instead.
+    with runner.isolated_filesystem():
+
+tests/test_weights_registry.py::test_tar_extraction_promotes_the_single_top_level_dir
+  /usr/lib/python3.12/tarfile.py:2301: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
+    warnings.warn(
+
+tests/test_worker_liveness.py::test_silence_subprocess_output_preserves_real_stderr
+  /home/ttuser/bcp-land-compose/tests/test_worker_liveness.py:109: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+    pid = os.fork()
+
+tests/test_worker_liveness.py::test_silence_subprocess_output_preserves_real_stderr
+  /home/ttuser/bcp-land-compose/tests/test_worker_liveness.py:109: DeprecationWarning: This process (pid=1365142) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_recorded_claims.py::test_recorded_artifact_is_not_stale[perf/abb3_port/model_gate_qb2c3.txt]
+FAILED tests/test_recorded_claims.py::test_recorded_artifact_is_not_stale[perf/abb3_port/step_gate_default_qb2c3.txt]
+2 failed, 8815 passed, 315 skipped, 482 warnings in 393.89s (0:06:33)
+nanobind: leaked 2 instances!
+ - leaked instance 0x7aaa47e71f08 of type "ttnn._ttnn.tensor.MemoryConfig"
+ - leaked instance 0x7aaa47e71e48 of type "ttnn._ttnn.tensor.MemoryConfig"
+nanobind: leaked 6 types!
+ - leaked type "BufferType"
+ - leaked type "Layout"
+ - leaked type "ttnn._ttnn.operations.normalization.SoftmaxDefaultProgramConfig"
+ - leaked type "DataType"
+ - leaked type "ttnn._ttnn.tensor.MemoryConfig"
+ - leaked type "TensorMemoryLayout"
+nanobind: leaked 15 functions!
+ - leaked function "to_json"
+ - leaked function ""
+ - leaked function ""
+ - leaked function "from_json"
+ - leaked function "__repr__"
+ - leaked function "__ne__"
+ - leaked function "is_sharded"
+ - leaked function ""
+ - leaked function "__init__"
+ - leaked function "__init__"
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.html

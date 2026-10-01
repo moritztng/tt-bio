@@ -1,0 +1,224 @@
+--- 2026-10-01T04:22:35Z load 5.99 5.62 4.42
+    PID     ELAPSED %CPU   RSS COMMAND
+1181244       00:45  318 6575972 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1181206       00:46  7.4 496448 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+   4036    12:32:14  7.4 704760 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1138604       21:55  0.6     0 [kworker/3:2-mm_percpu_wq]
+   1118    12:32:42  0.4 33360 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:24:35Z load 5.95 5.74 4.61
+    PID     ELAPSED %CPU   RSS COMMAND
+1185869       01:15  283 4899096 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       02:00  230 19120036 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+   4036    12:34:14  7.4 704816 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1185779       01:16  4.6 496784 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+1138604       23:55  0.5     0 [kworker/3:2-events]
+--- 2026-10-01T04:26:35Z load 9.55 6.80 5.11
+    PID     ELAPSED %CPU   RSS COMMAND
+1196034       00:24  624 4717724 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1195925       00:26  374 2979372 /home/ttuser/bcx_e2e_venv/bin/python3 -c  import pathlib, sys import jax from tt_bio import bindcraft2, weights from bindcraft.
+1183037       04:00  233 18899304 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1195552       00:33 19.4 757100 /home/ttuser/bcx_e2e_venv/bin/python3 -m pytest -q -p no:cacheprovider tests/test_capabilities_doc.py tests/test_readme_blackhol
+1195899       00:26 13.4 505892 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_256
+--- 2026-10-01T04:28:35Z load 7.28 7.28 5.52
+    PID     ELAPSED %CPU   RSS COMMAND
+1196537       01:27  281 5096816 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       06:00  234 17875172 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1198537       00:00  102 103176 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/l
+1198542       00:00  100  4516 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   4036    12:38:14  7.4 704944 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-10-01T04:30:35Z load 5.76 6.80 5.56
+    PID     ELAPSED %CPU   RSS COMMAND
+1202340       01:21  359 5129196 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       08:00  234 19209152 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+   4036    12:40:14  7.4 705004 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1202293       01:23  4.7 506464 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_512
+   1118    12:40:42  0.5 33708 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:32:35Z load 4.24 6.10 5.47
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       10:00  235 18852752 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1206052       01:45  234 5857224 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    12:42:14  7.4 705068 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1206005       01:47  3.5 506604 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_640
+   1118    12:42:43  0.5 33740 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:34:35Z load 4.88 5.88 5.47
+    PID     ELAPSED %CPU   RSS COMMAND
+1211421       01:06  314 5856556 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       12:00  235 18327028 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+   4036    12:44:14  7.5 705128 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1211374       01:07  5.2 506284 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_640
+   1118    12:44:43  0.5 33756 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:36:35Z load 6.72 6.12 5.59
+    PID     ELAPSED %CPU   RSS COMMAND
+1212755       00:43  416 6448604 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       14:00  236 18693836 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1212708       00:44  8.3 506684 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_768
+   4036    12:46:14  7.5 705192 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    12:46:43  0.5 33828 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:38:35Z load 4.68 5.41 5.39
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       16:00  236 18083512 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1215380       00:00  200  4484 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+1212755       02:43  183 6448612 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    12:48:14  7.5 705252 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1212708       02:44  2.5 507248 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_768
+--- 2026-10-01T04:40:35Z load 6.38 5.91 5.57
+    PID     ELAPSED %CPU   RSS COMMAND
+1223706       00:34  518 6450656 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       18:00  236 19322916 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1223600       00:36 10.8 506244 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_768
+   4036    12:50:14  7.5 705316 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1223761       00:32  0.5 305068 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12)
+--- 2026-10-01T04:42:35Z load 3.71 5.09 5.31
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       20:00  237 19334224 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1223706       02:34  193 6450656 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    12:52:14  7.5 705376 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1223600       02:36  2.7 506892 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_768
+   1118    12:52:43  0.5 33964 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:44:35Z load 4.99 5.48 5.45
+    PID     ELAPSED %CPU   RSS COMMAND
+1226109       01:18  283 7144112 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       22:00  237 18748288 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+   4036    12:54:14  7.5 705440 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1226062       01:20  4.7 506448 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_896
+   1118    12:54:43  0.5 34000 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:46:35Z load 3.47 5.03 5.30
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       24:00  237 18346932 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1226109       03:18  172 7144116 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    12:56:14  7.5 705500 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1226062       03:20  2.1 506928 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_896
+   1118    12:56:43  0.5 34088 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:48:35Z load 6.50 5.49 5.43
+    PID     ELAPSED %CPU   RSS COMMAND
+1237718       00:21  793 7145728 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       26:00  237 19442508 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1237671       00:23 18.0 505972 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_896
+   4036    12:58:14  7.5 705560 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1237779       00:19  0.9 304908 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12)
+--- 2026-10-01T04:50:35Z load 6.71 5.52 5.42
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       28:00  238 19208860 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1237718       02:21  203 7145876 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    13:00:14  7.5 705624 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1237671       02:23  3.2 506500 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_896
+   1118    13:00:43  0.5 34208 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:52:35Z load 5.04 5.14 5.28
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       30:00  238 18943616 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1240509       00:01  210 473972 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12)
+1240462       00:03  105 502528 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+   4036    13:02:14  7.5 705684 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1240508       00:01  0.5 14080 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.resource_tracker import main;main(9)
+--- 2026-10-01T04:54:35Z load 4.86 5.46 5.41
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       32:00  238 18449360 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1240509       02:01  221 7958100 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    13:04:14  7.5 705748 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1240462       02:03  3.3 506704 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+   1118    13:04:43  0.5 34268 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:56:35Z load 3.87 5.01 5.25
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       34:00  239 19292140 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1240509       04:01  161 7958100 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    13:06:14  7.5 705808 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1240462       04:03  1.8 507104 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+   1118    13:06:43  0.5 34340 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T04:58:35Z load 6.30 5.44 5.38
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       36:00  239 19559416 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1240509       06:01  173 12940428 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=1
+   4036    13:08:14  7.5 705872 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1240462       06:03  1.4 507272 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+   1118    13:08:43  0.5 34360 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T05:00:35Z load 5.97 5.88 5.57
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       38:00  239 19070592 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1251452       01:49  232 7949880 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    13:10:14  7.5 705936 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1251399       01:51  3.9 506592 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+   1118    13:10:43  0.5 34448 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T05:02:35Z load 3.28 4.93 5.26
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       40:00  239 18908972 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1251452       03:49  162 7949880 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1257238       00:00  100  4500 ps -eo pid,etime,pcpu,rss,args --sort=-pcpu
+   4036    13:12:14  7.5 705996 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1251399       03:51  2.0 507000 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+--- 2026-10-01T05:04:35Z load 4.18 4.83 5.19
+    PID     ELAPSED %CPU   RSS COMMAND
+1257725       00:17  487 4670672 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       42:00  239 20104352 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1258163       00:00 66.6 4454596 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1257687       00:18 18.3 494828 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_256
+   4036    13:14:14  7.5 706056 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-10-01T05:06:35Z load 7.54 5.90 5.53
+    PID     ELAPSED %CPU   RSS COMMAND
+1264683       00:24  390 4720508 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       44:00  239 18665752 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1265427       00:00  100     0 [python3] <defunct>
+1264645       00:26 13.2 495636 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_512
+   4036    13:16:14  7.5 706120 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+--- 2026-10-01T05:08:35Z load 5.79 6.12 5.68
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037       46:00  239 18820676 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+   4036    13:18:14  7.5 706180 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    13:18:43  0.5 34612 /usr/libexec/bluetooth/bluetoothd
+    926    13:18:45  0.1     0 [irq/114-rtw89_pci]
+1263933       02:49  0.1     0 [kworker/4:1-mm_percpu_wq]
+--- 2026-10-01T05:10:35Z load 7.29 6.42 5.83
+    PID     ELAPSED %CPU   RSS COMMAND
+1278106       00:09  759 5017608 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       48:00  238 18166768 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1277943       00:11 30.5 494224 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_640
+   4036    13:20:14  7.5 706244 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1278181       00:08  2.3 305112 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12)
+--- 2026-10-01T05:12:35Z load 5.79 6.04 5.76
+    PID     ELAPSED %CPU   RSS COMMAND
+1279327       00:50  363 4896664 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       50:00  238 18560300 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1282832       00:00 96.4 92964 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/li
+   4036    13:22:14  7.6 706304 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1279289       00:52  6.7 495904 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_768
+--- 2026-10-01T05:14:35Z load 7.05 6.29 5.87
+    PID     ELAPSED %CPU   RSS COMMAND
+1285390       00:48  443 4891616 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       52:00  238 18690228 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+   4036    13:24:14  7.6 706368 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1285352       00:50  6.9 496036 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_768
+   1118    13:24:43  0.5 34744 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T05:16:35Z load 5.26 5.96 5.80
+    PID     ELAPSED %CPU   RSS COMMAND
+1287252       01:13  314 4965532 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       54:00  238 18158236 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+   4036    13:26:14  7.6 706428 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1287112       01:15  4.6 496092 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_896
+   1118    13:26:43  0.5 34836 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T05:18:35Z load 5.33 5.50 5.63
+    PID     ELAPSED %CPU   RSS COMMAND
+1296447       00:45  492 4983480 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       56:00  237 18574680 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+   4036    13:28:14  7.6 706492 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1296409       00:46  7.2 496256 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_896
+   1118    13:28:43  0.5 34864 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T05:20:35Z load 4.83 5.12 5.47
+    PID     ELAPSED %CPU   RSS COMMAND
+1297960       00:38  551 7257752 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1183037       58:00  237 18679160 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1297922       00:40  8.5 495908 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+   4036    13:30:14  7.6 706552 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+   1118    13:30:43  0.5 34920 /usr/libexec/bluetooth/bluetoothd
+--- 2026-10-01T05:22:35Z load 6.69 5.55 5.58
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037    01:00:00  239 17911168 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1297960       02:38  211 5362852 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+1303626       00:00  100 101296 /opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/tt-bio-dev/env/l
+   4036    13:32:14  7.6 706616 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1297922       02:40  2.4 496404 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+--- 2026-10-01T05:24:35Z load 7.44 6.31 5.86
+    PID     ELAPSED %CPU   RSS COMMAND
+1183037    01:02:00  247 19017924 /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_p10_campaign/campaign_run.py --trajectories auto --max-trajectories 6 --bind
+1304226       01:48  222 5126912 /home/ttuser/bcx_e2e_venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=10, pipe_handle=12
+   4036    13:34:14  7.6 706676 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py
+1303766       01:50  3.2 496100 /home/ttuser/bcx_e2e_venv/bin/python3 -m tt_bio.main predict /home/ttuser/.coworker/wt/bcp-land/perf/size512/fixtures/cdk2x2_102
+   1118    13:34:43  0.5 34956 /usr/libexec/bluetooth/bluetoothd
