@@ -1,0 +1,10 @@
+# The campaign projects under each rung are large and reproducible; the rung records are not.
+*
+!.gitignore
+!*/
+!*/rung.json
+!*/rounds.json
+!*/*/rung.json
+!*/*/rounds.json
+!*.log
+!aiclk.tsv
