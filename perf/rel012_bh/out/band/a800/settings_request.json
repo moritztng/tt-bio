@@ -1,0 +1,13 @@
+{
+ "modality": "binder",
+ "campaign_name": "hHSA_180",
+ "number_of_final_designs": 2,
+ "targets": [
+  {
+   "name": "hHSA",
+   "target_path": "/home/moritz/.coworker/wt/rel012-verify-bh/perf/bgx_size/targets/hHSA.pdb",
+   "chains": "A",
+   "hotspots": "199,214,218,222"
+  }
+ ]
+}
