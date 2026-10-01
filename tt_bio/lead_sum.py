@@ -26,8 +26,10 @@ IN_CB, OUT_CB = 0, 16
 def _gran(G):
     """Reader block size: the largest of 4, 3, 2, 1 that divides G. The reader walks a block from
     one `get_write_ptr` in a CB two blocks deep, so a ragged last block would leave the next
-    tiles block straddling the CBs end (measured: rel L2 1.6 at G=27 with GRAN=4)."""
+    tile's block straddling the CB's end (measured: rel L2 1.6 at G=27 with GRAN=4)."""
     return next(g for g in (4, 3, 2, 1) if G % g == 0)
+
+
 TILE_BYTES = 32 * 32 * 4
 
 #: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
