@@ -1,0 +1,17 @@
+{
+ "arrive BFLOAT16 [1, 288, 288, 128]": 3,
+ "consumed-by closure_grad (round_add) ('BFLOAT16', '[1, 288, 288, 128]')": 2,
+ "arrive none [288, 288, 128]": 3,
+ "consumed-by closure_grad (no pend) ('none', '[288, 288, 128]')": 3,
+ "arrive none [1, 288, 288, 128]": 2,
+ "consumed-by closure_grad (no pend) ('none', '[1, 288, 288, 128]')": 2,
+ "arrive BFLOAT16 [1, 2, 288, 256]": 1,
+ "consumed-by closure_grad (round_add) ('BFLOAT16', '[1, 2, 288, 256]')": 1,
+ "consumed-by flush (later contribution) ('BFLOAT16', '[1, 288, 288, 128]')": 1,
+ "arrive none [2, 288, 256]": 2,
+ "consumed-by closure_grad (no pend) ('none', '[2, 288, 256]')": 2,
+ "lnbw REACH": {
+  "served": 22,
+  "declined: width": 2
+ }
+}

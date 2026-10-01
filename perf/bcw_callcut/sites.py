@@ -71,7 +71,7 @@ def main():
             finally:
                 if a.time:
                     ttnn.synchronize_device(tr.device); k = []
-                    wall[(st["phase"], name, site())] += time.perf_counter() - t0
+                    wall[(st["phase"], name, site() + "  " + str(list(getattr(out[0] if isinstance(out, (list, tuple)) and out else out, "shape", []))))] += time.perf_counter() - t0
                 else:
                     g = ttnn.graph.end_graph_capture()
                     k = [nd.get("params", {}).get("name", "?") for nd in g if nd.get("node_type") == "function_start"]

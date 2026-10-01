@@ -2077,6 +2077,11 @@ def straight_through(value, x: Tensor) -> Tensor:
     return _tape(value, [x], make, reads=())
 
 
+# The ReLU backward as one gated multiply. An attribute rather than an argument because it exists
+# for the same-process A/B that prices it (`perf/bcw_callcut/enq_block.py`); nothing else sets it.
+RELU_BW_GATED = True
+
+
 def relu(x: Tensor) -> Tensor:
     """ReLU. The denoiser applies one between the atom encoder and the token aggregation
     (``protenix.py:1110``), and it is the only activation in that path the tape lacked.
@@ -2089,10 +2094,17 @@ def relu(x: Tensor) -> Tensor:
 
     def make():
         def bw(g):
-            # `ttnn.relu_bw` is g * (input > 0) in one verb instead of a `gtz` and a
-            # `multiply`. Handing it the OUTPUT is exact rather than an approximation:
+            # g * (out > 0). Gating on the OUTPUT is exact rather than an approximation:
             # relu(x) > 0 exactly where x > 0, and the output is what this node retains.
-            x.add_grad(ttnn.relu_bw(g, box[0])[0])
+            # `ttnn.relu_bw` launches a `gtz` and a `multiply` and round-trips the mask
+            # through DRAM; the GTZ as the multiply's operand activation is one program,
+            # bit-identical, 1.015 -> 0.598 ms at the pair transition's [1,288,288,512]
+            # (`perf/bcw_callcut/out/relu_op.json`).
+            if RELU_BW_GATED:
+                x.add_grad(ttnn.multiply(g, box[0],
+                                         input_tensor_b_activations=[ttnn.UnaryOpType.GTZ]))
+            else:
+                x.add_grad(ttnn.relu_bw(g, box[0])[0])
         return bw
 
     out = _tape(out_v, [x], make)
