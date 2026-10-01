@@ -538,8 +538,35 @@ Wormhole's, on dev `.107` card 30 with the box's agent stopped so the ladder hel
 Nobody should predict either board's number from bank geometry: the guess from 12 GiB in 12 banks
 put the Wormhole wall near 384-416 tokens and five rungs above that run.
 
-A p300c chip reports a p150a's DRAM and behaves like one up to where it has been run: 608 tokens
-at 48.2 s a round and 832 at 108.3 s, AICLK 1350. 864 has not been tried on it.
+A p300c chip reports a p150a's DRAM and runs every 32-token axis from 288 to 864, each to a
+completed gradient round on qb2 card 0, one trajectory, AICLK 1350 median sampled during every
+round. The round shown is the second of two, so compilation is not in it:
+
+| tokens at the seam | target + binder | one round |
+|---|---|---|
+| 288 | hPDL1 115 + 150 | 7.5 s |
+| 320 | hPDL1 115 + 180 | 11.1 s |
+| 352 | hPDL1 115 + 210 | 13.6 s |
+| 384 | hIL7RA 195 + 150 | 16.1 s |
+| 416 | hIL7RA 195 + 180 | 20.9 s |
+| 448 | hIL7RA 195 + 210 | 25.3 s |
+| 480 | hIL7RA 195 + 240 | 26.2 s |
+| 512 | hIL2R 387 + 90 | 31.2 s |
+| 544 | hIL2R 387 + 110 | 40.1 s |
+| 576 | hIL2R 387 + 150 | 41.8 s |
+| 608 | hIL2R 387 + 180 | 47.1 s |
+| 640 | hIL2R 387 + 210 | 51.8 s |
+| 672 | hHSA 578 + 60 | 59.6 s |
+| 704 | hHSA 578 + 90 | 66.0 s |
+| 736 | hHSA 578 + 110 | 79.5 s |
+| 768 | hHSA 578 + 150 | 82.5 s |
+| 800 | hHSA 578 + 163 | 100.4 s |
+| 832 | hHSA 578 + 210 | 103.0 s |
+| 864 | hHSA 578 + 240 | 112.6 s |
+
+Builds before this fix crashed at 768 tokens on Blackhole with a circular-buffer error in the
+gradient ("CBs grow to 1864192 B which is beyond max L1 size"), even though 736 and 800 ran.
+If you see that error, update.
 
 In residues, which is how a target arrives: the fusion costs 18 to 28, so a Wormhole chip's 512
 tokens is about 484 to 494 residues of target plus binder, and a p150a's 864 is about 836 to 846.
@@ -649,9 +676,8 @@ Rounding up to the bucket is faster, not slower: the PD-L1 complex at 211 tokens
 the trunk forward and the same design padded to 224 costs 1.369 s, same card and same AICLK 1350
 median.
 
-A p300c is a different chip. One p300c chip completes 608 tokens at 48.2 s a round and 832 at
-108.3 s, AICLK 1350, and with the pad-up off it refuses 608 exactly as a p150a does. 864 has not
-been run on it.
+A p300c chip completes every axis from 288 to 864 (the table under the supported range), and
+with the pad-up off it refuses 608 exactly as a p150a does.
 
 ## What a Galaxy gets through
 
