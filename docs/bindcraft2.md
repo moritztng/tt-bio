@@ -595,7 +595,11 @@ Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 
 800 tokens is the EGFR ectodomain (614 residues) plus a 150 aa binder: **the largest fold measured
 to complete a gradient round on one Wormhole Galaxy chip, 1.56x the 512 the fast mode carries.**
-768 is the same ectodomain with a 100 aa binder.
+768 is serum albumin plus a 150 aa binder. Both axes are the ones the Evoformer seam was observed
+to run, not the ones the arithmetic predicts: the complexes BindCraft 2 built are 774 and 738
+residues, a little above target-plus-binder, and it is the built complex that gets bucketed. The
+EGFR ectodomain with a 100 aa minibinder -- the smaller of the two shapes the competition case
+takes -- lands a bucket lower at 736, and needs `offload` as well, since `lean` holds about 704.
 
 768 is the one axis in this range that needs a second escape, and it is worth knowing why. The
 contraction block a matmul plan takes, `in0_block_w`, is the largest divisor of the token axis in
