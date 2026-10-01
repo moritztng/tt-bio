@@ -392,7 +392,10 @@ def main() -> int:
     print(f"  boundaries: {source}")
     for line in read:
         print(f"  {line}")
-    for window in windows:
+    # The per-trajectory lines are the windows the verdict judged, not every completion in the
+    # folder: a resumed leg keeps filling that folder, and printing its trajectories under a
+    # killed leg's verdict reads as a campaign that ran longer than this series ever watched.
+    for window in watched(samples, windows)[1]:
         pace = (f"{window['s_per_round']:.2f} s/round" if window["s_per_round"]
                 else "one round" if window["rounds"] else "pace not recorded")
         print(f"  trajectory {window['n']} ({window['slot']}): {window['rounds']} rounds, {pace}")

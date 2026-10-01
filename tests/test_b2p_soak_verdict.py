@@ -509,3 +509,13 @@ def test_a_campaign_whose_whole_series_is_dead_says_so(tmp_path):
     assert any("every sample was taken after the campaign died" in line for line in read), read
     assert not any("rss at trajectory boundaries" in line for line in read), read
     assert not any("open file handles" in line for line in read), read
+
+
+def test_the_printed_trajectories_are_the_ones_the_series_watched(tmp_path, capsys, monkeypatch):
+    """A killed leg's verdict must not print the resumed leg's trajectories as its own."""
+    out = killed(tmp_path, trajectories=9, watched=5)
+    monkeypatch.setattr("sys.argv", ["verdict.py", str(out)])
+    verdict.main()
+    printed = capsys.readouterr().out
+    assert "trajectory 5 (all)" in printed
+    assert "trajectory 9 (all)" not in printed
