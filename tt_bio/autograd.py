@@ -1086,7 +1086,8 @@ TRIATT_BMM_CONFIG = True
 BMM_OUT_TILES = 64
 
 
-def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False):
+def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False,
+                       in0_block_w: int | None = None):
     """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's plan.
 
     With a real batch axis on both operands and no program config, ttnn's matmul plans a
@@ -1131,8 +1132,21 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     sh = largest_divisor(Mt, max(1, 4 // sw))
     return ttnn.MatmulMultiCoreReuseProgramConfig(
         compute_with_storage_grid_size=a.device().compute_with_storage_grid_size(),
-        in0_block_w=largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
+        in0_block_w=in0_block_w or largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
         per_core_M=Mt, per_core_N=Nt)
+
+
+def bmm_k_blocks(a, b, transpose_a: bool = False, transpose_b: bool = False):
+    """The `in0_block_w` values to try, widest first: the divisors of Kt that are at most 8.
+
+    `in0_block_w` is how many tiles of the contraction a core holds at once, so the in0 circular
+    buffer is `per_core_M * in0_block_w` tiles and the widest choice is the one that blows L1
+    first. Narrowing it blocks the SAME contraction into more passes over K rather than changing
+    what is contracted.
+    """
+    K = (a.shape[-2] if transpose_a else a.shape[-1])
+    Kt = -(-int(K) // ttnn.TILE_SIZE)
+    return [d for d in range(min(Kt, 8), 0, -1) if Kt % d == 0]
 
 def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
     """``ttnn.matmul`` under `bmm_program_config`'s plan where it has one, ttnn's otherwise.
@@ -1147,11 +1161,47 @@ def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
                        program_config=plan, **kw)
     except Exception as exc:                                             # noqa: BLE001
         from .tenstorrent import report_l1_refusal
-        blocked = (_bmm_blocked(a, b, transpose_a, transpose_b, kw)
-                   if report_l1_refusal("autograd.bmm", exc) else None)
+        if not report_l1_refusal("autograd.bmm", exc):
+            raise
+        if plan is not None:
+            narrower = _bmm_narrower_k(a, b, transpose_a, transpose_b, kw)
+            if narrower is not None:
+                return narrower
+        blocked = _bmm_blocked(a, b, transpose_a, transpose_b, kw)
         if blocked is None:
             raise
         return blocked
+
+
+def _bmm_narrower_k(a, b, transpose_a: bool, transpose_b: bool, kw):
+    """The same product under a narrower `in0_block_w`, or None if no width fits.
+
+    What refuses at 768 tokens is not a wide output but a deep contraction under a tall one:
+    `a[2, 8, 768, 768]` against `b[2, 8, 768, 32]` transposed gives `per_core_M = 24` output
+    tiles against `per_core_N = 1`, and `in0_block_w = 8` makes the in0 circular buffer
+    24 x 8 tiles. That is 1.86 MB against the 1.5 MB a Tensix has, and the round dies at compile
+    inside the Evoformer backward with 7 GB of DRAM free (measured on one Wormhole Galaxy chip,
+    2026-10-01, `perf/bcw_slowmode/`). Row blocking cannot help: the output is 32 wide, so it is
+    already inside one block, which is what `_bmm_blocked` says when it declines.
+
+    Narrowing `in0_block_w` passes over K more times with less held at once. It is the same
+    contraction in the same order over the same operands, blocked differently, so the result
+    moves only by fp32 accumulation grouping -- and only for a call that otherwise does not run
+    at all. Tried widest first, so a card that can afford more holds more.
+    """
+    widths = bmm_k_blocks(a, b, transpose_a, transpose_b)
+    for w in widths[1:]:
+        try:
+            out = _matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
+                          program_config=bmm_program_config(a, b, transpose_a, transpose_b,
+                                                            in0_block_w=w), **kw)
+        except Exception as exc:                                         # noqa: BLE001
+            from .tenstorrent import report_l1_refusal
+            if not report_l1_refusal(f"autograd.bmm in0_block_w={w}", exc):
+                raise
+            continue
+        return out
+    return None
 
 
 def _bmm_blocked(a, b, transpose_a: bool, transpose_b: bool, kw):
