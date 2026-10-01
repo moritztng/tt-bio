@@ -15,9 +15,11 @@ ap.add_argument("--d", type=int, default=32)
 ap.add_argument("--qt", type=int, default=None, help="force this query chunk, in tiles")
 ap.add_argument("--no-fallback", action="store_true")
 ap.add_argument("--out", default=None)
+ap.add_argument("--save", default=None, help="torch.save the four fused gradients here")
 a = ap.parse_args()
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+# BCW_ROOT points at another tree, which is how the pre-loop kernel is run for the bit-exact check.
+sys.path.insert(0, os.environ.get("BCW_ROOT") or str(pathlib.Path(__file__).resolve().parents[2]))
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 
@@ -45,16 +47,22 @@ try:
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     tq, tk, tv, tb, tg = (up(t) for t in (q, k, v, bias, g))
     cg = dev.compute_with_storage_grid_size()
-    p = (T.serving_plan(B, H, N, D, (cg.x, cg.y)) if a.qt is None
-         else T.plan(B, H, N, D, (cg.x, cg.y), q_chunk_tiles=a.qt))
+    if a.qt is not None:
+        p = T.plan(B, H, N, D, (cg.x, cg.y), q_chunk_tiles=a.qt)
+    elif hasattr(T, "serving_plan"):
+        p = T.serving_plan(B, H, N, D, (cg.x, cg.y))
+    else:
+        p = T.plan(B, H, N, D, (cg.x, cg.y))
     ttnn.synchronize_device(dev)
     t0 = time.time()
-    dq, dk, dv, db = T.run(dev, tq, tk, tv, tb, tg, scale, (ttnn.MathFidelity.HiFi4,),
-                           q_chunk_tiles=a.qt)
+    kw = {} if a.qt is None else {"q_chunk_tiles": a.qt}
+    dq, dk, dv, db = T.run(dev, tq, tk, tv, tb, tg, scale, (ttnn.MathFidelity.HiFi4,), **kw)
     ttnn.synchronize_device(dev)
     first = time.time() - t0
     got = {"dq": dq, "dk": dk, "dv": dv, "dbias": db}
     got = {n: ttnn.to_torch(x).double() for n, x in got.items()}
+    if a.save:
+        torch.save(got, a.save)
     res = {"shape": [B, H, N, D], "grid": [cg.x, cg.y], "Qt": p["Qt"], "Nt": p["Nt"],
            "groups": p["groups"], "rows_per_core": p["rows_per_core"], "l1_bytes": p["l1_bytes"],
            "first_call_s_incl_jit": round(first, 2), "fused": {}}
