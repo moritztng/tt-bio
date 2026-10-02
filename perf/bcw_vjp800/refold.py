@@ -71,12 +71,22 @@ def main():
                     help="-1 keeps the shipped design_recycles, which is what the gate saw")
     ap.add_argument("--tag", default="")
     ap.add_argument("--out", default=str(HERE / "out"))
+    ap.add_argument("--dry-run", action="store_true",
+                    help="build the settings, the states and the fixed binder, print the residue "
+                         "accounting, and stop before the predictor. Needs jax but no chip, so "
+                         "every host-side API mismatch surfaces without spending a card lease")
     a = ap.parse_args()
 
     seq = a.binder_seq
     if seq.startswith("@"):
-        seq = pathlib.Path(seq[1:]).read_text().split()[0].strip()
+        # a FASTA or a bare sequence file; '>' headers are dropped rather than read as the sequence
+        lines = [l.strip() for l in pathlib.Path(seq[1:]).read_text().splitlines()]
+        seq = "".join(l for l in lines if l and not l.startswith(">"))
     seq = seq.strip().upper()
+    bad = sorted(set(seq) - set("ARNDCQEGHILKMFPSTWYV"))
+    if bad or not seq:
+        raise SystemExit(f"--binder-seq gave {len(seq)} residues"
+                         + (f" with non-standard amino acid(s) {bad}" if bad else ""))
 
     spec = dict(TARGETS.get(a.target, {}))
     if a.target_path:
@@ -89,11 +99,12 @@ def main():
         if not spec.get(need):
             raise SystemExit(f"--target {a.target!r} has no {need}; pass --{need.replace('_','-')}")
 
-    os.environ.setdefault("TT_VISIBLE_DEVICES", str(a.card))
-    from tt_bio.main import ensure_p300_mesh_descriptor
-    ensure_p300_mesh_descriptor()
+    if not a.dry_run:
+        os.environ.setdefault("TT_VISIBLE_DEVICES", str(a.card))
+        from tt_bio.main import ensure_p300_mesh_descriptor
+        ensure_p300_mesh_descriptor()
+        from tt_bio import bindcraft2
 
-    from tt_bio import bindcraft2
     from bindcraft.settings import (build_design_settings, parse_setting_overrides, read_settings,
                                     select_design_and_validation_models, resolve_cyclic_offset_mode)
     from bindcraft.preflight import cleaned_campaign_settings
@@ -140,24 +151,32 @@ def main():
 
     selected = select_design_and_validation_models(settings, MULTIMER_POOL, MONOMER_POOL)
     bucket = campaign_length_bucket(settings)
+    subbatch = campaign_subbatch_size(settings, design_residue_count(settings))
+
+    chain_residues = {state: {c: len(p) for c, p in cx.items()}
+                      for state, cx in protein_states.items()}
+    tokens = max(sum(v.values()) for v in chain_residues.values())
+    accounting = {"target": a.target, "binder_aa": len(seq), "binder_chain": binder_chain,
+                  "chains": chain_residues, "tokens_unpadded": tokens,
+                  "tokens_bucketed": padded_prediction_length(tokens, bucket),
+                  "subbatch_size": subbatch,
+                  "design_models": list(selected.design_models),
+                  "design_recycles": settings["design_recycles"],
+                  "min_plddt_screen": settings.get("min_plddt_screen")}
+    print(json.dumps(accounting), flush=True)
+    if a.dry_run:
+        print("dry run: states and settings built, predictor not reached", flush=True)
+        return
+
     cls = bindcraft2.design_model_class()
     model = cls(presets=selected.design_models, data_dir=a.params,
                 max_cache_size=16, num_recycle=settings["design_recycles"],
                 models=selected.design_models,
                 cyclic_offset_mode=resolve_cyclic_offset_mode(settings),
-                subbatch_size=campaign_subbatch_size(settings, design_residue_count(settings)),
+                subbatch_size=subbatch,
                 attention_backend=settings.get("attention_backend", "auto"),
                 use_cueq=bool(settings.get("use_cueq", False)), length_bucket_size=bucket,
                 multi_chain_binders=multi_chain_binders, target_pad_length=0)
-
-    chain_residues = {state: {c: len(p) for c, p in cx.items()}
-                      for state, cx in protein_states.items()}
-    tokens = max(sum(v.values()) for v in chain_residues.values())
-    print(json.dumps({"target": a.target, "binder_aa": len(seq), "chains": chain_residues,
-                      "tokens_unpadded": tokens,
-                      "tokens_bucketed": padded_prediction_length(tokens, bucket),
-                      "design_models": list(selected.design_models),
-                      "design_recycles": settings["design_recycles"]}), flush=True)
 
     with bindcraft2.fast_round() if a.memory == "fast" else _nullctx():
         t0 = time.time()
