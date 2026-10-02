@@ -1483,12 +1483,15 @@ def test_no_refusal_on_a_measured_board_names_a_size_that_board_refuses(monkeypa
             if padded > cap:
                 assert landing <= cap and "run a smaller complex" in msg
             else:
-                assert landing == padded - 32 and "trajectories_per_card=1" in msg
+                assert landing == padded - 32 and "only trajectory on the card" in msg
 
 
-def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size():
-    """320 tokens is measured to fit alone, so a refusal there is company on the chip, and the
-    knob that removes it is BindCraft 2's own one-at-a-time loop, not a shorter binder."""
+def test_a_refusal_at_a_size_that_fits_blames_the_card_not_the_size(monkeypatch):
+    """320 tokens is measured to fit alone, so a refusal there in an interleaved campaign is
+    company on the chip, and the knob that removes it is BindCraft 2's own one-at-a-time loop,
+    not a shorter binder."""
+    from tt_bio import duotraj
+    monkeypatch.setattr(duotraj, "GATE", duotraj.DeviceGate())
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_608),
                                              phase="backward", n=300, padded=320))
     assert "trajectories_per_card=1" in msg
@@ -1558,16 +1561,31 @@ REFUSAL_WORMHOLE = (
     "largest free block: 21491680 B)")
 
 
-def test_a_wormhole_refusal_under_its_own_ceiling_blames_the_card_not_the_size():
+def test_a_wormhole_refusal_under_its_own_ceiling_blames_the_card_not_the_size(monkeypatch):
     """320 tokens completes a gradient round on a Wormhole Galaxy chip held alone, so a refusal
     there means something else holds the card, most often an interleave count the chip cannot
     carry. Telling that user to shrink the complex sends them the wrong way."""
+    from tt_bio import duotraj
+    monkeypatch.setattr(duotraj, "GATE", duotraj.DeviceGate())     # trajectories interleaved
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
                                              phase="backward", n=300, padded=320))
     assert "fits on a Wormhole Galaxy chip" in msg and "512" in msg
     assert "trajectories_per_card=1" in msg
     assert "run a smaller complex" not in msg
     assert "34.226 GB" not in msg          # the p150a's DRAM is not this card's business
+
+
+def test_a_refusal_under_the_ceiling_with_one_trajectory_does_not_advise_one_trajectory():
+    """rel012 refused at 768 and 832 on a p150a held alone, running one trajectory, and the
+    message told the user to pass trajectories_per_card=1. That changes nothing. Outside an
+    interleave the advice is the way down, not the setting already in force."""
+    from tt_bio import duotraj
+    assert duotraj.GATE is None
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE),
+                                             phase="backward", n=300, padded=320))
+    assert "trajectories_per_card" not in msg
+    assert "only trajectory on the card" in msg
+    assert "12 residues off the binder takes this fold to 288 tokens" in msg
 
 
 def test_a_wormhole_refusal_quotes_the_ceiling_measured_on_a_wormhole():

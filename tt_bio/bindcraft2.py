@@ -416,13 +416,23 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
             f"sum. {sentence}. {reference} Trimming the "
             f"target to the domain you are binding is the other lever and usually the bigger "
             f"one.")
-    else:
+    elif duotraj.GATE is not None:
         action = (
             f"What to do: {padded} tokens fits on a {board_name} with the card to itself "
             f"({how_cap} {cap}), so something else "
             f"is holding this card. Interleaved trajectories are the usual cause: pass "
             f"trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise "
             f"{way_down}.")
+    else:
+        # One trajectory already. Advising trajectories_per_card=1 here changes nothing, and a
+        # p150a refused 768 and 832 in fast mode held alone (`state/rel012-verify-bh.md`).
+        action = (
+            f"What to do: {padded} tokens is within what a {board_name} holds "
+            f"({how_cap} {cap}), and this fold was the only trajectory on the card. Another "
+            f"process on this card is one cause (tt-smi lists it), but a fold can also refuse "
+            f"under the measured ceiling on a card it holds alone. "
+            + (escape if roomier else "") +
+            f"Otherwise {way_down}.")
 
     return MemoryError(
         f"BindCraft 2 ran out of device memory in the Evoformer {phase} at {padded} tokens.\n"
