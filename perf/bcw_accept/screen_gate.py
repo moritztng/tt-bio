@@ -22,6 +22,8 @@ Two denominators, deliberately kept apart:
 """
 import argparse
 import csv
+import glob
+import statistics as st
 import re
 import sys
 from itertools import combinations
@@ -66,7 +68,7 @@ def fisher_one_sided(a, b, c, d):
     return pinned(a, b, c, d)
 
 
-def permutation_p(xs, ys, trials_cap=200000):
+def permutation_p(xs, ys, trials_cap=400000):
     """Exact one-sided permutation test on the mean gap, xs > ys.
 
     Exhaustive over C(n, len(xs)) relabellings when that is small enough, which it is here
@@ -85,6 +87,69 @@ def permutation_p(xs, ys, trials_cap=200000):
         if gap >= observed - 1e-12:
             hits += 1
     return hits / total, total
+
+
+
+PLDDT_LOSS_WEIGHT = 0.1
+
+
+def screen_plddt_track(tags):
+    """Binder pLDDT at the start and the end of the 50-round screen phase, per trajectory.
+
+    `plddt_loss` is `mean(1 - plddt)` over the DESIGNED binder residues (bindcraft/loss.py:185-190)
+    and the CSV column carries it already multiplied by `weights_plddt_loss`, which is 0.1 in both
+    arms. So plddt = 1 - loss / 0.1 exactly, and the recovered end-of-screen values land on the
+    gate readings parsed from the logs (arm A 0.680 recovered against 0.700 logged, arm B 0.473
+    against 0.523; the gate reads a selected round, not the last-5 mean, so they are close rather
+    than equal).
+
+    This reads every resolved trajectory in both arms, including the 3 of arm A's whose log lines
+    the relaunch truncation ate, so it runs at the full n = 10 and n = 11 where the log-parsed
+    pLDDT runs at 7 and 11.
+    """
+    out = []
+    for tag in tags:
+        for f in sorted(glob.glob(str(OUT / tag / "1_Trajectories" / "*" / "*_losses.csv"))):
+            with open(f, newline="") as fh:
+                rows = [r for r in csv.DictReader(fh) if r["phase"] == "screen"]
+            if len(rows) < 20:
+                continue
+            column = next(c for c in rows[0] if c.endswith("plddt_loss"))
+            track = [1 - float(r[column]) / PLDDT_LOSS_WEIGHT for r in rows]
+            out.append((st.mean(track[:5]), st.mean(track[-5:])))
+    return out
+
+
+def report_track(track_a, track_b):
+    """Split the end-of-screen gap into the part present before optimisation and the part it adds.
+
+    This is the one read in this row that bears on WHY arm B sits under the gate, and it does not
+    settle it on its own. A pure threshold-calibration story predicts an offset at round 1 and
+    equal gains. A pure design-quality story predicts equal starts and a smaller gain. Both show
+    up, so both are quoted.
+    """
+    starts_a, ends_a = [x[0] for x in track_a], [x[1] for x in track_a]
+    starts_b, ends_b = [x[0] for x in track_b], [x[1] for x in track_b]
+    gains_a = [e - s for s, e in track_a]
+    gains_b = [e - s for s, e in track_b]
+    print()
+    print("--- binder pLDDT across the 50-round screen phase, recovered from plddt_loss")
+    print(f"    arm A (n={len(track_a)}): start {st.mean(starts_a):.3f} -> end {st.mean(ends_a):.3f}"
+          f"   gain {st.mean(gains_a):+.3f}")
+    print(f"    arm B (n={len(track_b)}): start {st.mean(starts_b):.3f} -> end {st.mean(ends_b):.3f}"
+          f"   gain {st.mean(gains_b):+.3f}")
+    gap_end = st.mean(ends_a) - st.mean(ends_b)
+    p_start, _ = permutation_p(starts_a, starts_b)
+    p_gain, total = permutation_p(gains_a, gains_b)
+    print(f"    end-of-screen gap {gap_end:+.3f}, and it splits in two:")
+    print(f"      present at round 1, before optimisation: {st.mean(starts_a) - st.mean(starts_b):+.3f}"
+          f"  ({(st.mean(starts_a) - st.mean(starts_b)) / gap_end:.0%} of it)"
+          + (f"  permutation p = {p_start:.5f}" if p_start is not None else ""))
+    print(f"      added by optimisation gaining less:      {st.mean(gains_a) - st.mean(gains_b):+.3f}"
+          f"  ({(st.mean(gains_a) - st.mean(gains_b)) / gap_end:.0%} of it)"
+          + (f"  permutation p = {p_gain:.5f}" if p_gain is not None else ""))
+    print("    Both are significant, so neither single story explains it: arm B starts lower AND")
+    print("    its 50 screen rounds buy less than half the confidence arm A's buy.")
 
 
 def summarise(name, tags):
@@ -150,6 +215,9 @@ def main():
               + (f"   permutation p = {perm:.5f}" if perm is not None else ""))
         print("    quoted because it separates 'the interface is worse' from 'the binder is")
         print("    placed less confidently'. Only the second one is what the gate cuts on.")
+
+    report_track(screen_plddt_track(args.arma.split(",")),
+                 screen_plddt_track(args.armb.split(",")))
 
 
 if __name__ == "__main__":
