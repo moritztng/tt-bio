@@ -1,0 +1,10 @@
+[release-gate] granted card(s) [1]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/bcw-land/.base/tt_bio (commit 8c3783b87)
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,768, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    768aa     wall  result
+    FAIL --size-ladder-rungs is a RECORD-mode resume aid, not a way to narrow the check. A check over a subset of the ladder passes without reading the rungs where a lever most often goes dark, which is the arm's whole purpose.
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record

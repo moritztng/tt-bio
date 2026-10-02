@@ -1,0 +1,82 @@
+tree 30fede8d8 start 2026-10-01T20:30:16Z
+        agrees to 3 %: 37.675 against 20.220 s, 1.863x (`bcx-p10-resident`). That is one
+        trajectory; two interleaved hide most of the host column, and there it is 1.1331x
+        (15.776 -> 13.923 s on the same chip). Pass False to keep a
+        comparison graded on the Evoformer alone on the program it was graded on. Read
+        `build.extra_msa.calls` and `build.template.calls` to check the on-card paths ran.
+    
+        The template swap brings two more blocks of weights per checkpoint onto the card, so it is
+        not free of allocator pressure, and `duotraj.auto_trajectories` prices the card from
+        `free_device_bytes()` once a chip is open, which counts them. Monomer checkpoints are
+        untouched: the swap is installed on `modules_multimer` only.
+    
+        `exact` runs softmax and layer norm on the host in float64 inside the tape, which
+        reproduces AlphaFold 2's own gradient most closely. It is off by default because it is a
+        diagnostic and it is expensive: one `sequence_gradients` call on a PD-L1 draw at n=192 takes
+        479.59 s with it on against 19.285 s with it off, 24.87x (`perf/bcx_exact/ROUND_AB.json`).
+        That is the gradient call, not the whole design round, which also carries BindCraft 2's own
+        JAX work. What it buys is 1.1 % on the worst gradient tensor: at n=192 the MSA cotangent out
+        of Evoformer block 1 sits 0.087998 from a float64 reference with it on and 0.088985 with it
+        off, where bfloat16 alone already carries 0.075483 of that
+        (`perf/bcx_exact/grade/VJP_on_n192.json` and `VJP_off_n192.json`). A PD-L1 campaign on the
+        off setting accepts binders (`perf/bcx_exact/ACCEPT_GRADE.json`), which is the bar a design
+        loop is graded on. Set `exact=True` to reproduce a training-style gradient bar, which
+        BindCraft 2 does not have. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one
+        ran.
+    
+        `memory` is how the round spends device memory, one of `MEMORY_MODES` or ``"auto"``, the
+        default, which picks the fastest mode that fits this card at each fold's token axis. A
+        Wormhole Galaxy chip runs ``fast`` to 512 tokens; past that, ``lean`` and ``offload`` trade
+        seconds for room (`MEMORY_MODES` says how, docs/bindcraft2.md what they cost). Read
+        `build.memory.used` for the mode each token axis ran in.
+    
+        `fast` arms the gradient levers the device round is measured with (`fast_round`) for the
+        duration, and defaults to `not exact`: they change which kernels compute the round, not
+        the work it does, and the exact tape is the arm they are graded against. `build.fast`
+        holds what was armed.
+    
+        `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
+        this same class, which is the control arm every device result should be read against.
+    
+        With `trunk="device"`, a checkpoint whose weights the source cannot supply folds on that host
+        trunk rather than raising, decided per model family and announced on the first such fold. If
+        the source supplies nothing at all, building the model raises instead: an empty pool is a
+        misconfiguration, not a route.
+        """
+        if trunk == "jax":
+            yield _factory(trunk="jax", pool=None, exact=exact)
+            return
+        if card is not None:
+            pin_card(card)
+        # After `pin_card`: importing autograd imports ttnn, and a pin after that raises.
+        from tt_bio import autograd
+        from tt_bio.tenstorrent import get_device
+    
+        # Open the chip on this thread, not on whichever thread first reaches the card. UMD's
+        # CHIP_IN_USE lock is a robust pthread mutex owned by the thread that opens the chip, and the
+        # close at exit runs on the main thread. Left to the first device call, the open happens on
+        # one of XLA's CPU pool threads (the device seams run there), the unlock at exit fails with
+        # EPERM and the process aborts with exit 134 after the campaign has already finished.
+        get_device()
+    
+        pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
+            checkpoints, resident=resident, template=template)
+        if template and not pool.template:
+>           raise ValueError("predictor(template=True) needs a TrunkPool built with template=True; "
+                             "the trunks it already loaded hold no template blocks on card")
+E           ValueError: predictor(template=True) needs a TrunkPool built with template=True; the trunks it already loaded hold no template blocks on card
+
+tt_bio/bindcraft2.py:2182: ValueError
+=============================== warnings summary ===============================
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[predict]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[warmup]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[embed]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[affinity]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[saprot]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[design]
+  /home/ttuser/.coworker/wt/bcw-land/tests/test_verbs_scope_autograd.py:75: DeprecationWarning: 'isolated_filesystem' is deprecated and will be removed in Click 9.0. Use 'tempfile.TemporaryDirectory' or pytest's 'tmp_path' fixture with absolute paths instead.
+    with runner.isolated_filesystem():
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 374 passed, 6 warnings in 157.73s (0:02:37)
+rc=1 end 2026-10-01T20:32:57Z
