@@ -824,3 +824,36 @@ def test_verify_fixtures_flags_a_missing_reference_and_clears_a_present_one(tmp_
     out = capsys.readouterr().out
     assert env.id in out and "ref_fp32 missing" in out and "ref_bf16 missing" in out
     assert rdx.id not in out
+
+
+def test_a_timed_out_fold_retires_its_card_for_the_rest_of_the_run(tmp_path, monkeypatch):
+    """A fold that times out leaves its chip wedged, so nothing more may be folded on it.
+
+    qb2 card 2, 2026-10-02: after one protenix-v2 seed timed out, each later seed sat in the
+    device-open probe until its own 40-minute timeout. Seeds go to the cards still live; with
+    none left they fail at once, naming the card, instead of each waiting out the timeout."""
+    mod = _load()
+    monkeypatch.setattr(mod, "_WEDGED", set(), raising=False)
+    monkeypatch.setattr(mod, "device_cmd", lambda leg, s, out_dir, workdir: ["true"])
+    a, b = mod.Worker("localhost", 2, True), mod.Worker("localhost", 3, True)
+    ran = []
+
+    def fake_fold(wrapped, out_dir, logf, fold_timeout):
+        card = int(wrapped[-1].split("TT_VISIBLE_DEVICES=")[1].split()[0])
+        ran.append(card)
+        if card == 2:
+            return -99, True
+        (out_dir / "r").mkdir(parents=True)
+        (out_dir / "r" / "results.json").write_text("{}")
+        return 0, False
+
+    monkeypatch.setattr(mod, "_run_local_fold", fake_fold)
+    leg = mod.Leg(id="px", model="protenix-v2", kind="structure", yaml="")
+    first = mod.run_folds_fanout(leg, [0], tmp_path, [a], tmp_path, fold_timeout=1)
+    assert "timed out" in first[0]["error"] and a in mod._WEDGED
+
+    second = mod.run_folds_fanout(leg, [1, 2], tmp_path, [a, b], tmp_path, fold_timeout=1)
+    assert ran == [2, 3, 3] and all(isinstance(v, Path) for v in second.values())
+
+    alone = mod.run_folds_fanout(leg, [3], tmp_path, [a], tmp_path, fold_timeout=1)
+    assert ran == [2, 3, 3] and "localhost:2" in alone[3]["error"]

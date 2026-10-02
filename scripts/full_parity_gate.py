@@ -1239,6 +1239,14 @@ def _run_remote_fold(wrapped, worker: "Worker", out_dir: Path, logf, fold_timeou
     return proc.returncode, False
 
 
+#: Local workers whose fold timed out this run. A timeout leaves the chip wedged, not merely
+#: busy: on 2026-10-02 qb2 card 2 hung a protenix-v2 fold four times in four runs, and after
+#: the first timeout every later fold on that card sat at its device-open probe until its own
+#: timeout, 40 minutes a seed. So a card is folded on no further after one, and its seeds fail
+#: at once with the reason, while the other workers carry on.
+_WEDGED: set[Worker] = set()
+
+
 def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Worker],
                      log_dir: Path, resume: bool = True, fold_timeout: float | None = None,
                      extra_env: dict | None = None) -> dict:
@@ -1259,9 +1267,10 @@ def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Wo
     leg_dir.mkdir(parents=True, exist_ok=True)
     results: dict[int, Path] = {}
     # round-robin seeds across workers; group by worker so each runs serially, workers parallel
+    live = [w for w in workers if w not in _WEDGED] or workers
     by_worker: dict[Worker, list[int]] = {}
     for i, s in enumerate(seeds):
-        by_worker.setdefault(workers[i % len(workers)], []).append(s)
+        by_worker.setdefault(live[i % len(live)], []).append(s)
 
     import concurrent.futures
 
@@ -1274,6 +1283,10 @@ def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Wo
                 if inner is not None:
                     out[s] = inner
                     continue
+            if w in _WEDGED:
+                out[s] = {"error": f"not run: a fold timed out on {w.host}:{w.card} earlier in this "
+                          f"run and left the chip wedged (tt-smi -r {w.card}, then rerun)", "wall": 0.0}
+                continue
             wrapped = w.wrap(device_cmd(leg, s, out_dir, workdir), REPO, dict(extra_env or {}))
             logf = open(log_dir / f"{leg.id}_seed{s}.log", "w")
             t0 = time.monotonic()
@@ -1285,9 +1298,10 @@ def run_folds_fanout(leg: Leg, seeds: list[int], workdir: Path, workers: list[Wo
                 logf.close()
             wall = time.monotonic() - t0
             if timed_out:
-                out[s] = {"error": f"fold timed out after {fold_timeout:.0f}s (no results.json "
-                          f"— flaky MSA server? place a cached a3m per RELEASING.md and rerun)",
-                          "wall": wall}
+                if w.is_local:
+                    _WEDGED.add(w)
+                out[s] = {"error": f"fold timed out after {fold_timeout:.0f}s (no results.json: a "
+                          f"wedged chip, or a flaky MSA server, see RELEASING.md)", "wall": wall}
             elif rc != 0:
                 out[s] = {"error": f"predict exited {rc}", "wall": wall}
             else:
