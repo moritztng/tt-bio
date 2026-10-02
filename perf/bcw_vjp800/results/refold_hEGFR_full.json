@@ -1,0 +1,16 @@
+{
+ "target": "hEGFR",
+ "binder_aa": 150,
+ "tokens_unpadded": 764,
+ "prediction_state": "hEGFR",
+ "secs": 27.64,
+ "memory_used": {},
+ "binder_plddt": 0.5415819883346558,
+ "target_plddt": 0.8969431519508362,
+ "complex_plddt": 0.8271732926368713,
+ "i_pTM": 0.15617182850837708,
+ "pTM": 0.6102501749992371,
+ "min_plddt_screen": 0.6,
+ "sequence": "SIKAMDNKALSVMNSTWPNWADENLERYESGEMNEWSMSHSIPPGGTWPPNGQWKISEMKKMMSDTQVVMSIYEQALQIPNFKHPPNVHWHMEWALSEAIFFIEFFRGESENSEPPTTTINQDAHHAWVHSRWGAAWIIKHYEGMEFTFS",
+ "passes_screen_gate": false
+}
