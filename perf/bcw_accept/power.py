@@ -23,12 +23,21 @@ def cp_upper(n: int, alpha: float = 0.05) -> float:
 
 
 def fisher_one_sided(a: int, b: int, c: int, d: int) -> float:
-    """P of a 2x2 table at least this extreme, by the hypergeometric tail."""
+    """One-sided Fisher exact: P(arm A accepts a or more | the two arms share a rate).
+
+    The upper hypergeometric tail, which is what the RULE pre-committed to adjudicate the alarm
+    branch on. Until 2026-10-02 this summed every table no more probable than the observed one,
+    which is the TWO-sided test: it reproduced scipy two-sided to 4 dp on the whole 0..10 table.
+    The error was conservative, since a two-sided p is never smaller than the one-sided p in the
+    expected direction, so it could not have raised a false alarm and the alarm has never fired
+    under either. But it mislabelled the statistic the verdict is read from and it understated the
+    power. It moves the pre-registered threshold: arm B at 0 of 10 reaches p < 0.05 once arm A
+    accepts 4 of 10, where the two-sided test needed 5.
+    """
     n, r1, c1 = a + b + c + d, a + b, a + c
     tot = comb(n, c1)
-    obs = comb(r1, a) * comb(n - r1, c1 - a) / tot
-    return sum(pr for x in range(min(r1, c1) + 1)
-               if (pr := comb(r1, x) * comb(n - r1, c1 - x) / tot) <= obs + 1e-12)
+    return sum(comb(r1, x) * comb(n - r1, c1 - x) / tot
+               for x in range(a, min(r1, c1) + 1))
 
 
 def power(n: int, p0: float, alpha: float = 0.05) -> float:
