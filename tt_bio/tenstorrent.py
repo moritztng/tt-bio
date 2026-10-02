@@ -7869,7 +7869,7 @@ class TriangleMultiplication(Module):
             if hook is not None:
                 # Untracked, as the gated moves tape entry returns it: on a raw handle the tails
                 # `ttnn.permute` misses the shim and its one-pass kernel (2.0 ms against 0.165 ms
-                # at 288, perf/bcp_evo/out/prof_ipg_{off,on}).
+                # at 288, perf/bcp_evo/out/prof_ipg).
                 chunk = hook.wrap(chunk)
         else:
             chunk = _reblock.reblock_permute_gated(gp, *gate, memory_config=memory_config)
