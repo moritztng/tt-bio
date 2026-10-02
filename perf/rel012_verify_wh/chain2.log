@@ -1,0 +1,6 @@
+2026-10-01T23:18:02Z holding /home/ubuntu/japanfold/state/leases/UF-EV-A4-GWH01-card30.json and /dev/tenstorrent/6; 2 legs
+2026-10-01T23:18:02Z === hEGFR_220_t_offload load 4.13 cap 18000s
+2026-10-01T23:40:20Z     hEGFR_220_t_offload rc=0 1338s {"evoformer_axis": 864, "resident_peak_gb": null, "device_vs_f64": null, "error": "StopAfterRounds(5 rounds collected)"}
+2026-10-01T23:40:20Z === hEGFR_250_f_offload load 1.37 cap 18000s
+2026-10-01T23:54:04Z     hEGFR_250_f_offload rc=1 824s {"evoformer_axis": 896, "resident_peak_gb": 11.0279, "device_vs_f64": null, "error": "MemoryError(\"BindCraft 2 ran out of device memory in the Evoformer backward at 896 tokens.\\n  complex   870 residues, padded to 896 tokens (tt-bio buckets the token axis to 32)\\n  asked for 822.1 MB in one DRAM 
+2026-10-01T23:54:04Z chain done, lease released
