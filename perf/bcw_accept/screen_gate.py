@@ -116,7 +116,7 @@ def screen_plddt_track(tags):
                 continue
             column = next(c for c in rows[0] if c.endswith("plddt_loss"))
             track = [1 - float(r[column]) / PLDDT_LOSS_WEIGHT for r in rows]
-            out.append((st.mean(track[:5]), st.mean(track[-5:])))
+            out.append((track[0], st.mean(track[:5]), st.mean(track[-5:])))
     return out
 
 
@@ -128,16 +128,23 @@ def report_track(track_a, track_b):
     equal gains. A pure design-quality story predicts equal starts and a smaller gain. Both show
     up, so both are quoted.
     """
-    starts_a, ends_a = [x[0] for x in track_a], [x[1] for x in track_a]
-    starts_b, ends_b = [x[0] for x in track_b], [x[1] for x in track_b]
-    gains_a = [e - s for s, e in track_a]
-    gains_b = [e - s for s, e in track_b]
+    # Baseline on ROUND 1, not the first-5 mean. The screen phase is 50 rounds of gradient
+    # optimisation, so by round 5 some of it has already happened and a first-5 baseline charges
+    # part of the optimisation to the offset. Both are printed because the split barely moves
+    # between them, which is the point: the conclusion does not depend on the choice.
+    starts_a, ends_a = [x[0] for x in track_a], [x[2] for x in track_a]
+    starts_b, ends_b = [x[0] for x in track_b], [x[2] for x in track_b]
+    gains_a = [x[2] - x[0] for x in track_a]
+    gains_b = [x[2] - x[0] for x in track_b]
     print()
     print("--- binder pLDDT across the 50-round screen phase, recovered from plddt_loss")
-    print(f"    arm A (n={len(track_a)}): start {st.mean(starts_a):.3f} -> end {st.mean(ends_a):.3f}"
-          f"   gain {st.mean(gains_a):+.3f}")
-    print(f"    arm B (n={len(track_b)}): start {st.mean(starts_b):.3f} -> end {st.mean(ends_b):.3f}"
-          f"   gain {st.mean(gains_b):+.3f}")
+    print(f"    arm A (n={len(track_a)}): round1 {st.mean(starts_a):.3f} -> end {st.mean(ends_a):.3f}"
+          f"   gain {st.mean(gains_a):+.3f}   (first-5 baseline {st.mean(x[1] for x in track_a):.3f})")
+    print(f"    arm B (n={len(track_b)}): round1 {st.mean(starts_b):.3f} -> end {st.mean(ends_b):.3f}"
+          f"   gain {st.mean(gains_b):+.3f}   (first-5 baseline {st.mean(x[1] for x in track_b):.3f})")
+    print("    NOTE: plddt_loss is stored to 2 dp, so a single round recovers pLDDT only to 0.1.")
+    print("    The round-1 gap is smaller than one quantum and survives only as a mean over all")
+    print("    trajectories; it is not readable on any single one.")
     gap_end = st.mean(ends_a) - st.mean(ends_b)
     p_start, _ = permutation_p(starts_a, starts_b)
     p_gain, total = permutation_p(gains_a, gains_b)
