@@ -235,6 +235,15 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
     return [PredictionJob(id=p.stem, path=p) for p in files]
 
 
+#: Blackhole board types by the PCI ``subsystem_device`` the kernel driver publishes under
+#: ``/sys/class/tenstorrent/tenstorrent!N/device/``, which names the board without opening it or
+#: needing tt-smi. The P300 ids mirror tt-metal's own board-type map. 0x0040 is measured: every
+#: p150a node on pc and qb1 reads it while tt-smi calls the same card p150a. A p300 is a board
+#: PAIR whose lone chip opens only with a 1x1 mesh descriptor; a p150a is one chip.
+P300_SUBSYSTEMS = frozenset({"0x0044", "0x0045", "0x0046"})
+P150_SUBSYSTEMS = frozenset({"0x0040"})
+
+
 #: What a chip whose ARC firmware is dead answers from its ``tt_*`` sysfs telemetry, AICLK
 #: included. It does not raise: the chip still opens, runs and returns results, and the clock
 #: reads 4294967295 MHz. qb1's node 0 did exactly that on 2026-09-26 and a 312 s anchor was banked
