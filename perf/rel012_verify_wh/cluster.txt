@@ -4,3 +4,4 @@ CLUSTER-RECOVERED 2026-10-01T22:45:49Z {"accounts_waiting":0,"busy":0,"chips":34
 CLUSTER-SETTLED 2026-10-01T22:46:17Z {"accounts_waiting":0,"busy":0,"chips":346,"enabled":true,"jobs":{"queued":0,"running":0},"online_agents":11,"out_of_service":1}
 CLUSTER-AFTER 2026-10-01T23:17:53Z {"accounts_waiting":0,"busy":0,"chips":346,"enabled":true,"jobs":{"queued":0,"running":0},"online_agents":11,"out_of_service":1}
 CLUSTER-FOLLOWON-AFTER 2026-10-02T00:11:57Z {"accounts_waiting":0,"busy":0,"chips":346,"enabled":true,"jobs":{"queued":0,"running":0},"online_agents":11,"out_of_service":0}
+CARD-RELEASED 2026-10-02T00:17:07Z card30 holder=agent:UF-EV-A4-GWH01 pid=357337 acquired=2026-10-01T23:54:42Z; canary 23:54:39Z probing->healthy d721d4c1 pLDDT 0.9678; leases 31 agent + 1 jfmr canary; job lines in agent journal 23:18Z-00:17Z: 0; japanfold.aiand.com 200
