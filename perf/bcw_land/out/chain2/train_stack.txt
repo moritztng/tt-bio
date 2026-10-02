@@ -1,0 +1,9 @@
+............................................s........................... [ 71%]
+.........sss.................                                            [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_training_opt_in.py:151: the fork is gone, which is the goal
+SKIPPED [1] tests/test_protenix_diffusion.py:23: v2 ckpt or pre-mutation golden pkls missing (run scripts/protenix_extract_atomdec_pre.py)
+SKIPPED [1] tests/test_protenix_diffusion.py:51: v2 ckpt or pre-mutation golden pkls missing (run scripts/protenix_extract_atomdec_pre.py)
+SKIPPED [1] tests/test_protenix_dit_consistent.py:27: v2 ckpt or pre-mutation denoiser golden pkl missing (run scripts/protenix_extract_denoiser_pre.py)
+97 passed, 4 skipped in 5.34s
+rc=0
