@@ -4355,6 +4355,7 @@ class AtomDiffusion(Module):
         max_parallel_samples=None,
         steering_args=None,
         progress_fn=None,
+        dump_fn=None,
         **network_condition_kwargs,
     ):
         if steering_args is not None and (
@@ -4411,6 +4412,11 @@ class AtomDiffusion(Module):
         if _sds:
             torch.manual_seed(int(_sds))
         atom_coords = init_sigma * torch.randn(shape, device=self.device)
+        # Optional trajectory hook, off by default: dump_fn(step, coords, denoised) sees the
+        # sampler's real coordinates (step -1 is the initial noise). It reads, never writes, so
+        # the fold is bit-identical with or without it; an exception from it aborts the fold.
+        if dump_fn is not None:
+            dump_fn(-1, atom_coords, None)
         token_repr = None
         atom_coords_denoised = None
 
@@ -4619,6 +4625,8 @@ class AtomDiffusion(Module):
             )
 
             atom_coords = atom_coords_next
+            if dump_fn is not None:
+                dump_fn(step_idx, atom_coords, atom_coords_denoised)
 
         _write_sample_digest(atom_coords, chunk_width)
         return dict(sample_atom_coords=atom_coords, diff_token_repr=token_repr)
@@ -5375,6 +5383,7 @@ class Boltz2(nn.Module):
         }
         self.trace = trace
         self.progress_fn = None  # optional callback: fn(stage, step=0, total=0)
+        self.dump_fn = None  # optional trajectory hook, see AtomDiffusion.sample
 
         # Inference configuration
         self.predict_args = predict_args
@@ -5947,6 +5956,7 @@ class Boltz2(nn.Module):
                     steering_args=self.steering_args,
                     diffusion_conditioning=diffusion_conditioning,
                     progress_fn=_pfn,
+                    dump_fn=self.dump_fn,
                 )
                 dict_out.update(struct_out)
             # Same for the sampler's staged conditioning (the per-layer token bias alone is

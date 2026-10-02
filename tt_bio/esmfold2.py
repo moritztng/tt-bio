@@ -67,6 +67,17 @@ def report_progress(stage, step=0, total=0):
             pass
 
 
+# Optional trajectory hook: dump(step, x, x_denoised) receives the sampler's real coordinates,
+# step -1 being the initial noise and x_denoised the network's prediction at that step. Off unless
+# set_trajectory_dump() installs one. It only reads tensors the sampler already made, so a fold is
+# bit-identical with or without it. An exception raised by the hook aborts the fold.
+_DUMP = None
+
+def set_trajectory_dump(fn):
+    global _DUMP
+    _DUMP = fn
+
+
 def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
     """Manual fp32 attention (matmul + softmax + matmul). Used for the token
     AttentionPairBias, whose logits are NOT qk-normed and reach ~100+, making the
@@ -1474,6 +1485,8 @@ def sample_structure(denoise_fn, n_atoms, ref_mask, *, steps=14, sigma_data=16.0
     lam, eta = noise_scale, step_scale
     B = ref_mask.shape[0]
     x = schedule[0] * torch.randn(B, n_atoms, 3, generator=gen)
+    if _DUMP is not None:
+        _DUMP(-1, x, None)
     atom_mask = ref_mask.float()
     gammas = torch.where(schedule > gamma_min, torch.full_like(schedule, gamma_0), torch.zeros_like(schedule))
     x_prev = None
@@ -1488,6 +1501,8 @@ def sample_structure(denoise_fn, n_atoms, ref_mask, *, steps=14, sigma_data=16.0
         x_noisy = _weighted_rigid_align(x_noisy.float(), x_den.float(), atom_mask, atom_mask)
         x = x_noisy + eta * (float(s_t) - t_hat) * (x_noisy - x_den) / t_hat
         x_prev = x_den
+        if _DUMP is not None:
+            _DUMP(i, x, x_den)
     return x
 
 
