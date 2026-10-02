@@ -1882,6 +1882,9 @@ def design_model_class():
         raise ImportError(
             "BindCraft 2 is not importable. tt-bio does not ship it: install it from "
             "https://github.com/PacesaLab/BindCraft2 and put it on sys.path.") from exc
+    print("[tt_bio.bindcraft2] BindCraft 2 is the authors' software under their own licence, which "
+          "restricts hosting it for others: https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE",
+          file=sys.stderr, flush=True)
 
     class TenstorrentAlphaFoldDesignModel(AlphaFoldDesignModel):
         """BindCraft 2's design model with tt-bio's Evoformer trunk on a Tenstorrent card.

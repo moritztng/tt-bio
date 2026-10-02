@@ -104,10 +104,37 @@ MIT-licensed and credited in the top-level LICENSE.
    Weights:       pxdesign_v0.1.0.pt, downloaded on first use from
                   pxdesign.tos-cn-beijing.volces.com (Apache-2.0, not redistributed here)
 
-10. AlphaFold2 monomer pTM parameters — read by the AF2-IG selection stage that scores
-   PXDesign's designs. No AlphaFold code is vendored; the host-side featurizer and torch
-   trunk under tt_bio/af2*.py are an independent reimplementation.
-   Source:        storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar
-   License:       CC BY 4.0 — Copyright (c) DeepMind Technologies Limited
+10. AlphaFold2 monomer pTM — the reference model and parameters behind the AF2-IG
+   selection stage that scores PXDesign's designs. tt_bio/af2_reference.py is a torch
+   transcription of the AlphaFold model code that ColabDesign 1.1.3 vendors
+   (colabdesign/af/alphafold/model/: modules, common_modules, all_atom, r3), so it is a
+   modified port of DeepMind's code, not an independent design. The featurizer and the
+   rest of tt_bio/af2*.py are tt-bio's own.
+   Source:        github.com/google-deepmind/alphafold via github.com/sokrypton/ColabDesign
+   License:       Apache-2.0 — Copyright 2021 DeepMind Technologies Limited (code);
+                  CC BY 4.0 — Copyright (c) DeepMind Technologies Limited (parameters,
+                  storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar)
+   Modifications: translated from JAX/Haiku to torch, inference only, reading the
+                  checkpoint through tt_bio.af2_weights.
    Note:          only params_model_1_ptm.npz is extracted and kept; downloaded on first
                   use, not redistributed here
+
+Not included
+
+11. BindCraft 2 — tt-bio contains none of its code and does not distribute or serve it.
+   tt_bio.bindcraft2 is an adapter that binds to a copy of BindCraft 2 you install
+   yourself, and runs that copy's own design loop with tt-bio's AlphaFold 2 trunk.
+   BindCraft 2 stays under its own licence; tt-bio grants no rights in it.
+   Source:        github.com/PacesaLab/BindCraft2
+   License:       BindCraft2 Source-Available License (Hosting-Restricted) —
+                  Copyright (c) 2026 Martin Pacesa, University of Zurich, and the
+                  BindCraft2 contributors. Not an open source licence. Read at
+                  commit a8d0f2002df3 (licence text last changed ee849bcd52d5).
+   Restriction:   offering BindCraft 2, a modified version, or a service whose
+                  material functionality comes from it to third parties as a
+                  hosted, API, web, workflow-platform or agent-tool service needs a
+                  separate written commercial licence from the copyright holders.
+                  That includes running it through tt-bio on a Galaxy for others.
+                  Running it yourself and sharing the designs it produces does not.
+   Name:          "BindCraft2" is a trademark of the University of Zurich. tt-bio is
+                  not affiliated with or endorsed by the BindCraft 2 authors.

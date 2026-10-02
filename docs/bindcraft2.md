@@ -923,7 +923,17 @@ reference, and `offload` is bit-identical to `lean`.
 
 ## Licence
 
-BindCraft 2 ships under a source-available, hosting-restricted licence and tt-bio neither vendors
-it nor exposes it through any hosted service. There is no JapanFold route to BindCraft 2 and no
-catalog entry for it. Read BindCraft 2's licence and decide for yourself whether your use is
-inside it.
+BindCraft 2 is the work of Martin Pacesa, the University of Zurich and its contributors, under the
+[BindCraft2 Source-Available License (Hosting-Restricted)](https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE),
+which is not an open source licence. tt-bio does not include its code, does not distribute it and
+does not serve it: there is no JapanFold route or catalog entry for it. `tt_bio.bindcraft2` only
+binds to the copy you install, so running it on a card is your own use of BindCraft 2 under that
+licence. The licence allows that for any purpose, commercial included, and lets you share the
+designs it produces.
+
+What it does not allow without a separate written commercial licence from the copyright holders is
+offering BindCraft 2, a modified version, or a service built on it to third parties as a hosted
+service: a web app, an API, a workflow platform, or a tool an agent can call. Running it through
+tt-bio on a Galaxy for other people's jobs counts. "BindCraft2" is a trademark of the University of
+Zurich; tt-bio is compatible with BindCraft 2 and is not affiliated with or endorsed by its
+authors.
