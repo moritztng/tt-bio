@@ -194,8 +194,15 @@ class Dev:
     def evo(self, i, m, z, msa_mask=None, pair_masks=(None, None)):
         return self.dm.device_evoformer[i](m, z, msa_mask, *pair_masks)
 
+    def arm(self, memory):
+        """Set the blocks to a `bindcraft2.MEMORY_MODES` mode; returns whether to offload."""
+        run = self.ag.substep if memory != "fast" else None
+        for blk in (*self.dm.device_extra_msa, *self.dm.device_evoformer):
+            blk.step_runner = run
+        return memory == "offload"
+
     def stack(self, m, z, k_extra, k_evo, extra_first=0, evo_first=0, ckpt=False,
-              msa_mask=None, pair_masks=(None, None)):
+              msa_mask=None, pair_masks=(None, None), memory="fast"):
         """`pair_masks` is `af2.af2_pair_masks(mask_2d)` -- the multiply and the key bias.
 
         Defaulted to `(None, None)`, which is the unmasked fold every leg in this file times,
@@ -203,12 +210,14 @@ class Dev:
         reads it, and dropping it cost the positive control 0.95 pLDDT against 0.53
         (`perf/bcx_mono/masked_fold.json`).
         """
+        off = self.arm(memory)
         for i in range(extra_first, extra_first + k_extra):
-            z = self.ag.checkpoint(lambda t, i=i: self.extra(i, t), z) if ckpt else self.extra(i, z)
+            z = (self.ag.checkpoint(lambda t, i=i: self.extra(i, t), z, offload=off) if ckpt
+                 else self.extra(i, z))
         for i in range(evo_first, evo_first + k_evo):
             if ckpt:
                 m, z = self.ag.checkpoint(
-                    lambda a, b, i=i: self.evo(i, a, b, msa_mask, pair_masks), m, z)
+                    lambda a, b, i=i: self.evo(i, a, b, msa_mask, pair_masks), m, z, offload=off)
             else:
                 m, z = self.evo(i, m, z, msa_mask, pair_masks)
         return m, z
@@ -496,7 +505,7 @@ def cmd_stack(args):
         with TapingCensus() as tc:
             t0 = time.time()
             with dev.tt.tape():
-                mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt)
+                mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt, memory=args.memory)
             dev.sync()
             t1 = time.time()
         mo_h = dev.down(mo.value, m0.shape).double()
@@ -574,7 +583,9 @@ def cmd_stack(args):
     print(json.dumps({k: blob[k] for k in ("device_repeat_max_abs_diff", "zero_seed_max_abs",
                                            "reach_across_steps", "permuted_device_grad_vs_f64")}),
           flush=True)
+    blob["memory"] = args.memory
     stem = (f"stack_n{n}_e{ke}_v{kv}{'_ckpt' if args.ckpt else ''}"
+            f"{'' if args.memory == 'fast' else '_' + args.memory}"
             f"{'_controls' if args.controls_only else ''}")
     save(stem + ".json", blob)
     # the vectors themselves, so two arms (plain vs checkpointed) can be compared bit for bit
@@ -864,6 +875,9 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--eps", default="1e-1,3e-2,1e-2,3e-3,1e-3")
     ap.add_argument("--ckpt", action="store_true")
+    ap.add_argument("--memory", default="fast", choices=("fast", "lean", "offload"),
+                    help="how a checkpointed block spends device memory "
+                         "(tt_bio.bindcraft2.MEMORY_MODES). Only acts with --ckpt")
     ap.add_argument("--msa-mask", action="store_true",
                     help="vjp: Evoformer blocks read an all-ones MSA mask, which routes them "
                          "through the mask biases a design step builds; the float64 reference "

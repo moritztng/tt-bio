@@ -1,0 +1,5 @@
+=== 2026-10-01T12:39:37Z camp_off arm=0 card=0 commit=8b98b5910
+=== 2026-10-01T12:39:37Z camp_on arm=1 card=2 commit=8b98b5910
+=== rc=0 2026-10-01T15:24:52Z camp_on
+=== rc=0 2026-10-01T16:11:18Z camp_off
+=== 2026-10-01T16:49:16Z a288_chunk forced-chunk card=0 commit=e265f69a9

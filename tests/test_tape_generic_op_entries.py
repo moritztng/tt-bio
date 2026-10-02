@@ -97,7 +97,8 @@ def test_the_registry_holds_exactly_the_kernels_that_declare_an_entry():
     """Pinned on purpose: a kernel that registers no entry declines under every tape, silently,
     and reads in an A/B as a lever that measured nothing."""
     assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi",
-                               "rne_add", "reblock_permute_gated", "pair_transpose"}
+                               "rne_add", "reblock_permute_gated", "pair_transpose",
+                               "triatt_qkv_heads"}
 
 
 def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping):

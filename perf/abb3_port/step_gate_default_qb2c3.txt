@@ -1,6 +1,6 @@
 # scripts/abb3_port/step_gate.py at its default and at the --micro 8 value that does not fit, on
 # qb2 card 3 (/dev/tenstorrent/3), Blackhole p300c, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
-RECORDED-AT: 834b50a413b45d5ee2a6cdabfe9e59300c477201 scripts/abb3_port/step_gate.py
+RECORDED-AT: 0bf40c90b5b9cc20e954d7802619ab587639fb11 scripts/abb3_port/step_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (lnbw). Replaces the record taken at
 # 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw was wired into the layer-norm
@@ -21,25 +21,29 @@ RECORDED-AT: 834b50a413b45d5ee2a6cdabfe9e59300c477201 scripts/abb3_port/step_gat
 # --micro 8 still OOMs. The 20.383 s median ran with 2 cotenants elsewhere on the box (19.013 s
 # uncontended at 3e617f520), so it is a fit record, not a perf claim. Raw: perf/bcp_evo/out/abb3/step_gate.txt.
 #
+# RE-RECORDED on the rel012 integration tree, run at 0bf40c90b, 22:15-22:21Z 2026-10-01, qb2 card 0,
+# no cotenant on the box. Losses 4.9937 / 4.9918 / 4.9910 at steps 1, 5, 10, 500 taped parameters and
+# the 30981 MB DRAM peak are identical to the bcp-evo record; --micro 8 still OOMs on the same
+# 100 663 296 B request. Median 18.703 s at AICLK median 1350 (min 1343); a fit record, not a perf
+# claim. Raw: perf/rel012_integrate/out/abb3/step_gate.txt.
+#
 == --micro 8 --accumulate 8 --steps 1 --warmup 1 ==
-2026-10-01 14:30:20.518 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252359040 B, free: 25830976 B, largest free block: 8388608 B) (assert.hpp:104)
-host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 2 elsewhere, 341 pid(s) unreadable
-  elsewhere  pid 1795134 -> /dev/tenstorrent/2  /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e
-  elsewhere  pid 1795135 -> /dev/tenstorrent/0  /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e
-  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15] ...
+2026-10-01 22:16:14.981 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252359040 B, free: 25830976 B, largest free block: 8388608 B) (assert.hpp:104)
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 0 elsewhere, 328 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14] ...
   sidechain FAPE on the card
   taped device parameters: 500
 Traceback (most recent call last):
-  File "/home/ttuser/.coworker/wt/bcp-evo/scripts/abb3_port/step_gate.py", line 279, in <module>
+  File "/home/ttuser/.coworker/wt/rel012-integrate/scripts/abb3_port/step_gate.py", line 279, in <module>
     raise SystemExit(main())
                      ^^^^^^
-  File "/home/ttuser/.coworker/wt/bcp-evo/scripts/abb3_port/step_gate.py", line 148, in main
+  File "/home/ttuser/.coworker/wt/rel012-integrate/scripts/abb3_port/step_gate.py", line 148, in main
     step.step(micro)
-  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/train/abodybuilder3_step.py", line 242, in step
+  File "/home/ttuser/.coworker/wt/rel012-integrate/tt_bio/train/abodybuilder3_step.py", line 242, in step
     grad.backward(packed["roots"], packed["seeds"])
-  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/train/abodybuilder3_grad.py", line 108, in backward
+  File "/home/ttuser/.coworker/wt/rel012-integrate/tt_bio/train/abodybuilder3_grad.py", line 108, in backward
     t.node.fn(t.grad)
-  File "/home/ttuser/.coworker/wt/bcp-evo/tt_bio/train/abodybuilder3_grad.py", line 278, in bw
+  File "/home/ttuser/.coworker/wt/rel012-integrate/tt_bio/train/abodybuilder3_grad.py", line 278, in bw
     twice_diff = ttnn.multiply(ttnn.subtract(av, bv), 2.0)
                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 473, in __call__
@@ -49,7 +53,7 @@ RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: 
 info:
 Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252359040 B, free: 25830976 B, largest free block: 8388608 B)
 backtrace:
- --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7ba3c36d2697]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x74d5e16d2697]
  --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)
  --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)
  --- tt::tt_metal::Buffer::allocate_impl()
@@ -58,13 +62,13 @@ backtrace:
  --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)
  --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)
  --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)
- --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x7ba3c4d1886f]
- --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorEfNS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0x3ca) [0x7ba3c4d0af1a]
- --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadebcf) [0x7ba3c4cdebcf]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x74d5e2d1886f]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorEfNS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0x3ca) [0x74d5e2d0af1a]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadebcf) [0x74d5e2cdebcf]
  --- ttnn::multiply(tt::tt_metal::Tensor const&, float, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)
- --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(_ZN4ttnn10operations6binary6detail34multiply_fast_approx_tensor_scalarERKN2tt8tt_metal6TensorEfbRKSt8optionalIKNS4_8DataTypeEERKS8_INS4_12MemoryConfigEERKS8_IS5_ESt4spanIKNS0_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESQ_SQ_RKS8_IbERKS8_INS4_12CoreRangeSetEE+0x96) [0x7ba3c5f29016]
- --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x5c0302) [0x7ba3c5fc0302]
- --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7ba3c5c6daa5]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(_ZN4ttnn10operations6binary6detail34multiply_fast_approx_tensor_scalarERKN2tt8tt_metal6TensorEfbRKSt8optionalIKNS4_8DataTypeEERKS8_INS4_12MemoryConfigEERKS8_IS5_ESt4spanIKNS0_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESQ_SQ_RKS8_IbERKS8_INS4_12CoreRangeSetEE+0x96) [0x74d5e3f29016]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x5c0302) [0x74d5e3fc0302]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x74d5e3c6daa5]
  --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x111) [0x54a851]
  --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]
  --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b12c]
@@ -80,42 +84,37 @@ backtrace:
  --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]
  --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]
  --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]
- --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7ba409e2a1ca]
- --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7ba409e2a28b]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x74d627e2a1ca]
+ --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x74d627e2a28b]
  --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]
 
 == default: --micro 4 --accumulate 16 --steps 10 --warmup 1 ==
-host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 2 elsewhere, 338 pid(s) unreadable
-  elsewhere  pid 1795134 -> /dev/tenstorrent/2  /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e
-  elsewhere  pid 1795135 -> /dev/tenstorrent/0  /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e
-  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15] ...
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 0 elsewhere, 329 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14] ...
   sidechain FAPE on the card
   taped device parameters: 500
   every one of 500 parameters took a non-zero gradient
-host [device open, before timing]: our node(s) ['/dev/tenstorrent/3']; 0 cotenant(s) on our node, 2 elsewhere, 337 pid(s) unreadable
-  elsewhere  pid 1795134 -> /dev/tenstorrent/2  /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e
-  elsewhere  pid 1795135 -> /dev/tenstorrent/0  /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py --params /home/ttuser/bcx_e
-  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15] ...
-  step   1  22.190 s  loss 4.9937  (median so far 22.190 s)
-  step   5  20.217 s  loss 4.9918  (median so far 21.075 s)
-  step  10  20.522 s  loss 4.9910  (median so far 20.383 s)
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 0 elsewhere, 328 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14] ...
+  step   1  18.632 s  loss 4.9937  (median so far 18.632 s)
+  step   5  18.911 s  loss 4.9918  (median so far 18.654 s)
+  step  10  18.672 s  loss 4.9910  (median so far 18.703 s)
 
-STEP: median 20.383 s over 10 COMPLETE steps at batch 64 (16 x 4) and 256 tokens, min 19.572 s, max 22.190 s
+STEP: median 18.703 s over 10 COMPLETE steps at batch 64 (16 x 4) and 256 tokens, min 18.632 s, max 18.911 s
 BREAKDOWN (median over steps, seconds and share of the step):
-  forward             5.136 s   25.2 %
-  download            0.140 s    0.7 %
-  losses              3.410 s   16.7 %
-  host_backward       2.690 s   13.2 %
-  device_backward     8.827 s   43.3 %
-  optimizer           0.064 s    0.3 %
+  forward             4.838 s   25.9 %
+  download            0.073 s    0.4 %
+  losses              2.644 s   14.1 %
+  host_backward       2.217 s   11.9 %
+  device_backward     8.671 s   46.4 %
+  optimizer           0.055 s    0.3 %
 LOSS TERMS (cumulative over 11 steps, share of the loss stage):
-  fape_sidechain      23.41 s   49.5 %
-  renamed_gt          12.90 s   27.3 %
-  fape_backbone        9.25 s   19.6 %
-  final_backbone       1.33 s    2.8 %
-  supervised_chi       0.39 s    0.8 %
-CLOCK: AICLK during the run: card 0 min 1318 median 1350 max 1350 MHz over 85
+  fape_sidechain      19.87 s   55.0 %
+  renamed_gt           8.83 s   24.4 %
+  fape_backbone        6.56 s   18.1 %
+  final_backbone       0.76 s    2.1 %
+  supervised_chi       0.12 s    0.3 %
+CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 81
 DRAM: peak 30981 MB of the card's 32640 MB at micro 4 x 16 and 256 tokens, 1659 MB spare. Sampled after every abodybuilder3_ops call of the warmup step; the timed steps run uninstrumented
 INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
 TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
-CONTENDED: 0 cotenant(s) on our node and 2 elsewhere

@@ -22,25 +22,32 @@ crosses DRAM is q, k, v, dO in and dq, dk, dv out, which is 9x less than the sco
 THE BIAS GRADIENT IS WHY THIS CANNOT BE TWO OPS. The bias is `[1, H, S, S]` broadcast over the
 leading axis, so `dbias` is the score gradient summed over that axis -- and dS exists only inside
 this kernel. Splitting the gradient computation from the bias reduction would mean materialising
-dS, which is the thing being avoided. So each core carries a `[S, S]` float32 accumulator in its
-own L1 for its own group of the leading axis, writes it once at the end, and a single `ttnn.sum`
-over the group axis finishes it. Float32 and not bf16: the accumulator sums a few hundred terms
-and the reduce sums the partials on top of that, and a bf16 accumulator would put a rounding floor
-under the one gradient this kernel produces by reduction rather than by matmul.
+dS, which is the thing being avoided. So each core carries a float32 accumulator in its own L1
+for its own group of the leading axis, writes it once at the end, and a single `ttnn.sum` over the
+group axis finishes it. Float32 and not bf16: the accumulator sums the core's rows and the reduce
+sums the partials on top of that, and a bf16 accumulator would put a rounding floor under the one
+gradient this kernel produces by reduction rather than by matmul.
 
 The key axis is never chunked, which is what keeps log-sum-exp bookkeeping out of this file. A
 flash kernel chunks keys, so every block sees a partial softmax denominator and has to carry
 running row statistics and rescale. Here each core holds every key for its rows, so each softmax
 is exact and complete the first time.
 
-THE QUERY AXIS IS NOT CHUNKED EITHER, AND `q_chunk_tiles` IS A COST MODEL, NOT A LEVER. Nothing
-would stop it in principle -- `dbias` rows are indexed by the query row, so query chunks need no
-cross-chunk reduction -- but `compute/triatt_bw.cpp` takes `Nt` as compile-time arg 0 and works in
-`score_tiles = Nt * Nt`; it is never told a chunk and has no loop over one. `cb_table` below DOES
-shrink the three score-sized buffers to `Qt * Nt`, so a plan with `Qt < Nt` prices a config the
-kernel cannot run: it would read `Nt * Nt` tiles out of buffers holding `Qt * Nt`. `build` refuses
-such a plan rather than letting it reach a kernel. Making the knob real means teaching the compute
-kernel a query loop, which is a kernel change and not a host one.
+THE QUERY AXIS IS CHUNKED, OUTSIDE THE LEADING AXIS, when the whole query does not fit. Whole,
+`bias` and the `dbias` accumulator are `[Nt, Nt]` each and alone cross the L1 budget at 512 tokens.
+With a chunk of `Qt` query tiles the core fronts `bias[h, chunk]` and seeds `dbias[chunk]`, both
+`[Qt, Nt]`, and streams every row of its group through them before moving to the next chunk.
+`dbias` rows are indexed by the query row, so they need no cross-chunk reduction. dK and dV do:
+they sum over query rows, so with more than one chunk they are float32 running sums in DRAM, each
+chunk adding to what the previous one wrote for the same row (`SEM_WRITTEN` orders the read after
+the write), and one cast to bf16 at the end. `serving_plan` takes the whole query when it fits and
+otherwise the largest chunk that divides `Nt` and fits, which serves every bucket from 288 to 1024
+tokens. At a shape where the whole query fits, the program is the pre-loop one, bit for bit.
+
+WORMHOLE SERVES THE WHOLE-QUERY FORM ONLY. The chunked form has been graded against float64 on
+Blackhole and has not run on a Wormhole chip, so `serving_plan` declines a chunk there and the
+caller keeps the chunked-recompute fallback. Lifting that is deleting one line in `serving_plan`,
+after `perf/bcw_dbias/grade.py` has run on Wormhole at 288, 544 and 768.
 
 Driven through `tt_bio.sdpa_generic`'s machinery rather than the wheel's SDPA kernels: the forward
 inherits `reader_interleaved.cpp`'s chain-forwarding, multicast, paging and MLA arguments, all of
@@ -76,14 +83,25 @@ from .envflags import env_flag, env_int
 
 TILE = 32
 
-# The whole-query form needs `bias`, `P`, `dS` and a transpose scratch live at once, plus a float32
-# `dbias` accumulator that does not shrink with the query chunk. Past this many tiles on the token
-# axis it stops fitting and the caller falls back. `q_chunk_tiles` would pull the three
-# score-sized buffers back under the line, but only in the price: see the module docstring.
-# Blackhole has 1.5 MB of L1 per core; tt-metal reserves the bottom of it for the program itself,
-# and `sdpa_generic` already carries the figure the forward was sized against.
-L1_PER_CORE = getattr(SG, "L1_PER_CORE", 1499136)
-PROGRAM_RESERVE = getattr(SG, "PROGRAM_RESERVE", 0)
+# CB bytes one core may hold: its L1 less what tt-metal reserves below the CBs. Blackhole's figure
+# is `sdpa_generic`'s, exact on ten measured refusals. Wormhole has 1464 KiB of L1, not 1536, and
+# its L1 bank is 1395424 B (a Galaxy's own allocator report, `perf/ceilrfd3/results`). Priced
+# against Blackhole's figure, a Wormhole plan at 480 tokens takes a chunk of 5 query tiles that
+# tt-metal refuses at program creation, inside a backward, with no fallback; against its own it
+# takes 3.
+L1_PER_CORE = getattr(SG, "L1_PER_CORE", 1572864)
+PROGRAM_RESERVE = getattr(SG, "PROGRAM_RESERVE", 109056)
+WH_CB_BUDGET = 1395424
+
+
+def _wormhole() -> bool:
+    from . import tenstorrent
+    return tenstorrent.is_wormhole()
+
+
+def cb_budget(wormhole=None) -> int:
+    wormhole = _wormhole() if wormhole is None else wormhole
+    return WH_CB_BUDGET if wormhole else L1_PER_CORE - PROGRAM_RESERVE
 
 FUSED = env_flag("TT_BIO_TRIATT_BW_FUSED", False)
 
@@ -159,28 +177,35 @@ def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
     return p
 
 
-def fits_l1(p) -> bool:
-    """Whether tt-metal will accept this config's CBs, priced the way `sdpa_generic` prices."""
-    return p["l1_bytes"] + PROGRAM_RESERVE <= L1_PER_CORE
+def fits_l1(p, wormhole=None) -> bool:
+    """Whether tt-metal will accept this config's CBs on this board."""
+    return p["l1_bytes"] <= cb_budget(wormhole)
 
 
-def largest_fitting_q_chunk(B, H, N, d, grid, **kw):
-    """The biggest query chunk that would fit, or None if even one tile row would not.
-
-    PRICING ONLY -- a `Qt < Nt` result is not runnable today, because the compute kernel has no
-    query loop (module docstring), and `build` refuses it. This is what says how much L1 a query
-    loop would buy if one were written: on BindCraft 2's shape it moves the serving range from
-    288 tokens to 384 and no further, since `bias` and the float32 `dbias` accumulator are Nt^2
-    tiles each whatever `Qt` is and they alone cross the budget at 512.
-    """
+def largest_fitting_q_chunk(B, H, N, d, grid, wormhole=None, **kw):
+    """The biggest query chunk that divides `Nt` and fits, or None if one tile row does not."""
     Nt = N // TILE
     for qt in range(Nt, 0, -1):
         if Nt % qt:
             continue
         p = plan(B, H, N, d, grid, q_chunk_tiles=qt, **kw)
-        if fits_l1(p):
+        if fits_l1(p, wormhole):
             return p
     return None
+
+
+def serving_plan(B, H, N, d, grid, wormhole=None, **kw):
+    """The plan `run` uses: the whole-query form when it fits, else the largest query chunk.
+
+    `wormhole` defaults to the board this process sees; tests pass it to price the other one.
+    """
+    wormhole = _wormhole() if wormhole is None else wormhole
+    p = plan(B, H, N, d, grid, **kw)
+    if fits_l1(p, wormhole):
+        return p
+    if wormhole:
+        return None   # the chunked form is ungraded on Wormhole (module docstring)
+    return largest_fitting_q_chunk(B, H, N, d, grid, wormhole, **kw)
 
 
 def eligible(q, k, v, bias, *, taping=False):
@@ -216,6 +241,8 @@ CB_SCALAR = 5                    # the packed bf16 1.0 the row reductions scale 
 CB_ZERO = 6                      # one all-zero tile, what the dbias accumulator is seeded from
 CB_SCALE = 7                     # the attention scale, as a broadcast scalar
 CB_ONES = 8                      # Nt copies of the column identity: every row sum is a matmul
+CB_PREV = 9                      # the previous query chunk's float32 dV, then dK, for one row
+CB_TMP = 10                      # this chunk's dV or dK before the previous chunk's is added
 CB_P = 24                        # S, then P, in place
 CB_DP = 25                       # dP, then dS, in place
 CB_T = 26                        # transpose scratch: P^T for dV, dS^T for dK
@@ -223,6 +250,7 @@ CB_ROW_A, CB_ROW_B = 27, 28      # row max, then row sum, then its reciprocal
 CB_DBIAS = 29                    # float32 accumulator, [Nt, Nt], persistent across the whole group
 CB_DONE = 30                     # carries no data: the writer's handshake on the dbias accumulator
 CB_DQ, CB_DK, CB_DV = 16, 17, 18
+SEM_WRITTEN = 0
 
 # There is deliberately no separate output buffer for `dbias`. The accumulator is read and written
 # in place across the whole group and then pushed once, so the writer drains the same L1 the
@@ -243,26 +271,34 @@ def cb_table(p):
     Nt, Dt, Qt = p["Nt"], p["Dt"], p["Qt"]
     bf16, f32 = ttnn.bfloat16, ttnn.float32
     b16, b32 = 2048, 4096
+    # With more than one query chunk dK and dV are float32 partials summed across chunks, single
+    # buffered to keep L1 for the chunk, and the previous chunk's partial needs somewhere to land.
+    # With one chunk the two extra buffers are never touched and hold one tile each.
+    chunked = Qt < Nt
+    kv = (Nt * Dt, b32, f32) if chunked else (Nt * Dt * 2, b16, bf16)
+    side = Nt * Dt if chunked else 1
     return [
-        (CB_Q, Nt * Dt * 2, b16, bf16),
+        (CB_Q, Qt * Dt * 2, b16, bf16),
         (CB_K, Nt * Dt * 2, b16, bf16),
         (CB_V, Nt * Dt * 2, b16, bf16),
-        (CB_DO, Nt * Dt * 2, b16, bf16),
-        (CB_BIAS, Nt * Nt, b16, bf16),
+        (CB_DO, Qt * Dt * 2, b16, bf16),
+        (CB_BIAS, Qt * Nt, b16, bf16),
         (CB_SCALAR, 1, b16, bf16),
         (CB_ZERO, 1, b16, bf16),
         (CB_SCALE, 1, b16, bf16),
         (CB_ONES, Nt, b16, bf16),
+        (CB_PREV, side, b32, f32),
+        (CB_TMP, side, b32, f32),
         (CB_DONE, 1, b16, bf16),
         (CB_P, Qt * Nt, b16, bf16),
         (CB_DP, Qt * Nt, b16, bf16),
         (CB_T, Qt * Nt, b16, bf16),
         (CB_ROW_A, Qt, b16, bf16),
         (CB_ROW_B, Qt, b16, bf16),
-        (CB_DBIAS, Nt * Nt, b32, f32),
-        (CB_DQ, Nt * Dt * 2, b16, bf16),
-        (CB_DK, Nt * Dt * 2, b16, bf16),
-        (CB_DV, Nt * Dt * 2, b16, bf16),
+        (CB_DBIAS, Qt * Nt, b32, f32),
+        (CB_DQ, Qt * Dt * 2, b16, bf16),
+        (CB_DK, *kv),
+        (CB_DV, *kv),
     ]
 
 
@@ -272,6 +308,7 @@ def cb_bytes(p) -> int:
 
 # Every CB index the three kernels name, kept beside the table it has to agree with.
 KERNEL_CB_INDICES = {CB_Q, CB_K, CB_V, CB_DO, CB_BIAS, CB_SCALAR, CB_ZERO, CB_SCALE, CB_ONES,
+                     CB_PREV, CB_TMP,
                      CB_P, CB_DP, CB_T, CB_ROW_A, CB_ROW_B, CB_DBIAS, CB_DONE,
                      CB_DQ, CB_DK, CB_DV}
 
@@ -375,14 +412,8 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
     num_cores = p["num_cores"]
     core_grid = work_cores(num_cores, gx)
 
-    if p["Qt"] != Nt:
-        # `cb_table` sizes CB_P, CB_DP and CB_T at `Qt * Nt` tiles; the compute kernel works in
-        # `score_tiles = Nt * Nt` and never learns about a chunk. Running one would read past
-        # three buffers rather than refuse, which is the silent-wrong-answer class, so it is
-        # stopped here where the kernels are made rather than left to the price to imply.
-        raise ValueError(
-            f"query chunking is priced but not implemented: Qt={p['Qt']} against Nt={Nt}. "
-            "compute/triatt_bw.cpp has no query loop; teach it one before setting this")
+    if Nt % p["Qt"]:
+        raise ValueError(f"query chunk {p['Qt']} does not divide Nt={Nt}")
     check_cb_coverage(p)
     cbs = [ttnn.CBDescriptor(
         total_size=n * page, core_ranges=core_grid,
@@ -402,15 +433,19 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
                        ("dq", dq), ("dk", dk), ("dv", dv), ("part", dbias_partial)):
             print(f"  addr {nm:5s} 0x{tn.buffer_address():x}  acc_len {len(acc(tn))}  "
                   f"dtype {tn.dtype} shape {list(tn.padded_shape)}")
-    reader_ct = [H, Nt, Dt, qkv_tb, bias_tb] + acc(q) + acc(k) + acc(v) + acc(do) + acc(bias)
-    writer_ct = ([H, Nt, Dt, qkv_tb, part_tb, SG._packed_identity_scalar(), _packed_bf16(scale)]
+    kv_tb = SG.tile_bytes(dk.dtype)
+    reader_ct = ([H, Nt, Dt, qkv_tb, bias_tb, p["Qt"], kv_tb, SEM_WRITTEN]
+                 + acc(q) + acc(k) + acc(v) + acc(do) + acc(bias) + acc(dk) + acc(dv))
+    writer_ct = ([H, Nt, Dt, qkv_tb, part_tb, SG._packed_identity_scalar(), _packed_bf16(scale),
+                  p["Qt"], kv_tb, SEM_WRITTEN]
                  + acc(dq) + acc(dk) + acc(dv) + acc(dbias_partial))
 
     # Subblocks are what keep a result inside DST. A [Nt, Nt] score block and a [Nt, Dt] gradient
     # column have different aspect ratios, so they get different ones.
-    sq_h, sq_w = SG.largest_subblock(Nt, Nt, p["dst_size"])
+    sq_h, sq_w = SG.largest_subblock(p["Qt"], Nt, p["dst_size"])
     col_h, col_w = SG.largest_subblock(Nt, Dt, p["dst_size"])
-    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w]
+    qcol_h, _ = SG.largest_subblock(p["Qt"], Dt, p["dst_size"])
+    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w, p["Qt"], qcol_h]
 
     kd = _kdir()
     rr, wr, cr = [], [], []
@@ -424,7 +459,8 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
         head, group = i % H, i // H
         r0 = min(group * p["rows_per_core"], p["B"])
         r1 = min(r0 + p["rows_per_core"], p["B"])
-        rr.append((core, [addrs[0], addrs[1], addrs[2], addrs[3], addrs[4], head, r0, r1]))
+        rr.append((core, [addrs[0], addrs[1], addrs[2], addrs[3], addrs[4], head, r0, r1,
+                          addrs[6], addrs[7]]))
         wr.append((core, [addrs[5], addrs[6], addrs[7], addrs[8], head, group, r0, r1]))
         cr.append((core, [r0, r1]))
 
@@ -456,12 +492,15 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
                 math_fidelity=ckc[0], math_approx_mode=False,
                 fp32_dest_acc_en=True, dst_full_sync_en=False)),
     ]
-    pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
+    # Counts (chunk, row) writes of dK/dV that have hit the write barrier, so the reader never
+    # reads a partial back before it lands. Reset to zero every launch.
+    sems = [ttnn.SemaphoreDescriptor(id=SEM_WRITTEN, core_ranges=core_grid, initial_value=0)]
+    pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=sems, cbs=cbs)
     return {"pd": pd, "kernels": kernels, "cbs": cbs, "plan": p, "rt": (rr, wr, cr),
             "addrs": addrs}
 
 
-def run(device, q, k, v, bias, g, scale, ckc, packed=False):
+def run(device, q, k, v, bias, g, scale, ckc, packed=False, q_chunk_tiles=None, grid=None):
     """The whole backward for one triangle-attention call. Returns (dq, dk, dv, dbias).
 
     With `packed`, dq, dk and dv are one and the same [B, 1, N, 3*H*d] tensor, laid out as the
@@ -473,20 +512,33 @@ def run(device, q, k, v, bias, g, scale, ckc, packed=False):
     they are allocated uninitialised rather than zeroed.
     """
     B, H, N, d = (int(x) for x in q.padded_shape)
-    grid = device.compute_with_storage_grid_size()
-    p = plan(B, H, N, d, (grid.x, grid.y))
-    if not fits_l1(p):
-        raise ValueError(f"does not fit L1: {p['l1_bytes']} bytes")
+    if grid is None:
+        cg = device.compute_with_storage_grid_size()
+        grid = (cg.x, cg.y)
+    # `q_chunk_tiles` forces a chunk, which is how the grader reaches the looped kernel at a
+    # shape the whole-query form would also fit, and on a board `serving_plan` declines it on.
+    # `grid` forces a smaller work split, which is how Wormhole's 8x8 runs on a Blackhole card.
+    p = (serving_plan(B, H, N, d, grid) if q_chunk_tiles is None
+         else plan(B, H, N, d, grid, q_chunk_tiles=q_chunk_tiles))
+    if p is None or not fits_l1(p):
+        raise ValueError(f"does not fit L1 at any query chunk: N={N}")
 
-    def like(t):
-        return ttnn.empty(t.padded_shape, t.dtype, ttnn.TILE_LAYOUT, device,
+    def like(t, dtype=None):
+        return ttnn.empty(t.padded_shape, dtype or t.dtype, ttnn.TILE_LAYOUT, device,
                           ttnn.DRAM_MEMORY_CONFIG)
 
+    # dK and dV sum across query chunks, so with more than one they are float32 running sums.
+    kv_dtype = ttnn.float32 if p["Qt"] < p["Nt"] else None
     if packed:
+        # A float32 running sum has no place in the packed bf16 buffer, so the caller only asks
+        # for `packed` when the plan is the whole-query kernel (see `autograd.triangle_attention`).
+        if kv_dtype is not None:
+            raise ValueError(f"packed dq/dk/dv needs the whole-query kernel, the plan chunks "
+                             f"N={N} at Qt={p['Qt']} of {p['Nt']}")
         dq = dk = dv = ttnn.empty(ttnn.Shape([B, 1, N, 3 * H * d]), q.dtype, ttnn.TILE_LAYOUT,
                                   device, ttnn.DRAM_MEMORY_CONFIG)
     else:
-        dq, dk, dv = like(q), like(k), like(v)
+        dq, dk, dv = like(q), like(k, kv_dtype), like(v, kv_dtype)
     part = ttnn.empty(ttnn.Shape(partial_shape(p)), ttnn.float32, ttnn.TILE_LAYOUT, device,
                       ttnn.DRAM_MEMORY_CONFIG)
     e = build(device, q, k, v, g, bias, dq, dk, dv, part, p, ckc, scale, packed)
@@ -498,6 +550,9 @@ def run(device, q, k, v, bias, g, scale, ckc, packed=False):
     dbias = (_ls.lead_sum(part) if _ls.eligible(part)
              else ttnn.sum(part, dim=0, keepdim=True))
     ttnn.deallocate(part)
+    if kv_dtype is not None:
+        # One rounding to bf16 at the end, the same one the whole-query kernel's pack makes.
+        dk, dv = (ttnn.typecast(t, ttnn.bfloat16) for t in (dk, dv))
     STATS["served"] += 1
     STATS["packed"] += bool(packed)
     return dq, dk, dv, dbias

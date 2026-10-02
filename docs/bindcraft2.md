@@ -2,7 +2,7 @@
 
 [BindCraft 2](https://github.com/PacesaLab/BindCraft2) designs binders by differentiating
 AlphaFold 2 through a sequence. `tt_bio.bindcraft2` gives it an Evoformer trunk that runs on a
-Blackhole chip. BindCraft 2 keeps everything else: its padding, templates, input features,
+Blackhole chip or one chip of a Wormhole Galaxy. BindCraft 2 keeps everything else: its padding, templates, input features,
 structure module, confidence heads, Kabsch alignment, filters, ranking and step budget. Only
 AlphaFold 2's 48 Evoformer blocks move, which is where every O(L^3) op in the trunk lives.
 
@@ -23,7 +23,7 @@ yourself, and BindCraft 2's own licence governs what you may do with it.
 - AlphaFold 2 parameters: `tt-bio weights --download af2ig` puts `params_model_1_ptm.npz` in
   tt-bio's weights cache, which is also a valid `data_dir` for BindCraft 2. A multi-model campaign
   needs one `params_<model>.npz` per model it draws from, in one directory.
-- One Blackhole card, pinned. ttnn brings up every card `TT_VISIBLE_DEVICES` names, not just the
+- One chip, Blackhole or Wormhole, pinned. ttnn brings up every card `TT_VISIBLE_DEVICES` names, not just the
   one it computes on, so pin it to the chip you were given.
 
 ## Run a campaign
@@ -123,28 +123,51 @@ binder against the 115-residue PD-L1 target at 288 tokens.
 
 The two campaigns accepted the same two designs, with bit-identical coordinates and the same
 metrics on all six trajectories. Interleaving buys time and changes nothing else about the
-result. An H200 runs this round in 0.696 s, so interleaving took the default from 10.6x that
-to 8.6x.
+result. An H200 runs this round in 0.696 s, so on that p150a interleaving took the default from
+10.6x the H200 to 8.6x. Those campaigns ran v0.11.0, before any of the gradient kernels below.
 
-Both campaigns above predate the fused layer-norm backward, which is why their round reads 6.00 s.
-On the current default the same campaign is faster: **5.186 s a round and 630.1 s per completed
-trajectory** on a p300c chip at AICLK 1350, 7.45x the H200. That run accepted 1 of 6 trajectories,
-3,781 chip-seconds per accepted design. Read that against the 2,321 above with care: a
-six-trajectory budget cannot separate one accepted design from two (Fisher exact, p = 1.0), so
-per-design cost is the one column here that a single campaign does not settle.
+### What the round costs in this release
 
-The round on its own, measured tighter: eight arms alternating in one sitting on one card, nine
-rounds each, first round dropped. One trajectory reads **7.204 s** a round (7.183-7.258 across
-four arms) against **5.899 s** at three (5.891-5.912), **1.221x**. AICLK was 1350 MHz in every
-arm, sampled during the rounds, with no sample under 1200. Both figures are without the fused
-layer-norm backward; with it, three trajectories read **5.186 s** a round (5.169-5.210) against
-5.969 s with it off, six arms alternated in one sitting at AICLK 1350.
-Eleven further gradient kernels (listed under
-[BindCraft 2 round kernels](tuning-flags.md#bindcraft-2-round-kernels)) take it 1.27x lower again:
-4.50 against 5.70 s a round, six arms alternated in one sitting at AICLK 1350 on a host other
-campaigns held at load1 8 to 13, which slows both arms. A second sitting under the same load read
-4.56 against 5.77 s. No quiet-host reading of the full stack exists yet, so the headline above
-stays at 5.186 s until one does.
+The levers this release adds were each measured as a paired ratio on one p300c chip, three
+trajectories at 288 tokens, arms alternated in one sitting, AICLK 1350 MHz sampled during every
+arm:
+
+| lever | round off | round on | ratio |
+|---|---|---|---|
+| fused layer-norm backward ([`TT_BIO_LNBW_FUSED`](tuning-flags.md#tt_bio_lnbw_fused)) | 5.969 s | 5.186 s | 1.15x |
+| eleven gradient kernels ([round kernels](tuning-flags.md#bindcraft-2-round-kernels)) | 5.70 s | 4.50 s | 1.27x, host shared at load1 8 to 13 |
+| ReLU backward gate and OPM rows in one contraction | 4.055 s | 3.946 s | 1.028x |
+
+Each row is its own sitting, so read each ratio on its own rather than multiplying them, and each
+was taken on the branch that built that lever.
+
+**What the release is worth, measured on the shipped tree:** three trajectories at 288 tokens,
+the release and v0.11.0 alternating on the same card, first round of each slot dropped, round
+counted pro rata as v0.11.0 counted its 6.00 s. Each board is its own measurement:
+
+| board | this release | v0.11.0 | ratio | vs an H200's 0.696 s | AICLK during the rounds |
+|---|---|---|---|---|---|
+| p150a | 3.603 s | 5.836 s | 1.62x | 5.18x, was 8.39x | median 1350, min 1343, none under 1200 |
+| p300c chip | 3.653 s | 5.883 s | 1.61x | 5.25x, was 8.45x | median 1350, min 1300, none under 1200 |
+
+On the p150a, the board v0.11.0's 6.00 s and 8.6x were quoted on, that is three sittings and 81
+counted rounds an arm, per-sitting medians 3.590-3.616 s against 5.815-5.944 s. v0.11.0 reads
+5.836 s there against the 5.899 s it documented, so the baseline reproduces. The p300c figure is
+two sittings and 54 rounds an arm (3.652-3.675 s against 5.878-5.939 s).
+
+A whole campaign shows the same thing at lower resolution. On a p300c, with the layer-norm
+backward on and the eleven kernels not yet in, the PD-L1 campaign above ran **5.186 s a round and
+630.1 s per completed trajectory** at AICLK 1350 and accepted 1 of 6 trajectories, 3,781
+chip-seconds per accepted design; with everything on it accepted 1 of 6 at 2,865 chip-seconds per
+accepted design (i_pTM 0.85). Read those against the 2,321 above with care: a six-trajectory
+budget cannot separate one accepted design from two (Fisher exact, p = 1.0), so per-design cost is
+the one column here that a single campaign does not settle.
+
+The interleaving ratio on its own, measured tighter: eight arms alternating in one sitting on one
+Blackhole chip, nine rounds each, first round dropped, without any of the gradient kernels. One trajectory
+reads **7.204 s** a round (7.183-7.258 across four arms) against **5.899 s** at three
+(5.891-5.912), **1.221x**. AICLK was 1350 MHz in every arm, sampled during the rounds, with no
+sample under 1200.
 
 Three is the cap because a fourth bought nothing: 6.976 s a round against three at 6.992 in the
 same sitting, with only 0.26 s of idle a round left to fill. How busy your host is moves the round
@@ -516,18 +539,24 @@ On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrime
 
 | | Blackhole p150a (34.226 GB) | One chip of a Wormhole Galaxy (12.885 GB) |
 |---|---|---|
-| supported | **192 to 864 tokens** | **192 to 512 tokens** |
-| first size that refuses | not measured: 864 is the largest run, with 2.84 GB left | 544 |
-| where it refuses | | DRAM, in the Evoformer backward |
-| held at the top | 31.39 GB of 34.226 at 864, largest free block 291 MB | 12.338 GB of 12.885 at 544 |
-| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 |
-| one gradient round | 5.89 s at 192 to 124.72 s at 864, AICLK 1343-1350 | 1:45 to 2:12 a rung on the ladder, AICLK 1000 |
+| supported | **192 to 864 tokens** with no flag: up to 672 in `fast`, 704 to 864 in `lean`, which the default picks for you | **192 to 864 tokens**: up to 512 in `fast`, 544 to 864 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
+| first size that refuses | not measured: 864 is the documented top | 896, in `offload`, on the third gradient round, twice out of two; the default refuses it before the first round |
+| where it refuses | | fragmentation: 4.386 GB free, largest block 67.8 MB against a 68.5 MB request a bank |
+| held at the top | 31.39 GB of 34.226 at 864 | 10.324 GB at 864, 2.56 GB still free |
+| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 in `fast`, 7.5 to 10.3 GB from 544 up |
+| one gradient round | 58.7 s at 864 in `lean`, AICLK 1350 | 60.2 s at 512 in `fast`; 222.9 s at 800 and 262.5 s at 864 in `offload`, 3.70x and 4.36x the 512 round; AICLK 1000 |
+| the 768 axis | runs at the default, 42.4 s in `lean`; 0.11.0 crashes there | runs, in `offload` |
 | AICLK ceiling | 1350 MHz | 1000 MHz, the part's own ceiling and not a throttle |
 
+Every number in that table was measured on the tree this release ships, each rung run to completed
+gradient rounds with the card's AICLK sampled during the fold: the Blackhole column on a p150a, the
+Wormhole column on one chip of a Galaxy, except the Wormhole 544 peak, which is from the tree
+before it.
+
 Blackhole's ladder, every rung run to a completed gradient round on qb1 card 0 with the card's
-AICLK sampled during each fold. Its round column was measured before the fused layer-norm backward
-landed and was not re-measured across the ladder; at 288 tokens that lever is worth 1.15x, so
-rounds at these sizes are faster than shown. The first column is target plus binder; the second is the token
+AICLK sampled during each fold. Its round column was measured on v0.11.0 and was not re-measured
+across the ladder for this release, whose gradient kernels and query-chunked triangle-attention
+backward make rounds at these sizes faster than shown. The first column is target plus binder; the second is the token
 axis the Evoformer ran, one bucket higher because of the fusion, and it is the number the memory
 follows and the one the table above uses:
 
@@ -540,26 +569,162 @@ follows and the one the table above uses:
 | 832 | 864 | 31.39 GB | 124.72 s | 2.84 GB |
 
 Wormhole's, on dev `.107` card 30 with the box's agent stopped so the ladder held the chip alone:
-320, 384, 416, 448, 480 and 512 all complete in a flat 1:45 to 2:12 a rung, and 544 refuses.
+320, 384, 416, 448, 480 and 512 all complete in a flat 1:45 to 2:12 a rung, and 544 refuses in
+`fast`, which is where the default moves to a slower memory mode.
 Nobody should predict either board's number from bank geometry: the guess from 12 GiB in 12 banks
 put the Wormhole wall near 384-416 tokens and five rungs above that run.
 
-A p300c chip reports a p150a's DRAM and behaves like one up to where it has been run: 608 tokens
-at 48.2 s a round and 832 at 108.3 s, AICLK 1350. 864 has not been tried on it.
+A p300c chip reports a p150a's DRAM. The sweep below ran every 32-token axis from 288 to 864 on
+qb2 card 0, one trajectory, AICLK 1350 median sampled during every round, the round shown being
+the second of two so compilation is not in it. It was taken on the `bcw-bmm` branch, before this
+release was assembled, and every rung in it ran in `fast`. At the shipped tree the default runs a
+p150a in `fast` up to 672 tokens and in `lean` from 704, a little slower a round there in exchange
+for not refusing.
+
+| tokens at the seam | target + binder | one round |
+|---|---|---|
+| 288 | hPDL1 115 + 150 | 7.5 s |
+| 320 | hPDL1 115 + 180 | 11.1 s |
+| 352 | hPDL1 115 + 210 | 13.6 s |
+| 384 | hIL7RA 195 + 150 | 16.1 s |
+| 416 | hIL7RA 195 + 180 | 20.9 s |
+| 448 | hIL7RA 195 + 210 | 25.3 s |
+| 480 | hIL7RA 195 + 240 | 26.2 s |
+| 512 | hIL2R 387 + 90 | 31.2 s |
+| 544 | hIL2R 387 + 110 | 40.1 s |
+| 576 | hIL2R 387 + 150 | 41.8 s |
+| 608 | hIL2R 387 + 180 | 47.1 s |
+| 640 | hIL2R 387 + 210 | 51.8 s |
+| 672 | hHSA 578 + 60 | 59.6 s |
+| 704 | hHSA 578 + 90 | 66.0 s |
+| 736 | hHSA 578 + 110 | 79.5 s |
+| 768 | hHSA 578 + 150 | 82.5 s |
+| 800 | hHSA 578 + 163 | 100.4 s |
+| 832 | hHSA 578 + 210 | 103.0 s |
+| 864 | hHSA 578 + 240 | 112.6 s |
+
+0.11.0 crashes at 768 tokens on Blackhole with a circular-buffer error in the gradient ("CBs grow
+to 1864192 B which is beyond max L1 size"), even though 736 and 800 run there. If you see that
+error, update: on this release the same rung runs at the default, and a fold too big for the card
+refuses with a message naming the size instead of crashing.
 
 In residues, which is how a target arrives: the fusion costs 18 to 28, so a Wormhole chip's 512
-tokens is about 484 to 494 residues of target plus binder, and a p150a's 864 is about 836 to 846.
-With a binder in BindCraft 2's default 60-180 draw range that is a target of roughly 300 to 430
-residues on Wormhole and 655 to 785 on Blackhole. Read `design_tokens` rather than trusting the
+tokens at full speed is about 484 to 494 residues of target plus binder, and 864 tokens, the top
+of both boards, about 836 to 846. With a binder in BindCraft 2's default 60-180 draw range that is
+a target of roughly 300 to 430 residues on Wormhole at full speed, and 655 to 785 on either board
+at 864, in `offload` on Wormhole and at the default on Blackhole. Read `design_tokens` rather than trusting the
 arithmetic; it is there because this sum is one or two buckets low often enough to matter.
 
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
 the board. At 864 it is 92 % with the largest free block down to 291 MB, so the next rung is a
-board question rather than a software one. On a Wormhole chip the top is 97 % of a card a third
-the size, and no software change moves it: padding the forward serves 544 and 608 there, and 544
-then refuses in the backward instead, where the L1 gate is a size gate rather than a divisor gate
-and a pad-up asks for more L1, not less. A smaller score budget does not move it either, 12.711 GB
+board question rather than a software one. On a Wormhole chip in `fast` the top is 97 % of a card
+a third the size, and nothing that keeps the round's speed moves it: padding the forward serves 544 and
+608 there, and 544 then refuses in the backward instead, where the L1 gate is a size gate rather
+than a divisor gate and a pad-up asks for more L1, not less. Spending time does move it, which is
+what the memory modes below are. A smaller score budget does not move it either, 12.711 GB
 at 256 MB against 12.715 GB at 32 MB.
+
+### Large complexes: the memory modes
+
+A Wormhole chip's 512 tokens is the ceiling of the mode that runs fastest, not of the card. Two
+levers buy room by spending time, and `memory=` picks between them:
+
+| `memory=` | what it does | largest token axis on a Wormhole chip |
+|---|---|---|
+| `fast` | checkpoints each Evoformer, extra-MSA and template block | 512, measured |
+| `lean` | also checkpoints each residual step inside a block, so a block's backward holds one step's tape instead of nine; every block's forward runs once more a round | 544 measured, 704 estimated |
+| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | **864 measured** over five rounds; 896 completes two rounds and refuses the third |
+| `auto` | the cheapest of the three that the fold fits in. **The default.** | |
+
+They are the same arithmetic on the same values: a `lean` gradient is bit-identical to an
+`offload` one, and both sit 0.0035 rel L2 from `fast` on top of the 0.0817 that separates `fast`
+from a float64 reference -- inside the 0.0668 that bf16 alone costs. What changes is what the card
+holds between the forward and the backward, not what it computes.
+
+You do not normally pass `memory=`. `auto` leaves every fold that runs today in `fast`, so nothing
+that works now gets slower, and reaches for a slower mode only where the faster one would refuse.
+It decides per token axis, prints which mode it chose, and a refusal names the next roomier mode
+and what it costs:
+
+```
+This fold ran in the 'lean' memory mode. The 'offload' mode should hold 768 tokens on this
+card, slower: ... Pass memory='offload', or leave memory='auto' and it is picked for you.
+```
+
+Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
+
+| token axis | mode | peak DRAM | one round |
+|---|---|---|---|
+| 512 | `fast` | 12.7 GB | 60.2 s |
+| 512 | `lean` | | 67.8 s |
+| 544 | `fast` | refuses, 12.70 GB held | |
+| 544 | `lean` | 7.527 GB | 84.3 s |
+| 768 | `offload` | 8.282 GB, 4.60 GB still free | 200.2 s |
+| **800** | `offload` | **8.934 GB**, largest free block 244.1 MB | **222.9 s** |
+| 832 | `offload` | 9.625 GB, 3.26 GB still free | 242.0 s |
+| **864** | `offload` | **10.324 GB**, 2.56 GB still free | **262.5 s** |
+| 896 | `offload` | 11.028 GB | 295.3, 282.7, then refuses |
+
+Measured at the release tree on dev `.107` chip 30: the 512 `fast`, 800, 864 and 896 rows. The
+512 `lean`, 544, 768 and 832 rows come from the tree before it and were not re-run.
+
+**864 tokens is the largest axis this release supports on one Wormhole Galaxy chip**, 1.69x the
+512 the fast mode carries, and the `auto` default reaches it with no flag: five of five gradient
+rounds completed, median 262.5 s at AICLK 1000 MHz. 800 is the EGFR ectodomain (614 residues)
+plus a 150 aa binder, so the competition case folds uncropped, at 222.9 s steady over three rounds
+with 8.934 GB of the card held.
+
+896 is not offered, and the default refuses it before the first round with a message that quotes
+864. The reason is worth knowing because the card looks far from full when it stops. Two gradient
+rounds complete there at 295.3 and 282.7 s, and the third is refused an 822.1 MB buffer with
+4.386 GB free, because the largest contiguous block left in a bank is 67.8 MB against the 68.5 MB
+that bank needs. It refused on the third round both times it was run. What ends the mode is
+fragmentation, which a fold can reach on its third round having survived its second, so a size
+that ran once is not a size to plan a campaign on.
+
+The ladder between 800 and 896 is the same target with a longer binder, so it also says how long a
+binder the ectodomain takes: 190 aa lands on 832 tokens and 220 on 864.
+768 is two different complexes, measured separately and landing on the same numbers: serum
+albumin plus a 150 aa binder (738 residues at the seam, 200.2 s) and **the EGFR ectodomain plus a
+100 aa minibinder** (742 residues, 200.5 s), which is the smaller of the two shapes the
+competition case takes. Both peak at 8.282 GB. So both EGFR sizes run, and `auto` picks `offload`
+for each without being asked.
+
+Every axis in this table is the one the Evoformer seam was *observed* to run, never the one
+target-plus-binder arithmetic predicts. BindCraft 2 buckets the complex it builds, which is
+larger than the sum, and at a bucket boundary the two answers differ: 614 + 100 = 714 predicts
+736 tokens and the seam ran 768. Size a job off the axis a run reports, not off the sum.
+
+768 is the one axis in this range that needs a second escape, and it is worth knowing why. The
+contraction block a matmul plan takes, `in0_block_w`, is the largest divisor of the token axis in
+tiles that is at most 8, so 768 (24 tiles, divisible by 8) asks for the widest block in the range
+while 800 (25) and 832 (26) do not -- and at 768 that block does not fit a core's L1. Without the
+escape the Evoformer backward refuses with the card several GB free, which does not look like a
+size problem at all; with it, the same contraction runs in narrower passes and the round completes.
+We cannot price the escape on its own, because the fold it rescues does not run without it; what we
+can say is that 768 still lands under the larger 800, so the narrower passes cost less than the 32
+tokens between them. The 200.2 s is the median of four steady rounds in a timed leg; a separate
+footprint leg of the same fold gave 200.8 s, so the two independent runs agree to half a percent. If some other axis one day refuses with the card visibly free, this is the
+shape of it, and the next bucket up is worth trying before you crop the target.
+
+**At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s, a pair run on the tree before the release), which is the price
+of running every block's forward a second time. The 544 row costs more than that because it is
+also a bigger fold. A trajectory is 125 gradient rounds plus the refold of its candidates, and one
+measured end to end at 544 in `lean` took **11,201 s, 3.11 chip-hours**, against 2.29 for the 512
+`fast` can carry. You are buying 32 tokens of complex for about 36 % more chip time, and the
+alternative is not a faster run, it is cropping the target. Budget from that number rather than
+from the round: 125 rounds alone come to 10,388 s, so the validation tail adds 7.8 % that an
+estimate built from the round time misses.
+
+**A Blackhole p150a has the modes too, and `auto` picks them from a measured ladder.** `fast` is
+not monotone in the axis on that board: 704, 768 and 832 refuse in `fast` while 736 and 864
+fit. So `auto` runs `fast` up to 672 tokens and `lean` from 704 to 864, and every 32-token axis
+from 576 to 864 completed at the default, AICLK 1350 with no sample under 1200. The steady round
+in `lean` is 34.6 s at 704, 42.4 s at 768, 51.1 s at 832 and 58.7 s at 864. You need no flag.
+
+`memory='offload'` is a device-memory escape bought with host memory, so it needs a host with room
+to spend: on a 30 GB p150a box every `offload` rung was killed by the kernel rather than refused by the card.
+`lean` costs no host memory.
 
 ### What a refusal looks like
 
@@ -616,10 +781,16 @@ same keys. Nothing declines on either board at any size in range: 1296 of 1296 c
 is no longer an axis to avoid**: 45.33 s and 13.00 GB where it was 67.27 s and 25.75 GB.
 `TT_BIO_TRIATT_HIFI_PAD_UP=0` turns the pad-up off and restores the old behaviour.
 
-The *backward* is a second kernel with its own, narrower limit, and it is the expensive half of a
-gradient round. It serves all 108 of a round's calls at 288 tokens and none above it, on either
-board, so the gradient runs on the chunked recompute at every size a real campaign uses. A round
-four times the length of the 288-token one is not a round that failed.
+The *backward* is a second kernel with its own limit, and it is the expensive half of a gradient
+round. It used to hold a whole `[N, N]` float32 bias gradient in one core's L1, which fits at 288
+tokens and nowhere above. On Blackhole it now walks the query axis in chunks and serves every
+call from 288 to 864 tokens (216 of 216 at 864, 432 of 432 at 544), bit-identical at 288. Against
+the chunked recompute it replaces that is 1.17-1.32x a round at 544, 1.62-1.67x at 768 and 1.44x
+at 800, measured on a p300c on the `bcw-dbias` branch at AICLK 1350, and nothing at 288, where the
+whole-query kernel already served. It moves no ceiling: the peak sits elsewhere in the round. On
+Wormhole the chunked kernel has not been graded, so above 288 the gradient there still runs on
+the chunked recompute. A round four times the length of the 288-token one is not a round that
+failed.
 
 ### Trajectories, and what the auto default does with size
 
@@ -655,9 +826,8 @@ Rounding up to the bucket is faster, not slower: the PD-L1 complex at 211 tokens
 the trunk forward and the same design padded to 224 costs 1.369 s, same card and same AICLK 1350
 median.
 
-A p300c is a different chip. One p300c chip completes 608 tokens at 48.2 s a round and 832 at
-108.3 s, AICLK 1350, and with the pad-up off it refuses 608 exactly as a p150a does. 864 has not
-been run on it.
+A p300c chip completes every axis from 288 to 864 (the table under the supported range), and
+with the pad-up off it refuses 608 exactly as a p150a does.
 
 ## What a Galaxy gets through
 
@@ -736,6 +906,20 @@ that the loop accepts more often.
 One caution when you read your own verdicts, and it is BindCraft 2's behaviour rather than the
 card's: `predicted_tm_score` is a maximum over the PAE rows, so a single collapsed row pins pTM
 and i_pTM at that length's ceiling on either arm. Grade a `mutate`-stage verdict on pLDDT.
+
+### Above 288 tokens the rate is not known yet
+
+Every number above was measured at 288 tokens. One trajectory has been run to a verdict at **544**
+in `lean`, on a Wormhole Galaxy chip: 125 rounds, ten candidates, none accepted, all ten rejected
+on `i_pTM`. One trajectory cannot tell you much, and it does not tell you that large folds stopped
+working. At the rate in the table a single trajectory rejects 77 % of the time with nothing
+changed, and against the 31-trajectory count this reads p = 1.00. Separating a real drop needs six
+to ten trajectories.
+
+So if you are budgeting a campaign above 288 tokens, use the 0.226 rate for planning and expect
+the usual spread, but do not treat acceptance at those sizes as measured. The memory modes change
+what fits and what it costs; they do not touch the filters, the gradient grades against a float64
+reference, and `offload` is bit-identical to `lean`.
 
 ## Licence
 

@@ -1,0 +1,623 @@
+{"n": 288, "depth": 2, "off": ["lnbw.FUSED", "QKV_PACKED", "FANIN_CAST_FUSED", "PAIR_TRANSPOSE_FUSED", "GATED_GRAD_PACKED", "GATED_BW_FUSED", "GATE_BW_FUSED", "LEAD_SUM_FUSED", "NOGRAD_IS_INFERENCE", "tri_att_g_in_matmul", "TAPED_KERNELS_DEFAULT"], "armed": {"MM_LAYOUT": "True", "TAPED_MOVE": "True", "WIDEN_ADD": "True", "QKV_GRAD_JOIN": "True", "FUSED": "True", "QKV_PACKED": "True", "FANIN_CAST_FUSED": "True", "PAIR_TRANSPOSE_FUSED": "True", "GATED_GRAD_PACKED": "True", "GATED_BW_FUSED": "True", "GATE_BW_FUSED": "True", "LEAD_SUM_FUSED": "True", "NOGRAD_IS_INFERENCE": "True", "_TRIATT_FUSED_HIFI": "True", "rne_kernel": "True", "tri_att_g_in_matmul": "True", "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add,reblock_permute_gated,pair_transpose", "SOFTMAX_BW_FP32": "False"}, "py_totals": {"bwd:reshape": 134, "bwd:multiply": 113, "bwd:matmul": 56, "bwd:sum": 55, "bwd:divide": 52, "bwd:generic_op": 44, "bwd:subtract": 39, "bwd:permute": 32, "bwd:typecast": 24, "fwd:linear": 21, "bwd:linear": 21, "fwd:reshape": 21, "bwd:add": 18, "fwd:generic_op": 17, "fwd:permute": 17, "bwd:experimental.nlp_concat_heads": 16, "bwd:to_layout": 16, "bwd:rsqrt": 12, "fwd:layer_norm": 12, "bwd:layer_norm": 12, "fwd:matmul": 11, "bwd:sigmoid_bw": 10, "fwd:unsqueeze": 9, "bwd:unsqueeze": 9, "bwd:empty": 8, "fwd:to_layout": 8, "bwd:transpose": 8, "bwd:concat": 8, "fwd:experimental.minimal_matmul": 6, "fwd:add": 6, "fwd:multiply": 6, "bwd:experimental.minimal_matmul": 6, "fwd:slice": 4, "fwd:experimental.nlp_create_qkv_heads": 4, "fwd:experimental.nlp_concat_heads": 4, "fwd:squeeze": 4, "bwd:slice": 4, "bwd:experimental.nlp_create_qkv_heads": 4, "bwd:squeeze": 4, "fwd:typecast": 3, "fwd:chunk": 2, "bwd:chunk": 2, "fwd:fill_implicit_tile_padding": 2, "fwd:softmax": 2, "bwd:fill_implicit_tile_padding": 2, "bwd:softmax": 2, "bwd:relu": 2, "bwd:relu_bw": 2, "fwd:subtract": 1, "fwd:add_": 1, "fwd:divide": 1, "bwd:add_": 1}, "device_programs": {"bwd:BinaryNgDeviceOperation": 273, "bwd:MatmulDeviceOperation": 77, "bwd:ReduceDeviceOperation": 54, "bwd:GenericOpDeviceOperation": 44, "fwd:BinaryNgDeviceOperation": 33, "fwd:MatmulDeviceOperation": 32, "bwd:UnaryDeviceOperation": 32, "bwd:TransposeDeviceOperation": 30, "bwd:TypecastDeviceOperation": 24, "fwd:GenericOpDeviceOperation": 17, "bwd:NLPConcatHeadsDeviceOperation": 16, "bwd:PermuteDeviceOperation": 14, "fwd:TransposeDeviceOperation": 12, "fwd:LayerNormDeviceOperation": 12, "fwd:SliceDeviceOperation": 12, "bwd:LayerNormDeviceOperation": 12, "bwd:SliceDeviceOperation": 12, "bwd:ReshapeViewDeviceOperation": 8, "bwd:FillPadDeviceOperation": 8, "bwd:UntilizeDeviceOperation": 8, "bwd:TilizeDeviceOperation": 8, "bwd:ConcatDeviceOperation": 8, "fwd:ReshapeViewDeviceOperation": 6, "fwd:MinimalMatmulDeviceOperation": 6, "bwd:MinimalMatmulDeviceOperation": 6, "fwd:PermuteDeviceOperation": 5, "fwd:UntilizeDeviceOperation": 4, "fwd:TilizeDeviceOperation": 4, "fwd:NlpCreateHeadsDeviceOperation": 4, "fwd:NLPConcatHeadsDeviceOperation": 4, "bwd:NlpCreateHeadsDeviceOperation": 4, "bwd:UnaryNgDeviceOperation": 4, "fwd:TypecastDeviceOperation": 3, "fwd:FillPadDeviceOperation": 2, "fwd:SoftmaxDeviceOperation": 2, "bwd:SoftmaxDeviceOperation": 2, "bwd:FastReduceNCDeviceOperation": 1}}
+bwd	30	multiply	autograd.py:818:_backward <- autograd.py:791:backward	[1, 288, 288, 128]	BFLOAT16	
+bwd	18	multiply	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 128]	BFLOAT16	
+bwd	15	subtract	autograd.py:818:_backward <- autograd.py:791:backward	[1, 288, 288, 128]	BFLOAT16	
+bwd	12	multiply	autograd.py:818:_backward <- autograd.py:791:backward	[2, 288, 256]	BFLOAT16	
+bwd	10	matmul	autograd.py:3048:<lambda> <- autograd.py:1158:_via2d	[82944, 128]	BFLOAT16	
+bwd	9	subtract	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 128]	BFLOAT16	
+bwd	8	generic_op	rne_add.py:441:widen_add <- autograd.py:609:add_grad	[1, 288, 288, 128]	FLOAT32	
+bwd	8	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[288, 1, 288, 128]	BFLOAT16	
+bwd	7	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[82944, 128]	BFLOAT16	
+bwd	7	typecast	autograd.py:810:_backward <- autograd.py:791:backward	[1, 288, 288, 128]	BFLOAT16	
+fwd	6	generic_op	rne_add.py:348:_dispatch <- rne_add.py:325:rne_add	[1, 288, 288, 128]	BFLOAT16	
+bwd	6	generic_op	rne_add.py:348:_dispatch <- rne_add.py:325:rne_add	[1, 288, 288, 128]	BFLOAT16	
+bwd	6	empty	triatt_bw.py:481:run <- autograd.py:2405:bw	[288, 4, 288, 32]	BFLOAT16	
+bwd	6	experimental.nlp_concat_heads	taped_ttnn.py:1409:bw <- autograd.py:818:_backward	[288, 1, 288, 128]	BFLOAT16	
+bwd	6	reshape	taped_ttnn.py:1409:bw <- autograd.py:818:_backward	[288, 288, 128]	BFLOAT16	
+bwd	6	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>	[82944, 128]	BFLOAT16	
+bwd	6	multiply	taped_ttnn.py:706:bw <- autograd.py:818:_backward	[1, 288, 288, 128]	BFLOAT16	
+bwd	6	multiply	taped_ttnn.py:710:bw <- autograd.py:818:_backward	[1, 288, 288, 128]	BFLOAT16	
+bwd	6	sigmoid_bw	taped_ttnn.py:454:_chain_fused <- taped_ttnn.py:711:bw	[1, 288, 288, 128]	BFLOAT16	
+bwd	6	matmul	autograd.py:3048:<lambda> <- autograd.py:1158:_via2d	[576, 256]	BFLOAT16	
+bwd	6	multiply	autograd.py:818:_backward <- autograd.py:791:backward	[1, 2, 288, 256]	BFLOAT16	
+bwd	6	multiply	autograd.py:818:_backward <- autograd.py:791:backward	[288, 2, 256]	BFLOAT16	
+bwd	6	subtract	autograd.py:818:_backward <- autograd.py:791:backward	[2, 288, 256]	BFLOAT16	
+bwd	5	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[1, 288, 288, 128]	BFLOAT16	
+bwd	5	sum	autograd.py:1522:bw <- autograd.py:818:_backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	divide	autograd.py:1522:bw <- autograd.py:818:_backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	sum	autograd.py:1524:bw <- autograd.py:818:_backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	divide	autograd.py:1524:bw <- autograd.py:818:_backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	add	autograd.py:818:_backward <- autograd.py:791:backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	rsqrt	autograd.py:818:_backward <- autograd.py:791:backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	sum	autograd.py:1534:bw <- autograd.py:818:_backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	divide	autograd.py:1534:bw <- autograd.py:818:_backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	sum	autograd.py:1535:bw <- autograd.py:818:_backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	divide	autograd.py:1535:bw <- autograd.py:818:_backward	[1, 288, 288, 1]	BFLOAT16	
+bwd	5	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[288, 288, 128]	BFLOAT16	
+bwd	5	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[2, 288, 256]	BFLOAT16	
+fwd	4	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[288, 288, 128]	BFLOAT16	
+fwd	4	generic_op	reblock_permute.py:352:reblock_permute <- ops.py:188:call	[1, 128, 288, 288]	BFLOAT16	
+fwd	4	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear	[1, 288, 288, 128]	BFLOAT16	
+fwd	4	to_layout	taped_ttnn.py:1492:<lambda> <- taped_ttnn.py:1588:call	[288, 288, 128]	BFLOAT16	
+bwd	4	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[288, 288, 128]	BFLOAT16	
+bwd	4	generic_op	reblock_permute.py:352:reblock_permute <- ops.py:188:call	[1, 128, 288, 288]	BFLOAT16	
+bwd	4	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear	[1, 288, 288, 128]	BFLOAT16	
+bwd	4	to_layout	taped_ttnn.py:1492:<lambda> <- taped_ttnn.py:1588:call	[288, 288, 128]	BFLOAT16	
+bwd	4	to_layout	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 128]	BFLOAT16	
+bwd	4	reshape	taped_ttnn.py:237:bw <- autograd.py:818:_backward	[288, 288, 128]	BFLOAT16	
+bwd	4	generic_op	rne_add.py:441:widen_add <- autograd.py:609:add_grad	[288, 288, 128]	FLOAT32	
+bwd	4	generic_op	ops.py:188:call <- taped_ttnn.py:854:_permute_back	[1, 288, 288, 128]	BFLOAT16	
+bwd	4	generic_op	rne_add.py:441:widen_add <- autograd.py:609:add_grad	[1, 2, 288, 256]	FLOAT32	
+bwd	4	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[288, 1, 2, 256]	BFLOAT16	
+bwd	4	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[2, 1, 288, 256]	BFLOAT16	
+bwd	4	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[1, 288, 32]	BFLOAT16	
+fwd	3	generic_op	rne_add.py:348:_dispatch <- rne_add.py:325:rne_add	[1, 2, 288, 256]	BFLOAT16	
+bwd	3	generic_op	rne_add.py:348:_dispatch <- rne_add.py:325:rne_add	[1, 2, 288, 256]	BFLOAT16	
+bwd	3	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 128]	BFLOAT16	
+bwd	3	sum	autograd.py:1522:bw <- autograd.py:818:_backward	[288, 288, 1]	BFLOAT16	
+bwd	3	divide	autograd.py:1522:bw <- autograd.py:818:_backward	[288, 288, 1]	BFLOAT16	
+bwd	3	sum	autograd.py:1524:bw <- autograd.py:818:_backward	[288, 288, 1]	BFLOAT16	
+bwd	3	divide	autograd.py:1524:bw <- autograd.py:818:_backward	[288, 288, 1]	BFLOAT16	
+bwd	3	add	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 1]	BFLOAT16	
+bwd	3	rsqrt	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 1]	BFLOAT16	
+bwd	3	sum	autograd.py:1534:bw <- autograd.py:818:_backward	[288, 288, 1]	BFLOAT16	
+bwd	3	divide	autograd.py:1534:bw <- autograd.py:818:_backward	[288, 288, 1]	BFLOAT16	
+bwd	3	sum	autograd.py:1535:bw <- autograd.py:818:_backward	[288, 288, 1]	BFLOAT16	
+bwd	3	divide	autograd.py:1535:bw <- autograd.py:818:_backward	[288, 288, 1]	BFLOAT16	
+bwd	3	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[1, 288, 288, 128]	BFLOAT16	
+bwd	3	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[576, 256]	BFLOAT16	
+bwd	3	subtract	autograd.py:818:_backward <- autograd.py:791:backward	[1, 2, 288, 256]	BFLOAT16	
+bwd	3	matmul	autograd.py:3048:<lambda> <- autograd.py:1157:_via2d	[288, 2, 256]	BFLOAT16	
+bwd	3	experimental.nlp_concat_heads	taped_ttnn.py:1409:bw <- autograd.py:818:_backward	[288, 1, 2, 256]	BFLOAT16	
+bwd	3	reshape	taped_ttnn.py:1409:bw <- autograd.py:818:_backward	[288, 2, 256]	BFLOAT16	
+bwd	3	subtract	autograd.py:818:_backward <- autograd.py:791:backward	[288, 2, 256]	BFLOAT16	
+bwd	3	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[1, 2, 288, 256]	BFLOAT16	
+bwd	3	experimental.nlp_concat_heads	taped_ttnn.py:1409:bw <- autograd.py:818:_backward	[2, 1, 288, 256]	BFLOAT16	
+bwd	3	reshape	taped_ttnn.py:1409:bw <- autograd.py:818:_backward	[2, 288, 256]	BFLOAT16	
+fwd	2	slice	autograd.py:437:__getitem__ <- af2.py:678:_sum_rows	[1, 288, 32]	BFLOAT16	
+fwd	2	reshape	taped_ttnn.py:1588:call <- af2.py:678:_sum_rows	[288, 32]	BFLOAT16	
+fwd	2	matmul	taped_ttnn.py:1588:call <- af2.py:679:_sum_rows	[288, 4096]	BFLOAT16	
+fwd	2	to_layout	taped_ttnn.py:1492:<lambda> <- taped_ttnn.py:1588:call	[288, 4096]	BFLOAT16	
+fwd	2	reshape	taped_ttnn.py:1588:call <- af2.py:682:_sum_rows	[288, 32, 128]	BFLOAT16	
+fwd	2	to_layout	taped_ttnn.py:1492:<lambda> <- taped_ttnn.py:1588:call	[288, 32, 128]	BFLOAT16	
+fwd	2	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[288, 128, 32]	BFLOAT16	
+fwd	2	slice	autograd.py:437:__getitem__ <- af2.py:685:_sum_rows	[1, 288, 32]	BFLOAT16	
+fwd	2	reshape	taped_ttnn.py:1588:call <- af2.py:685:_sum_rows	[288, 32]	BFLOAT16	
+fwd	2	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[32, 288]	BFLOAT16	
+fwd	2	matmul	taped_ttnn.py:1588:call <- af2.py:687:_sum_rows	[288, 128, 288]	BFLOAT16	
+fwd	2	reshape	taped_ttnn.py:1588:call <- af2.py:610:__call__	[2, 288, 256]	BFLOAT16	
+fwd	2	linear	ops.py:294:linear <- autograd.py:3128:_hook	[2, 288, 256]	BFLOAT16	
+fwd	2	linear	ops.py:294:linear <- autograd.py:3128:_hook	[288, 2, 256]	BFLOAT16	
+fwd	2	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8029:_multiply	[1, 288, 288, 128]	BFLOAT16	
+fwd	2	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:7298:_in_proj_matmul	[1, 288, 288, 512]	BFLOAT16	
+fwd	2	chunk	taped_ttnn.py:1588:call <- tenstorrent.py:8246:_multiply	[1, 288, 288, 128]	BFLOAT16	
+fwd	2	unsqueeze	tenstorrent.py:8104:mask_moved <- tenstorrent.py:8278:_multiply	[1, 1, 288, 288]	BFLOAT16	
+fwd	2	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:8281:_multiply	[1, 128, 288, 288]	BFLOAT16	
+fwd	2	generic_op	reblock_permute.py:638:reblock_permute_back <- ops.py:188:call	[1, 288, 288, 128]	BFLOAT16	
+fwd	2	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8460:_multiply	[1, 288, 288, 128]	BFLOAT16	
+fwd	2	reshape	taped_ttnn.py:1588:call <- tenstorrent.py:9120:_attend_pair	[288, 288, 128]	BFLOAT16	
+fwd	2	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:9187:_attend_pair	[288, 288, 128]	BFLOAT16	
+fwd	2	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear	[288, 288, 4]	BFLOAT16	
+fwd	2	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:9200:_attend_pair	[1, 288, 288, 4]	BFLOAT16	
+fwd	2	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[1, 4, 288, 288]	BFLOAT16	
+fwd	2	add	taped_ttnn.py:1588:call <- tenstorrent.py:9531:_attend_pair	[1, 4, 288, 288]	BFLOAT16	
+fwd	2	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:9555:_attend_pair	[288, 288, 384]	BFLOAT16	
+fwd	2	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:9571:_attend_pair	[288, 288, 128]	BFLOAT16	
+fwd	2	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:9215:attend	[288, 1, 288, 384]	BFLOAT16	
+fwd	2	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:9219:attend	[288, 4, 288, 32]	BFLOAT16	
+fwd	2	multiply	taped_ttnn.py:1588:call <- tenstorrent.py:9241:_attend_heads	[1, 4, 288, 288]	BFLOAT16	
+fwd	2	generic_op	sdpa_generic.py:613:sdpa <- triatt_sdpa.py:434:sdpa	[288, 4, 288, 32]	BFLOAT16	
+fwd	2	multiply	taped_ttnn.py:1182:_k_tri_att_sdpa_hifi <- taped_ttnn.py:146:counted	[1, 4, 288, 288]	BFLOAT16	
+fwd	2	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:9314:_attend_heads	[288, 1, 288, 128]	BFLOAT16	
+fwd	2	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:9316:_attend_heads	[288, 288, 128]	BFLOAT16	
+fwd	2	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear	[288, 288, 128]	BFLOAT16	
+fwd	2	reshape	taped_ttnn.py:1588:call <- tenstorrent.py:9603:_attend_pair	[1, 288, 288, 128]	BFLOAT16	
+bwd	2	slice	autograd.py:437:__getitem__ <- af2.py:678:_sum_rows	[1, 288, 32]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:1588:call <- af2.py:678:_sum_rows	[288, 32]	BFLOAT16	
+bwd	2	matmul	taped_ttnn.py:1588:call <- af2.py:679:_sum_rows	[288, 4096]	BFLOAT16	
+bwd	2	to_layout	taped_ttnn.py:1492:<lambda> <- taped_ttnn.py:1588:call	[288, 4096]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:1588:call <- af2.py:682:_sum_rows	[288, 32, 128]	BFLOAT16	
+bwd	2	to_layout	taped_ttnn.py:1492:<lambda> <- taped_ttnn.py:1588:call	[288, 32, 128]	BFLOAT16	
+bwd	2	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[288, 128, 32]	BFLOAT16	
+bwd	2	slice	autograd.py:437:__getitem__ <- af2.py:685:_sum_rows	[1, 288, 32]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:1588:call <- af2.py:685:_sum_rows	[288, 32]	BFLOAT16	
+bwd	2	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[32, 288]	BFLOAT16	
+bwd	2	matmul	taped_ttnn.py:1588:call <- af2.py:687:_sum_rows	[288, 128, 288]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:1588:call <- af2.py:610:__call__	[2, 288, 256]	BFLOAT16	
+bwd	2	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear	[2, 288, 256]	BFLOAT16	
+bwd	2	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear	[288, 2, 256]	BFLOAT16	
+bwd	2	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8029:_multiply	[1, 288, 288, 128]	BFLOAT16	
+bwd	2	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:7298:_in_proj_matmul	[1, 288, 288, 512]	BFLOAT16	
+bwd	2	chunk	taped_ttnn.py:1588:call <- tenstorrent.py:8246:_multiply	[1, 288, 288, 128]	BFLOAT16	
+bwd	2	unsqueeze	tenstorrent.py:8104:mask_moved <- tenstorrent.py:8278:_multiply	[1, 1, 288, 288]	BFLOAT16	
+bwd	2	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:8281:_multiply	[1, 128, 288, 288]	BFLOAT16	
+bwd	2	generic_op	reblock_permute.py:638:reblock_permute_back <- ops.py:188:call	[1, 288, 288, 128]	BFLOAT16	
+bwd	2	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8460:_multiply	[1, 288, 288, 128]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:1588:call <- tenstorrent.py:9120:_attend_pair	[288, 288, 128]	BFLOAT16	
+bwd	2	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:9187:_attend_pair	[288, 288, 128]	BFLOAT16	
+bwd	2	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear	[288, 288, 4]	BFLOAT16	
+bwd	2	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:9200:_attend_pair	[1, 288, 288, 4]	BFLOAT16	
+bwd	2	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[1, 4, 288, 288]	BFLOAT16	
+bwd	2	add	taped_ttnn.py:1588:call <- tenstorrent.py:9531:_attend_pair	[1, 4, 288, 288]	BFLOAT16	
+bwd	2	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:9555:_attend_pair	[288, 288, 384]	BFLOAT16	
+bwd	2	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:9571:_attend_pair	[288, 288, 128]	BFLOAT16	
+bwd	2	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:9215:attend	[288, 1, 288, 384]	BFLOAT16	
+bwd	2	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:9219:attend	[288, 4, 288, 32]	BFLOAT16	
+bwd	2	multiply	taped_ttnn.py:1588:call <- tenstorrent.py:9241:_attend_heads	[1, 4, 288, 288]	BFLOAT16	
+bwd	2	generic_op	sdpa_generic.py:613:sdpa <- triatt_sdpa.py:434:sdpa	[288, 4, 288, 32]	BFLOAT16	
+bwd	2	multiply	taped_ttnn.py:1182:_k_tri_att_sdpa_hifi <- taped_ttnn.py:146:counted	[1, 4, 288, 288]	BFLOAT16	
+bwd	2	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:9314:_attend_heads	[288, 1, 288, 128]	BFLOAT16	
+bwd	2	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:9316:_attend_heads	[288, 288, 128]	BFLOAT16	
+bwd	2	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear	[288, 288, 128]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:1588:call <- tenstorrent.py:9603:_attend_pair	[1, 288, 288, 128]	BFLOAT16	
+bwd	2	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[288, 288, 128]	BFLOAT16	
+bwd	2	multiply	taped_ttnn.py:706:bw <- autograd.py:818:_backward	[288, 288, 128]	BFLOAT16	
+bwd	2	multiply	taped_ttnn.py:710:bw <- autograd.py:818:_backward	[288, 288, 128]	BFLOAT16	
+bwd	2	sigmoid_bw	taped_ttnn.py:454:_chain_fused <- taped_ttnn.py:711:bw	[288, 288, 128]	BFLOAT16	
+bwd	2	transpose	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[288, 1, 128, 288]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[288, 4, 32, 288]	BFLOAT16	
+bwd	2	transpose	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[288, 4, 288, 32]	BFLOAT16	
+bwd	2	empty	autograd.py:2405:bw <- autograd.py:818:_backward	[27, 4, 288, 288]	FLOAT32	
+bwd	2	generic_op	autograd.py:2405:bw <- autograd.py:818:_backward	[27, 4, 288, 288]	FLOAT32	
+bwd	2	sum	autograd.py:2405:bw <- autograd.py:818:_backward	[1, 4, 288, 288]	FLOAT32	
+bwd	2	concat	autograd.py:682:_join_parts <- autograd.py:702:closure_grad	[288, 1, 288, 384]	BFLOAT16	
+bwd	2	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 384]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:237:bw <- autograd.py:818:_backward	[82944, 384]	BFLOAT16	
+bwd	2	typecast	autograd.py:810:_backward <- autograd.py:791:backward	[1, 4, 288, 288]	BFLOAT16	
+bwd	2	multiply	autograd.py:818:_backward <- autograd.py:791:backward	[1, 4, 288, 288]	BFLOAT16	
+bwd	2	multiply	taped_ttnn.py:660:bw <- autograd.py:818:_backward	[1, 4, 288, 288]	BFLOAT16	
+bwd	2	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[1, 288, 288, 4]	BFLOAT16	
+bwd	2	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 4]	BFLOAT16	
+bwd	2	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[82944, 4]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:237:bw <- autograd.py:818:_backward	[82944, 128]	BFLOAT16	
+bwd	2	typecast	autograd.py:810:_backward <- autograd.py:791:backward	[288, 288, 128]	BFLOAT16	
+bwd	2	generic_op	ops.py:188:call <- taped_ttnn.py:856:_permute_back	[1, 128, 288, 288]	BFLOAT16	
+bwd	2	multiply	taped_ttnn.py:706:bw <- autograd.py:818:_backward	[1, 128, 288, 288]	BFLOAT16	
+bwd	2	concat	autograd.py:682:_join_parts <- autograd.py:702:closure_grad	[1, 288, 288, 512]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:237:bw <- autograd.py:818:_backward	[82944, 512]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:237:bw <- autograd.py:818:_backward	[1, 288, 288, 128]	BFLOAT16	
+bwd	2	typecast	autograd.py:810:_backward <- autograd.py:791:backward	[1, 2, 288, 256]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:1332:bw <- autograd.py:818:_backward	[2, 288, 256]	BFLOAT16	
+bwd	2	sum	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw	[288, 8, 2, 1]	BFLOAT16	
+bwd	2	sum	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw	[2, 8, 288, 1]	FLOAT32	
+bwd	2	typecast	autograd.py:818:_backward <- autograd.py:791:backward	[2, 8, 288, 288]	BFLOAT16	
+bwd	2	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[288, 128, 288]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:237:bw <- autograd.py:818:_backward	[36864, 288]	BFLOAT16	
+bwd	2	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>	[36864, 32]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:237:bw <- autograd.py:818:_backward	[288, 128, 32]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:252:bw <- autograd.py:818:_backward	[36864, 32]	BFLOAT16	
+bwd	2	reshape	taped_ttnn.py:252:bw <- autograd.py:818:_backward	[36864, 288]	BFLOAT16	
+bwd	2	matmul	taped_ttnn.py:252:bw <- autograd.py:818:_backward	[32, 288]	FLOAT32	
+bwd	2	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[288, 32, 128]	BFLOAT16	
+bwd	2	to_layout	autograd.py:818:_backward <- autograd.py:791:backward	[288, 32, 128]	BFLOAT16	
+bwd	2	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[288, 4096]	BFLOAT16	
+bwd	2	to_layout	autograd.py:818:_backward <- autograd.py:791:backward	[288, 4096]	BFLOAT16	
+bwd	2	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>	[288, 32]	BFLOAT16	
+bwd	2	typecast	autograd.py:810:_backward <- autograd.py:791:backward	[32, 288]	BFLOAT16	
+bwd	2	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[288, 32]	BFLOAT16	
+bwd	2	concat	autograd.py:682:_join_parts <- autograd.py:702:closure_grad	[2, 288, 32]	BFLOAT16	
+bwd	2	multiply	taped_ttnn.py:706:bw <- autograd.py:818:_backward	[2, 288, 32]	BFLOAT16	
+bwd	2	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[576, 32]	BFLOAT16	
+bwd	2	generic_op	rne_add.py:441:widen_add <- autograd.py:609:add_grad	[2, 288, 256]	FLOAT32	
+bwd	2	typecast	autograd.py:810:_backward <- autograd.py:791:backward	[2, 288, 256]	BFLOAT16	
+bwd	2	sum	autograd.py:1522:bw <- autograd.py:818:_backward	[2, 288, 1]	BFLOAT16	
+bwd	2	divide	autograd.py:1522:bw <- autograd.py:818:_backward	[2, 288, 1]	BFLOAT16	
+bwd	2	sum	autograd.py:1524:bw <- autograd.py:818:_backward	[2, 288, 1]	BFLOAT16	
+bwd	2	divide	autograd.py:1524:bw <- autograd.py:818:_backward	[2, 288, 1]	BFLOAT16	
+bwd	2	add	autograd.py:818:_backward <- autograd.py:791:backward	[2, 288, 1]	BFLOAT16	
+bwd	2	rsqrt	autograd.py:818:_backward <- autograd.py:791:backward	[2, 288, 1]	BFLOAT16	
+bwd	2	sum	autograd.py:1534:bw <- autograd.py:818:_backward	[2, 288, 1]	BFLOAT16	
+bwd	2	divide	autograd.py:1534:bw <- autograd.py:818:_backward	[2, 288, 1]	BFLOAT16	
+bwd	2	sum	autograd.py:1535:bw <- autograd.py:818:_backward	[2, 288, 1]	BFLOAT16	
+bwd	2	divide	autograd.py:1535:bw <- autograd.py:818:_backward	[2, 288, 1]	BFLOAT16	
+fwd	1	reshape	af2.py:853:_mask_biases <- af2.py:884:__call__	[2, 288]	BFLOAT16	
+fwd	1	subtract	af2.py:855:_mask_biases <- af2.py:884:__call__	[2, 288]	BFLOAT16	
+fwd	1	multiply	af2.py:855:_mask_biases <- af2.py:884:__call__	[2, 288]	BFLOAT16	
+fwd	1	reshape	af2.py:856:_mask_biases <- af2.py:884:__call__	[2, 1, 1, 288]	BFLOAT16	
+fwd	1	fill_implicit_tile_padding	af2.py:856:_mask_biases <- af2.py:884:__call__	[2, 1, 1, 288]	BFLOAT16	
+fwd	1	permute	af2.py:857:_mask_biases <- af2.py:884:__call__	[288, 2]	BFLOAT16	
+fwd	1	reshape	af2.py:858:_mask_biases <- af2.py:884:__call__	[288, 1, 1, 2]	BFLOAT16	
+fwd	1	fill_implicit_tile_padding	af2.py:858:_mask_biases <- af2.py:884:__call__	[288, 1, 1, 2]	BFLOAT16	
+fwd	1	reshape	taped_ttnn.py:1588:call <- af2.py:695:masked	[2, 288, 256]	BFLOAT16	
+fwd	1	reshape	af2.py:697:masked <- af2.py:878:<lambda>	[2, 288]	BFLOAT16	
+fwd	1	reshape	af2.py:699:masked <- af2.py:878:<lambda>	[2, 288, 1]	BFLOAT16	
+fwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:701:masked	[2, 288, 256]	BFLOAT16	
+fwd	1	linear	taped_ttnn.py:1588:call <- af2.py:704:masked	[2, 288, 32]	BFLOAT16	
+fwd	1	linear	taped_ttnn.py:1588:call <- af2.py:707:masked	[2, 288, 32]	BFLOAT16	
+fwd	1	add	taped_ttnn.py:1588:call <- af2.py:689:_sum_rows	[288, 288, 128]	BFLOAT16	
+fwd	1	add	taped_ttnn.py:1588:call <- af2.py:690:_sum_rows	[288, 288, 128]	BFLOAT16	
+fwd	1	reshape	taped_ttnn.py:1588:call <- af2.py:691:_sum_rows	[1, 288, 288, 128]	BFLOAT16	
+fwd	1	permute	af2.py:723:masked <- af2.py:878:<lambda>	[288, 2]	BFLOAT16	
+fwd	1	matmul	af2.py:724:masked <- af2.py:878:<lambda>	[288, 288]	BFLOAT16	
+fwd	1	add_	af2.py:726:masked <- af2.py:878:<lambda>	[288, 288]	BFLOAT16	
+fwd	1	reshape	af2.py:727:masked <- af2.py:878:<lambda>	[1, 288, 288, 1]	BFLOAT16	
+fwd	1	divide	taped_ttnn.py:1588:call <- af2.py:728:masked	[1, 288, 288, 128]	BFLOAT16	
+fwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:613:__call__	[2, 288, 256]	BFLOAT16	
+fwd	1	linear	ops.py:294:linear <- autograd.py:3128:_hook	[2, 288, 768]	BFLOAT16	
+fwd	1	reshape	taped_ttnn.py:1588:call <- af2.py:559:_bias	[288, 288, 128]	BFLOAT16	
+fwd	1	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8822:_pair_bias_from_z	[288, 288, 128]	BFLOAT16	
+fwd	1	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear	[288, 288, 8]	BFLOAT16	
+fwd	1	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:8852:_pair_bias_from_z	[1, 288, 288, 8]	BFLOAT16	
+fwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[1, 8, 288, 288]	BFLOAT16	
+fwd	1	add	taped_ttnn.py:1588:call <- af2.py:627:__call__	[2, 8, 288, 288]	BFLOAT16	
+fwd	1	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:7172:_split_heads	[2, 1, 288, 768]	BFLOAT16	
+fwd	1	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7173:_split_heads	[2, 8, 288, 32]	BFLOAT16	
+fwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[2, 8, 32, 288]	BFLOAT16	
+fwd	1	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul	[2, 8, 288, 288]	BFLOAT16	
+fwd	1	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4514:_fp32_softmax_tail	[2, 8, 288, 288]	FLOAT32	
+fwd	1	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4449:_fp32_softmax_bias	[2, 8, 288, 288]	FLOAT32	
+fwd	1	multiply	taped_ttnn.py:1588:call <- tenstorrent.py:4450:_fp32_softmax_bias	[2, 8, 288, 288]	FLOAT32	
+fwd	1	softmax	taped_ttnn.py:1588:call <- tenstorrent.py:4544:_fp32_softmax_tail	[2, 8, 288, 288]	FLOAT32	
+fwd	1	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4566:_fp32_softmax_tail	[2, 8, 288, 288]	BFLOAT16	
+fwd	1	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul	[2, 8, 288, 32]	BFLOAT16	
+fwd	1	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7183:_merge_heads	[2, 1, 288, 256]	BFLOAT16	
+fwd	1	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:7182:_merge_heads	[2, 288, 256]	BFLOAT16	
+fwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[288, 2, 256]	BFLOAT16	
+fwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:613:__call__	[288, 2, 256]	BFLOAT16	
+fwd	1	linear	ops.py:294:linear <- autograd.py:3128:_hook	[288, 2, 768]	BFLOAT16	
+fwd	1	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:7172:_split_heads	[288, 1, 2, 768]	BFLOAT16	
+fwd	1	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7173:_split_heads	[288, 8, 2, 32]	BFLOAT16	
+fwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[288, 8, 32, 2]	BFLOAT16	
+fwd	1	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul	[288, 8, 2, 2]	BFLOAT16	
+fwd	1	add	taped_ttnn.py:1588:call <- af2.py:588:_attend	[288, 8, 2, 2]	BFLOAT16	
+fwd	1	softmax	taped_ttnn.py:1588:call <- af2.py:589:_attend	[288, 8, 2, 2]	BFLOAT16	
+fwd	1	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul	[288, 8, 2, 32]	BFLOAT16	
+fwd	1	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7183:_merge_heads	[288, 1, 2, 256]	BFLOAT16	
+fwd	1	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:7182:_merge_heads	[288, 2, 256]	BFLOAT16	
+fwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[2, 288, 256]	BFLOAT16	
+fwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:214:_rows	[1, 2, 288, 256]	BFLOAT16	
+fwd	1	linear	ops.py:294:linear <- autograd.py:3128:_hook	[1, 2, 288, 1024]	BFLOAT16	
+fwd	1	linear	ops.py:294:linear <- autograd.py:3128:_hook	[1, 2, 288, 256]	BFLOAT16	
+fwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:214:_rows	[1, 288, 288, 128]	BFLOAT16	
+fwd	1	linear	ops.py:294:linear <- autograd.py:3128:_hook	[1, 288, 288, 512]	BFLOAT16	
+fwd	1	linear	ops.py:294:linear <- autograd.py:3128:_hook	[1, 288, 288, 128]	BFLOAT16	
+bwd	1	reshape	af2.py:853:_mask_biases <- af2.py:884:__call__	[2, 288]	BFLOAT16	
+bwd	1	subtract	af2.py:855:_mask_biases <- af2.py:884:__call__	[2, 288]	BFLOAT16	
+bwd	1	multiply	af2.py:855:_mask_biases <- af2.py:884:__call__	[2, 288]	BFLOAT16	
+bwd	1	reshape	af2.py:856:_mask_biases <- af2.py:884:__call__	[2, 1, 1, 288]	BFLOAT16	
+bwd	1	fill_implicit_tile_padding	af2.py:856:_mask_biases <- af2.py:884:__call__	[2, 1, 1, 288]	BFLOAT16	
+bwd	1	permute	af2.py:857:_mask_biases <- af2.py:884:__call__	[288, 2]	BFLOAT16	
+bwd	1	reshape	af2.py:858:_mask_biases <- af2.py:884:__call__	[288, 1, 1, 2]	BFLOAT16	
+bwd	1	fill_implicit_tile_padding	af2.py:858:_mask_biases <- af2.py:884:__call__	[288, 1, 1, 2]	BFLOAT16	
+bwd	1	reshape	taped_ttnn.py:1588:call <- af2.py:695:masked	[2, 288, 256]	BFLOAT16	
+bwd	1	reshape	af2.py:697:masked <- af2.py:878:<lambda>	[2, 288]	BFLOAT16	
+bwd	1	reshape	af2.py:699:masked <- af2.py:878:<lambda>	[2, 288, 1]	BFLOAT16	
+bwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:701:masked	[2, 288, 256]	BFLOAT16	
+bwd	1	linear	taped_ttnn.py:1588:call <- af2.py:704:masked	[2, 288, 32]	BFLOAT16	
+bwd	1	linear	taped_ttnn.py:1588:call <- af2.py:707:masked	[2, 288, 32]	BFLOAT16	
+bwd	1	add	taped_ttnn.py:1588:call <- af2.py:689:_sum_rows	[288, 288, 128]	BFLOAT16	
+bwd	1	add	taped_ttnn.py:1588:call <- af2.py:690:_sum_rows	[288, 288, 128]	BFLOAT16	
+bwd	1	reshape	taped_ttnn.py:1588:call <- af2.py:691:_sum_rows	[1, 288, 288, 128]	BFLOAT16	
+bwd	1	permute	af2.py:723:masked <- af2.py:878:<lambda>	[288, 2]	BFLOAT16	
+bwd	1	matmul	af2.py:724:masked <- af2.py:878:<lambda>	[288, 288]	BFLOAT16	
+bwd	1	add_	af2.py:726:masked <- af2.py:878:<lambda>	[288, 288]	BFLOAT16	
+bwd	1	reshape	af2.py:727:masked <- af2.py:878:<lambda>	[1, 288, 288, 1]	BFLOAT16	
+bwd	1	divide	taped_ttnn.py:1588:call <- af2.py:728:masked	[1, 288, 288, 128]	BFLOAT16	
+bwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:613:__call__	[2, 288, 256]	BFLOAT16	
+bwd	1	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear	[2, 288, 768]	BFLOAT16	
+bwd	1	reshape	taped_ttnn.py:1588:call <- af2.py:559:_bias	[288, 288, 128]	BFLOAT16	
+bwd	1	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8822:_pair_bias_from_z	[288, 288, 128]	BFLOAT16	
+bwd	1	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear	[288, 288, 8]	BFLOAT16	
+bwd	1	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:8852:_pair_bias_from_z	[1, 288, 288, 8]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[1, 8, 288, 288]	BFLOAT16	
+bwd	1	add	taped_ttnn.py:1588:call <- af2.py:627:__call__	[2, 8, 288, 288]	BFLOAT16	
+bwd	1	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:7172:_split_heads	[2, 1, 288, 768]	BFLOAT16	
+bwd	1	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7173:_split_heads	[2, 8, 288, 32]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[2, 8, 32, 288]	BFLOAT16	
+bwd	1	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul	[2, 8, 288, 288]	BFLOAT16	
+bwd	1	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4514:_fp32_softmax_tail	[2, 8, 288, 288]	FLOAT32	
+bwd	1	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4449:_fp32_softmax_bias	[2, 8, 288, 288]	FLOAT32	
+bwd	1	multiply	taped_ttnn.py:1588:call <- tenstorrent.py:4450:_fp32_softmax_bias	[2, 8, 288, 288]	FLOAT32	
+bwd	1	softmax	taped_ttnn.py:1588:call <- tenstorrent.py:4544:_fp32_softmax_tail	[2, 8, 288, 288]	FLOAT32	
+bwd	1	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4566:_fp32_softmax_tail	[2, 8, 288, 288]	BFLOAT16	
+bwd	1	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul	[2, 8, 288, 32]	BFLOAT16	
+bwd	1	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7183:_merge_heads	[2, 1, 288, 256]	BFLOAT16	
+bwd	1	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:7182:_merge_heads	[2, 288, 256]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[288, 2, 256]	BFLOAT16	
+bwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:613:__call__	[288, 2, 256]	BFLOAT16	
+bwd	1	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear	[288, 2, 768]	BFLOAT16	
+bwd	1	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:7172:_split_heads	[288, 1, 2, 768]	BFLOAT16	
+bwd	1	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7173:_split_heads	[288, 8, 2, 32]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[288, 8, 32, 2]	BFLOAT16	
+bwd	1	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul	[288, 8, 2, 2]	BFLOAT16	
+bwd	1	add	taped_ttnn.py:1588:call <- af2.py:588:_attend	[288, 8, 2, 2]	BFLOAT16	
+bwd	1	softmax	taped_ttnn.py:1588:call <- af2.py:589:_attend	[288, 8, 2, 2]	BFLOAT16	
+bwd	1	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul	[288, 8, 2, 32]	BFLOAT16	
+bwd	1	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7183:_merge_heads	[288, 1, 2, 256]	BFLOAT16	
+bwd	1	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:7182:_merge_heads	[288, 2, 256]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call	[2, 288, 256]	BFLOAT16	
+bwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:214:_rows	[1, 2, 288, 256]	BFLOAT16	
+bwd	1	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear	[1, 2, 288, 1024]	BFLOAT16	
+bwd	1	relu	autograd.py:3073:_taped_linear <- autograd.py:3135:_hook	[1, 2, 288, 1024]	BFLOAT16	
+bwd	1	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear	[1, 2, 288, 256]	BFLOAT16	
+bwd	1	layer_norm	taped_ttnn.py:1588:call <- af2.py:214:_rows	[1, 288, 288, 128]	BFLOAT16	
+bwd	1	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear	[1, 288, 288, 512]	BFLOAT16	
+bwd	1	relu	autograd.py:3073:_taped_linear <- autograd.py:3135:_hook	[1, 288, 288, 512]	BFLOAT16	
+bwd	1	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear	[1, 288, 288, 128]	BFLOAT16	
+bwd	1	matmul	autograd.py:3048:<lambda> <- autograd.py:1158:_via2d	[82944, 512]	BFLOAT16	
+bwd	1	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[1, 288, 288, 512]	BFLOAT16	
+bwd	1	relu_bw	autograd.py:818:_backward <- autograd.py:791:backward	[1, 288, 288, 512]	BFLOAT16	
+bwd	1	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[82944, 512]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:240:bw	[1, 128, 288, 288]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:255:bw	[1, 128, 288, 288]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>	[1, 128, 288, 288]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:256:bw	[1, 128, 288, 288]	BFLOAT16	
+bwd	1	matmul	autograd.py:3048:<lambda> <- autograd.py:1158:_via2d	[576, 1024]	BFLOAT16	
+bwd	1	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[1, 2, 288, 1024]	BFLOAT16	
+bwd	1	relu_bw	autograd.py:818:_backward <- autograd.py:791:backward	[1, 2, 288, 1024]	BFLOAT16	
+bwd	1	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[576, 1024]	BFLOAT16	
+bwd	1	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[1, 2, 288, 256]	BFLOAT16	
+bwd	1	sum	autograd.py:1522:bw <- autograd.py:818:_backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	divide	autograd.py:1522:bw <- autograd.py:818:_backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	sum	autograd.py:1524:bw <- autograd.py:818:_backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	divide	autograd.py:1524:bw <- autograd.py:818:_backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	add	autograd.py:818:_backward <- autograd.py:791:backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	rsqrt	autograd.py:818:_backward <- autograd.py:791:backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	sum	autograd.py:1534:bw <- autograd.py:818:_backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	divide	autograd.py:1534:bw <- autograd.py:818:_backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	sum	autograd.py:1535:bw <- autograd.py:818:_backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	divide	autograd.py:1535:bw <- autograd.py:818:_backward	[1, 2, 288, 1]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[288, 2, 256]	BFLOAT16	
+bwd	1	multiply	taped_ttnn.py:706:bw <- autograd.py:818:_backward	[288, 2, 256]	BFLOAT16	
+bwd	1	multiply	taped_ttnn.py:710:bw <- autograd.py:818:_backward	[288, 2, 256]	BFLOAT16	
+bwd	1	sigmoid_bw	taped_ttnn.py:454:_chain_fused <- taped_ttnn.py:711:bw	[288, 2, 256]	BFLOAT16	
+bwd	1	transpose	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[288, 1, 256, 2]	BFLOAT16	
+bwd	1	reshape	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[288, 8, 32, 2]	BFLOAT16	
+bwd	1	transpose	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[288, 8, 2, 32]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>	[288, 8, 2, 2]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:255:bw	[288, 8, 2, 32]	BFLOAT16	
+bwd	1	multiply	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw	[288, 8, 2, 2]	BFLOAT16	
+bwd	1	divide	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw	[288, 8, 2, 1]	BFLOAT16	
+bwd	1	subtract	taped_ttnn.py:327:bw <- autograd.py:818:_backward	[288, 8, 2, 2]	BFLOAT16	
+bwd	1	multiply	taped_ttnn.py:327:bw <- autograd.py:818:_backward	[288, 8, 2, 2]	BFLOAT16	
+bwd	1	multiply	taped_ttnn.py:660:bw <- autograd.py:818:_backward	[288, 8, 2, 2]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>	[288, 8, 2, 32]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:255:bw	[288, 8, 32, 2]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[288, 8, 2, 32]	BFLOAT16	
+bwd	1	concat	autograd.py:682:_join_parts <- autograd.py:702:closure_grad	[288, 1, 2, 768]	BFLOAT16	
+bwd	1	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[288, 2, 768]	BFLOAT16	
+bwd	1	generic_op	rne_add.py:441:widen_add <- autograd.py:609:add_grad	[288, 2, 256]	FLOAT32	
+bwd	1	typecast	autograd.py:810:_backward <- autograd.py:791:backward	[288, 2, 256]	BFLOAT16	
+bwd	1	sum	autograd.py:1522:bw <- autograd.py:818:_backward	[288, 2, 1]	BFLOAT16	
+bwd	1	divide	autograd.py:1522:bw <- autograd.py:818:_backward	[288, 2, 1]	BFLOAT16	
+bwd	1	sum	autograd.py:1524:bw <- autograd.py:818:_backward	[288, 2, 1]	BFLOAT16	
+bwd	1	divide	autograd.py:1524:bw <- autograd.py:818:_backward	[288, 2, 1]	BFLOAT16	
+bwd	1	add	autograd.py:818:_backward <- autograd.py:791:backward	[288, 2, 1]	BFLOAT16	
+bwd	1	rsqrt	autograd.py:818:_backward <- autograd.py:791:backward	[288, 2, 1]	BFLOAT16	
+bwd	1	sum	autograd.py:1534:bw <- autograd.py:818:_backward	[288, 2, 1]	BFLOAT16	
+bwd	1	divide	autograd.py:1534:bw <- autograd.py:818:_backward	[288, 2, 1]	BFLOAT16	
+bwd	1	sum	autograd.py:1535:bw <- autograd.py:818:_backward	[288, 2, 1]	BFLOAT16	
+bwd	1	divide	autograd.py:1535:bw <- autograd.py:818:_backward	[288, 2, 1]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[2, 288, 256]	BFLOAT16	
+bwd	1	multiply	taped_ttnn.py:706:bw <- autograd.py:818:_backward	[2, 288, 256]	BFLOAT16	
+bwd	1	multiply	taped_ttnn.py:710:bw <- autograd.py:818:_backward	[2, 288, 256]	BFLOAT16	
+bwd	1	sigmoid_bw	taped_ttnn.py:454:_chain_fused <- taped_ttnn.py:711:bw	[2, 288, 256]	BFLOAT16	
+bwd	1	transpose	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[2, 1, 256, 288]	BFLOAT16	
+bwd	1	reshape	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[2, 8, 32, 288]	BFLOAT16	
+bwd	1	transpose	taped_ttnn.py:1358:bw <- autograd.py:818:_backward	[2, 8, 288, 32]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>	[2, 8, 288, 288]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:255:bw	[2, 8, 288, 32]	BFLOAT16	
+bwd	1	typecast	autograd.py:818:_backward <- autograd.py:791:backward	[2, 8, 288, 288]	FLOAT32	
+bwd	1	multiply	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw	[2, 8, 288, 288]	FLOAT32	
+bwd	1	divide	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw	[2, 8, 288, 1]	FLOAT32	
+bwd	1	subtract	taped_ttnn.py:327:bw <- autograd.py:818:_backward	[2, 8, 288, 288]	FLOAT32	
+bwd	1	multiply	taped_ttnn.py:327:bw <- autograd.py:818:_backward	[2, 8, 288, 288]	FLOAT32	
+bwd	1	multiply	taped_ttnn.py:707:bw <- autograd.py:818:_backward	[2, 8, 288, 288]	FLOAT32	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>	[2, 8, 288, 32]	BFLOAT16	
+bwd	1	matmul	autograd.py:1222:bmm <- taped_ttnn.py:255:bw	[2, 8, 32, 288]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[2, 8, 288, 32]	BFLOAT16	
+bwd	1	multiply	taped_ttnn.py:660:bw <- autograd.py:818:_backward	[2, 8, 288, 288]	FLOAT32	
+bwd	1	sum	taped_ttnn.py:708:bw <- autograd.py:818:_backward	[1, 8, 288, 288]	BFLOAT16	
+bwd	1	reshape	taped_ttnn.py:708:bw <- autograd.py:818:_backward	[1, 8, 288, 288]	BFLOAT16	
+bwd	1	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward	[1, 288, 288, 8]	BFLOAT16	
+bwd	1	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[288, 288, 8]	BFLOAT16	
+bwd	1	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[82944, 8]	BFLOAT16	
+bwd	1	divide	taped_ttnn.py:706:bw <- autograd.py:818:_backward	[1, 288, 288, 128]	BFLOAT16	
+bwd	1	concat	autograd.py:682:_join_parts <- autograd.py:702:closure_grad	[2, 1, 288, 768]	BFLOAT16	
+bwd	1	reshape	autograd.py:818:_backward <- autograd.py:791:backward	[2, 288, 768]	BFLOAT16	
+bwd	1	reshape	autograd.py:3048:bw <- autograd.py:818:_backward	[576, 768]	BFLOAT16	
+WALL	bwd	10.777ms	multiply	autograd.py:818:_backward <- autograd.py:791:backward
+WALL	bwd	5.516ms	generic_op	autograd.py:2405:bw <- autograd.py:818:_backward
+WALL	bwd	5.149ms	subtract	autograd.py:818:_backward <- autograd.py:791:backward
+WALL	bwd	5.003ms	sigmoid_bw	taped_ttnn.py:454:_chain_fused <- taped_ttnn.py:711:bw
+WALL	bwd	3.639ms	generic_op	rne_add.py:441:widen_add <- autograd.py:609:add_grad
+WALL	bwd	3.639ms	matmul	autograd.py:3048:<lambda> <- autograd.py:1158:_via2d
+WALL	bwd	3.575ms	matmul	autograd.py:1222:bmm <- taped_ttnn.py:237:<lambda>
+WALL	fwd	3.217ms	linear	ops.py:294:linear <- autograd.py:3128:_hook
+WALL	bwd	2.383ms	linear	ops.py:294:linear <- autograd.py:3034:_taped_linear
+WALL	bwd	2.165ms	permute	taped_ttnn.py:811:bw <- autograd.py:818:_backward
+WALL	bwd	2.121ms	multiply	taped_ttnn.py:706:bw <- autograd.py:818:_backward
+WALL	bwd	2.035ms	typecast	autograd.py:810:_backward <- autograd.py:791:backward
+WALL	bwd	2.019ms	concat	autograd.py:682:_join_parts <- autograd.py:702:closure_grad
+WALL	bwd	1.920ms	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear
+WALL	fwd	1.854ms	linear	taped_ttnn.py:1588:call <- tenstorrent.py:5452:_pair_proj_linear
+WALL	bwd	1.827ms	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call
+WALL	fwd	1.795ms	permute	taped_ttnn.py:807:_v_permute <- taped_ttnn.py:1588:call
+WALL	bwd	1.698ms	sum	autograd.py:2405:bw <- autograd.py:818:_backward
+WALL	bwd	1.600ms	multiply	taped_ttnn.py:710:bw <- autograd.py:818:_backward
+WALL	fwd	1.540ms	generic_op	rne_add.py:348:_dispatch <- rne_add.py:325:rne_add
+WALL	bwd	1.527ms	generic_op	rne_add.py:348:_dispatch <- rne_add.py:325:rne_add
+WALL	fwd	1.476ms	generic_op	reblock_permute.py:352:reblock_permute <- ops.py:188:call
+WALL	fwd	1.286ms	chunk	taped_ttnn.py:1588:call <- tenstorrent.py:8246:_multiply
+WALL	bwd	1.265ms	generic_op	reblock_permute.py:352:reblock_permute <- ops.py:188:call
+WALL	bwd	1.254ms	chunk	taped_ttnn.py:1588:call <- tenstorrent.py:8246:_multiply
+WALL	bwd	1.238ms	experimental.nlp_concat_heads	taped_ttnn.py:1409:bw <- autograd.py:818:_backward
+WALL	bwd	1.203ms	to_layout	taped_ttnn.py:1492:<lambda> <- taped_ttnn.py:1588:call
+WALL	fwd	1.195ms	to_layout	taped_ttnn.py:1492:<lambda> <- taped_ttnn.py:1588:call
+WALL	bwd	1.182ms	sum	autograd.py:1522:bw <- autograd.py:818:_backward
+WALL	fwd	1.143ms	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:7298:_in_proj_matmul
+WALL	bwd	1.137ms	relu_bw	autograd.py:818:_backward <- autograd.py:791:backward
+WALL	bwd	1.120ms	sum	autograd.py:1524:bw <- autograd.py:818:_backward
+WALL	bwd	1.116ms	sum	autograd.py:1534:bw <- autograd.py:818:_backward
+WALL	bwd	1.113ms	sum	autograd.py:1535:bw <- autograd.py:818:_backward
+WALL	bwd	1.102ms	to_layout	autograd.py:818:_backward <- autograd.py:791:backward
+WALL	bwd	1.086ms	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:7298:_in_proj_matmul
+WALL	fwd	0.947ms	generic_op	sdpa_generic.py:613:sdpa <- triatt_sdpa.py:434:sdpa
+WALL	bwd	0.916ms	matmul	taped_ttnn.py:252:bw <- autograd.py:818:_backward
+WALL	bwd	0.898ms	reshape	autograd.py:818:_backward <- autograd.py:791:backward
+WALL	bwd	0.864ms	generic_op	ops.py:188:call <- taped_ttnn.py:854:_permute_back
+WALL	bwd	0.818ms	generic_op	sdpa_generic.py:613:sdpa <- triatt_sdpa.py:434:sdpa
+WALL	bwd	0.805ms	transpose	taped_ttnn.py:1358:bw <- autograd.py:818:_backward
+WALL	bwd	0.805ms	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:9219:attend
+WALL	fwd	0.798ms	reshape	af2.py:853:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.798ms	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:9219:attend
+WALL	bwd	0.793ms	divide	autograd.py:1522:bw <- autograd.py:818:_backward
+WALL	bwd	0.777ms	reshape	autograd.py:3048:bw <- autograd.py:818:_backward
+WALL	bwd	0.761ms	rsqrt	autograd.py:818:_backward <- autograd.py:791:backward
+WALL	bwd	0.753ms	divide	autograd.py:1534:bw <- autograd.py:818:_backward
+WALL	bwd	0.733ms	divide	autograd.py:1524:bw <- autograd.py:818:_backward
+WALL	bwd	0.725ms	divide	autograd.py:1535:bw <- autograd.py:818:_backward
+WALL	bwd	0.724ms	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:8281:_multiply
+WALL	bwd	0.719ms	add	autograd.py:818:_backward <- autograd.py:791:backward
+WALL	fwd	0.719ms	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:8281:_multiply
+WALL	fwd	0.703ms	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:9555:_attend_pair
+WALL	bwd	0.700ms	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:9555:_attend_pair
+WALL	bwd	0.592ms	generic_op	ops.py:188:call <- taped_ttnn.py:856:_permute_back
+WALL	bwd	0.552ms	relu	autograd.py:3073:_taped_linear <- autograd.py:3135:_hook
+WALL	bwd	0.528ms	matmul	autograd.py:1222:bmm <- taped_ttnn.py:255:bw
+WALL	bwd	0.471ms	generic_op	reblock_permute.py:638:reblock_permute_back <- ops.py:188:call
+WALL	fwd	0.466ms	generic_op	reblock_permute.py:638:reblock_permute_back <- ops.py:188:call
+WALL	bwd	0.459ms	matmul	autograd.py:3048:<lambda> <- autograd.py:1157:_via2d
+WALL	bwd	0.406ms	sum	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw
+WALL	bwd	0.391ms	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul
+WALL	bwd	0.391ms	matmul	taped_ttnn.py:1588:call <- af2.py:687:_sum_rows
+WALL	bwd	0.381ms	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:9571:_attend_pair
+WALL	fwd	0.381ms	matmul	taped_ttnn.py:1588:call <- af2.py:687:_sum_rows
+WALL	fwd	0.380ms	experimental.minimal_matmul	taped_ttnn.py:1588:call <- tenstorrent.py:9571:_attend_pair
+WALL	bwd	0.371ms	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8029:_multiply
+WALL	fwd	0.364ms	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8460:_multiply
+WALL	bwd	0.364ms	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:9187:_attend_pair
+WALL	fwd	0.358ms	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8029:_multiply
+WALL	bwd	0.358ms	reshape	taped_ttnn.py:237:bw <- autograd.py:818:_backward
+WALL	fwd	0.357ms	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:9187:_attend_pair
+WALL	bwd	0.355ms	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8460:_multiply
+WALL	bwd	0.346ms	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:9314:_attend_heads
+WALL	fwd	0.341ms	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:9314:_attend_heads
+WALL	fwd	0.340ms	matmul	taped_ttnn.py:1588:call <- tenstorrent.py:3345:batched_matmul
+WALL	bwd	0.260ms	empty	triatt_bw.py:481:run <- autograd.py:2405:bw
+WALL	bwd	0.255ms	reshape	taped_ttnn.py:1409:bw <- autograd.py:818:_backward
+WALL	bwd	0.254ms	layer_norm	taped_ttnn.py:1588:call <- af2.py:214:_rows
+WALL	bwd	0.253ms	add	taped_ttnn.py:1588:call <- af2.py:690:_sum_rows
+WALL	fwd	0.252ms	add	taped_ttnn.py:1588:call <- af2.py:690:_sum_rows
+WALL	bwd	0.235ms	multiply	taped_ttnn.py:660:bw <- autograd.py:818:_backward
+WALL	bwd	0.225ms	subtract	taped_ttnn.py:327:bw <- autograd.py:818:_backward
+WALL	bwd	0.222ms	divide	taped_ttnn.py:1588:call <- af2.py:728:masked
+WALL	fwd	0.222ms	layer_norm	taped_ttnn.py:1588:call <- af2.py:214:_rows
+WALL	bwd	0.211ms	add	taped_ttnn.py:1588:call <- af2.py:689:_sum_rows
+WALL	bwd	0.211ms	divide	taped_ttnn.py:706:bw <- autograd.py:818:_backward
+WALL	fwd	0.211ms	divide	taped_ttnn.py:1588:call <- af2.py:728:masked
+WALL	bwd	0.209ms	matmul	autograd.py:1222:bmm <- taped_ttnn.py:240:bw
+WALL	fwd	0.206ms	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8822:_pair_bias_from_z
+WALL	fwd	0.206ms	add	taped_ttnn.py:1588:call <- af2.py:689:_sum_rows
+WALL	bwd	0.204ms	matmul	autograd.py:1222:bmm <- taped_ttnn.py:256:bw
+WALL	fwd	0.195ms	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7173:_split_heads
+WALL	bwd	0.195ms	experimental.nlp_create_qkv_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7173:_split_heads
+WALL	bwd	0.190ms	typecast	autograd.py:818:_backward <- autograd.py:791:backward
+WALL	bwd	0.185ms	layer_norm	taped_ttnn.py:1588:call <- tenstorrent.py:8822:_pair_bias_from_z
+WALL	bwd	0.171ms	multiply	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw
+WALL	bwd	0.155ms	multiply	taped_ttnn.py:327:bw <- autograd.py:818:_backward
+WALL	bwd	0.154ms	layer_norm	taped_ttnn.py:1588:call <- af2.py:613:__call__
+WALL	fwd	0.150ms	layer_norm	taped_ttnn.py:1588:call <- af2.py:613:__call__
+WALL	bwd	0.150ms	matmul	taped_ttnn.py:1588:call <- af2.py:679:_sum_rows
+WALL	fwd	0.143ms	add	taped_ttnn.py:1588:call <- tenstorrent.py:9531:_attend_pair
+WALL	bwd	0.142ms	softmax	taped_ttnn.py:1588:call <- af2.py:589:_attend
+WALL	bwd	0.142ms	reshape	taped_ttnn.py:1588:call <- af2.py:682:_sum_rows
+WALL	bwd	0.138ms	multiply	taped_ttnn.py:1182:_k_tri_att_sdpa_hifi <- taped_ttnn.py:146:counted
+WALL	fwd	0.138ms	reshape	taped_ttnn.py:1588:call <- af2.py:682:_sum_rows
+WALL	fwd	0.137ms	matmul	taped_ttnn.py:1588:call <- af2.py:679:_sum_rows
+WALL	fwd	0.136ms	softmax	taped_ttnn.py:1588:call <- af2.py:589:_attend
+WALL	bwd	0.136ms	divide	autograd.py:261:softmax_bw <- taped_ttnn.py:327:bw
+WALL	fwd	0.132ms	multiply	taped_ttnn.py:1182:_k_tri_att_sdpa_hifi <- taped_ttnn.py:146:counted
+WALL	bwd	0.132ms	reshape	af2.py:727:masked <- af2.py:878:<lambda>
+WALL	bwd	0.130ms	multiply	taped_ttnn.py:1588:call <- tenstorrent.py:9241:_attend_heads
+WALL	bwd	0.128ms	add	taped_ttnn.py:1588:call <- tenstorrent.py:9531:_attend_pair
+WALL	bwd	0.128ms	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7183:_merge_heads
+WALL	fwd	0.126ms	experimental.nlp_concat_heads	taped_ttnn.py:1588:call <- tenstorrent.py:7183:_merge_heads
+WALL	fwd	0.126ms	reshape	af2.py:727:masked <- af2.py:878:<lambda>
+WALL	fwd	0.125ms	subtract	af2.py:855:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.124ms	multiply	taped_ttnn.py:1588:call <- tenstorrent.py:9241:_attend_heads
+WALL	bwd	0.124ms	softmax	taped_ttnn.py:1588:call <- tenstorrent.py:4544:_fp32_softmax_tail
+WALL	fwd	0.099ms	slice	autograd.py:437:__getitem__ <- af2.py:678:_sum_rows
+WALL	fwd	0.099ms	softmax	taped_ttnn.py:1588:call <- tenstorrent.py:4544:_fp32_softmax_tail
+WALL	bwd	0.097ms	slice	autograd.py:437:__getitem__ <- af2.py:678:_sum_rows
+WALL	bwd	0.095ms	subtract	af2.py:855:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.093ms	multiply	taped_ttnn.py:1588:call <- tenstorrent.py:4450:_fp32_softmax_bias
+WALL	bwd	0.093ms	reshape	af2.py:853:_mask_biases <- af2.py:884:__call__
+WALL	bwd	0.092ms	multiply	taped_ttnn.py:1588:call <- tenstorrent.py:4450:_fp32_softmax_bias
+WALL	bwd	0.091ms	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4566:_fp32_softmax_tail
+WALL	fwd	0.089ms	linear	taped_ttnn.py:1588:call <- af2.py:704:masked
+WALL	bwd	0.087ms	reshape	taped_ttnn.py:1358:bw <- autograd.py:818:_backward
+WALL	bwd	0.087ms	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4514:_fp32_softmax_tail
+WALL	bwd	0.085ms	add	taped_ttnn.py:1588:call <- af2.py:588:_attend
+WALL	bwd	0.085ms	linear	taped_ttnn.py:1588:call <- af2.py:704:masked
+WALL	fwd	0.083ms	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4514:_fp32_softmax_tail
+WALL	bwd	0.082ms	reshape	taped_ttnn.py:252:bw <- autograd.py:818:_backward
+WALL	fwd	0.082ms	layer_norm	taped_ttnn.py:1588:call <- af2.py:701:masked
+WALL	fwd	0.081ms	add	taped_ttnn.py:1588:call <- af2.py:588:_attend
+WALL	bwd	0.077ms	multiply	taped_ttnn.py:707:bw <- autograd.py:818:_backward
+WALL	fwd	0.076ms	add	taped_ttnn.py:1588:call <- af2.py:627:__call__
+WALL	fwd	0.074ms	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4566:_fp32_softmax_tail
+WALL	bwd	0.074ms	slice	autograd.py:437:__getitem__ <- af2.py:685:_sum_rows
+WALL	bwd	0.074ms	add	taped_ttnn.py:1588:call <- af2.py:627:__call__
+WALL	fwd	0.072ms	multiply	af2.py:855:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.071ms	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4449:_fp32_softmax_bias
+WALL	bwd	0.071ms	typecast	taped_ttnn.py:1588:call <- tenstorrent.py:4449:_fp32_softmax_bias
+WALL	bwd	0.070ms	layer_norm	taped_ttnn.py:1588:call <- af2.py:701:masked
+WALL	bwd	0.070ms	reshape	taped_ttnn.py:1588:call <- tenstorrent.py:9120:_attend_pair
+WALL	fwd	0.070ms	reshape	taped_ttnn.py:1588:call <- tenstorrent.py:9120:_attend_pair
+WALL	bwd	0.069ms	unsqueeze	tenstorrent.py:8104:mask_moved <- tenstorrent.py:8278:_multiply
+WALL	fwd	0.069ms	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:9215:attend
+WALL	fwd	0.068ms	slice	autograd.py:437:__getitem__ <- af2.py:685:_sum_rows
+WALL	bwd	0.068ms	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:9316:_attend_heads
+WALL	bwd	0.068ms	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:9215:attend
+WALL	fwd	0.065ms	reshape	af2.py:858:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.065ms	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:9316:_attend_heads
+WALL	fwd	0.065ms	reshape	taped_ttnn.py:1588:call <- af2.py:559:_bias
+WALL	bwd	0.064ms	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:9200:_attend_pair
+WALL	fwd	0.064ms	permute	af2.py:857:_mask_biases <- af2.py:884:__call__
+WALL	bwd	0.063ms	fill_implicit_tile_padding	af2.py:856:_mask_biases <- af2.py:884:__call__
+WALL	bwd	0.063ms	multiply	af2.py:855:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.063ms	unsqueeze	tenstorrent.py:8104:mask_moved <- tenstorrent.py:8278:_multiply
+WALL	bwd	0.062ms	reshape	taped_ttnn.py:1588:call <- tenstorrent.py:9603:_attend_pair
+WALL	fwd	0.061ms	fill_implicit_tile_padding	af2.py:856:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.061ms	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:9200:_attend_pair
+WALL	bwd	0.061ms	matmul	af2.py:724:masked <- af2.py:878:<lambda>
+WALL	fwd	0.060ms	reshape	af2.py:856:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.059ms	reshape	taped_ttnn.py:1588:call <- tenstorrent.py:9603:_attend_pair
+WALL	bwd	0.058ms	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:7182:_merge_heads
+WALL	bwd	0.057ms	sum	taped_ttnn.py:708:bw <- autograd.py:818:_backward
+WALL	fwd	0.057ms	matmul	af2.py:724:masked <- af2.py:878:<lambda>
+WALL	bwd	0.056ms	reshape	taped_ttnn.py:1588:call <- af2.py:610:__call__
+WALL	bwd	0.055ms	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:7172:_split_heads
+WALL	bwd	0.055ms	reshape	af2.py:858:_mask_biases <- af2.py:884:__call__
+WALL	bwd	0.055ms	add_	af2.py:726:masked <- af2.py:878:<lambda>
+WALL	fwd	0.054ms	reshape	taped_ttnn.py:1588:call <- af2.py:610:__call__
+WALL	bwd	0.054ms	reshape	taped_ttnn.py:1588:call <- af2.py:678:_sum_rows
+WALL	fwd	0.053ms	squeeze	taped_ttnn.py:1588:call <- tenstorrent.py:7182:_merge_heads
+WALL	fwd	0.053ms	add_	af2.py:726:masked <- af2.py:878:<lambda>
+WALL	bwd	0.051ms	linear	taped_ttnn.py:1588:call <- af2.py:707:masked
+WALL	bwd	0.051ms	permute	af2.py:857:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.051ms	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:7172:_split_heads
+WALL	fwd	0.050ms	fill_implicit_tile_padding	af2.py:858:_mask_biases <- af2.py:884:__call__
+WALL	bwd	0.050ms	reshape	taped_ttnn.py:1588:call <- af2.py:685:_sum_rows
+WALL	fwd	0.050ms	linear	taped_ttnn.py:1588:call <- af2.py:707:masked
+WALL	fwd	0.049ms	reshape	taped_ttnn.py:1588:call <- af2.py:678:_sum_rows
+WALL	bwd	0.047ms	fill_implicit_tile_padding	af2.py:858:_mask_biases <- af2.py:884:__call__
+WALL	fwd	0.047ms	reshape	taped_ttnn.py:1588:call <- af2.py:685:_sum_rows
+WALL	fwd	0.046ms	reshape	af2.py:699:masked <- af2.py:878:<lambda>
+WALL	bwd	0.046ms	reshape	af2.py:856:_mask_biases <- af2.py:884:__call__
+WALL	bwd	0.046ms	empty	autograd.py:2405:bw <- autograd.py:818:_backward
+WALL	bwd	0.044ms	permute	af2.py:723:masked <- af2.py:878:<lambda>
+WALL	bwd	0.044ms	reshape	taped_ttnn.py:1332:bw <- autograd.py:818:_backward
+WALL	bwd	0.041ms	reshape	af2.py:699:masked <- af2.py:878:<lambda>
+WALL	fwd	0.039ms	permute	af2.py:723:masked <- af2.py:878:<lambda>
+WALL	bwd	0.037ms	reshape	taped_ttnn.py:1588:call <- af2.py:695:masked
+WALL	bwd	0.033ms	reshape	taped_ttnn.py:1588:call <- af2.py:691:_sum_rows
+WALL	fwd	0.033ms	reshape	taped_ttnn.py:1588:call <- af2.py:695:masked
+WALL	fwd	0.030ms	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:8852:_pair_bias_from_z
+WALL	bwd	0.029ms	unsqueeze	taped_ttnn.py:1588:call <- tenstorrent.py:8852:_pair_bias_from_z
+WALL	bwd	0.027ms	reshape	taped_ttnn.py:1588:call <- af2.py:559:_bias
+WALL	bwd	0.026ms	reshape	af2.py:697:masked <- af2.py:878:<lambda>
+WALL	fwd	0.024ms	reshape	taped_ttnn.py:1588:call <- af2.py:691:_sum_rows
+WALL	fwd	0.023ms	reshape	af2.py:697:masked <- af2.py:878:<lambda>
+WALL	bwd	0.020ms	reshape	taped_ttnn.py:708:bw <- autograd.py:818:_backward

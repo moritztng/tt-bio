@@ -1,0 +1,883 @@
+[DRAM] trimul(start) x_norm_in [z=1x864x864x64]: 0.400 GiB used (of 31.9 GiB) maxfree=4029MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x64]: 0.489 GiB used (of 31.9 GiB) maxfree=4017MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x64]: 0.489 GiB used (of 31.9 GiB) maxfree=4017MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x64]: 0.489 GiB used (of 31.9 GiB) maxfree=4017MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x64]: 0.578 GiB used (of 31.9 GiB) maxfree=4006MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x64]: 0.578 GiB used (of 31.9 GiB) maxfree=4006MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x64]: 0.495 GiB used (of 31.9 GiB) maxfree=4006MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x64]: 0.540 GiB used (of 31.9 GiB) maxfree=3995MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x64]: 0.534 GiB used (of 31.9 GiB) maxfree=4006MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x64]: 0.623 GiB used (of 31.9 GiB) maxfree=3995MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x64]: 0.623 GiB used (of 31.9 GiB) maxfree=3995MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x64]: 0.623 GiB used (of 31.9 GiB) maxfree=3995MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x64]: 0.712 GiB used (of 31.9 GiB) maxfree=3983MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x64]: 0.712 GiB used (of 31.9 GiB) maxfree=3983MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x64]: 0.629 GiB used (of 31.9 GiB) maxfree=3983MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x64]: 0.629 GiB used (of 31.9 GiB) maxfree=3983MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 1.070 GiB used (of 31.9 GiB) maxfree=3926MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 1.248 GiB used (of 31.9 GiB) maxfree=3903MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 1.248 GiB used (of 31.9 GiB) maxfree=3903MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 1.070 GiB used (of 31.9 GiB) maxfree=3903MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 1.248 GiB used (of 31.9 GiB) maxfree=3903MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 1.248 GiB used (of 31.9 GiB) maxfree=3903MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 1.076 GiB used (of 31.9 GiB) maxfree=3926MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 1.076 GiB used (of 31.9 GiB) maxfree=3903MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 1.249 GiB used (of 31.9 GiB) maxfree=3891MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 1.427 GiB used (of 31.9 GiB) maxfree=3868MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 1.427 GiB used (of 31.9 GiB) maxfree=3868MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 1.249 GiB used (of 31.9 GiB) maxfree=3868MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 1.427 GiB used (of 31.9 GiB) maxfree=3868MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 1.427 GiB used (of 31.9 GiB) maxfree=3868MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 1.254 GiB used (of 31.9 GiB) maxfree=3891MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 1.254 GiB used (of 31.9 GiB) maxfree=3868MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 1.427 GiB used (of 31.9 GiB) maxfree=3868MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 1.605 GiB used (of 31.9 GiB) maxfree=3845MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 1.605 GiB used (of 31.9 GiB) maxfree=3845MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 1.427 GiB used (of 31.9 GiB) maxfree=3845MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 1.605 GiB used (of 31.9 GiB) maxfree=3845MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 1.605 GiB used (of 31.9 GiB) maxfree=3845MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 1.433 GiB used (of 31.9 GiB) maxfree=3868MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 1.433 GiB used (of 31.9 GiB) maxfree=3845MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 1.605 GiB used (of 31.9 GiB) maxfree=3845MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 1.783 GiB used (of 31.9 GiB) maxfree=3822MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 1.783 GiB used (of 31.9 GiB) maxfree=3822MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 1.605 GiB used (of 31.9 GiB) maxfree=3822MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 1.783 GiB used (of 31.9 GiB) maxfree=3822MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 1.783 GiB used (of 31.9 GiB) maxfree=3822MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 1.611 GiB used (of 31.9 GiB) maxfree=3845MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 1.611 GiB used (of 31.9 GiB) maxfree=3822MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 1.979 GiB used (of 31.9 GiB) maxfree=3799MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 2.157 GiB used (of 31.9 GiB) maxfree=3777MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 2.157 GiB used (of 31.9 GiB) maxfree=3777MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 1.979 GiB used (of 31.9 GiB) maxfree=3777MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 2.157 GiB used (of 31.9 GiB) maxfree=3777MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 2.157 GiB used (of 31.9 GiB) maxfree=3777MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 1.985 GiB used (of 31.9 GiB) maxfree=3799MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 1.985 GiB used (of 31.9 GiB) maxfree=3777MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 2.160 GiB used (of 31.9 GiB) maxfree=3770MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 2.339 GiB used (of 31.9 GiB) maxfree=3747MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 2.339 GiB used (of 31.9 GiB) maxfree=3747MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 2.161 GiB used (of 31.9 GiB) maxfree=3747MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 2.339 GiB used (of 31.9 GiB) maxfree=3747MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 2.339 GiB used (of 31.9 GiB) maxfree=3747MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 2.166 GiB used (of 31.9 GiB) maxfree=3770MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 2.166 GiB used (of 31.9 GiB) maxfree=3747MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 2.342 GiB used (of 31.9 GiB) maxfree=3747MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 2.520 GiB used (of 31.9 GiB) maxfree=3724MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 2.520 GiB used (of 31.9 GiB) maxfree=3724MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 2.342 GiB used (of 31.9 GiB) maxfree=3724MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 2.520 GiB used (of 31.9 GiB) maxfree=3724MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 2.520 GiB used (of 31.9 GiB) maxfree=3724MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 2.347 GiB used (of 31.9 GiB) maxfree=3747MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 2.347 GiB used (of 31.9 GiB) maxfree=3724MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 2.523 GiB used (of 31.9 GiB) maxfree=3724MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 2.701 GiB used (of 31.9 GiB) maxfree=3702MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 2.701 GiB used (of 31.9 GiB) maxfree=3702MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 2.523 GiB used (of 31.9 GiB) maxfree=3702MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 2.701 GiB used (of 31.9 GiB) maxfree=3702MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 2.701 GiB used (of 31.9 GiB) maxfree=3702MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 2.529 GiB used (of 31.9 GiB) maxfree=3724MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 2.529 GiB used (of 31.9 GiB) maxfree=3702MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 2.704 GiB used (of 31.9 GiB) maxfree=3702MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 2.882 GiB used (of 31.9 GiB) maxfree=3679MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 2.882 GiB used (of 31.9 GiB) maxfree=3679MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 2.704 GiB used (of 31.9 GiB) maxfree=3679MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 2.882 GiB used (of 31.9 GiB) maxfree=3679MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 2.882 GiB used (of 31.9 GiB) maxfree=3679MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 2.710 GiB used (of 31.9 GiB) maxfree=3702MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 2.710 GiB used (of 31.9 GiB) maxfree=3679MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 2.885 GiB used (of 31.9 GiB) maxfree=3679MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 3.063 GiB used (of 31.9 GiB) maxfree=3656MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 3.063 GiB used (of 31.9 GiB) maxfree=3656MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 2.885 GiB used (of 31.9 GiB) maxfree=3656MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 3.064 GiB used (of 31.9 GiB) maxfree=3656MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 3.064 GiB used (of 31.9 GiB) maxfree=3656MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 2.891 GiB used (of 31.9 GiB) maxfree=3679MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 2.891 GiB used (of 31.9 GiB) maxfree=3656MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 3.066 GiB used (of 31.9 GiB) maxfree=3656MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 3.245 GiB used (of 31.9 GiB) maxfree=3633MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 3.245 GiB used (of 31.9 GiB) maxfree=3633MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 3.067 GiB used (of 31.9 GiB) maxfree=3633MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 3.245 GiB used (of 31.9 GiB) maxfree=3633MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 3.245 GiB used (of 31.9 GiB) maxfree=3633MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 3.072 GiB used (of 31.9 GiB) maxfree=3656MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 3.072 GiB used (of 31.9 GiB) maxfree=3633MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 3.248 GiB used (of 31.9 GiB) maxfree=3630MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 3.426 GiB used (of 31.9 GiB) maxfree=3607MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 3.426 GiB used (of 31.9 GiB) maxfree=3607MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 3.248 GiB used (of 31.9 GiB) maxfree=3607MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 3.426 GiB used (of 31.9 GiB) maxfree=3607MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 3.426 GiB used (of 31.9 GiB) maxfree=3607MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 3.254 GiB used (of 31.9 GiB) maxfree=3630MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 3.254 GiB used (of 31.9 GiB) maxfree=3607MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 3.429 GiB used (of 31.9 GiB) maxfree=3607MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 3.607 GiB used (of 31.9 GiB) maxfree=3584MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 3.607 GiB used (of 31.9 GiB) maxfree=3584MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 3.429 GiB used (of 31.9 GiB) maxfree=3584MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 3.607 GiB used (of 31.9 GiB) maxfree=3584MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 3.607 GiB used (of 31.9 GiB) maxfree=3584MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 3.435 GiB used (of 31.9 GiB) maxfree=3607MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 3.435 GiB used (of 31.9 GiB) maxfree=3584MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 3.610 GiB used (of 31.9 GiB) maxfree=3584MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 3.788 GiB used (of 31.9 GiB) maxfree=3561MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 3.788 GiB used (of 31.9 GiB) maxfree=3561MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 3.610 GiB used (of 31.9 GiB) maxfree=3561MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 3.788 GiB used (of 31.9 GiB) maxfree=3561MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 3.788 GiB used (of 31.9 GiB) maxfree=3561MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 3.616 GiB used (of 31.9 GiB) maxfree=3584MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 3.616 GiB used (of 31.9 GiB) maxfree=3561MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 3.791 GiB used (of 31.9 GiB) maxfree=3561MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 3.969 GiB used (of 31.9 GiB) maxfree=3539MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 3.969 GiB used (of 31.9 GiB) maxfree=3539MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 3.791 GiB used (of 31.9 GiB) maxfree=3539MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 3.970 GiB used (of 31.9 GiB) maxfree=3539MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 3.970 GiB used (of 31.9 GiB) maxfree=3539MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 3.797 GiB used (of 31.9 GiB) maxfree=3561MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 3.797 GiB used (of 31.9 GiB) maxfree=3539MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 3.973 GiB used (of 31.9 GiB) maxfree=3539MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 4.151 GiB used (of 31.9 GiB) maxfree=3516MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 4.151 GiB used (of 31.9 GiB) maxfree=3516MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 3.973 GiB used (of 31.9 GiB) maxfree=3516MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 4.151 GiB used (of 31.9 GiB) maxfree=3516MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 4.151 GiB used (of 31.9 GiB) maxfree=3516MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 3.978 GiB used (of 31.9 GiB) maxfree=3539MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 3.978 GiB used (of 31.9 GiB) maxfree=3516MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 4.154 GiB used (of 31.9 GiB) maxfree=3516MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 4.332 GiB used (of 31.9 GiB) maxfree=3493MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 4.332 GiB used (of 31.9 GiB) maxfree=3493MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 4.154 GiB used (of 31.9 GiB) maxfree=3493MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 4.332 GiB used (of 31.9 GiB) maxfree=3493MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 4.332 GiB used (of 31.9 GiB) maxfree=3493MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 4.160 GiB used (of 31.9 GiB) maxfree=3516MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 4.160 GiB used (of 31.9 GiB) maxfree=3493MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 4.335 GiB used (of 31.9 GiB) maxfree=3493MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 4.513 GiB used (of 31.9 GiB) maxfree=3470MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 4.513 GiB used (of 31.9 GiB) maxfree=3470MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 4.335 GiB used (of 31.9 GiB) maxfree=3470MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 4.513 GiB used (of 31.9 GiB) maxfree=3470MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 4.513 GiB used (of 31.9 GiB) maxfree=3470MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 4.341 GiB used (of 31.9 GiB) maxfree=3493MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 4.341 GiB used (of 31.9 GiB) maxfree=3470MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 4.516 GiB used (of 31.9 GiB) maxfree=3470MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 4.694 GiB used (of 31.9 GiB) maxfree=3448MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 4.694 GiB used (of 31.9 GiB) maxfree=3448MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 4.516 GiB used (of 31.9 GiB) maxfree=3448MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 4.694 GiB used (of 31.9 GiB) maxfree=3448MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 4.694 GiB used (of 31.9 GiB) maxfree=3448MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 4.522 GiB used (of 31.9 GiB) maxfree=3470MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 4.522 GiB used (of 31.9 GiB) maxfree=3448MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 4.697 GiB used (of 31.9 GiB) maxfree=3448MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 4.876 GiB used (of 31.9 GiB) maxfree=3425MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 4.876 GiB used (of 31.9 GiB) maxfree=3425MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 4.698 GiB used (of 31.9 GiB) maxfree=3425MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 4.876 GiB used (of 31.9 GiB) maxfree=3425MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 4.876 GiB used (of 31.9 GiB) maxfree=3425MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 4.703 GiB used (of 31.9 GiB) maxfree=3448MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 4.703 GiB used (of 31.9 GiB) maxfree=3425MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 4.879 GiB used (of 31.9 GiB) maxfree=3425MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 5.057 GiB used (of 31.9 GiB) maxfree=3402MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 5.057 GiB used (of 31.9 GiB) maxfree=3402MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 4.879 GiB used (of 31.9 GiB) maxfree=3402MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 5.057 GiB used (of 31.9 GiB) maxfree=3402MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 5.057 GiB used (of 31.9 GiB) maxfree=3402MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 4.884 GiB used (of 31.9 GiB) maxfree=3425MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 4.884 GiB used (of 31.9 GiB) maxfree=3402MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 5.060 GiB used (of 31.9 GiB) maxfree=3402MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 5.238 GiB used (of 31.9 GiB) maxfree=3379MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 5.238 GiB used (of 31.9 GiB) maxfree=3379MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 5.060 GiB used (of 31.9 GiB) maxfree=3379MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 5.238 GiB used (of 31.9 GiB) maxfree=3379MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 5.238 GiB used (of 31.9 GiB) maxfree=3379MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 5.066 GiB used (of 31.9 GiB) maxfree=3402MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 5.066 GiB used (of 31.9 GiB) maxfree=3379MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 5.241 GiB used (of 31.9 GiB) maxfree=3379MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 5.419 GiB used (of 31.9 GiB) maxfree=3356MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 5.419 GiB used (of 31.9 GiB) maxfree=3356MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 5.241 GiB used (of 31.9 GiB) maxfree=3356MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 5.419 GiB used (of 31.9 GiB) maxfree=3356MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 5.419 GiB used (of 31.9 GiB) maxfree=3356MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 5.247 GiB used (of 31.9 GiB) maxfree=3379MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 5.247 GiB used (of 31.9 GiB) maxfree=3356MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 5.422 GiB used (of 31.9 GiB) maxfree=3356MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 5.600 GiB used (of 31.9 GiB) maxfree=3334MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 5.600 GiB used (of 31.9 GiB) maxfree=3334MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 5.422 GiB used (of 31.9 GiB) maxfree=3334MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 5.601 GiB used (of 31.9 GiB) maxfree=3334MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 5.601 GiB used (of 31.9 GiB) maxfree=3334MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 5.428 GiB used (of 31.9 GiB) maxfree=3356MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 5.428 GiB used (of 31.9 GiB) maxfree=3334MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 5.603 GiB used (of 31.9 GiB) maxfree=3334MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 5.782 GiB used (of 31.9 GiB) maxfree=3311MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 5.782 GiB used (of 31.9 GiB) maxfree=3311MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 5.604 GiB used (of 31.9 GiB) maxfree=3311MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 5.782 GiB used (of 31.9 GiB) maxfree=3311MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 5.782 GiB used (of 31.9 GiB) maxfree=3311MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 5.609 GiB used (of 31.9 GiB) maxfree=3334MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 5.609 GiB used (of 31.9 GiB) maxfree=3311MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 5.785 GiB used (of 31.9 GiB) maxfree=3311MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 5.963 GiB used (of 31.9 GiB) maxfree=3288MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 5.963 GiB used (of 31.9 GiB) maxfree=3288MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 5.785 GiB used (of 31.9 GiB) maxfree=3288MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 5.963 GiB used (of 31.9 GiB) maxfree=3288MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 5.963 GiB used (of 31.9 GiB) maxfree=3288MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 5.791 GiB used (of 31.9 GiB) maxfree=3311MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 5.791 GiB used (of 31.9 GiB) maxfree=3288MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 5.966 GiB used (of 31.9 GiB) maxfree=3288MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 6.144 GiB used (of 31.9 GiB) maxfree=3265MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 6.144 GiB used (of 31.9 GiB) maxfree=3265MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 5.966 GiB used (of 31.9 GiB) maxfree=3265MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 6.144 GiB used (of 31.9 GiB) maxfree=3265MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 6.144 GiB used (of 31.9 GiB) maxfree=3265MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 5.972 GiB used (of 31.9 GiB) maxfree=3288MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 5.972 GiB used (of 31.9 GiB) maxfree=3265MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 6.147 GiB used (of 31.9 GiB) maxfree=3265MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 6.325 GiB used (of 31.9 GiB) maxfree=3243MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 6.325 GiB used (of 31.9 GiB) maxfree=3243MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 6.147 GiB used (of 31.9 GiB) maxfree=3243MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 6.325 GiB used (of 31.9 GiB) maxfree=3243MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 6.325 GiB used (of 31.9 GiB) maxfree=3243MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 6.153 GiB used (of 31.9 GiB) maxfree=3265MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 6.153 GiB used (of 31.9 GiB) maxfree=3243MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 6.328 GiB used (of 31.9 GiB) maxfree=3243MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 6.506 GiB used (of 31.9 GiB) maxfree=3220MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 6.506 GiB used (of 31.9 GiB) maxfree=3220MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 6.328 GiB used (of 31.9 GiB) maxfree=3220MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 6.507 GiB used (of 31.9 GiB) maxfree=3220MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 6.507 GiB used (of 31.9 GiB) maxfree=3220MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 6.334 GiB used (of 31.9 GiB) maxfree=3243MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 6.334 GiB used (of 31.9 GiB) maxfree=3220MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 6.510 GiB used (of 31.9 GiB) maxfree=3220MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 6.688 GiB used (of 31.9 GiB) maxfree=3197MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 6.688 GiB used (of 31.9 GiB) maxfree=3197MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 6.510 GiB used (of 31.9 GiB) maxfree=3197MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 6.688 GiB used (of 31.9 GiB) maxfree=3197MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 6.688 GiB used (of 31.9 GiB) maxfree=3197MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 6.515 GiB used (of 31.9 GiB) maxfree=3220MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 6.515 GiB used (of 31.9 GiB) maxfree=3197MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 6.691 GiB used (of 31.9 GiB) maxfree=3197MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 6.869 GiB used (of 31.9 GiB) maxfree=3174MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 6.869 GiB used (of 31.9 GiB) maxfree=3174MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 6.691 GiB used (of 31.9 GiB) maxfree=3174MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 6.869 GiB used (of 31.9 GiB) maxfree=3174MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 6.869 GiB used (of 31.9 GiB) maxfree=3174MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 6.697 GiB used (of 31.9 GiB) maxfree=3197MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 6.697 GiB used (of 31.9 GiB) maxfree=3174MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 6.872 GiB used (of 31.9 GiB) maxfree=3174MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 7.050 GiB used (of 31.9 GiB) maxfree=3151MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 7.050 GiB used (of 31.9 GiB) maxfree=3151MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 6.872 GiB used (of 31.9 GiB) maxfree=3151MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 7.050 GiB used (of 31.9 GiB) maxfree=3151MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 7.050 GiB used (of 31.9 GiB) maxfree=3151MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 6.878 GiB used (of 31.9 GiB) maxfree=3174MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 6.878 GiB used (of 31.9 GiB) maxfree=3151MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 7.053 GiB used (of 31.9 GiB) maxfree=3151MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 7.231 GiB used (of 31.9 GiB) maxfree=3129MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 7.231 GiB used (of 31.9 GiB) maxfree=3129MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 7.053 GiB used (of 31.9 GiB) maxfree=3129MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 7.231 GiB used (of 31.9 GiB) maxfree=3129MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 7.231 GiB used (of 31.9 GiB) maxfree=3129MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 7.059 GiB used (of 31.9 GiB) maxfree=3151MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 7.059 GiB used (of 31.9 GiB) maxfree=3129MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 7.234 GiB used (of 31.9 GiB) maxfree=3125MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 7.412 GiB used (of 31.9 GiB) maxfree=3102MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 7.412 GiB used (of 31.9 GiB) maxfree=3102MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 7.235 GiB used (of 31.9 GiB) maxfree=3102MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 7.413 GiB used (of 31.9 GiB) maxfree=3102MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 7.413 GiB used (of 31.9 GiB) maxfree=3102MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 7.240 GiB used (of 31.9 GiB) maxfree=3125MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 7.240 GiB used (of 31.9 GiB) maxfree=3102MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 7.416 GiB used (of 31.9 GiB) maxfree=3102MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 7.594 GiB used (of 31.9 GiB) maxfree=3080MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 7.594 GiB used (of 31.9 GiB) maxfree=3080MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 7.416 GiB used (of 31.9 GiB) maxfree=3080MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 7.594 GiB used (of 31.9 GiB) maxfree=3080MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 7.594 GiB used (of 31.9 GiB) maxfree=3080MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 7.421 GiB used (of 31.9 GiB) maxfree=3102MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 7.421 GiB used (of 31.9 GiB) maxfree=3080MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 7.597 GiB used (of 31.9 GiB) maxfree=3080MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 7.775 GiB used (of 31.9 GiB) maxfree=3057MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 7.775 GiB used (of 31.9 GiB) maxfree=3057MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 7.597 GiB used (of 31.9 GiB) maxfree=3057MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 7.775 GiB used (of 31.9 GiB) maxfree=3057MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 7.775 GiB used (of 31.9 GiB) maxfree=3057MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 7.603 GiB used (of 31.9 GiB) maxfree=3080MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 7.603 GiB used (of 31.9 GiB) maxfree=3057MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 7.778 GiB used (of 31.9 GiB) maxfree=3057MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 7.956 GiB used (of 31.9 GiB) maxfree=3034MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 7.956 GiB used (of 31.9 GiB) maxfree=3034MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 7.778 GiB used (of 31.9 GiB) maxfree=3034MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 7.956 GiB used (of 31.9 GiB) maxfree=3034MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 7.956 GiB used (of 31.9 GiB) maxfree=3034MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 7.784 GiB used (of 31.9 GiB) maxfree=3057MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 7.784 GiB used (of 31.9 GiB) maxfree=3034MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 7.959 GiB used (of 31.9 GiB) maxfree=3034MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 8.137 GiB used (of 31.9 GiB) maxfree=3011MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 8.137 GiB used (of 31.9 GiB) maxfree=3011MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 7.959 GiB used (of 31.9 GiB) maxfree=3011MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 8.138 GiB used (of 31.9 GiB) maxfree=3011MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 8.138 GiB used (of 31.9 GiB) maxfree=3011MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 7.965 GiB used (of 31.9 GiB) maxfree=3034MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 7.965 GiB used (of 31.9 GiB) maxfree=3011MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 8.140 GiB used (of 31.9 GiB) maxfree=3011MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 8.319 GiB used (of 31.9 GiB) maxfree=2989MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 8.319 GiB used (of 31.9 GiB) maxfree=2989MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 8.141 GiB used (of 31.9 GiB) maxfree=2989MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 8.319 GiB used (of 31.9 GiB) maxfree=2989MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 8.319 GiB used (of 31.9 GiB) maxfree=2989MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 8.146 GiB used (of 31.9 GiB) maxfree=3011MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 8.146 GiB used (of 31.9 GiB) maxfree=2989MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 8.322 GiB used (of 31.9 GiB) maxfree=2989MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 8.500 GiB used (of 31.9 GiB) maxfree=2966MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 8.500 GiB used (of 31.9 GiB) maxfree=2966MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 8.322 GiB used (of 31.9 GiB) maxfree=2966MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 8.500 GiB used (of 31.9 GiB) maxfree=2966MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 8.500 GiB used (of 31.9 GiB) maxfree=2966MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 8.328 GiB used (of 31.9 GiB) maxfree=2989MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 8.328 GiB used (of 31.9 GiB) maxfree=2966MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 8.503 GiB used (of 31.9 GiB) maxfree=2966MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 8.681 GiB used (of 31.9 GiB) maxfree=2943MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 8.681 GiB used (of 31.9 GiB) maxfree=2943MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 8.503 GiB used (of 31.9 GiB) maxfree=2943MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 8.681 GiB used (of 31.9 GiB) maxfree=2943MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 8.681 GiB used (of 31.9 GiB) maxfree=2943MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 8.509 GiB used (of 31.9 GiB) maxfree=2966MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 8.509 GiB used (of 31.9 GiB) maxfree=2943MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 8.684 GiB used (of 31.9 GiB) maxfree=2940MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 8.862 GiB used (of 31.9 GiB) maxfree=2918MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 8.862 GiB used (of 31.9 GiB) maxfree=2918MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 8.684 GiB used (of 31.9 GiB) maxfree=2918MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 8.862 GiB used (of 31.9 GiB) maxfree=2918MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 8.862 GiB used (of 31.9 GiB) maxfree=2918MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 8.690 GiB used (of 31.9 GiB) maxfree=2940MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 8.690 GiB used (of 31.9 GiB) maxfree=2918MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 8.865 GiB used (of 31.9 GiB) maxfree=2918MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 9.043 GiB used (of 31.9 GiB) maxfree=2895MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 9.043 GiB used (of 31.9 GiB) maxfree=2895MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 8.865 GiB used (of 31.9 GiB) maxfree=2895MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 9.044 GiB used (of 31.9 GiB) maxfree=2895MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 9.044 GiB used (of 31.9 GiB) maxfree=2895MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 8.871 GiB used (of 31.9 GiB) maxfree=2918MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 8.871 GiB used (of 31.9 GiB) maxfree=2895MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 9.046 GiB used (of 31.9 GiB) maxfree=2895MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 9.225 GiB used (of 31.9 GiB) maxfree=2872MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 9.225 GiB used (of 31.9 GiB) maxfree=2872MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 9.047 GiB used (of 31.9 GiB) maxfree=2872MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 9.225 GiB used (of 31.9 GiB) maxfree=2872MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 9.225 GiB used (of 31.9 GiB) maxfree=2872MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 9.052 GiB used (of 31.9 GiB) maxfree=2895MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 9.052 GiB used (of 31.9 GiB) maxfree=2872MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 9.228 GiB used (of 31.9 GiB) maxfree=2872MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 9.406 GiB used (of 31.9 GiB) maxfree=2849MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 9.406 GiB used (of 31.9 GiB) maxfree=2849MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 9.228 GiB used (of 31.9 GiB) maxfree=2849MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 9.406 GiB used (of 31.9 GiB) maxfree=2849MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 9.406 GiB used (of 31.9 GiB) maxfree=2849MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 9.234 GiB used (of 31.9 GiB) maxfree=2872MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 9.234 GiB used (of 31.9 GiB) maxfree=2849MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 9.409 GiB used (of 31.9 GiB) maxfree=2849MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 9.587 GiB used (of 31.9 GiB) maxfree=2827MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 9.587 GiB used (of 31.9 GiB) maxfree=2827MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 9.409 GiB used (of 31.9 GiB) maxfree=2827MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 9.587 GiB used (of 31.9 GiB) maxfree=2827MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 9.587 GiB used (of 31.9 GiB) maxfree=2827MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 9.415 GiB used (of 31.9 GiB) maxfree=2849MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 9.415 GiB used (of 31.9 GiB) maxfree=2827MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 9.590 GiB used (of 31.9 GiB) maxfree=2827MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 9.768 GiB used (of 31.9 GiB) maxfree=2804MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 9.768 GiB used (of 31.9 GiB) maxfree=2804MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 9.590 GiB used (of 31.9 GiB) maxfree=2804MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 9.768 GiB used (of 31.9 GiB) maxfree=2804MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 9.768 GiB used (of 31.9 GiB) maxfree=2804MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 9.596 GiB used (of 31.9 GiB) maxfree=2827MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 9.596 GiB used (of 31.9 GiB) maxfree=2804MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 9.771 GiB used (of 31.9 GiB) maxfree=2800MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 9.949 GiB used (of 31.9 GiB) maxfree=2778MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 9.949 GiB used (of 31.9 GiB) maxfree=2778MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 9.772 GiB used (of 31.9 GiB) maxfree=2778MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 9.950 GiB used (of 31.9 GiB) maxfree=2778MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 9.950 GiB used (of 31.9 GiB) maxfree=2778MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 9.777 GiB used (of 31.9 GiB) maxfree=2800MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 9.777 GiB used (of 31.9 GiB) maxfree=2778MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 9.953 GiB used (of 31.9 GiB) maxfree=2778MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 10.131 GiB used (of 31.9 GiB) maxfree=2755MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 10.131 GiB used (of 31.9 GiB) maxfree=2755MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 9.953 GiB used (of 31.9 GiB) maxfree=2755MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 10.131 GiB used (of 31.9 GiB) maxfree=2755MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 10.131 GiB used (of 31.9 GiB) maxfree=2755MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 9.958 GiB used (of 31.9 GiB) maxfree=2778MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 9.958 GiB used (of 31.9 GiB) maxfree=2755MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 10.134 GiB used (of 31.9 GiB) maxfree=2755MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 10.312 GiB used (of 31.9 GiB) maxfree=2732MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 10.312 GiB used (of 31.9 GiB) maxfree=2732MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 10.134 GiB used (of 31.9 GiB) maxfree=2732MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 10.312 GiB used (of 31.9 GiB) maxfree=2732MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 10.312 GiB used (of 31.9 GiB) maxfree=2732MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 10.140 GiB used (of 31.9 GiB) maxfree=2755MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 10.140 GiB used (of 31.9 GiB) maxfree=2732MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 10.315 GiB used (of 31.9 GiB) maxfree=2732MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 10.493 GiB used (of 31.9 GiB) maxfree=2709MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 10.493 GiB used (of 31.9 GiB) maxfree=2709MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 10.315 GiB used (of 31.9 GiB) maxfree=2709MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 10.493 GiB used (of 31.9 GiB) maxfree=2709MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 10.493 GiB used (of 31.9 GiB) maxfree=2709MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 10.321 GiB used (of 31.9 GiB) maxfree=2732MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 10.321 GiB used (of 31.9 GiB) maxfree=2709MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 10.496 GiB used (of 31.9 GiB) maxfree=2709MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 10.674 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 10.674 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 10.496 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 10.674 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 10.674 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 10.502 GiB used (of 31.9 GiB) maxfree=2709MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 10.502 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x64]: 10.407 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x64]: 10.496 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x64]: 10.496 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x64]: 10.496 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x64]: 10.585 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x64]: 10.585 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x64]: 10.502 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x64]: 10.502 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x64]: 10.496 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x64]: 10.585 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x64]: 10.585 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x64]: 10.585 GiB used (of 31.9 GiB) maxfree=2686MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x64]: 10.674 GiB used (of 31.9 GiB) maxfree=2675MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x64]: 10.674 GiB used (of 31.9 GiB) maxfree=2675MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x64]: 10.591 GiB used (of 31.9 GiB) maxfree=2675MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x64]: 10.591 GiB used (of 31.9 GiB) maxfree=2675MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 10.763 GiB used (of 31.9 GiB) maxfree=2641MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 10.941 GiB used (of 31.9 GiB) maxfree=2618MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 10.941 GiB used (of 31.9 GiB) maxfree=2618MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 10.763 GiB used (of 31.9 GiB) maxfree=2618MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 10.941 GiB used (of 31.9 GiB) maxfree=2618MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 10.941 GiB used (of 31.9 GiB) maxfree=2618MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 10.769 GiB used (of 31.9 GiB) maxfree=2641MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 10.769 GiB used (of 31.9 GiB) maxfree=2618MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 10.941 GiB used (of 31.9 GiB) maxfree=2618MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 11.119 GiB used (of 31.9 GiB) maxfree=2595MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 11.119 GiB used (of 31.9 GiB) maxfree=2595MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 10.941 GiB used (of 31.9 GiB) maxfree=2595MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 11.119 GiB used (of 31.9 GiB) maxfree=2595MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 11.119 GiB used (of 31.9 GiB) maxfree=2595MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 10.947 GiB used (of 31.9 GiB) maxfree=2618MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 10.947 GiB used (of 31.9 GiB) maxfree=2595MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 11.119 GiB used (of 31.9 GiB) maxfree=2595MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 11.297 GiB used (of 31.9 GiB) maxfree=2573MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 11.297 GiB used (of 31.9 GiB) maxfree=2573MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 11.119 GiB used (of 31.9 GiB) maxfree=2573MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 11.297 GiB used (of 31.9 GiB) maxfree=2573MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 11.297 GiB used (of 31.9 GiB) maxfree=2573MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 11.125 GiB used (of 31.9 GiB) maxfree=2595MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 11.125 GiB used (of 31.9 GiB) maxfree=2573MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 11.297 GiB used (of 31.9 GiB) maxfree=2573MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 11.475 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 11.475 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 11.297 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 11.475 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 11.475 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 11.303 GiB used (of 31.9 GiB) maxfree=2573MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 11.303 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 11.309 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 11.487 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 11.487 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 11.309 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 11.487 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 11.487 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 11.314 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 11.314 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 11.489 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 11.667 GiB used (of 31.9 GiB) maxfree=2527MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 11.667 GiB used (of 31.9 GiB) maxfree=2527MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 11.489 GiB used (of 31.9 GiB) maxfree=2527MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 11.667 GiB used (of 31.9 GiB) maxfree=2527MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 11.667 GiB used (of 31.9 GiB) maxfree=2527MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 11.495 GiB used (of 31.9 GiB) maxfree=2550MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 11.495 GiB used (of 31.9 GiB) maxfree=2527MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 11.670 GiB used (of 31.9 GiB) maxfree=2527MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 11.848 GiB used (of 31.9 GiB) maxfree=2504MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 11.848 GiB used (of 31.9 GiB) maxfree=2504MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 11.670 GiB used (of 31.9 GiB) maxfree=2504MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 11.848 GiB used (of 31.9 GiB) maxfree=2504MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 11.848 GiB used (of 31.9 GiB) maxfree=2504MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 11.676 GiB used (of 31.9 GiB) maxfree=2527MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 11.676 GiB used (of 31.9 GiB) maxfree=2504MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 11.851 GiB used (of 31.9 GiB) maxfree=2504MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 12.029 GiB used (of 31.9 GiB) maxfree=2481MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 12.029 GiB used (of 31.9 GiB) maxfree=2481MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 11.851 GiB used (of 31.9 GiB) maxfree=2481MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 12.029 GiB used (of 31.9 GiB) maxfree=2481MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 12.029 GiB used (of 31.9 GiB) maxfree=2481MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 11.856 GiB used (of 31.9 GiB) maxfree=2504MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 11.856 GiB used (of 31.9 GiB) maxfree=2481MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 12.031 GiB used (of 31.9 GiB) maxfree=2481MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 12.209 GiB used (of 31.9 GiB) maxfree=2459MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 12.209 GiB used (of 31.9 GiB) maxfree=2459MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 12.031 GiB used (of 31.9 GiB) maxfree=2459MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 12.209 GiB used (of 31.9 GiB) maxfree=2459MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 12.209 GiB used (of 31.9 GiB) maxfree=2459MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 12.037 GiB used (of 31.9 GiB) maxfree=2481MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 12.037 GiB used (of 31.9 GiB) maxfree=2459MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 12.212 GiB used (of 31.9 GiB) maxfree=2459MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 12.390 GiB used (of 31.9 GiB) maxfree=2436MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 12.390 GiB used (of 31.9 GiB) maxfree=2436MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 12.212 GiB used (of 31.9 GiB) maxfree=2436MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 12.390 GiB used (of 31.9 GiB) maxfree=2436MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 12.390 GiB used (of 31.9 GiB) maxfree=2436MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 12.218 GiB used (of 31.9 GiB) maxfree=2459MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 12.218 GiB used (of 31.9 GiB) maxfree=2436MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 12.393 GiB used (of 31.9 GiB) maxfree=2436MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 12.571 GiB used (of 31.9 GiB) maxfree=2413MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 12.571 GiB used (of 31.9 GiB) maxfree=2413MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 12.393 GiB used (of 31.9 GiB) maxfree=2413MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 12.571 GiB used (of 31.9 GiB) maxfree=2413MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 12.571 GiB used (of 31.9 GiB) maxfree=2413MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 12.398 GiB used (of 31.9 GiB) maxfree=2436MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 12.398 GiB used (of 31.9 GiB) maxfree=2413MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 12.573 GiB used (of 31.9 GiB) maxfree=2413MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 12.751 GiB used (of 31.9 GiB) maxfree=2390MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 12.751 GiB used (of 31.9 GiB) maxfree=2390MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 12.573 GiB used (of 31.9 GiB) maxfree=2390MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 12.751 GiB used (of 31.9 GiB) maxfree=2390MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 12.751 GiB used (of 31.9 GiB) maxfree=2390MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 12.579 GiB used (of 31.9 GiB) maxfree=2413MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 12.579 GiB used (of 31.9 GiB) maxfree=2390MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 12.754 GiB used (of 31.9 GiB) maxfree=2390MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 12.932 GiB used (of 31.9 GiB) maxfree=2368MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 12.932 GiB used (of 31.9 GiB) maxfree=2368MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 12.754 GiB used (of 31.9 GiB) maxfree=2368MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 12.932 GiB used (of 31.9 GiB) maxfree=2368MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 12.932 GiB used (of 31.9 GiB) maxfree=2368MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 12.759 GiB used (of 31.9 GiB) maxfree=2390MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 12.759 GiB used (of 31.9 GiB) maxfree=2368MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 12.935 GiB used (of 31.9 GiB) maxfree=2368MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 13.113 GiB used (of 31.9 GiB) maxfree=2345MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 13.113 GiB used (of 31.9 GiB) maxfree=2345MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 12.935 GiB used (of 31.9 GiB) maxfree=2345MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 13.113 GiB used (of 31.9 GiB) maxfree=2345MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 13.113 GiB used (of 31.9 GiB) maxfree=2345MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 12.940 GiB used (of 31.9 GiB) maxfree=2368MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 12.940 GiB used (of 31.9 GiB) maxfree=2345MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 13.115 GiB used (of 31.9 GiB) maxfree=2345MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 13.293 GiB used (of 31.9 GiB) maxfree=2322MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 13.293 GiB used (of 31.9 GiB) maxfree=2322MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 13.115 GiB used (of 31.9 GiB) maxfree=2322MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 13.293 GiB used (of 31.9 GiB) maxfree=2322MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 13.293 GiB used (of 31.9 GiB) maxfree=2322MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 13.121 GiB used (of 31.9 GiB) maxfree=2345MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 13.121 GiB used (of 31.9 GiB) maxfree=2322MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 13.296 GiB used (of 31.9 GiB) maxfree=2322MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 13.474 GiB used (of 31.9 GiB) maxfree=2299MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 13.474 GiB used (of 31.9 GiB) maxfree=2299MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 13.296 GiB used (of 31.9 GiB) maxfree=2299MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 13.474 GiB used (of 31.9 GiB) maxfree=2299MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 13.474 GiB used (of 31.9 GiB) maxfree=2299MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 13.301 GiB used (of 31.9 GiB) maxfree=2322MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 13.301 GiB used (of 31.9 GiB) maxfree=2299MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 13.477 GiB used (of 31.9 GiB) maxfree=2299MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 13.655 GiB used (of 31.9 GiB) maxfree=2276MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 13.655 GiB used (of 31.9 GiB) maxfree=2276MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 13.477 GiB used (of 31.9 GiB) maxfree=2276MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 13.655 GiB used (of 31.9 GiB) maxfree=2276MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 13.655 GiB used (of 31.9 GiB) maxfree=2276MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 13.482 GiB used (of 31.9 GiB) maxfree=2299MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 13.482 GiB used (of 31.9 GiB) maxfree=2276MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 13.657 GiB used (of 31.9 GiB) maxfree=2276MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 13.835 GiB used (of 31.9 GiB) maxfree=2254MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 13.835 GiB used (of 31.9 GiB) maxfree=2254MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 13.657 GiB used (of 31.9 GiB) maxfree=2254MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 13.835 GiB used (of 31.9 GiB) maxfree=2254MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 13.835 GiB used (of 31.9 GiB) maxfree=2254MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 13.663 GiB used (of 31.9 GiB) maxfree=2276MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 13.663 GiB used (of 31.9 GiB) maxfree=2254MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 13.838 GiB used (of 31.9 GiB) maxfree=2254MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 14.016 GiB used (of 31.9 GiB) maxfree=2231MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 14.016 GiB used (of 31.9 GiB) maxfree=2231MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 13.838 GiB used (of 31.9 GiB) maxfree=2231MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 14.016 GiB used (of 31.9 GiB) maxfree=2231MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 14.016 GiB used (of 31.9 GiB) maxfree=2231MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 13.843 GiB used (of 31.9 GiB) maxfree=2254MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 13.843 GiB used (of 31.9 GiB) maxfree=2231MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 14.019 GiB used (of 31.9 GiB) maxfree=2231MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 14.197 GiB used (of 31.9 GiB) maxfree=2208MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 14.197 GiB used (of 31.9 GiB) maxfree=2208MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 14.019 GiB used (of 31.9 GiB) maxfree=2208MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 14.197 GiB used (of 31.9 GiB) maxfree=2208MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 14.197 GiB used (of 31.9 GiB) maxfree=2208MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 14.024 GiB used (of 31.9 GiB) maxfree=2231MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 14.024 GiB used (of 31.9 GiB) maxfree=2208MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 14.199 GiB used (of 31.9 GiB) maxfree=2208MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 14.377 GiB used (of 31.9 GiB) maxfree=2185MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 14.377 GiB used (of 31.9 GiB) maxfree=2185MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 14.199 GiB used (of 31.9 GiB) maxfree=2185MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 14.377 GiB used (of 31.9 GiB) maxfree=2185MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 14.377 GiB used (of 31.9 GiB) maxfree=2185MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 14.205 GiB used (of 31.9 GiB) maxfree=2208MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 14.205 GiB used (of 31.9 GiB) maxfree=2185MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 14.380 GiB used (of 31.9 GiB) maxfree=2185MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 14.558 GiB used (of 31.9 GiB) maxfree=2163MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 14.558 GiB used (of 31.9 GiB) maxfree=2163MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 14.380 GiB used (of 31.9 GiB) maxfree=2163MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 14.558 GiB used (of 31.9 GiB) maxfree=2163MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 14.558 GiB used (of 31.9 GiB) maxfree=2163MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 14.385 GiB used (of 31.9 GiB) maxfree=2185MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 14.385 GiB used (of 31.9 GiB) maxfree=2163MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 14.561 GiB used (of 31.9 GiB) maxfree=2163MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 14.739 GiB used (of 31.9 GiB) maxfree=2140MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 14.739 GiB used (of 31.9 GiB) maxfree=2140MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 14.561 GiB used (of 31.9 GiB) maxfree=2140MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 14.739 GiB used (of 31.9 GiB) maxfree=2140MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 14.739 GiB used (of 31.9 GiB) maxfree=2140MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 14.566 GiB used (of 31.9 GiB) maxfree=2163MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 14.566 GiB used (of 31.9 GiB) maxfree=2140MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 14.741 GiB used (of 31.9 GiB) maxfree=2140MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 14.919 GiB used (of 31.9 GiB) maxfree=2117MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 14.919 GiB used (of 31.9 GiB) maxfree=2117MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 14.741 GiB used (of 31.9 GiB) maxfree=2117MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 14.919 GiB used (of 31.9 GiB) maxfree=2117MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 14.919 GiB used (of 31.9 GiB) maxfree=2117MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 14.747 GiB used (of 31.9 GiB) maxfree=2140MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 14.747 GiB used (of 31.9 GiB) maxfree=2117MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 14.922 GiB used (of 31.9 GiB) maxfree=2117MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 15.100 GiB used (of 31.9 GiB) maxfree=2094MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 15.100 GiB used (of 31.9 GiB) maxfree=2094MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 14.922 GiB used (of 31.9 GiB) maxfree=2094MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 15.100 GiB used (of 31.9 GiB) maxfree=2094MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 15.100 GiB used (of 31.9 GiB) maxfree=2094MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 14.927 GiB used (of 31.9 GiB) maxfree=2117MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 14.927 GiB used (of 31.9 GiB) maxfree=2094MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 15.103 GiB used (of 31.9 GiB) maxfree=2094MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 15.281 GiB used (of 31.9 GiB) maxfree=2071MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 15.281 GiB used (of 31.9 GiB) maxfree=2071MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 15.103 GiB used (of 31.9 GiB) maxfree=2071MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 15.281 GiB used (of 31.9 GiB) maxfree=2071MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 15.281 GiB used (of 31.9 GiB) maxfree=2071MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 15.108 GiB used (of 31.9 GiB) maxfree=2094MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 15.108 GiB used (of 31.9 GiB) maxfree=2071MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 15.283 GiB used (of 31.9 GiB) maxfree=2071MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 15.461 GiB used (of 31.9 GiB) maxfree=2049MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 15.461 GiB used (of 31.9 GiB) maxfree=2049MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 15.283 GiB used (of 31.9 GiB) maxfree=2049MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 15.461 GiB used (of 31.9 GiB) maxfree=2049MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 15.461 GiB used (of 31.9 GiB) maxfree=2049MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 15.289 GiB used (of 31.9 GiB) maxfree=2071MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 15.289 GiB used (of 31.9 GiB) maxfree=2049MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 15.464 GiB used (of 31.9 GiB) maxfree=2049MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 15.642 GiB used (of 31.9 GiB) maxfree=2026MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 15.642 GiB used (of 31.9 GiB) maxfree=2026MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 15.464 GiB used (of 31.9 GiB) maxfree=2026MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 15.642 GiB used (of 31.9 GiB) maxfree=2026MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 15.642 GiB used (of 31.9 GiB) maxfree=2026MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 15.469 GiB used (of 31.9 GiB) maxfree=2049MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 15.469 GiB used (of 31.9 GiB) maxfree=2026MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 15.645 GiB used (of 31.9 GiB) maxfree=2026MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 15.823 GiB used (of 31.9 GiB) maxfree=2003MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 15.823 GiB used (of 31.9 GiB) maxfree=2003MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 15.645 GiB used (of 31.9 GiB) maxfree=2003MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 15.823 GiB used (of 31.9 GiB) maxfree=2003MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 15.823 GiB used (of 31.9 GiB) maxfree=2003MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 15.650 GiB used (of 31.9 GiB) maxfree=2026MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 15.650 GiB used (of 31.9 GiB) maxfree=2003MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 15.825 GiB used (of 31.9 GiB) maxfree=2003MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 16.003 GiB used (of 31.9 GiB) maxfree=1980MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 16.003 GiB used (of 31.9 GiB) maxfree=1980MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 15.825 GiB used (of 31.9 GiB) maxfree=1980MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 16.003 GiB used (of 31.9 GiB) maxfree=1980MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 16.003 GiB used (of 31.9 GiB) maxfree=1980MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 15.831 GiB used (of 31.9 GiB) maxfree=2003MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 15.831 GiB used (of 31.9 GiB) maxfree=1980MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 16.006 GiB used (of 31.9 GiB) maxfree=1980MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 16.184 GiB used (of 31.9 GiB) maxfree=1957MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 16.184 GiB used (of 31.9 GiB) maxfree=1957MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 16.006 GiB used (of 31.9 GiB) maxfree=1957MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 16.184 GiB used (of 31.9 GiB) maxfree=1957MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 16.184 GiB used (of 31.9 GiB) maxfree=1957MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 16.011 GiB used (of 31.9 GiB) maxfree=1980MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 16.011 GiB used (of 31.9 GiB) maxfree=1957MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 16.187 GiB used (of 31.9 GiB) maxfree=1957MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 16.365 GiB used (of 31.9 GiB) maxfree=1935MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 16.365 GiB used (of 31.9 GiB) maxfree=1935MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 16.187 GiB used (of 31.9 GiB) maxfree=1935MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 16.365 GiB used (of 31.9 GiB) maxfree=1935MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 16.365 GiB used (of 31.9 GiB) maxfree=1935MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 16.192 GiB used (of 31.9 GiB) maxfree=1957MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 16.192 GiB used (of 31.9 GiB) maxfree=1935MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 16.367 GiB used (of 31.9 GiB) maxfree=1935MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 16.545 GiB used (of 31.9 GiB) maxfree=1912MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 16.545 GiB used (of 31.9 GiB) maxfree=1912MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 16.367 GiB used (of 31.9 GiB) maxfree=1912MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 16.545 GiB used (of 31.9 GiB) maxfree=1912MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 16.545 GiB used (of 31.9 GiB) maxfree=1912MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 16.373 GiB used (of 31.9 GiB) maxfree=1935MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 16.373 GiB used (of 31.9 GiB) maxfree=1912MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 16.548 GiB used (of 31.9 GiB) maxfree=1912MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 16.726 GiB used (of 31.9 GiB) maxfree=1889MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 16.726 GiB used (of 31.9 GiB) maxfree=1889MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 16.548 GiB used (of 31.9 GiB) maxfree=1889MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 16.726 GiB used (of 31.9 GiB) maxfree=1889MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 16.726 GiB used (of 31.9 GiB) maxfree=1889MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 16.553 GiB used (of 31.9 GiB) maxfree=1912MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 16.553 GiB used (of 31.9 GiB) maxfree=1889MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 16.729 GiB used (of 31.9 GiB) maxfree=1889MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 16.907 GiB used (of 31.9 GiB) maxfree=1866MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 16.907 GiB used (of 31.9 GiB) maxfree=1866MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 16.729 GiB used (of 31.9 GiB) maxfree=1866MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 16.907 GiB used (of 31.9 GiB) maxfree=1866MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 16.907 GiB used (of 31.9 GiB) maxfree=1866MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 16.734 GiB used (of 31.9 GiB) maxfree=1889MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 16.734 GiB used (of 31.9 GiB) maxfree=1866MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 16.909 GiB used (of 31.9 GiB) maxfree=1866MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 17.087 GiB used (of 31.9 GiB) maxfree=1844MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 17.087 GiB used (of 31.9 GiB) maxfree=1844MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 16.909 GiB used (of 31.9 GiB) maxfree=1844MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 17.087 GiB used (of 31.9 GiB) maxfree=1844MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 17.087 GiB used (of 31.9 GiB) maxfree=1844MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 16.915 GiB used (of 31.9 GiB) maxfree=1866MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 16.915 GiB used (of 31.9 GiB) maxfree=1844MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 17.090 GiB used (of 31.9 GiB) maxfree=1844MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 17.268 GiB used (of 31.9 GiB) maxfree=1821MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 17.268 GiB used (of 31.9 GiB) maxfree=1821MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 17.090 GiB used (of 31.9 GiB) maxfree=1821MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 17.268 GiB used (of 31.9 GiB) maxfree=1821MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 17.268 GiB used (of 31.9 GiB) maxfree=1821MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 17.095 GiB used (of 31.9 GiB) maxfree=1844MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 17.095 GiB used (of 31.9 GiB) maxfree=1821MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 17.271 GiB used (of 31.9 GiB) maxfree=1821MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 17.449 GiB used (of 31.9 GiB) maxfree=1798MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 17.449 GiB used (of 31.9 GiB) maxfree=1798MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 17.271 GiB used (of 31.9 GiB) maxfree=1798MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 17.449 GiB used (of 31.9 GiB) maxfree=1798MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 17.449 GiB used (of 31.9 GiB) maxfree=1798MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 17.276 GiB used (of 31.9 GiB) maxfree=1821MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 17.276 GiB used (of 31.9 GiB) maxfree=1798MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 17.451 GiB used (of 31.9 GiB) maxfree=1798MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 17.629 GiB used (of 31.9 GiB) maxfree=1775MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 17.629 GiB used (of 31.9 GiB) maxfree=1775MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 17.451 GiB used (of 31.9 GiB) maxfree=1775MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 17.629 GiB used (of 31.9 GiB) maxfree=1775MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 17.629 GiB used (of 31.9 GiB) maxfree=1775MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 17.457 GiB used (of 31.9 GiB) maxfree=1798MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 17.457 GiB used (of 31.9 GiB) maxfree=1775MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 17.632 GiB used (of 31.9 GiB) maxfree=1775MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 17.810 GiB used (of 31.9 GiB) maxfree=1752MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 17.810 GiB used (of 31.9 GiB) maxfree=1752MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 17.632 GiB used (of 31.9 GiB) maxfree=1752MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 17.810 GiB used (of 31.9 GiB) maxfree=1752MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 17.810 GiB used (of 31.9 GiB) maxfree=1752MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 17.637 GiB used (of 31.9 GiB) maxfree=1775MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 17.637 GiB used (of 31.9 GiB) maxfree=1752MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 17.813 GiB used (of 31.9 GiB) maxfree=1752MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 17.990 GiB used (of 31.9 GiB) maxfree=1730MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 17.990 GiB used (of 31.9 GiB) maxfree=1730MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 17.813 GiB used (of 31.9 GiB) maxfree=1730MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 17.990 GiB used (of 31.9 GiB) maxfree=1730MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 17.990 GiB used (of 31.9 GiB) maxfree=1730MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 17.818 GiB used (of 31.9 GiB) maxfree=1752MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 17.818 GiB used (of 31.9 GiB) maxfree=1730MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 17.993 GiB used (of 31.9 GiB) maxfree=1730MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 18.171 GiB used (of 31.9 GiB) maxfree=1707MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 18.171 GiB used (of 31.9 GiB) maxfree=1707MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 17.993 GiB used (of 31.9 GiB) maxfree=1707MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 18.171 GiB used (of 31.9 GiB) maxfree=1707MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 18.171 GiB used (of 31.9 GiB) maxfree=1707MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 17.999 GiB used (of 31.9 GiB) maxfree=1730MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 17.999 GiB used (of 31.9 GiB) maxfree=1707MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 18.174 GiB used (of 31.9 GiB) maxfree=1707MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 18.352 GiB used (of 31.9 GiB) maxfree=1684MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 18.352 GiB used (of 31.9 GiB) maxfree=1684MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 18.174 GiB used (of 31.9 GiB) maxfree=1684MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 18.352 GiB used (of 31.9 GiB) maxfree=1684MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 18.352 GiB used (of 31.9 GiB) maxfree=1684MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 18.179 GiB used (of 31.9 GiB) maxfree=1707MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 18.179 GiB used (of 31.9 GiB) maxfree=1684MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 18.355 GiB used (of 31.9 GiB) maxfree=1684MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 18.532 GiB used (of 31.9 GiB) maxfree=1661MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 18.532 GiB used (of 31.9 GiB) maxfree=1661MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 18.355 GiB used (of 31.9 GiB) maxfree=1661MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 18.532 GiB used (of 31.9 GiB) maxfree=1661MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 18.532 GiB used (of 31.9 GiB) maxfree=1661MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 18.360 GiB used (of 31.9 GiB) maxfree=1684MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 18.360 GiB used (of 31.9 GiB) maxfree=1661MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 18.535 GiB used (of 31.9 GiB) maxfree=1661MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 18.713 GiB used (of 31.9 GiB) maxfree=1639MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 18.713 GiB used (of 31.9 GiB) maxfree=1639MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 18.535 GiB used (of 31.9 GiB) maxfree=1639MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 18.713 GiB used (of 31.9 GiB) maxfree=1639MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 18.713 GiB used (of 31.9 GiB) maxfree=1639MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 18.541 GiB used (of 31.9 GiB) maxfree=1661MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 18.541 GiB used (of 31.9 GiB) maxfree=1639MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 18.716 GiB used (of 31.9 GiB) maxfree=1639MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 18.894 GiB used (of 31.9 GiB) maxfree=1616MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 18.894 GiB used (of 31.9 GiB) maxfree=1616MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 18.716 GiB used (of 31.9 GiB) maxfree=1616MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 18.894 GiB used (of 31.9 GiB) maxfree=1616MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 18.894 GiB used (of 31.9 GiB) maxfree=1616MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 18.721 GiB used (of 31.9 GiB) maxfree=1639MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 18.721 GiB used (of 31.9 GiB) maxfree=1616MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 18.897 GiB used (of 31.9 GiB) maxfree=1616MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 19.074 GiB used (of 31.9 GiB) maxfree=1593MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 19.074 GiB used (of 31.9 GiB) maxfree=1593MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 18.897 GiB used (of 31.9 GiB) maxfree=1593MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 19.074 GiB used (of 31.9 GiB) maxfree=1593MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 19.074 GiB used (of 31.9 GiB) maxfree=1593MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 18.902 GiB used (of 31.9 GiB) maxfree=1616MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 18.902 GiB used (of 31.9 GiB) maxfree=1593MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 19.077 GiB used (of 31.9 GiB) maxfree=1593MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 19.255 GiB used (of 31.9 GiB) maxfree=1570MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 19.255 GiB used (of 31.9 GiB) maxfree=1570MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 19.077 GiB used (of 31.9 GiB) maxfree=1570MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 19.255 GiB used (of 31.9 GiB) maxfree=1570MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 19.255 GiB used (of 31.9 GiB) maxfree=1570MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 19.083 GiB used (of 31.9 GiB) maxfree=1593MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 19.083 GiB used (of 31.9 GiB) maxfree=1570MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 19.258 GiB used (of 31.9 GiB) maxfree=1570MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 19.436 GiB used (of 31.9 GiB) maxfree=1547MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 19.436 GiB used (of 31.9 GiB) maxfree=1547MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 19.258 GiB used (of 31.9 GiB) maxfree=1547MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 19.436 GiB used (of 31.9 GiB) maxfree=1547MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 19.436 GiB used (of 31.9 GiB) maxfree=1547MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 19.263 GiB used (of 31.9 GiB) maxfree=1570MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 19.263 GiB used (of 31.9 GiB) maxfree=1547MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 19.984 GiB used (of 31.9 GiB) maxfree=1502MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 23.077 GiB used (of 31.9 GiB) maxfree=1109MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 19.627 GiB used (of 31.9 GiB) maxfree=1547MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 20.211 GiB used (of 31.9 GiB) maxfree=1473MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 23.304 GiB used (of 31.9 GiB) maxfree=1080MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x64]: 10.880 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x64]: 10.969 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x64]: 10.969 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x64]: 10.969 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x64]: 11.058 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x64]: 11.058 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x64]: 10.975 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x64]: 10.975 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x64]: 10.969 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x64]: 11.058 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x64]: 11.058 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x64]: 11.058 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x64]: 11.147 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x64]: 11.147 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x64]: 11.064 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x64]: 11.064 GiB used (of 31.9 GiB) maxfree=2598MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 19.370 GiB used (of 31.9 GiB) maxfree=1505MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 19.547 GiB used (of 31.9 GiB) maxfree=1482MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 19.547 GiB used (of 31.9 GiB) maxfree=1482MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 19.370 GiB used (of 31.9 GiB) maxfree=1482MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 19.547 GiB used (of 31.9 GiB) maxfree=1482MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 19.550 GiB used (of 31.9 GiB) maxfree=1482MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 19.728 GiB used (of 31.9 GiB) maxfree=1459MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 19.728 GiB used (of 31.9 GiB) maxfree=1459MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 19.550 GiB used (of 31.9 GiB) maxfree=1459MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 19.728 GiB used (of 31.9 GiB) maxfree=1459MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 19.728 GiB used (of 31.9 GiB) maxfree=1459MiB/bank
+[DRAM] trimul(start) x_norm_in [z=1x864x864x128]: 19.731 GiB used (of 31.9 GiB) maxfree=1459MiB/bank
+[DRAM] trimul(start) channel loop done [z=1x864x864x128]: 19.909 GiB used (of 31.9 GiB) maxfree=1437MiB/bank
+[DRAM] trimul(start) p_out done [z=1x864x864x128]: 19.909 GiB used (of 31.9 GiB) maxfree=1437MiB/bank
+[DRAM] trimul(end) x_norm_in [z=1x864x864x128]: 19.731 GiB used (of 31.9 GiB) maxfree=1437MiB/bank
+[DRAM] trimul(end) channel loop done [z=1x864x864x128]: 19.909 GiB used (of 31.9 GiB) maxfree=1437MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 19.909 GiB used (of 31.9 GiB) maxfree=1437MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 20.457 GiB used (of 31.9 GiB) maxfree=1437MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 23.550 GiB used (of 31.9 GiB) maxfree=1044MiB/bank
+[DRAM] trimul(end) p_out done [z=1x864x864x128]: 20.098 GiB used (of 31.9 GiB) maxfree=1437MiB/bank
+[DRAM] tri_att(start) bias built [z=864x864x128]: 20.682 GiB used (of 31.9 GiB) maxfree=1391MiB/bank
+[DRAM] tri_att(end) bias built [z=864x864x128]: 23.775 GiB used (of 31.9 GiB) maxfree=1004MiB/bank

@@ -1,0 +1,180 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "target": "hHSA",
+ "target_residues": 578,
+ "target_chains": 1,
+ "target_fold": "all-alpha, three homologous domains",
+ "binder": 110,
+ "tokens": 704,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 736,
+ "auto_before_open": {
+  "count": 1,
+  "why": "at 736 tokens one trajectory is priced at up to 25.5 GB against the 28.4 GB the card has for them, so a second one does not fit and it runs one",
+  "tokens_asked": 736
+ },
+ "auto_would_choose": [
+  1,
+  "at 736 tokens one trajectory is priced at up to 25.5 GB against the 28.4 GB the card has for them, so a second one does not fit and it runs one"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "db9c3be56543f26e9bfaeecaf8a8162ae46ae1e5",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcw-bmm/perf/bcw_bmm/out/sweep/xlacache_0",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  13.732421875,
+  12.09619140625,
+  11.53857421875
+ ],
+ "mem_start": {
+  "vmhwm": 543780864,
+  "vmrss": 538353664,
+  "mem_available": 194500517888
+ },
+ "started_utc": "2026-10-01T18:50:09Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 1,
+  "why": "at 736 tokens one trajectory is priced at up to 25.5 GB against the 30.9 GB the card has for them, so a second one does not fit and it runs one",
+  "tokens_asked": 736
+ },
+ "wall_seconds": 226.3,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(2 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 706,
+ "evoformer_axis": 736,
+ "axis_seen": [
+  736
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 31717513728,
+ "rounds_done": 3,
+ "rounds_per_slot": {
+  "": 3
+ },
+ "per_round": [
+  {
+   "slot": "",
+   "round": 1,
+   "seconds": 140.081,
+   "n": 108,
+   "aiclk_min": 1306,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 11.9
+  },
+  {
+   "slot": "",
+   "round": 2,
+   "seconds": 79.532,
+   "n": 76,
+   "aiclk_min": 1312,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 10.1
+  }
+ ],
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 170664,
+   "declined: has a core grid": 576,
+   "served": 1680,
+   "declined: not batched": 4592
+  },
+  "taped_channel_move": [
+   1512,
+   3168,
+   1080,
+   0
+  ],
+  "widen_add": {
+   "served: first": 1764,
+   "served: later": 2784
+  },
+  "rne_add": [
+   2772,
+   24
+  ],
+  "qkv_grad_join": {
+   "served": 1224
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 216,
+   "bw_calls": 216
+  },
+  "triatt_fused_hifi": {
+   "served": 648,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 648
+  },
+  "taped_kernels": {
+   "rne_add": [
+    2772,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    648,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 216,
+  "served": 0,
+  "declined": 216
+ },
+ "aiclk_run": {
+  "n": 190,
+  "aiclk_min": 800,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 11.2
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 15883190272,
+  "vmrss": 6376738816,
+  "mem_available": 197198921728
+ },
+ "loadavg_end": [
+  11.43798828125,
+  11.38671875,
+  11.36669921875
+ ],
+ "finished_utc": "2026-10-01T18:53:55Z"
+}

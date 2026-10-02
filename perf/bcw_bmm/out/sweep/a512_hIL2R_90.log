@@ -1,0 +1,217 @@
+2026-10-01 18:35:30.869 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "target": "hIL2R",
+ "target_residues": 387,
+ "target_chains": 2,
+ "target_fold": "two-chain cytokine receptor assembly",
+ "binder": 90,
+ "tokens": 480,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 512,
+ "auto_before_open": {
+  "count": 2,
+  "why": "2 of them at 512 tokens hold about 25 GB of the card and peak near 22 GB of the 178.9 GB of host memory free, after the 2.3 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 512
+ },
+ "auto_would_choose": [
+  2,
+  "2 of them at 512 tokens hold about 25 GB of the card and peak near 22 GB of the 178.9 GB of host memory free, after the 2.3 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "db9c3be56543f26e9bfaeecaf8a8162ae46ae1e5",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcw-bmm/perf/bcw_bmm/out/sweep/xlacache_0",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  12.26513671875,
+  11.337890625,
+  11.01416015625
+ ],
+ "mem_start": {
+  "vmhwm": 541044736,
+  "vmrss": 541044736,
+  "mem_available": 194513182720
+ },
+ "started_utc": "2026-10-01T18:35:32Z"
+}
+/home/ttuser/.coworker/wt/bcw-bmm/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+[tt_bio.bindcraft2] stops at whichever comes first: 2 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 2, so it is a floor, not a quota.
+[tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+BindCraft 2 (unreleased)
+campaign hIL2R_90
+binder length 90
+target hIL2R (target) | 387 residues | hotspots A67,A68,A96,A99,A101,A159,A160,B125,B181,B229-231
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/.coworker/wt/bcw-bmm/perf/bcw_bmm/out/sweep/a512_hIL2R_90 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | hIL2R_90_denovo_l90_8d4a0abee3cbc750 | accepted 0/2 ===
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "target": "hIL2R",
+ "target_residues": 387,
+ "target_chains": 2,
+ "target_fold": "two-chain cytokine receptor assembly",
+ "binder": 90,
+ "tokens": 480,
+ "rounds_requested": 2,
+ "footprint_probe": false,
+ "timing_valid": true,
+ "trajectories_arg": "1",
+ "design_tokens": 512,
+ "auto_before_open": {
+  "count": 2,
+  "why": "2 of them at 512 tokens hold about 25 GB of the card and peak near 22 GB of the 178.9 GB of host memory free, after the 2.3 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 512
+ },
+ "auto_would_choose": [
+  2,
+  "2 of them at 512 tokens hold about 25 GB of the card and peak near 22 GB of the 178.9 GB of host memory free, after the 2.3 GB other campaigns on this box planned for and do not hold yet"
+ ],
+ "max_trajectories": 2,
+ "validation": "device",
+ "seed": 100,
+ "commit": "db9c3be56543f26e9bfaeecaf8a8162ae46ae1e5",
+ "dirty": true,
+ "compile_cache": "/home/ttuser/.coworker/wt/bcw-bmm/perf/bcw_bmm/out/sweep/xlacache_0",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "nproc": 16,
+ "loadavg_start": [
+  12.26513671875,
+  11.337890625,
+  11.01416015625
+ ],
+ "mem_start": {
+  "vmhwm": 541044736,
+  "vmrss": 541044736,
+  "mem_available": 194513182720
+ },
+ "started_utc": "2026-10-01T18:35:32Z",
+ "fast": {
+  "MM_LAYOUT": true,
+  "TAPED_MOVE": true,
+  "WIDEN_ADD": true,
+  "QKV_GRAD_JOIN": true,
+  "FUSED": true,
+  "_TRIATT_FUSED_HIFI": true,
+  "rne_kernel": true,
+  "TAPED_KERNELS_DEFAULT": "tri_att_sdpa_hifi,rne_add",
+  "SOFTMAX_BW_FP32": false
+ },
+ "auto_card_open": {
+  "count": 2,
+  "why": "2 of them at 512 tokens hold about 25 GB of the card and peak near 22 GB of the 178.1 GB of host memory free, after the 2.3 GB other campaigns on this box planned for and do not hold yet",
+  "tokens_asked": 512
+ },
+ "wall_seconds": 76.17,
+ "trajectories_returned": null,
+ "error": "StopAfterRounds(2 rounds collected)",
+ "traceback": null,
+ "dram_total_bytes": 34225520128,
+ "complex_residues": 483,
+ "evoformer_axis": 512,
+ "axis_seen": [
+  512
+ ],
+ "axis_matches_arithmetic": false,
+ "auto_priced_axis_short_by": 0,
+ "device_free_min": 32718878208,
+ "rounds_done": 3,
+ "rounds_per_slot": {
+  "": 3
+ },
+ "levers": {
+  "genq_compact": false,
+  "grad_fanin_l1": false,
+  "widen_add": false,
+  "taped_channel_move": false,
+  "mm_layout": false,
+  "triatt_bw": false,
+  "triatt_hifi": false,
+  "rne_kernel": false
+ },
+ "lever_stats": {
+  "mm_layout": {
+   "declined: has a program config": 19752,
+   "declined: has a core grid": 576,
+   "served": 1392,
+   "declined: not batched": 3072
+  },
+  "taped_channel_move": [
+   1512,
+   1248,
+   1080,
+   0
+  ],
+  "widen_add": {
+   "served: first": 1764,
+   "served: later": 840
+  },
+  "rne_add": [
+   2772,
+   24
+  ],
+  "qkv_grad_join": {
+   "served": 1224
+  },
+  "triatt_bw": {
+   "served": 0,
+   "declined": 216,
+   "bw_calls": 216
+  },
+  "triatt_fused_hifi": {
+   "served": 648,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0,
+   "padded": 0
+  },
+  "taped_kernels": {
+   "rne_add": [
+    2772,
+    0
+   ],
+   "tri_att_sdpa_hifi": [
+    648,
+    0
+   ]
+  }
+ },
+ "triatt_reach": {
+  "bw_calls": 216,
+  "served": 0,
+  "declined": 216
+ },
+ "aiclk_run": {
+  "n": 73,
+  "aiclk_min": 1325,
+  "aiclk_med": 1350,
+  "aiclk_max": 1350,
+  "load1": 10.4
+ },
+ "node_probe_samples": 0,
+ "mem_end": {
+  "vmhwm": 10738749440,
+  "vmrss": 6244540416,
+  "mem_available": 185804410880
+ },
+ "loadavg_end": [
+  11.40625,
+  11.0380859375,
+  10.92041015625
+ ],
+ "finished_utc": "2026-10-01T18:36:48Z"
+}

@@ -31,6 +31,7 @@ from pathlib import Path
 import ttnn
 
 from . import mm_generic as G
+from . import ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt"
 TILE = 32
@@ -71,14 +72,16 @@ def _common_ok(x, w, dtype):
             and wmc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
+@ops.fused_kernel("triatt_qkv_heads")
 def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
     """`nlp_create_qkv_heads(minimal_matmul(x, w))` as one op, or `None` to leave it alone.
 
     Returns `(q, k, v)`, each `[batch, n_heads, seq, head_dim]`, byte-identical to what the two
-    stock ops produce.
+    stock ops produce. Under a tape it runs only through its entry in `taped_ttnn`
+    (`triatt_qkv_heads`); without one the composed ops run instead.
     """
-    if _taping():
-        return None   # no backward for `generic_op`; the three composed ops run instead
+    if ops.declines_under_tape("triatt_qkv_heads"):
+        return None
 
     if not _ENABLED:
         return None

@@ -1,0 +1,13 @@
+{
+ "modality": "binder",
+ "campaign_name": "hTF_150",
+ "number_of_final_designs": 2,
+ "targets": [
+  {
+   "name": "hTF",
+   "target_path": "/home/ttuser/.coworker/wt/bcw-dbias/perf/bgx_size/targets/hTF.pdb",
+   "chains": "A",
+   "hotspots": "63,95,188,249"
+  }
+ ]
+}
