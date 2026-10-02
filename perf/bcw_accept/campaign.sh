@@ -29,14 +29,25 @@
 # Resume is detected from the folder rather than passed, so a relaunch cannot forget it and trip
 # preflight's "already holds campaign output" refusal.
 #
-#   campaign.sh <arm: a|b> <card> <tag> [seed] [budget]
+#   campaign.sh <arm: a|b|c> <card> <tag> [seed] [budget]
 set -uo pipefail
 arm=$1; card=$2; tag=$3; seed=${4:-100}; budget=${5:-10}
 cd /home/ttuser/.coworker/wt/bcw-accept
+# Arm C is arm B with ONE thing varied: the intermediate pLDDT triage. Arm B's trajectories die at
+# the screen gate (9 of 11), all of them naming pLDDT, so the accept rate at 800 tokens was never
+# measured -- nothing reached MPNN to be judged. C lowers the five intermediate min_plddt_* stage
+# gates from 0.60/0.65 to 0.45, chosen so arm B's observed screen readings would pass at 9/11, the
+# rate arm A passes at 0.60. The FINAL acceptance bar is UNTOUCHED: min_plddt_final, min_iptm_final
+# and the shipped filter set still decide what counts as accepted, so a C design that is accepted
+# has cleared exactly the bar arm A's design cleared. This is a triage recalibration, not a lowered
+# standard, and it is not a speedup -- every C trajectory does MORE of the model's work, not less.
 case "$arm" in
-  a) target=hEGFR_d3; limit=43200 ;;
-  b) target=hEGFR;    limit=129600 ;;
-  *) echo "arm must be a or b"; exit 2 ;;
+  a) target=hEGFR_d3; limit=43200;  extra=() ;;
+  b) target=hEGFR;    limit=129600; extra=() ;;
+  c) target=hEGFR;    limit=172800
+     extra=(--set min_plddt_screen=0.45 --set min_plddt_refine=0.45 --set min_plddt_anneal=0.45
+            --set min_plddt_harden=0.45 --set min_plddt_mutate=0.45) ;;
+  *) echo "arm must be a, b or c"; exit 2 ;;
 esac
 o=perf/bcw_accept/out; mkdir -p "$o/$tag"
 resume=()
@@ -54,5 +65,5 @@ echo "=== $(date -u +%FT%TZ) arm=$arm target=$target card=$card seed=$seed budge
 timeout $limit /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py \
     --target "$target" --binder 150 --rounds 0 \
     --trajectories auto --max-trajectories "$budget" --final-designs 10 --seed "$seed" \
-    --params /home/ttuser/bcx_e2e/af2_params --out "$o/$tag" "${resume[@]}" >> "$o/$tag.log" 2>&1
+    --params /home/ttuser/bcx_e2e/af2_params --out "$o/$tag" "${extra[@]}" "${resume[@]}" >> "$o/$tag.log" 2>&1
 echo "=== rc=$? $(date -u +%FT%TZ) arm=$arm $tag" >> "$o/campaign.log"
