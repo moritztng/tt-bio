@@ -38,6 +38,11 @@ NOT_A_TUNING_ROW: dict[str, str] = {
     # README row would offer a user a choice between a measured default and an unmeasured arm.
     # `tt_bio/tenstorrent.py` says the same thing where the flag is read.
     "BOLTZ2_FP32_SOFTMAX": "an unclosed A/B hatch, not a tuning choice",
+    # Where a checkpoint is read from, not how it runs. Every row's override is listed in
+    # docs/weights.md.
+    "PROTENIX_CKPT": "a checkpoint path, documented in docs/weights.md",
+    "OF3_CKPT": "a checkpoint path, documented in docs/weights.md",
+    "TT_BIO_OPENBIND": "a checkpoint path, documented in docs/weights.md",
 }
 
 

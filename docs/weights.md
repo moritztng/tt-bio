@@ -1,6 +1,7 @@
 # Weights and caches
 
-Every model downloads its own weights on first use. `tt-bio weights` shows what this host
+Every model downloads its own weights on first use, except Protenix-v2
+([below](#protenix-v2-is-not-downloaded)). `tt-bio weights` shows what this host
 has, what it would load, and what is still missing:
 
 ```console
@@ -11,8 +12,8 @@ mols                boltz2         huggingface.co   present     3.42G  /home/you
 esmc-6b             esmc-6b        huggingface.co   present    23.66G  /home/you/.cache/huggingface/hub/models--biohub--ESMC-6B/...
 protenix-v1         protenix-v1    huggingface.co+1 present     1.37G  /home/you/.boltz/protenix/model_v0.5.0.pt
 rf3                 rf3            files.ipd.uw.edu missing         -  /home/you/.boltz/rf3/rf3_foundry_01_24_latest_remapped.ckpt
-openfold3           openfold3      manual           present     2.13G  /home/you/.boltz/of3-p2-155k.pt
-openbind            openbind       manual           present     2.13G  /home/you/.boltz/of3-ob-2025-06-30-174k.pt
+openfold3           openfold3      openfold3-data.s3.amazonaws.com present 2.13G  /home/you/.boltz/of3-p2-155k.pt
+protenix-v2         protenix-v2    manual           missing         -  /home/you/.boltz/protenix-v2.pt
 nesso1-ccd          nesso1         huggingface.co   present     0.38G  /home/you/.cache/huggingface/hub/models--recursionpharma--nesso/...
 ...
 25/28 present, 64.8 GiB on disk, 6.8 GiB to fetch (tt-bio weights --download)
@@ -38,7 +39,7 @@ Two directories, and one knob that moves both:
 
 | | Default | Holds |
 |---|---|---|
-| tt-bio cache | `~/.boltz` | the flat checkpoints: Boltz-2, Protenix-v2, BoltzGen, RF3, RFD3, the CCD molecule library, OpenFold3 |
+| tt-bio cache | `~/.boltz` | the flat checkpoints: Boltz-2, Protenix, BoltzGen, RF3, RFD3, the CCD molecule library, OpenFold3, OpenBind-0 |
 | Hugging Face hub cache | `~/.cache/huggingface/hub` | whole-repo models: ESMFold2, ESMC, SaProt, OpenDDE, Nesso-1 |
 
 Set `TT_BIO_CACHE` and both move under it (the hub cache lands in `$TT_BIO_CACHE/hf`).
@@ -141,14 +142,28 @@ is only deleted once the extracted output verifies. An already-populated directo
 as-is after its contents check out, so upgrading tt-bio never re-downloads or re-extracts
 what a host already has.
 
-## OpenFold3 and OpenBind are the exceptions
+## Protenix-v2 is not downloaded
 
-tt-bio does not download either OpenFold3 checkpoint. The project is Apache-2.0 and upstream
-states the parameters are free for academic and commercial use, but the consortium publishes
-no separate parameter licence, so fetching them on a user's behalf is not ours to do. tt-bio
-verifies the file it is handed and says so if the copy is truncated.
+tt-bio does not download the Protenix-v2 weights. The
+[Protenix README](https://github.com/bytedance/Protenix)'s 2026-04-08 Protenix-v2 release
+entry says: "The model weights of Protenix-v2 are proprietary and confidential information of
+the rights holder, are not released under any open-source license, and may not be reproduced,
+distributed, sublicensed, disclosed, or otherwise transferred to any third party in any form
+without the express prior written consent of the rights holder." The same README's licence
+section calls the whole project, "including both code and model parameters", Apache-2.0; we
+follow the narrower v2 statement until that is settled.
 
-| `--model` | file | put it at, or point | download |
+`tt-bio predict --model protenix-v2` therefore stops before any work unless you already hold
+the checkpoint, and says so. A copy at `~/.boltz/protenix-v2.pt`, or one named by
+`PROTENIX_CKPT` or `TT_BIO_PROTENIX_V2`, still loads; whether you may use it is between you and
+the rights holder. `protenix-v1`, upstream's own v0.5.0 checkpoint under Apache-2.0, downloads
+as usual and is the Protenix model to use otherwise.
+
+## OpenFold3 and OpenBind-0
+
+Both download from the consortium's public bucket on first use. Their parameters are Apache-2.0.
+
+| `--model` | file | cached at, or point | source |
 |---|---|---|---|
 | `openfold3` | `of3-p2-155k.pt` | `~/.boltz/of3-p2-155k.pt`, `OF3_CKPT` | `https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt` |
 | `openbind` | `of3-ob-2025-06-30-174k.pt` | `~/.boltz/of3-ob-2025-06-30-174k.pt`, `TT_BIO_OPENBIND` | `https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-ob-2025-06-30-174k.pt` |

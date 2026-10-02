@@ -736,8 +736,7 @@ floor there (X 1.889 Å), and the A/B is in
 [openfold3-port.md](openfold3-port.md#precision). Templates are verified active
 on the 7XI5 pair: the templates-ON and templates-OFF structures differ by up to
 6.1 Å, so the templates-OFF leg is not a relabelled copy of the same run.
-OpenFold3 is the one model whose weights TT-Bio does not download; the legs
-require a manually provisioned checkpoint via `OF3_CKPT`.
+The legs read the checkpoint from `OF3_CKPT` when it is set, else from the cache.
 
 ## Envelope gate history and root causes
 
@@ -1048,8 +1047,7 @@ python3 scripts/pharma_parity.py structures \
 ```
 
 The OpenFold3 legs follow the same structures path against their own committed
-fixtures. The checkpoint is not downloaded automatically, so `OF3_CKPT` must
-point at a provisioned `of3-p2-155k.pt`; the reference side is regenerated only
+fixtures. The checkpoint is `of3-p2-155k.pt`, from the cache or `OF3_CKPT`; the reference side is regenerated only
 when the pinned version or settings change (`scripts/of3_ref_fixture.py`, CPU
 venv recipe in [openfold3-port.md](openfold3-port.md)):
 

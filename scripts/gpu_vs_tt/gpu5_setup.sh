@@ -83,12 +83,7 @@ stage_protenix() {
   /root/venv-protenix/bin/pip install --no-cache-dir -q protenix==2.0.0 huggingface_hub==0.34.4 \
     2>&1 | tail -5 | tee -a "$LOG"
   if [ ! -s /root/ckpt/protenix-v2.pt ]; then
-    # The official checkpoint URL is gated (403); TMF001/protenix-v2-weights is the public
-    # mirror of the same protenix-v2.pt the TT side runs (tt_bio/main.py PROTENIX_REPO).
-    /root/venv-protenix/bin/python3 -c "
-from huggingface_hub import hf_hub_download
-print('ckpt:', hf_hub_download('TMF001/protenix-v2-weights','protenix-v2.pt',local_dir='/root/ckpt'))
-" 2>&1 | tail -3 | tee -a "$LOG"
+    say "protenix-v2.pt is not downloaded (upstream forbids redistribution, see CHANGELOG); place your own copy at /root/ckpt/protenix-v2.pt"; return 1
   fi
   /root/venv-protenix/bin/protenix --help >/dev/null && echo "protenix CLI ok" | tee -a "$LOG"
   say "stage protenix done"

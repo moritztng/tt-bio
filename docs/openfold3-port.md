@@ -15,18 +15,11 @@ checkpoint, which adds protein-ligand co-folding. See [OpenBind-0](#openbind-0) 
 
 ## Weights
 
-OpenFold3 is the one model tt-bio does not download for you. Fetch the consortium's
-preview2 checkpoint and point `OF3_CKPT` at it, or put it where tt-bio looks by
-default:
-
-```bash
-curl -o ~/.boltz/of3-p2-155k.pt \
-  https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt
-```
-
-The file is 2.29 GB and ungated (no login, no license click-through). Upstream states
-the project is free for academic and commercial use under Apache-2.0 and publishes no
-separate parameter license.
+tt-bio downloads the consortium's preview2 checkpoint, `of3-p2-155k.pt` (2.29 GB,
+ungated), from
+`https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt` on first
+use and keeps it at `~/.boltz/of3-p2-155k.pt`. Point `OF3_CKPT` at a copy elsewhere to
+use that instead. The parameters are Apache-2.0, like the code.
 
 ## Running it
 

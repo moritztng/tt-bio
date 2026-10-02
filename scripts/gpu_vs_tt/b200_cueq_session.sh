@@ -118,12 +118,7 @@ stage_setup() {
   /root/venv-opendde/bin/pip install --no-cache-dir -q "opendde[gpu]==1.0.3" \
     huggingface_hub==0.34.4 2>&1 | tail -5 | tee -a "$LOG"
 
-  # The official protenix checkpoint URL is gated (403); TMF001/protenix-v2-weights is the
-  # public mirror of the same protenix-v2.pt the TT side runs.
-  [ -s /root/ckpt/protenix-v2.pt ] || /root/venv-protenix/bin/python3 -c "
-from huggingface_hub import hf_hub_download
-print('ckpt:', hf_hub_download('TMF001/protenix-v2-weights','protenix-v2.pt',local_dir='/root/ckpt'))" \
-    2>&1 | tail -2 | tee -a "$LOG"
+  [ -s /root/ckpt/protenix-v2.pt ] || { echo "protenix-v2.pt is not downloaded (upstream forbids redistribution, see CHANGELOG); place your own copy at /root/ckpt/protenix-v2.pt" | tee -a "$LOG" >&2; exit 1; }
   [ -s /root/ckpt/opendde.pt ] || /root/venv-opendde/bin/python3 -c "
 from huggingface_hub import hf_hub_download
 print('ckpt:', hf_hub_download('aurekaresearch/OpenDDE','opendde.pt',local_dir='/root/ckpt'))" \

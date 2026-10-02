@@ -5,6 +5,29 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+
+- **tt-bio no longer downloads the Protenix-v2 weights.** The Protenix code is Apache-2.0, and
+  the [Protenix README](https://github.com/bytedance/Protenix)'s general licence section says the
+  project, "including both code and model parameters", is Apache-2.0. Its 2026-04-08 Protenix-v2
+  release entry says something narrower about v2: "The model weights of Protenix-v2 are
+  proprietary and confidential information of the rights holder, are not released under any
+  open-source license, and may not be reproduced, distributed, sublicensed, disclosed, or
+  otherwise transferred to any third party in any form without the express prior written consent
+  of the rights holder." Until that is resolved we do not fetch them. The Hugging Face repository
+  0.12.0 downloaded them from, `TMF001/protenix-v2-weights`, also answers HTTP 401 as of
+  2026-10-02, so a fresh install could not have fetched them anyway. `--model protenix-v2` now
+  stops before any work with that reason and points at `protenix-v1`, upstream's own v0.5.0
+  checkpoint, which is Apache-2.0 and still downloads. The model code is unchanged, and a copy you
+  already have in the cache, or name with `PROTENIX_CKPT`, still loads.
+- **OpenFold3 and OpenBind-0 weights now download on first use**, from the consortium's public
+  bucket, like every other model. Both parameter sets are Apache-2.0; tt-bio labelled them "no
+  parameter licence published", which was wrong and was the only reason they had to be fetched by
+  hand. A copy already at `~/.boltz/of3-p2-155k.pt`, `~/.boltz/of3-ob-2025-06-30-174k.pt`,
+  `OF3_CKPT` or `TT_BIO_OPENBIND` is used as before and nothing is re-downloaded.
+- **Licence labels in `tt-bio weights` corrected** for ESM (MIT), OpenDDE (Apache-2.0), RF3 and
+  RFdiffusion3 (BSD-3-Clause), to match what upstream publishes today.
+
 ### Fixed
 
 - **A BindCraft 2 out-of-memory refusal no longer tells a one-trajectory run to pass

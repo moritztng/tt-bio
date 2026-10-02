@@ -32,11 +32,16 @@ MIT-licensed and credited in the top-level LICENSE.
 
 4. tt_bio/protenix.py, protenix_data.py, protenix_weights.py — Protenix-v2
    (AlphaFold3-family) support. This is an INDEPENDENT ttnn reimplementation for
-   Tenstorrent; no upstream Protenix source is vendored. The architecture and the
-   model weights (downloaded on first use from the Hugging Face mirror, not
-   redistributed in this repo) are from ByteDance's Protenix.
+   Tenstorrent; no upstream Protenix source is vendored. The architecture is from
+   ByteDance's Protenix. tt-bio neither redistributes nor downloads the Protenix-v2
+   weights: upstream's 2026-04-08 Protenix-v2 release note says they "are not
+   released under any open-source license, and may not be reproduced, distributed,
+   sublicensed, disclosed, or otherwise transferred to any third party in any form
+   without the express prior written consent of the rights holder." The protenix-v1
+   checkpoint (upstream's v0.5.0, model_v0.5.0.pt) downloads on first use.
    Source:        github.com/bytedance/Protenix
-   License:       Apache-2.0 — Copyright ByteDance (code and model parameters).
+   License:       Apache-2.0 — Copyright ByteDance (code; the v0.5.0 parameters).
+                  Protenix-v2 parameters: proprietary, per the note above.
 
 5. tt_bio/_vendor/openfold3/ — OpenFold3 host-side data pipeline: the query
    schema, CCD/ligand lookup, tokenization, structure / reference-conformer /
@@ -63,13 +68,15 @@ MIT-licensed and credited in the top-level LICENSE.
    Protenix-v2 this is an INDEPENDENT ttnn reimplementation; no upstream compute
    code is vendored (only the data pipeline above). The weights
    (of3-p2-155k.pt, the OpenFold3 preview2 checkpoint) are the OpenFold
-   consortium's ungated public parameter release; tt-bio neither redistributes
-   nor downloads them — set OF3_CKPT or place the file at ~/.boltz/.
+   consortium's ungated public parameter release; tt-bio does not redistribute
+   them and downloads them from upstream's bucket on first use (OF3_CKPT or a
+   file at ~/.boltz/ is used instead when present). OpenBind-0's
+   of3-ob-2025-06-30-174k.pt comes from the same bucket the same way.
    Source:        github.com/aqlaboratory/openfold-3, weights from
-                  s3://openfold3-data/openfold3-parameters/of3-p2-155k.pt
-   License:       Apache-2.0 — Copyright 2026 AlQuraishi Laboratory. Upstream
-                  states the project is free for academic and commercial use and
-                  publishes no separate parameter license.
+                  s3://openfold3-data/openfold3-parameters/
+   License:       Apache-2.0 — Copyright 2026 AlQuraishi Laboratory, code and
+                  parameters ("The OpenFold3-preview model is released under
+                  Apache 2.0 license", huggingface.co/OpenFold/OpenFold3).
 
 7. tt_bio/_vendor/atomworks/ — AtomWorks: the AF3-style structure-processing and
    transform pipeline RF3 featurizes with (CCD lookup, bond perception,

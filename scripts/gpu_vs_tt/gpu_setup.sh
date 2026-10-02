@@ -54,17 +54,10 @@ case " $SETUP_MODELS " in *" opendde "*)
 esac
 python3 -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda, torch.cuda.get_device_name(0))"
 
-# Weights. Protenix-v2's official checkpoint URL is gated (403); the public HF
-# mirror TMF001/protenix-v2-weights carries the SAME protenix-v2.pt the TT side
-# runs (tt_bio/main.py PROTENIX_REPO). OpenDDE's opendde.pt is public on HF.
+# Weights. OpenDDE's opendde.pt is public on HF.
 mkdir -p /root/ckpt
 if [ ! -s /root/ckpt/protenix-v2.pt ] && [[ " $SETUP_MODELS " == *" protenix "* ]]; then
-  /root/venv-protenix/bin/python3 - <<'EOF'
-from huggingface_hub import hf_hub_download
-p = hf_hub_download("TMF001/protenix-v2-weights", "protenix-v2.pt",
-                    local_dir="/root/ckpt")
-print("protenix ckpt:", p)
-EOF
+  echo "protenix-v2.pt is not downloaded (upstream forbids redistribution, see CHANGELOG); place your own copy at /root/ckpt/protenix-v2.pt" >&2; exit 1
 fi
 if [ ! -s /root/ckpt/opendde.pt ] && [[ " $SETUP_MODELS " == *" opendde "* ]]; then
   /root/venv-opendde/bin/python3 - <<'EOF'
