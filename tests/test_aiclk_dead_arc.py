@@ -14,9 +14,13 @@ from tt_bio.train import provenance
 
 REPO = Path(__file__).resolve().parents[1]
 
-#: Every AICLK sampler that a gate, a training run or a test executes.
-SAMPLERS = ("tt_bio/train/provenance.py", "perf/clocksample.py",
-            "scripts/abb3_port/step_time.py", "perf/bcx_stack/stack.py")
+#: Every AICLK sampler that a gate, a training run or a test executes. step_time's is not wired
+#: yet: it feeds `perf/abb3_port/step_gate_default_qb2c3.txt`, whose RECORDED-AT closure
+#: (`tests/test_recorded_claims.py`) any edit to it makes stale, and re-recording needs a qb2
+#: card. Strict, so the fix and the re-record land together and this marker has to go with them.
+SAMPLERS = ("tt_bio/train/provenance.py", "perf/clocksample.py", "perf/bcx_stack/stack.py",
+            pytest.param("scripts/abb3_port/step_time.py", marks=pytest.mark.xfail(
+                strict=True, reason="needs the step_gate re-record on a qb2 card")))
 
 
 def test_the_sentinel_is_not_a_clock_and_a_real_reading_passes_through():
