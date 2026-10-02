@@ -171,7 +171,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--arma", default="armA1",
                     help="comma-separated labels of arm A's campaigns, pooled")
-    ap.add_argument("--armb", default="armB1,armB2,armB3",
+    ap.add_argument("--armb", default="armB1,armB2,armB3,armB4",
                     help="comma-separated labels of arm B's campaigns, pooled")
     args = ap.parse_args()
     pools = []
