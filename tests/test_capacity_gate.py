@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import capacity_fixture                                                          # noqa: E402
 import capacity_gate as cg                                                       # noqa: E402
+import gate_guard                                                                # noqa: E402
 
 from tt_bio import size_limits as sl                                             # noqa: E402
 
@@ -1262,7 +1263,7 @@ def _live_leg_in_its_own_session():
     """A real child in its own process group, like every leg the gate runs."""
     proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"],
                             start_new_session=True)
-    cg._track_leg(proc.pid)
+    cg.track_leg(proc.pid)
     return proc
 
 
@@ -1284,7 +1285,7 @@ def test_a_signal_to_the_gate_reaches_the_fold_it_is_running():
         assert exits == [128 + signal.SIGTERM], (
             f"the handler did not exit with the signal's status: {exits}")
         assert proc.wait(timeout=30) is not None, "the leg outlived the signal"
-        assert not cg._LIVE_LEGS, f"the registry still lists dead legs: {cg._LIVE_LEGS}"
+        assert not gate_guard.LIVE_LEGS, f"the registry still lists dead legs: {gate_guard.LIVE_LEGS}"
     finally:
         for sig, h in prev.items():
             signal.signal(sig, h)
@@ -1298,10 +1299,10 @@ def test_every_leg_is_registered_so_a_teardown_can_find_it():
     because the alternative needs a card and half an hour."""
     src = inspect.getsource(cg.execute)
     assert "start_new_session=True" in src, "this test is pinned to the wrong function"
-    assert "_track_leg(proc.pid)" in src, (
+    assert "track_leg(proc.pid)" in src, (
         "execute() opens a session for its fold and never registers it, so a signal to the gate "
         "cannot reach it")
-    assert "_untrack_leg(proc.pid)" in src, (
+    assert "untrack_leg(proc.pid)" in src, (
         "execute() never deregisters a finished leg, so the reaper signals stale pids")
 
 

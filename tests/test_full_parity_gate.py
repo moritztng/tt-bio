@@ -13,7 +13,6 @@ import importlib.util
 import os
 import subprocess
 import sys
-import types
 from dataclasses import replace
 from pathlib import Path
 
@@ -204,12 +203,15 @@ def test_scorer_env_names_the_driver(tmp_path, monkeypatch):
     class _Proc:
         returncode = 0
 
-    def fake_run(cmd, **kw):
+        def wait(self, timeout=None):
+            return 0
+
+    def fake_popen_leg(cmd, **kw):
         captured.update(kw.get("env") or {})
         return _Proc()
 
-    monkeypatch.setattr(mod, "subprocess", types.SimpleNamespace(
-        run=fake_run, STDOUT=subprocess.STDOUT, TimeoutExpired=subprocess.TimeoutExpired))
+    monkeypatch.setattr(mod, "_popen_leg", fake_popen_leg)
+    monkeypatch.setattr(mod, "_reap", lambda proc: None)
     env = {**os.environ, "TT_BIO_PARENT_PID": str(os.getpid())}
     mod.run_inprocess(leg, tmp_path / "out.json", tmp_path / "log.txt", env, pin_card=None)
     assert captured.get("TT_BIO_PARENT_PID") == str(os.getpid())
@@ -719,6 +721,38 @@ def test_timed_out_harness_reads_as_error_not_no_data():
     assert mod.extract_verdict(struct, ok)[0] == "PASS"
 
 
+
+# A fold CLI that spawns a worker, the way `tt_bio.main predict` does, then wedges. The worker
+# ignores SIGTERM like a process stuck inside a ttnn call that never returns to Python.
+_WEDGED_FOLD = """
+import os, signal, subprocess, sys, time
+w = subprocess.Popen([sys.executable, "-c",
+    "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(600)"])
+open(sys.argv[1], "w").write(str(w.pid))
+time.sleep(600)
+"""
+
+
+def test_a_timed_out_fold_takes_its_spawned_worker_with_it(tmp_path):
+    """2026-10-02, qb2 card 2: a protenix-v2 seed wedged in ttnn.to_torch, the fold timeout
+    killed the predict CLI and nothing else, and the CLI's spawned worker kept the card open
+    for 46 min. Every leg after it refused at device open and reported "nothing ran"."""
+    mod = _load()
+    pidfile = tmp_path / "worker.pid"
+    with open(tmp_path / "fold.log", "w") as logf:
+        rc, timed_out = mod._run_local_fold(
+            [sys.executable, "-c", _WEDGED_FOLD, str(pidfile)], tmp_path / "out", logf,
+            fold_timeout=3)
+    assert timed_out and rc == -99, (rc, timed_out)
+    worker = int(pidfile.read_text())
+    try:
+        os.kill(worker, 0)
+    except ProcessLookupError:
+        return
+    os.kill(worker, 9)
+    pytest.fail(f"the fold's worker (pid {worker}) outlived the fold timeout, still holding "
+                f"whatever card it opened")
+
 def test_in_process_reference_legs_get_the_contended_host_budget():
     """The fold-timeout floor is keyed on the mechanism, not on a model name.
 
@@ -790,3 +824,36 @@ def test_verify_fixtures_flags_a_missing_reference_and_clears_a_present_one(tmp_
     out = capsys.readouterr().out
     assert env.id in out and "ref_fp32 missing" in out and "ref_bf16 missing" in out
     assert rdx.id not in out
+
+
+def test_a_timed_out_fold_retires_its_card_for_the_rest_of_the_run(tmp_path, monkeypatch):
+    """A fold that times out leaves its chip wedged, so nothing more may be folded on it.
+
+    qb2 card 2, 2026-10-02: after one protenix-v2 seed timed out, each later seed sat in the
+    device-open probe until its own 40-minute timeout. Seeds go to the cards still live; with
+    none left they fail at once, naming the card, instead of each waiting out the timeout."""
+    mod = _load()
+    monkeypatch.setattr(mod, "_WEDGED", set(), raising=False)
+    monkeypatch.setattr(mod, "device_cmd", lambda leg, s, out_dir, workdir: ["true"])
+    a, b = mod.Worker("localhost", 2, True), mod.Worker("localhost", 3, True)
+    ran = []
+
+    def fake_fold(wrapped, out_dir, logf, fold_timeout):
+        card = int(wrapped[-1].split("TT_VISIBLE_DEVICES=")[1].split()[0])
+        ran.append(card)
+        if card == 2:
+            return -99, True
+        (out_dir / "r").mkdir(parents=True)
+        (out_dir / "r" / "results.json").write_text("{}")
+        return 0, False
+
+    monkeypatch.setattr(mod, "_run_local_fold", fake_fold)
+    leg = mod.Leg(id="px", model="protenix-v2", kind="structure", yaml="")
+    first = mod.run_folds_fanout(leg, [0], tmp_path, [a], tmp_path, fold_timeout=1)
+    assert "timed out" in first[0]["error"] and a in mod._WEDGED
+
+    second = mod.run_folds_fanout(leg, [1, 2], tmp_path, [a, b], tmp_path, fold_timeout=1)
+    assert ran == [2, 3, 3] and all(isinstance(v, Path) for v in second.values())
+
+    alone = mod.run_folds_fanout(leg, [3], tmp_path, [a], tmp_path, fold_timeout=1)
+    assert ran == [2, 3, 3] and "localhost:2" in alone[3]["error"]

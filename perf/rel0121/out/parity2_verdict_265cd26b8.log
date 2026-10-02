@@ -1,0 +1,49 @@
+# full_parity_gate.py --workers localhost:3,localhost:0 --workdir parity_work2, tree 265cd26b8 (a46281e91 + gate fix), qb2, chain P2, rc=0
+esmc-300m                         esmc       resumed       PASS                    0s  (resumed from esmc-300m.json) [reproduces committed]
+esmc-600m                         esmc       resumed       PASS                    0s  (resumed from esmc-600m.json) [reproduces committed]
+saprot-35m                        saprot     resumed       PASS                    0s  (resumed from saprot-35m.json)
+saprot-650m                       saprot     resumed       PASS                    0s  (resumed from saprot-650m.json)
+esmfold2-trpcage                  esmfold2   resumed       PASS                    0s  (resumed from esmfold2-trpcage.json) [reproduces committed]
+esmfold2-fast-trpcage             esmfold2   resumed       PASS                    0s  (resumed from esmfold2-fast-trpcage.json) [reproduces committed]
+esmfold2-cocrystal                esmfold2   resumed       PASS                    0s  (resumed from esmfold2-cocrystal.json) [reproduces committed]
+boltz2-trpcage-nomsa              structure  resumed       PASS                    0s  (resumed from boltz2-trpcage-nomsa.json) [reproduces committed]
+boltz2-prot-nomsa                 structure  resumed       GAP                     0s  (resumed from boltz2-prot-nomsa.json) [reproduces committed]
+boltz2-hsa-nomsa                  structure  resumed       PASS                    0s  (resumed from boltz2-hsa-nomsa.json) [reproduces committed]
+boltz2-9ncy-nomsa                 structure  resumed       GAP                     0s  (resumed from boltz2-9ncy-nomsa.json) [reproduces committed]
+protenix-prot-msa                 structure  resumed       PASS                    0s  (resumed from protenix-prot-msa.json) [improves committed GAP-evidenced — not a drift]
+protenix-ubq-msa                  structure  resumed       PASS                    0s  (resumed from protenix-ubq-msa.json) [improves committed GAP-evidenced — not a drift]
+protenix-hsa-msa                  structure  resumed       PASS                    0s  (resumed from protenix-hsa-msa.json) [improves committed GAP — not a drift]
+protenix-9ncy-msa                 structure  resumed       PASS                    0s  (resumed from protenix-9ncy-msa.json)
+protenix-v1-prot-msa              structure  resumed       PASS                    0s  (resumed from protenix-v1-prot-msa.json) [reproduces committed]
+openfold3-ubq-msa                 structure  resumed       PASS                    0s  (resumed from openfold3-ubq-msa.json) [reproduces committed]
+openfold3-prot-msa                structure  resumed       PASS                    0s  (resumed from openfold3-prot-msa.json) [reproduces committed]
+openfold3-7xi5-tmpl               structure  resumed       PASS                    0s  (resumed from openfold3-7xi5-tmpl.json) [reproduces committed]
+openfold3-7xi5-notmpl             structure  resumed       PASS                    0s  (resumed from openfold3-7xi5-notmpl.json) [improves committed GAP-evidenced — not a drift]
+openfold3-8hel-msa                structure  resumed       PASS                    0s  (resumed from openfold3-8hel-msa.json) [reproduces committed]
+openfold3-8hel-nomsa              structure  resumed       PASS                    0s  (resumed from openfold3-8hel-nomsa.json) [reproduces committed]
+openfold3-9bk6-complex-msa        structure  resumed       PASS                    0s  (resumed from openfold3-9bk6-complex-msa.json) [reproduces committed]
+openbind-ubq-msa                  structure  resumed       PASS                    0s  (resumed from openbind-ubq-msa.json) [reproduces committed]
+openbind-fkg-ligand-msa           structure  resumed       PASS                    0s  (resumed from openbind-fkg-ligand-msa.json) [reproduces committed]
+boltz2-affinity-fkbp12-nomsa      affinity   resumed       GAP                     0s  (resumed from boltz2-affinity-fkbp12-nomsa.json) [reproduces committed]
+boltz2-affinity-fkbp12-msa        affinity   resumed       PASS                    0s  (resumed from boltz2-affinity-fkbp12-msa.json) [improves committed GAP-evidenced — not a drift]
+boltz2-affinity-dhfr-nomsa        affinity   cached        PASS                  204s  envelope worst affinity_probability_binary: num=0.0037 env=0 [reproduces committed]
+boltz2-affinity-dhfr-msa          affinity   cached        PASS                  214s  envelope worst affinity_probability_binary: num=0.0012 env=0 [reproduces committed]
+boltz2-affinity-tryp-nomsa        affinity   cached        PASS                  200s  envelope worst affinity_probability_binary: num=0.0080 env=0 [improves committed GAP — not a drift]
+boltz2-affinity-tryp-msa          affinity   cached        PASS                  214s  envelope worst affinity_probability_binary: num=0.0043 env=0 [reproduces committed]
+opendde-trpcage-nomsa             structure  cached        PASS                  126s  trpcage_no_msa: X=0.412 R=0.374 D=0.470 within=True [improves committed GAP-evidenced — not a drift]
+opendde-prot-prod                 structure  cached        PASS                  172s  prot_no_msa: X=5.456 R=1.499 D=5.069 within=True [improves committed GAP-evidenced — not a drift]
+opendde-abag                      abag       in-process    PASS                  377s  global DockQ=0.846 [reproduces committed]
+boltzgen                          boltzgen   in-process    PASS                  157s  scRMSD pass-rate 100% (median 0.777775) [reproduces committed]
+capacity                          capacity   in-process    PASS                  979s  peak 7.23 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 7.23 GiB
+rfd3-featurizer                   rfd3       in-process    PASS                    0s  43/43 keys bit-exact [reproduces committed]
+af2ig-featurizer                  af2ig      in-process    PASS                    0s  60/60 keys bit-exact
+af2ig-trunk                       af2ig_trunkin-process    PASS                   84s  complex: 94 taps, 0 failed; worst structure_module#3/traj pc
+af2ig-trunk-monomer               af2ig_trunkin-process    PASS-caveated          13s  monomer: 90 taps, 0 failed, 32 in the float32 envelope; wors
+af2ig-trunk-device                af2ig_trunk_devicein-process    GAP                   268s  13/94 taps and 2/6 scalars on the committed bf16 floor (tol  [reproduces committed]
+pxdesign-featurizer               pxdesign   in-process    PASS                    1s  25/25 arms on pdl1_protenix05_noH (196 tokens, 0 conditioned
+nesso1                            nesso1     in-process    PASS                   17s  worst scalar 3.771xR (upstream spread), device spread 0 [reproduces committed]
+rf3-1024aa                        rf3_xtal   in-process    PASS                  175s  xtal 1.950 A worst seed, ref 2.009 A, X 0.623 A, n_ca 966
+##############################################################################
+# Tally: {'PASS': 39, 'GAP': 4, 'PASS-caveated': 1}    total wall 53.4 min
+# GATE PASS — every fast-path leg reproduces within its floor
+##############################################################################
