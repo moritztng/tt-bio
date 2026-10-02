@@ -10,6 +10,19 @@
 # price of that choice: a kernel that changes the gradient above 320 tokens would make a zero
 # ambiguous between the size and the kernel.
 #
+# RESUMABLE. qb2 hard-hung twice in six hours (21:24Z and 03:34Z on 10-01/02) and both times every
+# arm died. BindCraft 2 carries on into a folder that already holds output when `resume: true` is
+# set, so a hang now costs the trajectories that were IN FLIGHT, not the campaign. Two things that
+# follow from how the budget is spent, both of them in `tt_bio.bindcraft2.print_resumption`:
+#   - the budget is charged when a trajectory is CLAIMED and its row is written when it FINISHES,
+#     so an interrupted claim is charged and never retried. <budget> here is the TOTAL for the
+#     folder, and it has to carry the lost claims on top of the n you still want.
+#   - `resume` and `max_trajectories` are both excluded from the design identity
+#     (`bindcraft/design_identity.py`), so a resumed campaign makes NEW trajectory recipes rather
+#     than repeating the ones it already attempted. It adds n; it does not fake it.
+# Resume is detected from the folder rather than passed, so a relaunch cannot forget it and trip
+# preflight's "already holds campaign output" refusal.
+#
 #   campaign.sh <arm: a|b> <card> <tag> [seed] [budget]
 set -uo pipefail
 arm=$1; card=$2; tag=$3; seed=${4:-100}; budget=${5:-10}
@@ -20,6 +33,8 @@ case "$arm" in
   *) echo "arm must be a or b"; exit 2 ;;
 esac
 o=perf/bcw_accept/out; mkdir -p "$o/$tag"
+resume=()
+if [ -e "$o/$tag/.campaign_state.json" ]; then resume=(--set resume=true); fi
 export PYTHONPATH=$PWD BCX_BC2=/home/ttuser/bcx_e2e/bc2
 export JAX_COMPILATION_CACHE_DIR=$PWD/$o/xlacache
 export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=worker:bcw-accept
@@ -29,9 +44,9 @@ export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=wor
     ps -eo pid,etime,pcpu,args --sort=-pcpu | head -5 | cut -c1-150; } >> "$o/$tag.cotenants";
     sleep 180; done ) &
 trap "kill $! 2>/dev/null" EXIT
-echo "=== $(date -u +%FT%TZ) arm=$arm target=$target card=$card seed=$seed budget=$budget head=$(git rev-parse --short HEAD)" >> "$o/campaign.log"
+echo "=== $(date -u +%FT%TZ) arm=$arm target=$target card=$card seed=$seed budget=$budget resume=${#resume[@]} head=$(git rev-parse --short HEAD)" >> "$o/campaign.log"
 timeout $limit /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py \
     --target "$target" --binder 150 --rounds 0 \
     --trajectories auto --max-trajectories "$budget" --final-designs 10 --seed "$seed" \
-    --params /home/ttuser/bcx_e2e/af2_params --out "$o/$tag" > "$o/$tag.log" 2>&1
+    --params /home/ttuser/bcx_e2e/af2_params --out "$o/$tag" "${resume[@]}" > "$o/$tag.log" 2>&1
 echo "=== rc=$? $(date -u +%FT%TZ) arm=$arm $tag" >> "$o/campaign.log"
