@@ -3,6 +3,16 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Fixed
+
+- **A BindCraft 2 out-of-memory refusal no longer tells a one-trajectory run to pass
+  `trajectories_per_card=1`.** Under a board's measured ceiling the message blamed interleaved
+  trajectories even when the campaign already ran one, so following it changed nothing. It now
+  gives that advice only when trajectories are interleaved; otherwise it names the slower memory
+  mode and the smaller size that fit.
+
 ## [0.12.0] - 2026-10-02
 
 BindCraft 2 reaches 864 tokens on one Wormhole Galaxy chip, where 0.11.0 stopped at 512, so the
