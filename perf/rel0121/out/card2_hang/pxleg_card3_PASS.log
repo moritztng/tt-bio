@@ -1,0 +1,13 @@
+
+##############################################################################
+# FULL PARITY GATE — 1 legs, workers ['tt-quietbox2:3'], granted card(s) [3]
+##############################################################################
+leg                               kind       ref           verdict               wall  detail
+--------------------------------------------------------------------------------------------------------------
+protenix-prot-msa                 structure  cached        PASS                  238s  prot: X=2.608 R=2.763 D=1.523 within=True [improves committed GAP-evidenced — not a drift]
+
+##############################################################################
+# Tally: {'PASS': 1}    total wall 4.0 min
+# GATE PASS — every fast-path leg reproduces within its floor
+##############################################################################
+rc=0
