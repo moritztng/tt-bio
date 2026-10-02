@@ -75,23 +75,46 @@ def _ckpt_stack(model, msa, pair, k_extra, k_evo):
 
 # ------------------------------------------------------------------------------ ref
 
-
 def cmd_ref(a):
+    """Staged, because the cotangent pass and the per-block arms do not fit in one process.
+
+    At 288 the whole thing ran in 10.91 GB and the cotangent pass set that peak. The live set
+    is roughly n^2 (eight float64 boundaries, two retained boundary grads, one block's residual
+    stream, the chunk transients), so 800 is 7.7x that. Running each stage in its own process
+    means nothing accumulates across stages and glibc hands the arenas back at exit; the caller
+    (`run_ref.sh`) also sets MALLOC_ARENA_MAX, which is most of the gap between the ~3 GB of
+    live tensors at 288 and the 10.91 GB the process actually held.
+
+      cot   the float64 stack, the readout loss, the cotangent at each graded block's output.
+            Writes `b<j>.cot.pt` (bf16 inputs, float64 cotangents) and `meta_cot.json`.
+      arms  one block: the float64 VJP and the torch fp32 / bf16 arms on the same inputs, plus
+            the float64 forward. Writes `b<j>.pt` and `b<j>.arms.json`.
+      fin   assembles `meta.json` from `meta_cot.json` and the per-block arm files.
+      all   cot, then every block's arms, then fin, in this process (the 288 path).
+    """
     cache = pathlib.Path(a.cache)
     cache.mkdir(parents=True, exist_ok=True)
     blocks = [int(b) for b in a.blocks.split(",")]
     torch.set_num_threads(a.threads)
-    torch.manual_seed(a.seed)
-    say(f"n={a.n} evo={a.evo} extra={a.extra} blocks={blocks} chunk={a.chunk} "
-        f"floor={a.floor} threads={a.threads} cache={cache}")
+    say(f"stage={a.stage} n={a.n} evo={a.evo} extra={a.extra} blocks={blocks} "
+        f"chunk={a.chunk} floor={a.floor} threads={a.threads} cache={cache}")
+    if a.stage in ("cot", "all"):
+        _stage_cot(a, cache, blocks)
+    if a.stage in ("arms", "all"):
+        for j in ([a.block] if a.stage == "arms" else blocks):
+            _stage_arms(a, cache, j)
+    if a.stage in ("fin", "all"):
+        _stage_fin(a, cache, blocks)
 
+
+def _stage_cot(a, cache, blocks):
     _, ref = A.load_models(a.params, device_arm=False)
     say("models loaded")
     n = a.n
     # Seed HERE, not before the load: `load_models` draws from the global RNG while it builds
     # the modules (the values are then overwritten by the state dict), and it draws a different
     # amount with and without the device arm. Seeding at the input makes the inputs a function
-    # of (seed, n) alone, so `ref` and any re-run agree whatever was loaded first.
+    # of (seed, n) alone, so every stage and any re-run agree whatever was loaded first.
     torch.manual_seed(a.seed)
     logits = torch.randn(n, 20) * 2.0
     ridx = torch.arange(n)
@@ -100,7 +123,6 @@ def cmd_ref(a):
     say(f"embedded msa {tuple(msa0.shape)} pair {tuple(pair0.shape)}")
 
     with lowmem(chunk=a.chunk, floor=a.floor):
-        # --- the cotangent at every graded block's output, from one float64 readout loss
         msa_t = msa0.clone().requires_grad_(True)
         pair_t = pair0.clone().requires_grad_(True)
         del msa0, pair0
@@ -109,8 +131,7 @@ def cmd_ref(a):
         wm = torch.randn(m_out.shape, dtype=torch.float64) / m_out.numel() ** 0.5
         wz = torch.randn(z_out.shape, dtype=torch.float64) / z_out.numel() ** 0.5
         # block j's output cotangent is boundary j+1's grad, or the readout for the last block
-        need = {j + 1 for j in blocks if j + 1 < len(bounds)}
-        for j in need:
+        for j in {j + 1 for j in blocks if j + 1 < len(bounds)}:
             for t in bounds[j][2:]:
                 if t is not None and t.requires_grad:
                     t.retain_grad()
@@ -119,7 +140,6 @@ def cmd_ref(a):
         del m_out, z_out, msa_t, pair_t
         gc.collect()
 
-        jobs = []
         for j in blocks:
             kind, i, m, z = bounds[j]
             if j + 1 < len(bounds):
@@ -128,64 +148,87 @@ def cmd_ref(a):
             else:
                 gm, gz = (wm if kind == "evo" else None), wz
             assert gz is not None, f"no cotangent for block {j}"
-            jobs.append((j, kind, i, A.bf(z), A.bf(m) if m is not None else None, gm, gz))
-        del bounds, wm, wz
-        gc.collect()
-        say(f"cotangents extracted for {[j for j, *_ in jobs]}")
-
-        meta = {"stamp": A.stamp(a.card), "n": n, "seed": a.seed, "evo": a.evo,
-                "extra": a.extra, "blocks": blocks, "chunk": a.chunk, "floor": a.floor,
-                "loss": "fixed random linear readout of (msa_out, pair_out)",
-                "lowmem": "perf/bcw_vjp800/lowmem.py", "arms": {}}
-
-        for j, kind, i, zin, min_, gm, gz in jobs:
-            tag = f"{kind}{i}"
-            say(f"block {tag}: float64 VJP")
-            arms = {}
-            for arm in ("f64", "f32", "bf16"):
-                mod = ref[arm]
-                dt = mod.trunk_dtype
-                t0 = time.time()
-                if kind == "extra":
-                    g, _ = A.ref_vjp(lambda x, i=i, mod=mod: A.ref_extra(mod, i, x),
-                                     [zin.to(dt)], [gz])
-                    arms[arm] = {"dz": g[0].double()}
-                else:
-                    g, _ = A.ref_vjp(lambda x, y, i=i, mod=mod: A.ref_evo(mod, i, x, y),
-                                     [min_.to(dt), zin.to(dt)], [gm, gz])
-                    arms[arm] = {"dm": g[0].double(), "dz": g[1].double()}
-                del g
-                gc.collect()
-                say(f"  arm {arm} {time.time() - t0:.1f}s")
-            r64 = arms["f64"]
-            meta["arms"][tag] = {
-                f"{k}_torch_{arm}": dict(A.cmp(arms[arm][k], r64[k]),
-                                         norm_ratio=float(arms[arm][k].norm())
-                                         / float(r64[k].norm()))
-                for k in r64 for arm in ("f32", "bf16")}
-            with torch.no_grad():
-                if kind == "extra":
-                    fwd = {"z": A.ref_extra(ref["f64"], i, zin)}
-                else:
-                    fm, fz = A.ref_evo(ref["f64"], i, min_, zin)
-                    fwd = {"m": fm, "z": fz}
-            blob = {"block": tag, "kind": kind, "i": i,
-                    "z_in": zin.to(torch.bfloat16), "gz": gz.to(torch.bfloat16),
-                    "gz_norm_f64": float(gz.norm()),
-                    "dz_ref": r64["dz"], "fwd_z": fwd["z"].float()}
-            if kind != "extra":
-                blob.update(m_in=min_.to(torch.bfloat16), gm=gm.to(torch.bfloat16),
-                            gm_norm_f64=float(gm.norm()), dm_ref=r64["dm"],
-                            fwd_m=fwd["m"].float())
-            path = cache / f"b{j}.pt"
-            torch.save(blob, path)
-            say(f"  wrote {path} {path.stat().st_size / 2**30:.2f} GB")
-            del arms, r64, blob, fwd
+            blob = {"block": f"{kind}{i}", "kind": kind, "i": i,
+                    "z_in": A.bf(z).to(torch.bfloat16), "gz": gz,
+                    "m_in": A.bf(m).to(torch.bfloat16) if m is not None else None, "gm": gm}
+            torch.save(blob, cache / f"b{j}.cot.pt")
+            say(f"wrote {cache / f'b{j}.cot.pt'} "
+                f"{(cache / f'b{j}.cot.pt').stat().st_size / 2**30:.2f} GB")
+            del blob
             gc.collect()
+    meta = {"stamp": A.stamp(a.card), "n": a.n, "seed": a.seed, "evo": a.evo, "extra": a.extra,
+            "blocks": blocks, "chunk": a.chunk, "floor": a.floor,
+            "loss": "fixed random linear readout of (msa_out, pair_out)",
+            "lowmem": "perf/bcw_vjp800/lowmem.py", "cot_peak_rss_gb": rss_gb()}
+    (cache / "meta_cot.json").write_text(json.dumps(meta, indent=1, default=str))
+    say(f"cot done, peak rss {meta['cot_peak_rss_gb']:.2f} GB")
 
-    meta["peak_rss_gb"] = rss_gb()
+
+def _stage_arms(a, cache, j):
+    _, ref = A.load_models(a.params, device_arm=False)
+    cot = torch.load(cache / f"b{j}.cot.pt", weights_only=False)
+    kind, i, tag = cot["kind"], cot["i"], cot["block"]
+    zin, min_ = cot["z_in"].double(), None
+    if cot["m_in"] is not None:
+        min_ = cot["m_in"].double()
+    gz, gm = cot["gz"], cot["gm"]
+    del cot
+    say(f"block {tag}: arms")
+    with lowmem(chunk=a.chunk, floor=a.floor):
+        arms = {}
+        for arm in ("f64", "f32", "bf16"):
+            mod = ref[arm]
+            dt = mod.trunk_dtype
+            t0 = time.time()
+            if kind == "extra":
+                g, _ = A.ref_vjp(lambda x, i=i, mod=mod: A.ref_extra(mod, i, x),
+                                 [zin.to(dt)], [gz])
+                arms[arm] = {"dz": g[0].double()}
+            else:
+                g, _ = A.ref_vjp(lambda x, y, i=i, mod=mod: A.ref_evo(mod, i, x, y),
+                                 [min_.to(dt), zin.to(dt)], [gm, gz])
+                arms[arm] = {"dm": g[0].double(), "dz": g[1].double()}
+            del g
+            gc.collect()
+            say(f"  arm {arm} {time.time() - t0:.1f}s")
+        r64 = arms["f64"]
+        row = {f"{k}_torch_{arm}": dict(A.cmp(arms[arm][k], r64[k]),
+                                        norm_ratio=float(arms[arm][k].norm())
+                                        / float(r64[k].norm()))
+               for k in r64 for arm in ("f32", "bf16")}
+        del arms
+        gc.collect()
+        with torch.no_grad():
+            if kind == "extra":
+                fwd = {"z": A.ref_extra(ref["f64"], i, zin)}
+            else:
+                fm, fz = A.ref_evo(ref["f64"], i, min_, zin)
+                fwd = {"m": fm, "z": fz}
+    blob = {"block": tag, "kind": kind, "i": i,
+            "z_in": zin.to(torch.bfloat16), "gz": gz.to(torch.bfloat16),
+            "gz_norm_f64": float(gz.norm()),
+            "dz_ref": r64["dz"], "fwd_z": fwd["z"].float()}
+    if kind != "extra":
+        blob.update(m_in=min_.to(torch.bfloat16), gm=gm.to(torch.bfloat16),
+                    gm_norm_f64=float(gm.norm()), dm_ref=r64["dm"],
+                    fwd_m=fwd["m"].float())
+    torch.save(blob, cache / f"b{j}.pt")
+    (cache / f"b{j}.arms.json").write_text(json.dumps({"block": tag, "arms": row,
+                                                       "peak_rss_gb": rss_gb()}, indent=1))
+    say(f"  wrote {cache / f'b{j}.pt'} "
+        f"{(cache / f'b{j}.pt').stat().st_size / 2**30:.2f} GB, peak rss {rss_gb():.2f} GB")
+
+
+def _stage_fin(a, cache, blocks):
+    meta = json.loads((cache / "meta_cot.json").read_text())
+    meta["arms"] = {}
+    meta["peak_rss_gb"] = meta.get("cot_peak_rss_gb", 0.0)
+    for j in blocks:
+        one = json.loads((cache / f"b{j}.arms.json").read_text())
+        meta["arms"][one["block"]] = one["arms"]
+        meta["peak_rss_gb"] = max(meta["peak_rss_gb"], one["peak_rss_gb"])
     (cache / "meta.json").write_text(json.dumps(meta, indent=1, default=str))
-    say(f"wrote {cache / 'meta.json'}; peak rss {meta['peak_rss_gb']:.2f} GB")
+    say(f"wrote {cache / 'meta.json'}; peak rss over stages {meta['peak_rss_gb']:.2f} GB")
 
 
 # ------------------------------------------------------------------------------ dev
@@ -299,6 +342,8 @@ def main():
         if name == "ref":
             p.add_argument("--chunk", type=int, default=64)
             p.add_argument("--floor", type=int, default=128)
+            p.add_argument("--stage", default="all", choices=("all", "cot", "arms", "fin"))
+            p.add_argument("--block", type=int, default=0)
         else:
             p.add_argument("--tag", default="")
             p.add_argument("--memory", default="fast")
