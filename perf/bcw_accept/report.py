@@ -11,6 +11,7 @@ It deliberately does NOT print a verdict. The rule lives in state/bcw-accept.md,
 counts existed, and a script that also decided would be the place to quietly change it.
 """
 import argparse
+import csv
 import json
 import pathlib
 import statistics
@@ -21,6 +22,26 @@ sys.path.insert(0, str(HERE))
 from power import P0_DEN, P0_NUM, cp_upper, fisher_one_sided, power   # noqa: E402
 
 OUT = HERE.parents[1] / "perf/bcw_accept/out"
+
+
+def resolved_trajectories(d):
+    """Trajectories that actually REACHED a verdict, which is not the number the budget charged.
+
+    BindCraft 2 charges the budget when a trajectory is CLAIMED and writes its row when it
+    FINISHES (`tt_bio.bindcraft2.print_resumption`). A campaign killed mid-flight -- qb2 hard-hung
+    twice in six hours and took every arm with it both times -- therefore leaves `trajectories` in
+    `.campaign_state.json` counting claims that never resolved: armA1 read 6 charged against 3
+    rows in the table, armB1 read 2 against 1.
+
+    Those in-flight trajectories are CENSORED, not rejected. They neither accepted nor failed, so
+    putting them in the denominator of an accept rate silently understates the uncertainty: it was
+    reporting `0 of 6` for an arm that had actually resolved 3. The denominator is the table.
+    """
+    table = d / "1_Trajectories" / "!_Trajectories.csv"
+    if not table.exists():
+        return 0
+    with open(table, newline="") as f:
+        return max(0, sum(1 for _ in csv.reader(f)) - 1)
 
 
 def stamp(tag):
@@ -50,7 +71,11 @@ def arm(tag):
         "axis_arithmetic": s.get("tokens"), "axis_engine": s.get("design_tokens"),
         "axis_seam": s.get("evoformer_axis"), "auto": s.get("auto_would_choose"),
         "budget": s.get("max_trajectories"),
-        "trajectories_done": st.get("trajectories", 0),
+        # charged = claims against the budget; resolved = verdicts reached. They differ by
+        # whatever was in flight when the box went down, and only `resolved` is a denominator.
+        "charged": st.get("trajectories", 0),
+        "resolved": resolved_trajectories(d),
+        "in_flight": max(0, st.get("trajectories", 0) - resolved_trajectories(d)),
         "accepted": st.get("accepted", 0),
         "candidates_scored": rej.get("candidates_scored", 0),
         "candidates_rejected": rej.get("candidates_rejected", 0),
@@ -72,9 +97,14 @@ def show(a):
     print("    axis: arithmetic {}, engine priced {}, seam {}".format(
         a["axis_arithmetic"], a["axis_engine"], a["axis_seam"]))
     print("    auto chose: {}".format(a["auto"]))
-    print("    n = {} of {} trajectories, ACCEPTED {}, candidates scored {}, rejected {}".format(
-        a["trajectories_done"], a["budget"], a["accepted"],
-        a["candidates_scored"], a["candidates_rejected"]))
+    print("    n = {} RESOLVED of {} charged against a budget of {}, ACCEPTED {}, "
+          "candidates scored {}, rejected {}".format(
+              a["resolved"], a["charged"], a["budget"], a["accepted"],
+              a["candidates_scored"], a["candidates_rejected"]))
+    if a["in_flight"]:
+        print("    {} charged but not resolved: claimed and either still running or killed "
+              "in flight. Charged to the budget, censored, NOT counted in n.".format(
+                  a["in_flight"]))
     print("    rejected on: {}".format(a["failed_filters"] or "nothing scored yet"))
     print("    terminated at: {}".format(a["terminated"] or "no trajectory finished"))
     print("    {} gradient rounds marked, median {} s (first gap dropped, it carries "
@@ -82,7 +112,7 @@ def show(a):
               a["rounds_marked"], a["round_median_s"], a["wall_s"]))
     print("    AICLK over the run: {}".format(a["aiclk"] or "written at close, run still open"))
     print("    triatt cumulative: {}".format(a["triatt"]))
-    n = a["trajectories_done"]
+    n = a["resolved"]
     if n:
         print("    at this n: CP95 upper bound for {} of {} is {:.4f}; "
               "P(0 of {} | p0={}/{}) = {:.4f}".format(
@@ -92,8 +122,10 @@ def show(a):
 def merge(counts):
     """Add the counts of one arm across its campaigns.
 
-    A relaunch cannot resume a dead campaign, so an arm accumulates n by running again under a
-    DIFFERENT campaign seed: same target, same binder, same tree, same board, fresh trajectories.
+    An arm accumulates n two ways, and both are pooled here. A dead campaign is RESUMED into its
+    own folder, which continues its own seed and builds trajectory recipes it has not attempted
+    (`resume` and `max_trajectories` are excluded from BindCraft 2's design identity). A second
+    card gets a campaign under a DIFFERENT seed: same target, same binder, same tree, same board.
     Pooling those is the design, not a convenience. A second campaign at the SAME seed would
     reproduce the first trajectory for trajectory and add no n at all, which is why campaign.sh
     takes the seed as an argument. The labels and their seeds are printed so a pool can be checked
@@ -102,11 +134,12 @@ def merge(counts):
     pooled = {"tags": [c["tag"] for c in counts], "seeds": [c["seed"] for c in counts],
               "cards": [c["card"] for c in counts],
               "commits": sorted({c["commit"] for c in counts}),
-              "trajectories_done": 0, "accepted": 0,
+              "charged": 0, "resolved": 0, "in_flight": 0, "accepted": 0,
               "candidates_scored": 0, "candidates_rejected": 0,
               "failed_filters": {}, "terminated": {}}
     for c in counts:
-        for k in ("trajectories_done", "accepted", "candidates_scored", "candidates_rejected"):
+        for k in ("charged", "resolved", "in_flight", "accepted", "candidates_scored",
+                  "candidates_rejected"):
             pooled[k] += c[k]
         for k in ("failed_filters", "terminated"):
             for name, v in (c[k] or {}).items():
@@ -116,15 +149,17 @@ def merge(counts):
 
 def show_pool(name, pooled):
     p0 = P0_NUM / P0_DEN
-    n, acc = pooled["trajectories_done"], pooled["accepted"]
+    n, acc = pooled["resolved"], pooled["accepted"]
     print("=== {} POOLED over {}, seeds {}, cards {}, tree {}".format(
         name, ", ".join(pooled["tags"]), pooled["seeds"], pooled["cards"],
         ", ".join(pooled["commits"])))
     if len(set(pooled["seeds"])) != len(pooled["seeds"]):
         print("    !! a seed is REPEATED in this pool: those campaigns run the same "
               "trajectories and must not both be counted")
-    print("    n = {}, ACCEPTED {}, candidates scored {}, rejected {}".format(
-        n, acc, pooled["candidates_scored"], pooled["candidates_rejected"]))
+    print("    n = {} RESOLVED ({} charged, {} in flight or lost), ACCEPTED {}, "
+          "candidates scored {}, rejected {}".format(
+              n, pooled["charged"], pooled["in_flight"], acc,
+              pooled["candidates_scored"], pooled["candidates_rejected"]))
     print("    rejected on: {}".format(pooled["failed_filters"] or "nothing scored yet"))
     print("    terminated at: {}".format(pooled["terminated"] or "no trajectory finished"))
     if n:
@@ -134,7 +169,7 @@ def show_pool(name, pooled):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arma", default="armA1,armA3",
+    ap.add_argument("--arma", default="armA1",
                     help="comma-separated labels of arm A's campaigns, pooled")
     ap.add_argument("--armb", default="armB1,armB2,armB3",
                     help="comma-separated labels of arm B's campaigns, pooled")
@@ -151,13 +186,12 @@ def main():
                 print("--- {}: NOT STARTED (no campaign state on disk)".format(tag))
         if counts:
             pooled = merge(counts)
-            if len(counts) > 1:
-                show_pool(name, pooled)
+            show_pool(name, pooled)
             pools.append(pooled)
         print()
     if len(pools) == 2:
         A, B = pools
-        na, nb = A["trajectories_done"], B["trajectories_done"]
+        na, nb = A["resolved"], B["resolved"]
         if na and nb:
             p = fisher_one_sided(A["accepted"], na - A["accepted"],
                                  B["accepted"], nb - B["accepted"])
