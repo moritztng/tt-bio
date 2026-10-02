@@ -172,7 +172,6 @@ _GB = 1 << 30
 _MB = 1 << 20
 
 BOLTZ2_REPO = "moritztng/boltz-2"
-PROTENIX_REPO = "TMF001/protenix-v2-weights"
 BOLTZGEN_REPO = "moritztng/boltzgen"
 OPENDDE_REPO = "aurekaresearch/OpenDDE"
 NESSO_REPO = "recursionpharma/nesso"
@@ -204,7 +203,6 @@ HF_REVISIONS = {
     "biohub/ESMC-6B": "45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a",
     "biohub/esmc-300m-2024-12": "7f10b20ae75017b2dbc884070e03434515709a8d",
     "biohub/esmc-600m-2024-12": "e4d83bc7e10fd55c92e598e545f4a76bf04a6e5c",
-    "TMF001/protenix-v2-weights": "0b3bf48266effd548f3d399e8e76a87def9e9ec4",
     "aurekaresearch/OpenDDE": "02c183584847af2a8c7e39ff591f95f47126b1f7",
     "westlake-repl/SaProt_35M_AF2": "316cd4017d29f4657b959365f24b57f1ee278912",
     "westlake-repl/SaProt_650M_AF2": "d9b9ad00ef61c0990e611b2b43f2231c7de24b38",
@@ -227,6 +225,7 @@ def hf_revision(repo_id: str) -> str | None:
 
 IPD_BASE = "https://files.ipd.uw.edu/pub"
 PXDESIGN_BASE = "https://pxdesign.tos-cn-beijing.volces.com"
+OF3_BASE = "https://openfold3-data.s3.amazonaws.com/openfold3-parameters"
 PROTENIX_V1_REPO = "moritztng/protenix-v0.5.0"
 
 _HF_SCHEME = "hf://"
@@ -292,9 +291,20 @@ _ROWS: tuple[Artifact, ...] = (
              subdir="protenix", approx_bytes=1474265486,
              legacy_env=("PROTENIX_V1_CKPT",),
              note="ByteDance Protenix v0.5.0 base checkpoint"),
-    Artifact("protenix-v2", ("protenix-v2",), "file", "Apache-2.0",
-             repo=PROTENIX_REPO, filename="protenix-v2.pt", approx_bytes=1859785497,
-             legacy_env=("PROTENIX_CKPT",)),
+    # v2 is not downloaded. Upstream's README, in its 2026-04-08 Protenix-v2 release entry,
+    # says the v2 weights "may not be reproduced, distributed, sublicensed, disclosed, or
+    # otherwise transferred to any third party in any form without the express prior
+    # written consent of the rights holder", and the hub copy this row used to fetch
+    # answers 401. The model code is unchanged and a copy already on disk, or one named by
+    # $PROTENIX_CKPT, still loads. Downloading again is this row going back to `file`
+    # with a source the rights holder has approved.
+    Artifact("protenix-v2", ("protenix-v2",), "manual",
+             "proprietary (ByteDance), not redistributable",
+             filename="protenix-v2.pt", approx_bytes=1859785497,
+             legacy_env=("PROTENIX_CKPT",),
+             note="Upstream's Protenix-v2 release note says these weights may not be "
+                  "reproduced or distributed without the rights holder's consent. Use "
+                  "--model protenix-v1, upstream's Apache-2.0 v0.5.0 checkpoint, instead."),
 
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
     Artifact("esmfold2", ("esmfold2",), "hf-repo", "MIT (Biohub)",
@@ -408,17 +418,21 @@ _ROWS: tuple[Artifact, ...] = (
                              expect=("params_model_1_ptm.npz",)),
              note="only params_model_1_ptm.npz is kept out of the 4 GB archive"),
 
-    # -- OpenFold3: no auto-download, on purpose -------------------------------
-    Artifact("openfold3", ("openfold3",), "manual", "no parameter licence published",
-             filename="of3-p2-155k.pt", approx_bytes=2287928196, legacy_env=("OF3_CKPT",),
-             note="fetch from the OpenFold consortium yourself; see README"),
-    Artifact("openbind", ("openbind",), "manual", "no parameter licence published",
-             filename="of3-ob-2025-06-30-174k.pt", approx_bytes=2287872989,
-             note="OpenBind-0, upstream openfold-3 v0.5.0. Ungated at "
-                  "https://openfold3-data.s3.amazonaws.com/openfold3-parameters/"
-                  "of3-ob-2025-06-30-174k.pt, but treated as manual like the preview2 "
-                  "row above: the code is Apache-2.0 and the parameters carry no "
-                  "separate licence we can point at. See docs/weights.md"),
+    # -- OpenFold3 / OpenBind-0 (Apache-2.0) -----------------------------------
+    # Upstream's own public bucket, no login. Both parameter sets are Apache-2.0: the
+    # OpenFold3 hub card says "The OpenFold3-preview model is released under Apache 2.0
+    # license", and OpenBind's release post says "OB0 is fully open source under the
+    # Apache 2.0 licence: the training data, code, model weights, and training recipes
+    # are publicly available." Flat at the cache root, where hand-placed copies already
+    # sit, so a host that has them downloads nothing.
+    Artifact("openfold3", ("openfold3",), "file", "Apache-2.0 (OpenFold consortium)",
+             filename="of3-p2-155k.pt", url=f"{OF3_BASE}/of3-p2-155k.pt",
+             approx_bytes=2287928196,
+             legacy_env=("OF3_CKPT",), note="OpenFold3 preview2"),
+    Artifact("openbind", ("openbind",), "file", "Apache-2.0 (OpenBind consortium)",
+             filename="of3-ob-2025-06-30-174k.pt",
+             url=f"{OF3_BASE}/of3-ob-2025-06-30-174k.pt", approx_bytes=2287872989,
+             note="OpenBind-0, upstream openfold-3 v0.5.0"),
 )
 
 ARTIFACTS: dict[str, Artifact] = {a.key: a for a in _ROWS}
@@ -1239,8 +1253,9 @@ def fetch(key: str, *, root: str | Path | None = None, force: bool = False,
         if not dest.exists():
             raise FileNotFoundError(
                 f"{art.key} checkpoint not found. tt-bio does not download it ({art.licence}). "
-                f"Set {' or '.join('$' + v for v in art.env_vars)} to your copy, or place "
-                f"it at {dest}.")
+                + (f"{art.note} " if art.note else "")
+                + f"To load a copy you hold yourself, set "
+                f"{' or '.join('$' + v for v in art.env_vars)} to it or place it at {dest}.")
         if not artifact_intact(dest):
             raise RuntimeError(
                 f"{dest} is truncated or corrupt: it is not a readable archive. Re-copy it "

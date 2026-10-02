@@ -297,7 +297,8 @@ def download_all(cache: Path, model: str = "boltz2") -> None:
     race to download it into one cache dir. Registry-driven, so a new model is covered
     without another special case here; the hand-written version covered protenix-v2 and
     rf3 only, and downloaded the 4.2 GB of Boltz-2 checkpoints for every model whether
-    or not they were needed. Rows tt-bio does not download (OpenFold3) are skipped."""
+    or not they were needed. A row tt-bio does not download (protenix-v2) is checked
+    earlier, in `predict`, before the MSA search."""
     weights.fetch_models(model, root=cache)
 
 
@@ -3276,6 +3277,16 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
+
+    # A checkpoint tt-bio does not download is checked before the MSA search, so a host
+    # without one is told in a second why not and what to use instead.
+    if not controller:
+        for art in weights.artifacts_for(model):
+            if art.source == "manual":
+                try:
+                    weights.fetch(art.key, root=Path(cache).expanduser())
+                except (FileNotFoundError, RuntimeError) as e:
+                    raise click.ClickException(str(e))
 
     # MSA-dependent models (boltz2, protenix-v1/v2, opendde, opendde-abag) must never
     # silently fold single-sequence: resolve a source now (explicit flag > local DB >

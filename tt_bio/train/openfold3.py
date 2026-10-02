@@ -969,16 +969,9 @@ def trained_state_dict(masters: dict, base, *, device=None) -> dict:
 
 
 def _shipped_weights() -> Path:
-    """The inference checkpoint, or a refusal that says how to get it."""
+    """The inference checkpoint `tt-bio predict --model openfold3` reads, fetched if missing."""
     from .. import weights
-    path = weights.resolve(MODEL)
-    if path is None or not path.is_file():
-        raise FileNotFoundError(
-            f"OpenFold3 weights not found at {path}. They are not downloaded automatically "
-            f"(no parameter licence is published): fetch of3-p2-155k.pt as docs/weights.md "
-            f"describes and put it there, or point OF3_CKPT at it. `tt-bio predict --model "
-            f"openfold3` reads the same file")
-    return path
+    return weights.fetch(MODEL)
 
 
 catalogue.register(MODEL, adapter)

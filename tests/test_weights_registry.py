@@ -433,14 +433,39 @@ def test_completion_marker_lives_outside_the_output(tmp_path, monkeypatch):
 # Manual rows are verified, never fetched
 # --------------------------------------------------------------------------
 
-def test_openfold3_is_never_downloaded(tmp_path, monkeypatch):
-    """No parameter licence is published, so the row is verify-only by design."""
+def test_protenix_v2_is_never_downloaded(tmp_path, monkeypatch):
+    """Upstream says the v2 weights may not be redistributed, so nothing fetches them, and
+    the refusal says why and what to use instead."""
     monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path))
-    for var in ("OF3_CKPT", "TT_BIO_OPENFOLD3"):
+    for var in weights.ARTIFACTS["protenix-v2"].env_vars:
         monkeypatch.delenv(var, raising=False)
-    assert weights.ARTIFACTS["openfold3"].source == "manual"
-    with pytest.raises(FileNotFoundError, match="does not download it"):
-        weights.fetch("openfold3")
+    art = weights.ARTIFACTS["protenix-v2"]
+    assert art.source == "manual" and not art.sources
+    with pytest.raises(FileNotFoundError) as e:
+        weights.fetch("protenix-v2")
+    msg = str(e.value)
+    assert "does not download it" in msg and "not redistributable" in msg
+    assert "protenix-v1" in msg and "huggingface.co" not in msg
+
+
+def test_protenix_v2_copy_on_disk_still_loads(tmp_path, monkeypatch):
+    """A copy already in the cache is left where it is and still resolves."""
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path))
+    for var in weights.ARTIFACTS["protenix-v2"].env_vars:
+        monkeypatch.delenv(var, raising=False)
+    ckpt = _zip(tmp_path / "protenix-v2.pt")
+    assert weights.fetch("protenix-v2") == ckpt
+    assert ckpt.exists()
+
+
+def test_openfold3_family_downloads_from_upstream():
+    """Both parameter sets are Apache-2.0, so they ride the same fetch path as every
+    other row, from the consortium's own bucket, to where hand-placed copies already sit."""
+    for key in ("openfold3", "openbind"):
+        art = weights.ARTIFACTS[key]
+        assert art.source == "file" and art.licence.startswith("Apache-2.0"), key
+        assert art.sources == (f"{weights.OF3_BASE}/{art.filename}",), key
+        assert art.dest() == weights.cache_root() / art.filename, key
 
 
 def _only_override(monkeypatch, key: str, path: Path) -> None:
@@ -459,10 +484,10 @@ def _only_override(monkeypatch, key: str, path: Path) -> None:
 
 def test_truncated_manual_checkpoint_is_named_by_tt_bio(tmp_path, monkeypatch):
     """Previously this died inside torch.load with no hint at the cause."""
-    ckpt = _truncate(_zip(tmp_path / "of3-p2-155k.pt"))
-    _only_override(monkeypatch, "openfold3", ckpt)
+    ckpt = _truncate(_zip(tmp_path / "protenix-v2.pt"))
+    _only_override(monkeypatch, "protenix-v2", ckpt)
     with pytest.raises(RuntimeError, match="truncated or corrupt"):
-        weights.fetch("openfold3")
+        weights.fetch("protenix-v2")
 
 
 # --------------------------------------------------------------------------
