@@ -129,6 +129,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -1145,13 +1146,45 @@ def _find_results_dir(out_dir: Path) -> Path | None:
 
 
 def _reap(proc) -> None:
-    """Terminate a process and its children, escalating to kill after a short grace."""
-    proc.terminate()
+    """Terminate a fold's whole process group, escalating to SIGKILL after a short grace.
+
+    The group, not the pid: `tt_bio.main predict` folds in a spawned worker, and signalling
+    only the CLI orphaned that worker with the card open. Measured 2026-10-02 on qb2 card 2:
+    a protenix-v2 seed wedged inside ttnn.to_torch, the fold timeout killed the CLI, and the
+    worker held the card at 100% CPU for 46 min, so every later leg refused at device open
+    with "nothing ran". SIGTERM never reached it (the wedged call does not return to the
+    interpreter); only SIGKILL did, which is why the group always gets one.
+    """
     try:
+        os.killpg(proc.pid, signal.SIGTERM)
         proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
+        pass
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    proc.wait()
+    # SIGKILL is asynchronous: wait until the group is empty, so the next leg's device open
+    # does not race a holder that is still exiting.
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(proc.pid, 0)
+        except (ProcessLookupError, PermissionError):
+            break
+        time.sleep(0.1)
+    gate_guard.untrack_leg(proc.pid)
+
+
+def _popen_leg(cmd, **kw) -> subprocess.Popen:
+    """Start a fold or scorer in its own process group, registered so that _reap and a signal
+    to the gate (gate_guard.install_teardown) both reach every process it spawns."""
+    proc = subprocess.Popen(cmd, cwd=REPO, start_new_session=True, **kw)
+    gate_guard.track_leg(proc.pid)
+    return proc
 
 
 def _run_local_fold(wrapped, out_dir: Path, logf, fold_timeout: float | None):
@@ -1166,12 +1199,13 @@ def _run_local_fold(wrapped, out_dir: Path, logf, fold_timeout: float | None):
         (e.g. a flaky MSA server, #6 in the postmortem) is killed -> (timeout-sentinel, True).
     """
     GRACE_S = 30.0
-    proc = subprocess.Popen(wrapped, cwd=REPO, stdout=logf, stderr=subprocess.STDOUT)
+    proc = _popen_leg(wrapped, stdout=logf, stderr=subprocess.STDOUT)
     t0 = time.monotonic()
     folded_at = None
     while True:
         rc = proc.poll()
         if rc is not None:
+            _reap(proc)  # the CLI exited; take any worker it left behind with it
             return rc, False
         if folded_at is None and _find_results_dir(out_dir) is not None:
             folded_at = time.monotonic()
@@ -1667,8 +1701,11 @@ def run_inprocess(leg: Leg, out_json: Path, log_path: Path, env: dict,
         env = {**env, "TT_VISIBLE_DEVICES": str(pin_card)}
     try:
         with open(log_path, "w") as f:
-            proc = subprocess.run(cmd, cwd=REPO, stdout=f, stderr=subprocess.STDOUT, env=env,
-                                  timeout=fold_timeout)
+            proc = _popen_leg(cmd, stdout=f, stderr=subprocess.STDOUT, env=env)
+            try:
+                proc.wait(timeout=fold_timeout)
+            finally:
+                _reap(proc)
     except subprocess.TimeoutExpired:
         return {"error": f"{leg.id} harness timed out after {fold_timeout:.0f}s"}
     if proc.returncode != 0:
@@ -2266,6 +2303,7 @@ def main() -> int:
     # so none of them can outlive this driver still holding a card. Inherited through
     # every spawn path in this file (see tt_bio/device_lease.py:arm_orphan_guard).
     os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
+    gate_guard.install_teardown()
     ap = argparse.ArgumentParser(description=__doc__,
                                   formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--workers", default="pc:0",

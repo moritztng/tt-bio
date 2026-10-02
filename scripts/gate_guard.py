@@ -14,8 +14,11 @@ granted the box (a release run on an idle host), which is unbounded by design an
 exactly as it did before this module existed.
 """
 
+import atexit
 import os
 import re
+import signal
+import threading
 
 GRANT_ENV = "TT_VISIBLE_DEVICES"
 
@@ -239,3 +242,65 @@ def declared_dependency_problems(pyproject, extras=("tenstorrent",), env=None):
             + ". These pins exist because the versions differ in results, so a leg measured "
               "outside them did not measure what a user gets.")
     return problems
+
+
+#: Process groups of the legs running right now. A leg's fold gets its own session
+#: (start_new_session=True in each gate), which is what stops `killpg` from taking the gate down with
+#: it -- and which also means a signal sent to the GATE never reaches the fold. Python runs no
+#: `finally` on a default-handled SIGTERM, so the per-leg teardown was skipped whenever a wrapper
+#: timed the gate out, and the fold survived with PPID 1, holding a card. Measured 2026-09-10:
+#: `timeout 2100` on a ten-model sweep left an opendde 1536 screen on a card for 17 idle minutes,
+#: and SIGKILLing it by hand left the chip needing a `tt-smi -r` before anything else would
+#: dispatch. Module level and lock-guarded because the sweep runs one thread per card, so the
+#: thread that owns a leg is not the thread a signal arrives on.
+LIVE_LEGS: set[int] = set()
+LIVE_LEGS_LOCK = threading.Lock()
+
+
+def track_leg(pgid: int) -> None:
+    with LIVE_LEGS_LOCK:
+        LIVE_LEGS.add(pgid)
+
+
+def untrack_leg(pgid: int) -> None:
+    with LIVE_LEGS_LOCK:
+        LIVE_LEGS.discard(pgid)
+
+
+def reap_live_legs() -> list[int]:
+    """SIGKILL every leg still running, from any thread. Returns the groups it signalled."""
+    with LIVE_LEGS_LOCK:
+        pgids = sorted(LIVE_LEGS)
+        LIVE_LEGS.clear()
+    for pgid in pgids:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    return pgids
+
+
+def install_teardown(*, exit_now=None) -> None:
+    """Make a SIGTERM or SIGHUP to the gate reach the fold it is running.
+
+    `os._exit` after reaping rather than an orderly shutdown, on purpose: a raised exception
+    only unwinds the thread the signal landed on, which is the one thread NOT running a leg.
+    Nothing is lost by exiting hard -- the report is written after every cell, so a killed sweep
+    keeps its finished cells and `--record-from` folds them in without touching a card.
+    """
+    exit_now = exit_now or os._exit
+    atexit.register(reap_live_legs)
+
+    def bail(signum, _frame):
+        left = reap_live_legs()
+        if left:
+            print(f"\nsignal {signum}: killed {len(left)} leg(s) still on a card "
+                  f"({', '.join(map(str, left))}). Finished cells are in the report; fold them "
+                  f"in with --record-from.", flush=True)
+        exit_now(128 + signum)
+
+    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        try:
+            signal.signal(sig, bail)
+        except (ValueError, OSError):
+            pass          # not the main thread, or no such signal here
