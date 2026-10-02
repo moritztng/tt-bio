@@ -206,7 +206,7 @@ def test_the_exact_instrument_reaches_a_real_backward_on_card(capsys):
     params, protein_states, losses = _pdl1_draw()
     # One pool across both arms: the weights load on first use and the pool outlives the
     # predictor scope, so the exact arm does not pay a second 910 MB load.
-    pool = bindcraft2.TrunkPool(str(params), resident=1)
+    pool = bindcraft2.TrunkPool(str(params), resident=1, template=True)
     arms = {}
 
     for name, kwargs in (("default", {}), ("exact", {"exact": True})):
