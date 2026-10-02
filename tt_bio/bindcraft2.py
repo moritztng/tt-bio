@@ -179,12 +179,15 @@ def memory_mode(requested: str, padded: int, card_bytes: int) -> str:
 #: tracks the PEAK to within 0.07 GB across 768/800/832/864/896 -- what it cannot see is
 #: fragmentation, and that is what ends the mode. So the law overshot by two buckets, in the one
 #: sentence of a refusal the user acts on. Measured on dev .107 card 30, 2026-10-01, chain `wh7`.
+#: 896 then refused on its third round twice out of two (65.3 MB largest free block against a
+#: 68.5 MB per-bank need), while 864 completed five of five, so 864 is the top.
+#: Measured at the v0.12.0 tree, `rel012-verify-wh`.
 _MEASURED_MODE_LADDERS = {
     "Wormhole Galaxy chip": {
         # mode: (largest axis measured to complete, smallest measured to refuse or None)
         "fast": (512, 544),
         "lean": (544, 768),
-        "offload": (896, 928),
+        "offload": (864, 896),
     },
     # The law puts fast's top at 864 on a p150a, and fast refuses there at 704, 768 and 832 (704
     # and 832 fill the card in the backward, 768 fragments in the forward with 2.2 GB free), while
@@ -206,8 +209,8 @@ def mode_ceiling(mode: str, card_bytes: int):
 
     Three cases, and the difference between them is what the refusal is allowed to claim:
 
-    * the ladder bracketed the ceiling on ADJACENT buckets -- 896 completes, 928 refuses -- so
-      the ceiling IS 896 and it is measured;
+    * the ladder bracketed the ceiling on ADJACENT buckets -- 864 completes, 896 refuses -- so
+      the ceiling IS 864 and it is measured;
     * the ladder found a refusal further up, with a gap nobody ran. `lean` completes at 544 and
       refuses at 768, so the ceiling is somewhere in 544-736: the law's estimate is the best
       number inside that bracket, and 736 is the most that may be claimed whatever it says;
@@ -380,7 +383,7 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
                   f"(docs/bindcraft2.md, 'Large complexes'). ")
     else:
         last_top, last_measured = mode_ceiling(MEMORY_MODES[-1], card_total)
-        # "tops out NEAR 960" and "tops out AT 896" are different promises, and the user trims to
+        # "tops out NEAR 960" and "tops out AT 864" are different promises, and the user trims to
         # whichever number is in the sentence.
         tops = (f"tops out at {last_top} tokens on this card, the largest axis measured to "
                 f"complete a gradient round in it" if last_measured else

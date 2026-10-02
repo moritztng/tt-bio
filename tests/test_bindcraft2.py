@@ -1845,8 +1845,8 @@ def test_a_mode_ceiling_claims_exactly_the_evidence_it_has_and_no_more():
     resizes their job around that one figure:
 
     * a board's FAST-mode row is a ladder of folds that were run, so it is measured;
-    * `offload` on a Wormhole chip is now measured too, on ADJACENT buckets -- 896 completes,
-      928 refuses -- so the ceiling is 896 and the message may say so;
+    * `offload` on a Wormhole chip is now measured too, on ADJACENT buckets -- 864 completes,
+      896 refuses -- so the ceiling is 864 and the message may say so;
     * `lean` is not. It completes at 544 and refuses at 768, and nobody ran the buckets in
       between, so the law's estimate inside that bracket is the best available number and must
       be offered as an estimate.
@@ -1870,14 +1870,14 @@ def test_a_mode_ceiling_claims_exactly_the_evidence_it_has_and_no_more():
 
     # The adjacent bracket IS a measurement, and the message says so rather than hedging.
     off_top, off_measured = bindcraft2.mode_ceiling("offload", card)
-    assert (off_top, off_measured) == (896, True)
+    assert (off_top, off_measured) == (864, True)
     off = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
                                              n=972, padded=992, mode="offload"))
     assert "largest axis measured to complete a gradient round" in off, off
-    # 896 is the size to aim at, and it is the ONLY size offered as one that holds. 960 may still
+    # 864 is the size to aim at, and it is the ONLY size offered as one that holds. 960 may still
     # appear -- the way-down sentence names it to say it refuses too, which is the message
     # working -- so what matters is that no sentence offers 960 as a size that fits.
-    assert "tops out at 896 tokens" in off and "in the 'offload' mode is 896 tokens" in off, off
+    assert "tops out at 864 tokens" in off and "in the 'offload' mode is 864 tokens" in off, off
     for wrong in ("tops out near 960", "tops out at 960", "should hold 960", "is 960 tokens",
                   "reach 960"):
         assert wrong not in off, (wrong, off)
@@ -1904,25 +1904,25 @@ def test_auto_runs_lean_where_fast_was_measured_to_refuse_on_a_p150a():
 def test_a_measured_refusal_caps_the_memory_law_everywhere_it_is_quoted():
     """`auto`, the roomier-mode offer and the ceiling sentence must not disagree.
 
-    The law puts `offload` near 960 on a Wormhole Galaxy chip and 928 was measured to refuse, so
-    a 928-token fold must not be told that `offload` will hold it. One ceiling, three readers.
+    The law puts `offload` near 960 on a Wormhole Galaxy chip and 896 was measured to refuse, so
+    an 896-token fold must not be told that `offload` will hold it. One ceiling, three readers.
     """
     card = bindcraft2.WH_GALAXY_DRAM_BYTES
-    assert bindcraft2.max_tokens("offload", card) == 896
+    assert bindcraft2.max_tokens("offload", card) == 864
     assert bindcraft2.round_device_bytes("offload", 960) <= card * bindcraft2._MODE_USABLE, (
         "if the law no longer reaches 960 this test has stopped covering the disagreement")
 
     # The roomier-mode offer is the sentence a refusing fold acts on first.
-    at_928 = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
-                                                n=908, padded=928, mode="lean"))
-    assert "should hold 928 tokens" not in at_928, at_928
+    at_896 = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
+                                                n=876, padded=896, mode="lean"))
+    assert "should hold 896 tokens" not in at_896, at_896
     # And a size offload DOES hold is still offered it.
     at_768 = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_WORMHOLE), phase="backward",
                                                 n=748, padded=768, mode="lean"))
     assert "'offload' mode should hold 768 tokens" in at_768, at_768
 
-    # `auto` decides on the same number: 896 is the last axis it sends to offload.
-    assert bindcraft2.memory_mode("auto", 896, card) == "offload"
+    # `auto` decides on the same number: 864 is the last axis it sends to offload.
+    assert bindcraft2.memory_mode("auto", 864, card) == "offload"
     assert bindcraft2.memory_mode("auto", 544, card) == "lean"
     assert bindcraft2.memory_mode("auto", 512, card) == "fast"
 
