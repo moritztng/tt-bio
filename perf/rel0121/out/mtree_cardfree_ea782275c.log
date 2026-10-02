@@ -1,0 +1,4 @@
+# card-free gate tests at merge tree ea782275c = origin/main 2e6d96a1b + origin/wk/rel0121 f80e0d9c8, qb2, relvenv, TT_VISIBLE_DEVICES= (no device)
+# tests/test_full_parity_gate.py tests/test_capacity_gate.py tests/test_parity_gate_workdir_provenance.py tests/test_ux_regression.py tests/test_perf_citations.py tests/test_packaging_smoke.py
+776 passed in 54.86s
+rc=0

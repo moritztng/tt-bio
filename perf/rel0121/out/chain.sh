@@ -5,10 +5,12 @@
 # the gated wheel was installed into (ttnn 0.68.0 = the pyproject pin). rc 0/1 is a verdict and the
 # chain continues so every arm reports; any other rc is recorded and the chain also continues.
 CARD=${1:?card}; SET=${2:?set}
+CARDS=${CARDS:-$CARD}  # every card an arm folds on; the env sampler logs each one
 T=/home/ttuser/scratch/rel0121/tree
 L=/home/ttuser/scratch/rel0121
 PY=/home/ttuser/scratch/rel012/relvenv/bin/python3
-G=a46281e91832b7f84662852003ef9d747cf725c2
+G=$(git -C /home/ttuser/scratch/rel0121/tree rev-parse 265cd26b8)
+BT=/home/ttuser/scratch/rel0121/bcptree
 LOG=$L/CHAIN_c$CARD.log
 cd "$T" || exit 1
 export PYTHONPATH="$T"
@@ -63,7 +65,7 @@ arm() {  # arm <name> <timeout_s> -- <cmd...>
     name=$1; tmo=$2; shift 3
     "$PY" -c "import ttnn" >/dev/null 2>&1 || { note "$name NOT RUN: venv cannot import ttnn -- CHAIN STOP"; exit 1; }
     wait_card || { note "$name NOT RUN (card busy) -- CHAIN STOP"; exit 1; }
-    ( while :; do echo "$(date -u +%FT%TZ) aiclk$CARD=$(clock $CARD) load=$(cut -d" " -f1-3 /proc/loadavg) foreign=$(foreign)" >> "$L/env_$name.log"; sleep 30; done ) &
+    ( while :; do echo "$(date -u +%FT%TZ) $(for c in ${CARDS//,/ }; do echo -n "aiclk$c=$(clock $c) "; done)load=$(cut -d" " -f1-3 /proc/loadavg) foreign=$(foreign)" >> "$L/env_$name.log"; sleep 30; done ) &
     sampler=$!
     note "$name START"
     timeout "$tmo" "$@" > "$L/$name.log" 2>&1
@@ -83,6 +85,16 @@ C)  # the legs rel012 D18 lost, shortest first; parity is --fresh: rel012 legs h
     arm pytest_device 10800 -- $E "$PY" -m pytest -q --tb=short -p no:cacheprovider
     arm parity 28800 -- $E "$PY" scripts/full_parity_gate.py --workers localhost:$CARD --workdir "$L/parity_work" --fresh
     arm capacity 28800 -- env TT_BIO_LEASE_CARDS=$CARD "$PY" scripts/capacity_gate.py --workers localhost:$CARD --no-card-reset --models opendde-abag,openfold3,protenix-v1,protenix-v2,rf3,saprot-35m,saprot-650m
+    ;;
+P)  # parity after the 09:37Z hang: tree 265cd26b8 = a46281e91 + the gate reaping fix (tt_bio identical)
+    arm parity2 28800 -- $E "$PY" scripts/full_parity_gate.py --workers localhost:$CARD --workdir "$L/parity_work2"
+    ;;
+B)  # bcp stage 14 bench at wk/bcp-evo 2628733f1, then the capacity cells after opendde
+    arm bcp14 3600 -- $E PYTHONPATH="$BT" "$PY" "$BT/perf/bcp_evo/inproj_gated_bench.py" --out "$L/bcp14.json"
+    arm capacity 28800 -- env TT_BIO_LEASE_CARDS=$CARD "$PY" scripts/capacity_gate.py --workers localhost:$CARD --no-card-reset --models opendde-abag,openfold3,protenix-v1,protenix-v2,rf3,saprot-35m,saprot-650m
+    ;;
+P2) # parity2 resumed on two cards (CARDS=3,0): the gate spreads seeds across --workers
+    arm parity2 28800 -- env TT_BIO_LEASE_CARDS=$CARDS "$PY" scripts/full_parity_gate.py $(for c in ${CARDS//,/ }; do echo -n "--workers localhost:$c "; done | sed "s/ --workers /,/g; s/^--workers /--workers /") --workdir "$L/parity_work2"
     ;;
 esac
 note "CHAIN_DONE c$CARD"
