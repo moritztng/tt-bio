@@ -181,6 +181,7 @@ from tt_bio.host_controller import (
 from tt_bio.energy import DEFAULT_ENERGY_SAMPLE_HZ, PowerProfiler
 from tt_bio.progress import DebugDisplay, NullDisplay, ProgressDisplay
 from tt_bio.runtime import (
+    P300_SUBSYSTEMS,
     bind_host_threads,
     build_local_workers,
     conflicting_mpi_env,
@@ -1050,9 +1051,8 @@ def _detect_p300_devices() -> list[int]:
     """Return P300 TT device indices from kernel sysfs.
 
     This avoids importing ttnn in the parent process and avoids requiring tt-smi.
-    The subsystem IDs mirror tt-metal's Blackhole board-type mapping for P300.
+    The subsystem IDs are ``runtime.P300_SUBSYSTEMS``.
     """
-    p300_subsystems = {"0x0044", "0x0045", "0x0046"}
     devices = []
     for entry in (Path("/sys/class/tenstorrent")).glob("tenstorrent!*"):
         try:
@@ -1060,7 +1060,7 @@ def _detect_p300_devices() -> list[int]:
             subsystem_id = (entry / "device" / "subsystem_device").read_text().strip().lower()
         except Exception:
             continue
-        if subsystem_id in p300_subsystems:
+        if subsystem_id in P300_SUBSYSTEMS:
             devices.append(device_id)
     return sorted(devices)
 

@@ -16,6 +16,8 @@ import subprocess
 import threading
 import time
 
+from tt_bio.runtime import aiclk_reading
+
 
 def _tt_smi():
     """The first tt-smi that exists. `TT_SMI` overrides; then PATH, ~/.local/bin (the Blackhole
@@ -49,8 +51,9 @@ def sample_aiclk(stop, out, *, period=2.0, load=None):
             d = json.loads(r.stdout)
             for i, dev in enumerate(d.get("device_info", [])):
                 clk = dev.get("telemetry", {}).get("aiclk")
+                clk = None if clk is None else aiclk_reading(int(clk))
                 if clk is not None:
-                    out.setdefault(i, []).append(int(clk))
+                    out.setdefault(i, []).append(clk)
         except Exception:
             pass
         time.sleep(period)

@@ -235,6 +235,31 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
     return [PredictionJob(id=p.stem, path=p) for p in files]
 
 
+#: Blackhole board types by the PCI ``subsystem_device`` the kernel driver publishes under
+#: ``/sys/class/tenstorrent/tenstorrent!N/device/``, which names the board without opening it or
+#: needing tt-smi. The P300 ids mirror tt-metal's own board-type map. 0x0040 is measured: every
+#: p150a node on pc and qb1 reads it while tt-smi calls the same card p150a. A p300 is a board
+#: PAIR whose lone chip opens only with a 1x1 mesh descriptor; a p150a is one chip.
+P300_SUBSYSTEMS = frozenset({"0x0044", "0x0045", "0x0046"})
+P150_SUBSYSTEMS = frozenset({"0x0040"})
+
+
+#: What a chip whose ARC firmware is dead answers from its ``tt_*`` sysfs telemetry, AICLK
+#: included. It does not raise: the chip still opens, runs and returns results, and the clock
+#: reads 4294967295 MHz. qb1's node 0 did exactly that on 2026-09-26 and a 312 s anchor was banked
+#: with every clock sample at this value, shaped like a measurement and worth nothing.
+ARC_DEAD = 0xFFFFFFFF
+
+
+def aiclk_reading(mhz: int) -> int | None:
+    """An AICLK value as read, or None when it is the dead-ARC sentinel and not a clock.
+
+    The one place a sampler decides that, so a dead chip reads as "no clock" in every
+    instrument instead of as a 4.3 GHz median in the ones that forgot to check.
+    """
+    return None if mhz == ARC_DEAD else mhz
+
+
 def tt_dev_node_bdfs() -> dict[int, str]:
     """``/dev/tenstorrent/N`` -> that card's PCI BDF, from the tenstorrent sysfs class.
 

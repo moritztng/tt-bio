@@ -33,13 +33,14 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from tt_bio.runtime import P150_SUBSYSTEMS
+
 #: p300c board pairs. `tt-smi -r` on either member resets both
 #: (`qb2-tt-smi-reset-resets-board-pair-not-chip`).
 BOARD_PAIRS = ((0, 1), (2, 3))
 
-#: PCI subsystem ids of single-chip Blackhole p150 boards (same table as
-#: scripts/perf_regression.py::_P150_SUBSYSTEMS).
-SINGLE_CHIP_SUBSYSTEMS = {"0x0040"}
+#: PCI subsystem ids of single-chip Blackhole p150 boards.
+SINGLE_CHIP_SUBSYSTEMS = P150_SUBSYSTEMS
 
 OK, REFUSED, FAILED = "ok", "refused", "failed"
 
