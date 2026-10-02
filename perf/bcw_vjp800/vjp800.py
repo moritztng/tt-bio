@@ -298,7 +298,12 @@ def cmd_dev(a):
             for key in fwd:
                 row[f"fwd_{key}"] = A.cmp(fwd[key], blob[f"fwd_{key}"])
             if a.controls:
-                perm = lambda t: t.flatten()[torch.randperm(t.numel())].reshape(t.shape)
+                # Seeded per (seed, block): the permuted control is evidence, so it has to be the
+                # same permutation when a successor re-runs it. Unseeded it was a different
+                # scramble every launch and two readings of it could not be compared.
+                g = torch.Generator().manual_seed(a.seed * 1000 + j)
+                perm = lambda t: t.flatten()[
+                    torch.randperm(t.numel(), generator=g)].reshape(t.shape)
                 dp, _, _ = device_vjp(perm(gm) if gm is not None else None, perm(gz))
                 row["permuted"] = {k: A.cmp(dp[k], blob[f"d{k[1]}_ref"]) for k in dp}
                 d0, _, _ = device_vjp(torch.zeros_like(gm) if gm is not None else None,
