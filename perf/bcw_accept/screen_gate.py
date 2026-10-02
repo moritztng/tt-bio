@@ -1,8 +1,10 @@
 """Where the two arms diverge is the SCREEN gate, not the accept gate.
 
-Arm B reads 0 accepted of 11, but it also reads 0 candidates SCORED: 9 of its 11 trajectories
-never reached MPNN at all. The RULE's 17:16Z addendum pre-committed to separating those two
-zeros, and this is the measurement that does it.
+Arm B closed at 0 accepted of 14, and 11 of those 14 trajectories never reached MPNN at all.
+The RULE's 17:16Z addendum pre-committed to separating "zero scored" from "zero accepted of N
+scored", and this is the measurement that does it. Arm B turned out to be both: 11 cut here, and
+1 that finished the ladder and scored 10 candidates which were all rejected on an interface the
+refold says is not there (see refold_iface.py).
 
 The screen gate is one threshold: `min_plddt_screen = 0.60` on `plddt_metric` bound to the
 BINDER chain in the complex (bindcraft/filters.py:826-830, `rank.py` calls it "binder confidence
@@ -15,7 +17,7 @@ the arms are comparable on it directly.
 
 Two denominators, deliberately kept apart:
   * passed-screen is taken from the trajectory CSVs, the same authority report.py denominates on,
-    and is COMPLETE for both arms (n = 10 and n = 11).
+    and is COMPLETE for both arms (n = 10 and n = 14).
   * the pLDDT readings are parsed from the arm logs, and arm A is MISSING 3 of its 10: campaign.sh
     truncates the log on relaunch, so the first sitting's lines went when armA1 resumed. Quoted
     with the n actually in hand, never backfilled.
@@ -23,6 +25,7 @@ Two denominators, deliberately kept apart:
 import argparse
 import csv
 import glob
+import random
 import statistics as st
 import re
 import sys
@@ -68,25 +71,44 @@ def fisher_one_sided(a, b, c, d):
     return pinned(a, b, c, d)
 
 
-def permutation_p(xs, ys, trials_cap=400000):
-    """Exact one-sided permutation test on the mean gap, xs > ys.
+def permutation_p(xs, ys, trials_cap=400000, mc_trials=200000, seed=20261002):
+    """One-sided permutation test on the mean gap, xs > ys. Exact where that is affordable.
 
-    Exhaustive over C(n, len(xs)) relabellings when that is small enough, which it is here
-    (C(18, 7) = 31824). No scipy, no normal approximation, no tie correction to get wrong.
+    Exhaustive over all C(n, len(xs)) relabellings when that is at most `trials_cap`, which it
+    was at n = 10 against n = 11 (C(21, 10) = 352716). It is NOT affordable once arm B closed at
+    n = 14: C(24, 10) = 1961256. This used to return None there, and the caller printed its
+    "Both are significant" line regardless -- asserting significance with no number behind it.
+    So above the cap it falls back to a seeded Monte Carlo permutation test and SAYS SO, and the
+    third return value tells the caller which it got. No scipy, no normal approximation, no tie
+    correction to get wrong.
+
+    The MC p is the standard (hits + 1) / (trials + 1) estimator, which is conservative and can
+    never return 0, so a tiny p reads as "below about 1/trials" rather than as exactly zero.
+    Returns (p, n_relabellings_considered, kind) with kind in {"exact", "mc"}.
     """
     pool = list(xs) + list(ys)
     n, k = len(pool), len(xs)
     total = comb(n, k)
-    if total > trials_cap:
-        return None, total
     observed = sum(xs) / len(xs) - sum(ys) / len(ys)
+    pool_sum = sum(pool)
+
+    if total <= trials_cap:
+        hits = 0
+        for pick in combinations(range(n), k):
+            left = sum(pool[i] for i in pick)
+            if left / k - (pool_sum - left) / (n - k) >= observed - 1e-12:
+                hits += 1
+        return hits / total, total, "exact"
+
+    rng = random.Random(seed)
+    idx = list(range(n))
     hits = 0
-    for pick in combinations(range(n), k):
-        left = sum(pool[i] for i in pick)
-        gap = left / k - (sum(pool) - left) / (n - k)
-        if gap >= observed - 1e-12:
+    for _ in range(mc_trials):
+        rng.shuffle(idx)
+        left = sum(pool[i] for i in idx[:k])
+        if left / k - (pool_sum - left) / (n - k) >= observed - 1e-12:
             hits += 1
-    return hits / total, total
+    return (hits + 1) / (mc_trials + 1), mc_trials, "mc"
 
 
 
@@ -104,8 +126,8 @@ def screen_plddt_track(tags):
     than equal).
 
     This reads every resolved trajectory in both arms, including the 3 of arm A's whose log lines
-    the relaunch truncation ate, so it runs at the full n = 10 and n = 11 where the log-parsed
-    pLDDT runs at 7 and 11.
+    the relaunch truncation ate, so it runs at the full n = 10 and n = 14 where the log-parsed
+    pLDDT runs at 7 and 13.
     """
     out = []
     for tag in tags:
@@ -146,8 +168,8 @@ def report_track(track_a, track_b):
     print("    The round-1 gap is smaller than one quantum and survives only as a mean over all")
     print("    trajectories; it is not readable on any single one.")
     gap_end = st.mean(ends_a) - st.mean(ends_b)
-    p_start, _ = permutation_p(starts_a, starts_b)
-    p_gain, total = permutation_p(gains_a, gains_b)
+    p_start, _, kind_start = permutation_p(starts_a, starts_b)
+    p_gain, total, kind_gain = permutation_p(gains_a, gains_b)
     print(f"    end-of-screen gap {gap_end:+.3f}, and it splits in two:")
     print(f"      present at round 1, before optimisation: {st.mean(starts_a) - st.mean(starts_b):+.3f}"
           f"  ({(st.mean(starts_a) - st.mean(starts_b)) / gap_end:.0%} of it)"
@@ -155,7 +177,14 @@ def report_track(track_a, track_b):
     print(f"      added by optimisation gaining less:      {st.mean(gains_a) - st.mean(gains_b):+.3f}"
           f"  ({(st.mean(gains_a) - st.mean(gains_b)) / gap_end:.0%} of it)"
           + (f"  permutation p = {p_gain:.5f}" if p_gain is not None else ""))
-    print("    Both are significant, so neither single story explains it: arm B starts lower AND")
+    both_sig = (p_start is not None and p_start < 0.05
+                and p_gain is not None and p_gain < 0.05)
+    if both_sig:
+        print("    Both are significant, so neither single story explains it: arm B starts lower AND")
+    else:
+        print("    NOT both significant at 0.05 on this n -- the split is quoted as point")
+        print("    estimates only, and the claim that both halves are real is NOT made here:")
+        print("    arm B starts lower AND")
     print("    its 50 screen rounds buy less than half the confidence arm A's buy.")
 
 
@@ -191,8 +220,8 @@ def report_iptm(tags_a, tags_b):
     gb = [e - s for s, e in b]
     s0a, s0b = st.mean(x[0] for x in a), st.mean(x[0] for x in b)
     e1a, e1b = st.mean(x[1] for x in a), st.mean(x[1] for x in b)
-    p_gain, _ = permutation_p(ga, gb)
-    p_start, _ = permutation_p([x[0] for x in a], [x[0] for x in b])
+    p_gain, _, kind_gain = permutation_p(ga, gb)
+    p_start, _, kind_start = permutation_p([x[0] for x in a], [x[0] for x in b])
     print()
     print("--- i_pTM over the same screen phase: the independent check on the lost-gain half")
     print(f"    arm A (n={len(a)}): round1 {s0a:.3f} -> end {e1a:.3f}   gain {st.mean(ga):+.3f}")
@@ -248,7 +277,7 @@ def main():
     if plddt_a and plddt_b:
         print()
         print("--- screen-gate binder pLDDT, the one number the gate reads")
-        perm, total = permutation_p(plddt_a, plddt_b)
+        perm, total, kind_perm = permutation_p(plddt_a, plddt_b)
         ga = sum(plddt_a) / len(plddt_a)
         gb = sum(plddt_b) / len(plddt_b)
         print(f"    mean arm A {ga:.3f} (n={len(plddt_a)})  arm B {gb:.3f} (n={len(plddt_b)})"
@@ -265,7 +294,7 @@ def main():
         print("--- screen-stage i_pTM, which does NOT gate at screen (no min_iptm_screen)")
         ia = sum(iptm_a) / len(iptm_a)
         ib = sum(iptm_b) / len(iptm_b)
-        perm, _ = permutation_p(iptm_a, iptm_b)
+        perm, _, kind_perm = permutation_p(iptm_a, iptm_b)
         print(f"    mean arm A {ia:.3f}  arm B {ib:.3f}  gap {ia - ib:+.3f}"
               + (f"   permutation p = {perm:.5f}" if perm is not None else ""))
         print("    quoted because it separates 'the interface is worse' from 'the binder is")
