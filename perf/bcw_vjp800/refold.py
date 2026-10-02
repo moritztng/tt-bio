@@ -112,7 +112,8 @@ def main():
     from bindcraft.prediction import update_shared_sequences
     from bindcraft.protein_preparation import design_residue_count, initialize_design_trajectory
     from bindcraft.design_workers import campaign_subbatch_size
-    from bindcraft.af2 import campaign_length_bucket, padded_prediction_length
+    from bindcraft.af2 import (campaign_length_bucket, pad_design_chains,
+                               padded_prediction_length)
     from bindcraft.campaign import MONOMER_POOL, MULTIMER_POOL
     from bindcraft.trajectory import pooled_stage_predictions
     from bindcraft import filters as F
@@ -156,9 +157,18 @@ def main():
     chain_residues = {state: {c: len(p) for c, p in cx.items()}
                       for state, cx in protein_states.items()}
     tokens = max(sum(v.values()) for v in chain_residues.values())
+    # ONE campaign carries TWO token axes and conflating them misattributes the whole row.
+    # `predict` (this harness, and the screen gate) pads chains only when target_pad_length is
+    # set, which is 0 for a single target, so arm B's complex is 614 + 150 = 764 -> 768.
+    # `sequence_gradients` (the gradient rounds, and so the VJP this row grades) calls
+    # pad_design_chains unconditionally, padding the binder 150 -> 160, so the same campaign's
+    # gradient runs at 614 + 160 = 774 -> 800. Arm A is 352 on both paths.
+    grad_chains = pad_design_chains(protein_states, bucket, 0)
+    grad_sum = max(sum(len(p) for p in cx.values()) for cx in grad_chains.values())
     accounting = {"target": a.target, "binder_aa": len(seq), "binder_chain": binder_chain,
                   "chains": chain_residues, "tokens_unpadded": tokens,
-                  "tokens_bucketed": padded_prediction_length(tokens, bucket),
+                  "predict_axis": padded_prediction_length(tokens, bucket),
+                  "gradient_axis": padded_prediction_length(grad_sum, bucket),
                   "subbatch_size": subbatch,
                   "design_models": list(selected.design_models),
                   "design_recycles": settings["design_recycles"],
