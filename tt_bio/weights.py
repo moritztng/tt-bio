@@ -297,17 +297,17 @@ _ROWS: tuple[Artifact, ...] = (
              legacy_env=("PROTENIX_CKPT",)),
 
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
-    Artifact("esmfold2", ("esmfold2",), "hf-repo", "non-commercial (EvolutionaryScale)",
+    Artifact("esmfold2", ("esmfold2",), "hf-repo", "MIT (Biohub)",
              repo=ESMFOLD2_REPO, approx_bytes=1352914698),
-    Artifact("esmfold2-fast", ("esmfold2-fast",), "hf-repo", "non-commercial (EvolutionaryScale)",
+    Artifact("esmfold2-fast", ("esmfold2-fast",), "hf-repo", "MIT (Biohub)",
              repo=ESMFOLD2_FAST_REPO, approx_bytes=751619276),
-    Artifact("esmc-300m", ("esmc-300m",), "hf-repo", "non-commercial (EvolutionaryScale)",
+    Artifact("esmc-300m", ("esmc-300m",), "hf-repo", "MIT (Biohub)",
              repo="biohub/esmc-300m-2024-12", filename="data/weights/esmc_300m_2024_12_v0.pth",
              approx_bytes=1331439861),
-    Artifact("esmc-600m", ("esmc-600m",), "hf-repo", "non-commercial (EvolutionaryScale)",
+    Artifact("esmc-600m", ("esmc-600m",), "hf-repo", "MIT (Biohub)",
              repo="biohub/esmc-600m-2024-12", filename="data/weights/esmc_600m_2024_12_v0.pth",
              approx_bytes=2297556992),
-    Artifact("esmc-6b", ("esmc-6b",), "hf-repo", "non-commercial (EvolutionaryScale)",
+    Artifact("esmc-6b", ("esmc-6b",), "hf-repo", "MIT (Biohub)",
              repo="biohub/ESMC-6B", approx_bytes=25405672653),
     Artifact("saprot-35m", ("saprot-35m",), "hf-repo", "MIT",
              repo="westlake-repl/SaProt_35M_AF2", approx_bytes=408021893),
@@ -319,10 +319,10 @@ _ROWS: tuple[Artifact, ...] = (
              repo="westlake-repl/SaProt_1.3B_AF2", approx_bytes=15000000000),
 
     # -- OpenDDE --------------------------------------------------------------
-    Artifact("opendde", ("opendde",), "hf-repo", "see repo card (Aureka Research)",
+    Artifact("opendde", ("opendde",), "hf-repo", "Apache-2.0 (Aureka Research)",
              repo=OPENDDE_REPO, filename="opendde.pt", approx_bytes=2625249069,
              legacy_env=("OPENDDE_CKPT",)),
-    Artifact("opendde-abag", ("opendde-abag",), "hf-repo", "see repo card (Aureka Research)",
+    Artifact("opendde-abag", ("opendde-abag",), "hf-repo", "Apache-2.0 (Aureka Research)",
              repo=OPENDDE_REPO, filename="opendde_abag.pt", approx_bytes=2625271509,
              legacy_env=("OPENDDE_CKPT",)),
 
@@ -367,10 +367,10 @@ _ROWS: tuple[Artifact, ...] = (
              approx_bytes=391401102, note="read as a zip, not extracted"),
 
     # -- IPD direct downloads --------------------------------------------------
-    Artifact("rf3", ("rf3",), "file", "see files.ipd.uw.edu (Institute for Protein Design)",
+    Artifact("rf3", ("rf3",), "file", "BSD-3-Clause (Institute for Protein Design)",
              url=f"{IPD_BASE}/rf3/rf3_foundry_01_24_latest_remapped.ckpt", subdir="rf3",
              approx_bytes=3038876446, legacy_env=("RF3_CKPT",)),
-    Artifact("rfd3", ("rfd3",), "file", "see files.ipd.uw.edu (Institute for Protein Design)",
+    Artifact("rfd3", ("rfd3",), "file", "BSD-3-Clause (Institute for Protein Design)",
              url=f"{IPD_BASE}/rfd3/rfd3_foundry_2025_12_01_remapped.ckpt", subdir="rfd3",
              approx_bytes=2690316669,
              derived=Derived("rfd3/weights", "rfd3", discard_archive=True, expect=(
