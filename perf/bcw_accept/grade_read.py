@@ -67,17 +67,40 @@ def main():
         print(f"n={axis}: mean device {md:.5f}  mean bf16 control {mc:.5f}  mean ratio {mr:.3f}"
               f"  ({len(sel)} readings)")
     done = [a for a in sorted(axes) if axes[a]]
-    if len(done) == 2:
-        lo, hi = done
-        rl = sum(r[5] for r in rows if r[0] == lo) / len([r for r in rows if r[0] == lo])
-        rh = sum(r[5] for r in rows if r[0] == hi) / len([r for r in rows if r[0] == hi])
-        print()
-        print(f"device/bf16 ratio {rl:.3f} at n={lo} -> {rh:.3f} at n={hi}, change {rh - rl:+.3f}")
-        print("A ratio that holds means the device VJP tracks torch's own bf16 at both axes, so the")
-        print("gradient is NOT worse at the large axis and cause (c) is closed. A ratio that climbs")
-        print("means the degradation is ours and is a defect, not a property of the model.")
-    else:
-        print(f"only n={done} graded so far; the comparison needs both axes")
+    if len(done) != 2:
+        print(f"only n={done} graded so far; the comparison needs two axes")
+        return 0
+    lo, hi = done
+
+    # PAIR BY BLOCK. The blocks do not grade alike -- at n=352 evo0 sits at 0.070 dz and evo3 at
+    # 0.035 -- so a mean over whichever blocks happen to have finished compares block composition
+    # as much as axis. Partway through the n=448 run the unpaired means read 1.028 -> 1.172 purely
+    # because only evo0, the worst block at BOTH axes, had landed. Only blocks present at both
+    # axes are differenced.
+    by = {}
+    for axis, blk, field, dev, ctl, ratio in rows:
+        by.setdefault((blk, field), {})[axis] = (dev, ctl, ratio)
+    paired = {k: v for k, v in by.items() if lo in v and hi in v}
+    missing = sorted({k[0] for k in by} - {k[0] for k in paired})
+    print()
+    if not paired:
+        print(f"no block graded at BOTH n={lo} and n={hi} yet; nothing to difference")
+        return 0
+    print(f"--- paired by block, {len(paired)} of {len(by)} readings present at both axes"
+          + (f" (still missing at n={hi}: {', '.join(missing)})" if missing else ""))
+    print(f"{'block':>6} {'t':>3} {'ratio n=' + str(lo):>12} {'ratio n=' + str(hi):>12} {'change':>9}")
+    for (blk, field), v in sorted(paired.items()):
+        print(f"{blk:>6} {field:>3} {v[lo][2]:>12.3f} {v[hi][2]:>12.3f} {v[hi][2] - v[lo][2]:>+9.3f}")
+    rl = sum(v[lo][2] for v in paired.values()) / len(paired)
+    rh = sum(v[hi][2] for v in paired.values()) / len(paired)
+    print()
+    print(f"device/bf16 ratio {rl:.3f} at n={lo} -> {rh:.3f} at n={hi}, change {rh - rl:+.3f}"
+          f"  (paired over {len(paired)} readings)")
+    print("A ratio that holds means the device VJP tracks torch's own bf16 at both axes, so the")
+    print("gradient is NOT worse at the larger axis. A ratio that climbs means the degradation is")
+    print("ours and is a defect, not a property of the model.")
+    if missing:
+        print(f"INCOMPLETE: {hi} has not finished every block, so this is provisional.")
     return 0
 
 
