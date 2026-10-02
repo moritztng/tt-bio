@@ -235,6 +235,22 @@ def discover_jobs(data: Path, structure_dir: Path, output_format: str, override:
     return [PredictionJob(id=p.stem, path=p) for p in files]
 
 
+#: What a chip whose ARC firmware is dead answers from its ``tt_*`` sysfs telemetry, AICLK
+#: included. It does not raise: the chip still opens, runs and returns results, and the clock
+#: reads 4294967295 MHz. qb1's node 0 did exactly that on 2026-09-26 and a 312 s anchor was banked
+#: with every clock sample at this value, shaped like a measurement and worth nothing.
+ARC_DEAD = 0xFFFFFFFF
+
+
+def aiclk_reading(mhz: int) -> int | None:
+    """An AICLK value as read, or None when it is the dead-ARC sentinel and not a clock.
+
+    The one place a sampler decides that, so a dead chip reads as "no clock" in every
+    instrument instead of as a 4.3 GHz median in the ones that forgot to check.
+    """
+    return None if mhz == ARC_DEAD else mhz
+
+
 def tt_dev_node_bdfs() -> dict[int, str]:
     """``/dev/tenstorrent/N`` -> that card's PCI BDF, from the tenstorrent sysfs class.
 

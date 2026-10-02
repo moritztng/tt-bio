@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from tt_bio.runtime import aiclk_reading
+
 __all__ = ["Provenance", "during", "record", "clocks", "git_sha", "KILL_BAR_A",
            "SEED_FLOOR_A", "ARTIFACT_CLOCK_MHZ"]
 
@@ -58,11 +60,13 @@ def _nodes() -> List[int]:
 
 
 def clocks() -> Dict[int, Optional[int]]:
-    """Every card's AICLK in MHz, by device node. ``None`` for a node that would not read."""
+    """Every card's AICLK in MHz, by device node. ``None`` for a node that would not read, or
+    whose ARC is dead (``runtime.ARC_DEAD``): that is not a clock, and `_Sampler` takes the max."""
     out = {}
     for n in _nodes():
         try:
-            out[n] = int((_SYSFS / f"tenstorrent!{n}" / "tt_aiclk").read_text().strip())
+            out[n] = aiclk_reading(
+                int((_SYSFS / f"tenstorrent!{n}" / "tt_aiclk").read_text().strip()))
         except (OSError, ValueError):
             out[n] = None
     return out

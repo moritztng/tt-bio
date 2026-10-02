@@ -52,6 +52,7 @@ import torch
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from perf.bcx_afgrad import afgrad as A  # noqa: E402
+from tt_bio.runtime import aiclk_reading  # noqa: E402
 
 OUT = ROOT / "perf" / "bcx_stack"
 ARMS = {"base": (False, False, False), "mm2d": (True, False, False),
@@ -88,7 +89,9 @@ class Clock:
     def _run(self):
         while not self._stop.is_set():
             try:
-                self.samples.append((time.time(), int(open(self.path).read().split()[0])))
+                clk = aiclk_reading(int(open(self.path).read().split()[0]))
+                if clk is not None:
+                    self.samples.append((time.time(), clk))
             except Exception:
                 pass
             self._stop.wait(self.dt)

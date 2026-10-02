@@ -51,6 +51,7 @@ import ttnn
 from tt_bio.abodybuilder3 import DeviceABB3, to_device_fp32
 from tt_bio.abodybuilder3_reference import (ABB3Config, ABB3StructureModule,
                                             single_and_pair_features)
+from tt_bio.runtime import aiclk_reading
 from tt_bio.tenstorrent import get_device
 from tt_bio.train import abodybuilder3_grad as grad
 
@@ -145,7 +146,9 @@ class ClockSampler(threading.Thread):
                 # sampled. The field is hex, e.g. "AICLK": "0x546".
                 found = re.findall(rb'"AICLK":\s*"0x([0-9a-fA-F]+)"', raw)
                 for i, hexval in enumerate(found):
-                    self.samples.setdefault(i, []).append(int(hexval, 16))
+                    clk = aiclk_reading(int(hexval, 16))
+                    if clk is not None:
+                        self.samples.setdefault(i, []).append(clk)
                 if not found:
                     self.failures += 1
             except Exception:
