@@ -20,6 +20,12 @@
 #   - `resume` and `max_trajectories` are both excluded from the design identity
 #     (`bindcraft/design_identity.py`), so a resumed campaign makes NEW trajectory recipes rather
 #     than repeating the ones it already attempted. It adds n; it does not fake it.
+#   - the arm log is APPENDED. It used to be truncated, because the launch below redirected with
+#     '>', so a relaunch threw the previous sitting's log away while the trajectory TABLE kept its
+#     rows. That is silent: n is unchanged and nothing looks wrong, but the per-stage lines the
+#     campaign prints for the earlier trajectories are gone. It cost armA1 3 of its 10 screen-gate
+#     readings, and bcw-accept had to report that comparison at n = 7 while every CSV-derived one
+#     ran at the full n = 10.
 # Resume is detected from the folder rather than passed, so a relaunch cannot forget it and trip
 # preflight's "already holds campaign output" refusal.
 #
@@ -48,5 +54,5 @@ echo "=== $(date -u +%FT%TZ) arm=$arm target=$target card=$card seed=$seed budge
 timeout $limit /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py \
     --target "$target" --binder 150 --rounds 0 \
     --trajectories auto --max-trajectories "$budget" --final-designs 10 --seed "$seed" \
-    --params /home/ttuser/bcx_e2e/af2_params --out "$o/$tag" "${resume[@]}" > "$o/$tag.log" 2>&1
+    --params /home/ttuser/bcx_e2e/af2_params --out "$o/$tag" "${resume[@]}" >> "$o/$tag.log" 2>&1
 echo "=== rc=$? $(date -u +%FT%TZ) arm=$arm $tag" >> "$o/campaign.log"
