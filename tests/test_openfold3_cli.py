@@ -2,8 +2,8 @@
 
 Pins: the predict --model choice accepts openfold3; openfold3 is treated as an
 MSA-dependent model by _resolve_msa_default (never silently single-sequence unless
-explicitly asked); the worker resolves the OF3 checkpoint via $OF3_CKPT or the
-cache and fails with a clear message otherwise. No device, no network.
+explicitly asked); the worker resolves the OF3 checkpoint via $OF3_CKPT, the cache,
+or upstream's bucket. No device, no network.
 """
 from __future__ import annotations
 
@@ -55,13 +55,25 @@ def test_worker_resolves_of3_checkpoint(tmp_path, monkeypatch):
     assert cfg["msa_dir"]  # resolved to a writable dir
 
 
-def test_worker_errors_clearly_without_checkpoint(tmp_path, monkeypatch):
+def test_worker_fetches_a_missing_checkpoint_from_upstream(tmp_path, monkeypatch):
+    """No copy anywhere: the worker asks the shared fetch path for upstream's file, and an
+    unreachable bucket is a named error that says where to put the file by hand."""
+    from tt_bio import weights
     from tt_bio.worker import _ensure_local_artifacts
 
-    monkeypatch.delenv("OF3_CKPT", raising=False)
-    monkeypatch.setenv("BOLTZ_CACHE", str(tmp_path))
-    with pytest.raises(FileNotFoundError, match="OF3_CKPT"):
+    asked = []
+
+    def unreachable(sources, dest, **k):
+        asked.append((sources, dest))
+        raise weights.DownloadFailed(dest.name, [(sources[0], "curl", "no answer", 0)])
+
+    for var in weights.ARTIFACTS["openfold3"].env_vars:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path))
+    monkeypatch.setattr(weights, "fetch_file", unreachable)
+    with pytest.raises(weights.WeightsUnavailable, match="OF3_CKPT|TT_BIO_OPENFOLD3"):
         _ensure_local_artifacts({"model": "openfold3", "msa_dir": None})
+    assert asked == [((f"{weights.OF3_BASE}/of3-p2-155k.pt",), tmp_path / "of3-p2-155k.pt")]
 
 
 def _yaml(tmp_path, body, name="in.yaml"):
