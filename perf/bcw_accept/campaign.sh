@@ -10,9 +10,9 @@
 # price of that choice: a kernel that changes the gradient above 320 tokens would make a zero
 # ambiguous between the size and the kernel.
 #
-#   campaign.sh <arm: a|b> <card> <tag> [seed]
+#   campaign.sh <arm: a|b> <card> <tag> [seed] [budget]
 set -uo pipefail
-arm=$1; card=$2; tag=$3; seed=${4:-100}
+arm=$1; card=$2; tag=$3; seed=${4:-100}; budget=${5:-10}
 cd /home/ttuser/.coworker/wt/bcw-accept
 case "$arm" in
   a) target=hEGFR_d3; limit=43200 ;;
@@ -29,9 +29,9 @@ export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=wor
     ps -eo pid,etime,pcpu,args --sort=-pcpu | head -5 | cut -c1-150; } >> "$o/$tag.cotenants";
     sleep 180; done ) &
 trap "kill $! 2>/dev/null" EXIT
-echo "=== $(date -u +%FT%TZ) arm=$arm target=$target card=$card seed=$seed head=$(git rev-parse --short HEAD)" >> "$o/campaign.log"
+echo "=== $(date -u +%FT%TZ) arm=$arm target=$target card=$card seed=$seed budget=$budget head=$(git rev-parse --short HEAD)" >> "$o/campaign.log"
 timeout $limit /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bgx_size/rung.py \
     --target "$target" --binder 150 --rounds 0 \
-    --trajectories auto --max-trajectories 10 --final-designs 10 --seed "$seed" \
+    --trajectories auto --max-trajectories "$budget" --final-designs 10 --seed "$seed" \
     --params /home/ttuser/bcx_e2e/af2_params --out "$o/$tag" > "$o/$tag.log" 2>&1
 echo "=== rc=$? $(date -u +%FT%TZ) arm=$arm $tag" >> "$o/campaign.log"
