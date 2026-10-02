@@ -1109,9 +1109,9 @@ It picks, per token axis, the cheapest of three ways to hold the Evoformer's act
 the forward and the backward: `fast` (checkpoint each block), `lean` (also each residual step
 inside a block, so every block's forward runs once more a round) and `offload` (`lean`, with the
 pinned block inputs in host memory between forward and backward). `auto` keeps every fold that
-fits in `fast` there and moves to a slower mode only where `fast` would refuse, so on a p150a it
-never leaves `fast` below 864 tokens, and on one Wormhole Galaxy chip it is what carries 544 to
-896 tokens. The modes compute the same values: `lean` and `offload` are bit-identical to each
+fits in `fast` there and moves to a slower mode only where `fast` would refuse, from a measured
+ladder per board: on a p150a it runs `fast` up to 672 tokens and `lean` from 704 to 864, and on
+one Wormhole Galaxy chip it is what carries 544 to 800 tokens. The modes compute the same values: `lean` and `offload` are bit-identical to each
 other and 0.0035 rel L2 from `fast`. On Wormhole, `lean` costs 10.6 % a round at a fixed axis and
 `offload` rounds run 3.3-4.7x the 512-token `fast` round at 768 to 896 tokens, AICLK 1000.
 

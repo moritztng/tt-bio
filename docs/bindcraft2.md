@@ -539,13 +539,13 @@ On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrime
 
 | | Blackhole p150a (34.226 GB) | One chip of a Wormhole Galaxy (12.885 GB) |
 |---|---|---|
-| supported | **192 to 864 tokens**, with 768 and 832 needing `memory='lean'` (below) | **192 to 800 tokens**: up to 512 in `fast`, 544 to 800 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
+| supported | **192 to 864 tokens** with no flag: up to 672 in `fast`, 704 to 864 in `lean`, which the default picks for you | **192 to 800 tokens**: up to 512 in `fast`, 544 to 800 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
 | first size that refuses | not measured: 864 is the documented top | 896, in `offload`, on the third gradient round |
 | where it refuses | | fragmentation: 4.386 GB free, largest block 67.8 MB against a 68.5 MB request a bank |
 | held at the top | 31.39 GB of 34.226 at 864 | 8.934 GB at 800, largest free block 244.1 MB |
 | peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 in `fast`, 7.5 to 8.9 GB from 544 up |
-| one gradient round | 55.2 s at 864, AICLK 1350 | 61.3 s at 512 in `fast`; 222.9 s at 800 in `offload`, 3.6x the 512 round; AICLK 1000 |
-| the 768 axis | runs at `memory='lean'`, 41.5 s; 0.11.0 crashes there | runs, in `offload` |
+| one gradient round | 58.7 s at 864 in `lean`, AICLK 1350 | 61.3 s at 512 in `fast`; 222.9 s at 800 in `offload`, 3.6x the 512 round; AICLK 1000 |
+| the 768 axis | runs at the default, 42.4 s in `lean`; 0.11.0 crashes there | runs, in `offload` |
 | AICLK ceiling | 1350 MHz | 1000 MHz, the part's own ceiling and not a throttle |
 
 Every number in that table was measured on the tree this release ships, each rung run to completed
@@ -576,8 +576,9 @@ put the Wormhole wall near 384-416 tokens and five rungs above that run.
 A p300c chip reports a p150a's DRAM. The sweep below ran every 32-token axis from 288 to 864 on
 qb2 card 0, one trajectory, AICLK 1350 median sampled during every round, the round shown being
 the second of two so compilation is not in it. It was taken on the `bcw-bmm` branch, before this
-release was assembled: at the shipped tree the 768 and 832 rungs need `memory='lean'`, as on a
-p150a.
+release was assembled, and every rung in it ran in `fast`. At the shipped tree the default runs a
+p150a in `fast` up to 672 tokens and in `lean` from 704, a little slower a round there in exchange
+for not refusing.
 
 | tokens at the seam | target + binder | one round |
 |---|---|---|
@@ -603,8 +604,8 @@ p150a.
 
 0.11.0 crashes at 768 tokens on Blackhole with a circular-buffer error in the gradient ("CBs grow
 to 1864192 B which is beyond max L1 size"), even though 736 and 800 run there. If you see that
-error, update: on this release the same rung runs at `memory='lean'`, and a fold too big for the
-mode it is in refuses with a message naming the size instead of crashing.
+error, update: on this release the same rung runs at the default, and a fold too big for the card
+refuses with a message naming the size instead of crashing.
 
 In residues, which is how a target arrives: the fusion costs 18 to 28, so a Wormhole chip's 512
 tokens at full speed is about 484 to 494 residues of target plus binder, its 800 in `offload` about
@@ -713,14 +714,14 @@ alternative is not a faster run, it is cropping the target. Budget from that num
 from the round: 125 rounds alone come to 10,388 s, so the validation tail adds 7.8 % that an
 estimate built from the round time misses.
 
-**A Blackhole p150a has the modes too, and two axes need them.** `auto` chooses from a memory law
-rather than a measured ladder on that board, and the law puts `fast`'s top at exactly 864, so it
-leaves the 768 and 832 rungs in `fast`, where both refuse. Both run when the mode is named:
-`memory='lean'` gives 41.5 s a round at 768 and 50.0 s at 832, three rounds each at AICLK 1350.
-If a p150a refuses a fold below 864 tokens, pass `memory='lean'`.
+**A Blackhole p150a has the modes too, and `auto` picks them from a measured ladder.** `fast` is
+not monotone in the axis on that board: 704, 768 and 832 refuse in `fast` while 736 and 864
+fit. So `auto` runs `fast` up to 672 tokens and `lean` from 704 to 864, and every 32-token axis
+from 576 to 864 completed at the default, AICLK 1350 with no sample under 1200. The steady round
+in `lean` is 34.6 s at 704, 42.4 s at 768, 51.1 s at 832 and 58.7 s at 864. You need no flag.
 
 `memory='offload'` is a device-memory escape bought with host memory, so it needs a host with room
-to spend: on a 30 GB box both rungs were killed by the kernel rather than refused by the card.
+to spend: on a 30 GB p150a box every `offload` rung was killed by the kernel rather than refused by the card.
 `lean` costs no host memory.
 
 ### What a refusal looks like
