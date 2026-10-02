@@ -1,0 +1,13 @@
+2026-10-02T10:37:20Z CHAIN START c3 set=B pid 356348 at 265cd26b81d2964d9fab6f6978f54c21b2894a81, interpreter /home/ttuser/scratch/rel012/relvenv/bin/python3
+2026-10-02T10:38:21Z bcp14 START
+2026-10-02T10:38:35Z bcp14 rc=0
+2026-10-02T10:39:37Z capacity START
+2026-10-02T11:31:52Z capacity rc=1
+2026-10-02T11:31:52Z CHAIN_DONE c3
+2026-10-02T14:02:17Z CHAIN START c3 set=P pid 528121 at 265cd26b81d2964d9fab6f6978f54c21b2894a81, interpreter /home/ttuser/scratch/rel012/relvenv/bin/python3
+2026-10-02T14:03:18Z parity2 START
+2026-10-02T16:23:26Z parity2 rc=143
+2026-10-02T16:23:54Z CHAIN START c3 set=P2 pid 708334 at 265cd26b81d2964d9fab6f6978f54c21b2894a81, interpreter /home/ttuser/scratch/rel012/relvenv/bin/python3
+2026-10-02T16:24:55Z parity2 START
+2026-10-02T17:18:22Z parity2 rc=0
+2026-10-02T17:18:22Z CHAIN_DONE c3
