@@ -178,27 +178,33 @@ def main():
         print("dry run: states and settings built, predictor not reached", flush=True)
         return
 
-    cls = bindcraft2.design_model_class()
-    model = cls(presets=selected.design_models, data_dir=a.params,
-                max_cache_size=16, num_recycle=settings["design_recycles"],
-                models=selected.design_models,
-                cyclic_offset_mode=resolve_cyclic_offset_mode(settings),
-                subbatch_size=subbatch,
-                attention_backend=settings.get("attention_backend", "auto"),
-                use_cueq=bool(settings.get("use_cueq", False)), length_bucket_size=bucket,
-                multi_chain_binders=multi_chain_binders, target_pad_length=0)
-
-    with bindcraft2.fast_round() if a.memory == "fast" else _nullctx():
+    # `predictor()` rather than `design_model_class()` directly: the device trunk needs a
+    # `TrunkPool` to fold on, and this is the shipped factory that builds one. It also opens the
+    # chip on THIS thread (UMD's CHIP_IN_USE lock is owned by the opening thread, and leaving the
+    # open to one of XLA's CPU pool threads aborts the process at exit) and arms `fast_round` for
+    # the duration, which is the arm the gate's own rounds ran under. `card=None` because the pin
+    # already happened through TT_VISIBLE_DEVICES before ttnn was imported, and pinning twice raises.
+    with bindcraft2.predictor(card=None, checkpoints=a.params, memory=a.memory) as build:
+        model = build(presets=selected.design_models, data_dir=a.params,
+                      max_cache_size=16, num_recycle=settings["design_recycles"],
+                      models=selected.design_models,
+                      cyclic_offset_mode=resolve_cyclic_offset_mode(settings),
+                      subbatch_size=subbatch,
+                      attention_backend=settings.get("attention_backend", "auto"),
+                      use_cueq=bool(settings.get("use_cueq", False)), length_bucket_size=bucket,
+                      multi_chain_binders=multi_chain_binders, target_pad_length=0)
         t0 = time.time()
         predictions = pooled_stage_predictions(
             model, protein_states, int(settings.get("multitarget_filter_models", 1) or 1))
         secs = time.time() - t0
+        memory_used = getattr(getattr(build, "memory", None), "used", None)
 
     # The gate's own metric, bound the way design_stage_filters binds it.
     state = "complex" if "complex" in predictions else next(
         s for s in predictions if s != BINDER_ALONE)
     row = {"target": a.target, "binder_aa": len(seq), "tokens_unpadded": tokens,
            "prediction_state": state, "secs": round(secs, 2),
+           "memory_used": memory_used,
            "binder_plddt": F.plddt_metric(protein_states, predictions,
                                           prediction_state=state, chain=binder_chain),
            "target_plddt": F.plddt_metric(protein_states, predictions,
