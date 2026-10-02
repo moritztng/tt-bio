@@ -5,8 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [0.12.0] - 2026-10-02
 
-BindCraft 2 reaches 800 tokens on one Wormhole Galaxy chip, where 0.11.0 stopped at 512, so the
-EGFR ectodomain plus a 150 aa binder folds uncropped. The 768-token axis that crashes 0.11.0 on
+BindCraft 2 reaches 864 tokens on one Wormhole Galaxy chip, where 0.11.0 stopped at 512, so the
+EGFR ectodomain plus a 150 aa binder (800 tokens) folds uncropped. The 768-token axis that crashes 0.11.0 on
 Blackhole now runs at the default, and a p150a serves every axis from 192 to 864 tokens with no
 flag. A gradient round is faster on Blackhole. At 288 tokens and
 three trajectories, with the release and 0.11.0 alternating on the same card at AICLK median 1350
@@ -28,23 +28,24 @@ takes it from 8.39x an H200's 0.696 s round to 5.18x; on a p300c chip it is 3.65
   which: every fold that runs today stays in `fast` and is unchanged. A refusal now names the
   next roomier mode, what it costs and how to ask for it. Measured on one dev Wormhole Galaxy
   chip at AICLK 1000 MHz: 544 tokens refuse in `fast` holding 12.70 GB, and complete in `lean` at
-  a 7.527 GB peak and 84.3 s a round against 61.3 s for the 512 tokens `fast` does carry. At the
-  same token axis the mode costs +10.6 % a round (512: 61.3 s in `fast`, 67.8 s in `lean`). The
-  largest axis supported on one Wormhole Galaxy chip is now **800 tokens**: `offload`, 8.934 GB
-  peak, 222.9 s a round over three rounds at AICLK 1000, 1.56x the axis the fast mode carries, and
-  a whole EGFR ectodomain plus a 150 aa binder with nothing cropped. 896 is not offered: it
-  completes two gradient rounds at 295.3 and 282.7 s and is refused on the third with 4.386 GB
-  free, because the largest contiguous block in a bank is 67.8 MB against the 68.5 MB needed, so
-  what ends the mode is fragmentation and a fold can reach it on a later round. The refusal
-  message still quotes 896 as the largest measured axis, which is that two-round reading;
-  [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes) says to size against
-  800 until it is re-measured. On a Blackhole p150a `auto` follows a measured ladder too: `fast`
+  a 7.527 GB peak and 84.3 s a round, against 60.2 s for the 512 tokens `fast` does carry at the
+  release tree. At the same token axis `lean` costs +10.6 % a round, measured as a pair on the
+  tree before the release (512: 61.3 s in `fast`, 67.8 s in `lean`). The largest axis supported
+  on one Wormhole Galaxy chip is now **864 tokens**: `offload`, 10.324 GB peak, 262.5 s median a
+  round over five rounds at AICLK 1000, 1.69x the axis the fast mode carries. 800 tokens, a whole
+  EGFR ectodomain plus a 150 aa binder with nothing cropped, runs at 222.9 s a round and an
+  8.934 GB peak. 896 is not offered, and the default refuses it before the first round with a
+  message that quotes 864: it completes two gradient rounds at 295.3 and 282.7 s and is refused on
+  the third, twice out of two, with 4.386 GB free, because the largest contiguous block in a bank
+  is 67.8 MB against the 68.5 MB needed, so what ends the mode is fragmentation and a fold can
+  reach it on a later round. On a Blackhole p150a `auto` follows a measured ladder too: `fast`
   up to 672 tokens and `lean` from 704 to 864, every axis in that range rc=0 at AICLK 1350, the
   steady round 42.4 s at 768, 51.1 s at 832 and 58.7 s at 864. 768 needs an L1
   escape the other axes do not, because `in0_block_w` is the largest
   divisor of the axis in tiles that is at most 8 and 768 alone in this range takes the widest
   block, so `tt_bio.autograd.bmm` retries such a refusal in narrower passes over K. The price on
-  Wormhole: the `offload` round at 800 tokens is 3.6x the 512-token `fast` round.
+  Wormhole: the `offload` round is 3.70x the 512-token `fast` round at 800 tokens and 4.36x at
+  864.
   `memory='fast'` turns the slower modes off, and a fold too large for `fast` then refuses as in
   0.11.0. See [docs/bindcraft2.md](docs/bindcraft2.md#large-complexes-the-memory-modes).
 

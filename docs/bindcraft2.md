@@ -539,18 +539,19 @@ On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrime
 
 | | Blackhole p150a (34.226 GB) | One chip of a Wormhole Galaxy (12.885 GB) |
 |---|---|---|
-| supported | **192 to 864 tokens** with no flag: up to 672 in `fast`, 704 to 864 in `lean`, which the default picks for you | **192 to 800 tokens**: up to 512 in `fast`, 544 to 800 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
-| first size that refuses | not measured: 864 is the documented top | 896, in `offload`, on the third gradient round |
+| supported | **192 to 864 tokens** with no flag: up to 672 in `fast`, 704 to 864 in `lean`, which the default picks for you | **192 to 864 tokens**: up to 512 in `fast`, 544 to 864 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
+| first size that refuses | not measured: 864 is the documented top | 896, in `offload`, on the third gradient round, twice out of two; the default refuses it before the first round |
 | where it refuses | | fragmentation: 4.386 GB free, largest block 67.8 MB against a 68.5 MB request a bank |
-| held at the top | 31.39 GB of 34.226 at 864 | 8.934 GB at 800, largest free block 244.1 MB |
-| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 in `fast`, 7.5 to 8.9 GB from 544 up |
-| one gradient round | 58.7 s at 864 in `lean`, AICLK 1350 | 61.3 s at 512 in `fast`; 222.9 s at 800 in `offload`, 3.6x the 512 round; AICLK 1000 |
+| held at the top | 31.39 GB of 34.226 at 864 | 10.324 GB at 864, 2.56 GB still free |
+| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 in `fast`, 7.5 to 10.3 GB from 544 up |
+| one gradient round | 58.7 s at 864 in `lean`, AICLK 1350 | 60.2 s at 512 in `fast`; 222.9 s at 800 and 262.5 s at 864 in `offload`, 3.70x and 4.36x the 512 round; AICLK 1000 |
 | the 768 axis | runs at the default, 42.4 s in `lean`; 0.11.0 crashes there | runs, in `offload` |
 | AICLK ceiling | 1350 MHz | 1000 MHz, the part's own ceiling and not a throttle |
 
 Every number in that table was measured on the tree this release ships, each rung run to completed
 gradient rounds with the card's AICLK sampled during the fold: the Blackhole column on a p150a, the
-Wormhole column on one chip of a Galaxy.
+Wormhole column on one chip of a Galaxy, except the Wormhole 544 peak, which is from the tree
+before it.
 
 Blackhole's ladder, every rung run to a completed gradient round on qb1 card 0 with the card's
 AICLK sampled during each fold. Its round column was measured on v0.11.0 and was not re-measured
@@ -608,10 +609,10 @@ error, update: on this release the same rung runs at the default, and a fold too
 refuses with a message naming the size instead of crashing.
 
 In residues, which is how a target arrives: the fusion costs 18 to 28, so a Wormhole chip's 512
-tokens at full speed is about 484 to 494 residues of target plus binder, its 800 in `offload` about
-772 to 782, and a p150a's 864 about 836 to 846. With a binder in BindCraft 2's default 60-180 draw
-range that is a target of roughly 300 to 430 residues on Wormhole at full speed, 590 to 720 in
-`offload`, and 655 to 785 on Blackhole. Read `design_tokens` rather than trusting the
+tokens at full speed is about 484 to 494 residues of target plus binder, and 864 tokens, the top
+of both boards, about 836 to 846. With a binder in BindCraft 2's default 60-180 draw range that is
+a target of roughly 300 to 430 residues on Wormhole at full speed, and 655 to 785 on either board
+at 864, in `offload` on Wormhole and at the default on Blackhole. Read `design_tokens` rather than trusting the
 arithmetic; it is there because this sum is one or two buckets low often enough to matter.
 
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
@@ -632,7 +633,7 @@ levers buy room by spending time, and `memory=` picks between them:
 |---|---|---|
 | `fast` | checkpoints each Evoformer, extra-MSA and template block | 512, measured |
 | `lean` | also checkpoints each residual step inside a block, so a block's backward holds one step's tape instead of nine; every block's forward runs once more a round | 544 measured, 704 estimated |
-| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | **800 measured** over three rounds; 896 completes two rounds and refuses the third |
+| `offload` | `lean`, and the pinned block inputs live in host memory between forward and backward: one download and one upload of each a round | **864 measured** over five rounds; 896 completes two rounds and refuses the third |
 | `auto` | the cheapest of the three that the fold fits in. **The default.** | |
 
 They are the same arithmetic on the same values: a `lean` gradient is bit-identical to an
@@ -654,34 +655,35 @@ Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 
 | token axis | mode | peak DRAM | one round |
 |---|---|---|---|
-| 512 | `fast` | 12.7 GB | 61.3 s |
+| 512 | `fast` | 12.7 GB | 60.2 s |
 | 512 | `lean` | | 67.8 s |
 | 544 | `fast` | refuses, 12.70 GB held | |
 | 544 | `lean` | 7.527 GB | 84.3 s |
 | 768 | `offload` | 8.282 GB, 4.60 GB still free | 200.2 s |
 | **800** | `offload` | **8.934 GB**, largest free block 244.1 MB | **222.9 s** |
 | 832 | `offload` | 9.625 GB, 3.26 GB still free | 242.0 s |
-| 864 | `offload` | 10.324 GB, 2.56 GB still free | 264.9 s |
+| **864** | `offload` | **10.324 GB**, 2.56 GB still free | **262.5 s** |
 | 896 | `offload` | 11.028 GB | 295.3, 282.7, then refuses |
 
-**800 tokens is the largest axis this release supports on one Wormhole Galaxy chip**, 1.56x the
-512 the fast mode carries, and the `auto` default reaches it with no flag. 800 is the EGFR
-ectodomain (614 residues) plus a 150 aa binder, so the competition case folds uncropped. It was
-measured at the shipped tree over three gradient rounds, 222.9 s steady at AICLK 1000 MHz with
-8.934 GB of the card held.
+Measured at the release tree on dev `.107` chip 30: the 512 `fast`, 800, 864 and 896 rows. The
+512 `lean`, 544, 768 and 832 rows come from the tree before it and were not re-run.
 
-896 is not offered, and the reason is worth knowing because the card looks far from full when it
-stops. Two gradient rounds complete there at 295.3 and 282.7 s, and the third is refused an
-822.1 MB buffer with 4.386 GB free, because the largest contiguous block left in a bank is 67.8 MB
-against the 68.5 MB that bank needs. What ends the mode is fragmentation, which a fold can reach
-on its third round having survived its second, so a size that ran once is not a size to plan a
-campaign on. The engine's own refusal message still quotes 896 as the largest axis measured to
-complete a round, which is the two-round reading; treat 800 as the number to size against until
-that is re-measured.
+**864 tokens is the largest axis this release supports on one Wormhole Galaxy chip**, 1.69x the
+512 the fast mode carries, and the `auto` default reaches it with no flag: five of five gradient
+rounds completed, median 262.5 s at AICLK 1000 MHz. 800 is the EGFR ectodomain (614 residues)
+plus a 150 aa binder, so the competition case folds uncropped, at 222.9 s steady over three rounds
+with 8.934 GB of the card held.
+
+896 is not offered, and the default refuses it before the first round with a message that quotes
+864. The reason is worth knowing because the card looks far from full when it stops. Two gradient
+rounds complete there at 295.3 and 282.7 s, and the third is refused an 822.1 MB buffer with
+4.386 GB free, because the largest contiguous block left in a bank is 67.8 MB against the 68.5 MB
+that bank needs. It refused on the third round both times it was run. What ends the mode is
+fragmentation, which a fold can reach on its third round having survived its second, so a size
+that ran once is not a size to plan a campaign on.
 
 The ladder between 800 and 896 is the same target with a longer binder, so it also says how long a
-binder the ectodomain takes: 190 aa lands on 832 tokens and 220 on 864, both measured at 242.0 and
-264.9 s on the previous tree and not re-measured here.
+binder the ectodomain takes: 190 aa lands on 832 tokens and 220 on 864.
 768 is two different complexes, measured separately and landing on the same numbers: serum
 albumin plus a 150 aa binder (738 residues at the seam, 200.2 s) and **the EGFR ectodomain plus a
 100 aa minibinder** (742 residues, 200.5 s), which is the smaller of the two shapes the
@@ -705,7 +707,7 @@ tokens between them. The 200.2 s is the median of four steady rounds in a timed 
 footprint leg of the same fold gave 200.8 s, so the two independent runs agree to half a percent. If some other axis one day refuses with the card visibly free, this is the
 shape of it, and the next bucket up is worth trying before you crop the target.
 
-**At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s), which is the price
+**At the same token axis `lean` costs +10.6 %** (512: 61.3 s against 67.8 s, a pair run on the tree before the release), which is the price
 of running every block's forward a second time. The 544 row costs more than that because it is
 also a bigger fold. A trajectory is 125 gradient rounds plus the refold of its candidates, and one
 measured end to end at 544 in `lean` took **11,201 s, 3.11 chip-hours**, against 2.29 for the 512
