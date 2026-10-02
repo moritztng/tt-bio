@@ -93,9 +93,16 @@ def main():
         print(f"{blk:>6} {field:>3} {v[lo][2]:>12.3f} {v[hi][2]:>12.3f} {v[hi][2] - v[lo][2]:>+9.3f}")
     rl = sum(v[lo][2] for v in paired.values()) / len(paired)
     rh = sum(v[hi][2] for v in paired.values()) / len(paired)
+    # Report the MEDIAN change too. With 6 readings a single block can carry the mean: evo0 dm
+    # moves +0.338 only because its n=352 ratio of 0.852 is the outlier, the one reading where the
+    # device beat its own bf16 control, while its n=448 value sits with everything else.
+    changes = sorted(v[hi][2] - v[lo][2] for v in paired.values())
+    mid = (changes[len(changes) // 2] if len(changes) % 2
+           else (changes[len(changes) // 2 - 1] + changes[len(changes) // 2]) / 2)
     print()
-    print(f"device/bf16 ratio {rl:.3f} at n={lo} -> {rh:.3f} at n={hi}, change {rh - rl:+.3f}"
-          f"  (paired over {len(paired)} readings)")
+    print(f"device/bf16 ratio {rl:.3f} at n={lo} -> {rh:.3f} at n={hi}, mean change {rh - rl:+.3f},"
+          f" MEDIAN change {mid:+.3f}  (paired over {len(paired)} readings)")
+    print(f"  per-reading changes: {', '.join(f'{c:+.3f}' for c in changes)}")
     print("A ratio that holds means the device VJP tracks torch's own bf16 at both axes, so the")
     print("gradient is NOT worse at the larger axis. A ratio that climbs means the degradation is")
     print("ours and is a defect, not a property of the model.")
