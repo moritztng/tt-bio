@@ -46,7 +46,38 @@ def power(n: int, p0: float, alpha: float = 0.05) -> float:
                for k in range(n + 1) if fisher_one_sided(k, n - k, 0, n) < alpha)
 
 
+def selftest() -> None:
+    """Pin the one-sided tail, because it was two-sided for a day and nothing caught it.
+
+    The reference column was taken from scipy `fisher_exact(..., alternative="greater")` on
+    2026-10-02 and is hardcoded so this runs with no scipy. The two-sided values the old code
+    returned are listed beside it: every one of them differs, so this test fails loudly if the
+    test ever reverts to summing tables by probability.
+    """
+    one_sided = {0: 1.0, 1: 0.5, 2: 0.2368, 3: 0.1053, 4: 0.0433,
+                 5: 0.0163, 6: 0.0054, 7: 0.0015, 8: 0.0004, 9: 0.0001, 10: 0.0}
+    two_sided = {1: 1.0, 2: 0.4737, 3: 0.2105, 4: 0.0867, 5: 0.0325}
+    for k, want in one_sided.items():
+        got = fisher_one_sided(k, 10 - k, 0, 10)
+        assert abs(got - want) < 5e-5, f"k={k}: {got:.4f} != {want:.4f}"
+        if k in two_sided:
+            assert abs(got - two_sided[k]) > 5e-5, f"k={k}: back to the TWO-sided value"
+    assert fisher_one_sided(0, 10, 0, 10) == 1.0, "a is 0, so the whole tail"
+    prev = 0.0
+    for k in range(10, -1, -1):          # p must not decrease as the table gets less extreme
+        q = fisher_one_sided(k, 10 - k, 0, 10)
+        assert q >= prev - 1e-12, f"not monotone at k={k}"
+        prev = q
+    assert abs(fisher_one_sided(1, 9, 0, 4) - 0.7143) < 5e-5, "the pair as measured 2026-10-02"
+    assert abs(cp_upper(10) - 0.3085) < 5e-5 and abs(cp_upper(4) - 0.6024) < 5e-5
+    print("selftest ok: tail is one-sided, monotone, and matches scipy alternative=greater")
+
+
 if __name__ == "__main__":
+    import sys
+    if "--selftest" in sys.argv:
+        selftest()
+        raise SystemExit(0)
     p0 = P0_NUM / P0_DEN
     print(f"baseline p0 = {P0_NUM}/{P0_DEN} = {p0:.4f} (accepted trajectories at 288 tokens)")
     for n in (1, 4, 6, 10):
