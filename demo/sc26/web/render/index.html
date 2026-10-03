@@ -31,7 +31,7 @@ const num = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d;
 const canvas = document.getElementById('c');
 const fit = () => { canvas.width = Math.round(innerWidth * devicePixelRatio); canvas.height = Math.round(innerHeight * devicePixelRatio); };
 fit();
-const r = new Renderer(canvas, { scale: num('scale', 1), msaa: num('msaa', 4), scheme: q.get('scheme') ?? 'chain',
+const r = new Renderer(canvas, { scale: num('scale', 'auto'), msaa: num('msaa', 'auto'), scheme: q.get('scheme') ?? 'chain',
   preserve: q.has('at'), skip: q.get('skip') ?? '' });
 addEventListener('resize', () => { fit(); r.resize(); });
 
@@ -78,14 +78,14 @@ function frame(now) {
   if (q.has('null')) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0.01, 0.01, 0.02, 1); gl.clear(gl.COLOR_BUFFER_BIT); r.stats.frames++; }
   else r.render(q.has('at') ? 0.016 : dt);
   if (shots.length && r.clock - t0 >= shots[0] && r.stats.frames > 30) {
-    const t = shots.shift(); post({ kind: 'shot', t, idx: shotIdx++, progress: r.progress, w: { ...Object.fromEntries(Object.entries(r.w).map(([k, v]) => [k, +v.x.toFixed(3)])) }, mesh: r.surf.last ?? null });
+    const t = shots.shift(); post({ kind: 'shot', t, idx: shotIdx++, progress: r.progress, ...r.onScreen(), rg: r.compact, w: { ...Object.fromEntries(Object.entries(r.w).map(([k, v]) => [k, +v.x.toFixed(3)])) }, mesh: r.surf.last ?? null });
   }
   if (!readySent && r.stats.frames > 150 && (now - started) / 1000 > num('ready', 0)) {
     readySent = true; post({ kind: 'ready', gpu, w: canvas.width, h: canvas.height, mesh: r.surf.last ?? null });
   }
   if (hud.style.display !== 'none' && r.stats.frames % 15 === 0) {
     const s = r.surf.last;
-    hud.textContent = `${gpu}\n${canvas.width}x${canvas.height} @ scale ${r.opt.scale}  msaa ${r.rt.samples}\n` +
+    hud.textContent = `${gpu}\n${canvas.width}x${canvas.height} @ scale ${r.scale}  msaa ${r.rt.samples}\n` +
       `t ${(r.clock - t0).toFixed(2)}/${dur.toFixed(1)} s  progress ${(r.progress ?? 0).toFixed(2)}  compact ${(r.compact ?? 0).toFixed(2)}\n` +
       `w pts ${r.w.points.x.toFixed(2)} surf ${r.w.surface.x.toFixed(2)} solid ${r.w.solid.x.toFixed(2)} grow ${r.w.grow.x.toFixed(2)} rib ${r.w.ribbon.x.toFixed(2)}\n` +
       (s ? `mesh ${s.ms.toFixed(1)} ms  ${s.ntri} tris  grid ${s.n.join('x')} h ${s.h.toFixed(2)}` : '');
@@ -94,7 +94,7 @@ function frame(now) {
     reported = true;
     const iv = intervals.slice().sort((a, b) => a - b), pct = (p) => iv[Math.min(iv.length - 1, Math.floor(p * iv.length))];
     const sm = r.surf.ms.slice().sort((a, b) => a - b);
-    const res = { kind: 'bench', gpu, width: canvas.width, height: canvas.height, scale: r.opt.scale, msaa: r.rt.samples,
+    const res = { kind: 'bench', gpu, width: canvas.width, height: canvas.height, scale: r.scale, msaa: r.rt.samples,
       mode: q.get('mode') ?? 'auto', traj: q.get('traj'), natom: tr.topo.natom, nres: tr.topo.nres,
       frames: iv.length, seconds: bench, fps: iv.length / (iv.reduce((a, b) => a + b, 0) / 1000),
       p50: pct(0.5), p95: pct(0.95), p99: pct(0.99), worst: iv[iv.length - 1],

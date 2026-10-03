@@ -30,7 +30,7 @@ const MODES = {
 export class Renderer {
   constructor(canvas, opt = {}) {
     this.canvas = canvas;
-    this.opt = { scale: 1, msaa: 4, scheme: 'chain', orbitDegPerSec: 3, fill: 0.8, bloom: 0.35,
+    this.opt = { scale: 'auto', msaa: 'auto', scheme: 'chain', orbitDegPerSec: 3, fill: 0.8, bloom: 0.35,
       exposure: 1.0, skip: '', pointRadius: 0.3, aperture: 0.05, maxCells: 400000, meshH: 0.55, offset: [0, 0], ...opt };
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false,
       powerPreference: 'high-performance', preserveDrawingBuffer: !!opt.preserve });
@@ -202,7 +202,13 @@ export class Renderer {
   // ---------------------------------------------------------------- targets
   resize() {
     const gl = this.gl, c = this.canvas;
-    const W = c.width, H = c.height, s = this.opt.scale;
+    // 'auto' is what holds 60 fps on qb2's iGPU (Radeon in the Ryzen 7 9700X), measured:
+    // up to 1440p full resolution with 4x MSAA; above it 0.75 scale with 2x MSAA
+    // (4K: 60.0 fps, 0 of 901 frames over 20 ms; full res 2x MSAA managed 46 fps).
+    const W = c.width, H = c.height, big = W * H > 4.0e6;
+    const s = this.opt.scale === 'auto' ? (big ? 0.75 : 1) : this.opt.scale;
+    const msaa = this.opt.msaa === 'auto' ? (big ? 2 : 4) : this.opt.msaa;
+    this.scale = s;
     const w = Math.max(1, Math.round(W * s)), h = Math.max(1, Math.round(H * s));
     if (this.rt && this.rt.w === w && this.rt.h === h && this.rt.W === W && this.rt.H === H) return;
     // R11G11B10F: HDR in 32 bits. On an iGPU sharing DDR5 the frame is bandwidth-bound, and a
@@ -211,7 +217,7 @@ export class Renderer {
     const rt = { w, h, W, H };
     rt.color = texture(gl, w, h, fmt);
     rt.resolve = framebuffer(gl, rt.color);
-    const samples = Math.min(this.opt.msaa, gl.getInternalformatParameter(gl.RENDERBUFFER, fmt, gl.SAMPLES)?.[0] ?? 0);
+    const samples = Math.min(msaa, gl.getInternalformatParameter(gl.RENDERBUFFER, fmt, gl.SAMPLES)?.[0] ?? 0);
     rt.samples = samples;
     rt.msFbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, rt.msFbo);
@@ -223,8 +229,11 @@ export class Renderer {
     gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, w, h);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, db);
     rt.bloom = [];
-    let bw = w, bh = h;
-    for (let i = 0; i < 6 && bw > 8 && bh > 8; i++) {
+    // Above ~1440p the glow chain starts at quarter resolution: it is soft by nature, and on this
+    // iGPU a half-res 4K bloom alone cost the frame its vsync (45 fps vs 59.8 without it).
+    const bigBloom = w > 2600;
+    let bw = bigBloom ? w >> 1 : w, bh = bigBloom ? h >> 1 : h;
+    for (let i = 0; i < (bigBloom ? 5 : 6) && bw > 8 && bh > 8; i++) {
       bw = Math.max(1, bw >> 1); bh = Math.max(1, bh >> 1);
       const t = texture(gl, bw, bh, fmt);
       rt.bloom.push({ t, f: framebuffer(gl, t), w: bw, h: bh });
@@ -298,6 +307,21 @@ export class Renderer {
     const proj = perspective(FOV, aspect, R * 0.05, R * 40);
     proj[8] = -this.opt.offset[0] * 2; proj[9] = -this.opt.offset[1] * 2;  // lens shift
     return { view: lookAt(eye, c, up), proj, dist: R };
+  }
+
+  // Camera proof: fraction of displayed atoms inside the viewport, and the camera distance.
+  onScreen() {
+    const s = this.shown; if (!s?.a) return null;
+    const x = interp(s, new Float32Array(s.a.coords.length)), v = this.view();
+    const M = v.view, P = v.proj; let inside = 0; const n = x.length / 3;
+    for (let i = 0; i < n; i++) {
+      const X = x[3 * i], Y = x[3 * i + 1], Z = x[3 * i + 2];
+      const vx = M[0] * X + M[4] * Y + M[8] * Z + M[12], vy = M[1] * X + M[5] * Y + M[9] * Z + M[13], vz = M[2] * X + M[6] * Y + M[10] * Z + M[14];
+      if (vz >= 0) continue;
+      const cx = (P[0] * vx + P[8] * vz) / -vz, cy = (P[5] * vy + P[9] * vz) / -vz;
+      if (Math.abs(cx) <= 1 && Math.abs(cy) <= 1) inside++;
+    }
+    return { onscreen: inside / n, camDist: v.dist };
   }
 
   render(dt) {
@@ -421,7 +445,8 @@ export class Renderer {
       gl.bindFramebuffer(gl.FRAMEBUFFER, L.f);
       gl.viewport(0, 0, L.w, L.h);
       gl.bindTexture(gl.TEXTURE_2D, src);
-      gl.uniform2f(d.u.uTexel, 1 / sw, 1 / sh);
+      const k = sw / L.w > 2.5 ? 2 : 1;  // a 4x first step widens the taps to cover its footprint
+      gl.uniform2f(d.u.uTexel, k / sw, k / sh);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       src = L.t; sw = L.w; sh = L.h;
     }
