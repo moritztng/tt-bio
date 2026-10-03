@@ -53,7 +53,8 @@ class Hub:
 
 
 class Chip:
-    """One chipworker.py process. Restarted when it exits; stopped with SIGINT, never SIGKILL."""
+    """One chipworker.py process. Restarted when it exits; stopped with SIGINT. SIGKILL only right
+    before a board reset (Service.reset_board)."""
 
     def __init__(self, svc, chip, args):
         self.svc, self.chip, self.args = svc, chip, args
@@ -151,7 +152,7 @@ class Chip:
             self.proc.send_signal(signal.SIGUSR1)
 
     def stop(self):
-        """SIGINT: the worker drops its fold and closes the chip cleanly. Never SIGKILL."""
+        """SIGINT: the worker drops its fold and closes the chip cleanly."""
         if self.proc and self.proc.returncode is None:
             self.proc.send_signal(signal.SIGINT)
 
@@ -231,9 +232,14 @@ class Service:
             (chip.last_reset is None or time.monotonic() - chip.last_reset > gap)
 
     async def reset_board(self, chip):
-        """Stop every worker on the chip's board (SIGINT, then SIGTERM; never SIGKILL), reset the
-        board with --reset-cmd, bounded by --reset-timeout, then let the workers start again. The
-        other boards keep folding, and the replay loop fills the screen if no chip is left."""
+        """Stop every worker on the chip's board (SIGINT, then SIGTERM), reset the board with
+        --reset-cmd, bounded by --reset-timeout, then let the workers start again. The other boards
+        keep folding, and the replay loop fills the screen if no chip is left.
+
+        A worker stuck inside a device call never runs its signal handlers. It gets SIGKILL, but
+        only here, right before the reset: a killed worker leaves its chip unopenable, and the
+        reset is what makes it openable again. Killing first means nothing holds the chip while
+        it is reset, and a worker that never exits cannot keep its lane dark."""
         b = self.board_of(chip)
         mates = [c for c in self.chips if self.board_of(c) == b]
         ev = self.board_idle[b] = asyncio.Event()
@@ -248,6 +254,12 @@ class Service:
                 await self._wait_exit(c.proc, deadline - time.monotonic())
                 if c.proc and c.proc.returncode is None:
                     c.proc.terminate()
+            deadline = time.monotonic() + self.args.term_s
+            for c in mates:
+                await self._wait_exit(c.proc, deadline - time.monotonic())
+                if c.proc and c.proc.returncode is None:
+                    c.proc.kill()
+                    await self._wait_exit(c.proc, 10)
             ids = ",".join(str(c.chip) for c in mates)
             t0 = time.monotonic()
             try:
@@ -262,8 +274,6 @@ class Service:
                 rc = f"{type(e).__name__}"
             self.hub.send({"type": "reset", "chips": [c.chip for c in mates], "rc": rc,
                            "seconds": round(time.monotonic() - t0, 1), "t_wall": time.time()})
-            for c in mates:  # a worker that outlived SIGTERM usually exits once its chip is reset
-                await self._wait_exit(c.proc, self.args.term_s)
         finally:
             ev.set()
             for c in mates:
