@@ -2,7 +2,7 @@
 // `name` or `story` on the stream (from the gallery's manifest) uses those instead; otherwise the
 // sequence is looked up here. Sequences are engine/attract.json's.
 const GALLERY = [
-  { name: 'Trp-cage', story: 'One of the smallest proteins that folds on its own.',
+  { name: 'Trp-cage', story: 'One of the smallest proteins there is.',
     sequence: 'NLYIQWLKDGGPSSGRPPPS' },
   { name: 'Villin headpiece', story: 'A tiny protein that folds in a few millionths of a second.',
     sequence: 'LSDEDFKAVFGMTRSAFANLPLWKQQNLKKEKGLF' },

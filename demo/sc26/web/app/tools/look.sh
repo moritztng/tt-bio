@@ -35,9 +35,15 @@ rm -rf "$prof"; mkdir -p "$prof"; cp "$here/kiosk/user.js" "$prof/user.js"
 : > "$base/firefox.log"
 GTK_USE_PORTAL=0 MOZ_ENABLE_WAYLAND=1 MOZ_CRASHREPORTER_DISABLE=1 \
   nohup firefox --no-remote --profile "$prof" --kiosk "$url" >"$base/firefox.log" 2>&1 &
+# The snap's first paint waits out a 25 s desktop-portal D-Bus timeout; wait for real pixels.
+for _ in $(seq 120); do
+  grim "$base/probe.png" 2>/dev/null && [ "$(stat -c %s "$base/probe.png")" -gt 100000 ] && break; sleep 1
+done
 case $cmd in
-  shot) sleep "${5:-12}"; grim "$out" ;;
-  rec)  sleep 4; timeout -s INT "$5" wf-recorder -f "$out" -c libx264 -p preset=veryfast -p crf=20 >/dev/null 2>&1 || true ;;
+  shot) sleep "${5:-3}"; grim "$out" ;;
+  rec)  # mkv survives a hard stop; remux to mp4 afterwards
+        timeout -s INT -k 5 "$5" wf-recorder -f "$base/rec.mkv" -c libx264 -p preset=veryfast -p crf=20 >/dev/null 2>&1 || true
+        ffmpeg -v error -y -i "$base/rec.mkv" -c copy -movflags +faststart "$out" ;;
 esac
 pkill -TERM -u "$(id -u)" -f "[f]irefox.*sc26exp/profile" || true
 grep -a "SELFTEST\|app error\|frame error\|app rejection" "$base/firefox.log" | sed 's/^console.log: //' || true

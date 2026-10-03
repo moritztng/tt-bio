@@ -35,9 +35,11 @@ export class Stage {
     const n = fold.coords.length;
     const frames = fold.coords.map((c, i) => ({ coords: c, time: n > 1 ? i * condense / (n - 1) : 0,
       progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
+    this.r._scratch = null;   // renderer keeps a per-topology scratch buffer it does not resize (handed to sc26-render)
     this.r.setTopology(fold.topo);
     this.r.loadReplay(frames);
     this.r.setMode('auto');
+    this.r.cam.yawAngle = Math.random() * 2 * Math.PI;   // a repeat never starts from the same side
     this.r.speed = 1;
     this.r.pause();
     this.r.seek(0);

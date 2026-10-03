@@ -4,6 +4,7 @@
 //   ?idle=<s>      quiet time before the reset, default 60
 //   ?hold=<s>      how long a folded protein holds in attract, default 10
 //   ?selftest=reset  drive every state and log PASS/FAIL per reset to the console
+//   ?selftest=kiosk  check the kiosk properties the page enforces
 //   ?walk=<name>     type <name> after ?after=<s> seconds, for a recorded walkthrough
 //   ?stream=<ws url> another engine's stream, default this origin's /stream
 
@@ -87,7 +88,7 @@ function submit() {
   app.mine = { id: null, parsed: p, text: app.text.trim(), t0: null, chip: null, sent: performance.now(),
     instead: bad ? INSTEAD.name : null };
   setState('waiting');
-  if (!stream.send({ type: 'fold', sequence: seq })) giveUp();
+  if (!liveChips() || !stream.send({ type: 'fold', sequence: seq })) giveUp();
 }
 
 // The chips could not take it. Never show why; say something true and go back.
@@ -180,6 +181,7 @@ function buildKeys() {
 function liveChips() { return stream.chips.filter(c => c.state === 'busy' || c.state === 'ready').length; }
 
 function drawAll() { drawHeader(); drawTyping(); drawSide(); drawChips(); drawInvite(); }
+let invited = null;
 
 function drawHeader() {
   const n = liveChips();
@@ -226,7 +228,7 @@ function drawTyping() {
 function drawInvite() {
   const s = app.state;
   $('invite').innerHTML =
-    s === 'attract' ? 'Type your name <span class="dim">and watch it fold.</span>'
+    s === 'attract' ? (liveChips() ? 'Type your name <span class="dim">and watch it fold.</span>' : '')
     : s === 'typing' ? (app.text.trim() ? '<kbd>Enter</kbd> to fold <span class="dim">&nbsp;</span><kbd>Esc</kbd> to go back' : '<kbd>Esc</kbd> to go back')
     : s === 'waiting' ? ''
     : s === 'result' ? 'Type another name <span class="dim">or</span> <kbd>Esc</kbd>'
@@ -327,12 +329,21 @@ function frame(now) {
       if (!app.slot) nextSlot(true);
       else if (!app.slot.leaving && stage.landed && stage.playT > stage.condense + HOLD) nextSlot(false);
     }
+    if (app.state === 'waiting' && !app.mine.busy) {
+      // no chip took it, or it never finished: say so and go back, never hang
+      const m = app.mine;
+      if ((!m.t0 && now - m.sent > 20000) || (m.t0 && now - m.t0 > 90000)) giveUp();
+    }
     if (app.state !== 'attract' && now - app.lastInput > IDLE) toAttract();
-    if ((sideTick += dt) > 0.05) { sideTick = 0; drawSide(); drawChips(); drawHeader(); }
+    if ((sideTick += dt) > 0.05) {
+      sideTick = 0; drawSide(); drawChips(); drawHeader();
+      if (invited !== liveChips() > 0) { invited = liveChips() > 0; drawInvite(); }
+    }
   } catch (e) { onErr(e); }
 }
 setState('attract');
 requestAnimationFrame(frame);
 
 if (q.get('selftest') === 'reset') import('./tests/reset.js').then(m => m.run(app, { toAttract, startTyping, type, submit, showResult, director, IDLE }));
-if (q.has('walk')) import('./tests/walk.js').then(m => m.run(q.get('walk'), parseFloat(q.get('after')) || 8));
+if (q.get('selftest') === 'kiosk') setTimeout(() => import('./tests/kiosk.js').then(m => m.run()), 4000);
+if (q.has('walk')) import('./tests/walk.js').then(m => m.run(q.get('walk'), parseFloat(q.get('after')) || 8, q.get('enter') !== '0'));

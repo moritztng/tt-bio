@@ -21,7 +21,7 @@ while [ $stop = 0 ]; do
   cp "$here/user.js" "$prof/user.js"
   firefox --no-remote --profile "$prof" --kiosk "$url" >>"$log" 2>&1 &
   pid=$!
-  wait "$pid"
-  echo "$(date -Is) firefox exited rc=$?, restarting" >>"$log"
+  wait "$pid"; rc=$?
+  echo "$(date -Is) firefox exited rc=$rc, restarting" >>"$log"
   [ $stop = 0 ] && sleep 1
 done
