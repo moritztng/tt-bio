@@ -63,6 +63,7 @@ class Chip:
         self.state, self.job, self.proc = "starting", None, None
         self.folds, self.last_event, self.ready_at, self.restarts = 0, time.monotonic(), None, 0
         self.last_fold = None
+        self.failures, self.stalled, self.last_reset = 0, False, None  # consecutive unclean exits
 
     def status(self):
         return {"chip": self.chip, "state": self.state, "job": self.job and self.job["id"],
@@ -71,6 +72,9 @@ class Chip:
 
     async def run(self):
         while not self.svc.stopping:
+            await self.svc.board_free(self)
+            if self.svc.stopping:
+                break
             env = dict(os.environ, TT_VISIBLE_DEVICES=str(self.chip), TT_BIO_LEASE_CARDS=str(self.chip),
                        TT_BIO_LEASE_HOLDER=os.environ.get("TT_BIO_LEASE_HOLDER", f"sc26-demo:chip{self.chip}"))
             self.set_state("warming")
@@ -94,11 +98,16 @@ class Chip:
                                    "reason": "chip_lost", "t_wall": time.time()})
                 self.svc.ledger("fail", self.chip)
                 self.svc.requeue(job)
-            self.set_state("recovering", rc=rc)
             if self.svc.stopping:
+                self.set_state("recovering", rc=rc)
                 break
+            unclean, self.stalled = rc != 0 or self.stalled, False
+            self.failures = self.failures + 1 if unclean else 0
+            self.set_state("recovering", rc=rc)
             self.restarts += 1
-            await asyncio.sleep(min(60, 5 * self.restarts))
+            if unclean and self.failures >= self.args.reset_after and self.svc.reset_ok(self):
+                await self.svc.reset_board(self)
+            await asyncio.sleep(min(60, 5 * max(1, self.failures)))
 
     def on_event(self, ev, raw):
         t = ev.get("type")
@@ -120,6 +129,7 @@ class Chip:
             self.svc.record(job, raw)
             if t == "fold_done":
                 self.folds += 1
+                self.failures = 0
                 self.last_fold = {k: ev.get(k) for k in ("n_res", "seconds", "aiclk_mhz")}
                 self.svc.ledger("done", self.chip, seconds=ev.get("seconds"))
             elif t == "fold_error":
@@ -132,6 +142,9 @@ class Chip:
         self.svc.hub.send(raw)
 
     def set_state(self, st, **kw):
+        if self.svc.resetting(self) and st != "resetting":
+            kw["worker"] = st  # the lane keeps saying "resetting" until the board is back
+            st = "resetting"
         self.state = st
         self.svc.hub.send({"type": "chip", "chip": self.chip, "state": st, "aiclk_mhz": aiclk(self.node),
                            "t_wall": time.time(), **kw})
@@ -202,12 +215,83 @@ class Service:
         self.replay = Replay(self, args.replay)
         self.open_files = {}
         self._preempt_armed = False
+        # Chips that share a board are reset together (qb2: a p300 board carries chips 0,1 and 2,3).
+        self.boards = [set(map(int, b.split(","))) for b in args.boards.split()] if args.boards else []
+        self.board_idle = {}  # board index -> asyncio.Event, cleared while that board is reset
         self.monitor = None if args.no_telemetry else telemetry.Monitor(events=Path(args.fold_events))
 
     def ledger(self, event, chip, **fields):
         """Tell the telemetry about a fold, so the lanes show it with the clock it ran at."""
         if self.monitor:
             telemetry.record_fold(event, chip, path=self.monitor.folds.path, **fields)
+
+    def board_of(self, chip):
+        for i, b in enumerate(self.boards):
+            if chip.chip in b:
+                return i
+        return f"chip{chip.chip}"
+
+    def resetting(self, chip):
+        ev = self.board_idle.get(self.board_of(chip))
+        return ev is not None and not ev.is_set()
+
+    async def board_free(self, chip):
+        ev = self.board_idle.get(self.board_of(chip))
+        if ev is not None:
+            await ev.wait()
+
+    def reset_ok(self, chip):
+        gap = self.args.reset_min_gap
+        return bool(self.args.reset_cmd) and not self.resetting(chip) and \
+            (chip.last_reset is None or time.monotonic() - chip.last_reset > gap)
+
+    async def reset_board(self, chip):
+        """Stop every worker on the chip's board (SIGINT, then SIGTERM; never SIGKILL), reset the
+        board with --reset-cmd, bounded by --reset-timeout, then let the workers start again. The
+        other boards keep folding, and the replay loop fills the screen if no chip is left."""
+        b = self.board_of(chip)
+        mates = [c for c in self.chips if self.board_of(c) == b]
+        ev = self.board_idle[b] = asyncio.Event()
+        for c in mates:
+            c.set_state("resetting")
+            c.last_reset = time.monotonic()
+        try:
+            for c in mates:
+                c.stop()
+            deadline = time.monotonic() + self.args.term_s
+            for c in mates:
+                await self._wait_exit(c.proc, deadline - time.monotonic())
+                if c.proc and c.proc.returncode is None:
+                    c.proc.terminate()
+            ids = ",".join(str(c.chip) for c in mates)
+            t0 = time.monotonic()
+            try:
+                p = await asyncio.create_subprocess_exec(
+                    *self.args.reset_cmd.split(), ids, stdin=asyncio.subprocess.DEVNULL,
+                    stdout=open(self.logdir / "reset.log", "a"), stderr=asyncio.subprocess.STDOUT)
+                rc = await asyncio.wait_for(p.wait(), self.args.reset_timeout)
+            except asyncio.TimeoutError:
+                p.terminate()
+                rc = "timeout"
+            except OSError as e:
+                rc = f"{type(e).__name__}"
+            self.hub.send({"type": "reset", "chips": [c.chip for c in mates], "rc": rc,
+                           "seconds": round(time.monotonic() - t0, 1), "t_wall": time.time()})
+            for c in mates:  # a worker that outlived SIGTERM usually exits once its chip is reset
+                await self._wait_exit(c.proc, self.args.term_s)
+        finally:
+            ev.set()
+            for c in mates:
+                c.failures = 0
+                c.set_state("recovering")
+
+    @staticmethod
+    async def _wait_exit(proc, timeout):
+        if proc and proc.returncode is None and timeout > 0:
+            try:
+                await asyncio.wait_for(asyncio.shield(proc.wait()), timeout)
+            except asyncio.TimeoutError:
+                pass
 
     def job(self, seq, kind, seed=0, extra=None):
         return {"id": f"{kind[0]}{next(self.ids)}", "sequence": seq, "seed": seed, "kind": kind, **(extra or {})}
@@ -283,9 +367,10 @@ class Service:
             for c in self.chips:
                 quiet = now - c.last_event
                 limit = self.args.stall_s if c.state == "busy" else self.args.warm_s
-                if c.state in ("busy", "warming") and quiet > limit:
+                if c.state in ("busy", "warming") and quiet > limit and not self.resetting(c):
                     self.hub.send({"type": "chip", "chip": c.chip, "state": "stalled", "quiet_s": round(quiet),
                                    "t_wall": time.time()})
+                    c.stalled = True
                     c.stop()
                     c.last_event = now
                     asyncio.get_running_loop().call_later(self.args.term_s, self._term, c, c.proc)
@@ -294,6 +379,12 @@ class Service:
     def _term(self, c, proc):
         if proc and proc.returncode is None:  # SIGINT was not enough: SIGTERM, still never SIGKILL
             proc.terminate()
+            asyncio.get_running_loop().call_later(self.args.term_s, self._wedged, c, proc)
+
+    def _wedged(self, c, proc):
+        """A worker that survives SIGINT and SIGTERM is stuck in the device: reset its board."""
+        if proc and proc.returncode is None and self.reset_ok(c):
+            asyncio.ensure_future(self.reset_board(c))
 
     # ---- HTTP + WebSocket ----
     async def handle(self, reader, writer):
@@ -376,6 +467,11 @@ class Service:
         async with server:
             while not self.stopping:
                 await asyncio.sleep(0.5)
+            # Server.wait_closed() waits for every open connection, and a kiosk keeps its
+            # WebSocket open forever: close them, or the service never exits on SIGINT/SIGTERM.
+            server.close()
+            for cl in list(self.hub.clients):
+                cl.writer.close()
             for c in self.chips:
                 c.stop()
             await asyncio.sleep(0)
@@ -441,6 +537,12 @@ def main():
     ap.add_argument("--stall-s", type=float, default=180, help="a busy chip silent this long is stopped")
     ap.add_argument("--warm-s", type=float, default=600, help="a warming chip silent this long is stopped")
     ap.add_argument("--term-s", type=float, default=30, help="SIGINT grace before SIGTERM")
+    ap.add_argument("--reset-cmd", default="", help="board reset command; the chip ids are appended "
+                    "(e.g. 'demo/sc26/ops/reset_board.sh'). Empty: never reset, only restart")
+    ap.add_argument("--reset-after", type=int, default=2, help="consecutive unclean worker exits before a reset")
+    ap.add_argument("--reset-timeout", type=float, default=180)
+    ap.add_argument("--reset-min-gap", type=float, default=600, help="seconds between two resets of one chip")
+    ap.add_argument("--boards", default="0,1 2,3", help="chips that share a board and reset together")
     ap.add_argument("--replay-gap", type=float, default=3.0)
     ap.add_argument("--preempt-after", type=float, default=1.0,
                     help="seconds a visitor waits for a chip before an attract fold is dropped for it")

@@ -1,0 +1,12 @@
+[Unit]
+Description=SC26 booth demo: the full-screen browser
+PartOf=sc26.target
+After=sc26-engine.service
+
+[Service]
+EnvironmentFile=-%h/.config/sc26/env
+ExecStart=@OPS@/kiosk.sh
+ExecStopPost=@OPS@/kiosk.sh --stop
+Restart=always
+RestartSec=1
+TimeoutStopSec=20

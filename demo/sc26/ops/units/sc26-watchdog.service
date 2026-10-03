@@ -1,0 +1,10 @@
+[Unit]
+Description=SC26 booth demo: watchdog for the engine, the page and the screen
+PartOf=sc26.target
+After=sc26-kiosk.service
+
+[Service]
+EnvironmentFile=-%h/.config/sc26/env
+ExecStart=/usr/bin/python3 -u @OPS@/watchdog.py --log %h/sc26-logs/watchdog.jsonl
+Restart=always
+RestartSec=5
