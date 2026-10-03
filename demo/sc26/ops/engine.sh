@@ -10,8 +10,8 @@ demo=$(dirname "$ops")
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1
 export TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:sc26-demo}
 py=${SC26_PYTHON:-$HOME/tt-bio-dev/env/bin/python3}
-chips=$("$py" "$ops/leases.py" hold "${SC26_CHIPS:-0,1,2,3}" $$)
-echo "sc26-engine: chips ${chips:-none} (asked for ${SC26_CHIPS:-0,1,2,3})"
+chips=$("$py" "$ops/leases.py" hold "${SC26_CHIPS-0,1,2,3}" $$)
+echo "sc26-engine: chips ${chips:-none} (asked for ${SC26_CHIPS-0,1,2,3})"
 if [ -n "$chips" ]; then
   mode=(--chips "$chips" --reset-cmd "$ops/reset_board.sh")
 else

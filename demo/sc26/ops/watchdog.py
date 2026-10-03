@@ -96,6 +96,14 @@ def rss_mb(pattern):
     return round(tot / 1024)
 
 
+def unit_mb(unit):
+    p = Path(f"/sys/fs/cgroup/user.slice/user-{os.getuid()}.slice/user@{os.getuid()}.service/app.slice/{unit}/memory.current")
+    try:
+        return round(int(p.read_text()) / 2**20)
+    except (OSError, ValueError):
+        return None
+
+
 def meminfo():
     m = {}
     for line in Path("/proc/meminfo").read_text().splitlines():
@@ -216,7 +224,7 @@ class Watch:
             row = {"ev": "tick", "engine": eng, "fps": fps, "screen": scr}
             if t0 - self.last_mem > self.a.mem_every:
                 self.last_mem = t0
-                row.update(rss_browser_mb=rss_mb("firefox"), rss_engine_mb=rss_mb("demo/sc26/engine/"),
+                row.update(rss_browser_mb=rss_mb(self.a.profile), engine_mb=unit_mb("sc26-engine.service"),
                            mem_avail_gb=meminfo(), load1=os.getloadavg()[0])
             self.emit(**row)
             time.sleep(max(0.5, self.a.every - (time.monotonic() - t0)))
@@ -225,8 +233,9 @@ class Watch:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--log", default="~/sc26-logs/watchdog.jsonl")
-    ap.add_argument("--url-base", default="http://127.0.0.1:8626")
-    ap.add_argument("--app-url", default="http://127.0.0.1:8626/app/")
+    port = os.environ.get("SC26_PORT", "8626")
+    ap.add_argument("--url-base", default=f"http://127.0.0.1:{port}")
+    ap.add_argument("--app-url", default=f"http://127.0.0.1:{port}/app/")
     ap.add_argument("--marionette", type=int, default=2828)
     ap.add_argument("--every", type=float, default=10)
     ap.add_argument("--engine-fails", type=int, default=3)
@@ -235,6 +244,8 @@ def main():
     ap.add_argument("--blank-s", type=float, default=30)
     ap.add_argument("--restart-gap", type=float, default=90, help="minimum seconds between two restarts of one unit")
     ap.add_argument("--mem-every", type=float, default=60)
+    ap.add_argument("--profile", default=os.environ.get("SC26_KIOSK_PROFILE", os.path.expanduser("~/sc26kiosk/profile")),
+                    help="the kiosk's Firefox profile path; its processes are the browser's memory")
     a = ap.parse_args()
     Path(os.path.expanduser(a.log)).parent.mkdir(parents=True, exist_ok=True)
     Watch(a).run()
