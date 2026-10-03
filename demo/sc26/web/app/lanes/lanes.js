@@ -82,13 +82,12 @@ function lane(card) {
       h("div", { class: "label", text: "Power, last minute" })),
     cell("gauge", q.tmp = h("div", { class: "big" }), h("div", { class: "label", text: "ASIC" })),
     cell("what", q.what = h("div", { class: "name" }), q.detail = h("div", { class: "detail" })),
-    cell("today", q.n = h("div", { class: "big" }), h("div", { class: "label", text: "folds today" }),
-      q.rps = h("div", { class: "detail" })),
+    cell("today", q.n = h("div", { class: "big" }), h("div", { class: "label", text: "folds today" })),
   );
   return { el, q };
 }
 
-const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "resetting" };
+const STATE_WORD = { folding: "folding", idle: "resting", busy: "busy", resetting: "resetting" };
 
 function paintLane({ el, q }, c) {
   const live = c.state !== "resetting";
@@ -117,11 +116,10 @@ function paintLane({ el, q }, c) {
     q.what.textContent = "Working outside the demo";
     q.detail.textContent = lastLine || "clock is up, no demo fold on this chip";
   } else {
-    q.what.textContent = "Ready";
+    q.what.textContent = "Resting";
     q.detail.textContent = lastLine || "waiting for a sequence";
   }
   q.n.textContent = fmt(c.folds_today);
-  q.rps.textContent = c.residues_per_s_today ? `${fmt(c.residues_per_s_today)} residues/s` : "";
 }
 
 function lanes(root) {
