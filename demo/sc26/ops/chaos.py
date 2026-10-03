@@ -71,9 +71,13 @@ class Chaos:
         self.rng = random.Random(a.seed)
 
     def shot(self, name):
+        sock = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / os.environ.get("WAYLAND_DISPLAY", "")
+        if not sock.is_socket():
+            print(f"DISPLAY LOST: {sock} is gone, this sample sees nothing", file=sys.stderr)
+            return None, {"display": "lost"}
         img = subprocess.run(["grim", "-s", "0.25", "-t", "ppm", "-"], capture_output=True, timeout=10).stdout
         if not img:
-            return None, None
+            return None, {"display": "none"}
         px = img[img.index(b"255\n") + 4:]
         sub = px[::97]
         (self.out / "shots" / f"{name}.ppm").write_bytes(img)
@@ -188,7 +192,7 @@ class Chaos:
         for dt in (2, 5, 10, 20, 40, 60):
             time.sleep(max(0, t0 + dt - time.time()))
             h, info = self.shot(f"{i:03d}-{ev}-{dt:02d}s")
-            samples.append({"t": dt, "moving": h != prev if h else None, **(info or {"display": "none"})})
+            samples.append({"t": dt, "moving": h != prev if h else None, **info})
             prev = h
         if ev == "network_drop":
             time.sleep(max(0, t0 + self.a.net_s - time.time()))
@@ -218,6 +222,7 @@ class Chaos:
         summary = {"hours": self.a.hours, "events": len(recs),
                    "by_event": {e: sum(r["event"] == e for r in recs) for e in evs},
                    "flat_screen_events": [r["i"] for r in bad],
+                   "blind_screen_events": [r["i"] for r in recs if any("display" in x for x in r["screen"])],
                    "fps30_after_s": {e: [r["fps30_after_s"] for r in recs if r["event"] == e] for e in evs}}
         (self.out / "summary.json").write_text(json.dumps(summary, indent=1))
         print(json.dumps(summary))
