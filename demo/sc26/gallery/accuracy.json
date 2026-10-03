@@ -185,6 +185,28 @@
    }
   ]
  },
+ "spike-ace2": {
+  "pdb": "6M0J",
+  "matched_ca": 791,
+  "ca_rmsd": 1.7,
+  "ca_within_2A": 0.789,
+  "per_chain": {
+   "A": {
+    "role": "human ACE2 receptor",
+    "ref_chain": "A",
+    "matched": 597,
+    "of": 603,
+    "ca_rmsd": 1.21
+   },
+   "B": {
+    "role": "spike receptor-binding domain",
+    "ref_chain": "E",
+    "matched": 194,
+    "of": 229,
+    "ca_rmsd": 0.62
+   }
+  }
+ },
  "antibody": {
   "pdb": "7C01",
   "matched_ca": 628,

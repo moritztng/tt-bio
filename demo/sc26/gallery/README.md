@@ -13,7 +13,9 @@ noise to the finished structure, plus the network's prediction of the end result
 
 Times are those of the recorded fold: a warm fold on one chip, with the trajectory hook on, and
 the AICLK sampled every 0.2 s during it. Each fold's first run in its process, which compiles, is
-reported separately as `seconds_first_fold_with_compile`. MSAs came from the ColabFold server
+reported separately as `seconds_first_fold_with_compile`. Saving the frames costs no
+measurable time: with the hook off, the same folds took 19.8, 26.1 and 74.2 s against 21.9, 25.0
+and 70.0 s with it on (insulin, GFP, antibody; AICLK median 1350 MHz in all six). MSAs came from the ColabFold server
 when the fold was recorded; the booth needs no network.
 
 ## Files
