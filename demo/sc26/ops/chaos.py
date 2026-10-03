@@ -30,6 +30,7 @@ import random
 import signal
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -95,7 +96,31 @@ class Chaos:
         return pids(lambda c: prof in b" ".join(c) and b"-contentproc" not in c)
 
     def workers(self):
-        return pids(lambda c: any(x.endswith(b"chipworker.py") for x in c), env="worker:sc26-demo")
+        """The demo's chip workers, only on --worker-chips if given."""
+        out = []
+        for p in pids(lambda c: any(x.endswith(b"chipworker.py") for x in c), env="worker:sc26-demo"):
+            try:
+                env = Path(f"/proc/{p}/environ").read_bytes().split(b"\0")
+            except OSError:
+                continue
+            chip = next((e.split(b"=", 1)[1].decode() for e in env if e.startswith(b"TT_VISIBLE_DEVICES=")), "")
+            if not self.a.worker_chips or chip in self.a.worker_chips.split(","):
+                out.append(p)
+        return out
+
+    def visitors(self):
+        """A visitor fold every --visitor-s seconds, the way people at the booth would type."""
+        while True:
+            time.sleep(self.a.visitor_s)
+            n = self.rng.randint(10, 400)
+            req = urllib.request.Request(f"{self.a.url_base}/fold", json.dumps({"sequence": HSA[:n]}).encode())
+            try:
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    reply = json.loads(r.read()).get("type")
+            except OSError as e:
+                reply = f"error {e}"[:80]
+            with open(self.out / "visitors.jsonl", "a") as f:
+                f.write(json.dumps({"t": round(time.time(), 1), "n_res": n, "reply": reply}) + "\n")
 
     def act(self, ev):
         a = self.a
@@ -135,8 +160,8 @@ class Chaos:
             return f"{ok} of 60 visitor folds queued"
         if ev == "network_drop":
             rules = ("table inet sc26chaos { chain i { type filter hook input priority -10; policy drop; "
-                     "iif lo accept; tcp dport 22 accept; } chain o { type filter hook output priority -10; "
-                     "policy drop; oif lo accept; tcp sport 22 accept; } }")
+                     "iif lo accept; tcp dport 22 accept; }; chain o { type filter hook output priority -10; "
+                     "policy drop; oif lo accept; tcp sport 22 accept; }; }")
             subprocess.run(["sudo", "systemd-run", "--quiet", f"--on-active={a.net_s + 120}",
                             "/usr/sbin/nft", "delete", "table", "inet", "sc26chaos"], check=False)
             r = subprocess.run(["sudo", "nft", "-f", "-"], input=rules, text=True)
@@ -145,7 +170,10 @@ class Chaos:
             if w:
                 time.sleep(3)
                 os.kill(w[0], signal.SIGTERM)
-            return (f"network dropped for {a.net_s:.0f} s (nft rc {r.returncode})"
+            probe = subprocess.run(["curl", "-s", "-o", "/dev/null", "-m", "5", "-w", "%{http_code}",
+                                    "https://huggingface.co"], capture_output=True, text=True).stdout
+            return (f"network dropped for {a.net_s:.0f} s (nft rc {r.returncode}, "
+                    f"huggingface.co from qb2 during the drop: HTTP {probe or '000'})"
                     + (f", chipworker {w[0]} restarted inside the drop" if w else ""))
         return "unknown"
 
@@ -179,6 +207,8 @@ class Chaos:
         end = time.time() + self.a.hours * 3600
         evs = [e for e in (self.a.events.split(",") if self.a.events else EVENTS)]
         i, recs = 0, []
+        if self.a.visitor_s:
+            threading.Thread(target=self.visitors, daemon=True).start()
         while time.time() < end:
             nxt = time.time() + self.a.every
             recs.append(self.run_event(i, evs[i % len(evs)]))
@@ -204,6 +234,8 @@ def main():
     ap.add_argument("--watchdog-log", default="~/sc26-logs/watchdog.jsonl")
     ap.add_argument("--profile", default=os.environ.get("SC26_KIOSK_PROFILE", os.path.expanduser("~/sc26kiosk/profile")))
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--visitor-s", type=float, default=0, help="submit a visitor fold this often; 0: none")
+    ap.add_argument("--worker-chips", default="", help="kill and wedge only workers on these chips")
     Chaos(ap.parse_args()).run()
 
 

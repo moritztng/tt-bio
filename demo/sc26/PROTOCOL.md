@@ -37,11 +37,21 @@ Once a second.
            "last_fold":{"n_res":118,"seconds":2.1,"aiclk_mhz":{"min":1331,"median":1350,"max":1350,"n":9}}}]}
 ```
 `state` is one of `starting`, `warming` (loading weights, compiling), `ready`, `busy`,
-`stalled` (the watchdog is stopping it), `recovering` (restarting), `stopped`. `aiclk_mhz` is
+`stalled` (the watchdog is stopping it), `recovering` (restarting), `resetting` (its board is
+being reset with `tt-smi -r`; both chips of the board show it, and the clock reads `null` or 800
+until it is back), `stopped`. `aiclk_mhz` is
 read from the chip's sysfs clock when the message is built; `null` means the chip did not answer.
 
 ### `chip`
 A chip changed state. `{"type":"chip","chip":2,"state":"recovering","aiclk_mhz":800,"rc":0}`.
+While its board is resetting the state stays `resetting` and `worker` carries what the worker
+itself reported: `{"type":"chip","chip":3,"state":"resetting","worker":"recovering"}`.
+
+### `reset`
+A board reset finished. `{"type":"reset","chips":[2,3],"rc":0,"seconds":44.0}`. `rc` 0 means both
+chips answered afterwards; the lanes then go `recovering`, `warming`, `ready` as the workers come
+back. Anything else leaves them `recovering` and the engine retries later (at most one reset per
+board every 10 minutes). For the operator log; nothing on screen needs it.
 
 ### `fold_start`
 A fold began. Everything the renderer needs to lay out atoms before the first frame.
@@ -94,7 +104,9 @@ One real state of the diffusion sampler.
 ### `fold_error`
 `{"type":"fold_error","id":"a17","chip":0,"reason":"preempted"}`. Reasons: `preempted` (an attract
 fold gave its chip to a visitor), `chip_lost` (the worker died; a visitor's fold is retried once on
-another chip and gets a new `fold_start` with the same `id`), `stopped` (watchdog or shutdown), or
+another chip and gets a new `fold_start` with the same `id`), `stopped` (watchdog or shutdown),
+`out_of_memory` (the chip's DRAM is full; the worker restarts itself with empty DRAM, and a
+visitor's fold is retried once like `chip_lost`; the raw message is in `detail`), or
 an error message for bad input. Drop the fold's frames and move on; never show the reason text to
 the audience.
 

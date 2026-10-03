@@ -137,8 +137,8 @@ class Chip:
             if t in ("fold_done", "fold_error"):
                 self.svc.finish(job, ev)
                 self.job = None
-                if t == "fold_error" and ev.get("reason") == "stopped":
-                    self.svc.requeue(job)  # the chip was stopped under it: a visitor's fold moves on
+                if t == "fold_error" and ev.get("reason") in ("stopped", "out_of_memory"):
+                    self.svc.requeue(job)  # the chip was stopped or is recycling: a visitor's fold moves on
         self.svc.hub.send(raw)
 
     def set_state(self, st, **kw):
