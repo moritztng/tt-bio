@@ -123,7 +123,7 @@ function nextSlot(now) {
   if (!f) { app.slot = null; return; }
   const go = () => { if (!PLAYS(app.state)) return; stage.show(f); app.slot = { fold: f }; canvas.style.opacity = 1; drawSide(); };
   if (now || !app.slot) go();
-  else { canvas.style.opacity = 0; app.slot.leaving = true; setTimeout(go, 600); }
+  else { canvas.style.opacity = 0.2; app.slot.leaving = true; setTimeout(go, 600); }   // dim, never dark: the stage is never empty
 }
 
 // ------------------------------------------------------------------ input
