@@ -32,7 +32,7 @@ from pathlib import Path
 class Marionette:
     """Just enough of Firefox's Marionette protocol (length-prefixed JSON over TCP)."""
 
-    def __init__(self, port, timeout=10):
+    def __init__(self, port, timeout=5):
         self.s = socket.create_connection(("127.0.0.1", port), timeout=timeout)
         self.n = 0
         self._read()  # the server's hello
@@ -132,7 +132,8 @@ class Watch:
             self.emit(ev="restart_skipped", unit=unit, why=why)
             return
         self.last_restart[unit] = now
-        rc = subprocess.call(["systemctl", "--user", "restart", f"{unit}.service"], timeout=150)
+        # --no-block: a unit that is slow to stop must not stall every other check behind it
+        rc = subprocess.call(["systemctl", "--user", "--no-block", "restart", f"{unit}.service"], timeout=30)
         self.emit(ev="restart", unit=unit, why=why, rc=rc)
         if unit == "sc26-kiosk":
             self.close_mn()
@@ -239,8 +240,8 @@ def main():
     ap.add_argument("--marionette", type=int, default=2828)
     ap.add_argument("--every", type=float, default=10)
     ap.add_argument("--engine-fails", type=int, default=3)
-    ap.add_argument("--page-fails", type=int, default=3)
-    ap.add_argument("--freeze-s", type=float, default=60)
+    ap.add_argument("--page-fails", type=int, default=2)
+    ap.add_argument("--freeze-s", type=float, default=30)
     ap.add_argument("--blank-s", type=float, default=30)
     ap.add_argument("--restart-gap", type=float, default=90, help="minimum seconds between two restarts of one unit")
     ap.add_argument("--mem-every", type=float, default=60)
