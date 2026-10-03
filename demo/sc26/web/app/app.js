@@ -43,7 +43,7 @@ const app = {
 window.sc26 = app;     // for the self-test and for poking at it on the box
 app.stage = stage;
 
-const stream = new Stream(q.get('stream') ?? `ws://${location.host}/stream`, {
+const stream = new Stream(q.get('stream') ?? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/stream`, {
   onFold(f) {
     describe(f);
     if (app.mine && f.id === app.mine.id) return showResult(f);
