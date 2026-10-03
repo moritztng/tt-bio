@@ -27,9 +27,9 @@ protein at a time: four independent folds in flight, no fold split across chips.
 protein takes about 2 s, 400 residues about 15 s, at the chip's top clock of 1350 MHz [1]. The
 screen shows each fold's real time and the clock sampled during it, so the numbers are checkable.
 
-What you see is the diffusion sampler's real trajectory: 15 states per ESMFold2 fold and about 200 per
-Boltz-2 fold, streamed from the chip [2]. The screen holds each real state and counts them
-("Sampler step 9 of 15"); nothing is invented between them. The last frame is the scored structure,
+What you see is the diffusion sampler's real trajectory: the starting noise and 14 sampler steps per
+ESMFold2 fold, 200 per Boltz-2 fold, streamed from the chip [2]. The screen holds each real state
+and counts them ("Sampler step 9 of 14"); nothing is invented between them. The last frame is the scored structure,
 drawn as a cartoon coloured by pLDDT on the AlphaFold scale.
 
 Each chip is a grid of 110 Tensix cores here (11x10), each with 1.5 MB of SRAM that software
