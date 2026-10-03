@@ -49,6 +49,8 @@ turns both back on.
 | a chip's memory fills up (after about 35 min of mixed folds) | the fold fails with out of memory | that worker restarts with empty memory; a visitor's fold is retried | that lane says recovering for about 40 s; the other chips keep folding |
 | a chip wedges | no progress for 120 s, the worker ignores SIGINT and SIGTERM | both chips on that board are reset with `tt-smi -r` | the board's two lanes say resetting; recorded folds fill in if no chip is left |
 | network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
+| the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
+| the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
 
 Workers are stopped with SIGINT, then SIGTERM. A killed worker leaves its chip unusable until a
 reset, so SIGKILL is used only on a wedged worker, right before its board is reset. qb2's chips sit on two boards, chips 0 and 1 on one and
