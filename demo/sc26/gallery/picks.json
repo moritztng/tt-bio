@@ -92,7 +92,20 @@
     "ccd": "HEM"
    }
   ],
-  "n_res": 574
+  "n_res": 574,
+  "also_pdb": [
+   {
+    "pdb": "2DN1-assembly1",
+    "state": "oxy",
+    "chains": {
+     "A": "A",
+     "B": "B",
+     "C": "A-2",
+     "D": "B-2"
+    }
+   }
+  ],
+  "pdb_state": "deoxy"
  },
  {
   "id": "myoglobin",
