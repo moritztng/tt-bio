@@ -15,9 +15,9 @@ number that is not here, say you will find out; do not estimate.
 
 Proteins are the machines in every cell, and what a protein does depends on its 3D shape. Working
 out that shape in a lab can take months. This AI predicts it from the sequence of letters alone,
-and here it does it live on the four Tenstorrent chips under the table. The points are the model's
-guesses, step by step, settling into the protein. The glow is its surface, the part a drug would
-touch. The same software is open source and runs as a service, so a lab can use it tomorrow.
+and here it does it live on the four Tenstorrent chips under the table. The points are the atoms at each
+step of the model's work, settling into the protein. The ribbon at the end is the predicted
+shape, blue where the model is confident. The same software is open source and runs as a service, so a lab can use it tomorrow.
 
 ## Two minutes, for an HPC engineer
 
@@ -28,8 +28,9 @@ protein takes about 2 s, 400 residues about 15 s, at the chip's top clock of 135
 screen shows each fold's real time and the clock sampled during it, so the numbers are checkable.
 
 What you see is the diffusion sampler's real trajectory: 15 states per ESMFold2 fold and about 200 per
-Boltz-2 fold, streamed from the chip [2]. The renderer interpolates between real states for
-smooth motion and says how much it slowed them down; the last frame is the scored structure.
+Boltz-2 fold, streamed from the chip [2]. Every state is shown and held, with
+at most a 0.12 s blend between two consecutive ones; the counter shows the sampler's step and how
+much it was slowed down. The last frame is the scored structure.
 
 Each chip is a grid of 110 Tensix cores here (11x10), each with 1.5 MB of SRAM that software
 manages directly, 165 MiB in total, and five small RISC-V cores per Tensix that move data and drive

@@ -282,7 +282,7 @@
     9.9
    ],
    "recording": "trajectories/insulin.jsonl",
-   "recording_bytes": 2628811,
+   "recording_bytes": 2628610,
    "store": [
     "store/insulin.json",
     "store/insulin.bin"
@@ -556,7 +556,7 @@
     17.6
    ],
    "recording": "trajectories/gfp.jsonl",
-   "recording_bytes": 12283617,
+   "recording_bytes": 12282785,
    "store": [
     "store/gfp.json",
     "store/gfp.bin"
@@ -961,7 +961,7 @@
     23.1
    ],
    "recording": "trajectories/haemoglobin.jsonl",
-   "recording_bytes": 29403266,
+   "recording_bytes": 29402549,
    "store": [
     "store/haemoglobin.json",
     "store/haemoglobin.bin"
@@ -1245,7 +1245,7 @@
     14.9
    ],
    "recording": "trajectories/myoglobin.jsonl",
-   "recording_bytes": 8079599,
+   "recording_bytes": 8078732,
    "store": [
     "store/myoglobin.json",
     "store/myoglobin.bin"
@@ -1531,7 +1531,7 @@
     33.1
    ],
    "recording": "trajectories/spike-ace2.jsonl",
-   "recording_bytes": 43650385,
+   "recording_bytes": 43649961,
    "store": [
     "store/spike-ace2.json",
     "store/spike-ace2.bin"
@@ -1829,7 +1829,7 @@
     34.1
    ],
    "recording": "trajectories/antibody.jsonl",
-   "recording_bytes": 33904508,
+   "recording_bytes": 33903971,
    "store": [
     "store/antibody.json",
     "store/antibody.bin"
@@ -2115,7 +2115,7 @@
     23.9
    ],
    "recording": "trajectories/designed-binder.jsonl",
-   "recording_bytes": 15078739,
+   "recording_bytes": 15078110,
    "store": [
     "store/designed-binder.json",
     "store/designed-binder.bin"
@@ -2389,7 +2389,7 @@
     18.1
    ],
    "recording": "trajectories/petase.jsonl",
-   "recording_bytes": 13238721,
+   "recording_bytes": 13238124,
    "store": [
     "store/petase.json",
     "store/petase.bin"
@@ -2663,7 +2663,7 @@
     14.0
    ],
    "recording": "trajectories/lysozyme.jsonl",
-   "recording_bytes": 6673462,
+   "recording_bytes": 6672408,
    "store": [
     "store/lysozyme.json",
     "store/lysozyme.bin"
@@ -2937,7 +2937,7 @@
     12.7
    ],
    "recording": "trajectories/top7.jsonl",
-   "recording_bytes": 4833898,
+   "recording_bytes": 4833420,
    "store": [
     "store/top7.json",
     "store/top7.bin"

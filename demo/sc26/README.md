@@ -10,7 +10,7 @@ The stream format is in [PROTOCOL.md](PROTOCOL.md); booth staff read [BOOTH.md](
 |------|------|
 | `engine/` | fold workers, one per chip, and the stream server |
 | `gallery/` | curated proteins and their recorded trajectories |
-| `web/render/` | WebGL renderer: points, surfaces, camera |
+| `web/render/` | WebGL renderer: points, cartoon, camera |
 | `web/app/` | the kiosk app, attract loop and interaction |
 | `hardware/` | per-chip telemetry |
 | `ops/` | boot-to-demo service, watchdogs, recovery |

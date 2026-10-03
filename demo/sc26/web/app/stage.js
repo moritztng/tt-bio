@@ -17,7 +17,7 @@ export const CONDENSE = 6.0;   // seconds the real states are spread over
 export class Stage {
   constructor(canvas, opt = {}) {
     this.canvas = canvas;
-    this.r = new Renderer(canvas, { fill: 0.72, ...opt });
+    this.r = new Renderer(canvas, { fill: 0.82, ...opt });
     this.fold = null;
     this.t = 0;            // seconds since this fold took the stage
     this.fitted = false;
@@ -86,7 +86,9 @@ export class Stage {
 }
 
 // When each real state is on screen: a floor per step plus a share of the condensation by how
-// much the cloud shrinks, so the starfield collapsing gets most of the time.
+// much the cloud shrank to REACH that state, so the time goes to the states that show the change.
+// (States are held, so the interval after state i shows state i; weighting it by the shrink from i
+// to i+1 instead held an off-screen noise frame for seconds before a jump.)
 const FLOOR = 0.3;
 function playTimes(coords, total) {
   const n = coords.length;
@@ -94,9 +96,9 @@ function playTimes(coords, total) {
   // shrinkage only counts while it is on screen: a cloud wider than ~6x the protein is mostly off it
   const cap = 6 * gyration(coords[n - 1]);
   const lr = coords.map(c => Math.log(Math.max(1e-3, Math.min(cap, gyration(c)))));
-  const d = lr.slice(1).map((v, i) => Math.abs(v - lr[i])), sum = d.reduce((a, b) => a + b, 0);
+  const w = lr.slice(0, -1).map((v, i) => i ? Math.abs(v - lr[i - 1]) : 0), sum = w.reduce((a, b) => a + b, 0);
   const out = [0];
-  for (let i = 0; i < n - 1; i++) out.push(out[i] + total * (FLOOR / (n - 1) + (1 - FLOOR) * (sum > 0 ? d[i] / sum : 1 / (n - 1))));
+  for (let i = 0; i < n - 1; i++) out.push(out[i] + total * (FLOOR / (n - 1) + (1 - FLOOR) * (sum > 0 ? w[i] / sum : 1 / (n - 1))));
   out[n - 1] = total;
   return out;
 }
