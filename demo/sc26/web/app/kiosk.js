@@ -28,14 +28,26 @@ export function kiosk({ cursorIdleMs = 2500 } = {}) {
 }
 
 // Reload the page if the frame loop keeps failing or the GPU context goes away. The screen is
-// black for under a second instead of frozen forever.
+// black for under a second instead of frozen forever. The reload waits until the server answers:
+// reloading while the engine restarts lands on Firefox's "Unable to connect" page, which never
+// retries by itself.
+let reloading = false;
+async function reloadWhenServed() {
+  if (reloading) return;
+  reloading = true;
+  for (;;) {
+    try { if ((await fetch(location.href, { cache: 'no-store' })).ok) return location.reload(); } catch {}
+    await new Promise(r => setTimeout(r, 1000));
+  }
+}
+
 export function guardLoop(canvas) {
   let errs = [];
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setTimeout(() => location.reload(), 500); });
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setTimeout(reloadWhenServed, 500); });
   return (err) => {
     const now = performance.now();
     errs = errs.filter(t => now - t < 10000); errs.push(now);
     console.warn('frame error', err?.stack ?? err);
-    if (errs.length > 30) location.reload();
+    if (errs.length > 30) reloadWhenServed();
   };
 }

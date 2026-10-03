@@ -41,6 +41,16 @@ user_pref("full-screen-api.warning.delay", -1);
 user_pref("full-screen-api.transition-duration.enter", "0 0");
 user_pref("full-screen-api.transition-duration.leave", "0 0");
 
+// an empty window or a page still loading paints the app's ground, never white
+user_pref("browser.startup.blankWindow", false);
+user_pref("browser.display.background_color", "#08090C");
+user_pref("browser.display.background_color.dark", "#08090C");
+user_pref("browser.display.use_system_colors", false);
+user_pref("ui.systemUsesDarkTheme", 1);
+user_pref("layout.css.prefers-color-scheme.content-override", 0);
+user_pref("browser.theme.content-theme", 0);
+user_pref("browser.theme.toolbar-theme", 0);
+
 // zoom, pinch, swipe
 user_pref("zoom.minPercent", 100);
 user_pref("zoom.maxPercent", 100);

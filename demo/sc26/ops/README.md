@@ -41,8 +41,9 @@ turns both back on.
 
 | failure | detected by | recovery | what the screen shows |
 |---|---|---|---|
-| browser crashes | its launcher | Firefox restarts with a fresh profile | the background still, then the app |
+| browser crashes | its launcher | Firefox restarts with a fresh profile | the background still, a black frame under half a second, then the app |
 | page or browser freezes | no frames drawn, or an unchanged screen for 30 s | the browser is restarted | the frozen frame, then the still, then the app |
+| the page leaves the app (Firefox error page) | the page's document is not the app | the watchdog loads the app again once the engine answers | a dark error page for at most one 10 s check |
 | engine dies or hangs | `/status` unanswered for 30 s | systemd restarts it | the last fold, then recorded folds |
 | a chip's worker dies | the engine | the worker restarts | that chip's lane says recovering; the other chips keep folding |
 | a chip's memory fills up (after about 35 min of mixed folds) | the fold fails with out of memory | that worker restarts with empty memory; a visitor's fold is retried | that lane says recovering for about 40 s; the other chips keep folding |
