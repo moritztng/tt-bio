@@ -448,6 +448,11 @@ class Service:
         async with server:
             while not self.stopping:
                 await asyncio.sleep(0.5)
+            # Server.wait_closed() waits for every open connection, and a kiosk keeps its
+            # WebSocket open forever: close them, or the service never exits on SIGINT/SIGTERM.
+            server.close()
+            for cl in list(self.hub.clients):
+                cl.writer.close()
             for c in self.chips:
                 c.stop()
             await asyncio.sleep(0)
