@@ -22,7 +22,7 @@ touch the box once it is on.
 |---|---|
 | ~1 min | a still picture of a folded protein |
 | ~1.5 min | points condensing into a protein, labelled **Recorded folds** |
-| ~2.5 min | the label turns **Live on four Blackhole chips** (or three) and the chip rows count folds |
+| ~2.5 min | the label turns **Live on four Blackhole chips** and the chip rows count folds |
 
 Visitors type letters and press Enter to fold; Esc goes back. **Tab** shows the four chips' clock,
 power and temperature, Tab again returns. After a minute without input the screen goes back to
@@ -36,9 +36,9 @@ the loop by itself.
 | **A frozen or black screen** for more than 2 minutes | The box repairs itself within about a minute; if it has not after 2, restart it. |
 | **Recorded folds** for more than 10 minutes, or every visitor gets *The chips are busy* | Leave it running: what it shows is real, recorded on this box, and labelled as such. Call. |
 
-**Restart:** hold the power button until the box goes dark (about 5 seconds), wait 10 seconds,
-press it once. It is back on the demo in about 2.5 minutes. Only do this standing at the box: it
-does not switch itself back on.
+**Restart:** press the power button once, briefly. The box stops the demo cleanly (this can take
+up to 2 minutes) and comes back on it about 2.5 minutes later. Do not hold the button: holding it
+for 5 seconds cuts power, and then it stays off until someone presses it again.
 
 **End of day:** leave the box running and switch only the screen off. If the hall cuts power
 overnight, press the power button in the morning.
