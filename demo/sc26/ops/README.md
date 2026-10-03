@@ -33,7 +33,7 @@ other work still runs on qb2.
 
 They run in a dedicated login session (`sc26`, a bare sway compositor) instead of the Ubuntu desktop,
 so there is no keyring prompt, no update notifier and no window to close. The background behind the
-browser is a still of a real fold, so a browser restart never shows a black screen. The Firefox snap
+browser is a still of a real fold, so a browser restart shows that still, not an empty screen. The Firefox snap
 is held at its current version and automatic package upgrades are off for the show; `uninstall`
 turns both back on.
 
@@ -41,8 +41,8 @@ turns both back on.
 
 | failure | detected by | recovery | what the screen shows |
 |---|---|---|---|
-| browser crashes | its launcher | Firefox restarts with a fresh profile | the background still, a black frame under half a second, then the app |
-| page or browser freezes | no frames drawn, or an unchanged screen for 30 s | the browser is restarted | the frozen frame, then the still, then the app |
+| browser crashes | its launcher | Firefox restarts with a fresh profile | sometimes a black frame of about a second, then the background still, then the app |
+| page or browser freezes | no frames drawn, or an unchanged screen for 30 s | the browser is restarted | the frozen frame, then the still, then the app (1 restart in 6 flashed black for under half a second) |
 | the page leaves the app (Firefox error page) | the page's document is not the app | the watchdog loads the app again once the engine answers | a dark error page for at most one 10 s check |
 | engine dies or hangs | `/status` unanswered for 30 s | systemd restarts it | the last fold, then recorded folds |
 | a chip's worker dies | the engine | the worker restarts | that chip's lane says recovering; the other chips keep folding |

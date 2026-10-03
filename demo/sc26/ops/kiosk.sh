@@ -16,6 +16,9 @@ prof=${SC26_KIOSK_PROFILE:-$HOME/sc26kiosk/profile}
 reap(){
   local p
   p=$(pgrep -f "firefox.* --profile $prof") || return 0
+  # Take the window off screen first. A Firefox told to quit, or sway's black backdrop behind a
+  # fullscreen window, showed a black frame for up to half a second; hidden, the poster shows.
+  for q in $p; do swaymsg -q "[pid=$q] move scratchpad" 2>/dev/null; done
   kill -CONT $p 2>/dev/null; kill -TERM $p 2>/dev/null
   for _ in $(seq 10); do sleep 0.5; pgrep -f "firefox.* --profile $prof" >/dev/null || return 0; done
   # The browser holds no chip, so a hard kill is safe here (it never is for a chip worker).
