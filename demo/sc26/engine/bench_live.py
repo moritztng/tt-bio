@@ -36,6 +36,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--lengths", default="50,100,200,400")
     ap.add_argument("--extra", default="", help="more prefix lengths, folded once each")
+    ap.add_argument("--prime", default="", help="LO-HI[:STEP]: fold every length once with no frames, "
+                    "to fill the on-disk kernel cache so no visitor ever waits for a compile")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -46,8 +48,14 @@ def main():
             jobs.append({"id": f"hsa{n}-{rep}", "sequence": HSA[:n], "seed": 0})
     jobs += [{"id": f"hsa{n}-once", "sequence": HSA[:n], "seed": 0}
              for n in map(int, filter(None, args.extra.split(",")))]
-    jobs += [{"id": "gb1-hookoff", "sequence": GB1, "seed": 0, "frames": False},
-             {"id": "gb1-hookon", "sequence": GB1, "seed": 0}]
+    if args.prime:
+        rng, _, step = args.prime.partition(":")
+        lo, hi = map(int, rng.split("-"))
+        jobs = [{"id": f"prime{n}", "sequence": HSA[:n], "seed": 0, "frames": False}
+                for n in range(lo, hi + 1, int(step or 1))]
+    else:
+        jobs += [{"id": "gb1-hookoff", "sequence": GB1, "seed": 0, "frames": False},
+                 {"id": "gb1-hookon", "sequence": GB1, "seed": 0}]
 
     p = subprocess.Popen([sys.executable, "-u", str(here / "chipworker.py"), "--chip", str(args.chip)],
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,

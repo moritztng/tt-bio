@@ -109,9 +109,14 @@ def main():
     ap.add_argument("--loops", type=int, default=3, help="trunk recycles (the model default)")
     args = ap.parse_args()
 
-    abort, cancel = threading.Event(), threading.Event()
+    abort, cancel, busy = threading.Event(), threading.Event(), threading.Event()
     import signal
-    signal.signal(signal.SIGINT, lambda *_: abort.set())
+
+    def on_sigint(*_):
+        abort.set()
+        if not busy.is_set():  # idle, blocked on stdin: leave now; mid-fold, at the next step
+            raise KeyboardInterrupt
+    signal.signal(signal.SIGINT, on_sigint)
     signal.signal(signal.SIGUSR1, lambda *_: cancel.set())
 
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -156,6 +161,8 @@ def main():
                 raise Aborted()
             if stage == "diffusion":
                 phase["of"] = total  # the sampler's real step count (its schedule is clipped)
+                if pending:  # the noise frame waited for that count
+                    emit(**{**pending.pop(), "of": total})
             if stage != phase["stage"]:
                 stamps[phase["stage"]] = time.perf_counter() - phase["t"]
                 phase.update(stage=stage, t=time.perf_counter())
@@ -163,6 +170,7 @@ def main():
                  t=round(time.perf_counter() - t_start, 3))
 
         prev = {"display": None}
+        pending = []
 
         def dump(step, x, x_den):
             if abort.is_set() or cancel.is_set():
@@ -177,10 +185,14 @@ def main():
             else:
                 r, t = kabsch(ref, prev["display"])
             prev["display"] = ref @ r.T + t
-            emit(type="frame", id=jid, chip=args.chip, step=step, of=phase.get("of", steps),
-                 t=round(time.perf_counter() - t_start, 3), xyz=f32(raw),
-                 x0=f32(x_den[0][mask]) if x_den is not None else None,
-                 R=[round(v, 6) for v in r.flatten().tolist()], T=[round(v, 4) for v in t.tolist()])
+            frame = dict(type="frame", id=jid, chip=args.chip, step=step, of=phase.get("of"),
+                         t=round(time.perf_counter() - t_start, 3), xyz=f32(raw),
+                         x0=f32(x_den[0][mask]) if x_den is not None else None,
+                         R=[round(v, 6) for v in r.flatten().tolist()], T=[round(v, 4) for v in t.tolist()])
+            if step == -1:
+                pending.append(frame)
+            else:
+                emit(**frame)
 
         emit(type="fold_start", id=jid, chip=args.chip, model=args.model, sequence=seq,
              n_res=len(seq), n_atoms=n_atoms, steps=steps, loops=args.loops, seed=seed, atoms=atoms,
@@ -207,27 +219,32 @@ def main():
 
     emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=clock.read(),
          load_s=round(time.perf_counter() - t0, 1), model=args.model)
-    for line in sys.stdin:
-        if abort.is_set():
-            break
-        line = line.strip()
-        if not line:
-            continue
-        job = json.loads(line)
-        if job.get("type") == "quit":
-            break
-        emit(type="chip", chip=args.chip, state="busy", job=job.get("id"))
-        cancel.clear()
-        try:
-            fold(job)
-        except Aborted:
-            emit(type="fold_error", id=job.get("id"), chip=args.chip,
-                 reason="stopped" if abort.is_set() else "preempted")
+    try:
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+            job = json.loads(line)
+            if job.get("type") == "quit":
+                break
+            emit(type="chip", chip=args.chip, state="busy", job=job.get("id"))
+            cancel.clear()
+            busy.set()
+            try:
+                fold(job)
+            except Aborted:
+                emit(type="fold_error", id=job.get("id"), chip=args.chip,
+                     reason="stopped" if abort.is_set() else "preempted")
+            except Exception as exc:  # a bad input must not take the chip down
+                emit(type="fold_error", id=job.get("id"), chip=args.chip,
+                     reason=f"{type(exc).__name__}: {exc}"[:400])
+            finally:
+                busy.clear()
             if abort.is_set():
                 break
-        except Exception as exc:  # a bad input must not take the chip down
-            emit(type="fold_error", id=job.get("id"), chip=args.chip, reason=f"{type(exc).__name__}: {exc}"[:400])
-        emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=clock.read())
+            emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=clock.read())
+    except KeyboardInterrupt:
+        pass
     emit(type="chip", chip=args.chip, state="stopped")
 
 
