@@ -259,7 +259,12 @@ function drawSide() {
         : m.position > 0 ? (m.position === 1 ? 'Next in line for a chip.' : `${ORDINAL[m.position] ?? m.position + 'th'} in line for a chip.`)
         : 'Finding a free chip.';
       src.textContent = '';
-      num.textContent = m.t0 ? ((performance.now() - m.t0) / 1000).toFixed(1) : '';
+      // the chip's own clock, held at the first diffusion state: the result replays from there, so the
+      // number never steps back when their fold arrives
+      const j = m.id != null ? stream.jobs[m.id] : null;
+      let s = m.t0 && j ? laneSeconds(j) : null;
+      if (s != null && (j.stage === 'diffusion' || j.stage === 'done')) s = j.tHold ??= s;
+      num.textContent = s != null ? s.toFixed(1) : '';
       numBox.classList.remove('locked');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
     } else {
