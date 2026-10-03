@@ -1,0 +1,20 @@
+{
+  "policies": {
+    "DisableAppUpdate": true,
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisableDeveloperTools": true,
+    "DisableProfileRefresh": true,
+    "DisablePocket": true,
+    "DisableSetDesktopBackground": true,
+    "DontCheckDefaultBrowser": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "NoDefaultBookmarks": true,
+    "DisplayMenuBar": "never",
+    "BlockAboutConfig": true,
+    "PromptForDownloadLocation": false,
+    "UserMessaging": { "WhatsNew": false, "ExtensionRecommendations": false, "FeatureRecommendations": false,
+                       "UrlbarInterventions": false, "SkipOnboarding": true, "MoreFromMozilla": false }
+  }
+}

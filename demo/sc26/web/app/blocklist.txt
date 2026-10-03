@@ -1,0 +1,47 @@
+# Words that would embarrass the booth if typed as a name. One per line. A plain word matches only
+# a whole typed word, so Hancock and Dickens fold; a word with a leading * matches anywhere in the
+# letters. A hit folds a gallery protein instead. Kept short: a deterrent, not a filter.
+ANAL
+ARSE
+ASS
+CLIT
+COCK
+CUM
+*CUNT
+DICK
+DYKE
+FAG
+*FUCK
+GOOK
+*JIZZ
+KIKE
+NAZI
+PISS
+*PORN
+RAPE
+SEX
+*SHIT
+*SLUT
+SPIC
+TITS
+*TWAT
+*WANK
+*WHORE
+*ASSHOLE
+BASTARD
+*BITCH
+BOLLOCK
+BONER
+*DILDO
+*FAGGOT
+*HITLER
+*MOTHERFUCK
+*NIGGA
+*NIGGER
+PENIS
+*PUSSY
+*RAPIST
+*RETARD
+*SIEGHEIL
+VAGINA
+*WANKER
