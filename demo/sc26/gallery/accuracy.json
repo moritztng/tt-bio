@@ -185,6 +185,35 @@
    }
   ]
  },
+ "antibody": {
+  "pdb": "7C01",
+  "matched_ca": 628,
+  "ca_rmsd": 2.01,
+  "ca_within_2A": 0.659,
+  "per_chain": {
+   "H": {
+    "role": "antibody heavy chain (Fab)",
+    "ref_chain": "H",
+    "matched": 218,
+    "of": 233,
+    "ca_rmsd": 1.83
+   },
+   "L": {
+    "role": "antibody light chain (Fab)",
+    "ref_chain": "L",
+    "matched": 215,
+    "of": 217,
+    "ca_rmsd": 1.46
+   },
+   "B": {
+    "role": "spike receptor-binding domain",
+    "ref_chain": "A",
+    "matched": 195,
+    "of": 229,
+    "ca_rmsd": 0.68
+   }
+  }
+ },
  "designed-binder": {
   "pdb": "7JZU",
   "matched_ca": 248,
