@@ -19,7 +19,7 @@ export async function run(app, h) {
     typing: async () => { key('M'); key('a'); },
     waiting: async () => { for (const c of 'Ada') key(c); key('Enter'); },
     result: async () => {
-      const f = h.director.pool[0];
+      const f = h.director.pool[0] ?? h.director.fallback;
       for (const c of 'Ada') key(c); key('Enter');
       app.mine.id = f.id;
       h.showResult({ ...f, kind: 'visitor', source: 'live', chip: f.chip ?? 2 });

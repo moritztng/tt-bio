@@ -164,6 +164,8 @@ addEventListener('pointerdown', (e) => {
   if (app.state === 'attract' || app.state === 'result') startTyping();
 });
 buildKeys();
+// while waiting there are no keys on screen; the invite line is the way back
+$('invite').addEventListener('pointerdown', (e) => { if (app.state === 'waiting') { e.stopPropagation(); toAttract(); } });
 
 function buildKeys() {
   const rows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
@@ -237,7 +239,7 @@ function drawInvite() {
   $('invite').innerHTML =
     s === 'attract' ? (liveChips() ? 'Type your name <span class="dim">and watch it fold.</span>' : '')
     : s === 'typing' ? (app.text.trim() ? '<kbd>Enter</kbd> to fold <span class="dim">&nbsp;</span><kbd>Esc</kbd> to go back' : '<kbd>Esc</kbd> to go back')
-    : s === 'waiting' ? ''
+    : s === 'waiting' ? (document.body.classList.contains('touch') ? '<span class="dim">Tap here to go back</span>' : '<kbd>Esc</kbd> to go back')
     : s === 'result' ? 'Type another name <span class="dim">or</span> <kbd>Esc</kbd>'
     : '<kbd>Tab</kbd> to go back';
 }

@@ -126,3 +126,4 @@ body[data-state=depth] #depth { opacity: 1; }
 body[data-state=depth] aside, body[data-state=depth] #invite, body[data-state=depth] #tag { opacity: 0; }
 aside, #invite, #tag { transition: opacity 600ms var(--fade); }
 body[data-state=typing] aside > :not(#chips) { opacity: 0; }
+body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }
