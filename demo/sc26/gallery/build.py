@@ -101,6 +101,10 @@ def main():
             for m in messages(meta, pick):
                 f.write(json.dumps(m, separators=(",", ":")) + "\n")
         n_frames = check(path, meta) if a.check else len(meta["frame_steps"])
+        xyz = load(meta)[0]
+        spread = np.sqrt(((xyz - xyz.mean(1, keepdims=True)) ** 2).sum(2).mean(1))
+        steps = meta["frame_steps"]
+        first = lambda k: next(s for s, v in zip(steps, spread) if v < k * spread[-1])
         store_bytes = mp.stat().st_size + (HERE / "store" / meta["bin"]["file"]).stat().st_size
         entries.append(dict(
             id=pid, name=pick["name"], story=pick["story"], why=pick["why"], pdb=pick["pdb"],
@@ -111,7 +115,10 @@ def main():
             seconds=meta["seconds"], seconds_first_fold_with_compile=meta["seconds_compile_fold"],
             stages=meta["stages"], aiclk_mhz=meta["aiclk_mhz"], chip=meta["chip"], host=meta["host"],
             recorded_utc=meta["recorded_utc"], confidence=meta["confidence"],
-            mean_plddt=round(float(np.mean(meta["plddt"])), 3), accuracy=acc.get(pid),
+            mean_plddt=round(float(np.mean(meta["plddt"])), 3),
+            share_plddt_70=round(float(np.mean(np.array(meta["plddt"]) >= 0.7)), 3), accuracy=acc.get(pid),
+            rg_final=meta["rg_final"], visible_from_step=first(4.0), settled_at_step=first(1.1),
+            spread_rms_A=[round(float(v), 1) for v in spread],
             recording=f"trajectories/{pid}.jsonl", recording_bytes=path.stat().st_size,
             store=[f"store/{pid}.json", f"store/{meta['bin']['file']}"], store_bytes=store_bytes))
         print(f"{pid:16s} {meta['n_res']:4d} res {meta['n_atoms']:5d} atoms {n_frames} frames "
