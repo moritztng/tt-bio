@@ -24,6 +24,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 DEMO = HERE.parent
+sys.path.insert(0, str(DEMO / "hardware"))
+import telemetry  # noqa: E402  per-chip sysfs telemetry and the fold ledger, also stdlib only
 GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 AMINO = set("ACDEFGHIKLMNPQRSTVWY")
 MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css",
@@ -90,6 +92,7 @@ class Chip:
                 job, self.job = self.job, None
                 self.svc.hub.send({"type": "fold_error", "id": job["id"], "chip": self.chip,
                                    "reason": "chip_lost", "t_wall": time.time()})
+                self.svc.ledger("fail", self.chip)
                 self.svc.requeue(job)
             self.set_state("recovering", rc=rc)
             if self.svc.stopping:
@@ -116,6 +119,9 @@ class Chip:
             if t == "fold_done":
                 self.folds += 1
                 self.last_fold = {k: ev.get(k) for k in ("n_res", "seconds", "aiclk_mhz")}
+                self.svc.ledger("done", self.chip, seconds=ev.get("seconds"))
+            elif t == "fold_error":
+                self.svc.ledger("fail", self.chip)
             if t in ("fold_done", "fold_error"):
                 self.svc.finish(job, ev)
                 self.job = None
@@ -132,6 +138,7 @@ class Chip:
         self.job, self.state = job, "busy"
         self.job["chip"], self.job["started"] = self.chip, time.monotonic()
         self.proc.stdin.write((json.dumps({k: job[k] for k in ("id", "sequence", "seed")}) + "\n").encode())
+        self.svc.ledger("start", self.chip, model="esmfold2", name=job.get("name"), residues=len(job["sequence"]))
 
     def preempt(self):
         if self.proc and self.proc.returncode is None:
@@ -193,6 +200,12 @@ class Service:
         self.replay = Replay(self, args.replay)
         self.open_files = {}
         self._preempt_armed = False
+        self.monitor = None if args.no_telemetry else telemetry.Monitor(events=Path(args.fold_events))
+
+    def ledger(self, event, chip, **fields):
+        """Tell the telemetry about a fold, so the lanes show it with the clock it ran at."""
+        if self.monitor:
+            telemetry.record_fold(event, chip, path=self.monitor.folds.path, **fields)
 
     def job(self, seq, kind, seed=0, extra=None):
         return {"id": f"{kind[0]}{next(self.ids)}", "sequence": seq, "seed": seed, "kind": kind, **(extra or {})}
@@ -300,6 +313,8 @@ class Service:
             except ValueError:
                 res = {"type": "rejected", "reason": "json"}
             return self.reply(writer, 200, json.dumps(res).encode(), "application/json")
+        if path == "/telemetry" and self.monitor:  # the chip lanes poll this (hardware/README.md)
+            return self.reply(writer, 200, json.dumps(self.monitor.snapshot()).encode(), "application/json")
         if path == "/status":
             return self.reply(writer, 200, json.dumps(self.status()).encode(), "application/json")
         root = Path(self.args.static).resolve()
@@ -352,6 +367,8 @@ class Service:
             loop.add_signal_handler(s, self.shutdown)
         tasks = [asyncio.create_task(c.run()) for c in self.chips]
         tasks += [asyncio.create_task(self.watchdog()), asyncio.create_task(self.replay.loop())]
+        if self.monitor:
+            self.monitor.start()
         print(f"sc26 engine on http://{self.args.host}:{self.args.port}/  chips={self.args.chips} "
               f"replays={len(self.replay.files)}", flush=True)
         async with server:
@@ -414,6 +431,9 @@ def main():
     ap.add_argument("--attract", default=str(HERE / "attract.json"),
                     help="sequences the chips fold when no visitor is waiting; empty to idle")
     ap.add_argument("--logdir", default=str(HERE / "runs" / "logs"))
+    ap.add_argument("--fold-events", default=str(telemetry.EVENTS),
+                    help="the fold ledger the telemetry reads (hardware/README.md)")
+    ap.add_argument("--no-telemetry", action="store_true", help="do not sample the chips' sysfs counters")
     ap.add_argument("--min-len", type=int, default=10)
     ap.add_argument("--max-len", type=int, default=400)
     ap.add_argument("--stall-s", type=float, default=180, help="a busy chip silent this long is stopped")
