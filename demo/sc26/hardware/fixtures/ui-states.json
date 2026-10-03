@@ -1,0 +1,18 @@
+{"type": "chips", "t": 0, "source": "fixture", "rate_hz": 4.0, "sample_ms": 1.1,
+ "_note": "A UI fixture with one chip in each state, for screenshots and layout work. Not a measurement.",
+ "chips": [
+  {"card": 0, "state": "folding", "board": "p300c", "aiclk_mhz": 1350, "power_w": 88.0, "power_max_w": 125.0, "temp_c": 63.2,
+   "power_60s": [31, 30, 64, 82, 86, 88, 87, 85, 88, 86, 84, 88, 87, 89, 88, 86, 87, 88, 90, 88, 87, 86, 88, 87, 88, 89, 88, 87, 86, 88],
+   "folding": {"model": "ESMFold2", "name": "Green fluorescent protein", "residues": 238, "elapsed_s": 1.2},
+   "folds_today": 0, "residues_per_s_today": null, "last_fold": null},
+  {"card": 1, "state": "idle", "board": "p300c", "aiclk_mhz": 800, "power_w": 29.0, "power_max_w": 125.0, "temp_c": 54.0,
+   "power_60s": [80, 84, 86, 85, 30, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29],
+   "folding": null, "folds_today": 1, "residues_per_s_today": 76.0,
+   "last_fold": {"model": "ESMFold2", "name": "Ubiquitin", "residues": 76, "seconds": 1.0, "residues_per_s": 76.0,
+                 "aiclk_during": {"median": 1350, "min": 1350, "n": 4}}},
+  {"card": 2, "state": "resetting", "board": null, "aiclk_mhz": null, "power_w": null, "power_max_w": 125.0, "temp_c": null,
+   "power_60s": [], "folding": null, "folds_today": 0, "residues_per_s_today": null, "last_fold": null},
+  {"card": 3, "state": "busy", "board": "p300c", "aiclk_mhz": 1300, "power_w": 71.0, "power_max_w": 125.0, "temp_c": 60.1,
+   "power_60s": [70, 72, 71, 69, 73, 71, 70, 72, 71, 70, 71, 72, 70, 71, 73, 72, 70, 71, 72, 71, 70, 69, 71, 72, 71, 70, 72, 71, 70, 71],
+   "folding": null, "folds_today": 0, "residues_per_s_today": null, "last_fold": null}
+ ]}
