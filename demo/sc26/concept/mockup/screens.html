@@ -1,0 +1,280 @@
+<!doctype html>
+<!-- SC26 concept mockups. Layout is in a 1920x1080 CSS frame; 4K is the same frame at
+     devicePixelRatio 2, so both sizes are the one layout. The 3D layer is a PNG from scene.py.
+     Numbers on these frames are placeholders for the layout, not measurements. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: "Inter"; src: url("assets/Inter-opsz-wght.ttf"); font-weight: 100 900; }
+:root {
+  --ground: #08090C; --ink: #EEF1F5; --ink2: #9AA3AF; --ink3: #5D6672; --rule: #1E232B;
+  --live: #3EB7DE; --ice: #9FDBFF; --ember: #FFA866;
+  --m: 96px;           /* outer margin, 5% of width: inside TV overscan */
+  --col: calc((1920px - 2 * var(--m) - 11 * 24px) / 12);
+}
+* { margin: 0; box-sizing: border-box; }
+html, body { width: 1920px; height: 1080px; background: var(--ground); overflow: hidden; }
+body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased;
+       font-feature-settings: "cv11" 1; }
+.timer, .meta, .chip .t, .chip .id, .lane, .cmp, .livetag { font-feature-settings: "tnum" 1, "cv11" 1; }
+.screen { position: absolute; inset: 0; display: none; }
+.screen.on { display: block; }
+.layer { position: absolute; inset: 0; background-size: 100% 100%; }
+.glow { position: absolute; inset: 0; background:
+  radial-gradient(ellipse 46% 52% at 33% 52%, rgba(62,183,222,0.07), rgba(62,183,222,0) 70%); }
+/* marks: top left, never in the bottom band a crowd's heads cover */
+.marks { position: absolute; left: var(--m); top: 60px; display: flex; align-items: center; gap: 22px; }
+.marks img { height: 30px; display: block; }
+.marks .div { width: 1px; height: 30px; background: #3A414B; }
+.marks .bio { font-size: 27px; font-weight: 640; letter-spacing: -0.01em; font-variation-settings: "opsz" 32; }
+.livetag { position: absolute; right: var(--m); top: 64px; display: flex; align-items: center; gap: 12px;
+  font-size: 19px; font-weight: 560; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink2); }
+.livetag i { width: 11px; height: 11px; border-radius: 50%; background: var(--live);
+  box-shadow: 0 0 14px 3px rgba(62,183,222,0.55); }
+.livetag.replay i { background: var(--ink3); box-shadow: none; }
+.sentence { position: absolute; left: var(--m); top: 128px; width: 880px; font-size: 30px; line-height: 1.32;
+  font-weight: 420; color: var(--ink2); letter-spacing: -0.005em; font-variation-settings: "opsz" 28; }
+.sentence b { color: var(--ink); font-weight: 560; }
+/* right column: what it is, the live number, the four chips */
+.side { position: absolute; left: 1296px; width: 528px; top: 236px; }
+.kicker { font-size: 17px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink3); }
+.name { margin-top: 14px; font-size: 62px; line-height: 1.02; font-weight: 640; letter-spacing: -0.028em;
+  font-variation-settings: "opsz" 32; }
+.story { margin-top: 18px; font-size: 25px; line-height: 1.38; color: var(--ink2); font-weight: 420; }
+.story em { font-style: normal; color: var(--ember); }
+.story u { text-decoration: none; color: var(--ice); }
+.timer { margin-top: 40px; font-size: 168px; line-height: 0.9; font-weight: 300; letter-spacing: -0.05em;
+  font-variation-settings: "opsz" 32; }
+.timer small { font-size: 64px; font-weight: 340; letter-spacing: -0.02em; color: var(--ink2); margin-left: 10px; }
+.timer.done { color: var(--ink); }
+.meta { margin-top: 16px; font-size: 21px; color: var(--ink2); font-weight: 460; }
+.meta b { color: var(--ink); font-weight: 560; }
+.chips { margin-top: 40px; border-top: 1px solid var(--rule); }
+.chip { display: grid; grid-template-columns: 54px 1fr 92px; align-items: center; height: 54px;
+  border-bottom: 1px solid var(--rule); font-size: 20px; color: var(--ink2); }
+.chip .id { font-weight: 600; color: var(--ink3); letter-spacing: 0.04em; }
+.chip .what { position: relative; height: 100%; display: flex; align-items: center; gap: 14px; }
+.chip .bar { position: absolute; left: 0; bottom: -1px; height: 2px; background: var(--ink3); }
+.chip .t { text-align: right; color: var(--ink2); }
+.chip.stage .id, .chip.stage .what { color: var(--ink); }
+.chip.stage .bar { background: var(--live); box-shadow: 0 0 10px rgba(62,183,222,0.8); }
+.chip .ph { font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink3); }
+.qr { position: absolute; left: var(--m); bottom: 56px; flex-direction: row-reverse; display: flex; gap: 18px; align-items: center; }
+.qr img { width: 84px; height: 84px; opacity: 0.9; }
+.qr div { font-size: 18px; line-height: 1.35; color: var(--ink2); text-align: left; }
+.qr b { color: var(--ink); font-weight: 560; display: block; }
+/* five-metre frame: nothing but the cloud, the marks and one live number */
+.big { position: absolute; right: var(--m); top: 50%; transform: translateY(-50%); text-align: right; }
+.big .timer { margin: 0; font-size: 230px; }
+.big .meta { font-size: 24px; }
+/* interaction: the name */
+.prompt { position: absolute; left: var(--m); top: 150px; font-size: 26px; color: var(--ink2); font-weight: 460; }
+.letters { position: absolute; left: var(--m); top: 214px; display: flex; gap: 10px; }
+.L { width: 112px; text-align: center; }
+.L .c { font-size: 132px; line-height: 1; font-weight: 560; letter-spacing: -0.02em; font-variation-settings: "opsz" 32; }
+.L .aa { margin-top: 12px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
+.L.sub .c { color: var(--ink3); }
+.L.sub .aa { color: var(--ink); }
+.L.sub .c::after { content: ""; display: block; margin: 6px auto 0; width: 44px; height: 3px; border-radius: 2px; background: var(--ink3); }
+.L.gap { width: 46px; }
+.L .caret { display: inline-block; width: 6px; height: 112px; background: var(--live); vertical-align: -6px;
+  box-shadow: 0 0 16px rgba(62,183,222,0.7); }
+.notes { position: absolute; left: var(--m); top: 470px; width: 1100px; font-size: 22px; line-height: 1.5; color: var(--ink2); }
+.notes p + p { margin-top: 6px; }
+.notes b { color: var(--ink); font-weight: 600; }
+.keys { position: absolute; left: var(--m); top: 610px; font-size: 20px; color: var(--ink3); letter-spacing: 0.02em; }
+.keys kbd { font: inherit; color: var(--ink); border: 1px solid #333A44; border-radius: 6px; padding: 3px 10px; margin: 0 4px; }
+.seq { margin-top: 18px; font-size: 19px; line-height: 1.5; color: var(--ink3); letter-spacing: 0.12em; word-break: break-all; }
+.seq b { color: var(--ink2); font-weight: 500; }
+.verdict { margin-top: 30px; font-size: 30px; line-height: 1.3; font-weight: 520; letter-spacing: -0.01em; }
+.conf { margin-top: 26px; display: flex; gap: 0; height: 10px; width: 528px; border-radius: 5px; overflow: hidden; }
+.conf span { display: block; height: 100%; }
+.legend { margin-top: 10px; display: flex; justify-content: space-between; font-size: 17px; color: var(--ink3); }
+/* depth: for the expert who stays */
+.depth { position: absolute; left: 960px; top: 150px; width: 864px; }
+.depth h2 { font-size: 17px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink3); margin: 0 0 14px; }
+.lanes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.lane { border-top: 2px solid var(--ink3); padding-top: 14px; }
+.lane.stage { border-top-color: var(--live); }
+.lane .n { font-size: 46px; font-weight: 300; letter-spacing: -0.03em; }
+.lane .n small { font-size: 22px; color: var(--ink2); }
+.lane dl { margin-top: 10px; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 17px; }
+.lane dt { color: var(--ink3); } .lane dd { color: var(--ink); text-align: right; margin: 0; }
+.phase { margin-top: 12px; display: flex; height: 8px; gap: 3px; }
+.phase span { display: block; height: 100%; border-radius: 2px; }
+.cmp { margin-top: 44px; }
+.cmp .row { display: grid; grid-template-columns: 280px 1fr 120px; align-items: center; height: 46px; font-size: 20px;
+  border-bottom: 1px solid var(--rule); color: var(--ink2); }
+.cmp .row b { color: var(--ink); font-weight: 560; }
+.cmp .bar { height: 10px; border-radius: 5px; background: var(--ink3); }
+.cmp .bar.tt { background: var(--live); }
+.src { margin-top: 12px; font-size: 16px; line-height: 1.45; color: var(--ink3); }
+.stack { margin-top: 40px; font-size: 20px; line-height: 1.5; color: var(--ink2); }
+.stack b { color: var(--ink); font-weight: 560; }
+</style>
+</head>
+<body>
+
+<!-- 1. FIVE METRES: the cloud. The only words are the marks and a running number. -->
+<section class="screen" id="cloud">
+  <div class="layer" style="background-image:url(L/cloud.png)"></div>
+  <div class="marks"><img src="assets/tenstorrent-logo-reversed.svg"><span class="div"></span><span class="bio">TT-Bio</span></div>
+  <div class="livetag"><i></i>Live</div>
+  <div class="big">
+    <div class="timer">14.2<small>s</small></div>
+    <div class="meta">chip <b>03</b> &nbsp;·&nbsp; step <b>76</b> of 200</div>
+  </div>
+</section>
+
+<!-- 2. TWO METRES: condensing, the sentence appears -->
+<section class="screen" id="condense">
+  <div class="layer" style="background-image:url(L/condense.png)"></div>
+  <div class="glow"></div>
+  <div class="marks"><img src="assets/tenstorrent-logo-reversed.svg"><span class="div"></span><span class="bio">TT-Bio</span></div>
+  <div class="livetag"><i></i>Live on four Blackhole chips</div>
+  <div class="sentence">An AI is predicting the 3D shape of a protein from its sequence, <b>live, on the four Tenstorrent chips in this box.</b></div>
+  <div class="side">
+    <div class="kicker">Folding now</div>
+    <div class="name">An antibody finds its target</div>
+    <div class="story"><u>Antibody</u> gripping <em>tissue factor</em>, the protein that starts a blood clot.</div>
+    <div class="timer">15.6<small>s</small></div>
+    <div class="meta">chip <b>03</b> &nbsp;·&nbsp; step <b>108</b> of 200 &nbsp;·&nbsp; AICLK <b>1350</b> MHz</div>
+    <div class="chips">
+      <div class="chip"><span class="id">01</span><span class="what">Insulin <span class="ph">thinking</span><span class="bar" style="width:38%"></span></span><span class="t">0.8 s</span></div>
+      <div class="chip"><span class="id">02</span><span class="what">Hemoglobin <span class="ph">done</span><span class="bar" style="width:100%"></span></span><span class="t">3.1 s</span></div>
+      <div class="chip stage"><span class="id">03</span><span class="what">Antibody + tissue factor<span class="bar" style="width:72%"></span></span><span class="t">15.6 s</span></div>
+      <div class="chip"><span class="id">04</span><span class="what">GFP <span class="ph">thinking</span><span class="bar" style="width:12%"></span></span><span class="t">0.2 s</span></div>
+    </div>
+  </div>
+  <div class="qr"><div><b>Fold your own</b>japanfold.aiand.com</div><img src="assets/qr.svg"></div>
+</section>
+
+<!-- 3. THE BLOOM: surface grows from the confident core, a blue seam travels -->
+<section class="screen" id="bloom">
+  <div class="layer" style="background-image:url(L/bloom.png)"></div>
+  <div class="glow"></div>
+  <div class="marks"><img src="assets/tenstorrent-logo-reversed.svg"><span class="div"></span><span class="bio">TT-Bio</span></div>
+  <div class="livetag"><i></i>Live on four Blackhole chips</div>
+  <div class="sentence">An AI is predicting the 3D shape of a protein from its sequence, <b>live, on the four Tenstorrent chips in this box.</b></div>
+  <div class="side">
+    <div class="kicker">Folded</div>
+    <div class="name">An antibody finds its target</div>
+    <div class="story"><u>Antibody</u> gripping <em>tissue factor</em>, the protein that starts a blood clot.</div>
+    <div class="timer done">17.9<small>s</small></div>
+    <div class="meta">chip <b>03</b> &nbsp;·&nbsp; 200 steps &nbsp;·&nbsp; AICLK <b>1350</b> MHz during the fold</div>
+    <div class="chips">
+      <div class="chip"><span class="id">01</span><span class="what">Insulin <span class="ph">thinking</span><span class="bar" style="width:55%"></span></span><span class="t">1.2 s</span></div>
+      <div class="chip"><span class="id">02</span><span class="what">Hemoglobin <span class="ph">next</span><span class="bar" style="width:4%"></span></span><span class="t">0.1 s</span></div>
+      <div class="chip stage"><span class="id">03</span><span class="what">Antibody + tissue factor<span class="bar" style="width:100%"></span></span><span class="t">17.9 s</span></div>
+      <div class="chip"><span class="id">04</span><span class="what">GFP <span class="ph">thinking</span><span class="bar" style="width:30%"></span></span><span class="t">0.5 s</span></div>
+    </div>
+  </div>
+  <div class="qr"><div><b>Fold your own</b>japanfold.aiand.com</div><img src="assets/qr.svg"></div>
+</section>
+
+<!-- 4. THE HOLD: confident surface, the light moves, the camera does not -->
+<section class="screen" id="hold">
+  <div class="layer" style="background-image:url(L/hold.png)"></div>
+  <div class="glow"></div>
+  <div class="marks"><img src="assets/tenstorrent-logo-reversed.svg"><span class="div"></span><span class="bio">TT-Bio</span></div>
+  <div class="livetag"><i></i>Live on four Blackhole chips</div>
+  <div class="sentence">An AI is predicting the 3D shape of a protein from its sequence, <b>live, on the four Tenstorrent chips in this box.</b></div>
+  <div class="side">
+    <div class="kicker">Folded</div>
+    <div class="name">An antibody finds its target</div>
+    <div class="story"><u>Antibody</u> gripping <em>tissue factor</em>, the protein that starts a blood clot.</div>
+    <div class="timer done">17.9<small>s</small></div>
+    <div class="meta">chip <b>03</b> &nbsp;·&nbsp; 628 residues &nbsp;·&nbsp; confidence <b>96</b> / 100</div>
+    <div class="chips">
+      <div class="chip"><span class="id">01</span><span class="what">Insulin <span class="ph">drawing</span><span class="bar" style="width:84%"></span></span><span class="t">1.6 s</span></div>
+      <div class="chip"><span class="id">02</span><span class="what">Hemoglobin <span class="ph">thinking</span><span class="bar" style="width:20%"></span></span><span class="t">0.6 s</span></div>
+      <div class="chip stage"><span class="id">03</span><span class="what">Antibody + tissue factor<span class="bar" style="width:100%"></span></span><span class="t">17.9 s</span></div>
+      <div class="chip"><span class="id">04</span><span class="what">GFP <span class="ph">thinking</span><span class="bar" style="width:46%"></span></span><span class="t">15.6 s</span></div>
+    </div>
+  </div>
+  <div class="qr"><div><b>Type a name to fold it</b>or fold your own at japanfold.aiand.com</div><img src="assets/qr.svg"></div>
+</section>
+
+<!-- 5. INTERACTION: typing a name. Letters outside the 20 are shown, substituted, and said so -->
+<section class="screen" id="type">
+  <div class="layer" style="background-image:url(L/namebg.png); opacity:0.55"></div>
+  <div class="marks"><img src="assets/tenstorrent-logo-reversed.svg"><span class="div"></span><span class="bio">TT-Bio</span></div>
+  <div class="livetag"><i></i>Chip 02 is free</div>
+  <div class="prompt">Your name is a protein. Twenty letters are amino acids.</div>
+  <div class="letters">
+    <div class="L"><div class="c">S</div><div class="aa">Serine</div></div>
+    <div class="L"><div class="c">E</div><div class="aa">Glutamate</div></div>
+    <div class="L"><div class="c">Y</div><div class="aa">Tyrosine</div></div>
+    <div class="L"><div class="c">M</div><div class="aa">Methionine</div></div>
+    <div class="L sub"><div class="c">O</div><div class="aa">→ K</div></div>
+    <div class="L sub"><div class="c">U</div><div class="aa">→ C</div></div>
+    <div class="L"><div class="c">R</div><div class="aa">Arginine</div></div>
+    <div class="L gap"></div>
+    <div class="L"><div class="c">C</div><div class="aa">Cysteine</div></div>
+    <div class="L"><div class="c">R</div><div class="aa">Arginine</div></div>
+    <div class="L"><div class="c">A</div><div class="aa">Alanine</div></div>
+    <div class="L"><div class="c">Y<span class="caret"></span></div><div class="aa">Tyrosine</div></div>
+  </div>
+  <div class="notes">
+    <p><b>O</b> is pyrrolysine and <b>U</b> is selenocysteine, real but rare. The model only knows the
+    common twenty, so they fold as their closest relatives, lysine and cysteine.</p>
+  </div>
+  <div class="keys">Press <kbd>Enter</kbd> to fold &nbsp;&nbsp; <kbd>Esc</kbd> to clear</div>
+</section>
+
+<!-- 6. INTERACTION RESULT. Stand-in coordinates: ubiquitin (1UBQ), NOT a prediction of this name. -->
+<section class="screen" id="name">
+  <div class="layer" style="background-image:url(L/name.png)"></div>
+  <div class="glow"></div>
+  <div class="marks"><img src="assets/tenstorrent-logo-reversed.svg"><span class="div"></span><span class="bio">TT-Bio</span></div>
+  <div class="livetag"><i></i>Live on chip 02</div>
+  <div class="side" style="top:236px">
+    <div class="kicker">Your protein</div>
+    <div class="name">SEYMOUR CRAY</div>
+    <div class="seq">SEYM<b>KC</b>RCRAY &nbsp;×6</div>
+    <div class="timer done">2.6<small>s</small></div>
+    <div class="meta">chip <b>02</b> &nbsp;·&nbsp; 66 residues, your name six times</div>
+    <div class="conf"><span style="width:22%;background:#5D6672"></span><span style="width:56%;background:#9FDBFF"></span><span style="width:22%;background:#5D6672"></span></div>
+    <div class="legend"><span>unsure, stays a cloud</span><span>confident, solid</span></div>
+    <div class="verdict">Most of your name is unsure. Real proteins are sequences that evolution kept because they fold.</div>
+  </div>
+  <div class="qr"><div><b>Take it home</b>this sequence, at japanfold.aiand.com</div><img src="assets/qr.svg"></div>
+</section>
+
+<!-- 7. AT THE SCREEN: depth for the expert. Press D or stand still for 20 s at the keyboard -->
+<section class="screen" id="depth">
+  <div class="layer" style="background-image:url(L/depth.png)"></div>
+  <div class="marks"><img src="assets/tenstorrent-logo-reversed.svg"><span class="div"></span><span class="bio">TT-Bio</span></div>
+  <div class="livetag"><i></i>Live on four Blackhole chips</div>
+  <div class="sentence" style="width:760px">Four chips, four folds at once. Each protein runs whole on one chip: no splitting a model across chips.</div>
+  <div class="depth">
+    <h2>The four chips, now</h2>
+    <div class="lanes">
+      <div class="lane"><div class="n">3.1<small> s</small></div><dl><dt>Insulin</dt><dd>51 aa</dd><dt>AICLK</dt><dd>1350 MHz</dd><dt>Power</dt><dd>— W</dd><dt>Temp</dt><dd>— °C</dd></dl>
+        <div class="phase"><span style="flex:3;background:#5D6672"></span><span style="flex:2;background:#3EB7DE"></span></div></div>
+      <div class="lane"><div class="n">1.2<small> s</small></div><dl><dt>Hemoglobin</dt><dd>574 aa</dd><dt>AICLK</dt><dd>1347 MHz</dd><dt>Power</dt><dd>— W</dd><dt>Temp</dt><dd>— °C</dd></dl>
+        <div class="phase"><span style="flex:1;background:#5D6672"></span><span style="flex:4;background:#1E232B"></span></div></div>
+      <div class="lane stage"><div class="n">17.9<small> s</small></div><dl><dt>Antibody</dt><dd>628 aa</dd><dt>AICLK</dt><dd>1350 MHz</dd><dt>Power</dt><dd>— W</dd><dt>Temp</dt><dd>— °C</dd></dl>
+        <div class="phase"><span style="flex:3;background:#5D6672"></span><span style="flex:2;background:#3EB7DE"></span></div></div>
+      <div class="lane"><div class="n">6.8<small> s</small></div><dl><dt>GFP</dt><dd>238 aa</dd><dt>AICLK</dt><dd>1350 MHz</dd><dt>Power</dt><dd>— W</dd><dt>Temp</dt><dd>— °C</dd></dl>
+        <div class="phase"><span style="flex:3;background:#5D6672"></span><span style="flex:1;background:#3EB7DE"></span><span style="flex:1;background:#1E232B"></span></div></div>
+    </div>
+    <div class="src">Grey: the trunk, reasoning over every pair of residues, no geometry yet. Blue: diffusion, 200 steps from noise to atoms, the part you watch.</div>
+    <div class="cmp">
+      <h2>What it costs, Boltz-2 at 512 residues</h2>
+      <div class="row"><span><b>Galaxy, 32 Blackhole</b></span><div class="bar tt" style="width:100%"></div><span style="text-align:right"><b>6.3x</b></span></div>
+      <div class="row"><span>DGX H200, 8 GPUs</span><div class="bar" style="width:15.9%"></div><span style="text-align:right">1x</span></div>
+      <div class="src">Folds per second per dollar of purchase price. One H200 folds faster than one Blackhole chip (7.30 s vs 17.34 s); the advantage is price. Measured 2026-09-13, tt-bio perf page.</div>
+    </div>
+    <div class="stack">Open stack, top to bottom: <b>TT-Bio</b> on <b>TT-NN</b> and <b>TT-Metalium</b>, on open RISC-V cores.</div>
+  </div>
+  <div class="qr"><div><b>Try it after the show</b>japanfold.aiand.com</div><img src="assets/qr.svg"></div>
+</section>
+
+<script>
+const id = location.hash.slice(1) || "hold";
+document.getElementById(id).classList.add("on");
+</script>
+</body>
+</html>
