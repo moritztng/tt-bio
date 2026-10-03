@@ -11,7 +11,8 @@ RestartSec=3
 # SIGINT lets a worker drop its fold and close its chip cleanly; a SIGKILLed worker leaves the
 # chip dirty, so systemd never sends one.
 KillSignal=SIGINT
-TimeoutStopSec=90
+# A live worker finishes its sampler step and closes its chip before exiting, ~30 s measured.
+TimeoutStopSec=120
 SendSIGKILL=no
 Nice=5
 
