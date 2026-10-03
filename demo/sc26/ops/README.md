@@ -45,6 +45,7 @@ turns both back on.
 | page or browser freezes | no frames drawn, or an unchanged screen for 30 s | the browser is restarted | the frozen frame, then the still, then the app |
 | engine dies or hangs | `/status` unanswered for 30 s | systemd restarts it | the last fold, then recorded folds |
 | a chip's worker dies | the engine | the worker restarts | that chip's lane says recovering; the other chips keep folding |
+| a chip's memory fills up (after about 35 min of mixed folds) | the fold fails with out of memory | that worker restarts with empty memory; a visitor's fold is retried | that lane says recovering for about 40 s; the other chips keep folding |
 | a chip wedges | no progress for 120 s, the worker ignores SIGINT and SIGTERM | both chips on that board are reset with `tt-smi -r` | the board's two lanes say resetting; recorded folds fill in if no chip is left |
 | network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
 
