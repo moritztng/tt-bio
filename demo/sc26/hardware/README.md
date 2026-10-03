@@ -31,8 +31,8 @@ a time, under a timeout, and its process group is reaped.
 
 ## The `chips` message
 
-The engine sends `Monitor.snapshot()` on `/stream` as is; the screens take it through
-`view.update(msg)`.
+The engine's server returns `Monitor.snapshot()` at `GET /telemetry`; the screens poll it and take
+it through `view.update(msg)`.
 
 ```json
 {"type": "chips", "t": 1790985432.1, "source": "live", "rate_hz": 4.0, "sample_ms": 1.1,
@@ -53,8 +53,8 @@ The engine sends `Monitor.snapshot()` on `/stream` as is; the screens take it th
 
 ## Telling the telemetry about folds
 
-Each fold worker records its folds; the ledger tails the file, so folds survive a restart of
-either side.
+The engine's server records every fold it starts, finishes or loses; the ledger tails the file,
+so folds survive a restart of either side.
 
 ```python
 from telemetry import record_fold

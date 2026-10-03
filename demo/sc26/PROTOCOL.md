@@ -113,6 +113,8 @@ Answers to a browser's `fold` request, sent only to that browser.
 * `{"type":"status"}`: send a `status` now.
 
 `POST /fold` with `{"sequence": ...}` and `GET /status` do the same over plain HTTP.
+`GET /telemetry` returns the per-chip clock, power, temperature and fold ledger, in the format
+`hardware/README.md` gives for the `chips` message. The chip lanes poll it twice a second.
 
 ## Replay
 
