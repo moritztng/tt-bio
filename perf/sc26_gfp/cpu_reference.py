@@ -28,18 +28,25 @@ class CpuESMC:
     """The `_ESMCAdapter` contract on CPU: hidden states [n_layers+1, B, L, d], hs[0] the embedding,
     hs[i] block i-1's output, hs[-1] the final-norm output (tt_bio.esmc.ESMCHiddenStatesModel)."""
 
-    def __init__(self, dtype):
-        from esmc_embed_parity import load_reference, reference_state_dict
-        self.lm = load_reference("esmc-6b", reference_state_dict("esmc-6b")).to(dtype).eval()
-        self.dtype = dtype
+    def __init__(self, dtype, cache=None):
+        self.dtype, self.cache, self.lm = dtype, cache, None
+        if not (cache and os.path.exists(cache)):
+            from esmc_embed_parity import load_reference, reference_state_dict
+            self.lm = load_reference("esmc-6b", reference_state_dict("esmc-6b")).to(dtype).eval()
 
     def __call__(self, input_ids, sequence_id=None, output_hidden_states=True, **_):
         import types
         if sequence_id is not None:
             assert bool((sequence_id >= 0).all()), "padding is not handled by this reference"
+        if self.lm is None:  # the LM is seed-independent, so a cached run is the same computation
+            c = torch.load(self.cache)
+            assert torch.equal(c["input_ids"], input_ids), "LM cache is for another sequence"
+            return types.SimpleNamespace(hidden_states=c["hidden_states"])
         x = self.lm.embed(input_ids)
         post, _pre, hidden, _ = self.lm.transformer(x, sequence_id)
         hs = torch.stack([x, *hidden[:-1], post], 0).float()
+        if self.cache:
+            torch.save({"input_ids": input_ids, "hidden_states": hs}, self.cache)
         return types.SimpleNamespace(hidden_states=hs)
 
 
@@ -52,6 +59,8 @@ def main():
     ap.add_argument("--dtype", default="fp32", choices=["fp32", "fp64"])
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--lm-cache", help="ESMC hidden states: written if missing, else read and the LM is not loaded")
+    ap.add_argument("--lm-only", action="store_true", help="write --lm-cache and stop")
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
     torch.set_grad_enabled(False)
@@ -66,7 +75,7 @@ def main():
     t0 = time.time()
     rev = hf_revision(ESMFOLD2_REPO)
     model = ESMFold2Model.from_pretrained(ESMFOLD2_REPO, load_esmc=False, revision=rev).to(dtype).eval()
-    model._esmc = CpuESMC(dtype)
+    model._esmc = CpuESMC(dtype, args.lm_cache)
     print(f"loaded in {time.time() - t0:.0f}s, ESMFold2 {ESMFOLD2_REPO}@{rev}, {args.dtype}", flush=True)
     builder = ESMFold2InputBuilder()
     seq = args.seq.strip().upper()
@@ -74,6 +83,11 @@ def main():
            "esmfold2_revision": rev, "runs": {}}
     if os.path.exists(args.out):
         out["runs"] = json.load(open(args.out)).get("runs", {})
+    if args.lm_only:
+        feats, _ = builder.prepare_input(build_spi([("A", seq)]), seed=0, device="cpu")
+        model._compute_lm_hidden_states(*(feats[k] for k in (
+            "input_ids", "asym_id", "residue_index", "mol_type", "token_attention_mask")))
+        return
     for seed in map(int, args.seeds.split(",")):
         if str(seed) in out["runs"]:
             continue
