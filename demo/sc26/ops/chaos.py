@@ -102,11 +102,15 @@ class Chaos:
     def workers(self):
         """The demo's chip workers, only on --worker-chips if given."""
         out = []
-        for p in pids(lambda c: any(x.endswith(b"chipworker.py") for x in c), env="worker:sc26-demo"):
+        found = pids(lambda c: any(x.endswith(b"chipworker.py") for x in c), env="worker:sc26-demo")
+        for p in found:
             try:
                 env = Path(f"/proc/{p}/environ").read_bytes().split(b"\0")
-            except OSError:
+                ppid = int(Path(f"/proc/{p}/stat").read_text().rsplit(")", 1)[1].split()[1])
+            except (OSError, ValueError):
                 continue
+            if ppid in found:
+                continue  # a worker forks a helper with the same command line; signal the worker itself
             chip = next((e.split(b"=", 1)[1].decode() for e in env if e.startswith(b"TT_VISIBLE_DEVICES=")), "")
             if not self.a.worker_chips or chip in self.a.worker_chips.split(","):
                 out.append(p)
