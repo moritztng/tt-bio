@@ -18,6 +18,7 @@
 // look, take stills and measure frame rate.
 //   ?traj=fixtures/x.json  mode=auto|points|surface|glass|ribbon  scheme=chain|water|confidence
 //   scale=0.75 (render scale)  msaa=4  speed=1  at=<s> (freeze at stream time s)  hud=1
+//   modeAt=t:mode[:scheme],..  wall=1 (shots/modeAt on wall-clock seconds, for frozen stills)
 //   null=1 (clear only: the cost of putting a canvas this size on screen at all)
 //   shots=t1,t2 (post a 'shot' event as playback crosses each time)  loop=a,b (loop stream time a..b s)  bench=<s> (measure, POST to /bench)  hold=<s> (hold final)
 const post = (o) => fetch('/bench', { method: 'POST', body: JSON.stringify(o) }).catch(() => {});
@@ -61,6 +62,7 @@ addEventListener('keydown', (e) => {
 const bench = num('bench', 0), intervals = [], phases = {};
 let last = performance.now(), started = last, reported = false, readySent = false, shotIdx = 0;
 const shots = q.get('shots')?.split(',').map(Number) ?? [];
+const modeAt = q.get('modeAt')?.split(',').map(x => { const [t, m, sc] = x.split(':'); return [+t, m, sc]; }) ?? [];
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   if (now - started > 2000 && bench) {
@@ -77,7 +79,9 @@ function frame(now) {
   }
   if (q.has('null')) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0.01, 0.01, 0.02, 1); gl.clear(gl.COLOR_BUFFER_BIT); r.stats.frames++; }
   else r.render(q.has('at') ? 0.016 : dt);
-  if (shots.length && r.clock - t0 >= shots[0] && r.stats.frames > 30) {
+  const tnow = q.has('wall') ? (now - started) / 1000 : r.clock - t0;
+  while (modeAt.length && tnow >= modeAt[0][0]) { const [, m, sc] = modeAt.shift(); r.setMode(m); if (sc) r.setScheme(sc); }
+  if (shots.length && tnow >= shots[0] && r.stats.frames > 30) {
     const t = shots.shift(); post({ kind: 'shot', t, idx: shotIdx++, progress: r.progress, ...r.onScreen(), rg: r.compact, w: { ...Object.fromEntries(Object.entries(r.w).map(([k, v]) => [k, +v.x.toFixed(3)])) }, mesh: r.surf.last ?? null });
   }
   if (!readySent && r.stats.frames > 150 && (now - started) / 1000 > num('ready', 0)) {

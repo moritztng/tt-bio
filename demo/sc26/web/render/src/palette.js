@@ -19,7 +19,7 @@ function ramp(stops, t) {
 const KD = { ILE: 4.5, VAL: 4.2, LEU: 3.8, PHE: 2.8, CYS: 2.5, MET: 1.9, ALA: 1.8, GLY: -0.4, THR: -0.7,
   SER: -0.8, TRP: -0.9, TYR: -1.3, PRO: -1.6, HIS: -3.2, GLU: -3.5, GLN: -3.5, ASP: -3.5, ASN: -3.5,
   LYS: -3.9, ARG: -4.5 };
-const WATER_STOPS = [[0.10, 0.45, 0.95], [0.80, 0.84, 0.90], [1.00, 0.62, 0.18]];
+const WATER_STOPS = ['#38bdf8', '#e2e8f0', '#ff6b5b'].map(lin);  // seeks water, neutral, avoids water
 
 const CONF_STOPS = [[1.0, 0.45, 0.20], [1.0, 0.85, 0.35], [0.30, 0.75, 1.0], [0.10, 0.35, 1.0]];
 
