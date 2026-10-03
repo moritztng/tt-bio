@@ -1,0 +1,252 @@
+[
+ {
+  "id": "insulin",
+  "name": "Insulin",
+  "pdb": "3I40",
+  "uniprot": "P01308",
+  "story": "The hormone in every insulin pen: two short chains held together by sulfur bridges.",
+  "why": "Everyone knows someone who injects it. The smallest pick, so its surface is a pebble next to the rest.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "insulin A chain",
+    "sequence": "GIVEQCCTSICSLYQLENYCN",
+    "ref_chain": "A"
+   },
+   {
+    "id": "B",
+    "role": "insulin B chain",
+    "sequence": "FVNQHLCGSHLVEALYLVCGERGFFYTPKA",
+    "ref_chain": "B"
+   }
+  ],
+  "ligands": [],
+  "n_res": 51
+ },
+ {
+  "id": "gfp",
+  "name": "Green fluorescent protein",
+  "pdb": "1EMA",
+  "uniprot": "P42212",
+  "story": "A jellyfish protein that glows green. Biologists put it in cells to watch them live.",
+  "why": "A barrel with its light inside, a shape anyone can read; the S65T variant every lab uses, 2008 Nobel Prize.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "GFP (S65T)",
+    "sequence": "MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFTYGVQCFSRYPDHMKRHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITHGMDELYK",
+    "ref_chain": "A"
+   }
+  ],
+  "ligands": [],
+  "n_res": 238
+ },
+ {
+  "id": "haemoglobin",
+  "name": "Haemoglobin",
+  "pdb": "2DN2",
+  "uniprot": "P69905, P68871",
+  "story": "Carries the oxygen you are breathing right now. Four chains, each holding an iron in a heme.",
+  "why": "The protein in every visitor's blood; four chains and four hemes make a big, symmetric surface.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "alpha",
+    "sequence": "VLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHGKKVADALTNAVAHVDDMPNALSALSDLHAHKLRVDPVNFKLLSHCLLVTLAAHLPAEFTPAVHASLDKFLASVSTVLTSKYR",
+    "ref_chain": "A"
+   },
+   {
+    "id": "B",
+    "role": "beta",
+    "sequence": "VHLTPEEKSAVTALWGKVNVDEVGGEALGRLLVVYPWTQRFFESFGDLSTPDAVMGNPKVKAHGKKVLGAFSDGLAHLDNLKGTFATLSELHCDKLHVDPENFRLLGNVLVCVLAHHFGKEFTPPVQAAYQKVVAGVANALAHKYH",
+    "ref_chain": "B"
+   },
+   {
+    "id": "C",
+    "role": "alpha",
+    "sequence": "VLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHGKKVADALTNAVAHVDDMPNALSALSDLHAHKLRVDPVNFKLLSHCLLVTLAAHLPAEFTPAVHASLDKFLASVSTVLTSKYR",
+    "ref_chain": "C"
+   },
+   {
+    "id": "D",
+    "role": "beta",
+    "sequence": "VHLTPEEKSAVTALWGKVNVDEVGGEALGRLLVVYPWTQRFFESFGDLSTPDAVMGNPKVKAHGKKVLGAFSDGLAHLDNLKGTFATLSELHCDKLHVDPENFRLLGNVLVCVLAHHFGKEFTPPVQAAYQKVVAGVANALAHKYH",
+    "ref_chain": "D"
+   }
+  ],
+  "ligands": [
+   {
+    "id": "E",
+    "ccd": "HEM"
+   },
+   {
+    "id": "F",
+    "ccd": "HEM"
+   },
+   {
+    "id": "G",
+    "ccd": "HEM"
+   },
+   {
+    "id": "H",
+    "ccd": "HEM"
+   }
+  ],
+  "n_res": 574
+ },
+ {
+  "id": "myoglobin",
+  "name": "Myoglobin",
+  "pdb": "1A6M",
+  "uniprot": "P02185",
+  "story": "The first protein anyone saw in 3D, in 1958. It stores oxygen in whale muscle for the long dive.",
+  "why": "A history moment for a room of scientists, and the one-chain cousin of haemoglobin, so the two read as a pair.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "myoglobin",
+    "sequence": "VLSEGEWQLVLHVWAKVEADVAGHGQDILIRLFKSHPETLEKFDRFKHLKTEAEMKASEDLKKHGVTVLTALGAILKKKGHHEAELKPLAQSHATKHKIPIKYLEFISEAIIHVLHSRHPGDFGADAQGAMNKALELFRKDIAAKYKELGY",
+    "ref_chain": "A"
+   }
+  ],
+  "ligands": [
+   {
+    "id": "B",
+    "ccd": "HEM"
+   }
+  ],
+  "n_res": 151
+ },
+ {
+  "id": "spike-ace2",
+  "name": "The coronavirus spike meets ACE2",
+  "pdb": "6M0J",
+  "uniprot": "P0DTC2, Q9BYF1",
+  "story": "How the coronavirus gets in: the tip of its spike grabbing a receptor on a human cell.",
+  "why": "The pandemic everyone lived through, and the largest pick at over 800 residues.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "human ACE2 receptor",
+    "sequence": "STIEEQAKTFLDKFNHEAEDLFYQSSLASWNYNTNITEENVQNMNNAGDKWSAFLKEQSTLAQMYPLQEIQNLTVKLQLQALQQNGSSVLSEDKSKRLNTILNTMSTIYSTGKVCNPDNPQECLLLEPGLNEIMANSLDYNERLWAWESWRSEVGKQLRPLYEEYVVLKNEMARANHYEDYGDYWRGDYEVNGVDGYDYSRGQLIEDVEHTFEEIKPLYEHLHAYVRAKLMNAYPSYISPIGCLPAHLLGDMWGRFWTNLYSLTVPFGQKPNIDVTDAMVDQAWDAQRIFKEAEKFFVSVGLPNMTQGFWENSMLTDPGNVQKAVCHPTAWDLGKGDFRILMCTKVTMDDFLTAHHEMGHIQYDMAYAAQPFLLRNGANEGFHEAVGEIMSLSAATPKHLKSIGLLSPDFQEDNETEINFLLKQALTIVGTLPFTYMLEKWRWMVFKGEIPKDQWMKKWWEMKREIVGVVEPVPHDETYCDPASLFHVSNDYSFIRYYTRTLYQFQFQEALCQAAKHEGPLHKCDISNSTEAGQKLFNMLRLGKSEPWTLALENVVGAKNMNVRPLLNYFEPLFTWLKDQNKNSFVGWSTDWSPYADHHHHHH",
+    "ref_chain": "A"
+   },
+   {
+    "id": "B",
+    "role": "spike receptor-binding domain",
+    "sequence": "RVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNKCVNFHHHHHH",
+    "ref_chain": "E"
+   }
+  ],
+  "ligands": [],
+  "n_res": 832
+ },
+ {
+  "id": "antibody",
+  "name": "An antibody finds its target",
+  "pdb": "7C01",
+  "uniprot": "P0DTC2",
+  "story": "An antibody drug, etesevimab, grabbing the same spike tip so the virus cannot use it.",
+  "why": "The Y-shaped molecule everyone has heard of, caught in the act: the two antibody chains and their target.",
+  "chains": [
+   {
+    "id": "H",
+    "role": "antibody heavy chain (Fab)",
+    "sequence": "EVQLVESGGGLVQPGGSLRLSCAASGFTVSSNYMSWVRQAPGKGLEWVSVIYSGGSTFYADSVKGRFTISRDNSMNTLFLQMNSLRAEDTAVYYCARVLPMYGDYLDYWGQGTLVTVSSASTKGPSVFPLAPSSKSTSGGTAALGCLVKDYFPEPVTVSWNSGALTSGVHTFPAVLQSSGLYSLSSVVTVPSSSLGTQTYICNVNHKPSNTKVDKRVEPKSCDKTHTHHHHHH",
+    "ref_chain": "H"
+   },
+   {
+    "id": "L",
+    "role": "antibody light chain (Fab)",
+    "sequence": "DIVMTQSPSSLSASVGDRVTITCRASQSISRYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPEYTFGQGTKLEIKRTVAAPSVFIFPPSDEQLKSGTASVVCLLNNFYPREAKVQWKVDNALQSGNSQESVTEQDSKDSTYSLSSTLTLSKADYEKHKVYACEVTHQGLSSPVTKSFNRGECS",
+    "ref_chain": "L"
+   },
+   {
+    "id": "B",
+    "role": "spike receptor-binding domain",
+    "sequence": "RVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNKCVNFHHHHHH",
+    "ref_chain": "B"
+   }
+  ],
+  "ligands": [],
+  "n_res": 679
+ },
+ {
+  "id": "designed-binder",
+  "name": "A designed binder",
+  "pdb": "7JZU",
+  "uniprot": "P0DTC2",
+  "story": "A protein invented on a computer, not by evolution, that blocks the spike where ACE2 would hold it.",
+  "why": "LCB1 (Cao et al., 2020) shows what protein design does now, which is why a design platform exists.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "designed binder LCB1",
+    "sequence": "GGSDKEWILQKIYEIMRLLDELGHAEASMRVSDLIYEFMKKGDERLLEEAERLLEEVERGS",
+    "ref_chain": "A"
+   },
+   {
+    "id": "B",
+    "role": "spike receptor-binding domain",
+    "sequence": "RVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNKCVNFHHHHHH",
+    "ref_chain": "B"
+   }
+  ],
+  "ligands": [],
+  "n_res": 290
+ },
+ {
+  "id": "petase",
+  "name": "PETase",
+  "pdb": "5XJH",
+  "uniprot": "A0A0K8P6T7",
+  "story": "An enzyme from a bacterium found at a bottle-recycling plant. It eats PET plastic.",
+  "why": "The plastics story a non-biologist repeats to friends, in a compact enzyme.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "PETase",
+    "sequence": "RGPNPTAASLEASAGPFTVRSFTVSRPSGYGAGTVYYPTNAGGTVGAIAIVPGYTARQSSIKWWGPRLASHGFVVITIDTNSTLDQPSSRSSQQMAALRQVASLNGTSSSPIYGKVDTARMGVMGWSMGGGGSLISAANNPSLKAAAPQAPWDSSTNFSSVTVPTLIFACENDSIAPVNSSALPIYDSMSRNAKQFLEINGGSHSCANSGNSNQALIGKKGVAWMKRFMDNDTRYSTFACENPNSTRVSDFRTANCSLEDPAANKARKEAELAAATAEQ",
+    "ref_chain": "A"
+   }
+  ],
+  "ligands": [],
+  "n_res": 279
+ },
+ {
+  "id": "lysozyme",
+  "name": "Lysozyme",
+  "pdb": "1LZ1",
+  "uniprot": "P61626",
+  "story": "In your tears and saliva. It cuts the walls of bacteria open.",
+  "why": "A protein in your own body doing a job you can feel. Small and round, its surface reads as one smooth stone.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "human lysozyme",
+    "sequence": "KVFERCELARTLKRLGMDGYRGISLANWMCLAKWESGYNTRATNYNAGDRSTDYGIFQINSRYWCNDGKTPGAVNACHLSCSALLQDNIADAVACAKRVVRDPQGIRAWVAWRNRCQNRDVRQYVQGCGV",
+    "ref_chain": "A"
+   }
+  ],
+  "ligands": [],
+  "n_res": 130
+ },
+ {
+  "id": "top7",
+  "name": "Top7",
+  "pdb": "1QYS",
+  "uniprot": null,
+  "story": "The first protein shape invented by a computer, in 2003. Nature never made it.",
+  "why": "Protein design started here (Kuhlman et al., 2003). It pairs with the designed binder for the design story.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "Top7 (designed)",
+    "sequence": "DIQVQVNIDDNGKNFDYTYTVTTESELQKVLNELMDYIKKQGAKRVRISITARTKKEAEKFAAILIKVFAELGYNDINVTFDGDTVTVEGQLE",
+    "ref_chain": "A"
+   }
+  ],
+  "ligands": [],
+  "n_res": 93
+ }
+]
