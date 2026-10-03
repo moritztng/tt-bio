@@ -1,0 +1,5 @@
+/* The booth's one palette, shared by the app and the lanes page it frames. */
+:root {
+  --ground: #08090C; --ink: #EEF1F5; --ink2: #9AA3AF; --ink3: #5D6672; --rule: #1E232B;
+  --live: #3EB7DE; --live-rgb: 62 183 222; --ice: #9FDBFF; --ember: #FFA866;
+}

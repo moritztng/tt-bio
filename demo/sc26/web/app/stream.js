@@ -38,6 +38,8 @@ export class Stream {
     return true;
   }
 
+  _tick(j, m, now) { if (typeof m.t === 'number') { j.tChip = m.t; j.tAt = now; } }
+
   _on(m) {
     const now = performance.now() / 1000;
     switch (m.type) {
@@ -58,14 +60,14 @@ export class Stream {
         break;
       case 'stage': {
         const j = this.jobs[m.id];
-        if (j) { Object.assign(j, { stage: m.stage, step: m.step ?? 0, total: m.total ?? 1 }); this.cb.onStage?.(m.id, j, m); }
+        if (j) { Object.assign(j, { stage: m.stage, step: m.step ?? 0, total: m.total ?? 1 }); this._tick(j, m, now); this.cb.onStage?.(m.id, j, m); }
         break;
       }
       case 'frame': {
         const f = this.open[m.id];
         if (f) f.frames.push(m);
         const j = this.jobs[m.id];
-        if (j) { Object.assign(j, { stage: 'diffusion', step: m.step + 1, total: m.of }); this.cb.onStage?.(m.id, j, m); }
+        if (j) { Object.assign(j, { stage: 'diffusion', step: m.step + 1, total: m.of }); this._tick(j, m, now); this.cb.onStage?.(m.id, j, m); }
         break;
       }
       case 'fold_done': {

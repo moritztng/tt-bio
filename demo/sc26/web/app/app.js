@@ -195,13 +195,13 @@ let invited = null;
 function drawHeader() {
   const n = liveChips();
   const html = n
-    ? `An AI is predicting the 3D shape of a protein from its sequence, <b>live, on the ${WORD[n] ?? n} Tenstorrent chips in this box.</b>`
+    ? `An AI is predicting the 3D shape of a protein from its sequence, <b>live, on ${n === 1 ? 'a Tenstorrent chip' : `the ${WORD[n] ?? n} Tenstorrent chips`} in this box.</b>`
     : `An AI predicted the 3D shape of these proteins from their sequences, <b>on the Tenstorrent chips in this box.</b>`;
   if ($('sentence').innerHTML !== html) $('sentence').innerHTML = html;
   $('sentence').classList.toggle('hide', app.state === 'typing' || app.state === 'waiting');
   const tag = $('tag');
   tag.classList.toggle('live', n > 0);
-  const label = n ? `Live on ${WORD[n] ?? n} Blackhole chip${n > 1 ? 's' : ''}` : 'Recorded folds';
+  const label = n ? (n === 1 ? 'Live on a Blackhole chip' : `Live on ${WORD[n]} Blackhole chips`) : 'Recorded folds';
   if (tag.querySelector('span').textContent !== label) tag.querySelector('span').textContent = label;
 }
 
@@ -292,10 +292,20 @@ function drawNumber(f) {
     box.classList.add('locked');
   } else {
     const k = stage.slowdown;
-    src.textContent = k ? `${where} · shown ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower` : where;
+    src.textContent = !k ? where : k <= 1.05 ? `${where} · shown at the chip’s speed`
+      : `${where} · shown ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower`;
     num.textContent = stage.realTime.toFixed(1);
     box.classList.remove('locked');
   }
+}
+
+// A lane's time is the chip's own clock (`t` on stage and frame messages, `seconds` on done), run
+// on for at most a second past the last message. A job that stopped talking stops counting, so a
+// lane never shows a time longer than the fold it names.
+function laneSeconds(j) {
+  if (j.seconds != null) return j.seconds;
+  if (j.tChip == null) return Math.min(1, performance.now() / 1000 - j.t0);
+  return j.tChip + Math.min(1, performance.now() / 1000 - j.tAt);
 }
 
 const PHASE = { lm: 'reading', trunk: 'thinking', diffusion: 'folding', confidence: 'checking', done: 'done' };
@@ -312,7 +322,7 @@ function drawChips() {
     if (c?.state === 'busy' && job) {
       const who = job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
       what = `${who} <em>${PHASE[job.stage] ?? ''}</em>`;
-      t = ((performance.now() / 1000 - job.t0)).toFixed(1) + ' s';
+      t = laneSeconds(job).toFixed(1) + ' s';
       prog = job.stage === 'lm' ? 0.12 : job.stage === 'trunk' ? 0.15 + 0.55 * job.step / Math.max(1, job.total)
         : job.stage === 'diffusion' ? 0.7 + 0.25 * job.step / Math.max(1, job.total) : job.stage === 'confidence' ? 0.97 : 1;
       cls = 'busy';

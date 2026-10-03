@@ -29,9 +29,11 @@ export class Stage {
   setOffset(x, y) { this.r.opt.offset = [x, y]; }
 
   // Put a fold on the stage, starting from its first (noise) state.
+  // Never faster than the chip ran it: a fold whose diffusion took longer than CONDENSE plays at
+  // the chip's own pace.
   show(fold, { condense = CONDENSE } = {}) {
     this.fold = fold;
-    this.condense = condense;
+    this.condense = Math.max(condense, fold.diffusionSeconds > 0 ? fold.diffusionSeconds : 0);
     const n = fold.coords.length;
     const frames = fold.coords.map((c, i) => ({ coords: c, time: n > 1 ? i * condense / (n - 1) : 0,
       progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));

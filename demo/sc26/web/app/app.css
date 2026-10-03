@@ -1,10 +1,9 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel. */
+@import url(palette.css);
 @font-face { font-family: Inter; src: url(fonts/InterVariable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
 
 :root {
   --p: calc(100vw / 1920);
-  --ground: #08090C; --ink: #EEF1F5; --ink2: #9AA3AF; --ink3: #5D6672; --rule: #1E232B;
-  --live: #3EB7DE; --ice: #9FDBFF; --ember: #FFA866;
   --out: cubic-bezier(0.16, 1, 0.3, 1); --fade: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
