@@ -5237,6 +5237,25 @@ class AffinityModule(nn.Module):
 # BOLTZ2 MAIN MODEL
 # ============================================================================
 
+
+def _trajectory_dump_from_env():
+    """The command-line switch for AtomDiffusion.sample's trajectory hook.
+
+    TT_BIO_TRAJECTORY_DIR=<dir> saves every sampler state as <dir>/step_NNN.npy (float32,
+    [samples, atoms, 3]; step -1 is the initial noise, saved as step_-01) and the network's
+    prediction next to it as x0_NNN.npy. Unset, there is no hook at all.
+    """
+    out = os.environ.get("TT_BIO_TRAJECTORY_DIR")
+    if not out:
+        return None
+    os.makedirs(out, exist_ok=True)
+
+    def dump(step, coords, denoised):
+        np.save(os.path.join(out, f"step_{step:03d}.npy"), coords.detach().float().cpu().numpy())
+        if denoised is not None:
+            np.save(os.path.join(out, f"x0_{step:03d}.npy"), denoised.detach().float().cpu().numpy())
+    return dump
+
 class Boltz2(nn.Module):
     """Boltz2 model."""
 
@@ -5383,7 +5402,7 @@ class Boltz2(nn.Module):
         }
         self.trace = trace
         self.progress_fn = None  # optional callback: fn(stage, step=0, total=0)
-        self.dump_fn = None  # optional trajectory hook, see AtomDiffusion.sample
+        self.dump_fn = _trajectory_dump_from_env()  # None unless TT_BIO_TRAJECTORY_DIR is set
 
         # Inference configuration
         self.predict_args = predict_args
