@@ -12,7 +12,8 @@ Runs as the sc26-watchdog user unit next to sc26-engine and sc26-kiosk. Every --
            script, or draws no frames, --page-fails times in a row is frozen: restart sc26-kiosk.
 * screen   a small grim screenshot of the compositor. The same image for --freeze-s seconds is a
            frozen screen; one flat colour for --blank-s seconds is a blank one. Either restarts
-           sc26-kiosk. With no display attached (no output) this check is skipped and logged.
+           sc26-kiosk. With no output this check is skipped and logged as none; a WAYLAND_DISPLAY
+           socket that has disappeared is logged as lost.
 * memory   RSS of the browser and of the engine, free memory and load, to the log, so a slow leak
            is visible long before day three.
 
@@ -190,6 +191,9 @@ class Watch:
         return round(r.get("fps", 0), 1)
 
     def check_screen(self):
+        sock = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / os.environ.get("WAYLAND_DISPLAY", "")
+        if not sock.is_socket():
+            return "lost"
         try:
             img = subprocess.run(["grim", "-s", "0.125", "-t", "ppm", "-"], capture_output=True,
                                  timeout=10).stdout

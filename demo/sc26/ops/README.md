@@ -49,8 +49,8 @@ turns both back on.
 | a chip wedges | no progress for 120 s, the worker ignores SIGINT and SIGTERM | both chips on that board are reset with `tt-smi -r` | the board's two lanes say resetting; recorded folds fill in if no chip is left |
 | network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
 
-Workers are always stopped with SIGINT, then SIGTERM, and never SIGKILL, because a killed worker
-leaves its chip unusable until a reset. qb2's chips sit on two boards, chips 0 and 1 on one and
+Workers are stopped with SIGINT, then SIGTERM. A killed worker leaves its chip unusable until a
+reset, so SIGKILL is used only on a wedged worker, right before its board is reset. qb2's chips sit on two boards, chips 0 and 1 on one and
 2 and 3 on the other, and a reset always takes both chips of a board.
 
 ## Logs
