@@ -1,0 +1,191 @@
+{
+ "insulin": {
+  "pdb": "3I40",
+  "matched_ca": 51,
+  "ca_rmsd": 0.45,
+  "ca_within_2A": 0.98,
+  "per_chain": {
+   "A": {
+    "role": "insulin A chain",
+    "ref_chain": "A",
+    "matched": 21,
+    "of": 21,
+    "ca_rmsd": 0.24
+   },
+   "B": {
+    "role": "insulin B chain",
+    "ref_chain": "B",
+    "matched": 30,
+    "of": 30,
+    "ca_rmsd": 0.53
+   }
+  }
+ },
+ "gfp": {
+  "pdb": "1EMA",
+  "matched_ca": 225,
+  "ca_rmsd": 0.32,
+  "ca_within_2A": 1.0,
+  "per_chain": {
+   "A": {
+    "role": "GFP (S65T)",
+    "ref_chain": "A",
+    "matched": 225,
+    "of": 238,
+    "ca_rmsd": 0.32
+   }
+  }
+ },
+ "haemoglobin": {
+  "pdb": "2DN2",
+  "matched_ca": 574,
+  "ca_rmsd": 2.31,
+  "ca_within_2A": 0.53,
+  "per_chain": {
+   "A": {
+    "role": "alpha",
+    "ref_chain": "A",
+    "matched": 141,
+    "of": 141,
+    "ca_rmsd": 0.42
+   },
+   "B": {
+    "role": "beta",
+    "ref_chain": "B",
+    "matched": 146,
+    "of": 146,
+    "ca_rmsd": 0.85
+   },
+   "C": {
+    "role": "alpha",
+    "ref_chain": "C",
+    "matched": 141,
+    "of": 141,
+    "ca_rmsd": 0.36
+   },
+   "D": {
+    "role": "beta",
+    "ref_chain": "D",
+    "matched": 146,
+    "of": 146,
+    "ca_rmsd": 0.82
+   }
+  },
+  "ligands": [
+   {
+    "ligand": "E",
+    "ccd": "HEM",
+    "atoms": 43,
+    "rmsd": 1.55
+   },
+   {
+    "ligand": "F",
+    "ccd": "HEM",
+    "atoms": 43,
+    "rmsd": 2.96
+   },
+   {
+    "ligand": "G",
+    "ccd": "HEM",
+    "atoms": 43,
+    "rmsd": 1.57
+   },
+   {
+    "ligand": "H",
+    "ccd": "HEM",
+    "atoms": 43,
+    "rmsd": 3.28
+   }
+  ]
+ },
+ "myoglobin": {
+  "pdb": "1A6M",
+  "matched_ca": 151,
+  "ca_rmsd": 0.3,
+  "ca_within_2A": 1.0,
+  "per_chain": {
+   "A": {
+    "role": "myoglobin",
+    "ref_chain": "A",
+    "matched": 151,
+    "of": 151,
+    "ca_rmsd": 0.3
+   }
+  },
+  "ligands": [
+   {
+    "ligand": "B",
+    "ccd": "HEM",
+    "atoms": 43,
+    "rmsd": 0.51
+   }
+  ]
+ },
+ "designed-binder": {
+  "pdb": "7JZU",
+  "matched_ca": 248,
+  "ca_rmsd": 0.72,
+  "ca_within_2A": 0.98,
+  "per_chain": {
+   "A": {
+    "role": "designed binder LCB1",
+    "ref_chain": "A",
+    "matched": 55,
+    "of": 61,
+    "ca_rmsd": 0.6
+   },
+   "B": {
+    "role": "spike receptor-binding domain",
+    "ref_chain": "B",
+    "matched": 193,
+    "of": 229,
+    "ca_rmsd": 0.68
+   }
+  }
+ },
+ "petase": {
+  "pdb": "5XJH",
+  "matched_ca": 259,
+  "ca_rmsd": 0.46,
+  "ca_within_2A": 0.992,
+  "per_chain": {
+   "A": {
+    "role": "PETase",
+    "ref_chain": "A",
+    "matched": 259,
+    "of": 279,
+    "ca_rmsd": 0.46
+   }
+  }
+ },
+ "lysozyme": {
+  "pdb": "1LZ1",
+  "matched_ca": 130,
+  "ca_rmsd": 0.36,
+  "ca_within_2A": 1.0,
+  "per_chain": {
+   "A": {
+    "role": "human lysozyme",
+    "ref_chain": "A",
+    "matched": 130,
+    "of": 130,
+    "ca_rmsd": 0.36
+   }
+  }
+ },
+ "top7": {
+  "pdb": "1QYS",
+  "matched_ca": 92,
+  "ca_rmsd": 0.83,
+  "ca_within_2A": 0.967,
+  "per_chain": {
+   "A": {
+    "role": "Top7 (designed)",
+    "ref_chain": "A",
+    "matched": 92,
+    "of": 93,
+    "ca_rmsd": 0.83
+   }
+  }
+ }
+}
