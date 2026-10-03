@@ -327,7 +327,7 @@ function drawChips() {
     const job = c?.job ? stream.jobs[c.job] : null;
     let what = 'resting', t = '', prog = 0, cls = '';
     if (c?.state === 'busy' && job) {
-      const who = app.mine && job.id === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
+      const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
       what = `${who} <em>${PHASE[job.stage] ?? ''}</em>`;
       t = laneSeconds(job).toFixed(1) + ' s';
       prog = job.stage === 'lm' ? 0.12 : job.stage === 'trunk' ? 0.15 + 0.55 * job.step / Math.max(1, job.total)
