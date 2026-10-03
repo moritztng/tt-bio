@@ -96,6 +96,70 @@
     "atoms": 43,
     "rmsd": 3.28
    }
+  ],
+  "also": [
+   {
+    "pdb": "2DN1-assembly1",
+    "matched_ca": 570,
+    "ca_rmsd": 0.57,
+    "ca_within_2A": 0.996,
+    "per_chain": {
+     "A": {
+      "role": "alpha",
+      "ref_chain": "A",
+      "matched": 140,
+      "of": 141,
+      "ca_rmsd": 0.54
+     },
+     "B": {
+      "role": "beta",
+      "ref_chain": "B",
+      "matched": 145,
+      "of": 146,
+      "ca_rmsd": 0.37
+     },
+     "C": {
+      "role": "alpha",
+      "ref_chain": "C",
+      "matched": 140,
+      "of": 141,
+      "ca_rmsd": 0.54
+     },
+     "D": {
+      "role": "beta",
+      "ref_chain": "D",
+      "matched": 145,
+      "of": 146,
+      "ca_rmsd": 0.37
+     }
+    },
+    "ligands": [
+     {
+      "ligand": "E",
+      "ccd": "HEM",
+      "atoms": 43,
+      "rmsd": 0.47
+     },
+     {
+      "ligand": "F",
+      "ccd": "HEM",
+      "atoms": 43,
+      "rmsd": 1.09
+     },
+     {
+      "ligand": "G",
+      "ccd": "HEM",
+      "atoms": 43,
+      "rmsd": 0.59
+     },
+     {
+      "ligand": "H",
+      "ccd": "HEM",
+      "atoms": 43,
+      "rmsd": 1.02
+     }
+    ]
+   }
   ]
  },
  "myoglobin": {
@@ -120,6 +184,35 @@
     "rmsd": 0.51
    }
   ]
+ },
+ "antibody": {
+  "pdb": "7C01",
+  "matched_ca": 628,
+  "ca_rmsd": 2.01,
+  "ca_within_2A": 0.659,
+  "per_chain": {
+   "H": {
+    "role": "antibody heavy chain (Fab)",
+    "ref_chain": "H",
+    "matched": 218,
+    "of": 233,
+    "ca_rmsd": 1.83
+   },
+   "L": {
+    "role": "antibody light chain (Fab)",
+    "ref_chain": "L",
+    "matched": 215,
+    "of": 217,
+    "ca_rmsd": 1.46
+   },
+   "B": {
+    "role": "spike receptor-binding domain",
+    "ref_chain": "A",
+    "matched": 195,
+    "of": 229,
+    "ca_rmsd": 0.68
+   }
+  }
  },
  "designed-binder": {
   "pdb": "7JZU",

@@ -8,7 +8,9 @@ Residues are matched per chain by sequence alignment, so tags, missing loops and
 chromophore (three residues fused into one in the crystal) drop out instead of shifting the
 register. Reports C-alpha RMSD after one rigid superposition of the whole complex, the same per
 chain, and the share of C-alpha atoms within 2 A. For hemes: heavy-atom RMSD of each heme after
-the protein superposition, matched by atom name. Reference files are fetched from RCSB once into
+the protein superposition, matched by atom name. A pick may list `also_pdb`, other
+experimental states of the same protein (an RCSB file stem such as 2DN1-assembly1, with a
+chain map when the assembly renames copies), scored the same way. Reference files are fetched from RCSB once into
 runs/ref/; the demo itself never needs them.
 """
 import json
@@ -50,6 +52,59 @@ def rmsd(a, b):
     return float(np.sqrt(((a - b) ** 2).sum(1).mean()))
 
 
+def score(pick, xyz, at, pdb, al, chains=None):
+    ref = ref_structure(pdb)[0]
+    P, Q, per_chain = [], [], {}
+    for c in pick["chains"]:
+        ca = {}
+        for i, (ch, nm, r) in enumerate(zip(at["chain"], at["name"], at["residue"])):
+            if ch == c["id"] and nm == "CA":
+                ca[r] = xyz[i]
+        pred = [ca[r] for r in sorted(ca)]
+        assert len(pred) == len(c["sequence"]), (pick["id"], c["id"], len(pred))
+        rch = ref[(chains or {}).get(c["id"], c["ref_chain"])]
+        rres = [r for r in rch if (ti := gemmi.find_tabulated_residue(r.name)) and ti.is_amino_acid()
+                and r.find_atom("CA", "*") is not None]
+        rseq = "".join(gemmi.find_tabulated_residue(r.name).one_letter_code.upper() or "X" for r in rres)
+        aln = al.align(c["sequence"], rseq)[0]
+        p, q = [], []
+        for (a0, a1), (b0, b1) in zip(*aln.aligned):
+            for k in range(a1 - a0):
+                if c["sequence"][a0 + k] == rseq[b0 + k]:
+                    p.append(pred[a0 + k])
+                    q.append(np.array(rres[b0 + k].find_atom("CA", "*").pos.tolist()))
+        p, q = np.array(p), np.array(q)
+        r, t = kabsch(p, q)
+        per_chain[c["id"]] = dict(role=c["role"], ref_chain=c["ref_chain"], matched=len(p),
+                                  of=len(c["sequence"]), ca_rmsd=round(rmsd(p @ r.T + t, q), 2))
+        P.append(p)
+        Q.append(q)
+    P, Q = np.concatenate(P), np.concatenate(Q)
+    r, t = kabsch(P, Q)
+    d = np.sqrt(((P @ r.T + t - Q) ** 2).sum(1))
+    res = dict(pdb=pdb, matched_ca=len(P), ca_rmsd=round(float(np.sqrt((d ** 2).mean())), 2),
+               ca_within_2A=round(float((d < 2).mean()), 3), per_chain=per_chain)
+    hemes = []
+    for lig in pick["ligands"]:
+        pred = {n: xyz[i] for i, (ch, n) in enumerate(zip(at["chain"], at["name"])) if ch == lig["id"]}
+        pc = np.mean(list(pred.values()), 0) @ r.T + t
+        best = None
+        for ch in ref:
+            for rr in ch:
+                if rr.name == lig["ccd"]:
+                    refa = {a.name: np.array(a.pos.tolist()) for a in rr}
+                    common = [n for n in pred if n in refa]
+                    moved = np.array([pred[n] for n in common]) @ r.T + t
+                    target = np.array([refa[n] for n in common])
+                    dist = float(np.linalg.norm(target.mean(0) - pc))
+                    if best is None or dist < best[0]:
+                        best = (dist, rmsd(moved, target), len(common))
+        hemes.append(dict(ligand=lig["id"], ccd=lig["ccd"], atoms=best[2], rmsd=round(best[1], 2)))
+    if hemes:
+        res["ligands"] = hemes
+    return res
+
+
 def main():
     al = PairwiseAligner(mode="global", match_score=2, mismatch_score=-1, open_gap_score=-6,
                          extend_gap_score=-0.5)
@@ -61,55 +116,9 @@ def main():
         meta = json.loads(mp.read_text())
         xyz = final_xyz(meta)
         at = meta["atoms"]
-        ref = ref_structure(pick["pdb"])[0]
-        P, Q, per_chain = [], [], {}
-        for c in pick["chains"]:
-            ca = {}
-            for i, (ch, nm, r) in enumerate(zip(at["chain"], at["name"], at["residue"])):
-                if ch == c["id"] and nm == "CA":
-                    ca[r] = xyz[i]
-            pred = [ca[r] for r in sorted(ca)]
-            assert len(pred) == len(c["sequence"]), (pick["id"], c["id"], len(pred))
-            rch = ref[c["ref_chain"]]
-            rres = [r for r in rch if (ti := gemmi.find_tabulated_residue(r.name)) and ti.is_amino_acid()
-                    and r.find_atom("CA", "*") is not None]
-            rseq = "".join(gemmi.find_tabulated_residue(r.name).one_letter_code.upper() or "X" for r in rres)
-            aln = al.align(c["sequence"], rseq)[0]
-            p, q = [], []
-            for (a0, a1), (b0, b1) in zip(*aln.aligned):
-                for k in range(a1 - a0):
-                    if c["sequence"][a0 + k] == rseq[b0 + k]:
-                        p.append(pred[a0 + k])
-                        q.append(np.array(rres[b0 + k].find_atom("CA", "*").pos.tolist()))
-            p, q = np.array(p), np.array(q)
-            r, t = kabsch(p, q)
-            per_chain[c["id"]] = dict(role=c["role"], ref_chain=c["ref_chain"], matched=len(p),
-                                      of=len(c["sequence"]), ca_rmsd=round(rmsd(p @ r.T + t, q), 2))
-            P.append(p)
-            Q.append(q)
-        P, Q = np.concatenate(P), np.concatenate(Q)
-        r, t = kabsch(P, Q)
-        d = np.sqrt(((P @ r.T + t - Q) ** 2).sum(1))
-        res = dict(pdb=pick["pdb"], matched_ca=len(P), ca_rmsd=round(float(np.sqrt((d ** 2).mean())), 2),
-                   ca_within_2A=round(float((d < 2).mean()), 3), per_chain=per_chain)
-        hemes = []
-        for lig in pick["ligands"]:
-            pred = {n: xyz[i] for i, (ch, n) in enumerate(zip(at["chain"], at["name"])) if ch == lig["id"]}
-            pc = np.mean(list(pred.values()), 0) @ r.T + t
-            best = None
-            for ch in ref:
-                for rr in ch:
-                    if rr.name == lig["ccd"]:
-                        refa = {a.name: np.array(a.pos.tolist()) for a in rr}
-                        common = [n for n in pred if n in refa]
-                        moved = np.array([pred[n] for n in common]) @ r.T + t
-                        target = np.array([refa[n] for n in common])
-                        dist = float(np.linalg.norm(target.mean(0) - pc))
-                        if best is None or dist < best[0]:
-                            best = (dist, rmsd(moved, target), len(common))
-            hemes.append(dict(ligand=lig["id"], ccd=lig["ccd"], atoms=best[2], rmsd=round(best[1], 2)))
-        if hemes:
-            res["ligands"] = hemes
+        res = score(pick, xyz, at, pick["pdb"], al)
+        if pick.get("also_pdb"):
+            res["also"] = [score(pick, xyz, at, p["pdb"], al, p.get("chains")) for p in pick["also_pdb"]]
         out[pick["id"]] = res
         print(pick["id"], json.dumps(res))
     (HERE / "accuracy.json").write_text(json.dumps(out, indent=1) + "\n")
