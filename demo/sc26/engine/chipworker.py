@@ -32,13 +32,17 @@ _EVENTS = os.fdopen(os.dup(1), "w", buffering=1)
 os.dup2(2, 1)
 sys.stdout = sys.stderr
 _LOCK = threading.Lock()
+_PARENT_GONE = threading.Event()
 
 
 def emit(**ev):
     ev.setdefault("t_wall", round(time.time(), 3))
     line = json.dumps(ev, separators=(",", ":"))
     with _LOCK:
-        _EVENTS.write(line + "\n")
+        try:
+            _EVENTS.write(line + "\n")
+        except BrokenPipeError:  # the supervisor is gone: stop like SIGINT, the device closes at exit
+            _PARENT_GONE.set()
 
 
 def f32(t):
@@ -112,12 +116,19 @@ def main():
     abort, cancel, busy = threading.Event(), threading.Event(), threading.Event()
     import signal
 
-    def on_sigint(*_):
+    def on_stop(*_):
         abort.set()
         if not busy.is_set():  # idle, blocked on stdin: leave now; mid-fold, at the next step
             raise KeyboardInterrupt
-    signal.signal(signal.SIGINT, on_sigint)
-    signal.signal(signal.SIGUSR1, lambda *_: cancel.set())
+
+    def install_handlers():
+        # SIGINT and SIGTERM both stop cleanly (the device closes in tt_bio's atexit). Installed
+        # explicitly, because a worker started from a non-interactive `cmd &` inherits SIGINT as
+        # IGNORED, and once more after the device is open in case its stack replaced them.
+        signal.signal(signal.SIGINT, on_stop)
+        signal.signal(signal.SIGTERM, on_stop)
+        signal.signal(signal.SIGUSR1, lambda *_: cancel.set())
+    install_handlers()
 
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
@@ -138,6 +149,7 @@ def main():
     model = load_ttnn_esmfold2()
     model._esmc.preload()
     builder = ESMFold2InputBuilder()
+    install_handlers()
 
     def fold(job):
         jid, seq = job["id"], job["sequence"].strip().upper()
@@ -172,6 +184,10 @@ def main():
         prev = {"display": None}
         pending = []
 
+        def stop_check(step, x, x_den):
+            if abort.is_set() or cancel.is_set():
+                raise Aborted()
+
         def dump(step, x, x_den):
             if abort.is_set() or cancel.is_set():
                 raise Aborted()
@@ -198,7 +214,7 @@ def main():
              n_res=len(seq), n_atoms=n_atoms, steps=steps, loops=args.loops, seed=seed, atoms=atoms,
              rg_expected=round(2.2 * len(seq) ** 0.38, 2), source="live")
         E.set_progress(progress)
-        E.set_trajectory_dump(dump if job.get("frames", True) else None)
+        E.set_trajectory_dump(dump if job.get("frames", True) else stop_check)
         try:
             with clock, torch.no_grad(), _seed_context(seed):
                 out = model(**features, num_loops=args.loops, num_sampling_steps=steps,
@@ -240,7 +256,7 @@ def main():
                      reason=f"{type(exc).__name__}: {exc}"[:400])
             finally:
                 busy.clear()
-            if abort.is_set():
+            if abort.is_set() or _PARENT_GONE.is_set():
                 break
             emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=clock.read())
     except KeyboardInterrupt:
