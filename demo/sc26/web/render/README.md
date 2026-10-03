@@ -29,7 +29,7 @@ topology needs per-atom name, element and residue index, and per-residue name an
 - **The final structure** is a cartoon (helix, strand, coil) built from the scored coordinates,
   secondary structure assigned with the DSSP hydrogen-bond rules (`src/cartoon.js`), coloured on
   the AlphaFold pLDDT scale with its four standard colours. On qb2's recordings the assignment
-  agrees with PyMOL's `dss` on 85 % (GFP) and 93 % (protein G B1) of residues
+  agrees with PyMOL's `dss` on 93 % (GFP) and 93 % (protein G B1) of residues
   (`../../science/pymol_compare.py`). Ligands are balls in element colours. `final: 'surface'`
   draws a Gaussian molecular surface instead (van der Waals radii, probe radius 0).
 - **Light** is a matte material, one key light, sky/ground ambient, occlusion baked into the

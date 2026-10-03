@@ -4,8 +4,8 @@
 // Secondary structure is assigned from the predicted backbone with the DSSP rules (Kabsch & Sander
 // 1983): backbone hydrogen bonds from the electrostatic energy of C=O..H-N, cut at -0.5 kcal/mol;
 // an alpha helix where two consecutive i -> i+4 turns start; a strand where residues form parallel
-// or antiparallel bridges in a run of two or more. 3-10 and pi helices, turns and bends are drawn
-// as coil. The geometry is a Catmull-Rom spline through the C-alpha atoms (strands smoothed so they
+// or antiparallel bridges in a run of two or more; a 3-10 helix where two consecutive i -> i+3 turns
+// start, drawn as helix. Pi helices, turns and bends are drawn as coil. The geometry is a Catmull-Rom spline through the C-alpha atoms (strands smoothed so they
 // do not zig-zag), oriented by the peptide plane, so it is built from the scored coordinates alone.
 //
 // Ambient occlusion is baked per vertex: how much of the structure sits within 7 A in front of the
@@ -67,7 +67,7 @@ export function secondaryStructure(bb, x) {
   const has = (i, j) => i >= 0 && j >= 0 && i < n && j < n && hb.has(i * n + j);
   const ss = new Array(n).fill('C');
   const chainOK = (a, b) => { for (let k = a + 1; k <= b; k++) if (brk[k]) return false; return true; };
-  const turn = (i) => has(i, i + 4) && chainOK(i, i + 4);
+  const turn = (i, k = 4) => has(i, i + k) && chainOK(i, i + k);
   for (let i = 1; i + 4 < n; i++) if (turn(i - 1) && turn(i)) for (let k = i; k < i + 4; k++) ss[k] = 'H';
   const bridge = new Uint8Array(n);
   for (let i = 1; i < n - 1; i++) for (let j = 1; j < n - 1; j++) {
@@ -81,6 +81,10 @@ export function secondaryStructure(bb, x) {
     const run = (i > 0 && bridge[i - 1] && !brk[i]) || (i + 1 < n && bridge[i + 1] && !brk[i + 1]);
     if (run) ss[i] = 'E';
   }
+  // 3-10 helices (two consecutive i -> i+3 turns) where nothing else claimed the residues; drawn as
+  // helix, as PyMOL and Mol* do
+  for (let i = 1; i + 3 < n; i++) if (turn(i - 1, 3) && turn(i, 3) && [0, 1, 2].every(k => ss[i + k] === 'C'))
+    for (let k = i; k < i + 3; k++) ss[k] = 'H';
   return { ss, brk };
 }
 
