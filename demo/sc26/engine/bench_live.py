@@ -35,14 +35,17 @@ def main():
     ap.add_argument("--chip", type=int, required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--lengths", default="50,100,200,400")
+    ap.add_argument("--extra", default="", help="more prefix lengths, folded once each")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     here = Path(__file__).resolve().parent
     jobs = []
-    for n in map(int, args.lengths.split(",")):
+    for n in map(int, filter(None, args.lengths.split(","))):
         for rep in ("cold", "warm"):
             jobs.append({"id": f"hsa{n}-{rep}", "sequence": HSA[:n], "seed": 0})
+    jobs += [{"id": f"hsa{n}-once", "sequence": HSA[:n], "seed": 0}
+             for n in map(int, filter(None, args.extra.split(",")))]
     jobs += [{"id": "gb1-hookoff", "sequence": GB1, "seed": 0, "frames": False},
              {"id": "gb1-hookon", "sequence": GB1, "seed": 0}]
 
@@ -59,7 +62,9 @@ def main():
         log.flush()
         ev = json.loads(line)
         if ev.get("id"):
-            per.setdefault(ev["id"], open(out / f"{ev['id']}.jsonl", "w")).write(line)
+            if ev["id"] not in per:
+                per[ev["id"]] = open(out / f"{ev['id']}.jsonl", "w")
+            per[ev["id"]].write(line)
         if ev["type"] == "chip" and ev["state"] == "ready":
             print(f"[{time.time() - t0:7.1f}s] chip ready {ev}", flush=True)
             if pending:

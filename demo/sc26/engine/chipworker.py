@@ -10,8 +10,9 @@ The frames are the diffusion sampler's own coordinates, taken through the defaul
 tt_bio.esmfold2 (set_trajectory_dump). Nothing is interpolated. The last frame's coordinates are
 the scored structure's, bit for bit.
 
-SIGINT aborts the fold in progress and exits cleanly, which leaves the chip usable. SIGKILL does
-not, so the supervisor never sends it.
+SIGUSR1 drops the fold in progress and keeps the worker warm (a visitor preempting an attract
+fold). SIGINT drops it and exits cleanly, which leaves the chip usable. SIGKILL does not, so the
+supervisor never sends it.
 """
 import argparse
 import base64
@@ -108,9 +109,10 @@ def main():
     ap.add_argument("--loops", type=int, default=3, help="trunk recycles (the model default)")
     args = ap.parse_args()
 
-    abort = threading.Event()
+    abort, cancel = threading.Event(), threading.Event()
     import signal
     signal.signal(signal.SIGINT, lambda *_: abort.set())
+    signal.signal(signal.SIGUSR1, lambda *_: cancel.set())
 
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
@@ -150,8 +152,10 @@ def main():
         stamps = {}
 
         def progress(stage, step=0, total=0):
-            if abort.is_set():
+            if abort.is_set() or cancel.is_set():
                 raise Aborted()
+            if stage == "diffusion":
+                phase["of"] = total  # the sampler's real step count (its schedule is clipped)
             if stage != phase["stage"]:
                 stamps[phase["stage"]] = time.perf_counter() - phase["t"]
                 phase.update(stage=stage, t=time.perf_counter())
@@ -161,10 +165,8 @@ def main():
         prev = {"display": None}
 
         def dump(step, x, x_den):
-            if abort.is_set():
+            if abort.is_set() or cancel.is_set():
                 raise Aborted()
-            if step == -1:
-                progress("diffusion", 0, steps)
             raw = x[0][mask]
             ref = x_den[0][mask] if x_den is not None else raw
             # Display alignment: each frame is rotated onto the one before it, so the sampler's
@@ -175,7 +177,7 @@ def main():
             else:
                 r, t = kabsch(ref, prev["display"])
             prev["display"] = ref @ r.T + t
-            emit(type="frame", id=jid, chip=args.chip, step=step, of=steps,
+            emit(type="frame", id=jid, chip=args.chip, step=step, of=phase.get("of", steps),
                  t=round(time.perf_counter() - t_start, 3), xyz=f32(raw),
                  x0=f32(x_den[0][mask]) if x_den is not None else None,
                  R=[round(v, 6) for v in r.flatten().tolist()], T=[round(v, 4) for v in t.tolist()])
@@ -215,11 +217,14 @@ def main():
         if job.get("type") == "quit":
             break
         emit(type="chip", chip=args.chip, state="busy", job=job.get("id"))
+        cancel.clear()
         try:
             fold(job)
         except Aborted:
-            emit(type="fold_error", id=job.get("id"), chip=args.chip, reason="aborted")
-            break
+            emit(type="fold_error", id=job.get("id"), chip=args.chip,
+                 reason="stopped" if abort.is_set() else "preempted")
+            if abort.is_set():
+                break
         except Exception as exc:  # a bad input must not take the chip down
             emit(type="fold_error", id=job.get("id"), chip=args.chip, reason=f"{type(exc).__name__}: {exc}"[:400])
         emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=clock.read())
