@@ -57,7 +57,7 @@ with open(a, "w") as f: c.write(f)
 PY
   sudo install -D -m 644 "$ops/../web/app/kiosk/policies.json" /etc/firefox/policies/policies.json
   # No browser update and no package upgrade during the show.
-  sudo snap refresh --hold=forever firefox
+  sudo snap refresh --hold=forever
   sudo systemctl disable --now unattended-upgrades.service apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
 }
 
@@ -65,7 +65,7 @@ uninstall_system(){
   [ -f "$bak/custom.conf" ] && sudo cp "$bak/custom.conf" /etc/gdm3/custom.conf
   [ -f "$bak/accountsservice" ] && sudo cp "$bak/accountsservice" /var/lib/AccountsService/users/"$USER"
   sudo rm -f /usr/share/wayland-sessions/sc26.desktop
-  sudo snap refresh --unhold firefox || true
+  sudo snap refresh --unhold || true
   sudo systemctl enable --now unattended-upgrades.service apt-daily.timer apt-daily-upgrade.timer || true
   systemctl --user disable sc26-engine.service || true
 }
