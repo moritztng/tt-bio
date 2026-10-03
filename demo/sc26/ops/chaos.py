@@ -135,8 +135,8 @@ class Chaos:
             return f"{ok} of 60 visitor folds queued"
         if ev == "network_drop":
             rules = ("table inet sc26chaos { chain i { type filter hook input priority -10; policy drop; "
-                     "iif lo accept; tcp dport 22 accept; } chain o { type filter hook output priority -10; "
-                     "policy drop; oif lo accept; tcp sport 22 accept; } }")
+                     "iif lo accept; tcp dport 22 accept; }; chain o { type filter hook output priority -10; "
+                     "policy drop; oif lo accept; tcp sport 22 accept; }; }")
             subprocess.run(["sudo", "systemd-run", "--quiet", f"--on-active={a.net_s + 120}",
                             "/usr/sbin/nft", "delete", "table", "inet", "sc26chaos"], check=False)
             r = subprocess.run(["sudo", "nft", "-f", "-"], input=rules, text=True)
