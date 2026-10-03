@@ -270,6 +270,7 @@ function drawSide() {
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
       $('step').textContent = '';
       M.classList.remove('long');
+      $('legend').classList.remove('on');
     } else {
       const f = m.fold;
       S.textContent = stage.landed ? (m.instead ? storyOf(m.instead) : verdict(f.plddtMean ?? 0)) : '';
