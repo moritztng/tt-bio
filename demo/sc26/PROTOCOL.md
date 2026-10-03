@@ -106,8 +106,10 @@ Answers to a browser's `fold` request, sent only to that browser.
 ## Browser to server
 
 * `{"type":"fold","sequence":"MTYKLILNG..."}`: fold this. 10 to 400 of the 20 standard amino-acid
-  letters; whitespace is ignored and case does not matter. A visitor's fold jumps the queue: if every
-  chip is busy with an attract fold, one of them drops it within one sampler step.
+  letters; whitespace is ignored and case does not matter. A visitor's fold jumps the queue. If every
+  chip is busy and the visitor is still waiting 1 s later, one attract fold is dropped (`fold_error`
+  `preempted`) at its next sampler step and the visitor's fold takes the chip. Measured with two
+  chips: a 76-residue visitor fold's first frame arrived 1.86 s after the request, done at 2.07 s.
 * `{"type":"status"}`: send a `status` now.
 
 `POST /fold` with `{"sequence": ...}` and `GET /status` do the same over plain HTTP.
