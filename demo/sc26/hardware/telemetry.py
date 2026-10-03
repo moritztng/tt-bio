@@ -83,6 +83,7 @@ class Raw:
     temp_c: float | None
     vcore_v: float | None
     current_a: float | None
+    power_max_w: float | None = None
 
 
 def _scaled(raw: str | None, scale: float) -> float | None:
@@ -124,7 +125,8 @@ class Chips:
         return Raw(node=node, bdf=bdf, board=None if board == "unknown" else board, t=time.time(),
                    aiclk=reading(_read(d / "tt_aiclk")), heartbeat=reading(_read(d / "tt_heartbeat")),
                    power_w=_scaled(hwr("power1_input"), 1e6), temp_c=_scaled(hwr("temp1_input"), 1e3),
-                   vcore_v=_scaled(hwr("in0_input"), 1e3), current_a=_scaled(hwr("curr1_input"), 1e3))
+                   vcore_v=_scaled(hwr("in0_input"), 1e3), current_a=_scaled(hwr("curr1_input"), 1e3),
+                   power_max_w=_scaled(hwr("power1_max"), 1e6))
 
     def has_sysfs_clock(self) -> bool:
         return any((d / "tt_aiclk").exists() for d in self.root.glob("tenstorrent!*"))
@@ -327,6 +329,7 @@ class Monitor:
             "power_w": r.power_w if r and live else None,
             "temp_c": r.temp_c if r and live else None,
             "vcore_v": r.vcore_v if r and live else None,
+            "power_max_w": r.power_max_w if r else None,
             "power_60s": [None if p is None else round(p, 1) for _, _, p, _ in hist[::4]],
             "folding": None if cur is None else {
                 k: cur.get(k) for k in ("model", "name", "residues")} | {"elapsed_s": round(now - cur["t"], 1)},

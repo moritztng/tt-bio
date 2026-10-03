@@ -1,0 +1,129 @@
+{
+ "source": "tt-bio.com/benchmarks (site/data/perf-512aa.json)",
+ "updated": "2026-09-13",
+ "scope": "CDK2 (PDB 1HCL) tandem-duplicated to 512 residues, one protein chain, no ligands, a fixed 35-sequence MSA. Warm folds, one prediction at a time on one accelerator, the same two input files on both sides, each model at its own recycle and sampling-step settings. Each Tenstorrent cell is that model's fastest arm that passes parity.",
+ "board": "Measured on tt-quietbox2, on one Blackhole AI Processor of a p300c board: an 11x10 Tensix grid behind an AMD Ryzen 7 9700X. That is not the p150a this column is named and priced for. See the board caveat under Methods and sources.",
+ "unit": "seconds per prediction at 512 residues, one accelerator, lower is better",
+ "rows": [
+  {
+   "id": "boltz2",
+   "model": "Boltz-2",
+   "group": "fold",
+   "tt": 17.34,
+   "h200": 7.298,
+   "b200": 8.042,
+   "a100": 14.395
+  },
+  {
+   "id": "esmfold2",
+   "model": "ESMFold2",
+   "group": "fold",
+   "tt": 29.393,
+   "h200": 7.256,
+   "b200": 5.461,
+   "a100": 14.741
+  },
+  {
+   "id": "esmfold2-fast",
+   "model": "ESMFold2-Fast",
+   "group": "fold",
+   "tt": 18.821,
+   "h200": 3.999,
+   "b200": 7.129,
+   "a100": 7.72
+  },
+  {
+   "id": "opendde",
+   "model": "OpenDDE",
+   "group": "fold",
+   "tt": 82.393,
+   "h200": 20.64,
+   "b200": 17.691,
+   "a100": 40.167
+  },
+  {
+   "id": "openfold3",
+   "model": "OpenFold3",
+   "group": "fold",
+   "tt": 38.254,
+   "h200": 10.263,
+   "b200": 11.897,
+   "a100": 16.942
+  },
+  {
+   "id": "rf3",
+   "model": "RoseTTAFold3",
+   "group": "fold",
+   "tt": 46.903,
+   "h200": 22.794,
+   "b200": 16.351,
+   "a100": 30.893
+  },
+  {
+   "id": "openbind",
+   "model": "OpenBind-0",
+   "group": "fold",
+   "tt": 37.712,
+   "h200": 9.233,
+   "b200": 10.711,
+   "a100": 16.3425
+  },
+  {
+   "id": "boltzgen",
+   "model": "BoltzGen",
+   "group": "design",
+   "tt": 45.289,
+   "h200": 12.647,
+   "b200": 16.092,
+   "a100": 21.729
+  },
+  {
+   "id": "pxdesign",
+   "model": "PXDesign",
+   "group": "design",
+   "tt": 23.24,
+   "h200": 24.2246,
+   "b200": 24.4062,
+   "a100": 38.1585
+  },
+  {
+   "id": "nesso1",
+   "model": "Nesso-1",
+   "group": "affinity",
+   "tt": 22.051,
+   "h200": 3.9403,
+   "b200": 7.2491,
+   "a100": 7.9019
+  }
+ ],
+ "excluded": [
+  {
+   "id": "protenix-v2",
+   "why": "weights licence unresolved"
+  }
+ ],
+ "bindcraft2": {
+  "model": "BindCraft 2",
+  "unit": "gradient round",
+  "size": "288 tokens",
+  "tt": 3.653,
+  "h200": 0.696,
+  "board": "one Blackhole chip of a p300c board",
+  "aiclk": "median 1350 MHz, min 1300, sampled during the rounds",
+  "source": "docs/bindcraft2.md, release 0.12.0"
+ },
+ "servers": [
+  {
+   "name": "Galaxy Blackhole",
+   "accelerators": 32,
+   "price_usd": 110000,
+   "price_kind": "vendor list"
+  },
+  {
+   "name": "DGX B200",
+   "accelerators": 8,
+   "price_usd": 550000,
+   "price_kind": "list price"
+  }
+ ]
+}
