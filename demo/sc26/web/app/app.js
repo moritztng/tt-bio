@@ -366,6 +366,10 @@ function frame(now) {
       // no answer, no chip within the minute, or it never finished: say so and go back, never hang
       const m = app.mine;
       if ((!m.id && now - m.sent > 20000) || (!m.t0 && now - m.sent > 55000) || (m.t0 && now - m.t0 > 90000)) giveUp();
+      // the engine went away, or their fold was dropped and not requeued (a requeue starts a new job)
+      const j = m.id != null ? stream.jobs[m.id] : null;
+      if (!stream.connected && now - Math.max(m.sent, stream.lastMessage) > 3000) giveUp();
+      else if (j?.stage === 'dropped' && now - (j.droppedAt ??= now) > 10000) giveUp();
     }
     if (app.state !== 'attract' && now - app.lastInput > IDLE) toAttract();
     if ((sideTick += dt) > 0.05) {
