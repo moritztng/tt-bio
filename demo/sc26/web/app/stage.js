@@ -44,7 +44,7 @@ export class Stage {
     this.r.pause();
     this.r.seek(0);
     this.t = 0;
-    this.holdNoise = 0.9;   // a beat of pure noise before it moves
+    this.holdNoise = 0.3;   // a beat of pure noise before it moves
   }
 
   // How many times slower than the chip the condensation plays.
