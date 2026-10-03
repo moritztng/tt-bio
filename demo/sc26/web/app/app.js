@@ -266,11 +266,13 @@ function drawSide() {
       num.textContent = s != null ? s.toFixed(1) : '';
       numBox.classList.remove('locked');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
+      M.classList.remove('long');
     } else {
       const f = m.fold;
       S.textContent = stage.landed ? (m.instead ? storyOf(m.instead) : verdict(f.plddtMean ?? 0)) : '';
       drawNumber(f);
       M.textContent = (m.instead ? `${f.nres} amino acids` : lengthLine(m.parsed).replace(/\.$/, '')) + clock(f);
+      M.classList.toggle('long', M.textContent.length > 46);
       const c = Math.round(100 * (f.plddtMean ?? 0));
       $('conf').classList.toggle('on', stage.landed);
       $('conf').querySelector('i').style.width = stage.landed ? c + '%' : '0';
@@ -285,6 +287,7 @@ function drawSide() {
   S.textContent = f.story ?? '';
   drawNumber(f);
   M.textContent = `${f.nres} amino acids` + clock(f);
+  M.classList.toggle('long', M.textContent.length > 46);
 }
 
 // a long name drops to the smaller size so name and story always fit their box

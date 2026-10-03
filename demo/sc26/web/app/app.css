@@ -64,6 +64,8 @@ aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)
 #number.locked { color: var(--ink); }
 #number:has(#num:empty) { visibility: hidden; }
 #meta { font-size: calc(20 * var(--p)); font-weight: 460; color: var(--ink2); font-variant-numeric: tabular-nums; margin-top: calc(6 * var(--p)); }
+#meta.long { font-size: calc(17 * var(--p)); }   /* "your name four times · AICLK" stays one line */
+#meta { white-space: nowrap; }
 #conf { display: none; align-items: center; gap: calc(14 * var(--p)); margin-top: calc(18 * var(--p));
         font-size: calc(20 * var(--p)); color: var(--ink2); font-variant-numeric: tabular-nums; }
 #conf > div { flex: 0 0 calc(240 * var(--p)); height: calc(4 * var(--p)); background: var(--rule); border-radius: 2px; }
