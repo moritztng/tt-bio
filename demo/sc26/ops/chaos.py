@@ -145,7 +145,10 @@ class Chaos:
             if w:
                 time.sleep(3)
                 os.kill(w[0], signal.SIGTERM)
-            return (f"network dropped for {a.net_s:.0f} s (nft rc {r.returncode})"
+            probe = subprocess.run(["curl", "-s", "-o", "/dev/null", "-m", "5", "-w", "%{http_code}",
+                                    "https://huggingface.co"], capture_output=True, text=True).stdout
+            return (f"network dropped for {a.net_s:.0f} s (nft rc {r.returncode}, "
+                    f"huggingface.co from qb2 during the drop: HTTP {probe or '000'})"
                     + (f", chipworker {w[0]} restarted inside the drop" if w else ""))
         return "unknown"
 
