@@ -16,6 +16,7 @@ export const PLDDT_BANDS = [   // [lower bound, colour, label]
 const BANDS = PLDDT_BANDS.map(([lo, hex]) => [lo, lin(hex)]);
 
 export const POINT = lin('#C4C9D1');
+export const POINT_SIDE = lin('#5C626C');
 export const GROUND = '#08090C';   // the app's --ground, so the canvas has no edge
 
 const SPECTRUM = ['#2c4bd6', '#22a6d6', '#3fbf6e', '#e8c63a', '#e0582f'].map(lin);

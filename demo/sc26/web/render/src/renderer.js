@@ -15,7 +15,7 @@ import { program, texture, framebuffer, buffer, FULLSCREEN_VS } from './gl.js';
 import { POINTS_VS, POINTS_FS, MESH_VS, MESH_FS, BG_FS, COMPOSITE_FS } from './shaders.js';
 import { perspective, lookAt, Spring } from './math.js';
 import { Timeline, centroid } from './trajectory.js';
-import { residueColors, atomRadii, elementColor, POINT, GROUND } from './palette.js';
+import { residueColors, atomRadii, elementColor, POINT, POINT_SIDE, GROUND } from './palette.js';
 import { backbone, buildCartoon } from './cartoon.js';
 
 const FOV = 26 * Math.PI / 180;
@@ -59,10 +59,12 @@ export class Renderer {
     this.bb = backbone(topo);
     this.bufA = buffer(gl, gl.ARRAY_BUFFER, new Float32Array(n * 3), gl.DYNAMIC_DRAW);
     this.bufB = buffer(gl, gl.ARRAY_BUFFER, new Float32Array(n * 3), gl.DYNAMIC_DRAW);
-    // one grey for every atom while folding; balls (ligands) keep their element colour
+    // while folding the backbone (N, CA, C) is light grey and every other protein atom a darker one,
+    // so the chain and its helices read in the points before the cartoon; ligands keep element colours
     const ball = Float32Array.from(this.bb.inCartoon, c => 1 - c);
     const col = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) col.set(ball[i] ? elementColor(topo.element[i]) : POINT, 3 * i);
+    for (let i = 0; i < n; i++) col.set(ball[i] ? elementColor(topo.element[i])
+      : ['N', 'CA', 'C'].includes(topo.atomName[i]) ? POINT : POINT_SIDE, 3 * i);
     this.bufC = buffer(gl, gl.ARRAY_BUFFER, col);
     this.bufK = buffer(gl, gl.ARRAY_BUFFER, ball);
     this.vaoPoints = gl.createVertexArray();
