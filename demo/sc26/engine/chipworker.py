@@ -246,17 +246,23 @@ def main():
             emit(type="chip", chip=args.chip, state="busy", job=job.get("id"))
             cancel.clear()
             busy.set()
+            recycle = False
             try:
                 fold(job)
             except Aborted:
                 emit(type="fold_error", id=job.get("id"), chip=args.chip,
                      reason="stopped" if abort.is_set() else "preempted")
             except Exception as exc:  # a bad input must not take the chip down
+                reason = f"{type(exc).__name__}: {exc}"[:400]
+                # Device DRAM fills up over hours of mixed lengths, and once full every fold
+                # fails. A fresh worker starts with empty DRAM, so leave cleanly and let the
+                # engine restart this one.
+                recycle = "Out of Memory" in reason
                 emit(type="fold_error", id=job.get("id"), chip=args.chip,
-                     reason=f"{type(exc).__name__}: {exc}"[:400])
+                     reason="out_of_memory" if recycle else reason, **({"detail": reason} if recycle else {}))
             finally:
                 busy.clear()
-            if abort.is_set() or _PARENT_GONE.is_set():
+            if abort.is_set() or _PARENT_GONE.is_set() or recycle:
                 break
             emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=clock.read())
     except KeyboardInterrupt:
