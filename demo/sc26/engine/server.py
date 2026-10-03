@@ -114,6 +114,8 @@ class Chip:
         job = self.job
         if job and ev.get("id") == job["id"]:
             ev["kind"] = job["kind"]
+            if job.get("name"):
+                ev.setdefault("name", job["name"])  # the chipworker never sees an attract fold's name
             raw = json.dumps(ev, separators=(",", ":"))
             self.svc.record(job, raw)
             if t == "fold_done":
