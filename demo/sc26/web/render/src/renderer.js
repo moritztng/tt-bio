@@ -280,7 +280,9 @@ export class Renderer {
     const needSurf = this.w.surface.x > 0.002 || this.w.surface.target > 0;
     const needRib = this.w.ribbon.x > 0.002 || this.w.ribbon.target > 0;
     if (needSurf || needRib) {
-      const x = interp(s, this._scratch ??= new Float32Array(s.a.coords.length));
+      // one renderer shows protein after protein: size the scratch to this one, never the first
+      if (this._scratch?.length !== s.a.coords.length) this._scratch = new Float32Array(s.a.coords.length);
+      const x = interp(s, this._scratch);
       if (needSurf) this._requestMesh(x.slice(), this.w.grow.x);
       if (needRib) {
         const nv = buildRibbon(x, this.rib, this.resColors, this.ribData);
