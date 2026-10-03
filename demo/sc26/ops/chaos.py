@@ -14,7 +14,8 @@ seconds it picks the next event, in rotation:
   queue_flood     60 visitor folds at once, lengths 10-400
   network_drop    every packet in or out dropped for --net-s seconds except ssh, which is how
                   this script is watched (needs sudo; a system timer lifts the rule even if
-                  this script dies)
+                  this script dies). One chip worker is restarted inside the drop, so a model
+                  load with no network is part of the test
 
 For each event: screenshots at +2, 5, 10, 20, 40 and 60 s (saved quarter size), whether the
 screen was moving, flat or unchanged at each, the watchdog's page frame rate over the next
@@ -139,7 +140,13 @@ class Chaos:
             subprocess.run(["sudo", "systemd-run", "--quiet", f"--on-active={a.net_s + 120}",
                             "/usr/sbin/nft", "delete", "table", "inet", "sc26chaos"], check=False)
             r = subprocess.run(["sudo", "nft", "-f", "-"], input=rules, text=True)
-            return f"network dropped for {a.net_s:.0f} s (nft rc {r.returncode})"
+            # A worker that starts while the network is gone proves the model loads offline.
+            w = self.workers()
+            if w:
+                time.sleep(3)
+                os.kill(w[0], signal.SIGTERM)
+            return (f"network dropped for {a.net_s:.0f} s (nft rc {r.returncode})"
+                    + (f", chipworker {w[0]} restarted inside the drop" if w else ""))
         return "unknown"
 
     def undo(self, ev):
