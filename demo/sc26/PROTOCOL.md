@@ -18,9 +18,13 @@ const xyz = new Float32Array(Uint8Array.from(atob(b64), c => c.charCodeAt(0)).bu
 
 They are the sampler's raw numbers, never smoothed or interpolated. Each frame also carries a rigid
 transform `R` (row-major 3x3) and `T` (3) for display: `display = R * raw + T`. The diffusion
-sampler rotates the structure randomly at every step, and the transform undoes that by aligning
-each frame onto the previous one, so the picture holds still while the structure forms. It is a
-camera, not an edit. Apply it to `xyz` and to `x0`.
+sampler rotates the structure randomly at every step (120-145 degrees between consecutive raw
+frames, measured), and the transform undoes that by superposing every frame onto ONE fixed
+reference, fitted on the frame's own `x0`: live, the fold's first `x0`; in a gallery recording,
+the final structure. It is a camera, not an edit. Apply it to `xyz` and to `x0`. The app does not
+need it: once a fold is complete it superposes every frame onto the final structure itself, the
+same way (`web/render/src/trajectory.js`), and `demo/sc26/science/rotation.py` measures what is
+left (under 0.3 degrees between consecutive frames once the structure has formed).
 
 The final frame's `xyz` is the scored structure bit for bit, and so is `fold_done.xyz`.
 

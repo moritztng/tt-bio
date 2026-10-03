@@ -11,7 +11,7 @@ the booth never needs the network because it only replays what this writes:
     store/<pick>.json   metadata, atoms, per-frame times and display transforms
     store/<pick>.bin    lzma: quantised sampler states, then the final structure as exact float32
 
-build.py expands the store into protocol recordings. Quantisation: each frame is stored as int16
+build.py expands the store into protocol recordings and computes the display transforms. Quantisation: each frame is stored as int16
 on a grid of max(0.01 A, frame RMS spread / 1000), so a structured frame is within 0.005 A of the
 sampler's number and a noise frame (spread up to ~2500 A, mostly off-screen) within 0.05 % of its
 spread. The final frame is stored exactly.
@@ -63,16 +63,6 @@ class Clock:
     def summary(self, t0, t1):
         v = [m for t, m in self.samples if t0 <= t <= t1 and m is not None]
         return {"min": min(v), "median": int(statistics.median(v)), "max": max(v), "n": len(v)} if v else None
-
-
-def kabsch(mobile, target):
-    """R, t with R @ mobile_i + t ~= target_i, as in engine/chipworker.py."""
-    mc, tc = mobile.mean(0), target.mean(0)
-    h = (mobile - mc).T.astype(np.float64) @ (target - tc)
-    u, _, vt = np.linalg.svd(h)
-    d = np.sign(np.linalg.det(vt.T @ u.T))
-    r = vt.T @ np.diag([1.0, 1.0, d]) @ u.T
-    return r, tc - r @ mc
 
 
 def quantise(frames):
@@ -191,15 +181,6 @@ def main():
     _, _, warm_xyz = parse_cif(cifs["a-warmup"])
     same_as_warmup = float(np.abs(warm_xyz - cif_xyz).max())
 
-    # display transforms, exactly as the live path sends them: x0 onto the previous display frame
-    R, T, prev = [], [], None
-    for i, s in enumerate(steps):
-        ref = x0[i - 1] if s >= 0 else xyz[i]
-        r, t = (np.eye(3), np.zeros(3)) if prev is None else kabsch(ref, prev)
-        prev = ref @ r.T + t
-        R.append([round(float(v), 6) for v in r.flatten()])
-        T.append([round(float(v), 4) for v in t])
-
     t_end = os.stat(cifs["b-record"]).st_mtime
     t0 = t_end - float(rec["runtime_s"])
     qx, qs_x = quantise(xyz)
@@ -224,7 +205,7 @@ def main():
         confidence=dict(ptm=rec.get("ptm"), iptm=rec.get("iptm"), plddt=rec.get("complex_plddt"),
                         confidence_score=rec.get("confidence_score")),
         final_vs_cif_max_A=dev_cif, warm_vs_compile_fold_max_A=same_as_warmup,
-        frame_steps=steps, frame_t=[round(m - t0, 3) for m in mt], R=R, T=T,
+        frame_steps=steps, frame_t=[round(m - t0, 3) for m in mt],
         quantum_xyz=[round(q, 6) for q in qs_x], quantum_x0=[round(q, 6) for q in qs_0],
         atoms=atoms, plddt=plddt,
         rg_final=round(float(np.sqrt(((final - final.mean(0)) ** 2).sum(1).mean())), 2),

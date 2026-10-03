@@ -7,6 +7,7 @@
 //   ?selftest=kiosk  check the kiosk properties the page enforces
 //   ?walk=<name>     type <name> after ?after=<s> seconds, for a recorded walkthrough
 //   ?stream=<ws url> another engine's stream, default this origin's /stream
+//   ?play=<url>      play only this recording, over and over, for a look-test of one fold
 
 import { Stream, loadRecording } from './stream.js';
 import { Stage, Director } from './stage.js';
@@ -26,11 +27,12 @@ kiosk();
 loadBlocklist('blocklist.txt');
 
 const canvas = $('stage');
-const stage = new Stage(canvas);
+const stage = new Stage(canvas, { ease: q.has('ease') ? parseFloat(q.get('ease')) : 0.12, final: q.get('final') ?? 'cartoon' });
 const STAGE_X = -0.14, DEPTH_X = -0.25;   // where the protein sits: the stage is columns 1-8
 stage.resize(); stage.setOffset(STAGE_X, 0.02);
 addEventListener('resize', () => stage.resize());
 const director = new Director();
+const PLAY = q.get('play');
 
 const app = {
   state: 'attract',
@@ -48,7 +50,7 @@ const stream = new Stream(q.get('stream') ?? `${location.protocol === 'https:' ?
     describe(f);
     if (app.mine && f.id === app.mine.id) return showResult(f);
     if (f.kind === 'visitor') Object.assign(f, { name: 'A visitor’s name', story: 'Typed here, folded live.' });
-    director.add(f);
+    if (!PLAY) director.add(f);
   },
   onChips: () => drawChips(),
   onStage(id, job, m) {
@@ -64,7 +66,7 @@ const stream = new Stream(q.get('stream') ?? `${location.protocol === 'https:' ?
   },
 });
 
-loadRecording('assets/fallback-ubiquitin.jsonl').then(f => { if (f) director.fallback = describe(f); }).catch(() => {});
+loadRecording(PLAY ?? 'assets/fallback-ubiquitin.jsonl').then(f => { if (f) director.fallback = describe(f); }).catch(() => {});
 fetch('lanes/index.html', { method: 'HEAD' }).then(r => { app.lanes = r.ok; }).catch(() => {});
 
 // ------------------------------------------------------------------ state changes
@@ -266,6 +268,7 @@ function drawSide() {
       num.textContent = s != null ? s.toFixed(1) : '';
       numBox.classList.remove('locked');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
+      $('step').textContent = '';
       M.classList.remove('long');
     } else {
       const f = m.fold;
@@ -281,7 +284,7 @@ function drawSide() {
     return;
   }
   const f = app.slot?.fold;
-  if (!f) { L.textContent = ''; N.textContent = ''; S.textContent = ''; src.textContent = ''; num.textContent = ''; M.textContent = ''; return; }
+  if (!f) { L.textContent = ''; N.textContent = ''; S.textContent = ''; src.textContent = ''; num.textContent = ''; M.textContent = ''; $('step').textContent = ''; return; }
   L.textContent = stage.landed ? 'Folded' : 'Folding';
   setName(N, f.name ?? 'A protein');
   S.textContent = f.story ?? '';
@@ -299,6 +302,10 @@ function clock(f) { return f.aiclk ? ` · AICLK ${Math.round(f.aiclk)} MHz` : ''
 
 function drawNumber(f) {
   const src = $('source'), num = $('num'), box = $('number');
+  const st = stage.step, of = stage.of;
+  $('step').textContent = !of ? '' : stage.landed ? `${of} sampler steps, every one shown`
+    : st < 0 ? `Sampler step 0 of ${of}: random noise` : `Sampler step ${st + 1} of ${of}`;
+  $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   const where = f.source === 'live' && f.chip != null ? `Folded live on chip ${pad(f.chip)}` : 'Recorded on this box';
   if (stage.landed) {
     src.textContent = where;

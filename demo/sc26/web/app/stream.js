@@ -119,6 +119,8 @@ function assemble(start, frames, done) {
   };
   // The last frame is the scored structure; fold_done.xyz is the same numbers.
   const coords = frames.map(f => decodeCoords(f.xyz));
+  const x0 = frames.map(f => f.x0 ? decodeCoords(f.x0) : null);   // the step's denoised estimate, for alignment
+  const steps = frames.map(f => f.step);
   const tReal = frames.map(f => f.t);
   const diffusion = done.stages?.diffusion ?? (tReal[tReal.length - 1] - tReal[0]);
   const mean = plddt ? plddt.reduce((a, b) => a + b, 0) / plddt.length : null;
@@ -127,6 +129,7 @@ function assemble(start, frames, done) {
     chip: start.chip ?? null, recorded: start.recorded ?? null,
     name: start.name ?? null, story: start.story ?? null, sequence: seq, nres: seq.length,
     seconds: done.seconds, diffusionSeconds: diffusion, aiclk: done.aiclk_mhz?.median ?? null,
-    plddtMean: mean, topo, coords, tReal, received: performance.now(),
+    plddtMean: mean, topo, coords, x0, steps, of: frames[frames.length - 1].of ?? frames.length - 1,
+    tReal, received: performance.now(),
   };
 }

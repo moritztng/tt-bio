@@ -1,14 +1,20 @@
 // Frames in, one displayed state out.
 //
 // Diffusion samplers apply a random rotation to their working frame at every step, so raw dumps
-// tumble (measured on OpenDDE: ~140 deg between consecutive late steps). Every frame is therefore
-// rigidly superposed before display: onto the final structure when it is known (replay), else onto
-// the previous displayed frame (live). Superposition is rotation + translation only, so shape and
-// every interatomic distance are untouched. In replay the final frame is not moved at all: the
-// coordinates on screen at the end are the scored structure's own floats.
+// tumble (measured on qb2's recordings: 120-145 deg between consecutive steps, science/rotation.py).
+// Every frame is therefore rigidly moved before display, onto ONE fixed reference: the final
+// structure when it is known (replay, and every fold the app shows), else the fold's first x0
+// (live, until the final lands, then everything is re-superposed onto the final). The rotation is
+// fitted on the frame's x0, the network's denoised estimate at that step, which lives in the same
+// frame as the step's xyz and already has the protein's shape, so the fit never chases noise; it is
+// then applied to xyz. Rotation + translation only: shape and every interatomic distance are
+// untouched, and the final frame is not moved at all, so the coordinates on screen at the end are
+// the scored structure's own floats.
 //
-// Between two real frames the display interpolates linearly, for smoothness at 60 fps. Only real
-// frames are ever endpoints; when playback reaches a frame, the display is exactly that frame.
+// Playback holds each real state and steps to the next. `ease` (seconds, default 0.12) is the
+// only motion that is not a sampler state: a linear blend between two CONSECUTIVE real states over
+// the last `ease` seconds before the later one is reached. `ease: 0` turns it off and the display
+// is only ever a real state.
 
 // Optimal rotation by Horn's quaternion method: largest eigenvector of a symmetric 4x4.
 function jacobiTopEigen(N) {
@@ -47,8 +53,9 @@ export function centroid(x) {
   return [cx / n, cy / n, cz / n];
 }
 
-// Returns a new array: `mov` rigidly superposed onto `ref`.
-export function superpose(mov, ref) {
+// The rigid transform that best superposes `mov` onto `ref`: {R (row-major 3x3), cm, cr}, applied
+// as x' = R (x - cm) + cr.
+export function fit(mov, ref) {
   const n = mov.length / 3, cm = centroid(mov), cr = centroid(ref);
   let Sxx = 0, Sxy = 0, Sxz = 0, Syx = 0, Syy = 0, Syz = 0, Szx = 0, Szy = 0, Szz = 0;
   for (let i = 0; i < n; i++) {
@@ -70,9 +77,14 @@ export function superpose(mov, ref) {
     2 * (x * y + w * z), w * w - x * x + y * y - z * z, 2 * (y * z - w * x),
     2 * (x * z - w * y), 2 * (y * z + w * x), w * w - x * x - y * y + z * z,
   ];
-  const out = new Float32Array(mov.length);
-  for (let i = 0; i < n; i++) {
-    const mx = mov[3 * i] - cm[0], my = mov[3 * i + 1] - cm[1], mz = mov[3 * i + 2] - cm[2];
+  return { R, cm, cr };
+}
+
+// Returns a new array: `x` moved by the transform `f`.
+export function applyFit({ R, cm, cr }, x) {
+  const out = new Float32Array(x.length);
+  for (let i = 0; i < x.length / 3; i++) {
+    const mx = x[3 * i] - cm[0], my = x[3 * i + 1] - cm[1], mz = x[3 * i + 2] - cm[2];
     out[3 * i] = R[0] * mx + R[1] * my + R[2] * mz + cr[0];
     out[3 * i + 1] = R[3] * mx + R[4] * my + R[5] * mz + cr[1];
     out[3 * i + 2] = R[6] * mx + R[7] * my + R[8] * mz + cr[2];
@@ -80,31 +92,38 @@ export function superpose(mov, ref) {
   return out;
 }
 
+// `mov` rigidly superposed onto `ref`.
+export const superpose = (mov, ref) => applyFit(fit(mov, ref), mov);
+
+// A frame moved onto `ref`, the rotation fitted on its x0 when it has one.
+const onto = (f, ref) => ({ ...f, coords: applyFit(fit(f.x0 ?? f.coords, ref), f.coords) });
+
 export function rmsd(a, b) {
   let s = 0; for (let i = 0; i < a.length; i++) s += (a[i] - b[i]) ** 2;
   return Math.sqrt(s / (a.length / 3));
 }
 
-// Frames on a clock. `time` is seconds on the stream's own clock (the chip's timestamps in a
-// replay, arrival time live). The display runs `delay` seconds behind the newest frame so it always
-// has two real endpoints to interpolate between.
+// Real frames on a clock. `time` is seconds on the stream's own clock (the play schedule in the
+// app, the chip's timestamps in the harness, arrival time live). A frame may carry `x0` (its
+// step's denoised estimate) and `step` (the sampler's own step index, -1 for the starting noise).
 export class Timeline {
-  constructor() { this.frames = []; this.final = null; this.delay = 0; }
+  constructor({ ease = 0.12 } = {}) { this.frames = []; this.final = null; this.delay = 0; this.ease = ease; this.ref = null; }
 
-  // Replay: every frame known up front; align everything to the final, leave the final alone.
+  // Every frame known up front: align everything to the final, leave the final alone.
   load(frames) {
     const fin = frames[frames.length - 1].coords;
-    this.frames = frames.map((f, i) => ({ ...f, coords: i === frames.length - 1 ? fin : superpose(f.coords, fin) }));
+    this.frames = frames.map((f, i) => i === frames.length - 1 ? f : onto(f, fin));
     this.final = this.frames[this.frames.length - 1];
   }
 
-  // Live: align to what is on screen now.
+  // Live: onto the fold's first x0 until the final arrives, then everything onto the final.
   push(frame) {
+    this.raw = [...(this.raw ?? []), frame];
+    if (frame.final) return this.load(this.raw);
+    this.ref ??= frame.x0 ?? null;
     const prev = this.frames[this.frames.length - 1];
-    const coords = prev ? superpose(frame.coords, prev.coords) : frame.coords;
-    this.frames.push({ ...frame, coords });
-    if (frame.final) this.final = this.frames[this.frames.length - 1];
-    if (this.frames.length > 1) {
+    this.frames.push(this.ref ? onto(frame, this.ref) : frame);
+    if (prev) {
       const dt = frame.time - prev.time;
       this.delay = this.delay ? 0.8 * this.delay + 0.2 * dt : dt;
     }
@@ -112,16 +131,19 @@ export class Timeline {
 
   get duration() { return this.frames.length ? this.frames[this.frames.length - 1].time - this.frames[0].time : 0; }
 
-  // -> {a, b, alpha, progress}: display = a + (b - a) * alpha
+  // -> {a, b, alpha, index, progress}: display = a + (b - a) * alpha, where a is the last real
+  // state reached (frames[index]) and b the next; alpha > 0 only inside the ease window.
   at(t) {
     const F = this.frames;
     if (!F.length) return null;
-    if (t <= F[0].time) return { a: F[0], b: F[0], alpha: 0, progress: F[0].progress ?? 0 };
-    let lo = 0, hi = F.length - 1;
-    if (t >= F[hi].time) return { a: F[hi], b: F[hi], alpha: 0, progress: F[hi].progress ?? 1 };
+    const prog = (i) => F[i].progress ?? i / Math.max(1, F.length - 1);
+    let hi = F.length - 1;
+    if (t <= F[0].time) return { a: F[0], b: F[0], alpha: 0, index: 0, progress: prog(0) };
+    if (t >= F[hi].time) return { a: F[hi], b: F[hi], alpha: 0, index: hi, progress: prog(hi) };
+    let lo = 0;
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (F[m].time <= t) lo = m; else hi = m; }
-    const alpha = (t - F[lo].time) / (F[hi].time - F[lo].time);
-    const pa = F[lo].progress ?? lo / (F.length - 1), pb = F[hi].progress ?? hi / (F.length - 1);
-    return { a: F[lo], b: F[hi], alpha, progress: pa + (pb - pa) * alpha };
+    const e = Math.min(this.ease, F[hi].time - F[lo].time);
+    const alpha = e > 0 ? Math.max(0, (t - (F[hi].time - e)) / e) : 0;
+    return { a: F[lo], b: F[hi], alpha, index: lo, progress: prog(lo) };
   }
 }

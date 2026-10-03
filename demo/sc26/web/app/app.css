@@ -23,8 +23,6 @@ canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: 
                mask-image: linear-gradient(to right, #000 58%, transparent 67%),
                            linear-gradient(to bottom, transparent 18%, #000 27%);
                mask-composite: intersect; }
-#glow { position: fixed; inset: 0; pointer-events: none;
-        background: radial-gradient(circle at 36% 52%, rgba(62, 183, 222, 0.07), transparent calc(560 * var(--p))); }
 
 .tab { font-variant-numeric: tabular-nums; }
 .fade { transition: opacity 600ms var(--fade); }
@@ -43,8 +41,7 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
        gap: calc(12 * var(--p)); font-size: calc(16 * var(--p)); font-weight: 600; letter-spacing: 0.16em;
        color: var(--ink2); text-transform: uppercase; }
 #tag i { width: calc(11 * var(--p)); height: calc(11 * var(--p)); border-radius: 50%; background: var(--ink3); }
-#tag.live i { background: var(--live); box-shadow: 0 0 calc(14 * var(--p)) var(--live); animation: pulse 2.4s var(--fade) infinite; }
-@keyframes pulse { 50% { opacity: 0.45; } }
+#tag.live i { background: var(--live); }
 
 /* right column: x 1296..1824 */
 aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)); top: calc(172 * var(--p));
@@ -71,6 +68,16 @@ aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)
 #conf > div { flex: 0 0 calc(240 * var(--p)); height: calc(4 * var(--p)); background: var(--rule); border-radius: 2px; }
 #conf i { display: block; height: 100%; background: var(--ice); border-radius: 2px; width: 0; transition: width 1.2s var(--out); }
 body[data-state=result] #conf.on { display: flex; }
+/* the sampler's own step counter while folding; the pLDDT key once the structure is drawn */
+#step { font-size: calc(17 * var(--p)); font-weight: 460; color: var(--ink3); font-variant-numeric: tabular-nums;
+        margin-top: calc(6 * var(--p)); min-height: calc(22 * var(--p)); white-space: nowrap; }
+#legend { margin-top: calc(22 * var(--p)); font-size: calc(17 * var(--p)); color: var(--ink2); opacity: 0;
+          transition: opacity 600ms var(--fade); }
+#legend.on { opacity: 1; }
+#legend p { margin: 0 0 calc(8 * var(--p)); color: var(--ink3); }
+#legend ul { list-style: none; margin: 0; padding: 0; display: flex; gap: calc(22 * var(--p)); font-variant-numeric: tabular-nums; }
+#legend li { display: flex; align-items: center; gap: calc(8 * var(--p)); }
+#legend i { width: calc(16 * var(--p)); height: calc(16 * var(--p)); border-radius: 2px; }
 
 /* four chips, always visible */
 #chips { list-style: none; margin: auto 0 0; padding: 0; }

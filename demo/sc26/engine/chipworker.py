@@ -181,7 +181,7 @@ def main():
             emit(type="stage", id=jid, chip=args.chip, stage=stage, step=step, total=total,
                  t=round(time.perf_counter() - t_start, 3))
 
-        prev = {"display": None}
+        prev = {"ref": None}
         pending = []
 
         def stop_check(step, x, x_den):
@@ -193,14 +193,18 @@ def main():
                 raise Aborted()
             raw = x[0][mask]
             ref = x_den[0][mask] if x_den is not None else raw
-            # Display alignment: each frame is rotated onto the one before it, so the sampler's
-            # per-step random rotation does not spin the picture. The raw coordinates are sent
-            # untouched; R and t are a camera, not an edit.
-            if prev["display"] is None:
+            # Display alignment onto ONE fixed reference, the fold's first x0 (the network's first
+            # estimate of the finished structure), fitted on this step's x0, which shares the
+            # step's random frame and already has the protein's shape. Aligning each frame onto
+            # the previous one chained the noise of every fit into a drift. The raw coordinates
+            # are sent untouched; R and t are a camera, not an edit. The app re-superposes every
+            # frame onto the final structure once the fold is done (web/render/src/trajectory.js).
+            if prev["ref"] is None and x_den is not None:
+                prev["ref"] = x_den[0][mask].clone()
+            if prev["ref"] is None:
                 r, t = torch.eye(3), torch.zeros(3)
             else:
-                r, t = kabsch(ref, prev["display"])
-            prev["display"] = ref @ r.T + t
+                r, t = kabsch(ref, prev["ref"])
             frame = dict(type="frame", id=jid, chip=args.chip, step=step, of=phase.get("of"),
                          t=round(time.perf_counter() - t_start, 3), xyz=f32(raw),
                          x0=f32(x_den[0][mask]) if x_den is not None else None,

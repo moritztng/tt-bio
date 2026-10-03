@@ -39,8 +39,29 @@ def load(meta):
     return qx, q0, final
 
 
+def kabsch(mobile, target):
+    """R, t with R @ mobile_i + t ~= target_i."""
+    mc, tc = mobile.mean(0), target.mean(0)
+    u, _, vt = np.linalg.svd((mobile - mc).T.astype(np.float64) @ (target - tc))
+    d = np.sign(np.linalg.det(vt.T @ u.T))
+    r = vt.T @ np.diag([1.0, 1.0, d]) @ u.T
+    return r, tc - r @ mc
+
+
+def display_transforms(meta, xyz, x0, final):
+    """Each frame onto the final structure, fitted on the step's x0 (the noise frame on itself).
+    One fixed reference, as the renderer does it (web/render/src/trajectory.js)."""
+    R, T = [], []
+    for i, s in enumerate(meta["frame_steps"]):
+        r, t = (np.eye(3), np.zeros(3)) if i == len(xyz) - 1 else kabsch(x0[i - 1] if s >= 0 else xyz[i], final)
+        R.append([round(float(v), 6) for v in r.flatten()])
+        T.append([round(float(v), 4) for v in t])
+    return R, T
+
+
 def messages(meta, pick):
     xyz, x0, final = load(meta)
+    R, T = display_transforms(meta, xyz, x0, final)
     fid = meta["id"]
     base = dict(id=fid, chip=meta["chip"], kind="replay", source="live", model=meta["model"],
                 recorded_chip=meta["chip"])
@@ -56,7 +77,7 @@ def messages(meta, pick):
     of = meta["steps"]
     for i, (s, t) in enumerate(zip(meta["frame_steps"], meta["frame_t"])):
         yield dict(type="frame", id=fid, chip=meta["chip"], step=s, of=of, t=t, xyz=b64(xyz[i]),
-                   x0=b64(x0[i - 1]) if s >= 0 else None, R=meta["R"][i], T=meta["T"][i])
+                   x0=b64(x0[i - 1]) if s >= 0 else None, R=R[i], T=T[i])
     yield dict(type="stage", id=fid, chip=meta["chip"], stage="confidence", step=0, total=1, t=meta["frame_t"][-1])
     yield dict(type="fold_done", **base, n_res=meta["n_res"], seconds=meta["seconds"], stages=meta["stages"],
                aiclk_mhz=meta["aiclk_mhz"], xyz=b64(final), plddt=meta["plddt"],

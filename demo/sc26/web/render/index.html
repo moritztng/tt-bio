@@ -16,9 +16,9 @@
 <script type="module">
 // Development harness. Not the booth app (that is web/app/); it plays one trajectory and lets you
 // look, take stills and measure frame rate.
-//   ?traj=fixtures/x.json  mode=auto|points|surface|glass|ribbon  scheme=chain|water|confidence
+//   ?traj=fixtures/x.json  final=cartoon|surface  scheme=plddt|spectrum  ease=<s> (0: real states only)
 //   scale=0.75 (render scale)  msaa=4  speed=1  at=<s> (freeze at stream time s)  hud=1
-//   modeAt=t:mode[:scheme],..  wall=1 (shots/modeAt on wall-clock seconds, for frozen stills)
+//   wall=1 (shots on wall-clock seconds, for frozen stills)
 //   null=1 (clear only: the cost of putting a canvas this size on screen at all)
 //   shots=t1,t2 (post a 'shot' event as playback crosses each time)  loop=a,b (loop stream time a..b s)  bench=<s> (measure, POST to /bench)  hold=<s> (hold final)
 const post = (o) => fetch('/bench', { method: 'POST', body: JSON.stringify(o) }).catch(() => {});
@@ -32,7 +32,7 @@ const num = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d;
 const canvas = document.getElementById('c');
 const fit = () => { canvas.width = Math.round(innerWidth * devicePixelRatio); canvas.height = Math.round(innerHeight * devicePixelRatio); };
 fit();
-const r = new Renderer(canvas, { scale: num('scale', 'auto'), msaa: num('msaa', 'auto'), scheme: q.get('scheme') ?? 'chain',
+const r = new Renderer(canvas, { scale: num('scale', 'auto'), msaa: num('msaa', 'auto'), scheme: q.get('scheme') ?? 'plddt', final: q.get('final') ?? 'cartoon', ease: num('ease', 0.12),
   preserve: q.has('at'), skip: q.get('skip') ?? '' });
 addEventListener('resize', () => { fit(); r.resize(); });
 
@@ -40,7 +40,6 @@ const tr = await loadTrajectory(q.get('traj') ?? 'fixtures/ubiquitin-76.json');
 r.setTopology(tr.topo);
 r.loadReplay(tr.frames);
 r.speed = num('speed', 1);
-r.setMode(q.get('mode') ?? 'auto');
 const t0 = tr.frames[0].time, dur = r.timeline.duration, hold = num('hold', 6);
 const loop = q.get('loop')?.split(',').map(Number);
 if (q.has('at')) { r.seek(num('at', 0)); } else r.play();
@@ -50,24 +49,21 @@ if (q.has('hud')) hud.style.display = 'block';
 const gl = r.gl, dbg = gl.getExtension('WEBGL_debug_renderer_info');
 const gpu = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
 
-const keys = { '1': 'points', '2': 'surface', '3': 'glass', '4': 'ribbon', '0': 'auto' };
 addEventListener('keydown', (e) => {
-  if (keys[e.key]) r.setMode(keys[e.key]);
   if (e.key === ' ') r.playing ? r.pause() : r.play();
   if (e.key === 'r') r.seek(0);
   if (e.key === 'h') hud.style.display = hud.style.display === 'none' ? 'block' : 'none';
-  if (e.key === 'c') r.setScheme(r.opt.scheme === 'chain' ? 'water' : 'chain');
+  if (e.key === 'c') r.setScheme(r.opt.scheme === 'plddt' ? 'spectrum' : 'plddt');
 });
 
 const bench = num('bench', 0), intervals = [], phases = {};
 let last = performance.now(), started = last, reported = false, readySent = false, shotIdx = 0;
 const shots = q.get('shots')?.split(',').map(Number) ?? [];
-const modeAt = q.get('modeAt')?.split(',').map(x => { const [t, m, sc] = x.split(':'); return [+t, m, sc]; }) ?? [];
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   if (now - started > 2000 && bench) {
     intervals.push(now - last);
-    const ph = r.w.solid.x > 0.98 ? 'final' : (r.progress ?? 0) < 0.6 ? 'noise' : 'fold';
+    const ph = r.done ? 'final' : (r.progress ?? 0) < 0.6 ? 'noise' : 'fold';
     (phases[ph] ??= []).push(now - last);
   }
   last = now;
@@ -80,9 +76,8 @@ function frame(now) {
   if (q.has('null')) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.clearColor(0.01, 0.01, 0.02, 1); gl.clear(gl.COLOR_BUFFER_BIT); r.stats.frames++; }
   else r.render(q.has('at') ? 0.016 : dt);
   const tnow = q.has('wall') ? (now - started) / 1000 : r.clock - t0;
-  while (modeAt.length && tnow >= modeAt[0][0]) { const [, m, sc] = modeAt.shift(); r.setMode(m); if (sc) r.setScheme(sc); }
   if (shots.length && tnow >= shots[0] && r.stats.frames > 30) {
-    const t = shots.shift(); post({ kind: 'shot', t, idx: shotIdx++, progress: r.progress, ...r.onScreen(), rg: r.compact, w: { ...Object.fromEntries(Object.entries(r.w).map(([k, v]) => [k, +v.x.toFixed(3)])) }, mesh: r.surf.last ?? null });
+    const t = shots.shift(); post({ kind: 'shot', t, idx: shotIdx++, progress: r.progress, step: r.step, ...r.onScreen(), fin: +r.fin.x.toFixed(3), mesh: r.surf.last ?? null });
   }
   if (!readySent && r.stats.frames > 150 && (now - started) / 1000 > num('ready', 0)) {
     readySent = true; post({ kind: 'ready', gpu, w: canvas.width, h: canvas.height, mesh: r.surf.last ?? null });
@@ -90,16 +85,15 @@ function frame(now) {
   if (hud.style.display !== 'none' && r.stats.frames % 15 === 0) {
     const s = r.surf.last;
     hud.textContent = `${gpu}\n${canvas.width}x${canvas.height} @ scale ${r.scale}  msaa ${r.rt.samples}\n` +
-      `t ${(r.clock - t0).toFixed(2)}/${dur.toFixed(1)} s  progress ${(r.progress ?? 0).toFixed(2)}  compact ${(r.compact ?? 0).toFixed(2)}\n` +
-      `w pts ${r.w.points.x.toFixed(2)} surf ${r.w.surface.x.toFixed(2)} solid ${r.w.solid.x.toFixed(2)} grow ${r.w.grow.x.toFixed(2)} rib ${r.w.ribbon.x.toFixed(2)}\n` +
-      (s ? `mesh ${s.ms.toFixed(1)} ms  ${s.ntri} tris  grid ${s.n.join('x')} h ${s.h.toFixed(2)}` : '');
+      `t ${(r.clock - t0).toFixed(2)}/${dur.toFixed(1)} s  step ${r.step}  final ${r.fin.x.toFixed(2)}\n` +
+      (s ? `surface mesh ${s.ms.toFixed(1)} ms  ${s.ntri} tris` : r.cartoonMs ? `cartoon ${r.cartoonMs.toFixed(1)} ms` : '');
   }
   if (bench && !reported && now - started > (2 + bench) * 1000) {
     reported = true;
     const iv = intervals.slice().sort((a, b) => a - b), pct = (p) => iv[Math.min(iv.length - 1, Math.floor(p * iv.length))];
     const sm = r.surf.ms.slice().sort((a, b) => a - b);
     const res = { kind: 'bench', gpu, width: canvas.width, height: canvas.height, scale: r.scale, msaa: r.rt.samples,
-      mode: q.get('mode') ?? 'auto', traj: q.get('traj'), natom: tr.topo.natom, nres: tr.topo.nres,
+      final: r.opt.final, traj: q.get('traj'), natom: tr.topo.natom, nres: tr.topo.nres,
       frames: iv.length, seconds: bench, fps: iv.length / (iv.reduce((a, b) => a + b, 0) / 1000),
       p50: pct(0.5), p95: pct(0.95), p99: pct(0.99), worst: iv[iv.length - 1],
       over20ms: iv.filter(x => x > 20).length, over34ms: iv.filter(x => x > 34).length,

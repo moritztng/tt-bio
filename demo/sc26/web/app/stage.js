@@ -2,17 +2,17 @@
 //
 // A fold's real sampler states arrive faster than anyone can watch (an ESMFold2 fold's whole
 // diffusion takes a fraction of a second), so the stage plays them back over CONDENSE seconds and
-// says how much slower that is, on average. Every real state is shown, in order. The time between
-// two states follows how much the cloud shrinks between them (in log radius of gyration), plus a
-// floor per step: a sampler collapses most of its noise in its first few steps, and an equal slice
-// per step spent half a second on the starfield and five on a cloud that hardly moved. Between two
-// real states the renderer interpolates linearly; the last frame is the scored structure as the
-// chip produced it.
+// says how much slower that is, on average. Every real state is shown, in order, and held: the
+// time between two states follows how much the cloud shrinks between them (in log radius of
+// gyration), plus a floor per step, because a sampler collapses most of its noise in its first few
+// steps. The only motion that is not a sampler state is the renderer's short blend between two
+// consecutive states (`?ease=<s>`, default 0.12 s; `?ease=0` shows real states only). `step` and
+// `of` are the sampler's own step counter for the state on screen. The last frame is the scored
+// structure as the chip produced it.
 
 import { Renderer } from '../render/src/renderer.js';
 
 export const CONDENSE = 6.0;   // seconds the real states are spread over
-const FADE = 0.6;
 
 export class Stage {
   constructor(canvas, opt = {}) {
@@ -39,17 +39,10 @@ export class Stage {
     this.condense = Math.max(condense, fold.diffusionSeconds > 0 ? fold.diffusionSeconds : 0);
     this.times = playTimes(fold.coords, this.condense);
     const n = fold.coords.length;
-    const frames = fold.coords.map((c, i) => ({ coords: c, time: this.times[i],
-      progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
-    this.r._scratch = null;   // renderer keeps a per-topology scratch buffer it does not resize (handed to sc26-render)
+    const frames = fold.coords.map((c, i) => ({ coords: c, x0: fold.x0?.[i] ?? null, step: fold.steps?.[i] ?? i - 1,
+      time: this.times[i], progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
     this.r.setTopology(fold.topo);
     this.r.loadReplay(frames);
-    this.r.setMode('auto');
-    // start from the noise look at once: eased from the last fold's surface, the points took about
-    // half a second to come back and the stage read as empty for that long
-    for (const [k, x] of Object.entries({ points: 1, surface: 0, solid: 0, ribbon: 0, grow: 0 }))
-      Object.assign(this.r.w[k], { x, v: 0, target: x });
-    this.r.cam.yawAngle = Math.random() * 2 * Math.PI;   // a repeat never starts from the same side
     this.r.speed = 1;
     this.r.pause();
     this.r.seek(0);
@@ -75,6 +68,10 @@ export class Stage {
     const x = (t - T[i]) / (T[i + 1] - T[i] || 1);
     return f.tReal[i] + (f.tReal[i + 1] - f.tReal[i]) * x;
   }
+
+  // The sampler step on screen: -1 is the starting noise, of - 1 the scored structure.
+  get step() { return this.r.step ?? -1; }
+  get of() { return this.fold?.of ?? 0; }
 
   get playT() { return Math.max(0, this.t - this.holdNoise); }
   get landed() { return this.fold && this.playT >= this.condense; }
