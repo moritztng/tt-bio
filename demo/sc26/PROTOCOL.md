@@ -121,8 +121,10 @@ Answers to a browser's `fold` request, sent only to that browser.
 A recording is the live fold's messages, one JSON object per line (`*.jsonl`), exactly as they were
 streamed. The server plays recordings from `demo/sc26/gallery/trajectories/` and
 `demo/sc26/engine/recordings/` through the identical protocol, with the recorded timing (gaps
-capped at 2 s), `source: "replay"`, `chip: null` and `recorded: "<file stem>"`. It does so
-whenever no chip is ready or busy, so the screen is never blank. To develop the frontend with no
+capped at 2 s), `source: "replay"`, `chip: null` and `recorded: "<file stem>"`. It plays them
+all the time, every `--replay-gap` seconds (3) with no chip live and every `--replay-gap-live` (20)
+while chips fold, so the gallery reaches the screen between live folds and the screen is never
+blank. To develop the frontend with no
 chip at all:
 
     python3 demo/sc26/engine/server.py --replay-only

@@ -1,9 +1,12 @@
 // The stage: one fold at a time, very large, drawn by sc26-render's Renderer.
 //
 // A fold's real sampler states arrive faster than anyone can watch (an ESMFold2 fold's whole
-// diffusion takes a fraction of a second), so the stage plays them back over CONDENSE seconds,
-// one equal slice per real step, and says how much slower that is. Between two real states the
-// renderer interpolates linearly for smooth motion; the last frame is the scored structure as the
+// diffusion takes a fraction of a second), so the stage plays them back over CONDENSE seconds and
+// says how much slower that is, on average. Every real state is shown, in order. The time between
+// two states follows how much the cloud shrinks between them (in log radius of gyration), plus a
+// floor per step: a sampler collapses most of its noise in its first few steps, and an equal slice
+// per step spent half a second on the starfield and five on a cloud that hardly moved. Between two
+// real states the renderer interpolates linearly; the last frame is the scored structure as the
 // chip produced it.
 
 import { Renderer } from '../render/src/renderer.js';
@@ -14,7 +17,7 @@ const FADE = 0.6;
 export class Stage {
   constructor(canvas, opt = {}) {
     this.canvas = canvas;
-    this.r = new Renderer(canvas, { fill: 0.62, ...opt });
+    this.r = new Renderer(canvas, { fill: 0.72, ...opt });
     this.fold = null;
     this.t = 0;            // seconds since this fold took the stage
     this.fitted = false;
@@ -34,8 +37,9 @@ export class Stage {
   show(fold, { condense = CONDENSE } = {}) {
     this.fold = fold;
     this.condense = Math.max(condense, fold.diffusionSeconds > 0 ? fold.diffusionSeconds : 0);
+    this.times = playTimes(fold.coords, this.condense);
     const n = fold.coords.length;
-    const frames = fold.coords.map((c, i) => ({ coords: c, time: n > 1 ? i * condense / (n - 1) : 0,
+    const frames = fold.coords.map((c, i) => ({ coords: c, time: this.times[i],
       progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
     this.r._scratch = null;   // renderer keeps a per-topology scratch buffer it does not resize (handed to sc26-render)
     this.r.setTopology(fold.topo);
@@ -60,9 +64,12 @@ export class Stage {
   get realTime() {
     const f = this.fold;
     if (!f) return 0;
-    const n = f.tReal.length, x = Math.min(1, Math.max(0, this.playT / this.condense)) * (n - 1);
-    const i = Math.floor(x), a = f.tReal[i], b = f.tReal[Math.min(n - 1, i + 1)];
-    return a + (b - a) * (x - i);
+    const T = this.times, n = T.length, t = this.playT;
+    if (n < 2 || t >= T[n - 1]) return f.tReal[n - 1] ?? 0;
+    let i = 0;
+    while (T[i + 1] <= t) i++;
+    const x = (t - T[i]) / (T[i + 1] - T[i] || 1);
+    return f.tReal[i] + (f.tReal[i + 1] - f.tReal[i]) * x;
   }
 
   get playT() { return Math.max(0, this.t - this.holdNoise); }
@@ -77,13 +84,36 @@ export class Stage {
   }
 }
 
+// When each real state is on screen: a floor per step plus a share of the condensation by how
+// much the cloud shrinks, so the starfield collapsing gets most of the time.
+const FLOOR = 0.3;
+function playTimes(coords, total) {
+  const n = coords.length;
+  if (n < 2) return [0];
+  const lr = coords.map(c => Math.log(Math.max(1e-3, gyration(c))));
+  const d = lr.slice(1).map((v, i) => Math.abs(v - lr[i])), sum = d.reduce((a, b) => a + b, 0);
+  const out = [0];
+  for (let i = 0; i < n - 1; i++) out.push(out[i] + total * (FLOOR / (n - 1) + (1 - FLOOR) * (sum > 0 ? d[i] / sum : 1 / (n - 1))));
+  out[n - 1] = total;
+  return out;
+}
+
+function gyration(x) {
+  const m = x.length / 3;
+  let cx = 0, cy = 0, cz = 0, s = 0;
+  for (let i = 0; i < m; i++) { cx += x[3 * i]; cy += x[3 * i + 1]; cz += x[3 * i + 2]; }
+  cx /= m; cy /= m; cz /= m;
+  for (let i = 0; i < m; i++) s += (x[3 * i] - cx) ** 2 + (x[3 * i + 1] - cy) ** 2 + (x[3 * i + 2] - cz) ** 2;
+  return Math.sqrt(s / m);
+}
+
 // Which finished fold takes the stage next. Holds a pool of recent folds and never repeats a
 // protein while another one is available that has not been on stage in the last few slots.
 //
-// The server replays recordings only while no chip is ready or busy, so a box whose chips are all
-// folding visitors' names sends no attract folds at all. Then the stage shows the last few
-// visitors' folds (as "A visitor's name", never the name), and before anything has arrived, the
-// one recording bundled with the app. The stage is never empty.
+// The server streams the gallery's recordings between live folds. If the pool is still empty (the
+// page has just loaded, or the server is down), the stage shows the last few visitors' folds (as
+// "A visitor's name", never the name), and before anything has arrived, the one recording bundled
+// with the app. The stage is never empty.
 export class Director {
   constructor({ pool = 24, avoid = 4 } = {}) {
     this.pool = []; this.max = pool; this.avoid = avoid;

@@ -43,15 +43,18 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 @keyframes pulse { 50% { opacity: 0.45; } }
 
 /* right column: x 1296..1824 */
-aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)); top: calc(190 * var(--p));
+aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)); top: calc(172 * var(--p));
         bottom: calc(150 * var(--p)); display: flex; flex-direction: column; }
 #label, #source { font-size: calc(16 * var(--p)); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink3); }
 #label { color: var(--live); min-height: calc(20 * var(--p)); }
-#name { margin: calc(14 * var(--p)) 0 0; font-size: calc(62 * var(--p)); font-weight: 640; letter-spacing: -0.028em;
+/* name and story share one fixed box, so the number and everything under it never move */
+#title { margin-top: calc(14 * var(--p)); height: calc(214 * var(--p)); overflow: hidden; }
+#name { margin: 0; font-size: calc(62 * var(--p)); font-weight: 640; letter-spacing: -0.028em;
         line-height: 1.04; overflow-wrap: anywhere; }
-#story { margin: calc(16 * var(--p)) 0 0; font-size: calc(25 * var(--p)); line-height: 1.36; font-weight: 420; color: var(--ink2); min-height: calc(68 * var(--p)); }
-#source { margin-top: calc(34 * var(--p)); color: var(--ink2); }
-#number { margin-top: calc(4 * var(--p)); font-size: calc(168 * var(--p)); font-weight: 300; line-height: 1; letter-spacing: -0.03em;
+#name.long { font-size: calc(48 * var(--p)); }
+#story { margin: calc(16 * var(--p)) 0 0; font-size: calc(25 * var(--p)); line-height: 1.36; font-weight: 420; color: var(--ink2); }
+#source { margin-top: calc(26 * var(--p)); color: var(--ink2); }
+#number { margin-top: calc(4 * var(--p)); font-size: calc(152 * var(--p)); font-weight: 300; line-height: 1; letter-spacing: -0.03em;
           font-variant-numeric: tabular-nums; color: var(--ink2); transition: color 600ms var(--fade); }
 #number small { font-size: 0.32em; margin-left: 0.12em; letter-spacing: 0; color: var(--ink3); }
 #number.locked { color: var(--ink); }
@@ -61,12 +64,12 @@ aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)
         font-size: calc(20 * var(--p)); color: var(--ink2); font-variant-numeric: tabular-nums; }
 #conf > div { flex: 0 0 calc(240 * var(--p)); height: calc(4 * var(--p)); background: var(--rule); border-radius: 2px; }
 #conf i { display: block; height: 100%; background: var(--ice); border-radius: 2px; width: 0; transition: width 1.2s var(--out); }
-body[data-state=result] #conf { display: flex; }
+body[data-state=result] #conf.on { display: flex; }
 
 /* four chips, always visible */
 #chips { list-style: none; margin: auto 0 0; padding: 0; }
 #chips li { display: grid; grid-template-columns: calc(44 * var(--p)) 1fr auto; grid-template-rows: auto auto; align-items: baseline;
-            column-gap: calc(14 * var(--p)); padding: calc(12 * var(--p)) 0 calc(10 * var(--p)); border-top: 1px solid var(--rule);
+            column-gap: calc(14 * var(--p)); padding: calc(10 * var(--p)) 0 calc(8 * var(--p)); border-top: 1px solid var(--rule);
             font-size: calc(20 * var(--p)); font-weight: 460; color: var(--ink3); font-variant-numeric: tabular-nums; }
 #chips li .n { font-weight: 600; font-size: calc(16 * var(--p)); letter-spacing: 0.08em; }
 #chips li .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -123,6 +126,7 @@ body.touch[data-state=typing] #keys { display: grid; }
          opacity: 0; pointer-events: none; transition: opacity 600ms var(--fade); }
 body[data-state=depth] #depth { opacity: 1; }
 body[data-state=depth] aside, body[data-state=depth] #invite, body[data-state=depth] #tag { opacity: 0; }
+body[data-state=depth] #sentence { width: calc(760 * var(--p)); }
 aside, #invite, #tag { transition: opacity 600ms var(--fade); }
 body[data-state=typing] aside > :not(#chips) { opacity: 0; }
 body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }

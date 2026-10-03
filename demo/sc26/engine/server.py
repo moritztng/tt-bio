@@ -188,16 +188,16 @@ class Replay:
             self.svc.hub.send(ev)
 
     async def loop(self):
-        """Attract with recordings when no chip can fold: the screen is never blank."""
+        """Recordings between the live folds, so the gallery's Boltz-2 trajectories reach the screen
+        while the chips fold the short attract list, and with no chip at all the screen is never
+        blank. With a chip live they come at a slower pace; the app picks what takes the stage."""
         for path in itertools.cycle(self.files or [None]):
             if path is None:
                 await asyncio.sleep(5)
                 continue
-            if any(c.state in ("ready", "busy") for c in self.svc.chips):
-                await asyncio.sleep(1)
-                continue
             await self.play(path, f"r{next(self.svc.ids)}")
-            await asyncio.sleep(self.svc.args.replay_gap)
+            live = any(c.state in ("ready", "busy") for c in self.svc.chips)
+            await asyncio.sleep(self.svc.args.replay_gap_live if live else self.svc.args.replay_gap)
 
 
 class Service:
@@ -544,6 +544,8 @@ def main():
     ap.add_argument("--reset-min-gap", type=float, default=600, help="seconds between two resets of one chip")
     ap.add_argument("--boards", default="0,1 2,3", help="chips that share a board and reset together")
     ap.add_argument("--replay-gap", type=float, default=3.0)
+    ap.add_argument("--replay-gap-live", type=float, default=20.0,
+                    help="seconds between two recordings while a chip is live")
     ap.add_argument("--preempt-after", type=float, default=1.0,
                     help="seconds a visitor waits for a chip before an attract fold is dropped for it")
     args = ap.parse_args()

@@ -7,8 +7,9 @@ export const POINTS_VS = `
 layout(location=0) in vec3 aA;
 layout(location=1) in vec3 aB;
 layout(location=2) in vec3 aColor;
+layout(location=3) in float aUnsure;
 uniform mat4 uView, uProj;
-uniform float uAlpha, uProjScale, uFocus, uAperture, uSlab, uRadius, uMaxPx, uGain, uNear;
+uniform float uAlpha, uProjScale, uFocus, uAperture, uSlab, uRadius, uMaxPx, uGain, uKeep, uNear;
 out vec3 vColor;
 out float vSharp;
 const float HALO = 2.2;
@@ -20,7 +21,7 @@ void main() {
   float s = sqrt(rpx * rpx + coc * coc);
   float sc = min(s, uMaxPx);
   float energy = (rpx * rpx) / (sc * sc + 1e-6) * min(1.0, sc / s);
-  vColor = aColor * uGain * energy * smoothstep(uNear, 2.5 * uNear, d);
+  vColor = aColor * (uGain + aUnsure * uKeep) * energy * smoothstep(uNear, 2.5 * uNear, d);
   vSharp = rpx / s;
   gl_PointSize = 2.0 * HALO * max(sc, 0.75);
   gl_Position = uProj * v;
