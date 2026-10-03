@@ -1,3 +1,4 @@
+@import url("../palette.css");
 @font-face {
   font-family: "Inter";
   src: url("fonts/InterVariable.woff2") format("woff2");
@@ -6,14 +7,13 @@
 }
 
 :root {
-  --ground: #05060a;
-  --ink: #eceef4;
-  --dim: #8b91a1;
-  --faint: #3b4050;
+  /* the app's palette (../palette.css): one accent family on one screen */
+  --dim: var(--ink2);
+  --faint: var(--ink3);
   --hair: rgba(236, 238, 244, 0.08);
-  --accent: #9a86ff;
-  --accent-soft: rgba(154, 134, 255, 0.16);
-  --warn: #e5a65a;
+  --accent: var(--live);
+  --accent-soft: rgb(var(--live-rgb) / 0.16);
+  --warn: var(--ember);
   --font: "Inter", "Helvetica Neue", Arial, sans-serif;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -99,7 +99,7 @@ body {
 .mk { position: absolute; top: 50%; width: 0.8rem; height: 0.8rem; margin: -0.4rem 0 0 -0.4rem; border-radius: 50%;
       background: var(--ground); border: 1.5px solid var(--dim); }
 .mk.tt { background: var(--accent); border-color: var(--accent); width: 1rem; height: 1rem; margin: -0.5rem 0 0 -0.5rem;
-         box-shadow: 0 0 1rem rgba(154, 134, 255, 0.5); }
+         box-shadow: 0 0 1rem rgb(var(--live-rgb) / 0.5); }
 .mk.h200 { border-color: var(--ink); background: var(--ink); width: 0.6rem; height: 0.6rem; margin: -0.3rem 0 0 -0.3rem; }
 .mk.b200 { border-color: var(--dim); }
 .mk.a100 { border-color: var(--faint); }
@@ -121,16 +121,16 @@ body {
 .depth text { font-family: var(--font); fill: var(--dim); }
 .depth .t-ink { fill: var(--ink); }
 .depth .t-acc { fill: var(--accent); }
-.depth .core { fill: rgba(154, 134, 255, 0.07); stroke: rgba(154, 134, 255, 0.35); stroke-width: 1; }
+.depth .core { fill: rgb(var(--live-rgb) / 0.07); stroke: rgb(var(--live-rgb) / 0.35); stroke-width: 1; }
 .depth .noc { stroke: rgba(236, 238, 244, 0.1); stroke-width: 1; }
 .depth .hair { stroke: var(--hair); fill: none; }
 .depth .acc-line { stroke: var(--accent); fill: none; stroke-width: 1.5; }
 .depth .tile { fill: var(--accent); }
 .depth .unit { fill: rgba(236, 238, 244, 0.03); stroke: rgba(236, 238, 244, 0.25); stroke-width: 1; }
-.depth .unit.hot { fill: rgba(154, 134, 255, 0.12); stroke: var(--accent); }
+.depth .unit.hot { fill: rgb(var(--live-rgb) / 0.12); stroke: var(--accent); }
 .depth .mem { fill: rgba(236, 238, 244, 0.05); stroke: rgba(236, 238, 244, 0.3); stroke-width: 1; }
 .depth .arrow { stroke: rgba(236, 238, 244, 0.35); stroke-width: 1.2; fill: none; marker-end: url(#hw-arrow); }
-.depth .tile { filter: drop-shadow(0 0 4px rgba(154, 134, 255, 0.9)); }
+.depth .tile { filter: drop-shadow(0 0 4px rgb(var(--live-rgb) / 0.9)); }
 .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3rem; border-top: 1px solid var(--hair); padding-top: 1.8rem; }
 .facts div { font-size: 0.95rem; color: var(--dim); line-height: 1.5; }
 .facts b { display: block; font-size: 2rem; font-weight: 300; color: var(--ink); letter-spacing: -0.02em; margin-bottom: 0.3rem; }

@@ -1,10 +1,9 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel. */
+@import url(palette.css);
 @font-face { font-family: Inter; src: url(fonts/InterVariable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
 
 :root {
   --p: calc(100vw / 1920);
-  --ground: #08090C; --ink: #EEF1F5; --ink2: #9AA3AF; --ink3: #5D6672; --rule: #1E232B;
-  --live: #3EB7DE; --ice: #9FDBFF; --ember: #FFA866;
   --out: cubic-bezier(0.16, 1, 0.3, 1); --fade: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -56,6 +55,7 @@ aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)
           font-variant-numeric: tabular-nums; color: var(--ink2); transition: color 600ms var(--fade); }
 #number small { font-size: 0.32em; margin-left: 0.12em; letter-spacing: 0; color: var(--ink3); }
 #number.locked { color: var(--ink); }
+#number:has(#num:empty) { visibility: hidden; }
 #meta { font-size: calc(20 * var(--p)); font-weight: 460; color: var(--ink2); font-variant-numeric: tabular-nums; margin-top: calc(6 * var(--p)); }
 #conf { display: none; align-items: center; gap: calc(14 * var(--p)); margin-top: calc(18 * var(--p));
         font-size: calc(20 * var(--p)); color: var(--ink2); font-variant-numeric: tabular-nums; }
@@ -73,7 +73,8 @@ body[data-state=result] #conf { display: flex; }
 #chips li .what em { font-style: normal; color: var(--ink3); }
 #chips li.busy .what { color: var(--ink); }
 #chips li.busy .n, #chips li.ready .n { color: var(--ink2); }
-#chips li .bar { grid-column: 2 / 4; height: 2px; margin-top: calc(9 * var(--p)); background: var(--rule); }
+#chips li .bar { grid-column: 2 / 4; height: 2px; margin-top: calc(9 * var(--p)); }
+#chips li.busy .bar { background: var(--rule); }
 #chips li .bar i { display: block; height: 100%; width: 0; background: var(--ink3); transition: width 300ms linear; }
 #chips li.on .bar i { background: var(--live); }
 #chips li.on .n { color: var(--live); }
@@ -123,4 +124,5 @@ body.touch[data-state=typing] #keys { display: grid; }
 body[data-state=depth] #depth { opacity: 1; }
 body[data-state=depth] aside, body[data-state=depth] #invite, body[data-state=depth] #tag { opacity: 0; }
 aside, #invite, #tag { transition: opacity 600ms var(--fade); }
-body[data-state=typing] aside > :not(#chips), body[data-state=typing] #invite { opacity: 0; }
+body[data-state=typing] aside > :not(#chips) { opacity: 0; }
+body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }

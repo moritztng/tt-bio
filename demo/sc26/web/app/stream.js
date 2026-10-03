@@ -38,6 +38,8 @@ export class Stream {
     return true;
   }
 
+  _tick(j, m, now) { if (typeof m.t === 'number') { j.tChip = m.t; j.tAt = now; } }
+
   _on(m) {
     const now = performance.now() / 1000;
     switch (m.type) {
@@ -58,14 +60,14 @@ export class Stream {
         break;
       case 'stage': {
         const j = this.jobs[m.id];
-        if (j) { Object.assign(j, { stage: m.stage, step: m.step ?? 0, total: m.total ?? 1 }); this.cb.onStage?.(m.id, j, m); }
+        if (j) { Object.assign(j, { stage: m.stage, step: m.step ?? 0, total: m.total ?? 1 }); this._tick(j, m, now); this.cb.onStage?.(m.id, j, m); }
         break;
       }
       case 'frame': {
         const f = this.open[m.id];
         if (f) f.frames.push(m);
         const j = this.jobs[m.id];
-        if (j) { Object.assign(j, { stage: 'diffusion', step: m.step + 1, total: m.of }); this.cb.onStage?.(m.id, j, m); }
+        if (j) { Object.assign(j, { stage: 'diffusion', step: m.step + 1, total: m.of }); this._tick(j, m, now); this.cb.onStage?.(m.id, j, m); }
         break;
       }
       case 'fold_done': {
@@ -87,6 +89,18 @@ export class Stream {
     // forget jobs nobody will ask about again
     for (const id in this.jobs) if (now - this.jobs[id].t0 > 600) delete this.jobs[id];
   }
+}
+
+// A recording (one protocol message per line, PROTOCOL.md "Replay") as one finished fold, marked
+// as a recording the way the server marks the replays it plays.
+export async function loadRecording(url) {
+  const lines = (await (await fetch(url)).text()).split('\n').filter(Boolean).map(l => JSON.parse(l));
+  const start = lines.find(m => m.type === 'fold_start'), done = lines.find(m => m.type === 'fold_done');
+  const frames = lines.filter(m => m.type === 'frame');
+  if (!start || !done || !frames.length) return null;
+  const f = assemble({ ...start, kind: 'replay', source: 'replay', chip: null }, frames, done);
+  f.received = -1;
+  return f;
 }
 
 // One finished fold, in the renderer's terms plus everything the words on screen need.

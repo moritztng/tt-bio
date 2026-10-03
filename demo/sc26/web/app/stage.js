@@ -29,20 +29,24 @@ export class Stage {
   setOffset(x, y) { this.r.opt.offset = [x, y]; }
 
   // Put a fold on the stage, starting from its first (noise) state.
+  // Never faster than the chip ran it: a fold whose diffusion took longer than CONDENSE plays at
+  // the chip's own pace.
   show(fold, { condense = CONDENSE } = {}) {
     this.fold = fold;
-    this.condense = condense;
+    this.condense = Math.max(condense, fold.diffusionSeconds > 0 ? fold.diffusionSeconds : 0);
     const n = fold.coords.length;
     const frames = fold.coords.map((c, i) => ({ coords: c, time: n > 1 ? i * condense / (n - 1) : 0,
       progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
+    this.r._scratch = null;   // renderer keeps a per-topology scratch buffer it does not resize (handed to sc26-render)
     this.r.setTopology(fold.topo);
     this.r.loadReplay(frames);
     this.r.setMode('auto');
+    this.r.cam.yawAngle = Math.random() * 2 * Math.PI;   // a repeat never starts from the same side
     this.r.speed = 1;
     this.r.pause();
     this.r.seek(0);
     this.t = 0;
-    this.holdNoise = 0.9;   // a beat of pure noise before it moves
+    this.holdNoise = 0.3;   // a beat of pure noise before it moves
   }
 
   // How many times slower than the chip the condensation plays.
@@ -75,16 +79,26 @@ export class Stage {
 
 // Which finished fold takes the stage next. Holds a pool of recent folds and never repeats a
 // protein while another one is available that has not been on stage in the last few slots.
+//
+// The server replays recordings only while no chip is ready or busy, so a box whose chips are all
+// folding visitors' names sends no attract folds at all. Then the stage shows the last few
+// visitors' folds (as "A visitor's name", never the name), and before anything has arrived, the
+// one recording bundled with the app. The stage is never empty.
 export class Director {
   constructor({ pool = 24, avoid = 4 } = {}) {
     this.pool = []; this.max = pool; this.avoid = avoid;
     this.history = [];   // names, most recent last
+    this.visitors = [];  // last few visitors' folds, shown only when the pool is empty
+    this.fallback = null;
   }
 
   key(f) { return f.name ?? f.sequence; }
 
   add(f) {
-    if (f.kind === 'visitor') return;      // a visitor's fold is theirs, not attract content
+    if (f.kind === 'visitor') {
+      this.visitors = [...this.visitors.filter(v => v.sequence !== f.sequence), f].slice(-3);
+      return;
+    }
     // keep one copy per protein: the newest
     this.pool = this.pool.filter(p => this.key(p) !== this.key(f));
     this.pool.push(f);
@@ -92,7 +106,12 @@ export class Director {
   }
 
   next() {
-    if (!this.pool.length) return null;
+    if (!this.pool.length) {
+      if (!this.visitors.length) return this.fallback;
+      const v = this.visitors.shift();     // oldest first, then round to the back
+      this.visitors.push(v);
+      return v;
+    }
     const distinct = new Set(this.pool.map(p => this.key(p))).size;
     const recent = new Set(this.history.slice(-Math.min(this.avoid, distinct - 1)));
     let cands = this.pool.filter(p => !recent.has(this.key(p)));

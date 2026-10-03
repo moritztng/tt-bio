@@ -4,10 +4,11 @@
 //   ?idle=<s>      quiet time before the reset, default 60
 //   ?hold=<s>      how long a folded protein holds in attract, default 10
 //   ?selftest=reset  drive every state and log PASS/FAIL per reset to the console
+//   ?selftest=kiosk  check the kiosk properties the page enforces
 //   ?walk=<name>     type <name> after ?after=<s> seconds, for a recorded walkthrough
 //   ?stream=<ws url> another engine's stream, default this origin's /stream
 
-import { Stream } from './stream.js';
+import { Stream, loadRecording } from './stream.js';
 import { Stage, Director } from './stage.js';
 import { parseName, substitutionLine, lengthLine, verdict, loadBlocklist, blocked, MAX_CHARS } from './name.js';
 import { describe, storyOf, INSTEAD } from './stories.js';
@@ -17,6 +18,7 @@ const q = new URLSearchParams(location.search);
 const IDLE = 1000 * (parseFloat(q.get('idle')) || 60);
 const HOLD = parseFloat(q.get('hold')) || 10;
 const WORD = ['no', 'one', 'two', 'three', 'four'];
+const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
 const pad = (c) => String(c + 1).padStart(2, '0');
 
@@ -44,11 +46,15 @@ const stream = new Stream(q.get('stream') ?? `ws://${location.host}/stream`, {
   onFold(f) {
     describe(f);
     if (app.mine && f.id === app.mine.id) return showResult(f);
+    if (f.kind === 'visitor') Object.assign(f, { name: 'A visitor’s name', story: 'Typed here, folded live.' });
     director.add(f);
   },
   onChips: () => drawChips(),
   onStage(id, job, m) {
-    if (app.mine && id === app.mine.id && m.type === 'fold_start') { app.mine.t0 = performance.now(); app.mine.chip = m.chip; drawSide(); }
+    if (app.mine && id === app.mine.id && m.type === 'fold_start') {
+      app.mine.t0 = app.lastInput = performance.now();   // their fold moving counts as activity
+      app.mine.chip = m.chip; drawSide();
+    }
   },
   onReply(m) {
     if (!app.mine || app.state !== 'waiting') return;
@@ -57,6 +63,7 @@ const stream = new Stream(q.get('stream') ?? `ws://${location.host}/stream`, {
   },
 });
 
+loadRecording('assets/fallback-ubiquitin.jsonl').then(f => { if (f) director.fallback = describe(f); }).catch(() => {});
 fetch('lanes/index.html', { method: 'HEAD' }).then(r => { app.lanes = r.ok; }).catch(() => {});
 
 // ------------------------------------------------------------------ state changes
@@ -87,7 +94,7 @@ function submit() {
   app.mine = { id: null, parsed: p, text: app.text.trim(), t0: null, chip: null, sent: performance.now(),
     instead: bad ? INSTEAD.name : null };
   setState('waiting');
-  if (!stream.send({ type: 'fold', sequence: seq })) giveUp();
+  if (!liveChips() || !stream.send({ type: 'fold', sequence: seq })) giveUp();
 }
 
 // The chips could not take it. Never show why; say something true and go back.
@@ -100,6 +107,7 @@ function giveUp() {
 
 function showResult(f) {
   app.mine.fold = f;
+  app.lastInput = performance.now();
   setState('result');
   stage.show(f);
   canvas.style.opacity = 1;
@@ -156,6 +164,8 @@ addEventListener('pointerdown', (e) => {
   if (app.state === 'attract' || app.state === 'result') startTyping();
 });
 buildKeys();
+// while waiting there are no keys on screen; the invite line is the way back
+$('invite').addEventListener('pointerdown', (e) => { if (app.state === 'waiting') { e.stopPropagation(); toAttract(); } });
 
 function buildKeys() {
   const rows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
@@ -180,17 +190,18 @@ function buildKeys() {
 function liveChips() { return stream.chips.filter(c => c.state === 'busy' || c.state === 'ready').length; }
 
 function drawAll() { drawHeader(); drawTyping(); drawSide(); drawChips(); drawInvite(); }
+let invited = null;
 
 function drawHeader() {
   const n = liveChips();
   const html = n
-    ? `An AI is predicting the 3D shape of a protein from its sequence, <b>live, on the ${WORD[n] ?? n} Tenstorrent chips in this box.</b>`
+    ? `An AI is predicting the 3D shape of a protein from its sequence, <b>live, on ${n === 1 ? 'a Tenstorrent chip' : `the ${WORD[n] ?? n} Tenstorrent chips`} in this box.</b>`
     : `An AI predicted the 3D shape of these proteins from their sequences, <b>on the Tenstorrent chips in this box.</b>`;
   if ($('sentence').innerHTML !== html) $('sentence').innerHTML = html;
   $('sentence').classList.toggle('hide', app.state === 'typing' || app.state === 'waiting');
   const tag = $('tag');
   tag.classList.toggle('live', n > 0);
-  const label = n ? `Live on ${WORD[n] ?? n} Blackhole chip${n > 1 ? 's' : ''}` : 'Recorded folds';
+  const label = n ? (n === 1 ? 'Live on a Blackhole chip' : `Live on ${WORD[n]} Blackhole chips`) : 'Recorded folds';
   if (tag.querySelector('span').textContent !== label) tag.querySelector('span').textContent = label;
 }
 
@@ -226,9 +237,9 @@ function drawTyping() {
 function drawInvite() {
   const s = app.state;
   $('invite').innerHTML =
-    s === 'attract' ? 'Type your name <span class="dim">and watch it fold.</span>'
+    s === 'attract' ? (liveChips() ? 'Type your name <span class="dim">and watch it fold.</span>' : '')
     : s === 'typing' ? (app.text.trim() ? '<kbd>Enter</kbd> to fold <span class="dim">&nbsp;</span><kbd>Esc</kbd> to go back' : '<kbd>Esc</kbd> to go back')
-    : s === 'waiting' ? ''
+    : s === 'waiting' ? (document.body.classList.contains('touch') ? '<span class="dim">Tap here to go back</span>' : '<kbd>Esc</kbd> to go back')
     : s === 'result' ? 'Type another name <span class="dim">or</span> <kbd>Esc</kbd>'
     : '<kbd>Tab</kbd> to go back';
 }
@@ -243,9 +254,11 @@ function drawSide() {
     N.textContent = m.instead ?? m.text;
     if (app.state === 'waiting') {
       S.textContent = m.busy ? 'The chips are busy. Try again in a moment.'
-        : m.chip != null ? `Folding on chip ${pad(m.chip)}.` : 'Finding a free chip.';
+        : m.chip != null ? `Folding on chip ${pad(m.chip)}.`
+        : m.position > 0 ? (m.position === 1 ? 'Next in line for a chip.' : `${ORDINAL[m.position] ?? m.position + 'th'} in line for a chip.`)
+        : 'Finding a free chip.';
       src.textContent = '';
-      num.textContent = m.t0 ? ((performance.now() - m.t0) / 1000).toFixed(1) : '0.0';
+      num.textContent = m.t0 ? ((performance.now() - m.t0) / 1000).toFixed(1) : '';
       numBox.classList.remove('locked');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
     } else {
@@ -279,10 +292,20 @@ function drawNumber(f) {
     box.classList.add('locked');
   } else {
     const k = stage.slowdown;
-    src.textContent = k ? `${where} · shown ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower` : where;
+    src.textContent = !k ? where : k <= 1.05 ? `${where} · shown at the chip’s speed`
+      : `${where} · shown ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower`;
     num.textContent = stage.realTime.toFixed(1);
     box.classList.remove('locked');
   }
+}
+
+// A lane's time is the chip's own clock (`t` on stage and frame messages, `seconds` on done), run
+// on for at most a second past the last message. A job that stopped talking stops counting, so a
+// lane never shows a time longer than the fold it names.
+function laneSeconds(j) {
+  if (j.seconds != null) return j.seconds;
+  if (j.tChip == null) return Math.min(1, performance.now() / 1000 - j.t0);
+  return j.tChip + Math.min(1, performance.now() / 1000 - j.tAt);
 }
 
 const PHASE = { lm: 'reading', trunk: 'thinking', diffusion: 'folding', confidence: 'checking', done: 'done' };
@@ -299,7 +322,7 @@ function drawChips() {
     if (c?.state === 'busy' && job) {
       const who = job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
       what = `${who} <em>${PHASE[job.stage] ?? ''}</em>`;
-      t = ((performance.now() / 1000 - job.t0)).toFixed(1) + ' s';
+      t = laneSeconds(job).toFixed(1) + ' s';
       prog = job.stage === 'lm' ? 0.12 : job.stage === 'trunk' ? 0.15 + 0.55 * job.step / Math.max(1, job.total)
         : job.stage === 'diffusion' ? 0.7 + 0.25 * job.step / Math.max(1, job.total) : job.stage === 'confidence' ? 0.97 : 1;
       cls = 'busy';
@@ -327,12 +350,21 @@ function frame(now) {
       if (!app.slot) nextSlot(true);
       else if (!app.slot.leaving && stage.landed && stage.playT > stage.condense + HOLD) nextSlot(false);
     }
+    if (app.state === 'waiting' && !app.mine.busy) {
+      // no answer, no chip within the minute, or it never finished: say so and go back, never hang
+      const m = app.mine;
+      if ((!m.id && now - m.sent > 20000) || (!m.t0 && now - m.sent > 55000) || (m.t0 && now - m.t0 > 90000)) giveUp();
+    }
     if (app.state !== 'attract' && now - app.lastInput > IDLE) toAttract();
-    if ((sideTick += dt) > 0.05) { sideTick = 0; drawSide(); drawChips(); drawHeader(); }
+    if ((sideTick += dt) > 0.05) {
+      sideTick = 0; drawSide(); drawChips(); drawHeader();
+      if (invited !== liveChips() > 0) { invited = liveChips() > 0; drawInvite(); }
+    }
   } catch (e) { onErr(e); }
 }
 setState('attract');
 requestAnimationFrame(frame);
 
 if (q.get('selftest') === 'reset') import('./tests/reset.js').then(m => m.run(app, { toAttract, startTyping, type, submit, showResult, director, IDLE }));
-if (q.has('walk')) import('./tests/walk.js').then(m => m.run(q.get('walk'), parseFloat(q.get('after')) || 8));
+if (q.get('selftest') === 'kiosk') setTimeout(() => import('./tests/kiosk.js').then(m => m.run()), 4000);
+if (q.has('walk')) import('./tests/walk.js').then(m => m.run(q.get('walk'), parseFloat(q.get('after')) || 8, q.get('enter') !== '0'));

@@ -72,7 +72,7 @@ function lane(card) {
   const cell = (cls, ...kids) => h("div", { class: cls }, ...kids);
   const el = h("div", { class: "lane", "data-state": "resetting" },
     cell("chip", q.glyph = glyph()),
-    cell("id", h("div", { class: "name", text: `Chip ${card}` }), q.state = h("div", { class: "state" })),
+    cell("id", h("div", { class: "name", text: `Chip ${card + 1}` }), q.state = h("div", { class: "state" })),
     cell("gauge", q.clk = h("div", { class: "big" }), h("div", { class: "label", text: "AICLK, MHz" }),
       h("div", { class: "bar" }, q.bar = h("i")), h("div", { class: "bar-ends" },
         h("span", { text: CLOCK[0] }), h("span", { text: CLOCK[1] }))),
@@ -205,7 +205,7 @@ function compare(root, facts) {
       setLive(f.live, msg);
       const done = msg.chips.filter((c) => c.last_fold);
       now.textContent = done.length
-        ? done.map((c) => `Chip ${c.card}: ${c.last_fold.model ?? "fold"}, ${c.last_fold.residues} residues in ` +
+        ? done.map((c) => `Chip ${c.card + 1}: ${c.last_fold.model ?? "fold"}, ${c.last_fold.residues} residues in ` +
             `${fmt(c.last_fold.seconds, 1)} s` + (c.last_fold.aiclk_during ? ` at ${c.last_fold.aiclk_during.median} MHz` : "") +
             `, ${c.folds_today} today`).join(". ") + "."
         : "No demo fold has finished on this box yet today. Each one appears here with its time and its clock.";
@@ -263,7 +263,7 @@ function depth(root) {
   const zx = gx + gw + 70, zy = gy, zw = W - zx - 30, zh = gh;
   svg.append(h("path", { class: "acc-line", d: `M${hx + cs} ${hy} L${zx} ${zy}`, "stroke-opacity": 0.4 }));
   svg.append(h("path", { class: "acc-line", d: `M${hx + cs} ${hy + cs} L${zx} ${zy + zh}`, "stroke-opacity": 0.4 }));
-  svg.append(h("rect", { x: zx, y: zy, width: zw, height: zh, rx: 14, fill: "rgba(154,134,255,0.04)", stroke: "rgba(154,134,255,0.5)" }));
+  svg.append(h("rect", { x: zx, y: zy, width: zw, height: zh, rx: 14, style: "fill:rgb(var(--live-rgb) / 0.04);stroke:rgb(var(--live-rgb) / 0.5)" }));
   svg.append(h("text", { x: zx, y: zy - 22, "font-size": 15, text: "one core" }));
 
   // The core as the pipeline a tile walks through: in, unpack, compute, pack, out, with SRAM between.
