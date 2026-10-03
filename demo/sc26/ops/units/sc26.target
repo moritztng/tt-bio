@@ -1,0 +1,3 @@
+[Unit]
+Description=SC26 booth demo (engine, kiosk browser, watchdog)
+Wants=sc26-engine.service sc26-kiosk.service sc26-watchdog.service
