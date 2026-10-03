@@ -343,6 +343,9 @@ function drawChips() {
     } else if (c?.state === 'busy') { what = 'folding'; cls = 'busy'; }
     else if (c?.state === 'ready') { what = 'ready'; cls = 'ready'; }
     else if (c?.state === 'starting' || c?.state === 'warming') what = 'warming up';
+    else if (c?.state === 'stalled' || c?.state === 'recovering') { what = 'recovering'; cls = 'recovering'; }
+    else if (c?.state === 'resetting') { what = 'resetting'; cls = 'recovering'; }
+    else if (c?.state === 'stopped') what = 'off';
     if (onStage && onStage.source === 'live' && onStage.chip === i) cls += ' on';
     li.className = cls;
     const w = li.querySelector('.what');

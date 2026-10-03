@@ -136,3 +136,6 @@ body[data-state=depth] #sentence { width: calc(760 * var(--p)); }
 aside, #invite, #tag { transition: opacity 600ms var(--fade); }
 body[data-state=typing] aside > :not(#chips) { opacity: 0; }
 body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }
+
+/* a chip that died says so while it comes back */
+#chips li.recovering .what { color: var(--ember, #ffa866); }
