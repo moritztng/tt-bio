@@ -192,6 +192,7 @@ class Service:
         self.attract = itertools.cycle(json.loads(Path(args.attract).read_text())) if args.attract else None
         self.replay = Replay(self, args.replay)
         self.open_files = {}
+        self._preempt_armed = False
 
     def job(self, seq, kind, seed=0, extra=None):
         return {"id": f"{kind[0]}{next(self.ids)}", "sequence": seq, "seed": seed, "kind": kind, **(extra or {})}
@@ -218,17 +219,26 @@ class Service:
         free = [c for c in self.chips if c.state == "ready" and c.job is None]
         while free and self.visitors:
             free.pop(0).start(self.visitors.popleft())
-        if self.visitors:
-            # Every chip is busy: preempt one attract fold so a visitor waits for one step, not a fold.
-            busy = [c for c in self.chips if c.state == "busy" and c.job and c.job["kind"] == "attract"
-                    and not c.job.get("preempted")]
-            for c in busy[:len(self.visitors)]:
-                c.job["preempted"] = True
-                c.preempt()
+        if self.visitors and not self._preempt_armed:
+            # Every chip is busy. Short attract folds end on their own within about a second, so
+            # give them that long; a visitor still waiting then takes an attract fold's chip,
+            # which drops it at its next sampler step.
+            self._preempt_armed = True
+            asyncio.get_running_loop().call_later(self.args.preempt_after, self._preempt)
         if self.attract:
             for c in free:
                 a = next(self.attract)
                 c.start(self.job(a["sequence"], "attract", a.get("seed", 0), {"name": a.get("name")}))
+
+    def _preempt(self):
+        self._preempt_armed = False
+        if not self.visitors:
+            return
+        busy = [c for c in self.chips if c.state == "busy" and c.job and c.job["kind"] == "attract"
+                and not c.job.get("preempted")]
+        for c in busy[:len(self.visitors)]:
+            c.job["preempted"] = True
+            c.preempt()
 
     def finish(self, job, ev):
         f = self.open_files.pop(job["id"], None)
@@ -410,6 +420,8 @@ def main():
     ap.add_argument("--warm-s", type=float, default=600, help="a warming chip silent this long is stopped")
     ap.add_argument("--term-s", type=float, default=30, help="SIGINT grace before SIGTERM")
     ap.add_argument("--replay-gap", type=float, default=3.0)
+    ap.add_argument("--preempt-after", type=float, default=1.0,
+                    help="seconds a visitor waits for a chip before an attract fold is dropped for it")
     args = ap.parse_args()
     args.chips = [] if args.replay_only else [int(c) for c in args.chips.split(",") if c.strip()]
     args.replay = args.replay or [str(DEMO / "gallery" / "trajectories"), str(HERE / "recordings")]
