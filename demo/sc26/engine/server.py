@@ -420,6 +420,9 @@ class Service:
             return self.reply(writer, 200, json.dumps(self.monitor.snapshot()).encode(), "application/json")
         if path == "/status":
             return self.reply(writer, 200, json.dumps(self.status()).encode(), "application/json")
+        if path == "/":  # the app's assets are relative to /app/, so send the bare origin there
+            writer.write(b"HTTP/1.1 302 Found\r\nLocation: /app/\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            return writer.close()
         root = Path(self.args.static).resolve()
         f = (root / path.lstrip("/")).resolve()
         if f.is_dir():
