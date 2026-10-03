@@ -30,7 +30,7 @@ EMBER_CORE = np.array([1.00, 0.88, 0.74])
 SEAM = np.array([0.40, 0.86, 1.00])  # Tenstorrent blue, lifted for light
 DIM = np.array([0.42, 0.48, 0.56])  # low confidence, never condenses
 PEARL = np.array([0.93, 0.95, 0.97])
-PEARL_EMBER = np.array([1.00, 0.62, 0.40])
+PEARL_EMBER = np.array([1.00, 0.72, 0.50])
 
 
 def load(path):

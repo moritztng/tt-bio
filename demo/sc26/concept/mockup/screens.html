@@ -16,7 +16,8 @@
 * { margin: 0; box-sizing: border-box; }
 html, body { width: 1920px; height: 1080px; background: var(--ground); overflow: hidden; }
 body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased;
-       font-feature-settings: "tnum" 1, "cv11" 1, "ss01" 1; }
+       font-feature-settings: "cv11" 1; }
+.timer, .meta, .chip .t, .chip .id, .lane, .cmp, .livetag { font-feature-settings: "tnum" 1, "cv11" 1; }
 .screen { position: absolute; inset: 0; display: none; }
 .screen.on { display: block; }
 .layer { position: absolute; inset: 0; background-size: 100% 100%; }
@@ -43,13 +44,13 @@ body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothi
 .story { margin-top: 18px; font-size: 25px; line-height: 1.38; color: var(--ink2); font-weight: 420; }
 .story em { font-style: normal; color: var(--ember); }
 .story u { text-decoration: none; color: var(--ice); }
-.timer { margin-top: 52px; font-size: 168px; line-height: 0.9; font-weight: 300; letter-spacing: -0.05em;
+.timer { margin-top: 40px; font-size: 168px; line-height: 0.9; font-weight: 300; letter-spacing: -0.05em;
   font-variation-settings: "opsz" 32; }
 .timer small { font-size: 64px; font-weight: 340; letter-spacing: -0.02em; color: var(--ink2); margin-left: 10px; }
 .timer.done { color: var(--ink); }
 .meta { margin-top: 16px; font-size: 21px; color: var(--ink2); font-weight: 460; }
 .meta b { color: var(--ink); font-weight: 560; }
-.chips { margin-top: 46px; border-top: 1px solid var(--rule); }
+.chips { margin-top: 40px; border-top: 1px solid var(--rule); }
 .chip { display: grid; grid-template-columns: 54px 1fr 92px; align-items: center; height: 54px;
   border-bottom: 1px solid var(--rule); font-size: 20px; color: var(--ink2); }
 .chip .id { font-weight: 600; color: var(--ink3); letter-spacing: 0.04em; }
@@ -59,9 +60,9 @@ body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothi
 .chip.stage .id, .chip.stage .what { color: var(--ink); }
 .chip.stage .bar { background: var(--live); box-shadow: 0 0 10px rgba(62,183,222,0.8); }
 .chip .ph { font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink3); }
-.qr { position: absolute; right: var(--m); bottom: 64px; display: flex; gap: 18px; align-items: center; }
-.qr img { width: 92px; height: 92px; }
-.qr div { font-size: 18px; line-height: 1.35; color: var(--ink2); text-align: right; }
+.qr { position: absolute; left: var(--m); bottom: 56px; flex-direction: row-reverse; display: flex; gap: 18px; align-items: center; }
+.qr img { width: 84px; height: 84px; opacity: 0.9; }
+.qr div { font-size: 18px; line-height: 1.35; color: var(--ink2); text-align: left; }
 .qr b { color: var(--ink); font-weight: 560; display: block; }
 /* five-metre frame: nothing but the cloud, the marks and one live number */
 .big { position: absolute; right: var(--m); top: 50%; transform: translateY(-50%); text-align: right; }
@@ -73,14 +74,15 @@ body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothi
 .L { width: 112px; text-align: center; }
 .L .c { font-size: 132px; line-height: 1; font-weight: 560; letter-spacing: -0.02em; font-variation-settings: "opsz" 32; }
 .L .aa { margin-top: 12px; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
-.L.sub .c { color: var(--ember); }
-.L.sub .aa { color: var(--ember); }
+.L.sub .c { color: var(--ink3); }
+.L.sub .aa { color: var(--ink); }
+.L.sub .c::after { content: ""; display: block; margin: 6px auto 0; width: 44px; height: 3px; border-radius: 2px; background: var(--ink3); }
 .L.gap { width: 46px; }
 .L .caret { display: inline-block; width: 6px; height: 112px; background: var(--live); vertical-align: -6px;
   box-shadow: 0 0 16px rgba(62,183,222,0.7); }
 .notes { position: absolute; left: var(--m); top: 470px; width: 1100px; font-size: 22px; line-height: 1.5; color: var(--ink2); }
 .notes p + p { margin-top: 6px; }
-.notes b { color: var(--ember); font-weight: 600; }
+.notes b { color: var(--ink); font-weight: 600; }
 .keys { position: absolute; left: var(--m); top: 610px; font-size: 20px; color: var(--ink3); letter-spacing: 0.02em; }
 .keys kbd { font: inherit; color: var(--ink); border: 1px solid #333A44; border-radius: 6px; padding: 3px 10px; margin: 0 4px; }
 .seq { margin-top: 18px; font-size: 19px; line-height: 1.5; color: var(--ink3); letter-spacing: 0.12em; word-break: break-all; }
@@ -205,8 +207,8 @@ body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothi
     <div class="L"><div class="c">E</div><div class="aa">Glutamate</div></div>
     <div class="L"><div class="c">Y</div><div class="aa">Tyrosine</div></div>
     <div class="L"><div class="c">M</div><div class="aa">Methionine</div></div>
-    <div class="L sub"><div class="c">O</div><div class="aa">as K</div></div>
-    <div class="L sub"><div class="c">U</div><div class="aa">as C</div></div>
+    <div class="L sub"><div class="c">O</div><div class="aa">→ K</div></div>
+    <div class="L sub"><div class="c">U</div><div class="aa">→ C</div></div>
     <div class="L"><div class="c">R</div><div class="aa">Arginine</div></div>
     <div class="L gap"></div>
     <div class="L"><div class="c">C</div><div class="aa">Cysteine</div></div>
@@ -227,11 +229,10 @@ body { font-family: "Inter", sans-serif; color: var(--ink); -webkit-font-smoothi
   <div class="glow"></div>
   <div class="marks"><img src="assets/tenstorrent-logo-reversed.svg"><span class="div"></span><span class="bio">TT-Bio</span></div>
   <div class="livetag"><i></i>Live on chip 02</div>
-  <div class="prompt" style="top:150px">SEYMOUR CRAY, folded</div>
   <div class="side" style="top:236px">
     <div class="kicker">Your protein</div>
     <div class="name">SEYMOUR CRAY</div>
-    <div class="seq">SEYM<b>KC</b>RCRAY · SEYM<b>KC</b>RCRAY · SEYM<b>KC</b>RCRAY · SEYM<b>KC</b>RCRAY · SEYM<b>KC</b>RCRAY · SEYM<b>KC</b>RCRAY</div>
+    <div class="seq">SEYM<b>KC</b>RCRAY &nbsp;×6</div>
     <div class="timer done">2.6<small>s</small></div>
     <div class="meta">chip <b>02</b> &nbsp;·&nbsp; 66 residues, your name six times</div>
     <div class="conf"><span style="width:22%;background:#5D6672"></span><span style="width:56%;background:#9FDBFF"></span><span style="width:22%;background:#5D6672"></span></div>
