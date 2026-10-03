@@ -45,6 +45,10 @@ export class Stage {
     this.r.setTopology(fold.topo);
     this.r.loadReplay(frames);
     this.r.setMode('auto');
+    // start from the noise look at once: eased from the last fold's surface, the points took about
+    // half a second to come back and the stage read as empty for that long
+    for (const [k, x] of Object.entries({ points: 1, surface: 0, solid: 0, ribbon: 0, grow: 0 }))
+      Object.assign(this.r.w[k], { x, v: 0, target: x });
     this.r.cam.yawAngle = Math.random() * 2 * Math.PI;   // a repeat never starts from the same side
     this.r.speed = 1;
     this.r.pause();
