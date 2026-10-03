@@ -4,7 +4,7 @@
 const GALLERY = [
   { name: 'Trp-cage', story: 'One of the smallest proteins there is.',
     sequence: 'NLYIQWLKDGGPSSGRPPPS' },
-  { name: 'Villin headpiece', story: 'A tiny protein that folds in a few millionths of a second.',
+  { name: 'Villin headpiece', story: 'One of the fastest-folding proteins in nature.',
     sequence: 'LSDEDFKAVFGMTRSAFANLPLWKQQNLKKEKGLF' },
   { name: 'Protein G B1 domain', story: 'A bacterial protein that grabs antibodies.',
     sequence: 'MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTE' },

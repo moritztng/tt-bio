@@ -41,6 +41,7 @@ const app = {
   lanes: false,
 };
 window.sc26 = app;     // for the self-test and for poking at it on the box
+app.stage = stage;
 
 const stream = new Stream(q.get('stream') ?? `ws://${location.host}/stream`, {
   onFold(f) {
@@ -70,7 +71,7 @@ fetch('lanes/index.html', { method: 'HEAD' }).then(r => { app.lanes = r.ok; }).c
 function setState(s) {
   app.state = s;
   document.body.dataset.state = s;
-  canvas.style.opacity = s === 'typing' || s === 'waiting' ? 0.22 : 1;
+  canvas.style.opacity = s === 'typing' || s === 'waiting' ? 0.12 : 1;
   stage.setOffset(s === 'depth' ? DEPTH_X : STAGE_X, 0.02);
   drawAll();
 }
@@ -251,7 +252,7 @@ function drawSide() {
   if (app.state === 'waiting' || app.state === 'result') {
     const m = app.mine;
     L.textContent = m.instead ? "Let's fold something else" : 'Your name';
-    N.textContent = m.instead ?? m.text;
+    setName(N, m.instead ?? m.text);
     if (app.state === 'waiting') {
       S.textContent = m.busy ? 'The chips are busy. Try again in a moment.'
         : m.chip != null ? `Folding on chip ${pad(m.chip)}.`
@@ -263,10 +264,11 @@ function drawSide() {
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
     } else {
       const f = m.fold;
-      S.textContent = stage.landed ? (m.instead ? storyOf(m.instead) : verdict(f.plddtMean ?? 0)) : `Folded live on chip ${pad(f.chip ?? 0)}.`;
+      S.textContent = stage.landed ? (m.instead ? storyOf(m.instead) : verdict(f.plddtMean ?? 0)) : '';
       drawNumber(f);
       M.textContent = (m.instead ? `${f.nres} amino acids` : lengthLine(m.parsed).replace(/\.$/, '')) + clock(f);
       const c = Math.round(100 * (f.plddtMean ?? 0));
+      $('conf').classList.toggle('on', stage.landed);
       $('conf').querySelector('i').style.width = stage.landed ? c + '%' : '0';
       $('conf').querySelector('span').textContent = stage.landed ? `confidence ${c}` : '';
     }
@@ -275,10 +277,15 @@ function drawSide() {
   const f = app.slot?.fold;
   if (!f) { L.textContent = ''; N.textContent = ''; S.textContent = ''; src.textContent = ''; num.textContent = ''; M.textContent = ''; return; }
   L.textContent = stage.landed ? 'Folded' : 'Folding';
-  N.textContent = f.name ?? 'A protein';
+  setName(N, f.name ?? 'A protein');
   S.textContent = f.story ?? '';
   drawNumber(f);
   M.textContent = `${f.nres} amino acids` + clock(f);
+}
+
+// a long name drops to the smaller size so name and story always fit their box
+function setName(el, text) {
+  if (el.textContent !== text) { el.textContent = text; el.classList.toggle('long', text.length > 18); }
 }
 
 function clock(f) { return f.aiclk ? ` · AICLK ${Math.round(f.aiclk)} MHz` : ''; }
@@ -292,7 +299,7 @@ function drawNumber(f) {
     box.classList.add('locked');
   } else {
     const k = stage.slowdown;
-    src.textContent = !k ? where : k <= 1.05 ? `${where} · shown at the chip’s speed`
+    src.textContent = !k ? where : k <= 1.05 ? `${where} · real time`
       : `${where} · shown ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower`;
     num.textContent = stage.realTime.toFixed(1);
     box.classList.remove('locked');
@@ -320,7 +327,7 @@ function drawChips() {
     const job = c?.job ? stream.jobs[c.job] : null;
     let what = 'resting', t = '', prog = 0, cls = '';
     if (c?.state === 'busy' && job) {
-      const who = job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
+      const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
       what = `${who} <em>${PHASE[job.stage] ?? ''}</em>`;
       t = laneSeconds(job).toFixed(1) + ' s';
       prog = job.stage === 'lm' ? 0.12 : job.stage === 'trunk' ? 0.15 + 0.55 * job.step / Math.max(1, job.total)

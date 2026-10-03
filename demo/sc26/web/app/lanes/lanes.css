@@ -84,6 +84,21 @@ body {
 .what .detail { font-size: 0.95rem; color: var(--dim); margin-top: 0.35rem; }
 .today { text-align: right; }
 
+/* Framed in the app's half-screen expert view the page is portrait: keep the type at its full-screen
+   size and give each lane two rows, readings on top and the fold under them. */
+@media (max-aspect-ratio: 1/1) {
+  html { font-size: calc(100vw / 60); }
+  .hw { padding: 3rem 3rem 2.5rem; }
+  .hw-head { margin-bottom: 2rem; }
+  .box { padding: 1rem 1.4rem; }
+  .lane { grid-template-columns: 5.5rem 7rem 1fr 5rem 5rem; grid-template-areas: "id clk pw tmp today" "what what what what what";
+          column-gap: 1.2rem; row-gap: 0.8rem; padding: 1rem 0; }
+  .lane > :nth-child(1) { display: none; }
+  .lane > :nth-child(2) { grid-area: id; } .lane > :nth-child(3) { grid-area: clk; } .lane > :nth-child(4) { grid-area: pw; }
+  .lane > :nth-child(5) { grid-area: tmp; } .lane > :nth-child(6) { grid-area: what; } .lane > :nth-child(7) { grid-area: today; }
+  .lane .big { font-size: 2.1rem; }
+}
+
 /* ---------- comparison ---------- */
 .cmp { display: grid; grid-template-columns: 1fr 30rem; gap: 5rem; flex: 1; min-height: 0; }
 .dots { display: grid; grid-auto-rows: 1fr; align-content: start; }

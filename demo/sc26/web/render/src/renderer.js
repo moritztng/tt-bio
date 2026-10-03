@@ -7,7 +7,9 @@
 //
 // Modes are weights that move on critically damped springs, so any change of mode at any moment
 // is a smooth cross-fade, never a cut. In 'auto' the fold drives the look: points while it is noise,
-// a surface that grows out of the points as it condenses.
+// a surface that grows out of the points as it condenses. Atoms the model is unsure of (per-residue
+// confidence under opt.confFloor, pLDDT 70 by default) never get a surface: they stay points of
+// light over the finished skin, so confidence is the difference between a solid and a cloud.
 
 import { program, texture, framebuffer, buffer, FULLSCREEN_VS } from './gl.js';
 import { POINTS_VS, POINTS_FS, SURFACE_VS, SURFACE_FS, DOWN_FS, UP_FS, BG_FS, COMPOSITE_FS } from './shaders.js';
@@ -31,7 +33,7 @@ export class Renderer {
   constructor(canvas, opt = {}) {
     this.canvas = canvas;
     this.opt = { scale: 'auto', msaa: 'auto', scheme: 'chain', orbitDegPerSec: 3, fill: 0.8, bloom: 0.35,
-      exposure: 1.0, skip: '', pointRadius: 0.3, aperture: 0.05, maxCells: 400000, meshH: 0.55, offset: [0, 0], ...opt };
+      exposure: 1.0, skip: '', pointRadius: 0.3, aperture: 0.05, maxCells: 400000, meshH: 0.55, offset: [0, 0], confFloor: 70, ...opt };
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false,
       powerPreference: 'high-performance', preserveDrawingBuffer: !!opt.preserve });
     if (!gl) throw new Error('WebGL2 unavailable');
@@ -72,9 +74,15 @@ export class Renderer {
     this.bufA = buffer(gl, gl.ARRAY_BUFFER, new Float32Array(n * 3), gl.DYNAMIC_DRAW);
     this.bufB = buffer(gl, gl.ARRAY_BUFFER, new Float32Array(n * 3), gl.DYNAMIC_DRAW);
     this.bufC = buffer(gl, gl.ARRAY_BUFFER, this.colors);
+    // confidence arrives as pLDDT in 0-1 or 0-100; 1 marks an atom of an unsure residue
+    const conf = topo.confidence, scale = conf && Math.max(...conf) <= 1.01 ? 100 : 1;
+    this.unsure = new Float32Array(n);
+    if (conf) for (let a = 0; a < n; a++) this.unsure[a] = conf[topo.atomResidue[a]] * scale < this.opt.confFloor ? 1 : 0;
+    this.sure = this.unsure.some(u => u) ? Uint32Array.from({ length: n }, (_, a) => a).filter(a => !this.unsure[a]) : null;
+    this.bufK = buffer(gl, gl.ARRAY_BUFFER, this.unsure);
     this.vaoPoints = gl.createVertexArray();
     gl.bindVertexArray(this.vaoPoints);
-    [[this.bufA, 0, 3], [this.bufB, 1, 3], [this.bufC, 2, 3]].forEach(([b, loc, k]) => {
+    [[this.bufA, 0, 3], [this.bufB, 1, 3], [this.bufC, 2, 3], [this.bufK, 3, 1]].forEach(([b, loc, k]) => {
       gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.enableVertexAttribArray(loc);
       gl.vertexAttribPointer(loc, k, gl.FLOAT, false, 0, 0);
     });
@@ -175,12 +183,21 @@ export class Renderer {
   // ---------------------------------------------------------------- surface
   _requestMesh(coords, grow) {
     if (this.surf.busy) return;
+    let radii = this.radii, colors = this.colors;
+    if (this.sure) {   // only the atoms the model is sure of are meshed
+      const k = this.sure;
+      if (!k.length) { this.surf.ntri = 0; return; }
+      const c = new Float32Array(k.length * 3), col = new Float32Array(k.length * 3);
+      radii = new Float32Array(k.length);
+      k.forEach((a, j) => { radii[j] = this.radii[a]; for (let d = 0; d < 3; d++) { c[3 * j + d] = coords[3 * a + d]; col[3 * j + d] = this.colors[3 * a + d]; } });
+      coords = c; colors = col;
+    }
     const key = this.shown.a?.time + ':' + this.shown.b?.time + ':' + this.shown.alpha?.toFixed(3) + ':' + grow.toFixed(3) + ':' + this.opt.scheme;
     if (key === this.surf.lastKey) return;
     this.surf.lastKey = key;
     this.surf.busy = true;
     this.surf.reqT = performance.now();
-    this.worker.postMessage({ id: ++this.surf.id, coords, radii: this.radii, colors: this.colors,
+    this.worker.postMessage({ id: ++this.surf.id, coords, radii, colors,
       grow: 0.5 + 0.5 * grow, iso: 0.5, center: this.frameC, half: (this.finalRadius ?? 1.6 * this.expectRg) + 6,
       h: this.opt.meshH, maxCells: this.opt.maxCells });
   }
@@ -356,7 +373,8 @@ export class Renderer {
         this._drawMesh(v, this.vaoRib, this.ribCount, { opacity: W.ribbon.x, solid: 1, emissive: 0.05 });
       }
       // points: additive light, tested against the ribbon, not written to depth
-      if (W.points.x > 0.002 && !this.opt.skip.includes('points')) {
+      const keep = this.sure ? 1 - W.points.x : 0;   // unsure atoms stay lit as the others fade
+      if ((W.points.x > 0.002 || keep > 0.002) && !this.opt.skip.includes('points')) {
         const p = this.prog.points;
         gl.useProgram(p.p);
         gl.depthMask(false);
@@ -373,6 +391,7 @@ export class Renderer {
         gl.uniform1f(p.u.uMaxPx, rt.h * 0.03);
         const settle = 0.55 + 0.45 * smoothstep(0.3, 1.0, this.compact);
         gl.uniform1f(p.u.uGain, 3.2 * W.points.x * settle * (1 - 0.55 * W.surface.x * smoothstep(0.02, 0.45, W.grow.x)));
+        gl.uniform1f(p.u.uKeep, 3.2 * settle * keep);
         gl.uniform1f(p.u.uNear, v.dist * 0.12);
         gl.bindVertexArray(this.vaoPoints);
         gl.drawArrays(gl.POINTS, 0, this.topo.natom);

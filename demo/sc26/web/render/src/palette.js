@@ -38,11 +38,16 @@ export function residueColors(topo, scheme) {
   return out;
 }
 
+// A partner that is not part of the sequence (haemoglobin's hemes) sits on residue indices past its
+// end. It is drawn in ember; reading the residue table there gave NaN, which lit those atoms as
+// black and then white discs.
+const PARTNER = lin('#ffa866');
+
 export function atomColors(topo, scheme) {
   const rc = residueColors(topo, scheme), out = new Float32Array(topo.natom * 3);
   for (let i = 0; i < topo.natom; i++) {
     const r = topo.atomResidue[i];
-    out[i * 3] = rc[r * 3]; out[i * 3 + 1] = rc[r * 3 + 1]; out[i * 3 + 2] = rc[r * 3 + 2];
+    out.set(r < topo.nres ? rc.subarray(r * 3, r * 3 + 3) : PARTNER, i * 3);
   }
   return out;
 }
