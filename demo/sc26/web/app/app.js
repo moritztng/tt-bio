@@ -304,7 +304,8 @@ function drawNumber(f) {
   const src = $('source'), num = $('num'), box = $('number');
   const st = stage.step, of = stage.of;
   $('step').textContent = !of ? '' : stage.landed ? `${of} sampler steps, every one shown`
-    : st < 0 ? `Sampler step 0 of ${of}: random noise` : `Sampler step ${st + 1} of ${of}`;
+    : st < 0 ? `Sampler step 0 of ${of}: random noise`
+    : `Sampler step ${st + 1} of ${of}` + (stage.spread > 6 ? ': the noise is still wider than the screen' : '');
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   const where = f.source === 'live' && f.chip != null ? `Folded live on chip ${pad(f.chip)}` : 'Recorded on this box';
   if (stage.landed) {

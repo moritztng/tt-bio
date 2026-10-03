@@ -72,8 +72,8 @@ body[data-state=result] #conf.on { display: flex; }
 #step { font-size: calc(17 * var(--p)); font-weight: 460; color: var(--ink3); font-variant-numeric: tabular-nums;
         margin-top: calc(6 * var(--p)); min-height: calc(22 * var(--p)); white-space: nowrap; }
 #legend { margin-top: calc(22 * var(--p)); font-size: calc(17 * var(--p)); color: var(--ink2); opacity: 0;
-          transition: opacity 600ms var(--fade); }
-#legend.on { opacity: 1; }
+          transition: opacity 150ms var(--fade); }
+#legend.on { opacity: 1; transition-duration: 600ms; }
 #legend p { margin: 0 0 calc(8 * var(--p)); color: var(--ink3); }
 #legend ul { list-style: none; margin: 0; padding: 0; display: flex; gap: calc(22 * var(--p)); font-variant-numeric: tabular-nums; }
 #legend li { display: flex; align-items: center; gap: calc(8 * var(--p)); }

@@ -41,6 +41,9 @@ export class Stage {
     const n = fold.coords.length;
     const frames = fold.coords.map((c, i) => ({ coords: c, x0: fold.x0?.[i] ?? null, step: fold.steps?.[i] ?? i - 1,
       time: this.times[i], progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
+    // how much wider than the final structure each state's cloud is, by radius of gyration
+    const rg = gyration(fold.coords[n - 1]) || 1;
+    this.spreads = new Map(frames.map(f => [f.step, gyration(f.coords) / rg]));
     this.r.setTopology(fold.topo);
     this.r.loadReplay(frames);
     this.r.speed = 1;
@@ -72,6 +75,7 @@ export class Stage {
   // The sampler step on screen: -1 is the starting noise, of - 1 the scored structure.
   get step() { return this.r.step ?? -1; }
   get of() { return this.fold?.of ?? 0; }
+  get spread() { return this.spreads?.get(this.step) ?? 1; }
 
   get playT() { return Math.max(0, this.t - this.holdNoise); }
   get landed() { return this.fold && this.playT >= this.condense; }
