@@ -101,8 +101,10 @@ function playTimes(coords, total) {
   const cap = 6 * gyration(coords[n - 1]);
   const lr = coords.map(c => Math.log(Math.max(1e-3, Math.min(cap, gyration(c)))));
   const w = lr.slice(0, -1).map((v, i) => i ? Math.abs(v - lr[i - 1]) : 0), sum = w.reduce((a, b) => a + b, 0);
+  // the floor goes to states with something on screen; a state wider than the cap gets a tenth
+  const f = lr.slice(0, -1).map(v => v < Math.log(cap) ? 1 : 0.1), fsum = f.reduce((a, b) => a + b, 0);
   const out = [0];
-  for (let i = 0; i < n - 1; i++) out.push(out[i] + total * (FLOOR / (n - 1) + (1 - FLOOR) * (sum > 0 ? w[i] / sum : 1 / (n - 1))));
+  for (let i = 0; i < n - 1; i++) out.push(out[i] + total * (FLOOR * f[i] / fsum + (1 - FLOOR) * (sum > 0 ? w[i] / sum : 1 / (n - 1))));
   out[n - 1] = total;
   return out;
 }
