@@ -68,6 +68,11 @@ stop_firefox
 url="http://127.0.0.1:$port/index.html?$query"
 MOZ_DISABLE_AUTO_SAFE_MODE=1 GTK_USE_PORTAL=0 MOZ_ENABLE_WAYLAND=1 nohup firefox --no-remote --profile "$prof" --kiosk "$url" >"$state/firefox.log" 2>&1 &
 ffpid=$!
+# SC26_NICE=-5: raise the browser's CPU priority over host-side fold work (needs sudo)
+if [ -n "${SC26_NICE:-}" ]; then
+  ( sleep 8; for p in $(pgrep -u "$(id -u)" -f "[f]irefox.*sc26sway/ffprofile|[f]irefox -contentproc.*sc26sway" ; pgrep -u "$(id -u)" -P "$(pgrep -u "$(id -u)" -f "[f]irefox --no-remote --profile $prof" | head -1)"); do
+      sudo -n renice -n "$SC26_NICE" -p "$p" >/dev/null 2>&1; done ) &
+fi
 
 log=$here/bench.jsonl; touch "$log"; n0=$(wc -l < "$log")
 wait_for() {  # wait until the page posts a record of kind $1, up to $2 s; print it
