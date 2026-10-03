@@ -77,16 +77,26 @@ export class Stage {
 
 // Which finished fold takes the stage next. Holds a pool of recent folds and never repeats a
 // protein while another one is available that has not been on stage in the last few slots.
+//
+// The server replays recordings only while no chip is ready or busy, so a box whose chips are all
+// folding visitors' names sends no attract folds at all. Then the stage shows the last few
+// visitors' folds (as "A visitor's name", never the name), and before anything has arrived, the
+// one recording bundled with the app. The stage is never empty.
 export class Director {
   constructor({ pool = 24, avoid = 4 } = {}) {
     this.pool = []; this.max = pool; this.avoid = avoid;
     this.history = [];   // names, most recent last
+    this.visitors = [];  // last few visitors' folds, shown only when the pool is empty
+    this.fallback = null;
   }
 
   key(f) { return f.name ?? f.sequence; }
 
   add(f) {
-    if (f.kind === 'visitor') return;      // a visitor's fold is theirs, not attract content
+    if (f.kind === 'visitor') {
+      this.visitors = [...this.visitors.filter(v => v.sequence !== f.sequence), f].slice(-3);
+      return;
+    }
     // keep one copy per protein: the newest
     this.pool = this.pool.filter(p => this.key(p) !== this.key(f));
     this.pool.push(f);
@@ -94,7 +104,12 @@ export class Director {
   }
 
   next() {
-    if (!this.pool.length) return null;
+    if (!this.pool.length) {
+      if (!this.visitors.length) return this.fallback;
+      const v = this.visitors.shift();     // oldest first, then round to the back
+      this.visitors.push(v);
+      return v;
+    }
     const distinct = new Set(this.pool.map(p => this.key(p))).size;
     const recent = new Set(this.history.slice(-Math.min(this.avoid, distinct - 1)));
     let cands = this.pool.filter(p => !recent.has(this.key(p)));

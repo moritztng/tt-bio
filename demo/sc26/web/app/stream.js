@@ -89,6 +89,18 @@ export class Stream {
   }
 }
 
+// A recording (one protocol message per line, PROTOCOL.md "Replay") as one finished fold, marked
+// as a recording the way the server marks the replays it plays.
+export async function loadRecording(url) {
+  const lines = (await (await fetch(url)).text()).split('\n').filter(Boolean).map(l => JSON.parse(l));
+  const start = lines.find(m => m.type === 'fold_start'), done = lines.find(m => m.type === 'fold_done');
+  const frames = lines.filter(m => m.type === 'frame');
+  if (!start || !done || !frames.length) return null;
+  const f = assemble({ ...start, kind: 'replay', source: 'replay', chip: null }, frames, done);
+  f.received = -1;
+  return f;
+}
+
 // One finished fold, in the renderer's terms plus everything the words on screen need.
 function assemble(start, frames, done) {
   frames.sort((a, b) => a.step - b.step);
