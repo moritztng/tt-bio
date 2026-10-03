@@ -62,7 +62,7 @@ export function lengthLine(p) {
 export function verdict(meanPlddt) {
   if (meanPlddt >= 0.7) return 'Your name folds, confidently.';
   if (meanPlddt >= 0.5) return 'Parts of your name fold.';
-  return 'Most of your name stays a cloud. Real proteins fold because evolution kept them.';
+  return 'The model is unsure of this shape. Real proteins evolved to fold.';
 }
 
 // A booth guard, local and dumb on purpose. See blocklist.txt for the matching rule.

@@ -49,7 +49,7 @@ aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)
 #label, #source { font-size: calc(16 * var(--p)); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink3); }
 #label { color: var(--live); min-height: calc(20 * var(--p)); }
 /* name and story share one fixed box, so the number and everything under it never move */
-#title { margin-top: calc(14 * var(--p)); height: calc(214 * var(--p)); overflow: hidden; }
+#title { margin-top: calc(14 * var(--p)); height: calc(214 * var(--p)); overflow: hidden; flex-shrink: 0; }
 #name { margin: 0; font-size: calc(62 * var(--p)); font-weight: 640; letter-spacing: -0.028em;
         line-height: 1.04; overflow-wrap: anywhere; }
 #name.long { font-size: calc(48 * var(--p)); }
@@ -63,11 +63,6 @@ aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)
 #meta { font-size: calc(20 * var(--p)); font-weight: 460; color: var(--ink2); font-variant-numeric: tabular-nums; margin-top: calc(6 * var(--p)); }
 #meta.long { font-size: calc(17 * var(--p)); }   /* "your name four times · AICLK" stays one line */
 #meta { white-space: nowrap; }
-#conf { display: none; align-items: center; gap: calc(14 * var(--p)); margin-top: calc(18 * var(--p));
-        font-size: calc(20 * var(--p)); color: var(--ink2); font-variant-numeric: tabular-nums; }
-#conf > div { flex: 0 0 calc(240 * var(--p)); height: calc(4 * var(--p)); background: var(--rule); border-radius: 2px; }
-#conf i { display: block; height: 100%; background: var(--ice); border-radius: 2px; width: 0; transition: width 1.2s var(--out); }
-body[data-state=result] #conf.on { display: flex; }
 /* the sampler's own step counter while folding; the pLDDT key once the structure is drawn */
 #step { font-size: calc(17 * var(--p)); font-weight: 460; color: var(--ink3); font-variant-numeric: tabular-nums;
         margin-top: calc(6 * var(--p)); min-height: calc(22 * var(--p)); white-space: nowrap; }

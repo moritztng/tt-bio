@@ -2,10 +2,9 @@
 //
 // A fold's real sampler states arrive faster than anyone can watch (an ESMFold2 fold's whole
 // diffusion takes a fraction of a second), so the stage plays them back over CONDENSE seconds and
-// says how much slower that is, on average. Every real state is shown, in order, and held: the
-// time between two states follows how much the cloud shrinks between them (in log radius of
-// gyration), plus a floor per step, because a sampler collapses most of its noise in its first few
-// steps. The only motion that is not a sampler state is the renderer's short blend between two
+// says how much slower that is. Every real state is shown, in order, and held for the time the chip
+// took to produce it, scaled by one factor for the whole fold: a fold shown in real time keeps the
+// chip's own pace step by step, and "N× slower" is true of every step. The only motion that is not a sampler state is the renderer's short blend between two
 // consecutive states (`?ease=<s>`, default 0.12 s; `?ease=0` shows real states only). `step` and
 // `of` are the sampler's own step counter for the state on screen. The last frame is the scored
 // structure as the chip produced it.
@@ -37,7 +36,7 @@ export class Stage {
   show(fold, { condense = CONDENSE } = {}) {
     this.fold = fold;
     this.condense = Math.max(condense, fold.diffusionSeconds > 0 ? fold.diffusionSeconds : 0);
-    this.times = playTimes(fold.coords, this.condense);
+    this.times = playTimes(fold.tReal, this.condense);
     const n = fold.coords.length;
     const frames = fold.coords.map((c, i) => ({ coords: c, x0: fold.x0?.[i] ?? null, step: fold.steps?.[i] ?? i - 1,
       time: this.times[i], progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
@@ -89,22 +88,14 @@ export class Stage {
   }
 }
 
-// When each real state is on screen: a floor per step plus a share of the condensation by how
-// much the cloud shrank to REACH that state, so the time goes to the states that show the change.
-// (States are held, so the interval after state i shows state i; weighting it by the shrink from i
-// to i+1 instead held an off-screen noise frame for seconds before a jump.)
-const FLOOR = 0.3;
-function playTimes(coords, total) {
-  const n = coords.length;
+// When each real state is on screen: the chip's own timestamp for it, stretched to `total` seconds.
+// (Re-timing states by how much the cloud shrinks made a "real time" counter run at 3.4x through the
+// noise and 0.2x through the folding.) Equal steps if the timestamps are missing.
+function playTimes(tReal, total) {
+  const n = tReal?.length ?? 0;
   if (n < 2) return [0];
-  // shrinkage only counts while it is on screen: a cloud wider than ~6x the protein is mostly off it
-  const cap = 6 * gyration(coords[n - 1]);
-  const lr = coords.map(c => Math.log(Math.max(1e-3, Math.min(cap, gyration(c)))));
-  const w = lr.slice(0, -1).map((v, i) => i ? Math.abs(v - lr[i - 1]) : 0), sum = w.reduce((a, b) => a + b, 0);
-  const out = [0];
-  for (let i = 0; i < n - 1; i++) out.push(out[i] + total * (FLOOR / (n - 1) + (1 - FLOOR) * (sum > 0 ? w[i] / sum : 1 / (n - 1))));
-  out[n - 1] = total;
-  return out;
+  const span = tReal[n - 1] - tReal[0];
+  return tReal.map((t, i) => total * (span > 0 ? (t - tReal[0]) / span : i / (n - 1)));
 }
 
 function gyration(x) {

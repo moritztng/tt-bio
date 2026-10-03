@@ -276,10 +276,6 @@ function drawSide() {
       drawNumber(f);
       M.textContent = (m.instead ? `${f.nres} amino acids` : lengthLine(m.parsed).replace(/\.$/, '')) + clock(f);
       M.classList.toggle('long', M.textContent.length > 46);
-      const c = Math.round(100 * (f.plddtMean ?? 0));
-      $('conf').classList.toggle('on', stage.landed);
-      $('conf').querySelector('i').style.width = stage.landed ? c + '%' : '0';
-      $('conf').querySelector('span').textContent = stage.landed ? `confidence ${c}` : '';
     }
     return;
   }
@@ -307,6 +303,7 @@ function drawNumber(f) {
     : st < 0 ? `Sampler step 0 of ${of}: random noise`
     : `Sampler step ${st + 1} of ${of}` + (stage.spread > 6 ? ': the noise is still wider than the screen' : '');
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
+  $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
   const where = f.source === 'live' && f.chip != null ? `Folded live on chip ${pad(f.chip)}` : 'Recorded on this box';
   if (stage.landed) {
     src.textContent = where;
