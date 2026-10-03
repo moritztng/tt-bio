@@ -47,7 +47,7 @@ def messages(meta, pick):
     seq = ":".join(c["sequence"] for c in pick["chains"])
     yield dict(type="fold_start", **base, sequence=seq, n_res=meta["n_res"], n_atoms=meta["n_atoms"],
                steps=meta["steps"], loops=meta["recycling_steps"], seed=meta["seed"],
-               rg_expected=meta["rg_final"], title=pick["name"], story=pick["story"], pdb=pick["pdb"],
+               rg_expected=meta["rg_final"], name=pick["name"], story=pick["story"], pdb=pick["pdb"],
                chains=[dict(id=c["id"], role=c["role"], n_res=len(c["sequence"])) for c in pick["chains"]],
                ligands=pick["ligands"], atoms=meta["atoms"], t=0.0)
     yield dict(type="stage", id=fid, chip=meta["chip"], stage="trunk", step=0, total=meta["recycling_steps"], t=0.0)

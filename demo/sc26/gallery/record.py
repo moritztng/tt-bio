@@ -106,13 +106,40 @@ def parse_cif(path):
     return dict(element=el, name=name, residue=res, chain=chain), plddt, np.array(xyz)
 
 
+def predict(cmd, env, log_path, chip, stall_s):
+    """Run predict; if its log is silent for stall_s, stop it the fleet's way, never with SIGKILL:
+    SIGINT, then SIGTERM, then a reset of this chip (a fold hung inside a device read answers
+    neither signal; the reset makes the read fail and the process exits)."""
+    import signal
+    with open(log_path, "w") as log:
+        p = subprocess.Popen(cmd, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        while p.poll() is None:
+            time.sleep(5)
+            if time.time() - log_path.stat().st_mtime < stall_s:
+                continue
+            print(f"stall: log silent {stall_s:.0f} s, stopping", file=sys.stderr)
+            for sig, wait in ((signal.SIGINT, 30), (signal.SIGTERM, 30)):
+                os.killpg(p.pid, sig)
+                try:
+                    p.wait(wait)
+                    break
+                except subprocess.TimeoutExpired:
+                    pass
+            if p.poll() is None:
+                subprocess.run([os.path.expanduser("~/.local/bin/tt-smi"), "-r", str(chip)], timeout=180)
+                p.wait(120)
+            log.write(f"\nSTALLED: no output for {stall_s:.0f} s, stopped\n")
+            return "stalled"
+    return p.returncode
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pick")
     ap.add_argument("--chip", type=int, required=True)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--runs", default=str(HERE / "runs"))
-    ap.add_argument("--timeout", type=int, default=2400)
+    ap.add_argument("--stall-s", type=float, default=300)
     a = ap.parse_args()
     pick = next(p for p in json.load(open(HERE / "picks.json")) if p["id"] == a.pick)
     run = Path(a.runs) / a.pick
@@ -133,9 +160,8 @@ def main():
            "--use_msa_server", "--override"]
     t_launch = time.time()
     for attempt in range(3):  # the ColabFold server now and then hands back a broken archive
-        with open(run / "predict.log", "w") as log:
-            rc = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=a.timeout).returncode
-        if not (rc and "run_mmseqs2" in (run / "predict.log").read_text(errors="replace")):
+        rc = predict(cmd, env, run / "predict.log", a.chip, a.stall_s)
+        if not (rc and rc != "stalled" and "run_mmseqs2" in (run / "predict.log").read_text(errors="replace")):
             break
         time.sleep(30)
     clock.stop.set()
