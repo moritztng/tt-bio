@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Run the booth app full screen in Firefox, and start it again if it ever exits.
+#
+#   launch.sh [url]          default http://127.0.0.1:8626/app/
+#
+# Needs a Wayland (or X) session in the environment: WAYLAND_DISPLAY / XDG_RUNTIME_DIR, or DISPLAY.
+# The profile is rebuilt from user.js on every start, so no state (crash flags, session restore,
+# zoom) survives a restart. It lives outside dot-directories because the Firefox snap cannot read
+# them. policies.json is a system file (/etc/firefox/policies/policies.json), installed by the
+# ops side, and backs up the prefs that a profile alone cannot pin.
+set -uo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+url=${1:-http://127.0.0.1:8626/app/}
+prof=${SC26_KIOSK_PROFILE:-$HOME/sc26kiosk/profile}
+log=${SC26_KIOSK_LOG:-$HOME/sc26kiosk/firefox.log}
+export MOZ_CRASHREPORTER_DISABLE=1 MOZ_CRASHREPORTER_NO_REPORT=1 GTK_USE_PORTAL=0
+[ -n "${WAYLAND_DISPLAY:-}" ] && export MOZ_ENABLE_WAYLAND=1
+stop=0; trap 'stop=1; kill -TERM "$pid" 2>/dev/null' INT TERM
+while [ $stop = 0 ]; do
+  rm -rf "$prof"; mkdir -p "$prof"
+  cp "$here/user.js" "$prof/user.js"
+  firefox --no-remote --profile "$prof" --kiosk "$url" >>"$log" 2>&1 &
+  pid=$!
+  wait "$pid"
+  echo "$(date -Is) firefox exited rc=$?, restarting" >>"$log"
+  [ $stop = 0 ] && sleep 1
+done
