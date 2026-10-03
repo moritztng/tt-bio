@@ -82,7 +82,7 @@ export class Renderer {
     gl.bindVertexArray(null);
     this.meshCount = 0;
     this.timeline = new Timeline({ ease: this.opt.ease });
-    this.shown = { a: null, b: null };
+    this.shown = { a: null, b: null }; this.dot = 1;
     this.fin.x = this.fin.target = 0; this.fin.v = 0;
     // until the final structure is known, frame for a globular protein of this length:
     // Rg ~ 2.2 N^0.38 A, bounding radius ~1.6 Rg
@@ -208,6 +208,20 @@ export class Renderer {
     this.rt = rt;
   }
 
+  // Dot size while the cloud is spread out. On-screen ink scales with the atom count, so a
+  // 400-atom protein's noise reads as an empty screen where a 4,500-atom one fills it. Small
+  // proteins draw their dots up to 2.2x larger while the cloud is over ~1.5x the final radius of
+  // gyration, back to 1x by the time it forms. Positions are untouched; only the dot size changes.
+  _dotScale(x) {
+    const k = Math.min(2.2, Math.max(1, Math.sqrt(2000 / this.topo.natom)));
+    if (k === 1) return 1;
+    const fin = this.timeline.final;
+    if (fin && this._rgFinalOf !== fin) { this._rgFinalOf = fin; this._rgFinal = gyration(fin.coords); }
+    const spread = gyration(x) / ((fin ? this._rgFinal : this.expectRg) || 1);
+    const t = Math.min(1, Math.max(0, (spread - 1.5) / 2.5));
+    return 1 + (k - 1) * t * t * (3 - 2 * t);
+  }
+
   // ---------------------------------------------------------------- frame
   update(dt) {
     const tl = this.timeline;
@@ -216,7 +230,10 @@ export class Renderer {
     else if (this.playing) this.clock += dt * this.speed;
     const s = tl.at(this.clock);
     const gl = this.gl;
-    if (s.a !== this.shown.a) { gl.bindBuffer(gl.ARRAY_BUFFER, this.bufA); gl.bufferSubData(gl.ARRAY_BUFFER, 0, s.a.coords); }
+    if (s.a !== this.shown.a) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.bufA); gl.bufferSubData(gl.ARRAY_BUFFER, 0, s.a.coords);
+      this.dot = this._dotScale(s.a.coords);
+    }
     if (s.b !== this.shown.b) { gl.bindBuffer(gl.ARRAY_BUFFER, this.bufB); gl.bufferSubData(gl.ARRAY_BUFFER, 0, s.b.coords); }
     this.shown = s;
     this.progress = s.progress;
@@ -300,8 +317,8 @@ export class Renderer {
         gl.uniform1f(p.u.uRadius, this.opt.pointRadius);
         gl.uniform1f(p.u.uBallRadius, this.opt.ballRadius);
         gl.uniform1f(p.u.uFold, 1 - f);
-        gl.uniform1f(p.u.uMinPx, Math.max(0.9, rt.h / 1000));
-        gl.uniform1f(p.u.uMaxPx, rt.h / 360);
+        gl.uniform1f(p.u.uMinPx, Math.max(0.9, rt.h / 1000) * this.dot);
+        gl.uniform1f(p.u.uMaxPx, rt.h / 360 * this.dot);
         gl.uniform1f(p.u.uNear, v.dist * 0.12);
         gl.bindVertexArray(this.vaoPoints);
         gl.drawArrays(gl.POINTS, 0, this.topo.natom);
@@ -378,4 +395,11 @@ function principalBasis(x, c) {
   const e1 = col(order[0]), e2 = col(order[1]);
   const e3 = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
   return [...e1, ...e2, ...e3];
+}
+
+function gyration(x) {
+  const [cx, cy, cz] = centroid(x), n = x.length / 3;
+  let s = 0;
+  for (let i = 0; i < n; i++) s += (x[3 * i] - cx) ** 2 + (x[3 * i + 1] - cy) ** 2 + (x[3 * i + 2] - cz) ** 2;
+  return Math.sqrt(s / n);
 }
