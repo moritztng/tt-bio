@@ -277,9 +277,17 @@ export class Renderer {
     const rg = radiusOfGyration(s.a.coords) * (1 - s.alpha) + radiusOfGyration(s.b.coords) * s.alpha;
     const target = this.finalRg ?? this.expectRg;
     this.compact = target / Math.max(rg, 1e-3);
+    // Display contraction: an early noise frame can be ten times wider than the protein, and drawn
+    // at true scale it is a few faint points with the rest off screen. Scale it toward its own
+    // centroid so the cloud just fills the screen (1.3 Rg ~ where a Gaussian cloud thins out). The
+    // shape is untouched, k reaches 1 well before the fold settles, and the final frame is exact.
+    const edge = (this.finalRadius ?? 1.6 * this.expectRg) / this.opt.fill;
+    const done = s.alpha === 0 && s.a === tl.final;
+    this.drawK = done ? 1 : Math.min(1, edge / (1.3 * Math.max(rg, 1e-3)));
+    const ca = centroid(s.a.coords), cb = centroid(s.b.coords);
+    this.drawC = ca.map((x, k) => x * (1 - s.alpha) + cb[k] * s.alpha);
     this.progress = s.progress;
     if (this.mode === 'auto') {
-      const done = s.alpha === 0 && s.a === tl.final;
       const g = done ? 1 : smoothstep(0.62, 0.92, this.compact);
       this.w.grow.target = g;
       this.w.surface.target = g > 0 ? 1 : 0;
@@ -330,6 +338,8 @@ export class Renderer {
   onScreen() {
     const s = this.shown; if (!s?.a) return null;
     const x = interp(s, new Float32Array(s.a.coords.length)), v = this.view();
+    const k = this.drawK ?? 1, C = this.drawC ?? this.frameC;
+    for (let i = 0; i < x.length; i++) x[i] = C[i % 3] + (x[i] - C[i % 3]) * k;
     const M = v.view, P = v.proj; let inside = 0; const n = x.length / 3;
     for (let i = 0; i < n; i++) {
       const X = x[3 * i], Y = x[3 * i + 1], Z = x[3 * i + 2];
@@ -393,6 +403,8 @@ export class Renderer {
         gl.uniform1f(p.u.uGain, 3.2 * W.points.x * settle * (1 - 0.55 * W.surface.x * smoothstep(0.02, 0.45, W.grow.x)));
         gl.uniform1f(p.u.uKeep, 3.2 * settle * keep);
         gl.uniform1f(p.u.uNear, v.dist * 0.12);
+        gl.uniform1f(p.u.uK, this.drawK ?? 1);
+        gl.uniform3fv(p.u.uC, this.drawC ?? this.frameC);
         gl.bindVertexArray(this.vaoPoints);
         gl.drawArrays(gl.POINTS, 0, this.topo.natom);
         gl.disable(gl.BLEND);

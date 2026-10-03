@@ -9,12 +9,13 @@ layout(location=1) in vec3 aB;
 layout(location=2) in vec3 aColor;
 layout(location=3) in float aUnsure;
 uniform mat4 uView, uProj;
-uniform float uAlpha, uProjScale, uFocus, uAperture, uSlab, uRadius, uMaxPx, uGain, uKeep, uNear;
+uniform float uAlpha, uProjScale, uFocus, uAperture, uSlab, uRadius, uMaxPx, uGain, uKeep, uNear, uK;
+uniform vec3 uC;
 out vec3 vColor;
 out float vSharp;
 const float HALO = 2.2;
 void main() {
-  vec4 v = uView * vec4(mix(aA, aB, uAlpha), 1.0);
+  vec4 v = uView * vec4(uC + (mix(aA, aB, uAlpha) - uC) * uK, 1.0);
   float d = max(-v.z, 1e-3);
   float rpx = uRadius * uProjScale / d;
   float coc = uAperture * max(0.0, abs(d - uFocus) - uSlab) / d * uProjScale;  // the protein itself stays sharp
