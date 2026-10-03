@@ -259,14 +259,20 @@ function drawSide() {
         : m.position > 0 ? (m.position === 1 ? 'Next in line for a chip.' : `${ORDINAL[m.position] ?? m.position + 'th'} in line for a chip.`)
         : 'Finding a free chip.';
       src.textContent = '';
-      num.textContent = m.t0 ? ((performance.now() - m.t0) / 1000).toFixed(1) : '';
+      // what the chip last reported, never run on, held at the first diffusion state: the result
+      // replays from there, so the number never steps back when their fold arrives
+      const j = m.id != null ? stream.jobs[m.id] : null;
+      const s = m.t0 && j ? (j.tFirst ?? j.tChip ?? 0) : null;
+      num.textContent = s != null ? s.toFixed(1) : '';
       numBox.classList.remove('locked');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
+      M.classList.remove('long');
     } else {
       const f = m.fold;
       S.textContent = stage.landed ? (m.instead ? storyOf(m.instead) : verdict(f.plddtMean ?? 0)) : '';
       drawNumber(f);
       M.textContent = (m.instead ? `${f.nres} amino acids` : lengthLine(m.parsed).replace(/\.$/, '')) + clock(f);
+      M.classList.toggle('long', M.textContent.length > 46);
       const c = Math.round(100 * (f.plddtMean ?? 0));
       $('conf').classList.toggle('on', stage.landed);
       $('conf').querySelector('i').style.width = stage.landed ? c + '%' : '0';
@@ -281,6 +287,7 @@ function drawSide() {
   S.textContent = f.story ?? '';
   drawNumber(f);
   M.textContent = `${f.nres} amino acids` + clock(f);
+  M.classList.toggle('long', M.textContent.length > 46);
 }
 
 // a long name drops to the smaller size so name and story always fit their box
@@ -336,6 +343,9 @@ function drawChips() {
     } else if (c?.state === 'busy') { what = 'folding'; cls = 'busy'; }
     else if (c?.state === 'ready') { what = 'ready'; cls = 'ready'; }
     else if (c?.state === 'starting' || c?.state === 'warming') what = 'warming up';
+    else if (c?.state === 'stalled' || c?.state === 'recovering') { what = 'recovering'; cls = 'recovering'; }
+    else if (c?.state === 'resetting') { what = 'resetting'; cls = 'recovering'; }
+    else if (c?.state === 'stopped') what = 'off';
     if (onStage && onStage.source === 'live' && onStage.chip === i) cls += ' on';
     li.className = cls;
     const w = li.querySelector('.what');
@@ -361,6 +371,10 @@ function frame(now) {
       // no answer, no chip within the minute, or it never finished: say so and go back, never hang
       const m = app.mine;
       if ((!m.id && now - m.sent > 20000) || (!m.t0 && now - m.sent > 55000) || (m.t0 && now - m.t0 > 90000)) giveUp();
+      // the engine went away, or their fold was dropped and not requeued (a requeue starts a new job)
+      const j = m.id != null ? stream.jobs[m.id] : null;
+      if (!stream.connected && now - Math.max(m.sent, stream.lastMessage) > 3000) giveUp();
+      else if (j?.stage === 'dropped' && now - (j.droppedAt ??= now) > 10000) giveUp();
     }
     if (app.state !== 'attract' && now - app.lastInput > IDLE) toAttract();
     if ((sideTick += dt) > 0.05) {

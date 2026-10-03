@@ -67,7 +67,7 @@ export class Stream {
         const f = this.open[m.id];
         if (f) f.frames.push(m);
         const j = this.jobs[m.id];
-        if (j) { Object.assign(j, { stage: 'diffusion', step: m.step + 1, total: m.of }); this._tick(j, m, now); this.cb.onStage?.(m.id, j, m); }
+        if (j) { Object.assign(j, { stage: 'diffusion', step: m.step + 1, total: m.of }); this._tick(j, m, now); j.tFirst ??= m.t; this.cb.onStage?.(m.id, j, m); }
         break;
       }
       case 'fold_done': {
