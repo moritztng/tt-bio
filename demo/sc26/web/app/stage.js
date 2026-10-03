@@ -90,7 +90,9 @@ const FLOOR = 0.3;
 function playTimes(coords, total) {
   const n = coords.length;
   if (n < 2) return [0];
-  const lr = coords.map(c => Math.log(Math.max(1e-3, gyration(c))));
+  // shrinkage only counts while it is on screen: a cloud wider than ~6x the protein is mostly off it
+  const cap = 6 * gyration(coords[n - 1]);
+  const lr = coords.map(c => Math.log(Math.max(1e-3, Math.min(cap, gyration(c)))));
   const d = lr.slice(1).map((v, i) => Math.abs(v - lr[i])), sum = d.reduce((a, b) => a + b, 0);
   const out = [0];
   for (let i = 0; i < n - 1; i++) out.push(out[i] + total * (FLOOR / (n - 1) + (1 - FLOOR) * (sum > 0 ? d[i] / sum : 1 / (n - 1))));

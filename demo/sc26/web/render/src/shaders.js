@@ -20,7 +20,9 @@ void main() {
   float coc = uAperture * max(0.0, abs(d - uFocus) - uSlab) / d * uProjScale;  // the protein itself stays sharp
   float s = sqrt(rpx * rpx + coc * coc);
   float sc = min(s, uMaxPx);
-  float energy = (rpx * rpx) / (sc * sc + 1e-6) * min(1.0, sc / s);
+  // per-pixel brightness of the true blur circle, also when the sprite is capped smaller than it:
+  // the capped form (rpx^2 / (sc s)) lit near noise atoms 10-100x too bright on big folds
+  float energy = (rpx * rpx) / (s * s + 1e-6);
   vColor = aColor * (uGain + aUnsure * uKeep) * energy * smoothstep(uNear, 2.5 * uNear, d);
   vSharp = rpx / s;
   gl_PointSize = 2.0 * HALO * max(sc, 0.75);
@@ -37,7 +39,7 @@ void main() {
   if (r > HALO) discard;
   float spark = exp(-r * r * 2.2) + 0.05 * exp(-r * r * 0.35);
   float bokeh = smoothstep(1.0, 0.82, r) * (0.75 + 0.25 * r * r) * 0.42;
-  o = vec4(vColor * mix(bokeh, spark, vSharp * vSharp), 0.0);
+  o = vec4(min(vColor * mix(bokeh, spark, vSharp * vSharp), vec3(64.0)), 0.0);
 }`;
 
 // Lit surface. The light rig is fixed to the camera, so orbiting never walks the protein into
@@ -95,7 +97,7 @@ uniform vec2 uTexel;
 uniform float uKnee;  // > 0 on the first level only: what glows is light above ~1, i.e. the points
 out vec4 o;
 vec3 t(vec2 d) {
-  vec3 c = texture(uSrc, vUv + d * uTexel).rgb;
+  vec3 c = min(texture(uSrc, vUv + d * uTexel).rgb, vec3(64.0));  // an Inf here becomes a black tile
   if (uKnee > 0.0) { float l = max(c.r, max(c.g, c.b)); c *= smoothstep(uKnee * 0.5, uKnee * 1.5, l); }
   return c;
 }
@@ -143,7 +145,9 @@ vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59
 vec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031 + uSeed); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 void main() {
-  vec3 c = (texture(uScene, vUv).rgb + texture(uBloom, vUv).rgb * uBloomK) * uExposure;
+  // Additive points can overflow the 32-bit HDR target to Inf, which ACES turns into NaN (black):
+  // seen as black squares over haemoglobin's 11000 A noise cloud. Clamp before the curve.
+  vec3 c = min(texture(uScene, vUv).rgb + texture(uBloom, vUv).rgb * uBloomK, vec3(64.0)) * uExposure;
   c = srgb(aces(c));
   vec2 e = (vUv - 0.5) * vec2(uRes.x / uRes.y, 1.0);
   c *= mix(1.0, 0.72, smoothstep(0.45, 1.15, length(e)));
