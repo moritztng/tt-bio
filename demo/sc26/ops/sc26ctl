@@ -8,7 +8,8 @@
 #   sc26ctl install                    boot straight into the demo (needs sudo once)
 #   sc26ctl uninstall                  back to the normal Ubuntu login
 #
-# Nothing here powers the box off or reboots it.
+# Nothing here powers the box off or reboots it. After install, one press of the power button
+# reboots into the demo; powering off stays impossible.
 set -euo pipefail
 ops=$(cd "$(dirname "$0")" && pwd)
 py=${SC26_PYTHON:-$HOME/tt-bio-dev/env/bin/python3}
@@ -56,6 +57,9 @@ c["User"]["XSession"] = ""
 with open(a, "w") as f: c.write(f)
 PY
   sudo install -D -m 644 "$ops/../web/app/kiosk/policies.json" /etc/firefox/policies/policies.json
+  # One press of the power button reboots (a clean restart for the booth staff); poweroff stays masked.
+  sudo install -D -m 644 "$ops/session/logind-sc26.conf" /etc/systemd/logind.conf.d/sc26-power-key.conf
+  sudo systemctl kill -s HUP systemd-logind
   # No browser update and no package upgrade during the show.
   sudo snap refresh --hold=forever
   sudo systemctl disable --now unattended-upgrades.service apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
@@ -64,7 +68,8 @@ PY
 uninstall_system(){
   [ -f "$bak/custom.conf" ] && sudo cp "$bak/custom.conf" /etc/gdm3/custom.conf
   [ -f "$bak/accountsservice" ] && sudo cp "$bak/accountsservice" /var/lib/AccountsService/users/"$USER"
-  sudo rm -f /usr/share/wayland-sessions/sc26.desktop
+  sudo rm -f /usr/share/wayland-sessions/sc26.desktop /etc/systemd/logind.conf.d/sc26-power-key.conf
+  sudo systemctl kill -s HUP systemd-logind
   sudo snap refresh --unhold || true
   sudo systemctl enable --now unattended-upgrades.service apt-daily.timer apt-daily-upgrade.timer || true
   systemctl --user disable sc26-engine.service || true
@@ -76,7 +81,8 @@ case "${1:-}" in
   restart) systemctl --user restart sc26-engine.service sc26-kiosk.service sc26-watchdog.service ;;
   status)
     systemctl --user --no-pager status "${units[@]}" | grep -E '^[●○×] |Active:' || true
-    curl -s --max-time 3 http://127.0.0.1:8626/status | "$py" -c 'import json,sys; s=json.load(sys.stdin); print("chips:", " ".join(f"{c[\"chip\"]}:{c[\"state\"]}@{c[\"aiclk_mhz\"]}" for c in s["chips"]) or "none (replay only)", "| queue", s["queue"])' || echo "engine: not answering"
+    port=${SC26_PORT:-$(sed -n 's/^SC26_PORT=//p' "$cfg/env" 2>/dev/null)}
+    curl -s --max-time 3 "http://127.0.0.1:${port:-8626}/status" | "$py" -c 'import json,sys; s=json.load(sys.stdin); print("chips:", " ".join("%s:%s@%s" % (c["chip"], c["state"], c["aiclk_mhz"]) for c in s["chips"]) or "none (replay only)", "| queue", s["queue"])' || echo "engine: not answering"
     tail -n 1 "$HOME/sc26-logs/watchdog.jsonl" 2>/dev/null || true ;;
   logs) journalctl --user -f -u 'sc26-*' ;;
   units) install_user; echo "user units installed (no boot change)" ;;
