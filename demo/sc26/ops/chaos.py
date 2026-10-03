@@ -226,6 +226,8 @@ class Chaos:
         summary = {"hours": self.a.hours, "events": len(recs),
                    "by_event": {e: sum(r["event"] == e for r in recs) for e in evs},
                    "flat_screen_events": [r["i"] for r in bad],
+                   # the app and the poster are dark (mean 12-27); a bright frame is a browser page
+                   "bright_screen_events": [r["i"] for r in recs if any(s.get("mean", 0) > 120 for s in r["screen"])],
                    "blind_screen_events": [r["i"] for r in recs if any("display" in x for x in r["screen"])],
                    "fps30_after_s": {e: [r["fps30_after_s"] for r in recs if r["event"] == e] for e in evs}}
         (self.out / "summary.json").write_text(json.dumps(summary, indent=1))

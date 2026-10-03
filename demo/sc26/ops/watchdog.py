@@ -77,9 +77,10 @@ FPS_JS = """
 const done = arguments[arguments.length - 1];
 let n = 0; const t0 = performance.now();
 function tick(t) { n++; if (t - t0 < 1000) requestAnimationFrame(tick); else done({fps: n * 1000 / (t - t0),
-  href: location.href, title: document.title, visible: document.visibilityState}); }
+  href: location.href, doc: document.documentURI, title: document.title, visible: document.visibilityState}); }
 requestAnimationFrame(tick);
-setTimeout(() => done({fps: n, href: location.href, title: document.title, timeout: true}), 4000);
+setTimeout(() => done({fps: n, href: location.href, doc: document.documentURI, title: document.title,
+  timeout: true}), 4000);
 """
 
 
@@ -174,8 +175,9 @@ class Watch:
                 self.restart("sc26-kiosk", f"page unreachable {self.page_fail}x")
             return None
         href = r.get("href", "")
-        if not href.startswith(self.a.url_base):
-            self.emit(ev="page_wrong", href=href[:200], title=r.get("title", "")[:100])
+        # An error page keeps the app's URL in location.href; only documentURI says about:neterror.
+        if not href.startswith(self.a.url_base) or r.get("doc", href).startswith("about:"):
+            self.emit(ev="page_wrong", href=href[:200], doc=r.get("doc", "")[:200], title=r.get("title", "")[:100])
             try:
                 self.mn.call("WebDriver:Navigate", {"url": self.a.app_url})
             except (OSError, RuntimeError) as e:
