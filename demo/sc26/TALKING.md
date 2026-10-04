@@ -21,15 +21,16 @@ model is: blue is confident, orange is a guess. The same software is open source
 
 ## Two minutes, for an HPC engineer
 
-The model on screen is **ESMFold2**, a protein-structure model that needs no database search, so
-it runs fully offline. Each of the four Blackhole chips holds its own resident copy and folds one
-protein at a time: four independent folds in flight, no fold split across chips. A 100-residue
-protein takes about 2 s, 400 residues about 15 s, at the chip's top clock of 1350 MHz [1]. The
-screen shows each fold's real time and the clock sampled during it, so the numbers are checkable.
+The model on screen is **Boltz-2**, the open protein-structure model. Each of the four Blackhole
+chips holds its own resident copy and folds one protein at a time: four independent folds in
+flight, no fold split across chips. A 76-residue protein takes about 5 s with all 200 sampling
+steps; a 300-residue one about 10 s. Kept busy, the four chips finish 0.40 folds a second at
+300 residues, at the chip's top clock of 1350 MHz [1]. The screen shows each fold's real time and
+the clock sampled during it, so the numbers are checkable.
 
-What you see is the diffusion sampler's real trajectory: the starting noise and 14 sampler steps per
-ESMFold2 fold, about 200 per Boltz-2 fold, streamed from the chip [2]. The screen holds each real state
-and counts them ("Sampler step 9 of 14"); between two consecutive states there is at most a 0.12 s blend.
+What you see is the diffusion sampler's real trajectory: the starting noise and all 200 sampler
+steps of a Boltz-2 fold, streamed from the chip [2]. The screen counts them ("Diffusion step 90 of
+200"); between two consecutive states there is at most a 0.12 s blend.
 The last frame is the scored structure, drawn as a cartoon coloured by pLDDT on the AlphaFold scale.
 
 Each chip is a grid of 110 Tensix cores here (11x10), each with 1.5 MB of SRAM that software
@@ -78,7 +79,7 @@ p150a card lists at $1,399 [4]. Without hardware, use JapanFold.
 
 **9. What does it cost on JapanFold?** $0.26 per processor hour, charged only for chip time a job
 holds, and $100 free to start without a card. One Boltz-2 fold of 512 amino acids cost $0.0062 on
-their own runs [8]. The QR code on screen goes to japanfold.aiand.com.
+their own runs [8]. The QR code on screen goes to tt-bio.com, the open-source project.
 
 **10. Why does my name fold?** 20 of the 26 letters are amino acids, and the screen shows which
 stand-in it uses for the other six. The model folds any sequence;
@@ -87,9 +88,9 @@ own confidence score.
 
 ## Sources
 
-1. qb2, ESMFold2 warm folds on one chip, 2026-10-03: 50 aa 0.86 s, 100 aa 1.93 s, 200 aa 5.03 s,
-   400 aa 14.77 s, AICLK median 1350 MHz during each fold (`engine/runs/live-chip0`,
-   `state/sc26-engine.md`).
+1. qb2, Boltz-2 through the booth engine, 2026-10-04, AICLK median 1350 MHz during each fold:
+   attract folds 20 aa 3.5 s, 56 aa 3.3 s, 76 aa 5.1 s; human serum albumin 1-300, four chips,
+   72 folds in 180 s, median 9.79 s (`claim/tt-quietbox2-boltz2-hsa300.json`).
 2. `PROTOCOL.md` and the engine's default-off trajectory hooks: 15 frames per ESMFold2 fold, 201
    per Boltz-2 fold including the starting noise.
 3. qb2's p300c chips report an 11x10 Tensix grid; 1.5 MB L1 per core (`docs/part-l1-budgets.md`).

@@ -24,30 +24,26 @@ The left edge lists every model tt-bio runs on Tenstorrent hardware, grouped by 
 (structure, design, embeddings, affinity). The list is tt-bio's own model registry
 (`PREDICT_MODELS`, `DESIGN_MODELS`, `EMBED_MODELS`, `SAPROT_MODELS` and `AFFINITY_MODELS` in
 `tt_bio/main.py`), one entry per model family, without Protenix-v2, whose weights' licence is
-unresolved. The model of the fold on the stage is lit.
+unresolved. Boltz-2 is lit: it is the model the booth runs.
 
-Only two of them are on the stage, because only two have real sampler states here: ESMFold2 folds
-live on the four chips, and Boltz-2 plays folds recorded on this box. The attract loop never shows
-the same model twice in a row while a fold by the other is waiting, so both appear within half a
-minute. Every chip row, here and behind Tab, names the model it is running.
+Every fold on the stage is Boltz-2. The four chips fold the attract proteins and visitors' names
+live, each chip with its own resident copy, and between them the screen plays larger Boltz-2
+complexes recorded on this box. The attract proteins read MSAs searched ahead of time
+(`engine/msa/`); a name folds from its sequence alone, so the booth never needs the network.
+
+The engine's `--models` option is the switch (default `boltz2`). Give it several, for example
+`--models boltz2,esmfold2`, and the chips take turns, recordings of every listed model play, and
+each fold and chip row names its model again.
 
 ## The claim
 
-The top line, "A $9,999 box that folds a protein every 3 seconds", is measured on this box:
-ESMFold2 (3 recycles, 20 sampling steps, as on screen) on human serum albumin residues 1-300, the
-four chips kept busy through the booth engine, finished 61 folds in 180 s, 0.339 a second, with
-the chips at a median 1350 MHz (`engine/throughput.py`; result in
-`claim/tt-quietbox2-esmfold2-hsa300.json`, 4 Oct 2026). $9,999 is the QuietBox 2 list price.
-
-There is no GPU comparison on screen, because the one we could defend is too close to print. On one
-NVIDIA H200 (transformers 5.18.0, same weights, protein and settings, best of 1 to 8 processes
-under MPS) ESMFold2 runs 0.333 folds a second in fp32, 0.544 in TF32 and 0.639 in bf16, upstream's
-own `dtype=torch.bfloat16`, within 0.54 A CA RMSD of fp32. Against an H200 card at $30,000 that
-is 1.6 times the folds per dollar here, before the H200's server and before its fused kernels,
-which we did not try.
-
-The second line is a fact about the code: every model in the lineup runs with TT-Bio, which is
-public under the MIT licence.
+The title is "Unprecedented Throughput per Dollar", with "The first unified software stack for bio
+models optimized from silicon to serving" under it. The footer gives the measured basis: Boltz-2
+(tt-bio's defaults: 3 recycles, 200 sampling steps, as on screen) on human serum albumin residues
+1-300 from the sequence alone, the four chips kept busy through the booth engine, finished 72 folds
+in 180 s, 0.40 a second, median 9.79 s a fold, with the chips at a median 1350 MHz
+(`engine/throughput.py`; result in `claim/tt-quietbox2-boltz2-hsa300.json`, 4 Oct 2026). The QR
+code goes to https://tt-bio.com.
 
 ## Time on screen
 
@@ -68,6 +64,6 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   wall-clock seconds and stops when the fold lands. It is then replaced by the chip's own measured
   time, which can differ from the counter by a few tenths of a second of network and page latency.
 * **The chip rows have no seconds.** Each row names what the chip is folding, which part of the
-  model is running (language model, trunk, diffusion, confidence) and a bar for how far along it is.
+  model is running (trunk, diffusion, confidence) and a bar for how far along it is.
   The hardware view behind Tab follows the same rule: a chip that is folding shows the protein and
   its length, and seconds only for a fold that has finished ("last: 56 residues in 0.6 s").
