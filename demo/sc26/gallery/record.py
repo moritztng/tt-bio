@@ -142,7 +142,8 @@ def main():
     th = threading.Thread(target=clock.loop, daemon=True)
     th.start()
     env = dict(os.environ, PYTHONPATH=str(WT), TT_VISIBLE_DEVICES=str(a.chip),
-               TT_BIO_LEASE_CARDS=str(a.chip), TT_BIO_LEASE_HOLDER="worker:sc26-gallery",
+               TT_BIO_LEASE_CARDS=str(a.chip),
+               TT_BIO_LEASE_HOLDER=os.environ.get("TT_BIO_LEASE_HOLDER", "worker:sc26-gallery"),
                TT_BIO_TRAJECTORY_DIR=str(run / "traj"))
     cmd = [PY, "-c", "import sys; sys.argv[0]='tt-bio'; from tt_bio.main import cli; cli()",
            "predict", str(run / "in"), "--model", "boltz2", "--accelerator", "tenstorrent",
