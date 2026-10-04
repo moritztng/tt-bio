@@ -35,9 +35,10 @@ const LINEUP = [
 ];
 const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));   // every fold on screen names its model
 const NMODELS = Object.keys(MODEL).length;
-// The pitch, two lines. The number and how it was measured: demo/sc26/README.md, "The claim".
-const CLAIM = 'The most protein structures per dollar.';
-const SECOND = `Open source. All ${NMODELS} models run on the Tenstorrent chips in this box.`;
+// The pitch, two lines. A per-dollar number goes here only with its measurement in
+// demo/sc26/README.md, "The claim", and its basis in the footer.
+const CLAIM = `${NMODELS} protein AI models on one desk-side box.`;
+const SECOND = 'Open source, running on the four Tenstorrent chips in this box.';
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
 
@@ -48,7 +49,7 @@ const canvas = $('stage');
 const stage = new Stage(canvas, { ease: q.has('ease') ? parseFloat(q.get('ease')) : 0.12, final: q.get('final') ?? 'cartoon',
   orbitDegPerSec: q.has('orbit') ? parseFloat(q.get('orbit')) : 5,
   ...(q.has('scale') && { scale: parseFloat(q.get('scale')) }), ...(q.has('msaa') && { msaa: parseInt(q.get('msaa')) }) });
-const STAGE_X = -0.06, DEPTH_X = -0.25;   // where the protein sits: between the lineup and the right column
+const STAGE_X = -0.06, DEPTH_X = -0.21;   // where the protein sits: between the lineup and the right column
 stage.resize(); stage.setOffset(STAGE_X, 0.02);
 addEventListener('resize', () => stage.resize());
 const director = new Director();
