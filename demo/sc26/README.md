@@ -28,6 +28,10 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   counter ("Diffusion step 7 of 14"), and the line under it says how the steps are paced: "Replayed
   6× slower than the chip ran it", or "at the chip's own pace" when the diffusion took longer than
   six seconds and plays in real time.
+  One exception, stated here: the first time a chip meets a new size it compiles inside one
+  sampler step, which can take 50 times as long as the others. A step longer than five times the
+  fold's median step is replayed at the median, so nobody watches still noise for seconds; the
+  fold's measured time still includes it.
 * **Your own fold is the one running clock.** From the moment a chip takes it, the counter shows
   wall-clock seconds and stops when the fold lands. It is then replaced by the chip's own measured
   time, which can differ from the counter by a few tenths of a second of network and page latency.

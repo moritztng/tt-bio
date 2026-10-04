@@ -35,7 +35,8 @@ export class Stage {
   // the chip's own pace.
   show(fold, { condense = CONDENSE } = {}) {
     this.fold = fold;
-    this.condense = Math.max(condense, fold.diffusionSeconds > 0 ? fold.diffusionSeconds : 0);
+    this.span = paced(fold.tReal).span;
+    this.condense = Math.max(condense, this.span);
     this.times = playTimes(fold.tReal, this.condense);
     const n = fold.coords.length;
     const frames = fold.coords.map((c, i) => ({ coords: c, x0: fold.x0?.[i] ?? null, step: fold.steps?.[i] ?? i - 1,
@@ -55,8 +56,8 @@ export class Stage {
   // How many times slower than the chip the condensation plays.
   get slowdown() {
     const f = this.fold;
-    if (!f || !(f.diffusionSeconds > 0)) return null;
-    return this.condense / f.diffusionSeconds;
+    if (!f || !(this.span > 0)) return null;
+    return this.condense / this.span;
   }
 
   // The real chip time of the state on screen now, for the counting number.
@@ -88,14 +89,31 @@ export class Stage {
   }
 }
 
-// When each real state is on screen: the chip's own timestamp for it, stretched to `total` seconds.
-// (Re-timing states by how much the cloud shrinks made a "real time" counter run at 3.4x through the
-// noise and 0.2x through the folding.) Equal steps if the timestamps are missing.
-function playTimes(tReal, total) {
+// A step that took more than OUTLIER times the fold's median step is a one-off stall, not sampling:
+// the first time a chip meets a new size it compiles inside a step (0.63 s against 12.5 ms per
+// step for one 70-residue name). It is replayed at the median step, so a visitor does not watch
+// still noise for seconds, and "N× slower" stays true of every step shown. The measured fold time
+// on screen still includes it.
+const OUTLIER = 5;
+
+function paced(tReal) {
   const n = tReal?.length ?? 0;
-  if (n < 2) return [0];
-  const span = tReal[n - 1] - tReal[0];
-  return tReal.map((t, i) => total * (span > 0 ? (t - tReal[0]) / span : i / (n - 1)));
+  if (n < 2) return { gaps: [], span: 0 };
+  const raw = tReal.slice(1).map((t, i) => t - tReal[i]);
+  const med = [...raw].sort((a, b) => a - b)[raw.length >> 1];
+  const gaps = raw.map(g => (g > OUTLIER * med ? med : g));
+  const span = gaps.reduce((a, g) => a + g, 0);
+  return { gaps, span: Number.isFinite(span) ? span : 0 };
+}
+
+// When each real state is on screen: the chip's own time for each step, stretched to `total`
+// seconds. (Re-timing states by how much the cloud shrinks made a "real time" counter run at 3.4x
+// through the noise and 0.2x through the folding.) Equal steps if the timestamps are missing.
+function playTimes(tReal, total) {
+  const { gaps, span } = paced(tReal);
+  if (!gaps.length) return [0];
+  let acc = 0;
+  return [0, ...gaps.map((g, i) => total * (span > 0 ? (acc += g) / span : (i + 1) / gaps.length))];
 }
 
 function gyration(x) {
