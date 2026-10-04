@@ -302,5 +302,48 @@
     "ca_rmsd": 0.83
    }
   }
+ },
+ "tcr-hla": {
+  "pdb": "1AO7",
+  "matched_ca": 707,
+  "ca_rmsd": 1.01,
+  "ca_within_2A": 0.972,
+  "per_chain": {
+   "A": {
+    "role": "HLA-A*02:01",
+    "ref_chain": "A",
+    "matched": 274,
+    "of": 275,
+    "ca_rmsd": 0.69
+   },
+   "B": {
+    "role": "beta-2 microglobulin",
+    "ref_chain": "B",
+    "matched": 100,
+    "of": 100,
+    "ca_rmsd": 0.38
+   },
+   "C": {
+    "role": "Tax peptide (HTLV-1)",
+    "ref_chain": "C",
+    "matched": 9,
+    "of": 9,
+    "ca_rmsd": 0.17
+   },
+   "D": {
+    "role": "T cell receptor alpha",
+    "ref_chain": "D",
+    "matched": 115,
+    "of": 204,
+    "ca_rmsd": 0.82
+   },
+   "E": {
+    "role": "T cell receptor beta",
+    "ref_chain": "E",
+    "matched": 209,
+    "of": 245,
+    "ca_rmsd": 0.73
+   }
+  }
  }
 }
