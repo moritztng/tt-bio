@@ -156,7 +156,8 @@ body.touch[data-state=typing] #keys { display: grid; }
 body[data-state=depth] #depth { opacity: 1; }
 body[data-state=depth] aside, body[data-state=depth] #invite, body[data-state=depth] #tag { opacity: 0; }
 body[data-state=depth] #sentence { width: calc(820 * var(--p)); }   /* the claim stays on one line */
-body[data-state=depth] #basis { max-width: calc(440 * var(--p)); }   /* wraps short of the lanes */
+body[data-state=depth] footer { justify-content: flex-start; }   /* the basis sits by the QR, clear of the lanes */
+body[data-state=depth] #basis { max-width: calc(440 * var(--p)); }
 aside, #invite, #tag { transition: opacity 600ms var(--fade); }
 body[data-state=typing] aside > :not(#chips) { opacity: 0; }
 body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }
