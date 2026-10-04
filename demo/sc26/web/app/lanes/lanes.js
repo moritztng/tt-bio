@@ -6,7 +6,6 @@
 //   view.update(chipsMessage);
 
 const NS = "http://www.w3.org/2000/svg";
-const CLOCK = [800, 1350];      // Blackhole AICLK: idle floor and burst ceiling, in MHz
 const GRID = [11, 10];          // the Tensix grid each chip of this box gives a program
 const BOARDS = [[0, 1], [2, 3]]; // qb2's p300c boards; a board reset takes both of its chips
 
@@ -73,9 +72,6 @@ function lane(card) {
   const el = h("div", { class: "lane", "data-state": "resetting" },
     cell("chip", q.glyph = glyph()),
     cell("id", h("div", { class: "name", text: `Chip ${card + 1}` }), q.state = h("div", { class: "state" })),
-    cell("gauge", q.clk = h("div", { class: "big" }), h("div", { class: "label", text: "AICLK, MHz" }),
-      h("div", { class: "bar" }, q.bar = h("i")), h("div", { class: "bar-ends" },
-        h("span", { text: CLOCK[0] }), h("span", { text: CLOCK[1] }))),
     cell("gauge", q.pw = h("div", { class: "big" }),
       q.sp = h("svg", { class: "spark", viewBox: "0 0 100 32", preserveAspectRatio: "none" },
         q.area = h("polygon"), q.line = h("polyline")),
@@ -93,8 +89,6 @@ function paintLane({ el, q }, c) {
   const live = c.state !== "resetting";
   el.dataset.state = c.state;
   q.state.textContent = c.folding ? "folding" : STATE_WORD[c.state] ?? c.state;
-  q.clk.textContent = live ? fmt(c.aiclk_mhz) : "—";
-  q.bar.style.width = live ? `${100 * clamp01((c.aiclk_mhz - CLOCK[0]) / (CLOCK[1] - CLOCK[0]))}%` : "0%";
   q.pw.innerHTML = live ? `${fmt(c.power_w)}<small>W</small>` : "—";
   q.tmp.innerHTML = live ? `${fmt(c.temp_c)}<small>°C</small>` : "—";
   const pts = spark(c.power_60s || [], c.power_max_w ?? 125);
@@ -104,8 +98,7 @@ function paintLane({ el, q }, c) {
   for (const r of q.glyph.children) r.style.fillOpacity = glow.toFixed(3);
 
   const f = c.folding, last = c.last_fold;
-  const lastLine = last ? `last: ${last.residues ?? "?"} residues in ${fmt(last.seconds, 1)} s` +
-    (last.aiclk_during ? ` at ${last.aiclk_during.median} MHz` : "") : "";
+  const lastLine = last ? `last: ${last.residues ?? "?"} residues in ${fmt(last.seconds, 1)} s` : "";
   if (f) {
     // no running seconds here: the one clock on screen is the stage's (demo/sc26/README.md)
     q.what.textContent = f.name ?? "A protein";
@@ -142,8 +135,7 @@ function lanes(root) {
       setLive(f.live, msg);
       for (const c of msg.chips) if (ls[c.card]) paintLane(ls[c.card], c);
       foot.innerHTML = "Read from the Tenstorrent kernel driver's own counters, no tool polling the chips. " +
-        (msg.sample_ms != null ? `One reading of all four chips takes ${fmt(msg.sample_ms, 1)} ms. ` : "") +
-        "A fold's clock is the median of the readings taken while it ran.";
+        (msg.sample_ms != null ? `One reading of all four chips takes ${fmt(msg.sample_ms, 1)} ms.` : "");
     },
   };
 }
@@ -197,17 +189,17 @@ function compare(root, facts) {
   f.foot(`Seconds per prediction at 512 residues, warm, one at a time, lower is better, log scale. From ` +
     `${facts.source}, updated ${facts.updated}. ${facts.board.split(". That")[0]}. ` +
     `GPU rows run each model's own upstream code. Per-dollar figures assume ${gal.accelerators} chips do ${gal.accelerators}× the work of one, ` +
-    `as the benchmarks page does, and use list prices. The published cells do not record the chip's clock; ` +
-    `the live figures on this box do. Not shown: ${ex} (${facts.excluded[0]?.why}).`);
+    `as the benchmarks page does, and use list prices. The published cells do not record the chip's clock. ` +
+    `Not shown: ${ex} (${facts.excluded[0]?.why}).`);
   return {
     update(msg) {
       setLive(f.live, msg);
       const done = msg.chips.filter((c) => c.last_fold);
       now.textContent = done.length
         ? done.map((c) => `Chip ${c.card + 1}: ${c.last_fold.model ?? "fold"}, ${c.last_fold.residues} residues in ` +
-            `${fmt(c.last_fold.seconds, 1)} s` + (c.last_fold.aiclk_during ? ` at ${c.last_fold.aiclk_during.median} MHz` : "") +
+            `${fmt(c.last_fold.seconds, 1)} s` +
             `, ${c.folds_today} today`).join(". ") + "."
-        : "No demo fold has finished on this box yet today. Each one appears here with its time and its clock.";
+        : "No demo fold has finished on this box yet today. Each one appears here with its time.";
     },
   };
 }

@@ -1,7 +1,7 @@
 # Hardware telemetry and screens
 
-The four chips of the QuietBox, made visible: clock, power, temperature and what each chip is
-folding, plus the measured comparison and a dataflow screen for experts.
+The four chips of the QuietBox, made visible: power, temperature and what each chip is folding
+(the clock is sampled and logged, not shown), plus the measured comparison and a dataflow screen for experts.
 
 | file | what |
 |------|------|

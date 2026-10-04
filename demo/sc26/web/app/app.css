@@ -1,6 +1,6 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel.
    One type scale, in frame pixels: 12 caps labels, 15 small text, 17 the lineup, 18 body, 24 the
-   line under the title, 36 the protein's name, 60 the title. Numbers in tabular figures. */
+   line under the title, 36 the protein's name, 52 the title. Numbers in tabular figures. */
 @import url(palette.css);
 @font-face { font-family: Inter; src: url(fonts/InterVariable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
 
@@ -21,9 +21,10 @@ img { pointer-events: none; }
 
 canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
                transition: opacity 600ms var(--fade);
-               /* the opening noise is wider than the screen: keep it off the lineup, the right column and the pitch */
+               /* the opening noise is wider than the screen: keep it off the lineup, the right column and the
+                  title; nothing on the canvas shows above 24% (y 259), 40 frame px under the subtitle */
                mask-image: linear-gradient(to right, transparent 14%, #000 19%, #000 62%, transparent 71%),
-                           linear-gradient(to bottom, transparent 15%, #000 24%);
+                           linear-gradient(to bottom, transparent 24%, #000 30%);
                mask-composite: intersect; }
 
 .tab { font-variant-numeric: tabular-nums; }
@@ -32,15 +33,15 @@ canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: 
 
 /* top band: marks, sentence, tag */
 header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); top: calc(56 * var(--p)); }
-.marks { display: flex; align-items: center; gap: calc(14 * var(--p)); height: calc(22 * var(--p)); }
-.marks img { height: calc(22 * var(--p)); }
-.marks i { width: 1px; height: calc(18 * var(--p)); background: var(--ink3); }
-.marks b { font-weight: 560; font-size: calc(19 * var(--p)); letter-spacing: -0.005em; }
+.marks { display: flex; align-items: center; gap: calc(16 * var(--p)); height: calc(26 * var(--p)); }
+.marks img { height: calc(26 * var(--p)); }
+.marks i { width: 1px; height: calc(21 * var(--p)); background: var(--ink3); }
+.marks b { font-weight: 560; font-size: calc(23 * var(--p)); letter-spacing: -0.005em; }
 /* the title, then one line under it */
 #sentence { margin: calc(36 * var(--p)) 0 0; width: calc(1200 * var(--p)); font-size: calc(24 * var(--p));
             line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade);
             font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out a hyphen */
-#sentence b { display: inline-block; margin-bottom: calc(10 * var(--p)); font-size: calc(60 * var(--p)); font-weight: 600;
+#sentence b { display: inline-block; margin-bottom: calc(10 * var(--p)); font-size: calc(52 * var(--p)); font-weight: 600;
               letter-spacing: -0.025em; line-height: 1.1; color: var(--ink); font-feature-settings: 'ss01', 'cv11'; }
 
 /* the lineup: every model, down the left edge; the one the chips run is lit */
@@ -113,13 +114,10 @@ aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)
 footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); bottom: calc(48 * var(--p)); height: calc(96 * var(--p));
          display: flex; align-items: flex-end; justify-content: space-between; }
 #qr { display: flex; align-items: center; gap: calc(16 * var(--p)); }
-/* 33 modules, quiet zone included, at 2 px a module in the frame: whole pixels at 1080p and 4K */
-#qr img { width: calc(66 * var(--p)); height: calc(66 * var(--p)); border-radius: calc(3 * var(--p)); }
+/* 37 modules, quiet zone included, at 2 px a module in the frame: whole pixels at 1080p and 4K */
+#qr img { width: calc(74 * var(--p)); height: calc(74 * var(--p)); border-radius: calc(3 * var(--p)); }
 #qr p { margin: 0; font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-weight: 400; }
 #qr b { color: var(--ink2); font-weight: 500; }
-/* where the claim's number comes from, readable up close and quiet from a distance */
-#basis { margin: 0 calc(48 * var(--p)) calc(4 * var(--p)) calc(64 * var(--p)); flex: 1; max-width: calc(760 * var(--p));
-         font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-feature-settings: 'ss01', 'cv11'; }
 #invite { margin: 0; width: calc(432 * var(--p)); font-size: calc(22 * var(--p)); font-weight: 500; color: var(--ink); }
 #invite kbd, #typing kbd { font: inherit; font-size: 0.72em; font-weight: 600; display: inline-block; padding: 0.12em 0.5em; margin: 0 0.12em;
             border: 1px solid var(--ink3); border-radius: 0.3em; color: var(--ink); vertical-align: 0.1em; }
@@ -158,9 +156,7 @@ body.touch[data-state=typing] #keys { display: grid; }
 body[data-state=depth] #depth { opacity: 1; }
 body[data-state=depth] aside, body[data-state=depth] #invite, body[data-state=depth] #tag { opacity: 0; }
 body[data-state=depth] #sentence { width: calc(820 * var(--p)); font-size: calc(22 * var(--p)); }   /* the subtitle too, at 1080p */
-body[data-state=depth] #sentence b { font-size: calc(44 * var(--p)); }   /* the title stays on one line */
-body[data-state=depth] footer { justify-content: flex-start; }   /* the basis sits by the QR, clear of the lanes */
-body[data-state=depth] #basis { max-width: calc(440 * var(--p)); }
+body[data-state=depth] #sentence b { font-size: calc(38 * var(--p)); }   /* the title stays on one line */
 aside, #invite, #tag { transition: opacity 600ms var(--fade); }
 body[data-state=typing] aside > :not(#chips) { opacity: 0; }
 body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }

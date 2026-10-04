@@ -25,8 +25,8 @@ The model on screen is **Boltz-2**, the open protein-structure model. Each of th
 chips holds its own resident copy and folds one protein at a time: four independent folds in
 flight, no fold split across chips. A 76-residue protein takes about 5 s with all 200 sampling
 steps; a 300-residue one about 10 s. Kept busy, the four chips finish 0.40 folds a second at
-300 residues, at the chip's top clock of 1350 MHz [1]. The screen shows each fold's real time and
-the clock sampled during it, so the numbers are checkable.
+300 residues, at the chip's top clock of 1350 MHz [1]. The screen shows each fold's real time; the
+clock sampled during it is in the engine's logs.
 
 What you see is the diffusion sampler's real trajectory: the starting noise and all 200 sampler
 steps of a Boltz-2 fold, streamed from the chip [2]. The screen counts them ("Diffusion step 90 of
@@ -79,7 +79,7 @@ p150a card lists at $1,399 [4]. Without hardware, use JapanFold.
 
 **9. What does it cost on JapanFold?** $0.26 per processor hour, charged only for chip time a job
 holds, and $100 free to start without a card. One Boltz-2 fold of 512 amino acids cost $0.0062 on
-their own runs [8]. The QR code on screen goes to tt-bio.com, the open-source project.
+their own runs [8]. The QR code on screen goes to github.com/moritztng/tt-bio, the open-source project.
 
 **10. Why does my name fold?** 20 of the 26 letters are amino acids, and the screen shows which
 stand-in it uses for the other six. The model folds any sequence;

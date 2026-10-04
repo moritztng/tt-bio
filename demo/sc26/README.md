@@ -38,12 +38,13 @@ each fold and chip row names its model again.
 ## The claim
 
 The title is "Unprecedented Throughput per Dollar", with "The first unified software stack for bio
-models optimized from silicon to serving" under it. The footer gives the measured basis: Boltz-2
+models optimized from silicon to serving" under it. The measurement behind it: Boltz-2
 (tt-bio's defaults: 3 recycles, 200 sampling steps, as on screen) on human serum albumin residues
 1-300 from the sequence alone, the four chips kept busy through the booth engine, finished 72 folds
 in 180 s, 0.40 a second, median 9.79 s a fold, with the chips at a median 1350 MHz
-(`engine/throughput.py`; result in `claim/tt-quietbox2-boltz2-hsa300.json`, 4 Oct 2026). The QR
-code goes to https://tt-bio.com.
+(`engine/throughput.py`; result in `claim/tt-quietbox2-boltz2-hsa300.json`, 4 Oct 2026). The
+screen prints neither the basis nor the clock; both stay in the engine's logs. The QR code goes to
+https://github.com/moritztng/tt-bio.
 
 ## Time on screen
 
@@ -58,8 +59,7 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   sampler step, which can take 50 times as long as the others. A step longer than five times the
   fold's median step is replayed at the median, so nobody watches still noise for seconds; the
   fold's measured time still includes it.
-* **A recorded gallery fold shows no time.** It reads "Recorded on this box" with its size and
-  clock. The recorder wrote all 200 sampler steps to disk, which made its diffusion 16 to 35 s
+* **A recorded gallery fold shows no time.** It reads "Recorded on this box" with its size. The recorder wrote all 200 sampler steps to disk, which made its diffusion 16 to 35 s
   against about 3 s live, so its seconds would undersell the chip.
 * **Your own fold is the one running clock.** From the moment a chip takes it, the counter shows
   wall-clock seconds and stops when the fold lands. It is then replaced by the chip's own measured

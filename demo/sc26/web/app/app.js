@@ -34,7 +34,7 @@ const LINEUP = [
   ['Affinity', [['nesso1', 'Nesso-1']]],
 ];
 const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));
-// The title and the line under it (Moritz, 4 Oct 2026). The footer states the measured basis.
+// The title and the line under it (Moritz, 4 Oct 2026).
 const CLAIM = 'Unprecedented Throughput per Dollar';
 const SECOND = 'The first unified software stack for bio models optimized from silicon to serving';
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
@@ -47,8 +47,9 @@ const canvas = $('stage');
 const stage = new Stage(canvas, { ease: q.has('ease') ? parseFloat(q.get('ease')) : 0.12, final: q.get('final') ?? 'cartoon',
   orbitDegPerSec: q.has('orbit') ? parseFloat(q.get('orbit')) : 5,
   ...(q.has('scale') && { scale: parseFloat(q.get('scale')) }), ...(q.has('msaa') && { msaa: parseInt(q.get('msaa')) }) });
-const STAGE_X = -0.06, DEPTH_X = -0.21;   // where the protein sits: between the lineup and the right column
-stage.resize(); stage.setOffset(STAGE_X, 0.02);
+// where the protein sits: between the lineup and the right column, and low enough to stay clear of the subtitle
+const STAGE_X = -0.06, DEPTH_X = -0.21, STAGE_Y = -0.04;
+stage.resize(); stage.setOffset(STAGE_X, STAGE_Y);
 addEventListener('resize', () => stage.resize());
 const director = new Director();
 const PLAY = q.get('play');
@@ -93,7 +94,7 @@ function setState(s) {
   app.state = s;
   document.body.dataset.state = s;
   canvas.style.opacity = s === 'typing' || s === 'waiting' ? 0.12 : 1;
-  stage.setOffset(s === 'depth' ? DEPTH_X : STAGE_X, 0.02);
+  stage.setOffset(s === 'depth' ? DEPTH_X : STAGE_X, STAGE_Y);
   drawAll();
 }
 
@@ -307,7 +308,7 @@ function drawSide() {
       const f = m.fold;
       S.textContent = stage.landed ? (m.instead ? storyOf(m.instead) : verdict(f.plddtMean ?? 0)) : '';
       drawNumber(f);
-      M.textContent = (m.instead ? `${f.nres} amino acids` : lengthLine(m.parsed).replace(/\.$/, '')) + clock(f);
+      M.textContent = m.instead ? `${f.nres} amino acids` : lengthLine(m.parsed).replace(/\.$/, '');
     }
     return;
   }
@@ -317,7 +318,7 @@ function drawSide() {
   setName(N, f.name ?? 'Protein');
   S.textContent = f.story ?? '';
   drawNumber(f);
-  M.textContent = (f.chains > 1 ? `${f.chains} chains, ` : '') + `${f.nres} amino acids` + clock(f);
+  M.textContent = (f.chains > 1 ? `${f.chains} chains, ` : '') + `${f.nres} amino acids`;
 }
 
 // a long name drops to the smaller size so name and story always fit their box
@@ -329,8 +330,6 @@ const byModel = (f, word, t) => named() && MODEL[f.model] ? `<b>${MODEL[f.model]
 
 // the number block: the model, then the time; rewritten only when it changes
 function setNumber(html) { const num = $('num'); if (num.innerHTML !== html) num.innerHTML = html; }
-
-function clock(f) { return f.aiclk ? ` · AICLK ${Math.round(f.aiclk)} MHz` : ''; }
 
 // Every fold on the stage has already finished on its chip, so its time is a measured fact, shown
 // still from the first frame: nothing on the stage counts seconds. What moves is the sampler's own

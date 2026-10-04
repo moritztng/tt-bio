@@ -25,8 +25,8 @@ touch the box once it is on.
 | ~1½ min | the label turns **Live on four Blackhole chips** and each chip row names what it is folding |
 
 A chip row that says *recovering* or *resetting* for a few minutes is the box repairing that chip
-while the others carry on; leave it. Visitors type letters and press Enter to fold; Esc goes back. **Tab** shows the four chips' clock,
-power and temperature, Tab again returns. After a minute without input the screen goes back to
+while the others carry on; leave it. Visitors type letters and press Enter to fold; Esc goes back. **Tab** shows the four chips'
+power, temperature and what each is folding, Tab again returns. After a minute without input the screen goes back to
 the loop by itself.
 
 ## If something goes wrong
