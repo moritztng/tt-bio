@@ -1,0 +1,1546 @@
+{
+ "sequence_len": 300,
+ "depth": 8,
+ "window_s": 180.0,
+ "folds": 72,
+ "folds_per_s": 0.4,
+ "median_fold_s": 9.785499999999999,
+ "per_chip": {
+  "0": 18,
+  "1": 18,
+  "2": 18,
+  "3": 18
+ },
+ "t_start": 1791131334.4188945,
+ "t_stop": 1791131514.4188945,
+ "events": [
+  {
+   "id": "v88",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 18.433,
+   "stages": {
+    "trunk": 13.006,
+    "diffusion": 5.066,
+    "confidence": 0.361
+   },
+   "aiclk_mhz": {
+    "min": 1281,
+    "median": 1350,
+    "max": 1350,
+    "n": 50
+   },
+   "t_wall": 1791131323.9762661,
+   "warm": true
+  },
+  {
+   "id": "v89",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 17.622,
+   "stages": {
+    "trunk": 12.208,
+    "diffusion": 5.034,
+    "confidence": 0.379
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 52
+   },
+   "t_wall": 1791131324.0953546,
+   "warm": true
+  },
+  {
+   "id": "v90",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 17.535,
+   "stages": {
+    "trunk": 12.181,
+    "diffusion": 5.003,
+    "confidence": 0.351
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 51
+   },
+   "t_wall": 1791131324.2212164,
+   "warm": true
+  },
+  {
+   "id": "v91",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 17.453,
+   "stages": {
+    "trunk": 12.173,
+    "diffusion": 4.932,
+    "confidence": 0.348
+   },
+   "aiclk_mhz": {
+    "min": 1281,
+    "median": 1350,
+    "max": 1350,
+    "n": 49
+   },
+   "t_wall": 1791131324.2226722,
+   "warm": true
+  },
+  {
+   "id": "v92",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 10.04,
+   "stages": {
+    "trunk": 5.036,
+    "diffusion": 4.659,
+    "confidence": 0.344
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131334.207308,
+   "warm": true
+  },
+  {
+   "id": "v95",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.848,
+   "stages": {
+    "trunk": 5.088,
+    "diffusion": 4.564,
+    "confidence": 0.196
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131334.2572393,
+   "warm": true
+  },
+  {
+   "id": "v94",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.919,
+   "stages": {
+    "trunk": 5.107,
+    "diffusion": 4.575,
+    "confidence": 0.237
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131334.2973485,
+   "warm": true
+  },
+  {
+   "id": "v93",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 10.058,
+   "stages": {
+    "trunk": 5.084,
+    "diffusion": 4.616,
+    "confidence": 0.358
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1343,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791131334.4188945,
+   "warm": true
+  },
+  {
+   "id": "v99",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.916,
+   "stages": {
+    "trunk": 5.098,
+    "diffusion": 4.641,
+    "confidence": 0.177
+   },
+   "aiclk_mhz": {
+    "min": 1281,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131344.2121959
+  },
+  {
+   "id": "v100",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.783,
+   "stages": {
+    "trunk": 4.985,
+    "diffusion": 4.588,
+    "confidence": 0.211
+   },
+   "aiclk_mhz": {
+    "min": 1275,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131344.3846457
+  },
+  {
+   "id": "v97",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 10.034,
+   "stages": {
+    "trunk": 5.064,
+    "diffusion": 4.697,
+    "confidence": 0.273
+   },
+   "aiclk_mhz": {
+    "min": 1325,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791131344.42348
+  },
+  {
+   "id": "v98",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 10.076,
+   "stages": {
+    "trunk": 5.05,
+    "diffusion": 4.677,
+    "confidence": 0.349
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791131344.433466
+  },
+  {
+   "id": "v103",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.943,
+   "stages": {
+    "trunk": 5.118,
+    "diffusion": 4.628,
+    "confidence": 0.197
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131354.3191853
+  },
+  {
+   "id": "v101",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 10.112,
+   "stages": {
+    "trunk": 5.053,
+    "diffusion": 4.711,
+    "confidence": 0.349
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791131354.583367
+  },
+  {
+   "id": "v102",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 10.079,
+   "stages": {
+    "trunk": 5.091,
+    "diffusion": 4.609,
+    "confidence": 0.379
+   },
+   "aiclk_mhz": {
+    "min": 1275,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791131354.640597
+  },
+  {
+   "id": "v104",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.989,
+   "stages": {
+    "trunk": 5.074,
+    "diffusion": 4.557,
+    "confidence": 0.358
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131354.6438198
+  },
+  {
+   "id": "v105",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.828,
+   "stages": {
+    "trunk": 4.968,
+    "diffusion": 4.638,
+    "confidence": 0.222
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131364.456414
+  },
+  {
+   "id": "v107",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.972,
+   "stages": {
+    "trunk": 5.053,
+    "diffusion": 4.57,
+    "confidence": 0.349
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1343,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131364.6616807
+  },
+  {
+   "id": "v108",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.959,
+   "stages": {
+    "trunk": 5.083,
+    "diffusion": 4.517,
+    "confidence": 0.359
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131364.7900708
+  },
+  {
+   "id": "v106",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 10.013,
+   "stages": {
+    "trunk": 5.084,
+    "diffusion": 4.581,
+    "confidence": 0.349
+   },
+   "aiclk_mhz": {
+    "min": 1318,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131364.81431
+  },
+  {
+   "id": "v109",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.775,
+   "stages": {
+    "trunk": 4.873,
+    "diffusion": 4.555,
+    "confidence": 0.347
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1343,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131374.3950963
+  },
+  {
+   "id": "v110",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.835,
+   "stages": {
+    "trunk": 4.965,
+    "diffusion": 4.593,
+    "confidence": 0.277
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131374.706866
+  },
+  {
+   "id": "v111",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.907,
+   "stages": {
+    "trunk": 5.0,
+    "diffusion": 4.557,
+    "confidence": 0.351
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131374.7971632
+  },
+  {
+   "id": "v112",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.914,
+   "stages": {
+    "trunk": 5.03,
+    "diffusion": 4.54,
+    "confidence": 0.344
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131374.8662035
+  },
+  {
+   "id": "v113",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.84,
+   "stages": {
+    "trunk": 4.901,
+    "diffusion": 4.58,
+    "confidence": 0.359
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131384.390526
+  },
+  {
+   "id": "v114",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.901,
+   "stages": {
+    "trunk": 5.022,
+    "diffusion": 4.528,
+    "confidence": 0.352
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131384.798461
+  },
+  {
+   "id": "v116",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.786,
+   "stages": {
+    "trunk": 5.034,
+    "diffusion": 4.536,
+    "confidence": 0.216
+   },
+   "aiclk_mhz": {
+    "min": 1275,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131384.8106368
+  },
+  {
+   "id": "v115",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.857,
+   "stages": {
+    "trunk": 5.074,
+    "diffusion": 4.574,
+    "confidence": 0.209
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131384.851927
+  },
+  {
+   "id": "v118",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.779,
+   "stages": {
+    "trunk": 4.932,
+    "diffusion": 4.501,
+    "confidence": 0.346
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131394.3249748
+  },
+  {
+   "id": "v119",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.801,
+   "stages": {
+    "trunk": 5.018,
+    "diffusion": 4.573,
+    "confidence": 0.21
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131394.7100902
+  },
+  {
+   "id": "v120",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.806,
+   "stages": {
+    "trunk": 5.027,
+    "diffusion": 4.55,
+    "confidence": 0.229
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131394.7624135
+  },
+  {
+   "id": "v121",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.922,
+   "stages": {
+    "trunk": 5.036,
+    "diffusion": 4.538,
+    "confidence": 0.349
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131394.94455
+  },
+  {
+   "id": "v122",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.785,
+   "stages": {
+    "trunk": 4.919,
+    "diffusion": 4.52,
+    "confidence": 0.346
+   },
+   "aiclk_mhz": {
+    "min": 1318,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131404.2544322
+  },
+  {
+   "id": "v123",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.838,
+   "stages": {
+    "trunk": 4.918,
+    "diffusion": 4.573,
+    "confidence": 0.347
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131404.644377
+  },
+  {
+   "id": "v124",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.799,
+   "stages": {
+    "trunk": 4.962,
+    "diffusion": 4.553,
+    "confidence": 0.283
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131404.7369902
+  },
+  {
+   "id": "v125",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.802,
+   "stages": {
+    "trunk": 4.916,
+    "diffusion": 4.537,
+    "confidence": 0.349
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131404.942393
+  },
+  {
+   "id": "v126",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.788,
+   "stages": {
+    "trunk": 4.915,
+    "diffusion": 4.529,
+    "confidence": 0.345
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131414.18699
+  },
+  {
+   "id": "v128",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.759,
+   "stages": {
+    "trunk": 4.967,
+    "diffusion": 4.56,
+    "confidence": 0.232
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131414.6202824
+  },
+  {
+   "id": "v127",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.904,
+   "stages": {
+    "trunk": 4.987,
+    "diffusion": 4.558,
+    "confidence": 0.358
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131414.7829216
+  },
+  {
+   "id": "v129",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.752,
+   "stages": {
+    "trunk": 4.916,
+    "diffusion": 4.487,
+    "confidence": 0.348
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131414.8841696
+  },
+  {
+   "id": "v130",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.734,
+   "stages": {
+    "trunk": 4.922,
+    "diffusion": 4.466,
+    "confidence": 0.346
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131424.0634162
+  },
+  {
+   "id": "v131",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.781,
+   "stages": {
+    "trunk": 4.9,
+    "diffusion": 4.54,
+    "confidence": 0.341
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131424.500966
+  },
+  {
+   "id": "v132",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.788,
+   "stages": {
+    "trunk": 4.936,
+    "diffusion": 4.498,
+    "confidence": 0.354
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131424.6988428
+  },
+  {
+   "id": "v133",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.759,
+   "stages": {
+    "trunk": 4.916,
+    "diffusion": 4.498,
+    "confidence": 0.345
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131424.7867336
+  },
+  {
+   "id": "v135",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.805,
+   "stages": {
+    "trunk": 4.936,
+    "diffusion": 4.524,
+    "confidence": 0.344
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131434.0020533
+  },
+  {
+   "id": "v136",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.807,
+   "stages": {
+    "trunk": 4.897,
+    "diffusion": 4.567,
+    "confidence": 0.344
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131434.4118886
+  },
+  {
+   "id": "v138",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.794,
+   "stages": {
+    "trunk": 4.947,
+    "diffusion": 4.5,
+    "confidence": 0.346
+   },
+   "aiclk_mhz": {
+    "min": 1318,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131434.6858726
+  },
+  {
+   "id": "v137",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.898,
+   "stages": {
+    "trunk": 4.956,
+    "diffusion": 4.562,
+    "confidence": 0.38
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131434.7592425
+  },
+  {
+   "id": "v139",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.729,
+   "stages": {
+    "trunk": 4.927,
+    "diffusion": 4.604,
+    "confidence": 0.198
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131443.8769734
+  },
+  {
+   "id": "v140",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.742,
+   "stages": {
+    "trunk": 4.916,
+    "diffusion": 4.544,
+    "confidence": 0.283
+   },
+   "aiclk_mhz": {
+    "min": 1275,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131444.3843086
+  },
+  {
+   "id": "v142",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.919,
+   "stages": {
+    "trunk": 4.963,
+    "diffusion": 4.58,
+    "confidence": 0.377
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131444.7467482
+  },
+  {
+   "id": "v141",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.937,
+   "stages": {
+    "trunk": 4.981,
+    "diffusion": 4.602,
+    "confidence": 0.354
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131444.8607929
+  },
+  {
+   "id": "v143",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.743,
+   "stages": {
+    "trunk": 4.918,
+    "diffusion": 4.481,
+    "confidence": 0.345
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131453.7655327
+  },
+  {
+   "id": "v144",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.713,
+   "stages": {
+    "trunk": 4.895,
+    "diffusion": 4.468,
+    "confidence": 0.35
+   },
+   "aiclk_mhz": {
+    "min": 1287,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131454.2314556
+  },
+  {
+   "id": "v145",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.716,
+   "stages": {
+    "trunk": 4.954,
+    "diffusion": 4.533,
+    "confidence": 0.229
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131454.6410136
+  },
+  {
+   "id": "v146",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.877,
+   "stages": {
+    "trunk": 4.955,
+    "diffusion": 4.546,
+    "confidence": 0.376
+   },
+   "aiclk_mhz": {
+    "min": 1325,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131454.8746982
+  },
+  {
+   "id": "v147",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.723,
+   "stages": {
+    "trunk": 4.899,
+    "diffusion": 4.465,
+    "confidence": 0.359
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131463.6494057
+  },
+  {
+   "id": "v148",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.704,
+   "stages": {
+    "trunk": 4.891,
+    "diffusion": 4.435,
+    "confidence": 0.379
+   },
+   "aiclk_mhz": {
+    "min": 1318,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131464.0843031
+  },
+  {
+   "id": "v149",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.722,
+   "stages": {
+    "trunk": 4.89,
+    "diffusion": 4.474,
+    "confidence": 0.358
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131464.5088513
+  },
+  {
+   "id": "v150",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.721,
+   "stages": {
+    "trunk": 4.909,
+    "diffusion": 4.457,
+    "confidence": 0.355
+   },
+   "aiclk_mhz": {
+    "min": 1281,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131464.7259588
+  },
+  {
+   "id": "v151",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.757,
+   "stages": {
+    "trunk": 4.914,
+    "diffusion": 4.497,
+    "confidence": 0.347
+   },
+   "aiclk_mhz": {
+    "min": 1287,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131473.546673
+  },
+  {
+   "id": "v152",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.702,
+   "stages": {
+    "trunk": 4.914,
+    "diffusion": 4.43,
+    "confidence": 0.358
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131473.9409938
+  },
+  {
+   "id": "v153",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.747,
+   "stages": {
+    "trunk": 4.889,
+    "diffusion": 4.52,
+    "confidence": 0.339
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131474.4265206
+  },
+  {
+   "id": "v154",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.73,
+   "stages": {
+    "trunk": 4.888,
+    "diffusion": 4.5,
+    "confidence": 0.343
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131474.6081877
+  },
+  {
+   "id": "v156",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.693,
+   "stages": {
+    "trunk": 4.882,
+    "diffusion": 4.465,
+    "confidence": 0.345
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131483.4000962
+  },
+  {
+   "id": "v157",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.68,
+   "stages": {
+    "trunk": 4.899,
+    "diffusion": 4.433,
+    "confidence": 0.348
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131483.7567322
+  },
+  {
+   "id": "v158",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.717,
+   "stages": {
+    "trunk": 4.889,
+    "diffusion": 4.482,
+    "confidence": 0.346
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131484.1649783
+  },
+  {
+   "id": "v159",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.725,
+   "stages": {
+    "trunk": 4.891,
+    "diffusion": 4.49,
+    "confidence": 0.344
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131484.4566052
+  },
+  {
+   "id": "v160",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.799,
+   "stages": {
+    "trunk": 4.906,
+    "diffusion": 4.546,
+    "confidence": 0.346
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131493.3524728
+  },
+  {
+   "id": "v161",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.711,
+   "stages": {
+    "trunk": 4.904,
+    "diffusion": 4.464,
+    "confidence": 0.344
+   },
+   "aiclk_mhz": {
+    "min": 1318,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131493.6125975
+  },
+  {
+   "id": "v162",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.692,
+   "stages": {
+    "trunk": 4.885,
+    "diffusion": 4.572,
+    "confidence": 0.235
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131494.017563
+  },
+  {
+   "id": "v163",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.716,
+   "stages": {
+    "trunk": 4.905,
+    "diffusion": 4.458,
+    "confidence": 0.353
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131494.2944462
+  },
+  {
+   "id": "v164",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.799,
+   "stages": {
+    "trunk": 4.893,
+    "diffusion": 4.559,
+    "confidence": 0.347
+   },
+   "aiclk_mhz": {
+    "min": 1268,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791131503.302362
+  },
+  {
+   "id": "v165",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.68,
+   "stages": {
+    "trunk": 4.897,
+    "diffusion": 4.439,
+    "confidence": 0.344
+   },
+   "aiclk_mhz": {
+    "min": 1318,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131503.4544003
+  },
+  {
+   "id": "v166",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.662,
+   "stages": {
+    "trunk": 4.88,
+    "diffusion": 4.508,
+    "confidence": 0.274
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131503.9212449
+  },
+  {
+   "id": "v167",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.571,
+   "stages": {
+    "trunk": 4.88,
+    "diffusion": 4.513,
+    "confidence": 0.178
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131504.0594585
+  },
+  {
+   "id": "v168",
+   "chip": 3,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.69,
+   "stages": {
+    "trunk": 4.914,
+    "diffusion": 4.554,
+    "confidence": 0.221
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131513.1298194
+  },
+  {
+   "id": "v169",
+   "chip": 2,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.661,
+   "stages": {
+    "trunk": 4.936,
+    "diffusion": 4.527,
+    "confidence": 0.198
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131513.2939272
+  },
+  {
+   "id": "v170",
+   "chip": 1,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.676,
+   "stages": {
+    "trunk": 4.896,
+    "diffusion": 4.522,
+    "confidence": 0.258
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 43
+   },
+   "t_wall": 1791131513.7045672
+  },
+  {
+   "id": "v171",
+   "chip": 0,
+   "model": "boltz2",
+   "n_res": 300,
+   "seconds": 9.638,
+   "stages": {
+    "trunk": 4.899,
+    "diffusion": 4.562,
+    "confidence": 0.177
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 44
+   },
+   "t_wall": 1791131513.8240147
+  }
+ ]
+}

@@ -6,8 +6,8 @@ Keeps --depth folds of the same sequence queued as visitor folds (they go before
 loop), lets every chip fold it --warm times first (the first fold of a new length compiles), then
 counts the folds that finish in the next --seconds. Rate = folds finished in the window / window,
 the same estimator as scripts/gpu_vs_tt/gpu_concurrency.py on the GPU side. Every fold carries the
-chip's AICLK sampled while it ran. Same model, recycles and steps as every booth fold
-(chipworker.py: ESMFold2, 3 recycles, 20 diffusion steps).
+chip's AICLK sampled while it ran. Same model, recycles and steps as every booth fold (the
+engine's --models; chipworker.py runs each model with tt-bio's own defaults).
 """
 import argparse
 import json
