@@ -374,5 +374,41 @@
     "ca_rmsd": 1.71
    }
   }
+ },
+ "paxlovid": {
+  "pdb": "7SI9-assembly1",
+  "matched_ca": 612,
+  "ca_rmsd": 0.6,
+  "ca_within_2A": 0.99,
+  "per_chain": {
+   "A": {
+    "role": "main protease (Mpro)",
+    "ref_chain": "A",
+    "matched": 306,
+    "of": 306,
+    "ca_rmsd": 0.5
+   },
+   "B": {
+    "role": "main protease (Mpro)",
+    "ref_chain": "A-2",
+    "matched": 306,
+    "of": 306,
+    "ca_rmsd": 0.5
+   }
+  },
+  "ligands": [
+   {
+    "ligand": "C",
+    "ccd": "4WI",
+    "atoms": 35,
+    "rmsd": 1.16
+   },
+   {
+    "ligand": "D",
+    "ccd": "4WI",
+    "atoms": 35,
+    "rmsd": 1.16
+   }
+  ]
  }
 }
