@@ -45,6 +45,7 @@ export class Stream {
     switch (m.type) {
       case 'hello': case 'status':
         this.chips = m.chips ?? [];
+        if (m.models) this.models = m.models;
         this.cb.onChips?.(this.chips);
         break;
       case 'chip': {

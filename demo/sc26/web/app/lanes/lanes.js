@@ -87,14 +87,12 @@ function lane(card) {
   return { el, q };
 }
 
-const MODEL = { esmfold2: "ESMFold2", boltz2: "Boltz-2" };
 const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "resetting" };
 
 function paintLane({ el, q }, c) {
   const live = c.state !== "resetting";
   el.dataset.state = c.state;
-  // a folding chip names its model where the state word goes, in the accent colour
-  q.state.textContent = c.folding ? MODEL[c.folding.model] ?? c.folding.model ?? "folding" : STATE_WORD[c.state] ?? c.state;
+  q.state.textContent = c.folding ? "folding" : STATE_WORD[c.state] ?? c.state;
   q.clk.textContent = live ? fmt(c.aiclk_mhz) : "—";
   q.bar.style.width = live ? `${100 * clamp01((c.aiclk_mhz - CLOCK[0]) / (CLOCK[1] - CLOCK[0]))}%` : "0%";
   q.pw.innerHTML = live ? `${fmt(c.power_w)}<small>W</small>` : "—";

@@ -33,12 +33,10 @@ const LINEUP = [
   ['Embeddings', [['esmc', 'ESMC'], ['saprot', 'SaProt']]],
   ['Affinity', [['nesso1', 'Nesso-1']]],
 ];
-const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));   // every fold on screen names its model
-const NMODELS = Object.keys(MODEL).length;
-// The pitch, two lines. Its number is measured on this box; demo/sc26/README.md, "The claim",
-// has the measurement and why there is no GPU comparison, and the footer states the basis.
-const CLAIM = 'A $9,999 box that folds a protein every 3 seconds.';
-const SECOND = `Open source: all ${NMODELS} models run with TT-Bio, MIT licensed.`;
+const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));
+// The title and the line under it (Moritz, 4 Oct 2026). The footer states the measured basis.
+const CLAIM = 'Unprecedented Throughput per Dollar';
+const SECOND = 'The first unified software stack for bio models optimized from silicon to serving';
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
 
@@ -213,15 +211,21 @@ function buildKeys() {
 // ------------------------------------------------------------------ drawing
 function liveChips() { return stream.chips.filter(c => c.state === 'busy' || c.state === 'ready').length; }
 
+// The models the chips run, from the engine (server.py --models). With one, it is lit in the lineup
+// for good and nothing else names it; with several, each fold names its model.
+const running = () => stream.models ?? [];
+const named = () => running().length > 1;
+
 function drawAll() { drawHeader(); drawTyping(); drawSide(); drawChips(); drawInvite(); drawLineup(); }
 
-// The lineup down the left edge: every model, the one on the stage lit.
+// The lineup down the left edge, every model. Lit: the model the chips run, or with several, the
+// one on the stage.
 function drawLineup() {
   const nav = $('lineup');
   if (!nav.children.length) nav.innerHTML = LINEUP.map(([group, ms]) =>
     `<section><h2>${group}</h2><ul>${ms.map(([id, name]) => `<li data-m="${id}">${name}</li>`).join('')}</ul></section>`).join('');
   const f = app.state === 'result' ? app.mine?.fold : app.state === 'waiting' ? app.mine : PLAYS(app.state) ? app.slot?.fold : null;
-  const on = app.state === 'waiting' && app.mine?.chip == null ? null : f?.model ?? null;
+  const on = !named() ? running()[0] ?? null : app.state === 'waiting' && app.mine?.chip == null ? null : f?.model ?? null;
   if (nav.dataset.on === String(on)) return;
   nav.dataset.on = String(on);
   for (const li of nav.querySelectorAll('li')) li.classList.toggle('on', li.dataset.m === on);
@@ -293,7 +297,7 @@ function drawSide() {
         : 'Finding a free chip.';
       // the one running clock on screen: wall-clock seconds since the chip took their fold, in step
       // with the chip because it is the same seconds; it stops when the fold lands
-      src.textContent = m.chip != null ? `Folding on chip ${m.chip + 1} with` : '';
+      src.textContent = m.chip != null ? `Folding on chip ${m.chip + 1}${named() ? ' with' : ''}` : '';
       setNumber(m.t0 ? byModel(m, '·', `${((performance.now() - m.t0) / 1000).toFixed(1)} s`) : '');
       numBox.classList.remove('locked');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
@@ -321,7 +325,7 @@ function setName(el, text) {
   if (el.textContent !== text) { el.textContent = text; el.classList.toggle('long', text.length > 22); }
 }
 
-const byModel = (f, word, t) => MODEL[f.model] ? `<b>${MODEL[f.model]}</b> <span class="dim">${word}</span> ${t}` : t;
+const byModel = (f, word, t) => named() && MODEL[f.model] ? `<b>${MODEL[f.model]}</b> <span class="dim">${word}</span> ${t}` : t;
 
 // the number block: the model, then the time; rewritten only when it changes
 function setNumber(html) { const num = $('num'); if (num.innerHTML !== html) num.innerHTML = html; }
@@ -341,7 +345,8 @@ function drawNumber(f) {
     : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`;
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
-  src.textContent = f.source === 'live' && f.chip != null ? `Folded live on chip ${f.chip + 1} by` : 'Folded on this box by';
+  const by = named() ? 'by' : 'in';
+  src.textContent = f.source === 'live' && f.chip != null ? `Folded live on chip ${f.chip + 1} ${by}` : `Folded on this box ${by}`;
   setNumber(byModel(f, 'in', `${f.seconds.toFixed(2)} s`));
   box.classList.add('locked');
 }
@@ -361,7 +366,7 @@ function drawChips() {
     let what = 'not in use', prog = 0, cls = '';
     if (c?.state === 'busy' && job) {
       const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
-      what = `${MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who} <em>${PHASE[job.stage] ?? ''}</em>`;
+      what = `${named() && MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who} <em>${PHASE[job.stage] ?? ''}</em>`;
       prog = job.stage === 'lm' ? 0.12 : job.stage === 'trunk' ? 0.15 + 0.55 * job.step / Math.max(1, job.total)
         : job.stage === 'diffusion' ? 0.7 + 0.25 * job.step / Math.max(1, job.total) : job.stage === 'confidence' ? 0.97 : 1;
       cls = 'busy';
