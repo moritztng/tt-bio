@@ -345,5 +345,34 @@
     "ca_rmsd": 0.73
    }
   }
+ },
+ "keytruda": {
+  "pdb": "5GGS",
+  "matched_ca": 549,
+  "ca_rmsd": 1.22,
+  "ca_within_2A": 0.967,
+  "per_chain": {
+   "H": {
+    "role": "pembrolizumab heavy chain (Fab)",
+    "ref_chain": "A",
+    "matched": 219,
+    "of": 232,
+    "ca_rmsd": 1.17
+   },
+   "L": {
+    "role": "pembrolizumab light chain (Fab)",
+    "ref_chain": "B",
+    "matched": 217,
+    "of": 218,
+    "ca_rmsd": 0.59
+   },
+   "P": {
+    "role": "PD-1",
+    "ref_chain": "Z",
+    "matched": 113,
+    "of": 123,
+    "ca_rmsd": 1.71
+   }
+  }
  }
 }
