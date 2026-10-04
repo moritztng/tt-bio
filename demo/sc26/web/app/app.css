@@ -117,7 +117,7 @@ footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 /* 37 modules, quiet zone included, at 2 px a module in the frame: whole pixels at 1080p and 4K */
 #qr img { width: calc(74 * var(--p)); height: calc(74 * var(--p)); border-radius: calc(3 * var(--p)); }
 #qr p { margin: 0; font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-weight: 400; }
-#qr b { color: var(--ink2); font-weight: 500; }
+#qr b { color: var(--ink2); font-weight: 500; font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out the hyphen in tt-bio */
 #invite { margin: 0; width: calc(432 * var(--p)); font-size: calc(22 * var(--p)); font-weight: 500; color: var(--ink); }
 #invite kbd, #typing kbd { font: inherit; font-size: 0.72em; font-weight: 600; display: inline-block; padding: 0.12em 0.5em; margin: 0 0.12em;
             border: 1px solid var(--ink3); border-radius: 0.3em; color: var(--ink); vertical-align: 0.1em; }
