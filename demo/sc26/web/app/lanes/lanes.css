@@ -32,19 +32,17 @@ body {
       display: flex; flex-direction: column; }
 .hw-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3rem; }
 .hw-kicker { font-size: 0.8rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); }
-.hw-title { font-size: 2.6rem; font-weight: 300; letter-spacing: -0.02em; margin: 0.5rem 0 0; }
+.hw-title { font-size: 1.75rem; font-weight: 300; letter-spacing: -0.02em; margin: 0.5rem 0 0; }
 .hw-title b { font-weight: 600; }
 .hw-live { font-size: 0.85rem; color: var(--dim); display: flex; align-items: center; gap: 0.6rem; }
-.hw-live i { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent);
-             box-shadow: 0 0 0.8rem var(--accent); animation: hw-pulse 2.4s var(--ease) infinite; }
-.hw-live.recorded i { background: var(--warn); box-shadow: none; animation: none; }
+.hw-live i { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--accent); }
+.hw-live.recorded i { background: var(--warn); }
 .hw-foot { margin-top: auto; padding-top: 1.6rem; font-size: 0.78rem; color: var(--faint); line-height: 1.6; max-width: 80rem; }
 .hw-foot a { color: var(--dim); text-decoration: none; }
 
-@keyframes hw-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
 /* ---------- lanes ---------- */
-.box { border: 1px solid var(--hair); border-radius: 1.4rem; padding: 1.2rem 2rem; display: grid; gap: 1.2rem; }
+.box { border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); padding: 1.2rem 0; display: grid; gap: 1.2rem; }
 .board { display: grid; grid-template-columns: 2.2rem 1fr; }
 .board > div:last-child { display: grid; grid-auto-rows: 1fr; }
 .glyph { display: block; height: 6.8rem; width: auto; max-width: 100%; }
@@ -59,18 +57,16 @@ body {
         gap: 2rem; height: 100%; min-height: 8.6rem; transition: opacity 0.8s var(--ease); }
 .lane + .lane { border-top: 1px solid var(--hair); }
 .lane .label { font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); margin-top: 0.35rem; }
-.lane .big { font-size: 2.6rem; font-weight: 300; letter-spacing: -0.02em; line-height: 1; }
-.lane .big small { font-size: 0.9rem; font-weight: 400; color: var(--dim); margin-left: 0.35rem; letter-spacing: 0; }
-.lane .name { font-size: 1.25rem; font-weight: 500; }
+.lane .big { font-size: 1.75rem; font-weight: 300; letter-spacing: -0.02em; line-height: 1; }
+.lane .big small { font-size: 0.8rem; font-weight: 400; color: var(--dim); margin-left: 0.35rem; letter-spacing: 0; }
+.lane .name { font-size: 1.05rem; font-weight: 500; }
 .lane .state { font-size: 0.85rem; color: var(--dim); margin-top: 0.3rem; }
 .lane[data-state="folding"] .state { color: var(--accent); }
 .lane[data-state="resetting"] .state { color: var(--warn); }
 .lane[data-state="resetting"] .gauge, .lane[data-state="resetting"] .glyph { opacity: 0.25; }
 
 .glyph rect { fill: var(--accent); transition: fill-opacity 1.2s var(--ease); }
-.lane[data-state="folding"] .glyph rect { animation: hw-flow 2.8s linear infinite; }
 .lane[data-state="resetting"] .glyph rect { fill: var(--warn); }
-@keyframes hw-flow { 0%, 100% { filter: brightness(1); } 12% { filter: brightness(1.9); } }
 
 .bar { height: 2px; background: var(--hair); margin-top: 0.9rem; position: relative; border-radius: 1px; }
 .bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 1px;
@@ -90,13 +86,13 @@ body {
   html { font-size: calc(100vw / 60); }
   .hw { padding: 3rem 3rem 2.5rem; }
   .hw-head { margin-bottom: 2rem; }
-  .box { padding: 1rem 1.4rem; }
+  .box { padding: 1rem 0; }
   .lane { grid-template-columns: 5.5rem 7rem 1fr 5rem 5rem; grid-template-areas: "id clk pw tmp today" "what what what what what";
           column-gap: 1.2rem; row-gap: 0.8rem; padding: 1rem 0; }
   .lane > :nth-child(1) { display: none; }
   .lane > :nth-child(2) { grid-area: id; } .lane > :nth-child(3) { grid-area: clk; } .lane > :nth-child(4) { grid-area: pw; }
   .lane > :nth-child(5) { grid-area: tmp; } .lane > :nth-child(6) { grid-area: what; } .lane > :nth-child(7) { grid-area: today; }
-  .lane .big { font-size: 2.1rem; }
+  .lane .big { font-size: 1.5rem; }
 }
 
 /* ---------- comparison ---------- */
@@ -114,7 +110,7 @@ body {
 .mk { position: absolute; top: 50%; width: 0.8rem; height: 0.8rem; margin: -0.4rem 0 0 -0.4rem; border-radius: 50%;
       background: var(--ground); border: 1.5px solid var(--dim); }
 .mk.tt { background: var(--accent); border-color: var(--accent); width: 1rem; height: 1rem; margin: -0.5rem 0 0 -0.5rem;
-         box-shadow: 0 0 1rem rgb(var(--live-rgb) / 0.5); }
+}
 .mk.h200 { border-color: var(--ink); background: var(--ink); width: 0.6rem; height: 0.6rem; margin: -0.3rem 0 0 -0.3rem; }
 .mk.b200 { border-color: var(--dim); }
 .mk.a100 { border-color: var(--faint); }
@@ -124,7 +120,7 @@ body {
 .legend { display: flex; gap: 1.6rem; font-size: 0.8rem; color: var(--dim); margin-bottom: 1.2rem; }
 .legend span { display: flex; align-items: center; gap: 0.5rem; }
 .legend .mk { position: static; margin: 0; }
-.say { font-size: 1.5rem; font-weight: 300; line-height: 1.45; letter-spacing: -0.01em; }
+.say { font-size: 1.25rem; font-weight: 300; line-height: 1.45; letter-spacing: -0.01em; }
 .say b { font-weight: 600; }
 .say + .say { margin-top: 1.6rem; }
 .say.small { font-size: 1.05rem; color: var(--dim); }
@@ -145,7 +141,6 @@ body {
 .depth .unit.hot { fill: rgb(var(--live-rgb) / 0.12); stroke: var(--accent); }
 .depth .mem { fill: rgba(236, 238, 244, 0.05); stroke: rgba(236, 238, 244, 0.3); stroke-width: 1; }
 .depth .arrow { stroke: rgba(236, 238, 244, 0.35); stroke-width: 1.2; fill: none; marker-end: url(#hw-arrow); }
-.depth .tile { filter: drop-shadow(0 0 4px rgb(var(--live-rgb) / 0.9)); }
 .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3rem; border-top: 1px solid var(--hair); padding-top: 1.8rem; }
 .facts div { font-size: 0.95rem; color: var(--dim); line-height: 1.5; }
-.facts b { display: block; font-size: 2rem; font-weight: 300; color: var(--ink); letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+.facts b { display: block; font-size: 1.5rem; font-weight: 300; color: var(--ink); letter-spacing: -0.02em; margin-bottom: 0.3rem; }

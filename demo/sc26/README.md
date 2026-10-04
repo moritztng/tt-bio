@@ -33,3 +33,5 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   time, which can differ from the counter by a few tenths of a second of network and page latency.
 * **The chip rows have no seconds.** Each row names what the chip is folding, which part of the
   model is running (language model, trunk, diffusion, confidence) and a bar for how far along it is.
+  The hardware view behind Tab follows the same rule: a chip that is folding shows the protein and
+  its length, and seconds only for a fold that has finished ("last: 56 residues in 0.6 s").

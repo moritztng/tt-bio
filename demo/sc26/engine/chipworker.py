@@ -111,7 +111,12 @@ def main():
     ap.add_argument("--model", default="esmfold2", choices=["esmfold2"])
     ap.add_argument("--steps", type=int, default=20, help="diffusion steps (the model default)")
     ap.add_argument("--loops", type=int, default=3, help="trunk recycles (the model default)")
+    ap.add_argument("--workers", type=int, default=1, help="chip workers sharing this host's CPU")
     args = ap.parse_args()
+    # Each worker takes its share of the host. Left at torch's default, four pools of all cores
+    # spin against each other and a 20-residue fold waits 2-4 s on the host instead of 0.6 s.
+    from tt_bio.runtime import host_thread_cap_env
+    os.environ.update(host_thread_cap_env(args.workers))
 
     abort, cancel, busy = threading.Event(), threading.Event(), threading.Event()
     import signal
@@ -138,6 +143,8 @@ def main():
     t0 = time.perf_counter()
     emit(type="chip", chip=args.chip, state="warming", aiclk_mhz=clock.read())
     import torch
+    from tt_bio.runtime import bind_host_threads
+    bind_host_threads()
     from tt_bio import esmfold2 as E
     from tt_bio.esmfold2_runtime import build_spi, load_ttnn_esmfold2
     from tt_bio.tenstorrent import get_device

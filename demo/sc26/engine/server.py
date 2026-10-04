@@ -81,6 +81,7 @@ class Chip:
             self.set_state("warming")
             self.proc = await asyncio.create_subprocess_exec(
                 sys.executable, "-u", str(HERE / "chipworker.py"), "--chip", str(self.chip),
+                "--workers", str(len(self.svc.chips)),
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
                 stderr=open(self.svc.logdir / f"chip{self.chip}.stderr", "a"), env=env,
                 limit=64 * 1024 * 1024)

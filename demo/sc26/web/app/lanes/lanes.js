@@ -87,6 +87,7 @@ function lane(card) {
   return { el, q };
 }
 
+const MODEL = { esmfold2: "ESMFold2", boltz2: "Boltz-2" };
 const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "resetting" };
 
 function paintLane({ el, q }, c) {
@@ -107,8 +108,9 @@ function paintLane({ el, q }, c) {
   const lastLine = last ? `last: ${last.residues ?? "?"} residues in ${fmt(last.seconds, 1)} s` +
     (last.aiclk_during ? ` at ${last.aiclk_during.median} MHz` : "") : "";
   if (f) {
-    q.what.textContent = [f.model, f.name].filter(Boolean).join(" · ");
-    q.detail.textContent = `${f.residues ?? "?"} residues · ${fmt(f.elapsed_s, 1)} s so far`;
+    // no running seconds here: the one clock on screen is the stage's (demo/sc26/README.md)
+    q.what.textContent = [MODEL[f.model] ?? f.model, f.name].filter(Boolean).join(" · ");
+    q.detail.textContent = `${f.residues ?? "?"} residues`;
   } else if (c.state === "resetting") {
     q.what.textContent = "Resetting";
     q.detail.textContent = "readings return when the chip does";
