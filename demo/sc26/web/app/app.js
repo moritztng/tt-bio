@@ -8,6 +8,7 @@
 //   ?walk=<name>     type <name> after ?after=<s> seconds, for a recorded walkthrough
 //   ?stream=<ws url> another engine's stream, default this origin's /stream
 //   ?play=<url>      play only this recording, over and over, for a look-test of one fold
+//   ?orbit=<deg/s>   how fast a finished structure turns, default 5; 0 holds the landing view
 
 import { Stream, loadRecording } from './stream.js';
 import { Stage, Director } from './stage.js';
@@ -21,14 +22,14 @@ const HOLD = parseFloat(q.get('hold')) || 10;
 const WORD = ['no', 'one', 'two', 'three', 'four'];
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
-const pad = (c) => String(c + 1).padStart(2, '0');
 
 kiosk();
 loadBlocklist('blocklist.txt');
 
 const canvas = $('stage');
-const stage = new Stage(canvas, { ease: q.has('ease') ? parseFloat(q.get('ease')) : 0.12, final: q.get('final') ?? 'cartoon' });
-const STAGE_X = -0.14, DEPTH_X = -0.25;   // where the protein sits: the stage is columns 1-8
+const stage = new Stage(canvas, { ease: q.has('ease') ? parseFloat(q.get('ease')) : 0.12, final: q.get('final') ?? 'cartoon',
+  orbitDegPerSec: q.has('orbit') ? parseFloat(q.get('orbit')) : 5 });
+const STAGE_X = -0.11, DEPTH_X = -0.25;   // where the protein sits: the stage is columns 1-8
 stage.resize(); stage.setOffset(STAGE_X, 0.02);
 addEventListener('resize', () => stage.resize());
 const director = new Director();
@@ -213,7 +214,7 @@ function drawTyping() {
   const p = parseName(app.text);
   const el = $('letters');
   const n = Math.max(1, p.cells.length);
-  const size = Math.min(132, 1100 / (n * 0.74));
+  const size = Math.min(88, 1100 / (n * 0.74));
   el.style.fontSize = `calc(${size.toFixed(1)} * var(--p))`;
   // rebuild only what changed, so a new letter animates in and the old ones stay still
   const want = p.cells.map(c => c.gap ? ' ' : c.ch);
@@ -257,97 +258,78 @@ function drawSide() {
     setName(N, m.instead ?? m.text);
     if (app.state === 'waiting') {
       S.textContent = m.busy ? 'The chips are busy. Try again in a moment.'
-        : m.chip != null ? `Folding on chip ${pad(m.chip)}.`
+        : m.chip != null ? ''
         : m.position > 0 ? (m.position === 1 ? 'Next in line for a chip.' : `${ORDINAL[m.position] ?? m.position + 'th'} in line for a chip.`)
         : 'Finding a free chip.';
-      src.textContent = '';
-      // what the chip last reported, never run on, held at the first diffusion state: the result
-      // replays from there, so the number never steps back when their fold arrives
-      const j = m.id != null ? stream.jobs[m.id] : null;
-      const s = m.t0 && j ? (j.tFirst ?? j.tChip ?? 0) : null;
-      num.textContent = s != null ? s.toFixed(1) : '';
+      // the one running clock on screen: wall-clock seconds since the chip took their fold, in step
+      // with the chip because it is the same seconds; it stops when the fold lands
+      src.textContent = m.chip != null ? `Folding on chip ${m.chip + 1}` : '';
+      num.textContent = m.t0 ? `${((performance.now() - m.t0) / 1000).toFixed(1)} s` : '';
       numBox.classList.remove('locked');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
       $('step').textContent = '';
-      M.classList.remove('long');
       $('legend').classList.remove('on');
     } else {
       const f = m.fold;
       S.textContent = stage.landed ? (m.instead ? storyOf(m.instead) : verdict(f.plddtMean ?? 0)) : '';
       drawNumber(f);
       M.textContent = (m.instead ? `${f.nres} amino acids` : lengthLine(m.parsed).replace(/\.$/, '')) + clock(f);
-      M.classList.toggle('long', M.textContent.length > 46);
     }
     return;
   }
   const f = app.slot?.fold;
   if (!f) { L.textContent = ''; N.textContent = ''; S.textContent = ''; src.textContent = ''; num.textContent = ''; M.textContent = ''; $('step').textContent = ''; return; }
   L.textContent = stage.landed ? 'Folded' : 'Folding';
-  setName(N, f.name ?? 'A protein');
+  setName(N, f.name ?? 'Protein');
   S.textContent = f.story ?? '';
   drawNumber(f);
   M.textContent = `${f.nres} amino acids` + clock(f);
-  M.classList.toggle('long', M.textContent.length > 46);
 }
 
 // a long name drops to the smaller size so name and story always fit their box
 function setName(el, text) {
-  if (el.textContent !== text) { el.textContent = text; el.classList.toggle('long', text.length > 18); }
+  if (el.textContent !== text) { el.textContent = text; el.classList.toggle('long', text.length > 22); }
 }
 
 function clock(f) { return f.aiclk ? ` · AICLK ${Math.round(f.aiclk)} MHz` : ''; }
 
+// Every fold on the stage has already finished on its chip, so its time is a measured fact, shown
+// still from the first frame: nothing on the stage counts seconds. What moves is the sampler's own
+// step counter, and the line under it says how much slower than the chip the steps are replayed.
 function drawNumber(f) {
   const src = $('source'), num = $('num'), box = $('number');
-  const st = stage.step, of = stage.of;
-  $('step').textContent = !of ? '' : stage.landed ? `${of} sampler steps, every one shown`
-    : st < 0 ? `Sampler step 0 of ${of}: random noise`
-    : `Sampler step ${st + 1} of ${of}` + (stage.spread > 6 ? ': the noise is still wider than the screen' : '');
+  const st = stage.step, of = stage.of, k = stage.slowdown;
+  const pace = !k ? '' : k <= 1.05 ? '\nReplayed at the chip’s own pace' : `\nReplayed ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower than the chip ran it`;
+  $('step').textContent = !of ? '' : stage.landed ? `All ${of} diffusion steps shown`
+    : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`;
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
-  const where = f.source === 'live' && f.chip != null ? `Folded live on chip ${pad(f.chip)}` : 'Recorded on this box';
-  if (stage.landed) {
-    src.textContent = where;
-    num.textContent = f.seconds.toFixed(2);
-    box.classList.add('locked');
-  } else {
-    const k = stage.slowdown;
-    src.textContent = !k ? where : k <= 1.05 ? `${where} · real time`
-      : `${where} · shown ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower`;
-    num.textContent = stage.realTime.toFixed(1);
-    box.classList.remove('locked');
-  }
+  src.textContent = f.source === 'live' && f.chip != null ? `Folded live on chip ${f.chip + 1} in` : 'Folded on this box in';
+  num.textContent = `${f.seconds.toFixed(2)} s`;
+  box.classList.add('locked');
 }
 
-// A lane's time is the chip's own clock (`t` on stage and frame messages, `seconds` on done), run
-// on for at most a second past the last message. A job that stopped talking stops counting, so a
-// lane never shows a time longer than the fold it names.
-function laneSeconds(j) {
-  if (j.seconds != null) return j.seconds;
-  if (j.tChip == null) return Math.min(1, performance.now() / 1000 - j.t0);
-  return j.tChip + Math.min(1, performance.now() / 1000 - j.tAt);
-}
-
-const PHASE = { lm: 'reading', trunk: 'thinking', diffusion: 'folding', confidence: 'checking', done: 'done' };
+// A chip's row says what it is folding and which part of the model is running, with a bar for how
+// far along it is. No seconds: the one clock on screen is the stage's.
+const PHASE = { lm: 'language model', trunk: 'trunk', diffusion: 'diffusion', confidence: 'confidence', done: 'done' };
 
 function drawChips() {
   const ol = $('chips');
   if (ol.children.length !== 4) ol.innerHTML = [0, 1, 2, 3].map(i =>
-    `<li><span class="n">${pad(i)}</span><span class="what"></span><span class="t"></span><span class="bar"><i></i></span></li>`).join('');
+    `<li><span class="n">${i + 1}</span><span class="what"></span><span class="bar"><i></i></span></li>`).join('');
   const onStage = (app.state === 'result' ? app.mine?.fold : app.slot?.fold);
   for (let i = 0; i < 4; i++) {
     const li = ol.children[i], c = stream.chips.find(x => x.chip === i);
     const job = c?.job ? stream.jobs[c.job] : null;
-    let what = 'resting', t = '', prog = 0, cls = '';
+    let what = 'not in use', prog = 0, cls = '';
     if (c?.state === 'busy' && job) {
       const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
       what = `${who} <em>${PHASE[job.stage] ?? ''}</em>`;
-      t = laneSeconds(job).toFixed(1) + ' s';
       prog = job.stage === 'lm' ? 0.12 : job.stage === 'trunk' ? 0.15 + 0.55 * job.step / Math.max(1, job.total)
         : job.stage === 'diffusion' ? 0.7 + 0.25 * job.step / Math.max(1, job.total) : job.stage === 'confidence' ? 0.97 : 1;
       cls = 'busy';
     } else if (c?.state === 'busy') { what = 'folding'; cls = 'busy'; }
-    else if (c?.state === 'ready') { what = 'ready'; cls = 'ready'; }
+    else if (c?.state === 'ready') { what = 'idle'; cls = 'ready'; }
     else if (c?.state === 'starting' || c?.state === 'warming') what = 'warming up';
     else if (c?.state === 'stalled' || c?.state === 'recovering') { what = 'recovering'; cls = 'recovering'; }
     else if (c?.state === 'resetting') { what = 'resetting'; cls = 'recovering'; }
@@ -356,7 +338,6 @@ function drawChips() {
     li.className = cls;
     const w = li.querySelector('.what');
     if (w.innerHTML !== what) w.innerHTML = what;
-    li.querySelector('.t').textContent = t;
     li.querySelector('.bar i').style.width = (100 * prog).toFixed(1) + '%';
   }
 }

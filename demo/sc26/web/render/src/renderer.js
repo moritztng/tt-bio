@@ -15,18 +15,17 @@ import { program, texture, framebuffer, buffer, FULLSCREEN_VS } from './gl.js';
 import { POINTS_VS, POINTS_FS, MESH_VS, MESH_FS, BG_FS, COMPOSITE_FS } from './shaders.js';
 import { perspective, lookAt, Spring } from './math.js';
 import { Timeline, centroid } from './trajectory.js';
-import { residueColors, atomRadii, elementColor, POINT, POINT_SIDE, GROUND } from './palette.js';
+import { residueColors, atomRadii, lin, POINT, POINT_SIDE, GROUND } from './palette.js';
 import { backbone, buildCartoon } from './cartoon.js';
 
 const FOV = 26 * Math.PI / 180;
 const DEG = Math.PI / 180;
-const lin = (hex) => [0, 2, 4].map(i => ((parseInt(hex.slice(i + 1, i + 3), 16) / 255) ** 2.2));
 
 export class Renderer {
   constructor(canvas, opt = {}) {
     this.canvas = canvas;
     this.opt = { scale: 'auto', msaa: 'auto', scheme: 'plddt', final: 'cartoon', ease: 0.12, orbitDegPerSec: 5,
-      fill: 0.8, pointRadius: 0.35, ballRadius: 0.7, skip: '', maxCells: 400000, meshH: 0.55, offset: [0, 0], ...opt };
+      fill: 0.8, dotPx: [0.6, 1.25], skip: '', maxCells: 400000, meshH: 0.55, offset: [0, 0], ...opt };
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false,
       powerPreference: 'high-performance', preserveDrawingBuffer: !!opt.preserve });
     if (!gl) throw new Error('WebGL2 unavailable');
@@ -59,17 +58,14 @@ export class Renderer {
     this.bb = backbone(topo);
     this.bufA = buffer(gl, gl.ARRAY_BUFFER, new Float32Array(n * 3), gl.DYNAMIC_DRAW);
     this.bufB = buffer(gl, gl.ARRAY_BUFFER, new Float32Array(n * 3), gl.DYNAMIC_DRAW);
-    // while folding the backbone (N, CA, C) is light grey and every other protein atom a darker one,
-    // so the chain and its helices read in the points before the cartoon; ligands keep element colours
-    const ball = Float32Array.from(this.bb.inCartoon, c => 1 - c);
+    // while folding the backbone (N, CA, C) is light grey and every other atom, ligands included,
+    // a darker one, so the chain and its helices read in the points before the cartoon
     const col = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) col.set(ball[i] ? elementColor(topo.element[i])
-      : ['N', 'CA', 'C'].includes(topo.atomName[i]) ? POINT : POINT_SIDE, 3 * i);
+    for (let i = 0; i < n; i++) col.set(this.bb.inCartoon[i] && ['N', 'CA', 'C'].includes(topo.atomName[i]) ? POINT : POINT_SIDE, 3 * i);
     this.bufC = buffer(gl, gl.ARRAY_BUFFER, col);
-    this.bufK = buffer(gl, gl.ARRAY_BUFFER, ball);
     this.vaoPoints = gl.createVertexArray();
     gl.bindVertexArray(this.vaoPoints);
-    [[this.bufA, 0, 3], [this.bufB, 1, 3], [this.bufC, 2, 3], [this.bufK, 3, 1]].forEach(([b, loc, k]) => {
+    [[this.bufA, 0, 3], [this.bufB, 1, 3], [this.bufC, 2, 3]].forEach(([b, loc, k]) => {
       gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.enableVertexAttribArray(loc);
       gl.vertexAttribPointer(loc, k, gl.FLOAT, false, 0, 0);
     });
@@ -212,10 +208,10 @@ export class Renderer {
 
   // Dot size while the cloud is spread out. On-screen ink scales with the atom count, so a
   // 400-atom protein's noise reads as an empty screen where a 4,500-atom one fills it. Small
-  // proteins draw their dots up to 2.2x larger while the cloud is over ~1.5x the final radius of
+  // proteins draw their dots up to 1.4x larger while the cloud is over ~1.5x the final radius of
   // gyration, back to 1x by the time it forms. Positions are untouched; only the dot size changes.
   _dotScale(x) {
-    const k = Math.min(2.2, Math.max(1, Math.sqrt(2000 / this.topo.natom)));
+    const k = Math.min(1.4, Math.max(1, Math.sqrt(2000 / this.topo.natom)));
     if (k === 1) return 1;
     const fin = this.timeline.final;
     if (fin && this._rgFinalOf !== fin) { this._rgFinalOf = fin; this._rgFinal = gyration(fin.coords); }
@@ -313,18 +309,18 @@ export class Renderer {
         const p = this.prog.points;
         gl.useProgram(p.p);
         this._light(p, v);
-        gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+        // dot radius in pixels of the output, one 1080p pixel = rt.H / 1080, then into the target's
+        const px = rt.H / 1080 * this.scale * this.dot;
         gl.uniform1f(p.u.uAlpha, s.alpha);
-        gl.uniform1f(p.u.uProjScale, rt.h / (2 * Math.tan(FOV / 2)));
-        gl.uniform1f(p.u.uRadius, this.opt.pointRadius);
-        gl.uniform1f(p.u.uBallRadius, this.opt.ballRadius);
         gl.uniform1f(p.u.uFold, 1 - f);
-        gl.uniform1f(p.u.uMinPx, Math.max(0.9, rt.h / 1000) * this.dot);
-        gl.uniform1f(p.u.uMaxPx, rt.h / 360 * this.dot);
+        gl.uniform1f(p.u.uMinPx, this.opt.dotPx[0] * px);
+        gl.uniform1f(p.u.uMaxPx, this.opt.dotPx[1] * px);
+        gl.uniform1f(p.u.uRef, v.dist - 0.5 * this.radius);
         gl.uniform1f(p.u.uNear, v.dist * 0.12);
+        gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
         gl.bindVertexArray(this.vaoPoints);
         gl.drawArrays(gl.POINTS, 0, this.topo.natom);
-        gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+        gl.disable(gl.BLEND); gl.depthMask(true);
       }
       // the final representation fades in over the points: depth prepass, then one blended layer
       if (f > 0.002 && this.meshCount) {

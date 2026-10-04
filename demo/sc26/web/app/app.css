@@ -1,4 +1,6 @@
-/* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel. */
+/* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel.
+   One type scale, in frame pixels: 12 caps labels, 15 small text, 18 body, 22 the sentence,
+   36 the protein's name. Numbers in tabular figures. */
 @import url(palette.css);
 @font-face { font-family: Inter; src: url(fonts/InterVariable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
 
@@ -12,7 +14,7 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 * { box-sizing: border-box; user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
     -webkit-tap-highlight-color: transparent; }
 html { touch-action: none; overscroll-behavior: none; scrollbar-width: none; }
-body { font-family: Inter, sans-serif; color: var(--ink); font-feature-settings: 'ss01', 'cv11';
+body { font-family: Inter, sans-serif; color: var(--ink); font-feature-settings: 'ss01', 'cv11', 'tnum';
        -webkit-font-smoothing: antialiased; }
 body.nocursor, body.nocursor * { cursor: none !important; }
 img { pointer-events: none; }
@@ -20,8 +22,8 @@ img { pointer-events: none; }
 canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
                transition: opacity 600ms var(--fade);
                /* the opening noise is wider than the screen: keep it off the right column and the sentence */
-               mask-image: linear-gradient(to right, #000 58%, transparent 67%),
-                           linear-gradient(to bottom, transparent 18%, #000 27%);
+               mask-image: linear-gradient(to right, #000 62%, transparent 71%),
+                           linear-gradient(to bottom, transparent 15%, #000 24%);
                mask-composite: intersect; }
 
 .tab { font-variant-numeric: tabular-nums; }
@@ -29,62 +31,58 @@ canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: 
 .hide { opacity: 0 !important; }
 
 /* top band: marks, sentence, tag */
-header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); top: calc(44 * var(--p)); }
-.marks { display: flex; align-items: center; gap: calc(18 * var(--p)); height: calc(30 * var(--p)); }
-.marks img { height: calc(30 * var(--p)); }
-.marks i { width: 1px; height: calc(30 * var(--p)); background: var(--ink3); }
-.marks b { font-weight: 640; font-size: calc(27 * var(--p)); letter-spacing: -0.01em; }
-#sentence { margin: calc(40 * var(--p)) 0 0; width: calc(1080 * var(--p)); font-size: calc(30 * var(--p));
-            line-height: 1.32; font-weight: 420; color: var(--ink2); transition: opacity 600ms var(--fade); }
-#sentence b { font-weight: 560; color: var(--ink); }
-#tag { position: absolute; right: 0; top: 0; height: calc(30 * var(--p)); display: flex; align-items: center;
-       gap: calc(12 * var(--p)); font-size: calc(16 * var(--p)); font-weight: 600; letter-spacing: 0.16em;
+header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); top: calc(56 * var(--p)); }
+.marks { display: flex; align-items: center; gap: calc(14 * var(--p)); height: calc(22 * var(--p)); }
+.marks img { height: calc(22 * var(--p)); }
+.marks i { width: 1px; height: calc(18 * var(--p)); background: var(--ink3); }
+.marks b { font-weight: 560; font-size: calc(19 * var(--p)); letter-spacing: -0.005em; }
+#sentence { margin: calc(44 * var(--p)) 0 0; width: calc(820 * var(--p)); font-size: calc(22 * var(--p));
+            line-height: 1.4; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade); }
+#sentence b { font-weight: 500; color: var(--ink); }
+#tag { position: absolute; right: 0; top: 0; height: calc(22 * var(--p)); display: flex; align-items: center;
+       gap: calc(10 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
        color: var(--ink2); text-transform: uppercase; }
-#tag i { width: calc(11 * var(--p)); height: calc(11 * var(--p)); border-radius: 50%; background: var(--ink3); }
+#tag i { width: calc(6 * var(--p)); height: calc(6 * var(--p)); border-radius: 50%; background: var(--ink3); }
 #tag.live i { background: var(--live); }
 
 /* right column: x 1296..1824 */
-aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)); top: calc(172 * var(--p));
+aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)); top: calc(228 * var(--p));
         bottom: calc(150 * var(--p)); display: flex; flex-direction: column; }
-#label, #source { font-size: calc(16 * var(--p)); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink3); }
-#label { color: var(--live); min-height: calc(20 * var(--p)); }
+#label, #source { font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
+#label { color: var(--live); min-height: calc(16 * var(--p)); }
 /* name and story share one fixed box, so the number and everything under it never move */
-#title { margin-top: calc(14 * var(--p)); height: calc(214 * var(--p)); overflow: hidden; flex-shrink: 0; }
-#name { margin: 0; font-size: calc(62 * var(--p)); font-weight: 640; letter-spacing: -0.028em;
-        line-height: 1.04; overflow-wrap: anywhere; }
-#name.long { font-size: calc(48 * var(--p)); }
-#story { margin: calc(16 * var(--p)) 0 0; font-size: calc(25 * var(--p)); line-height: 1.36; font-weight: 420; color: var(--ink2); }
-#source { margin-top: calc(26 * var(--p)); color: var(--ink2); }
-#number { margin-top: calc(4 * var(--p)); font-size: calc(152 * var(--p)); font-weight: 300; line-height: 1; letter-spacing: -0.03em;
-          font-variant-numeric: tabular-nums; color: var(--ink2); transition: color 600ms var(--fade); }
-#number small { font-size: 0.32em; margin-left: 0.12em; letter-spacing: 0; color: var(--ink3); }
-#number.locked { color: var(--ink); }
+#title { margin-top: calc(12 * var(--p)); height: calc(150 * var(--p)); overflow: hidden; flex-shrink: 0; }
+#name { margin: 0; font-size: calc(36 * var(--p)); font-weight: 560; letter-spacing: -0.018em;
+        line-height: 1.1; overflow-wrap: anywhere; }
+#name.long { font-size: calc(30 * var(--p)); }
+#story { margin: calc(12 * var(--p)) 0 0; font-size: calc(18 * var(--p)); line-height: 1.45; font-weight: 400; color: var(--ink2); }
+#source { margin-top: calc(28 * var(--p)); }
+#number { margin-top: calc(8 * var(--p)); font-size: calc(36 * var(--p)); font-weight: 400; line-height: 1; letter-spacing: -0.01em;
+          color: var(--ink); white-space: nowrap; }
 #number:has(#num:empty) { visibility: hidden; }
-#meta { font-size: calc(20 * var(--p)); font-weight: 460; color: var(--ink2); font-variant-numeric: tabular-nums; margin-top: calc(6 * var(--p)); }
-#meta.long { font-size: calc(17 * var(--p)); }   /* "your name four times · AICLK" stays one line */
-#meta { white-space: nowrap; }
+#meta, #step { font-size: calc(15 * var(--p)); font-weight: 400; line-height: 1.5; color: var(--ink2); white-space: nowrap; }
+#meta { margin-top: calc(14 * var(--p)); }
 /* the sampler's own step counter while folding; the pLDDT key once the structure is drawn */
-#step { font-size: calc(17 * var(--p)); font-weight: 460; color: var(--ink3); font-variant-numeric: tabular-nums;
-        margin-top: calc(6 * var(--p)); min-height: calc(22 * var(--p)); white-space: nowrap; }
-#legend { margin-top: calc(22 * var(--p)); font-size: calc(17 * var(--p)); color: var(--ink2); opacity: 0;
+#step { color: var(--ink3); min-height: 3em; white-space: pre-line; }
+#legend { margin-top: calc(24 * var(--p)); font-size: calc(13 * var(--p)); color: var(--ink2); opacity: 0;
           transition: opacity 150ms var(--fade); }
 #legend.on { opacity: 1; transition-duration: 600ms; }
 #legend p { margin: 0 0 calc(8 * var(--p)); color: var(--ink3); }
-#legend ul { list-style: none; margin: 0; padding: 0; display: flex; gap: calc(22 * var(--p)); font-variant-numeric: tabular-nums; }
-#legend li { display: flex; align-items: center; gap: calc(8 * var(--p)); }
-#legend i { width: calc(16 * var(--p)); height: calc(16 * var(--p)); border-radius: 2px; }
+#legend ul { list-style: none; margin: 0; padding: 0; display: flex; gap: calc(18 * var(--p)); }
+#legend li { display: flex; align-items: center; gap: calc(7 * var(--p)); }
+#legend i { width: calc(9 * var(--p)); height: calc(9 * var(--p)); border-radius: 1px; }
 
 /* four chips, always visible */
 #chips { list-style: none; margin: auto 0 0; padding: 0; }
-#chips li { display: grid; grid-template-columns: calc(44 * var(--p)) 1fr auto; grid-template-rows: auto auto; align-items: baseline;
-            column-gap: calc(14 * var(--p)); padding: calc(10 * var(--p)) 0 calc(8 * var(--p)); border-top: 1px solid var(--rule);
-            font-size: calc(20 * var(--p)); font-weight: 460; color: var(--ink3); font-variant-numeric: tabular-nums; }
-#chips li .n { font-weight: 600; font-size: calc(16 * var(--p)); letter-spacing: 0.08em; }
+#chips li { display: grid; grid-template-columns: calc(28 * var(--p)) 1fr; grid-template-rows: auto auto; align-items: baseline;
+            column-gap: calc(10 * var(--p)); padding: calc(9 * var(--p)) 0 calc(7 * var(--p)); border-top: 1px solid var(--rule);
+            font-size: calc(15 * var(--p)); font-weight: 400; color: var(--ink3); }
+#chips li .n { font-weight: 560; font-size: calc(12 * var(--p)); letter-spacing: 0.06em; }
 #chips li .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #chips li .what em { font-style: normal; color: var(--ink3); }
 #chips li.busy .what { color: var(--ink); }
 #chips li.busy .n, #chips li.ready .n { color: var(--ink2); }
-#chips li .bar { grid-column: 2 / 4; height: 2px; margin-top: calc(9 * var(--p)); }
+#chips li .bar { grid-column: 2; height: 1px; margin-top: calc(7 * var(--p)); }
 #chips li.busy .bar { background: var(--rule); }
 #chips li .bar i { display: block; height: 100%; width: 0; background: var(--ink3); }
 #chips li.busy .bar i { transition: width 300ms linear; }
@@ -94,11 +92,11 @@ aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)
 /* bottom band: QR left, invitation right */
 footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); bottom: calc(48 * var(--p)); height: calc(96 * var(--p));
          display: flex; align-items: flex-end; justify-content: space-between; }
-#qr { display: flex; align-items: center; gap: calc(20 * var(--p)); }
-#qr img { width: calc(96 * var(--p)); height: calc(96 * var(--p)); border-radius: calc(4 * var(--p)); }
-#qr p { margin: 0; font-size: calc(17 * var(--p)); line-height: 1.45; color: var(--ink3); font-weight: 500; }
-#qr b { color: var(--ink2); font-weight: 560; }
-#invite { margin: 0; width: calc(528 * var(--p)); font-size: calc(30 * var(--p)); font-weight: 560; color: var(--ink); }
+#qr { display: flex; align-items: center; gap: calc(16 * var(--p)); }
+#qr img { width: calc(72 * var(--p)); height: calc(72 * var(--p)); border-radius: calc(3 * var(--p)); }
+#qr p { margin: 0; font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-weight: 400; }
+#qr b { color: var(--ink2); font-weight: 500; }
+#invite { margin: 0; width: calc(432 * var(--p)); font-size: calc(22 * var(--p)); font-weight: 500; color: var(--ink); }
 #invite kbd, #typing kbd { font: inherit; font-size: 0.72em; font-weight: 600; display: inline-block; padding: 0.12em 0.5em; margin: 0 0.12em;
             border: 1px solid var(--ink3); border-radius: 0.3em; color: var(--ink); vertical-align: 0.1em; }
 #invite .dim { color: var(--ink3); font-weight: 460; }
@@ -107,15 +105,15 @@ footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 #typing { position: fixed; left: calc(96 * var(--p)); width: calc(1152 * var(--p)); top: calc(250 * var(--p)); display: none; }
 #letters { display: flex; flex-wrap: nowrap; gap: calc(6 * var(--p)); min-height: calc(200 * var(--p)); align-items: flex-start; }
 #letters .c { display: flex; flex-direction: column; align-items: center; animation: arrive 800ms var(--out); }
-#letters .c b { font-weight: 560; line-height: 1; letter-spacing: -0.01em; }
-#letters .c span { margin-top: 0.5em; font-size: calc(15 * var(--p)); font-weight: 500; color: var(--ink3); white-space: nowrap; letter-spacing: 0.02em; }
+#letters .c b { font-weight: 400; line-height: 1; letter-spacing: -0.01em; }
+#letters .c span { margin-top: 0.5em; font-size: calc(13 * var(--p)); font-weight: 500; color: var(--ink3); white-space: nowrap; letter-spacing: 0.02em; }
 #letters .c.sub b { color: var(--ink3); text-decoration: underline 2px var(--ink3); text-underline-offset: 0.14em; }
 #letters .c.sub span { color: var(--ember); }
 #letters .c.gap { width: 0.4em; }
 #letters .caret { width: 2px; background: var(--live); animation: blink 1.1s steps(1) infinite; align-self: flex-start; }
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes arrive { from { opacity: 0; transform: translateY(0.18em); } }
-#subline, #lenline { margin: calc(26 * var(--p)) 0 0; font-size: calc(25 * var(--p)); line-height: 1.36; color: var(--ink2); min-height: 1.36em; }
+#subline, #lenline { margin: calc(26 * var(--p)) 0 0; font-size: calc(18 * var(--p)); line-height: 1.36; color: var(--ink2); min-height: 1.36em; }
 #subline { color: var(--ember); }
 body[data-state=typing] #typing, body[data-state=waiting] #typing { display: block; }
 body[data-state=waiting] #letters .c { transition: opacity 600ms var(--fade), transform 900ms var(--out); }
@@ -124,10 +122,10 @@ body[data-state=waiting] #letters .c { transition: opacity 600ms var(--fade), tr
 #keys { position: fixed; left: calc(96 * var(--p)); width: calc(1152 * var(--p)); bottom: calc(150 * var(--p));
         display: none; grid-template-columns: repeat(10, 1fr); gap: calc(10 * var(--p)); }
 body.touch[data-state=typing] #keys { display: grid; }
-#keys button { font: inherit; font-size: calc(30 * var(--p)); font-weight: 560; color: var(--ink); background: rgba(238, 241, 245, 0.06);
+#keys button { font: inherit; font-size: calc(24 * var(--p)); font-weight: 500; color: var(--ink); background: rgba(238, 241, 245, 0.06);
                border: 1px solid var(--rule); border-radius: calc(10 * var(--p)); height: calc(84 * var(--p)); }
 #keys button:active { background: rgba(62, 183, 222, 0.25); }
-#keys button.wide { grid-column: span 2; font-size: calc(22 * var(--p)); color: var(--ink2); }
+#keys button.wide { grid-column: span 2; font-size: calc(18 * var(--p)); color: var(--ink2); }
 #keys button.go { grid-column: span 3; background: var(--live); color: var(--ground); border: 0; }
 
 /* under the hood: hardware's lanes on the right half */

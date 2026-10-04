@@ -5,7 +5,10 @@
 // Points during the fold are one sober grey: confidence does not exist until the fold is done.
 // Atoms outside the protein (ligands, hemes) take the usual element colours.
 
-const lin = (hex) => [0, 2, 4].map(i => ((parseInt(hex.slice(i + 1, i + 3), 16) / 255) ** 2.2));
+// sRGB hex to linear RGB with the exact sRGB curve, the inverse of what the compositor writes out.
+// (A plain 2.2 power reads the darks too dark: #08090C came out as #020202 next to the page.)
+const eotf = (c) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+export const lin = (hex) => [0, 2, 4].map(i => eotf(parseInt(hex.slice(i + 1, i + 3), 16) / 255));
 
 export const PLDDT_BANDS = [   // [lower bound, colour, label]
   [90, '#0053D6', 'Very high (pLDDT > 90)'],

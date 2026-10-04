@@ -1,60 +1,61 @@
 // GLSL for the two ways of drawing a protein: plain points while it folds, a lit mesh (the cartoon,
 // or optionally a molecular surface) once it is done.
 //
-// One light model for everything, after the defaults of ChimeraX and Mol*: a matte material, one
-// key light from the upper left fixed to the camera, a soft sky/ground ambient, ambient occlusion
-// where the geometry provides it, and depth cueing (fog toward the ground colour). No bloom, glow,
-// rim, glass or depth-of-field.
+// One light model for everything, after the defaults of PyMOL, ChimeraX and Mol*: a matte material,
+// one key light from the upper left and a fill from the camera, both fixed to the camera, a soft
+// sky/ground ambient, ambient occlusion where the geometry provides it, and depth cueing (fog toward
+// the ground colour). No bloom, glow, rim, glass or depth-of-field.
 
 const LIGHT = `
 const vec3 KEY = normalize(vec3(-0.45, 0.6, 0.66));
 uniform vec3 uGround;
 uniform vec2 uFog;   // view depth where fog starts, and where it is full
+vec3 fogged(vec3 c, float depth) { return mix(c, uGround, 0.65 * smoothstep(uFog.x, uFog.y, depth)); }
 vec3 shade(vec3 col, vec3 N, float ao, float depth) {
   float key = max(0.0, dot(N, KEY));
   float sky = 0.5 + 0.5 * N.y;
-  vec3 c = col * (0.85 * key * (0.55 + 0.45 * ao) + mix(0.22, 0.42, sky) * ao);
-  c += vec3(0.06) * pow(max(0.0, dot(N, normalize(KEY + vec3(0.0, 0.0, 1.0)))), 24.0) * ao;
-  return mix(c, uGround, 0.82 * smoothstep(uFog.x, uFog.y, depth));
+  float head = max(0.0, N.z);   // a fill light from the camera, as PyMOL has: faces bright, edges dark
+  vec3 c = col * (0.9 * key * (0.55 + 0.45 * ao) + 0.42 * head * (0.6 + 0.4 * ao) + mix(0.10, 0.22, sky) * ao);
+  c += vec3(0.16) * pow(max(0.0, dot(N, normalize(KEY + vec3(0.0, 0.0, 1.0)))), 36.0) * ao;
+  return fogged(c, depth);
 }`;
 
-// Each atom is a small matte sphere: a screen-facing disc shaded as a ball. Size is the atom's
-// world radius under perspective, so depth reads as size, capped so a noise atom passing close to
-// the camera never becomes a blob. Opaque and depth-tested; edges antialiased by alpha-to-coverage.
+// Each atom is a fine dot. Its size is set in screen pixels, not by the atom's world radius: at
+// booth framing every atom would otherwise be a 6-20 px disc. Within [uMinPx, uMaxPx] the dot
+// still shrinks with distance (uRef is the depth at which it is uMaxPx), so depth reads as size and
+// fog, never as a blob. A dot under a pixel keeps its true area by fading rather than growing, so
+// a dense cloud reads as texture. Flat colour, no shading: at two or three pixels a lit sphere is
+// noise. Edges are analytic coverage, blended over.
 export const POINTS_VS = `
 layout(location=0) in vec3 aA;
 layout(location=1) in vec3 aB;
 layout(location=2) in vec3 aColor;
-layout(location=3) in float aBall;   // 1 for atoms drawn as balls after the fold (ligands)
 uniform mat4 uView, uProj;
-uniform float uAlpha, uProjScale, uRadius, uBallRadius, uFold, uMinPx, uMaxPx, uNear;
+uniform float uAlpha, uFold, uMinPx, uMaxPx, uRef, uNear;
 out vec3 vColor;
-out float vDepth, vPx;
+out float vDepth, vPx, vInk;
 void main() {
   vec4 v = uView * vec4(mix(aA, aB, uAlpha), 1.0);
   float d = max(-v.z, 1e-3);
-  // folding: every atom a point; done: points shrink away into the cartoon, ligands grow to balls
-  float point = clamp(uRadius * uProjScale / d, uMinPx, uMaxPx) * uFold;
-  float ball = uBallRadius * uProjScale / d * (1.0 - uFold);
-  vPx = mix(point, max(point, ball), aBall) * smoothstep(uNear, 2.0 * uNear, d);
+  float r = clamp(uMaxPx * uRef / d, uMinPx, uMaxPx) * uFold * smoothstep(uNear, 2.0 * uNear, d);
+  vPx = max(r, 0.75);
+  vInk = (r * r) / (vPx * vPx);   // area of the true dot over the drawn one
   vColor = aColor;
   vDepth = d;
   gl_PointSize = 2.0 * vPx + 2.0;
-  gl_Position = vPx > 0.05 ? uProj * v : vec4(2.0, 2.0, 2.0, 1.0);
+  gl_Position = r > 0.02 ? uProj * v : vec4(2.0, 2.0, 2.0, 1.0);
 }`;
 
 export const POINTS_FS = `
 in vec3 vColor;
-in float vDepth, vPx;
+in float vDepth, vPx, vInk;
 out vec4 o;
 ${LIGHT}
 void main() {
-  vec2 q = (gl_PointCoord * 2.0 - 1.0) * (vPx + 1.0);   // pixels from the centre
-  float cover = clamp(vPx - length(q) + 0.5, 0.0, 1.0);
-  if (cover <= 0.0) discard;
-  vec2 p = q / vPx;
-  vec3 N = vec3(p.x, -p.y, sqrt(max(0.0, 1.0 - min(dot(p, p), 1.0))));
-  o = vec4(shade(vColor, N, 1.0, vDepth), cover);
+  float q = length(gl_PointCoord * 2.0 - 1.0) * (vPx + 1.0);   // pixels from the centre
+  float a = clamp(vPx - q + 0.5, 0.0, 1.0) * vInk;
+  if (a <= 0.004) discard;
+  o = vec4(fogged(vColor, vDepth) * a, a);
 }`;
 
 export const MESH_VS = `

@@ -16,7 +16,7 @@ export const CONDENSE = 6.0;   // seconds the real states are spread over
 export class Stage {
   constructor(canvas, opt = {}) {
     this.canvas = canvas;
-    this.r = new Renderer(canvas, { fill: 0.82, ...opt });
+    this.r = new Renderer(canvas, { fill: 0.72, ...opt });
     this.fold = null;
     this.t = 0;            // seconds since this fold took the stage
     this.fitted = false;
