@@ -86,7 +86,8 @@ aside { position: fixed; left: calc(1296 * var(--p)); width: calc(528 * var(--p)
 #chips li.busy .n, #chips li.ready .n { color: var(--ink2); }
 #chips li .bar { grid-column: 2 / 4; height: 2px; margin-top: calc(9 * var(--p)); }
 #chips li.busy .bar { background: var(--rule); }
-#chips li .bar i { display: block; height: 100%; width: 0; background: var(--ink3); transition: width 300ms linear; }
+#chips li .bar i { display: block; height: 100%; width: 0; background: var(--ink3); }
+#chips li.busy .bar i { transition: width 300ms linear; }
 #chips li.on .bar i { background: var(--live); }
 #chips li.on .n { color: var(--live); }
 
