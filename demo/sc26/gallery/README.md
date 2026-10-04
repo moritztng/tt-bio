@@ -1,6 +1,6 @@
 # SC26 gallery
 
-Ten proteins with a story, each folded for real by Boltz-2 on one of qb2's Blackhole chips. The
+Thirteen proteins with a story, each folded for real by Boltz-2 on one of qb2's Blackhole chips. The
 demo plays them in its attract loop, and whenever the live path is busy or a chip is down.
 `manifest.json` lists each one with its story, fold time, the chip's clock during the fold,
 confidence and how close it came to the experimental structure.
