@@ -111,7 +111,7 @@ function paintLane({ el, q }, c) {
   if (f) {
     // no running seconds here: the one clock on screen is the stage's (demo/sc26/README.md)
     q.what.textContent = f.name ?? "A protein";
-    q.detail.textContent = `${MODEL[f.model] ?? f.model} · ${f.residues ?? "?"} residues`;
+    q.detail.textContent = `${f.residues ?? "?"} residues`;
   } else if (c.state === "resetting") {
     q.what.textContent = "Resetting";
     q.detail.textContent = "readings return when the chip does";

@@ -40,7 +40,7 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 #sentence { margin: calc(40 * var(--p)) 0 0; width: calc(1100 * var(--p)); font-size: calc(22 * var(--p));
             line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade); }
 #sentence b { display: inline-block; margin-bottom: calc(6 * var(--p)); font-size: calc(36 * var(--p)); font-weight: 560;
-              letter-spacing: -0.018em; line-height: 1.15; color: var(--ink); }
+              letter-spacing: -0.018em; line-height: 1.15; color: var(--ink); font-feature-settings: 'ss01', 'cv11'; }
 
 /* the lineup: every model, down the left edge; the one on the stage is lit */
 #lineup { position: fixed; left: calc(96 * var(--p)); top: calc(300 * var(--p)); width: calc(200 * var(--p));
