@@ -261,5 +261,148 @@
   ],
   "ligands": [],
   "n_res": 93
+ },
+ {
+  "id": "tcr-hla",
+  "name": "A T cell checks for a virus",
+  "pdb": "1AO7",
+  "uniprot": "P04439, P61769",
+  "story": "How your immune system spots an infected cell: a T cell receptor reading a scrap of virus that the cell holds up in HLA.",
+  "why": "Five chains and the core of how T cells, vaccines and cell therapies work: HLA-A2 holding the HTLV-1 Tax peptide, read by the A6 receptor (Garboczi et al., 1996).",
+  "chains": [
+   {
+    "id": "A",
+    "role": "HLA-A*02:01",
+    "sequence": "GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEGPEYWDGETRKVKAHSQTHRVDLGTLRGYYNQSEAGSHTVQRMYGCDVGSDWRFLRGYHQYAYDGKDYIALKEDLRSWTAADMAAQTTKHKWEAAHVAEQLRAYLEGTCVEWLRRYLENGKETLQRTDAPKTHMTHHAVSDHEATLRCWALSFYPAEITLTWQRDGEDQTQDTELVETRPAGDGTFQKWAAVVVPSGQEQRYTCHVQHEGLPKPLTLRWE",
+    "ref_chain": "A"
+   },
+   {
+    "id": "B",
+    "role": "beta-2 microglobulin",
+    "sequence": "MIQRTPKIQVYSRHPAENGKSNFLNCYVSGFHPSDIEVDLLKNGERIEKVEHSDLSFSKDWSFYLLYCTEFTPTEKDEYACRVNHVTLSQPCIVKWDRDM",
+    "ref_chain": "B"
+   },
+   {
+    "id": "C",
+    "role": "Tax peptide (HTLV-1)",
+    "sequence": "LLFGYPVYV",
+    "ref_chain": "C"
+   },
+   {
+    "id": "D",
+    "role": "T cell receptor alpha",
+    "sequence": "KEVEQNSGPLSVPEGAIASLNCTYSDRGSQSFFWYRQYSGKSPELIMSIYSNGDKEDGRFTAQLNKASQYVSLLIRDSQPSDSATYLCAVTTDSWGKLQFGAGTQVVVTPDIQNPDPAVYQLRDSKSSDKSVCLFTDFDSQTNVSQSKDSDVYITDKTVLDMRSMDFKSNSAVAWSNKSDFACANAFNNSIIPEDTFFPSPESS",
+    "ref_chain": "D"
+   },
+   {
+    "id": "E",
+    "role": "T cell receptor beta",
+    "sequence": "NAGVTQTPKFQVLKTGQSMTLQCAQDMNHEYMSWYRQDPGMGLRLIHYSVGAGITDQGEVPNGYNVSRSTTEDFPLRLLSAAPSQTSVYFCASRPGLAGGRPEQYFGPGTRLTVTEDLKNVFPPEVAVFEPSEAEISHTQKATLVCLATGFYPDHVELSWWVNGKEVHSGVSTDPQPLKEQPALNDSRYALSSRLRVSATFWQNPRNHFRCQVQFYGLSENDEWTQDRAKPVTQIVSAEAWGRAD",
+    "ref_chain": "E"
+   }
+  ],
+  "ligands": [],
+  "n_res": 833
+ },
+ {
+  "id": "tubulin-taxol",
+  "name": "Taxol locks tubulin",
+  "pdb": "1JFF",
+  "uniprot": "P81947, Q6B856",
+  "story": "The building block of the cell skeleton, with taxol wedged in. The cancer drug from yew bark freezes it so tumour cells cannot divide.",
+  "why": "Two chains, three ligands and a drug every oncologist knows: the alpha/beta tubulin dimer with GTP, GDP and paclitaxel (Lowe et al., 2001).",
+  "chains": [
+   {
+    "id": "A",
+    "role": "alpha tubulin",
+    "sequence": "MRECISIHVGQAGVQIGNACWELYCLEHGIQPDGQMPSDKTIGGGDDSFNTFFSETGAGKHVPRAVFVDLEPTVIDEVRTGTYRQLFHPEQLITGKEDAANNYARGHYTIGKEIIDLVLDRIRKLADQCTGLQGFSVFHSFGGGTGSGFTSLLMERLSVDYGKKSKLEFSIYPAPQVSTAVVEPYNSILTTHTTLEHSDCAFMVDNEAIYDICRRNLDIERPTYTNLNRLIGQIVSSITASLRFDGALNVDLTEFQTNLVPYPRGHFPLATYAPVISAEKAYHEQLSVAEITNACFEPANQMVKCDPRHGKYMACCLLYRGDVVPKDVNAAIATIKTKRTIQFVDWCPTGFKVGINYEPPTVVPGGDLAKVQRAVCMLSNTTAIAEAWARLDHKFDLMYAKRAFVHWYVGEGMEEGEFSEAREDMAALEKDYEEVGVDSVEGEGEEEGEEY",
+    "ref_chain": "A"
+   },
+   {
+    "id": "B",
+    "role": "beta tubulin",
+    "sequence": "MREIVHIQAGQCGNQIGAKFWEVISDEHGIDPTGSYHGDSDLQLERINVYYNEAAGNKYVPRAILVDLEPGTMDSVRSGPFGQIFRPDNFVFGQSGAGNNWAKGHYTEGAELVDSVLDVVRKESESCDCLQGFQLTHSLGGGTGSGMGTLLISKIREEYPDRIMNTFSVVPSPKVSDTVVEPYNATLSVHQLVENTDETYCIDNEALYDICFRTLKLTTPTYGDLNHLVSATMSGVTTCLRFPGQLNADLRKLAVNMVPFPRLHFFMPGFAPLTSRGSQQYRALTVPELTQQMFDAKNMMAACDPRHGRYLTVAAVFRGRMSMKEVDEQMLNVQNKNSSYFVEWIPNNVKTAVCDIPPRGLKMSATFIGNSTAIQELFKRISEQFTAMFRRKAFLHWYTGEGMDEMEFTEAESNMNDLVSEYQQYQDATADEQGEFEEEGEEDEA",
+    "ref_chain": "B"
+   }
+  ],
+  "ligands": [
+   {
+    "id": "C",
+    "ccd": "GTP"
+   },
+   {
+    "id": "D",
+    "ccd": "GDP"
+   },
+   {
+    "id": "E",
+    "ccd": "TA1"
+   }
+  ],
+  "n_res": 896
+ },
+ {
+  "id": "keytruda",
+  "name": "Keytruda blocks PD-1",
+  "pdb": "5GGS",
+  "uniprot": "Q15116",
+  "story": "The best-selling cancer drug: an antibody that covers PD-1 so tumours cannot switch off the T cells attacking them.",
+  "why": "Pembrolizumab, the immunotherapy most visitors have heard of, as its Fab bound to human PD-1.",
+  "chains": [
+   {
+    "id": "H",
+    "role": "pembrolizumab heavy chain (Fab)",
+    "sequence": "QVQLVQSGVEVKKPGASVKVSCKASGYTFTNYYMYWVRQAPGQGLEWMGGINPSNGGTNFNEKFKNRVTLTTDSSTTTAYMELKSLQFDDTAVYYCARRDYRFDMGFDYWGQGTTVTVSSASTKGPSVFPLAPSSKSTSGGTAALGCLVKDYFPEPVTVSWNSGALTSGVHTFPAVLQSSGLYSLSSVVTVPSSSLGTQTYICNVNHKPSNTKVDKKVEPKSCDKTHHHHHH",
+    "ref_chain": "A"
+   },
+   {
+    "id": "L",
+    "role": "pembrolizumab light chain (Fab)",
+    "sequence": "EIVLTQSPATLSLSPGERATLSCRASKGVSTSGYSYLHWYQQKPGQAPRLLIYLASYLESGVPARFSGSGSGTDFTLTISSLEPEDFAVYYCQHSRDLPLTFGGGTKVEIKRTVAAPSVFIFPPSDEQLKSGTASVVCLLNNFYPREAKVQWKVDNALQSGNSQESVTEQDSKDSTYSLSSTLTLSKADYEKHKVYACEVTHQGLSSPVTKSFNRGEC",
+    "ref_chain": "B"
+   },
+   {
+    "id": "P",
+    "role": "PD-1",
+    "sequence": "DSPDRPWNPPTFSPALLVVTEGDNATFTCSFSNTSESFVLNWYRMSPSNQTDKLAAFPEDRSQPGQDSRFRVTQLPNGRDFHMSVVRARRNDSGTYLCGAISLAPKAQIKESLRAELRVTERR",
+    "ref_chain": "Z"
+   }
+  ],
+  "ligands": [],
+  "n_res": 573
+ },
+ {
+  "id": "paxlovid",
+  "name": "Paxlovid jams the coronavirus",
+  "pdb": "7SI9",
+  "ref": "7SI9-assembly1",
+  "uniprot": "P0DTD1",
+  "story": "The COVID pill at work: nirmatrelvir sitting in both halves of the enzyme the virus needs to copy itself.",
+  "why": "A drug designed in months during the pandemic, in its target: the main protease dimer with one nirmatrelvir in each active site.",
+  "chains": [
+   {
+    "id": "A",
+    "role": "main protease (Mpro)",
+    "sequence": "SGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICTSEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKVDTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIKGSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYGPFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLNDFNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNGMNGRTILGSALLEDEFTPFDVVRQCSGVTFQ",
+    "ref_chain": "A"
+   },
+   {
+    "id": "B",
+    "role": "main protease (Mpro)",
+    "sequence": "SGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICTSEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKVDTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIKGSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYGPFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLNDFNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNGMNGRTILGSALLEDEFTPFDVVRQCSGVTFQ",
+    "ref_chain": "A-2"
+   }
+  ],
+  "ligands": [
+   {
+    "id": "C",
+    "ccd": "4WI"
+   },
+   {
+    "id": "D",
+    "ccd": "4WI"
+   }
+  ],
+  "n_res": 612
  }
 ]

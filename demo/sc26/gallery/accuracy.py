@@ -10,7 +10,8 @@ register. Reports C-alpha RMSD after one rigid superposition of the whole comple
 chain, and the share of C-alpha atoms within 2 A. For hemes: heavy-atom RMSD of each heme after
 the protein superposition, matched by atom name. A pick may list `also_pdb`, other
 experimental states of the same protein (an RCSB file stem such as 2DN1-assembly1, with a
-chain map when the assembly renames copies), scored the same way. Reference files are fetched from RCSB once into
+chain map when the assembly renames copies), scored the same way. `ref` replaces the entry with
+such a file when the deposited unit is half of the complex (7SI9 holds one protease of the dimer). Reference files are fetched from RCSB once into
 runs/ref/; the demo itself never needs them.
 """
 import json
@@ -116,7 +117,7 @@ def main():
         meta = json.loads(mp.read_text())
         xyz = final_xyz(meta)
         at = meta["atoms"]
-        res = score(pick, xyz, at, pick["pdb"], al)
+        res = score(pick, xyz, at, pick.get("ref", pick["pdb"]), al)
         if pick.get("also_pdb"):
             res["also"] = [score(pick, xyz, at, p["pdb"], al, p.get("chains")) for p in pick["also_pdb"]]
         out[pick["id"]] = res
