@@ -3,13 +3,14 @@
 // A fold's real sampler states arrive faster than anyone can watch (an ESMFold2 fold's whole
 // diffusion takes a fraction of a second), so the stage plays them back over CONDENSE seconds and
 // says how much slower that is. A recorded fold whose diffusion took longer than CAP seconds on its
-// chip (a large Boltz-2 complex) plays over CAP seconds and says how much faster, so one large
-// complex does not hold the stage for a minute. Every real state is shown, in order, and held for the time the chip
-// took to produce it, scaled by one factor for the whole fold: a fold shown in real time keeps the
-// chip's own pace step by step, and "N× slower" is true of every step. The only motion that is not a sampler state is the renderer's short blend between two
-// consecutive states (`?ease=<s>`, default 0.12 s; `?ease=0` shows real states only). `step` and
-// `of` are the sampler's own step counter for the state on screen. The last frame is the scored
-// structure as the chip produced it.
+// chip (a large Boltz-2 complex) plays over CAP seconds and says how much faster, so one complex
+// does not hold the stage for a minute. Every real state is shown, in order, and held for the time
+// the chip took to produce it, scaled by one factor for the whole fold: a fold shown in real time
+// keeps the chip's own pace step by step, and "N× slower" or "N× faster" is true of every step. The
+// only motion that is not a sampler state is the renderer's short blend between two consecutive
+// states (`?ease=<s>`, default 0.12 s; `?ease=0` shows real states only). `step` and `of` are the
+// sampler's own step counter for the state on screen. The last frame is the scored structure as the
+// chip produced it.
 
 import { Renderer } from '../render/src/renderer.js';
 
