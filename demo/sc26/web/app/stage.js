@@ -73,7 +73,8 @@ export class Stage {
   }
 
   // The sampler step on screen: -1 is the starting noise, of - 1 the scored structure.
-  get step() { return this.r.step ?? -1; }
+  // before the replay starts the renderer can still report the last fold's final step
+  get step() { return this.t < this.holdNoise ? -1 : this.r.step ?? -1; }
   get of() { return this.fold?.of ?? 0; }
   get spread() { return this.spreads?.get(this.step) ?? 1; }
 
