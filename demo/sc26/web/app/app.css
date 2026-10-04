@@ -77,6 +77,7 @@ aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)
 #number { margin-top: calc(8 * var(--p)); font-size: calc(36 * var(--p)); font-weight: 400; line-height: 1; letter-spacing: -0.01em;
           color: var(--ink); white-space: nowrap; }
 #number:has(#num:empty) { visibility: hidden; }
+#number.none { display: none; }
 #number .dim { color: var(--ink3); }
 #number b { font-weight: 560; font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out the hyphen in Boltz-2 */
 #meta, #step { font-size: calc(15 * var(--p)); font-weight: 400; line-height: 1.5; color: var(--ink2); white-space: nowrap; }

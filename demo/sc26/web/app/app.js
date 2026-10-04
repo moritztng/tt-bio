@@ -299,7 +299,7 @@ function drawSide() {
       // with the chip because it is the same seconds; it stops when the fold lands
       src.textContent = m.chip != null ? `Folding on chip ${m.chip + 1}${named() ? ' with' : ''}` : '';
       setNumber(m.t0 ? byModel(m, '·', `${((performance.now() - m.t0) / 1000).toFixed(1)} s`) : '');
-      numBox.classList.remove('locked');
+      numBox.classList.remove('locked', 'none');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
       $('step').textContent = '';
       $('legend').classList.remove('on');
@@ -335,9 +335,11 @@ function clock(f) { return f.aiclk ? ` · AICLK ${Math.round(f.aiclk)} MHz` : ''
 // Every fold on the stage has already finished on its chip, so its time is a measured fact, shown
 // still from the first frame: nothing on the stage counts seconds. What moves is the sampler's own
 // step counter, and the line under it says how much slower than the chip the steps are replayed.
+// A gallery recording shows no time and no pace: the recorder wrote every sampler step to disk,
+// which made its diffusion about five times slower than a live fold, so its seconds undersell the chip.
 function drawNumber(f) {
-  const src = $('source'), box = $('number');
-  const st = stage.step, of = stage.of, k = stage.slowdown;
+  const src = $('source'), box = $('number'), live = f.source === 'live';
+  const st = stage.step, of = stage.of, k = live ? stage.slowdown : 0;
   const x = (r) => r >= 10 ? Math.round(r / 5) * 5 : Math.round(r);
   const pace = !k ? '' : k > 1.05 ? `\nReplayed ${x(k)}× slower than the chip ran it`
     : k < 0.95 ? `\nReplayed ${x(1 / k)}× faster than the chip ran it` : '\nReplayed at the chip’s own pace';
@@ -346,9 +348,10 @@ function drawNumber(f) {
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
   const by = named() ? 'by' : 'in';
-  src.textContent = f.source === 'live' && f.chip != null ? `Folded live on chip ${f.chip + 1} ${by}` : `Folded on this box ${by}`;
-  setNumber(byModel(f, 'in', `${f.seconds.toFixed(2)} s`));
+  src.textContent = !live ? 'Recorded on this box' : f.chip != null ? `Folded live on chip ${f.chip + 1} ${by}` : `Folded on this box ${by}`;
+  setNumber(live ? byModel(f, 'in', `${f.seconds.toFixed(2)} s`) : '');
   box.classList.add('locked');
+  box.classList.toggle('none', !live);
 }
 
 // A chip's row says what it is folding and which part of the model is running, with a bar for how
