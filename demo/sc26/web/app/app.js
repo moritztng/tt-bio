@@ -38,7 +38,7 @@ const NMODELS = Object.keys(MODEL).length;
 // The pitch, two lines. Its number is measured on this box; demo/sc26/README.md, "The claim",
 // has the measurement and why there is no GPU comparison, and the footer states the basis.
 const CLAIM = 'A $9,999 box that folds a protein every 3 seconds.';
-const SECOND = `Open source: all ${NMODELS} models run with tt-bio, MIT licensed.`;
+const SECOND = `Open source: all ${NMODELS} models run with TT-Bio, MIT licensed.`;
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
 

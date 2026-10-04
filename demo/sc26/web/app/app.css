@@ -38,7 +38,8 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 .marks b { font-weight: 560; font-size: calc(19 * var(--p)); letter-spacing: -0.005em; }
 /* the pitch: the claim, then one line under it */
 #sentence { margin: calc(40 * var(--p)) 0 0; width: calc(1100 * var(--p)); font-size: calc(22 * var(--p));
-            line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade); }
+            line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade);
+            font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out a hyphen */
 #sentence b { display: inline-block; margin-bottom: calc(6 * var(--p)); font-size: calc(36 * var(--p)); font-weight: 560;
               letter-spacing: -0.018em; line-height: 1.15; color: var(--ink); font-feature-settings: 'ss01', 'cv11'; }
 
@@ -116,7 +117,7 @@ footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 #qr b { color: var(--ink2); font-weight: 500; }
 /* where the claim's number comes from, readable up close and quiet from a distance */
 #basis { margin: 0 calc(48 * var(--p)) calc(4 * var(--p)) calc(64 * var(--p)); flex: 1; max-width: calc(760 * var(--p));
-         font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); }
+         font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-feature-settings: 'ss01', 'cv11'; }
 #invite { margin: 0; width: calc(432 * var(--p)); font-size: calc(22 * var(--p)); font-weight: 500; color: var(--ink); }
 #invite kbd, #typing kbd { font: inherit; font-size: 0.72em; font-weight: 600; display: inline-block; padding: 0.12em 0.5em; margin: 0 0.12em;
             border: 1px solid var(--ink3); border-radius: 0.3em; color: var(--ink); vertical-align: 0.1em; }

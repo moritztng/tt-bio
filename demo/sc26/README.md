@@ -46,7 +46,7 @@ own `dtype=torch.bfloat16`, within 0.54 A CA RMSD of fp32. Against an H200 card 
 is 1.6 times the folds per dollar here, before the H200's server and before its fused kernels,
 which we did not try.
 
-The second line is a fact about the code: every model in the lineup runs with tt-bio, which is
+The second line is a fact about the code: every model in the lineup runs with TT-Bio, which is
 public under the MIT licence.
 
 ## Time on screen
