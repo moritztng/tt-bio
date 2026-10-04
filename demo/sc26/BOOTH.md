@@ -1,7 +1,7 @@
 # TT-Bio at the booth
 
 An AI predicts the 3D shape of a protein from its sequence, live, on the four Tenstorrent Blackhole
-chips inside this QuietBox. Visitors type their name and watch it fold. Nobody needs to log in or
+chips inside this QuietBox. The screen folds one protein after another by itself. Nobody needs to log in or
 touch the box once it is on.
 
 ## Set up
@@ -10,8 +10,8 @@ touch the box once it is on.
 2. **Screen:** HDMI cable from the box's **motherboard panel** (the HDMI port among the USB ports)
    to the screen. The Tenstorrent cards have no display output; plug nothing into their brackets.
    Switch the screen on and set its input to that HDMI. **Connect the screen before powering on.**
-3. **Keyboard:** a USB keyboard in any USB port. This is what visitors type on. A touch screen
-   also needs its USB cable.
+3. **Keyboard:** a USB keyboard in any USB port. Visitors do not type for now; it is for Tab and Esc. A
+   touch screen also needs its USB cable.
 4. **Network (optional):** booth Ethernet into the box's network port. The demo never uses it; it
    only lets us help remotely.
 5. **Power:** plug in, press the power button once.
@@ -25,7 +25,8 @@ touch the box once it is on.
 | ~1½ min | the label turns **Live on four Blackhole chips** and each chip row names what it is folding |
 
 A chip row that says *recovering* or *resetting* for a few minutes is the box repairing that chip
-while the others carry on; leave it. Visitors type letters and press Enter to fold; Esc goes back. **Tab** shows the four chips'
+while the others carry on; leave it. Typing a name to fold it is switched off for now (`?visitors=1` on the kiosk URL brings it
+back). **Tab** shows the four chips'
 power, temperature and what each is folding, Tab again returns. After a minute without input the screen goes back to
 the loop by itself.
 

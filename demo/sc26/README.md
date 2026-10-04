@@ -26,8 +26,8 @@ The left edge lists every model tt-bio runs on Tenstorrent hardware, grouped by 
 `tt_bio/main.py`), one entry per model family, without Protenix-v2, whose weights' licence is
 unresolved. Boltz-2 is lit: it is the model the booth runs.
 
-Every fold on the stage is Boltz-2. The four chips fold the attract proteins and visitors' names
-live, each chip with its own resident copy, and between them the screen plays larger Boltz-2
+Every fold on the stage is Boltz-2. The four chips fold the attract proteins (and visitors' names, when
+`?visitors=1` turns typing back on; it is off for now) live, each chip with its own resident copy, and between them the screen plays larger Boltz-2
 complexes recorded on this box. The attract proteins read MSAs searched ahead of time
 (`engine/msa/`); a name folds from its sequence alone, so the booth never needs the network.
 

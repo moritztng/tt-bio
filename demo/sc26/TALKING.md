@@ -5,11 +5,9 @@ number that is not here, say you will find out; do not estimate.
 
 ## Start a conversation
 
-- "Type your name on the keyboard. Every letter becomes an amino acid, and those chips fold it
-  in about a second."
 - "That cloud is the model's real working. Each step you see is a state the chip computed, not an
   animation."
-- "Press Tab and you can watch the four chips: clock, power, temperature, live."
+- "Press Tab and you can watch the four chips: power, temperature and what each one folds, live."
 
 ## Thirty seconds, for anyone
 

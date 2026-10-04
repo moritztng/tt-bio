@@ -5,7 +5,8 @@
 //   ?hold=<s>      how long a folded protein holds in attract, default 10
 //   ?selftest=reset  drive every state and log PASS/FAIL per reset to the console
 //   ?selftest=kiosk  check the kiosk properties the page enforces
-//   ?walk=<name>     type <name> after ?after=<s> seconds, for a recorded walkthrough
+//   ?visitors=1      let visitors type a name and fold it (off for now: the attract loop runs alone)
+//   ?walk=<name>     type <name> after ?after=<s> seconds, for a recorded walkthrough (needs ?visitors=1)
 //   ?stream=<ws url> another engine's stream, default this origin's /stream
 //   ?play=<url>      play only this recording, over and over, for a look-test of one fold
 //   ?orbit=<deg/s>   how fast a finished structure turns, default 5; 0 holds the landing view
@@ -21,6 +22,8 @@ import { kiosk, guardLoop } from './kiosk.js';
 const q = new URLSearchParams(location.search);
 const IDLE = 1000 * (parseFloat(q.get('idle')) || 60);
 const HOLD = parseFloat(q.get('hold')) || 10;
+// Typing a name to fold it. Hidden for now (Moritz, 5 Oct 2026): no prompt, no keys, typing starts nothing.
+const VISITORS = q.get('visitors') === '1';
 const WORD = ['no', 'one', 'two', 'three', 'four'];
 // Every model tt-bio runs on Tenstorrent hardware, by what it does: tt-bio main's tt_bio/main.py
 // PREDICT_MODELS, DESIGN_MODELS, EMBED_MODELS + SAPROT_MODELS and AFFINITY_MODELS, one entry per
@@ -161,7 +164,7 @@ addEventListener('keydown', (e) => {
   }
   const letter = /^[a-zA-ZÀ-ɏ]$/.test(k);
   if (app.state === 'attract' || app.state === 'result' || app.state === 'depth') {
-    if (letter) { startTyping(); type(k); }
+    if (letter && VISITORS) { startTyping(); type(k); }
     return;
   }
   if (app.state === 'typing') {
@@ -184,7 +187,7 @@ addEventListener('pointerdown', (e) => {
   app.lastInput = performance.now();
   if (e.pointerType === 'mouse') return;
   document.body.classList.add('touch');
-  if (app.state === 'attract' || app.state === 'result') startTyping();
+  if (VISITORS && (app.state === 'attract' || app.state === 'result')) startTyping();
 });
 buildKeys();
 // while waiting there are no keys on screen; the invite line is the way back
@@ -276,7 +279,7 @@ function drawTyping() {
 function drawInvite() {
   const s = app.state;
   $('invite').innerHTML =
-    s === 'attract' ? (liveChips() ? 'Type your name <span class="dim">and watch it fold.</span>' : '')
+    s === 'attract' ? (VISITORS && liveChips() ? 'Type your name <span class="dim">and watch it fold.</span>' : '')
     : s === 'typing' ? (app.text.trim() ? '<kbd>Enter</kbd> to fold <span class="dim">&nbsp;</span><kbd>Esc</kbd> to go back' : '<kbd>Esc</kbd> to go back')
     : s === 'waiting' ? (document.body.classList.contains('touch') ? '<span class="dim">Tap here to go back</span>' : '<kbd>Esc</kbd> to go back')
     : s === 'result' ? 'Type another name <span class="dim">or</span> <kbd>Esc</kbd>'
