@@ -6,9 +6,14 @@ Reads jobs from stdin, one JSON object per line ({"id", "sequence", "seed"?, "st
 writes protocol events (demo/sc26/PROTOCOL.md) to stdout, one JSON object per line. Every
 library print is moved to stderr at startup, so stdout carries events and nothing else.
 
-The frames are the diffusion sampler's own coordinates, taken through the default-off hook in
-tt_bio.esmfold2 (set_trajectory_dump). Nothing is interpolated. The last frame's coordinates are
-the scored structure's, bit for bit.
+--model picks ESMFold2 or Boltz-2. The frames are the diffusion sampler's own coordinates, taken
+through the default-off hooks in tt_bio.esmfold2 (set_trajectory_dump) and tt_bio.boltz2
+(Boltz2.dump_fn). Nothing is interpolated. The last frame's coordinates are the scored structure's,
+bit for bit.
+
+Boltz-2 reads a protein's MSA from --msa-dir when one was searched ahead of time (the attract
+proteins, demo/sc26/engine/msa) and folds single-sequence otherwise (a visitor's name). The booth
+never touches the network.
 
 SIGUSR1 drops the fold in progress and keeps the worker warm (a visitor preempting an attract
 fold). SIGINT drops it and exits cleanly, which leaves the chip usable. SIGKILL does not, so the
@@ -105,12 +110,75 @@ class Aborted(Exception):
     pass
 
 
+class boltz2_runner:
+    """Boltz-2 kept warm on this chip, loaded and featurised exactly as `tt-bio predict` does
+    (tt_bio.main.boltz2_kwargs, tt_bio.worker._WorkerState), with no output files written."""
+
+    def __init__(self, args, emit):
+        from tt_bio import main as M
+        from tt_bio.worker import _WorkerState
+        self.M, self.msa_dir = M, Path(args.msa_dir)
+        args.loops = args.loops or M._resolve_recycling_steps(None, "boltz2")
+        args.steps = args.steps or M._resolve_sampling_steps(None, "boltz2")
+        cache = Path(os.environ.get("BOLTZ_CACHE", Path.home() / ".boltz"))
+        conf, _ = M.boltz2_kwargs(args.loops, args.steps)
+        self.st = _WorkerState("tenstorrent")
+        self.st.load_model({"model": "boltz2", "conf_ckpt": str(cache / "boltz2_conf.ckpt"),
+                            "conf_kwargs": conf, "mol_dir": str(cache / "mols")})
+        self.model = self.st.model
+
+    def prepare(self, seq):
+        import tempfile
+        import torch
+        from tt_bio._vendor.esm.models.esmfold2.output import get_element_symbol
+        h = self.M.seq_hash(seq)
+        searched = any((self.msa_dir / f"{h}.{x}").is_file() for x in ("a3m", "csv"))
+        with tempfile.TemporaryDirectory() as td:
+            y = Path(td) / "fold.yaml"
+            y.write_text(f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {seq}\n")
+            feats, _ = self.M.prepare_features(
+                y, ccd=self.st._ccd, mol_dir=self.st._mol_dir, msa_dir=self.msa_dir,
+                tokenizer=self.st._tokenizer, featurizer=self.st._featurizer, use_msa=False,
+                msa_url="", msa_strategy="greedy", msa_user=None, msa_pass=None, api_key=None,
+                max_msa=8192, single_sequence=not searched)
+        mask = torch.as_tensor(feats["atom_pad_mask"]).bool()
+        atoms = {
+            "element": [get_element_symbol(int(z)) for z in torch.as_tensor(feats["ref_element"])[mask].argmax(-1)],
+            "name": ["".join(chr(int(c) + 32) for c in n if int(c)).strip()
+                     for n in torch.as_tensor(feats["ref_atom_name_chars"])[mask].argmax(-1)],
+            "residue": torch.as_tensor(feats["atom_to_token"])[mask].argmax(-1).tolist(),
+        }
+        return {"feats": feats, "mask": mask, "atoms": atoms, "msa": searched}
+
+    def fold(self, prep, seed, progress, dump):
+        import torch
+        from tt_bio.runtime import seed_everything
+        seed_everything(seed)
+        batch = self.M.to_batch(prep["feats"], self.st.torch_device)
+        self.model.progress_fn, self.model.dump_fn = progress, dump
+        try:
+            with torch.no_grad():
+                pred = self.model.predict_step(batch)
+        finally:
+            self.model.progress_fn = self.model.dump_fn = None
+        if pred.get("exception"):
+            raise RuntimeError("Boltz-2 predict_step: Out of Memory")
+        ntok = int(prep["feats"]["token_pad_mask"].sum())
+        return pred["coords"][0].cpu(), pred["plddt"][0][:ntok].tolist(), round(float(pred["ptm"][0]), 4)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--chip", type=int, required=True, help="UMD chip id this worker is pinned to")
-    ap.add_argument("--model", default="esmfold2", choices=["esmfold2"])
-    ap.add_argument("--steps", type=int, default=20, help="diffusion steps (the model default)")
-    ap.add_argument("--loops", type=int, default=3, help="trunk recycles (the model default)")
+    ap.add_argument("--model", default="esmfold2", choices=["esmfold2", "boltz2"])
+    ap.add_argument("--steps", type=int, default=None,
+                    help="diffusion steps; default the model's own (ESMFold2 20, Boltz-2 tt-bio predict's)")
+    ap.add_argument("--loops", type=int, default=None,
+                    help="trunk recycles; default the model's own (ESMFold2 3, Boltz-2 tt-bio predict's)")
+    ap.add_argument("--msa-dir", default=str(Path(__file__).resolve().parent / "msa"),
+                    help="Boltz-2: MSAs searched ahead of time, by tt-bio's sequence hash")
+    ap.add_argument("--warm", default="", help="Boltz-2: a JSON list of {sequence} folded once before "
+                    "the chip says ready, so no shown fold carries a compile")
     ap.add_argument("--workers", type=int, default=1, help="chip workers sharing this host's CPU")
     args = ap.parse_args()
     # Each worker takes its share of the host. Left at torch's default, four pools of all cores
@@ -153,26 +221,36 @@ def main():
     from tt_bio._vendor.esm.models.esmfold2.processor import _seed_context
 
     get_device()
-    model = load_ttnn_esmfold2()
-    model._esmc.preload()
-    builder = ESMFold2InputBuilder()
+    if args.model == "boltz2":
+        run = boltz2_runner(args, emit)
+    else:
+        model = load_ttnn_esmfold2()
+        model._esmc.preload()
+        builder = ESMFold2InputBuilder()
+        args.steps, args.loops = args.steps or 20, args.loops or 3
     install_handlers()
+    loud, quiet = emit, lambda **ev: None
 
     def fold(job):
+        emit = quiet if job.get("quiet") else loud
         jid, seq = job["id"], job["sequence"].strip().upper()
         seed, steps = int(job.get("seed", 0)), int(job.get("steps", args.steps))
-        features, chain_infos = builder.prepare_input(build_spi([("A", seq)]), seed=seed,
-                                                      device=model.device)
-        mask = features["atom_attention_mask"][0].bool()
-        atoms = {
-            "element": [get_element_symbol(int(z)) for z in features["ref_element"][0][mask]],
-            "name": ["".join(chr(int(c) + 32) for c in n if int(c)).strip()
-                     for n in features["ref_atom_name_chars"][0][mask]],
-            "residue": features["atom_to_token"][0][mask].tolist(),
-        }
+        if args.model == "boltz2":
+            prep = run.prepare(seq)
+            mask, atoms = prep["mask"], prep["atoms"]
+        else:
+            features, chain_infos = builder.prepare_input(build_spi([("A", seq)]), seed=seed,
+                                                          device=model.device)
+            mask = features["atom_attention_mask"][0].bool()
+            atoms = {
+                "element": [get_element_symbol(int(z)) for z in features["ref_element"][0][mask]],
+                "name": ["".join(chr(int(c) + 32) for c in n if int(c)).strip()
+                         for n in features["ref_atom_name_chars"][0][mask]],
+                "residue": features["atom_to_token"][0][mask].tolist(),
+            }
         n_atoms = int(mask.sum())
         t_start = time.perf_counter()
-        phase = {"stage": "lm", "t": t_start}
+        phase = {"stage": "lm" if args.model == "esmfold2" else "trunk", "t": t_start}
         stamps = {}
 
         def progress(stage, step=0, total=0):
@@ -198,6 +276,8 @@ def main():
         def dump(step, x, x_den):
             if abort.is_set() or cancel.is_set():
                 raise Aborted()
+            x = x.detach().float().cpu()
+            x_den = x_den.detach().float().cpu() if x_den is not None else None
             raw = x[0][mask]
             ref = x_den[0][mask] if x_den is not None else raw
             # Display alignment onto ONE fixed reference, the fold's first x0 (the network's first
@@ -224,26 +304,39 @@ def main():
         emit(type="fold_start", id=jid, chip=args.chip, model=args.model, sequence=seq,
              n_res=len(seq), n_atoms=n_atoms, steps=steps, loops=args.loops, seed=seed, atoms=atoms,
              rg_expected=round(2.2 * len(seq) ** 0.38, 2), source="live")
-        E.set_progress(progress)
-        E.set_trajectory_dump(dump if job.get("frames", True) else stop_check)
-        try:
-            with clock, torch.no_grad(), _seed_context(seed):
-                out = model(**features, num_loops=args.loops, num_sampling_steps=steps,
-                            num_diffusion_samples=1, early_exit=False)
-            res = builder.decode(out, features, chain_infos, num_diffusion_samples=1)
-        finally:
-            E.set_progress(None)
-            E.set_trajectory_dump(None)
+        hook = dump if job.get("frames", True) else stop_check
+        if args.model == "boltz2":
+            with clock:
+                final, plddt, ptm = run.fold(prep, seed, progress, hook)
+            final = final[mask]
+        else:
+            E.set_progress(progress)
+            E.set_trajectory_dump(hook)
+            try:
+                with clock, torch.no_grad(), _seed_context(seed):
+                    out = model(**features, num_loops=args.loops, num_sampling_steps=steps,
+                                num_diffusion_samples=1, early_exit=False)
+                res = builder.decode(out, features, chain_infos, num_diffusion_samples=1)
+            finally:
+                E.set_progress(None)
+                E.set_trajectory_dump(None)
+            final, plddt, ptm = out["sample_atom_coords"][0][mask], res.plddt.flatten().tolist(), res.ptm
         stamps[phase["stage"]] = time.perf_counter() - phase["t"]
         total = time.perf_counter() - t_start
-        final = out["sample_atom_coords"][0][mask]
         emit(type="fold_done", id=jid, chip=args.chip, model=args.model, n_res=len(seq),
              seconds=round(total, 3), stages={k: round(v, 3) for k, v in stamps.items()},
              aiclk_mhz=clock.summary(), xyz=f32(final),
-             plddt=[round(float(v), 4) for v in res.plddt.flatten().tolist()],
-             ptm=res.ptm, source="live")
-        return res
+             plddt=[round(float(v), 4) for v in plddt], ptm=ptm, source="live")
 
+    busy.set()
+    try:
+        for i, w in enumerate(json.loads(Path(args.warm).read_text()) if args.warm else []):
+            emit(type="chip", chip=args.chip, state="warming", warm=i)   # the engine's watchdog sees it alive
+            fold({"id": f"warm{i}", "sequence": w["sequence"], "frames": False, "quiet": True})
+    except Aborted:
+        emit(type="chip", chip=args.chip, state="stopped")
+        return
+    busy.clear()
     emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=clock.read(),
          load_s=round(time.perf_counter() - t0, 1), model=args.model)
     try:

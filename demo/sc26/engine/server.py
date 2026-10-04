@@ -61,6 +61,7 @@ class Chip:
     def __init__(self, svc, chip, args):
         self.svc, self.chip, self.args = svc, chip, args
         self.node = chip
+        self.model = args.models[chip % len(args.models)]   # several models: the chips take turns
         self.state, self.job, self.proc = "starting", None, None
         self.folds, self.last_event, self.ready_at, self.restarts = 0, time.monotonic(), None, 0
         self.last_fold = None
@@ -81,7 +82,8 @@ class Chip:
             self.set_state("warming")
             self.proc = await asyncio.create_subprocess_exec(
                 sys.executable, "-u", str(HERE / "chipworker.py"), "--chip", str(self.chip),
-                "--workers", str(len(self.svc.chips)),
+                "--workers", str(len(self.svc.chips)), "--model", self.model,
+                *(["--warm", self.args.attract] if self.model == "boltz2" and self.args.attract else []),
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
                 stderr=open(self.svc.logdir / f"chip{self.chip}.stderr", "a"), env=env,
                 limit=64 * 1024 * 1024)
@@ -155,7 +157,7 @@ class Chip:
         self.job, self.state = job, "busy"
         self.job["chip"], self.job["started"] = self.chip, time.monotonic()
         self.proc.stdin.write((json.dumps({k: job[k] for k in ("id", "sequence", "seed")}) + "\n").encode())
-        self.svc.ledger("start", self.chip, model="esmfold2", name=job.get("name"), residues=len(job["sequence"]))
+        self.svc.ledger("start", self.chip, model=self.model, name=job.get("name"), residues=len(job["sequence"]))
 
     def preempt(self):
         if self.proc and self.proc.returncode is None:
@@ -173,7 +175,8 @@ class Replay:
     def __init__(self, svc, dirs):
         self.svc = svc
         files = [f for d in dirs for f in Path(d).glob("*.jsonl")
-                 if any('"type":"fold_done"' in l for l in open(f))]
+                 if json.loads(open(f).readline()).get("model") in svc.args.models
+                 and any('"type":"fold_done"' in l for l in open(f))]
         # largest first, so the first replays after a start are the big complexes
         self.files = sorted(files, key=lambda f: (-json.loads(open(f).readline()).get("n_res", 0), f.name))
         self.task = None
@@ -379,7 +382,7 @@ class Service:
         f.write(raw + "\n")
 
     def status(self):
-        return {"type": "status", "chips": [c.status() for c in self.chips],
+        return {"type": "status", "models": self.args.models, "chips": [c.status() for c in self.chips],
                 "queue": len(self.visitors), "replays": len(self.replay.files), "t_wall": time.time()}
 
     async def watchdog(self):
@@ -546,6 +549,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--chips", default="", help="UMD chip ids, e.g. 0,1,2,3; empty for replay only")
     ap.add_argument("--replay-only", action="store_true")
+    ap.add_argument("--models", default="boltz2",
+                    help="what the booth folds with, comma-separated (boltz2, esmfold2); with several the "
+                    "chips take turns and the screen names each fold's model. Recordings of other models are not played")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8626)
     ap.add_argument("--static", default=str(DEMO / "web"))
@@ -576,6 +582,7 @@ def main():
     ap.add_argument("--preempt-after", type=float, default=1.0,
                     help="seconds a visitor waits for a chip before an attract fold is dropped for it")
     args = ap.parse_args()
+    args.models = [m.strip() for m in args.models.split(",") if m.strip()]
     args.chips = [] if args.replay_only else [int(c) for c in args.chips.split(",") if c.strip()]
     args.replay = args.replay or [str(DEMO / "gallery" / "trajectories"), str(HERE / "recordings")]
     if not args.attract or not Path(args.attract).is_file():

@@ -2930,6 +2930,53 @@ def _grouped_defaults(table, default, models):
     return "; ".join(f"{v} for {', '.join(ms)}" for v, ms in ordered)
 
 
+def boltz2_kwargs(recycling_steps, sampling_steps, *, diffusion_samples=1, max_parallel_samples=5,
+                  step_scale=None, subsample_msa=False, num_subsampled_msa=1024, use_potentials=False,
+                  no_kernels=False, use_tt=True, trace=False, diffusion_trace=False,
+                  sampling_steps_affinity=200, diffusion_samples_affinity=5,
+                  affinity_mw_correction=False):
+    """Boltz-2's structure and affinity model arguments, as ``tt-bio predict`` builds them. The
+    keyword defaults are predict's own option defaults, so an in-process caller (the SC26 booth's
+    chip worker) loads the model exactly as the CLI does. Returns (conf_kwargs, aff_kwargs)."""
+    _diffusion = {"step_scale": step_scale or 1.5, "gamma_0": 0.8, "gamma_min": 1.0,
+                  "noise_scale": 1.003, "rho": 7, "sigma_min": 0.0001, "sigma_max": 160.0,
+                  "sigma_data": 16.0, "P_mean": -1.2, "P_std": 1.5,
+                  "coordinate_augmentation": True, "alignment_reverse_diff": True,
+                  "synchronize_sigmas": True}
+    _pairformer = {"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True}
+    _msa = {"subsample_msa": subsample_msa, "num_subsampled_msa": num_subsampled_msa,
+            "use_paired_feature": True,
+            # Required by the non-tenstorrent (PyTorch reference) MSAModule path; the
+            # tenstorrent path builds tenstorrent.MSAModule(n_blocks=4,...) and ignores
+            # this dict, so adding these keys is a no-op for device runs. Values mirror
+            # the boltz2_conf/aff checkpoint hparams so the CPU/host path matches the
+            # reference implementation exactly.
+            "msa_s": 64, "msa_blocks": 4, "msa_dropout": 0.15, "z_dropout": 0.25,
+            "pairwise_head_width": 32, "pairwise_num_heads": 4,
+            "activation_checkpointing": True}
+    conf_kwargs = dict(
+        predict_args={"recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
+                      "diffusion_samples": diffusion_samples, "max_parallel_samples": max_parallel_samples},
+        diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
+        steering_args={"fk_steering": use_potentials, "physical_guidance_update": use_potentials,
+                       "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
+                       "fk_resampling_interval": 3, "num_gd_steps": 20},
+        use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=trace,
+        diffusion_trace=diffusion_trace,
+    )
+    aff_kwargs = dict(
+        predict_args={"recycling_steps": 5, "sampling_steps": sampling_steps_affinity,
+                      "diffusion_samples": diffusion_samples_affinity, "max_parallel_samples": 1},
+        diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
+        steering_args={"fk_steering": False, "physical_guidance_update": False,
+                       "contact_guidance_update": False, "num_particles": 3, "fk_lambda": 4.0,
+                       "fk_resampling_interval": 3, "num_gd_steps": 20},
+        affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=trace,
+        diffusion_trace=diffusion_trace,
+    )
+    return conf_kwargs, aff_kwargs
+
+
 def _resolve_recycling_steps(recycling_steps, model):
     """Per-model default trunk-recycling count when --recycling_steps is unset (None).
 
@@ -3489,42 +3536,14 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if method and method.lower() not in const.method_types_ids:
         raise ValueError(f"Unknown method: {method}")
 
-    _diffusion = {"step_scale": step_scale or 1.5, "gamma_0": 0.8, "gamma_min": 1.0,
-                  "noise_scale": 1.003, "rho": 7, "sigma_min": 0.0001, "sigma_max": 160.0,
-                  "sigma_data": 16.0, "P_mean": -1.2, "P_std": 1.5,
-                  "coordinate_augmentation": True, "alignment_reverse_diff": True,
-                  "synchronize_sigmas": True}
-    _pairformer = {"num_blocks": 64, "num_heads": 16, "dropout": 0.0, "v2": True}
-    _msa = {"subsample_msa": subsample_msa, "num_subsampled_msa": num_subsampled_msa,
-            "use_paired_feature": True,
-            # Required by the non-tenstorrent (PyTorch reference) MSAModule path; the
-            # tenstorrent path builds tenstorrent.MSAModule(n_blocks=4,...) and ignores
-            # this dict, so adding these keys is a no-op for device runs. Values mirror
-            # the boltz2_conf/aff checkpoint hparams so the CPU/host path matches the
-            # reference implementation exactly.
-            "msa_s": 64, "msa_blocks": 4, "msa_dropout": 0.15, "z_dropout": 0.25,
-            "pairwise_head_width": 32, "pairwise_num_heads": 4,
-            "activation_checkpointing": True}
-    conf_kwargs = dict(
-        predict_args={"recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
-                      "diffusion_samples": diffusion_samples, "max_parallel_samples": max_parallel_samples},
-        diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
-        steering_args={"fk_steering": use_potentials, "physical_guidance_update": use_potentials,
-                       "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
-                       "fk_resampling_interval": 3, "num_gd_steps": 20},
-        use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=trace,
-        diffusion_trace=diffusion_trace,
-    )
-    aff_kwargs = dict(
-        predict_args={"recycling_steps": 5, "sampling_steps": sampling_steps_affinity,
-                      "diffusion_samples": diffusion_samples_affinity, "max_parallel_samples": 1},
-        diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
-        steering_args={"fk_steering": False, "physical_guidance_update": False,
-                       "contact_guidance_update": False, "num_particles": 3, "fk_lambda": 4.0,
-                       "fk_resampling_interval": 3, "num_gd_steps": 20},
-        affinity_mw_correction=affinity_mw_correction, use_tenstorrent=use_tt, trace=trace,
-        diffusion_trace=diffusion_trace,
-    )
+    conf_kwargs, aff_kwargs = boltz2_kwargs(
+        recycling_steps, sampling_steps, diffusion_samples=diffusion_samples,
+        max_parallel_samples=max_parallel_samples, step_scale=step_scale, subsample_msa=subsample_msa,
+        num_subsampled_msa=num_subsampled_msa, use_potentials=use_potentials, no_kernels=no_kernels,
+        use_tt=use_tt, trace=trace, diffusion_trace=diffusion_trace,
+        sampling_steps_affinity=sampling_steps_affinity,
+        diffusion_samples_affinity=diffusion_samples_affinity,
+        affinity_mw_correction=affinity_mw_correction)
 
     results_path = out / "results.json"
 
