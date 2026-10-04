@@ -93,7 +93,8 @@ const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting:
 function paintLane({ el, q }, c) {
   const live = c.state !== "resetting";
   el.dataset.state = c.state;
-  q.state.textContent = STATE_WORD[c.state] ?? c.state;
+  // a folding chip names its model where the state word goes, in the accent colour
+  q.state.textContent = c.folding ? MODEL[c.folding.model] ?? c.folding.model ?? "folding" : STATE_WORD[c.state] ?? c.state;
   q.clk.textContent = live ? fmt(c.aiclk_mhz) : "—";
   q.bar.style.width = live ? `${100 * clamp01((c.aiclk_mhz - CLOCK[0]) / (CLOCK[1] - CLOCK[0]))}%` : "0%";
   q.pw.innerHTML = live ? `${fmt(c.power_w)}<small>W</small>` : "—";
@@ -109,8 +110,8 @@ function paintLane({ el, q }, c) {
     (last.aiclk_during ? ` at ${last.aiclk_during.median} MHz` : "") : "";
   if (f) {
     // no running seconds here: the one clock on screen is the stage's (demo/sc26/README.md)
-    q.what.textContent = [MODEL[f.model] ?? f.model, f.name].filter(Boolean).join(" · ");
-    q.detail.textContent = `${f.residues ?? "?"} residues`;
+    q.what.textContent = f.name ?? "A protein";
+    q.detail.textContent = `${MODEL[f.model] ?? f.model} · ${f.residues ?? "?"} residues`;
   } else if (c.state === "resetting") {
     q.what.textContent = "Resetting";
     q.detail.textContent = "readings return when the chip does";

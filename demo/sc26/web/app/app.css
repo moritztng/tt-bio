@@ -1,6 +1,6 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel.
-   One type scale, in frame pixels: 12 caps labels, 15 small text, 18 body, 22 the sentence,
-   36 the protein's name. Numbers in tabular figures. */
+   One type scale, in frame pixels: 12 caps labels, 15 small text, 17 the lineup, 18 body, 22 the
+   line under the claim, 36 the claim and the protein's name. Numbers in tabular figures. */
 @import url(palette.css);
 @font-face { font-family: Inter; src: url(fonts/InterVariable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
 
@@ -21,8 +21,8 @@ img { pointer-events: none; }
 
 canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
                transition: opacity 600ms var(--fade);
-               /* the opening noise is wider than the screen: keep it off the right column and the sentence */
-               mask-image: linear-gradient(to right, #000 62%, transparent 71%),
+               /* the opening noise is wider than the screen: keep it off the lineup, the right column and the pitch */
+               mask-image: linear-gradient(to right, transparent 14%, #000 19%, #000 62%, transparent 71%),
                            linear-gradient(to bottom, transparent 15%, #000 24%);
                mask-composite: intersect; }
 
@@ -36,9 +36,25 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 .marks img { height: calc(22 * var(--p)); }
 .marks i { width: 1px; height: calc(18 * var(--p)); background: var(--ink3); }
 .marks b { font-weight: 560; font-size: calc(19 * var(--p)); letter-spacing: -0.005em; }
-#sentence { margin: calc(44 * var(--p)) 0 0; width: calc(820 * var(--p)); font-size: calc(22 * var(--p));
-            line-height: 1.4; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade); }
-#sentence b { font-weight: 500; color: var(--ink); }
+/* the pitch: the claim, then one line under it */
+#sentence { margin: calc(40 * var(--p)) 0 0; width: calc(1100 * var(--p)); font-size: calc(22 * var(--p));
+            line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade); }
+#sentence b { display: inline-block; margin-bottom: calc(6 * var(--p)); font-size: calc(36 * var(--p)); font-weight: 560;
+              letter-spacing: -0.018em; line-height: 1.15; color: var(--ink); }
+
+/* the lineup: every model, down the left edge; the one on the stage is lit */
+#lineup { position: fixed; left: calc(96 * var(--p)); top: calc(300 * var(--p)); width: calc(200 * var(--p));
+          transition: opacity 600ms var(--fade); }
+#lineup section + section { margin-top: calc(22 * var(--p)); }
+#lineup h2 { margin: 0 0 calc(8 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--ink3); }
+#lineup ul { list-style: none; margin: 0; padding: 0; }
+#lineup li { position: relative; font-size: calc(17 * var(--p)); line-height: 1.6; font-weight: 400; color: var(--ink2);
+             font-feature-settings: 'ss01', 'cv11'; white-space: nowrap; transition: color 400ms var(--fade); }
+#lineup li.on { color: var(--ink); font-weight: 560; }
+#lineup li.on::before { content: ''; position: absolute; left: calc(-18 * var(--p)); top: 50%; width: calc(6 * var(--p));
+                        height: calc(6 * var(--p)); margin-top: calc(-3 * var(--p)); border-radius: 50%; background: var(--live); }
+body[data-state=typing] #lineup, body[data-state=waiting] #lineup { opacity: 0; }
 #tag { position: absolute; right: 0; top: 0; height: calc(22 * var(--p)); display: flex; align-items: center;
        gap: calc(10 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
        color: var(--ink2); text-transform: uppercase; }
@@ -142,3 +158,4 @@ body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom
 
 /* a chip that died says so while it comes back */
 #chips li.recovering .what { color: var(--ember, #ffa866); }
+#chips li .what b { font-weight: 500; }

@@ -1,0 +1,1406 @@
+{
+ "sequence_len": 300,
+ "depth": 8,
+ "window_s": 180.0,
+ "folds": 61,
+ "folds_per_s": 0.3388888888888889,
+ "median_fold_s": 11.406,
+ "per_chip": {
+  "0": 15,
+  "1": 15,
+  "2": 16,
+  "3": 15
+ },
+ "t_start": 1791122869.24239,
+ "t_stop": 1791123049.24239,
+ "events": [
+  {
+   "id": "v23587",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 16.41,
+   "stages": {
+    "lm": 2.454,
+    "trunk": 12.556,
+    "diffusion": 0.414,
+    "confidence": 0.987
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 50
+   },
+   "t_wall": 1791122856.8569157,
+   "warm": true
+  },
+  {
+   "id": "v23586",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 16.687,
+   "stages": {
+    "lm": 2.484,
+    "trunk": 12.74,
+    "diffusion": 0.416,
+    "confidence": 1.047
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 50
+   },
+   "t_wall": 1791122857.1070127,
+   "warm": true
+  },
+  {
+   "id": "v23589",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 15.807,
+   "stages": {
+    "lm": 2.227,
+    "trunk": 12.326,
+    "diffusion": 0.528,
+    "confidence": 0.726
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 48
+   },
+   "t_wall": 1791122857.340395,
+   "warm": true
+  },
+  {
+   "id": "v23588",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 16.533,
+   "stages": {
+    "lm": 2.389,
+    "trunk": 12.342,
+    "diffusion": 0.46,
+    "confidence": 1.342
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 50
+   },
+   "t_wall": 1791122857.6623142,
+   "warm": true
+  },
+  {
+   "id": "v23590",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.274,
+   "stages": {
+    "lm": 1.539,
+    "trunk": 8.451,
+    "diffusion": 0.348,
+    "confidence": 0.936
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122868.2748568,
+   "warm": true
+  },
+  {
+   "id": "v23592",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.284,
+   "stages": {
+    "lm": 1.572,
+    "trunk": 8.478,
+    "diffusion": 0.348,
+    "confidence": 0.885
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122868.6576092,
+   "warm": true
+  },
+  {
+   "id": "v23591",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.605,
+   "stages": {
+    "lm": 1.63,
+    "trunk": 8.513,
+    "diffusion": 0.368,
+    "confidence": 1.094
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 48
+   },
+   "t_wall": 1791122868.8121908,
+   "warm": true
+  },
+  {
+   "id": "v23593",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.611,
+   "stages": {
+    "lm": 1.59,
+    "trunk": 8.59,
+    "diffusion": 0.385,
+    "confidence": 1.046
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122869.24239,
+   "warm": true
+  },
+  {
+   "id": "v23595",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.067,
+   "stages": {
+    "lm": 1.589,
+    "trunk": 8.318,
+    "diffusion": 0.384,
+    "confidence": 0.776
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791122879.8012583
+  },
+  {
+   "id": "v23594",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.153,
+   "stages": {
+    "lm": 1.605,
+    "trunk": 8.244,
+    "diffusion": 0.346,
+    "confidence": 0.958
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122879.8076599
+  },
+  {
+   "id": "v23597",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.591,
+   "stages": {
+    "lm": 1.403,
+    "trunk": 8.868,
+    "diffusion": 0.356,
+    "confidence": 0.964
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122880.8243594
+  },
+  {
+   "id": "v23596",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.91,
+   "stages": {
+    "lm": 1.575,
+    "trunk": 8.88,
+    "diffusion": 0.352,
+    "confidence": 1.104
+   },
+   "aiclk_mhz": {
+    "min": 1287,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122881.0330882
+  },
+  {
+   "id": "v23599",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.573,
+   "stages": {
+    "lm": 1.648,
+    "trunk": 8.589,
+    "diffusion": 0.341,
+    "confidence": 0.995
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122891.3923602
+  },
+  {
+   "id": "v23598",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.635,
+   "stages": {
+    "lm": 1.648,
+    "trunk": 8.617,
+    "diffusion": 0.364,
+    "confidence": 1.007
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 48
+   },
+   "t_wall": 1791122891.469763
+  },
+  {
+   "id": "v23600",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.375,
+   "stages": {
+    "lm": 1.398,
+    "trunk": 8.611,
+    "diffusion": 0.348,
+    "confidence": 1.019
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122892.3137994
+  },
+  {
+   "id": "v23601",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.266,
+   "stages": {
+    "lm": 1.375,
+    "trunk": 8.548,
+    "diffusion": 0.333,
+    "confidence": 1.009
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122892.4342694
+  },
+  {
+   "id": "v23602",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.538,
+   "stages": {
+    "lm": 1.871,
+    "trunk": 8.366,
+    "diffusion": 0.349,
+    "confidence": 0.952
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122902.9798996
+  },
+  {
+   "id": "v23603",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.489,
+   "stages": {
+    "lm": 1.823,
+    "trunk": 8.517,
+    "diffusion": 0.371,
+    "confidence": 0.779
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122903.0007107
+  },
+  {
+   "id": "v23604",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.819,
+   "stages": {
+    "lm": 1.537,
+    "trunk": 8.902,
+    "diffusion": 0.353,
+    "confidence": 1.027
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122904.22563
+  },
+  {
+   "id": "v23605",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.855,
+   "stages": {
+    "lm": 1.482,
+    "trunk": 8.923,
+    "diffusion": 0.349,
+    "confidence": 1.1
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122904.3299851
+  },
+  {
+   "id": "v23607",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.235,
+   "stages": {
+    "lm": 1.582,
+    "trunk": 8.311,
+    "diffusion": 0.312,
+    "confidence": 1.029
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122913.29281
+  },
+  {
+   "id": "v23608",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.362,
+   "stages": {
+    "lm": 1.584,
+    "trunk": 8.344,
+    "diffusion": 0.335,
+    "confidence": 1.099
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122914.3819964
+  },
+  {
+   "id": "v23609",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.412,
+   "stages": {
+    "lm": 1.474,
+    "trunk": 8.554,
+    "diffusion": 0.337,
+    "confidence": 1.046
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122914.8498368
+  },
+  {
+   "id": "v23610",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.376,
+   "stages": {
+    "lm": 1.402,
+    "trunk": 8.547,
+    "diffusion": 0.35,
+    "confidence": 1.078
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122915.7411382
+  },
+  {
+   "id": "v23611",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.179,
+   "stages": {
+    "lm": 1.462,
+    "trunk": 8.459,
+    "diffusion": 0.31,
+    "confidence": 0.948
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791122924.8573945
+  },
+  {
+   "id": "v23612",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.174,
+   "stages": {
+    "lm": 1.548,
+    "trunk": 8.338,
+    "diffusion": 0.321,
+    "confidence": 0.967
+   },
+   "aiclk_mhz": {
+    "min": 1287,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122925.4913788
+  },
+  {
+   "id": "v23613",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.343,
+   "stages": {
+    "lm": 1.398,
+    "trunk": 8.563,
+    "diffusion": 0.349,
+    "confidence": 1.034
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122927.0469604
+  },
+  {
+   "id": "v23614",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.373,
+   "stages": {
+    "lm": 1.393,
+    "trunk": 8.593,
+    "diffusion": 0.399,
+    "confidence": 0.987
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122927.1082675
+  },
+  {
+   "id": "v23615",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.516,
+   "stages": {
+    "lm": 1.557,
+    "trunk": 8.615,
+    "diffusion": 0.331,
+    "confidence": 1.013
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122936.9985855
+  },
+  {
+   "id": "v23616",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.398,
+   "stages": {
+    "lm": 1.484,
+    "trunk": 8.599,
+    "diffusion": 0.332,
+    "confidence": 0.983
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122937.0198545
+  },
+  {
+   "id": "v23617",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.136,
+   "stages": {
+    "lm": 1.356,
+    "trunk": 8.352,
+    "diffusion": 0.39,
+    "confidence": 1.038
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122938.193353
+  },
+  {
+   "id": "v23618",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.459,
+   "stages": {
+    "lm": 1.398,
+    "trunk": 8.586,
+    "diffusion": 0.399,
+    "confidence": 1.076
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122938.5798318
+  },
+  {
+   "id": "v23619",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.359,
+   "stages": {
+    "lm": 1.664,
+    "trunk": 8.359,
+    "diffusion": 0.35,
+    "confidence": 0.987
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122948.3817933
+  },
+  {
+   "id": "v23620",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.452,
+   "stages": {
+    "lm": 1.665,
+    "trunk": 8.457,
+    "diffusion": 0.358,
+    "confidence": 0.972
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122948.5096452
+  },
+  {
+   "id": "v23621",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.149,
+   "stages": {
+    "lm": 1.475,
+    "trunk": 8.339,
+    "diffusion": 0.338,
+    "confidence": 0.997
+   },
+   "aiclk_mhz": {
+    "min": 1275,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122949.2910678
+  },
+  {
+   "id": "v23622",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.018,
+   "stages": {
+    "lm": 1.332,
+    "trunk": 8.242,
+    "diffusion": 0.342,
+    "confidence": 1.101
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122949.6273448
+  },
+  {
+   "id": "v23624",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.086,
+   "stages": {
+    "lm": 1.619,
+    "trunk": 8.179,
+    "diffusion": 0.349,
+    "confidence": 0.939
+   },
+   "aiclk_mhz": {
+    "min": 1287,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122959.4866621
+  },
+  {
+   "id": "v23625",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.342,
+   "stages": {
+    "lm": 1.669,
+    "trunk": 8.303,
+    "diffusion": 0.389,
+    "confidence": 0.981
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122959.865979
+  },
+  {
+   "id": "v23626",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.255,
+   "stages": {
+    "lm": 1.384,
+    "trunk": 8.558,
+    "diffusion": 0.349,
+    "confidence": 0.963
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122959.979885
+  },
+  {
+   "id": "v23627",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.131,
+   "stages": {
+    "lm": 1.431,
+    "trunk": 8.344,
+    "diffusion": 0.356,
+    "confidence": 1.0
+   },
+   "aiclk_mhz": {
+    "min": 1287,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122960.8823516
+  },
+  {
+   "id": "v23628",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.078,
+   "stages": {
+    "lm": 1.518,
+    "trunk": 8.346,
+    "diffusion": 0.327,
+    "confidence": 0.886
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791122970.1863637
+  },
+  {
+   "id": "v23629",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.227,
+   "stages": {
+    "lm": 1.549,
+    "trunk": 8.269,
+    "diffusion": 0.394,
+    "confidence": 1.015
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122971.1927853
+  },
+  {
+   "id": "v23630",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.65,
+   "stages": {
+    "lm": 1.468,
+    "trunk": 8.78,
+    "diffusion": 0.359,
+    "confidence": 1.043
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122972.329776
+  },
+  {
+   "id": "v23631",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.449,
+   "stages": {
+    "lm": 1.35,
+    "trunk": 8.711,
+    "diffusion": 0.379,
+    "confidence": 1.009
+   },
+   "aiclk_mhz": {
+    "min": 1312,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122972.3752732
+  },
+  {
+   "id": "v23632",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.511,
+   "stages": {
+    "lm": 1.671,
+    "trunk": 8.709,
+    "diffusion": 0.317,
+    "confidence": 0.814
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122982.1420786
+  },
+  {
+   "id": "v23633",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.33,
+   "stages": {
+    "lm": 1.653,
+    "trunk": 8.387,
+    "diffusion": 0.328,
+    "confidence": 0.962
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791122982.5441158
+  },
+  {
+   "id": "v23634",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.807,
+   "stages": {
+    "lm": 1.521,
+    "trunk": 8.906,
+    "diffusion": 0.355,
+    "confidence": 1.025
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 48
+   },
+   "t_wall": 1791122984.1496754
+  },
+  {
+   "id": "v23635",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.806,
+   "stages": {
+    "lm": 1.522,
+    "trunk": 8.881,
+    "diffusion": 0.371,
+    "confidence": 1.032
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 48
+   },
+   "t_wall": 1791122984.208169
+  },
+  {
+   "id": "v23636",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.448,
+   "stages": {
+    "lm": 1.511,
+    "trunk": 8.821,
+    "diffusion": 0.331,
+    "confidence": 0.785
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791122993.3161762
+  },
+  {
+   "id": "v23637",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.568,
+   "stages": {
+    "lm": 1.548,
+    "trunk": 8.846,
+    "diffusion": 0.32,
+    "confidence": 0.853
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122993.871035
+  },
+  {
+   "id": "v23639",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.808,
+   "stages": {
+    "lm": 1.332,
+    "trunk": 9.146,
+    "diffusion": 0.356,
+    "confidence": 0.974
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 48
+   },
+   "t_wall": 1791122995.7782602
+  },
+  {
+   "id": "v23638",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.864,
+   "stages": {
+    "lm": 1.341,
+    "trunk": 9.145,
+    "diffusion": 0.35,
+    "confidence": 1.028
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791122996.0749552
+  },
+  {
+   "id": "v23641",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.176,
+   "stages": {
+    "lm": 1.568,
+    "trunk": 8.526,
+    "diffusion": 0.35,
+    "confidence": 0.732
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791123004.8019478
+  },
+  {
+   "id": "v23642",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.406,
+   "stages": {
+    "lm": 1.571,
+    "trunk": 8.696,
+    "diffusion": 0.328,
+    "confidence": 0.811
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791123004.9217224
+  },
+  {
+   "id": "v23643",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.633,
+   "stages": {
+    "lm": 1.362,
+    "trunk": 9.117,
+    "diffusion": 0.37,
+    "confidence": 0.784
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791123007.0390031
+  },
+  {
+   "id": "v23644",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.62,
+   "stages": {
+    "lm": 1.326,
+    "trunk": 8.979,
+    "diffusion": 0.343,
+    "confidence": 0.972
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791123007.7322245
+  },
+  {
+   "id": "v23645",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 10.883,
+   "stages": {
+    "lm": 1.372,
+    "trunk": 8.414,
+    "diffusion": 0.304,
+    "confidence": 0.794
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791123015.1168678
+  },
+  {
+   "id": "v23646",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.54,
+   "stages": {
+    "lm": 1.396,
+    "trunk": 9.211,
+    "diffusion": 0.335,
+    "confidence": 0.598
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791123017.1524749
+  },
+  {
+   "id": "v23648",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.765,
+   "stages": {
+    "lm": 1.285,
+    "trunk": 9.232,
+    "diffusion": 0.323,
+    "confidence": 0.925
+   },
+   "aiclk_mhz": {
+    "min": 1268,
+    "median": 1350,
+    "max": 1350,
+    "n": 48
+   },
+   "t_wall": 1791123019.5347679
+  },
+  {
+   "id": "v23647",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.843,
+   "stages": {
+    "lm": 1.322,
+    "trunk": 9.282,
+    "diffusion": 0.322,
+    "confidence": 0.917
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 49
+   },
+   "t_wall": 1791123019.56949
+  },
+  {
+   "id": "v23649",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.252,
+   "stages": {
+    "lm": 1.294,
+    "trunk": 8.802,
+    "diffusion": 0.309,
+    "confidence": 0.847
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791123027.0597882
+  },
+  {
+   "id": "v23650",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 10.976,
+   "stages": {
+    "lm": 1.383,
+    "trunk": 8.468,
+    "diffusion": 0.345,
+    "confidence": 0.779
+   },
+   "aiclk_mhz": {
+    "min": 1268,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791123028.1521325
+  },
+  {
+   "id": "v23651",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.601,
+   "stages": {
+    "lm": 1.27,
+    "trunk": 9.067,
+    "diffusion": 0.311,
+    "confidence": 0.952
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791123031.0935547
+  },
+  {
+   "id": "v23652",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.574,
+   "stages": {
+    "lm": 1.23,
+    "trunk": 9.058,
+    "diffusion": 0.314,
+    "confidence": 0.972
+   },
+   "aiclk_mhz": {
+    "min": 1250,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791123031.177296
+  },
+  {
+   "id": "v23654",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.173,
+   "stages": {
+    "lm": 1.332,
+    "trunk": 8.553,
+    "diffusion": 0.343,
+    "confidence": 0.944
+   },
+   "aiclk_mhz": {
+    "min": 1293,
+    "median": 1350,
+    "max": 1350,
+    "n": 46
+   },
+   "t_wall": 1791123038.265355
+  },
+  {
+   "id": "v23655",
+   "chip": 0,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.161,
+   "stages": {
+    "lm": 1.245,
+    "trunk": 8.669,
+    "diffusion": 0.315,
+    "confidence": 0.932
+   },
+   "aiclk_mhz": {
+    "min": 1268,
+    "median": 1350,
+    "max": 1350,
+    "n": 45
+   },
+   "t_wall": 1791123038.9489233
+  },
+  {
+   "id": "v23656",
+   "chip": 3,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.604,
+   "stages": {
+    "lm": 1.371,
+    "trunk": 9.001,
+    "diffusion": 0.325,
+    "confidence": 0.907
+   },
+   "aiclk_mhz": {
+    "min": 1300,
+    "median": 1350,
+    "max": 1350,
+    "n": 49
+   },
+   "t_wall": 1791123042.5754392
+  },
+  {
+   "id": "v23657",
+   "chip": 1,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.587,
+   "stages": {
+    "lm": 1.339,
+    "trunk": 9.0,
+    "diffusion": 0.325,
+    "confidence": 0.923
+   },
+   "aiclk_mhz": {
+    "min": 1306,
+    "median": 1350,
+    "max": 1350,
+    "n": 49
+   },
+   "t_wall": 1791123042.798487
+  },
+  {
+   "id": "v23658",
+   "chip": 2,
+   "model": "esmfold2",
+   "n_res": 300,
+   "seconds": 11.029,
+   "stages": {
+    "lm": 1.4,
+    "trunk": 8.325,
+    "diffusion": 0.317,
+    "confidence": 0.988
+   },
+   "aiclk_mhz": {
+    "min": 1268,
+    "median": 1350,
+    "max": 1350,
+    "n": 47
+   },
+   "t_wall": 1791123048.9627974
+  }
+ ]
+}

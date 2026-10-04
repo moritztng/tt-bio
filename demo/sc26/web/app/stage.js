@@ -2,7 +2,9 @@
 //
 // A fold's real sampler states arrive faster than anyone can watch (an ESMFold2 fold's whole
 // diffusion takes a fraction of a second), so the stage plays them back over CONDENSE seconds and
-// says how much slower that is. Every real state is shown, in order, and held for the time the chip
+// says how much slower that is. A recorded fold whose diffusion took longer than CAP seconds on its
+// chip (a large Boltz-2 complex) plays over CAP seconds and says how much faster, so one large
+// complex does not hold the stage for a minute. Every real state is shown, in order, and held for the time the chip
 // took to produce it, scaled by one factor for the whole fold: a fold shown in real time keeps the
 // chip's own pace step by step, and "N× slower" is true of every step. The only motion that is not a sampler state is the renderer's short blend between two
 // consecutive states (`?ease=<s>`, default 0.12 s; `?ease=0` shows real states only). `step` and
@@ -12,6 +14,7 @@
 import { Renderer } from '../render/src/renderer.js';
 
 export const CONDENSE = 6.0;   // seconds the real states are spread over
+export const CAP = 9.0;        // longest a diffusion replay plays
 
 export class Stage {
   constructor(canvas, opt = {}) {
@@ -30,13 +33,12 @@ export class Stage {
 
   setOffset(x, y) { this.r.opt.offset = [x, y]; }
 
-  // Put a fold on the stage, starting from its first (noise) state.
-  // Never faster than the chip ran it: a fold whose diffusion took longer than CONDENSE plays at
-  // the chip's own pace.
-  show(fold, { condense = CONDENSE } = {}) {
+  // Put a fold on the stage, starting from its first (noise) state. A fold whose diffusion took
+  // between CONDENSE and CAP seconds plays at the chip's own pace; a longer one plays over CAP.
+  show(fold, { condense = CONDENSE, cap = CAP } = {}) {
     this.fold = fold;
     this.span = paced(fold.tReal).span;
-    this.condense = Math.max(condense, this.span);
+    this.condense = Math.min(Math.max(condense, this.span), Math.max(cap, condense));
     this.times = playTimes(fold.tReal, this.condense);
     const n = fold.coords.length;
     const frames = fold.coords.map((c, i) => ({ coords: c, x0: fold.x0?.[i] ?? null, step: fold.steps?.[i] ?? i - 1,
@@ -53,7 +55,7 @@ export class Stage {
     this.holdNoise = 0.3;   // a beat of pure noise before it moves
   }
 
-  // How many times slower than the chip the condensation plays.
+  // How many times slower than the chip the replay plays (below 1: faster).
   get slowdown() {
     const f = this.fold;
     if (!f || !(this.span > 0)) return null;
@@ -131,8 +133,9 @@ function gyration(x) {
 export const weight = (f) => Math.min(1.5, Math.max(0.3, (f.nres ?? 0) / 500));
 
 // Which finished fold takes the stage next. Holds a pool of recent folds and never repeats a
-// protein while another one is available that has not been on stage in the last few slots.
-// Among the rest it is stride scheduling: each protein's next turn is 1/weight slots after its last,
+// protein while another one is available that has not been on stage in the last few slots, and
+// never shows the same model twice in a row while a fold by another model is waiting, so a visitor
+// who watches for half a minute sees more than one model. Among the rest it is stride scheduling: each protein's next turn is 1/weight slots after its last,
 // and a protein that has just arrived joins at the current turn, so it is on stage soon.
 //
 // The server streams the gallery's recordings between live folds. If the pool is still empty (the
@@ -172,6 +175,8 @@ export class Director {
     const recent = new Set(this.history.slice(-Math.min(this.avoid, distinct - 1)));
     let cands = this.pool.filter(p => !recent.has(this.key(p)));
     if (!cands.length) cands = this.pool;
+    const other = cands.filter(p => p.model !== this.lastModel);
+    if (other.length) cands = other;
     // earliest turn first; on a tie, live before replay, newest first
     const turn = (p) => Math.max(this.now, this.turn.get(this.key(p)) ?? this.now);
     cands.sort((a, b) => turn(a) - turn(b) || (a.source === 'live' ? -1 : 0) - (b.source === 'live' ? -1 : 0)
@@ -180,6 +185,7 @@ export class Director {
     this.now = turn(f);
     this.turn.set(this.key(f), this.now + 1 / weight(f));
     this.history.push(this.key(f));
+    this.lastModel = f.model;
     if (this.history.length > 64) this.history.shift();
     return f;
   }

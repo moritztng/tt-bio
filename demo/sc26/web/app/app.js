@@ -22,7 +22,22 @@ const q = new URLSearchParams(location.search);
 const IDLE = 1000 * (parseFloat(q.get('idle')) || 60);
 const HOLD = parseFloat(q.get('hold')) || 10;
 const WORD = ['no', 'one', 'two', 'three', 'four'];
-const MODEL = { boltz2: 'Boltz-2', esmfold2: 'ESMFold2' };   // every fold on screen names its model
+// Every model tt-bio runs on Tenstorrent hardware, by what it does: tt-bio main's tt_bio/main.py
+// PREDICT_MODELS, DESIGN_MODELS, EMBED_MODELS + SAPROT_MODELS and AFFINITY_MODELS, one entry per
+// model family (esmfold2-fast, opendde-abag and the ESMC/SaProt sizes are variants, not models).
+// Protenix-v2 is left out: its weights' licence is unresolved (state/lic/).
+const LINEUP = [
+  ['Structure', [['boltz2', 'Boltz-2'], ['esmfold2', 'ESMFold2'], ['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'],
+    ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1'], ['opendde', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
+  ['Design', [['boltzgen', 'BoltzGen'], ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign']]],
+  ['Embeddings', [['esmc', 'ESMC'], ['saprot', 'SaProt']]],
+  ['Affinity', [['nesso1', 'Nesso-1']]],
+];
+const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));   // every fold on screen names its model
+const NMODELS = Object.keys(MODEL).length;
+// The pitch, two lines. The number and how it was measured: demo/sc26/README.md, "The claim".
+const CLAIM = 'The most protein structures per dollar.';
+const SECOND = `Open source. All ${NMODELS} models run on the Tenstorrent chips in this box.`;
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
 
@@ -33,7 +48,7 @@ const canvas = $('stage');
 const stage = new Stage(canvas, { ease: q.has('ease') ? parseFloat(q.get('ease')) : 0.12, final: q.get('final') ?? 'cartoon',
   orbitDegPerSec: q.has('orbit') ? parseFloat(q.get('orbit')) : 5,
   ...(q.has('scale') && { scale: parseFloat(q.get('scale')) }), ...(q.has('msaa') && { msaa: parseInt(q.get('msaa')) }) });
-const STAGE_X = -0.11, DEPTH_X = -0.25;   // where the protein sits: the stage is columns 1-8
+const STAGE_X = -0.06, DEPTH_X = -0.25;   // where the protein sits: between the lineup and the right column
 stage.resize(); stage.setOffset(STAGE_X, 0.02);
 addEventListener('resize', () => stage.resize());
 const director = new Director();
@@ -197,14 +212,24 @@ function buildKeys() {
 // ------------------------------------------------------------------ drawing
 function liveChips() { return stream.chips.filter(c => c.state === 'busy' || c.state === 'ready').length; }
 
-function drawAll() { drawHeader(); drawTyping(); drawSide(); drawChips(); drawInvite(); }
+function drawAll() { drawHeader(); drawTyping(); drawSide(); drawChips(); drawInvite(); drawLineup(); }
+
+// The lineup down the left edge: every model, the one on the stage lit.
+function drawLineup() {
+  const nav = $('lineup');
+  if (!nav.children.length) nav.innerHTML = LINEUP.map(([group, ms]) =>
+    `<section><h2>${group}</h2><ul>${ms.map(([id, name]) => `<li data-m="${id}">${name}</li>`).join('')}</ul></section>`).join('');
+  const f = app.state === 'result' ? app.mine?.fold : app.state === 'waiting' ? app.mine : PLAYS(app.state) ? app.slot?.fold : null;
+  const on = app.state === 'waiting' && app.mine?.chip == null ? null : f?.model ?? null;
+  if (nav.dataset.on === String(on)) return;
+  nav.dataset.on = String(on);
+  for (const li of nav.querySelectorAll('li')) li.classList.toggle('on', li.dataset.m === on);
+}
 let invited = null;
 
 function drawHeader() {
   const n = liveChips();
-  const html = n
-    ? `An AI is predicting the 3D shape of a protein from its sequence, <b>live, on ${n === 1 ? 'a Tenstorrent chip' : `the ${WORD[n] ?? n} Tenstorrent chips`} in this box.</b>`
-    : `An AI predicted the 3D shape of these proteins from their sequences, <b>on the Tenstorrent chips in this box.</b>`;
+  const html = `<b>${CLAIM}</b><br>${SECOND}`;
   if ($('sentence').innerHTML !== html) $('sentence').innerHTML = html;
   $('sentence').classList.toggle('hide', app.state === 'typing' || app.state === 'waiting');
   const tag = $('tag');
@@ -308,7 +333,9 @@ function clock(f) { return f.aiclk ? ` · AICLK ${Math.round(f.aiclk)} MHz` : ''
 function drawNumber(f) {
   const src = $('source'), box = $('number');
   const st = stage.step, of = stage.of, k = stage.slowdown;
-  const pace = !k ? '' : k <= 1.05 ? '\nReplayed at the chip’s own pace' : `\nReplayed ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower than the chip ran it`;
+  const x = (r) => r >= 10 ? Math.round(r / 5) * 5 : Math.round(r);
+  const pace = !k ? '' : k > 1.05 ? `\nReplayed ${x(k)}× slower than the chip ran it`
+    : k < 0.95 ? `\nReplayed ${x(1 / k)}× faster than the chip ran it` : '\nReplayed at the chip’s own pace';
   $('step').textContent = !of ? '' : stage.landed ? `All ${of} diffusion steps shown`
     : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`;
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
@@ -333,7 +360,7 @@ function drawChips() {
     let what = 'not in use', prog = 0, cls = '';
     if (c?.state === 'busy' && job) {
       const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
-      what = `${who} <em>${PHASE[job.stage] ?? ''}</em>`;
+      what = `${MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who} <em>${PHASE[job.stage] ?? ''}</em>`;
       prog = job.stage === 'lm' ? 0.12 : job.stage === 'trunk' ? 0.15 + 0.55 * job.step / Math.max(1, job.total)
         : job.stage === 'diffusion' ? 0.7 + 0.25 * job.step / Math.max(1, job.total) : job.stage === 'confidence' ? 0.97 : 1;
       cls = 'busy';
@@ -374,7 +401,7 @@ function frame(now) {
     }
     if (app.state !== 'attract' && now - app.lastInput > IDLE) toAttract();
     if ((sideTick += dt) > 0.05) {
-      sideTick = 0; drawSide(); drawChips(); drawHeader();
+      sideTick = 0; drawSide(); drawChips(); drawHeader(); drawLineup();
       if (invited !== liveChips() > 0) { invited = liveChips() > 0; drawInvite(); }
     }
   } catch (e) { onErr(e); }

@@ -17,7 +17,7 @@ export class Stream {
     this.cb = { onFold, onChips, onStage, onReply, onOpen };
     this.open = {};          // id -> fold being collected
     this.chips = [];         // last status.chips
-    this.jobs = {};          // job id -> {name, stage, step, total, t0}
+    this.jobs = {};          // job id -> {name, kind, model, stage, step, total, t0}
     this.connected = false;
     this.lastMessage = 0;
     this._connect();
@@ -55,7 +55,7 @@ export class Stream {
       }
       case 'fold_start':
         this.open[m.id] = { start: m, frames: [] };
-        this.jobs[m.id] = { name: m.name ?? null, kind: m.kind, chip: m.chip, stage: 'lm', step: 0, total: 1, t0: now };
+        this.jobs[m.id] = { name: m.name ?? null, kind: m.kind, model: m.model ?? null, chip: m.chip, stage: 'lm', step: 0, total: 1, t0: now };
         this.cb.onStage?.(m.id, this.jobs[m.id], m);
         break;
       case 'stage': {
