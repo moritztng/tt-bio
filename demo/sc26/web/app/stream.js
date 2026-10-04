@@ -56,6 +56,10 @@ export class Stream {
       case 'fold_start':
         this.open[m.id] = { start: m, frames: [] };
         this.jobs[m.id] = { name: m.name ?? null, kind: m.kind, model: m.model ?? null, chip: m.chip, stage: 'lm', step: 0, total: 1, t0: now };
+        // the server marks a chip busy without a 'chip' message (only 'ready' after each fold), so a
+        // fold_start on a chip is what says it is busy and with which job
+        { const c = this.chips.find(c => c.chip === m.chip);
+          if (c && m.chip != null) { c.state = 'busy'; c.job = m.id; this.cb.onChips?.(this.chips); } }
         this.cb.onStage?.(m.id, this.jobs[m.id], m);
         break;
       case 'stage': {
