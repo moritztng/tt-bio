@@ -126,8 +126,14 @@ function gyration(x) {
   return Math.sqrt(s / m);
 }
 
+// How often a protein takes the stage, by its size in residues. The booth is for the large
+// complexes: an 800-residue complex comes up five times as often as anything under 150 residues.
+export const weight = (f) => Math.min(1.5, Math.max(0.3, (f.nres ?? 0) / 500));
+
 // Which finished fold takes the stage next. Holds a pool of recent folds and never repeats a
 // protein while another one is available that has not been on stage in the last few slots.
+// Among the rest it is stride scheduling: each protein's next turn is 1/weight slots after its last,
+// and a protein that has just arrived joins at the current turn, so it is on stage soon.
 //
 // The server streams the gallery's recordings between live folds. If the pool is still empty (the
 // page has just loaded, or the server is down), the stage shows the last few visitors' folds (as
@@ -137,6 +143,7 @@ export class Director {
   constructor({ pool = 24, avoid = 4 } = {}) {
     this.pool = []; this.max = pool; this.avoid = avoid;
     this.history = [];   // names, most recent last
+    this.turn = new Map(); this.now = 0;   // stride scheduling: each protein's next turn
     this.visitors = [];  // last few visitors' folds, shown only when the pool is empty
     this.fallback = null;
   }
@@ -165,11 +172,13 @@ export class Director {
     const recent = new Set(this.history.slice(-Math.min(this.avoid, distinct - 1)));
     let cands = this.pool.filter(p => !recent.has(this.key(p)));
     if (!cands.length) cands = this.pool;
-    // least recently shown first; among never-shown, live before replay, newest first
-    const last = (p) => { const i = this.history.lastIndexOf(this.key(p)); return i < 0 ? -1 : i; };
-    cands.sort((a, b) => last(a) - last(b) || (a.source === 'live' ? -1 : 0) - (b.source === 'live' ? -1 : 0)
+    // earliest turn first; on a tie, live before replay, newest first
+    const turn = (p) => Math.max(this.now, this.turn.get(this.key(p)) ?? this.now);
+    cands.sort((a, b) => turn(a) - turn(b) || (a.source === 'live' ? -1 : 0) - (b.source === 'live' ? -1 : 0)
       || b.received - a.received);
     const f = cands[0];
+    this.now = turn(f);
+    this.turn.set(this.key(f), this.now + 1 / weight(f));
     this.history.push(this.key(f));
     if (this.history.length > 64) this.history.shift();
     return f;

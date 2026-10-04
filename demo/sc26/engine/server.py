@@ -172,8 +172,10 @@ class Replay:
 
     def __init__(self, svc, dirs):
         self.svc = svc
-        self.files = sorted(f for d in dirs for f in Path(d).glob("*.jsonl")
-                            if any('"type":"fold_done"' in l for l in open(f)))
+        files = [f for d in dirs for f in Path(d).glob("*.jsonl")
+                 if any('"type":"fold_done"' in l for l in open(f))]
+        # largest first, so the first replays after a start are the big complexes
+        self.files = sorted(files, key=lambda f: (-json.loads(open(f).readline()).get("n_res", 0), f.name))
         self.task = None
 
     async def play(self, path, jid, kind="replay"):

@@ -22,6 +22,7 @@ const q = new URLSearchParams(location.search);
 const IDLE = 1000 * (parseFloat(q.get('idle')) || 60);
 const HOLD = parseFloat(q.get('hold')) || 10;
 const WORD = ['no', 'one', 'two', 'three', 'four'];
+const MODEL = { boltz2: 'Boltz-2', esmfold2: 'ESMFold2' };   // every fold on screen names its model
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
 
@@ -60,7 +61,7 @@ const stream = new Stream(q.get('stream') ?? `${location.protocol === 'https:' ?
   onStage(id, job, m) {
     if (app.mine && id === app.mine.id && m.type === 'fold_start') {
       app.mine.t0 = app.lastInput = performance.now();   // their fold moving counts as activity
-      app.mine.chip = m.chip; drawSide();
+      app.mine.chip = m.chip; app.mine.model = m.model; drawSide();
     }
   },
   onReply(m) {
@@ -253,7 +254,7 @@ function drawInvite() {
 
 // the right column; called on state changes and every frame for the moving parts
 function drawSide() {
-  const L = $('label'), N = $('name'), S = $('story'), src = $('source'), num = $('num'), M = $('meta');
+  const L = $('label'), N = $('name'), S = $('story'), src = $('source'), M = $('meta');
   const numBox = $('number');
   if (app.state === 'waiting' || app.state === 'result') {
     const m = app.mine;
@@ -266,8 +267,8 @@ function drawSide() {
         : 'Finding a free chip.';
       // the one running clock on screen: wall-clock seconds since the chip took their fold, in step
       // with the chip because it is the same seconds; it stops when the fold lands
-      src.textContent = m.chip != null ? `Folding on chip ${m.chip + 1}` : '';
-      num.textContent = m.t0 ? `${((performance.now() - m.t0) / 1000).toFixed(1)} s` : '';
+      src.textContent = m.chip != null ? `Folding on chip ${m.chip + 1} with` : '';
+      setNumber(m.t0 ? byModel(m, '·', `${((performance.now() - m.t0) / 1000).toFixed(1)} s`) : '');
       numBox.classList.remove('locked');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
       $('step').textContent = '';
@@ -281,12 +282,12 @@ function drawSide() {
     return;
   }
   const f = app.slot?.fold;
-  if (!f) { L.textContent = ''; N.textContent = ''; S.textContent = ''; src.textContent = ''; num.textContent = ''; M.textContent = ''; $('step').textContent = ''; return; }
+  if (!f) { L.textContent = ''; N.textContent = ''; S.textContent = ''; src.textContent = ''; setNumber(''); M.textContent = ''; $('step').textContent = ''; return; }
   L.textContent = stage.landed ? 'Folded' : 'Folding';
   setName(N, f.name ?? 'Protein');
   S.textContent = f.story ?? '';
   drawNumber(f);
-  M.textContent = `${f.nres} amino acids` + clock(f);
+  M.textContent = (f.chains > 1 ? `${f.chains} chains, ` : '') + `${f.nres} amino acids` + clock(f);
 }
 
 // a long name drops to the smaller size so name and story always fit their box
@@ -294,21 +295,26 @@ function setName(el, text) {
   if (el.textContent !== text) { el.textContent = text; el.classList.toggle('long', text.length > 22); }
 }
 
+const byModel = (f, word, t) => MODEL[f.model] ? `${MODEL[f.model]} <span class="dim">${word}</span> ${t}` : t;
+
+// the number block: the model, then the time; rewritten only when it changes
+function setNumber(html) { const num = $('num'); if (num.innerHTML !== html) num.innerHTML = html; }
+
 function clock(f) { return f.aiclk ? ` · AICLK ${Math.round(f.aiclk)} MHz` : ''; }
 
 // Every fold on the stage has already finished on its chip, so its time is a measured fact, shown
 // still from the first frame: nothing on the stage counts seconds. What moves is the sampler's own
 // step counter, and the line under it says how much slower than the chip the steps are replayed.
 function drawNumber(f) {
-  const src = $('source'), num = $('num'), box = $('number');
+  const src = $('source'), box = $('number');
   const st = stage.step, of = stage.of, k = stage.slowdown;
   const pace = !k ? '' : k <= 1.05 ? '\nReplayed at the chip’s own pace' : `\nReplayed ${k >= 10 ? Math.round(k / 5) * 5 : Math.round(k)}× slower than the chip ran it`;
   $('step').textContent = !of ? '' : stage.landed ? `All ${of} diffusion steps shown`
     : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`;
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
-  src.textContent = f.source === 'live' && f.chip != null ? `Folded live on chip ${f.chip + 1} in` : 'Folded on this box in';
-  num.textContent = `${f.seconds.toFixed(2)} s`;
+  src.textContent = f.source === 'live' && f.chip != null ? `Folded live on chip ${f.chip + 1} by` : 'Folded on this box by';
+  setNumber(byModel(f, 'in', `${f.seconds.toFixed(2)} s`));
   box.classList.add('locked');
 }
 

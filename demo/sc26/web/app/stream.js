@@ -127,7 +127,8 @@ function assemble(start, frames, done) {
   return {
     id: start.id, kind: start.kind, source: start.source ?? done.source ?? 'live', model: start.model,
     chip: start.chip ?? null, recorded: start.recorded ?? null,
-    name: start.name ?? null, story: start.story ?? null, sequence: seq, nres: seq.length,
+    name: start.name ?? null, story: start.story ?? null, sequence: seq,
+    nres: start.n_res ?? seq.replace(/:/g, '').length, chains: start.chains?.length ?? 1,
     seconds: done.seconds, diffusionSeconds: diffusion, aiclk: done.aiclk_mhz?.median ?? null,
     plddtMean: mean, topo, coords, x0, steps, of: frames[frames.length - 1].of ?? frames.length - 1,
     tReal, received: performance.now(),
