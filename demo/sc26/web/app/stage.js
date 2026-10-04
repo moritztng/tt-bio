@@ -134,10 +134,12 @@ function gyration(x) {
 export const weight = (f) => Math.min(1.5, Math.max(0.3, (f.nres ?? 0) / 500));
 
 // Which finished fold takes the stage next. Holds a pool of recent folds and never repeats a
-// protein while another one is available that has not been on stage in the last few slots, and
-// never shows the same model twice in a row while a fold by another model is waiting, so a visitor
-// who watches for half a minute sees more than one model. Among the rest it is stride scheduling: each protein's next turn is 1/weight slots after its last,
-// and a protein that has just arrived joins at the current turn, so it is on stage soon.
+// protein while another one is available that has not been on stage in the last few slots. It
+// never shows the same model twice in a row while a fold by another model is waiting, and never
+// three times while one is in the pool at all, so a visitor who watches for half a minute sees
+// more than one model. Among the rest it is stride scheduling: each protein's next turn is
+// 1/weight slots after its last, and a protein that has just arrived joins at the current turn,
+// so it is on stage soon.
 //
 // The server streams the gallery's recordings between live folds. If the pool is still empty (the
 // page has just loaded, or the server is down), the stage shows the last few visitors' folds (as
@@ -178,6 +180,10 @@ export class Director {
     if (!cands.length) cands = this.pool;
     const other = cands.filter(p => p.model !== this.lastModel);
     if (other.length) cands = other;
+    else if (this.run >= 2) {   // two in a row already: the other model, even a protein seen lately
+      const any = this.pool.filter(p => p.model !== this.lastModel);
+      if (any.length) cands = any;
+    }
     // earliest turn first; on a tie, live before replay, newest first
     const turn = (p) => Math.max(this.now, this.turn.get(this.key(p)) ?? this.now);
     cands.sort((a, b) => turn(a) - turn(b) || (a.source === 'live' ? -1 : 0) - (b.source === 'live' ? -1 : 0)
@@ -186,6 +192,7 @@ export class Director {
     this.now = turn(f);
     this.turn.set(this.key(f), this.now + 1 / weight(f));
     this.history.push(this.key(f));
+    this.run = f.model === this.lastModel ? (this.run ?? 0) + 1 : 1;
     this.lastModel = f.model;
     if (this.history.length > 64) this.history.shift();
     return f;
