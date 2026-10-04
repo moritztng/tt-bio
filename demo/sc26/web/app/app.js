@@ -9,6 +9,8 @@
 //   ?stream=<ws url> another engine's stream, default this origin's /stream
 //   ?play=<url>      play only this recording, over and over, for a look-test of one fold
 //   ?orbit=<deg/s>   how fast a finished structure turns, default 5; 0 holds the landing view
+//   ?scale=, ?msaa=  the renderer's render scale and samples, default by resolution
+//   ?fps=1           log the frame rate to the console every 5 s
 
 import { Stream, loadRecording } from './stream.js';
 import { Stage, Director } from './stage.js';
@@ -28,7 +30,8 @@ loadBlocklist('blocklist.txt');
 
 const canvas = $('stage');
 const stage = new Stage(canvas, { ease: q.has('ease') ? parseFloat(q.get('ease')) : 0.12, final: q.get('final') ?? 'cartoon',
-  orbitDegPerSec: q.has('orbit') ? parseFloat(q.get('orbit')) : 5 });
+  orbitDegPerSec: q.has('orbit') ? parseFloat(q.get('orbit')) : 5,
+  ...(q.has('scale') && { scale: parseFloat(q.get('scale')) }), ...(q.has('msaa') && { msaa: parseInt(q.get('msaa')) }) });
 const STAGE_X = -0.11, DEPTH_X = -0.25;   // where the protein sits: the stage is columns 1-8
 stage.resize(); stage.setOffset(STAGE_X, 0.02);
 addEventListener('resize', () => stage.resize());
@@ -372,6 +375,12 @@ function frame(now) {
 }
 setState('attract');
 requestAnimationFrame(frame);
+if (q.get('fps')) {
+  let n = 0, t0 = performance.now();
+  const count = () => { n++; requestAnimationFrame(count); };
+  requestAnimationFrame(count);
+  setInterval(() => { const t = performance.now(); console.log(`fps ${(n * 1000 / (t - t0)).toFixed(1)} scale ${stage.r.scale} msaa ${stage.r.rt.samples}`); n = 0; t0 = t; }, 5000);
+}
 
 if (q.get('selftest') === 'reset') import('./tests/reset.js').then(m => m.run(app, { toAttract, startTyping, type, submit, showResult, director, IDLE }));
 if (q.get('selftest') === 'kiosk') setTimeout(() => import('./tests/kiosk.js').then(m => m.run()), 4000);

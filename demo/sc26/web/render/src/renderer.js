@@ -179,11 +179,12 @@ export class Renderer {
   // ---------------------------------------------------------------- targets
   resize() {
     const gl = this.gl, c = this.canvas;
-    // 'auto' holds 60 fps on qb2's iGPU (Radeon in the Ryzen 7 9700X): full resolution with 4x
-    // MSAA up to 1440p, above it 0.75 scale with 2x MSAA.
-    const W = c.width, H = c.height, big = W * H > 4.0e6;
-    const s = this.opt.scale === 'auto' ? (big ? 0.75 : 1) : this.opt.scale;
-    const msaa = this.opt.msaa === 'auto' ? (big ? 2 : 4) : this.opt.msaa;
+    // 'auto' is full resolution with 4x MSAA at every size, so a dot or an edge at 4K is drawn at
+    // 4K. On qb2's iGPU (Radeon in the Ryzen 7 9700X), headless 3840x2160, the largest gallery
+    // protein (spike-ACE2, 6,761 atoms) ran 48 fps this way and 48 fps at 0.75 scale with 2x MSAA.
+    const W = c.width, H = c.height;
+    const s = this.opt.scale === 'auto' ? 1 : this.opt.scale;
+    const msaa = this.opt.msaa === 'auto' ? 4 : this.opt.msaa;
     this.scale = s;
     const w = Math.max(1, Math.round(W * s)), h = Math.max(1, Math.round(H * s));
     if (this.rt && this.rt.w === w && this.rt.h === h && this.rt.W === W && this.rt.H === H) return;
