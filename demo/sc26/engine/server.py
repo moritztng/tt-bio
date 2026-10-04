@@ -177,9 +177,10 @@ class Replay:
         # largest first, so the first replays after a start are the big complexes
         self.files = sorted(files, key=lambda f: (-json.loads(open(f).readline()).get("n_res", 0), f.name))
         self.task = None
+        self.played = []   # the last two recordings played, as sent; a browser that connects gets them
 
     async def play(self, path, jid, kind="replay"):
-        prev = None
+        prev, sent = None, []
         for line in open(path):
             ev = json.loads(line)
             if ev.get("type") not in ("fold_start", "stage", "frame", "fold_done"):
@@ -189,7 +190,16 @@ class Replay:
             prev = ev.get("t", prev)
             ev.update(id=jid, chip=None, source="replay", kind=kind, t_wall=time.time(),
                       recorded=path.stem)
-            self.svc.hub.send(ev)
+            sent.append(json.dumps(ev, separators=(",", ":")))
+            self.svc.hub.send(sent[-1])
+        self.played = (self.played + [sent])[-2:]
+
+    def prime(self, client):
+        """A page that has just loaded would otherwise see only live folds until the next recording
+        has streamed, a minute or more while the chips are busy. It gets the last two at once."""
+        for sent in self.played:
+            for data in sent:
+                client.send_text(data)
 
     async def loop(self):
         """Recordings between the live folds, so the gallery's Boltz-2 trajectories reach the screen
@@ -447,6 +457,7 @@ class Service:
         client = WSClient(writer)
         self.hub.clients.add(client)
         client.send_text(json.dumps({"type": "hello", "protocol": 1, **self.status()}))
+        self.replay.prime(client)
         try:
             while True:
                 op, data = await client.recv(reader)
