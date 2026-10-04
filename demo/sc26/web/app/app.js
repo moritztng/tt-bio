@@ -295,7 +295,7 @@ function setName(el, text) {
   if (el.textContent !== text) { el.textContent = text; el.classList.toggle('long', text.length > 22); }
 }
 
-const byModel = (f, word, t) => MODEL[f.model] ? `${MODEL[f.model]} <span class="dim">${word}</span> ${t}` : t;
+const byModel = (f, word, t) => MODEL[f.model] ? `<b>${MODEL[f.model]}</b> <span class="dim">${word}</span> ${t}` : t;
 
 // the number block: the model, then the time; rewritten only when it changes
 function setNumber(html) { const num = $('num'); if (num.innerHTML !== html) num.innerHTML = html; }

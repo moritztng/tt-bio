@@ -61,6 +61,7 @@ aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)
           color: var(--ink); white-space: nowrap; }
 #number:has(#num:empty) { visibility: hidden; }
 #number .dim { color: var(--ink3); }
+#number b { font-weight: 560; font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out the hyphen in Boltz-2 */
 #meta, #step { font-size: calc(15 * var(--p)); font-weight: 400; line-height: 1.5; color: var(--ink2); white-space: nowrap; }
 #meta { margin-top: calc(14 * var(--p)); }
 /* the sampler's own step counter while folding; the pLDDT key once the structure is drawn */
