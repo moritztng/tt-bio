@@ -961,8 +961,17 @@ def hotspot_contacts(protein_states, predictions, prediction_state="complex",
 ```
 
 The first two arguments are mandatory and everything after them needs a default; return a scalar.
-`examples/bindcraft2_custom_loss.py` is this term plus a reweight, a replacement and a grade, and
-it runs on CPU with no card and no AlphaFold 2 weights.
+[`examples/bindcraft2_custom_loss.py`](https://github.com/moritztng/tt-bio/blob/main/examples/bindcraft2_custom_loss.py)
+is this term plus a reweight, a replacement and a grade. The pip package carries `tt_bio` only, so
+take the file from the repository:
+
+```
+curl -O https://raw.githubusercontent.com/moritztng/tt-bio/main/examples/bindcraft2_custom_loss.py
+PYTHONPATH=/path/to/BindCraft2 python3 bindcraft2_custom_loss.py \
+    --settings /path/to/BindCraft2/examples/pdl1_denovo.json
+```
+
+It runs on CPU in about 17 seconds, with no card and no AlphaFold 2 weights.
 
 ### What you can read
 
