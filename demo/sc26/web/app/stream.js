@@ -178,7 +178,7 @@ export class Stream {
         const t1 = performance.now(), buf = await res.arrayBuffer(), dt = (performance.now() - t1) / 1000;
         if (buf.byteLength > 64e3) this.rate = 0.5 * this.rate + 0.5 * buf.byteLength / Math.max(0.05, dt);
         this.pulled = { bytes: buf.byteLength, every, seconds: (performance.now() - t0) / 1000, rate: this.rate };
-        const f = fromBody(buf, m);
+        const f = await fromBody(buf, m);
         this.have.set(k, { source: f.source, recorded: f.recorded, at: m.received });
         this.cb.onFold?.(f);
       }
@@ -208,12 +208,13 @@ export async function loadRecording(url) {
   return f;
 }
 
-// GET /fold/<id> (PROTOCOL.md): a u32 length, the metadata as JSON, the final structure as float32,
-// then the packed states as int16.
-function fromBody(buf, summary) {
+// GET /fold/<id> (PROTOCOL.md): a u32 length, the metadata as gzipped JSON padded to 4 bytes, the
+// final structure as float32, then the packed states as int16.
+async function fromBody(buf, summary) {
   const ml = new DataView(buf).getUint32(0, true);
-  const meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, ml)));
-  const n = meta.n_atoms, at = 4 + ml;
+  const json = new Blob([new Uint8Array(buf, 4, ml)]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const meta = JSON.parse(await new Response(json).text());
+  const n = meta.n_atoms, at = 4 + ml + (-(4 + ml) & 3);
   const f = assemble({ ...meta, model: summary.model ?? meta.model },
     states(meta, new Int16Array(buf, at + 12 * n), new Float32Array(buf.slice(at, at + 12 * n))));
   f.received = summary.received;

@@ -13,6 +13,7 @@ numpy; tt-bio's environment has it.)
 import argparse
 import asyncio
 import base64
+import gzip
 import hashlib
 import itertools
 import json
@@ -96,18 +97,19 @@ class Folds:
 
     @staticmethod
     def body(e, every):
-        """One fold for the page: a little-endian u32 length, the JSON metadata (padded with spaces
-        to a multiple of 4 bytes), the final structure as float32, then every `every`-th packed state
-        as int16 (PROTOCOL.md "GET /fold"). The final structure is always included."""
+        """One fold for the page: a little-endian u32 length, the JSON metadata gzipped (it is mostly
+        atom names, and shrinks about 15x) and zero-padded to a multiple of 4 bytes, the final
+        structure as float32, then every `every`-th packed state as int16 (PROTOCOL.md "GET /fold").
+        The final structure is always included."""
         fr, n = e["frames"], e["n_atoms"]
         pick = list(range(0, len(fr["scale"]), max(1, every)))
         meta = e["meta"] | {"every": every, "step": [fr["step"][i] for i in pick] + [fr["step"][-1]],
                             "t": [fr["t"][i] for i in pick] + [fr["t"][-1]],
                             "origin": [fr["origin"][i] for i in pick], "scale": [fr["scale"][i] for i in pick]}
-        mb = json.dumps(meta, separators=(",", ":")).encode()
-        mb += b" " * (-(len(mb) + 4) % 4)
+        mb = gzip.compress(json.dumps(meta, separators=(",", ":")).encode(), 6, mtime=0)
         size = 6 * n
-        return b"".join([struct.pack("<I", len(mb)), mb, e["xyz"]] + [e["q16"][i * size:(i + 1) * size] for i in pick])
+        return b"".join([struct.pack("<I", len(mb)), mb, b"\0" * (-(len(mb) + 4) % 4), e["xyz"]] +
+                        [e["q16"][i * size:(i + 1) * size] for i in pick])
 
 
 class Pacer:
@@ -275,6 +277,11 @@ class Replay:
         # largest first, so the first replays after a start are the big complexes
         self.order = sorted(self.files, key=lambda f: (-self.files[f][0].get("n_res", 0), f.name))
         self.task = None
+        # every recording can be pulled from the start, so a page that loads fills its stage at once
+        for f in reversed(self.order):
+            start, done = self.files[f][0], self.files[f][-1]
+            tag = dict(id=f"g-{f.stem}", chip=None, source="replay", kind="replay", recorded=f.stem, t_wall=time.time())
+            svc.folds.add(start | tag, done | tag)
 
     @staticmethod
     def load(path):
@@ -619,7 +626,7 @@ class Service:
         self.hub.clients.add(client)
         # what this page can pull at once: a page that has just loaded or reconnected fills its stage
         # from these, without waiting for the next fold to stream by
-        client.send_text(json.dumps({"type": "hello", "protocol": 2, **self.status(), "folds": self.folds.summaries()}))
+        client.send_text(json.dumps({**self.status(), "type": "hello", "protocol": 2, "folds": self.folds.summaries()}))
         try:
             while True:
                 op, data = await client.recv(reader)

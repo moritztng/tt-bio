@@ -27,7 +27,7 @@ export function topologyFrom(t) {
 }
 
 export function frameFrom(f, i, n) {
-  return { coords: decodeCoords(f.coords), time: f.t ?? i, progress: f.progress ?? (n > 1 ? i / (n - 1) : 1), final: !!f.final };
+  return { coords: decodeCoords(f.coords), time: f.t ?? i, progress: f.progress ?? (n > 1 ? i / (n - 1) : 1), final: !!f.final, aligned: !!f.aligned };
 }
 
 export async function loadTrajectory(url) {
