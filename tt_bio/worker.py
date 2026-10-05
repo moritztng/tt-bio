@@ -1025,6 +1025,7 @@ class _WorkerState:
             cfg["write_pae"],
             cfg["write_pde"],
             cfg["write_embeddings"],
+            cfg.get("contact_cutoff", 8.0),
         )
         return metrics, best, feats
 
@@ -1223,7 +1224,8 @@ class _WorkerState:
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
                 seed=cfg.get("seed") or 0, progress_fn=report_progress,
                 n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
-                return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"))
+                return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"),
+                distogram=bool(cfg.get("write_pae")))
         confs = conf if isinstance(conf, list) else [conf]
 
         # Rank, write and emit through the Protenix-v2 builder: OpenDDE rides that trunk, sampler
@@ -1327,9 +1329,13 @@ class _WorkerState:
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
         if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
-            import numpy as np
-            np.savez(struct_dir / f"{stem}_pae.npz",
-                     pae=best["pae"].numpy(), pde=best["pde"].numpy())
+            from tt_bio import confidence_export
+            model = cfg.get("model", "protenix-v2")
+            confidence_export.write(
+                struct_dir, stem, model, pae=best["pae"], pde=best["pde"],
+                distogram=best.get("distogram"), cutoff=cfg.get("contact_cutoff", 8.0),
+                absent={} if "distogram" in best else
+                {"contact_probs": f"tt-bio does not run the {model} distogram head"})
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_protenix_one(self, path: Path, cfg: dict[str, Any]):
