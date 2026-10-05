@@ -63,6 +63,8 @@ working.
 
 ## Cost
 
-These matrices are opt-in because they are N² per fold and, for contacts, an N²×bins softmax on
-the host. The structure is the same with and without the flag: none of these heads feeds the
-coordinates.
+These matrices are opt-in because they grow with N² per fold. On a 164-token complex the flag
+added no measurable time or memory for Boltz-2, OpenFold3 or ESMFold-2 (within a second of the
+same fold without it). At 1,536 tokens the contact-probability step takes about 0.9 s and 340 MB
+of host memory. The structure is byte-identical with and without the flag: none of these heads
+feeds the coordinates. Measurements and upstream comparisons are in `perf/fdx_confidence/`.
