@@ -174,11 +174,11 @@ def main():
     th = threading.Thread(target=clock.loop, daemon=True)
     th.start()
     t_launch = time.time()
-    ev = run_worker(a.chip, [dict(job, id="warm", frames=False), dict(job, id="rec")], msa_dir,
+    ev = run_worker(a.chip, [dict(job, id="warm", frames=False), dict(job, id="rec", raw=True)], msa_dir,
                     run / "worker.log", a.stall_s)
     clock.stop.set()
     th.join()
-    (run / "events.jsonl").write_text("".join(json.dumps({k: v for k, v in e.items() if k not in ("xyz", "x0")})
+    (run / "events.jsonl").write_text("".join(json.dumps({k: v for k, v in e.items() if k not in ("xyz", "x0", "frames")})
                                               + "\n" for e in ev["rec"]))
 
     start = next(e for e in ev["rec"] if e["type"] == "fold_start")

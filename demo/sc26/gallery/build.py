@@ -15,11 +15,15 @@ import argparse
 import base64
 import json
 import lzma
+import sys
 from pathlib import Path
 
 import numpy as np
 
 from record import yaml_for
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "engine"))
+import trajectory  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 
@@ -44,29 +48,8 @@ def load(meta):
     return qx, q0, final
 
 
-def kabsch(mobile, target):
-    """R, t with R @ mobile_i + t ~= target_i."""
-    mc, tc = mobile.mean(0), target.mean(0)
-    u, _, vt = np.linalg.svd((mobile - mc).T.astype(np.float64) @ (target - tc))
-    d = np.sign(np.linalg.det(vt.T @ u.T))
-    r = vt.T @ np.diag([1.0, 1.0, d]) @ u.T
-    return r, tc - r @ mc
-
-
-def display_transforms(meta, xyz, x0, final):
-    """Each frame onto the final structure, fitted on the step's x0 (the noise frame on itself).
-    One fixed reference, as the renderer does it (web/render/src/trajectory.js)."""
-    R, T = [], []
-    for i, s in enumerate(meta["frame_steps"]):
-        r, t = (np.eye(3), np.zeros(3)) if i == len(xyz) - 1 else kabsch(x0[i - 1] if s >= 0 else xyz[i], final)
-        R.append([round(float(v), 6) for v in r.flatten()])
-        T.append([round(float(v), 4) for v in t])
-    return R, T
-
-
 def messages(meta, pick):
     xyz, x0, final = load(meta)
-    R, T = display_transforms(meta, xyz, x0, final)
     fid = meta["id"]
     base = dict(id=fid, chip=meta["chip"], kind="replay", source="live", model=meta["model"],
                 recorded_chip=meta["chip"])
@@ -90,13 +73,15 @@ def messages(meta, pick):
         if kind == 0:
             yield ev
             continue
-        i, s = ev, meta["frame_steps"][ev]
-        yield dict(type="frame", id=fid, chip=meta["chip"], step=s, of=of, t=t, xyz=b64(xyz[i]),
-                   x0=b64(x0[i - 1]) if s >= 0 else None, R=R[i], T=T[i])
+        yield dict(type="frame", id=fid, chip=meta["chip"], step=meta["frame_steps"][ev], of=of, t=t)
+    # every state onto the final structure, fitted on its x0 (the noise state on itself), and packed
+    # as the chip worker packs a live fold
+    states = [(s, t, xyz[i], x0[i - 1] if s >= 0 else None)
+              for i, (s, t) in enumerate(zip(meta["frame_steps"], meta["frame_t"]))]
     yield dict(type="fold_done", **base, n_res=meta["n_res"], seconds=meta["seconds"], stages=meta["stages"],
                aiclk_mhz=meta["aiclk_mhz"], xyz=b64(final), plddt=meta["plddt"],
                ptm=meta["confidence"]["ptm"], iptm=meta["confidence"].get("iptm"), t=meta["seconds"],
-               recorded_utc=meta["recorded_utc"], host=meta["host"])
+               recorded_utc=meta["recorded_utc"], host=meta["host"], frames=trajectory.pack(states))
 
 
 def check(path, meta):
@@ -106,10 +91,11 @@ def check(path, meta):
     evs = [json.loads(l) for l in lines]
     frames = [e for e in evs if e["type"] == "frame"]
     done = evs[-1]
-    dec = lambda s: np.frombuffer(base64.b64decode(s), "<f4").reshape(-1, 3)
     assert len(frames) == meta["steps"] + 1 and frames[0]["step"] == -1 and frames[-1]["step"] == meta["steps"] - 1
-    assert all(dec(f["xyz"]).shape == (meta["n_atoms"], 3) for f in frames)
-    assert frames[-1]["xyz"] == done["xyz"], "last frame is not the scored structure"
+    states = trajectory.unpack(done["frames"], done["xyz"])
+    assert done["frames"]["step"] == [f["step"] for f in frames]
+    assert all(x.shape == (meta["n_atoms"], 3) for x in states)
+    assert np.array_equal(states[-1], load(meta)[2]), "last state is not the scored structure"
     assert len(done["plddt"]) == max(evs[0]["atoms"]["residue"]) + 1
     ts = [f["t"] for f in frames]
     assert ts == sorted(ts)
@@ -162,7 +148,7 @@ def main():
     for stale in set(out.glob("*.jsonl")) - {out / f"{e['id']}.jsonl" for e in entries}:
         stale.unlink()  # the server replays every file here, so a dropped pick must go
     manifest = dict(
-        protocol=1, generated_by="demo/sc26/gallery/build.py",
+        protocol=2, generated_by="demo/sc26/gallery/build.py",
         about="Real OpenFold3 folds recorded on qb2. Every frame is a sampler state; see README.md.",
         entries=entries)
     (HERE / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")

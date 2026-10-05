@@ -42,7 +42,7 @@ export class Stage {
     this.condense = Math.min(Math.max(condense, this.span), Math.max(cap, condense));
     this.times = playTimes(fold.tReal, this.condense);
     const n = fold.coords.length;
-    const frames = fold.coords.map((c, i) => ({ coords: c, x0: fold.x0?.[i] ?? null, step: fold.steps?.[i] ?? i - 1,
+    const frames = fold.coords.map((c, i) => ({ coords: c, x0: fold.x0?.[i] ?? null, aligned: !!fold.aligned, step: fold.steps?.[i] ?? i - 1,
       time: this.times[i], progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
     // how much wider than the final structure each state's cloud is, by radius of gyration
     const rg = gyration(fold.coords[n - 1]) || 1;

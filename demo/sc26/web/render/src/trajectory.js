@@ -95,8 +95,9 @@ export function applyFit({ R, cm, cr }, x) {
 // `mov` rigidly superposed onto `ref`.
 export const superpose = (mov, ref) => applyFit(fit(mov, ref), mov);
 
-// A frame moved onto `ref`, the rotation fitted on its x0 when it has one.
-const onto = (f, ref) => ({ ...f, coords: applyFit(fit(f.x0 ?? f.coords, ref), f.coords) });
+// A frame moved onto `ref`, the rotation fitted on its x0 when it has one. A frame the engine already
+// superposed onto the final structure (`aligned`, PROTOCOL.md "Coordinates") stays where it is.
+const onto = (f, ref) => f.aligned ? f : { ...f, coords: applyFit(fit(f.x0 ?? f.coords, ref), f.coords) };
 
 export function rmsd(a, b) {
   let s = 0; for (let i = 0; i < a.length; i++) s += (a[i] - b[i]) ** 2;

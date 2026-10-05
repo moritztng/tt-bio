@@ -1,5 +1,5 @@
 {
- "protocol": 1,
+ "protocol": 2,
  "generated_by": "demo/sc26/gallery/build.py",
  "about": "Real OpenFold3 folds recorded on qb2. Every frame is a sampler state; see README.md.",
  "entries": [
@@ -282,7 +282,7 @@
     10.1
    ],
    "recording": "trajectories/insulin.jsonl",
-   "recording_bytes": 2647165,
+   "recording_bytes": 699765,
    "store": [
     "store/insulin.json",
     "store/insulin.bin"
@@ -556,7 +556,7 @@
     17.9
    ],
    "recording": "trajectories/gfp.jsonl",
-   "recording_bytes": 12300637,
+   "recording_bytes": 3143706,
    "store": [
     "store/gfp.json",
     "store/gfp.bin"
@@ -909,7 +909,7 @@
     23.3
    ],
    "recording": "trajectories/haemoglobin.jsonl",
-   "recording_bytes": 28312829,
+   "recording_bytes": 7202749,
    "store": [
     "store/haemoglobin.json",
     "store/haemoglobin.bin"
@@ -1185,7 +1185,7 @@
     15.2
    ],
    "recording": "trajectories/myoglobin.jsonl",
-   "recording_bytes": 7820471,
+   "recording_bytes": 2010620,
    "store": [
     "store/myoglobin.json",
     "store/myoglobin.bin"
@@ -1471,7 +1471,7 @@
     23.4
    ],
    "recording": "trajectories/designed-binder.jsonl",
-   "recording_bytes": 15098313,
+   "recording_bytes": 3856054,
    "store": [
     "store/designed-binder.json",
     "store/designed-binder.bin"
@@ -1745,7 +1745,7 @@
     17.8
    ],
    "recording": "trajectories/petase.jsonl",
-   "recording_bytes": 13256591,
+   "recording_bytes": 3386966,
    "store": [
     "store/petase.json",
     "store/petase.bin"
@@ -2019,7 +2019,7 @@
     14.0
    ],
    "recording": "trajectories/lysozyme.jsonl",
-   "recording_bytes": 6691329,
+   "recording_bytes": 1724348,
    "store": [
     "store/lysozyme.json",
     "store/lysozyme.bin"
@@ -2293,7 +2293,7 @@
     12.7
    ],
    "recording": "trajectories/top7.jsonl",
-   "recording_bytes": 4851481,
+   "recording_bytes": 1257122,
    "store": [
     "store/top7.json",
     "store/top7.bin"
@@ -2615,7 +2615,7 @@
     38.0
    ],
    "recording": "trajectories/tcr-hla.jsonl",
-   "recording_bytes": 42984652,
+   "recording_bytes": 10918093,
    "store": [
     "store/tcr-hla.json",
     "store/tcr-hla.bin"
@@ -2913,7 +2913,7 @@
     29.8
    ],
    "recording": "trajectories/keytruda.jsonl",
-   "recording_bytes": 28576220,
+   "recording_bytes": 7268681,
    "store": [
     "store/keytruda.json",
     "store/keytruda.bin"
@@ -3202,7 +3202,7 @@
     25.4
    ],
    "recording": "trajectories/paxlovid.jsonl",
-   "recording_bytes": 30594925,
+   "recording_bytes": 7780028,
    "store": [
     "store/paxlovid.json",
     "store/paxlovid.bin"

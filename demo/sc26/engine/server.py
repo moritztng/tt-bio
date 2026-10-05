@@ -6,7 +6,9 @@
 Serves the app's static files and a WebSocket at /stream on http://127.0.0.1:8626/, the one
 local origin the kiosk talks to. The messages are specified in demo/sc26/PROTOCOL.md.
 
-Standard library only, so the booth box needs nothing installed beyond tt-bio itself.
+Standard library only, so the booth box needs nothing installed beyond tt-bio itself. (A
+recording from before protocol 2 is converted at startup with engine/trajectory.py, which needs
+numpy; tt-bio's environment has it.)
 """
 import argparse
 import asyncio
@@ -52,6 +54,83 @@ class Hub:
         data = msg if isinstance(msg, str) else json.dumps(msg, separators=(",", ":"))
         for c in list(self.clients):
             c.send_text(data)
+
+
+def key(ev):
+    """Which protein a fold is, as the app's Director counts them: its name, or its sequence."""
+    return ev.get("name") or ev.get("sequence")
+
+
+class Folds:
+    """Finished folds' coordinates, sent only to a page that asks for them (GET /fold/<id>). The
+    stream itself carries no coordinates: a page shows one fold at a time, so it pulls the ones it
+    will keep, at the pace its link allows. Holds the newest live fold and the newest recording of
+    each protein, and at most `cap` folds in all."""
+
+    def __init__(self, cap=64):
+        self.cap, self.entries = cap, {}   # (protein, source) -> entry, oldest first
+
+    def add(self, start, done):
+        fr = done["frames"]
+        q16 = fr["q16"] if isinstance(fr["q16"], bytes) else base64.b64decode(fr["q16"])
+        xyz = done["xyz"] if isinstance(done["xyz"], bytes) else base64.b64decode(done["xyz"])
+        plddt = done.get("plddt") or []
+        summary = {k: v for k, v in done.items() if k not in ("xyz", "plddt", "frames")} | {
+            k: start.get(k) for k in ("name", "sequence", "n_atoms", "chains") if start.get(k) is not None} | {
+            "n_frames": len(fr["step"]), "plddt_mean": round(sum(plddt) / len(plddt), 4) if plddt else None}
+        meta = {k: v for k, v in start.items() if k not in ("type", "t", "t_wall")} | {
+            k: v for k, v in done.items() if k not in ("type", "xyz", "frames")}
+        e = {"summary": summary, "meta": meta, "frames": fr, "q16": q16, "xyz": xyz, "n_atoms": len(xyz) // 12}
+        slot = (key(summary), summary.get("source"))
+        self.entries.pop(slot, None)
+        self.entries[slot] = e
+        while len(self.entries) > self.cap:
+            self.entries.pop(next(iter(self.entries)))
+        return summary
+
+    def get(self, fid):
+        return next((e for e in self.entries.values() if e["summary"]["id"] == fid), None)
+
+    def summaries(self):
+        return [e["summary"] for e in self.entries.values()]
+
+    @staticmethod
+    def body(e, every):
+        """One fold for the page: a little-endian u32 length, the JSON metadata (padded with spaces
+        to a multiple of 4 bytes), the final structure as float32, then every `every`-th packed state
+        as int16 (PROTOCOL.md "GET /fold"). The final structure is always included."""
+        fr, n = e["frames"], e["n_atoms"]
+        pick = list(range(0, len(fr["scale"]), max(1, every)))
+        meta = e["meta"] | {"every": every, "step": [fr["step"][i] for i in pick] + [fr["step"][-1]],
+                            "t": [fr["t"][i] for i in pick] + [fr["t"][-1]],
+                            "origin": [fr["origin"][i] for i in pick], "scale": [fr["scale"][i] for i in pick]}
+        mb = json.dumps(meta, separators=(",", ":")).encode()
+        mb += b" " * (-(len(mb) + 4) % 4)
+        size = 6 * n
+        return b"".join([struct.pack("<I", len(mb)), mb, e["xyz"]] + [e["q16"][i * size:(i + 1) * size] for i in pick])
+
+
+class Pacer:
+    """At most one stage and one frame event per fold every `gap` seconds on the wire: a chip lane
+    redraws a few times a second, while a sampler reports up to 80 steps a second. A new stage and
+    a stage's last step always go out."""
+
+    def __init__(self, gap=0.25):
+        self.gap, self.last = gap, {}
+
+    def due(self, ev):
+        k, now = (ev.get("id"), ev["type"]), time.monotonic()
+        stage, prev = ev.get("stage"), self.last.get(k)
+        step, end = ev.get("step"), ev.get("of", ev.get("total"))
+        last = end is not None and step is not None and step >= end - (ev["type"] == "frame")
+        if prev and prev[0] == stage and now - prev[1] < self.gap and not last:
+            return False
+        self.last[k] = (stage, now)
+        return True
+
+    def forget(self, fid):
+        for k in [k for k in self.last if k[0] == fid]:
+            del self.last[k]
 
 
 class Chip:
@@ -102,7 +181,7 @@ class Chip:
             rc = await self.proc.wait()
             if self.job is not None:  # it died holding a fold: say so, and give a visitor's fold to another chip
                 job, self.job = self.job, None
-                self.svc.hub.send({"type": "fold_error", "id": job["id"], "chip": self.chip,
+                self.svc.publish({"type": "fold_error", "id": job["id"], "chip": self.chip,
                                    "reason": "chip_lost", "t_wall": time.time()})
                 self.svc.ledger("fail", self.chip)
                 self.svc.requeue(job)
@@ -155,7 +234,7 @@ class Chip:
                 self.job = None
                 if t == "fold_error" and ev.get("reason") in ("stopped", "out_of_memory"):
                     self.svc.requeue(job)  # the chip was stopped or is recycling: a visitor's fold moves on
-        self.svc.hub.send(raw)
+        self.svc.publish(ev)
 
     def set_state(self, st, **kw):
         if self.svc.resetting(self) and st != "resetting":
@@ -188,42 +267,48 @@ class Replay:
 
     def __init__(self, svc, dirs):
         self.svc = svc
-        files = [f for d in dirs for f in Path(d).glob("*.jsonl")
-                 if json.loads(open(f).readline()).get("model") in svc.args.models
-                 and any('"type":"fold_done"' in l for l in open(f))]
+        self.files = {}   # path -> the recording's events, its coordinates decoded once
+        for f in (f for d in dirs for f in Path(d).glob("*.jsonl")):
+            evs = self.load(f)
+            if evs and evs[0].get("model") in svc.args.models and evs[-1]["type"] == "fold_done":
+                self.files[f] = evs
         # largest first, so the first replays after a start are the big complexes
-        self.files = sorted(files, key=lambda f: (-json.loads(open(f).readline()).get("n_res", 0), f.name))
+        self.order = sorted(self.files, key=lambda f: (-self.files[f][0].get("n_res", 0), f.name))
         self.task = None
-        self.played = []   # the last two recordings played, as sent; a browser that connects gets them
+
+    @staticmethod
+    def load(path):
+        lines = path.read_text().splitlines()
+        if '"xyz":' in lines[1 if len(lines) > 1 else 0]:   # protocol 1: coordinates in every frame
+            try:
+                import trajectory   # numpy; a recording written since protocol 2 needs nothing
+            except ImportError:
+                print(f"skipping {path.name}: protocol 1, convert it with engine/trajectory.py", flush=True)
+                return None
+            lines = trajectory.convert(lines)
+        evs = [ev for ev in map(json.loads, lines) if ev.get("type") in ("fold_start", "stage", "frame", "fold_done")]
+        done = evs[-1] if evs else {}
+        if "frames" not in done:
+            return None
+        done["xyz"] = base64.b64decode(done["xyz"])
+        done["frames"]["q16"] = base64.b64decode(done["frames"]["q16"])
+        return evs
 
     async def play(self, path, jid, kind="replay"):
-        prev, sent = None, []
-        for line in open(path):
-            ev = json.loads(line)
-            if ev.get("type") not in ("fold_start", "stage", "frame", "fold_done"):
-                continue
+        prev = None
+        for ev in self.files[path]:
             if prev is not None and "t" in ev:
                 await asyncio.sleep(max(0.0, min(2.0, ev["t"] - prev)))
             prev = ev.get("t", prev)
-            ev.update(id=jid, chip=None, source="replay", kind=kind, t_wall=time.time(),
-                      recorded=path.stem)
-            sent.append(json.dumps(ev, separators=(",", ":")))
-            self.svc.hub.send(sent[-1])
-        self.played = (self.played + [sent])[-2:]
-
-    def prime(self, client):
-        """A page that has just loaded would otherwise see only live folds until the next recording
-        has streamed, a minute or more while the chips are busy. It gets the last two at once."""
-        for sent in self.played:
-            for data in sent:
-                client.send_text(data)
+            self.svc.publish(ev | dict(id=jid, chip=None, source="replay", kind=kind, t_wall=time.time(),
+                                       recorded=path.stem))
 
     async def loop(self):
         """Recordings between the live folds, so every gallery pick reaches the screen even before
         the chips have folded it live, and with no chip at all the screen is never blank. With a
         chip live they come at a slower pace; the app picks what takes the stage, and a live fold of
         a pick replaces its recording there."""
-        for path in itertools.cycle(self.files or [None]):
+        for path in itertools.cycle(self.order or [None]):
             if path is None:
                 await asyncio.sleep(5)
                 continue
@@ -253,6 +338,7 @@ class Service:
         self.attract_long = itertools.cycle([a for a in picks if is_long(a)] or [None])
         self.attract_short = itertools.cycle([a for a in picks if not is_long(a)] or [None])
         self.attract = bool(picks)
+        self.folds, self.pacer, self.starting = Folds(), Pacer(), {}   # starting: id -> fold_start, until done
         self.replay = Replay(self, args.replay)
         self.open_files = {}
         self._preempt_armed = False
@@ -409,6 +495,27 @@ class Service:
             f = self.open_files[job["id"]] = open(self.recdir / f"{time.strftime('%Y%m%dT%H%M%S')}-{job['id']}.jsonl", "w")
         f.write(raw + "\n")
 
+    def publish(self, ev):
+        """A fold event, live or replayed, onto the stream. The stream carries no coordinates: a
+        fold_start goes out without its atoms and a fold_done as a summary, and the fold is kept in
+        self.folds for the pages that ask for it. Stage and frame ticks are paced (Pacer)."""
+        t, fid = ev.get("type"), ev.get("id")
+        if t == "fold_start":
+            self.starting[fid] = ev
+            ev = {k: v for k, v in ev.items() if k != "atoms"}
+        elif t in ("stage", "frame"):
+            if not self.pacer.due(ev):
+                return
+            ev = {k: v for k, v in ev.items() if k not in ("xyz", "x0", "R", "T")}
+        elif t in ("fold_done", "fold_error"):
+            self.pacer.forget(fid)
+            start = self.starting.pop(fid, None)
+            if t == "fold_done":
+                if start is None or "frames" not in ev:
+                    return
+                ev = {"type": t} | self.folds.add(start, ev)
+        self.hub.send(ev)
+
     # sysfs looks healthy through most of a `tt-smi -r`, so the counters alone showed a board being
     # reset as "ready". The engine knows better: a chip it has stalled, is resetting or is bringing
     # back says so on the lanes too, as it does in the stage's chip table.
@@ -427,7 +534,7 @@ class Service:
     def status(self):
         out = [{"chip": n, "state": "out_of_service"} for n in self.args.out_of_service]
         return {"type": "status", "models": self.args.models, "chips": [c.status() for c in self.chips] + out,
-                "queue": len(self.visitors), "replays": len(self.replay.files), "t_wall": time.time()}
+                "queue": len(self.visitors), "replays": len(self.replay.order), "t_wall": time.time()}
 
     async def watchdog(self):
         """A fold that stops producing events is stopped (SIGINT) and its chip restarted."""
@@ -466,7 +573,7 @@ class Service:
         lines = head.decode("latin-1").split("\r\n")
         method, path, _ = (lines[0].split(" ") + ["", "", ""])[:3]
         hdr = {k.strip().lower(): v.strip() for k, v in (l.split(":", 1) for l in lines[1:] if ":" in l)}
-        path = path.split("?")[0]
+        path, _, query = path.partition("?")
         if path == "/stream" and hdr.get("upgrade", "").lower() == "websocket":
             return await self.websocket(reader, writer, hdr)
         if method == "POST" and path == "/fold":
@@ -476,6 +583,13 @@ class Service:
             except ValueError:
                 res = {"type": "rejected", "reason": "json"}
             return self.reply(writer, 200, json.dumps(res).encode(), "application/json")
+        if path.startswith("/fold/"):   # one finished fold's coordinates (PROTOCOL.md "GET /fold")
+            e = self.folds.get(path[6:])
+            if e is None:
+                return self.reply(writer, 404, b"gone", "text/plain")
+            every = dict(p.partition("=")[::2] for p in query.split("&")).get("every", "1")
+            return self.reply(writer, 200, Folds.body(e, int(every) if every.isdigit() else 1),
+                              "application/octet-stream")
         if path == "/telemetry" and self.monitor:  # the chip lanes poll this (hardware/README.md)
             return self.reply(writer, 200, json.dumps(self.telemetry()).encode(), "application/json")
         if path == "/status":
@@ -503,8 +617,9 @@ class Service:
                       f"Sec-WebSocket-Accept: {accept}\r\n\r\n").encode())
         client = WSClient(writer)
         self.hub.clients.add(client)
-        client.send_text(json.dumps({"type": "hello", "protocol": 1, **self.status()}))
-        self.replay.prime(client)
+        # what this page can pull at once: a page that has just loaded or reconnected fills its stage
+        # from these, without waiting for the next fold to stream by
+        client.send_text(json.dumps({"type": "hello", "protocol": 2, **self.status(), "folds": self.folds.summaries()}))
         try:
             while True:
                 op, data = await client.recv(reader)
@@ -537,7 +652,7 @@ class Service:
         if self.monitor:
             self.monitor.start()
         print(f"sc26 engine on http://{self.args.host}:{self.args.port}/  chips={self.args.chips} "
-              f"replays={len(self.replay.files)}", flush=True)
+              f"replays={len(self.replay.order)}", flush=True)
         async with server:
             while not self.stopping:
                 await asyncio.sleep(0.5)
@@ -561,18 +676,34 @@ class Service:
 
 
 class WSClient:
-    """Server side of RFC 6455, enough for text messages, ping and close."""
+    """Server side of RFC 6455, enough for text messages, ping and close.
+
+    A browser behind a slow or stalled link is never queued for: while more than BACKLOG bytes it
+    has not taken yet are waiting, a message to it is dropped (the status every 2 s makes up for
+    any of them), and a link that has taken nothing for STUCK_S seconds is closed. The page
+    reconnects by itself and starts from a fresh hello."""
+
+    BACKLOG, STUCK_S = 64 * 1024, 30.0
 
     def __init__(self, writer):
         self.writer = writer
+        self.behind_since, self.dropped = None, 0
 
     def send(self, op, payload):
+        if self.writer.is_closing():
+            return
+        if self.writer.transport.get_write_buffer_size() > self.BACKLOG:
+            self.dropped += 1
+            self.behind_since = self.behind_since or time.monotonic()
+            if time.monotonic() - self.behind_since > self.STUCK_S:
+                self.writer.transport.abort()
+            return
+        self.behind_since = None
         n = len(payload)
         head = bytes([0x80 | op]) + (bytes([n]) if n < 126 else
                                      bytes([126]) + struct.pack(">H", n) if n < 65536 else
                                      bytes([127]) + struct.pack(">Q", n))
-        if not self.writer.is_closing():
-            self.writer.write(head + payload)
+        self.writer.write(head + payload)
 
     def send_text(self, s):
         self.send(1, s.encode())

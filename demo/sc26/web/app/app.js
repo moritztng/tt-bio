@@ -14,6 +14,7 @@
 //   ?orbit=<deg/s>   how fast a finished structure turns, default 5; 0 holds the landing view
 //   ?scale=, ?msaa=  the renderer's render scale and samples, default by resolution
 //   ?fps=1           log the frame rate to the console every 5 s
+//   ?wire=1          log what the page pulled over the link to the console every 10 s
 
 import { Stream, loadRecording } from './stream.js';
 import { Stage, Director } from './stage.js';
@@ -358,7 +359,9 @@ function drawNumber(f) {
   const pace = !k ? '' : k > 1.05 ? `\nReplayed ${x(k)}× slower than the chip ran it`
     : k < 0.95 ? `\nReplayed ${x(1 / k)}× faster than the chip ran it` : '\nReplayed at the chip’s own pace';
   const why = live ? '' : '\nA recording until a chip finishes this one live';
-  $('step').textContent = !of ? '' : (stage.landed ? `All ${of} diffusion steps shown`
+  // over a slow link the page pulls every k-th state (stream.js): it says so, and the counter stays the sampler's own
+  const shown = f.coords.length - 1;
+  $('step').textContent = !of ? '' : (stage.landed ? (shown < of ? `${shown} of ${of} diffusion steps shown` : `All ${of} diffusion steps shown`)
     : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`) + why;
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
@@ -390,10 +393,11 @@ function laneFor(c, now) {
   if (c?.state === 'busy' && job) {
     const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
     const quiet = now - job.tAt;
+    const silent = now - Math.max(job.tAt, stream.openedAt ?? 0);   // while the page itself was cut off, the chip was not silent
     const k = job.step, K = job.total;
     const stage = job.stage === 'trunk' && K > 1 ? `trunk ${Math.min(k + 1, K)}/${K}`
       : job.stage === 'diffusion' && K > 1 ? `diffusion ${k}/${K}` : STAGE_WORD[job.stage] ?? (job.stage === 'done' ? 'done' : 'starting');
-    const t = quiet > QUIET_S ? `<span class="warn">no word for ${Math.floor(quiet)} s</span>`
+    const t = silent > QUIET_S && stream.connected ? `<span class="warn">no word for ${Math.floor(silent)} s</span>`
       : job.stage === 'done' ? secs(job.seconds) : secs(job.tChip + quiet);
     return { cls: 'busy', name: `${named() && MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who}`, stage, t,
       bar: job.stage === 'done' ? 1 : job.stage === 'diffusion' && K > 0 ? k / K : 0, last: lastLine };
@@ -470,6 +474,11 @@ if (q.get('fps')) {
   requestAnimationFrame(count);
   setInterval(() => { const t = performance.now(); console.log(`fps ${(n * 1000 / (t - t0)).toFixed(1)} scale ${stage.r.scale} msaa ${stage.r.rt.samples}`); n = 0; t0 = t; }, 5000);
 }
+
+// ?wire=1: what the page pulled and how, every 10 s on the console (engine/wire.py measures the stream side)
+if (q.get('wire')) setInterval(() => console.log('wire ' + JSON.stringify({ connected: stream.connected, rate: Math.round(stream.rate),
+  pulled: stream.pulled, wanted: stream.wanted.size, pool: director.pool.length, slot: app.slot?.fold?.name ?? null,
+  every: app.slot?.fold?.every ?? null, step: stage.step, landed: !!stage.landed })), 10000);
 
 if (q.get('selftest') === 'reset') import('./tests/reset.js').then(m => m.run(app, { toAttract, startTyping, type, submit, showResult, director, IDLE }));
 if (q.get('selftest') === 'kiosk') setTimeout(() => import('./tests/kiosk.js').then(m => m.run()), 4000);

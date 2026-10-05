@@ -9,7 +9,9 @@ library print is moved to stderr at startup, so stdout carries events and nothin
 --model picks OpenFold3, Boltz-2 or ESMFold2. The frames are the diffusion sampler's own
 coordinates, taken through the default-off hooks in tt_bio.openfold3_fold (OpenFold3.dump_fn),
 tt_bio.boltz2 (Boltz2.dump_fn) and tt_bio.esmfold2 (set_trajectory_dump). Nothing is interpolated.
-The last frame's coordinates are the scored structure's, bit for bit.
+A frame event says only which step the sampler reached; the states themselves travel once, packed
+in fold_done (engine/trajectory.py), and the last one is the scored structure, bit for bit. A job
+with "raw": true also gets every state's float32 xyz and x0 in its frame events (gallery/record.py).
 
 OpenFold3 and Boltz-2 read a protein's MSA from --msa-dir when one was searched ahead of time (the
 attract proteins, demo/sc26/engine/msa, by tt-bio's sequence hash: <hash>.a3m for OpenFold3,
@@ -58,19 +60,6 @@ def f32(t):
     """Tensor -> base64 little-endian float32, the protocol's coordinate encoding."""
     import numpy as np
     return base64.b64encode(np.ascontiguousarray(t.detach().cpu().float().numpy(), "<f4").tobytes()).decode()
-
-
-def kabsch(mobile, target, w=None):
-    """Rotation R and translation t with R @ mobile_i + t ~= target_i (least squares)."""
-    import torch
-    w = torch.ones(mobile.shape[0]) if w is None else w
-    w = w / w.sum()
-    mc, tc = (w[:, None] * mobile).sum(0), (w[:, None] * target).sum(0)
-    h = ((mobile - mc) * w[:, None]).T @ (target - tc)
-    u, _, vt = torch.linalg.svd(h.double())
-    d = torch.sign(torch.det(vt.T @ u.T))
-    r = (vt.T @ torch.diag(torch.tensor([1.0, 1.0, float(d)], dtype=torch.float64)) @ u.T).float()
-    return r, tc - r @ mc
 
 
 class Clock:
@@ -280,6 +269,7 @@ def main():
     t0 = time.perf_counter()
     emit(type="chip", chip=args.chip, state="warming", aiclk_mhz=clock.read())
     import torch
+    import trajectory
     from tt_bio.runtime import bind_host_threads
     bind_host_threads()
     from tt_bio import esmfold2 as E
@@ -349,7 +339,7 @@ def main():
             emit(type="stage", id=jid, chip=args.chip, stage=stage, step=step, total=total,
                  t=round(time.perf_counter() - t_start, 3))
 
-        prev = {"ref": None}
+        states = []   # (step, t, xyz, x0): every sampler state, packed once at fold_done
         pending = []
         beat = [0.0]
 
@@ -360,26 +350,13 @@ def main():
         def dump(step, x, x_den):
             if abort.is_set() or cancel.is_set():
                 raise Aborted()
-            x = x.detach().float().cpu()
-            x_den = x_den.detach().float().cpu() if x_den is not None else None
-            raw = x[0][mask]
-            ref = x_den[0][mask] if x_den is not None else raw
-            # Display alignment onto ONE fixed reference, the fold's first x0 (the network's first
-            # estimate of the finished structure), fitted on this step's x0, which shares the
-            # step's random frame and already has the protein's shape. Aligning each frame onto
-            # the previous one chained the noise of every fit into a drift. The raw coordinates
-            # are sent untouched; R and t are a camera, not an edit. The app re-superposes every
-            # frame onto the final structure once the fold is done (web/render/src/trajectory.js).
-            if prev["ref"] is None and x_den is not None:
-                prev["ref"] = x_den[0][mask].clone()
-            if prev["ref"] is None:
-                r, t = torch.eye(3), torch.zeros(3)
-            else:
-                r, t = kabsch(ref, prev["ref"])
-            frame = dict(type="frame", id=jid, chip=args.chip, step=step, of=phase.get("of"),
-                         t=round(time.perf_counter() - t_start, 3), xyz=f32(raw),
-                         x0=f32(x_den[0][mask]) if x_den is not None else None,
-                         R=[round(v, 6) for v in r.flatten().tolist()], T=[round(v, 4) for v in t.tolist()])
+            raw = x.detach().float().cpu()[0][mask]
+            x0 = x_den.detach().float().cpu()[0][mask] if x_den is not None else None
+            t = round(time.perf_counter() - t_start, 3)
+            states.append((step, t, raw.numpy(), None if x0 is None else x0.numpy()))
+            frame = dict(type="frame", id=jid, chip=args.chip, step=step, of=phase.get("of"), t=t)
+            if job.get("raw"):
+                frame.update(xyz=f32(raw), x0=f32(x0) if x0 is not None else None)
             if step == -1:
                 pending.append(frame)
             else:
@@ -408,10 +385,13 @@ def main():
             final, plddt, ptm = out["sample_atom_coords"][0][mask], res.plddt.flatten().tolist(), res.ptm
         stamps[phase["stage"]] = time.perf_counter() - phase["t"]
         total = time.perf_counter() - t_start
+        if states:  # the last state is the scored structure itself, so the packing aligns onto it
+            states[-1] = states[-1][:2] + (final.detach().float().cpu().numpy(), states[-1][3])
         emit(type="fold_done", id=jid, chip=args.chip, model=args.model, n_res=n_res,
              seconds=round(total, 3), stages={k: round(v, 3) for k, v in stamps.items()},
              aiclk_mhz=clock.summary(), xyz=f32(final),
-             plddt=[round(float(v), 4) for v in plddt], ptm=ptm, source="live")
+             plddt=[round(float(v), 4) for v in plddt], ptm=ptm, source="live",
+             **({"frames": trajectory.pack(states)} if states else {}))
 
     busy.set()
     try:
