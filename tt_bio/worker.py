@@ -1065,8 +1065,8 @@ class _WorkerState:
             from tt_bio import confidence_export
             confidence_export.write(
                 Path(cfg["struct_dir"]), path.stem, "af2ig", pae=pred.pae,
-                absent={"pde": "AF2 has no PDE head",
-                        "contact_probs": "tt-bio does not load the AF2 distogram head"})
+                distogram=pred.distogram, cutoff=cfg.get("contact_cutoff", 8.0),
+                absent={"pde": "AF2 has no PDE head"})
         # _execute_job inspects feats["record"].affinity; AF2-IG has no affinity head.
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 

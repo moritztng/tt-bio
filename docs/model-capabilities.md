@@ -150,7 +150,7 @@ width limit and never renames anything.
 `--write_pae` writes `<name>_pae.npz` beside each structure on every folding model, with a
 `<name>_pae.json` sidecar listing what is in it. It always holds the full PAE matrix; PDE and
 contact probabilities are there when the model has the head (all but `af2ig` for PDE; all but
-`protenix-v1`, `protenix-v2` and `af2ig` for contacts). `--contact_cutoff` sets the contact
+`protenix-v1` and `protenix-v2` for contacts). `--contact_cutoff` sets the contact
 distance, 8 A by default. Arrays, units and the cutoff rule are in
 [confidence-outputs.md](confidence-outputs.md). Boltz-2 also keeps its separate `--write_pde` file.
 

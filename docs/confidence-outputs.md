@@ -31,7 +31,7 @@ pTM, ipTM and chain-pair ipTM are scalars and go into `results.json` as before.
 | `esmfold2`, `esmfold2-fast` | yes | yes | yes, cutoff 7.94 Å |
 | `rf3` | yes | yes | yes, cutoff 7.71 Å |
 | `protenix-v1`, `protenix-v2` | yes | yes | no: tt-bio does not run their distogram head |
-| `af2ig` | yes | no: AF2 has no PDE head | no: tt-bio does not load the AF2 distogram head |
+| `af2ig` | yes | no: AF2 has no PDE head | yes, cutoff 7.94 Å |
 
 `af2ig`'s matrix is AF2's raw predicted aligned error. The `interface_pae` scalar it already
 reports averages the symmetrised matrix, `(pae + pae.T) / 2`, over binder rows and target columns.

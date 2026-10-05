@@ -1141,7 +1141,15 @@ class AF2Model(nn.Module):
         # carries the trunk for both variants and the monomer structure module for the monomer.
         self.structure = AF2StructureModule() if structure else None
         self.heads = nn.ModuleDict({"pae": nn.ModuleDict({"logits": Linear(C_Z, PAE_BINS)}),
-                                    "plddt": PredictedLDDTHead()})
+                                    "plddt": PredictedLDDTHead(),
+                                    # Not run by forward(): only AF2-IG's export reads it.
+                                    "distogram": nn.ModuleDict({"half_logits": Linear(C_Z, 64)})})
+
+    def distogram_logits(self, pair: torch.Tensor) -> torch.Tensor:
+        """AF2's DistogramHead: half_logits + its transpose, [N, N, 64] on
+        linspace(2.3125, 21.6875, 63) breaks."""
+        half = self.heads["distogram"]["half_logits"](pair)
+        return half + half.transpose(0, 1)
 
     def relative_encoding(self, feats: dict, dtype: torch.dtype) -> torch.Tensor:
         """The pair's relative-position term, which is where the two variants part company.

@@ -231,7 +231,7 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
                     "esmfold2", "esmfold2-fast", "openfold3", "openbind", "rf3", "af2ig"),
     # Contact probabilities are read from a distogram head; these are the models that run one.
     "--contact_cutoff": ("boltz2", "opendde", "opendde-abag", "esmfold2", "esmfold2-fast",
-                         "openfold3", "openbind", "rf3"),
+                         "openfold3", "openbind", "rf3", "af2ig"),
     "--write_pde": ("boltz2",),
     "--write_embeddings": ("boltz2",),
     # Everything that folds from an alignment. Left at its default the flag does nothing to
@@ -249,8 +249,6 @@ FLAG_WHY: dict[tuple[str, str], str] = {
                                          "_pae.npz has PAE and PDE but no contact_probs",
     ("--contact_cutoff", "protenix-v2"): "tt-bio does not run its distogram head, so its "
                                          "_pae.npz has PAE and PDE but no contact_probs",
-    ("--contact_cutoff", "af2ig"): "tt-bio does not load the AF2 distogram head, so its "
-                                   "_pae.npz has the PAE matrix but no contact_probs",
     **{("--write_pde", m): "--write_pae already writes PDE into the same npz as the PAE"
        for m in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag", "esmfold2",
                  "esmfold2-fast", "openfold3", "openbind", "rf3")},

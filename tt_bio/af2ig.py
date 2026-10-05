@@ -107,6 +107,7 @@ class AF2IGPrediction:
     tokens: int
     binder_length: int
     pae: np.ndarray | None = None  # (tokens, tokens) float32 Å, row = aligned-on residue
+    distogram: np.ndarray | None = None  # (tokens, tokens, 64) logits of the last recycle's pair
 
 
 def _residue_numbers(feats: dict[str, np.ndarray], num_target: int) -> np.ndarray:
@@ -201,7 +202,10 @@ def fold(model, spec: AF2IGInput, *, recycles: int = 3, progress=None) -> AF2IGP
                            # AF2's predicted_aligned_error as upstream returns it: raw, before
                            # the symmetrising the interface-pAE scalar applies.
                            pae=expected_aligned_error(out["pae_logits"], out["pae_breaks"])
-                           .detach().cpu().float().numpy())
+                           .detach().cpu().float().numpy(),
+                           # Read after the last recycle only; nothing downstream consumes it.
+                           distogram=model.distogram_logits(out["pair"]).detach().cpu()
+                           .float().numpy())
 
 
 def metrics(scalars: dict[str, float]) -> dict[str, float]:
