@@ -147,8 +147,8 @@ class Chip:
         while self.hung and not self.svc.stopping:
             if self.svc.reset_ok(self):
                 await self.svc.reset_board(self)
-            else:
-                await asyncio.sleep(10)
+            if self.hung:  # not reset yet: a mate was still working, or another board is being reset
+                await asyncio.sleep(60)
 
     def on_event(self, ev, raw):
         t = ev.get("type")
@@ -323,13 +323,15 @@ class Service:
         --reset-cmd, bounded by --reset-timeout, then let the workers start again. The other boards
         keep folding, and the replay loop fills the screen if no chip is left.
 
-        A worker stuck inside a device call never runs its signal handlers, and it is never
-        killed: the board is reset with it still there, which ends its device wait so it exits
-        by itself (seen on chip 2, 2026-10-05). One that still has not exited --term-s after the
-        reset leaves its chip resting, so the lane counts down instead of going dark."""
+        Nothing is killed. The hung chip's own worker may still be there: a reset ends its device
+        wait and it exits by itself (chip 2, 2026-10-05 17:53Z). A board mate that is still working
+        is not: a reset under a chip in use hard-hung qb2 (19:18Z), so if a mate has not stopped
+        after SIGINT and SIGTERM the board is left alone, the mate keeps folding and the hung chip
+        rests. A worker still there --term-s after a reset also leaves its chip resting."""
         b = self.board_of(chip)
         mates = [c for c in self.chips if self.board_of(c) == b]
         ev = self.board_idle[b] = asyncio.Event()
+        tried = False
         for c in mates:
             c.set_state("resetting")
             c.last_reset = time.monotonic()
@@ -344,8 +346,18 @@ class Service:
             deadline = time.monotonic() + self.args.term_s
             for c in mates:
                 await self._wait_exit(c.proc, deadline - time.monotonic())
+            deadline = time.monotonic() + self.args.warm_s  # a mate stops at its next step or after warm-up
+            for c in mates:
+                if c is not chip:
+                    await self._wait_exit(c.proc, deadline - time.monotonic())
+            working = [c.chip for c in mates if c is not chip and c.proc and c.proc.returncode is None]
+            if working:
+                chip.hangs = [time.monotonic()] * self.args.rest_after
+                self.hub.send({"type": "reset", "chips": [c.chip for c in mates], "rc": "skipped",
+                               "working": working, "t_wall": time.time()})
+                return
             ids = ",".join(str(c.chip) for c in mates)
-            t0 = time.monotonic()
+            t0, tried = time.monotonic(), True
             try:
                 p = await asyncio.create_subprocess_exec(
                     *self.args.reset_cmd.split(), ids, stdin=asyncio.subprocess.DEVNULL,
@@ -368,7 +380,8 @@ class Service:
         finally:
             ev.set()
             for c in mates:
-                c.failures, c.hung = 0, False
+                if tried:
+                    c.failures, c.hung = 0, False
                 if c.back_at:
                     c.set_state("resting", back_at=c.back_at, rest_s=c.rest_s)
                 elif len(c.hangs) >= self.args.rest_after:

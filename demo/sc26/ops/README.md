@@ -55,9 +55,11 @@ turns both back on.
 | network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
 | the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
 
-Workers are stopped with SIGINT, then SIGTERM, and never killed. A worker stuck in the device
-ignores both; its board is reset with it still there, which ends the wait so it exits by itself.
-If it still has not exited, its chip rests. qb2's chips sit on two boards, chips 0 and 1 on one and
+Workers are stopped with SIGINT, then SIGTERM, and never killed. The hung chip's own worker may
+still be there when its board is reset; the reset ends its wait and it exits by itself. A board
+mate that is still working is never reset under: resetting a chip in use hard-hung qb2 once. The
+mate gets up to 5 min to finish its step or warm-up; if it is still working, the board is left
+alone and the hung chip rests. qb2's chips sit on two boards, chips 0 and 1 on one and
 2 and 3 on the other, and a reset always takes both chips of a board.
 
 ## Logs
