@@ -72,3 +72,46 @@ def test_single_chain_and_none_return_no_chain_keys():
     pae_logits, _ = _synthetic([10])
     assert ConfidenceHead._chain_confidence(pae_logits, torch.zeros(10)) == {}
     assert ConfidenceHead._chain_confidence(pae_logits, None) == {}
+
+
+def test_two_chain_pair_is_each_models_own_iptm():
+    """OpenFold3/OpenBind-0 and RF3 report the matrix through the same reduction. On two
+    chains the pair covers every token, so its entry must be the model's own global ipTM:
+    OF3's `_ptm_iptm`, and RF3's `iptm` on its non-uniform bin midpoints."""
+    from tt_bio.rf3 import confidence as rf3
+
+    pae_logits, asym = _synthetic([21, 30])
+    _ptm, iptm = ConfidenceHead._ptm_iptm(pae_logits, asym)
+    assert abs(ConfidenceHead._chain_confidence(pae_logits, asym)["pair_chains_iptm"][0][1]
+               - iptm) < 1e-5
+    n_bins, max_a = rf3.BINS["pae"]
+    pair = ConfidenceHead._chain_confidence(
+        pae_logits, asym, centers=rf3.bin_midpoints(max_a, n_bins))["pair_chains_iptm"]
+    assert abs(pair[0][1] - rf3.iptm(pae_logits, asym)) < 1e-5
+
+
+def test_a_frameless_token_cannot_win_a_row():
+    """The frame mask the global ipTM honours applies to the matrix too: with every token of
+    chain 0 but one frameless, chain 0's pTM is that one token's row."""
+    pae_logits, asym = _synthetic([20, 15])
+    frame = torch.ones(35, dtype=torch.bool)
+    frame[1:20] = False
+    masked = ConfidenceHead._chain_confidence(pae_logits, asym, has_frame=frame)
+    full = ConfidenceHead._chain_confidence(pae_logits, asym)
+    assert masked["pair_chains_iptm"][0][0] <= full["pair_chains_iptm"][0][0]
+    assert masked["pair_chains_iptm"][1][1] == full["pair_chains_iptm"][1][1]
+    only = ConfidenceHead._chain_confidence(pae_logits[:20, :20], torch.zeros(20))
+    assert only == {}
+    _p, iptm_masked = ConfidenceHead._ptm_iptm(pae_logits, asym, has_frame=frame)
+    assert abs(masked["pair_chains_iptm"][0][1] - iptm_masked) < 1e-5
+
+
+def test_rows_carry_the_matrix_and_its_diagonal():
+    from tt_bio.worker import _chain_rows
+
+    pae_logits, asym = _synthetic([10, 12])
+    c = ConfidenceHead._chain_confidence(pae_logits, asym)
+    row = _chain_rows(c)
+    assert row["pair_chains_iptm"] == c["pair_chains_iptm"]
+    assert row["chains_ptm"] == {0: c["pair_chains_iptm"][0][0], 1: c["pair_chains_iptm"][1][1]}
+    assert _chain_rows({}) == {}

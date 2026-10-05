@@ -311,6 +311,10 @@ class OpenFold3(Module):
         # over 64 bins on 0-32 Å. The distogram is the trunk's, the same for every sample.
         centers = (torch.arange(64, dtype=torch.float32) + 0.5) * 0.5
         return {
+            # chain_ptm, chain_iptm and pair_chains_iptm, the same reduction Protenix and
+            # OpenDDE report, over this head's logits and frame mask.
+            **ConfidenceHead._chain_confidence(out["pae_logits"], aux.get("asym_id"),
+                                               has_frame=has_frame),
             "plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom,
             "ptm": ptm, "iptm": iptm, "disorder": disorder,
             "has_clash": has_clash, "ranking_score": ranking_score,

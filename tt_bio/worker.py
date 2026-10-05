@@ -460,6 +460,14 @@ def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
             for _cid, cseq, spec, mt, _mods in chains]
 
 
+def _chain_rows(conf) -> dict:
+    """Boltz-2's two chain-level row keys from a confidence dict carrying
+    ``pair_chains_iptm`` (``protenix.ConfidenceHead._chain_confidence``): the full chain-pair
+    ipTM matrix and its diagonal, each chain's own pTM. Empty for a monomer."""
+    pci = conf.get("pair_chains_iptm")
+    return {"pair_chains_iptm": pci, "chains_ptm": {c: pci[c][c] for c in pci}} if pci else {}
+
+
 def _paired_msa(path, chains, msa_dir, cfg):
     """The complex's species-paired MSA, ``{seq_hash: a3m_text}``, or None when it does not
     pair. The one pairing rule every model whose upstream pairs goes through.
@@ -1335,12 +1343,8 @@ class _WorkerState:
             # full chain-pair ipTM matrix and its diagonal lifted out as each chain's own pTM.
             # Per sample rather than winner-only, because an antibody-vs-antigen chain-pair
             # ipTM is what ranks that interface and the winner's value cannot rank the rest
-            # (AbAg-XM audit 2026-07-27). Absent for a monomer and for models whose
-            # confidence head does not compute the matrix (openfold3).
-            pci = c.get("pair_chains_iptm")
-            if pci:
-                row["pair_chains_iptm"] = pci
-                row["chains_ptm"] = {ci: pci[ci][ci] for ci in pci}
+            # (AbAg-XM audit 2026-07-27). Absent for a monomer.
+            row.update(_chain_rows(c))
             return row
 
         best = confs[order[0]]
@@ -1446,6 +1450,7 @@ class _WorkerState:
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_read_bio_chains, _read_bio_constraints, _resolve_a3m_path,
                                  cap_a3m_file)
+        from tt_bio.protenix import ConfidenceHead
         from tt_bio.rf3 import confidence as rf3_confidence
         from tt_bio.rf3.featurize import featurize
 
@@ -1555,6 +1560,12 @@ class _WorkerState:
             # number.
             r = {"d": d, "coord": x, "plddt": plddt, "summary": summary,
                  "score": summary["ranking_score"]}
+            # The chain-pair ipTM matrix the other models report, on RF3's own bin
+            # midpoints. Kept out of `summary`, which is upstream's summary_confidences.json.
+            pae_l, (n_bins, max_a) = per["pae_logits"], rf3_confidence.BINS["pae"]
+            r.update(ConfidenceHead._chain_confidence(
+                pae_l.reshape(*pae_l.shape[-3:]), f["asym_id"],
+                centers=rf3_confidence.bin_midpoints(max_a, n_bins)))
             if cfg.get("write_pae"):              # the [I, I] matrices summary() reduces
                 for k in ("pae", "pde"):
                     lg = per[f"{k}_logits"]
@@ -1607,7 +1618,7 @@ class _WorkerState:
                     "ptm": round(sm["ptm"], 4),
                     "iptm": round(sm["iptm"], 4) if sm["iptm"] is not None else None,
                     "ranking_score": round(sm["ranking_score"], 4),
-                    "has_clash": sm["has_clash"]}
+                    "has_clash": sm["has_clash"], **_chain_rows(r)}
 
         best = samples[0]
         metrics = {
@@ -1889,7 +1900,7 @@ class _WorkerState:
         def _row(c):
             return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
                     "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
-                    "confidence_score": round(c["ranking_score"], 6)}
+                    "confidence_score": round(c["ranking_score"], 6), **_chain_rows(c)}
 
         best = confs[order[0]]
         metrics = {
