@@ -67,8 +67,6 @@ class Chip:
         self.last_fold = None
         self.warm = None   # the warm-up fold the chip last reported: {name, n_res, stage}
         self.failures, self.stalled, self.last_reset = 0, False, None  # consecutive unclean exits
-        self.quiet_limit = None  # how long this chip may be silent now; None: --stall-s / --warm-s
-        self.warm_sizes = set()  # lengths this worker has folded since it started: nothing left to compile
 
     def status(self):
         j = self.job
@@ -86,7 +84,6 @@ class Chip:
             env = dict(os.environ, TT_VISIBLE_DEVICES=str(self.chip), TT_BIO_LEASE_CARDS=str(self.chip),
                        TT_BIO_LEASE_HOLDER=os.environ.get("TT_BIO_LEASE_HOLDER", f"sc26-demo:chip{self.chip}"))
             self.set_state("warming")
-            self.warm_sizes, self.quiet_limit = set(), None
             self.proc = await asyncio.create_subprocess_exec(
                 sys.executable, "-u", str(HERE / "chipworker.py"), "--chip", str(self.chip),
                 "--workers", str(len(self.svc.chips)), "--model", self.model,
@@ -133,14 +130,11 @@ class Chip:
                 self.svc.dispatch()
             elif st in ("warming", "stopped"):
                 self.warm = {k: ev.get(k) for k in ("name", "n_res", "stage")} if st == "warming" else None
-                if self.warm and self.warm.get("n_res"):
-                    self.warm_sizes.add(self.warm["n_res"])
                 self.set_state(st, **({k: v for k, v in self.warm.items() if v is not None} if self.warm else {}))
             return
         job = self.job
         if job and ev.get("id") == job["id"]:
             ev["kind"] = job["kind"]
-            self.quiet_limit = self.limit_after(job, ev)
             if job.get("name"):
                 ev.setdefault("name", job["name"])  # the chipworker never sees an attract fold's name
             if t == "fold_start":  # an attract fold is a gallery pick: it carries the pick's words, as its recording does
@@ -150,7 +144,6 @@ class Chip:
             raw = json.dumps(ev, separators=(",", ":"))
             self.svc.record(job, raw)
             if t == "fold_done":
-                self.warm_sizes.add(job["n_res"])
                 self.folds += 1
                 self.failures = 0
                 self.last_fold = {k: ev.get(k) for k in ("name", "n_res", "seconds", "aiclk_mhz", "t_wall")}
@@ -163,24 +156,6 @@ class Chip:
                 if t == "fold_error" and ev.get("reason") in ("stopped", "out_of_memory"):
                     self.svc.requeue(job)  # the chip was stopped or is recycling: a visitor's fold moves on
         self.svc.hub.send(raw)
-
-    def limit_after(self, job, ev):
-        """How long the chip may stay silent after this event of its fold. Every stage event comes
-        after a device sync, so the gap to the next one is the chip's own time for that step. With a
-        plan for the fold (its stages' times on this box, Stages.plan) and a length this worker has
-        already folded, nothing is left to compile and a step that takes --stall-k times its share
-        of its stage is a hung chip: about 10 s in diffusion instead of --stall-s. A first fold of a
-        new length may compile for minutes, so it keeps --stall-s."""
-        plan = job.get("plan")
-        if not plan or job["n_res"] not in self.warm_sizes or ev.get("type") not in ("fold_start", "stage"):
-            return self.quiet_limit if ev.get("type") == "frame" else None
-        name = "start" if ev["type"] == "fold_start" else ev.get("stage")
-        names = [k for k, _ in plan]
-        if name not in names[:-1]:
-            return None
-        i = names.index(name)
-        span = plan[i + 1][1] - plan[i][1]
-        return max(self.args.stall_floor_s, self.args.stall_k * span / max(ev.get("total") or 1, 1))
 
     def set_state(self, st, **kw):
         if self.svc.resetting(self) and st != "resetting":
@@ -316,9 +291,10 @@ class Service:
         --reset-cmd, bounded by --reset-timeout, then let the workers start again. The other boards
         keep folding, and the replay loop fills the screen if no chip is left.
 
-        A worker stuck inside a device call never runs its signal handlers, but it hears SIGTERM on
-        a thread and exits by itself --term-grace-s later (chipworker.exit_when_stuck), so nothing
-        holds the chip by the time it is reset and nothing is ever killed."""
+        A worker stuck inside a device call never runs its signal handlers. It gets SIGKILL, but
+        only here, right before the reset: a killed worker leaves its chip unopenable, and the
+        reset is what makes it openable again. Killing first means nothing holds the chip while
+        it is reset, and a worker that never exits cannot keep its lane dark."""
         b = self.board_of(chip)
         mates = [c for c in self.chips if self.board_of(c) == b]
         ev = self.board_idle[b] = asyncio.Event()
@@ -336,6 +312,9 @@ class Service:
             deadline = time.monotonic() + self.args.term_s
             for c in mates:
                 await self._wait_exit(c.proc, deadline - time.monotonic())
+                if c.proc and c.proc.returncode is None:
+                    c.proc.kill()
+                    await self._wait_exit(c.proc, 10)
             ids = ",".join(str(c.chip) for c in mates)
             t0 = time.monotonic()
             try:
@@ -457,18 +436,20 @@ class Service:
             now = time.monotonic()
             for c in self.chips:
                 quiet = now - c.last_event
-                limit = (c.quiet_limit or self.args.stall_s) if c.state == "busy" else self.args.warm_s
+                limit = self.args.stall_s if c.state == "busy" else self.args.warm_s
                 if c.state in ("busy", "warming") and quiet > limit and not self.resetting(c):
                     self.hub.send({"type": "chip", "chip": c.chip, "state": "stalled", "quiet_s": round(quiet),
                                    "t_wall": time.time()})
                     c.stalled = True
-                    # SIGTERM at once: SIGINT is answered at the fold's next step, which is the
-                    # thing that is not coming, and a stuck worker leaves by itself after its grace
-                    if c.proc and c.proc.returncode is None:
-                        c.proc.terminate()
+                    c.stop()
                     c.last_event = now
-                    asyncio.get_running_loop().call_later(self.args.term_s, self._wedged, c, c.proc)
+                    asyncio.get_running_loop().call_later(self.args.term_s, self._term, c, c.proc)
             self.hub.send(self.status())
+
+    def _term(self, c, proc):
+        if proc and proc.returncode is None:  # SIGINT was not enough: SIGTERM, still never SIGKILL
+            proc.terminate()
+            asyncio.get_running_loop().call_later(self.args.term_s, self._wedged, c, proc)
 
     def _wedged(self, c, proc):
         """A worker that survives SIGINT and SIGTERM is stuck in the device: reset its board."""
@@ -631,9 +612,6 @@ def main():
     ap.add_argument("--min-len", type=int, default=10)
     ap.add_argument("--max-len", type=int, default=400)
     ap.add_argument("--stall-s", type=float, default=180, help="a busy chip silent this long is stopped")
-    ap.add_argument("--stall-k", type=float, default=4,
-                    help="a warm fold's chip silent this many times its planned step time is stalled")
-    ap.add_argument("--stall-floor-s", type=float, default=10, help="never stall a chip quieter than this")
     ap.add_argument("--warm-s", type=float, default=600, help="a warming chip silent this long is stopped")
     ap.add_argument("--term-s", type=float, default=30, help="SIGINT grace before SIGTERM")
     ap.add_argument("--reset-cmd", default="", help="board reset command; the chip ids are appended "
