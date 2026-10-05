@@ -107,13 +107,13 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
              letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #chips { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
 #chips li { display: grid; grid-template-columns: calc(20 * var(--p)) 1fr auto minmax(calc(52 * var(--p)), auto); align-items: baseline;
-            column-gap: calc(6 * var(--p)); padding: calc(12 * var(--p)) 0 calc(10 * var(--p)); border-top: 1px solid var(--rule);
+            column-gap: calc(6 * var(--p)); padding: calc(16 * var(--p)) 0 calc(14 * var(--p)); border-top: 1px solid var(--rule);
             font-size: calc(16 * var(--p)); font-weight: 400; color: var(--ink3); }
 #chips li .n { font-weight: 560; font-size: calc(12 * var(--p)); letter-spacing: 0.06em; }
 #chips li .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #chips li .st, #chips li .t { font-size: calc(15 * var(--p)); white-space: nowrap; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
 #chips li .t { text-align: right; color: var(--ink2); }
-#chips li .last { grid-column: 2 / 5; margin-top: calc(6 * var(--p)); font-size: calc(13 * var(--p)); color: var(--ink3);
+#chips li .last { grid-column: 2 / 5; margin-top: calc(8 * var(--p)); font-size: calc(13 * var(--p)); color: var(--ink3);
                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
 #chips li .last:empty { display: none; }
 #chips li.busy .what { color: var(--ink); }
