@@ -42,11 +42,14 @@ def paired_msa_dir(msa_dir, seqs) -> Path | None:
     different rows. It is keyed by the set of unique sequences. One sequence (a monomer, or
     a homomer's identical copies) has nothing to pair against, which is the rule Protenix,
     OpenDDE, OpenFold3 and Boltz-2 all apply upstream.
+
+    Under ``paired-v2``: an offline search wrote ``paired/`` with each chain's unpaired hits
+    until compute_msa_offline learned to pair, and a cache hit would keep serving those.
     """
     uniq = sorted(set(seqs))
     if len(uniq) < 2:
         return None
-    return Path(msa_dir) / "paired" / hashlib.sha256("\n".join(uniq).encode()).hexdigest()[:16]
+    return Path(msa_dir) / "paired-v2" / hashlib.sha256("\n".join(uniq).encode()).hexdigest()[:16]
 
 
 #: A chain's ``msa: empty`` (YAML) or ``>A|protein|empty`` (FASTA): fold it single-sequence. The
