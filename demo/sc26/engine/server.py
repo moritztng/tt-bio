@@ -19,6 +19,7 @@ import itertools
 import json
 import os
 import signal
+import socket
 import struct
 import sys
 import time
@@ -44,6 +45,18 @@ def aiclk(node):
         return None if v == 0xFFFFFFFF else v
     except (OSError, ValueError, IndexError):
         return None
+
+
+def sd_notify(msg):
+    """Tell systemd something (sd_notify(3)); a no-op outside a unit that listens."""
+    addr = os.environ.get("NOTIFY_SOCKET", "")
+    if not addr:
+        return
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as s:
+            s.sendto(msg.encode(), "\0" + addr[1:] if addr[0] == "@" else addr)
+    except OSError:
+        pass
 
 
 class Hub:
@@ -568,6 +581,9 @@ class Service:
                     c.last_event = now
                     asyncio.get_running_loop().call_later(self.args.term_s, self._term, c, c.proc)
             self.hub.send(self.status())
+            # The unit's WatchdogSec: an event loop that is alive and stuck stops saying this, and
+            # systemd restarts the engine. SIGINT could not have done it; its handler runs on this loop.
+            sd_notify("WATCHDOG=1")
 
     def _term(self, c, proc):
         if proc and proc.returncode is None:  # SIGINT was not enough: SIGTERM, still never SIGKILL
