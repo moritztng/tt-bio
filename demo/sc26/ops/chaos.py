@@ -12,6 +12,13 @@ seconds it picks the next event, in rotation:
   worker_wedge    SIGSTOP to one chip worker: SIGINT and SIGTERM cannot land, so only the
                   engine's board reset brings the chip back
   queue_flood     60 visitor folds at once, lengths 10-400
+  engine_freeze   SIGSTOP to the engine for --freeze-s, then SIGCONT: alive and stuck. Its unit's
+                  WatchdogSec must restart it; a SIGINT never lands on a stuck loop
+  sway_freeze     SIGSTOP to the booth's compositor: the watchdog must see screenshots time out and
+                  restart it (this script continues it after --freeze-s if nothing did)
+  sway_crash      SIGTERM to the compositor: session.sh starts it again, the browser follows
+  display_unplug  the compositor's output unplugged, as a screen cable pulled: session/display.sh
+                  must give it another before a window maps onto nothing
   network_drop    every packet in or out dropped for --net-s seconds except ssh, which is how
                   this script is watched (needs sudo; a system timer lifts the rule even if
                   this script dies). One chip worker is restarted inside the drop, so a model
@@ -40,7 +47,26 @@ sys.path.insert(0, str(HERE.parent / "engine"))
 from bench_live import HSA  # noqa: E402
 
 EVENTS = ["browser_crash", "engine_kill", "queue_flood", "worker_kill", "browser_freeze",
-          "network_drop", "worker_wedge"]
+          "network_drop", "worker_wedge", "sway_freeze", "engine_freeze", "display_unplug", "sway_crash"]
+
+
+def sway_env():
+    """SWAYSOCK and WAYLAND_DISPLAY as the booth session exported them to the user manager."""
+    out = subprocess.run(["systemctl", "--user", "show-environment"], capture_output=True, text=True).stdout
+    env = dict(l.split("=", 1) for l in out.splitlines() if "=" in l)
+    return {k: env[k] for k in ("SWAYSOCK", "WAYLAND_DISPLAY") if k in env}
+
+
+def booth_sway():
+    """The booth's compositor: a sway started by session/session.sh. Other sways on the box are not ours."""
+    for p in pids(lambda c: c[0].endswith(b"sway") and b"-c" in c):
+        try:
+            ppid = Path(f"/proc/{p}/stat").read_text().rsplit(")", 1)[1].split()[1]
+            if b"session.sh" in Path(f"/proc/{ppid}/cmdline").read_bytes():
+                return p
+        except OSError:
+            continue
+    return None
 
 
 def pids(match, env=None):
@@ -75,7 +101,10 @@ class Chaos:
         if not sock.is_socket():
             print(f"DISPLAY LOST: {sock} is gone, this sample sees nothing", file=sys.stderr)
             return None, {"display": "lost"}
-        img = subprocess.run(["grim", "-s", "0.25", "-t", "ppm", "-"], capture_output=True, timeout=10).stdout
+        try:
+            img = subprocess.run(["grim", "-s", "0.25", "-t", "ppm", "-"], capture_output=True, timeout=10).stdout
+        except subprocess.TimeoutExpired:
+            return None, {"display": "stuck"}   # the compositor does not answer: the screen holds its last frame
         if not img:
             return None, {"display": "none"}
         px = img[img.index(b"255\n") + 4:]
@@ -144,6 +173,28 @@ class Chaos:
                 return "no browser"
             os.kill(p[0], signal.SIGSTOP)
             return f"SIGSTOP firefox {p[0]}"
+        if ev in ("sway_freeze", "sway_crash"):
+            p = booth_sway()
+            if not p:
+                return "skipped: no booth compositor"
+            os.kill(p, signal.SIGSTOP if ev == "sway_freeze" else signal.SIGTERM)
+            self.frozen = p if ev == "sway_freeze" else None
+            return f"{'SIGSTOP' if ev == 'sway_freeze' else 'SIGTERM'} sway {p}"
+        if ev == "engine_freeze":
+            p = unit_pid("sc26-engine.service")
+            os.kill(p, signal.SIGSTOP)
+            self.frozen = p
+            return f"SIGSTOP engine {p} for {a.freeze_s:.0f} s"
+        if ev == "display_unplug":
+            env = dict(os.environ, **sway_env())
+            outs = json.loads(subprocess.run(["swaymsg", "-t", "get_outputs", "-r"], capture_output=True,
+                                             text=True, env=env).stdout or "[]")
+            names = [o["name"] for o in outs if o.get("active")]
+            for n in names:
+                subprocess.run(["swaymsg", "output", n, "unplug" if n.startswith("HEADLESS") else "disable"],
+                               env=env, capture_output=True)
+            self.unplugged = [n for n in names if not n.startswith("HEADLESS")]
+            return f"unplugged {', '.join(names) or 'nothing'}"
         if ev == "engine_kill":
             p = unit_pid("sc26-engine.service")
             os.kill(p, signal.SIGTERM)
@@ -186,6 +237,16 @@ class Chaos:
         return "unknown"
 
     def undo(self, ev):
+        if ev in ("sway_freeze", "engine_freeze") and getattr(self, "frozen", None):
+            try:
+                os.kill(self.frozen, signal.SIGCONT)   # if the recovery has not already ended it
+            except ProcessLookupError:
+                pass
+            self.frozen = None
+        if ev == "display_unplug":
+            env = dict(os.environ, **sway_env())
+            for n in getattr(self, "unplugged", []):
+                subprocess.run(["swaymsg", "output", n, "enable"], env=env, capture_output=True)
         if ev == "network_drop":
             subprocess.run(["sudo", "nft", "delete", "table", "inet", "sc26chaos"], check=False)
 
@@ -193,14 +254,16 @@ class Chaos:
         t0 = time.time()
         what = self.act(ev)
         samples, prev = [], None
-        for dt in (2, 5, 10, 20, 40, 60):
+        for dt in (2, 5, 10, 20, 40, 60, 90, 120, 180):
+            if getattr(self, "frozen", None) and dt > self.a.freeze_s:
+                self.undo(ev)
             time.sleep(max(0, t0 + dt - time.time()))
-            h, info = self.shot(f"{i:03d}-{ev}-{dt:02d}s")
+            h, info = self.shot(f"{i:03d}-{ev}-{dt:03d}s")
             samples.append({"t": dt, "moving": h != prev if h else None, **info})
             prev = h
         if ev == "network_drop":
             time.sleep(max(0, t0 + self.a.net_s - time.time()))
-            self.undo(ev)
+        self.undo(ev)
         rows = self.fps_since(t0, time.time())
         fps = [r.get("fps") for r in rows if r.get("ev") == "tick"]
         back = next((round(r["t"] - t0) for r in rows if r.get("ev") == "tick" and (r.get("fps") or 0) >= 30
@@ -240,6 +303,7 @@ def main():
     ap.add_argument("--every", type=float, default=900, help="seconds between two events")
     ap.add_argument("--events", default="", help="comma list; default: all, in rotation")
     ap.add_argument("--net-s", type=float, default=300)
+    ap.add_argument("--freeze-s", type=float, default=90, help="how long engine_freeze and sway_freeze hold their process")
     ap.add_argument("--out", required=True)
     ap.add_argument("--url-base", default=f"http://127.0.0.1:{os.environ.get('SC26_PORT', '8626')}")
     ap.add_argument("--watchdog-log", default="~/sc26-logs/watchdog.jsonl")
