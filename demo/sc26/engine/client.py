@@ -85,7 +85,7 @@ def main():
             n = len(base64.b64decode(msg["xyz"])) // 12
             print(f"frame  {msg['id']} chip={msg['chip']} step={msg['step']}/{msg['of']} t={msg['t']} atoms={n}")
         elif t == "status":
-            print("status " + " ".join(f"{c['chip']}:{c['state']}@{c['aiclk_mhz']}" for c in msg["chips"])
+            print("status " + " ".join(f"{c['chip']}:{c['state']}@{c.get('aiclk_mhz')}" for c in msg["chips"])
                   + f" queue={msg['queue']}")
         elif t in ("fold_start", "fold_done"):
             keep = {k: v for k, v in msg.items() if k not in ("xyz", "atoms", "plddt", "sequence")}
