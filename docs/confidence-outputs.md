@@ -48,6 +48,13 @@ looser definition.
 The representative atom is the one each model's distogram was trained on: Cβ, Cα for glycine,
 and the atom itself for an atomised token.
 
+On confident pairs, where upstream gives a probability below 0.01 or above 0.99, a Tenstorrent
+fold matches the upstream model to within 3e-4 on average. Pairs the model is unsure about, usually
+at a borderline interface, can move further: up to 0.38 on a 164-token complex, against 0.08 from
+changing the seed upstream. The cause is the reduced-precision trunk, not the contact calculation,
+which agrees with upstream to 1e-7 on the same logits. Treat a contact near 0.5 as uncertain, not
+as a number to rank by. The comparisons are in `perf/fdx_confidence/`.
+
 ## Reading them
 
 ```python
