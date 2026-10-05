@@ -151,7 +151,7 @@ class Watch:
             with urllib.request.urlopen(f"{self.a.url_base}/status", timeout=5) as r:
                 st = json.loads(r.read())
             self.engine_fail = 0
-            return {"chips": [[c["chip"], c["state"], c["aiclk_mhz"], c["folds"], c["restarts"]]
+            return {"chips": [[c["chip"], c["state"], c.get("aiclk_mhz"), c.get("folds"), c.get("restarts")]
                               for c in st["chips"]], "queue": st["queue"]}
         except (OSError, ValueError) as e:
             self.engine_fail += 1
