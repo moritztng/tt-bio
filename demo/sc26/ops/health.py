@@ -15,6 +15,8 @@ import urllib.request
 from pathlib import Path
 
 LOG = Path(os.path.expanduser("~/sc26-logs/watchdog.jsonl"))
+CHAOS = LOG.parent / "chaos.jsonl"   # failures ops/chaos.py injected on purpose
+CHAOS_S = 360                        # an injected failure and its recovery are over within this
 REPAIR_S = 15 * 60   # a board reset plus warm-up is ~9 min measured; past this a chip is not repairing, it is stuck
 
 
@@ -106,9 +108,12 @@ def main():
         if age is not None and age > 10:
             repairing.append(f"The page has heard nothing from the fold service for {age:.0f} s; it reconnects by itself.")
     hour = [r for r in rows if r.get("ev") == "restart" and now - r["t"] < 3600]
+    tests = [c["t"] for c in tail(CHAOS, 50)]
+    real = [r for r in hour if not any(0 <= r["t"] - t < CHAOS_S for t in tests)]
     if hour:
-        ok.append(f"Restarted in the last hour: {', '.join(sorted({r['unit'] for r in hour}))} ({len(hour)}x).")
-    if len([r for r in hour if r.get("unit") == "sc26-kiosk"]) >= 4:
+        ok.append(f"Restarted in the last hour: {', '.join(sorted({r['unit'] for r in hour}))} ({len(hour)}x"
+                  + (f", {len(hour) - len(real)} of them after a test" if len(real) < len(hour) else "") + ").")
+    if len([r for r in real if r.get("unit") == "sc26-kiosk"]) >= 4:
         bad.append("The browser was restarted 4 or more times in an hour.")
 
     res = next((r for r in reversed(ticks) if "disk_free_gb" in r), None)

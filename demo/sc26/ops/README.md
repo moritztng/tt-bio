@@ -66,6 +66,7 @@ the recovery takes. Every row was injected and watched (`chaos.py`); the times a
 | nobody touches the kiosk for hours | | none needed: the attract loop folds the gallery proteins without visitors, and the soak runs with no visitor input | the demo, unchanged |
 | memory, file descriptors, GPU memory or disk run out | the watchdog samples each every minute; `sc26ctl health` warns under 16 GB memory or 5 GB disk | none should be needed: the 24 h soak measures each one, and every log is bounded | |
 | logs grow for days | the watchdog, every minute | any log past 64 MB is cut to its last 16 MB, in place | |
+| the host kernel locks up (seen once, 2026-10-05 19:18Z) | the hardware watchdog: systemd stops feeding /dev/watchdog0 and the board reboots after 2.5 min | the box reboots and starts the demo by itself; measured: hung 19:18:52Z, back 19:21:40Z, demo units running 19:21:42Z, first live fold 19:27:00Z | a frozen screen for about 3 min, a black screen while it boots, then the still and recorded folds; live folds about 8 min after the hang |
 | a power cut | | the box boots into the demo by itself when power returns and the button is pressed | the still within a minute, live folds in about 1½ |
 
 Workers are stopped with SIGINT, then SIGTERM. qb2's chips sit on two boards, chips 0 and 1 on one
