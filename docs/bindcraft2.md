@@ -1028,7 +1028,10 @@ the default terms reads amino-acid identity.
 
 Weight it against what is already there, not against your intuition. Each default term contributes
 roughly 0.05 to 3 to a total near 4.5, so a term valued 0 to 1 needs a weight around 1 to count and
-around 5 to lead. Far above that it takes the optimiser over and oscillates.
+around 5 to lead. Far above that it takes the optimiser over and oscillates. A term on the binder's
+W/F/Y content, 24 gradient steps from the same start: the run with no added term ends at 0.152, the
+same run at weight 1.0 ends at 0.265 and at weight 5.0 at 0.375. The eight default terms end worse
+in step with it, which is the trade you are making.
 
 ### Grade it before you spend a campaign on it
 
