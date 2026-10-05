@@ -3,7 +3,9 @@ times the chip measured, through the same stdin/stdout protocol as chipworker.py
 server and the page without taking a chip (server.py --worker).
 
 Each job plays the gallery recording of the nearest length (gallery/store/*.json), so an attract
-pick plays its own recorded fold. No frames are sent; the chip lanes do not need them.
+pick plays its own recorded fold. No frame carries coordinates (none does, PROTOCOL.md); when the
+job is the recording's own protein, fold_start carries its atoms and fold_done its packed states,
+from the built gallery (gallery/trajectories/<id>.jsonl), so a page can pull it as a live fold.
 
 Test conditions, by environment, each "<chip>:<value>" and comma-separated across chips:
   REC_PACE   1.5      every fold on that chip runs 1.5x slower than recorded
@@ -26,6 +28,21 @@ import time
 from pathlib import Path
 
 STORE = Path(__file__).resolve().parents[2] / "gallery" / "store"
+BUILT = STORE.parent / "trajectories"
+
+
+def coordinates(r, seq):
+    """The recording's atoms and packed states, if it is a fold of `seq` and the gallery is built."""
+    try:
+        msgs = [json.loads(l) for l in (BUILT / f"{r['id']}.jsonl").read_text().splitlines() if l.strip()]
+    except OSError:
+        return {}, {}
+    start = next(m for m in msgs if m["type"] == "fold_start")
+    done = next(m for m in msgs if m["type"] == "fold_done")
+    if start.get("sequence") != seq or "frames" not in done:
+        return {}, {}
+    return ({k: start[k] for k in ("atoms", "chains") if k in start},
+            {k: done[k] for k in ("frames", "xyz", "plddt", "ptm") if k in done})
 
 
 def per_chip(name, chip):
@@ -70,6 +87,7 @@ def main():
             seq = job["sequence"].strip().upper()
             n = len(seq.replace(":", ""))
             r = min(recs, key=lambda r: abs(r["n_res"] - n))
+            at_start, at_done = coordinates(r, seq)
             emit(type="chip", chip=args.chip, state="busy", job=job["id"])
             drop.clear()
             armed = time.monotonic() >= after
@@ -107,12 +125,14 @@ def main():
                     break
                 if kind == "fold_start":
                     emit(type="fold_start", id=job["id"], chip=args.chip, model=args.model, sequence=seq,
-                         n_res=n, n_atoms=r["n_atoms"], steps=200, loops=3, seed=0, source="live", t=round(t + held, 3))
+                         n_res=n, n_atoms=r["n_atoms"], steps=200, loops=3, seed=0, source="live", t=round(t + held, 3),
+                         **at_start)
                 elif kind == "stage":
                     emit(type="stage", id=job["id"], chip=args.chip, stage=stage, step=k, total=K, t=round(t + held, 3))
             if not dropped:
                 emit(type="fold_done", id=job["id"], chip=args.chip, model=args.model, n_res=n,
-                     seconds=round(total + held, 3), stages={}, aiclk_mhz={"median": 1350}, source="live", plddt=[])
+                     seconds=round(total + held, 3), stages={}, aiclk_mhz={"median": 1350}, source="live",
+                     **({"plddt": []} | at_done))
             emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=1350)
     except KeyboardInterrupt:
         pass
