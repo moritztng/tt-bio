@@ -1,19 +1,21 @@
 #!/bin/bash
-# FRAMES proof for Boltz-2: the same fold, same seed, with the trajectory hook off and on.
-# The final structures must be byte-identical; the "on" arm leaves one .npy per sampler step.
-#   bash demo/sc26/engine/tests/boltz2_hook_proof.sh <chip> <outdir>
+# FRAMES proof for a diffusion model's trajectory hook (TT_BIO_TRAJECTORY_DIR): the same fold,
+# same seed, hook off and hook on, each in its own process. The final structures must be
+# byte-identical; the "on" arm leaves one .npy per sampler step.
+#   bash demo/sc26/engine/tests/hook_proof.sh <chip> <outdir> [boltz2|openfold3] [input.yaml]
 set -u
-CHIP=$1; OUT=$2
+CHIP=$1; OUT=$2; MODEL=${3:-boltz2}
 WT=$(cd "$(dirname "$0")/../../../.." && pwd)
 PY=~/tt-bio-dev/env/bin/python3
+IN=${4:-$WT/examples/prot_no_msa.yaml}
 mkdir -p "$OUT"
 run() {  # $1 = arm name, rest = env
   local arm=$1; shift
   local t0=$(date +%s.%N)
   env "$@" PYTHONPATH="$WT" TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_CARDS=$CHIP \
-      TT_BIO_LEASE_HOLDER=worker:sc26-engine \
+      TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:sc26-engine} \
       $PY -c "import sys; sys.argv[0]='tt-bio'; from tt_bio.main import cli; cli()" \
-      predict "$WT/examples/prot_no_msa.yaml" --model boltz2 --accelerator tenstorrent \
+      predict "$IN" --model "$MODEL" --accelerator tenstorrent \
       --out_dir "$OUT/$arm" --seed 0 --output_format cif --override > "$OUT/$arm.log" 2>&1
   echo "$arm rc=$? wall_s=$(echo "$(date +%s.%N) - $t0" | bc)" >> "$OUT/result.txt"
 }

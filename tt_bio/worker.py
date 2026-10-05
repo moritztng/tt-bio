@@ -1591,16 +1591,15 @@ class _WorkerState:
                                    for i, r in enumerate(samples)]
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
-    def _predict_openfold3_one(self, path: Path, cfg: dict[str, Any]):
-        """OpenFold3 fold: sequence(s) -> per-chain MSA -> fixture-free on-device fold
-        (host featurization + device glue/trunk/diffusion/confidence) -> structure.
+    def _openfold3_inputs(self, path: Path, cfg: dict[str, Any]):
+        """OpenFold3 inputs of one job: sequence(s) -> per-chain MSA -> host featurization
+        and the input atom encoder -> the keyword arguments of ``OpenFold3.fold``, plus the
+        features, chains and query the structure writer needs.
         Rides the same MSA stage as Protenix-v2: uncached protein chains are searched
         into the shared msa_dir and attached to the query as main_msa_file_paths.
         Polymer chains only (protein/RNA/DNA). Templates are opt-in per protein chain
         via the YAML `templates:` key (precomputed alignment npz, the format the
         upstream benchmark cache ships); there is no template SEARCH."""
-        import types
-
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import _read_bio_chains, _read_bio_constraints, _read_cyclic
 
@@ -1815,16 +1814,24 @@ class _WorkerState:
                 "start_atom_index", "atom_mask", "token_mask",
                 "num_atoms_per_token", "asym_id")})
 
-        n_sample = int(cfg["diffusion_samples"])
-        result = model.fold(
+        fold_kwargs = dict(
             template_feat=template_feat, template_slots=template_slots,
             msa_feat=msa_feat, s_input=s_input,
             relpos=relpos, token_bonds=features["token_bonds"],
             token_mask=features["token_mask"], dm_aux_host=dm_aux_host,
             n_atom=aux["n_atom"], n_token=aux["n_token"],
             no_rollout_steps=int(cfg["sampling_steps"]), seed=seed,
-            no_samples=n_sample, confidence_aux_host=confidence_aux,
+            no_samples=int(cfg["diffusion_samples"]), confidence_aux_host=confidence_aux,
             progress_fn=report_progress)
+        return fold_kwargs, features, chains, of3_query
+
+    def _predict_openfold3_one(self, path: Path, cfg: dict[str, Any]):
+        """OpenFold3 fold of one job: `_openfold3_inputs`, the device fold, the structures."""
+        import types
+
+        fold_kwargs, features, chains, of3_query = self._openfold3_inputs(path, cfg)
+        result = self.model.fold(**fold_kwargs)
+        msa_feat, n_sample = fold_kwargs["msa_feat"], fold_kwargs["no_samples"]
 
         confs = result.confidence
         order = sorted(range(len(confs)),
