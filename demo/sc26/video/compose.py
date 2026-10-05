@@ -148,7 +148,8 @@ def plan(args):
         worst = max(sum(1 for b in longs if overlaps(b[3], b[4], t, t + 1e-3, P)) for t in
                     [a[3] + 0.01 for a in iv] + [k * P / 400 for k in range(400)])
         shown = {a[1] for a in iv}
-        score = clash * 100 + max(0, worst - 3) * 100 + (len(names) - len(shown)) * 10
+        # as the engine runs them: three chips on long folds whenever the rotation allows
+        score = clash * 100 + max(0, worst - 3) * 100 + (len(names) - len(shown)) * 10 + (3 - min(worst, 3)) * 5
         if best is None or score < best[0]:
             best = (score, lanes, offs, clash, worst, len(shown))
             print(f"trial {trial}: score {score} clashes {clash} max long {worst} proteins {len(shown)}/{len(names)}")
