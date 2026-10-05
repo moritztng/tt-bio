@@ -749,6 +749,7 @@ class _WorkerState:
         self.prepare = None
         self.pfn = None  # progress callback (rebound per run)
         self._ccd = self._tokenizer = self._featurizer = self._mol_dir = None  # Boltz-2, cached
+        self._heads: tuple[tuple, dict] = ((), {})  # --head specs and their loaded callables
         if accelerator == "gpu" and torch.cuda.is_available():
             self.torch_device = torch.device("cuda:0")
         else:
@@ -1026,6 +1027,14 @@ class _WorkerState:
             cfg["write_pde"],
             cfg["write_embeddings"],
         )
+        if cfg.get("heads"):
+            from tt_bio import heads
+
+            specs = tuple(cfg["heads"])
+            if self._heads[0] != specs:
+                self._heads = (specs, {heads.name(h): heads.load(h) for h in specs})
+            heads.run(self._heads[1], pred, batch, Path(cfg["struct_dir"]),
+                      batch["record"][0].id)
         return metrics, best, feats
 
     def _predict_af2ig_one(self, path: Path, cfg: dict[str, Any]):
