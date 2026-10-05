@@ -5,6 +5,7 @@
 // the same path; `source` says which.
 
 import { decodeCoords } from '../render/src/protocol.js';
+import { place } from './progress.js';
 
 const THREE = {
   A: 'ALA', C: 'CYS', D: 'ASP', E: 'GLU', F: 'PHE', G: 'GLY', H: 'HIS', I: 'ILE', K: 'LYS', L: 'LEU',
@@ -18,8 +19,9 @@ export class Stream {
     this.as = as;            // ?as=<model>: rehearse a model's screens on another model's stream
     this.open = {};          // id -> fold being collected
     this.chips = [];         // last status.chips
-    this.jobs = {};          // job id -> {name, kind, model, chip, n, stage, step, total, t0, tChip, tAt}
-                             // tChip: the chip's seconds on this job at its last event, tAt: when that arrived
+    this.jobs = {};          // job id -> {name, kind, model, chip, n, stage, step, total, t0, tChip, tAt, plan, pos, next}
+                             // tChip: the chip's seconds on this job at its last event, tAt: when that arrived;
+                             // pos, next: where that event left it on its plan and the event it waits for (progress.js)
     this.connected = false;
     this.lastMessage = 0;
     this._connect();
@@ -47,6 +49,18 @@ export class Stream {
     (j.at ??= {})[j.stage] ??= m.t;
   }
 
+  // a real event moves the job along its plan, never back
+  _at(j, ...where) {
+    const p = j.plan && place(j.plan, ...where);
+    if (p && !(p[0] < j.pos)) { [j.pos, j.next] = p; j.mark = where[0]; }
+  }
+
+  // a job a chip has taken: `doing` from the engine, `tChip` the chip's seconds on it so far
+  _adopt(c, d, now, tChip) {
+    return this.jobs[d.id] ??= { name: d.name ?? null, kind: d.kind, model: this.models?.[0] ?? null, chip: c.chip,
+      n: d.n_res, stage: null, step: 0, total: 1, t0: now, tChip, tAt: now, plan: d.plan ?? null, pos: null, next: null };
+  }
+
   _on(m) {
     const now = performance.now() / 1000;
     if (this.as) { if (m.model) m.model = this.as; if (m.models) m.models = [this.as]; }
@@ -62,10 +76,10 @@ export class Stream {
         if (m.models) this.models = m.models;
         // A fold that started before this page connected: the engine says what it is and when the chip
         // took it, on the engine's own clock, so the elapsed time needs no clock shared with this browser.
+        // Its bar waits for the chip's next event to place it.
         for (const c of this.chips) {
           const d = c.doing;
-          if (d && !this.jobs[d.id] && m.t_wall) this.jobs[d.id] = { name: d.name ?? null, kind: d.kind, model: this.models?.[0] ?? null,
-            chip: c.chip, n: d.n_res, stage: null, step: 0, total: 1, t0: now, tChip: Math.max(0, m.t_wall - d.t_wall), tAt: now };
+          if (d && !this.jobs[d.id] && m.t_wall) this._adopt(c, d, now, Math.max(0, m.t_wall - d.t_wall));
         }
         this.cb.onChips?.(this.chips);
         break;
@@ -73,14 +87,18 @@ export class Stream {
       case 'chip': {
         const c = this.chips.find(c => c.chip === m.chip);
         if (c) Object.assign(c, m, { warming: m.state === 'warming' && m.name ? { name: m.name, n_res: m.n_res, stage: m.stage } : null });
+        // the chip has taken a job: its clock and its bar start at zero, preparing the input
+        if (c && m.state === 'busy' && m.doing && !this.jobs[m.doing.id]) this._at(this._adopt(c, m.doing, now, 0), 'taken');
         this.cb.onChips?.(this.chips);
         break;
       }
       case 'fold_start':
         this.open[m.id] = { start: m, frames: [] };
         // no stage until the chip names one: the fold's first stage is the model's, not ours to guess
-        this.jobs[m.id] = { name: m.name ?? null, kind: m.kind, model: m.model ?? null, chip: m.chip, n: m.n_res,
-          stage: null, step: 0, total: 1, t0: now, tChip: m.t ?? 0, tAt: now };
+        { const j = this.jobs[m.id] ??= { t0: now, plan: null, pos: null, next: null };
+          Object.assign(j, { name: m.name ?? null, kind: m.kind, model: m.model ?? null, chip: m.chip, n: m.n_res,
+            stage: null, step: 0, total: 1, tChip: m.t ?? 0, tAt: now });
+          this._at(j, 'start'); }
         // the server marks a chip busy without a 'chip' message (only 'ready' after each fold), so a
         // fold_start on a chip is what says it is busy and with which job
         { const c = this.chips.find(c => c.chip === m.chip);
@@ -89,21 +107,27 @@ export class Stream {
         break;
       case 'stage': {
         const j = this.jobs[m.id];
-        if (j) { Object.assign(j, { stage: m.stage, step: m.step ?? 0, total: m.total ?? 1 }); this._tick(j, m, now); this.cb.onStage?.(m.id, j, m); }
+        if (j) {
+          Object.assign(j, { stage: m.stage, step: m.step ?? 0, total: m.total ?? 1 }); this._tick(j, m, now);
+          this._at(j, m.stage, m.step, m.total); this.cb.onStage?.(m.id, j, m);
+        }
         break;
       }
       case 'frame': {
         const f = this.open[m.id];
         if (f) f.frames.push(m);
         const j = this.jobs[m.id];
-        if (j) { Object.assign(j, { stage: 'diffusion', step: m.step + 1, total: m.of }); this._tick(j, m, now); j.tFirst ??= m.t; this.cb.onStage?.(m.id, j, m); }
+        if (j) {
+          Object.assign(j, { stage: 'diffusion', step: m.step + 1, total: m.of }); this._tick(j, m, now); j.tFirst ??= m.t;
+          this._at(j, 'diffusion', m.step + 1, m.of); this.cb.onStage?.(m.id, j, m);
+        }
         break;
       }
       case 'fold_done': {
         const f = this.open[m.id];
         delete this.open[m.id];
         const j = this.jobs[m.id];
-        if (j) { j.stage = 'done'; j.seconds = m.seconds; j.tDone = now; this.cb.onStage?.(m.id, j, m); }
+        if (j) { j.stage = 'done'; j.seconds = j.tChip = m.seconds; j.tDone = j.tAt = now; this._at(j, 'done'); this.cb.onStage?.(m.id, j, m); }
         // the chip's last finished fold, measured; the status every 2 s says the same, this is sooner
         { const c = this.chips.find(c => c.chip === m.chip);
           if (c && m.chip != null && m.source === 'live') c.last_fold = { name: m.name ?? null, n_res: m.n_res, seconds: m.seconds, t_wall: m.t_wall }; }

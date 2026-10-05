@@ -26,6 +26,7 @@ HERE = Path(__file__).resolve().parent
 DEMO = HERE.parent
 sys.path.insert(0, str(DEMO / "hardware"))
 import telemetry  # noqa: E402  per-chip sysfs telemetry and the fold ledger, also stdlib only
+from stages import Stages  # noqa: E402
 GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 AMINO = set("ACDEFGHIKLMNPQRSTVWY")
 MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css",
@@ -71,7 +72,7 @@ class Chip:
     def status(self):
         j = self.job
         # what the chip is on, so a page that connects mid-fold names it and counts from the chip's start
-        doing = j and {k: j.get(k) for k in ("id", "kind", "name", "n_res", "t_wall")}
+        doing = j and {k: j.get(k) for k in ("id", "kind", "name", "n_res", "t_wall", "plan")}
         return {"chip": self.chip, "state": self.state, "job": j and j["id"], "doing": doing,
                 "aiclk_mhz": aiclk(self.node), "folds": self.folds, "restarts": self.restarts,
                 "last_fold": self.last_fold, **({"warming": self.warm} if self.state == "warming" else {})}
@@ -85,7 +86,7 @@ class Chip:
                        TT_BIO_LEASE_HOLDER=os.environ.get("TT_BIO_LEASE_HOLDER", f"sc26-demo:chip{self.chip}"))
             self.set_state("warming")
             self.proc = await asyncio.create_subprocess_exec(
-                sys.executable, "-u", str(HERE / "chipworker.py"), "--chip", str(self.chip),
+                sys.executable, "-u", self.args.worker, "--chip", str(self.chip),
                 "--workers", str(len(self.svc.chips)), "--model", self.model,
                 *(["--warm", self.args.attract] if self.model != "esmfold2" and self.args.attract else []),
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
@@ -128,6 +129,9 @@ class Chip:
                 self.job = None if self.state == "busy" else self.job
                 self.set_state("ready")
                 self.svc.dispatch()
+            elif st == "busy" and self.job and ev.get("job") == self.job["id"]:
+                # the chip has taken the job: its clock for this fold starts here, and so does the bar
+                self.set_state("busy", job=self.job["id"], doing=self.status()["doing"])
             elif st in ("warming", "stopped"):
                 self.warm = {k: ev.get(k) for k in ("name", "n_res", "stage")} if st == "warming" else None
                 self.set_state(st, **({k: v for k, v in self.warm.items() if v is not None} if self.warm else {}))
@@ -143,7 +147,11 @@ class Chip:
                         ev.setdefault(k, job[k])
             raw = json.dumps(ev, separators=(",", ":"))
             self.svc.record(job, raw)
+            if t in ("fold_start", "stage", "fold_done"):   # when each stage began, for the next plan
+                job.setdefault("marks", []).append(["start" if t == "fold_start" else ev.get("stage", "done"),
+                                                    ev.get("seconds" if t == "fold_done" else "t")])
             if t == "fold_done":
+                self.svc.stages.add(self.model, job["n_res"], job["marks"])
                 self.folds += 1
                 self.failures = 0
                 self.last_fold = {k: ev.get(k) for k in ("name", "n_res", "seconds", "aiclk_mhz", "t_wall")}
@@ -169,6 +177,7 @@ class Chip:
         self.job, self.state = job, "busy"
         self.job["chip"], self.job["started"], self.job["t_wall"] = self.chip, time.monotonic(), time.time()
         self.job["n_res"] = len(job["sequence"].replace(":", ""))
+        self.job["plan"] = self.svc.stages.plan(self.model, self.job["n_res"])
         self.proc.stdin.write((json.dumps({k: job[k] for k in ("id", "sequence", "seed", "yaml") if job.get(k) is not None})
                                + "\n").encode())
         self.svc.ledger("start", self.chip, model=self.model, name=job.get("name"), residues=job["n_res"])
@@ -254,6 +263,7 @@ class Service:
         self.attract_short = itertools.cycle([a for a in picks if not is_long(a)] or [None])
         self.attract = bool(picks)
         self.replay = Replay(self, args.replay)
+        self.stages = Stages(DEMO / "gallery" / "store")   # what each stage takes on this box, by length
         self.open_files = {}
         self._preempt_armed = False
         # Chips that share a board are reset together (qb2: a p300 board carries chips 0,1 and 2,3).
@@ -593,6 +603,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--chips", default="", help="UMD chip ids, e.g. 0,1,2,3; empty for replay only")
     ap.add_argument("--replay-only", action="store_true")
+    ap.add_argument("--worker", default=str(HERE / "chipworker.py"),
+                    help="the chip worker program; tests/recorded_worker.py plays recorded folds without a chip")
     ap.add_argument("--models", default="openfold3",
                     help="what the booth folds with, comma-separated (openfold3, boltz2, esmfold2); with several the "
                     "chips take turns and the screen names each fold's model. Recordings of other models are not played")
