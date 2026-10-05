@@ -24,15 +24,19 @@ The left edge lists every model tt-bio runs on Tenstorrent hardware, grouped by 
 (structure, design, embeddings, affinity). The list is tt-bio's own model registry
 (`PREDICT_MODELS`, `DESIGN_MODELS`, `EMBED_MODELS`, `SAPROT_MODELS` and `AFFINITY_MODELS` in
 `tt_bio/main.py`), one entry per model family, without Protenix-v2, whose weights' licence is
-unresolved. Boltz-2 is lit: it is the model the booth runs.
+unresolved. OpenFold3 is lit: it is the model the booth runs.
 
-Every fold on the stage is Boltz-2. The four chips fold the attract proteins (and visitors' names, when
-`?visitors=1` turns typing back on; it is off for now) live, each chip with its own resident copy, and between them the screen plays larger Boltz-2
-complexes recorded on this box. The attract proteins read MSAs searched ahead of time
-(`engine/msa/`); a name folds from its sequence alone, so the booth never needs the network.
+Every fold on the stage is OpenFold3 (preview2, Apache-2.0). The four chips fold the attract
+proteins (and visitors' names, when `?visitors=1` turns typing back on; it is off for now) live,
+each chip with its own resident copy, and between them the screen plays larger OpenFold3 complexes
+recorded on this box. The attract proteins read MSAs searched ahead of time (`engine/msa/`, written
+by `engine/msa_search.py`); a name folds from its sequence alone, so the booth never needs the
+network. A fold reports its stages as the chip finishes them: input preparation, each trunk
+recycle, each of the 200 diffusion steps, the confidence head (the worker synchronises the device
+before it stamps a stage, because ttnn returns before the chip is done).
 
-The engine's `--models` option is the switch (default `boltz2`). Give it several, for example
-`--models boltz2,esmfold2`, and the chips take turns, recordings of every listed model play, and
+The engine's `--models` option is the switch (default `openfold3`). Give it several, for example
+`--models openfold3,boltz2`, and the chips take turns, recordings of every listed model play, and
 each fold and chip row names its model again.
 
 ## The claim

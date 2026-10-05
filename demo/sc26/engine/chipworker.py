@@ -131,10 +131,12 @@ class boltz2_runner:
                             "conf_kwargs": conf, "mol_dir": str(cache / "mols")})
         self.model = self.st.model
 
-    def prepare(self, seq, seed):
+    def prepare(self, seq, seed, yaml=None):
         import tempfile
         import torch
         from tt_bio._vendor.esm.models.esmfold2.output import get_element_symbol
+        if yaml:
+            raise ValueError("the Boltz-2 worker folds one protein chain; a YAML job is OpenFold3's")
         h = self.M.seq_hash(seq)
         searched = any((self.msa_dir / f"{h}.{x}").is_file() for x in ("a3m", "csv"))
         with tempfile.TemporaryDirectory() as td:
@@ -190,21 +192,30 @@ class openfold3_runner:
         self.st.load_model(self.cfg)
         self.model = self.st.model
 
-    def prepare(self, seq, seed):
+    def prepare(self, seq, seed, yaml=None):
+        """`yaml` is a whole tt-bio input (several chains, ligands); without it, one protein chain.
+        Every protein chain reads its <hash>.a3m from --msa-dir if there is one; a chain without
+        one gets upstream's no-MSA input (the query alone), as `--single_sequence` does."""
         import tempfile
+        import numpy as np
         import torch
-        searched = (self.msa_dir / f"{self.M.seq_hash(seq)}.a3m").is_file()
+        from tt_bio.main import _read_bio_chains
         with tempfile.TemporaryDirectory() as td:
             y = Path(td) / "fold.yaml"
-            y.write_text(f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {seq}\n")
+            y.write_text(yaml or f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {seq}\n")
+            prot = [c[1] for c in _read_bio_chains(y) if c[3] == "protein"]
+            searched = [(self.msa_dir / f"{self.M.seq_hash(p)}.a3m").is_file() for p in prot]
             kwargs, features, _, _ = self.st._openfold3_inputs(
-                y, dict(self.cfg, seed=seed, single_sequence=not searched))
+                y, dict(self.cfg, seed=seed, single_sequence=not all(searched)))
         aa = features["atom_array"]
-        tok = kwargs["dm_aux_host"]["atom_to_token_index"].long()
+        # One index per residue (a ligand is one residue), the way the structure file numbers them.
+        new = np.ones(len(aa), dtype=bool)
+        new[1:] = (aa.chain_id[1:] != aa.chain_id[:-1]) | (aa.res_id[1:] != aa.res_id[:-1])
+        res = torch.as_tensor(np.cumsum(new) - 1)
         atoms = {"element": [str(e).capitalize() for e in aa.element], "name": [str(n) for n in aa.atom_name],
-                 "residue": tok.tolist()}
-        return {"kwargs": kwargs, "mask": torch.ones(len(tok), dtype=torch.bool), "atoms": atoms,
-                "tok": tok, "msa": searched}
+                 "residue": res.tolist(), "chain": [str(c) for c in aa.chain_id]}
+        return {"kwargs": kwargs, "mask": torch.ones(len(aa), dtype=torch.bool), "atoms": atoms,
+                "res": res, "msa": all(searched)}
 
     def fold(self, prep, seed, progress, dump):
         import torch
@@ -217,8 +228,8 @@ class openfold3_runner:
             self.model.dump_fn = own
         conf = res.confidence[res.best_index]
         # Per-residue pLDDT: the mean over each residue's atoms (the head scores atoms).
-        tok, n = prep["tok"], int(prep["tok"].max()) + 1
-        per = torch.zeros(n).index_add_(0, tok, conf["plddt_atom"].float()) / torch.bincount(tok, minlength=n)
+        res, n = prep["res"], int(prep["res"].max()) + 1
+        per = torch.zeros(n).index_add_(0, res, conf["plddt_atom"].float()) / torch.bincount(res, minlength=n)
         return res.coordinates, per.tolist(), round(float(conf["ptm"]), 4)
 
 
@@ -296,7 +307,7 @@ def main():
         seed, steps = int(job.get("seed", 0)), int(job.get("steps", args.steps))
         t_start = time.perf_counter()
         if args.model in RUNNERS:
-            prep = run.prepare(seq, seed)
+            prep = run.prepare(seq, seed, job.get("yaml"))
             mask, atoms = prep["mask"], prep["atoms"]
         else:
             features, chain_infos = builder.prepare_input(build_spi([("A", seq)]), seed=seed,
@@ -398,7 +409,13 @@ def main():
     try:
         for i, w in enumerate(json.loads(Path(args.warm).read_text()) if args.warm else []):
             emit(type="chip", chip=args.chip, state="warming", warm=i)   # the engine's watchdog sees it alive
-            fold({"id": f"warm{i}", "sequence": w["sequence"], "frames": False, "quiet": True})
+            try:
+                fold({"id": f"warm{i}", "sequence": w["sequence"], "frames": False, "quiet": True})
+            except Aborted:
+                raise
+            except Exception as exc:  # report it and keep warming: one bad length must not cost the chip
+                emit(type="fold_error", id=f"warm{i}", chip=args.chip,
+                     reason=f"{type(exc).__name__}: {exc}"[:400])
     except Aborted:
         emit(type="chip", chip=args.chip, state="stopped")
         return

@@ -68,7 +68,8 @@ A fold began. Everything the renderer needs to lay out atoms before the first fr
 * `kind`: `attract` (the box folding its own list), `visitor` (somebody typed it), `replay`.
 * `source`: `live` (a chip is computing it now) or `replay` (a recording). The screen must show
   which; the audience will ask.
-* `atoms.residue` is the 0-based residue index of each atom. `rg_expected` is a radius of gyration
+* `atoms.residue` is the 0-based residue index of each atom (a ligand is one residue; OpenFold3
+  also sends `atoms.chain`, the chain id of each atom). `rg_expected` is a radius of gyration
   estimate in Angstrom from the length alone (2.2 * n^0.38), for framing the camera before the
   real structure exists. Replays can do better: their last frame is known in advance.
 
@@ -77,6 +78,12 @@ Where the fold is. `{"type":"stage","id":"a17","chip":0,"stage":"trunk","step":1
 For ESMFold2 the stages run in order: `lm` (the ESMC-6B language model reads the sequence),
 `trunk` (the folding trunk, `total` recycles), `diffusion` (the structure sampler, one `frame`
 per step), `confidence` (pLDDT). `t` is seconds since the fold started.
+For OpenFold3, the booth's model, there is no `lm`: `trunk` steps 1 to `total` are the recycles
+(4 by default, the first pass and 3 recycles), then `diffusion` steps 1 to 200, then `confidence`.
+The worker prepares the input (features, MSA, templates) before the first stage; that time is
+`stages.prep` in `fold_done`. Every stage event is stamped after the chip finished the work
+before it (the worker synchronises the device first), so the gaps between events are the chip's
+time per stage.
 
 ### `frame`
 One real state of the diffusion sampler.
