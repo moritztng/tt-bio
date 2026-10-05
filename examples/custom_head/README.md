@@ -4,10 +4,20 @@ This example adds an output head to Boltz-2, trains it with a custom loss, and f
 never saw with the head attached. The model's own weights are not touched. The head reads the
 pair representation the trunk computes, on the chip or on a CPU, and runs in plain PyTorch.
 
+The example lives in the repository, not in the installed package, so get it with git. It needs a
+tt-bio whose `tt-bio predict --help` lists `--head`; Python 3.10 or 3.12.
+
 ```bash
+git clone https://github.com/moritztng/tt-bio.git
+cd tt-bio/examples/custom_head
+pip install 'tt-bio[tenstorrent]'                          # or plain `pip install tt-bio` without a card
+
 ./run.sh                                                # on a host with a Tenstorrent card
 ACCEL="--accelerator cpu --no_kernels" ./run.sh         # anywhere else
 ```
+
+The first run downloads the Boltz-2 checkpoints and molecule library into ~/.boltz (7.6 GB) and the
+seven PDB entries.
 
 What it does, step by step:
 
