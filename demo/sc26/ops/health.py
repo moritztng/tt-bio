@@ -78,6 +78,11 @@ def main():
                 f"Lane {c['chip'] + 1} (chip {c['chip']}) is {c['state']} for {ago(now - since)}"
                 + (" (normal: it repairs itself within about 10 min)." if now - since < REPAIR_S
                    else ". It should have recovered by now."))
+        for c in folding:
+            mhz = ((c.get("last_fold") or {}).get("aiclk_mhz") or {}).get("median")
+            if mhz and mhz < 1200:
+                ok.append(f"Lane {c['chip'] + 1} (chip {c['chip']}) folded its last protein at {mhz} MHz, "
+                          "not 1350: it is running warm, so folds take longer. Nothing to do unless the room is hot.")
         if not st.get("replays"):
             bad.append("No recorded folds loaded: if every chip stops, the stage has nothing to show.")
         if out:

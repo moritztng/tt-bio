@@ -244,7 +244,9 @@ class Monitor:
     def __init__(self, root: Path = SYSFS, events: Path = EVENTS, rate_hz: float = 4.0):
         self.chips, self.folds, self.period = Chips(root), Folds(events), 1.0 / rate_hz
         self.hist: dict[int, deque] = {}
-        self.last_beat: dict[int, tuple[int, float]] = {}  # card -> (heartbeat, time it last changed)
+        # card -> (heartbeat, monotonic time it last changed). Monotonic, so an NTP step at the booth
+        # cannot make a beating chip look stalled.
+        self.last_beat: dict[int, tuple[int, float]] = {}
         self.latest: dict[int, Raw] = {}
         self.card_of: dict[int, int] = {}
         self.cost_s = deque(maxlen=240)  # wall time of each sample, for the overhead figure
@@ -268,9 +270,8 @@ class Monitor:
             for c, r in raws.items():
                 self.latest[c] = r
                 self.hist.setdefault(c, deque(maxlen=HISTORY)).append((r.t, r.aiclk, r.power_w, r.temp_c))
-                hb, since = self.last_beat.get(c, (None, r.t))
-                if r.heartbeat is None or r.heartbeat != hb:
-                    self.last_beat[c] = (r.heartbeat, r.t)
+                if r.heartbeat is None or r.heartbeat != self.last_beat.get(c, (None,))[0]:
+                    self.last_beat[c] = (r.heartbeat, time.monotonic())
             for c in self.expected - set(raws):  # a node that vanished: its board is being reset
                 self.latest.pop(c, None)
         self.cost_s.append(time.perf_counter() - t0)
@@ -294,8 +295,8 @@ class Monitor:
         r = self.latest.get(card)
         if r is None:
             return "resetting"
-        hb, since = self.last_beat.get(card, (None, now))
-        if r.aiclk is None or r.heartbeat is None or r.board is None or now - since > HEARTBEAT_STALL_S:
+        since = self.last_beat.get(card, (None, time.monotonic()))[1]
+        if r.aiclk is None or r.heartbeat is None or r.board is None or time.monotonic() - since > HEARTBEAT_STALL_S:
             return "resetting"
         if card in self.folds.current:
             return "folding"

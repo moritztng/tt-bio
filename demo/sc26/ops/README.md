@@ -61,7 +61,9 @@ the recovery takes. Every row was injected and watched (`chaos.py`); the times a
 | the compositor crashes | the session's loop | sway starts again in 2 s, the browser follows | the still within 5 s, the app in about 30 s |
 | the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
 | the network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
-| the clock jumps (NTP at the booth) | nothing to detect | every timeout runs on monotonic clocks | at most one fold's "N min ago" is off until it is folded again |
+| the clock jumps (NTP at the booth) | nothing to detect | every timeout and the chips' heartbeat check run on monotonic clocks (`ops/tests/clock_jump.py`: a 1 h step either way changes no lane) | at most one fold's "N min ago" is off until it is folded again |
+| the hall is warm and the chips throttle | each fold records its clock; `sc26ctl health` names a chip whose last fold ran under 1200 MHz | none: the chip's firmware protects it | folds take longer and the stopwatch shows the real time |
+| nobody touches the kiosk for hours | | none needed: the attract loop folds the gallery proteins without visitors, and the soak runs with no visitor input | the demo, unchanged |
 | memory, file descriptors, GPU memory or disk run out | the watchdog samples each every minute; `sc26ctl health` warns under 16 GB memory or 5 GB disk | none should be needed: the 24 h soak measures each one, and every log is bounded | |
 | logs grow for days | the watchdog, every minute | any log past 64 MB is cut to its last 16 MB, in place | |
 | a power cut | | the box boots into the demo by itself when power returns and the button is pressed | the still within a minute, live folds in about 1½ |
