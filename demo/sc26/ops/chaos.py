@@ -9,8 +9,12 @@ seconds it picks the next event, in rotation:
   browser_freeze  SIGSTOP to it (the watchdog must see a page that draws no frames)
   engine_kill     SIGTERM to the engine's main process (systemd must bring it back)
   worker_kill     SIGTERM to one chip worker (the engine restarts it)
-  worker_wedge    SIGSTOP to one chip worker: SIGINT and SIGTERM cannot land, so only the
-                  engine's board reset brings the chip back
+  worker_wedge    SIGSTOP to one chip worker mid-fold, as a chip that took work and went quiet:
+                  only the engine's stall limit and board reset bring the chip back. Continued
+                  after --wedge-s if the engine has not ended it, so it cannot stay stopped
+  board_reset     the board under a folding chip reset with ops/reset_board.sh, as a chip that
+                  dies mid-fold: its worker's device calls fail or hang. Only when listed in
+                  --events; it needs the chip ledger's go-ahead (state/bth/CHIPS.md)
   queue_flood     60 visitor folds at once, lengths 10-400
   engine_freeze   SIGSTOP to the engine for --freeze-s, then SIGCONT: alive and stuck. Its unit's
                   WatchdogSec must restart it; a SIGINT never lands on a stuck loop
@@ -95,6 +99,7 @@ class Chaos:
         self.log = open(self.out / "events.jsonl", "a", buffering=1)
         self.wlog = Path(os.path.expanduser(a.watchdog_log))
         self.rng = random.Random(a.seed)
+        self.frozen, self.hold = None, 0
 
     def shot(self, name):
         sock = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / os.environ.get("WAYLAND_DISPLAY", "")
@@ -178,13 +183,23 @@ class Chaos:
             if not p:
                 return "skipped: no booth compositor"
             os.kill(p, signal.SIGSTOP if ev == "sway_freeze" else signal.SIGTERM)
-            self.frozen = p if ev == "sway_freeze" else None
+            self.frozen, self.hold = (p, a.freeze_s) if ev == "sway_freeze" else (None, 0)
             return f"{'SIGSTOP' if ev == 'sway_freeze' else 'SIGTERM'} sway {p}"
         if ev == "engine_freeze":
             p = unit_pid("sc26-engine.service")
             os.kill(p, signal.SIGSTOP)
-            self.frozen = p
+            self.frozen, self.hold = p, a.freeze_s
             return f"SIGSTOP engine {p} for {a.freeze_s:.0f} s"
+        if ev == "board_reset":
+            st = json.loads(urllib.request.urlopen(f"{a.url_base}/status", timeout=5).read())
+            busy = [c["chip"] for c in st["chips"] if c["state"] == "busy"]
+            if not busy:
+                return "skipped: no chip folding"
+            chip = self.rng.choice(busy)
+            board = "0,1" if chip in (0, 1) else "2,3"
+            r = subprocess.run([str(HERE / "reset_board.sh"), board], capture_output=True, text=True, timeout=200,
+                               env=dict(os.environ, TT_BIO_LEASE_HOLDER="worker:sc26-demo"))
+            return f"reset board {board} under chip {chip} mid-fold: rc {r.returncode}, {r.stdout.strip().splitlines()[-1:]}"
         if ev == "display_unplug":
             env = dict(os.environ, **sway_env())
             outs = json.loads(subprocess.run(["swaymsg", "-t", "get_outputs", "-r"], capture_output=True,
@@ -205,6 +220,7 @@ class Chaos:
                 return "skipped: no chip worker"
             p = self.rng.choice(w)
             os.kill(p, signal.SIGTERM if ev == "worker_kill" else signal.SIGSTOP)
+            self.frozen, self.hold = (p, a.wedge_s) if ev == "worker_wedge" else (None, 0)
             return f"{'SIGTERM' if ev == 'worker_kill' else 'SIGSTOP'} chipworker {p}"
         if ev == "queue_flood":
             ok = 0
@@ -237,7 +253,7 @@ class Chaos:
         return "unknown"
 
     def undo(self, ev):
-        if ev in ("sway_freeze", "engine_freeze") and getattr(self, "frozen", None):
+        if getattr(self, "frozen", None):
             try:
                 os.kill(self.frozen, signal.SIGCONT)   # if the recovery has not already ended it
             except ProcessLookupError:
@@ -254,8 +270,8 @@ class Chaos:
         t0 = time.time()
         what = self.act(ev)
         samples, prev = [], None
-        for dt in (2, 5, 10, 20, 40, 60, 90, 120, 180):
-            if getattr(self, "frozen", None) and dt > self.a.freeze_s:
+        for dt in (2, 5, 10, 20, 40, 60, 90, 120, 180, 240, 300):
+            if getattr(self, "frozen", None) and dt > self.hold:
                 self.undo(ev)
             time.sleep(max(0, t0 + dt - time.time()))
             h, info = self.shot(f"{i:03d}-{ev}-{dt:03d}s")
@@ -304,6 +320,7 @@ def main():
     ap.add_argument("--events", default="", help="comma list; default: all, in rotation")
     ap.add_argument("--net-s", type=float, default=300)
     ap.add_argument("--freeze-s", type=float, default=90, help="how long engine_freeze and sway_freeze hold their process")
+    ap.add_argument("--wedge-s", type=float, default=270, help="how long worker_wedge holds a worker the engine has not ended")
     ap.add_argument("--out", required=True)
     ap.add_argument("--url-base", default=f"http://127.0.0.1:{os.environ.get('SC26_PORT', '8626')}")
     ap.add_argument("--watchdog-log", default="~/sc26-logs/watchdog.jsonl")

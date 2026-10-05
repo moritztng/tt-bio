@@ -23,16 +23,47 @@ SERIES = [  # (key, label, unit); a list value is summed (the chip workers)
 
 
 def load(path, since, until):
-    rows = []
+    """The watchdog's checks, and everything else it logged (restarts, failures), in the window."""
+    rows, other = [], []
     with open(path, "rb") as f:
         for line in f:
             try:
                 r = json.loads(line)
             except ValueError:
                 continue
-            if r.get("ev") == "tick" and since <= r["t"] <= until:
-                rows.append(r)
-    return rows
+            if since <= r.get("t", 0) <= until:
+                (rows if r.get("ev") == "tick" else other).append(r)
+    return rows, other
+
+
+def screen(rows, other):
+    """What the screen did on every check: how often each state, the frame rate's spread, every
+    stretch it was not moving, and every recovery the watchdog made."""
+    states = {}
+    for r in rows:
+        states[r.get("screen")] = states.get(r.get("screen"), 0) + 1
+    fps = sorted(r["fps"] for r in rows if r.get("fps") is not None)
+    pct = lambda q: fps[min(len(fps) - 1, int(q * len(fps)))] if fps else None
+    stretches, cur = [], None
+    for r in rows:
+        if r.get("screen") not in ("moving", None):
+            cur = cur or [r["t"], r["t"], r.get("screen")]
+            cur[1] = r["t"]
+        elif cur:
+            stretches.append(cur)
+            cur = None
+    if cur:
+        stretches.append(cur)
+    acts = {}
+    for r in other:
+        if r.get("ev") == "restart":
+            k = f"{r.get('unit')}: {r.get('why', '').split(' for ')[0]}"
+            acts[k] = acts.get(k, 0) + 1
+    return {"checks": len(rows), "states": states,
+            "fps_p1_p5_p50": [pct(0.01), pct(0.05), pct(0.5)], "fps_checks": len(fps),
+            "not_moving": [{"from": datetime.fromtimestamp(a, timezone.utc).strftime("%m-%d %H:%M:%SZ"),
+                            "s": round(b - a + 10), "as": w} for a, b, w in stretches],
+            "restarts": acts}
 
 
 def slope(ts, vs):
@@ -54,7 +85,7 @@ def main():
     ap.add_argument("--json", default="", help="write the table here too")
     a = ap.parse_args()
     iso = lambda s, d: datetime.fromisoformat(s).replace(tzinfo=timezone.utc).timestamp() if s else d
-    rows = load(a.log, iso(a.since, 0), iso(a.until, 1e12))
+    rows, other = load(a.log, iso(a.since, 0), iso(a.until, 1e12))
     if not rows:
         raise SystemExit("no samples in that window")
     t0 = rows[0]["t"]
@@ -79,9 +110,15 @@ def main():
         print(f"{r['series']:26} {r['first']:>9} {r['median']:>9} {r['last']:>9} {r['max']:>9} "
               f"{r['per_h_2nd_half'] if r['per_h_2nd_half'] is not None else '-':>14} "
               f"{r['per_10h_pct_of_median'] if r['per_10h_pct_of_median'] is not None else '-':>7}")
+    scr = screen(rows, other)
+    print(f"screen on {scr['checks']} checks: {scr['states']}; page fps p1/p5/p50 {scr['fps_p1_p5_p50']}")
+    for x in scr["not_moving"]:
+        print(f"  not moving from {x['from']} for ~{x['s']} s ({x['as']})")
+    for k, n in sorted(scr["restarts"].items()):
+        print(f"  restart {k}: {n}x")
     if a.json:
         with open(a.json, "w") as f:
-            json.dump({"hours": round(hours, 2), "t0": t0, "table": table}, f, indent=1)
+            json.dump({"hours": round(hours, 2), "t0": t0, "table": table, "screen": scr}, f, indent=1)
     if not a.out:
         return
     try:
