@@ -46,8 +46,8 @@
   "name": "Haemoglobin",
   "pdb": "2DN2",
   "uniprot": "P69905, P68871",
-  "story": "Carries the oxygen you are breathing right now. Four chains, each holding an iron in a heme.",
-  "why": "The protein in every visitor's blood; four chains and four hemes make a big, symmetric surface.",
+  "story": "Carries the oxygen you are breathing right now: four chains that work as one.",
+  "why": "The protein in every visitor’s blood; four chains make a big, symmetric surface.",
   "chains": [
    {
     "id": "A",
@@ -129,60 +129,6 @@
    }
   ],
   "n_res": 151
- },
- {
-  "id": "spike-ace2",
-  "name": "The coronavirus spike meets ACE2",
-  "pdb": "6M0J",
-  "uniprot": "P0DTC2, Q9BYF1",
-  "story": "How the coronavirus gets in: the tip of its spike grabbing a receptor on a human cell.",
-  "why": "The pandemic everyone lived through, and the largest pick at over 800 residues.",
-  "chains": [
-   {
-    "id": "A",
-    "role": "human ACE2 receptor",
-    "sequence": "STIEEQAKTFLDKFNHEAEDLFYQSSLASWNYNTNITEENVQNMNNAGDKWSAFLKEQSTLAQMYPLQEIQNLTVKLQLQALQQNGSSVLSEDKSKRLNTILNTMSTIYSTGKVCNPDNPQECLLLEPGLNEIMANSLDYNERLWAWESWRSEVGKQLRPLYEEYVVLKNEMARANHYEDYGDYWRGDYEVNGVDGYDYSRGQLIEDVEHTFEEIKPLYEHLHAYVRAKLMNAYPSYISPIGCLPAHLLGDMWGRFWTNLYSLTVPFGQKPNIDVTDAMVDQAWDAQRIFKEAEKFFVSVGLPNMTQGFWENSMLTDPGNVQKAVCHPTAWDLGKGDFRILMCTKVTMDDFLTAHHEMGHIQYDMAYAAQPFLLRNGANEGFHEAVGEIMSLSAATPKHLKSIGLLSPDFQEDNETEINFLLKQALTIVGTLPFTYMLEKWRWMVFKGEIPKDQWMKKWWEMKREIVGVVEPVPHDETYCDPASLFHVSNDYSFIRYYTRTLYQFQFQEALCQAAKHEGPLHKCDISNSTEAGQKLFNMLRLGKSEPWTLALENVVGAKNMNVRPLLNYFEPLFTWLKDQNKNSFVGWSTDWSPYADHHHHHH",
-    "ref_chain": "A"
-   },
-   {
-    "id": "B",
-    "role": "spike receptor-binding domain",
-    "sequence": "RVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNKCVNFHHHHHH",
-    "ref_chain": "E"
-   }
-  ],
-  "ligands": [],
-  "n_res": 832
- },
- {
-  "id": "antibody",
-  "name": "An antibody finds its target",
-  "pdb": "7C01",
-  "uniprot": "P0DTC2",
-  "story": "An antibody drug, etesevimab, grabbing the same spike tip so the virus cannot use it.",
-  "why": "The Y-shaped molecule everyone has heard of, caught in the act: the two antibody chains and their target.",
-  "chains": [
-   {
-    "id": "H",
-    "role": "antibody heavy chain (Fab)",
-    "sequence": "EVQLVESGGGLVQPGGSLRLSCAASGFTVSSNYMSWVRQAPGKGLEWVSVIYSGGSTFYADSVKGRFTISRDNSMNTLFLQMNSLRAEDTAVYYCARVLPMYGDYLDYWGQGTLVTVSSASTKGPSVFPLAPSSKSTSGGTAALGCLVKDYFPEPVTVSWNSGALTSGVHTFPAVLQSSGLYSLSSVVTVPSSSLGTQTYICNVNHKPSNTKVDKRVEPKSCDKTHTHHHHHH",
-    "ref_chain": "H"
-   },
-   {
-    "id": "L",
-    "role": "antibody light chain (Fab)",
-    "sequence": "DIVMTQSPSSLSASVGDRVTITCRASQSISRYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPEYTFGQGTKLEIKRTVAAPSVFIFPPSDEQLKSGTASVVCLLNNFYPREAKVQWKVDNALQSGNSQESVTEQDSKDSTYSLSSTLTLSKADYEKHKVYACEVTHQGLSSPVTKSFNRGECS",
-    "ref_chain": "L"
-   },
-   {
-    "id": "B",
-    "role": "spike receptor-binding domain",
-    "sequence": "RVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNKCVNFHHHHHH",
-    "ref_chain": "A"
-   }
-  ],
-  "ligands": [],
-  "n_res": 679
  },
  {
   "id": "designed-binder",
@@ -336,12 +282,12 @@
  },
  {
   "id": "paxlovid",
-  "name": "Paxlovid jams the coronavirus",
+  "name": "The enzyme Paxlovid jams",
   "pdb": "7SI9",
   "ref": "7SI9-assembly1",
   "uniprot": "P0DTD1",
-  "story": "The COVID pill at work: nirmatrelvir sitting in both halves of the enzyme the virus needs to copy itself.",
-  "why": "A drug designed in months during the pandemic, in its target: the main protease dimer with one nirmatrelvir in each active site.",
+  "story": "The coronavirus needs this two-part enzyme to copy itself. The COVID pill Paxlovid works by blocking it.",
+  "why": "A drug designed in months during the pandemic, shown as its target: the main protease dimer (the drug itself is not modelled).",
   "chains": [
    {
     "id": "A",

@@ -1,6 +1,6 @@
 # SC26 gallery
 
-Thirteen proteins with a story, each folded for real by OpenFold3 (preview2) on one of qb2's
+Eleven proteins with a story, each folded for real by OpenFold3 (preview2) on one of qb2's
 Blackhole chips. The
 demo plays them in its attract loop, and whenever the live path is busy or a chip is down.
 `manifest.json` lists each one with its story, fold time, the chip's clock during the fold,
@@ -25,7 +25,10 @@ booth needs no network.
 OpenFold3 preview2 was released as a polymer model and was never trained to place a ligand, and
 tt-bio refuses a ligand for it rather than return a made-up pose. The hemes of haemoglobin and
 myoglobin and the nirmatrelvir of the Paxlovid pick are therefore not in their recordings;
-`ligands_omitted` in the store and the manifest names them.
+`ligands_omitted` in the store and the manifest names them, and the stories no longer mention them.
+The spike with ACE2 and the etesevimab antibody were dropped: OpenFold3 folds each chain to 2 to 5 Å
+but places the interface wrong (32.8 Å and 15.7 Å overall against 6M0J and 7C01), so the screen
+would show a binding that is not the real one.
 
 ## Files
 

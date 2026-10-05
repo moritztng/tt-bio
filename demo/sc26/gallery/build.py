@@ -154,6 +154,8 @@ def main():
             store=[f"store/{pid}.json", f"store/{meta['bin']['file']}"], store_bytes=store_bytes))
         print(f"{pid:16s} {meta['n_res']:4d} res {meta['n_atoms']:5d} atoms {n_frames} frames "
               f"{meta['seconds']:6.1f} s  store {store_bytes / 1e6:5.2f} MB  jsonl {path.stat().st_size / 1e6:6.2f} MB")
+    for stale in set(out.glob("*.jsonl")) - {out / f"{e['id']}.jsonl" for e in entries}:
+        stale.unlink()  # the server replays every file here, so a dropped pick must go
     manifest = dict(
         protocol=1, generated_by="demo/sc26/gallery/build.py",
         about="Real OpenFold3 folds recorded on qb2. Every frame is a sampler state; see README.md.",
