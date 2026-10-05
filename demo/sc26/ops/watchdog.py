@@ -121,7 +121,7 @@ def resources(profile, engine_pid, paths):
     r.update(engine_rss_mb=eng and round(eng[0]), engine_fds=eng and eng[1],
              worker_rss_mb=[round(u[0]) for u in work], worker_fds=[u[1] for u in work],
              rss_browser_mb=round(browser[0]), browser_fds=browser[1],
-             engine_mb=unit_mb("sc26-engine.service"))
+             engine_mb=unit_mb("sc26-engine.service"), **unit_stat("sc26-engine.service"))
     for k, f in (("vram_mb", "mem_info_vram_used"), ("gtt_mb", "mem_info_gtt_used")):
         try:
             r[k] = round(int(next(Path("/sys/class/drm").glob(f"card*/device/{f}")).read_text()) / 2**20)
@@ -139,6 +139,17 @@ def unit_mb(unit):
         return round(int(p.read_text()) / 2**20)
     except (OSError, ValueError):
         return None
+
+
+def unit_stat(unit):
+    """The unit's memory split into anon (what its processes allocated) and file (page cache it
+    touched, which the kernel gives back under pressure)."""
+    p = Path(f"/sys/fs/cgroup/user.slice/user-{os.getuid()}.slice/user@{os.getuid()}.service/app.slice/{unit}/memory.stat")
+    try:
+        st = dict(l.split() for l in p.read_text().splitlines())
+        return {"engine_anon_mb": round(int(st["anon"]) / 2**20), "engine_file_mb": round(int(st["file"]) / 2**20)}
+    except (OSError, ValueError, KeyError):
+        return {}
 
 
 def meminfo():

@@ -8,6 +8,7 @@ showing real folds while it does.
 
 Run these on qb2, over ssh or at the console, from this directory (`~/sc26/demo/sc26/ops`).
 
+    ./sc26ctl health      HEALTHY, REPAIRING ITSELF or NOT HEALTHY, in plain words
     ./sc26ctl status      what is running, each chip's state and clock, the last watchdog check
     ./sc26ctl restart     restart the engine, the browser and the watchdog
     ./sc26ctl stop        stop the demo; the chips are released to the fleet
@@ -40,32 +41,46 @@ turns both back on.
 
 ## What happens when something fails
 
+The rule is that the screen never shows an error, a blank frame or a frozen one for longer than
+the recovery takes. Every row was injected and watched (`chaos.py`); the times are measured.
+
 | failure | detected by | recovery | what the screen shows |
 |---|---|---|---|
-| browser crashes | its launcher | Firefox restarts with a fresh profile | sometimes a black frame of about a second, then the background still, then the app |
-| page or browser freezes | no frames drawn, or an unchanged screen for 30 s | the browser is restarted | the frozen frame, then the still, then the app (1 restart in 6 flashed black for under half a second) |
-| the page leaves the app (Firefox error page) | the page's document is not the app | the watchdog loads the app again once the engine answers | a dark error page for at most one 10 s check |
-| engine dies or hangs | `/status` unanswered for 30 s | systemd restarts it | the last fold, then recorded folds |
-| a chip's worker dies | the engine | the worker restarts | that chip's lane says recovering; the other chips keep folding |
-| a chip's memory fills up (after about 35 min of mixed folds) | the fold fails with out of memory | that worker restarts with empty memory; a visitor's fold is retried | that lane says recovering for about 40 s; the other chips keep folding |
-| a chip wedges | no progress for 120 s, the worker ignores SIGINT and SIGTERM | both chips on that board are reset with `tt-smi -r` | the board's two lanes say resetting; recorded folds fill in if no chip is left |
-| network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
+| a chip hangs mid-fold (stops taking work) | tt-metal's dispatch timeout in the worker (10 s without progress), or the engine's stall limit (120 s with no event) | the board's workers are stopped and the board (chips 0,1 or 2,3) is reset; a chip that hangs twice in an hour rests, then rejoins by itself | the board's two lanes say resetting, then warming up; the other board keeps folding; recorded folds fill the stage if no chip is left |
+| a chip dies and does not come back after a reset | the reset's check that the chip answers | the chip rests, 15 min doubling to 4 h, and is tried again | its lane says it is resting and when it is back |
+| a chip's worker dies | the engine | the worker restarts; a visitor's fold moves to another chip | that lane says recovering, then warming up |
+| a chip's memory fills up (about 35 min of mixed folds) | the fold fails with out of memory | that worker restarts with empty memory | that lane says recovering for about 40 s |
+| the engine dies | systemd | restarted in 3 s; the page reconnects in 1.5 s | the last fold keeps turning, then recorded folds while the chips warm up |
+| the engine is alive but stuck | it stops telling systemd it is alive (every 2 s) | after 60 s systemd ends it and starts it again | as above, after up to 60 s of lanes saying "no word" |
+| the browser crashes | its launcher | Firefox starts again with a fresh profile, once the app answers | the background still (a real fold), then the app |
+| the page or browser freezes | no frames drawn for two checks (20 s), or an unchanged screen for 30 s | the browser is restarted | the frozen frame, then the still, then the app |
+| the page leaves the app | its document is not the app | the watchdog loads the app again | at most one 10 s check of the wrong page |
+| the GPU context is lost | the page itself | the page reloads once the app answers | under a second of the background colour |
+| the page's stream goes silent | the page (6 s); the watchdog backs it up at 60 s | the page reconnects; the watchdog reloads a page that does not | the stage keeps showing what it has |
+| the compositor (sway) freezes | screenshots time out three checks in a row | the watchdog restarts sway; the session brings it back with the browser | the frozen frame for up to 40 s, then the still, then the app |
+| the compositor crashes | the session's loop | sway starts again in 2 s, the browser follows | the still within 5 s, the app in about 30 s |
 | the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
-| the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
+| the network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
+| the clock jumps (NTP at the booth) | nothing to detect | every timeout runs on monotonic clocks | at most one fold's "N min ago" is off until it is folded again |
+| memory, file descriptors, GPU memory or disk run out | the watchdog samples each every minute; `sc26ctl health` warns under 16 GB memory or 5 GB disk | none should be needed: the 24 h soak measures each one, and every log is bounded | |
+| logs grow for days | the watchdog, every minute | any log past 64 MB is cut to its last 16 MB, in place | |
+| a power cut | | the box boots into the demo by itself when power returns and the button is pressed | the still within a minute, live folds in about 1½ |
 
-Workers are stopped with SIGINT, then SIGTERM. A killed worker leaves its chip unusable until a
-reset, so SIGKILL is used only on a wedged worker, right before its board is reset. qb2's chips sit on two boards, chips 0 and 1 on one and
-2 and 3 on the other, and a reset always takes both chips of a board.
+Workers are stopped with SIGINT, then SIGTERM. qb2's chips sit on two boards, chips 0 and 1 on one
+and 2 and 3 on the other, and a reset always takes both chips of a board. Nothing here powers the
+box off.
 
 ## Logs
 
-`~/sc26-logs/watchdog.jsonl` has one line per check: the chips, the page's frame rate, whether the
-screen is moving, and every minute the browser's and the engine's memory. `~/sc26-logs/engine/`
-holds the engine's per-chip logs and `reset.log`.
+`~/sc26-logs/watchdog.jsonl` has one line per check: the chips, the page's frame rate and stream,
+whether the screen is moving, and every minute the memory and open files of the engine, each chip
+worker and the browser, the GPU's memory, free disk and the logs' size. `curves.py` draws them.
+`~/sc26-logs/engine/` holds the engine's per-chip logs and `reset.log`.
 
 ## Testing it
 
-`chaos.py` injects every failure above on a schedule (browser crash and freeze, engine kill, worker
-kill and wedge, a flood of 60 folds, a network drop) and records screenshots of what the screen
+`chaos.py` injects the failures above on a schedule (browser crash and freeze, engine kill and
+freeze, worker kill and wedge, compositor freeze and crash, a display unplugged, a flood of 60
+folds, a network drop) and records screenshots of what the screen
 showed through each one. `qualify_card.py` runs the fold service on one chip for hours, which is
 how a chip is cleared for the booth.
