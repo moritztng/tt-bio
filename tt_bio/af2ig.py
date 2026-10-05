@@ -106,6 +106,8 @@ class AF2IGPrediction:
     metrics: dict[str, float]
     tokens: int
     binder_length: int
+    pae: np.ndarray | None = None  # (tokens, tokens) float32 Å, row = aligned-on residue
+    distogram: np.ndarray | None = None  # (tokens, tokens, 64) logits of the last recycle's pair
 
 
 def _residue_numbers(feats: dict[str, np.ndarray], num_target: int) -> np.ndarray:
@@ -161,7 +163,8 @@ def fold(model, spec: AF2IGInput, *, recycles: int = 3, progress=None) -> AF2IGP
     """
     import torch
 
-    from tt_bio.af2_confidence import confidence_scalars, plddt_per_residue
+    from tt_bio.af2_confidence import (confidence_scalars, expected_aligned_error,
+                                      plddt_per_residue)
     from tt_bio.af2_data import initial_recycle_state
 
     feats_np = features(spec)
@@ -195,7 +198,14 @@ def fold(model, spec: AF2IGInput, *, recycles: int = 3, progress=None) -> AF2IGP
     arr, coords, b_factors = _atom_array(spec, feats_np, positions, plddt * 100.0)
     return AF2IGPrediction(atom_array=arr, coords=coords, b_factors=b_factors,
                            metrics=metrics(scalars), tokens=len(plddt),
-                           binder_length=binder_len)
+                           binder_length=binder_len,
+                           # AF2's predicted_aligned_error as upstream returns it: raw, before
+                           # the symmetrising the interface-pAE scalar applies.
+                           pae=expected_aligned_error(out["pae_logits"], out["pae_breaks"])
+                           .detach().cpu().float().numpy(),
+                           # Read after the last recycle only; nothing downstream consumes it.
+                           distogram=model.distogram_logits(out["pair"]).detach().cpu()
+                           .float().numpy())
 
 
 def metrics(scalars: dict[str, float]) -> dict[str, float]:

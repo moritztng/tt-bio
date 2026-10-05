@@ -307,10 +307,16 @@ class OpenFold3(Module):
         ranking_score = rank.ranking_score(
             iptm=iptm, ptm=ptm, plddt=float(plddt_atom.mean()),
             disorder=disorder, has_clash=has_clash)
+        # Full matrices as upstream's aggregate_confidence_ranking computes them: the expectation
+        # over 64 bins on 0-32 Å. The distogram is the trunk's, the same for every sample.
+        centers = (torch.arange(64, dtype=torch.float32) + 0.5) * 0.5
         return {
             "plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom,
             "ptm": ptm, "iptm": iptm, "disorder": disorder,
             "has_clash": has_clash, "ranking_score": ranking_score,
+            "pae": (torch.softmax(out["pae_logits"].float(), -1) * centers).sum(-1),
+            "pde": (torch.softmax(out["pde_logits"].float(), -1) * centers).sum(-1),
+            "distogram": out["distogram_logits"],
         }
 
     def fold(self, *, template_feat, msa_feat, s_input, relpos, token_bonds,
@@ -453,6 +459,8 @@ class OpenFold3(Module):
                 self._confidence(sample, s_input, si_trunk, zij_trunk, confidence_aux_host)
                 for sample in samples
             ]
+            for c in confidence[1:]:              # one [N, N, 64] per fold, not per sample
+                c["distogram"] = confidence[0]["distogram"]
             best_index = max(range(len(samples)), key=lambda i: confidence[i]["ranking_score"])
             dram_peak(f"confidence done [samples={len(samples)}]")
         else:

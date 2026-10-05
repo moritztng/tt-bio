@@ -861,7 +861,7 @@ def _atomic_write(path: Path, content: str):
 
 
 def write_result(pred, batch, input_struct, out_dir, fmt,
-                 write_pae=False, write_pde=False, write_embeddings=False):
+                 write_pae=False, write_pde=False, write_embeddings=False, contact_cutoff=8.0):
     """Write CIF/PDB structure files. Return (metrics_dict, best_structure).
 
     pLDDT embedded in B-factors. All confidence values returned in metrics dict.
@@ -961,7 +961,12 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
             return pae, (pred["plddt"][idx].cpu().numpy()[real] if "plddt" in pred else None)
 
         pae, plddt = _arrays(best_idx)
-        np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=pae)
+        from tt_bio import confidence_export
+        dist = pred.get("pdistogram")             # [1, N, N, 1, bins]: one trunk, every sample
+        confidence_export.write(out_dir, record.id, "boltz2", real=real, pae=pred["pae"][best_idx],
+                                pde=pred["pde"][best_idx] if "pde" in pred else None,
+                                distogram=None if dist is None else dist[0, :, :, 0],
+                                cutoff=contact_cutoff)
         if plddt is not None:
             np.savez_compressed(out_dir / f"{record.id}_plddt.npz", plddt=plddt)
         if fmt == "cif" and len(struct.chains) > 1:
@@ -982,7 +987,11 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
             metrics["interface_scores"] = samples[0]
             metrics["interface_score_distribution"] = interface_scores.distribution(samples)
     if write_pde and "pde" in pred:
-        np.savez_compressed(out_dir / f"{record.id}_pde.npz", pde=pred["pde"][best_idx].cpu().numpy())
+        pde = pred["pde"][best_idx].cpu().numpy()
+        if "token_pad_mask" in batch:             # the same real-token crop as the PAE
+            real = batch["token_pad_mask"][0].bool().cpu().numpy()
+            pde = pde[np.ix_(real, real)]
+        np.savez_compressed(out_dir / f"{record.id}_pde.npz", pde=pde)
     if write_embeddings and "s" in pred and "z" in pred:
         np.savez_compressed(out_dir / f"{record.id}_embeddings.npz",
                           s=pred["s"].cpu().numpy(), z=pred["z"].cpu().numpy())
@@ -3146,7 +3155,13 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
                    "Opt-in; reserves 0.2-0.3 GB of device memory.")
-@click.option("--write_pae", is_flag=True, help="Write PAE matrix per target (not openfold3)")
+@click.option("--write_pae", is_flag=True,
+              help="Write <name>_pae.npz per target: the full PAE matrix, PDE and contact "
+                   "probabilities wherever the model's heads compute them, with a "
+                   "<name>_pae.json sidecar naming every array (docs/confidence-outputs.md)")
+@click.option("--contact_cutoff", default=8.0, type=float, show_default=True,
+              help="Distance in Angstrom under which --write_pae counts two tokens in contact. "
+                   "The written cutoff is the largest distogram bin edge at or below it")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
 @click.option("--head", "heads", multiple=True, metavar="FILE.py:NAME",
@@ -3202,7 +3217,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
-            write_pae, write_pde, write_embeddings, heads, affinity_mw_correction,
+            write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, host_threads, fast, debug, log,
             report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
@@ -3355,7 +3370,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # already called out for the OF3 family and was a silent no-op everywhere else it is
         # unread: esmfold2 and rf3 accepted it and wrote nothing, --write_pde did nothing on
         # protenix (--write_pae writes both).
-        for note in unread_flags(model, {"--write_pae": write_pae, "--write_pde": write_pde,
+        for note in unread_flags(model, {"--write_pae": write_pae, "--contact_cutoff": write_pae,
+                                         "--write_pde": write_pde,
                                          "--write_embeddings": write_embeddings,
                                          "--max_msa_seqs": msa_cap is not None}):
             click.secho(note, fg="yellow")
@@ -3440,7 +3456,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             # folds the depth each model's upstream reads.
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
-            "write_pae": write_pae,
+            "write_pae": write_pae, "contact_cutoff": contact_cutoff,
             "checkpoint": str(Path(checkpoint).resolve()) if checkpoint else None,
         }
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
@@ -3526,7 +3542,10 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "activation_checkpointing": True}
     conf_kwargs = dict(
         predict_args={"recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
-                      "diffusion_samples": diffusion_samples, "max_parallel_samples": max_parallel_samples},
+                      "diffusion_samples": diffusion_samples, "max_parallel_samples": max_parallel_samples,
+                      # Boltz's own hook for keeping a forward output: the distogram the
+                      # contact probabilities are read from, held only when they are written.
+                      **({"keys_dict_out": ["pdistogram"]} if write_pae else {})},
         diffusion_process_args=_diffusion, pairformer_args=_pairformer, msa_args=_msa,
         steering_args={"fk_steering": use_potentials, "physical_guidance_update": use_potentials,
                        "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
@@ -3555,6 +3574,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         "method": method, "output_format": output_format,
         "write_pae": write_pae, "write_pde": write_pde, "write_embeddings": write_embeddings,
         "heads": list(heads),
+        "contact_cutoff": contact_cutoff,
         "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
         "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
         "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,

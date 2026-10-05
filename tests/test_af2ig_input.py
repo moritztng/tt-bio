@@ -148,6 +148,9 @@ class _StubTrunk:
                               prev["prev_pos"] + self.OFFSET,
                               "final_atom_mask": feats["atom37_atom_exists"]}}
 
+    def distogram_logits(self, pair):
+        return torch.zeros(*pair.shape[:2], 64)
+
 
 def test_fold_threads_the_recycling_state_and_writes_the_complex(tmp_path):
     spec = af2ig.read_af2ig_input(EXAMPLE)

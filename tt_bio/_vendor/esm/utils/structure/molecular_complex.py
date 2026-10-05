@@ -40,6 +40,7 @@ class MolecularComplexResult:
     ptm: float | None = None
     iptm: float | None = None
     pae: torch.Tensor | None = None
+    pde: torch.Tensor | None = None  # tt-bio: the head computes it, upstream drops it
     distogram: torch.Tensor | None = None
     pair_chains_iptm: torch.Tensor | None = None
     output_embedding_sequence: torch.Tensor | None = None

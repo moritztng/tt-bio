@@ -147,10 +147,12 @@ file, so the names you submitted are still in it. A structure whose names alread
 unchanged and carries no remark. A PDB holds at most 62 chains; past that, use `cif`, which has no
 width limit and never renames anything.
 
-`--write_pae` adds a token-token PAE and PDE matrix as `<name>_pae.npz` on `boltz2`,
-`protenix-v1`, `protenix-v2` and `opendde`. `rf3` writes pTM, ipTM and chain-pair PAE into
-`<name>_summary_confidences.json` instead. `openfold3` and `openbind` compute PAE logits but
-their fold does not return the matrices, and `esmfold2` has no PAE head.
+`--write_pae` writes `<name>_pae.npz` beside each structure on every folding model, with a
+`<name>_pae.json` sidecar listing what is in it. It always holds the full PAE matrix; PDE and
+contact probabilities are there when the model has the head (all but `af2ig` for PDE; all but
+`protenix-v1` and `protenix-v2` for contacts). `--contact_cutoff` sets the contact
+distance, 8 A by default. Arrays, units and the cutoff rule are in
+[confidence-outputs.md](confidence-outputs.md). Boltz-2 also keeps its separate `--write_pde` file.
 
 An output flag a model does not read prints a note saying which model does read it, so it is
 never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both) and

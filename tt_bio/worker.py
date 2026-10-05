@@ -1026,6 +1026,7 @@ class _WorkerState:
             cfg["write_pae"],
             cfg["write_pde"],
             cfg["write_embeddings"],
+            cfg.get("contact_cutoff", 8.0),
         )
         if cfg.get("heads"):
             from tt_bio import heads
@@ -1069,6 +1070,12 @@ class _WorkerState:
                    "binder_residues": pred.binder_length,
                    "msa": False,
                    "recycling_steps": recycles}
+        if cfg.get("write_pae"):
+            from tt_bio import confidence_export
+            confidence_export.write(
+                Path(cfg["struct_dir"]), path.stem, "af2ig", pae=pred.pae,
+                distogram=pred.distogram, cutoff=cfg.get("contact_cutoff", 8.0),
+                absent={"pde": "AF2 has no PDE head"})
         # _execute_job inspects feats["record"].affinity; AF2-IG has no affinity head.
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
@@ -1142,8 +1149,16 @@ class _WorkerState:
 
         def _sample_scalars(s):
             m = {"plddt": round(float(s.plddt.mean()), 4)}
-            if getattr(s, "ptm", None) is not None:
-                m["ptm"] = round(float(s.ptm), 4)
+            for k in ("ptm", "iptm"):
+                if getattr(s, k, None) is not None:
+                    m[k] = round(float(getattr(s, k)), 4)
+            # Chain-pair ipTM keyed by chain id, in the shape every other model writes it.
+            if getattr(s, "pair_chains_iptm", None) is not None and len(chains) > 1:
+                ids = [c[0] for c in chains]
+                pci = s.pair_chains_iptm.float()
+                m["pair_chains_iptm"] = {a: {b: round(float(pci[i, j]), 4)
+                                             for j, b in enumerate(ids)} for i, a in enumerate(ids)}
+                m["chains_ptm"] = {a: m["pair_chains_iptm"][a][a] for a in ids}
             return m
 
         metrics = {
@@ -1159,6 +1174,11 @@ class _WorkerState:
         # Only when there is more than one, matching _scalars/all_runs in main.py.
         if len(ranked) > 1:
             metrics["all_runs"] = [{"rank": r, **_sample_scalars(s)} for r, s in enumerate(ranked)]
+        if cfg.get("write_pae"):
+            from tt_bio import confidence_export
+            confidence_export.write(struct_dir, path.stem, cfg.get("model", "esmfold2"),
+                                    pae=res.pae, pde=res.pde, distogram=res.distogram,
+                                    cutoff=cfg.get("contact_cutoff", 8.0))
         # _execute_job inspects feats["record"].affinity; ESMFold2 has no affinity.
         feats = {"record": types.SimpleNamespace(affinity=False)}
         return metrics, None, feats
@@ -1232,7 +1252,8 @@ class _WorkerState:
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
                 seed=cfg.get("seed") or 0, progress_fn=report_progress,
                 n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
-                return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"))
+                return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"),
+                distogram=bool(cfg.get("write_pae")))
         confs = conf if isinstance(conf, list) else [conf]
 
         # Rank, write and emit through the Protenix-v2 builder: OpenDDE rides that trunk, sampler
@@ -1336,9 +1357,13 @@ class _WorkerState:
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
         if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
-            import numpy as np
-            np.savez(struct_dir / f"{stem}_pae.npz",
-                     pae=best["pae"].numpy(), pde=best["pde"].numpy())
+            from tt_bio import confidence_export
+            model = cfg.get("model", "protenix-v2")
+            confidence_export.write(
+                struct_dir, stem, model, pae=best["pae"], pde=best["pde"],
+                distogram=best.get("distogram"), cutoff=cfg.get("contact_cutoff", 8.0),
+                absent={} if "distogram" in best else
+                {"contact_probs": f"tt-bio does not run the {model} distogram head"})
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_protenix_one(self, path: Path, cfg: dict[str, Any]):
@@ -1528,8 +1553,13 @@ class _WorkerState:
             # sample index; rf3/multimer seed 1 did exactly that at ranks 3 and 4, pTM 0.7647
             # against 0.7630, and it is the only site in the family that sorted on a rounded
             # number.
-            return {"d": d, "coord": x, "plddt": plddt, "summary": summary,
-                    "score": summary["ranking_score"]}
+            r = {"d": d, "coord": x, "plddt": plddt, "summary": summary,
+                 "score": summary["ranking_score"]}
+            if cfg.get("write_pae"):              # the [I, I] matrices summary() reduces
+                for k in ("pae", "pde"):
+                    lg = per[f"{k}_logits"]
+                    r[k] = rf3_confidence.unbin(lg.reshape(*lg.shape[-3:]), k)
+            return r
 
         # One shared progress path, same as protenix-v2/openfold3/opendde:
         # report_progress already has the progress_fn signature, so it goes straight
@@ -1598,6 +1628,13 @@ class _WorkerState:
         if len(samples) > 1:
             metrics["all_runs"] = [{"rank": i, **scalars(r)}
                                    for i, r in enumerate(samples)]
+        if cfg.get("write_pae"):
+            from tt_bio import confidence_export
+            n = best["pae"].shape[-1]
+            dist = got["distogram"].reshape(*got["distogram"].shape[-3:])[:n, :n]
+            confidence_export.write(struct_dir, path.stem, "rf3", pae=best["pae"],
+                                    pde=best["pde"], distogram=dist,
+                                    cutoff=cfg.get("contact_cutoff", 8.0))
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_openfold3_one(self, path: Path, cfg: dict[str, Any]):
@@ -1865,6 +1902,11 @@ class _WorkerState:
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
+        if cfg.get("write_pae"):
+            from tt_bio import confidence_export
+            confidence_export.write(struct_dir, stem, cfg.get("model", "openfold3"),
+                                    pae=best["pae"], pde=best["pde"], distogram=best["distogram"],
+                                    cutoff=cfg.get("contact_cutoff", 8.0))
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_embed_one(self, path: Path, cfg: dict[str, Any]):

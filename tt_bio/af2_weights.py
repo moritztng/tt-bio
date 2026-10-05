@@ -37,7 +37,7 @@ Also settled here from the reference source, because they pick tt-bio constructo
 - Every LayerNorm in the trunk upcasts bf16 to fp32 internally and uses `use_fast_variance=True`
   (`common_modules.LayerNorm`). The trunk runs bf16; the structure module and heads run fp32.
 
-Not consumed, deliberately: the distogram, masked-MSA and experimentally-resolved heads.
+Not consumed, deliberately: the masked-MSA and experimentally-resolved heads.
 PXDesign reads none of them. `load_af2_state_dict` asserts they are the *only* unconsumed
 arrays, so a remap that quietly drops a block fails loudly instead of shipping a hole.
 """
@@ -67,9 +67,9 @@ NUM_TEMPLATE_BLOCKS = 2
 #: multimer_v3 embeds nine template features separately and sums them; see `_template_multimer`.
 NUM_TEMPLATE_PAIR_EMBEDDINGS = 9
 
-# Heads present in the checkpoint that PXDesign never reads.
+# Heads present in the checkpoint that PXDesign never reads. The distogram head is loaded: AF2-IG
+# reads it for contact probabilities (`af2ig.fold`), once after the last recycle.
 UNUSED_SCOPES = (
-    PREFIX + "distogram_head/",
     PREFIX + "masked_msa_head/",
     PREFIX + "experimentally_resolved_head/",
 )
@@ -377,6 +377,7 @@ def _heads(p: _Params) -> dict[str, torch.Tensor]:
     out |= _prefixed(
         _linear(p, PREFIX + "predicted_aligned_error_head/logits"), "pae.logits"
     )
+    out |= _prefixed(_linear(p, PREFIX + "distogram_head/half_logits"), "distogram.half_logits")
     return out
 
 
@@ -447,7 +448,7 @@ def remap_af2_params(source: Mapping[str, np.ndarray], *,
 def load_af2_state_dict(path: str, *, multimer: bool = False) -> dict[str, torch.Tensor]:
     """Load an AF2 npz as a flat torch state dict in tt-bio module layout.
 
-    Raises if any array other than the distogram / masked-MSA / experimentally-resolved heads
+    Raises if any array other than the masked-MSA / experimentally-resolved heads
     (and, on the multimer path, the structure module) is left unconsumed, so a dropped block
     cannot pass as a successful load.
     """

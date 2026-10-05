@@ -38,14 +38,15 @@ def test_parameter_tree_matches_the_remap_exactly():
 
     This is the structural half of the parity story: it catches a wrong channel count, a missing
     bias, a module nested one level too deep. Nothing is deferred any more, so the comparison is
-    over the whole 93,208,926-parameter checkpoint rather than a subset of it.
+    over the whole 93,217,182-parameter checkpoint rather than a subset of it.
     """
     model = {k: list(v.shape) for k, v in ref.AF2Model().state_dict().items()}
     assert model == _remapped_shapes()
 
 
 def test_the_model_is_the_whole_checkpoint():
-    assert sum(p.numel() for p in ref.AF2Model().parameters()) == 93_208_926
+    # 93,208,926 plus the 8,256 of the distogram head AF2-IG's contact export reads.
+    assert sum(p.numel() for p in ref.AF2Model().parameters()) == 93_217_182
 
 
 def test_monomer_model_drops_the_template_stack():

@@ -466,7 +466,7 @@ class OpenDDE:
 
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
              return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
-             max_parallel_samples=None):
+             max_parallel_samples=None, distogram=False):
         """End-to-end residue-to-structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -604,5 +604,16 @@ class OpenDDE:
             # original residue-level dict -- identical call shape to Protenix.fold's.
             confs = [P.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
                      for k in range(n_sample)]
+            if distogram:
+                # Upstream's DistogramHead on the same residue-axis trunk pair
+                # (compute_distogram_contact_probs reads select_pair_output_branch's pair_z):
+                # L(z) + L(z).T, one [N, N, 96] for every sample. It reads the trunk and writes
+                # nothing back, so no coordinate depends on whether it ran.
+                import torch.nn.functional as F
+                d = F.linear(z_trunk.float(), self._shared["distogram_head.linear.weight"].float(),
+                             self._shared["distogram_head.linear.bias"].float())
+                d = d + d.transpose(0, 1)
+                for c in confs:
+                    c["distogram"] = d
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
