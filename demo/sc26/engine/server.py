@@ -837,8 +837,9 @@ def main():
     ap.add_argument("--attract", default=str(HERE / "attract.json"),
                     help="sequences the chips fold when no visitor is waiting; empty to idle")
     ap.add_argument("--logdir", default=str(HERE / "runs" / "logs"))
-    ap.add_argument("--fold-events", default=str(telemetry.EVENTS),
-                    help="the fold ledger the telemetry reads (hardware/README.md)")
+    ap.add_argument("--fold-events", default=None,
+                    help="the fold ledger the telemetry reads (hardware/README.md); with a test --worker it "
+                    "defaults to --logdir, so recorded folds never count as the booth's")
     ap.add_argument("--no-telemetry", action="store_true", help="do not sample the chips' sysfs counters")
     ap.add_argument("--min-len", type=int, default=10)
     ap.add_argument("--max-len", type=int, default=400)
@@ -873,6 +874,9 @@ def main():
     args.models = [m.strip() for m in args.models.split(",") if m.strip()]
     args.chips = [] if args.replay_only else [int(c) for c in args.chips.split(",") if c.strip()]
     args.out_of_service = [int(c) for c in args.out_of_service.split(",") if c.strip() and int(c) not in args.chips]
+    if args.fold_events is None:
+        real = Path(args.worker).resolve() == (HERE / "chipworker.py").resolve()
+        args.fold_events = str(telemetry.EVENTS if real else Path(args.logdir) / "folds.jsonl")
     args.replay = args.replay or [str(DEMO / "gallery" / "trajectories"), str(HERE / "recordings")]
     if not args.attract or not Path(args.attract).is_file():
         args.attract = None
