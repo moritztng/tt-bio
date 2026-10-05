@@ -83,10 +83,11 @@ function lane(card) {
   return { el, q };
 }
 
-const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "no reading", warming: "warming up" };
+const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "no reading", warming: "warming up",
+  resting: "resting" };
 
 function paintLane({ el, q }, c) {
-  const live = c.state !== "resetting";
+  const live = c.state !== "resetting" && c.state !== "resting";
   el.dataset.state = c.state;
   q.state.textContent = c.folding ? "folding" : STATE_WORD[c.state] ?? c.state;
   q.pw.innerHTML = live ? `${fmt(c.power_w)}<small>W</small>` : "—";
@@ -107,6 +108,11 @@ function paintLane({ el, q }, c) {
     // telemetry only knows the chip gave no reading (a reset, a hang, or a lent board look the same)
     q.what.textContent = "No reading";
     q.detail.textContent = "clock and heartbeat not answering";
+  } else if (c.state === "resting") {
+    // the engine rests a chip that keeps hanging; it rejoins by itself at back_at, as the stage says
+    const min = Math.max(1, Math.ceil(((c.back_at ?? 0) - Date.now() / 1000) / 60));
+    q.what.textContent = "Resting after a hang";
+    q.detail.textContent = `back in ${min} min, rejoins by itself`;
   } else if (c.state === "warming") {
     q.what.textContent = "Warming up";
     q.detail.textContent = "compiling for the booth's proteins";

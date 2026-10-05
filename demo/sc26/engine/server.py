@@ -608,17 +608,22 @@ class Service:
     # sysfs looks healthy through most of a `tt-smi -r`, so the counters alone showed a board being
     # reset as "ready". The engine knows better: a chip it has stalled, is resetting or is bringing
     # back says so on the lanes too, as it does in the stage's chip table.
+    # A resting chip keeps its lane with the countdown, as on the stage; a chip the engine does not
+    # run is not in the demo, whether it was put out of service or simply left off --chips.
     ENGINE_STATE = {"stalled": "resetting", "resetting": "resetting", "recovering": "resetting", "warming": "warming",
-                    "resting": "out_of_service"}
+                    "resting": "resting"}
 
     def telemetry(self):
         snap = self.monitor.snapshot()
-        engine = {c.chip: "resetting" if c.stalled or self.resetting(c) else self.ENGINE_STATE.get(c.state)
-                  for c in self.chips}
-        engine.update({n: "out_of_service" for n in self.args.out_of_service})
-        for c in snap["chips"]:
-            if engine.get(c["card"]):
-                c["state"], c["folding"] = engine[c["card"]], None
+        mine = {c.chip: c for c in self.chips}
+        for t in snap["chips"]:
+            c = mine.get(t["card"])
+            state = "out_of_service" if c is None else \
+                "resetting" if c.stalled or self.resetting(c) else self.ENGINE_STATE.get(c.state)
+            if state:
+                t["state"], t["folding"] = state, None
+            if state == "resting":
+                t["back_at"] = c.back_at
         return snap
 
     def status(self):
