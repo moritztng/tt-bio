@@ -87,14 +87,20 @@ Every number on screen that counts seconds counts real seconds, in step with wha
 * **Your own fold is the one running clock.** From the moment a chip takes it, the counter shows
   wall-clock seconds and stops when the fold lands. It is then replaced by the chip's own measured
   time, which can differ from the counter by a few tenths of a second of network and page latency.
-* **The chip rows show only what the chips report.** Each row names the protein, the stage the chip
-  last reported with the chip's own counter in it ("trunk 2/4", "diffusion 143/200"), and the
-  seconds since the chip took the fold, counted from the chip's own timestamps. The bar is the
-  sampler's steps and moves only when the chip reports one. Under it is the measured time of the
-  fold the chip finished last ("Last: Haemoglobin, 574 amino acids in 37.04 s", measured on chip 1 on 5 Oct). Nothing is
-  forecast: no row guesses how long a fold will take. A chip that has sent nothing for 30 s (twice
-  the longest real gap, one trunk recycle at 833 residues) says "no word for 31 s" instead of
-  counting; at 120 s the engine stops the fold and the row says so, then "Resetting its board".
+* **The chip rows show the whole fold, moved only by the chips.** Each row names the protein, the
+  stage the chip last reported ("preparing input", "trunk 2/4", "diffusion 143/200", "confidence")
+  and the seconds since the chip took the fold, counted from the chip's own timestamps. The bar is
+  the whole fold, each stage as wide as its share of real time for that length on this box: the
+  engine plans every fold from the folds of that length it measured (PROTOCOL.md, `plan`), so a
+  large protein's bar spends two thirds of its width in the trunk and a small one's mostly in
+  diffusion. Every event from the chip puts the bar where that event sits on the plan; between
+  events it runs on at the pace the chip has kept, slowing as it nears the next step and never
+  reaching it, so it never shows a step the chip has not reported. Against a stopwatch it is within
+  0.8 points of the true elapsed share on average (p90 1.8) on folds of 4.7 to 94 s. Under it is the measured time of the fold the
+  chip finished last ("Last: Haemoglobin, 574 amino acids in 37.04 s"). A chip that has sent nothing
+  for three times the step it is on, and at least 10 s, says "no word for 31 s" instead of counting,
+  and its bar stands still; at 120 s the engine stops the fold and the row says so, then "Resetting
+  its board".
   A row also says "Warming up, compiling for Haemoglobin", "Ready", "Out of service" (a chip taken
   out of the demo with the engine's `--out-of-service`) or "Not in the demo".
   The hardware view behind Tab follows the same rule: a chip that is folding shows the protein and

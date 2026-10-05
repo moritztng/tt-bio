@@ -103,7 +103,7 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
 #legend i { width: calc(9 * var(--p)); height: calc(9 * var(--p)); border-radius: 1px; }
 
 /* four chips, always visible: under a label, one row each, closing with a rule on the QR codes' bottom edge.
-   A row: number, protein, the chip's stage counter, seconds; the sampler's steps as a bar; the last fold. */
+   A row: number, protein, the chip's stage counter, seconds; the whole fold as a bar; the last fold. */
 #chipshead { margin-top: auto; padding-bottom: calc(16 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560;
              letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #chips { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
@@ -121,8 +121,7 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
 #chips li.busy .n, #chips li.ready .n { color: var(--ink2); }
 #chips li .bar { grid-column: 2 / 5; height: 1px; margin-top: calc(8 * var(--p)); }
 #chips li.busy .bar { background: var(--rule); }
-#chips li .bar i { display: block; height: 100%; width: 0; background: var(--ink3); }
-#chips li.busy .bar i { transition: width 300ms linear; }
+#chips li .bar i { display: block; height: 100%; background: var(--ink3); transform-origin: left; transform: scaleX(0); }
 #chips li.on .bar i { background: var(--live); }
 #chips li.on .n { color: var(--live); }
 #chips li .warn { color: var(--ember, #ffa866); }

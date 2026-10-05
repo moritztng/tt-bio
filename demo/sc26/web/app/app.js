@@ -21,6 +21,7 @@ import { Stage, Director } from './stage.js';
 import { parseName, substitutionLine, lengthLine, verdict, loadBlocklist, blocked, MAX_CHARS } from './name.js';
 import { describe, storyOf, INSTEAD } from './stories.js';
 import { kiosk, guardLoop } from './kiosk.js';
+import { barAt, quietAfter } from './progress.js';
 
 const q = new URLSearchParams(location.search);
 const IDLE = 1000 * (parseFloat(q.get('idle')) || 60);
@@ -379,11 +380,10 @@ function drawNumber(f) {
 // The four chips, bottom right: what each one is doing now, from its own events and nothing else.
 // A row names the protein, the stage the chip last reported with the chip's own counter in it (trunk
 // recycle k of K, sampler step k of K), and the seconds since the chip took the fold. The bar is the
-// sampler's steps, so it moves only when the chip reports one. Under it, the measured seconds of the
-// fold the chip finished last. A chip that sends nothing for longer than any real gap between its
-// events (14 s, one trunk recycle at 833 residues) says so instead of counting.
-const QUIET_S = 30;
-const STAGE_WORD = { trunk: 'trunk', diffusion: 'diffusion', confidence: 'confidence', lm: 'language model' };
+// whole fold, each stage as wide as its share of real time here, and it moves on the chip's events
+// (progress.js). Under it, the measured seconds of the fold the chip finished last. A chip that sends
+// nothing for three times the step it is on says so instead of counting, and its bar stands still.
+const STAGE_WORD = { taken: 'preparing input', trunk: 'trunk', diffusion: 'diffusion', confidence: 'confidence', lm: 'language model' };
 const secs = (s) => `${s.toFixed(1)} s`;
 
 function laneFor(c, now) {
@@ -395,14 +395,17 @@ function laneFor(c, now) {
     const quiet = now - job.tAt;
     const silent = now - Math.max(job.tAt, stream.openedAt ?? 0);   // while the page itself was cut off, the chip was not silent
     const k = job.step, K = job.total;
+    // before the chip names a stage: preparing the input, then the stage that follows it in this model's plan
+    const after = job.plan?.[job.plan.findIndex(([s]) => s === job.mark) + 1]?.[0];
+    const first = job.mark === 'taken' ? STAGE_WORD.taken : job.mark === 'start' ? STAGE_WORD[after] ?? 'starting' : 'starting';
     const stage = job.stage === 'trunk' && K > 1 ? `trunk ${Math.min(k + 1, K)}/${K}`
-      : job.stage === 'diffusion' && K > 1 ? `diffusion ${k}/${K}` : STAGE_WORD[job.stage] ?? (job.stage === 'done' ? 'done' : 'starting');
-    const t = silent > QUIET_S && stream.connected ? `<span class="warn">no word for ${Math.floor(silent)} s</span>`
+      : job.stage === 'diffusion' && K > 1 ? `diffusion ${k}/${K}` : STAGE_WORD[job.stage] ?? (job.stage === 'done' ? 'done' : first);
+    const t = job.stage !== 'done' && silent > quietAfter(job) && stream.connected ? `<span class="warn">no word for ${Math.floor(silent)} s</span>`
       : job.stage === 'done' ? secs(job.seconds) : secs(job.tChip + quiet);
     return { cls: 'busy', name: `${named() && MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who}`, stage, t,
-      bar: job.stage === 'done' ? 1 : job.stage === 'diffusion' && K > 0 ? k / K : 0, last: lastLine };
+      last: lastLine };
   }
-  const idle = (name, cls = '', t = '') => ({ cls, name, stage: '', t, bar: 0, last: lastLine });
+  const idle = (name, cls = '', t = '') => ({ cls, name, stage: '', t, last: lastLine });
   switch (c?.state) {
     case 'busy': return idle('Folding, joined mid-way', 'busy');
     case 'ready': return idle('Ready', 'ready');
@@ -431,10 +434,19 @@ function drawChips() {
       const el = li.querySelector('.' + k), v = { what: L.name, st: L.stage, t: L.t, last: L.last }[k];
       if (el.innerHTML !== v) el.innerHTML = v;
     }
-    // a new fold starts its bar at zero at once; only forward motion is animated
-    const bar = li.querySelector('.bar i'), pct = 100 * L.bar;
-    bar.style.transition = pct < (+bar.dataset.w || 0) ? 'none' : '';
-    bar.dataset.w = pct; bar.style.width = pct.toFixed(1) + '%';
+  }
+}
+
+// Every frame, each bar eases toward its lane's position (a new event can move it on in one step).
+// It never moves back within a fold; a new fold, or a chip that stopped, starts it at zero at once.
+function drawBars(dt) {
+  const ol = $('chips'), now = performance.now() / 1000;
+  for (let i = 0; i < ol.children.length; i++) {
+    const li = ol.children[i], c = stream.chips.find(x => x.chip === i), job = c?.state === 'busy' ? stream.jobs[c.job] : null;
+    const fold = job ? c.job : null, target = job ? barAt(job, now - job.tAt) ?? 0 : 0;
+    const shown = fold !== li.fold ? target : Math.max(li.shown, li.shown + (target - li.shown) * (1 - Math.exp(-dt / 0.12)));
+    li.fold = fold;
+    if (shown !== li.shown) { li.shown = shown; li.querySelector('.bar i').style.transform = `scaleX(${shown.toFixed(4)})`; }
   }
 }
 
@@ -446,6 +458,7 @@ function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   try {
     stage.frame(dt);
+    drawBars(dt);
     if (PLAYS(app.state)) {
       if (!app.slot) nextSlot(true);
       else if (!app.slot.leaving && stage.landed && stage.playT > stage.condense + HOLD) nextSlot(false);
