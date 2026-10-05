@@ -88,7 +88,7 @@ def main():
     a = ap.parse_args()
     # Boltz-2 and ESMFold-2 fold 9bk6 single-sequence on both sides (device and upstream CPU):
     # the fixture pins OpenFold3-format alignments.
-    extra = {"esmfold2": ["--single_sequence"], "boltz2": ["--single_sequence"]}
+    extra = {"esmfold2": ["--single_sequence"], "boltz2": ["--single_sequence", "--recycling_steps", "3", "--sampling_steps", "200"]}
     rows = []
     for m in a.models:
         for arm, on in ARMS:
