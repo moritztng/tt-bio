@@ -35,7 +35,10 @@ DISTOGRAM_GRID = {
     "opendde": (2.25, 25.75, 96),       # opendde/config/model_base.py confidence.distogram
     "openfold3": (2.3125, 21.6875, 64),  # openfold3 train/losses.py
     "af2ig": (2.3125, 21.6875, 64),     # af2 distogram first_break/last_break/num_bins
-    "esmfold2": (2.0, 22.0, 64),        # esmfold2 prepare_input distogram grid
+    # ESMFold-2's inference code never states its output grid. Its distogram-conditioning input
+    # bins 2-22 Å into 64 equal bins, whose interior edges are exactly this grid; checked
+    # against predicted Cb distances on real folds in perf/fdx_confidence/.
+    "esmfold2": (2.3125, 21.6875, 64),
     "rf3": (2.0, 22.0, 65),             # foundry rf3 af3_losses.py linspace(2, 22, 64) breaks
 }
 DISTOGRAM_GRID.update(openbind=DISTOGRAM_GRID["openfold3"], **{"opendde-abag": DISTOGRAM_GRID["opendde"]},

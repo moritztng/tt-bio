@@ -1134,8 +1134,16 @@ class _WorkerState:
 
         def _sample_scalars(s):
             m = {"plddt": round(float(s.plddt.mean()), 4)}
-            if getattr(s, "ptm", None) is not None:
-                m["ptm"] = round(float(s.ptm), 4)
+            for k in ("ptm", "iptm"):
+                if getattr(s, k, None) is not None:
+                    m[k] = round(float(getattr(s, k)), 4)
+            # Chain-pair ipTM keyed by chain id, in the shape every other model writes it.
+            if getattr(s, "pair_chains_iptm", None) is not None and len(chains) > 1:
+                ids = [c[0] for c in chains]
+                pci = s.pair_chains_iptm.float()
+                m["pair_chains_iptm"] = {a: {b: round(float(pci[i, j]), 4)
+                                             for j, b in enumerate(ids)} for i, a in enumerate(ids)}
+                m["chains_ptm"] = {a: m["pair_chains_iptm"][a][a] for a in ids}
             return m
 
         metrics = {
@@ -1151,6 +1159,11 @@ class _WorkerState:
         # Only when there is more than one, matching _scalars/all_runs in main.py.
         if len(ranked) > 1:
             metrics["all_runs"] = [{"rank": r, **_sample_scalars(s)} for r, s in enumerate(ranked)]
+        if cfg.get("write_pae"):
+            from tt_bio import confidence_export
+            confidence_export.write(struct_dir, path.stem, cfg.get("model", "esmfold2"),
+                                    pae=res.pae, pde=res.pde, distogram=res.distogram,
+                                    cutoff=cfg.get("contact_cutoff", 8.0))
         # _execute_job inspects feats["record"].affinity; ESMFold2 has no affinity.
         feats = {"record": types.SimpleNamespace(affinity=False)}
         return metrics, None, feats

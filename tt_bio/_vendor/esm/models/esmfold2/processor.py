@@ -236,6 +236,7 @@ class ESMFold2InputBuilder:
         ptm_t = output.get("ptm")
         iptm_t = output.get("iptm")
         pae_t = output.get("pae")
+        pde_t = output.get("pde")
         distogram_t = output.get("distogram_logits")
         pair_chains_t = output.get("pair_chains_iptm")
         residue_index_t = output.get("residue_index")
@@ -259,6 +260,7 @@ class ESMFold2InputBuilder:
                     ptm=float(ptm_t[i].item()) if ptm_t is not None else None,
                     iptm=float(iptm_t[i].item()) if iptm_t is not None else None,
                     pae=pae_t[i].detach().cpu() if pae_t is not None else None,
+                    pde=pde_t[i].detach().cpu() if pde_t is not None else None,
                     distogram=(
                         distogram_t[0].detach().cpu()
                         if distogram_t is not None

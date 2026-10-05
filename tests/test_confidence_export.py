@@ -27,7 +27,7 @@ def test_contact_probs_match_upstream_opendde(model, thr):
 
 def test_cutoff_is_the_bin_edge_actually_used():
     want = {"opendde": 8.0, "boltz2": 7.8065, "openfold3": 7.9375, "af2ig": 7.9375,
-            "rf3": 7.7143, "esmfold2": 7.8065}
+            "rf3": 7.7143, "esmfold2": 7.9375}
     for model, edge in want.items():
         _, got = ce.contact_probs(np.zeros((2, 2, ce.DISTOGRAM_GRID[model][2])),
                                   ce.bin_upper_edges(*ce.DISTOGRAM_GRID[model]))
