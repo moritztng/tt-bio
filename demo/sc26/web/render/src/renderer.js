@@ -46,7 +46,7 @@ export class Renderer {
     this.cam = { yaw: 0, spin: new Spring(0, 0.6) };
     this.worker = null;
     this.surf = { busy: false, id: 0, ntri: 0, ms: [] };
-    this.stats = { frames: 0, gpuMs: [] };
+    this.stats = { frames: 0, gpuMs: [], uploadMs: 0 };
     this.resize();
   }
 
@@ -165,13 +165,14 @@ export class Renderer {
   }
 
   _upload(m) {
-    const gl = this.gl, b = this.meshBufs;
+    const t0 = performance.now(), gl = this.gl, b = this.meshBufs;
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, b[0]); gl.bufferData(gl.ARRAY_BUFFER, m.pos, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, b[1]); gl.bufferData(gl.ARRAY_BUFFER, m.nrm, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, b[2]); gl.bufferData(gl.ARRAY_BUFFER, m.col, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b[3]); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.idx, gl.STATIC_DRAW);
     this.meshCount = m.idx.length;
+    this.stats.uploadMs += performance.now() - t0;
   }
 
   // Gaussian molecular surface of the protein atoms: each atom a Gaussian whose lone isosurface

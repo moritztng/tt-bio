@@ -15,6 +15,7 @@
 //   ?scale=, ?msaa=  the renderer's render scale and samples, default by resolution
 //   ?frames=<s>      record every frame for s seconds into sc26.frames(): its time, the ms in our own
 //                    update and draw, in the stream's messages since the last frame, and in a fold change
+//                    (stage.show and the mesh upload)
 
 import { Stream, loadRecording } from './stream.js';
 import { Stage, Director } from './stage.js';
@@ -439,7 +440,7 @@ function drawChips() {
 const onErr = guardLoop(canvas);
 let last = performance.now(), sideTick = 0;
 const REC = parseFloat(q.get('frames')) || 0;
-const rec = REC > 0 ? { n: 0, a: new Float64Array(Math.ceil(REC * 250) * 7), busy: 0, show: 0 } : null;
+const rec = REC > 0 ? { n: 0, a: new Float64Array(Math.ceil(REC * 250) * 7), busy: 0, show: 0, up: 0 } : null;
 if (rec) app.frames = () => Array.from(rec.a.subarray(0, 7 * rec.n));
 function frame(now) {
   requestAnimationFrame(frame);
@@ -472,8 +473,8 @@ function frame(now) {
   //  callback lateness, 1 folding / 2 turning]
   if (rec && 7 * rec.n < rec.a.length) {
     const w2 = performance.now();
-    rec.a.set([now, w2 - w0, w1 - w0, stream.busy - rec.busy, rec.show, w0 - now, stage.r.done ? 2 : 1], 7 * rec.n++);
-    rec.busy = stream.busy; rec.show = 0;
+    rec.a.set([now, w2 - w0, w1 - w0, stream.busy - rec.busy, rec.show + stage.r.stats.uploadMs - rec.up, w0 - now, stage.r.done ? 2 : 1], 7 * rec.n++);
+    rec.busy = stream.busy; rec.show = 0; rec.up = stage.r.stats.uploadMs;
   }
 }
 setState('attract');
