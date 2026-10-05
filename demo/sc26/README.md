@@ -47,11 +47,9 @@ each fold and chip row names its model again.
 
 ## The claim
 
-The title is "Biology Models at Unprecedented Throughput per Dollar", with "One open stack for every
-model, inference and training, from a single card to a Galaxy supercluster" under it, each one line
-at 1080p and 4K (Moritz, 5 Oct 2026). The type scale steps about 1.25 from a 40 px title, and the
-frame keeps the same 72 px margin on all four sides (measured on the rendered page, both sizes). The
-measurement behind the throughput claim: Boltz-2
+The title is "More structures per dollar", with "One open stack for every model, inference and
+training, from a single card to a Galaxy supercluster" under it. The measurement behind the
+per-dollar claim: Boltz-2
 (tt-bio's defaults: 3 recycles, 200 sampling steps, as on screen) on human serum albumin residues
 1-300 from the sequence alone, the four chips kept busy through the booth engine, finished 72 folds
 in 180 s, 0.40 a second, median 9.79 s a fold, with the chips at a median 1350 MHz
@@ -65,6 +63,9 @@ https://japanfold.aiand.com.
 ## Time on screen
 
 Every number on screen that counts seconds counts real seconds, in step with what you see.
+
+* **A fold on the stage has already finished on its chip.** Its time is a measured fact and is
+  shown still from the first frame: "Folded liveat counts seconds counts real seconds, in step with what you see.
 
 * **A fold on the stage has already finished on its chip.** Its time is a measured fact and is
   shown still from the first frame: "Folded live on chip 4, just now, in 5.62 s". Nothing on the stage counts.
