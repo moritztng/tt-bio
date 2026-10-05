@@ -9,7 +9,7 @@ clone, so the package and the example match: `--head` is newer than the 0.12.0 r
 Python 3.10 or 3.12.
 
 ```bash
-git clone https://github.com/moritztng/tt-bio.git
+git clone --depth 1 https://github.com/moritztng/tt-bio.git     # 1.1 GB; the full history is 2 GB
 cd tt-bio
 pip install '.[tenstorrent]'                            # on a host with a Tenstorrent card
 pip install .                                           # anywhere else
