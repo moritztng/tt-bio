@@ -33,6 +33,15 @@
    "a100": 7.72
   },
   {
+   "id": "protenix-v2",
+   "model": "Protenix-v2",
+   "group": "fold",
+   "tt": 50.543,
+   "h200": 12.186,
+   "b200": 10.872,
+   "a100": 22.795
+  },
+  {
    "id": "opendde",
    "model": "OpenDDE",
    "group": "fold",
@@ -94,12 +103,6 @@
    "h200": 3.9403,
    "b200": 7.2491,
    "a100": 7.9019
-  }
- ],
- "excluded": [
-  {
-   "id": "protenix-v2",
-   "why": "weights licence unresolved"
   }
  ],
  "bindcraft2": {

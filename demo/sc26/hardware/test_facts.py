@@ -10,11 +10,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 import facts  # noqa: E402
 
 
-def test_rows_are_the_published_cells_without_protenix_v2():
+def test_rows_are_the_published_cells():
     src = json.loads(facts.SRC.read_text())
     cells = {m["id"]: m["cells"] for m in src["models"] + src["design"]["models"] + src["affinity"]["models"]}
     rows = facts.build()["rows"]
-    assert rows and "protenix-v2" not in {r["id"] for r in rows}
+    # every published row measured on all four platforms, Protenix-v2 included: its weights' licence
+    # governs hosting it, not the numbers of a model tt-bio runs on your own card
+    assert rows and "protenix-v2" in {r["id"] for r in rows}
     for r in rows:
         c = cells[r["id"]]
         for k in ("h200", "b200", "a100"):
