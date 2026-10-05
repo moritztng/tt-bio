@@ -517,10 +517,9 @@ class Service:
         elif t in ("fold_done", "fold_error"):
             self.pacer.forget(fid)
             start = self.starting.pop(fid, None)
-            if t == "fold_done":
-                if start is None or "frames" not in ev:
-                    return
-                ev = {"type": t} | self.folds.add(start, ev)
+            if t == "fold_done":   # without coordinates (a test worker) it is news, with nothing to pull
+                ev = {"type": t} | (self.folds.add(start, ev) if start and "frames" in ev else
+                                    {k: v for k, v in ev.items() if k not in ("xyz", "plddt", "frames")})
         self.hub.send(ev)
 
     # sysfs looks healthy through most of a `tt-smi -r`, so the counters alone showed a board being

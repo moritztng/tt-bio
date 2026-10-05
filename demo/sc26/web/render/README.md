@@ -16,7 +16,7 @@ r.play();
 requestAnimationFrame(function f(t) { r.render(dt); requestAnimationFrame(f); });
 ```
 
-A frame is `{coords: Float32Array (xyz per atom), x0?, step?, time: seconds, progress: 0..1, final}`. The
+A frame is `{coords: Float32Array (xyz per atom), x0?, aligned?, step?, time: seconds, progress: 0..1, final}`. The
 topology needs per-atom name, element and residue index, and per-residue name and chain.
 `src/protocol.js` adapts the stream to these; it is the only file that knows the wire format.
 
@@ -44,7 +44,8 @@ topology needs per-atom name, element and residue index, and per-residue name an
 Diffusion samplers rotate their working frame at every step (120 to 145 degrees between
 consecutive raw frames on qb2's recordings), so every frame is rigidly superposed onto one fixed
 reference, the final structure, with the rotation fitted on the frame's own `x0` and applied to
-its points (rotation and translation only). The final frame is drawn from its own coordinates,
+its points (rotation and translation only). The engine does this before it sends a fold, and
+marks its frames `aligned`; the renderer then leaves them as they are. The final frame is drawn from its own coordinates,
 untouched. `../../science/rotation.py` measures the rotation left between consecutive frames.
 
 ## Performance on the booth box

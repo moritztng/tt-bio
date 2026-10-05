@@ -9,8 +9,9 @@ confidence and how close it came to the experimental structure.
 ## What a recording is
 
 Every frame is a state the diffusion sampler actually produced: 201 per fold, from the starting
-noise to the finished structure, plus the network's prediction of the end result at each step
-(`x0`). Nothing is interpolated or invented. The last frame is the scored structure exactly.
+noise to the finished structure. Nothing is interpolated or invented. The last frame is the
+scored structure exactly. The network's prediction of the end result at each step (`x0`) is used
+to superpose each frame onto the final structure, and is not sent.
 
 A recording is made by the booth's own chip worker (`engine/chipworker.py --model openfold3`),
 the code that folds live, so it is what a chip at the booth shows: the same stage events (input
@@ -49,8 +50,8 @@ or the last frame differs from the scored structure.
 
 ## Storage
 
-A recording is 3 to 4 times larger as protocol JSON than in `store/`, so only the store is
-committed. Each frame is kept as 16-bit integers on a grid of 0.01 Å, or 1/1000 of the frame's
+Only the store is committed; `build.py` generates the recordings from it (protocol 2: int16
+states as `engine/trajectory.py` packs them, 49 MB for the 11 folds, from 43 MB of store). Each frame is kept as 16-bit integers on a grid of 0.01 Å, or 1/1000 of the frame's
 spread when the frame is still mostly noise (the first noise frame spans about 2,500 Å, far past
 the edge of the screen). Byte-shuffled and lzma-compressed, that is about 1.6 KB per atom for 201
 frames of `xyz` and 200 of `x0`. A structured frame is within 0.005 Å of the sampler's number;

@@ -145,6 +145,7 @@ export class Stream {
   // A finished fold the page could pull. `tWall` is the engine's clock when the summary was sent,
   // so `received` is when the chip finished it on this page's clock (the words "N min ago").
   _offer(m, tWall) {
+    if (!m.n_frames) return;   // the engine holds no coordinates for it
     const k = m.name ?? m.sequence, had = this.have.get(k);
     m.received = performance.now() - 1000 * Math.max(0, (tWall ?? m.t_wall) - m.t_wall);
     if (m.kind !== 'visitor' && had && (m.source !== 'live'

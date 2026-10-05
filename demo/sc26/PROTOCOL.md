@@ -1,37 +1,44 @@
-# SC26 stream protocol, version 1
+# SC26 stream protocol, version 2
 
-The engine (`demo/sc26/engine/server.py`) serves everything from one local origin,
+The engine (`demo/sc26/engine/server.py`) serves everything from one origin,
 `http://127.0.0.1:8626/`. The app's static files are served from `demo/sc26/web/`. The stream is a
-WebSocket at `ws://127.0.0.1:8626/stream`. Nothing goes over the network.
+WebSocket at `ws://127.0.0.1:8626/stream`. The page may be remote, over a thin link: see "Slow
+links" at the end.
 
-Every message is one JSON object with a `type`. The server sends the same messages to every
-connected browser, so two screens show the same thing.
+Every stream message is one small JSON object with a `type`. The stream carries no coordinates.
+The server sends the same messages to every connected browser, so two screens show the same thing.
+A finished fold's coordinates are pulled once, by the page that wants them, with `GET /fold/<id>`.
+
+Version 1 sent every sampler state as base64 float32 `xyz` and `x0` to every page as it was
+computed: 214 KB per frame and 43 MB per fold at 833 residues, 21 Mbit/s on average with three
+chips folding. Version 2 sends 8.2 MB per fold at 833 residues to a page that pulls every state,
+and 1.2 MB to a page that pulls every 8th.
 
 ## Coordinates
 
-Coordinates are little-endian float32, base64-encoded, `x y z` per atom in atom order, in
-Angstrom. Decode with:
+Angstrom, `x y z` per atom in atom order, little-endian.
 
-```js
-const xyz = new Float32Array(Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer);
-```
+* The **final structure**, the one that is scored, is float32, bit for bit what the model output.
+* **Every other sampler state** is int16. The chip worker (`engine/trajectory.py`) superposes each
+  state onto the final structure, with the rotation fitted on the state's own `x0` (the network's
+  denoised estimate, which shares the state's random frame but already has the protein's shape;
+  `x0` itself never leaves the box). It then quantises the state around its own centroid
+  `origin[i]` with a step `scale[i]` of its own extent / 32767. Decoded: `xyz = q * scale[i] + origin[i]`.
+  The error is at most half a step: 0.15 A on the pure-noise state of an 833-residue fold, whose
+  cloud spans thousands of Angstrom; 0.03 A at step 20; 0.01 A at step 60; under 0.002 A from step
+  100 on; 0 on the final structure. Rendered at 1920x1080 next to the float32 path, the two are
+  indistinguishable (`state/bth-stream.md`, FORMAT).
 
-They are the sampler's raw numbers, never smoothed or interpolated. Each frame also carries a rigid
-transform `R` (row-major 3x3) and `T` (3) for display: `display = R * raw + T`. The diffusion
-sampler rotates the structure randomly at every step (120-145 degrees between consecutive raw
-frames, measured), and the transform undoes that by superposing every frame onto ONE fixed
-reference, fitted on the frame's own `x0`: live, the fold's first `x0`; in a gallery recording,
-the final structure. It is a camera, not an edit. Apply it to `xyz` and to `x0`. The app does not
-need it: once a fold is complete it superposes every frame onto the final structure itself, the
-same way (`web/render/src/trajectory.js`), and `demo/sc26/science/rotation.py` measures what is
-left (under 0.3 degrees between consecutive frames once the structure has formed).
-
-The final frame's `xyz` is the scored structure bit for bit, and so is `fold_done.xyz`.
+The diffusion sampler rotates the structure randomly at every step (120-145 degrees between
+consecutive raw states, measured), so the superposition is a camera, not an edit: without it the
+cloud spins. `demo/sc26/science/rotation.py` measures what is left.
 
 ## Server to browser
 
 ### `hello`
-Sent once on connect. Carries the `status` fields below plus `protocol: 1`.
+Sent once on connect. Carries the `status` fields below plus `protocol: 2` and `folds`: the
+`fold_done` summary of every fold the page can pull now, recordings included, so a page that
+loads fills its stage at once.
 
 ### `status`
 Every 2 s.
@@ -69,17 +76,18 @@ Anything else leaves them `recovering` and the engine retries later (at most one
 board every 10 minutes). For the operator log; nothing on screen needs it.
 
 ### `fold_start`
-A fold began. Everything the renderer needs to lay out atoms before the first frame.
+A fold began.
 ```json
 {"type":"fold_start","id":"a17","chip":0,"kind":"attract","source":"live","model":"esmfold2",
  "sequence":"MTYKLILNG...","n_res":56,"n_atoms":436,"steps":20,"loops":3,"seed":0,
- "rg_expected":10.9,
- "atoms":{"element":["N","C","C","O",...],"name":["N","CA","C","O",...],"residue":[0,0,0,0,...]}}
+ "rg_expected":10.9}
 ```
+The worker's `fold_start` also carries `atoms`; the engine keeps it for `GET /fold` and sends the
+rest.
 * `kind`: `attract` (the box folding its own list), `visitor` (somebody typed it), `replay`.
 * `source`: `live` (a chip is computing it now) or `replay` (a recording). The screen must show
   which; the audience will ask.
-* `atoms.residue` is the 0-based residue index of each atom (a ligand is one residue; OpenFold3
+* In the `GET /fold` metadata, `atoms.residue` is the 0-based residue index of each atom (a ligand is one residue; OpenFold3
   also sends `atoms.chain`, the chain id of each atom). `rg_expected` is a radius of gyration
   estimate in Angstrom from the length alone (2.2 * n^0.38), for framing the camera before the
   real structure exists. Replays can do better: their last frame is known in advance.
@@ -97,31 +105,26 @@ before it (the worker synchronises the device first), so the gaps between events
 time per stage.
 
 ### `frame`
-One real state of the diffusion sampler.
-```json
-{"type":"frame","id":"a17","chip":0,"step":3,"of":14,"t":0.52,
- "xyz":"<base64 f32>","x0":"<base64 f32>","R":[1,0,0,0,1,0,0,0,1],"T":[0,0,0]}
-```
-* `step` runs from `-1` (pure noise, before the first step) to `of - 1` (the final structure), so
-  a fold sends `of + 1` frames.
-* `xyz` is the sampler's current state: noise that condenses into the protein.
-* `x0` is the network's prediction of the finished structure at this step: already
-  protein-shaped early on, sharpening as noise falls. `null` on step `-1`. Both are real. Pick
-  one and say which in the UI copy if it matters; `xyz` is the more literal "emerging from noise".
-* On the live path frames arrive faster than anyone can watch (a 200-residue fold's 15 frames
-  arrive in about 0.25 s). Use `t` for honest timing labels, and pace the animation yourself.
+The sampler took a step. `{"type":"frame","id":"a17","chip":0,"step":3,"of":200,"t":0.52}`.
+`step` runs from `-1` (pure noise, before the first step) to `of - 1` (the final structure).
+No coordinates: they come with the finished fold.
+
+`stage` and `frame` are paced on the wire: at most one of each per fold every 0.25 s, enough
+for a lane that redraws a few times a second, while a sampler reports up to 80 steps a second. A
+new stage and a stage's last step always go out. The `step` in every message is the chip's own.
 
 ### `fold_done`
+A summary. The coordinates stay on the engine for `GET /fold/<id>`.
 ```json
-{"type":"fold_done","id":"a17","chip":0,"kind":"attract","source":"live","model":"esmfold2",
- "n_res":56,"seconds":0.86,"stages":{"lm":0.16,"trunk":0.46,"diffusion":0.17,"confidence":0.07},
- "aiclk_mhz":{"min":1325,"median":1350,"max":1350,"n":4},
- "xyz":"<base64 f32>","plddt":[0.91,0.93,...],"ptm":0.71}
+{"type":"fold_done","id":"a17","chip":0,"kind":"attract","source":"live","model":"openfold3",
+ "name":"Lysozyme","sequence":"KVFGR...","n_res":130,"n_atoms":1001,"n_frames":201,
+ "seconds":8.31,"stages":{"prep":0.4,"trunk":3.1,"diffusion":4.2,"confidence":0.6},
+ "aiclk_mhz":{"min":1331,"median":1350,"max":1350,"n":40},"plddt_mean":0.87,"ptm":0.71,"t_wall":1790985460.9}
 ```
 * `seconds` is wall time on the chip from input to confidence, with the chip's AICLK sampled during
   the fold (`aiclk_mhz`, MHz, every 0.2 s). Any number on screen should come from here.
-* `plddt` is per residue, 0 to 1. Confidence exists only at the end; frames have none.
-* Apply the last frame's `R`/`T` to `xyz` to land exactly where the animation ended.
+* `n_frames` is how many sampler states the engine holds. A `fold_done` without it (a test worker
+  that sends no coordinates) has nothing to pull.
 
 ### `fold_error`
 `{"type":"fold_error","id":"a17","chip":0,"reason":"preempted"}`. Reasons: `preempted` (an attract
@@ -150,18 +153,52 @@ Answers to a browser's `fold` request, sent only to that browser.
 `GET /telemetry` returns the per-chip clock, power, temperature and fold ledger, in the format
 `hardware/README.md` gives for the `chips` message. The chip lanes poll it twice a second.
 
+## `GET /fold/<id>?every=k`
+
+One finished fold, binary, `application/octet-stream`:
+
+    u32       length L of the metadata
+    L bytes   metadata, gzipped JSON, then zero bytes up to a multiple of 4
+    n*12      the final structure, float32 x y z per atom
+    m*n*6     m packed states, int16 x y z per atom, in sampler order
+
+`n` is the metadata's `n_atoms`. The metadata is `fold_start` (with `atoms`) and `fold_done`
+(with `plddt`) merged, plus `every`, `step` and `t` for the m packed states and then the final one,
+and `origin` and `scale` for the packed states. `every=k` sends every k-th state from the
+first (pure noise) and always the final structure, so a fold of 201 states is 201 states at k=1 and
+26 at k=8. Every state sent is a real one with its real `step`; nothing is interpolated. A fold
+the engine no longer holds (it keeps the newest 64, one per protein and source) answers 404.
+
 ## Replay
 
-A recording is the live fold's messages, one JSON object per line (`*.jsonl`), exactly as they were
-streamed. The server plays recordings from `demo/sc26/gallery/trajectories/` and
-`demo/sc26/engine/recordings/` through the identical protocol, with the recorded timing (gaps
-capped at 2 s), `source: "replay"`, `chip: null` and `recorded: "<file stem>"`. It plays them
-all the time, every `--replay-gap` seconds (3) with no chip live and every `--replay-gap-live` (20)
-while chips fold, so the gallery reaches the screen between live folds and the screen is never
-blank. To develop the frontend with no
-chip at all:
+A recording is the live fold's messages, one JSON object per line (`*.jsonl`), as the chip worker
+sent them: `fold_done` carries `frames` (`step`, `t`, `origin`, `scale`, `q16` base64) and the
+final `xyz`, as `engine/trajectory.py` packs them. Protocol-1 recordings are converted when they
+are loaded (`python3 demo/sc26/engine/trajectory.py convert <files>` rewrites them in place). The
+server plays recordings from `demo/sc26/gallery/trajectories/` and `demo/sc26/engine/recordings/`
+through the identical protocol, with the recorded timing (gaps capped at 2 s), `source: "replay"`,
+`chip: null` and `recorded: "<file stem>"`, and holds every one for `GET /fold` from startup. It
+plays them all the time, every `--replay-gap` seconds (3) with no chip live and every
+`--replay-gap-live` (20) while chips fold, so the gallery reaches the screen between live folds and
+the screen is never blank. To develop the frontend with no chip at all:
 
     python3 demo/sc26/engine/server.py --replay-only
 
 Every finished live fold is saved in this format under `demo/sc26/engine/runs/recorded/`, so the
 gallery is grown by running the box.
+
+## Slow links
+
+Measured through 3 Mbit/s with 40 ms each way and 1 % loss (`ops/thin_link.sh`):
+
+* The stream is a few KB a second. A browser that has more than 64 KB unsent is skipped, not
+  queued for, until it drains, and one that takes nothing for 30 s is closed. A page that missed
+  messages catches up from the next `status` (every 2 s).
+* The page pulls one fold at a time, and only what changes its stage: a protein it has not got,
+  then a live fold of one it holds only as a recording, then a refresh; a newer fold of a protein
+  replaces an older one still waiting. It picks `every` so a pull takes about 6 s at the rate its
+  last pulls achieved, at most 8. The words on screen then say how many of the fold's diffusion
+  steps it shows.
+* A socket silent for 6 s (the engine sends `status` every 2 s) is replaced by a new one, with no
+  reload. What the page holds keeps playing meanwhile, and a chip lane does not call a chip quiet
+  for time the page itself was cut off.

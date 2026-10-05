@@ -5,7 +5,7 @@
     python3 demo/sc26/gallery/build.py --check    # also replay every file through the parser
 
 The recordings are what engine/server.py replays (PROTOCOL.md, "Replay"). They are generated, not
-committed: a 200-step trajectory is 3x larger as base64 JSON than in store/. Run this once
+committed: they are generated from store/ (49 MB of recordings from 43 MB of store). Run this once
 after a checkout; it takes a few seconds and the output is the same every time.
 
 It also writes engine/attract.json, the list the chips fold when no visitor is waiting: the same
