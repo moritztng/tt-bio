@@ -19,7 +19,7 @@ pid=; stop=0; trap 'stop=1; kill -TERM "$pid" 2>/dev/null' INT TERM
 while [ $stop = 0 ]; do
   # Open only on a page that answers: a browser restarted while the engine restarts would land on
   # Firefox's "Unable to connect", which is an error on screen and never retries by itself.
-  until curl -sf -o /dev/null --max-time 2 "$url" || [ $stop = 1 ]; do sleep 1; done
+  until curl -sf -o /dev/null --max-time 2 "$url"; do [ $stop = 0 ] || exit 0; sleep 1; done
   rm -rf "$prof"; mkdir -p "$prof"
   cp "$here/user.js" "$prof/user.js"
   firefox --no-remote --profile "$prof" --kiosk "$url" >>"$log" 2>&1 &
