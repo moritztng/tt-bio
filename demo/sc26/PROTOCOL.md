@@ -63,7 +63,8 @@ reported. A chip named in the engine's `--out-of-service` is listed with that st
 `state` is one of `starting`, `warming` (loading weights, compiling), `ready`, `busy`, `out_of_service`,
 `stalled` (the watchdog is stopping it), `recovering` (restarting), `resetting` (its board is
 being reset with `tt-smi -r`; both chips of the board show it, and the clock reads `null` or 800
-until it is back), `stopped`. `aiclk_mhz` is
+until it is back), `resting` (it hung twice within an hour and rejoins by itself at `back_at`, a
+Unix time in seconds), `stopped`. `aiclk_mhz` is
 read from the chip's sysfs clock when the message is built; `null` means the chip did not answer.
 
 ### `chip`

@@ -23,7 +23,9 @@ Run these on qb2, over ssh or at the console, from this directory (`~/sc26/demo/
 `~/.config/sc26/env` sets which chips the demo uses. `SC26_CHIPS=0,1,2,3` at the booth.
 `SC26_CHIPS=` (empty) runs on recorded folds only and takes no chip, which is the setting while
 other work still runs on qb2. `SC26_ENGINE_ARGS=--out-of-service 2` takes chip 3 on screen (UMD chip 2)
-out of the demo on purpose: leave it out of `SC26_CHIPS` too, and its row says "Out of service".
+out of the demo on purpose: leave it out of `SC26_CHIPS` too. The screen then lists only the chips that
+fold and the hardware view counts them ("Three chips, live"), so no row stands empty. A chip
+that hangs does not need this: the engine rests it and brings it back by itself (below).
 
 ## What runs
 
@@ -46,7 +48,8 @@ the recovery takes. Every row was injected and watched (`chaos.py`); the times a
 
 | failure | detected by | recovery | what the screen shows |
 |---|---|---|---|
-| a chip hangs mid-fold (stops taking work) | tt-metal's dispatch timeout in the worker (10 s without progress), or the engine's stall limit (120 s with no event) | the board's workers are stopped and the board (chips 0,1 or 2,3) is reset; a chip that hangs twice in an hour rests, then rejoins by itself | the board's two lanes say resetting, then warming up; the other board keeps folding; recorded folds fill the stage if no chip is left |
+| a chip hangs | tt-metal sees no dispatch progress for 10 s; a chip with no event for 120 s counts too | the worker exits, both chips on that board are reset with `tt-smi -r` (about 40 s), the workers restart and warm up | the board's two lanes say resetting, then warming up |
+| a chip keeps hanging (twice within an hour) | the engine | the chip rests for 15 min, then its board is reset if needed and it rejoins by itself. A chip that hangs again soon rests twice as long, up to 4 h | that lane says "Resting after a hang" with the minutes until it is back; its board mate keeps folding |
 | a chip dies and does not come back after a reset | the reset's check that the chip answers | the chip rests, 15 min doubling to 4 h, and is tried again | its lane says it is resting and when it is back |
 | a chip's worker dies | the engine | the worker restarts; a visitor's fold moves to another chip | that lane says recovering, then warming up |
 | a chip's memory fills up (about 35 min of mixed folds) | the fold fails with out of memory | that worker restarts with empty memory | that lane says recovering for about 40 s |
@@ -68,8 +71,10 @@ the recovery takes. Every row was injected and watched (`chaos.py`); the times a
 | logs grow for days | the watchdog, every minute | any log past 64 MB is cut to its last 16 MB, in place | |
 | a power cut | | the box boots into the demo by itself when power returns and the button is pressed | the still within a minute, live folds in about 1½ |
 
-Workers are stopped with SIGINT, then SIGTERM. qb2's chips sit on two boards, chips 0 and 1 on one
-and 2 and 3 on the other, and a reset always takes both chips of a board. Nothing here powers the
+Workers are stopped with SIGINT, then SIGTERM, and never killed. A worker stuck in the device
+ignores both; its board is reset with it still there, which ends the wait so it exits by itself.
+If it still has not exited, its chip rests. qb2's chips sit on two boards, chips 0 and 1 on one and
+2 and 3 on the other, and a reset always takes both chips of a board. Nothing here powers the
 box off.
 
 ## Logs

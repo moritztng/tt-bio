@@ -423,20 +423,28 @@ function laneFor(c, now) {
     case 'recovering': return idle('Restarting', 'recovering');
     case 'resetting': return idle('Resetting its board', 'recovering');
     case 'stopped': return idle('Stopped', 'recovering');
-    case 'out_of_service': return { ...idle('Out of service', 'oos'), last: 'Taken out of the demo after it hung' };
+    case 'resting': {  // the engine rests a chip that keeps hanging; it rejoins by itself at back_at
+      const min = Math.max(1, Math.ceil((c.back_at - Date.now() / 1000) / 60));
+      return { ...idle('Resting after a hang', 'oos', `back in ${min} min`), last: 'Rejoins by itself' };
+    }
     default: return idle('Not in the demo');
   }
 }
 
 function drawChips() {
   const ol = $('chips');
-  if (ol.children.length !== 4) ol.innerHTML = [0, 1, 2, 3].map(i =>
-    `<li><span class="n">${i + 1}</span><span class="what"></span><span class="st"></span><span class="t"></span>` +
-    `<span class="bar"><i></i></span><span class="last"></span></li>`).join('');
+  // a chip taken out of the demo gets no row: the list shows the chips that fold, under their own numbers
+  const shown = [0, 1, 2, 3].filter(i => stream.chips.find(x => x.chip === i)?.state !== 'out_of_service');
+  if (ol.dataset.k !== shown.join()) {
+    ol.dataset.k = shown.join();
+    ol.innerHTML = shown.map(i =>
+      `<li><span class="n">${i + 1}</span><span class="what"></span><span class="st"></span><span class="t"></span>` +
+      `<span class="bar"><i></i></span><span class="last"></span></li>`).join('');
+  }
   const onStage = (app.state === 'result' ? app.mine?.fold : app.slot?.fold);
   const now = performance.now() / 1000;
-  for (let i = 0; i < 4; i++) {
-    const li = ol.children[i], c = stream.chips.find(x => x.chip === i), L = laneFor(c, now);
+  for (const [row, i] of shown.entries()) {
+    const li = ol.children[row], c = stream.chips.find(x => x.chip === i), L = laneFor(c, now);
     li.className = L.cls + (onStage && onStage.source === 'live' && onStage.chip === i ? ' on' : '');
     for (const k of ['what', 'st', 't', 'last']) {
       const el = li.querySelector('.' + k), v = { what: L.name, st: L.stage, t: L.t, last: L.last }[k];

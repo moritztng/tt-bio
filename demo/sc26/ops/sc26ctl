@@ -83,7 +83,12 @@ case "${1:-}" in
   status)
     systemctl --user --no-pager status "${units[@]}" | grep -E '^[●○×] |Active:' || true
     port=${SC26_PORT:-$(sed -n 's/^SC26_PORT=//p' "$cfg/env" 2>/dev/null)}
-    curl -s --max-time 3 "http://127.0.0.1:${port:-8626}/status" | "$py" -c 'import json,sys; s=json.load(sys.stdin); print("chips:", " ".join("%s:%s@%s" % (c["chip"], c["state"], c["aiclk_mhz"]) for c in s["chips"]) or "none (replay only)", "| queue", s["queue"])' || echo "engine: not answering"
+    if st=$(curl -sf --max-time 3 "http://127.0.0.1:${port:-8626}/status"); then
+      # an out-of-service chip carries no clock, so print the clock only where there is one
+      "$py" -c 'import json,sys; s=json.load(sys.stdin); print("chips:", " ".join("%s:%s%s" % (c["chip"], c["state"], "@%s" % c["aiclk_mhz"] if c.get("aiclk_mhz") else "") for c in s["chips"]) or "none (replay only)", "| queue", s["queue"])' <<< "$st"
+    else
+      echo "engine: not answering"
+    fi
     tail -n 1 "$HOME/sc26-logs/watchdog.jsonl" 2>/dev/null || true ;;
   health) exec "$py" "$ops/health.py" ;;
   logs) journalctl --user -f -u 'sc26-*' ;;

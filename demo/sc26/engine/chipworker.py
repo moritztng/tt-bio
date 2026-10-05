@@ -24,6 +24,11 @@ featurisation ("prep"), and every stage event carries its time since then.
 SIGUSR1 drops the fold in progress and keeps the worker warm (a visitor preempting an attract
 fold). SIGINT drops it and exits cleanly, which leaves the chip usable. SIGKILL does not, so the
 supervisor never sends it.
+
+A hung chip is caught by tt-metal itself: the supervisor sets TT_METAL_OPERATION_TIMEOUT_SECONDS,
+so a device wait that sees no dispatch progress for that long throws. The worker reports the fold
+as chip_hung and exits at once with HUNG_RC, since the chip cannot be used or even closed again
+before its board is reset.
 """
 import argparse
 import base64
@@ -54,6 +59,16 @@ def emit(**ev):
             _EVENTS.write(line + "\n")
         except BrokenPipeError:  # the supervisor is gone: stop like SIGINT, the device closes at exit
             _PARENT_GONE.set()
+
+
+HUNG_RC = 75
+
+
+def leave_if_hung(jid, chip, exc):
+    """tt-metal's dispatch timeout fired: report it and exit without touching the device again."""
+    if "TIMEOUT: device timeout" in str(exc):
+        emit(type="fold_error", id=jid, chip=chip, reason="chip_hung", detail=str(exc)[:400])
+        os._exit(HUNG_RC)
 
 
 def f32(t):
@@ -403,6 +418,7 @@ def main():
             except Aborted:
                 raise
             except Exception as exc:  # report it and keep warming: one bad length must not cost the chip
+                leave_if_hung(f"warm{i}", args.chip, exc)
                 emit(type="fold_error", id=f"warm{i}", chip=args.chip,
                      reason=f"{type(exc).__name__}: {exc}"[:400])
     except Aborted:
@@ -429,6 +445,7 @@ def main():
                 emit(type="fold_error", id=job.get("id"), chip=args.chip,
                      reason="stopped" if abort.is_set() else "preempted")
             except Exception as exc:  # a bad input must not take the chip down
+                leave_if_hung(job.get("id"), args.chip, exc)
                 reason = f"{type(exc).__name__}: {exc}"[:400]
                 # Device DRAM fills up over hours of mixed lengths, and once full every fold
                 # fails. A fresh worker starts with empty DRAM, so leave cleanly and let the

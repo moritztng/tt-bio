@@ -132,14 +132,20 @@ function lanes(root) {
     box.append(b);
   }
   f.wrap.append(box);
+  const title = f.wrap.querySelector(".hw-title");
   const foot = h("div", { class: "hw-foot" });
   f.wrap.append(foot);
   return {
     update(msg) {
       setLive(f.live, msg);
       for (const c of msg.chips) if (ls[c.card]) paintLane(ls[c.card], c);
+      // a chip taken out of the demo is left off, and the title counts the chips that fold
+      const off = new Set(msg.chips.filter((c) => c.state === "out_of_service").map((c) => c.card));
+      for (const [card, l] of Object.entries(ls)) l.el.style.display = off.has(+card) ? "none" : "";
+      const n = ["No", "One", "Two", "Three", "Four"][Object.keys(ls).length - off.size];
+      title.firstChild.textContent = `${n} chips`;
       foot.innerHTML = "Read from the Tenstorrent kernel driver's own counters, no tool polling the chips. " +
-        (msg.sample_ms != null ? `One reading of all four chips takes ${fmt(msg.sample_ms, 1)} ms.` : "");
+        (msg.sample_ms != null ? `One reading of all ${n.toLowerCase()} chips takes ${fmt(msg.sample_ms, 1)} ms.` : "");
     },
   };
 }
