@@ -150,6 +150,9 @@ class _AF2IGStub:
                 "structure": {"final_atom_positions": prev["prev_pos"],
                               "final_atom_mask": feats["atom37_atom_exists"]}}
 
+    def distogram_logits(self, pair):
+        return torch.zeros(*pair.shape[:2], 64)
+
 
 def _af2ig(tmp_path, model):
     """The committed fixture with its chains renamed, through the real front door."""
