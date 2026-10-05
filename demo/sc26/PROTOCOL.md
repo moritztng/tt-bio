@@ -54,7 +54,9 @@ itself reported: `{"type":"chip","chip":3,"state":"resetting","worker":"recoveri
 ### `reset`
 A board reset finished. `{"type":"reset","chips":[2,3],"rc":0,"seconds":44.0}`. `rc` 0 means both
 chips answered afterwards; the lanes then go `recovering`, `warming`, `ready` as the workers come
-back. Anything else leaves them `recovering` and the engine retries later (at most one reset per
+back. A worker the watchdog stalled resets its board at once, since the chip is still inside a
+device call; a worker that exits uncleanly by itself resets it on the second such exit in a row.
+Anything else leaves them `recovering` and the engine retries later (at most one reset per
 board every 10 minutes). For the operator log; nothing on screen needs it.
 
 ### `fold_start`

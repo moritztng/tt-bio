@@ -105,11 +105,14 @@ class Chip:
             if self.svc.stopping:
                 self.set_state("recovering", rc=rc)
                 break
-            unclean, self.stalled = rc != 0 or self.stalled, False
+            stalled, self.stalled = self.stalled, False
+            unclean = rc != 0 or stalled
             self.failures = self.failures + 1 if unclean else 0
             self.set_state("recovering", rc=rc)
             self.restarts += 1
-            if unclean and self.failures >= self.args.reset_after and self.svc.reset_ok(self):
+            # A stall is a device call that never returned: the chip stays wedged, a plain restart
+            # only sits in warm-up until --warm-s, so the board is reset at once.
+            if unclean and (stalled or self.failures >= self.args.reset_after) and self.svc.reset_ok(self):
                 await self.svc.reset_board(self)
             await asyncio.sleep(min(60, 5 * max(1, self.failures)))
 
