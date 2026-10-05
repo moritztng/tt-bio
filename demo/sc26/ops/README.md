@@ -22,9 +22,10 @@ Run these on qb2, over ssh or at the console, from this directory (`~/sc26/demo/
 
 `~/.config/sc26/env` sets which chips the demo uses. `SC26_CHIPS=0,1,2,3` at the booth.
 `SC26_CHIPS=` (empty) runs on recorded folds only and takes no chip, which is the setting while
-other work still runs on qb2. `SC26_ENGINE_ARGS=--out-of-service 2` takes chip 3 on screen (UMD chip 2)
+other work still runs on qb2. `SC26_ENGINE_ARGS=--out-of-service 2` takes UMD chip 2
 out of the demo on purpose: leave it out of `SC26_CHIPS` too. The screen then lists only the chips that
-fold and the hardware view counts them ("Three chips, live"), so no row stands empty. A chip
+fold, numbered by place (UMD 0, 1, 3 read as chips 1, 2, 3, here and in `sc26ctl health`), and the
+hardware view counts them ("Three chips, live"), so no row stands empty and no number is missing. A chip
 that hangs does not need this: the engine rests it and brings it back by itself (below).
 
 ## What runs

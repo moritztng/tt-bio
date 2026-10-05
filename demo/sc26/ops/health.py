@@ -59,7 +59,9 @@ def main():
     ticks = [r for r in rows if r.get("ev") == "tick"]
     last = ticks[-1] if ticks else None
     if st:
-        chips = [c for c in st["chips"] if c["state"] != "out_of_service"]
+        chips = sorted((c for c in st["chips"] if c["state"] != "out_of_service"), key=lambda c: c["chip"])
+        # the screen numbers the chips in the demo 1, 2, 3 by place (app.js seats), so the call-taker does too
+        lane = {c["chip"]: i + 1 for i, c in enumerate(chips)}
         out = [c["chip"] for c in st["chips"] if c["state"] == "out_of_service"]
         folding = [c for c in chips if c["state"] in ("busy", "ready")]
         if not chips:
@@ -77,18 +79,18 @@ def main():
                     break
                 since = r["t"]
             (repairing if now - since < REPAIR_S else bad).append(
-                f"Lane {c['chip'] + 1} (chip {c['chip']}) is {c['state']} for {ago(now - since)}"
+                f"Lane {lane[c['chip']]} (chip {c['chip']}) is {c['state']} for {ago(now - since)}"
                 + (" (normal: it repairs itself within about 10 min)." if now - since < REPAIR_S
                    else ". It should have recovered by now."))
         for c in folding:
             mhz = ((c.get("last_fold") or {}).get("aiclk_mhz") or {}).get("median")
             if mhz and mhz < 1200:
-                ok.append(f"Lane {c['chip'] + 1} (chip {c['chip']}) folded its last protein at {mhz} MHz, "
+                ok.append(f"Lane {lane[c['chip']]} (chip {c['chip']}) folded its last protein at {mhz} MHz, "
                           "not 1350: it is running warm, so folds take longer. Nothing to do unless the room is hot.")
         if not st.get("replays"):
             bad.append("No recorded folds loaded: if every chip stops, the stage has nothing to show.")
         if out:
-            ok.append("Out of service on purpose: " + ", ".join(f"lane {c + 1} (chip {c})" for c in out) + ".")
+            ok.append("Out of service on purpose: " + ", ".join(f"chip {c}" for c in out) + ".")
         if st.get("queue"):
             ok.append(f"{st['queue']} visitor folds waiting.")
 

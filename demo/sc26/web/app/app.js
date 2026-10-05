@@ -231,6 +231,10 @@ function buildKeys() {
 
 // ------------------------------------------------------------------ drawing
 function liveChips() { return stream.chips.filter(c => c.state === 'busy' || c.state === 'ready').length; }
+// The chips in the demo, in order. A visitor counts them 1, 2, 3, so a chip is named by its place here,
+// never by its number on the box: three chips must not read 1, 2, 4. ops/health.py counts the same way.
+function seats() { return stream.chips.filter(c => c.state !== 'out_of_service').map(c => c.chip).sort((a, b) => a - b); }
+function seat(chip) { return seats().indexOf(chip) + 1; }
 
 // The models the chips run, from the engine (server.py --models). With one, it is lit in the lineup
 // for good and nothing else names it; with several, each fold names its model.
@@ -319,7 +323,7 @@ function drawSide() {
         : 'Finding a free chip.';
       // the one running clock on screen: wall-clock seconds since the chip took their fold, in step
       // with the chip because it is the same seconds; it stops when the fold lands
-      src.textContent = m.chip != null ? `Folding on chip ${m.chip + 1}${named() ? ' with' : ''}` : '';
+      src.textContent = seat(m.chip) ? `Folding on chip ${seat(m.chip)}${named() ? ' with' : ''}` : '';
       setNumber(m.t0 ? byModel(m, '·', `${((performance.now() - m.t0) / 1000).toFixed(1)} s`) : '');
       numBox.classList.remove('locked', 'none');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
@@ -379,7 +383,7 @@ function drawNumber(f) {
   const min = Math.floor((performance.now() - f.received) / 60000);
   const ago = f.received > 0 ? (min < 1 ? ', just now,' : `, ${min} min ago,`) : '';
   src.textContent = !live ? 'Recorded on this box in'
-    : f.chip != null ? `Folded live on chip ${f.chip + 1}${ago} ${by}` : `Folded on this box${ago} ${by}`;
+    : seat(f.chip) ? `Folded live on chip ${seat(f.chip)}${ago} ${by}` : `Folded on this box${ago} ${by}`;
   setNumber(f.seconds > 0 ? byModel(f, 'in', `${f.seconds.toFixed(2)} s`) : '');
   box.classList.add('locked');
   box.classList.remove('none');
@@ -433,12 +437,12 @@ function laneFor(c, now) {
 
 function drawChips() {
   const ol = $('chips');
-  // the rows are the chips the engine runs, under their own numbers; one out of the demo gets none
-  const shown = stream.chips.filter(c => c.state !== 'out_of_service').map(c => c.chip).sort((a, b) => a - b);
+  // a row per chip in the demo, numbered by its seat; one out of the demo gets none
+  const shown = seats();
   if (ol.dataset.k !== shown.join()) {
     ol.dataset.k = shown.join();
-    ol.innerHTML = shown.map(i =>
-      `<li><span class="n">${i + 1}</span><span class="what"></span><span class="st"></span><span class="t"></span>` +
+    ol.innerHTML = shown.map((i, row) =>
+      `<li><span class="n">${row + 1}</span><span class="what"></span><span class="st"></span><span class="t"></span>` +
       `<span class="bar"><i></i></span><span class="last"></span></li>`).join('');
   }
   const onStage = (app.state === 'result' ? app.mine?.fold : app.slot?.fold);
@@ -457,8 +461,8 @@ function drawChips() {
 // It never moves back within a fold; a new fold, or a chip that stopped, starts it at zero at once.
 function drawBars(dt) {
   const ol = $('chips'), now = performance.now() / 1000;
-  for (let i = 0; i < ol.children.length; i++) {
-    const li = ol.children[i], c = stream.chips.find(x => x.chip === i), job = c?.state === 'busy' ? stream.jobs[c.job] : null;
+  for (const [row, i] of seats().entries()) {
+    const li = ol.children[row], c = stream.chips.find(x => x.chip === i), job = c?.state === 'busy' ? stream.jobs[c.job] : null;
     const fold = job ? c.job : null, target = job ? barAt(job, now - job.tAt) ?? 0 : 0;
     const shown = fold !== li.fold ? target : Math.max(li.shown, li.shown + (target - li.shown) * (1 - Math.exp(-dt / 0.12)));
     li.fold = fold;

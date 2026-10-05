@@ -71,7 +71,7 @@ function lane(card) {
   const cell = (cls, ...kids) => h("div", { class: cls }, ...kids);
   const el = h("div", { class: "lane", "data-state": "resetting" },
     cell("chip", q.glyph = glyph()),
-    cell("id", h("div", { class: "name", text: `Chip ${card + 1}` }), q.state = h("div", { class: "state" })),
+    cell("id", q.name = h("div", { class: "name" }), q.state = h("div", { class: "state" })),
     cell("gauge", q.pw = h("div", { class: "big" }),
       q.sp = h("svg", { class: "spark", viewBox: "0 0 100 32", preserveAspectRatio: "none" },
         q.area = h("polygon"), q.line = h("polyline")),
@@ -147,7 +147,12 @@ function lanes(root) {
       for (const c of msg.chips) if (ls[c.card]) paintLane(ls[c.card], c);
       // a chip taken out of the demo is left off, and the title counts the chips that fold
       const off = new Set(msg.chips.filter((c) => c.state === "out_of_service").map((c) => c.card));
-      for (const [card, l] of Object.entries(ls)) l.el.style.display = off.has(+card) ? "none" : "";
+      // and the rest are named by their place, 1, 2, 3, as the stage's rows are (app.js seats)
+      let seat = 0;
+      for (const [card, l] of Object.entries(ls)) {
+        l.el.style.display = off.has(+card) ? "none" : "";
+        if (!off.has(+card)) l.q.name.textContent = `Chip ${++seat}`;
+      }
       const n = ["No", "One", "Two", "Three", "Four"][Object.keys(ls).length - off.size];
       title.firstChild.textContent = `${n} chips`;
       foot.innerHTML = "Read from the Tenstorrent kernel driver's own counters, no tool polling the chips. " +
@@ -208,9 +213,10 @@ function compare(root, facts) {
   return {
     update(msg) {
       setLive(f.live, msg);
-      const done = msg.chips.filter((c) => c.last_fold);
+      const seats = msg.chips.filter((c) => c.state !== "out_of_service").map((c) => c.card).sort((a, b) => a - b);
+      const done = msg.chips.filter((c) => c.last_fold && seats.includes(c.card));
       now.textContent = done.length
-        ? done.map((c) => `Chip ${c.card + 1}: ${c.last_fold.model ?? "fold"}, ${c.last_fold.residues} residues in ` +
+        ? done.map((c) => `Chip ${seats.indexOf(c.card) + 1}: ${c.last_fold.model ?? "fold"}, ${c.last_fold.residues} residues in ` +
             `${fmt(c.last_fold.seconds, 1)} s` +
             `, ${c.folds_today} today`).join(". ") + "."
         : "No demo fold has finished on this box yet today. Each one appears here with its time.";
