@@ -190,11 +190,17 @@ def test_the_written_numbering_is_the_one_the_input_carried(tmp_path):
 def test_the_metrics_are_the_interface_ones_a_design_is_judged_on():
     spec = af2ig.read_af2ig_input(EXAMPLE)
     pred = af2ig.fold(_StubTrunk(48), spec, recycles=0)
-    assert set(pred.metrics) == {"plddt", "ptm", "iptm", "pae", "ipae", "interface_pae"}
+    assert set(pred.metrics) == {"plddt", "ptm", "iptm", "pae", "ipae", "interface_pae",
+                                 "pair_chains_iptm", "chains_ptm"}
     # interface_pae is the Angstrom reading of the normalised ipae, not a second measurement.
     from tt_bio.af2_confidence import PAE_MAX_ERROR_BIN
     assert pytest.approx(pred.metrics["ipae"] * PAE_MAX_ERROR_BIN, abs=1e-3) == \
         pred.metrics["interface_pae"]
+    # Target 0, binder 1. On two chains the pair's ipTM is the complex's ipTM.
+    pci = pred.metrics["pair_chains_iptm"]
+    assert sorted(pci) == [0, 1] and pci[0][1] == pci[1][0]
+    assert pytest.approx(pci[0][1], abs=1e-4) == pred.metrics["iptm"]
+    assert pred.metrics["chains_ptm"] == {0: pci[0][0], 1: pci[1][1]}
 
 
 def test_atom37_slots_that_do_not_exist_are_not_written():

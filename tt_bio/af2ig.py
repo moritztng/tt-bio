@@ -163,9 +163,10 @@ def fold(model, spec: AF2IGInput, *, recycles: int = 3, progress=None) -> AF2IGP
     """
     import torch
 
-    from tt_bio.af2_confidence import (confidence_scalars, expected_aligned_error,
-                                      plddt_per_residue)
+    from tt_bio.af2_confidence import (_bin_centers, confidence_scalars,
+                                      expected_aligned_error, plddt_per_residue)
     from tt_bio.af2_data import initial_recycle_state
+    from tt_bio.protenix import ConfidenceHead
 
     feats_np = features(spec)
     to_torch = lambda a: (torch.from_numpy(a) if a.dtype == np.bool_
@@ -192,12 +193,19 @@ def fold(model, spec: AF2IGInput, *, recycles: int = 3, progress=None) -> AF2IGP
     binder_len = len(spec.binder_sequence)
     scalars = confidence_scalars(out["plddt_logits"], out["pae_logits"], out["pae_breaks"],
                                  feats["seq_mask"], feats["asym_id"], binder_len=binder_len)
+    # The chain-pair ipTM matrix every other model reports, on AF2's own bin centres. Chains
+    # are 0 (target) and 1 (binder), the order they are written in; on two chains the
+    # off-diagonal is the ipTM above.
+    asym = feats["asym_id"].long()
+    chain = ConfidenceHead._chain_confidence(
+        out["pae_logits"].detach().cpu(), asym - asym.min(),
+        centers=_bin_centers(out["pae_breaks"].detach().cpu()))
     plddt = plddt_per_residue(out["plddt_logits"]).detach().cpu().numpy().astype(np.float32)
     positions = (out["structure"]["final_atom_positions"]
                  .detach().cpu().to(torch.float32).numpy())
     arr, coords, b_factors = _atom_array(spec, feats_np, positions, plddt * 100.0)
     return AF2IGPrediction(atom_array=arr, coords=coords, b_factors=b_factors,
-                           metrics=metrics(scalars), tokens=len(plddt),
+                           metrics=metrics(scalars, chain), tokens=len(plddt),
                            binder_length=binder_len,
                            # AF2's predicted_aligned_error as upstream returns it: raw, before
                            # the symmetrising the interface-pAE scalar applies.
@@ -208,7 +216,7 @@ def fold(model, spec: AF2IGInput, *, recycles: int = 3, progress=None) -> AF2IGP
                            .float().numpy())
 
 
-def metrics(scalars: dict[str, float]) -> dict[str, float]:
+def metrics(scalars: dict[str, float], chain: dict | None = None) -> dict[str, float]:
     """The scalars as the results row publishes them.
 
     `confidence_scalars` names them the way ColabDesign's loss does; these are the names the
@@ -223,4 +231,8 @@ def metrics(scalars: dict[str, float]) -> dict[str, float]:
     if "i_pae" in scalars:
         out["ipae"] = round(float(scalars["i_pae"]), 4)
         out["interface_pae"] = round(float(scalars["unscaled_i_pae"]), 4)
+    pci = (chain or {}).get("pair_chains_iptm")
+    if pci:
+        out["pair_chains_iptm"] = pci
+        out["chains_ptm"] = {c: pci[c][c] for c in pci}
     return out
