@@ -12,7 +12,7 @@
 // instead of the cartoon.
 
 import { program, texture, framebuffer, buffer, FULLSCREEN_VS } from './gl.js';
-import { POINTS_VS, POINTS_FS, MESH_VS, MESH_FS, BG_FS, COMPOSITE_FS } from './shaders.js';
+import { POINTS_VS, POINTS_FS, MESH_VS, MESH_FS, COMPOSITE_FS } from './shaders.js';
 import { perspective, lookAt, Spring } from './math.js';
 import { Timeline, centroid } from './trajectory.js';
 import { residueColors, atomRadii, lin, POINT, POINT_SIDE, GROUND } from './palette.js';
@@ -34,7 +34,6 @@ export class Renderer {
     this.prog = {
       points: program(gl, POINTS_VS, POINTS_FS, 'points'),
       mesh: program(gl, MESH_VS, MESH_FS, 'mesh'),
-      bg: program(gl, FULLSCREEN_VS, BG_FS, 'bg'),
       composite: program(gl, FULLSCREEN_VS, COMPOSITE_FS, 'composite'),
     };
     this.ground = lin(GROUND);
@@ -314,13 +313,12 @@ export class Renderer {
     const rt = this.rt;
     gl.bindFramebuffer(gl.FRAMEBUFFER, rt.msFbo);
     gl.viewport(0, 0, rt.w, rt.h);
+    // the ground is one flat colour: a clear, not a full-screen draw, which at 4K with 4x MSAA
+    // wrote every sample of a 3840x2160 target each frame
     gl.clearDepth(1);
     gl.depthMask(true);
-    gl.clear(gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(this.prog.bg.p);
-    gl.uniform3fv(this.prog.bg.u.uGround, this.ground);
-    gl.bindVertexArray(this.emptyVao);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.clearColor(this.ground[0], this.ground[1], this.ground[2], 1);
+    gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
     if (s) {
       const v = this.view(), f = this.fin.x;
       gl.enable(gl.DEPTH_TEST);

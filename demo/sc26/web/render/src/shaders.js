@@ -86,12 +86,6 @@ void main() {
   o = vec4(shade(vCol, N, vAO, vDepth) * uOpacity, uOpacity);
 }`;
 
-// The ground: one flat colour, the app's own.
-export const BG_FS = `
-uniform vec3 uGround;
-out vec4 o;
-void main() { o = vec4(uGround, 1.0); }`;
-
 // Linear to sRGB, and a 1/255 dither so the dark ground never bands on a big panel.
 export const COMPOSITE_FS = `
 in vec2 vUv;
