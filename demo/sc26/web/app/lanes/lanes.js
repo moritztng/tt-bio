@@ -83,7 +83,7 @@ function lane(card) {
   return { el, q };
 }
 
-const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "resetting" };
+const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "resetting", warming: "warming up" };
 
 function paintLane({ el, q }, c) {
   const live = c.state !== "resetting";
@@ -106,6 +106,9 @@ function paintLane({ el, q }, c) {
   } else if (c.state === "resetting") {
     q.what.textContent = "Resetting";
     q.detail.textContent = "readings return when the chip does";
+  } else if (c.state === "warming") {
+    q.what.textContent = "Warming up";
+    q.detail.textContent = "compiling for the booth's proteins";
   } else if (c.state === "busy") {
     q.what.textContent = "Working outside the demo";
     q.detail.textContent = lastLine || "clock is up, no demo fold on this chip";

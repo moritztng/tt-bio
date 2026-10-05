@@ -381,6 +381,20 @@ class Service:
             f = self.open_files[job["id"]] = open(self.recdir / f"{time.strftime('%Y%m%dT%H%M%S')}-{job['id']}.jsonl", "w")
         f.write(raw + "\n")
 
+    # sysfs looks healthy through most of a `tt-smi -r`, so the counters alone showed a board being
+    # reset as "ready". The engine knows better: a chip it has stalled, is resetting or is bringing
+    # back says so on the lanes too, as it does in the stage's chip table.
+    ENGINE_STATE = {"stalled": "resetting", "resetting": "resetting", "recovering": "resetting", "warming": "warming"}
+
+    def telemetry(self):
+        snap = self.monitor.snapshot()
+        engine = {c.chip: "resetting" if c.stalled or self.resetting(c) else self.ENGINE_STATE.get(c.state)
+                  for c in self.chips}
+        for c in snap["chips"]:
+            if engine.get(c["card"]):
+                c["state"], c["folding"] = engine[c["card"]], None
+        return snap
+
     def status(self):
         return {"type": "status", "models": self.args.models, "chips": [c.status() for c in self.chips],
                 "queue": len(self.visitors), "replays": len(self.replay.files), "t_wall": time.time()}
@@ -433,7 +447,7 @@ class Service:
                 res = {"type": "rejected", "reason": "json"}
             return self.reply(writer, 200, json.dumps(res).encode(), "application/json")
         if path == "/telemetry" and self.monitor:  # the chip lanes poll this (hardware/README.md)
-            return self.reply(writer, 200, json.dumps(self.monitor.snapshot()).encode(), "application/json")
+            return self.reply(writer, 200, json.dumps(self.telemetry()).encode(), "application/json")
         if path == "/status":
             return self.reply(writer, 200, json.dumps(self.status()).encode(), "application/json")
         if path == "/":  # the app's assets are relative to /app/, so send the bare origin there
