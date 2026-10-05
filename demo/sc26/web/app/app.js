@@ -351,7 +351,8 @@ function setNumber(html) { const num = $('num'); if (num.innerHTML !== html) num
 function drawNumber(f) {
   const src = $('source'), box = $('number'), live = f.source === 'live';
   const st = stage.step, of = stage.of, k = live ? stage.slowdown : 0;
-  const x = (r) => r >= 10 ? Math.round(r / 5) * 5 : Math.round(r);
+  // one decimal below 3: an OpenFold3 attract fold replays 1.4x slower, which rounds to a meaningless 1x
+  const x = (r) => r >= 10 ? Math.round(r / 5) * 5 : r >= 3 ? Math.round(r) : r.toFixed(1);
   const pace = !k ? '' : k > 1.05 ? `\nReplayed ${x(k)}× slower than the chip ran it`
     : k < 0.95 ? `\nReplayed ${x(1 / k)}× faster than the chip ran it` : '\nReplayed at the chip’s own pace';
   $('step').textContent = !of ? '' : stage.landed ? `All ${of} diffusion steps shown`
