@@ -70,7 +70,8 @@ def messages(meta, pick):
                steps=meta["steps"], loops=meta["recycling_steps"], seed=meta["seed"],
                rg_expected=meta["rg_final"], name=pick["name"], story=pick["story"], pdb=pick["pdb"],
                chains=[dict(id=c["id"], role=c["role"], n_res=len(c["sequence"])) for c in pick["chains"]],
-               ligands=pick["ligands"], atoms=meta["atoms"], t=0.0)
+               ligands=[l for l in pick["ligands"] if l["id"] in set(meta["atoms"].get("chain", [l["id"]]))],
+               atoms=meta["atoms"], t=0.0)
     # Stage events: the recorded ones, each at the time the chip finished the work before it
     # (record.py). An older recording without them gets one per stage at the frame times.
     stages = meta.get("stage_events") or [["trunk", 0, meta["recycling_steps"], 0.0],
@@ -139,7 +140,8 @@ def main():
             id=pid, name=pick["name"], story=pick["story"], why=pick["why"], pdb=pick["pdb"],
             uniprot=pick["uniprot"], chains=[dict(id=c["id"], role=c["role"], n_res=len(c["sequence"]))
                                              for c in pick["chains"]],
-            ligands=[l["ccd"] for l in pick["ligands"]], n_res=meta["n_res"], n_atoms=meta["n_atoms"],
+            ligands=[l["ccd"] for l in pick["ligands"] if l["ccd"] not in meta.get("ligands_omitted", [])],
+            ligands_omitted=meta.get("ligands_omitted", []), n_res=meta["n_res"], n_atoms=meta["n_atoms"],
             model=meta["model"], steps=meta["steps"], frames=n_frames, msa=meta["msa"],
             seconds=meta["seconds"], seconds_first_fold_with_compile=meta["seconds_compile_fold"],
             stages=meta["stages"], aiclk_mhz=meta["aiclk_mhz"], chip=meta["chip"], host=meta["host"],

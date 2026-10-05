@@ -53,11 +53,17 @@ MODEL = "openfold3"
 WORKERS = 4
 
 
+# OpenFold3 preview2 was released as a polymer model and never trained to place a ligand; tt-bio
+# refuses a ligand chain for it rather than return a structure with a made-up pose. A pick's
+# ligands are left out of its recording and named in the store (ligands_omitted).
+LIGANDS = False
+
+
 def yaml_for(pick):
     lines = ["version: 1", "sequences:"]
     for c in pick["chains"]:
         lines += ["  - protein:", f"      id: {c['id']}", f"      sequence: {c['sequence']}"]
-    for l in pick["ligands"]:
+    for l in pick["ligands"] if LIGANDS else []:
         lines += ["  - ligand:", f"      id: {l['id']}", f"      ccd: {l['ccd']}"]
     return "\n".join(lines) + "\n"
 
@@ -212,6 +218,7 @@ def main():
         frame_steps=[f["step"] for f in frames], frame_t=[f["t"] for f in frames],
         quantum_xyz=[round(q, 6) for q in qs_x], quantum_x0=[round(q, 6) for q in qs_0],
         atoms=start["atoms"], plddt=done["plddt"],
+        ligands_omitted=[] if LIGANDS else [l["ccd"] for l in pick["ligands"]],
         host_load_1min_at_end=round(os.getloadavg()[0], 2), workers_sharing_cpu=WORKERS,
         rg_final=round(float(np.sqrt(((final - final.mean(0)) ** 2).sum(1).mean())), 2),
         bin=dict(file=f"{a.pick}.bin", codec="lzma(int16 xyz byte-shuffled | int16 x0 byte-shuffled | float32 final)",

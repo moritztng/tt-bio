@@ -86,7 +86,7 @@ def score(pick, xyz, at, pdb, al, chains=None):
     res = dict(pdb=pdb, matched_ca=len(P), ca_rmsd=round(float(np.sqrt((d ** 2).mean())), 2),
                ca_within_2A=round(float((d < 2).mean()), 3), per_chain=per_chain)
     hemes = []
-    for lig in pick["ligands"]:
+    for lig in [l for l in pick["ligands"] if l["id"] in set(at["chain"])]:  # recorded ones only
         pred = {n: xyz[i] for i, (ch, n) in enumerate(zip(at["chain"], at["name"])) if ch == lig["id"]}
         pc = np.mean(list(pred.values()), 0) @ r.T + t
         best = None
