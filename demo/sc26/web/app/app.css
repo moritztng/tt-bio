@@ -60,8 +60,9 @@ header { position: fixed; left: var(--m); right: var(--m); top: var(--m); }
 #lineup li { position: relative; font-size: calc(16 * var(--p)); line-height: 1.6; font-weight: 400; color: var(--ink2);
              white-space: nowrap; }
 #lineup li.on { color: var(--ink); font-weight: 560; }
-#lineup li.on::before { content: ''; position: absolute; left: calc(-18 * var(--p)); top: 50%; width: calc(6 * var(--p));
-                        height: calc(6 * var(--p)); margin-top: calc(-3 * var(--p)); border-radius: 50%; background: var(--live); }
+/* the dot follows the name, so nothing hangs into the left margin */
+#lineup li.on::after { content: ''; display: inline-block; vertical-align: middle; margin-left: calc(10 * var(--p));
+                       width: calc(6 * var(--p)); height: calc(6 * var(--p)); border-radius: 50%; background: var(--live); }
 body[data-state=typing] #lineup, body[data-state=waiting] #lineup { opacity: 0; }
 #tag { position: absolute; right: 0; top: 0; height: calc(26 * var(--p)); display: flex; align-items: center;
        gap: calc(10 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
