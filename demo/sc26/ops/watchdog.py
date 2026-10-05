@@ -23,6 +23,7 @@ import argparse
 import hashlib
 import json
 import os
+import signal
 import socket
 import subprocess
 import time
@@ -76,26 +77,60 @@ class Marionette:
 FPS_JS = """
 const done = arguments[arguments.length - 1];
 let n = 0; const t0 = performance.now();
-function tick(t) { n++; if (t - t0 < 1000) requestAnimationFrame(tick); else done({fps: n * 1000 / (t - t0),
-  href: location.href, doc: document.documentURI, title: document.title, visible: document.visibilityState}); }
+const page = () => { const c = document.querySelector('canvas'), s = window.sc26?.stream;
+  return {href: location.href, doc: document.documentURI, title: document.title, visible: document.visibilityState,
+    gl_lost: c ? !!c.getContext('webgl2')?.isContextLost() : null,
+    stream_age_s: s ? (performance.now() - s.lastMessage) / 1000 : null}; };
+function tick(t) { n++; if (t - t0 < 1000) requestAnimationFrame(tick); else done({fps: n * 1000 / (t - t0), ...page()}); }
 requestAnimationFrame(tick);
-setTimeout(() => done({fps: n, href: location.href, doc: document.documentURI, title: document.title,
-  timeout: true}), 4000);
+setTimeout(() => done({fps: n, timeout: true, ...page()}), 4000);
 """
 
 
-def rss_mb(pattern):
-    tot = 0
+def proc_usage(pid):
+    """(RSS in MB, open file descriptors) of one process, or None once it is gone."""
+    try:
+        rss = next(int(l.split()[1]) for l in Path(f"/proc/{pid}/status").read_text().splitlines()
+                   if l.startswith("VmRSS:"))
+        return rss / 1024, len(os.listdir(f"/proc/{pid}/fd"))
+    except (OSError, StopIteration, ValueError):
+        return None
+
+
+def resources(profile, engine_pid, paths):
+    """Everything that can leak over a booth week, one sample: memory and descriptors of the engine,
+    each chip worker and the browser, the GPU's memory, the disk, the logs. The cgroup figure
+    systemd prints counts page cache too, so it is not a leak figure; RSS and fds are."""
+    r = {"mem_avail_gb": meminfo(), "load1": round(os.getloadavg()[0], 2)}
+    kids, browser = [], [0.0, 0]
     for p in Path("/proc").glob("[0-9]*"):
         try:
-            cmd = (p / "cmdline").read_bytes().replace(b"\0", b" ")
-            if pattern.encode() in cmd:
-                for line in (p / "status").read_text().splitlines():
-                    if line.startswith("VmRSS:"):
-                        tot += int(line.split()[1])
-        except OSError:
+            stat = (p / "stat").read_text()
+            ppid = int(stat.rsplit(")", 1)[1].split()[1])
+            if engine_pid and ppid == engine_pid:
+                kids.append(int(p.name))
+            elif profile.encode() in (p / "cmdline").read_bytes():
+                u = proc_usage(p.name)
+                if u:
+                    browser[0] += u[0]
+                    browser[1] += u[1]
+        except (OSError, ValueError, IndexError):
             continue
-    return round(tot / 1024)
+    eng = proc_usage(engine_pid) if engine_pid else None
+    work = [u for u in map(proc_usage, kids) if u]
+    r.update(engine_rss_mb=eng and round(eng[0]), engine_fds=eng and eng[1],
+             worker_rss_mb=[round(u[0]) for u in work], worker_fds=[u[1] for u in work],
+             rss_browser_mb=round(browser[0]), browser_fds=browser[1],
+             engine_mb=unit_mb("sc26-engine.service"))
+    for k, f in (("vram_mb", "mem_info_vram_used"), ("gtt_mb", "mem_info_gtt_used")):
+        try:
+            r[k] = round(int(next(Path("/sys/class/drm").glob(f"card*/device/{f}")).read_text()) / 2**20)
+        except (OSError, StopIteration, ValueError):
+            pass
+    st = os.statvfs(os.path.expanduser("~"))
+    r["disk_free_gb"] = round(st.f_bavail * st.f_frsize / 2**30, 1)
+    r["logs_mb"] = round(sum(f.stat().st_size for f in paths if f.exists()) / 2**20, 1)
+    return r
 
 
 def unit_mb(unit):
@@ -114,6 +149,30 @@ def meminfo():
     return round(m["MemAvailable"] / 1024 / 1024, 1)
 
 
+def bound(path, cap, keep):
+    """Keep a log under `cap` bytes by cutting it, in place, to its last `keep` bytes from a line
+    start. In place, because the writers (the engine's chip workers, sway, Firefox) hold the file
+    open with O_APPEND: a renamed file would keep growing unseen. A line or two written during the
+    cut can land out of order; nothing is lost that a booth needs."""
+    try:
+        if path.stat().st_size <= cap:
+            return 0
+        with open(path, "rb") as f:
+            f.seek(-keep, os.SEEK_END)
+            tail = f.read()
+        tail = tail[tail.find(b"\n") + 1:]
+        with open(path, "r+b") as f:
+            f.truncate(0)
+        fd = os.open(path, os.O_WRONLY | os.O_APPEND)
+        try:
+            os.write(fd, tail)
+        finally:
+            os.close(fd)
+        return 1
+    except OSError:
+        return 0
+
+
 class Watch:
     def __init__(self, a):
         self.a = a
@@ -123,6 +182,8 @@ class Watch:
         self.mn = None
         self.last_mem = 0.0
         self.last_restart = {}
+        self.stuck = 0   # consecutive screen checks the compositor did not answer
+        self.bounded = [Path(os.path.expanduser(x)) for x in a.bound]
 
     def emit(self, **kw):
         kw.setdefault("t", round(time.time(), 1))
@@ -161,7 +222,7 @@ class Watch:
                 self.engine_fail = 0
             return None
 
-    def check_page(self):
+    def check_page(self, compositor_ok=True):
         try:
             if self.mn is None:
                 self.mn = Marionette(self.a.marionette)
@@ -171,9 +232,9 @@ class Watch:
             self.close_mn()
             self.page_fail += 1
             self.emit(ev="page_fail", n=self.page_fail, err=str(e)[:200])
-            if self.page_fail >= self.a.page_fails:
+            if self.page_fail >= self.a.page_fails and compositor_ok:
                 self.restart("sc26-kiosk", f"page unreachable {self.page_fail}x")
-            return None
+            return None, None
         href = r.get("href", "")
         # An error page keeps the app's URL in location.href; only documentURI says about:neterror.
         if not href.startswith(self.a.url_base) or r.get("doc", href).startswith("about:"):
@@ -183,14 +244,26 @@ class Watch:
             except (OSError, RuntimeError) as e:
                 self.close_mn()
                 self.emit(ev="navigate_fail", err=str(e)[:200])
+        # The page reconnects a silent stream itself after 6 s. One that has heard nothing for
+        # --stream-s is stuck in a way its own code cannot see: load it again.
+        if (r.get("stream_age_s") or 0) > self.a.stream_s:
+            self.emit(ev="stream_stuck", age_s=round(r["stream_age_s"]))
+            try:
+                self.mn.call("WebDriver:Navigate", {"url": self.a.app_url})
+            except (OSError, RuntimeError) as e:
+                self.close_mn()
+                self.emit(ev="navigate_fail", err=str(e)[:200])
+        if r.get("gl_lost"):
+            self.emit(ev="gl_lost")   # the page reloads itself on webglcontextlost; logged as evidence
         if r.get("timeout") or r.get("fps", 0) < 1:
             self.page_fail += 1
             self.emit(ev="page_frozen", n=self.page_fail, fps=r.get("fps"))
-            if self.page_fail >= self.a.page_fails:
+            # a page cannot draw while the compositor is stuck; restarting the browser would not help
+            if self.page_fail >= self.a.page_fails and compositor_ok:
                 self.restart("sc26-kiosk", f"page drew no frames {self.page_fail}x")
         else:
             self.page_fail = 0
-        return round(r.get("fps", 0), 1)
+        return round(r.get("fps", 0), 1), r.get("stream_age_s") and round(r["stream_age_s"], 1)
 
     def check_screen(self):
         sock = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / os.environ.get("WAYLAND_DISPLAY", "")
@@ -198,9 +271,12 @@ class Watch:
             return "lost"
         try:
             img = subprocess.run(["grim", "-s", "0.125", "-t", "ppm", "-"], capture_output=True,
-                                 timeout=10).stdout
-        except (OSError, subprocess.TimeoutExpired):
+                                 timeout=self.a.grim_s).stdout
+        except subprocess.TimeoutExpired:
+            return self.compositor_stuck()
+        except OSError:
             img = b""
+        self.stuck = 0
         if not img:
             return "none"
         now = time.monotonic()
@@ -221,18 +297,50 @@ class Watch:
             return "frozen"
         return "flat" if flat else "moving"
 
+    def compositor_stuck(self):
+        """The socket is there and a screenshot does not come back: sway itself is stuck. After
+        --sway-fails checks in a row it gets SIGTERM, and only if it runs under the booth session's
+        loop (session/session.sh), which starts it again; the browser's launcher then reopens on
+        it. Anywhere else (a desktop someone is using) this only logs."""
+        self.stuck += 1
+        if self.stuck < self.a.sway_fails:
+            return "stuck"
+        try:
+            pid = int(subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", "sway"], capture_output=True,
+                                     text=True).stdout.split()[0])
+            parent = Path(f"/proc/{Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[1]}/cmdline")
+            looped = b"session.sh" in parent.read_bytes()
+        except (OSError, ValueError, IndexError):
+            pid, looped = None, False
+        now = time.monotonic()
+        if looped and now - self.last_restart.get("sway", -1e9) > self.a.restart_gap:
+            self.last_restart["sway"] = now
+            os.kill(pid, signal.SIGCONT)   # a stopped process cannot act on SIGTERM
+            os.kill(pid, signal.SIGTERM)
+            self.emit(ev="restart", unit="sway", why=f"no screenshot for {self.stuck} checks", pid=pid)
+            self.stuck = 0
+            self.close_mn()
+            self.page_fail, self.shot_hash, self.shot_since, self.blank_since = 0, None, now, None
+        else:
+            self.emit(ev="sway_stuck", n=self.stuck, pid=pid, looped=looped)
+        return "stuck"
+
     def run(self):
         self.emit(ev="start", args=vars(self.a))
         while True:
             t0 = time.monotonic()
             eng = self.check_engine()
-            fps = self.check_page()
             scr = self.check_screen()
-            row = {"ev": "tick", "engine": eng, "fps": fps, "screen": scr}
+            fps, stream_age = self.check_page(compositor_ok=scr != "stuck")
+            row = {"ev": "tick", "engine": eng, "fps": fps, "stream_age_s": stream_age, "screen": scr}
             if t0 - self.last_mem > self.a.mem_every:
                 self.last_mem = t0
-                row.update(rss_browser_mb=rss_mb(self.a.profile), engine_mb=unit_mb("sc26-engine.service"),
-                           mem_avail_gb=meminfo(), load1=os.getloadavg()[0])
+                pid = int(subprocess.run(["systemctl", "--user", "show", "-p", "MainPID", "--value",
+                                          "sc26-engine.service"], capture_output=True, text=True).stdout.strip() or 0)
+                row.update(resources(self.a.profile, pid, self.bounded))
+                cut = [str(f) for f in self.bounded if bound(f, self.a.log_cap_mb << 20, self.a.log_keep_mb << 20)]
+                if cut:
+                    row["bounded"] = cut
             self.emit(**row)
             time.sleep(max(0.5, self.a.every - (time.monotonic() - t0)))
 
@@ -251,6 +359,15 @@ def main():
     ap.add_argument("--blank-s", type=float, default=30)
     ap.add_argument("--restart-gap", type=float, default=90, help="minimum seconds between two restarts of one unit")
     ap.add_argument("--mem-every", type=float, default=60)
+    ap.add_argument("--stream-s", type=float, default=60, help="a page that has heard nothing from the stream this long is reloaded")
+    ap.add_argument("--grim-s", type=float, default=5, help="a screenshot slower than this means the compositor is stuck")
+    ap.add_argument("--sway-fails", type=int, default=3, help="stuck screenshots in a row before sway is restarted")
+    ap.add_argument("--log-cap-mb", type=int, default=64, help="a log past this is cut to its last --log-keep-mb")
+    ap.add_argument("--log-keep-mb", type=int, default=16)
+    ap.add_argument("--bound", nargs="*", default=[
+        "~/sc26-logs/watchdog.jsonl", "~/sc26-logs/sway.log", "~/sc26-logs/engine/reset.log",
+        *(f"~/sc26-logs/engine/chip{i}.stderr" for i in range(4)), "~/sc26kiosk/firefox.log",
+        "~/.local/state/sc26/folds.jsonl"], help="every file the demo appends to")
     ap.add_argument("--profile", default=os.environ.get("SC26_KIOSK_PROFILE", os.path.expanduser("~/sc26kiosk/profile")),
                     help="the kiosk's Firefox profile path; its processes are the browser's memory")
     a = ap.parse_args()
