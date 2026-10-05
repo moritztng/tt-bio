@@ -147,10 +147,11 @@ file, so the names you submitted are still in it. A structure whose names alread
 unchanged and carries no remark. A PDB holds at most 62 chains; past that, use `cif`, which has no
 width limit and never renames anything.
 
-`--write_pae` adds a token-token PAE and PDE matrix as `<name>_pae.npz` on `boltz2`,
-`protenix-v1`, `protenix-v2` and `opendde`. `rf3` writes pTM, ipTM and chain-pair PAE into
-`<name>_summary_confidences.json` instead. `openfold3` and `openbind` compute PAE logits but
-their fold does not return the matrices, and `esmfold2` has no PAE head.
+`--write_pae` adds a token-token PAE matrix as `<name>_pae.npz` on `boltz2`, `protenix-v1`,
+`protenix-v2` and `opendde`; Protenix and OpenDDE put PDE in the same file, Boltz-2 writes it
+under `--write_pde`. `rf3` writes pTM, ipTM and chain-pair PAE into
+`<name>_summary_confidences.json` instead. `openfold3`, `openbind`, `esmfold2` and `af2ig` compute
+a full PAE matrix but their fold does not return it yet.
 
 An output flag a model does not read prints a note saying which model does read it, so it is
 never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both) and

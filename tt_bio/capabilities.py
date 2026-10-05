@@ -245,8 +245,10 @@ FLAG_WHY: dict[tuple[str, str], str] = {
                                  "not return the matrices",
     ("--write_pae", "rf3"): "rf3 writes pTM, ipTM and chain-pair PAE/PDE into "
                             "<name>_summary_confidences.json next to each structure",
-    ("--write_pae", "esmfold2"): "it has no PAE head",
-    ("--write_pae", "esmfold2-fast"): "it has no PAE head",
+    ("--write_pae", "esmfold2"): "its confidence head computes PAE, pTM and ipTM but the fold "
+                                 "keeps only pTM",
+    ("--write_pae", "esmfold2-fast"): "its confidence head computes PAE, pTM and ipTM but the "
+                                      "fold keeps only pTM",
     ("--write_pde", "protenix-v1"): "--write_pae already writes PAE and PDE in one npz",
     ("--write_pde", "protenix-v2"): "--write_pae already writes PAE and PDE in one npz",
     ("--write_pde", "opendde"): "it writes PAE only, under --write_pae",
