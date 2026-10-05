@@ -12,12 +12,14 @@ const THREE = {
 };
 
 export class Stream {
-  constructor(url, { onFold, onChips, onStage, onReply, onOpen } = {}) {
+  constructor(url, { onFold, onChips, onStage, onReply, onOpen, timing, as } = {}) {
     this.url = url;
     this.cb = { onFold, onChips, onStage, onReply, onOpen };
+    this.timing = timing;    // progress.js Timing: learns each live fold's seconds per stage
+    this.as = as;            // ?as=<model>: rehearse a model's screens on another model's stream
     this.open = {};          // id -> fold being collected
     this.chips = [];         // last status.chips
-    this.jobs = {};          // job id -> {name, kind, model, stage, step, total, t0}
+    this.jobs = {};          // job id -> {name, kind, model, chip, n, stage, step, total, t0, tChip, tAt}
     this.connected = false;
     this.lastMessage = 0;
     this._connect();
@@ -38,10 +40,16 @@ export class Stream {
     return true;
   }
 
-  _tick(j, m, now) { if (typeof m.t === 'number') { j.tChip = m.t; j.tAt = now; } }
+  // the chip's clock for this job: the last time it reported, and when each stage began
+  _tick(j, m, now) {
+    if (typeof m.t !== 'number') return;
+    j.tChip = m.t; j.tAt = now;
+    (j.at ??= {})[j.stage] ??= m.t;
+  }
 
   _on(m) {
     const now = performance.now() / 1000;
+    if (this.as) { if (m.model) m.model = this.as; if (m.models) m.models = [this.as]; }
     switch (m.type) {
       case 'hello': case 'status':
         this.chips = m.chips ?? [];
@@ -56,7 +64,9 @@ export class Stream {
       }
       case 'fold_start':
         this.open[m.id] = { start: m, frames: [] };
-        this.jobs[m.id] = { name: m.name ?? null, kind: m.kind, model: m.model ?? null, chip: m.chip, stage: 'lm', step: 0, total: 1, t0: now };
+        // no stage until the chip names one: the fold's first stage is the model's, not ours to guess
+        this.jobs[m.id] = { name: m.name ?? null, kind: m.kind, model: m.model ?? null, chip: m.chip, n: m.n_res,
+          stage: null, step: 0, total: 1, t0: now, tChip: 0, tAt: now };
         // the server marks a chip busy without a 'chip' message (only 'ready' after each fold), so a
         // fold_start on a chip is what says it is busy and with which job
         { const c = this.chips.find(c => c.chip === m.chip);
@@ -79,7 +89,8 @@ export class Stream {
         const f = this.open[m.id];
         delete this.open[m.id];
         const j = this.jobs[m.id];
-        if (j) { j.stage = 'done'; j.seconds = m.seconds; this.cb.onStage?.(m.id, j, m); }
+        if (j) { j.stage = 'done'; j.seconds = m.seconds; j.tDone = now; this.cb.onStage?.(m.id, j, m); }
+        this.timing?.learn(m);
         if (f && f.frames.length) this.cb.onFold?.(assemble(f.start, f.frames, m));
         break;
       }
