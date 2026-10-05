@@ -60,6 +60,14 @@ try:
     for i in range(iters):
         o = ttnn.linear(in0, in1, memory_config=dram, dtype=ttnn.bfloat16, program_config=pc, compute_kernel_config=ck)
         ttnn.synchronize_device(mesh)
+        if i == 0:  # the op really ran: PCC of the first output against torch on the same (dequantized) inputs
+            a, b = (ttnn.to_torch(t, mesh_composer=ttnn.ConcatMeshToTensor(mesh, dim=0)).float() for t in (in0, in1))
+            got = ttnn.to_torch(o, mesh_composer=ttnn.ConcatMeshToTensor(mesh, dim=0)).float()
+            ref = a @ b
+            pcc = float(torch.corrcoef(torch.stack([got.flatten(), ref.flatten()]))[0, 1])
+            log(event="check", pcc=round(pcc, 6), shape=list(got.shape), max_abs_ref=round(float(ref.abs().max()), 2))
+            if pcc < 0.99:
+                log(event="WRONG", pcc=pcc); os._exit(2)
         ttnn.deallocate(o)
         if i % 100 == 0 or i == iters - 1:
             log(event="iter", i=i, s=round(time.time() - t0, 2), aiclk=identity().get("tt_aiclk"))
