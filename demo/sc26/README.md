@@ -47,8 +47,10 @@ each fold and chip row names its model again.
 
 ## The claim
 
-The title is "Biology Models on Tenstorrent", with "The first unified software stack for bio
-models, optimized from silicon to serving, at unprecedented throughput per dollar" under it. The
+The title is "Biology Models at Unprecedented Throughput per Dollar", with "One open stack for every
+model, inference and training, from a single card to a Galaxy supercluster" under it, each one line
+at 1080p and 4K (Moritz, 5 Oct 2026). The type scale steps about 1.25 from a 40 px title, and the
+frame keeps the same 72 px margin on all four sides (measured on the rendered page, both sizes). The
 measurement behind the throughput claim: Boltz-2
 (tt-bio's defaults: 3 recycles, 200 sampling steps, as on screen) on human serum albumin residues
 1-300 from the sequence alone, the four chips kept busy through the booth engine, finished 72 folds
@@ -65,7 +67,7 @@ https://japanfold.aiand.com.
 Every number on screen that counts seconds counts real seconds, in step with what you see.
 
 * **A fold on the stage has already finished on its chip.** Its time is a measured fact and is
-  shown still from the first frame: "Folded live on chip 4 in 5.62 s". Nothing on the stage counts.
+  shown still from the first frame: "Folded live on chip 4, just now, in 5.62 s". Nothing on the stage counts.
   What moves is the sampler's own step counter ("Diffusion step 7 of 200"), and the line under it
   says how the steps are paced: "Replayed 6× slower than the chip ran it", or "at the chip's own
   pace" when the diffusion took six to nine seconds and plays in real time.
@@ -73,6 +75,11 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   sampler step, which can take 50 times as long as the others. A step longer than five times the
   fold's median step is replayed at the median, so nobody watches still noise for seconds; the
   fold's measured time still includes it.
+* **Live or recorded is one rule.** The stage shows each protein's newest live fold from the chips;
+  a recording only stands in for a protein no chip has folded since the page started (the first
+  minutes after a restart, or a chip out of service), and a recording never displaces a live fold.
+  The live label says how long ago the chip finished it ("Folded live on chip 2, 3 min ago, in"), and
+  a recording says why it is one ("A recording: the chips have not folded this one yet").
 * **A recorded gallery fold shows the time it took when it was recorded**: "Recorded on this box
   in 34.81 s". The recorder is the booth's chip worker with a booth worker's CPU share, so these are
   booth times; the AICLK during each is in `gallery/manifest.json`.
