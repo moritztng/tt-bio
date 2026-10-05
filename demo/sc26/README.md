@@ -63,8 +63,9 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   sampler step, which can take 50 times as long as the others. A step longer than five times the
   fold's median step is replayed at the median, so nobody watches still noise for seconds; the
   fold's measured time still includes it.
-* **A recorded gallery fold shows no time.** It reads "Recorded on this box" with its size. The recorder wrote all 200 sampler steps to disk, which made its diffusion 16 to 35 s
-  against about 3 s live, so its seconds would undersell the chip.
+* **A recorded gallery fold shows no time.** It reads "Recorded on this box" with its size. Its warm fold
+  time and the AICLK during it are in `gallery/manifest.json`; since the OpenFold3 re-recording
+  they are booth times (the recorder is the booth's chip worker, with a booth worker's CPU share).
 * **Your own fold is the one running clock.** From the moment a chip takes it, the counter shows
   wall-clock seconds and stops when the fold lands. It is then replaced by the chip's own measured
   time, which can differ from the counter by a few tenths of a second of network and page latency.
