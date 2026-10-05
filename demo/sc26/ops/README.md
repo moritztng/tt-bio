@@ -21,7 +21,8 @@ Run these on qb2, over ssh or at the console, from this directory (`~/sc26/demo/
 
 `~/.config/sc26/env` sets which chips the demo uses. `SC26_CHIPS=0,1,2,3` at the booth.
 `SC26_CHIPS=` (empty) runs on recorded folds only and takes no chip, which is the setting while
-other work still runs on qb2.
+other work still runs on qb2. `SC26_ENGINE_ARGS=--out-of-service 2` takes chip 3 on screen (UMD chip 2)
+out of the demo on purpose: leave it out of `SC26_CHIPS` too, and its row says "Out of service".
 
 ## What runs
 

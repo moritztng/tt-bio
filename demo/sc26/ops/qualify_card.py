@@ -9,6 +9,9 @@ and, every --visitor-s seconds, submits a visitor fold of a random length from -
 chip, fold_done and fold_error event and a 1/30 s status line, and writes summary.json at the end.
 
 A chip passes if no fold errored, no fold stalled, and the worker never restarted.
+
+--server-args go to the engine as they are. One chip alone never takes a long fold in the booth's
+rotation (server.py --long-res), so to qualify a chip on every pick give it `--long-res 100000`.
 """
 import argparse
 import json
@@ -43,11 +46,12 @@ def main():
     ap.add_argument("--min-len", type=int, default=10)
     ap.add_argument("--max-len", type=int, default=400)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--server-args", default="", help="more engine flags, e.g. '--long-res 100000'")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     srv = subprocess.Popen([sys.executable, "-u", str(ENGINE / "server.py"), "--chips", str(args.chip),
-                            "--port", str(args.port), "--record", "", "--logdir", str(out)],
+                            "--port", str(args.port), "--record", "", "--logdir", str(out), *args.server_args.split()],
                            stdout=open(out / "server.log", "w"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
     for _ in range(120):
         try:

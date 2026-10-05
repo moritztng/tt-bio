@@ -34,13 +34,20 @@ The final frame's `xyz` is the scored structure bit for bit, and so is `fold_don
 Sent once on connect. Carries the `status` fields below plus `protocol: 1`.
 
 ### `status`
-Once a second.
+Every 2 s.
 ```json
-{"type":"status","queue":0,"replays":12,"t_wall":1790985482.4,
+{"type":"status","queue":0,"replays":11,"t_wall":1790985482.4,
  "chips":[{"chip":0,"state":"busy","job":"a17","aiclk_mhz":1350,"folds":212,"restarts":0,
-           "last_fold":{"n_res":118,"seconds":2.1,"aiclk_mhz":{"min":1331,"median":1350,"max":1350,"n":9}}}]}
+           "doing":{"id":"a17","kind":"attract","name":"Haemoglobin","n_res":574,"t_wall":1790985461.0},
+           "last_fold":{"name":"Lysozyme","n_res":130,"seconds":8.31,"t_wall":1790985460.9,
+                        "aiclk_mhz":{"min":1331,"median":1350,"max":1350,"n":9}}},
+          {"chip":2,"state":"out_of_service"}]}
 ```
-`state` is one of `starting`, `warming` (loading weights, compiling), `ready`, `busy`,
+`doing` is the fold the chip holds, with the engine's time when the chip took it, so a page that
+connects mid-fold can name it and count its seconds against the message's own `t_wall`, on one
+clock. A warming chip carries `warming`: `{"name","n_res","stage"}` of the warm-up fold it last
+reported. A chip named in the engine's `--out-of-service` is listed with that state only.
+`state` is one of `starting`, `warming` (loading weights, compiling), `ready`, `busy`, `out_of_service`,
 `stalled` (the watchdog is stopping it), `recovering` (restarting), `resetting` (its board is
 being reset with `tt-smi -r`; both chips of the board show it, and the clock reads `null` or 800
 until it is back), `stopped`. `aiclk_mhz` is
@@ -48,6 +55,8 @@ read from the chip's sysfs clock when the message is built; `null` means the chi
 
 ### `chip`
 A chip changed state. `{"type":"chip","chip":2,"state":"recovering","aiclk_mhz":800,"rc":0}`.
+During warm-up the worker repeats `warming` at most every 5 s from inside each warm-up fold, with
+what it is compiling for: `{"type":"chip","chip":0,"state":"warming","name":"Haemoglobin","n_res":574,"stage":"trunk"}`.
 While its board is resetting the state stays `resetting` and `worker` carries what the worker
 itself reported: `{"type":"chip","chip":3,"state":"resetting","worker":"recovering"}`.
 

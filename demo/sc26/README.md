@@ -27,12 +27,17 @@ The left edge lists every model tt-bio runs on Tenstorrent hardware, grouped by 
 unresolved. OpenFold3 and OpenBind-0 lead the structure models. The dot marks the model the chips
 run, read from the engine's `--models`, so it moves with the engine and never needs editing here.
 
-Every fold on the stage is OpenFold3 (preview2, Apache-2.0). The four chips fold the attract
-proteins (and visitors' names, when `?visitors=1` turns typing back on; it is off for now) live,
-each chip with its own resident copy, and between them the screen plays larger OpenFold3 complexes
-recorded on this box. The attract proteins read MSAs searched ahead of time (`engine/msa/`, written
-by `engine/msa_search.py`); a name folds from its sequence alone, so the booth never needs the
-network. A fold reports its stages as the chip finishes them: input preparation, each trunk
+Every fold on the stage is OpenFold3 (preview2, Apache-2.0). The chips fold the same eleven
+proteins the stage shows, from insulin (51 residues) to a T cell receptor on HLA (833 residues,
+five chains), each chip with its own resident copy, and visitors' names when `?visitors=1` turns
+typing back on (it is off for now). Each protein's live fold takes its recording's place on the
+stage; the recordings, made on this box through the same chip worker, fill the stage until then.
+`gallery/build.py` writes the rotation (`engine/attract.json`) from the gallery's picks, so the two
+never disagree. A fold over 400 residues takes 35 to 94 s and can only give its chip to a visitor
+between two trunk recycles, up to 14 s apart, so at most all chips but one are on one: one chip
+always turns over every 5 to 13 s, and a visitor takes that chip first. The proteins read MSAs
+searched ahead of time (`engine/msa/`, written by `engine/msa_search.py`); a name folds from its
+sequence alone, so the booth never needs the network. A fold reports its stages as the chip finishes them: input preparation, each trunk
 recycle, each of the 200 diffusion steps, the confidence head (the worker synchronises the device
 before it stamps a stage, because ttnn returns before the chip is done).
 
@@ -42,8 +47,9 @@ each fold and chip row names its model again.
 
 ## The claim
 
-The title is "Unprecedented Throughput per Dollar", with "The first unified software stack for bio
-models optimized from silicon to serving" under it. The measurement behind it: Boltz-2
+The title is "Biology Models on Tenstorrent", with "The first unified software stack for bio
+models, optimized from silicon to serving, at unprecedented throughput per dollar" under it. The
+measurement behind the throughput claim: Boltz-2
 (tt-bio's defaults: 3 recycles, 200 sampling steps, as on screen) on human serum albumin residues
 1-300 from the sequence alone, the four chips kept busy through the booth engine, finished 72 folds
 in 180 s, 0.40 a second, median 9.79 s a fold, with the chips at a median 1350 MHz
@@ -67,19 +73,21 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   sampler step, which can take 50 times as long as the others. A step longer than five times the
   fold's median step is replayed at the median, so nobody watches still noise for seconds; the
   fold's measured time still includes it.
-* **A recorded gallery fold shows no time.** It reads "Recorded on this box" with its size. Its warm fold
-  time and the AICLK during it are in `gallery/manifest.json`; since the OpenFold3 re-recording
-  they are booth times (the recorder is the booth's chip worker, with a booth worker's CPU share).
+* **A recorded gallery fold shows the time it took when it was recorded**: "Recorded on this box
+  in 34.81 s". The recorder is the booth's chip worker with a booth worker's CPU share, so these are
+  booth times; the AICLK during each is in `gallery/manifest.json`.
 * **Your own fold is the one running clock.** From the moment a chip takes it, the counter shows
   wall-clock seconds and stops when the fold lands. It is then replaced by the chip's own measured
   time, which can differ from the counter by a few tenths of a second of network and page latency.
-* **The chip rows have no seconds, and their bars move in real time.** Each row names what the chip
-  is folding and the stage it last reported (trunk, diffusion, confidence; no word before the first
-  report). The bar is the fold's elapsed time over its expected total, so a stage takes the share of
-  the bar it takes of the clock. The expected total is the median of the last eight live folds of
-  the same model and length on this box, interpolated for a new length; inside the running stage,
-  the chip's own step counter and pace correct it. Until a model has finished one live fold, its
-  bars stay empty. Against a stopwatch on three live chips folding Boltz-2, a bar was 2.2 points of its
-  width off the true fraction on average (`web/app/progress.js`).
+* **The chip rows show only what the chips report.** Each row names the protein, the stage the chip
+  last reported with the chip's own counter in it ("trunk 2/4", "diffusion 143/200"), and the
+  seconds since the chip took the fold, counted from the chip's own timestamps. The bar is the
+  sampler's steps and moves only when the chip reports one. Under it is the measured time of the
+  fold the chip finished last ("Last: Haemoglobin, 574 amino acids in 37.04 s", measured on chip 1 on 5 Oct). Nothing is
+  forecast: no row guesses how long a fold will take. A chip that has sent nothing for 30 s (twice
+  the longest real gap, one trunk recycle at 833 residues) says "no word for 31 s" instead of
+  counting; at 120 s the engine stops the fold and the row says so, then "Resetting its board".
+  A row also says "Warming up, compiling for Haemoglobin", "Ready", "Out of service" (a chip taken
+  out of the demo with the engine's `--out-of-service`) or "Not in the demo".
   The hardware view behind Tab follows the same rule: a chip that is folding shows the protein and
   its length, and seconds only for a fold that has finished ("last: 56 residues in 0.6 s").

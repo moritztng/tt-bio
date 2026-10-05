@@ -51,8 +51,14 @@ export class Stream {
     const now = performance.now() / 1000;
     if (this.as) { if (m.model) m.model = this.as; if (m.models) m.models = [this.as]; }
     switch (m.type) {
-      case 'hello': case 'status':
+      case 'hello': case 'status': {
+        // a status built just before a fold landed can arrive just after its fold_done: keep the newer last fold
+        const had = new Map(this.chips.map(c => [c.chip, c.last_fold]));
         this.chips = m.chips ?? [];
+        for (const c of this.chips) {
+          const h = had.get(c.chip);
+          if (h?.t_wall && !(c.last_fold?.t_wall >= h.t_wall)) c.last_fold = h;
+        }
         if (m.models) this.models = m.models;
         // A fold that started before this page connected: the engine says what it is and when the chip
         // took it, on the engine's own clock, so the elapsed time needs no clock shared with this browser.
@@ -63,6 +69,7 @@ export class Stream {
         }
         this.cb.onChips?.(this.chips);
         break;
+      }
       case 'chip': {
         const c = this.chips.find(c => c.chip === m.chip);
         if (c) Object.assign(c, m, { warming: m.state === 'warming' && m.name ? { name: m.name, n_res: m.n_res, stage: m.stage } : null });
@@ -99,7 +106,7 @@ export class Stream {
         if (j) { j.stage = 'done'; j.seconds = m.seconds; j.tDone = now; this.cb.onStage?.(m.id, j, m); }
         // the chip's last finished fold, measured; the status every 2 s says the same, this is sooner
         { const c = this.chips.find(c => c.chip === m.chip);
-          if (c && m.chip != null && m.source === 'live') c.last_fold = { name: m.name ?? null, n_res: m.n_res, seconds: m.seconds }; }
+          if (c && m.chip != null && m.source === 'live') c.last_fold = { name: m.name ?? null, n_res: m.n_res, seconds: m.seconds, t_wall: m.t_wall }; }
         if (f && f.frames.length) this.cb.onFold?.(assemble(f.start, f.frames, m));
         break;
       }
