@@ -121,7 +121,7 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
 #chips li .last:empty { display: none; }
 #chips li.busy .what { color: var(--ink); }
 #chips li.busy .n, #chips li.ready .n { color: var(--ink2); }
-#chips li .bar { grid-column: 2 / 5; height: 1px; margin-top: calc(8 * var(--p)); }
+#chips li .bar { grid-column: 2 / 5; height: calc(2 * var(--p)); margin-top: calc(8 * var(--p)); }
 #chips li.busy .bar { background: var(--rule); }
 #chips li .bar i { display: block; height: 100%; background: var(--ink3); transform-origin: left; transform: scaleX(0); }
 #chips li.on .bar i { background: var(--live); }

@@ -422,7 +422,8 @@ function laneFor(c, now) {
     case 'busy': return idle('Folding, joined mid-way', 'busy');
     case 'ready': return idle('Ready', 'ready');
     case 'starting': return idle('Starting');
-    case 'warming': return c.warming?.name ? { ...idle('Warming up', ''), stage: `compiling for ${c.warming.name}` } : idle('Warming up');
+    // one phrase, so a long protein name is what gets cut, never the state word
+    case 'warming': return idle(c.warming?.name ? `Warming up, compiling for ${c.warming.name}` : 'Warming up');
     case 'stalled': return idle('Not responding, stopping the fold', 'recovering');
     case 'recovering': return idle('Restarting', 'recovering');
     case 'resetting': return idle('Resetting its board', 'recovering');
