@@ -111,4 +111,6 @@ try for a small, conventional network; it is not yet a way to run a modified fol
 
 Everything on this page runs on hardware you hold. `pip install 'tt-bio[tenstorrent]'` on a host
 with a Tenstorrent Wormhole or Blackhole card, or plain `pip install tt-bio` for the Boltz-2 CPU
-and GPU path, which is enough to develop and test a head before it ever sees a chip.
+and GPU path, which is enough to develop and test a head before it ever sees a chip. `--head` is
+newer than the 0.12.0 release on PyPI, so until the next release install from a clone of the
+repository (`pip install .` in it, with `[tenstorrent]` on a card host).
