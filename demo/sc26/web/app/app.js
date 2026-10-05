@@ -43,7 +43,7 @@ const LINEUP = [
 const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));
 // The title and the line under it (Moritz, 5 Oct 2026, second look: the claim is the title, and the line
 // says inference and training are both supported).
-const CLAIM = 'Biology Models at Unprecedented Throughput per Dollar';
+const CLAIM = 'More structures per dollar';
 const SECOND = 'One open stack for every model, inference and training, from a single card to a Galaxy supercluster';
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
