@@ -126,7 +126,7 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
 #chips li .bar i { display: block; height: 100%; background: var(--ink3); transform-origin: left; transform: scaleX(0); }
 #chips li.on .bar i { background: var(--live); }
 #chips li.on .n { color: var(--live); }
-#chips li .warn { color: var(--ember, #ffa866); }
+#chips li .warn { color: var(--ink2); }
 
 /* bottom band: QR left, invitation right */
 footer { position: fixed; left: var(--m); right: var(--m); bottom: var(--m); height: calc(96 * var(--p));
@@ -180,7 +180,6 @@ aside, #invite, #tag { transition: opacity 600ms var(--fade); }
 body[data-state=typing] aside > :not(#chips, #chipshead) { opacity: 0; }
 body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }
 
-/* a chip that died says so while it comes back; one taken out of the demo says so in plain ink */
-#chips li.recovering .what { color: var(--ember, #ffa866); }
-#chips li.oos .what { color: var(--ink2); }
+/* a chip that died, or one taken out of the demo, says so in plain ink: it comes back by itself, so nothing on screen is an alarm */
+#chips li.recovering .what, #chips li.oos .what { color: var(--ink2); }
 #chips li .what b { font-weight: 500; }
