@@ -13,7 +13,8 @@
 //   ?play=<url>      play only this recording, over and over, for a look-test of one fold
 //   ?orbit=<deg/s>   how fast a finished structure turns, default 5; 0 holds the landing view
 //   ?scale=, ?msaa=  the renderer's render scale and samples, default by resolution
-//   ?fps=1           log the frame rate to the console every 5 s
+//   ?frames=<s>      record every frame for s seconds into sc26.frames(): its time, the ms in our own
+//                    update and draw, in the stream's messages since the last frame, and in a fold change
 
 import { Stream, loadRecording } from './stream.js';
 import { Stage, Director } from './stage.js';
@@ -28,24 +29,19 @@ const HOLD = parseFloat(q.get('hold')) || 10;
 const VISITORS = q.get('visitors') === '1';
 document.body.classList.toggle('visitors', VISITORS);
 const WORD = ['no', 'one', 'two', 'three', 'four'];
-// What TT-Bio runs on Tenstorrent hardware, by what it does: tt-bio main's tt_bio/main.py PREDICT_MODELS,
-// DESIGN_MODELS, EMBED_MODELS + SAPROT_MODELS and AFFINITY_MODELS, one entry per model (its --model values
-// first, space-separated: esmfold2-fast, opendde-abag and the ESMC/SaProt sizes are checkpoints of one
-// model), plus BindCraft 2, which is not a --model: a third-party design loop whose Evoformer tt_bio.bindcraft2
-// runs on card. OpenFold3, which the chips run, and OpenBind-0 lead (Moritz, 5 Oct 2026).
-// `local` marks what runs on your own card but JapanFold, the QR beside the list, does not host: Protenix-v2
-// (weights not redistributable) and BindCraft 2 (hosting needs its authors' licence), and Protenix-v1 and
-// Nesso-1, which it does not offer. A hosting licence does not cover software you run yourself.
+// Every model tt-bio runs on Tenstorrent hardware, by what it does: tt-bio main's tt_bio/main.py
+// PREDICT_MODELS, DESIGN_MODELS, EMBED_MODELS + SAPROT_MODELS and AFFINITY_MODELS, one entry per
+// model family (esmfold2-fast, opendde-abag and the ESMC/SaProt sizes are variants, not models).
+// Protenix-v2 is left out: its weights' licence is unresolved (state/lic/). OpenFold3, which the
+// chips run, and OpenBind-0 lead (Moritz, 5 Oct 2026).
 const LINEUP = [
-  ['Structure', [['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'], ['boltz2', 'Boltz-2'],
-    ['esmfold2 esmfold2-fast', 'ESMFold2'], ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1', 'local'],
-    ['protenix-v2', 'Protenix-v2', 'local'], ['opendde opendde-abag', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
-  ['Design', [['boltzgen', 'BoltzGen'], ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign'],
-    ['bindcraft2', 'BindCraft 2', 'local']]],
-  ['Embeddings', [['esmc-300m esmc-600m esmc-6b', 'ESMC'], ['saprot-35m saprot-650m saprot-1.3b', 'SaProt']]],
-  ['Affinity', [['nesso1', 'Nesso-1', 'local']]],
+  ['Structure', [['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'], ['boltz2', 'Boltz-2'], ['esmfold2', 'ESMFold2'],
+    ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1'], ['opendde', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
+  ['Design', [['boltzgen', 'BoltzGen'], ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign']]],
+  ['Embeddings', [['esmc', 'ESMC'], ['saprot', 'SaProt']]],
+  ['Affinity', [['nesso1', 'Nesso-1']]],
 ];
-const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms.flatMap(([ids, name]) => ids.split(' ').map(id => [id, name]))));
+const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));
 // The title and the line under it (Moritz, 5 Oct 2026, second look: the claim is the title, and the line
 // says inference and training are both supported).
 const CLAIM = 'More structures per dollar';
@@ -159,7 +155,7 @@ function nextSlot(now) {
   if (!PLAYS(app.state)) return;
   const f = director.next();
   if (!f) { app.slot = null; return; }
-  const go = () => { if (!PLAYS(app.state)) return; stage.show(f); app.slot = { fold: f }; canvas.style.opacity = 1; drawSide(); };
+  const go = () => { if (!PLAYS(app.state)) return; const t = performance.now(); stage.show(f); if (rec) rec.show += performance.now() - t; app.slot = { fold: f }; canvas.style.opacity = 1; drawSide(); };
   if (now || !app.slot) go();
   else { canvas.style.opacity = 0.2; app.slot.leaving = true; setTimeout(go, 600); }   // dim, never dark: the stage is never empty
 }
@@ -240,13 +236,12 @@ function drawAll() { drawHeader(); drawTyping(); drawSide(); drawChips(); drawIn
 function drawLineup() {
   const nav = $('lineup');
   if (!nav.children.length) nav.innerHTML = LINEUP.map(([group, ms]) =>
-    `<section><h2>${group}</h2><ul>${ms.map(([ids, name, mark]) =>
-      `<li data-m="${ids}">${name}${mark ? ` <small>${mark}</small>` : ''}</li>`).join('')}</ul></section>`).join('');
+    `<section><h2>${group}</h2><ul>${ms.map(([id, name]) => `<li data-m="${id}">${name}</li>`).join('')}</ul></section>`).join('');
   const f = app.state === 'result' ? app.mine?.fold : app.state === 'waiting' ? app.mine : PLAYS(app.state) ? app.slot?.fold : null;
   const on = !named() ? running()[0] ?? null : app.state === 'waiting' && app.mine?.chip == null ? null : f?.model ?? null;
   if (nav.dataset.on === String(on)) return;
   nav.dataset.on = String(on);
-  for (const li of nav.querySelectorAll('li')) li.classList.toggle('on', li.dataset.m.split(' ').includes(on));
+  for (const li of nav.querySelectorAll('li')) li.classList.toggle('on', li.dataset.m === on);
 }
 let invited = null;
 
@@ -443,11 +438,17 @@ function drawChips() {
 // ------------------------------------------------------------------ frame loop
 const onErr = guardLoop(canvas);
 let last = performance.now(), sideTick = 0;
+const REC = parseFloat(q.get('frames')) || 0;
+const rec = REC > 0 ? { n: 0, a: new Float64Array(Math.ceil(REC * 250) * 7), busy: 0, show: 0 } : null;
+if (rec) app.frames = () => Array.from(rec.a.subarray(0, 7 * rec.n));
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  const w0 = performance.now();
+  let w1 = w0;
   try {
     stage.frame(dt);
+    w1 = performance.now();
     if (PLAYS(app.state)) {
       if (!app.slot) nextSlot(true);
       else if (!app.slot.leaving && stage.landed && stage.playT > stage.condense + HOLD) nextSlot(false);
@@ -467,16 +468,16 @@ function frame(now) {
       if (invited !== liveChips() > 0) { invited = liveChips() > 0; drawInvite(); }
     }
   } catch (e) { onErr(e); }
+  // [frame time, our update + draw, the stage alone, stream messages since the last frame, fold change,
+  //  callback lateness, 1 folding / 2 turning]
+  if (rec && 7 * rec.n < rec.a.length) {
+    const w2 = performance.now();
+    rec.a.set([now, w2 - w0, w1 - w0, stream.busy - rec.busy, rec.show, w0 - now, stage.r.done ? 2 : 1], 7 * rec.n++);
+    rec.busy = stream.busy; rec.show = 0;
+  }
 }
 setState('attract');
 requestAnimationFrame(frame);
-if (q.get('fps')) {
-  let n = 0, t0 = performance.now();
-  const count = () => { n++; requestAnimationFrame(count); };
-  requestAnimationFrame(count);
-  setInterval(() => { const t = performance.now(); console.log(`fps ${(n * 1000 / (t - t0)).toFixed(1)} scale ${stage.r.scale} msaa ${stage.r.rt.samples}`); n = 0; t0 = t; }, 5000);
-}
-
 if (q.get('selftest') === 'reset') import('./tests/reset.js').then(m => m.run(app, { toAttract, startTyping, type, submit, showResult, director, IDLE }));
 if (q.get('selftest') === 'kiosk') setTimeout(() => import('./tests/kiosk.js').then(m => m.run()), 4000);
 if (q.has('walk')) import('./tests/walk.js').then(m => m.run(q.get('walk'), parseFloat(q.get('after')) || 8, q.get('enter') !== '0'));
