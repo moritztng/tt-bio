@@ -46,6 +46,11 @@ ENGINE = HERE.parent / "engine"
 PY = os.path.expanduser("~/tt-bio-dev/env/bin/python3")
 Q_MIN, Q_REL = 0.01, 1000.0
 MODEL = "openfold3"
+# The booth runs one worker per chip, four on this host, each capped to its share of the CPU
+# (chipworker --workers). A recording worker gets the same share. Uncapped it ran 81 threads at
+# 870 % CPU next to the booth's three workers, and insulin's diffusion took 19.8 s where top7's,
+# recorded while the booth was stopped, took 6.5 s.
+WORKERS = 4
 
 
 def yaml_for(pick):
@@ -99,7 +104,7 @@ def run_worker(chip, jobs, msa_dir, log, stall_s):
                TT_BIO_LEASE_HOLDER=os.environ.get("TT_BIO_LEASE_HOLDER", "worker:sc26-gallery"),
                HF_HUB_OFFLINE="1")
     p = subprocess.Popen([PY, "-u", str(ENGINE / "chipworker.py"), "--chip", str(chip), "--model", MODEL,
-                          "--msa-dir", str(msa_dir)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                          "--msa-dir", str(msa_dir), "--workers", str(WORKERS)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=open(log, "w"), env=env, text=True, bufsize=1, start_new_session=True)
     last = [time.time()]
     stalled = threading.Event()
@@ -207,6 +212,7 @@ def main():
         frame_steps=[f["step"] for f in frames], frame_t=[f["t"] for f in frames],
         quantum_xyz=[round(q, 6) for q in qs_x], quantum_x0=[round(q, 6) for q in qs_0],
         atoms=start["atoms"], plddt=done["plddt"],
+        host_load_1min_at_end=round(os.getloadavg()[0], 2), workers_sharing_cpu=WORKERS,
         rg_final=round(float(np.sqrt(((final - final.mean(0)) ** 2).sum(1).mean())), 2),
         bin=dict(file=f"{a.pick}.bin", codec="lzma(int16 xyz byte-shuffled | int16 x0 byte-shuffled | float32 final)",
                  bytes=len(blob)),
