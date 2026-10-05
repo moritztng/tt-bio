@@ -104,12 +104,15 @@ class Chaos:
         self.frozen, self.hold = None, 0
 
     def shot(self, name):
-        sock = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / os.environ.get("WAYLAND_DISPLAY", "")
-        if not sock.is_socket():
+        # the display as the booth session exported it, so a run started over ssh sees it too
+        env = {**os.environ, **sway_env()}
+        sock = Path(env.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / env.get("WAYLAND_DISPLAY", "")
+        if not env.get("WAYLAND_DISPLAY") or not sock.is_socket():
             print(f"DISPLAY LOST: {sock} is gone, this sample sees nothing", file=sys.stderr)
             return None, {"display": "lost"}
         try:
-            img = subprocess.run(["grim", "-s", "0.25", "-t", "ppm", "-"], capture_output=True, timeout=10).stdout
+            img = subprocess.run(["grim", "-s", "0.25", "-t", "ppm", "-"], capture_output=True, timeout=10,
+                                 env=env).stdout
         except subprocess.TimeoutExpired:
             return None, {"display": "stuck"}   # the compositor does not answer: the screen holds its last frame
         if not img:
