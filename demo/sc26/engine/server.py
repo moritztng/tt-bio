@@ -449,7 +449,7 @@ class Service:
         b = self.board_of(chip)
         mates = [c for c in self.chips if self.board_of(c) == b]
         ev = self.board_idle[b] = asyncio.Event()
-        tried = False
+        tried, working = False, []
         for c in mates:
             c.set_state("resetting")
             c.last_reset = time.monotonic()
@@ -498,6 +498,10 @@ class Service:
         finally:
             ev.set()
             for c in mates:
+                if c.chip in working:  # never stopped, so it is still serving
+                    c.set_state("ready")
+                    self.dispatch()
+                    continue
                 if tried:
                     c.failures, c.hung = 0, False
                 if c.back_at:
