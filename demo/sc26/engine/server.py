@@ -82,6 +82,7 @@ class Chip:
             if self.svc.stopping:
                 break
             env = dict(os.environ, TT_VISIBLE_DEVICES=str(self.chip), TT_BIO_LEASE_CARDS=str(self.chip),
+                       TT_METAL_OPERATION_TIMEOUT_SECONDS=str(self.args.hang_s),
                        TT_BIO_LEASE_HOLDER=os.environ.get("TT_BIO_LEASE_HOLDER", f"sc26-demo:chip{self.chip}"))
             self.set_state("warming")
             self.proc = await asyncio.create_subprocess_exec(
@@ -122,6 +123,8 @@ class Chip:
 
     def on_event(self, ev, raw):
         t = ev.get("type")
+        if t == "fold_error" and ev.get("reason") == "chip_hung":
+            self.stalled = True  # the worker is leaving a hung chip: reset its board at once
         if t == "chip":
             st = ev["state"]
             if st == "ready":
@@ -153,7 +156,7 @@ class Chip:
             if t in ("fold_done", "fold_error"):
                 self.svc.finish(job, ev)
                 self.job = None
-                if t == "fold_error" and ev.get("reason") in ("stopped", "out_of_memory"):
+                if t == "fold_error" and ev.get("reason") in ("stopped", "out_of_memory", "chip_hung"):
                     self.svc.requeue(job)  # the chip was stopped or is recycling: a visitor's fold moves on
         self.svc.hub.send(raw)
 
@@ -611,6 +614,9 @@ def main():
     ap.add_argument("--no-telemetry", action="store_true", help="do not sample the chips' sysfs counters")
     ap.add_argument("--min-len", type=int, default=10)
     ap.add_argument("--max-len", type=int, default=400)
+    ap.add_argument("--hang-s", type=float, default=10,
+                    help="a chip whose dispatcher makes no progress this long is hung (tt-metal's "
+                    "TT_METAL_OPERATION_TIMEOUT_SECONDS): its worker exits and its board is reset")
     ap.add_argument("--stall-s", type=float, default=180, help="a busy chip silent this long is stopped")
     ap.add_argument("--warm-s", type=float, default=600, help="a warming chip silent this long is stopped")
     ap.add_argument("--term-s", type=float, default=30, help="SIGINT grace before SIGTERM")
