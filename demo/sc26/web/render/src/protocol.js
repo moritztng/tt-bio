@@ -3,10 +3,11 @@
 // The renderer needs, per atom: name, element, residue index; per residue: name and chain;
 // optionally per-residue confidence; and per frame: Float32 xyz for every atom, a time in seconds
 // and a progress in [0, 1]. Anything carrying those can drive it. Coordinates arrive either as a
-// plain array or as base64 little-endian float32.
+// plain array, as base64 little-endian float32, or as a function that unpacks them when first shown.
 
 export function decodeCoords(c) {
   if (c instanceof Float32Array) return c;
+  if (typeof c === 'function') return c();   // a state unpacked on demand
   if (Array.isArray(c)) return Float32Array.from(c.flat ? c.flat() : c);
   const bin = atob(c), u8 = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
