@@ -3149,6 +3149,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--write_pae", is_flag=True, help="Write PAE matrix per target (not openfold3)")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
+@click.option("--head", "heads", multiple=True, metavar="FILE.py:NAME",
+              help="Run your own output head on each fold's trunk outputs and write what it "
+                   "returns to <name>_<NAME>.npz. Repeatable. boltz2 only; docs/extending.md.")
 @click.option("--affinity_mw_correction", is_flag=True)
 @click.option("--sampling_steps_affinity", default=200, type=int)
 @click.option("--diffusion_samples_affinity", default=5, type=int)
@@ -3199,7 +3202,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
-            write_pae, write_pde, write_embeddings, affinity_mw_correction,
+            write_pae, write_pde, write_embeddings, heads, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, host_threads, fast, debug, log,
             report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
@@ -3257,6 +3260,22 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
     _check_recycling_steps(recycling_steps, model)
+    if heads:
+        # A head is the user's own code, so it runs where they run tt-bio and nowhere else.
+        from tt_bio.capabilities import FLAG_READERS
+        from tt_bio.heads import resolve as resolve_head
+
+        if model not in FLAG_READERS["--head"]:
+            raise click.BadParameter(f"--head is not available for --model {model}: only "
+                                     f"{', '.join(FLAG_READERS['--head'])} hands its trunk "
+                                     "outputs to the host. See docs/extending.md.")
+        if controller:
+            raise click.BadParameter("--head runs your code in a local worker; it cannot be "
+                                     "sent to a --controller")
+        try:
+            heads = [resolve_head(h) for h in heads]
+        except (ValueError, FileNotFoundError) as e:
+            raise click.BadParameter(str(e))
 
     # Per-model trunk-recycling default (see RECYCLING_STEPS): protenix-v2/opendde/esmfold2/rf3
     # -> 10, protenix-v1 -> 4, boltz2/openfold3 -> 3; --recycling_steps overrides any of them.
@@ -3535,6 +3554,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         "mol_dir": str(mol_dir), "msa_dir": str(msa_dir), "struct_dir": str(struct_dir),
         "method": method, "output_format": output_format,
         "write_pae": write_pae, "write_pde": write_pde, "write_embeddings": write_embeddings,
+        "heads": list(heads),
         "use_msa_server": use_msa_server, "msa_db_path": msa_db_path, "use_envdb": use_envdb,
         "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
         "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,

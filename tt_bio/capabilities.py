@@ -228,6 +228,8 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
     "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag"),
     "--write_pde": ("boltz2",),
     "--write_embeddings": ("boltz2",),
+    # tt_bio.heads: a user's Python on the trunk outputs. main.predict refuses it elsewhere.
+    "--head": ("boltz2",),
     # Everything that folds from an alignment. Left at its default the flag does nothing to
     # protenix/opendde/rf3/openfold3/openbind: they fold the resolved alignment whole, and
     # taking boltz2's 8192 default to them would change every fold they already produced. Set
