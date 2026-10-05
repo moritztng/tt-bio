@@ -40,7 +40,12 @@ export class Stream {
     return true;
   }
 
-  _tick(j, m, now) { if (typeof m.t === 'number') { j.tChip = m.t; j.tAt = now; } }
+  // the chip's clock for this job: the last time it reported, and when each stage began
+  _tick(j, m, now) {
+    if (typeof m.t !== 'number') return;
+    j.tChip = m.t; j.tAt = now;
+    (j.at ??= {})[j.stage] ??= m.t;
+  }
 
   _on(m) {
     const now = performance.now() / 1000;
@@ -84,7 +89,7 @@ export class Stream {
         const f = this.open[m.id];
         delete this.open[m.id];
         const j = this.jobs[m.id];
-        if (j) { j.stage = 'done'; j.seconds = m.seconds; this.cb.onStage?.(m.id, j, m); }
+        if (j) { j.stage = 'done'; j.seconds = m.seconds; j.tDone = now; this.cb.onStage?.(m.id, j, m); }
         this.timing?.learn(m);
         if (f && f.frames.length) this.cb.onFold?.(assemble(f.start, f.frames, m));
         break;

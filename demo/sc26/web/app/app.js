@@ -96,6 +96,8 @@ const stream = new Stream(q.get('stream') ?? `${location.protocol === 'https:' ?
   },
 });
 
+app.stream = stream; app.timing = timing;
+
 loadRecording(PLAY ?? 'assets/fallback-ubiquitin.jsonl').then(f => { if (f) director.fallback = describe(f); }).catch(() => {});
 fetch('lanes/index.html', { method: 'HEAD' }).then(r => { app.lanes = r.ok; }).catch(() => {});
 

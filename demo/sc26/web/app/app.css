@@ -1,6 +1,7 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel.
    One type scale, in frame pixels: 12 caps labels, 13 captions, 15 small text, 17 the lineup, 18 body,
-   24 the line under the title, 36 the protein's name, 40 the title. Numbers in tabular figures.
+   24 the line under the title, 36 the protein's name, 40 the title. Tabular figures only where a
+   number changes in place (the time, the step counter); everywhere else they space out hyphens.
    One grid: margins of 96 at the sides and 56 at top and bottom; the lineup and the right column
    start on one line (y 264), and the last chip's rule ends on the QR codes' bottom edge (y 1024). */
 @import url(palette.css);
@@ -16,7 +17,7 @@ html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background:
 * { box-sizing: border-box; user-select: none; -webkit-user-select: none; -webkit-user-drag: none;
     -webkit-tap-highlight-color: transparent; }
 html { touch-action: none; overscroll-behavior: none; scrollbar-width: none; }
-body { font-family: Inter, sans-serif; color: var(--ink); font-feature-settings: 'ss01', 'cv11', 'tnum';
+body { font-family: Inter, sans-serif; color: var(--ink); font-feature-settings: 'ss01', 'cv11';
        -webkit-font-smoothing: antialiased; }
 body.nocursor, body.nocursor * { cursor: none !important; }
 img { pointer-events: none; }
@@ -24,9 +25,10 @@ img { pointer-events: none; }
 canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
                transition: opacity 600ms var(--fade);
                /* the opening noise is wider than the screen: keep it off the lineup, the right column and the
-                  title; nothing on the canvas shows above 24% (y 259), 40 frame px under the subtitle */
+                  title; nothing on the canvas shows above 24% (y 259), 57 frame px under the subtitle, or
+                  below 87% (y 940), 10 frame px over the QR codes */
                mask-image: linear-gradient(to right, transparent 14%, #000 19%, #000 62%, transparent 71%),
-                           linear-gradient(to bottom, transparent 24%, #000 30%);
+                           linear-gradient(to bottom, transparent 24%, #000 30%, #000 80%, transparent 87%);
                mask-composite: intersect; }
 
 .tab { font-variant-numeric: tabular-nums; }
@@ -41,10 +43,9 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 .marks b { font-weight: 560; font-size: calc(23 * var(--p)); letter-spacing: -0.005em; }
 /* the title, then one line under it */
 #sentence { margin: calc(32 * var(--p)) 0 0; width: calc(1200 * var(--p)); font-size: calc(24 * var(--p));
-            line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade);
-            font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out a hyphen */
+            line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade); }
 #sentence b { display: inline-block; margin-bottom: calc(8 * var(--p)); font-size: calc(40 * var(--p)); font-weight: 600;
-              letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); font-feature-settings: 'ss01', 'cv11'; }
+              letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); }
 
 /* the lineup: every model, down the left edge; the one the chips run is lit */
 #lineup { position: fixed; left: calc(96 * var(--p)); top: calc(264 * var(--p)); width: calc(200 * var(--p));
@@ -54,7 +55,7 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
              text-transform: uppercase; color: var(--ink3); }
 #lineup ul { list-style: none; margin: 0; padding: 0; }
 #lineup li { position: relative; font-size: calc(17 * var(--p)); line-height: 1.6; font-weight: 400; color: var(--ink2);
-             font-feature-settings: 'ss01', 'cv11'; white-space: nowrap; }
+             white-space: nowrap; }
 #lineup li.on { color: var(--ink); font-weight: 560; }
 #lineup li.on::before { content: ''; position: absolute; left: calc(-18 * var(--p)); top: 50%; width: calc(6 * var(--p));
                         height: calc(6 * var(--p)); margin-top: calc(-3 * var(--p)); border-radius: 50%; background: var(--live); }
@@ -79,15 +80,15 @@ body.visitors aside { bottom: calc(150 * var(--p)); }   /* the invitation takes 
 #story { margin: calc(12 * var(--p)) 0 0; font-size: calc(18 * var(--p)); line-height: 1.45; font-weight: 400; color: var(--ink2); }
 #source { margin-top: calc(28 * var(--p)); }
 #number { margin-top: calc(8 * var(--p)); font-size: calc(36 * var(--p)); font-weight: 400; line-height: 1; letter-spacing: -0.01em;
-          color: var(--ink); white-space: nowrap; }
+          color: var(--ink); white-space: nowrap; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
 #number:has(#num:empty) { visibility: hidden; }
 #number.none { display: none; }
 #number .dim { color: var(--ink3); }
-#number b { font-weight: 560; font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out the hyphen in Boltz-2 */
+#number b { font-weight: 560; font-feature-settings: 'ss01', 'cv11'; }   /* the model's name keeps its hyphen tight */
 #meta, #step { font-size: calc(15 * var(--p)); font-weight: 400; line-height: 1.5; color: var(--ink2); white-space: nowrap; }
 #meta { margin-top: calc(14 * var(--p)); }
 /* the sampler's own step counter while folding; the pLDDT key once the structure is drawn */
-#step { color: var(--ink3); min-height: 3em; white-space: pre-line; }
+#step { color: var(--ink3); min-height: 3em; white-space: pre-line; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
 #legend { margin-top: calc(24 * var(--p)); font-size: calc(13 * var(--p)); color: var(--ink2); opacity: 0;
           transition: opacity 150ms var(--fade); }
 #legend.on { opacity: 1; transition-duration: 600ms; }
@@ -118,12 +119,12 @@ body.visitors aside { bottom: calc(150 * var(--p)); }   /* the invitation takes 
 footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); bottom: calc(56 * var(--p)); height: calc(96 * var(--p));
          display: flex; align-items: flex-end; justify-content: space-between; }
 /* two codes, one unit each: the same symbol size, module, quiet zone and caption, on one line */
-#qr { display: flex; gap: calc(48 * var(--p)); }
+#qr { display: grid; grid-template-columns: repeat(2, calc(312 * var(--p))); }   /* the second code at x 408 at any size */
 #qr > div { display: flex; align-items: center; gap: calc(16 * var(--p)); }
 /* 37 modules, quiet zone included, at 2 px a module in the frame: whole pixels at 1080p and 4K */
 #qr img { width: calc(74 * var(--p)); height: calc(74 * var(--p)); border-radius: calc(3 * var(--p)); }
 #qr p { margin: 0; font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-weight: 400; }
-#qr b { color: var(--ink2); font-weight: 500; font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out the hyphen in tt-bio */
+#qr b { color: var(--ink2); font-weight: 500; }
 #invite { margin: 0; width: calc(432 * var(--p)); font-size: calc(22 * var(--p)); font-weight: 500; color: var(--ink); }
 #invite kbd, #typing kbd { font: inherit; font-size: 0.72em; font-weight: 600; display: inline-block; padding: 0.12em 0.5em; margin: 0 0.12em;
             border: 1px solid var(--ink3); border-radius: 0.3em; color: var(--ink); vertical-align: 0.1em; }
