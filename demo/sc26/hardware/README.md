@@ -70,4 +70,5 @@ a finished fold is the median of the samples taken while it ran.
 `facts.json` is generated, never edited: it holds the published 512-residue rows from
 tt-bio.com/benchmarks with their board and date, and the BindCraft 2 round from
 `docs/bindcraft2.md`. A test fails when either source changes and the file was not rebuilt.
-Protenix-v2 is left out because its weights' licence is unresolved.
+Every row measured on all four platforms is shown, Protenix-v2 included: its weights' licence
+restricts hosting it, not running it on your own card.

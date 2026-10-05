@@ -20,12 +20,20 @@ result.
 
 ## Models on screen
 
-The left edge lists every model tt-bio runs on Tenstorrent hardware, grouped by what it does
-(structure, design, embeddings, affinity). The list is tt-bio's own model registry
-(`PREDICT_MODELS`, `DESIGN_MODELS`, `EMBED_MODELS`, `SAPROT_MODELS` and `AFFINITY_MODELS` in
-`tt_bio/main.py`), one entry per model family, without Protenix-v2, whose weights' licence is
-unresolved. OpenFold3 and OpenBind-0 lead the structure models. The dot marks the model the chips
-run, read from the engine's `--models`, so it moves with the engine and never needs editing here.
+The left edge lists what TT-Bio runs on Tenstorrent hardware, grouped by what it does (structure,
+design, embeddings, affinity). It is tt-bio's own model registry (`PREDICT_MODELS`, `DESIGN_MODELS`,
+`EMBED_MODELS`, `SAPROT_MODELS` and `AFFINITY_MODELS` in `tt_bio/main.py`), one entry per model:
+`esmfold2-fast`, `opendde-abag` and the ESMC and SaProt sizes are checkpoints of the entry they sit
+under. BindCraft 2 is listed under design although it is not a `--model`: it is a third-party design
+loop, under its authors' licence, whose network `tt_bio.bindcraft2` runs on the card, and tt-bio is
+not affiliated with or endorsed by them. OpenFold3 and OpenBind-0 lead the structure models.
+
+The screen is TT-Bio, software you run on your own cards, so the list does not stop at what JapanFold
+hosts. A quiet `local` after a name marks the four JapanFold does not offer: Protenix-v2, whose
+weights may not be redistributed without ByteDance's consent, BindCraft 2, whose licence restricts hosting it
+for others, and Protenix-v1 and Nesso-1. The dot marks the model the chips run, read from the
+engine's `--models`, so it moves with the engine and never needs editing here; a checkpoint lights
+its model's entry.
 
 Every fold on the stage is OpenFold3 (preview2, Apache-2.0). The chips fold the same eleven
 proteins the stage shows, from insulin (51 residues) to a T cell receptor on HLA (833 residues,

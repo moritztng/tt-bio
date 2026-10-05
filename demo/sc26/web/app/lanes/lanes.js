@@ -189,12 +189,10 @@ function compare(root, facts) {
     h("div", { class: "nowbox" }, h("div", { class: "hw-kicker", text: "On this box, today" }), now));
 
   f.wrap.append(h("div", { class: "cmp" }, h("div", {}, legend, dots), side));
-  const ex = facts.excluded.map((e) => e.id).join(", ");
   f.foot(`Seconds per prediction at 512 residues, warm, one at a time, lower is better, log scale. From ` +
     `${facts.source}, updated ${facts.updated}. ${facts.board.split(". That")[0]}. ` +
     `GPU rows run each model's own upstream code. Per-dollar figures assume ${gal.accelerators} chips do ${gal.accelerators}× the work of one, ` +
-    `as the benchmarks page does, and use list prices. The published cells do not record the chip's clock. ` +
-    `Not shown: ${ex} (${facts.excluded[0]?.why}).`);
+    `as the benchmarks page does, and use list prices. The published cells do not record the chip's clock.`);
   return {
     update(msg) {
       setLive(f.live, msg);
