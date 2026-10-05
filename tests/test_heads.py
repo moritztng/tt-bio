@@ -151,3 +151,19 @@ def test_predict_refuses_a_head_on_another_model(head_file):
     r = CliRunner().invoke(cli, ["predict", str(target), "--model", "openfold3",
                                  "--head", f"{head_file}:mean_z"])
     assert r.exit_code != 0 and "--head is not available for --model openfold3" in r.output
+
+
+def test_boltz2_confidence_on_cpu_never_imports_ttnn():
+    """The custom_head example on a CPU-only install died after every fold's confidence step with
+    `No module named ttnn`: the device-heads check asked the lazy tenstorrent handle a question."""
+    import subprocess, sys
+    code = (
+        "import sys; sys.modules['ttnn'] = None\n"
+        "from types import SimpleNamespace\n"
+        "from tt_bio.boltz2 import ConfidenceModule\n"
+        "assert ConfidenceModule._tt_heads_device(SimpleNamespace(), 1) is None\n"
+        "assert ConfidenceModule._tt_pair_device(SimpleNamespace(), None, 1) is None\n"
+        "assert 'tt_bio.tenstorrent' not in sys.modules\n"
+    )
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-2000:]

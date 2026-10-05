@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import gc
 import os
+import sys
 from abc import ABC, abstractmethod
 from functools import partial
 from math import exp, pi, sqrt
@@ -4919,7 +4920,9 @@ class ConfidenceModule(nn.Module):
         `Boltz2` constructor and not from `confidence_model_args`, and the fold simply read as
         "the lever did nothing". So every operand is named here, and a refusal prints once.
         """
-        if not _device_conf_heads():
+        # A device pairformer exists only if tt_bio.tenstorrent was imported; asking the lazy
+        # handle otherwise would import ttnn on a CPU/GPU host that has none (issue #6).
+        if not _device_conf_heads() or "tt_bio.tenstorrent" not in sys.modules:
             return None
         heads = self.confidence_heads
         operands = {
