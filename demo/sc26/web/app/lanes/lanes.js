@@ -83,7 +83,7 @@ function lane(card) {
   return { el, q };
 }
 
-const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "resetting", warming: "warming up" };
+const STATE_WORD = { folding: "folding", idle: "ready", busy: "busy", resetting: "no reading", warming: "warming up" };
 
 function paintLane({ el, q }, c) {
   const live = c.state !== "resetting";
@@ -104,8 +104,9 @@ function paintLane({ el, q }, c) {
     q.what.textContent = f.name ?? "A protein";
     q.detail.textContent = `${f.residues ?? "?"} residues`;
   } else if (c.state === "resetting") {
-    q.what.textContent = "Resetting";
-    q.detail.textContent = "readings return when the chip does";
+    // telemetry only knows the chip gave no reading (a reset, a hang, or a lent board look the same)
+    q.what.textContent = "No reading";
+    q.detail.textContent = "clock and heartbeat not answering";
   } else if (c.state === "warming") {
     q.what.textContent = "Warming up";
     q.detail.textContent = "compiling for the booth's proteins";
