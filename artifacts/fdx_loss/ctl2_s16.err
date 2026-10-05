@@ -1,0 +1,14 @@
+terms binder_contacts=+1.000,binder_helicity=-0.300,binder_pae=+0.400,compactness=+0.500,interface_contacts=+1.000,interface_pae=+0.100,iptm_loss=+0.050,plddt_loss=+0.100
+step 1/16 loss=5.227099 binder_rg=7.9052 binder_resolved=0.834705 41.1s
+step 2/16 loss=4.800174 binder_rg=7.6143 binder_resolved=0.903187 15.4s
+step 3/16 loss=4.531204 binder_rg=7.3464 binder_resolved=0.932361 15.5s
+step 4/16 loss=4.710811 binder_rg=7.2438 binder_resolved=0.958366 15.7s
+step 5/16 loss=4.536777 binder_rg=7.2717 binder_resolved=0.914974 15.9s
+step 6/16 loss=4.492693 binder_rg=7.2058 binder_resolved=0.931205 15.9s
+step 7/16 loss=4.408535 binder_rg=7.2232 binder_resolved=0.960240 15.5s
+step 8/16 loss=4.401504 binder_rg=7.2151 binder_resolved=0.961456 15.5s
+step 9/16 loss=4.369059 binder_rg=7.2646 binder_resolved=0.975148 16.2s
+step 10/16 loss=4.227295 binder_rg=7.1938 binder_resolved=0.952424 15.3s
+step 11/16 loss=4.210292 binder_rg=7.1528 binder_resolved=0.943162 15.7s
+step 12/16 loss=4.412139 binder_rg=7.2844 binder_resolved=0.913095 15.8s
+step 13/16 loss=4.167616 binder_rg=7.0975 binder_resolved=0.915379 15.5s

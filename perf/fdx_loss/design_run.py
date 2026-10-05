@@ -69,6 +69,19 @@ def binder_radius(protein) -> float:
     return float(numpy.sqrt(numpy.square(points - points.mean(0)).sum(-1).mean()))
 
 
+def binder_resolved(prediction, protein_complex) -> float:
+    """The binder's mean `experimentally_resolved_ca`, in numpy.
+
+    Recorded for every arm by this one function, so the control's curve and the effect arm's are
+    measured by the same code and neither reads back its own objective.
+    """
+    from bindcraft.loss import chain_residue_slices
+
+    rows = chain_residue_slices(protein_complex)[BINDER_CHAIN]
+    values = numpy.asarray(prediction.metrics['experimentally_resolved_ca'], dtype=numpy.float64)
+    return float(values[rows].mean())
+
+
 def padded_token_count(protein_states) -> int:
     padded = pad_design_chains(protein_states, LENGTH_BUCKET, 0)
     return sum(len(protein) for protein_complex in padded.values() for protein in protein_complex.values())
@@ -110,9 +123,12 @@ def run_design(steps: int, seed: int, hook) -> dict:
             # An observation, not a feedback: computed in numpy off the prediction, consumes no
             # randomness and enters no graph, so it cannot move the digest.
             radius = binder_radius(prediction.protein_complex[BINDER_CHAIN])
-            trace.append({'step': step + 1, 'loss': float(design_loss), 'binder_rg': radius})
+            resolved = binder_resolved(prediction, protein_states[TARGET_STATE])
+            trace.append({'step': step + 1, 'loss': float(design_loss), 'binder_rg': radius,
+                          'binder_resolved': resolved})
             print(f'step {step + 1}/{steps} loss={float(design_loss):.6f} binder_rg={radius:.4f} '
-                  f'{time.perf_counter() - started:.1f}s', file=sys.stderr, flush=True)
+                  f'binder_resolved={resolved:.6f} {time.perf_counter() - started:.1f}s',
+                  file=sys.stderr, flush=True)
     binder = prediction.protein_complex[BINDER_CHAIN]
     return {'tokens': padded_token_count(protein_states),
             'steps': steps,

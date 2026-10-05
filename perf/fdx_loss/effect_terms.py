@@ -44,6 +44,44 @@ def tight_binder(protein_states, predictions, prediction_state="binder_alone", c
     return jnp.sqrt((jnp.square(coordinates - centroid).sum(-1) * weight).sum() + 1e-8)
 
 
+def resolved_binder(protein_states, predictions, prediction_state="complex", chain="binder"):
+    """Push up the binder's mean probability of being experimentally resolved.
+
+    The arm the effect measurement actually uses, chosen because **no term in BindCraft 2's
+    default set reads `experimentally_resolved_ca`**: its own `experimentally_resolved` term is
+    registered but weighted 0, so the default objective is indifferent to this quantity and the
+    two arms can separate on it. A term that duplicates one of the eight default terms cannot
+    demonstrate anything, which is what the `tight_binder` arm found out the hard way: it
+    restates `compactness`, so the control was already optimising it.
+    """
+    import jax.numpy as jnp
+    from bindcraft.loss import chain_residue_slices, resolve_prediction_state
+    from bindcraft.protein import ResidueFlags, has_residue_flag
+
+    prediction_state = resolve_prediction_state(predictions, prediction_state)
+    complex_chains = protein_states[prediction_state]
+    rows = chain_residue_slices(complex_chains)[chain]
+    resolved = predictions[prediction_state].metrics["experimentally_resolved_ca"][rows]
+    designed = has_residue_flag(complex_chains[chain].flags,
+                                ResidueFlags.DESIGN).astype(resolved.dtype)
+    return 1.0 - resolved.dot(designed) / (designed.sum() + 1e-8)
+
+
+#: Comparable to BindCraft 2's own weights rather than dominant. The quantity is 0-1, like the
+#: one `plddt_loss` reads at 0.1, and the whole default objective sits around 4.5, so 1.0 makes
+#: the term about a tenth of the loss: enough to move the design, not enough to take the
+#: optimiser over. `tight_binder` at 8.0 did take it over and oscillated from step 5.
+RESOLVED_WEIGHT = 1.0
+
+
+@contextlib.contextmanager
+def with_resolved_binder():
+    """The effect arm: one added term on a quantity the default objective ignores."""
+    with bindcraft2.loss_terms(
+            add={"resolved_binder": (resolved_binder, RESOLVED_WEIGHT)}) as installed:
+        yield installed
+
+
 @contextlib.contextmanager
 def with_tight_binder():
     """What `design_run.py --loss-module perf.fdx_loss.effect_terms --loss-attr with_tight_binder`
