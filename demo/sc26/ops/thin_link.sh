@@ -52,8 +52,10 @@ case ${1:-} in
   shape) shape "$2" "$3" "$4" ;;
   bytes) cat /sys/class/net/veth-h/statistics/rx_bytes /sys/class/net/veth-h/statistics/tx_bytes | paste -sd' ' ;;
   down)
-    pkill -INT -f "asyncio.* $HOST [0-9]+ 127.0.0.1" || true
-    sudo ip netns pids $NS 2>/dev/null | xargs -r sudo kill -INT || true
+    # both relays by what they forward, so one left in an earlier namespace goes too; TERM, since a
+    # relay started in the background ignores INT
+    pkill -TERM -f "asyncio.* ($HOST [0-9]+ 127.0.0.1|$PEER [0-9]+ $HOST) " || true
+    sudo ip netns pids $NS 2>/dev/null | xargs -r sudo kill -TERM || true
     sudo ip link del veth-h 2>/dev/null || true; sudo ip netns del $NS 2>/dev/null || true ;;
   *) sed -n 2,16p "$0"; exit 2 ;;
 esac
