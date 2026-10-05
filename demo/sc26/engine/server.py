@@ -702,6 +702,11 @@ class Service:
                         await asyncio.wait_for(c.proc.wait(), self.args.term_s)
                     except asyncio.TimeoutError:
                         c.proc.terminate()
+                        await self._wait_exit(c.proc, self.args.term_s)
+                    # close the worker's pipe while the loop still runs: left to the garbage
+                    # collector it is closed after asyncio.run, which prints "Event loop is closed"
+                    c.proc.stdin.close()
+            await asyncio.sleep(0)
 
     def shutdown(self):
         self.stopping = True
