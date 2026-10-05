@@ -507,16 +507,42 @@ def _call(function, leaves, protein_states, predictions, params):
     return function(states, built, **(params or {}))
 
 
+def _check_value(name: str, value) -> None:
+    """Refuse what a term returned, before anything tries to differentiate it."""
+    import jax.numpy as jnp
+
+    array = jnp.asarray(value)
+    if array.ndim != 0:
+        raise LossTermError(
+            f"loss term {name!r} returned shape {tuple(array.shape)}; a term must return a "
+            "scalar, because BindCraft 2 multiplies it by one weight and sums it with the "
+            "others. Reduce it yourself -- and if it is a per-residue quantity, reduce it with a "
+            "mask rather than .mean(), or padding and the target chain count towards your term "
+            "(bindcraft.protein.real_residue_mask gives you the mask)")
+    if not bool(jnp.isfinite(array)):
+        raise LossTermError(
+            f"loss term {name!r} returned {float(array)} on a small synthetic design. A "
+            "non-finite term makes the whole design loss non-finite, and BindCraft 2 throws that "
+            "trajectory away; guard your divisions, logs and sqrts with an eps the way "
+            "BindCraft 2's own terms do")
+
+
 def _screen(name: str, function: Callable, *, design=None) -> None:
     """Refuse a term that cannot move a design, before a campaign runs it for hours."""
     import jax
     import jax.numpy as jnp
 
+    # The forward pass first and on its own: a term that does not return a scalar has to be
+    # named for that, not reported as whatever jax.grad says when handed a vector.
     try:
         protein_states, predictions = design or synthetic_design()
         leaves = _leaves(protein_states, predictions)
-        value, gradient = jax.value_and_grad(
-            lambda l: _call(function, l, protein_states, predictions, None))(leaves)
+        scalar = lambda current: _call(function, current, protein_states, predictions, None)
+        value = scalar(leaves)
+        _check_value(name, value)
+        gradient = jax.grad(scalar)(leaves)
+    except LossTermError:
+        raise
     except Exception as exc:  # the term may need a chain layout the synthetic design lacks
         warnings.warn(
             f"loss term {name!r} could not be screened for a dead gradient: {type(exc).__name__}: "
@@ -526,15 +552,6 @@ def _screen(name: str, function: Callable, *, design=None) -> None:
             "bindcraft2.check_gradient before you spend a campaign on it.",
             RuntimeWarning, stacklevel=4)
         return
-    if jnp.asarray(value).ndim != 0:
-        raise LossTermError(f"loss term {name!r} returned shape {jnp.asarray(value).shape}; a "
-                            "term must return a scalar, because BindCraft 2 multiplies it by one "
-                            "weight and sums it with the others")
-    if not bool(jnp.isfinite(value)):
-        raise LossTermError(f"loss term {name!r} returned {value} on a small synthetic design. A "
-                            "non-finite loss makes the whole design loss non-finite and the "
-                            "trajectory is thrown away; guard your divisions and logs "
-                            "(BindCraft 2's own terms carry an eps for this)")
     magnitudes = {key: float(jnp.abs(value).max()) for key, value in gradient.items()
                   if jnp.size(value)}
     if any(not jnp.isfinite(value).all() for value in gradient.values()):
@@ -579,38 +596,64 @@ def _screen(name: str, function: Callable, *, design=None) -> None:
 # --------------------------------------------------------------------------------------------
 
 
+#: Step sizes the grade sweeps, as a fraction of the input's own scale. One step size cannot
+#: serve both kinds of term: BindCraft 2's helpers compute in float32, where a central difference
+#: at 1e-6 of the scale is below the forward's own resolution and measures nothing but rounding
+#: (plddt_loss grades 7.3e-02 at 1e-6 and 3.5e-05 at 1e-2), while a term written in plain
+#: jax.numpy over float64 inputs wants the small step. So sweep and report the best, with the
+#: step that achieved it -- the finite difference is the instrument here, not the answer.
+_STEPS = (1e-2, 1e-3, 1e-4, 1e-5, 1e-6)
+
+
 @dataclass(frozen=True)
 class GradeRow:
-    """One input array's grade: the analytic gradient against central differences."""
+    """One input array's grade: the analytic gradient against float64 central differences."""
 
     leaf: str
+    #: How many entries were probed. 0 means the analytic gradient is zero everywhere in this
+    #: array, so there was nothing to compare and the term does not read it.
     probes: int
+    #: Worst absolute deviation over the probes, each probe taken at its best step size.
     max_abs: float
+    #: ``max_abs`` over ``gradient``: the deviation against the scale of the gradient itself.
+    #: Normalising per entry instead would read 1.0 wherever both numbers are near zero, which
+    #: on a 64-bin distogram is most entries, and would say nothing about the gradient.
     max_rel: float
-    scale: float
+    #: The relative step at which the worst probe was measured, as a fraction of the input scale.
+    step: float
+    #: max |analytic| over the array, the scale ``max_rel`` is relative to.
+    gradient: float
 
     def __str__(self) -> str:
-        return (f"{self.leaf:<44s} n={self.probes:<4d} max|d|={self.max_abs:.3e} "
-                f"rel={self.max_rel:.3e}")
+        if not self.probes:
+            return f"{self.leaf:<40s} no gradient"
+        return (f"{self.leaf:<40s} n={self.probes:<3d} |g|max={self.gradient:.3e} "
+                f"max|d|={self.max_abs:.2e} rel={self.max_rel:.2e} at h={self.step:.0e}")
 
 
 def check_gradient(function: Callable, *, params: Mapping | None = None, design=None,
-                   probes: int = 24, step: float | None = None, seed: int = 0,
-                   bar: float = 1e-5):
+                   probes: int = 8, steps=_STEPS, seed: int = 0, bar: float = 1e-4):
     """Grade a term's analytic gradient against float64 central differences.
 
-    Runs the term in float64 (``jax_enable_x64`` for the duration, restored after) on
-    :func:`synthetic_design`, takes ``jax.grad`` once, then re-evaluates the term at
-    ``+-step`` on ``probes`` randomly chosen entries of each differentiable input and compares.
-    Returns ``(rows, worst)``: a :class:`GradeRow` per input array, and the worst relative
-    deviation over all of them.
+    Takes ``jax.grad`` of the term once on :func:`synthetic_design` with ``jax_enable_x64`` on
+    (restored after), then re-evaluates the term at ``+-h`` on ``probes`` entries of each input
+    the gradient is non-zero in, sweeping ``h`` over :data:`_STEPS` and keeping the best. Returns
+    ``(rows, worst, dtype)``: a :class:`GradeRow` per input array, the worst relative deviation
+    over all of them, and the dtype the term's own forward came out in.
 
-    The bar is not uniform and that is a property of BindCraft 2, not of the grade. Its own
-    helpers -- ``pairwise_atom_distances``, ``distogram_pair_loss``, ``kabsch`` -- cast to
-    float32 inside, so a term built on them grades to about 1e-6 relative however careful the
-    finite differences are, while a term written in plain ``jax.numpy`` over ``plddt``, ``pae``
-    or ``distogram`` grades to float64. ``bar`` is only what this function warns against;
-    it never raises on a deviation, because the number is the answer.
+    **Probes go where the gradient is**, largest ``|analytic|`` first and then at random. Drawing
+    uniformly would be close to useless on ``atoms``, which is ``[L, 37, 3]`` with four atoms per
+    residue set: 8 uniform draws out of 2664 entries essentially never land on the CA a term
+    reads, and every one of them would agree at exactly zero.
+
+    **The bar is not uniform, and that is a property of BindCraft 2 rather than of this grade.**
+    Its helpers -- ``_masked_mean``, ``pairwise_atom_distances``, ``distogram_pair_loss``,
+    ``kabsch`` -- compute in float32, so the *third* return value is ``float32`` for any term
+    built on them and the best achievable relative agreement is around 1e-4 to 1e-5 however the
+    step is chosen. A term written in plain ``jax.numpy`` over ``plddt``, ``pae`` or
+    ``distogram`` stays in float64 and grades to around 1e-9. Read your number against the dtype
+    this returns, not against a single figure. ``bar`` is only what it warns at; it never raises,
+    because the number is the answer.
     """
     import jax
     import jax.numpy as jnp
@@ -619,45 +662,61 @@ def check_gradient(function: Callable, *, params: Mapping | None = None, design=
     jax.config.update("jax_enable_x64", True)
     try:
         protein_states, predictions = design or synthetic_design(dtype=jnp.float64)
-        leaves = _leaves(protein_states, predictions)
-        leaves = {key: jnp.asarray(value, dtype=jnp.float64) for key, value in leaves.items()}
+        leaves = {key: jnp.asarray(value, dtype=jnp.float64)
+                  for key, value in _leaves(protein_states, predictions).items()}
 
         def scalar(current):
             return _call(function, current, protein_states, predictions, params)
 
+        value = scalar(leaves)
+        _check_value("the term under grade", value)
+        dtype = jnp.asarray(value).dtype
         analytic = jax.grad(scalar)(leaves)
-        rows, worst = [], 0.0
-        key = jax.random.PRNGKey(seed)
+
+        rows, worst, key = [], 0.0, jax.random.PRNGKey(seed)
         for leaf in sorted(leaves):
-            base = leaves[leaf]
-            size = int(jnp.size(base))
-            if not size:
+            base, exact = leaves[leaf], analytic[leaf]
+            flat_exact = exact.reshape(-1)
+            live = jnp.nonzero(flat_exact)[0]
+            peak = float(jnp.abs(flat_exact).max()) if jnp.size(flat_exact) else 0.0
+            if not jnp.size(live):
+                rows.append(GradeRow(leaf, 0, 0.0, 0.0, 0.0, peak))
                 continue
+            order = jnp.argsort(-jnp.abs(flat_exact[live]))
+            ranked = live[order]
             key, draw = jax.random.split(key)
-            picks = jax.random.choice(draw, size, (min(probes, size),), replace=False)
+            picks = ranked[:probes]
+            if jnp.size(ranked) > probes:  # half by magnitude, half at random among the live
+                spread = jax.random.choice(draw, ranked[probes // 2:],
+                                           (min(probes - probes // 2, jnp.size(ranked) - probes // 2),),
+                                           replace=False)
+                picks = jnp.concatenate([ranked[:probes // 2], spread])
             scale = float(jnp.abs(base).max()) or 1.0
-            h = step if step is not None else max(1e-6 * scale, 1e-9)
-            max_abs = max_rel = 0.0
             flat = base.reshape(-1)
+            max_abs = max_rel = 0.0
+            best_step = float(steps[0])
             for position in picks.tolist():
-                shifted = {**leaves}
-                shifted[leaf] = flat.at[position].add(h).reshape(base.shape)
-                up = float(scalar(shifted))
-                shifted[leaf] = flat.at[position].add(-h).reshape(base.shape)
-                down = float(scalar(shifted))
-                numeric = (up - down) / (2 * h)
-                exact = float(analytic[leaf].reshape(-1)[position])
-                absolute = abs(numeric - exact)
-                max_abs = max(max_abs, absolute)
-                max_rel = max(max_rel, absolute / max(abs(numeric), abs(exact), 1e-12))
-            rows.append(GradeRow(leaf, len(picks), max_abs, max_rel, scale))
+                truth = float(flat_exact[position])
+                attempts = []
+                for relative in steps:
+                    h = relative * scale
+                    up = float(scalar({**leaves, leaf: flat.at[position].add(h).reshape(base.shape)}))
+                    down = float(scalar({**leaves, leaf: flat.at[position].add(-h).reshape(base.shape)}))
+                    numeric = (up - down) / (2 * h)
+                    absolute = abs(numeric - truth)
+                    attempts.append((absolute, float(relative)))
+                absolute, relative = min(attempts)
+                if absolute > max_abs:
+                    max_abs, best_step = absolute, relative
+            max_rel = max_abs / max(peak, 1e-30)
+            rows.append(GradeRow(leaf, int(jnp.size(picks)), max_abs, max_rel, best_step, peak))
             worst = max(worst, max_rel)
         if worst > bar:
             warnings.warn(
-                f"the worst relative deviation is {worst:.3e}, over the {bar:.0e} bar. If the "
-                "term uses one of BindCraft 2's float32-casting helpers that is expected; if it "
-                "is plain jax.numpy, the gradient is wrong somewhere", RuntimeWarning,
-                stacklevel=2)
-        return rows, worst
+                f"the worst relative deviation is {worst:.3e}, over the {bar:.0e} bar, with the "
+                f"term's own forward in {dtype}. In float32 that can still be the finite "
+                "difference rather than the gradient; in float64 it is the gradient and it is "
+                "wrong somewhere", RuntimeWarning, stacklevel=2)
+        return rows, worst, dtype
     finally:
         jax.config.update("jax_enable_x64", enabled)
