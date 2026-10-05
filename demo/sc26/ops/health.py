@@ -2,7 +2,8 @@
 
     ops/sc26ctl health          (or: python3 demo/sc26/ops/health.py)
 
-The first line is HEALTHY, REPAIRING ITSELF or NOT HEALTHY, then one line per thing it checked.
+The first line is HEALTHY, REPAIRING ITSELF or NOT HEALTHY, then one line per thing it checked. Lanes count from 1
+as on the screen, chips from 0 as in  and SC26_CHIPS.
 Exit status 0 when healthy or repairing within its usual time, 1 otherwise. Reads only what the
 demo already publishes: the engine's /status and the watchdog's log. It changes nothing.
 """
@@ -74,13 +75,13 @@ def main():
                     break
                 since = r["t"]
             (repairing if now - since < REPAIR_S else bad).append(
-                f"Chip {c['chip'] + 1} is {c['state']} for {ago(now - since)}"
+                f"Lane {c['chip'] + 1} (chip {c['chip']}) is {c['state']} for {ago(now - since)}"
                 + (" (normal: it repairs itself within about 10 min)." if now - since < REPAIR_S
                    else ". It should have recovered by now."))
         if not st.get("replays"):
             bad.append("No recorded folds loaded: if every chip stops, the stage has nothing to show.")
         if out:
-            ok.append(f"Out of service on purpose: chip {', '.join(str(c + 1) for c in out)}.")
+            ok.append("Out of service on purpose: " + ", ".join(f"lane {c + 1} (chip {c})" for c in out) + ".")
         if st.get("queue"):
             ok.append(f"{st['queue']} visitor folds waiting.")
 
@@ -118,8 +119,8 @@ def main():
     for line in bad + repairing + ok:
         print("  " + line)
     if bad:
-        print("  What to do: wait 2 minutes and run this again. If it still says NOT HEALTHY, restart the box "
-              "(one short press of the power button) and call Moritz.")
+        print("  What to do: wait 2 minutes and run this again. If it still says NOT HEALTHY, run "
+              "`sc26ctl restart` and call Moritz.")
     return 1 if bad else 0
 
 

@@ -28,3 +28,4 @@ while [ $stop = 0 ]; do
   echo "$(date -Is) firefox exited rc=$rc, restarting" >>"$log"
   [ $stop = 0 ] && sleep 1
 done
+exit 0
