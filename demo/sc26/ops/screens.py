@@ -1,0 +1,63 @@
+"""Say what the screen showed at every sample of a chaos run, from the saved shots.
+
+    python3 demo/sc26/ops/screens.py ~/sc26-logs/soak-1005T2100
+
+chaos.py calls a sample "moving" when it differs from the one before, so the sway poster that
+shows for a second or two after a browser crash counts as moving. This labels each shot instead:
+page (the live app), poster (sway's background still, the browser is not up), flat (one colour,
+a blank frame), same (identical to the previous shot of a page: frozen), or what chaos.py saw
+when there was no shot (display lost, compositor stuck, nothing). blank and same are failures.
+"""
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+from PIL import Image, ImageOps
+
+POSTER = Path(__file__).parent / "session" / "poster.png"
+
+
+def label(path, poster, prev):
+    img = np.asarray(Image.open(path).convert("RGB"), dtype=np.int16)
+    if len(np.unique(img[::7, ::7].reshape(-1, 3), axis=0)) <= 3:
+        return "flat", img
+    if poster is not None and img.shape == poster.shape and np.abs(img - poster).mean() < 8:
+        return "poster", img
+    if prev is not None and prev.shape == img.shape and np.array_equal(prev, img):
+        return "same", img
+    return "page", img
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("run")
+    a = ap.parse_args()
+    run = Path(a.run).expanduser()
+    poster, counts, bad = None, {}, []
+    for line in open(run / "events.jsonl"):
+        e = json.loads(line)
+        prev, row = None, []
+        for s in e.get("screen", []):
+            shot = run / "shots" / f"{e['i']:03d}-{e['event']}-{s['t']:03d}s.ppm"
+            if not shot.exists():
+                lab = s.get("display", "none")
+            else:
+                if poster is None:
+                    size = Image.open(shot).size
+                    poster = np.asarray(ImageOps.fit(Image.open(POSTER).convert("RGB"), size), dtype=np.int16)
+                lab, img = label(shot, poster, prev)
+                prev = img if lab == "page" else None
+            counts[lab] = counts.get(lab, 0) + 1
+            row.append(f"{s['t']}s:{lab}")
+            if lab in ("flat", "same"):
+                bad.append(f"{e['i']} {e['event']} +{s['t']}s {lab}")
+        live = next((r.split(":")[0] for r in row if r.endswith(":page")), "never")
+        print(f"{e['i']:3d} {e['event']:15s} live page from {live:>5s}  {' '.join(row)}")
+    print("samples:", ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
+    print("blank or frozen:", "; ".join(bad) if bad else "none")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
