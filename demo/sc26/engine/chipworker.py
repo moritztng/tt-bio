@@ -228,8 +228,8 @@ class openfold3_runner:
             self.model.dump_fn = own
         conf = res.confidence[res.best_index]
         # Per-residue pLDDT: the mean over each residue's atoms (the head scores atoms).
-        res, n = prep["res"], int(prep["res"].max()) + 1
-        per = torch.zeros(n).index_add_(0, res, conf["plddt_atom"].float()) / torch.bincount(res, minlength=n)
+        r, n = prep["res"], int(prep["res"].max()) + 1
+        per = torch.zeros(n).index_add_(0, r, conf["plddt_atom"].float()) / torch.bincount(r, minlength=n)
         return res.coordinates, per.tolist(), round(float(conf["ptm"]), 4)
 
 
