@@ -98,6 +98,8 @@ class Chaos:
         (self.out / "shots").mkdir(parents=True, exist_ok=True)
         self.log = open(self.out / "events.jsonl", "a", buffering=1)
         self.wlog = Path(os.path.expanduser(a.watchdog_log))
+        # health.py reads this so a restart the test caused is not counted against the booth
+        self.marks = open(self.wlog.parent / "chaos.jsonl", "a", buffering=1)
         self.rng = random.Random(a.seed)
         self.frozen, self.hold = None, 0
 
@@ -268,6 +270,7 @@ class Chaos:
 
     def run_event(self, i, ev):
         t0 = time.time()
+        self.marks.write(json.dumps({"t": round(t0, 1), "event": ev}) + "\n")
         what = self.act(ev)
         samples, prev = [], None
         for dt in (2, 5, 10, 20, 40, 60, 90, 120, 180, 240, 300):
