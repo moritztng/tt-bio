@@ -198,7 +198,7 @@ class Folds:
     def __init__(self, path: Path = EVENTS):
         self.path, self.pos, self.ino = Path(path), 0, None
         self.current: dict[int, dict] = {}
-        self.done: dict[int, list[dict]] = {}
+        self.done: dict[int, deque] = {}
 
     def poll(self) -> None:
         try:
@@ -225,7 +225,12 @@ class Folds:
         elif e["event"] in ("done", "fail"):
             start = self.current.pop(card, None)
             if e["event"] == "done" and e.get("seconds"):
-                self.done.setdefault(card, []).append({**(start or {}), **e, "t0": (start or {}).get("t")})
+                done = self.done.setdefault(card, deque())
+                done.append({**(start or {}), **e, "t0": (start or {}).get("t")})
+                # Only today's folds are read. Keeping every fold since the file began grew the
+                # engine's memory, and the time to build a snapshot, by the day.
+                while done[0]["t"] < e["t"] - 86400:
+                    done.popleft()
 
 
 def _midnight(now: float) -> float:

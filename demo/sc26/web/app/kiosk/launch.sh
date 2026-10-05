@@ -15,8 +15,11 @@ prof=${SC26_KIOSK_PROFILE:-$HOME/sc26kiosk/profile}
 log=${SC26_KIOSK_LOG:-$HOME/sc26kiosk/firefox.log}
 export MOZ_CRASHREPORTER_DISABLE=1 MOZ_CRASHREPORTER_NO_REPORT=1 GTK_USE_PORTAL=0
 [ -n "${WAYLAND_DISPLAY:-}" ] && export MOZ_ENABLE_WAYLAND=1
-stop=0; trap 'stop=1; kill -TERM "$pid" 2>/dev/null' INT TERM
+pid=; stop=0; trap 'stop=1; kill -TERM "$pid" 2>/dev/null' INT TERM
 while [ $stop = 0 ]; do
+  # Open only on a page that answers: a browser restarted while the engine restarts would land on
+  # Firefox's "Unable to connect", which is an error on screen and never retries by itself.
+  until curl -sf -o /dev/null --max-time 2 "$url"; do [ $stop = 0 ] || exit 0; sleep 1; done
   rm -rf "$prof"; mkdir -p "$prof"
   cp "$here/user.js" "$prof/user.js"
   firefox --no-remote --profile "$prof" --kiosk "$url" >>"$log" 2>&1 &

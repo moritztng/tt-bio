@@ -19,6 +19,7 @@ import itertools
 import json
 import os
 import signal
+import socket
 import struct
 import sys
 import time
@@ -44,6 +45,18 @@ def aiclk(node):
         return None if v == 0xFFFFFFFF else v
     except (OSError, ValueError, IndexError):
         return None
+
+
+def sd_notify(msg):
+    """Tell systemd something (sd_notify(3)); a no-op outside a unit that listens."""
+    addr = os.environ.get("NOTIFY_SOCKET", "")
+    if not addr:
+        return
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as s:
+            s.sendto(msg.encode(), "\0" + addr[1:] if addr[0] == "@" else addr)
+    except OSError:
+        pass
 
 
 class Hub:
@@ -295,7 +308,9 @@ class Replay:
     @staticmethod
     def load(path):
         lines = path.read_text().splitlines()
-        if '"xyz":' in lines[1 if len(lines) > 1 else 0]:   # protocol 1: coordinates in every frame
+        # protocol 2 keeps every state in the fold_done line; protocol 1 has coordinates in each
+        # frame instead (and a recording can open with stage lines, so look at the end, not line 2)
+        if lines and '"frames":' not in lines[-1]:
             try:
                 import trajectory   # numpy; a recording written since protocol 2 needs nothing
             except ImportError:
@@ -568,6 +583,9 @@ class Service:
                     c.last_event = now
                     asyncio.get_running_loop().call_later(self.args.term_s, self._term, c, c.proc)
             self.hub.send(self.status())
+            # The unit's WatchdogSec: an event loop that is alive and stuck stops saying this, and
+            # systemd restarts the engine. SIGINT could not have done it; its handler runs on this loop.
+            sd_notify("WATCHDOG=1")
 
     def _term(self, c, proc):
         if proc and proc.returncode is None:  # SIGINT was not enough: SIGTERM, still never SIGKILL
@@ -686,6 +704,11 @@ class Service:
                         await asyncio.wait_for(c.proc.wait(), self.args.term_s)
                     except asyncio.TimeoutError:
                         c.proc.terminate()
+                        await self._wait_exit(c.proc, self.args.term_s)
+                    # close the worker's pipe while the loop still runs: left to the garbage
+                    # collector it is closed after asyncio.run, which prints "Event loop is closed"
+                    c.proc.stdin.close()
+            await asyncio.sleep(0)
 
     def shutdown(self):
         self.stopping = True

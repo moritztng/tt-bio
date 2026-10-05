@@ -50,6 +50,8 @@ overnight, press the power button in the morning.
 **Moritz Thüning**, phone ______________________, mthuening@tenstorrent.com.
 Say what the screen shows and since when. With the Ethernet in, he can fix most things remotely.
 
-<p class="foot">For whoever answers the call: <code>~/sc26/demo/sc26/ops/sc26ctl status | restart | logs</code>
-as ttuser on qb2. A restart can take 90 s or more to stop the engine; never send it SIGKILL.
+<p class="foot">For whoever answers the call: <code>~/sc26/demo/sc26/ops/sc26ctl health</code> as ttuser
+on qb2 answers HEALTHY, REPAIRING ITSELF or NOT HEALTHY in plain words, one line per part; read it
+out as it is. <code>sc26ctl status | restart | logs</code> for the rest. A restart can take 90 s or
+more to stop the engine; never send it SIGKILL.
 Details in <code>ops/README.md</code>; talking points in <code>TALKING.md</code>.</p>

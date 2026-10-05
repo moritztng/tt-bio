@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# The kiosk browser, as the sc26-kiosk user unit runs it: wait until the app answers, so the
-# browser never opens on a connection error, then run the app's own launcher (web/app/kiosk) with
-# Marionette on 127.0.0.1 so the watchdog can see the page's URL and frame rate.
+# The kiosk browser, as the sc26-kiosk user unit runs it: the app's own launcher (web/app/kiosk),
+# which opens Firefox only once the app answers, with Marionette on 127.0.0.1 so the watchdog can
+# see the page's URL and frame rate.
 #
 #   kiosk.sh          start
 #   kiosk.sh --stop   end every Firefox on the kiosk profile (the unit's ExecStopPost)
@@ -27,6 +27,5 @@ reap(){
 }
 if [ "${1:-}" = --stop ]; then reap; exit 0; fi
 reap
-until curl -sf -o /dev/null --max-time 2 "$url"; do sleep 1; done
 export MOZ_MARIONETTE=1
 exec "$(dirname "$ops")/web/app/kiosk/launch.sh" "$url"

@@ -2,6 +2,7 @@
 # Start, stop and install the SC26 booth demo on qb2.
 #
 #   sc26ctl start | stop | restart     the demo (engine, kiosk browser, watchdog)
+#   sc26ctl health                     HEALTHY or not, in plain words (exit 1 when not)
 #   sc26ctl status                     units, chips, and the last watchdog line
 #   sc26ctl logs                       follow every demo unit's journal
 #   sc26ctl units                      install the user units only (no boot change)
@@ -84,9 +85,10 @@ case "${1:-}" in
     port=${SC26_PORT:-$(sed -n 's/^SC26_PORT=//p' "$cfg/env" 2>/dev/null)}
     curl -s --max-time 3 "http://127.0.0.1:${port:-8626}/status" | "$py" -c 'import json,sys; s=json.load(sys.stdin); print("chips:", " ".join("%s:%s@%s" % (c["chip"], c["state"], c["aiclk_mhz"]) for c in s["chips"]) or "none (replay only)", "| queue", s["queue"])' || echo "engine: not answering"
     tail -n 1 "$HOME/sc26-logs/watchdog.jsonl" 2>/dev/null || true ;;
+  health) exec "$py" "$ops/health.py" ;;
   logs) journalctl --user -f -u 'sc26-*' ;;
   units) install_user; echo "user units installed (no boot change)" ;;
   install) install_user; install_system; echo "installed: the next boot lands on the demo" ;;
   uninstall) systemctl --user stop sc26.target || true; uninstall_system; echo "uninstalled" ;;
-  *) sed -n '2,12p' "$0"; exit 2 ;;
+  *) sed -n '2,13p' "$0"; exit 2 ;;
 esac

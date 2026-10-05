@@ -53,6 +53,10 @@ export class Renderer {
   // ---------------------------------------------------------------- data
   setTopology(topo) {
     const gl = this.gl;
+    // The page keeps one renderer for days and shows a new protein every half minute: free the
+    // last one's buffers, or the GPU memory they hold grows by the hour.
+    for (const b of [this.bufA, this.bufB, this.bufC, ...(this.meshBufs ?? [])]) gl.deleteBuffer(b ?? null);
+    for (const v of [this.vaoPoints, this.vaoMesh]) gl.deleteVertexArray(v ?? null);
     this.topo = topo;
     const n = topo.natom;
     this.bb = backbone(topo);
@@ -188,6 +192,10 @@ export class Renderer {
     this.scale = s;
     const w = Math.max(1, Math.round(W * s)), h = Math.max(1, Math.round(H * s));
     if (this.rt && this.rt.w === w && this.rt.h === h && this.rt.W === W && this.rt.H === H) return;
+    if (this.rt) {   // a new screen size (a display plugged in): free the old targets
+      gl.deleteTexture(this.rt.color); gl.deleteFramebuffer(this.rt.resolve); gl.deleteFramebuffer(this.rt.msFbo);
+      gl.deleteRenderbuffer(this.rt.cb); gl.deleteRenderbuffer(this.rt.db);
+    }
     const fmt = this.hdr ? gl.R11F_G11F_B10F : gl.RGBA8;
     const rt = { w, h, W, H };
     rt.color = texture(gl, w, h, fmt);
@@ -196,7 +204,7 @@ export class Renderer {
     rt.samples = samples;
     rt.msFbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, rt.msFbo);
-    const cb = gl.createRenderbuffer(), db = gl.createRenderbuffer();
+    const cb = rt.cb = gl.createRenderbuffer(), db = rt.db = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, cb);
     gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, fmt, w, h);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, cb);
