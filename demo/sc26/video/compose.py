@@ -269,6 +269,8 @@ def seam(args):
     print(f"period {P} s = {N} frames")
     for d, ka, kb, name in best[:8]:
         print(f"  cut at frame {ka} -> {kb}: {kb - ka} frames ({(kb - ka) / args.fps:.4f} s), off by {d}, {name}")
+    if best:
+        print("BEST", *best[0][:3])
 
 
 def main():
