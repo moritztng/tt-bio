@@ -12,14 +12,14 @@ const THREE = {
 };
 
 export class Stream {
-  constructor(url, { onFold, onChips, onStage, onReply, onOpen, timing, as } = {}) {
+  constructor(url, { onFold, onChips, onStage, onReply, onOpen, as } = {}) {
     this.url = url;
     this.cb = { onFold, onChips, onStage, onReply, onOpen };
-    this.timing = timing;    // progress.js Timing: learns each live fold's seconds per stage
     this.as = as;            // ?as=<model>: rehearse a model's screens on another model's stream
     this.open = {};          // id -> fold being collected
     this.chips = [];         // last status.chips
     this.jobs = {};          // job id -> {name, kind, model, chip, n, stage, step, total, t0, tChip, tAt}
+                             // tChip: the chip's seconds on this job at its last event, tAt: when that arrived
     this.connected = false;
     this.lastMessage = 0;
     this._connect();
@@ -54,11 +54,18 @@ export class Stream {
       case 'hello': case 'status':
         this.chips = m.chips ?? [];
         if (m.models) this.models = m.models;
+        // A fold that started before this page connected: the engine says what it is and when the chip
+        // took it, on the engine's own clock, so the elapsed time needs no clock shared with this browser.
+        for (const c of this.chips) {
+          const d = c.doing;
+          if (d && !this.jobs[d.id] && m.t_wall) this.jobs[d.id] = { name: d.name ?? null, kind: d.kind, model: this.models?.[0] ?? null,
+            chip: c.chip, n: d.n_res, stage: null, step: 0, total: 1, t0: now, tChip: Math.max(0, m.t_wall - d.t_wall), tAt: now };
+        }
         this.cb.onChips?.(this.chips);
         break;
       case 'chip': {
         const c = this.chips.find(c => c.chip === m.chip);
-        if (c) Object.assign(c, m);
+        if (c) Object.assign(c, m, { warming: m.state === 'warming' && m.name ? { name: m.name, n_res: m.n_res, stage: m.stage } : null });
         this.cb.onChips?.(this.chips);
         break;
       }
@@ -66,7 +73,7 @@ export class Stream {
         this.open[m.id] = { start: m, frames: [] };
         // no stage until the chip names one: the fold's first stage is the model's, not ours to guess
         this.jobs[m.id] = { name: m.name ?? null, kind: m.kind, model: m.model ?? null, chip: m.chip, n: m.n_res,
-          stage: null, step: 0, total: 1, t0: now, tChip: 0, tAt: now };
+          stage: null, step: 0, total: 1, t0: now, tChip: m.t ?? 0, tAt: now };
         // the server marks a chip busy without a 'chip' message (only 'ready' after each fold), so a
         // fold_start on a chip is what says it is busy and with which job
         { const c = this.chips.find(c => c.chip === m.chip);
@@ -90,7 +97,9 @@ export class Stream {
         delete this.open[m.id];
         const j = this.jobs[m.id];
         if (j) { j.stage = 'done'; j.seconds = m.seconds; j.tDone = now; this.cb.onStage?.(m.id, j, m); }
-        this.timing?.learn(m);
+        // the chip's last finished fold, measured; the status every 2 s says the same, this is sooner
+        { const c = this.chips.find(c => c.chip === m.chip);
+          if (c && m.chip != null && m.source === 'live') c.last_fold = { name: m.name ?? null, n_res: m.n_res, seconds: m.seconds }; }
         if (f && f.frames.length) this.cb.onFold?.(assemble(f.start, f.frames, m));
         break;
       }
@@ -122,7 +131,7 @@ export async function loadRecording(url) {
 // One finished fold, in the renderer's terms plus everything the words on screen need.
 function assemble(start, frames, done) {
   frames.sort((a, b) => a.step - b.step);
-  const seq = start.sequence;
+  const seq = start.sequence.replace(/:/g, '');   // a complex's chains arrive joined by ':'; atoms number residues across them
   const resName = [...seq].map(c => THREE[c] ?? 'UNK');
   const plddt = done.plddt ?? null;
   const topo = {

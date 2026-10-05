@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Expand the gallery store into protocol recordings, and write the manifest.
 
-    python3 demo/sc26/gallery/build.py            # store/ -> trajectories/*.jsonl + manifest.json
+    python3 demo/sc26/gallery/build.py            # store/ -> trajectories/*.jsonl, manifest.json, engine/attract.json
     python3 demo/sc26/gallery/build.py --check    # also replay every file through the parser
 
 The recordings are what engine/server.py replays (PROTOCOL.md, "Replay"). They are generated, not
 committed: a 200-step trajectory is 3x larger as base64 JSON than in store/. Run this once
 after a checkout; it takes a few seconds and the output is the same every time.
+
+It also writes engine/attract.json, the list the chips fold when no visitor is waiting: the same
+picks, with the same chains, so the chips fold live what the stage replays.
 """
 import argparse
 import base64
@@ -15,6 +18,8 @@ import lzma
 from pathlib import Path
 
 import numpy as np
+
+from record import yaml_for
 
 HERE = Path(__file__).resolve().parent
 
@@ -161,6 +166,11 @@ def main():
         about="Real OpenFold3 folds recorded on qb2. Every frame is a sampler state; see README.md.",
         entries=entries)
     (HERE / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    attract = [dict(name=pick["name"], story=pick["story"], pdb=pick["pdb"],
+                    chains=[dict(id=c["id"], role=c["role"], n_res=len(c["sequence"])) for c in pick["chains"]],
+                    sequence=":".join(c["sequence"] for c in pick["chains"]), yaml=yaml_for(pick))
+               for pick in sorted((picks[e["id"]] for e in entries), key=lambda p: p["n_res"])]
+    (HERE.parent / "engine" / "attract.json").write_text(json.dumps(attract, indent=1) + "\n")
     print(f"{len(entries)} entries, store {sum(e['store_bytes'] for e in entries) / 1e6:.1f} MB, "
           f"recordings {sum(e['recording_bytes'] for e in entries) / 1e6:.1f} MB")
 

@@ -1,6 +1,8 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel.
-   One type scale, in frame pixels: 12 caps labels, 13 captions, 15 small text, 17 the lineup, 18 body,
-   24 the line under the title, 36 the protein's name, 40 the title. Tabular figures only where a
+   One type scale, in frame pixels: 12 caps labels, 13 captions, 15 small text, 17 the lineup and the chip
+   rows, 18 body, 22 the line under the title, 36 the protein's name, 52 the title. The title is four
+   words now and the line under it carries the claim, so the title steps up and the line steps down to
+   stay on one line at any size. Tabular figures only where a
    number changes in place (the time, the step counter); everywhere else they space out hyphens.
    One grid: margins of 96 at the sides and 56 at top and bottom; the lineup and the right column
    start on one line (y 264), and the last chip's rule ends on the QR codes' bottom edge (y 1024). */
@@ -42,10 +44,10 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 .marks i { width: 1px; height: calc(21 * var(--p)); background: var(--ink3); }
 .marks b { font-weight: 560; font-size: calc(23 * var(--p)); letter-spacing: -0.005em; }
 /* the title, then one line under it */
-#sentence { margin: calc(32 * var(--p)) 0 0; width: calc(1200 * var(--p)); font-size: calc(24 * var(--p));
+#sentence { margin: calc(30 * var(--p)) 0 0; font-size: calc(22 * var(--p)); white-space: nowrap;
             line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade); }
-#sentence b { display: inline-block; margin-bottom: calc(8 * var(--p)); font-size: calc(40 * var(--p)); font-weight: 600;
-              letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); }
+#sentence b { display: inline-block; margin-bottom: calc(10 * var(--p)); font-size: calc(52 * var(--p)); font-weight: 600;
+              letter-spacing: -0.024em; line-height: 1.1; color: var(--ink); }
 
 /* the lineup: every model, down the left edge; the one the chips run is lit */
 #lineup { position: fixed; left: calc(96 * var(--p)); top: calc(264 * var(--p)); width: calc(200 * var(--p));
@@ -97,23 +99,30 @@ body.visitors aside { bottom: calc(150 * var(--p)); }   /* the invitation takes 
 #legend li { display: flex; align-items: center; gap: calc(7 * var(--p)); }
 #legend i { width: calc(9 * var(--p)); height: calc(9 * var(--p)); border-radius: 1px; }
 
-/* four chips, always visible */
-/* the table closes with a rule on the QR codes' bottom edge */
-#chips { list-style: none; margin: auto 0 0; padding: 0; border-bottom: 1px solid var(--rule); }
-#chips li { display: grid; grid-template-columns: calc(28 * var(--p)) 1fr; grid-template-rows: auto auto; align-items: baseline;
-            column-gap: calc(10 * var(--p)); padding: calc(9 * var(--p)) 0 calc(7 * var(--p)); border-top: 1px solid var(--rule);
-            font-size: calc(15 * var(--p)); font-weight: 400; color: var(--ink3); }
+/* four chips, always visible: under a label, one row each, closing with a rule on the QR codes' bottom edge.
+   A row: number, protein, the chip's stage counter, seconds; the sampler's steps as a bar; the last fold. */
+#chipshead { margin-top: auto; padding-bottom: calc(12 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560;
+             letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
+#chips { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
+#chips li { display: grid; grid-template-columns: calc(28 * var(--p)) 1fr auto calc(76 * var(--p)); align-items: baseline;
+            column-gap: calc(10 * var(--p)); padding: calc(12 * var(--p)) 0 calc(10 * var(--p)); border-top: 1px solid var(--rule);
+            font-size: calc(17 * var(--p)); font-weight: 400; color: var(--ink3); }
 #chips li .n { font-weight: 560; font-size: calc(12 * var(--p)); letter-spacing: 0.06em; }
 #chips li .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#chips li .what em { font-style: normal; color: var(--ink3); }
+#chips li .st, #chips li .t { font-size: calc(15 * var(--p)); white-space: nowrap; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
+#chips li .t { text-align: right; color: var(--ink2); }
+#chips li .last { grid-column: 2 / 5; margin-top: calc(6 * var(--p)); font-size: calc(13 * var(--p)); color: var(--ink3);
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
+#chips li .last:empty { display: none; }
 #chips li.busy .what { color: var(--ink); }
 #chips li.busy .n, #chips li.ready .n { color: var(--ink2); }
-#chips li .bar { grid-column: 2; height: 1px; margin-top: calc(7 * var(--p)); }
+#chips li .bar { grid-column: 2 / 5; height: 1px; margin-top: calc(8 * var(--p)); }
 #chips li.busy .bar { background: var(--rule); }
 #chips li .bar i { display: block; height: 100%; width: 0; background: var(--ink3); }
 #chips li.busy .bar i { transition: width 300ms linear; }
 #chips li.on .bar i { background: var(--live); }
 #chips li.on .n { color: var(--live); }
+#chips li .warn { color: var(--ember, #ffa866); }
 
 /* bottom band: QR left, invitation right */
 footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); bottom: calc(56 * var(--p)); height: calc(96 * var(--p));
@@ -162,11 +171,12 @@ body.touch[data-state=typing] #keys { display: grid; }
          opacity: 0; pointer-events: none; transition: opacity 600ms var(--fade); }
 body[data-state=depth] #depth { opacity: 1; }
 body[data-state=depth] aside, body[data-state=depth] #invite, body[data-state=depth] #tag { opacity: 0; }
-body[data-state=depth] #sentence { width: calc(820 * var(--p)); font-size: calc(22 * var(--p)); }   /* the subtitle too, at 1080p */
+body[data-state=depth] #sentence { width: calc(820 * var(--p)); white-space: normal; }   /* beside the hardware view the line wraps */
 aside, #invite, #tag { transition: opacity 600ms var(--fade); }
-body[data-state=typing] aside > :not(#chips) { opacity: 0; }
+body[data-state=typing] aside > :not(#chips, #chipshead) { opacity: 0; }
 body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }
 
-/* a chip that died says so while it comes back */
+/* a chip that died says so while it comes back; one taken out of the demo says so in plain ink */
 #chips li.recovering .what { color: var(--ember, #ffa866); }
+#chips li.oos .what { color: var(--ink2); }
 #chips li .what b { font-weight: 500; }

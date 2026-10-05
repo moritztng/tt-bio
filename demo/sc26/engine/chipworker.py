@@ -246,8 +246,8 @@ def main():
                     help="trunk recycles; default the model's own (ESMFold2 3, the others tt-bio predict's)")
     ap.add_argument("--msa-dir", default=str(Path(__file__).resolve().parent / "msa"),
                     help="OpenFold3 / Boltz-2: MSAs searched ahead of time, by tt-bio's sequence hash")
-    ap.add_argument("--warm", default="", help="a JSON list of {sequence} folded once before "
-                    "the chip says ready, so no shown fold carries a compile")
+    ap.add_argument("--warm", default="", help="a JSON list of {sequence, yaml?, name?} folded once "
+                    "before the chip says ready, so no shown fold carries a compile")
     ap.add_argument("--workers", type=int, default=1, help="chip workers sharing this host's CPU")
     args = ap.parse_args()
     # Each worker takes its share of the host. Left at torch's default, four pools of all cores
@@ -304,6 +304,7 @@ def main():
     def fold(job):
         emit = quiet if job.get("quiet") else loud
         jid, seq = job["id"], job["sequence"].strip().upper()
+        n_res = len(seq.replace(":", ""))   # a complex's chains are joined by ":" (gallery/build.py)
         seed, steps = int(job.get("seed", 0)), int(job.get("steps", args.steps))
         t_start = time.perf_counter()
         if args.model in RUNNERS:
@@ -327,6 +328,12 @@ def main():
         def progress(stage, step=0, total=0):
             if abort.is_set() or cancel.is_set():
                 raise Aborted()
+            if job.get("quiet") and time.perf_counter() - beat[0] > 5:
+                # A warm-up fold is not shown, but its stages are the chip working: the engine's
+                # watchdog hears them, and the lane says what the chip is compiling for.
+                beat[0] = time.perf_counter()
+                loud(type="chip", chip=args.chip, state="warming", warm=job.get("warm"), name=job.get("name"),
+                     n_res=n_res, stage=stage)
             # ttnn queues device work and returns, so without this a trunk recycle "ends" when its
             # last op is queued, seconds before the chip finishes it, and every recycle after the
             # first is stamped at the same instant. Waiting for the chip makes each stage's time
@@ -344,6 +351,7 @@ def main():
 
         prev = {"ref": None}
         pending = []
+        beat = [0.0]
 
         def stop_check(step, x, x_den):
             if abort.is_set() or cancel.is_set():
@@ -378,8 +386,8 @@ def main():
                 emit(**frame)
 
         emit(type="fold_start", id=jid, chip=args.chip, model=args.model, sequence=seq,
-             n_res=len(seq), n_atoms=n_atoms, steps=steps, loops=args.loops, seed=seed, atoms=atoms,
-             rg_expected=round(2.2 * len(seq) ** 0.38, 2), source="live",
+             n_res=n_res, n_atoms=n_atoms, steps=steps, loops=args.loops, seed=seed, atoms=atoms,
+             rg_expected=round(2.2 * n_res ** 0.38, 2), source="live",
              t=round(t_prep - t_start, 3))
         hook = dump if job.get("frames", True) else stop_check
         if args.model in RUNNERS:
@@ -400,7 +408,7 @@ def main():
             final, plddt, ptm = out["sample_atom_coords"][0][mask], res.plddt.flatten().tolist(), res.ptm
         stamps[phase["stage"]] = time.perf_counter() - phase["t"]
         total = time.perf_counter() - t_start
-        emit(type="fold_done", id=jid, chip=args.chip, model=args.model, n_res=len(seq),
+        emit(type="fold_done", id=jid, chip=args.chip, model=args.model, n_res=n_res,
              seconds=round(total, 3), stages={k: round(v, 3) for k, v in stamps.items()},
              aiclk_mhz=clock.summary(), xyz=f32(final),
              plddt=[round(float(v), 4) for v in plddt], ptm=ptm, source="live")
@@ -408,9 +416,10 @@ def main():
     busy.set()
     try:
         for i, w in enumerate(json.loads(Path(args.warm).read_text()) if args.warm else []):
-            emit(type="chip", chip=args.chip, state="warming", warm=i)   # the engine's watchdog sees it alive
+            emit(type="chip", chip=args.chip, state="warming", warm=i, name=w.get("name"))   # the watchdog sees it alive
             try:
-                fold({"id": f"warm{i}", "sequence": w["sequence"], "frames": False, "quiet": True})
+                fold({"id": f"warm{i}", "sequence": w["sequence"], "yaml": w.get("yaml"), "name": w.get("name"),
+                      "warm": i, "frames": False, "quiet": True})
             except Aborted:
                 raise
             except Exception as exc:  # report it and keep warming: one bad length must not cost the chip

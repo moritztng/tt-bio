@@ -65,12 +65,16 @@ class Chip:
         self.state, self.job, self.proc = "starting", None, None
         self.folds, self.last_event, self.ready_at, self.restarts = 0, time.monotonic(), None, 0
         self.last_fold = None
+        self.warm = None   # the warm-up fold the chip last reported: {name, n_res, stage}
         self.failures, self.stalled, self.last_reset = 0, False, None  # consecutive unclean exits
 
     def status(self):
-        return {"chip": self.chip, "state": self.state, "job": self.job and self.job["id"],
+        j = self.job
+        # what the chip is on, so a page that connects mid-fold names it and counts from the chip's start
+        doing = j and {k: j.get(k) for k in ("id", "kind", "name", "n_res", "t_wall")}
+        return {"chip": self.chip, "state": self.state, "job": j and j["id"], "doing": doing,
                 "aiclk_mhz": aiclk(self.node), "folds": self.folds, "restarts": self.restarts,
-                "last_fold": self.last_fold}
+                "last_fold": self.last_fold, **({"warming": self.warm} if self.state == "warming" else {})}
 
     async def run(self):
         while not self.svc.stopping:
@@ -125,19 +129,24 @@ class Chip:
                 self.set_state("ready")
                 self.svc.dispatch()
             elif st in ("warming", "stopped"):
-                self.set_state(st)
+                self.warm = {k: ev.get(k) for k in ("name", "n_res", "stage")} if st == "warming" else None
+                self.set_state(st, **({k: v for k, v in self.warm.items() if v is not None} if self.warm else {}))
             return
         job = self.job
         if job and ev.get("id") == job["id"]:
             ev["kind"] = job["kind"]
             if job.get("name"):
                 ev.setdefault("name", job["name"])  # the chipworker never sees an attract fold's name
+            if t == "fold_start":  # an attract fold is a gallery pick: it carries the pick's words, as its recording does
+                for k in ("story", "pdb", "chains"):
+                    if job.get(k) is not None:
+                        ev.setdefault(k, job[k])
             raw = json.dumps(ev, separators=(",", ":"))
             self.svc.record(job, raw)
             if t == "fold_done":
                 self.folds += 1
                 self.failures = 0
-                self.last_fold = {k: ev.get(k) for k in ("n_res", "seconds", "aiclk_mhz")}
+                self.last_fold = {k: ev.get(k) for k in ("name", "n_res", "seconds", "aiclk_mhz", "t_wall")}
                 self.svc.ledger("done", self.chip, seconds=ev.get("seconds"))
             elif t == "fold_error":
                 self.svc.ledger("fail", self.chip)
@@ -158,9 +167,11 @@ class Chip:
 
     def start(self, job):
         self.job, self.state = job, "busy"
-        self.job["chip"], self.job["started"] = self.chip, time.monotonic()
-        self.proc.stdin.write((json.dumps({k: job[k] for k in ("id", "sequence", "seed")}) + "\n").encode())
-        self.svc.ledger("start", self.chip, model=self.model, name=job.get("name"), residues=len(job["sequence"]))
+        self.job["chip"], self.job["started"], self.job["t_wall"] = self.chip, time.monotonic(), time.time()
+        self.job["n_res"] = len(job["sequence"].replace(":", ""))
+        self.proc.stdin.write((json.dumps({k: job[k] for k in ("id", "sequence", "seed", "yaml") if job.get(k) is not None})
+                               + "\n").encode())
+        self.svc.ledger("start", self.chip, model=self.model, name=job.get("name"), residues=job["n_res"])
 
     def preempt(self):
         if self.proc and self.proc.returncode is None:
@@ -208,9 +219,10 @@ class Replay:
                 client.send_text(data)
 
     async def loop(self):
-        """Recordings between the live folds, so the gallery's Boltz-2 trajectories reach the screen
-        while the chips fold the short attract list, and with no chip at all the screen is never
-        blank. With a chip live they come at a slower pace; the app picks what takes the stage."""
+        """Recordings between the live folds, so every gallery pick reaches the screen even before
+        the chips have folded it live, and with no chip at all the screen is never blank. With a
+        chip live they come at a slower pace; the app picks what takes the stage, and a live fold of
+        a pick replaces its recording there."""
         for path in itertools.cycle(self.files or [None]):
             if path is None:
                 await asyncio.sleep(5)
@@ -231,7 +243,16 @@ class Service:
             self.recdir.mkdir(parents=True, exist_ok=True)
         self.chips = [Chip(self, c, args) for c in args.chips]
         self.visitors = deque()
-        self.attract = itertools.cycle(json.loads(Path(args.attract).read_text())) if args.attract else None
+        # The attract rotation is the gallery's picks (gallery/build.py writes attract.json), so the chips
+        # fold the proteins the stage shows. A long fold holds its chip for 35-94 s and only reaches a
+        # point where a visitor can take the chip once per trunk recycle (up to 14 s apart at 833
+        # residues), so at most all chips but one are on a long fold: one chip always turns over
+        # every 5-13 s, and a visitor's fold preempts that one first.
+        picks = json.loads(Path(args.attract).read_text()) if args.attract else []
+        is_long = lambda a: len(a["sequence"].replace(":", "")) > args.long_res
+        self.attract_long = itertools.cycle([a for a in picks if is_long(a)] or [None])
+        self.attract_short = itertools.cycle([a for a in picks if not is_long(a)] or [None])
+        self.attract = bool(picks)
         self.replay = Replay(self, args.replay)
         self.open_files = {}
         self._preempt_armed = False
@@ -355,15 +376,19 @@ class Service:
             asyncio.get_running_loop().call_later(self.args.preempt_after, self._preempt)
         if self.attract:
             for c in free:
-                a = next(self.attract)
-                c.start(self.job(a["sequence"], "attract", a.get("seed", 0), {"name": a.get("name")}))
+                on_long = sum(1 for x in self.chips if x.job and x.job.get("long"))
+                a = next(self.attract_long) if on_long < len(self.chips) - 1 else None
+                a = a or next(self.attract_short) or next(self.attract_long)
+                c.start(self.job(a["sequence"], "attract", a.get("seed", 0),
+                                 {k: a.get(k) for k in ("name", "story", "pdb", "chains", "yaml")} |
+                                 {"long": len(a["sequence"].replace(":", "")) > self.args.long_res}))
 
     def _preempt(self):
         self._preempt_armed = False
         if not self.visitors:
             return
-        busy = [c for c in self.chips if c.state == "busy" and c.job and c.job["kind"] == "attract"
-                and not c.job.get("preempted")]
+        busy = sorted((c for c in self.chips if c.state == "busy" and c.job and c.job["kind"] == "attract"
+                       and not c.job.get("preempted")), key=lambda c: c.job.get("long", False))  # short folds first
         for c in busy[:len(self.visitors)]:
             c.job["preempted"] = True
             c.preempt()
@@ -393,13 +418,15 @@ class Service:
         snap = self.monitor.snapshot()
         engine = {c.chip: "resetting" if c.stalled or self.resetting(c) else self.ENGINE_STATE.get(c.state)
                   for c in self.chips}
+        engine.update({n: "out_of_service" for n in self.args.out_of_service})
         for c in snap["chips"]:
             if engine.get(c["card"]):
                 c["state"], c["folding"] = engine[c["card"]], None
         return snap
 
     def status(self):
-        return {"type": "status", "models": self.args.models, "chips": [c.status() for c in self.chips],
+        out = [{"chip": n, "state": "out_of_service"} for n in self.args.out_of_service]
+        return {"type": "status", "models": self.args.models, "chips": [c.status() for c in self.chips] + out,
                 "queue": len(self.visitors), "replays": len(self.replay.files), "t_wall": time.time()}
 
     async def watchdog(self):
@@ -596,11 +623,16 @@ def main():
     ap.add_argument("--replay-gap", type=float, default=3.0)
     ap.add_argument("--replay-gap-live", type=float, default=20.0,
                     help="seconds between two recordings while a chip is live")
+    ap.add_argument("--long-res", type=int, default=400,
+                    help="an attract protein longer than this is a long fold; one chip never takes one")
+    ap.add_argument("--out-of-service", default="", help="chips taken out of the demo on purpose, e.g. 2; "
+                    "their lanes say so (ops/README.md)")
     ap.add_argument("--preempt-after", type=float, default=1.0,
                     help="seconds a visitor waits for a chip before an attract fold is dropped for it")
     args = ap.parse_args()
     args.models = [m.strip() for m in args.models.split(",") if m.strip()]
     args.chips = [] if args.replay_only else [int(c) for c in args.chips.split(",") if c.strip()]
+    args.out_of_service = [int(c) for c in args.out_of_service.split(",") if c.strip() and int(c) not in args.chips]
     args.replay = args.replay or [str(DEMO / "gallery" / "trajectories"), str(HERE / "recordings")]
     if not args.attract or not Path(args.attract).is_file():
         args.attract = None

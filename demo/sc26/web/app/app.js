@@ -20,7 +20,6 @@ import { Stage, Director } from './stage.js';
 import { parseName, substitutionLine, lengthLine, verdict, loadBlocklist, blocked, MAX_CHARS } from './name.js';
 import { describe, storyOf, INSTEAD } from './stories.js';
 import { kiosk, guardLoop } from './kiosk.js';
-import { Timing } from './progress.js';
 
 const q = new URLSearchParams(location.search);
 const IDLE = 1000 * (parseFloat(q.get('idle')) || 60);
@@ -42,9 +41,9 @@ const LINEUP = [
   ['Affinity', [['nesso1', 'Nesso-1']]],
 ];
 const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));
-// The title and the line under it (Moritz, 4 Oct 2026).
-const CLAIM = 'Unprecedented Throughput per Dollar';
-const SECOND = 'The first unified software stack for bio models optimized from silicon to serving';
+// The title and the line under it (Moritz, 5 Oct 2026: the title names the subject, the claim joins the line).
+const CLAIM = 'Biology Models on Tenstorrent';
+const SECOND = 'The first unified software stack for bio models, optimized from silicon to serving, at unprecedented throughput per dollar';
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
 
@@ -73,9 +72,8 @@ const app = {
 window.sc26 = app;     // for the self-test and for poking at it on the box
 app.stage = stage;
 
-const timing = new Timing({ persist: !q.has('as') });
 const stream = new Stream(q.get('stream') ?? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/stream`, {
-  timing, as: q.get('as'),
+  as: q.get('as'),
   onFold(f) {
     describe(f);
     if (app.mine && f.id === app.mine.id) return showResult(f);
@@ -96,9 +94,9 @@ const stream = new Stream(q.get('stream') ?? `${location.protocol === 'https:' ?
   },
 });
 
-app.stream = stream; app.timing = timing;
+app.stream = stream;
 
-loadRecording(PLAY ?? 'assets/fallback-ubiquitin.jsonl').then(f => { if (f) director.fallback = describe(f); }).catch(() => {});
+loadRecording(PLAY ?? 'assets/fallback.jsonl').then(f => { if (f) director.fallback = describe(f); }).catch(() => {});
 fetch('lanes/index.html', { method: 'HEAD' }).then(r => { app.lanes = r.ok; }).catch(() => {});
 
 // ------------------------------------------------------------------ state changes
@@ -346,8 +344,8 @@ function setNumber(html) { const num = $('num'); if (num.innerHTML !== html) num
 // Every fold on the stage has already finished on its chip, so its time is a measured fact, shown
 // still from the first frame: nothing on the stage counts seconds. What moves is the sampler's own
 // step counter, and the line under it says how much slower than the chip the steps are replayed.
-// A gallery recording shows no time and no pace: the recorder wrote every sampler step to disk,
-// which made its diffusion about five times slower than a live fold, so its seconds undersell the chip.
+// A gallery recording shows the seconds it took when it was recorded on this box, through the same
+// chip worker that folds live (gallery/record.py), so it is labelled as recorded and nothing else.
 function drawNumber(f) {
   const src = $('source'), box = $('number'), live = f.source === 'live';
   const st = stage.step, of = stage.of, k = live ? stage.slowdown : 0;
@@ -361,42 +359,68 @@ function drawNumber(f) {
   $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
   const by = named() ? 'by' : 'in';
   src.textContent = !live ? 'Recorded on this box' : f.chip != null ? `Folded live on chip ${f.chip + 1} ${by}` : `Folded on this box ${by}`;
-  setNumber(live ? byModel(f, 'in', `${f.seconds.toFixed(2)} s`) : '');
+  if (!live) src.textContent = 'Recorded on this box in';
+  setNumber(f.seconds > 0 ? byModel(f, 'in', `${f.seconds.toFixed(2)} s`) : '');
   box.classList.add('locked');
-  box.classList.toggle('none', !live);
+  box.classList.remove('none');
 }
 
-// A chip's row says what it is folding and which part of the model is running, with a bar for how
-// far along it is in real time (progress.js). No seconds: the one clock on screen is the stage's.
-// The word is the stage the chip last reported; `lm` exists only for ESMFold2's language model.
-const PHASE = { lm: 'language model', trunk: 'trunk', diffusion: 'diffusion', confidence: 'confidence', done: 'done' };
+// The four chips, bottom right: what each one is doing now, from its own events and nothing else.
+// A row names the protein, the stage the chip last reported with the chip's own counter in it (trunk
+// recycle k of K, sampler step k of K), and the seconds since the chip took the fold. The bar is the
+// sampler's steps, so it moves only when the chip reports one. Under it, the measured seconds of the
+// fold the chip finished last. A chip that sends nothing for longer than any real gap between its
+// events (14 s, one trunk recycle at 833 residues) says so instead of counting.
+const QUIET_S = 30;
+const STAGE_WORD = { trunk: 'trunk', diffusion: 'diffusion', confidence: 'confidence', lm: 'language model' };
+const secs = (s) => `${s.toFixed(1)} s`;
+
+function laneFor(c, now) {
+  const job = c?.job ? stream.jobs[c.job] : null;
+  const last = c?.last_fold?.seconds > 0 ? c.last_fold : null;
+  const lastLine = last ? `Last: ${last.name ?? 'a protein'}, ${last.n_res} amino acids in ${last.seconds.toFixed(2)} s` : '';
+  if (c?.state === 'busy' && job) {
+    const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
+    const quiet = now - job.tAt;
+    const k = job.step, K = job.total;
+    const stage = job.stage === 'trunk' && K > 1 ? `trunk ${Math.min(k + 1, K)}/${K}`
+      : job.stage === 'diffusion' && K > 1 ? `diffusion ${k}/${K}` : STAGE_WORD[job.stage] ?? (job.stage === 'done' ? 'done' : 'starting');
+    const t = quiet > QUIET_S ? `<span class="warn">no word for ${Math.floor(quiet)} s</span>`
+      : job.stage === 'done' ? secs(job.seconds) : secs(job.tChip + quiet);
+    return { cls: 'busy', name: `${named() && MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who}`, stage, t,
+      bar: job.stage === 'done' ? 1 : job.stage === 'diffusion' && K > 0 ? k / K : 0, last: lastLine };
+  }
+  const idle = (name, cls = '', t = '') => ({ cls, name, stage: '', t, bar: 0, last: lastLine });
+  switch (c?.state) {
+    case 'busy': return idle('Folding, joined mid-way', 'busy');
+    case 'ready': return idle('Ready', 'ready');
+    case 'starting': return idle('Starting');
+    case 'warming': return c.warming?.name ? { ...idle('Warming up', ''), stage: `compiling for ${c.warming.name}` } : idle('Warming up');
+    case 'stalled': return idle('Not responding, stopping the fold', 'recovering');
+    case 'recovering': return idle('Restarting', 'recovering');
+    case 'resetting': return idle('Resetting its board', 'recovering');
+    case 'stopped': return idle('Stopped', 'recovering');
+    case 'out_of_service': return { ...idle('Out of service', 'oos'), last: 'Taken out of the demo after it hung' };
+    default: return idle('Not in the demo');
+  }
+}
 
 function drawChips() {
   const ol = $('chips');
   if (ol.children.length !== 4) ol.innerHTML = [0, 1, 2, 3].map(i =>
-    `<li><span class="n">${i + 1}</span><span class="what"></span><span class="bar"><i></i></span></li>`).join('');
+    `<li><span class="n">${i + 1}</span><span class="what"></span><span class="st"></span><span class="t"></span>` +
+    `<span class="bar"><i></i></span><span class="last"></span></li>`).join('');
   const onStage = (app.state === 'result' ? app.mine?.fold : app.slot?.fold);
+  const now = performance.now() / 1000;
   for (let i = 0; i < 4; i++) {
-    const li = ol.children[i], c = stream.chips.find(x => x.chip === i);
-    const job = c?.job ? stream.jobs[c.job] : null;
-    let what = 'not in use', prog = 0, cls = '';
-    if (c?.state === 'busy' && job) {
-      const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
-      what = `${named() && MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who} <em>${PHASE[job.stage] ?? ''}</em>`;
-      prog = timing.progress(job, performance.now() / 1000) ?? 0;
-      cls = 'busy';
-    } else if (c?.state === 'busy') { what = 'folding'; cls = 'busy'; }
-    else if (c?.state === 'ready') { what = 'idle'; cls = 'ready'; }
-    else if (c?.state === 'starting' || c?.state === 'warming') what = 'warming up';
-    else if (c?.state === 'stalled' || c?.state === 'recovering') { what = 'recovering'; cls = 'recovering'; }
-    else if (c?.state === 'resetting') { what = 'resetting'; cls = 'recovering'; }
-    else if (c?.state === 'stopped') what = 'off';
-    if (onStage && onStage.source === 'live' && onStage.chip === i) cls += ' on';
-    li.className = cls;
-    const w = li.querySelector('.what');
-    if (w.innerHTML !== what) w.innerHTML = what;
+    const li = ol.children[i], c = stream.chips.find(x => x.chip === i), L = laneFor(c, now);
+    li.className = L.cls + (onStage && onStage.source === 'live' && onStage.chip === i ? ' on' : '');
+    for (const k of ['what', 'st', 't', 'last']) {
+      const el = li.querySelector('.' + k), v = { what: L.name, st: L.stage, t: L.t, last: L.last }[k];
+      if (el.innerHTML !== v) el.innerHTML = v;
+    }
     // a new fold starts its bar at zero at once; only forward motion is animated
-    const bar = li.querySelector('.bar i'), pct = 100 * prog;
+    const bar = li.querySelector('.bar i'), pct = 100 * L.bar;
     bar.style.transition = pct < (+bar.dataset.w || 0) ? 'none' : '';
     bar.dataset.w = pct; bar.style.width = pct.toFixed(1) + '%';
   }
