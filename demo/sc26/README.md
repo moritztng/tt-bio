@@ -24,15 +24,19 @@ The left edge lists every model tt-bio runs on Tenstorrent hardware, grouped by 
 (structure, design, embeddings, affinity). The list is tt-bio's own model registry
 (`PREDICT_MODELS`, `DESIGN_MODELS`, `EMBED_MODELS`, `SAPROT_MODELS` and `AFFINITY_MODELS` in
 `tt_bio/main.py`), one entry per model family, without Protenix-v2, whose weights' licence is
-unresolved. Boltz-2 is lit: it is the model the booth runs.
+unresolved. OpenFold3 is lit: it is the model the booth runs.
 
-Every fold on the stage is Boltz-2. The four chips fold the attract proteins (and visitors' names, when
-`?visitors=1` turns typing back on; it is off for now) live, each chip with its own resident copy, and between them the screen plays larger Boltz-2
-complexes recorded on this box. The attract proteins read MSAs searched ahead of time
-(`engine/msa/`); a name folds from its sequence alone, so the booth never needs the network.
+Every fold on the stage is OpenFold3 (preview2, Apache-2.0). The four chips fold the attract
+proteins (and visitors' names, when `?visitors=1` turns typing back on; it is off for now) live,
+each chip with its own resident copy, and between them the screen plays larger OpenFold3 complexes
+recorded on this box. The attract proteins read MSAs searched ahead of time (`engine/msa/`, written
+by `engine/msa_search.py`); a name folds from its sequence alone, so the booth never needs the
+network. A fold reports its stages as the chip finishes them: input preparation, each trunk
+recycle, each of the 200 diffusion steps, the confidence head (the worker synchronises the device
+before it stamps a stage, because ttnn returns before the chip is done).
 
-The engine's `--models` option is the switch (default `boltz2`). Give it several, for example
-`--models boltz2,esmfold2`, and the chips take turns, recordings of every listed model play, and
+The engine's `--models` option is the switch (default `openfold3`). Give it several, for example
+`--models openfold3,boltz2`, and the chips take turns, recordings of every listed model play, and
 each fold and chip row names its model again.
 
 ## The claim
@@ -59,8 +63,9 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   sampler step, which can take 50 times as long as the others. A step longer than five times the
   fold's median step is replayed at the median, so nobody watches still noise for seconds; the
   fold's measured time still includes it.
-* **A recorded gallery fold shows no time.** It reads "Recorded on this box" with its size. The recorder wrote all 200 sampler steps to disk, which made its diffusion 16 to 35 s
-  against about 3 s live, so its seconds would undersell the chip.
+* **A recorded gallery fold shows no time.** It reads "Recorded on this box" with its size. Its warm fold
+  time and the AICLK during it are in `gallery/manifest.json`; since the OpenFold3 re-recording
+  they are booth times (the recorder is the booth's chip worker, with a booth worker's CPU share).
 * **Your own fold is the one running clock.** From the moment a chip takes it, the counter shows
   wall-clock seconds and stops when the fold lands. It is then replaced by the chip's own measured
   time, which can differ from the counter by a few tenths of a second of network and page latency.

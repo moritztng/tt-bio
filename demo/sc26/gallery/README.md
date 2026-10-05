@@ -1,6 +1,7 @@
 # SC26 gallery
 
-Thirteen proteins with a story, each folded for real by Boltz-2 on one of qb2's Blackhole chips. The
+Thirteen proteins with a story, each folded for real by OpenFold3 (preview2) on one of qb2's
+Blackhole chips. The
 demo plays them in its attract loop, and whenever the live path is busy or a chip is down.
 `manifest.json` lists each one with its story, fold time, the chip's clock during the fold,
 confidence and how close it came to the experimental structure.
@@ -11,12 +12,20 @@ Every frame is a state the diffusion sampler actually produced: 201 per fold, fr
 noise to the finished structure, plus the network's prediction of the end result at each step
 (`x0`). Nothing is interpolated or invented. The last frame is the scored structure exactly.
 
-Times are those of the recorded fold: a warm fold on one chip, with the trajectory hook on, and
-the AICLK sampled every 0.2 s during it. Each fold's first run in its process, which compiles, is
-reported separately as `seconds_first_fold_with_compile`. Saving the frames costs no
-measurable time: with the hook off, the same folds took 19.8, 26.1 and 74.2 s against 21.9, 25.0
-and 70.0 s with it on (insulin, GFP, antibody; AICLK median 1350 MHz in all six). MSAs came from the ColabFold server
-when the fold was recorded; the booth needs no network.
+A recording is made by the booth's own chip worker (`engine/chipworker.py --model openfold3`),
+the code that folds live, so it is what a chip at the booth shows: the same stage events (input
+preparation, each trunk recycle, each diffusion step, confidence), each stamped once the chip has
+finished the work before it, and replayed at those times. The worker folds the pick twice in one
+process. The first fold compiles and is reported separately as `seconds_compile_fold`; the second
+is the recording, a warm fold, with the chip's AICLK sampled every 0.2 s during it. The recording
+worker takes a quarter of the host's CPU, as each of the booth's four workers does, so its time is
+the time a booth chip takes. MSAs came from the ColabFold server when the fold was recorded; the
+booth needs no network.
+
+OpenFold3 preview2 was released as a polymer model and was never trained to place a ligand, and
+tt-bio refuses a ligand for it rather than return a made-up pose. The hemes of haemoglobin and
+myoglobin and the nirmatrelvir of the Paxlovid pick are therefore not in their recordings;
+`ligands_omitted` in the store and the manifest names them.
 
 ## Files
 

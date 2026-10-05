@@ -122,9 +122,15 @@ class OF3SampleDiffusion:
                  token_mask_pad_tt, tok_mask_col_pad_tt,
                  n_atom, NP, nb, n_token, n_tok_pad,
                  noise_schedule, rots_list, trans_list, noise_list, t_list, c_tau_list,
-                 step_scale, progress_fn=None):
+                 step_scale, progress_fn=None, dump_fn=None):
         """Run the rollout. Per-step host artefacts (rots/trans/noise/t/c_tau) are
-        python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device."""
+        python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device.
+
+        ``dump_fn(step, xl, xl_denoised)``, off by default, sees the sampler's real state after
+        every step as host [1, n_atom, 3] float32 (step -1 is the initial noise, with no
+        prediction). Each state sits in that step's random augmentation frame, as the reference
+        sampler's does. The hook reads tensors the loop already made and writes none, so a fold is
+        bit-identical with or without it; an exception raised by it aborts the fold."""
         pair_inputs = (zij_trunk_dev, relpos_dev)
         if self._act_dtype != ttnn.bfloat16:
             _c = self.to_act_dtype
@@ -141,6 +147,8 @@ class OF3SampleDiffusion:
 
         atom_mask_host = ttnn.to_torch(atom_mask_col_na_dev).float().reshape(n_atom)  # [n_atom]
         xl_host = ttnn.to_torch(xl_init_dev).float().reshape(n_atom, 3)               # [n_atom, 3]
+        if dump_fn is not None:
+            dump_fn(-1, xl_host.unsqueeze(0), None)
 
         # Loop invariants. Only the single conditioning branch and the atom-level legs see
         # the noise level; the pair branch, its fp32 cast, and every value downstream that
@@ -201,6 +209,8 @@ class OF3SampleDiffusion:
             delta = (xl_noisy - xl_denoised) / t
             dt = float(c_tau_list[tau]) - t
             xl_host = xl_noisy + step_scale * dt * delta
+            if dump_fn is not None:
+                dump_fn(tau, xl_host.unsqueeze(0), xl_denoised.unsqueeze(0))
 
         ttnn.deallocate(zij_pad)
         _free_cached(inv_cache.values())

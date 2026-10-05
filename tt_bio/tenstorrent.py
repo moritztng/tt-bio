@@ -5609,7 +5609,17 @@ def _qkv_l1_config(x: ttnn.Tensor, w: ttnn.Tensor, dtype) -> object | None:
         k, n = int(xs[-1]), int(ws[-1])
         if m % 32 or k % 32 or n % 32:
             return None
-        return _tri_att_qkv_l1_config(m // 32, k // 32, n // 32, 2)
+        # Which shapes take this path is decided on the logical shape, as it always was; the
+        # blocks are counted on the PADDED one, which is what the program factory divides. A pair
+        # of 56 tokens is [1, 56, 56, c]: 3136 rows = 98 tiles logically, but TILE_LAYOUT pads
+        # the second-to-last dim to 64, so the factory sees 56 x 64 = 3584 rows = 112 tiles.
+        # Sized on 98, per_core_M came out 1, the program asked for 112 blocks, and a 110-core
+        # p300 chip died with TT_FATAL "112 blocks > 110 cores" (OpenFold3's confidence head on
+        # GB1). Where logical and padded agree nothing moves.
+        mp = 1
+        for d in list(x.padded_shape)[:-1]:
+            mp *= int(d)
+        return _tri_att_qkv_l1_config(mp // 32, k // 32, n // 32, 2)
     except Exception:
         return None
 

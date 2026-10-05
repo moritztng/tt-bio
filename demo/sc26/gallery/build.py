@@ -5,7 +5,7 @@
     python3 demo/sc26/gallery/build.py --check    # also replay every file through the parser
 
 The recordings are what engine/server.py replays (PROTOCOL.md, "Replay"). They are generated, not
-committed: a 200-step Boltz-2 trajectory is 3x larger as base64 JSON than in store/. Run this once
+committed: a 200-step trajectory is 3x larger as base64 JSON than in store/. Run this once
 after a checkout; it takes a few seconds and the output is the same every time.
 """
 import argparse
@@ -70,18 +70,27 @@ def messages(meta, pick):
                steps=meta["steps"], loops=meta["recycling_steps"], seed=meta["seed"],
                rg_expected=meta["rg_final"], name=pick["name"], story=pick["story"], pdb=pick["pdb"],
                chains=[dict(id=c["id"], role=c["role"], n_res=len(c["sequence"])) for c in pick["chains"]],
-               ligands=pick["ligands"], atoms=meta["atoms"], t=0.0)
-    yield dict(type="stage", id=fid, chip=meta["chip"], stage="trunk", step=0, total=meta["recycling_steps"], t=0.0)
-    t_diff = meta["frame_t"][0]
-    yield dict(type="stage", id=fid, chip=meta["chip"], stage="diffusion", step=0, total=meta["steps"], t=t_diff)
+               ligands=[l for l in pick["ligands"] if l["id"] in set(meta["atoms"].get("chain", [l["id"]]))],
+               atoms=meta["atoms"], t=0.0)
+    # Stage events: the recorded ones, each at the time the chip finished the work before it
+    # (record.py). An older recording without them gets one per stage at the frame times.
+    stages = meta.get("stage_events") or [["trunk", 0, meta["recycling_steps"], 0.0],
+                                          ["diffusion", 0, meta["steps"], meta["frame_t"][0]],
+                                          ["confidence", 0, 1, meta["frame_t"][-1]]]
     of = meta["steps"]
-    for i, (s, t) in enumerate(zip(meta["frame_steps"], meta["frame_t"])):
+    timeline = [(t, 0, dict(type="stage", id=fid, chip=meta["chip"], stage=st, step=k, total=n, t=t))
+                for st, k, n, t in stages]
+    timeline += [(t, 1, i) for i, t in enumerate(meta["frame_t"])]
+    for t, kind, ev in sorted(timeline, key=lambda e: (e[0], e[1])):
+        if kind == 0:
+            yield ev
+            continue
+        i, s = ev, meta["frame_steps"][ev]
         yield dict(type="frame", id=fid, chip=meta["chip"], step=s, of=of, t=t, xyz=b64(xyz[i]),
                    x0=b64(x0[i - 1]) if s >= 0 else None, R=R[i], T=T[i])
-    yield dict(type="stage", id=fid, chip=meta["chip"], stage="confidence", step=0, total=1, t=meta["frame_t"][-1])
     yield dict(type="fold_done", **base, n_res=meta["n_res"], seconds=meta["seconds"], stages=meta["stages"],
                aiclk_mhz=meta["aiclk_mhz"], xyz=b64(final), plddt=meta["plddt"],
-               ptm=meta["confidence"]["ptm"], iptm=meta["confidence"]["iptm"], t=meta["seconds"],
+               ptm=meta["confidence"]["ptm"], iptm=meta["confidence"].get("iptm"), t=meta["seconds"],
                recorded_utc=meta["recorded_utc"], host=meta["host"])
 
 
@@ -131,8 +140,9 @@ def main():
             id=pid, name=pick["name"], story=pick["story"], why=pick["why"], pdb=pick["pdb"],
             uniprot=pick["uniprot"], chains=[dict(id=c["id"], role=c["role"], n_res=len(c["sequence"]))
                                              for c in pick["chains"]],
-            ligands=[l["ccd"] for l in pick["ligands"]], n_res=meta["n_res"], n_atoms=meta["n_atoms"],
-            model="boltz2", steps=meta["steps"], frames=n_frames, msa=meta["msa"],
+            ligands=[l["ccd"] for l in pick["ligands"] if l["ccd"] not in meta.get("ligands_omitted", [])],
+            ligands_omitted=meta.get("ligands_omitted", []), n_res=meta["n_res"], n_atoms=meta["n_atoms"],
+            model=meta["model"], steps=meta["steps"], frames=n_frames, msa=meta["msa"],
             seconds=meta["seconds"], seconds_first_fold_with_compile=meta["seconds_compile_fold"],
             stages=meta["stages"], aiclk_mhz=meta["aiclk_mhz"], chip=meta["chip"], host=meta["host"],
             recorded_utc=meta["recorded_utc"], confidence=meta["confidence"],
@@ -146,7 +156,7 @@ def main():
               f"{meta['seconds']:6.1f} s  store {store_bytes / 1e6:5.2f} MB  jsonl {path.stat().st_size / 1e6:6.2f} MB")
     manifest = dict(
         protocol=1, generated_by="demo/sc26/gallery/build.py",
-        about="Real Boltz-2 folds recorded on qb2. Every frame is a sampler state; see README.md.",
+        about="Real OpenFold3 folds recorded on qb2. Every frame is a sampler state; see README.md.",
         entries=entries)
     (HERE / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
     print(f"{len(entries)} entries, store {sum(e['store_bytes'] for e in entries) / 1e6:.1f} MB, "

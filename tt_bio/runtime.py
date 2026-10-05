@@ -251,6 +251,32 @@ P150_SUBSYSTEMS = frozenset({"0x0040"})
 ARC_DEAD = 0xFFFFFFFF
 
 
+
+def trajectory_dump_from_env():
+    """The command-line switch for the diffusion samplers' trajectory hooks (Boltz-2, OpenFold3).
+
+    TT_BIO_TRAJECTORY_DIR=<dir> saves every sampler state as <dir>/step_NNN.npy (float32,
+    [samples, atoms, 3]; step -1 is the initial noise, saved as step_-01) and the network's
+    prediction next to it as x0_NNN.npy. A sampler that runs its samples one rollout at a time
+    starts each at step -1 again; the second and later rollouts are saved as r<k>_step_NNN.npy so
+    none overwrites the first. Unset, there is no hook at all.
+    """
+    out = os.environ.get("TT_BIO_TRAJECTORY_DIR")
+    if not out:
+        return None
+    import numpy as np
+    os.makedirs(out, exist_ok=True)
+    rollout = [-1]
+
+    def dump(step, coords, denoised):
+        if step == -1:
+            rollout[0] += 1
+        pre = f"r{rollout[0]}_" if rollout[0] > 0 else ""
+        np.save(os.path.join(out, f"{pre}step_{step:03d}.npy"), coords.detach().float().cpu().numpy())
+        if denoised is not None:
+            np.save(os.path.join(out, f"{pre}x0_{step:03d}.npy"), denoised.detach().float().cpu().numpy())
+    return dump
+
 def aiclk_reading(mhz: int) -> int | None:
     """An AICLK value as read, or None when it is the dead-ARC sentinel and not a clock.
 

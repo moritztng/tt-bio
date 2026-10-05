@@ -231,6 +231,10 @@ class OpenFold3(Module):
         self.noise_scale = 1.003
         self.step_scale = 1.5
         self.ns_cfg = dict(sigma_data=sigma_data, s_max=160.0, s_min=4e-4, p=7)
+        # Optional trajectory hook for every rollout, None unless TT_BIO_TRAJECTORY_DIR is set
+        # (OF3SampleDiffusion.__call__ says what it sees). A caller may set its own.
+        from .runtime import trajectory_dump_from_env
+        self.dump_fn = trajectory_dump_from_env()
 
     def _ft(self, x, dtype=ttnn.bfloat16):
         return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.device,
@@ -434,7 +438,7 @@ class OpenFold3(Module):
                 aux["tok_pad_tt"], aux["tok_col_pad_tt"],
                 n_atom, NP, nb, n_token, n_tok_pad,
                 noise_schedule, rots_l, trans_l, noise_l, t_l, c_tau_l,
-                self.step_scale, progress_fn=_sample_pfn)
+                self.step_scale, progress_fn=_sample_pfn, dump_fn=self.dump_fn)
             xl_final = torch.Tensor(ttnn.to_torch(xl_final_dev)).float().reshape(n_atom, 3)
             ttnn.deallocate(xl_init_dev)
             ttnn.deallocate(xl_final_dev)
