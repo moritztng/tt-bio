@@ -1,0 +1,7 @@
+TOKENS 64
+STEPS 32
+FINAL_LOSS 4.2012362480
+WEIGHTS binder_contacts=+1.000,binder_helicity=-0.300,binder_pae=+0.400,compactness=+0.500,interface_contacts=+1.000,interface_pae=+0.100,iptm_loss=+0.050,plddt_loss=+0.100
+TERMS binder_contacts=3.335308,binder_helicity=-0.173557,binder_pae=0.056274,compactness=0.379377,interface_contacts=0.532917,interface_pae=0.030040,iptm_loss=0.016126,plddt_loss=0.024751
+COORD_SHA256 1aba0f505987399cd9310c2a14abcb814b49309f2c53e323f55dae300e0719ba
+SEQ_SHA256 290953e93c6da64a0ddd10ab8308fc1bddd4f856d02b0637a0e389012d94b79c
