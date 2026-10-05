@@ -4,8 +4,6 @@
 // is complete, so the stage never starts something it cannot finish. Live and replayed folds take
 // the same path; `source` says which.
 
-import { decodeCoords } from '../render/src/protocol.js';
-
 const THREE = {
   A: 'ALA', C: 'CYS', D: 'ASP', E: 'GLU', F: 'PHE', G: 'GLY', H: 'HIS', I: 'ILE', K: 'LYS', L: 'LEU',
   M: 'MET', N: 'ASN', P: 'PRO', Q: 'GLN', R: 'ARG', S: 'SER', T: 'THR', V: 'VAL', W: 'TRP', Y: 'TYR',
@@ -22,6 +20,7 @@ export class Stream {
                              // tChip: the chip's seconds on this job at its last event, tAt: when that arrived
     this.connected = false;
     this.lastMessage = 0;
+    this.busy = 0;           // ms spent handling messages, summed; the frame recorder reads it
     this._connect();
   }
 
@@ -29,7 +28,7 @@ export class Stream {
     const ws = new WebSocket(this.url);
     this.ws = ws;
     ws.onopen = () => { this.connected = true; this.cb.onOpen?.(); };
-    ws.onmessage = (e) => { this.lastMessage = performance.now(); this._on(JSON.parse(e.data)); };
+    ws.onmessage = (e) => { const t = this.lastMessage = performance.now(); this._on(JSON.parse(e.data)); this.busy += performance.now() - t; };
     ws.onclose = () => { this.connected = false; setTimeout(() => this._connect(), 1500); };
     ws.onerror = () => ws.close();
   }
@@ -149,9 +148,10 @@ function assemble(start, frames, done) {
     resName, chain: new Array(seq.length).fill('A'),
     confidence: plddt ? Float32Array.from(plddt) : null,
   };
-  // The last frame is the scored structure; fold_done.xyz is the same numbers.
-  const coords = frames.map(f => decodeCoords(f.xyz));
-  const x0 = frames.map(f => f.x0 ? decodeCoords(f.x0) : null);   // the step's denoised estimate, for alignment
+  // The last frame is the scored structure; fold_done.xyz is the same numbers. Coordinates stay as
+  // they arrived and are decoded when the stage first shows each state (trajectory.js).
+  const coords = frames.map(f => f.xyz);
+  const x0 = frames.map(f => f.x0 ?? null);   // the step's denoised estimate, for alignment
   const steps = frames.map(f => f.step);
   const tReal = frames.map(f => f.t);
   const diffusion = done.stages?.diffusion ?? (tReal[tReal.length - 1] - tReal[0]);

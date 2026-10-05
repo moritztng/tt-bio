@@ -28,19 +28,24 @@ const HOLD = parseFloat(q.get('hold')) || 10;
 const VISITORS = q.get('visitors') === '1';
 document.body.classList.toggle('visitors', VISITORS);
 const WORD = ['no', 'one', 'two', 'three', 'four'];
-// Every model tt-bio runs on Tenstorrent hardware, by what it does: tt-bio main's tt_bio/main.py
-// PREDICT_MODELS, DESIGN_MODELS, EMBED_MODELS + SAPROT_MODELS and AFFINITY_MODELS, one entry per
-// model family (esmfold2-fast, opendde-abag and the ESMC/SaProt sizes are variants, not models).
-// Protenix-v2 is left out: its weights' licence is unresolved (state/lic/). OpenFold3, which the
-// chips run, and OpenBind-0 lead (Moritz, 5 Oct 2026).
+// What TT-Bio runs on Tenstorrent hardware, by what it does: tt-bio main's tt_bio/main.py PREDICT_MODELS,
+// DESIGN_MODELS, EMBED_MODELS + SAPROT_MODELS and AFFINITY_MODELS, one entry per model (its --model values
+// first, space-separated: esmfold2-fast, opendde-abag and the ESMC/SaProt sizes are checkpoints of one
+// model), plus BindCraft 2, which is not a --model: a third-party design loop whose Evoformer tt_bio.bindcraft2
+// runs on card. OpenFold3, which the chips run, and OpenBind-0 lead (Moritz, 5 Oct 2026).
+// `local` marks what runs on your own card but JapanFold, the QR beside the list, does not host: Protenix-v2
+// (weights not redistributable) and BindCraft 2 (hosting needs its authors' licence), and Protenix-v1 and
+// Nesso-1, which it does not offer. A hosting licence does not cover software you run yourself.
 const LINEUP = [
-  ['Structure', [['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'], ['boltz2', 'Boltz-2'], ['esmfold2', 'ESMFold2'],
-    ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1'], ['opendde', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
-  ['Design', [['boltzgen', 'BoltzGen'], ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign']]],
-  ['Embeddings', [['esmc', 'ESMC'], ['saprot', 'SaProt']]],
-  ['Affinity', [['nesso1', 'Nesso-1']]],
+  ['Structure', [['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'], ['boltz2', 'Boltz-2'],
+    ['esmfold2 esmfold2-fast', 'ESMFold2'], ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1', 'local'],
+    ['protenix-v2', 'Protenix-v2', 'local'], ['opendde opendde-abag', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
+  ['Design', [['boltzgen', 'BoltzGen'], ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign'],
+    ['bindcraft2', 'BindCraft 2', 'local']]],
+  ['Embeddings', [['esmc-300m esmc-600m esmc-6b', 'ESMC'], ['saprot-35m saprot-650m saprot-1.3b', 'SaProt']]],
+  ['Affinity', [['nesso1', 'Nesso-1', 'local']]],
 ];
-const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));
+const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms.flatMap(([ids, name]) => ids.split(' ').map(id => [id, name]))));
 // The title and the line under it (Moritz, 5 Oct 2026, second look: the claim is the title, and the line
 // says inference and training are both supported).
 const CLAIM = 'More structures per dollar';
@@ -235,12 +240,13 @@ function drawAll() { drawHeader(); drawTyping(); drawSide(); drawChips(); drawIn
 function drawLineup() {
   const nav = $('lineup');
   if (!nav.children.length) nav.innerHTML = LINEUP.map(([group, ms]) =>
-    `<section><h2>${group}</h2><ul>${ms.map(([id, name]) => `<li data-m="${id}">${name}</li>`).join('')}</ul></section>`).join('');
+    `<section><h2>${group}</h2><ul>${ms.map(([ids, name, mark]) =>
+      `<li data-m="${ids}">${name}${mark ? ` <small>${mark}</small>` : ''}</li>`).join('')}</ul></section>`).join('');
   const f = app.state === 'result' ? app.mine?.fold : app.state === 'waiting' ? app.mine : PLAYS(app.state) ? app.slot?.fold : null;
   const on = !named() ? running()[0] ?? null : app.state === 'waiting' && app.mine?.chip == null ? null : f?.model ?? null;
   if (nav.dataset.on === String(on)) return;
   nav.dataset.on = String(on);
-  for (const li of nav.querySelectorAll('li')) li.classList.toggle('on', li.dataset.m === on);
+  for (const li of nav.querySelectorAll('li')) li.classList.toggle('on', li.dataset.m.split(' ').includes(on));
 }
 let invited = null;
 
