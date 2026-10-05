@@ -409,6 +409,10 @@ function laneFor(c, now) {
     case 'resetting': return idle('Resetting its board', 'recovering');
     case 'stopped': return idle('Stopped', 'recovering');
     case 'out_of_service': return { ...idle('Out of service', 'oos'), last: 'Taken out of the demo after it hung' };
+    case 'resting': {  // the engine rests a chip that keeps hanging; it rejoins by itself at back_at
+      const min = Math.max(1, Math.ceil((c.back_at - Date.now() / 1000) / 60));
+      return { ...idle('Resting after a hang', 'oos', `back in ${min} min`), last: 'Rejoins by itself' };
+    }
     default: return idle('Not in the demo');
   }
 }

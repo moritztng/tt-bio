@@ -22,7 +22,8 @@ Run these on qb2, over ssh or at the console, from this directory (`~/sc26/demo/
 `~/.config/sc26/env` sets which chips the demo uses. `SC26_CHIPS=0,1,2,3` at the booth.
 `SC26_CHIPS=` (empty) runs on recorded folds only and takes no chip, which is the setting while
 other work still runs on qb2. `SC26_ENGINE_ARGS=--out-of-service 2` takes chip 3 on screen (UMD chip 2)
-out of the demo on purpose: leave it out of `SC26_CHIPS` too, and its row says "Out of service".
+out of the demo on purpose: leave it out of `SC26_CHIPS` too, and its row says "Out of service". A chip
+that hangs does not need this: the engine rests it and brings it back by itself (below).
 
 ## What runs
 
@@ -48,9 +49,9 @@ turns both back on.
 | engine dies or hangs | `/status` unanswered for 30 s | systemd restarts it | the last fold, then recorded folds |
 | a chip's worker dies | the engine | the worker restarts | that chip's lane says recovering; the other chips keep folding |
 | a chip's memory fills up (after about 35 min of mixed folds) | the fold fails with out of memory | that worker restarts with empty memory; a visitor's fold is retried | that lane says recovering for about 40 s; the other chips keep folding |
-| a chip wedges | no progress for 120 s, the worker ignores SIGINT and SIGTERM | both chips on that board are reset with `tt-smi -r` | the board's two lanes say resetting; recorded folds fill in if no chip is left |
+| a chip hangs | tt-metal sees no dispatch progress for 10 s; a chip with no event for 120 s counts too | the worker exits, both chips on that board are reset with `tt-smi -r` (about 40 s), the workers restart and warm up | the board's two lanes say resetting, then warming up |
+| a chip keeps hanging (twice within an hour) | the engine | the chip rests for 15 min, then its board is reset if needed and it rejoins by itself. A chip that hangs again soon rests twice as long, up to 4 h | that lane says "Resting after a hang" with the minutes until it is back; its board mate keeps folding |
 | network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
-| the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
 | the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
 
 Workers are stopped with SIGINT, then SIGTERM. A killed worker leaves its chip unusable until a

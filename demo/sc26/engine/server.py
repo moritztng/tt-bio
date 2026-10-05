@@ -67,6 +67,8 @@ class Chip:
         self.last_fold = None
         self.warm = None   # the warm-up fold the chip last reported: {name, n_res, stage}
         self.failures, self.stalled, self.last_reset = 0, False, None  # consecutive unclean exits
+        self.hangs, self.hung, self.back_at = [], False, None  # recent hangs; hung and not reset since; resting until
+        self.rest_s, self.rested = args.rest_s, None  # the next rest's length; when the last one ended
 
     def status(self):
         j = self.job
@@ -74,7 +76,8 @@ class Chip:
         doing = j and {k: j.get(k) for k in ("id", "kind", "name", "n_res", "t_wall")}
         return {"chip": self.chip, "state": self.state, "job": j and j["id"], "doing": doing,
                 "aiclk_mhz": aiclk(self.node), "folds": self.folds, "restarts": self.restarts,
-                "last_fold": self.last_fold, **({"warming": self.warm} if self.state == "warming" else {})}
+                "last_fold": self.last_fold, **({"warming": self.warm} if self.state == "warming" else {}),
+                **({"back_at": self.back_at} if self.state == "resting" else {})}
 
     async def run(self):
         while not self.svc.stopping:
@@ -115,11 +118,37 @@ class Chip:
             self.failures = self.failures + 1 if unclean else 0
             self.set_state("recovering", rc=rc)
             self.restarts += 1
+            now = time.monotonic()
+            if stalled:
+                self.hung = True
+                self.hangs = [t for t in self.hangs if now - t < self.args.rest_window] + [now]
             # A stall is a device call that never returned: the chip stays wedged, a plain restart
             # only sits in warm-up until --warm-s, so the board is reset at once.
             if unclean and (stalled or self.failures >= self.args.reset_after) and self.svc.reset_ok(self):
                 await self.svc.reset_board(self)
+            if len(self.hangs) >= self.args.rest_after:
+                await self.rest()
             await asyncio.sleep(min(60, 5 * max(1, self.failures)))
+
+    async def rest(self):
+        """A chip that keeps hanging rests instead of taking its board mate down with a reset every
+        few minutes. It rejoins by itself when the rest is over, its board reset first if it is
+        still hung, and a chip that hangs again soon after rests twice as long (--rest-s, doubling
+        up to --rest-max-s). Its lane counts down to its return."""
+        self.hangs = []
+        if self.rested is not None and time.monotonic() - self.rested > self.args.rest_window:
+            self.rest_s = self.args.rest_s  # a calm --rest-window since the last rest starts the doubling over
+        self.back_at = time.time() + self.rest_s
+        self.set_state("resting", back_at=self.back_at, rest_s=self.rest_s)
+        await asyncio.sleep(self.rest_s)
+        self.rest_s = min(self.args.rest_max_s, 2 * self.rest_s)
+        self.back_at, self.rested = None, time.monotonic()
+        self.set_state("recovering")
+        while self.hung and not self.svc.stopping:
+            if self.svc.reset_ok(self):
+                await self.svc.reset_board(self)
+            else:
+                await asyncio.sleep(10)
 
     def on_event(self, ev, raw):
         t = ev.get("type")
@@ -335,8 +364,11 @@ class Service:
         finally:
             ev.set()
             for c in mates:
-                c.failures = 0
-                c.set_state("recovering")
+                c.failures, c.hung = 0, False
+                if c.back_at:
+                    c.set_state("resting", back_at=c.back_at, rest_s=c.rest_s)
+                else:
+                    c.set_state("recovering")
 
     @staticmethod
     async def _wait_exit(proc, timeout):
@@ -415,7 +447,8 @@ class Service:
     # sysfs looks healthy through most of a `tt-smi -r`, so the counters alone showed a board being
     # reset as "ready". The engine knows better: a chip it has stalled, is resetting or is bringing
     # back says so on the lanes too, as it does in the stage's chip table.
-    ENGINE_STATE = {"stalled": "resetting", "resetting": "resetting", "recovering": "resetting", "warming": "warming"}
+    ENGINE_STATE = {"stalled": "resetting", "resetting": "resetting", "recovering": "resetting", "warming": "warming",
+                    "resting": "out_of_service"}
 
     def telemetry(self):
         snap = self.monitor.snapshot()
@@ -625,6 +658,12 @@ def main():
     ap.add_argument("--reset-after", type=int, default=2, help="consecutive unclean worker exits before a reset")
     ap.add_argument("--reset-timeout", type=float, default=180)
     ap.add_argument("--reset-min-gap", type=float, default=600, help="seconds between two resets of one chip")
+    ap.add_argument("--rest-after", type=int, default=2,
+                    help="hangs within --rest-window after which a chip rests instead of rejoining at once")
+    ap.add_argument("--rest-window", type=float, default=3600)
+    ap.add_argument("--rest-s", type=float, default=900, help="a chip's first rest; each rest after it is twice "
+                    "as long, up to --rest-max-s, until it has gone --rest-window without a hang")
+    ap.add_argument("--rest-max-s", type=float, default=4 * 3600)
     ap.add_argument("--boards", default="0,1 2,3", help="chips that share a board and reset together")
     ap.add_argument("--replay-gap", type=float, default=3.0)
     ap.add_argument("--replay-gap-live", type=float, default=20.0,
