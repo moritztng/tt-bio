@@ -54,8 +54,9 @@ turns both back on.
 | network goes away | nothing to detect | none needed | no change: every model file, font and script is on the box |
 | the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
 
-Workers are stopped with SIGINT, then SIGTERM. A killed worker leaves its chip unusable until a
-reset, so SIGKILL is used only on a wedged worker, right before its board is reset. qb2's chips sit on two boards, chips 0 and 1 on one and
+Workers are stopped with SIGINT, then SIGTERM, and never killed. A worker stuck in the device
+ignores both; its board is reset with it still there, which ends the wait so it exits by itself.
+If it still has not exited, its chip rests. qb2's chips sit on two boards, chips 0 and 1 on one and
 2 and 3 on the other, and a reset always takes both chips of a board.
 
 ## Logs

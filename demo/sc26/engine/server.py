@@ -55,8 +55,8 @@ class Hub:
 
 
 class Chip:
-    """One chipworker.py process. Restarted when it exits; stopped with SIGINT. SIGKILL only right
-    before a board reset (Service.reset_board)."""
+    """One chipworker.py process. Restarted when it exits; stopped with SIGINT, then SIGTERM, and
+    never killed (Service.reset_board)."""
 
     def __init__(self, svc, chip, args):
         self.svc, self.chip, self.args = svc, chip, args
@@ -323,10 +323,10 @@ class Service:
         --reset-cmd, bounded by --reset-timeout, then let the workers start again. The other boards
         keep folding, and the replay loop fills the screen if no chip is left.
 
-        A worker stuck inside a device call never runs its signal handlers. It gets SIGKILL, but
-        only here, right before the reset: a killed worker leaves its chip unopenable, and the
-        reset is what makes it openable again. Killing first means nothing holds the chip while
-        it is reset, and a worker that never exits cannot keep its lane dark."""
+        A worker stuck inside a device call never runs its signal handlers, and it is never
+        killed: the board is reset with it still there, which ends its device wait so it exits
+        by itself (seen on chip 2, 2026-10-05). One that still has not exited --term-s after the
+        reset leaves its chip resting, so the lane counts down instead of going dark."""
         b = self.board_of(chip)
         mates = [c for c in self.chips if self.board_of(c) == b]
         ev = self.board_idle[b] = asyncio.Event()
@@ -344,9 +344,6 @@ class Service:
             deadline = time.monotonic() + self.args.term_s
             for c in mates:
                 await self._wait_exit(c.proc, deadline - time.monotonic())
-                if c.proc and c.proc.returncode is None:
-                    c.proc.kill()
-                    await self._wait_exit(c.proc, 10)
             ids = ",".join(str(c.chip) for c in mates)
             t0 = time.monotonic()
             try:
@@ -359,7 +356,14 @@ class Service:
                 rc = "timeout"
             except OSError as e:
                 rc = f"{type(e).__name__}"
-            self.hub.send({"type": "reset", "chips": [c.chip for c in mates], "rc": rc,
+            deadline = time.monotonic() + self.args.term_s
+            for c in mates:
+                await self._wait_exit(c.proc, deadline - time.monotonic())
+            stuck = [c.chip for c in mates if c.proc and c.proc.returncode is None]
+            for c in mates:
+                if c.chip in stuck:  # rests as soon as its worker is gone; until then the lane says resting
+                    c.hangs = [time.monotonic()] * self.args.rest_after
+            self.hub.send({"type": "reset", "chips": [c.chip for c in mates], "rc": rc, "stuck": stuck,
                            "seconds": round(time.monotonic() - t0, 1), "t_wall": time.time()})
         finally:
             ev.set()
@@ -367,6 +371,8 @@ class Service:
                 c.failures, c.hung = 0, False
                 if c.back_at:
                     c.set_state("resting", back_at=c.back_at, rest_s=c.rest_s)
+                elif len(c.hangs) >= self.args.rest_after:
+                    c.set_state("resting")
                 else:
                     c.set_state("recovering")
 
