@@ -76,8 +76,9 @@ aside { position: fixed; right: var(--m); width: calc(432 * var(--p)); top: calc
 body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes the bottom right */
 #label, #source { font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #label { color: var(--live); min-height: calc(16 * var(--p)); }
-/* name and story share one fixed box, so the number and everything under it never move */
-#title { margin-top: calc(16 * var(--p)); height: calc(144 * var(--p)); overflow: hidden; flex-shrink: 0; }
+/* name and story share one fixed box, so the number and everything under it never move; 120 holds the
+   tallest pick (Keytruda, 117 at 1080p: one name line, three story lines) */
+#title { margin-top: calc(16 * var(--p)); height: calc(120 * var(--p)); overflow: hidden; flex-shrink: 0; }
 #name { margin: 0; font-size: calc(32 * var(--p)); font-weight: 560; letter-spacing: -0.018em;
         line-height: 1.1; overflow-wrap: anywhere; }
 #name.long { font-size: calc(28 * var(--p)); }
@@ -107,7 +108,7 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
              letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #chips { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
 #chips li { display: grid; grid-template-columns: calc(20 * var(--p)) 1fr auto minmax(calc(52 * var(--p)), auto); align-items: baseline;
-            column-gap: calc(6 * var(--p)); padding: calc(16 * var(--p)) 0 calc(14 * var(--p)); border-top: 1px solid var(--rule);
+            column-gap: calc(6 * var(--p)); padding: calc(12 * var(--p)) 0; border-top: 1px solid var(--rule);
             font-size: calc(16 * var(--p)); font-weight: 400; color: var(--ink3); }
 #chips li .n { font-weight: 560; font-size: calc(12 * var(--p)); letter-spacing: 0.06em; }
 #chips li .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
