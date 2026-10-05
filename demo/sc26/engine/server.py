@@ -308,7 +308,9 @@ class Replay:
     @staticmethod
     def load(path):
         lines = path.read_text().splitlines()
-        if '"xyz":' in lines[1 if len(lines) > 1 else 0]:   # protocol 1: coordinates in every frame
+        # protocol 2 keeps every state in the fold_done line; protocol 1 has coordinates in each
+        # frame instead (and a recording can open with stage lines, so look at the end, not line 2)
+        if lines and '"frames":' not in lines[-1]:
             try:
                 import trajectory   # numpy; a recording written since protocol 2 needs nothing
             except ImportError:

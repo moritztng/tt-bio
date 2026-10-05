@@ -77,6 +77,8 @@ def main():
                 f"Chip {c['chip'] + 1} is {c['state']} for {ago(now - since)}"
                 + (" (normal: it repairs itself within about 10 min)." if now - since < REPAIR_S
                    else ". It should have recovered by now."))
+        if not st.get("replays"):
+            bad.append("No recorded folds loaded: if every chip stops, the stage has nothing to show.")
         if out:
             ok.append(f"Out of service on purpose: chip {', '.join(str(c + 1) for c in out)}.")
         if st.get("queue"):
