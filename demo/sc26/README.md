@@ -24,7 +24,8 @@ The left edge lists every model tt-bio runs on Tenstorrent hardware, grouped by 
 (structure, design, embeddings, affinity). The list is tt-bio's own model registry
 (`PREDICT_MODELS`, `DESIGN_MODELS`, `EMBED_MODELS`, `SAPROT_MODELS` and `AFFINITY_MODELS` in
 `tt_bio/main.py`), one entry per model family, without Protenix-v2, whose weights' licence is
-unresolved. Boltz-2 is lit: it is the model the booth runs.
+unresolved. OpenFold3 and OpenBind-0 lead the structure models. The dot marks the model the chips
+run, read from the engine's `--models`, so it moves with the engine and never needs editing here.
 
 Every fold on the stage is Boltz-2. The four chips fold the attract proteins (and visitors' names, when
 `?visitors=1` turns typing back on; it is off for now) live, each chip with its own resident copy, and between them the screen plays larger Boltz-2
@@ -43,8 +44,11 @@ models optimized from silicon to serving" under it. The measurement behind it: B
 1-300 from the sequence alone, the four chips kept busy through the booth engine, finished 72 folds
 in 180 s, 0.40 a second, median 9.79 s a fold, with the chips at a median 1350 MHz
 (`engine/throughput.py`; result in `claim/tt-quietbox2-boltz2-hsa300.json`, 4 Oct 2026). The
-screen prints neither the basis nor the clock; both stay in the engine's logs. The QR code goes to
-https://github.com/moritztng/tt-bio.
+screen prints neither the basis nor the clock; both stay in the engine's logs.
+
+Two QR codes sit at the bottom left, the same size (37 modules with the quiet zone, 2 frame pixels
+a module): "Learn more" goes to https://github.com/moritztng/tt-bio and "Try it" to
+https://japanfold.aiand.com.
 
 ## Time on screen
 
@@ -64,7 +68,13 @@ Every number on screen that counts seconds counts real seconds, in step with wha
 * **Your own fold is the one running clock.** From the moment a chip takes it, the counter shows
   wall-clock seconds and stops when the fold lands. It is then replaced by the chip's own measured
   time, which can differ from the counter by a few tenths of a second of network and page latency.
-* **The chip rows have no seconds.** Each row names what the chip is folding, which part of the
-  model is running (trunk, diffusion, confidence) and a bar for how far along it is.
+* **The chip rows have no seconds, and their bars move in real time.** Each row names what the chip
+  is folding and the stage it last reported (trunk, diffusion, confidence; no word before the first
+  report). The bar is the fold's elapsed time over its expected total, so a stage takes the share of
+  the bar it takes of the clock. The expected total is the median of the last eight live folds of
+  the same model and length on this box, interpolated for a new length; inside the running stage,
+  the chip's own step counter and pace correct it. Until a model has finished one live fold, its
+  bars stay empty. Against a stopwatch on three live chips folding Boltz-2, a bar was 2.2 points of its
+  width off the true fraction on average (`web/app/progress.js`).
   The hardware view behind Tab follows the same rule: a chip that is folding shows the protein and
   its length, and seconds only for a fold that has finished ("last: 56 residues in 0.6 s").

@@ -77,7 +77,8 @@ p150a card lists at $1,399 [4]. Without hardware, use JapanFold.
 
 **9. What does it cost on JapanFold?** $0.26 per processor hour, charged only for chip time a job
 holds, and $100 free to start without a card. One Boltz-2 fold of 512 amino acids cost $0.0062 on
-their own runs [8]. The QR code on screen goes to github.com/moritztng/tt-bio, the open-source project.
+their own runs [8]. The two QR codes on screen go to github.com/moritztng/tt-bio, the open-source
+project, and to japanfold.aiand.com, to try it.
 
 **10. Why does my name fold?** 20 of the 26 letters are amino acids, and the screen shows which
 stand-in it uses for the other six. The model folds any sequence;
