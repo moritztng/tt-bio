@@ -15,21 +15,23 @@ automatic translation step: the compiler route is described, with its current st
 
 ## How long it took
 
-Calendar time from the repository's history, by people and agents who already knew the codebase
-and had the shared ttnn building blocks (attention, triangle updates, transitions) to reuse.
-Upstream reading before the first commit is not counted.
+From the repository's history, by people and agents who already knew the codebase and had the
+shared ttnn building blocks (attention, triangle updates, transitions) to reuse. Upstream reading
+before the first commit is not counted. Commits and working days count changes to the model's own
+`tt_bio/<model>*.py` files up to sign-off; code size is today's, after the later work on sizes,
+precision modes and speed.
 
-| model | first commit | whole model on the chip | parity signed off | commits | ttnn code written | reference code vendored |
-|---|---|---|---|---|---|---|
-| SaProt (650M, 35M) | 2026-07-17 | same day | same day | 20 | 831 lines | none, the reference is a pip package |
-| AF2-IG | 2026-08-20 | not recorded | 2026-08-23 | 52 | 2,791 lines plus a 1,333-line torch reference | none, the reference is that translation |
-| ESMFold-2 | 2026-06-02 | 2026-06-03 | 2026-07-09 | 112 | 2,523 lines | 16,510 lines |
-| OpenFold3 | 2026-07-12 | 2026-07-13 | 2026-08-07 | 174 | 4,679 lines | 35,881 lines |
+| model | first commit | whole model on the chip | parity signed off | days with commits | commits | port code today | reference code vendored |
+|---|---|---|---|---|---|---|---|
+| SaProt (650M, 35M) | 2026-07-17 | same day | same day | 1 | 3 | 831 lines | none, the reference is a pip package |
+| AF2-IG | 2026-08-20 | trunk the same day | 2026-08-23 | 4 | 23 | 2,586 lines, 1,320 of them ttnn, plus a 1,341-line torch reference | none, the reference is that translation |
+| ESMFold-2 | 2026-06-02 | 2026-06-03 | 2026-07-09 | 8 | 42 | 2,523 lines | 16,513 lines |
+| OpenFold3 | 2026-07-12 | 2026-07-13 | 2026-08-07 | 4 | 37 | 4,687 lines | 35,881 lines |
 
-The pattern is the same in every row: getting each component to match the reference takes days.
-The weeks after that go to whole-model bugs that only show on real targets, and to sizes,
-precision modes and speed. A model that reuses an existing family (SaProt on the ESM-C port)
-is a day; an AlphaFold 3-style model with its own conventions is about a month to sign-off.
+Getting the whole model onto the chip took one or two days in every case. The rest, up to sign-off,
+went to whole-model bugs that only show on real targets. A model that reuses an existing family
+(SaProt reuses the ESM-C port's rotary embedding and batching) took one day; the others took four
+to eight working days, spread over up to five calendar weeks.
 
 ## The steps
 
@@ -52,7 +54,9 @@ is a day; an AlphaFold 3-style model with its own conventions is about a month t
 9. **Unify**: the shared CLI, worker, output layout and docs, so the new model is one more
    `--model` value rather than a separate tool.
 
-[`model-bringup-checklist.md`](model-bringup-checklist.md) is the checklist each port is held to.
+[`model-bringup-checklist.md`](model-bringup-checklist.md) is the release checklist every shipped
+model is held to today: it runs and is right, it fits at the advertised size, nothing lists models
+by hand, and the docs match. It was written after these four ports.
 
 ## The accuracy bar
 
@@ -66,13 +70,15 @@ is a day; an AlphaFold 3-style model with its own conventions is about a month t
 
 ## The traps that cost the most time
 
-Each of these passed every module-level check and was only found on whole targets.
+Each of these cost days, and most of them passed every module-level check.
 
 - **Two inputs of the same total width, swapped.** Every shape check passes; the structure is
   7 to 9 A off. Test each module with inputs that are not interchangeable.
 - **A shared kernel built for one model's convention.** A bias scaled one family's way, used in
   another's, gave a 12.6 A cross-chain error while the pair representation still read 0.977 PCC.
-  Check every reused block against the new reference, not the old one.
+  Its module tests had failed, at 0.71 and 0.75 PCC, and were put down to bf16 precision. Check
+  every reused block against the new reference, and treat a failing module test as a bug until a
+  float32 run says otherwise.
 - **A scale error at near-perfect PCC.** A distogram symmetrised twice read 0.9998 PCC with a
   maximum error of 6.8. That is why the relative L2 bound exists.
 - **Fused attention on near-degenerate logits.** It flattens them, and on one target sent the
