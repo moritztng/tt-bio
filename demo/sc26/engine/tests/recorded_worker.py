@@ -12,6 +12,8 @@ Test conditions, by environment, each "<chip>:<value>" and comma-separated acros
                       before the first sampler step, where a cold fold compiles
   REC_HOLD   30:20    on that chip's first fold over 30 s, go quiet at 30 s for 20 s
   REC_FAIL   12       that chip's first fold over 12 s fails at 12 s
+REC_AFTER  45      (all chips) apply the conditions only to folds that start 45 s or more after the
+                      worker did, so a page that is still loading sees them
 SIGUSR1 drops the fold (preempted), SIGINT ends the worker, as in chipworker.py.
 """
 import argparse
@@ -47,6 +49,7 @@ def main():
     cold = per_chip("REC_COLD", args.chip) is not None
     hold = per_chip("REC_HOLD", args.chip)
     fail = per_chip("REC_FAIL", args.chip)
+    after = time.monotonic() + float(os.environ.get("REC_AFTER", 0))
     drop = threading.Event()
     signal.signal(signal.SIGUSR1, lambda *a: drop.set())
     lock = threading.Lock()
@@ -69,8 +72,9 @@ def main():
             r = min(recs, key=lambda r: abs(r["n_res"] - n))
             emit(type="chip", chip=args.chip, state="busy", job=job["id"])
             drop.clear()
-            extra = (r["seconds_compile_fold"] - r["seconds"]) / 2 if cold else 0.0
-            cold = False
+            armed = time.monotonic() >= after
+            extra = (r["seconds_compile_fold"] - r["seconds"]) / 2 if cold and armed else 0.0
+            cold = cold and not armed
             ev = [("fold_start", None, 0, 0, r["stages"]["prep"])]
             ev += [("stage", s, k, K, t) for s, k, K, t in r["stage_events"]]
             # a cold fold compiles at its first trunk recycle and its first sampler step
@@ -81,9 +85,9 @@ def main():
                 timed.append((*e[:4], (e[4] + shift) * pace))
             total = (r["seconds"] + 2 * extra) * pace
             t_hold = t_fail = None
-            if hold and total > float(hold.split(":")[0]):
+            if armed and hold and total > float(hold.split(":")[0]):
                 t_hold, hold = (float(hold.split(":")[0]), float(hold.split(":")[1])), None
-            if fail and total > float(fail):
+            if armed and fail and total > float(fail):
                 t_fail, fail = float(fail), None
             t0, dropped = time.monotonic(), False
             held = 0.0
@@ -103,12 +107,12 @@ def main():
                     break
                 if kind == "fold_start":
                     emit(type="fold_start", id=job["id"], chip=args.chip, model=args.model, sequence=seq,
-                         n_res=n, n_atoms=r["n_atoms"], steps=200, loops=3, seed=0, source="live", t=round(t, 3))
+                         n_res=n, n_atoms=r["n_atoms"], steps=200, loops=3, seed=0, source="live", t=round(t + held, 3))
                 elif kind == "stage":
-                    emit(type="stage", id=job["id"], chip=args.chip, stage=stage, step=k, total=K, t=round(t, 3))
+                    emit(type="stage", id=job["id"], chip=args.chip, stage=stage, step=k, total=K, t=round(t + held, 3))
             if not dropped:
                 emit(type="fold_done", id=job["id"], chip=args.chip, model=args.model, n_res=n,
-                     seconds=round(total, 3), stages={}, aiclk_mhz={"median": 1350}, source="live", plddt=[])
+                     seconds=round(total + held, 3), stages={}, aiclk_mhz={"median": 1350}, source="live", plddt=[])
             emit(type="chip", chip=args.chip, state="ready", aiclk_mhz=1350)
     except KeyboardInterrupt:
         pass
