@@ -104,8 +104,8 @@ body.visitors aside { bottom: calc(150 * var(--p)); }   /* the invitation takes 
 #chipshead { margin-top: auto; padding-bottom: calc(12 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560;
              letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #chips { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
-#chips li { display: grid; grid-template-columns: calc(22 * var(--p)) 1fr auto minmax(calc(52 * var(--p)), auto); align-items: baseline;
-            column-gap: calc(8 * var(--p)); padding: calc(12 * var(--p)) 0 calc(10 * var(--p)); border-top: 1px solid var(--rule);
+#chips li { display: grid; grid-template-columns: calc(20 * var(--p)) 1fr auto minmax(calc(52 * var(--p)), auto); align-items: baseline;
+            column-gap: calc(6 * var(--p)); padding: calc(12 * var(--p)) 0 calc(10 * var(--p)); border-top: 1px solid var(--rule);
             font-size: calc(17 * var(--p)); font-weight: 400; color: var(--ink3); }
 #chips li .n { font-weight: 560; font-size: calc(12 * var(--p)); letter-spacing: 0.06em; }
 #chips li .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
