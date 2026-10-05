@@ -63,7 +63,8 @@ body {
 .lane .state { font-size: 0.85rem; color: var(--dim); margin-top: 0.3rem; }
 .lane[data-state="folding"] .state { color: var(--accent); }
 .lane[data-state="resetting"] .state { color: var(--warn); }
-.lane[data-state="resetting"] .gauge, .lane[data-state="resetting"] .glyph { opacity: 0.25; }
+.lane[data-state="resetting"] .gauge, .lane[data-state="resetting"] .glyph,
+.lane[data-state="resting"] .gauge, .lane[data-state="resting"] .glyph { opacity: 0.25; }
 
 .glyph rect { fill: var(--accent); transition: fill-opacity 1.2s var(--ease); }
 .lane[data-state="resetting"] .glyph rect { fill: var(--warn); }

@@ -418,8 +418,8 @@ function laneFor(c, now) {
 
 function drawChips() {
   const ol = $('chips');
-  // a chip taken out of the demo gets no row: the list shows the chips that fold, under their own numbers
-  const shown = [0, 1, 2, 3].filter(i => stream.chips.find(x => x.chip === i)?.state !== 'out_of_service');
+  // the rows are the chips the engine runs, under their own numbers; one out of the demo gets none
+  const shown = stream.chips.filter(c => c.state !== 'out_of_service').map(c => c.chip).sort((a, b) => a - b);
   if (ol.dataset.k !== shown.join()) {
     ol.dataset.k = shown.join();
     ol.innerHTML = shown.map(i =>
