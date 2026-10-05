@@ -174,6 +174,7 @@ def run_design(steps: int, seed: int, hook) -> dict:
 
 
 def main() -> None:
+    global AF2_DATA_DIR
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--steps', type=int, default=2)
     parser.add_argument('--seed', type=int, default=0)
@@ -182,7 +183,6 @@ def main() -> None:
     parser.add_argument('--json', dest='json_path', default='')
     parser.add_argument('--data-dir', default=AF2_DATA_DIR)
     arguments = parser.parse_args()
-    global AF2_DATA_DIR
     AF2_DATA_DIR = arguments.data_dir
     if arguments.steps < 1:
         parser.error('--steps must be at least 1')
