@@ -12,11 +12,11 @@
 // instead of the cartoon.
 
 import { program, texture, framebuffer, buffer, FULLSCREEN_VS } from './gl.js';
-import { POINTS_VS, POINTS_FS, MESH_VS, MESH_FS, BG_FS, COMPOSITE_FS } from './shaders.js';
+import { POINTS_VS, POINTS_FS, MESH_VS, MESH_FS, COMPOSITE_FS } from './shaders.js';
 import { perspective, lookAt, Spring } from './math.js';
 import { Timeline, centroid } from './trajectory.js';
 import { residueColors, atomRadii, lin, POINT, POINT_SIDE, GROUND } from './palette.js';
-import { backbone, buildCartoon } from './cartoon.js';
+import { backbone } from './cartoon.js';
 
 const FOV = 26 * Math.PI / 180;
 const DEG = Math.PI / 180;
@@ -34,7 +34,6 @@ export class Renderer {
     this.prog = {
       points: program(gl, POINTS_VS, POINTS_FS, 'points'),
       mesh: program(gl, MESH_VS, MESH_FS, 'mesh'),
-      bg: program(gl, FULLSCREEN_VS, BG_FS, 'bg'),
       composite: program(gl, FULLSCREEN_VS, COMPOSITE_FS, 'composite'),
     };
     this.ground = lin(GROUND);
@@ -46,7 +45,7 @@ export class Renderer {
     this.cam = { yaw: 0, spin: new Spring(0, 0.6) };
     this.worker = null;
     this.surf = { busy: false, id: 0, ntri: 0, ms: [] };
-    this.stats = { frames: 0, gpuMs: [] };
+    this.stats = { frames: 0, gpuMs: [], uploadMs: 0 };
     this.resize();
   }
 
@@ -140,43 +139,58 @@ export class Renderer {
   }
 
   // ---------------------------------------------------------------- final representation
+  // Built in mesh-worker.js, never on the render thread: the cartoon of a large complex took up to
+  // 1.8 s there and froze the page at every fold change. The points stay on screen until the mesh
+  // arrives (the fold takes seconds to land; the mesh, a fraction of one), and a mesh built for an
+  // earlier fold or colour scheme is dropped.
   _buildFinal() {
     const x = this.timeline.final.coords, topo = this.topo;
     const rc = residueColors(topo, this.opt.scheme);
-    const lit = (r) => r < topo.nres ? rc.subarray(3 * r, 3 * r + 3) : [0.6, 0.6, 0.6];
-    if (this.opt.final === 'surface') return this._requestSurface(x, lit);
-    const t0 = performance.now();
-    const m = buildCartoon(topo, this.bb, x, (r) => Array.from(lit(r), v => Math.round(255 * Math.sqrt(v))));
-    this.cartoonMs = performance.now() - t0;
-    if (m) { this.ss = m.ss; this._upload(m); }
+    if (this.opt.final === 'surface') return this._requestSurface(x, rc);
+    this._mesh({ kind: 'cartoon', topo: { natom: topo.natom, element: topo.element, atomResidue: topo.atomResidue },
+      bb: this.bb, x, rc });
+  }
+
+  _mesh(msg) {
+    if (!this.worker) {
+      this.worker = new Worker(new URL('./mesh-worker.js', import.meta.url), { type: 'module' });
+      this.worker.onmessage = ({ data: m }) => {
+        if (m.id !== this.surf.id || m.empty) return;
+        if (m.kind === 'cartoon') { this.cartoonMs = m.ms; this.ss = m.ss; }
+        else { this.surf.last = { ms: m.ms, ntri: m.ntri }; }
+        this._upload(m);
+      };
+    }
+    this.worker.postMessage({ id: ++this.surf.id, ...msg });
   }
 
   _upload(m) {
-    const gl = this.gl, b = this.meshBufs;
+    const t0 = performance.now(), gl = this.gl, b = this.meshBufs;
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, b[0]); gl.bufferData(gl.ARRAY_BUFFER, m.pos, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, b[1]); gl.bufferData(gl.ARRAY_BUFFER, m.nrm, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, b[2]); gl.bufferData(gl.ARRAY_BUFFER, m.col, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b[3]); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.idx, gl.STATIC_DRAW);
     this.meshCount = m.idx.length;
+    this.stats.uploadMs += performance.now() - t0;
   }
 
-  // Gaussian molecular surface (surface-worker.js) of the protein atoms: each atom a Gaussian whose
-  // lone isosurface sits at its van der Waals radius, summed and contoured at 0.5, so neighbours
-  // fuse into one smooth skin (the QuickSurf method, probe radius 0). Ligands stay balls.
-  _requestSurface(x, lit) {
+  // Gaussian molecular surface of the protein atoms: each atom a Gaussian whose lone isosurface
+  // sits at its van der Waals radius, summed and contoured at 0.5, so neighbours fuse into one
+  // smooth skin (the QuickSurf method, probe radius 0). Ligands stay balls.
+  _requestSurface(x, rc) {
     const topo = this.topo, k = [];
     for (let i = 0; i < topo.natom; i++) if (this.bb.inCartoon[i]) k.push(i);
     if (!k.length) return;
     const radii = atomRadii(topo), c = new Float32Array(k.length * 3), col = new Float32Array(k.length * 3), rad = new Float32Array(k.length);
+    const grey = [0.6, 0.6, 0.6];
     k.forEach((a, j) => {
+      const r = topo.atomResidue[a];
       rad[j] = radii[a];
-      col.set(lit(topo.atomResidue[a]), 3 * j);
+      col.set(r < topo.nres ? rc.subarray(3 * r, 3 * r + 3) : grey, 3 * j);
       for (let d = 0; d < 3; d++) c[3 * j + d] = x[3 * a + d];
     });
-    this.worker ??= new Worker(new URL('./surface-worker.js', import.meta.url));
-    this.worker.onmessage = (e) => { this.surf.last = { ms: e.data.ms, ntri: e.data.ntri }; this._upload(e.data); };
-    this.worker.postMessage({ id: ++this.surf.id, coords: c, radii: rad, colors: col, grow: 1, iso: 0.5,
+    this._mesh({ kind: 'surface', coords: c, radii: rad, colors: col, grow: 1, iso: 0.5,
       center: this.frameC, half: this.finalRadius + 6, h: this.opt.meshH, maxCells: this.opt.maxCells });
   }
 
@@ -304,17 +318,16 @@ export class Renderer {
     const rt = this.rt;
     gl.bindFramebuffer(gl.FRAMEBUFFER, rt.msFbo);
     gl.viewport(0, 0, rt.w, rt.h);
+    // the ground is one flat colour: a clear, not a full-screen draw, which at 4K with 4x MSAA
+    // wrote every sample of a 3840x2160 target each frame
     gl.clearDepth(1);
     gl.depthMask(true);
-    gl.clear(gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(this.prog.bg.p);
-    gl.uniform3fv(this.prog.bg.u.uGround, this.ground);
-    gl.bindVertexArray(this.emptyVao);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.clearColor(this.ground[0], this.ground[1], this.ground[2], 1);
+    gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
     if (s) {
       const v = this.view(), f = this.fin.x;
       gl.enable(gl.DEPTH_TEST);
-      if (!this.opt.skip.includes('points')) {
+      if (f < 0.999 && !this.opt.skip.includes('points')) {   // under an opaque cartoon the points are hidden
         const p = this.prog.points;
         gl.useProgram(p.p);
         this._light(p, v);
@@ -331,13 +344,15 @@ export class Renderer {
         gl.drawArrays(gl.POINTS, 0, this.topo.natom);
         gl.disable(gl.BLEND); gl.depthMask(true);
       }
-      // the final representation fades in over the points: depth prepass, then one blended layer
-      if (f > 0.002 && this.meshCount) {
+      // the final representation fades in over the points: depth prepass, then one blended layer;
+      // once it is opaque, one plain pass
+      if (f >= 0.999 && this.meshCount) this._drawMesh(v, 1, false);
+      else if (f > 0.002 && this.meshCount) {
         gl.colorMask(false, false, false, false);
         this._drawMesh(v, 1, false);
         gl.colorMask(true, true, true, true);
         gl.depthFunc(gl.LEQUAL);
-        this._drawMesh(v, f, f < 0.999);
+        this._drawMesh(v, f, true);
         gl.depthFunc(gl.LESS);
       }
       gl.disable(gl.DEPTH_TEST);

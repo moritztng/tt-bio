@@ -41,6 +41,7 @@ export class Stream {
                              // pos, next: where that event left it on its plan and the event it waits for (progress.js)
     this.connected = false;
     this.lastMessage = 0;
+    this.busy = 0;           // ms spent handling messages, summed; the frame recorder reads it
     this._connect();
   }
 
@@ -49,7 +50,7 @@ export class Stream {
     this.ws = ws;
     const opened = performance.now();
     ws.onopen = () => { this.connected = true; this.lastMessage = performance.now(); this.openedAt = this.lastMessage / 1000; this.cb.onOpen?.(); };
-    ws.onmessage = (e) => { this.lastMessage = performance.now(); this._on(JSON.parse(e.data)); };
+    ws.onmessage = (e) => { const t = this.lastMessage = performance.now(); this._on(JSON.parse(e.data)); this.busy += performance.now() - t; };
     ws.onclose = () => { if (this.ws === ws) { this.connected = false; setTimeout(() => this._connect(), 1500); } };
     ws.onerror = () => ws.close();
     // A link that drops silently can leave a socket open for minutes with nothing arriving: give up
@@ -248,10 +249,11 @@ async function fromBody(buf, summary) {
 }
 
 // The packed states back to float32 Angstrom: state i is q * scale[i] + origin[i]. The last state is
-// the final structure, exact.
+// the final structure, exact. Each state is unpacked when the stage first shows it (trajectory.js),
+// not here: unpacking a large complex's whole trajectory at once stalled the page.
 function states(meta, q, final) {
   const n3 = final.length;
-  return [...meta.scale.map((s, i) => {
+  return [...meta.scale.map((s, i) => () => {
     const o = meta.origin[i], x = new Float32Array(n3);
     for (let j = 0; j < n3; j += 3) {
       x[j] = q[i * n3 + j] * s + o[0]; x[j + 1] = q[i * n3 + j + 1] * s + o[1]; x[j + 2] = q[i * n3 + j + 2] * s + o[2];

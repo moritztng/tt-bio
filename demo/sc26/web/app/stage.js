@@ -44,9 +44,6 @@ export class Stage {
     const n = fold.coords.length;
     const frames = fold.coords.map((c, i) => ({ coords: c, x0: fold.x0?.[i] ?? null, aligned: !!fold.aligned, step: fold.steps?.[i] ?? i - 1,
       time: this.times[i], progress: n > 1 ? i / (n - 1) : 1, final: i === n - 1 }));
-    // how much wider than the final structure each state's cloud is, by radius of gyration
-    const rg = gyration(fold.coords[n - 1]) || 1;
-    this.spreads = new Map(frames.map(f => [f.step, gyration(f.coords) / rg]));
     this.r.setTopology(fold.topo);
     this.r.loadReplay(frames);
     this.r.speed = 1;
@@ -79,7 +76,6 @@ export class Stage {
   // before the replay starts the renderer can still report the last fold's final step
   get step() { return this.t < this.holdNoise ? -1 : this.r.step ?? -1; }
   get of() { return this.fold?.of ?? 0; }
-  get spread() { return this.spreads?.get(this.step) ?? 1; }
 
   get playT() { return Math.max(0, this.t - this.holdNoise); }
   get landed() { return this.fold && this.playT >= this.condense; }
@@ -118,15 +114,6 @@ function playTimes(tReal, total) {
   if (!gaps.length) return [0];
   let acc = 0;
   return [0, ...gaps.map((g, i) => total * (span > 0 ? (acc += g) / span : (i + 1) / gaps.length))];
-}
-
-function gyration(x) {
-  const m = x.length / 3;
-  let cx = 0, cy = 0, cz = 0, s = 0;
-  for (let i = 0; i < m; i++) { cx += x[3 * i]; cy += x[3 * i + 1]; cz += x[3 * i + 2]; }
-  cx /= m; cy /= m; cz /= m;
-  for (let i = 0; i < m; i++) s += (x[3 * i] - cx) ** 2 + (x[3 * i + 1] - cy) ** 2 + (x[3 * i + 2] - cz) ** 2;
-  return Math.sqrt(s / m);
 }
 
 // How often a protein takes the stage, by its size in residues. The booth is for the large

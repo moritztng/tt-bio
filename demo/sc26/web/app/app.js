@@ -13,8 +13,10 @@
 //   ?play=<url>      play only this recording, over and over, for a look-test of one fold
 //   ?orbit=<deg/s>   how fast a finished structure turns, default 5; 0 holds the landing view
 //   ?scale=, ?msaa=  the renderer's render scale and samples, default by resolution
-//   ?fps=1           log the frame rate to the console every 5 s
 //   ?wire=1          log what the page pulled over the link to the console every 10 s
+//   ?frames=<s>      record every frame for s seconds into sc26.frames(): its time, the ms in our own
+//                    update and draw, in the stream's messages since the last frame, and in a fold change
+//                    (stage.show and the mesh upload)
 
 import { Stream, loadRecording } from './stream.js';
 import { Stage, Director } from './stage.js';
@@ -161,7 +163,7 @@ function nextSlot(now) {
   if (!PLAYS(app.state)) return;
   const f = director.next();
   if (!f) { app.slot = null; return; }
-  const go = () => { if (!PLAYS(app.state)) return; stage.show(f); app.slot = { fold: f }; canvas.style.opacity = 1; drawSide(); };
+  const go = () => { if (!PLAYS(app.state)) return; const t = performance.now(); stage.show(f); if (rec) rec.show += performance.now() - t; app.slot = { fold: f }; canvas.style.opacity = 1; drawSide(); };
   if (now || !app.slot) go();
   else { canvas.style.opacity = 0.2; app.slot.leaving = true; setTimeout(go, 600); }   // dim, never dark: the stage is never empty
 }
@@ -459,11 +461,17 @@ function drawBars(dt) {
 // ------------------------------------------------------------------ frame loop
 const onErr = guardLoop(canvas);
 let last = performance.now(), sideTick = 0;
+const REC = parseFloat(q.get('frames')) || 0;
+const rec = REC > 0 ? { n: 0, a: new Float64Array(Math.ceil(REC * 250) * 7), busy: 0, show: 0, up: 0 } : null;
+if (rec) app.frames = () => Array.from(rec.a.subarray(0, 7 * rec.n));
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  const w0 = performance.now();
+  let w1 = w0;
   try {
     stage.frame(dt);
+    w1 = performance.now();
     drawBars(dt);
     if (PLAYS(app.state)) {
       if (!app.slot) nextSlot(true);
@@ -484,16 +492,16 @@ function frame(now) {
       if (invited !== liveChips() > 0) { invited = liveChips() > 0; drawInvite(); }
     }
   } catch (e) { onErr(e); }
+  // [frame time, our update + draw, the stage alone, stream messages since the last frame, fold change,
+  //  callback lateness, 1 folding / 2 turning]
+  if (rec && 7 * rec.n < rec.a.length) {
+    const w2 = performance.now();
+    rec.a.set([now, w2 - w0, w1 - w0, stream.busy - rec.busy, rec.show + stage.r.stats.uploadMs - rec.up, w0 - now, stage.r.done ? 2 : 1], 7 * rec.n++);
+    rec.busy = stream.busy; rec.show = 0; rec.up = stage.r.stats.uploadMs;
+  }
 }
 setState('attract');
 requestAnimationFrame(frame);
-if (q.get('fps')) {
-  let n = 0, t0 = performance.now();
-  const count = () => { n++; requestAnimationFrame(count); };
-  requestAnimationFrame(count);
-  setInterval(() => { const t = performance.now(); console.log(`fps ${(n * 1000 / (t - t0)).toFixed(1)} scale ${stage.r.scale} msaa ${stage.r.rt.samples}`); n = 0; t0 = t; }, 5000);
-}
-
 // ?wire=1: what the page pulled and how, every 10 s on the console (engine/wire.py measures the stream side)
 if (q.get('wire')) setInterval(() => console.log('wire ' + JSON.stringify({ connected: stream.connected, rate: Math.round(stream.rate),
   pulled: stream.pulled, wanted: stream.wanted.size, pool: director.pool.length, slot: app.slot?.fold?.name ?? null,

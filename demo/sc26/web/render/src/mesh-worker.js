@@ -1,20 +1,34 @@
-// Gaussian molecular surface, meshed with naive surface nets, off the main thread.
+// The final representation of a fold, built off the render thread, so a new fold never stalls the
+// frame on screen: the cartoon (cartoon.js) or a Gaussian molecular surface meshed with naive
+// surface nets. Loaded as a module worker.
 //
-// Density: rho(x) = sum_i exp(-|x - x_i|^2 / (2 s_i^2)), s_i = grow * r_vdw(i) / 1.177, so a lone
-// atom at grow = 1 meets the 0.5 isovalue at its van der Waals radius and neighbours fuse into a
-// smooth skin (the QuickSurf idea). The Gaussian is separable, so each atom costs three short 1D
+// Message in:  {id, kind: 'cartoon', topo: {natom, element, atomResidue}, bb, x, rc}
+//              {id, kind: 'surface', coords, radii, colors, grow, iso, center, half, h, maxCells}
+// Message out: {id, kind, pos, nrm, col (rgba8: rgb + ao), idx, ss (cartoon), ntri, ms}
+//
+// Surface density: rho(x) = sum_i exp(-|x - x_i|^2 / (2 s_i^2)), s_i = grow * r_vdw(i) / 1.177, so a
+// lone atom at grow = 1 meets the 0.5 isovalue at its van der Waals radius and neighbours fuse into
+// a smooth skin (the QuickSurf idea). The Gaussian is separable, so each atom costs three short 1D
 // tables and a multiply per cell. Colour is splatted with the same weights; ambient occlusion is
 // how much matter sits around a point, read from a blurred half-resolution copy of the density.
-//
-// Message in:  {id, coords, radii, colors, grow, iso, center, half, h, maxCells}
-// Message out: {id, pos, nrm, col (rgba8: rgb + ao), idx, nvert, ntri, ms}
+
+import { buildCartoon } from './cartoon.js';
 
 self.onmessage = (e) => {
   const t0 = performance.now();
-  const m = e.data, out = mesh(m);
-  out.id = m.id; out.ms = performance.now() - t0;
+  const m = e.data, out = m.kind === 'cartoon' ? cartoon(m) : mesh(m);
+  if (!out) return self.postMessage({ id: m.id, kind: m.kind, empty: true });
+  out.id = m.id; out.kind = m.kind; out.ntri ??= out.idx.length / 3; out.ms = performance.now() - t0;
   self.postMessage(out, [out.pos.buffer, out.nrm.buffer, out.col.buffer, out.idx.buffer]);
 };
+
+// residue colours arrive linear; the cartoon stores them as sqrt-encoded bytes, residues past the
+// protein (none today) grey
+function cartoon({ topo, bb, x, rc }) {
+  const nres = rc.length / 3;
+  const byte = (v) => Math.round(255 * Math.sqrt(v));
+  return buildCartoon(topo, bb, x, (r) => r < nres ? [byte(rc[3 * r]), byte(rc[3 * r + 1]), byte(rc[3 * r + 2])] : [198, 198, 198]);
+}
 
 function mesh({ coords, radii, colors, grow, iso, center, half, h: hmin, maxCells }) {
   const natom = radii.length;
