@@ -83,7 +83,7 @@ class Chip:
             self.proc = await asyncio.create_subprocess_exec(
                 sys.executable, "-u", str(HERE / "chipworker.py"), "--chip", str(self.chip),
                 "--workers", str(len(self.svc.chips)), "--model", self.model,
-                *(["--warm", self.args.attract] if self.model == "boltz2" and self.args.attract else []),
+                *(["--warm", self.args.attract] if self.model != "esmfold2" and self.args.attract else []),
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
                 stderr=open(self.svc.logdir / f"chip{self.chip}.stderr", "a"), env=env,
                 limit=64 * 1024 * 1024)
@@ -549,8 +549,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--chips", default="", help="UMD chip ids, e.g. 0,1,2,3; empty for replay only")
     ap.add_argument("--replay-only", action="store_true")
-    ap.add_argument("--models", default="boltz2",
-                    help="what the booth folds with, comma-separated (boltz2, esmfold2); with several the "
+    ap.add_argument("--models", default="openfold3",
+                    help="what the booth folds with, comma-separated (openfold3, boltz2, esmfold2); with several the "
                     "chips take turns and the screen names each fold's model. Recordings of other models are not played")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8626)
