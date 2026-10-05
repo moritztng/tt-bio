@@ -20,11 +20,14 @@ Every fold's clock starts when the chip takes the job, so its seconds and stage 
 featurisation ("prep"), and every stage event carries its time since then.
 
 SIGUSR1 drops the fold in progress and keeps the worker warm (a visitor preempting an attract
-fold). SIGINT drops it and exits cleanly, which leaves the chip usable. SIGKILL does not, so the
-supervisor never sends it.
+fold). SIGINT drops it and exits cleanly, which leaves the chip usable. SIGTERM does the same, and
+a worker whose main thread is stuck inside a device call (a hung chip, where no Python signal
+handler can run) prints every thread's stack and exits by itself --term-grace-s later, so the
+supervisor never has to kill it.
 """
 import argparse
 import base64
+import faulthandler
 import json
 import os
 import sys
@@ -248,6 +251,8 @@ def main():
                     help="OpenFold3 / Boltz-2: MSAs searched ahead of time, by tt-bio's sequence hash")
     ap.add_argument("--warm", default="", help="a JSON list of {sequence, yaml?, name?} folded once "
                     "before the chip says ready, so no shown fold carries a compile")
+    ap.add_argument("--term-grace-s", type=float, default=10,
+                    help="after SIGTERM, a worker still inside the device this long exits by itself")
     ap.add_argument("--workers", type=int, default=1, help="chip workers sharing this host's CPU")
     args = ap.parse_args()
     # Each worker takes its share of the host. Left at torch's default, four pools of all cores
@@ -262,6 +267,24 @@ def main():
         abort.set()
         if not busy.is_set():  # idle, blocked on stdin: leave now; mid-fold, at the next step
             raise KeyboardInterrupt
+
+    def exit_when_stuck(grace):
+        # The C signal handler writes each signal's number to the wakeup fd even while the main
+        # thread is blocked in C++, so this thread hears a SIGTERM the stuck thread never will.
+        r, w = os.pipe()
+        os.set_blocking(w, False)
+        signal.set_wakeup_fd(w)
+
+        def watch():
+            while signal.SIGTERM not in os.read(r, 64):
+                pass
+            time.sleep(grace)  # a healthy worker has left by now through on_stop
+            print(f"[chipworker] chip {args.chip}: still inside the device {grace:.0f} s after SIGTERM; "
+                  "every thread's stack follows, then exit", file=sys.stderr, flush=True)
+            faulthandler.dump_traceback(all_threads=True)
+            os._exit(75)
+        threading.Thread(target=watch, daemon=True).start()
+    exit_when_stuck(args.term_grace_s)
 
     def install_handlers():
         # SIGINT and SIGTERM both stop cleanly (the device closes in tt_bio's atexit). Installed
