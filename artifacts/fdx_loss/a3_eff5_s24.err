@@ -1,0 +1,25 @@
+terms aromatic_binder=+5.000,binder_contacts=+1.000,binder_helicity=-0.300,binder_pae=+0.400,compactness=+0.500,interface_contacts=+1.000,interface_pae=+0.100,iptm_loss=+0.050,plddt_loss=+0.100
+step 1/24 loss=9.490747 binder_rg=7.9194 binder_resolved=0.821340 binder_aromatic=0.154476 49.7s
+step 2/24 loss=8.712166 binder_rg=7.2563 binder_resolved=0.957932 binder_aromatic=0.158076 19.3s
+step 3/24 loss=8.694719 binder_rg=7.3225 binder_resolved=0.952225 binder_aromatic=0.161442 19.7s
+step 4/24 loss=8.767306 binder_rg=7.2008 binder_resolved=0.965186 binder_aromatic=0.166335 19.2s
+step 5/24 loss=8.854194 binder_rg=7.3020 binder_resolved=0.970104 binder_aromatic=0.171849 19.3s
+step 6/24 loss=8.751273 binder_rg=7.3231 binder_resolved=0.975577 binder_aromatic=0.177873 19.2s
+step 7/24 loss=8.906267 binder_rg=7.3164 binder_resolved=0.977753 binder_aromatic=0.182373 20.5s
+step 8/24 loss=8.690544 binder_rg=7.3100 binder_resolved=0.977955 binder_aromatic=0.188452 19.0s
+step 9/24 loss=8.373286 binder_rg=7.3183 binder_resolved=0.973733 binder_aromatic=0.197168 19.2s
+step 10/24 loss=8.336179 binder_rg=7.3229 binder_resolved=0.975587 binder_aromatic=0.206387 19.5s
+step 11/24 loss=8.424191 binder_rg=7.3462 binder_resolved=0.978019 binder_aromatic=0.215942 18.3s
+step 12/24 loss=8.382462 binder_rg=7.3472 binder_resolved=0.978654 binder_aromatic=0.224081 18.5s
+step 13/24 loss=8.339375 binder_rg=7.3531 binder_resolved=0.977868 binder_aromatic=0.234440 18.5s
+step 14/24 loss=8.188393 binder_rg=7.3659 binder_resolved=0.976679 binder_aromatic=0.245475 18.8s
+step 15/24 loss=8.280806 binder_rg=7.3567 binder_resolved=0.978120 binder_aromatic=0.256924 20.0s
+step 16/24 loss=8.650251 binder_rg=7.3296 binder_resolved=0.979136 binder_aromatic=0.267281 18.8s
+step 17/24 loss=8.306872 binder_rg=7.3545 binder_resolved=0.979174 binder_aromatic=0.279420 19.3s
+step 18/24 loss=8.254734 binder_rg=7.3516 binder_resolved=0.979487 binder_aromatic=0.291990 16.8s
+step 19/24 loss=8.201381 binder_rg=7.3527 binder_resolved=0.979785 binder_aromatic=0.304980 16.4s
+step 20/24 loss=8.408569 binder_rg=7.3388 binder_resolved=0.979597 binder_aromatic=0.318274 15.2s
+step 21/24 loss=8.542801 binder_rg=7.3281 binder_resolved=0.981469 binder_aromatic=0.331953 15.0s
+step 22/24 loss=8.481716 binder_rg=7.3258 binder_resolved=0.981293 binder_aromatic=0.345966 18.2s
+step 23/24 loss=8.421253 binder_rg=7.3268 binder_resolved=0.981652 binder_aromatic=0.360307 16.4s
+step 24/24 loss=8.348808 binder_rg=7.3252 binder_resolved=0.981439 binder_aromatic=0.374920 16.1s
