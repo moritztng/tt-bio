@@ -46,6 +46,14 @@ import numpy as np
 import torch
 
 from tt_bio import bcinputs, duotraj
+#: Changing BindCraft 2's loss is a seam of its own (`docs/bindcraft2.md`, "Custom loss"), kept in
+#: its own module because it touches BindCraft 2's loss registry and nothing on the card. It is
+#: re-exported here so a user has one import: `bindcraft2.loss_terms`, `bindcraft2.terms`,
+#: `bindcraft2.check_gradient`.
+from tt_bio.bindcraft2_loss import (  # noqa: F401
+    INTERMEDIATES, DeadGradient, LossTermError, NewTerm, Term, TermSignature, UnknownTerm,
+    check_gradient, loss_term, loss_terms, synthetic_design, terms,
+)
 
 #: tt-bio's token axis buckets to 32, and rounding a design UP is faster than running it ragged:
 #: the PD-L1 complex at 211 tokens costs 4.504 s on the trunk forward and the same design padded
