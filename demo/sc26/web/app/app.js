@@ -41,9 +41,10 @@ const LINEUP = [
   ['Affinity', [['nesso1', 'Nesso-1']]],
 ];
 const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms));
-// The title and the line under it (Moritz, 5 Oct 2026: the title names the subject, the claim joins the line).
-const CLAIM = 'Biology Models on Tenstorrent';
-const SECOND = 'The first unified software stack for bio models, optimized from silicon to serving, at unprecedented throughput per dollar';
+// The title and the line under it (Moritz, 5 Oct 2026, second look: the claim is the title, and the line
+// says inference and training are both supported).
+const CLAIM = 'Biology Models at Unprecedented Throughput per Dollar';
+const SECOND = 'One open stack for every model, inference and training, from a single card to a Galaxy supercluster';
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
 
@@ -346,6 +347,9 @@ function setNumber(html) { const num = $('num'); if (num.innerHTML !== html) num
 // step counter, and the line under it says how much slower than the chip the steps are replayed.
 // A gallery recording shows the seconds it took when it was recorded on this box, through the same
 // chip worker that folds live (gallery/record.py), so it is labelled as recorded and nothing else.
+// Live or recorded is one rule (stage.js Director.add): the stage shows each protein's newest live fold
+// from the chips, and a recording only for a protein no chip has folded since this page started. So
+// the live label says how long ago the chip finished, and a recording says why it is one.
 function drawNumber(f) {
   const src = $('source'), box = $('number'), live = f.source === 'live';
   const st = stage.step, of = stage.of, k = live ? stage.slowdown : 0;
@@ -353,13 +357,17 @@ function drawNumber(f) {
   const x = (r) => r >= 10 ? Math.round(r / 5) * 5 : r >= 3 ? Math.round(r) : r.toFixed(1);
   const pace = !k ? '' : k > 1.05 ? `\nReplayed ${x(k)}× slower than the chip ran it`
     : k < 0.95 ? `\nReplayed ${x(1 / k)}× faster than the chip ran it` : '\nReplayed at the chip’s own pace';
-  $('step').textContent = !of ? '' : stage.landed ? `All ${of} diffusion steps shown`
-    : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`;
+  const why = live ? '' : '\nA recording: the chips have not folded this one yet';
+  $('step').textContent = !of ? '' : (stage.landed ? `All ${of} diffusion steps shown`
+    : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`) + why;
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
   const by = named() ? 'by' : 'in';
-  src.textContent = !live ? 'Recorded on this box' : f.chip != null ? `Folded live on chip ${f.chip + 1} ${by}` : `Folded on this box ${by}`;
-  if (!live) src.textContent = 'Recorded on this box in';
+  // how long ago the chip finished it, on this page's clock (the moment its fold_done arrived)
+  const min = Math.floor((performance.now() - f.received) / 60000);
+  const ago = f.received > 0 ? (min < 1 ? ', just now,' : `, ${min} min ago,`) : '';
+  src.textContent = !live ? 'Recorded on this box in'
+    : f.chip != null ? `Folded live on chip ${f.chip + 1}${ago} ${by}` : `Folded on this box${ago} ${by}`;
   setNumber(f.seconds > 0 ? byModel(f, 'in', `${f.seconds.toFixed(2)} s`) : '');
   box.classList.add('locked');
   box.classList.remove('none');

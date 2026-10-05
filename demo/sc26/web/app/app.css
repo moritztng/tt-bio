@@ -1,16 +1,17 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel.
-   One type scale, in frame pixels: 12 caps labels, 13 captions, 15 small text, 17 the lineup and the chip
-   rows, 18 body, 22 the line under the title, 36 the protein's name, 52 the title. The title is four
-   words now and the line under it carries the claim, so the title steps up and the line steps down to
-   stay on one line at any size. Tabular figures only where a
-   number changes in place (the time, the step counter); everywhere else they space out hyphens.
-   One grid: margins of 96 at the sides and 56 at top and bottom; the lineup and the right column
-   start on one line (y 264), and the last chip's rule ends on the QR codes' bottom edge (y 1024). */
+   One type scale, in frame pixels, about 1.25 a step from the title down: 40 the title, 32 the protein's
+   name and its time, 20 the line under the title, 17 the story, 16 the lineup and the chip rows, 15 small
+   text, 13 captions, 12 caps labels. The title is the claim now (Moritz, 5 Oct 2026: "significantly
+   smaller"), so it is no louder than it needs to be to lead. Tabular figures only where a number changes
+   in place (the time, the step counter); everywhere else they space out hyphens.
+   One grid: the same margin --m (72) on all four sides of the frame; the lineup and the right column
+   start on one line (y 248), and the last chip's rule ends on the QR codes' bottom edge (y 1008), 72 above
+   the frame's edge as the marks are 72 below its top. Vertical spacing in the right column is in 8s. */
 @import url(palette.css);
 @font-face { font-family: Inter; src: url(fonts/InterVariable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
 
 :root {
-  --p: calc(100vw / 1920);
+  --p: calc(100vw / 1920); --m: calc(72 * var(--p));
   --out: cubic-bezier(0.16, 1, 0.3, 1); --fade: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -27,10 +28,10 @@ img { pointer-events: none; }
 canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
                transition: opacity 600ms var(--fade);
                /* the opening noise is wider than the screen: keep it off the lineup, the right column and the
-                  title; nothing on the canvas shows above 24% (y 259), 57 frame px under the subtitle, or
-                  below 87% (y 940), 10 frame px over the QR codes */
+                  title; nothing on the canvas shows above 24% (y 259), 55 frame px under the line under the title,
+                  or below 86% (y 929), 5 frame px over the QR codes */
                mask-image: linear-gradient(to right, transparent 14%, #000 19%, #000 62%, transparent 71%),
-                           linear-gradient(to bottom, transparent 24%, #000 30%, #000 80%, transparent 87%);
+                           linear-gradient(to bottom, transparent 24%, #000 30%, #000 79%, transparent 86%);
                mask-composite: intersect; }
 
 .tab { font-variant-numeric: tabular-nums; }
@@ -38,25 +39,25 @@ canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: 
 .hide { opacity: 0 !important; }
 
 /* top band: marks, sentence, tag */
-header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); top: calc(56 * var(--p)); }
+header { position: fixed; left: var(--m); right: var(--m); top: var(--m); }
 .marks { display: flex; align-items: center; gap: calc(16 * var(--p)); height: calc(26 * var(--p)); }
 .marks img { height: calc(26 * var(--p)); }
 .marks i { width: 1px; height: calc(21 * var(--p)); background: var(--ink3); }
 .marks b { font-weight: 560; font-size: calc(23 * var(--p)); letter-spacing: -0.005em; }
 /* the title, then one line under it */
-#sentence { margin: calc(30 * var(--p)) 0 0; font-size: calc(22 * var(--p)); white-space: nowrap;
+#sentence { margin: calc(24 * var(--p)) 0 0; font-size: calc(20 * var(--p)); white-space: nowrap;
             line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade); }
-#sentence b { display: inline-block; margin-bottom: calc(10 * var(--p)); font-size: calc(52 * var(--p)); font-weight: 600;
-              letter-spacing: -0.024em; line-height: 1.1; color: var(--ink); }
+#sentence b { display: inline-block; margin-bottom: calc(8 * var(--p)); font-size: calc(40 * var(--p)); font-weight: 600;
+              letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); }
 
 /* the lineup: every model, down the left edge; the one the chips run is lit */
-#lineup { position: fixed; left: calc(96 * var(--p)); top: calc(264 * var(--p)); width: calc(200 * var(--p));
+#lineup { position: fixed; left: var(--m); top: calc(248 * var(--p)); width: calc(200 * var(--p));
           transition: opacity 600ms var(--fade); }
 #lineup section + section { margin-top: calc(22 * var(--p)); }
 #lineup h2 { margin: 0 0 calc(8 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
              text-transform: uppercase; color: var(--ink3); }
 #lineup ul { list-style: none; margin: 0; padding: 0; }
-#lineup li { position: relative; font-size: calc(17 * var(--p)); line-height: 1.6; font-weight: 400; color: var(--ink2);
+#lineup li { position: relative; font-size: calc(16 * var(--p)); line-height: 1.6; font-weight: 400; color: var(--ink2);
              white-space: nowrap; }
 #lineup li.on { color: var(--ink); font-weight: 560; }
 #lineup li.on::before { content: ''; position: absolute; left: calc(-18 * var(--p)); top: 50%; width: calc(6 * var(--p));
@@ -68,27 +69,27 @@ body[data-state=typing] #lineup, body[data-state=waiting] #lineup { opacity: 0; 
 #tag i { width: calc(6 * var(--p)); height: calc(6 * var(--p)); border-radius: 50%; background: var(--ink3); }
 #tag.live i { background: var(--live); }
 
-/* right column: x 1296..1824 */
-aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)); top: calc(264 * var(--p));
-        bottom: calc(56 * var(--p)); display: flex; flex-direction: column; }
-body.visitors aside { bottom: calc(150 * var(--p)); }   /* the invitation takes the bottom right */
+/* right column: x 1416..1848, the margin --m to the frame's right and bottom edges */
+aside { position: fixed; right: var(--m); width: calc(432 * var(--p)); top: calc(248 * var(--p));
+        bottom: var(--m); display: flex; flex-direction: column; }
+body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes the bottom right */
 #label, #source { font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #label { color: var(--live); min-height: calc(16 * var(--p)); }
 /* name and story share one fixed box, so the number and everything under it never move */
-#title { margin-top: calc(12 * var(--p)); height: calc(150 * var(--p)); overflow: hidden; flex-shrink: 0; }
-#name { margin: 0; font-size: calc(36 * var(--p)); font-weight: 560; letter-spacing: -0.018em;
+#title { margin-top: calc(16 * var(--p)); height: calc(144 * var(--p)); overflow: hidden; flex-shrink: 0; }
+#name { margin: 0; font-size: calc(32 * var(--p)); font-weight: 560; letter-spacing: -0.018em;
         line-height: 1.1; overflow-wrap: anywhere; }
-#name.long { font-size: calc(30 * var(--p)); }
-#story { margin: calc(12 * var(--p)) 0 0; font-size: calc(18 * var(--p)); line-height: 1.45; font-weight: 400; color: var(--ink2); }
-#source { margin-top: calc(28 * var(--p)); }
-#number { margin-top: calc(8 * var(--p)); font-size: calc(36 * var(--p)); font-weight: 400; line-height: 1; letter-spacing: -0.01em;
+#name.long { font-size: calc(28 * var(--p)); }
+#story { margin: calc(8 * var(--p)) 0 0; font-size: calc(17 * var(--p)); line-height: 1.45; font-weight: 400; color: var(--ink2); }
+#source { margin-top: calc(24 * var(--p)); }
+#number { margin-top: calc(8 * var(--p)); font-size: calc(32 * var(--p)); font-weight: 400; line-height: 1; letter-spacing: -0.01em;
           color: var(--ink); white-space: nowrap; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
 #number:has(#num:empty) { visibility: hidden; }
 #number.none { display: none; }
 #number .dim { color: var(--ink3); }
 #number b { font-weight: 560; font-feature-settings: 'ss01', 'cv11'; }   /* the model's name keeps its hyphen tight */
 #meta, #step { font-size: calc(15 * var(--p)); font-weight: 400; line-height: 1.5; color: var(--ink2); white-space: nowrap; }
-#meta { margin-top: calc(14 * var(--p)); }
+#meta { margin-top: calc(16 * var(--p)); }
 /* the sampler's own step counter while folding; the pLDDT key once the structure is drawn */
 #step { color: var(--ink3); min-height: 3em; white-space: pre-line; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
 #legend { margin-top: calc(24 * var(--p)); font-size: calc(13 * var(--p)); color: var(--ink2); opacity: 0;
@@ -101,12 +102,12 @@ body.visitors aside { bottom: calc(150 * var(--p)); }   /* the invitation takes 
 
 /* four chips, always visible: under a label, one row each, closing with a rule on the QR codes' bottom edge.
    A row: number, protein, the chip's stage counter, seconds; the sampler's steps as a bar; the last fold. */
-#chipshead { margin-top: auto; padding-bottom: calc(12 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560;
+#chipshead { margin-top: auto; padding-bottom: calc(16 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560;
              letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #chips { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
 #chips li { display: grid; grid-template-columns: calc(20 * var(--p)) 1fr auto minmax(calc(52 * var(--p)), auto); align-items: baseline;
             column-gap: calc(6 * var(--p)); padding: calc(12 * var(--p)) 0 calc(10 * var(--p)); border-top: 1px solid var(--rule);
-            font-size: calc(17 * var(--p)); font-weight: 400; color: var(--ink3); }
+            font-size: calc(16 * var(--p)); font-weight: 400; color: var(--ink3); }
 #chips li .n { font-weight: 560; font-size: calc(12 * var(--p)); letter-spacing: 0.06em; }
 #chips li .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #chips li .st, #chips li .t { font-size: calc(15 * var(--p)); white-space: nowrap; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
@@ -125,10 +126,10 @@ body.visitors aside { bottom: calc(150 * var(--p)); }   /* the invitation takes 
 #chips li .warn { color: var(--ember, #ffa866); }
 
 /* bottom band: QR left, invitation right */
-footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); bottom: calc(56 * var(--p)); height: calc(96 * var(--p));
+footer { position: fixed; left: var(--m); right: var(--m); bottom: var(--m); height: calc(96 * var(--p));
          display: flex; align-items: flex-end; justify-content: space-between; }
 /* two codes, one unit each: the same symbol size, module, quiet zone and caption, on one line */
-#qr { display: grid; grid-template-columns: repeat(2, calc(312 * var(--p))); }   /* the second code at x 408 at any size */
+#qr { display: grid; grid-template-columns: repeat(2, calc(312 * var(--p))); }   /* the second code at x 384 at any size */
 #qr > div { display: flex; align-items: center; gap: calc(16 * var(--p)); }
 /* 37 modules, quiet zone included, at 2 px a module in the frame: whole pixels at 1080p and 4K */
 #qr img { width: calc(74 * var(--p)); height: calc(74 * var(--p)); border-radius: calc(3 * var(--p)); }
@@ -140,7 +141,7 @@ footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 #invite .dim { color: var(--ink3); font-weight: 460; }
 
 /* typing: the letters across the top of the stage */
-#typing { position: fixed; left: calc(96 * var(--p)); width: calc(1152 * var(--p)); top: calc(250 * var(--p)); display: none; }
+#typing { position: fixed; left: var(--m); width: calc(1152 * var(--p)); top: calc(250 * var(--p)); display: none; }
 #letters { display: flex; flex-wrap: nowrap; gap: calc(6 * var(--p)); min-height: calc(200 * var(--p)); align-items: flex-start; }
 #letters .c { display: flex; flex-direction: column; align-items: center; animation: arrive 800ms var(--out); }
 #letters .c b { font-weight: 400; line-height: 1; letter-spacing: -0.01em; }
@@ -157,7 +158,7 @@ body[data-state=typing] #typing, body[data-state=waiting] #typing { display: blo
 body[data-state=waiting] #letters .c { transition: opacity 600ms var(--fade), transform 900ms var(--out); }
 
 /* on-screen keys, only after a touch */
-#keys { position: fixed; left: calc(96 * var(--p)); width: calc(1152 * var(--p)); bottom: calc(150 * var(--p));
+#keys { position: fixed; left: var(--m); width: calc(1152 * var(--p)); bottom: calc(150 * var(--p));
         display: none; grid-template-columns: repeat(10, 1fr); gap: calc(10 * var(--p)); }
 body.touch[data-state=typing] #keys { display: grid; }
 #keys button { font: inherit; font-size: calc(24 * var(--p)); font-weight: 500; color: var(--ink); background: rgba(238, 241, 245, 0.06);

@@ -161,7 +161,11 @@ export class Director {
       this.visitors = [...this.visitors.filter(v => v.sequence !== f.sequence), f].slice(-3);
       return;
     }
-    // keep one copy per protein: the newest
+    // keep one copy per protein: the newest live fold, or the newest recording until a chip has folded
+    // it. A recording never displaces a live fold, so live or recorded is never a matter of which
+    // copy happened to arrive last.
+    const had = this.pool.find(p => this.key(p) === this.key(f));
+    if (had?.source === 'live' && f.source !== 'live') return;
     this.pool = this.pool.filter(p => this.key(p) !== this.key(f));
     this.pool.push(f);
     if (this.pool.length > this.max) this.pool.shift();
