@@ -23,6 +23,25 @@ What it does, step by step:
 class-balanced binary cross-entropy over residue pairs at least six apart in sequence, with pairs
 24 or more apart counted four times.
 
+## What it printed
+
+Run on a CPU-only host (`--accelerator cpu --no_kernels`, tt-bio at this commit, seed 0). The six
+training folds took 59 to 80 s each, and training the head took 4 s (300 epochs, loss 0.694 to
+0.128). CheY, which the head never saw:
+
+```
+3chy: 128 residues
+  |i-j| >= 12: base rate 0.031
+    ContactHead     top-L/5 1.000   top-L 0.977
+    fold structure  top-L/5 1.000   top-L 1.000
+  |i-j| >= 24: base rate 0.027
+    ContactHead     top-L/5 1.000   top-L 0.984
+    fold structure  top-L/5 1.000   top-L 0.984
+```
+
+The head ranks contacts nearly as well as the folded structure does, because `z` already carries
+the information the trunk uses to place atoms. That is the expected outcome for a head on `z`.
+
 Six proteins is a demonstration of the mechanics, not a contact predictor worth using: a real
 head wants hundreds of training structures. The point is that each piece is your own Python and
 the fold around it is the shipped model, unchanged.
