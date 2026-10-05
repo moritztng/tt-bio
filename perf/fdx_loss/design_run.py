@@ -42,6 +42,8 @@ BINDER_CHAIN = 'binder'
 TARGET_SEQUENCE = 'SYDLLDNHLAKQMFSGLSYEEIQKLVGRRGEN'
 BINDER_LENGTH = 16
 LENGTH_BUCKET = 32
+# Tryptophan, phenylalanine, tyrosine: what the third A/B arm's added term asks for.
+AROMATIC_ACIDS = 'WFY'
 
 
 def canonical_digest(array) -> str:
@@ -80,6 +82,26 @@ def binder_resolved(prediction, protein_complex) -> float:
     rows = chain_residue_slices(protein_complex)[BINDER_CHAIN]
     values = numpy.asarray(prediction.metrics['experimentally_resolved_ca'], dtype=numpy.float64)
     return float(values[rows].mean())
+
+
+def binder_aromatic(protein_states) -> float:
+    """The binder's mean designed-residue probability of W, F or Y, in numpy.
+
+    The quantity the third A/B arm targets. Read off the design sequence logits rather than off
+    anything AF2 returned, and recomputed here for every arm by this one function, so the control
+    curve and the effect curve are measured by the same code and neither arm reads back its own
+    objective.
+    """
+    from bindcraft.protein import AMINO_ACID_INDEX, ResidueFlags, has_residue_flag
+
+    binder = protein_states[TARGET_STATE][BINDER_CHAIN]
+    logits = numpy.asarray(binder.sequence, dtype=numpy.float64)
+    shifted = logits - logits.max(-1, keepdims=True)
+    probabilities = numpy.exp(shifted)
+    probabilities /= probabilities.sum(-1, keepdims=True)
+    columns = [AMINO_ACID_INDEX[amino_acid] for amino_acid in AROMATIC_ACIDS]
+    designed = numpy.asarray(has_residue_flag(binder.flags, ResidueFlags.DESIGN), dtype=bool)
+    return float(probabilities[designed][:, columns].sum(-1).mean())
 
 
 def padded_token_count(protein_states) -> int:
@@ -124,10 +146,12 @@ def run_design(steps: int, seed: int, hook) -> dict:
             # randomness and enters no graph, so it cannot move the digest.
             radius = binder_radius(prediction.protein_complex[BINDER_CHAIN])
             resolved = binder_resolved(prediction, protein_states[TARGET_STATE])
+            aromatic = binder_aromatic(protein_states)
             trace.append({'step': step + 1, 'loss': float(design_loss), 'binder_rg': radius,
-                          'binder_resolved': resolved})
+                          'binder_resolved': resolved, 'binder_aromatic': aromatic})
             print(f'step {step + 1}/{steps} loss={float(design_loss):.6f} binder_rg={radius:.4f} '
-                  f'binder_resolved={resolved:.6f} {time.perf_counter() - started:.1f}s',
+                  f'binder_resolved={resolved:.6f} binder_aromatic={aromatic:.6f} '
+                  f'{time.perf_counter() - started:.1f}s',
                   file=sys.stderr, flush=True)
     binder = prediction.protein_complex[BINDER_CHAIN]
     return {'tokens': padded_token_count(protein_states),

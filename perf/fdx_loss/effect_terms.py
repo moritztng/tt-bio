@@ -112,3 +112,48 @@ def radius_of_gyration(coordinates, mask=None) -> float:
         points = points[np.asarray(mask, dtype=bool).reshape(-1)]
     centroid = points.mean(0)
     return float(np.sqrt(np.square(points - centroid).sum(-1).mean()))
+
+
+#: The binder's aromatic content, the quantity the third arm targets. Comparable to BindCraft 2's
+#: own weights: the value is 0-1 like the one `plddt_loss` reads, and the default objective sits
+#: around 4.5, so 1.0 is about a tenth of the loss.
+AROMATIC_WEIGHT = 1.0
+AROMATIC_ACIDS = 'WFY'
+
+
+def aromatic_binder(protein_states, predictions, prediction_state="complex", chain="binder"):
+    """Push up the binder's tryptophan/phenylalanine/tyrosine content.
+
+    The arm that finally separated, and the reason is worth stating: it reads the **design
+    sequence logits**, not a prediction metric. The two earlier arms both targeted a quantity AF2
+    returns, and both were drowned -- `tight_binder` by restating `compactness`, `resolved_binder`
+    by a metric already saturated at 0.95 with a step-to-step spread wider than the gap it could
+    open. Sequence composition is free of both problems: nothing in the campaign's eight default
+    terms reads amino-acid identity, and the quantity starts near 0.15 (a near-uniform logit
+    init), so there is room to move.
+
+    A composition term is also what a designer actually writes: hydrophobicity, no free cysteine,
+    a charge window. Same shape as this one.
+    """
+    import jax
+    import jax.numpy as jnp
+    from bindcraft.loss import binder_copy_chains, resolve_prediction_state
+    from bindcraft.protein import AMINO_ACID_INDEX, ResidueFlags, has_residue_flag
+
+    prediction_state = resolve_prediction_state(predictions, prediction_state)
+    protein_complex = protein_states[prediction_state]
+    names = binder_copy_chains(protein_complex, chain)
+    logits = jnp.concatenate([protein_complex[name].sequence for name in names]).astype(jnp.float32)
+    designed = jnp.concatenate([has_residue_flag(protein_complex[name].flags, ResidueFlags.DESIGN)
+                                for name in names]).astype(logits.dtype)
+    columns = jnp.asarray([AMINO_ACID_INDEX[amino_acid] for amino_acid in AROMATIC_ACIDS])
+    fraction = jax.nn.softmax(logits)[:, columns].sum(-1)
+    return 1.0 - fraction.dot(designed) / (designed.sum() + 1e-8)
+
+
+@contextlib.contextmanager
+def with_aromatic_binder():
+    """The effect arm that the EFFECT number is measured on."""
+    with bindcraft2.loss_terms(
+            add={"aromatic_binder": (aromatic_binder, AROMATIC_WEIGHT)}) as installed:
+        yield installed
