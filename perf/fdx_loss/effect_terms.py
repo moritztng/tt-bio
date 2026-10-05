@@ -28,9 +28,13 @@ def tight_binder(protein_states, predictions, prediction_state="binder_alone", c
     residues, so padding does not drag the centroid.
     """
     import jax.numpy as jnp
-    from bindcraft.loss import chain_atom_coordinates
+    from bindcraft.loss import chain_atom_coordinates, resolve_prediction_state
     from bindcraft.protein import real_residue_mask
 
+    # Always resolve the state name first, the way BindCraft 2's own terms do: a campaign names
+    # its states after its targets, so a term that indexes `predictions["complex"]` directly
+    # raises KeyError on any design whose state is called something else.
+    prediction_state = resolve_prediction_state(predictions, prediction_state)
     folded = predictions[prediction_state].protein_complex[chain]
     coordinates, present = chain_atom_coordinates(folded)
     mask = (present * real_residue_mask(protein_states[prediction_state][chain].flags)

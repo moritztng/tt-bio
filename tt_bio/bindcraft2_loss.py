@@ -320,8 +320,12 @@ def loss_terms(*, add: Mapping[str, object] | None = None,
             merged[f"weights_{name}"] = value
         return real_build_losses(merged, seed)
 
+    # `vars(module).get`, never `getattr`: a module is allowed to define `__getattr__`, and
+    # haiku's no_flax shim raises ImportError from it for any name, so a getattr sweep over
+    # sys.modules dies on an unrelated package. A `from bindcraft.loss import build_losses` binding
+    # is a real entry in the importing module's __dict__, which is the only thing to find here.
     aliases = [m for m in list(sys.modules.values())
-               if getattr(m, "build_losses", None) is real_build_losses]
+               if m is not None and _own(m).get("build_losses") is real_build_losses]
     try:
         for name, spec in added.items():
             module.REGISTERED_LOSSES[name] = spec.function
@@ -344,6 +348,14 @@ def loss_terms(*, add: Mapping[str, object] | None = None,
 
 
 _ABSENT = object()
+
+
+def _own(module) -> Mapping:
+    """A module's own ``__dict__``, or an empty mapping for the exotic ones that have none."""
+    try:
+        return vars(module)
+    except TypeError:
+        return {}
 
 
 def _normalise(name: str, spec) -> NewTerm:

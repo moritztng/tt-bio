@@ -13,7 +13,8 @@ import warnings
 
 import jax
 import jax.numpy as jnp
-from bindcraft.loss import build_design_losses, chain_residue_slices, distogram_bin_distances
+from bindcraft.loss import (build_design_losses, chain_residue_slices,
+                            distogram_bin_distances, resolve_prediction_state)
 from bindcraft.protein import ResidueFlags, has_residue_flag
 from bindcraft.settings import read_settings
 
@@ -29,9 +30,11 @@ def hotspot_contacts(protein_states, predictions, prediction_state="complex",
     edges, and returns one minus the mean probability over (binder, hotspot) pairs -- so driving
     the term down drives those contacts up.
 
-    Every rule a term has to follow is visible here: a scalar out, no Python branch on a traced
-    value, a mask instead of a slice so padding cannot leak in, and an eps on the divide.
+    Every rule a term has to follow is visible here: resolve the state name before indexing it,
+    a scalar out, no Python branch on a traced value, a mask instead of a slice so padding cannot
+    leak in, and an eps on the divide.
     """
+    prediction_state = resolve_prediction_state(predictions, prediction_state)
     metrics = predictions[prediction_state].metrics
     complex_chains = protein_states[prediction_state]
     rows = chain_residue_slices(complex_chains)
@@ -54,6 +57,7 @@ def softer_plddt(protein_states, predictions, prediction_state="binder_alone", c
     refuses a replacement that changes them, because that silently changes how BindCraft 2 fans
     the term out over states and the weight would no longer mean the same thing.
     """
+    prediction_state = resolve_prediction_state(predictions, prediction_state)
     rows = chain_residue_slices(protein_states[prediction_state])[chain]
     confidence = predictions[prediction_state].metrics["plddt"][rows]
     designed = has_residue_flag(protein_states[prediction_state][chain].flags,
@@ -63,6 +67,7 @@ def softer_plddt(protein_states, predictions, prediction_state="binder_alone", c
 
 def dead_on_arrival(protein_states, predictions, prediction_state="complex"):
     """What a term with no gradient looks like. tt-bio refuses this one; that is the point."""
+    prediction_state = resolve_prediction_state(predictions, prediction_state)
     return jnp.argmax(predictions[prediction_state].metrics["distogram"], axis=-1).mean() * 1.0
 
 
