@@ -357,7 +357,7 @@ function drawNumber(f) {
   const x = (r) => r >= 10 ? Math.round(r / 5) * 5 : r >= 3 ? Math.round(r) : r.toFixed(1);
   const pace = !k ? '' : k > 1.05 ? `\nReplayed ${x(k)}× slower than the chip ran it`
     : k < 0.95 ? `\nReplayed ${x(1 / k)}× faster than the chip ran it` : '\nReplayed at the chip’s own pace';
-  const why = live ? '' : '\nA recording: the chips have not folded this one yet';
+  const why = live ? '' : '\nA recording until a chip finishes this one live';
   $('step').textContent = !of ? '' : (stage.landed ? `All ${of} diffusion steps shown`
     : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`) + why;
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);

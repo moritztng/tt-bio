@@ -80,7 +80,7 @@ Every number on screen that counts seconds counts real seconds, in step with wha
   a recording only stands in for a protein no chip has folded since the page started (the first
   minutes after a restart, or a chip out of service), and a recording never displaces a live fold.
   The live label says how long ago the chip finished it ("Folded live on chip 2, 3 min ago, in"), and
-  a recording says why it is one ("A recording: the chips have not folded this one yet").
+  a recording says why it is one ("A recording until a chip finishes this one live").
 * **A recorded gallery fold shows the time it took when it was recorded**: "Recorded on this box
   in 34.81 s". The recorder is the booth's chip worker with a booth worker's CPU share, so these are
   booth times; the AICLK during each is in `gallery/manifest.json`.
