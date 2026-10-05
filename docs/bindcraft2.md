@@ -921,6 +921,150 @@ the usual spread, but do not treat acceptance at those sizes as measured. The me
 what fits and what it costs; they do not touch the filters, the gradient grades against a float64
 reference, and `offload` is bit-identical to `lean`.
 
+## Custom loss
+
+BindCraft 2's design objective is a set of named, weighted terms, not one scalar: `plddt_loss`,
+`interface_contacts`, `iptm_loss` and 34 others, each with a `weights_<name>` setting. tt-bio lets
+you reweight them, switch them off, replace what one computes, and add your own, from ordinary
+Python:
+
+```python
+from tt_bio import bindcraft2
+
+with bindcraft2.campaign_predictor(card=0), \
+     bindcraft2.loss_terms(add={"hotspot_contacts": (hotspot_contacts, 0.8)},
+                           weight={"interface_contacts": 0.5, "binder_helicity": 0.0},
+                           replace={"plddt_loss": softer_plddt}):
+    campaign.run_campaign(settings, project, af2_weights=params, mpnn_weights=mpnn)
+```
+
+Your settings file does not change, and BindCraft 2 is put back exactly as it was when the block
+exits. A term you add participates in **both** places a loss is used: it is differentiated and
+reaches the optimiser, it is scored in the mutation and acceptance stages, and its value is logged
+per step in the trajectory's `losses.csv` next to BindCraft 2's own terms.
+
+A term is a function of the model's own intermediates:
+
+```python
+def hotspot_contacts(protein_states, predictions, prediction_state="complex",
+                     binder="binder", target="target", cutoff=8.0):
+    metrics = predictions[prediction_state].metrics
+    rows = chain_residue_slices(protein_states[prediction_state])
+    edges = distogram_bin_distances(metrics["distogram"].shape[-1])[1:]
+    contact = jax.nn.softmax(metrics["distogram"], -1)[..., 1:][..., edges <= cutoff].sum(-1)
+    binder_rows = jnp.zeros(contact.shape[0], bool).at[rows[binder]].set(True)
+    hotspot = has_residue_flag(protein_states[prediction_state][target].flags,
+                               ResidueFlags.HOTSPOT)
+    target_rows = jnp.zeros(contact.shape[0], bool).at[rows[target]].set(hotspot)
+    pairs = (binder_rows[:, None] & target_rows[None, :]).astype(contact.dtype)
+    return 1.0 - (contact * pairs).sum() / (pairs.sum() + 1e-8)
+```
+
+The first two arguments are mandatory and everything after them needs a default; return a scalar.
+`examples/bindcraft2_custom_loss.py` is this term plus a reweight, a replacement and a grade, and
+it runs on CPU with no card and no AlphaFold 2 weights.
+
+### What you can read
+
+`predictions[state].metrics`, where `N` is the state's token count, chains concatenated in
+`sorted()` order (`bindcraft.loss.chain_residue_slices` gives you each chain's rows):
+
+| key | shape | what it is |
+|---|---|---|
+| `distogram` | `[N, N, 64]` | pair distance logits; bin edges from `distogram_bin_distances(64)` |
+| `pae` | `[N, N]` | predicted aligned error, 0 to 31 Å (BindCraft 2's terms divide by 31) |
+| `plddt` | `[N]` | per-token confidence, 0 to 1 |
+| `ptm`, `iptm` | scalar | predicted and interface TM-score, 0 to 1 |
+| `experimentally_resolved_ca` | `[N]` | probability the CA is resolved |
+
+`protein_states[state][chain]` is the design and template that went in; the same chain under
+`predictions[state].protein_complex` is what AlphaFold 2 returned. Both carry `sequence`
+`[L, 20]` (the logits the optimiser updates), `atoms` `[L, 37, 3]` in Å, `atom_mask`, `flags`
+(a `ResidueFlags` bitfield: `DESIGN`, `HOTSPOT`, `COLDSPOT`, `PADDING` and the rest) and
+`residue_index`. Compare the two and you have an induced-fit term; `bindcraft2.INTERMEDIATES`
+is the same table in the package.
+
+Mask, do not slice. The token axis is padded to the campaign's bucket, so a bare `.mean()` averages
+your term over padding and the target chain as well; `real_residue_mask(flags)` is the mask to use.
+
+### What you can compute with
+
+Your term runs inside BindCraft 2's `jax.jit`, so the rules are JAX's: `jax.numpy` and
+`jax.nn` throughout, no NumPy, no `.item()`, no `if` on a value that depends on the model. tt-bio's
+own tape sits *underneath* your term, serving the Evoformer's backward pass, and never sees it.
+There is no list of supported operations to check against and no operation that silently has no
+derivative.
+
+What does go wrong is a gradient that is quietly **zero**. `argmax`, `round`, `floor`, a `>`
+comparison, a cast to int, an `argsort` index and `stop_gradient` all differentiate to 0.0 without
+complaining, so a term built on them runs for a full campaign and changes nothing. tt-bio screens
+every term you add or replace when the block opens and refuses one like that by name:
+
+```
+DeadGradient: loss term 'dead_on_arrival' returns 31.5747 but its gradient is exactly zero
+with respect to every intermediate it could read (21 arrays). It would run, cost a full
+forward and backward, and change nothing. [...] Use a soft form instead: softmax for argmax,
+a sigmoid for a threshold, a soft-ranked mean for a top-k.
+```
+
+It also refuses a term that returns something other than a scalar, one that returns a non-finite
+value, one whose gradient is NaN where the value is not, and a signature BindCraft 2 could not
+bind. If the screen cannot run your term at all, because it needs a chain layout the small
+synthetic design does not have, it says so and installs it anyway rather than guessing.
+
+A term can be inactive rather than broken: one that selects on a residue flag nothing set, or a
+hinge sitting on its flat side, has a zero gradient for an honest reason. Nine of BindCraft 2's own
+terms read that way on the synthetic design, so that case is a warning, not a refusal.
+
+### Pick a term the campaign can actually move
+
+Two things make an added term invisible, and both look like "the hook did nothing". It can restate
+a term that is already in the objective, so the control run is minimising it for you: a radius-of-
+gyration penalty next to `compactness` ends up fighting it, not adding to it. Or it can target a
+quantity that is already saturated: `experimentally_resolved_ca` sits at 0.95 within a handful of
+steps whatever you do, and a term pushing on it moves the design by less than the step-to-step
+spread. A composition term on the binder's own sequence logits has neither problem, because none of
+the default terms reads amino-acid identity.
+
+Weight it against what is already there, not against your intuition. Each default term contributes
+roughly 0.05 to 3 to a total near 4.5, so a term valued 0 to 1 needs a weight around 1 to count and
+around 5 to lead. Far above that it takes the optimiser over and oscillates. A term on the binder's
+W/F/Y content, 24 gradient steps from the same start: the run with no added term ends at 0.152, the
+same run at weight 1.0 ends at 0.265 and at weight 5.0 at 0.375. The eight default terms end worse
+in step with it, which is the trade you are making.
+
+### Grade it before you spend a campaign on it
+
+```python
+rows, worst, dtype = bindcraft2.check_gradient(hotspot_contacts)
+```
+
+Takes `jax.grad` in float64 and compares it against central differences on the entries where the
+gradient is non-zero, sweeping the step size. **Read the number against the dtype it returns.**
+A term written in plain `jax.numpy` over `plddt`, `pae` or the distogram stays in float64 and
+agrees to around 1e-10:
+
+```
+complex/metrics/distogram   n=8  |g|max=4.955e-03  max|d|=1.19e-12  rel=2.40e-10  at h=1e-05
+worst 2.40e-10 relative, the term's own forward in float64
+```
+
+BindCraft 2's helpers (`pairwise_atom_distances`, `_masked_mean`, `kabsch`) compute in float32, so
+a term built on them has a float32 forward and 1e-4 is as close as a finite difference gets, by
+arithmetic rather than by anything being wrong. Its own terms grade the same way: `iptm_loss`
+6.0e-15, `compactness` 5.4e-05, `plddt_loss` 6.1e-05, `target_rmsd` 2.9e-04, `sequence_entropy`
+6.4e-04, `interface_pae` 9.7e-04, `distogram_cce` 5.6e-03.
+
+With no custom loss nothing about the design loop changes, including the numbers: the default path
+is bit-identical whether this module is imported or not.
+
+### This is yours to run
+
+Everything in this section lives in the tt-bio you `pip install` and runs on your own hardware. It
+needs nothing from Tenstorrent and no access to our machines, which is exactly why it is here while
+a hosted BindCraft 2 is not: running BindCraft 2 yourself is covered by its own licence, and
+offering it as a service to others is not. See below.
+
 ## Licence
 
 BindCraft 2 is the work of Martin Pacesa, the University of Zurich and its contributors, under the
