@@ -62,8 +62,10 @@ record_fold("start", card, model="esmfold2", name="GFP", residues=238)
 record_fold("done", card, seconds=1.91)    # or record_fold("fail", card)
 ```
 
-The file is `~/.local/state/sc26/folds.jsonl` (override with `--events`). The AICLK shown beside
-a finished fold is the median of the samples taken while it ran.
+The file is `~/.local/state/sc26/folds.jsonl` (override with `--events`, or the engine's
+`--fold-events`). An engine started with a test `--worker` writes its own ledger in its `--logdir`
+instead, so recorded folds never count as the booth's. The AICLK shown beside a finished fold is
+the median of the samples taken while it ran.
 
 ## The comparison
 
