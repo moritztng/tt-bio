@@ -1,6 +1,8 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel.
-   One type scale, in frame pixels: 12 caps labels, 15 small text, 17 the lineup, 18 body, 24 the
-   line under the title, 36 the protein's name, 52 the title. Numbers in tabular figures. */
+   One type scale, in frame pixels: 12 caps labels, 13 captions, 15 small text, 17 the lineup, 18 body,
+   24 the line under the title, 36 the protein's name, 40 the title. Numbers in tabular figures.
+   One grid: margins of 96 at the sides and 56 at top and bottom; the lineup and the right column
+   start on one line (y 264), and the last chip's rule ends on the QR codes' bottom edge (y 1024). */
 @import url(palette.css);
 @font-face { font-family: Inter; src: url(fonts/InterVariable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
 
@@ -38,14 +40,14 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 .marks i { width: 1px; height: calc(21 * var(--p)); background: var(--ink3); }
 .marks b { font-weight: 560; font-size: calc(23 * var(--p)); letter-spacing: -0.005em; }
 /* the title, then one line under it */
-#sentence { margin: calc(36 * var(--p)) 0 0; width: calc(1200 * var(--p)); font-size: calc(24 * var(--p));
+#sentence { margin: calc(32 * var(--p)) 0 0; width: calc(1200 * var(--p)); font-size: calc(24 * var(--p));
             line-height: 1.5; font-weight: 400; color: var(--ink2); transition: opacity 600ms var(--fade);
             font-feature-settings: 'ss01', 'cv11'; }   /* no tabular figures: they space out a hyphen */
-#sentence b { display: inline-block; margin-bottom: calc(10 * var(--p)); font-size: calc(52 * var(--p)); font-weight: 600;
-              letter-spacing: -0.025em; line-height: 1.1; color: var(--ink); font-feature-settings: 'ss01', 'cv11'; }
+#sentence b { display: inline-block; margin-bottom: calc(8 * var(--p)); font-size: calc(40 * var(--p)); font-weight: 600;
+              letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); font-feature-settings: 'ss01', 'cv11'; }
 
 /* the lineup: every model, down the left edge; the one the chips run is lit */
-#lineup { position: fixed; left: calc(96 * var(--p)); top: calc(300 * var(--p)); width: calc(200 * var(--p));
+#lineup { position: fixed; left: calc(96 * var(--p)); top: calc(264 * var(--p)); width: calc(200 * var(--p));
           transition: opacity 600ms var(--fade); }
 #lineup section + section { margin-top: calc(22 * var(--p)); }
 #lineup h2 { margin: 0 0 calc(8 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
@@ -57,15 +59,16 @@ header { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p));
 #lineup li.on::before { content: ''; position: absolute; left: calc(-18 * var(--p)); top: 50%; width: calc(6 * var(--p));
                         height: calc(6 * var(--p)); margin-top: calc(-3 * var(--p)); border-radius: 50%; background: var(--live); }
 body[data-state=typing] #lineup, body[data-state=waiting] #lineup { opacity: 0; }
-#tag { position: absolute; right: 0; top: 0; height: calc(22 * var(--p)); display: flex; align-items: center;
+#tag { position: absolute; right: 0; top: 0; height: calc(26 * var(--p)); display: flex; align-items: center;
        gap: calc(10 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
        color: var(--ink2); text-transform: uppercase; }
 #tag i { width: calc(6 * var(--p)); height: calc(6 * var(--p)); border-radius: 50%; background: var(--ink3); }
 #tag.live i { background: var(--live); }
 
 /* right column: x 1296..1824 */
-aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)); top: calc(228 * var(--p));
-        bottom: calc(150 * var(--p)); display: flex; flex-direction: column; }
+aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)); top: calc(264 * var(--p));
+        bottom: calc(56 * var(--p)); display: flex; flex-direction: column; }
+body.visitors aside { bottom: calc(150 * var(--p)); }   /* the invitation takes the bottom right */
 #label, #source { font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #label { color: var(--live); min-height: calc(16 * var(--p)); }
 /* name and story share one fixed box, so the number and everything under it never move */
@@ -94,7 +97,8 @@ aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)
 #legend i { width: calc(9 * var(--p)); height: calc(9 * var(--p)); border-radius: 1px; }
 
 /* four chips, always visible */
-#chips { list-style: none; margin: auto 0 0; padding: 0; }
+/* the table closes with a rule on the QR codes' bottom edge */
+#chips { list-style: none; margin: auto 0 0; padding: 0; border-bottom: 1px solid var(--rule); }
 #chips li { display: grid; grid-template-columns: calc(28 * var(--p)) 1fr; grid-template-rows: auto auto; align-items: baseline;
             column-gap: calc(10 * var(--p)); padding: calc(9 * var(--p)) 0 calc(7 * var(--p)); border-top: 1px solid var(--rule);
             font-size: calc(15 * var(--p)); font-weight: 400; color: var(--ink3); }
@@ -111,9 +115,11 @@ aside { position: fixed; left: calc(1392 * var(--p)); width: calc(432 * var(--p)
 #chips li.on .n { color: var(--live); }
 
 /* bottom band: QR left, invitation right */
-footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); bottom: calc(48 * var(--p)); height: calc(96 * var(--p));
+footer { position: fixed; left: calc(96 * var(--p)); right: calc(96 * var(--p)); bottom: calc(56 * var(--p)); height: calc(96 * var(--p));
          display: flex; align-items: flex-end; justify-content: space-between; }
-#qr { display: flex; align-items: center; gap: calc(16 * var(--p)); }
+/* two codes, one unit each: the same symbol size, module, quiet zone and caption, on one line */
+#qr { display: flex; gap: calc(48 * var(--p)); }
+#qr > div { display: flex; align-items: center; gap: calc(16 * var(--p)); }
 /* 37 modules, quiet zone included, at 2 px a module in the frame: whole pixels at 1080p and 4K */
 #qr img { width: calc(74 * var(--p)); height: calc(74 * var(--p)); border-radius: calc(3 * var(--p)); }
 #qr p { margin: 0; font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-weight: 400; }
@@ -156,7 +162,6 @@ body.touch[data-state=typing] #keys { display: grid; }
 body[data-state=depth] #depth { opacity: 1; }
 body[data-state=depth] aside, body[data-state=depth] #invite, body[data-state=depth] #tag { opacity: 0; }
 body[data-state=depth] #sentence { width: calc(820 * var(--p)); font-size: calc(22 * var(--p)); }   /* the subtitle too, at 1080p */
-body[data-state=depth] #sentence b { font-size: calc(38 * var(--p)); }   /* the title stays on one line */
 aside, #invite, #tag { transition: opacity 600ms var(--fade); }
 body[data-state=typing] aside > :not(#chips) { opacity: 0; }
 body[data-state=waiting] #invite { padding: calc(28 * var(--p)) 0; margin-bottom: calc(-28 * var(--p)); }

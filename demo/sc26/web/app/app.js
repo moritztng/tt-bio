@@ -8,6 +8,8 @@
 //   ?visitors=1      let visitors type a name and fold it (off for now: the attract loop runs alone)
 //   ?walk=<name>     type <name> after ?after=<s> seconds, for a recorded walkthrough (needs ?visitors=1)
 //   ?stream=<ws url> another engine's stream, default this origin's /stream
+//   ?as=<model>      show every fold as this model's: rehearse a model's screens on another model's
+//                    stream before its engine lands. Development only; never on the booth URL
 //   ?play=<url>      play only this recording, over and over, for a look-test of one fold
 //   ?orbit=<deg/s>   how fast a finished structure turns, default 5; 0 holds the landing view
 //   ?scale=, ?msaa=  the renderer's render scale and samples, default by resolution
@@ -18,19 +20,22 @@ import { Stage, Director } from './stage.js';
 import { parseName, substitutionLine, lengthLine, verdict, loadBlocklist, blocked, MAX_CHARS } from './name.js';
 import { describe, storyOf, INSTEAD } from './stories.js';
 import { kiosk, guardLoop } from './kiosk.js';
+import { Timing } from './progress.js';
 
 const q = new URLSearchParams(location.search);
 const IDLE = 1000 * (parseFloat(q.get('idle')) || 60);
 const HOLD = parseFloat(q.get('hold')) || 10;
 // Typing a name to fold it. Hidden for now (Moritz, 5 Oct 2026): no prompt, no keys, typing starts nothing.
 const VISITORS = q.get('visitors') === '1';
+document.body.classList.toggle('visitors', VISITORS);
 const WORD = ['no', 'one', 'two', 'three', 'four'];
 // Every model tt-bio runs on Tenstorrent hardware, by what it does: tt-bio main's tt_bio/main.py
 // PREDICT_MODELS, DESIGN_MODELS, EMBED_MODELS + SAPROT_MODELS and AFFINITY_MODELS, one entry per
 // model family (esmfold2-fast, opendde-abag and the ESMC/SaProt sizes are variants, not models).
-// Protenix-v2 is left out: its weights' licence is unresolved (state/lic/).
+// Protenix-v2 is left out: its weights' licence is unresolved (state/lic/). OpenFold3, which the
+// chips run, and OpenBind-0 lead (Moritz, 5 Oct 2026).
 const LINEUP = [
-  ['Structure', [['boltz2', 'Boltz-2'], ['esmfold2', 'ESMFold2'], ['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'],
+  ['Structure', [['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'], ['boltz2', 'Boltz-2'], ['esmfold2', 'ESMFold2'],
     ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1'], ['opendde', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
   ['Design', [['boltzgen', 'BoltzGen'], ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign']]],
   ['Embeddings', [['esmc', 'ESMC'], ['saprot', 'SaProt']]],
@@ -68,7 +73,9 @@ const app = {
 window.sc26 = app;     // for the self-test and for poking at it on the box
 app.stage = stage;
 
+const timing = new Timing({ persist: !q.has('as') });
 const stream = new Stream(q.get('stream') ?? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/stream`, {
+  timing, as: q.get('as'),
   onFold(f) {
     describe(f);
     if (app.mine && f.id === app.mine.id) return showResult(f);
@@ -357,7 +364,8 @@ function drawNumber(f) {
 }
 
 // A chip's row says what it is folding and which part of the model is running, with a bar for how
-// far along it is. No seconds: the one clock on screen is the stage's.
+// far along it is in real time (progress.js). No seconds: the one clock on screen is the stage's.
+// The word is the stage the chip last reported; `lm` exists only for ESMFold2's language model.
 const PHASE = { lm: 'language model', trunk: 'trunk', diffusion: 'diffusion', confidence: 'confidence', done: 'done' };
 
 function drawChips() {
@@ -372,8 +380,7 @@ function drawChips() {
     if (c?.state === 'busy' && job) {
       const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
       what = `${named() && MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who} <em>${PHASE[job.stage] ?? ''}</em>`;
-      prog = job.stage === 'lm' ? 0.12 : job.stage === 'trunk' ? 0.15 + 0.55 * job.step / Math.max(1, job.total)
-        : job.stage === 'diffusion' ? 0.7 + 0.25 * job.step / Math.max(1, job.total) : job.stage === 'confidence' ? 0.97 : 1;
+      prog = timing.progress(job, performance.now() / 1000) ?? 0;
       cls = 'busy';
     } else if (c?.state === 'busy') { what = 'folding'; cls = 'busy'; }
     else if (c?.state === 'ready') { what = 'idle'; cls = 'ready'; }
@@ -385,7 +392,10 @@ function drawChips() {
     li.className = cls;
     const w = li.querySelector('.what');
     if (w.innerHTML !== what) w.innerHTML = what;
-    li.querySelector('.bar i').style.width = (100 * prog).toFixed(1) + '%';
+    // a new fold starts its bar at zero at once; only forward motion is animated
+    const bar = li.querySelector('.bar i'), pct = 100 * prog;
+    bar.style.transition = pct < (+bar.dataset.w || 0) ? 'none' : '';
+    bar.dataset.w = pct; bar.style.width = pct.toFixed(1) + '%';
   }
 }
 
