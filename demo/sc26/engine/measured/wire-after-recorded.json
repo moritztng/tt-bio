@@ -1,0 +1,167 @@
+{
+ "seconds": 600.0,
+ "bytes": 1623659,
+ "mean_kbit_s": 21.6,
+ "peak_1s_kbit_s": 198.7,
+ "per_minute_MB": [
+  0.19,
+  0.15,
+  0.16,
+  0.15,
+  0.16,
+  0.18,
+  0.16,
+  0.16,
+  0.16,
+  0.16
+ ],
+ "by_type": {
+  "chip": {
+   "n": 206,
+   "bytes": 41230,
+   "mean": 200
+  },
+  "fold_done": {
+   "n": 120,
+   "bytes": 92346,
+   "mean": 769
+  },
+  "fold_start": {
+   "n": 120,
+   "bytes": 95023,
+   "mean": 791
+  },
+  "frame": {
+   "n": 595,
+   "bytes": 93600,
+   "mean": 157
+  },
+  "hello": {
+   "n": 1,
+   "bytes": 20846,
+   "mean": 20846
+  },
+  "stage": {
+   "n": 4571,
+   "bytes": 743726,
+   "mean": 162
+  },
+  "status": {
+   "n": 300,
+   "bytes": 536888,
+   "mean": 1789
+  }
+ },
+ "folds": [
+  {
+   "name": "Insulin",
+   "n_res": 51,
+   "n_atoms": 401,
+   "folds": 11,
+   "live": 10,
+   "frames": 0,
+   "MB": 0.0,
+   "bytes_per_frame": 3757
+  },
+  {
+   "name": "Top7",
+   "n_res": 93,
+   "n_atoms": 743,
+   "folds": 11,
+   "live": 10,
+   "frames": 0,
+   "MB": 0.0,
+   "bytes_per_frame": 3974
+  },
+  {
+   "name": "Lysozyme",
+   "n_res": 130,
+   "n_atoms": 1028,
+   "folds": 11,
+   "live": 10,
+   "frames": 0,
+   "MB": 0.0,
+   "bytes_per_frame": 4716
+  },
+  {
+   "name": "Myoglobin",
+   "n_res": 151,
+   "n_atoms": 1203,
+   "folds": 12,
+   "live": 10,
+   "frames": 0,
+   "MB": 0.0,
+   "bytes_per_frame": 4990
+  },
+  {
+   "name": "Green fluorescent protein",
+   "n_res": 238,
+   "n_atoms": 1898,
+   "folds": 11,
+   "live": 9,
+   "frames": 0,
+   "MB": 0.01,
+   "bytes_per_frame": 6273
+  },
+  {
+   "name": "PETase",
+   "n_res": 279,
+   "n_atoms": 2046,
+   "folds": 11,
+   "live": 9,
+   "frames": 0,
+   "MB": 0.01,
+   "bytes_per_frame": 5864
+  },
+  {
+   "name": "A designed binder",
+   "n_res": 290,
+   "n_atoms": 2331,
+   "folds": 11,
+   "live": 9,
+   "frames": 0,
+   "MB": 0.01,
+   "bytes_per_frame": 6905
+  },
+  {
+   "name": "Keytruda blocks PD-1",
+   "n_res": 573,
+   "n_atoms": 4421,
+   "folds": 11,
+   "live": 9,
+   "frames": 0,
+   "MB": 0.01,
+   "bytes_per_frame": 11339
+  },
+  {
+   "name": "Haemoglobin",
+   "n_res": 574,
+   "n_atoms": 4380,
+   "folds": 10,
+   "live": 9,
+   "frames": 0,
+   "MB": 0.01,
+   "bytes_per_frame": 10745
+  },
+  {
+   "name": "The enzyme Paxlovid jams",
+   "n_res": 612,
+   "n_atoms": 4734,
+   "folds": 9,
+   "live": 8,
+   "frames": 0,
+   "MB": 0.01,
+   "bytes_per_frame": 11514
+  },
+  {
+   "name": "A T cell checks for a virus",
+   "n_res": 833,
+   "n_atoms": 6655,
+   "folds": 8,
+   "live": 7,
+   "frames": 0,
+   "MB": 0.02,
+   "bytes_per_frame": 15365
+  }
+ ]
+}
