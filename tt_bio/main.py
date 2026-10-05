@@ -3166,7 +3166,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
 @click.option("--head", "heads", multiple=True, metavar="FILE.py:NAME",
               help="Run your own output head on each fold's trunk outputs and write what it "
-                   "returns to <name>_<NAME>.npz. Repeatable. boltz2 only; docs/extending.md.")
+                   "returns to <name>_<NAME>.npz. Repeatable. boltz2 and esmfold2; "
+                   "docs/extending.md.")
 @click.option("--affinity_mw_correction", is_flag=True)
 @click.option("--sampling_steps_affinity", default=200, type=int)
 @click.option("--diffusion_samples_affinity", default=5, type=int)
@@ -3458,6 +3459,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae, "contact_cutoff": contact_cutoff,
             "checkpoint": str(Path(checkpoint).resolve()) if checkpoint else None,
+            "heads": list(heads),
         }
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}

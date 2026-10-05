@@ -49,14 +49,14 @@ class ContactHead(torch.nn.Module):          # a class is built once per worker,
 What `fold` holds, with the padding a batch adds already removed, so the token axis lines up
 with the structure file:
 
-| field | shape | |
-|---|---|---|
-| `s` | `[N, 384]` | single representation after the last trunk pass |
-| `z` | `[N, N, 128]` | pair representation after the last trunk pass |
-| `coords` | `[samples, atoms, 3]` | every diffusion sample, Angstrom |
-| `plddt` | `[samples, N]` | |
-| `pae`, `pde` | `[samples, N, N]` | |
-| `pred`, `feats` | dicts | the raw prediction and input batch, padded, for anything else |
+| field | Boltz-2 | ESMFold-2 | |
+|---|---|---|---|
+| `s` | `[N, 384]` | `[N, 451]` | Boltz-2: single representation after the last trunk pass. ESMFold-2 has no single track in its trunk, so this is its input embedding |
+| `z` | `[N, N, 128]` | `[N, N, 256]` | pair representation after the last trunk pass |
+| `coords` | `[samples, atoms, 3]` | same | every diffusion sample, Angstrom |
+| `plddt` | `[samples, N]` | same | 0 to 1 |
+| `pae`, `pde` | `[samples, N, N]` | same | Angstrom |
+| `pred`, `feats` | dicts | dicts | the raw prediction and input batch, padded, for anything else |
 
 Repeat `--head` for several heads. Each writes `<record>_<NAME>.npz`.
 
@@ -64,9 +64,11 @@ Repeat `--head` for several heads. Each writes `<record>_<NAME>.npz`.
 been written, so a fold with a head writes the same structure as one without it, plus the npz.
 With no `--head` none of this code runs.
 
-**Boltz-2 only for now.** It is the model whose fold returns its trunk representations to the
-host on both the CPU and the Tenstorrent path, so a head reads the same tensors either way.
-`predict` refuses `--head` for any other model rather than ignoring it.
+**Boltz-2 and ESMFold-2 (`esmfold2`, `esmfold2-fast`) for now.** Their folds return the trunk
+representations to the host, so a head reads them without extra device traffic. Boltz-2 runs on
+CPU, GPU and Tenstorrent; ESMFold-2 runs on Tenstorrent only. The two models' `z` differ in width,
+so a head trained on one does not load on the other. `predict` refuses `--head` for any other model
+rather than ignoring it.
 
 **Your code runs where you run tt-bio.** `--head` loads your file in the local worker. It is
 refused with `--controller`, and JapanFold does not run customer code.
@@ -90,7 +92,7 @@ without either flag. Only the trunk moves; the head and its training are plain P
 - **A changed layer is a port.** Each trunk module is ttnn code written to match its reference.
   A different triangle update or attention variant needs its own implementation and the same
   component-by-component parity check every shipped model went through.
-- **ESMFold-2, OpenFold3, Protenix, OpenDDE and RF3 have no `--head` yet.** Their folds keep the
+- **OpenFold3, Protenix, OpenDDE, RF3 and AF2-IG have no `--head` yet.** Their folds keep the
   trunk on the chip or return a different result object; each needs its own small adapter.
 
 ## The compiler route

@@ -987,15 +987,15 @@ Behavior:
 
 ## Changing a Model
 
-Your own output head runs on a Boltz-2 fold's trunk outputs with `--head`, and writes what it
-returns next to the structure:
+Your own output head runs on a Boltz-2 or ESMFold-2 fold's trunk outputs with `--head`, and
+writes what it returns next to the structure:
 
 ```bash
 tt-bio predict target.yaml --model boltz2 --head my_heads.py:ContactHead
 ```
 
-The head is ordinary PyTorch on the host, so it runs the same on a CPU and beside a Tenstorrent
-card, and it cannot change the structure. Which change takes which route (a head, a BindCraft 2
+The head is ordinary PyTorch on the host, so on Boltz-2 it runs the same on a CPU and beside a
+Tenstorrent card, and it cannot change the structure. Which change takes which route (a head, a BindCraft 2
 loss, fine-tuning, a changed layer) and where each stops: [`docs/extending.md`](docs/extending.md),
 with a runnable contact-head example in [`examples/custom_head/`](examples/custom_head/). Porting a
 model tt-bio does not ship, and what it took for the ones it does: [`docs/porting-a-model.md`](docs/porting-a-model.md).

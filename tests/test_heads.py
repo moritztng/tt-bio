@@ -77,7 +77,7 @@ def test_run_writes_one_npz_per_head(head_file, tmp_path):
     loaded = {heads.name(s): heads.load(heads.resolve(s))
               for s in (f"{head_file}:mean_z", f"{head_file}:Scaled")}
     pred = _pred()
-    heads.run(loaded, pred, {}, tmp_path, "rec")
+    heads.run(loaded, heads.fold_view(pred, {}), tmp_path, "rec")
     a = np.load(tmp_path / "rec_mean_z.npz")
     assert a["mean"].shape == (N, N) and int(a["n"]) == N
     assert np.load(tmp_path / "rec_Scaled.npz")["y"].shape == (N, N)
@@ -86,22 +86,59 @@ def test_run_writes_one_npz_per_head(head_file, tmp_path):
 def test_a_head_that_writes_in_place_cannot_change_the_prediction(head_file, tmp_path):
     pred = _pred()
     before = {k: v.clone() for k, v in pred.items() if torch.is_tensor(v)}
-    heads.run({"Scaled": heads.load(f"{head_file}:Scaled")}, pred, {}, tmp_path, "rec")
+    heads.run({"Scaled": heads.load(f"{head_file}:Scaled")}, heads.fold_view(pred, {}),
+              tmp_path, "rec")
     assert all(torch.equal(before[k], pred[k]) for k in before)
 
 
 def test_a_head_must_return_arrays(tmp_path):
     with pytest.raises(TypeError, match="dict of arrays"):
-        heads.run({"bad": lambda fold: fold.z}, _pred(), {}, tmp_path, "rec")
+        heads.run({"bad": lambda fold: fold.z}, heads.fold_view(_pred(), {}), tmp_path, "rec")
 
 
 def test_no_head_writes_nothing(tmp_path):
-    heads.run({}, _pred(), {}, tmp_path, "rec")
+    heads.run({}, heads.fold_view(_pred(), {}), tmp_path, "rec")
     assert list(tmp_path.iterdir()) == []
 
 
-def test_only_boltz2_reads_it():
-    assert FLAG_READERS["--head"] == ("boltz2",)
+def test_the_models_with_a_head_adapter_read_it():
+    assert FLAG_READERS["--head"] == ("boltz2", "esmfold2", "esmfold2-fast")
+
+
+class _Esmfold2(torch.nn.Module):
+    """ESMFold-2's forward reduced to the three calls esmfold2_capture hooks."""
+
+    def __init__(self):
+        super().__init__()
+        self.inputs_embedder = torch.nn.Linear(4, 451)
+        self.parcae_coda = torch.nn.Linear(256, 256)
+
+    def forward(self, token_attention_mask, atom_attention_mask, x, num_diffusion_samples):
+        T, A = token_attention_mask.shape[1], atom_attention_mask.shape[1]
+        s = self.inputs_embedder(x)
+        z = self.parcae_coda(s[:, :, None, :256] * s[:, None, :, :256])
+        g = torch.Generator().manual_seed(1)
+        return {"sample_atom_coords": torch.randn(num_diffusion_samples, A, 3, generator=g),
+                "plddt": torch.rand(num_diffusion_samples, T, generator=g),
+                "pae": torch.rand(num_diffusion_samples, T, T, generator=g), "z_out": z}
+
+
+def test_esmfold2_capture_sees_the_forward_and_strips_padding():
+    model, T = _Esmfold2(), N + PAD
+    tok = torch.tensor([[1] * N + [0] * PAD])
+    atom = torch.tensor([[1] * ATOMS + [0] * APAD])
+    with heads.esmfold2_capture(model) as seen:
+        out = model(token_attention_mask=tok, atom_attention_mask=atom,
+                    x=torch.randn(1, T, 4), num_diffusion_samples=SAMPLES)
+    f = heads.esmfold2_view(seen)
+    assert f.s.shape == (N, 451) and f.z.shape == (N, N, 256) and f.z.dtype == torch.float32
+    assert f.coords.shape == (SAMPLES, ATOMS, 3) and f.plddt.shape == (SAMPLES, N)
+    assert f.pae.shape == (SAMPLES, N, N) and f.pde is None
+    assert torch.equal(f.z, out["z_out"][0, :N, :N]) and f.pred is out
+    seen.clear()                       # the hooks are gone once the block exits
+    model(token_attention_mask=tok, atom_attention_mask=atom, x=torch.randn(1, T, 4),
+          num_diffusion_samples=1)
+    assert seen == {}
 
 
 def test_predict_refuses_a_head_on_another_model(head_file):
@@ -111,6 +148,6 @@ def test_predict_refuses_a_head_on_another_model(head_file):
 
     target = head_file.with_name("t.yaml")
     target.write_text("version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MKV\n")
-    r = CliRunner().invoke(cli, ["predict", str(target), "--model", "esmfold2",
+    r = CliRunner().invoke(cli, ["predict", str(target), "--model", "openfold3",
                                  "--head", f"{head_file}:mean_z"])
-    assert r.exit_code != 0 and "--head is not available for --model esmfold2" in r.output
+    assert r.exit_code != 0 and "--head is not available for --model openfold3" in r.output

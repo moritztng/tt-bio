@@ -1028,15 +1028,21 @@ class _WorkerState:
             cfg["write_embeddings"],
             cfg.get("contact_cutoff", 8.0),
         )
-        if cfg.get("heads"):
+        if cfg.get("heads") and not pred.get("exception"):
             from tt_bio import heads
 
-            specs = tuple(cfg["heads"])
-            if self._heads[0] != specs:
-                self._heads = (specs, {heads.name(h): heads.load(h) for h in specs})
-            heads.run(self._heads[1], pred, batch, Path(cfg["struct_dir"]),
-                      batch["record"][0].id)
+            heads.run(self._load_heads(cfg), heads.fold_view(pred, batch),
+                      Path(cfg["struct_dir"]), batch["record"][0].id)
         return metrics, best, feats
+
+    def _load_heads(self, cfg: dict[str, Any]) -> dict:
+        """The --head callables, loaded once per worker and again only if the specs change."""
+        from tt_bio import heads
+
+        specs = tuple(cfg["heads"])
+        if self._heads[0] != specs:
+            self._heads = (specs, {heads.name(h): heads.load(h) for h in specs})
+        return self._heads[1]
 
     def _predict_af2ig_one(self, path: Path, cfg: dict[str, Any]):
         """AF2-IG: re-predict a designed complex from its own coordinates, report the
@@ -1130,12 +1136,16 @@ class _WorkerState:
         chains = [(cid, seq, _msa(spec, seq) if (uses_msa and mt == "protein") else None,
                    mt, mods)
                   for cid, seq, spec, mt, mods in chains]
-        ranked = fold_complex(
-            self.model, chains,
-            num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],
-            num_diffusion_samples=cfg["diffusion_samples"], seed=cfg.get("seed") or 0,
-            return_all=True, bonds=bonds,
-        )
+        from tt_bio import heads
+
+        with (heads.esmfold2_capture(self.model) if cfg.get("heads")
+              else contextlib.nullcontext()) as seen:
+            ranked = fold_complex(
+                self.model, chains,
+                num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],
+                num_diffusion_samples=cfg["diffusion_samples"], seed=cfg.get("seed") or 0,
+                return_all=True, bonds=bonds,
+            )
         res = ranked[0]
         # Write every sample, not just the winner: best as "{stem}.{fmt}" and the rest as
         # "{stem}_model_{rank}.{fmt}", the same convention Protenix-v2 and OpenDDE use. The
@@ -1179,6 +1189,8 @@ class _WorkerState:
             confidence_export.write(struct_dir, path.stem, cfg.get("model", "esmfold2"),
                                     pae=res.pae, pde=res.pde, distogram=res.distogram,
                                     cutoff=cfg.get("contact_cutoff", 8.0))
+        if seen is not None:
+            heads.run(self._load_heads(cfg), heads.esmfold2_view(seen), struct_dir, path.stem)
         # _execute_job inspects feats["record"].affinity; ESMFold2 has no affinity.
         feats = {"record": types.SimpleNamespace(affinity=False)}
         return metrics, None, feats
