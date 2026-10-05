@@ -143,7 +143,12 @@ def aromatic_binder(protein_states, predictions, prediction_state="complex", cha
     prediction_state = resolve_prediction_state(predictions, prediction_state)
     protein_complex = protein_states[prediction_state]
     names = binder_copy_chains(protein_complex, chain)
-    logits = jnp.concatenate([protein_complex[name].sequence for name in names]).astype(jnp.float32)
+    logits = jnp.concatenate([protein_complex[name].sequence for name in names])
+    # Promote rather than cast: BindCraft 2's own sequence terms do `.astype(float32)` because the
+    # design logits are float16 in a campaign, and a float16 softmax is not worth reading. Promoting
+    # keeps that, and also keeps the float64 the grade feeds in, so the term grades at its own
+    # precision instead of reading a float32 rounding floor.
+    logits = logits.astype(jnp.promote_types(logits.dtype, jnp.float32))
     designed = jnp.concatenate([has_residue_flag(protein_complex[name].flags, ResidueFlags.DESIGN)
                                 for name in names]).astype(logits.dtype)
     columns = jnp.asarray([AMINO_ACID_INDEX[amino_acid] for amino_acid in AROMATIC_ACIDS])
