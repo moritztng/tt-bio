@@ -1016,6 +1016,20 @@ A term can be inactive rather than broken: one that selects on a residue flag no
 hinge sitting on its flat side, has a zero gradient for an honest reason. Nine of BindCraft 2's own
 terms read that way on the synthetic design, so that case is a warning, not a refusal.
 
+### Pick a term the campaign can actually move
+
+Two things make an added term invisible, and both look like "the hook did nothing". It can restate
+a term that is already in the objective, so the control run is minimising it for you: a radius-of-
+gyration penalty next to `compactness` ends up fighting it, not adding to it. Or it can target a
+quantity that is already saturated: `experimentally_resolved_ca` sits at 0.95 within a handful of
+steps whatever you do, and a term pushing on it moves the design by less than the step-to-step
+spread. A composition term on the binder's own sequence logits has neither problem, because none of
+the default terms reads amino-acid identity.
+
+Weight it against what is already there, not against your intuition. Each default term contributes
+roughly 0.05 to 3 to a total near 4.5, so a term valued 0 to 1 needs a weight around 1 to count and
+around 5 to lead. Far above that it takes the optimiser over and oscillates.
+
 ### Grade it before you spend a campaign on it
 
 ```python
