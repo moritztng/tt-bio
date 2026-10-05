@@ -157,3 +157,18 @@ def with_aromatic_binder():
     with bindcraft2.loss_terms(
             add={"aromatic_binder": (aromatic_binder, AROMATIC_WEIGHT)}) as installed:
         yield installed
+
+
+#: The second rung of the dose-response. The sequence gradient from a composition term competes
+#: with eight structural terms whose gradients on the same logits are much larger, so 1.0 moves
+#: the composition slowly; 5.0 is still a fifth of `tight_binder`'s 8.0 and, unlike that one,
+#: cannot destabilise the structure gradient because it reads only the sequence.
+AROMATIC_WEIGHT_STRONG = 5.0
+
+
+@contextlib.contextmanager
+def with_aromatic_binder_strong():
+    """The same term at 5.0, run against the same control arm: a dose-response, not a single A/B."""
+    with bindcraft2.loss_terms(
+            add={"aromatic_binder": (aromatic_binder, AROMATIC_WEIGHT_STRONG)}) as installed:
+        yield installed
