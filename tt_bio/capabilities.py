@@ -225,7 +225,13 @@ def _alternatives(feature: str, found, model: str) -> list[str]:
 #: capability table because it is the same question -- does the output reflect what I asked
 #: for -- and the same failure if it is answered per model in five places.
 FLAG_READERS: dict[str, tuple[str, ...]] = {
-    "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag"),
+    # One npz for all of them (tt_bio.confidence_export): PAE everywhere, PDE and contact
+    # probabilities where the model has the head.
+    "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag",
+                    "esmfold2", "esmfold2-fast", "openfold3", "openbind", "rf3", "af2ig"),
+    # Contact probabilities are read from a distogram head; these are the models that run one.
+    "--contact_cutoff": ("boltz2", "opendde", "opendde-abag", "esmfold2", "esmfold2-fast",
+                         "openfold3", "openbind", "rf3"),
     "--write_pde": ("boltz2",),
     "--write_embeddings": ("boltz2",),
     # Everything that folds from an alignment. Left at its default the flag does nothing to
@@ -239,26 +245,20 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
 
 #: (flag, model) -> why that model does not read it, when the generic line is not the reason.
 FLAG_WHY: dict[tuple[str, str], str] = {
-    ("--write_pae", "openfold3"): "its confidence head computes PAE logits but the fold does "
-                                  "not return the matrices",
-    ("--write_pae", "openbind"): "its confidence head computes PAE logits but the fold does "
-                                 "not return the matrices",
-    ("--write_pae", "rf3"): "rf3 writes pTM, ipTM and chain-pair PAE/PDE into "
-                            "<name>_summary_confidences.json next to each structure",
-    ("--write_pae", "esmfold2"): "its confidence head computes PAE, pTM and ipTM but the fold "
-                                 "keeps only pTM",
-    ("--write_pae", "esmfold2-fast"): "its confidence head computes PAE, pTM and ipTM but the "
-                                      "fold keeps only pTM",
-    ("--write_pde", "protenix-v1"): "--write_pae already writes PAE and PDE in one npz",
-    ("--write_pde", "protenix-v2"): "--write_pae already writes PAE and PDE in one npz",
-    ("--write_pde", "opendde"): "it writes PAE only, under --write_pae",
-    ("--write_pde", "opendde-abag"): "it writes PAE only, under --write_pae",
+    ("--contact_cutoff", "protenix-v1"): "tt-bio does not run its distogram head, so its "
+                                         "_pae.npz has PAE and PDE but no contact_probs",
+    ("--contact_cutoff", "protenix-v2"): "tt-bio does not run its distogram head, so its "
+                                         "_pae.npz has PAE and PDE but no contact_probs",
+    ("--contact_cutoff", "af2ig"): "tt-bio does not load the AF2 distogram head, so its "
+                                   "_pae.npz has the PAE matrix but no contact_probs",
+    **{("--write_pde", m): "--write_pae already writes PDE into the same npz as the PAE"
+       for m in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag", "esmfold2",
+                 "esmfold2-fast", "openfold3", "openbind", "rf3")},
+    ("--write_pde", "af2ig"): "AF2 has no PDE head",
     ("--max_msa_seqs", "nesso1"): "it conditions on ESM-2 embeddings, not on an alignment, so "
                                   "there is no depth to cap",
     ("--max_msa_seqs", "af2ig"): "AF2-IG is single-sequence on both chains, so there is no "
                                  "depth to cap",
-    ("--write_pae", "af2ig"): "it reports interface pAE as a scalar beside pLDDT and ipTM; the "
-                              "matrix is not written",
 }
 
 

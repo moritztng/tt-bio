@@ -3351,7 +3351,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # already called out for the OF3 family and was a silent no-op everywhere else it is
         # unread: esmfold2 and rf3 accepted it and wrote nothing, --write_pde did nothing on
         # protenix (--write_pae writes both).
-        for note in unread_flags(model, {"--write_pae": write_pae, "--write_pde": write_pde,
+        for note in unread_flags(model, {"--write_pae": write_pae, "--contact_cutoff": write_pae,
+                                         "--write_pde": write_pde,
                                          "--write_embeddings": write_embeddings,
                                          "--max_msa_seqs": msa_cap is not None}):
             click.secho(note, fg="yellow")

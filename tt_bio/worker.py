@@ -1061,6 +1061,12 @@ class _WorkerState:
                    "binder_residues": pred.binder_length,
                    "msa": False,
                    "recycling_steps": recycles}
+        if cfg.get("write_pae"):
+            from tt_bio import confidence_export
+            confidence_export.write(
+                Path(cfg["struct_dir"]), path.stem, "af2ig", pae=pred.pae,
+                absent={"pde": "AF2 has no PDE head",
+                        "contact_probs": "tt-bio does not load the AF2 distogram head"})
         # _execute_job inspects feats["record"].affinity; AF2-IG has no affinity head.
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
@@ -1538,8 +1544,13 @@ class _WorkerState:
             # sample index; rf3/multimer seed 1 did exactly that at ranks 3 and 4, pTM 0.7647
             # against 0.7630, and it is the only site in the family that sorted on a rounded
             # number.
-            return {"d": d, "coord": x, "plddt": plddt, "summary": summary,
-                    "score": summary["ranking_score"]}
+            r = {"d": d, "coord": x, "plddt": plddt, "summary": summary,
+                 "score": summary["ranking_score"]}
+            if cfg.get("write_pae"):              # the [I, I] matrices summary() reduces
+                for k in ("pae", "pde"):
+                    lg = per[f"{k}_logits"]
+                    r[k] = rf3_confidence.unbin(lg.reshape(*lg.shape[-3:]), k)
+            return r
 
         # One shared progress path, same as protenix-v2/openfold3/opendde:
         # report_progress already has the progress_fn signature, so it goes straight
@@ -1608,6 +1619,13 @@ class _WorkerState:
         if len(samples) > 1:
             metrics["all_runs"] = [{"rank": i, **scalars(r)}
                                    for i, r in enumerate(samples)]
+        if cfg.get("write_pae"):
+            from tt_bio import confidence_export
+            n = best["pae"].shape[-1]
+            dist = got["distogram"].reshape(*got["distogram"].shape[-3:])[:n, :n]
+            confidence_export.write(struct_dir, path.stem, "rf3", pae=best["pae"],
+                                    pde=best["pde"], distogram=dist,
+                                    cutoff=cfg.get("contact_cutoff", 8.0))
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_openfold3_one(self, path: Path, cfg: dict[str, Any]):
@@ -1875,6 +1893,11 @@ class _WorkerState:
         }
         if len(confs) > 1:
             metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
+        if cfg.get("write_pae"):
+            from tt_bio import confidence_export
+            confidence_export.write(struct_dir, stem, cfg.get("model", "openfold3"),
+                                    pae=best["pae"], pde=best["pde"], distogram=best["distogram"],
+                                    cutoff=cfg.get("contact_cutoff", 8.0))
         return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_embed_one(self, path: Path, cfg: dict[str, Any]):
