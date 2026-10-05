@@ -39,6 +39,24 @@ training folds took 59 to 80 s each, and training the head took 4 s (300 epochs,
     fold structure  top-L/5 1.000   top-L 0.984
 ```
 
+The same `./run.sh` on one Blackhole chip (qb2, AICLK 1343 to 1350 MHz during each fold) took
+24 to 34 s per training fold and 35 s for CheY, with the head attached. The scores differ slightly
+from the CPU run because the chip computes in lower precision:
+
+```
+3chy: 128 residues
+  |i-j| >= 12: base rate 0.031
+    ContactHead     top-L/5 1.000   top-L 0.992
+    fold structure  top-L/5 1.000   top-L 0.984
+  |i-j| >= 24: base rate 0.027
+    ContactHead     top-L/5 1.000   top-L 0.969
+    fold structure  top-L/5 1.000   top-L 0.984
+```
+
+Attaching a head does not change the fold. CheY folded again on the same chip without `--head`
+gives a byte-identical `3chy.cif` (sha256 `98c3b8ad...8c78d6` both times), and on CPU the same holds
+for 1PGA (`d61c2443...0da28e`).
+
 The head ranks contacts nearly as well as the folded structure does, because `z` already carries
 the information the trunk uses to place atoms. That is the expected outcome for a head on `z`.
 
