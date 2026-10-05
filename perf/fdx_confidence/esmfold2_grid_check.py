@@ -39,8 +39,10 @@ def main():
     res = fold_complex(model, chains, seed=0)
     logits = res.distogram.float()                                   # [L, L, 64]
     pc = res.complex.to_protein_complex()
-    xyz = np.asarray(pc.atom37_positions, dtype=np.float64)          # [L, 37, 3]
+    real = np.array([s != "|" for s in pc.sequence])                  # drop chain-break slots
+    xyz = np.asarray(pc.atom37_positions, dtype=np.float64)[real]    # [L, 37, 3]
     seq = "".join(c[1] for c in chains)
+    assert len(seq) == len(xyz) == len(logits), (len(seq), len(xyz), logits.shape)
     rep = np.where(np.array([a == "G" for a in seq])[:, None], xyz[:, 1], xyz[:, 3])
     d = np.linalg.norm(rep[:, None] - rep[None], axis=-1)
     p = torch.softmax(logits, -1).numpy()
