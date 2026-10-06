@@ -153,7 +153,8 @@ def kernel():
         # entry carry the root file system's UUID.
         uuid = out(["findmnt", "-no", "UUID", "/"])
         entry = f"gnulinux-advanced-{uuid}>gnulinux-{want}-advanced-{uuid}"
-        run(["sh", "-c", f"echo 'GRUB_DEFAULT=\"{entry}\"' > /etc/default/grub.d/99-sc26-kernel.cfg"], sudo=True)
+        run(["sh", "-c", f"mkdir -p /etc/default/grub.d && "
+             f"echo 'GRUB_DEFAULT=\"{entry}\"' > /etc/default/grub.d/99-sc26-kernel.cfg"], sudo=True)
         run(["update-grub"], sudo=True)
     return Item("Linux kernel", want, have, fix, reboot=True)
 
