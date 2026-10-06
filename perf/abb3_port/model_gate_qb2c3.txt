@@ -1,6 +1,6 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the BCP merge tree.
-RECORDED-AT: 0bf40c90b5b9cc20e954d7802619ab587639fb11 scripts/abb3_port/model_gate.py
+RECORDED-AT: 3e1b569b65978a4038add5ea5582bf84ba92df36 scripts/abb3_port/model_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
 # Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
@@ -39,6 +39,13 @@ RECORDED-AT: 0bf40c90b5b9cc20e954d7802619ab587639fb11 scripts/abb3_port/model_ga
 # AICLK on card 0 over this run and the step gate: 1350 MHz on 58 of 68 samples, 1343 on 6, 800 on 4
 # (between processes). Raw output: perf/rel012_integrate/out/abb3/model_gate.txt. NO TIMING CLAIM.
 #
+# RE-RECORDED for the 0.13.0 release on wk/fdv-release 3e1b569b6 (main 9f6472bd8 plus the release
+# commit and fdv-api 7c080f158), 22:59-23:01Z 2026-10-06, qb2 card 3, the release venv (TT-NN 0.68.0).
+# The closure moved in tt_bio/af2_reference.py. Every ok/FAIL row and every gradient row is identical
+# to the rel012 record; the sigma 0.3 / 256-token stress arm still FAILs angles at 5.11e-02. Only the
+# float32 torch-vs-torch CPU control moves, in its third digit at ~1e-6. AICLK on card 3 over this run
+# and the step gate, 30 s samples: 1350 MHz on 16 of 18, 800 on 2 (between processes). NO TIMING CLAIM.
+#
 === sigma=0.05, 64 tokens, 8 blocks, batch 2 ===
   sigma 0.05, 8 blocks, batch 2 x 64 tokens
   output                    rel err   on vs off
@@ -60,9 +67,9 @@ RECORDED-AT: 0bf40c90b5b9cc20e954d7802619ab587639fb11 scripts/abb3_port/model_ga
   ok   d/d angle[7] linear_out.w  0.999993  4.14e-03  5.59e-03  (bars 0.999 / 5e-02)
   float32 control (torch vs torch, same weights)
        forward states              nan  2.18e-03
-       d/d single             1.000000  9.33e-07
-       d/d pair               1.000000  7.34e-07
-       d/d ipa[0] linear_q.w  1.000000  8.46e-07
+       d/d single             1.000000  9.34e-07
+       d/d pair               1.000000  7.33e-07
+       d/d ipa[0] linear_q.w  1.000000  8.77e-07
 
 PASS
 === sigma=0.05, 256 tokens, 8 blocks, batch 2 ===
@@ -88,7 +95,7 @@ PASS
        forward states              nan  1.30e-03
        d/d single             1.000000  1.68e-06
        d/d pair               1.000000  1.25e-06
-       d/d ipa[0] linear_q.w  1.000000  1.45e-06
+       d/d ipa[0] linear_q.w  1.000000  1.41e-06
 
 PASS
 === sigma=0.3, 64 tokens, 8 blocks, batch 2 ===
