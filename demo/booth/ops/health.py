@@ -1,0 +1,140 @@
+"""Is the booth demo healthy? One answer, in words anyone at the booth can read.
+
+    ops/boothctl health          (or: python3 demo/booth/ops/health.py)
+
+The first line is HEALTHY, REPAIRING ITSELF or NOT HEALTHY, then one line per thing it checked. Lanes count from 1
+as on the screen, chips from 0 as in  and BOOTH_CHIPS.
+Exit status 0 when healthy or repairing within its usual time, 1 otherwise. Reads only what the
+demo already publishes: the engine's /status and the watchdog's log. It changes nothing.
+"""
+import json
+import os
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+LOG = Path(os.path.expanduser("~/booth-logs/watchdog.jsonl"))
+CHAOS = LOG.parent / "chaos.jsonl"   # failures ops/chaos.py injected on purpose
+CHAOS_S = 360                        # an injected failure and its recovery are over within this
+REPAIR_S = 15 * 60   # a board reset plus warm-up is ~9 min measured; past this a chip is not repairing, it is stuck
+
+
+def tail(path, n=600):
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 400 * n))
+            lines = f.read().splitlines()[1:]
+    except OSError:
+        return []
+    out = []
+    for line in lines:
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            continue
+    return out
+
+
+def ago(s):
+    return f"{s:.0f} s" if s < 90 else f"{s / 60:.0f} min" if s < 5400 else f"{s / 3600:.1f} h"
+
+
+def main():
+    env = Path(os.path.expanduser("~/.config/booth/env"))
+    cfg = dict(l.split("=", 1) for l in (env.read_text().splitlines() if env.exists() else []) if "=" in l and l[0] != "#")
+    port = os.environ.get("BOOTH_PORT") or cfg.get("BOOTH_PORT", "8626").strip()
+    now = time.time()
+    bad, repairing, ok = [], [], []
+
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/status", timeout=5) as r:
+            st = json.loads(r.read())
+    except (OSError, ValueError):
+        st = None
+        bad.append("The fold service is not answering. It restarts by itself within a minute.")
+
+    rows = tail(LOG)
+    ticks = [r for r in rows if r.get("ev") == "tick"]
+    last = ticks[-1] if ticks else None
+    if st:
+        chips = sorted((c for c in st["chips"] if c["state"] != "out_of_service"), key=lambda c: c["chip"])
+        # the screen numbers the chips in the demo 1, 2, 3 by place (app.js seats), so the call-taker does too
+        lane = {c["chip"]: i + 1 for i, c in enumerate(chips)}
+        out = [c["chip"] for c in st["chips"] if c["state"] == "out_of_service"]
+        folding = [c for c in chips if c["state"] in ("busy", "ready")]
+        if not chips:
+            ok.append("No chip is in the demo: the screen plays folds recorded on this box.")
+        else:
+            ok.append(f"{len(folding)} of {len(chips)} chips folding, {sum(c.get('folds') or 0 for c in chips)} folds since the last start.")
+        # how long each chip that is not folding has been so, from the watchdog's record of it
+        for c in chips:
+            if c in folding:
+                continue
+            since = now
+            for r in reversed(ticks):
+                s = {x[0]: x[1] for x in (r.get("engine") or {}).get("chips", [])}
+                if s.get(c["chip"]) in ("busy", "ready"):
+                    break
+                since = r["t"]
+            (repairing if now - since < REPAIR_S else bad).append(
+                f"Lane {lane[c['chip']]} (chip {c['chip']}) is {c['state']} for {ago(now - since)}"
+                + (" (normal: it repairs itself within about 10 min)." if now - since < REPAIR_S
+                   else ". It should have recovered by now."))
+        for c in folding:
+            mhz = ((c.get("last_fold") or {}).get("aiclk_mhz") or {}).get("median")
+            if mhz and mhz < 1200:
+                ok.append(f"Lane {lane[c['chip']]} (chip {c['chip']}) folded its last protein at {mhz} MHz, "
+                          "not 1350: it is running warm, so folds take longer. Nothing to do unless the room is hot.")
+        if not st.get("replays"):
+            bad.append("No recorded folds loaded: if every chip stops, the stage has nothing to show.")
+        if out:
+            ok.append("Out of service on purpose: " + ", ".join(f"chip {c}" for c in out) + ".")
+        if st.get("queue"):
+            ok.append(f"{st['queue']} visitor folds waiting.")
+
+    if last is None or now - last["t"] > 60:
+        bad.append("The screen watchdog has not checked in"
+                   + (f" for {ago(now - last['t'])}." if last else " at all.") + " Nothing is watching the screen.")
+    else:
+        scr, fps = last.get("screen"), last.get("fps")
+        if scr in ("moving", "none", "lost") and (fps or 0) >= 30:
+            ok.append(f"Screen moving at {fps:.0f} frames a second." if scr == "moving" else
+                      f"Page drawing at {fps:.0f} frames a second (no screen attached).")
+        elif scr == "stuck" or (fps is not None and fps < 30) or scr in ("frozen", "blank"):
+            repairing.append(f"Screen {scr}, {fps or 0:.0f} frames a second: the watchdog is restarting it.")
+        else:
+            repairing.append(f"Screen: the page did not answer the last check ({scr}).")
+        age = last.get("stream_age_s")
+        if age is not None and age > 10:
+            repairing.append(f"The page has heard nothing from the fold service for {age:.0f} s; it reconnects by itself.")
+    hour = [r for r in rows if r.get("ev") == "restart" and now - r["t"] < 3600]
+    tests = [c["t"] for c in tail(CHAOS, 50)]
+    real = [r for r in hour if not any(0 <= r["t"] - t < CHAOS_S for t in tests)]
+    if hour:
+        ok.append(f"Restarted in the last hour: {', '.join(sorted({r['unit'] for r in hour}))} ({len(hour)}x"
+                  + (f", {len(hour) - len(real)} of them after a test" if len(real) < len(hour) else "") + ").")
+    if len([r for r in real if r.get("unit") == "booth-kiosk"]) >= 4:
+        bad.append("The browser was restarted 4 or more times in an hour.")
+
+    res = next((r for r in reversed(ticks) if "disk_free_gb" in r), None)
+    if res:
+        if res["disk_free_gb"] < 5:
+            bad.append(f"Disk nearly full: {res['disk_free_gb']} GB free.")
+        if res["mem_avail_gb"] < 16:
+            bad.append(f"Memory low: {res['mem_avail_gb']} GB free.")
+        ok.append(f"{res['disk_free_gb']:.0f} GB disk and {res['mem_avail_gb']:.0f} GB memory free.")
+
+    verdict = "NOT HEALTHY" if bad else "REPAIRING ITSELF" if repairing else "HEALTHY"
+    print(verdict)
+    for line in bad + repairing + ok:
+        print("  " + line)
+    if bad:
+        print("  What to do: wait 2 minutes and run this again. If it still says NOT HEALTHY, run "
+              "`boothctl restart` and call Moritz.")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

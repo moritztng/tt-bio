@@ -6,7 +6,7 @@ hung process. Never kills, never resets.
 import argparse, json, os, subprocess, sys, time
 from pathlib import Path
 
-ENGINE = Path.home() / "sc26/demo/sc26/engine"
+ENGINE = Path.home() / "sc26/demo/booth/engine"
 sys.path.insert(0, str(ENGINE))
 import client  # noqa: E402
 

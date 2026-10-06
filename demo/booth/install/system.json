@@ -1,0 +1,36 @@
+{
+  "about": "The QuietBox 2 the TT-Bio booth demo was built and soaked on (tt-quietbox2), as measured 2026-10-06. install.py checks a box against this and fixes what it safely can.",
+  "os": {"id": "ubuntu", "version": "24.04"},
+  "kernel": {
+    "release": "7.0.0-34-generic",
+    "packages": ["linux-image-7.0.0-34-generic", "linux-modules-7.0.0-34-generic", "linux-headers-7.0.0-34-generic"]
+  },
+  "kmd": {
+    "version": "2.11.0",
+    "deb": "https://github.com/tenstorrent/tt-kmd/releases/download/ttkmd-2.11.0/tenstorrent-dkms_2.11.0_all.deb",
+    "sha256": "f1b747037b8f59428288165299c6ac9c579fc86c65aa15fb0cf65c01daf620e7",
+    "options": {"power_policy": "0"}
+  },
+  "firmware": {
+    "bundle_version": "19.15.0.0",
+    "url": "https://github.com/tenstorrent/tt-system-firmware/releases/download/v19.15.0/fw_pack-19.15.0.fwbundle",
+    "sha256": "c1a317f9658435a7f2e8ab1e18a9fe942cd36334d8b88f01b777c8de975b2aef"
+  },
+  "chips": {"card_type": "p300c", "count": 4, "hugepages_1g_per_chip": 4},
+  "ppa": {
+    "list": "deb [signed-by=/etc/apt/keyrings/tt-pkg-key.asc] https://ppa.tenstorrent.com/ubuntu/ noble main",
+    "key": "https://ppa.tenstorrent.com/tt-pkg-key.asc"
+  },
+  "debs": {"sfpi": "7.35.3", "tenstorrent-tools": "1.4.1"},
+  "apt": ["sway", "swaybg", "grim", "wlr-randr", "mpv", "python3-pil", "python3-venv", "curl", "git", "gdm3"],
+  "snaps": ["firefox"],
+  "watchdog": {"runtime_usec": "2min 30s"},
+  "python": "3.12",
+  "torch_index": "https://download.pytorch.org/whl/cpu",
+  "weights": ["openfold3"],
+  "video": {
+    "file": "booth-loop-4k-h264.mp4",
+    "bytes": 293792497,
+    "sha256": "48bfc5ae82219bdd5addfcda37e64e98c4c1911df26c0cb2ae44a49408b72431"
+  }
+}
