@@ -5,8 +5,11 @@ Runs on CPU, needs no Tenstorrent card and no AlphaFold 2 weights: it exercises 
 tt-bio. Put the same ``with`` block around ``campaign.run_campaign(...)`` inside
 ``bindcraft2.campaign_predictor(card=0)`` and the terms are live on card.
 
-    PYTHONPATH=<tt-bio>:<bindcraft2> python3 examples/bindcraft2_custom_loss.py \\
+    PYTHONPATH=<bindcraft2> python3 bindcraft2_custom_loss.py \\
         --settings <bindcraft2>/examples/pdl1_denovo.json
+
+tt-bio comes from the pip install; only BindCraft 2 needs to be on PYTHONPATH, because its
+packaging leaves out the ``settings/`` and ``examples/`` trees.
 """
 import argparse
 import warnings

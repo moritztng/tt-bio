@@ -20,6 +20,7 @@ import contextlib
 import hashlib
 import importlib
 import json
+import os
 import sys
 import time
 
@@ -34,7 +35,10 @@ from bindcraft.sequence_optimization import LogitSequenceOptimizer
 from bindcraft.target_schedule import losses_for_active_states
 from bindcraft.trajectory import transfer_binder_sequences
 
-AF2_DATA_DIR = '/home/moritz/.boltz/af2'
+# AF2 parameters: `tt-bio weights --download af2ig` writes params_model_1_ptm.npz under
+# ~/.boltz/af2/params, and that directory is a valid BindCraft 2 data_dir. --data-dir
+# overrides it; the host this ran on first is not the only host it runs on.
+AF2_DATA_DIR = os.path.expanduser(os.environ.get('AF2_DATA_DIR', '~/.boltz/af2'))
 TARGET_STATE = 'target_state'
 TARGET_CHAIN = f'target_{TARGET_STATE}'
 BINDER_CHAIN = 'binder'
@@ -170,13 +174,16 @@ def run_design(steps: int, seed: int, hook) -> dict:
 
 
 def main() -> None:
+    global AF2_DATA_DIR
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--steps', type=int, default=2)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--loss-module', default='')
     parser.add_argument('--loss-attr', default='')
     parser.add_argument('--json', dest='json_path', default='')
+    parser.add_argument('--data-dir', default=AF2_DATA_DIR)
     arguments = parser.parse_args()
+    AF2_DATA_DIR = arguments.data_dir
     if arguments.steps < 1:
         parser.error('--steps must be at least 1')
     result = run_design(arguments.steps, arguments.seed, loss_hook(arguments.loss_module, arguments.loss_attr))
