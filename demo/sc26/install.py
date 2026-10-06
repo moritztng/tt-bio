@@ -21,6 +21,7 @@ import os
 import shlex
 import subprocess
 import sys
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -350,8 +351,8 @@ def main():
     changed, reboot = False, False
     for i in items:
         if not i.ok and i.fix:
-            print(f"\n  {i.name}: {i.have} -> {i.want}")
-            i.fix()
+            if not apply(i):
+                return 1
             changed, reboot = True, reboot or i.reboot
     print()
     for f in demo:
@@ -359,8 +360,8 @@ def main():
         if i.ok:
             print(f"  ok      {i.name}: {i.have}")
             continue
-        print(f"  change  {i.name}: {i.have} -> {i.want}")
-        i.fix()
+        if not apply(i):
+            return 1
         changed = True
         i = f()
         if not i.ok:
@@ -378,6 +379,21 @@ def main():
     elif changed:
         print("Installed. Start the demo now with  ~/sc26/demo/sc26/ops/sc26ctl start  or reboot into it.")
     return 0
+
+
+def apply(i) -> bool:
+    """Make one change, timed. A failed command ends the run with a plain message, no traceback."""
+    print(f"  change  {i.name}: {i.have} -> {i.want}", flush=True)
+    t = time.monotonic()
+    try:
+        i.fix()
+    except subprocess.CalledProcessError as e:
+        print(f"\n{i.name}: `{shlex.join(map(str, e.cmd))}` failed (exit {e.returncode}).\n"
+              "Nothing after it was changed. Run this script again; if it stops at the same place, "
+              "see INSTALL.md, 'If something goes wrong'.")
+        return False
+    print(f"          done in {time.monotonic() - t:.0f} s", flush=True)
+    return True
 
 
 def report(items, header=True):
