@@ -572,14 +572,19 @@ def _lowest_priority() -> None:
 
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
-                        pairing_strategy: str = "greedy", pair: bool = True) -> None:
+                        pairing_strategy: str = "greedy", pair: bool = False) -> None:
     """Generate MSAs locally via colabfold_search against a local database.
 
-    With multiple sequences and ``pair=True`` (default) the search also computes
-    paired alignments, treating the set as one complex's chains. Pass
-    ``pair=False`` to search many *independent* sequences in a single batched
-    call (one unpaired ``{name}.a3m`` each, no cross-pairing) — far faster than
-    one colabfold_search per sequence for large inputs.
+    By default every sequence is searched on its own in one batched call: one unpaired
+    ``{name}.a3m`` each. ``pair=True`` treats the sequences as one complex's chains and
+    writes each chain's species-paired rows instead, row j of every ``{name}.a3m`` from the
+    same genome, the shape the ColabFold server's pair endpoint returns.
+
+    colabfold_search pairs only the chains of ONE record, joined by ``:``. ``pair=True``
+    used to pass ``--pair-mode unpaired_paired`` over one record per chain, which pairs
+    nothing: each chain's "paired" file was its own unpaired hits, at its own depth. OpenBind
+    refused that (the depths differ), and ESMFold-2 and OpenDDE read row j of each as one
+    genome.
     """
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, "
                f"pairing={pairing_strategy if pair else 'none'})")
@@ -592,11 +597,15 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
     import threading
     tmp = msa_dir / f"_offline_tmp_{os.getpid()}_{threading.get_ident()}"
     tmp.mkdir(parents=True, exist_ok=True)
+    paired = pair and len(seqs) > 1
     try:
         fasta = tmp / "query.fasta"
         with open(fasta, "w") as f:
-            for name, seq in seqs.items():
-                f.write(f">{name}\n{seq}\n")
+            if paired:
+                f.write(">complex\n" + ":".join(seqs.values()) + "\n")
+            else:
+                for name, seq in seqs.items():
+                    f.write(f">{name}\n{seq}\n")
         a3m_out = tmp / "a3m"
         a3m_out.mkdir(exist_ok=True)
         # Honor the per-worker thread cap (set by _spawn_worker_processes as
@@ -609,8 +618,8 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
             "--use-env", "1" if use_env else "0", "--use-templates", "0",
             "--db-load-mode", "2", "--threads", str(threads),
         ]
-        if pair and len(seqs) > 1:
-            cmd_base += ["--pair-mode", "unpaired_paired", "--pairing_strategy", strategy_val]
+        if paired:
+            cmd_base += ["--pair-mode", "paired", "--pairing_strategy", strategy_val]
 
         commands = []
         if mmseqs_bin:
@@ -632,6 +641,14 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
             raise RuntimeError(
                 f"colabfold_search failed (exit {result.returncode})\n{last_error}"
             )
+        if paired:
+            src = a3m_out / "complex.a3m"
+            if not cached(src):
+                raise RuntimeError(f"colabfold_search wrote no paired A3M for {target_id}")
+            for name, text in zip(seqs, split_paired_a3m(src.read_text(),
+                                                         [len(q) for q in seqs.values()])):
+                publish_text(msa_dir / f"{name}.a3m", text)
+            return
         for name in seqs:
             src = a3m_out / f"{name}.a3m"
             if cached(src):
@@ -640,6 +657,37 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                 click.echo(f"  warning: no A3M for {name}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def split_paired_a3m(text: str, lengths: list[int]) -> list[str]:
+    """One chain's a3m per entry of ``lengths`` from colabfold_search's paired a3m of a complex.
+
+    That file (``msa_to_str`` with ``pair_msa``'s paired-only branch) has a ``#len,...`` line,
+    then each row's chains concatenated, query first. A chain's slice ends after its length in
+    match columns (upper case or ``-``); lower-case insertions ride with the column before them.
+    Row j of every chain stays row j, so the chains remain paired. Headers are tab-joined
+    descriptions that contain tabs themselves, so each row is renamed ``>{j}``; no reader keys
+    on a paired header (they pair by row index).
+    """
+    out = [[] for _ in lengths]
+    rows = [l for l in text.splitlines() if l and not l.startswith(("#", ">"))]
+    for j, row in enumerate(rows):
+        pos, k, n = 0, 0, 0
+        cuts = []
+        for limit in lengths:
+            n += limit
+            while k < n:
+                k += row[pos] == "-" or row[pos].isupper()
+                pos += 1
+            while pos < len(row) and row[pos].islower():
+                pos += 1
+            cuts.append(pos)
+        if cuts[-1] != len(row):
+            raise ValueError(f"paired a3m row {j} has {k} match columns past the "
+                             f"{sum(lengths)} the chains add up to")
+        for i, (a, b) in enumerate(zip([0] + cuts, cuts)):
+            out[i] += [f">{j}", row[a:b]]
+    return ["\n".join(chain) + "\n" for chain in out]
 
 
 def search_boltz2_msas(prot, target_id, msa_dir, *, use_msa, msa_db_path, use_envdb,

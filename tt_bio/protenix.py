@@ -1803,7 +1803,7 @@ class ConfidenceHead:
         return round(ptm, 6), round(iptm, 6)
 
     @staticmethod
-    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0):
+    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0, centers=None, has_frame=None):
         """The chain-level confidence keys, protenix's `calculate_chain_based_ptm`.
 
         `chain_ptm[c]` is pTM computed inside chain c alone, so its TM normalisation uses that
@@ -1824,8 +1824,13 @@ class ConfidenceHead:
         exactly as the global pTM/ipTM already are. None of it is new computation.
 
         Returns `{}` when there are no chain pairs (single chain, or no `asym_id`).
-        `has_frame` is not modelled: every polymer token has a frame, and this path has no
-        ligand tokens.
+
+        OpenFold3, OpenBind-0 and RF3 reduce their own PAE logits through this too, so every
+        model on the platform reports the matrix the same way. `centers` overrides the uniform
+        bin centres for a head binned otherwise (RF3's `bin_midpoints`), and `has_frame` [N] is
+        the frame mask their global pTM/ipTM take the max over: a token without an alignment
+        frame (an atomized ligand atom that fails the angle test) cannot win a row max here
+        either. None means every token has a frame, which holds for standard residues.
         """
         import torch
 
@@ -1836,8 +1841,11 @@ class ConfidenceHead:
         if a.numel() != pae_logits.shape[0] or len(ids) < 2:
             return {}
         nb = pae_logits.shape[-1]
-        centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
+        if centers is None:
+            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
         probs = torch.softmax(pae_logits.float(), -1)
+        frame = (torch.ones(a.numel(), dtype=torch.bool) if has_frame is None
+                 else has_frame.bool().reshape(-1))
 
         def pair_tm(mask):
             """E[TM] per token pair, restricted to `mask` and normalised on its own count."""
@@ -1845,14 +1853,18 @@ class ConfidenceHead:
             d0 = 1.24 * (max(int(mask.sum()), 19) - 15) ** (1.0 / 3.0) - 1.8
             return (sub * (1.0 / (1.0 + (centers / d0) ** 2))).sum(-1)
 
-        chain_ptm = [float(pair_tm(a == c).mean(dim=-1).max()) for c in ids]
+        def row_max(row, mask):
+            # Zeroing a frameless row is upstream's form; E[TM] >= 0, so it cannot win.
+            return float(row.masked_fill(~frame[mask], 0.0).max())
+
+        chain_ptm = [row_max(pair_tm(a == c).mean(dim=-1), a == c) for c in ids]
         pair = {(c, c): p for c, p in zip(ids, chain_ptm)}     # diagonal: the chain's own pTM
         for i, ci in enumerate(ids):
             for cj in ids[i + 1:]:
                 m = (a == ci) | (a == cj)
                 cross = (a[m][None, :] != a[m][:, None])
                 row = (pair_tm(m) * cross).sum(-1) / (1e-8 + cross.sum(-1))
-                pair[ci, cj] = pair[cj, ci] = float(row.max())
+                pair[ci, cj] = pair[cj, ci] = row_max(row, m)
         chain_iptm = [sum(pair[c, o] for o in ids if o != c) / (len(ids) - 1) for c in ids]
         return {"chain_ptm": [round(x, 6) for x in chain_ptm],
                 "chain_iptm": [round(x, 6) for x in chain_iptm],
