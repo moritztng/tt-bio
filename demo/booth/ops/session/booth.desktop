@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=TT-Bio booth demo
+Comment=The TT-Bio booth demo, full screen
+Exec=@CFG@/session.sh
+Type=Application
+DesktopNames=booth

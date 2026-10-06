@@ -1,0 +1,12 @@
+[Unit]
+Description=TT-Bio booth demo: the full-screen browser
+PartOf=booth.target
+After=booth-engine.service
+
+[Service]
+EnvironmentFile=-%h/.config/booth/env
+ExecStart=@OPS@/kiosk.sh
+ExecStopPost=@OPS@/kiosk.sh --stop
+Restart=always
+RestartSec=1
+TimeoutStopSec=20

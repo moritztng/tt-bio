@@ -6,7 +6,7 @@
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 run=$here/runs/$1; mkdir -p "$run"; chips=${2:-3 2}
-demo=$HOME/sc26/demo/sc26
+demo=$HOME/tt-bio-booth/demo/booth
 site=$(ls -d "$HOME"/tt-bio-dev/env/lib/python3*/site-packages)
 py=$HOME/tt-bio-dev/env/bin/python3
 export TT_BIO_LEASE_HOLDER=worker:bth-chip HF_HUB_OFFLINE=1

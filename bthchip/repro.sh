@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Chip 2 alone on the booth workload, engine reset disabled, hangwatch beside it.
 #   repro.sh RUN_NAME HOURS [ENGINE_DIR] [AICLK_MHZ]
-# ENGINE_DIR defaults to the deployed ~/sc26/demo/sc26. AICLK_MHZ pins chip 2's clock for the run
+# ENGINE_DIR defaults to the deployed ~/tt-bio-booth/demo/booth. AICLK_MHZ pins chip 2's clock for the run
 # (perf/pvxcust/pin_aiclk.py, released when the run ends). On engines with --hang-s, tt-metal's own
 # dispatch timeout runs tt-triage on the hung process; the run then stops at that first hang
 # (SIGINT to qualify_card), so no second worker is started on a hung chip.
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 run=$here/runs/$1; mkdir -p "$run/metal"
-demo=${3:-$HOME/sc26/demo/sc26}
+demo=${3:-$HOME/tt-bio-booth/demo/booth}
 clk=${4:-}
 site=$(ls -d "$HOME"/tt-bio-dev/env/lib/python3*/site-packages)
 export TT_BIO_LEASE_HOLDER=worker:bth-chip TT_METAL_LOGS_PATH=$run/metal TT_METAL_INSPECTOR=1

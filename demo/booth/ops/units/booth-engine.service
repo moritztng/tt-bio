@@ -1,0 +1,26 @@
+[Unit]
+Description=TT-Bio booth demo: the fold service on the chips
+PartOf=booth.target
+
+[Service]
+EnvironmentFile=-%h/.config/booth/env
+ExecStart=@OPS@/engine.sh
+ExecStopPost=@PY@ @OPS@/leases.py release 0,1,2,3
+Restart=always
+RestartSec=3
+# SIGINT lets a worker drop its fold and close its chip cleanly; a SIGKILLed worker leaves the
+# chip dirty, so systemd never sends one.
+KillSignal=SIGINT
+# A live worker finishes its sampler step and closes its chip before exiting, ~30 s measured.
+TimeoutStopSec=120
+SendSIGKILL=no
+# The engine says WATCHDOG=1 every 2 s from its event loop. A loop that is alive and stuck stops
+# saying it, and its SIGINT handler never runs, so after 60 s systemd sends the main process SIGABRT
+# (it holds no chip; its workers then get the usual SIGINT) and restarts the engine. No core file.
+WatchdogSec=60
+NotifyAccess=main
+LimitCORE=0
+Nice=5
+
+[Install]
+WantedBy=default.target
