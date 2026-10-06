@@ -198,13 +198,17 @@ def hugepages():
                 None, reboot=True)
 
 
+def fw_versions() -> dict[str, str]:
+    return {c.name.split("!")[-1]: read(c / "tt_fw_bundle_ver") for c in chips()}
+
+
 def firmware():
     want = SPEC["firmware"]["bundle_version"]
-    vers = {c.name.split("!")[-1]: read(c / "tt_fw_bundle_ver") for c in chips()}
+    vers = fw_versions()
     if not vers:
         have = "unknown until the driver is loaded"
-    elif set(vers.values()) == {want}:
-        have = want
+    elif len(set(vers.values())) == 1:
+        have = next(iter(vers.values())) or "?"
     else:
         have = ", ".join(f"chip {k}: {v or '?'}" for k, v in vers.items())
     types = {read(c / "tt_card_type") for c in chips()}
@@ -331,8 +335,8 @@ def main():
     items = [f() for f in system]
     report(items)
     fw = next(i for i in items if i.name == "Board firmware")
-    if not fw.ok and fw.have.startswith("chip") and not a.accept_firmware:
-        firmware_help(fw)
+    if not fw.ok and fw_versions() and not a.accept_firmware:
+        firmware_help(fw, prepare=not a.check)
         return 2
     stuck = [i for i in items if not i.ok and i.fix is None and not i.reboot and i is not fw]
     if a.check:
@@ -404,29 +408,42 @@ def report(items, header=True):
         print(f"  {mark:8}{i.name:38}{i.have[:43]:44}{i.want}")
 
 
-def firmware_help(fw):
+def firmware_help(fw, prepare):
+    """Stop, say what differs, and hand over the one flash command, with the bundle and the pinned
+    tt-flash already in place. Nothing on the system is changed here."""
     f = SPEC["firmware"]
+    key = lambda v: tuple(int(x) for x in v.split(".") if x.isdigit())
+    newer = any(v and key(v) > key(f["bundle_version"]) for v in fw_versions().values())
     print(f"""
-STOPPED: the board firmware differs from the booth QuietBox, and this script never flashes it.
+STOPPED: the board firmware differs from the booth QuietBox. This script never flashes firmware.
   this box: {fw.have}
   booth:    {f['bundle_version']} on every chip
-
-Nothing has been changed. Flashing writes each board's boot flash. If the power drops or the
-command is interrupted half way, the board can be left unable to start, so do it only when
-nothing else is running on the box and leave it alone until it says it is done.
-
-  1. Download and check the firmware bundle (Tenstorrent's public release):
-       mkdir -p ~/sc26-downloads && cd ~/sc26-downloads
-       curl -fLO {f['url']}
-       echo "{f['sha256']}  {f['url'].rsplit('/', 1)[1]}" | sha256sum -c
-  2. Flash it (a few minutes for both boards; do not interrupt it):
-       ~/sc26-env/tools/bin/tt-flash flash ~/sc26-downloads/{f['url'].rsplit('/', 1)[1]}
-     If ~/sc26-env/tools does not exist yet, use the tt-flash that came with the box.
-     If tt-flash refuses because the board has NEWER firmware, do not force it. Either ask the
-     contact in INSTALL.md, or run this script with --accept-firmware to keep the newer firmware
-     (the demo has not been tested on it).
-  3. Reboot (sudo reboot), then run this script again.
+Nothing on the system has been changed.""")
+    if newer:
+        print("""
+This box has NEWER firmware than the booth box. Do not downgrade it yourself. Either call the
+contact in INSTALL.md, or keep the newer firmware and carry on, knowing the demo was not tested
+with it:
+    ~/sc26/demo/sc26/install.py --accept-firmware
 """)
+        return
+    bundle = DOWNLOADS / f["url"].rsplit("/", 1)[1]
+    if prepare:
+        # Both are downloads into this user's home: the checked bundle and the pinned tt-flash.
+        download(f["url"], f["sha256"])
+        tools = lock_env("tools", "tools.lock")
+        if not tools.ok:
+            tools.fix()
+    print(f"""
+To update it, run this one command. Flashing rewrites each board's boot flash: if the power drops
+or the command is stopped half way, a board can be left unable to start. So run it only when
+nothing else is using the box, keep it plugged in, and wait until it prints FLASH SUCCESS.
+
+    {TOOLS / 'tt-flash'} flash {bundle}
+
+Then reboot (sudo reboot) and run ~/sc26/demo/sc26/install.py again.""" + ("" if prepare else """
+(This was --check. Run it without --check first: that downloads the bundle and tt-flash and
+changes nothing else.)""") + "\n")
 
 
 if __name__ == "__main__":

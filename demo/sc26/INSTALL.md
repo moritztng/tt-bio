@@ -53,11 +53,12 @@ and run `~/sc26/demo/sc26/install.py` once more after the reboot. It should end 
 ### If the script stops at the firmware
 
 The script never updates the cards' firmware itself, because an interrupted firmware update can
-leave a card unable to start. If the firmware differs from the booth box it stops before changing
-anything, shows each chip's version, and prints the exact commands to update it, with a warning.
-Follow them only if you can leave the box alone, plugged in, until the update says it is done, then reboot and
-run the script again. If the cards have a **newer** firmware than the booth box, do not force the
-update: call Moritz (below).
+leave a card unable to start. If the firmware differs from the booth box, it stops before changing
+anything on the system, shows the versions, downloads and checks the right firmware file, and
+prints the one command that installs it, with a warning. Run that command only when you can leave
+the box alone and plugged in until it prints FLASH SUCCESS, then reboot and run the script again.
+If the cards have **newer** firmware than the booth box, it says so; do not downgrade them, call
+Moritz (below).
 
 ## First start
 
