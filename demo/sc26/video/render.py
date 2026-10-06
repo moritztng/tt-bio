@@ -88,7 +88,10 @@ def main():
         enc = subprocess.Popen(["nice", "-n", "19", "ffmpeg", "-v", "error", "-y", "-f", "image2pipe", "-framerate",
                                 str(args.fps), "-c:v", "ppm", "-i", "-", "-c:v", "ffv1", "-level", "3", "-slices", "16",
                                 "-threads", "4", "-g", "1", args.out], stdin=subprocess.PIPE)
-    state = {"frames": 0, "t0": time.time()}
+    state = {"frames": 0, "t0": time.time(), "last": b"", "retakes": 0, "still": 0}
+
+    def grab():
+        return subprocess.run(["grim", "-t", "ppm", "-"], env=env, capture_output=True).stdout
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -138,12 +141,24 @@ def main():
             if u.path == "/__video/log":
                 log.write(data.decode() + "\n")
             elif u.path == "/__video/frame":
-                shot = subprocess.run(["grim", "-t", "ppm", "-"], env=env, capture_output=True).stdout
+                shot = grab()
+                # grim takes the compositor's last frame, which can still be the page's previous one. A
+                # frame identical to the last is taken again until it changes; one that stays the same for
+                # a second is a frame where nothing moved.
+                for _ in range(50):
+                    if shot != state["last"]:
+                        break
+                    state["retakes"] += 1
+                    time.sleep(0.02)
+                    shot = grab()
+                else:
+                    state["still"] += 1
+                state["last"] = shot
                 enc.stdin.write(shot)
                 state["frames"] += 1
                 if state["frames"] % 300 == 0:
-                    print(f"{state['frames']} frames, {(time.time() - state['t0']) / state['frames']:.3f} s each",
-                          flush=True)
+                    print(f"{state['frames']} frames, {(time.time() - state['t0']) / state['frames']:.3f} s each, "
+                          f"{state['retakes']} retakes, {state['still']} still", flush=True)
             elif u.path == "/__video/end":
                 done.set()
             self.send(b"{}", "application/json")
@@ -161,7 +176,8 @@ def main():
                           stdout=open(base / "firefox.log", "w"), stderr=subprocess.STDOUT)
     print(f"serving on {args.port}, firefox {fx.pid}, sway {sway.pid}", flush=True)
     done.wait()
-    print(f"end: {state['frames']} frames in {time.time() - state['t0']:.0f} s", flush=True)
+    print(f"end: {state['frames']} frames in {time.time() - state['t0']:.0f} s, {state['retakes']} retakes, "
+          f"{state['still']} frames still after a second", flush=True)
     if enc:
         enc.stdin.close()
         enc.wait()
