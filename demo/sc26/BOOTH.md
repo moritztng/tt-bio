@@ -6,9 +6,6 @@ touch the box once it is on.
 
 ## Set up
 
-A box that has never run the demo needs a one-time install first, a day ahead: `INSTALL.md`, next
-to this file.
-
 1. **Place the box** with its vents clear. Do not open it.
 2. **Screen:** HDMI cable from the box's **motherboard panel** (the HDMI port among the USB ports)
    to the screen. The Tenstorrent cards have no display output; plug nothing into their brackets.
@@ -40,7 +37,7 @@ the loop by itself.
 | **No picture** | Check the cable sits in the motherboard's HDMI and the screen's input matches. If the screen was connected after the box was switched on and nothing appears within 10 seconds, restart it (below). |
 | **A frozen or black screen** | Wait. The box repairs itself, usually within a minute. Rarely the whole box freezes; then it restarts itself after about 3 minutes and is folding again within 10. If the screen is still frozen or black after 10 minutes, restart it. |
 | **Recorded folds** for more than 10 minutes, or every visitor gets *The chips are busy* | Leave it running: what it shows is real, recorded on this box, and labelled as such. Call. |
-| **The demo will not come back** after a restart | Show the recorded video instead: **Ctrl+Alt+F3**, log in, type `~/sc26/demo/sc26/ops/sc26ctl video`, then **Ctrl+Alt+F2**. A restart returns to the live demo. |
+| **The demo will not come back** after a restart | Play the video: **Ctrl+Alt+F3**, log in, `~/sc26/demo/sc26/ops/sc26ctl video`, **Ctrl+Alt+F2**. |
 
 **Restart:** press the power button once, briefly. The box stops the demo cleanly (this can take
 up to 2 minutes) and is back on it about 1½ minutes later. Do not hold the button: holding it
