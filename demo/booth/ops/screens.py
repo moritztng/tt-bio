@@ -80,7 +80,7 @@ def main():
                     size = Image.open(shot).size
                     poster = ImageOps.fit(Image.open(POSTER).convert("RGB"), size)
                 lab, img = label(shot, poster, prev)
-                prev = img if lab == "page" else None
+                prev = img if lab in ("page", "same") else None   # a frozen page stays frozen against the shot it froze on
                 if lab == "page" and on_error(checks, e["t_wall"] + s["t"]):
                     lab = "error"
             counts[lab] = counts.get(lab, 0) + 1

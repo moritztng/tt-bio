@@ -28,7 +28,8 @@ install_user(){
   mkdir -p "$udir" "$HOME/booth-logs" "$HOME/.config/booth"
   for u in "${units[@]}"; do render "$ops/units/$u" > "$udir/$u"; done
   render "$ops/session/sway.config" > "$cfg/sway.config"
-  render "$ops/session/session.sh" > "$cfg/session.sh"; chmod +x "$cfg/session.sh"
+  render "$ops/session/session.sh" > "$cfg/session.sh.new"; chmod +x "$cfg/session.sh.new"
+  mv "$cfg/session.sh.new" "$cfg/session.sh"   # a new file: the running session keeps reading its own
   [ -f "$HOME/.config/booth/env" ] || printf '%s\n' \
     '# BOOTH_CHIPS=0,1,2,3 at the booth. Empty: replay only, no chip taken (development).' \
     'BOOTH_CHIPS=' > "$HOME/.config/booth/env"
