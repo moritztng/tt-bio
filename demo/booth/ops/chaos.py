@@ -297,18 +297,20 @@ class Chaos:
         return rec
 
     def run(self):
-        end = time.time() + self.a.hours * 3600
+        end = self.a.until or time.time() + self.a.hours * 3600
         evs = [e for e in (self.a.events.split(",") if self.a.events else EVENTS)]
-        i, recs = 0, []
+        i = self.a.start_index
         if self.a.visitor_s:
             threading.Thread(target=self.visitors, daemon=True).start()
         while time.time() < end:
             nxt = time.time() + self.a.every
-            recs.append(self.run_event(i, evs[i % len(evs)]))
+            self.run_event(i, evs[i % len(evs)])
             i += 1
             time.sleep(max(0, min(nxt, end) - time.time()))
+        # every event of the soak, also those written before a reboot resumed it
+        recs = [json.loads(x) for x in open(self.out / "events.jsonl") if x.strip()]
         bad = [r for r in recs if any(s.get("flat") for s in r["screen"])]
-        summary = {"hours": self.a.hours, "events": len(recs),
+        summary = {"hours": round((end - recs[0]["t_wall"]) / 3600, 2) if recs else 0, "events": len(recs),
                    "by_event": {e: sum(r["event"] == e for r in recs) for e in evs},
                    "flat_screen_events": [r["i"] for r in bad],
                    # the app and the poster are dark (mean 12-27); a bright frame is a browser page
@@ -322,6 +324,8 @@ class Chaos:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--hours", type=float, default=8)
+    ap.add_argument("--until", type=float, default=0, help="unix time to stop at, instead of --hours from now")
+    ap.add_argument("--start-index", type=int, default=0, help="first event number, to continue a rotation")
     ap.add_argument("--every", type=float, default=900, help="seconds between two events")
     ap.add_argument("--events", default="", help="comma list; default: all, in rotation")
     ap.add_argument("--net-s", type=float, default=300)
