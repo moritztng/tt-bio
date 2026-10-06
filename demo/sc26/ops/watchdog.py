@@ -102,20 +102,27 @@ def resources(profile, engine_pid, paths):
     each chip worker and the browser, the GPU's memory, the disk, the logs. The cgroup figure
     systemd prints counts page cache too, so it is not a leak figure; RSS and fds are."""
     r = {"mem_avail_gb": meminfo(), "load1": round(os.getloadavg()[0], 2)}
-    kids, browser = [], [0.0, 0]
+    # The browser is every process under the one started on the kiosk profile: its content, GPU and
+    # socket processes come from a fork server and do not carry the profile on their command line.
+    parent, roots = {}, []
     for p in Path("/proc").glob("[0-9]*"):
         try:
-            stat = (p / "stat").read_text()
-            ppid = int(stat.rsplit(")", 1)[1].split()[1])
-            if engine_pid and ppid == engine_pid:
-                kids.append(int(p.name))
-            elif profile.encode() in (p / "cmdline").read_bytes():
-                u = proc_usage(p.name)
-                if u:
-                    browser[0] += u[0]
-                    browser[1] += u[1]
+            parent[int(p.name)] = int((p / "stat").read_text().rsplit(")", 1)[1].split()[1])
+            if profile.encode() in (p / "cmdline").read_bytes():
+                roots.append(int(p.name))
         except (OSError, ValueError, IndexError):
             continue
+    kids = [q for q, pp in parent.items() if engine_pid and pp == engine_pid]
+    tree, todo = set(), list(roots)
+    while todo:
+        q = todo.pop()
+        if q not in tree:
+            tree.add(q)
+            todo += [c for c, pp in parent.items() if pp == q]
+    browser = [0.0, 0]
+    for u in filter(None, map(proc_usage, tree)):
+        browser[0] += u[0]
+        browser[1] += u[1]
     eng = proc_usage(engine_pid) if engine_pid else None
     work = [u for u in map(proc_usage, kids) if u]
     r.update(engine_rss_mb=eng and round(eng[0]), engine_fds=eng and eng[1],
