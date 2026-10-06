@@ -8,7 +8,8 @@ Runs as the sc26-watchdog user unit next to sc26-engine and sc26-kiosk. Every --
            workers are watched inside the engine itself (stall -> SIGINT -> SIGTERM -> board reset).
 * page     through Firefox's Marionette port on 127.0.0.1 (the kiosk starts Firefox with
            MOZ_MARIONETTE=1): which URL is showing, and how many frames the page drew in one second.
-           An error page or a foreign URL is navigated back to the app. A page that cannot run a
+           An error page or a foreign URL is navigated back to the app once the app answers; an
+           error page while it does not restarts sc26-kiosk (poster). A page that cannot run a
            script, or draws no frames, --page-fails times in a row is frozen: restart sc26-kiosk.
 * screen   a small grim screenshot of the compositor. The same image for --freeze-s seconds is a
            frozen screen; one flat colour for --blank-s seconds is a blank one. Either restarts
@@ -254,6 +255,23 @@ class Watch:
                 self.engine_fail = 0
             return None
 
+    def load_app(self):
+        """Navigate to the app, but only if it answers. Navigating while the engine is down puts
+        Firefox's "Unable to connect" page on the booth screen (soak 10-06: 5 times, up to 40 s);
+        a live page left alone keeps playing what it has and reconnects by itself."""
+        try:
+            with urllib.request.urlopen(self.a.app_url, timeout=3) as r:
+                r.read(1)
+        except OSError as e:
+            self.emit(ev="navigate_held", err=str(e)[:200])
+            return False
+        try:
+            self.mn.call("WebDriver:Navigate", {"url": self.a.app_url})
+        except (OSError, RuntimeError) as e:
+            self.close_mn()
+            self.emit(ev="navigate_fail", err=str(e)[:200])
+        return True
+
     def check_page(self):
         try:
             if self.mn is None:
@@ -271,20 +289,15 @@ class Watch:
         # An error page keeps the app's URL in location.href; only documentURI says about:neterror.
         if not href.startswith(self.a.url_base) or r.get("doc", href).startswith("about:"):
             self.emit(ev="page_wrong", href=href[:200], doc=r.get("doc", "")[:200], title=r.get("title", "")[:100])
-            try:
-                self.mn.call("WebDriver:Navigate", {"url": self.a.app_url})
-            except (OSError, RuntimeError) as e:
-                self.close_mn()
-                self.emit(ev="navigate_fail", err=str(e)[:200])
+            if not self.load_app():
+                # the app is down and Firefox shows its own error: the launcher shows the poster
+                # and waits for the app instead
+                self.restart("sc26-kiosk", "error page while the app is down")
         # The page reconnects a silent stream itself after 6 s. One that has heard nothing for
         # --stream-s is stuck in a way its own code cannot see: load it again.
-        if (r.get("stream_age_s") or 0) > self.a.stream_s:
+        elif (r.get("stream_age_s") or 0) > self.a.stream_s:
             self.emit(ev="stream_stuck", age_s=round(r["stream_age_s"]))
-            try:
-                self.mn.call("WebDriver:Navigate", {"url": self.a.app_url})
-            except (OSError, RuntimeError) as e:
-                self.close_mn()
-                self.emit(ev="navigate_fail", err=str(e)[:200])
+            self.load_app()
         if r.get("gl_lost"):
             self.emit(ev="gl_lost")   # the page reloads itself on webglcontextlost; logged as evidence
         if r.get("timeout") or r.get("fps", 0) < 1:

@@ -7,8 +7,13 @@ shows for a second or two after a browser crash counts as moving. This labels ea
 page (the live app), poster (sway's background still, the browser is not up), flat (one colour,
 a blank frame), same (identical to the previous shot of a page: frozen), or what chaos.py saw
 when there was no shot (display lost, compositor stuck, nothing). blank and same are failures.
+
+Firefox's own error page ("Unable to connect") looks like a page to these pixel rules, so a shot
+whose last watchdog page check (at most 15 s before it) left the browser on an error page is
+labelled error, also a failure. The 10-06 soak's first report missed exactly that.
 """
 import argparse
+import bisect
 import json
 from pathlib import Path
 
@@ -29,11 +34,39 @@ def label(path, poster, prev):
     return "page", img
 
 
+def error_checks(log):
+    """Every watchdog page check (its tick time) and whether it left Firefox on an error page,
+    in time order."""
+    errs, ticks = [], []
+    if not log.exists():
+        return []
+    for line in open(log, errors="replace"):
+        if '"tick"' not in line and "error page" not in line:
+            continue
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue
+        if r.get("ev") == "tick":
+            ticks.append(r["t"])
+        elif "error page" in r.get("err", ""):   # a navigation that landed on one; it stays up
+            errs.append(r["t"])
+    return [(t, any(t - 2 <= e <= t for e in errs)) for t in ticks]
+
+
+def on_error(checks, t):
+    """What the last page check at or before t found."""
+    i = bisect.bisect_right(checks, (t, True)) - 1
+    return i >= 0 and t - checks[i][0] < 15 and checks[i][1]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run")
+    ap.add_argument("--watchdog", default="~/sc26-logs/watchdog.jsonl")
     a = ap.parse_args()
     run = Path(a.run).expanduser()
+    checks = error_checks(Path(a.watchdog).expanduser())
     poster, counts, bad = None, {}, []
     for line in open(run / "events.jsonl"):
         e = json.loads(line)
@@ -48,14 +81,16 @@ def main():
                     poster = ImageOps.fit(Image.open(POSTER).convert("RGB"), size)
                 lab, img = label(shot, poster, prev)
                 prev = img if lab == "page" else None
+                if lab == "page" and on_error(checks, e["t_wall"] + s["t"]):
+                    lab = "error"
             counts[lab] = counts.get(lab, 0) + 1
             row.append(f"{s['t']}s:{lab}")
-            if lab in ("flat", "same"):
+            if lab in ("flat", "same", "error"):
                 bad.append(f"{e['i']} {e['event']} +{s['t']}s {lab}")
         live = next((r.split(":")[0] for r in row if r.endswith(":page")), "never")
         print(f"{e['i']:3d} {e['event']:15s} live page from {live:>5s}  {' '.join(row)}")
     print("samples:", ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
-    print("blank or frozen:", "; ".join(bad) if bad else "none")
+    print("blank, frozen or error:", "; ".join(bad) if bad else "none")
     return 1 if bad else 0
 
 
