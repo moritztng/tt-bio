@@ -5,6 +5,7 @@
 #   sc26ctl health                     HEALTHY or not, in plain words (exit 1 when not)
 #   sc26ctl status                     units, chips, and the last watchdog line
 #   sc26ctl logs                       follow every demo unit's journal
+#   sc26ctl video [file]               the fallback: the recorded loop, full screen, on repeat
 #   sc26ctl units                      install the user units only (no boot change)
 #   sc26ctl install                    boot straight into the demo (needs sudo once)
 #   sc26ctl uninstall                  back to the normal Ubuntu login
@@ -13,12 +14,14 @@
 # reboots into the demo; powering off stays impossible.
 set -euo pipefail
 ops=$(cd "$(dirname "$0")" && pwd)
+cfg=$HOME/.config/sc26
+# The settings file the units read, so that health and status use the engine's own Python.
+if [ -f "$cfg/env" ]; then set -a; . "$cfg/env"; set +a; fi
 py=${SC26_PYTHON:-$HOME/tt-bio-dev/env/bin/python3}
 units=(sc26-engine.service sc26-kiosk.service sc26-watchdog.service sc26.target)
 udir=$HOME/.config/systemd/user
 bak=$HOME/sc26-logs/install-backup
 
-cfg=$HOME/.config/sc26
 render(){ sed -e "s|@OPS@|$ops|g" -e "s|@PY@|$py|g" -e "s|@CFG@|$cfg|g" "$1"; }
 
 install_user(){
@@ -77,8 +80,17 @@ uninstall_system(){
 }
 
 case "${1:-}" in
-  start) systemctl --user start sc26.target ;;
+  start) pkill -u "$USER" -f "mpv --title=sc26-video" || true; systemctl --user start sc26.target ;;
   stop) systemctl --user stop sc26.target sc26-engine.service sc26-kiosk.service sc26-watchdog.service ;;
+  video)
+    f=${2:-$HOME/sc26-video/sc26-loop.mp4}
+    [ -f "$f" ] || { echo "no video at $f. Copy sc26-loop-4k-h264.mp4 there (INSTALL.md, \"The fallback video\")."; exit 1; }
+    sock=$(ls -t "/run/user/$(id -u)"/sway-ipc.*.sock 2>/dev/null | head -n 1)
+    [ -n "$sock" ] || { echo "the booth session is not on screen (no sway running). Reboot into it first."; exit 1; }
+    systemctl --user stop sc26.target sc26-engine.service sc26-kiosk.service sc26-watchdog.service
+    pkill -u "$USER" -f "mpv --title=sc26-video" || true
+    swaymsg -q -s "$sock" exec "mpv --title=sc26-video --fs --loop-file=inf --no-audio --no-osc --osd-level=0 --no-input-default-bindings --hwdec=auto-safe --really-quiet '$f'"
+    echo "The video is playing on the booth screen. '$0 start' goes back to the live demo." ;;
   restart) systemctl --user restart sc26-engine.service sc26-kiosk.service sc26-watchdog.service ;;
   status)
     systemctl --user --no-pager status "${units[@]}" | grep -E '^[●○×] |Active:' || true
@@ -95,5 +107,5 @@ case "${1:-}" in
   units) install_user; echo "user units installed (no boot change)" ;;
   install) install_user; install_system; echo "installed: the next boot lands on the demo" ;;
   uninstall) systemctl --user stop sc26.target || true; uninstall_system; echo "uninstalled" ;;
-  *) sed -n '2,13p' "$0"; exit 2 ;;
+  *) sed -n '2,14p' "$0"; exit 2 ;;
 esac
