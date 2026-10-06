@@ -1814,7 +1814,7 @@ class ConfidenceHead:
         `ptm_binder` and `iptm_binder`. Both lists are indexed by the sorted unique `asym_id`,
         so the binder is the last entry when the binder is the last chain.
 
-        `pair_chains_iptm[i][j]` is the matrix both reductions are taken over, kept instead of
+        `pair_chains_iptm[i][j]` (i, j = chain positions 0, 1, ...) is the matrix both reductions are taken over, kept instead of
         dropped: selectivity-aware scoring and hallucination score one named interface of a
         multi-chain complex, which a per-chain average cannot express. It is the FULL square
         matrix, diagonal included -- Boltz-2's shape, whose writer reads `pci[i][i]` for
@@ -1866,10 +1866,11 @@ class ConfidenceHead:
                 row = (pair_tm(m) * cross).sum(-1) / (1e-8 + cross.sum(-1))
                 pair[ci, cj] = pair[cj, ci] = row_max(row, m)
         chain_iptm = [sum(pair[c, o] for o in ids if o != c) / (len(ids) - 1) for c in ids]
+        # Keyed by chain position, not by the asym_id value: OpenFold3's asym_id starts at 1.
         return {"chain_ptm": [round(x, 6) for x in chain_ptm],
                 "chain_iptm": [round(x, 6) for x in chain_iptm],
-                "pair_chains_iptm": {ci: {cj: round(pair[ci, cj], 6) for cj in ids}
-                                     for ci in ids}}
+                "pair_chains_iptm": {i: {j: round(pair[ci, cj], 6) for j, cj in enumerate(ids)}
+                                     for i, ci in enumerate(ids)}}
 
     def plddt(self, s_inputs, s_trunk, z_trunk, coords, feats):
         """Mean pLDDT in [0,1] (back-compat thin wrapper over confidence())."""
