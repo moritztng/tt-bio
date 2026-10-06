@@ -5,8 +5,8 @@ where the four Blackhole chips fold proteins live, and repairs itself if a chip 
 fails. It installs the same kernel, driver, firmware check, software and model weights as the
 QuietBox the demo was built and tested on, so it should behave the same way.
 
-You do this once, a day or more before the event. It takes about **1 to 2 hours**, most of it
-downloading. At the booth itself nothing needs installing.
+You do this once, a day or more before the event. It takes **under half an hour** plus a reboot,
+most of it downloading. At the booth itself nothing needs installing.
 
 ## What you need
 
@@ -14,8 +14,8 @@ downloading. At the booth itself nothing needs installing.
 - A screen with an HDMI input, cabled to the **HDMI port on the motherboard panel** (among the USB
   ports). The Tenstorrent cards have no display output.
 - A USB keyboard.
-- Network with internet access, **for the install only** (about 5 GB comes down). Once installed,
-  the demo never uses the network.
+- Network with internet access, **for the install only** (about 5 GB comes down: the code, two
+  Python environments and the OpenFold3 weights). Once installed, the demo never uses the network.
 - About 20 GB of free disk.
 
 ## Install
@@ -33,9 +33,12 @@ password once. Roughly:
 | step | time |
 |---|---|
 | system packages, driver, kernel (only if different) | 0 to 10 min |
-| two Python environments | about 5 min |
-| model weights, 2.3 GB | @WEIGHTS@ |
-| recorded folds, settings, boot setup | 2 min |
+| two Python environments | a few minutes |
+| OpenFold3 weights, 2.3 GB | a few minutes |
+| recorded folds, settings, boot setup | under a minute |
+
+On the QuietBox the demo was built on, a brand-new user account went from nothing to the end of
+this list in 6 minutes. Each step prints how long it took.
 
 If it stops part way (a dropped download, say), run `~/sc26/demo/sc26/install.py` again. It picks
 up where it stopped and leaves alone whatever is already right.
@@ -65,7 +68,7 @@ because each chip compiles its programs once:
 |---|---|
 | under 1 min | a still picture of a folded protein |
 | about 1½ min | proteins folding, labelled **Recorded folds**; the chip rows say *warming up* |
-| about @FIRSTLIVE@ the first time, 1½ min after that | **Live on four Blackhole chips**, each chip row folding |
+| a few minutes, longer the very first time | **Live on four Blackhole chips**, each chip row folding |
 
 From then on the box needs no keyboard and no login. `demo/sc26/BOOTH.md` is the one-page sheet
 for the people at the booth (what the screen shows, what to do if it does not, whom to call).
