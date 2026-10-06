@@ -5,6 +5,38 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-07
+
+Your own objective and your own outputs, on the models tt-bio already ships. BindCraft 2's design
+loss takes terms you write, every structure model writes its full confidence matrices, and a fold
+can carry an output head of your own.
+
+### Added
+
+- **A BindCraft 2 loss you can change.** `bindcraft2.loss_terms` adds a term of your own,
+  reweights or switches off any of BindCraft 2's 37, or replaces what one computes, from ordinary
+  Python with the settings file untouched. A term reaches the gradient, the mutation and
+  acceptance scoring and `losses.csv` alike, on the card and on BindCraft 2's own JAX trunk.
+  `bindcraft2.check_gradient` grades a term against float64 central differences, and a term whose
+  gradient is silently zero is refused by name before a campaign spends on it. With no custom term
+  the design loop is unchanged. Worked example: `examples/bindcraft2_custom_loss.py`; reference:
+  [`docs/bindcraft2.md`](docs/bindcraft2.md#custom-loss).
+- **Confidence exports for every structure model.** `--write_pae` now writes `<name>_pae.npz` with
+  the full PAE matrix, the PDE matrix and contact probabilities from the model's own distogram,
+  plus a JSON sidecar naming each array's shape and units, for Boltz-2, OpenDDE, OpenFold3,
+  OpenBind-0, ESMFold-2, RF3, Protenix and AF2-IG. ESMFold-2 and AF2-IG compute a full PAE matrix
+  for the first time, and OpenFold3, OpenBind-0, RF3 and AF2-IG report the chain-pair ipTM matrix
+  in `results.json`. `--contact_cutoff` sets the contact distance. Protenix has no contact
+  probabilities and AF2-IG no PDE, and the sidecar says so.
+  [`docs/confidence-outputs.md`](docs/confidence-outputs.md).
+- **An extension surface.** `tt-bio predict --head FILE.py:NAME` runs your own output head on a
+  Boltz-2 fold (Tenstorrent, CPU or GPU) or an ESMFold-2 fold (Tenstorrent) and writes what it
+  returns beside the structure; the structure itself is unchanged. Boltz-2 and ESMFold-2 also expose an optional
+  per-step trajectory hook, off by default. [`docs/extending.md`](docs/extending.md) says which
+  change to a model takes which route, [`docs/porting-a-model.md`](docs/porting-a-model.md) covers
+  a full port, and `examples/custom_head` trains a contact head with its own loss and folds a
+  protein it never saw.
+
 ### Changed
 
 - **tt-bio no longer downloads the Protenix-v2 weights.** The Protenix code is Apache-2.0, and
@@ -30,6 +62,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **Boltz-2 folds on a CPU-only install again.** Since 0.10.0 every Boltz-2 fold on a host without
+  ttnn failed after its confidence step with `No module named 'ttnn'`.
+- **An offline paired MSA search now pairs.** `compute_msa_offline(pair=True)` searched each chain
+  on its own, so every "paired" alignment was that chain's unpaired hits: OpenBind-0 refused every
+  protein heteromer on its depth check, and ESMFold-2 and OpenDDE read rows of two unrelated
+  alignments as one organism. Paired results are cached under a new directory, so no old file is
+  served.
 - **A BindCraft 2 out-of-memory refusal no longer tells a one-trajectory run to pass
   `trajectories_per_card=1`.** Under a board's measured ceiling the message blamed interleaved
   trajectories even when the campaign already ran one, so following it changed nothing. It now

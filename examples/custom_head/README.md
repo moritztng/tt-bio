@@ -5,7 +5,7 @@ never saw with the head attached. The model's own weights are not touched. The h
 pair representation the trunk computes, on the chip or on a CPU, and runs in plain PyTorch.
 
 The example lives in the repository, not in the installed package. Install tt-bio from the same
-clone, so the package and the example match: `--head` is newer than the 0.12.0 release on PyPI.
+clone, so the package and the example match.
 Python 3.10 or 3.12.
 
 ```bash
