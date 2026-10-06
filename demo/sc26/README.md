@@ -5,6 +5,7 @@ surfaces. Runs fully offline on one QuietBox 2.
 
 Served at http://127.0.0.1:8626/ with its frame stream at `/stream` on the same origin.
 The stream format is in [PROTOCOL.md](PROTOCOL.md); booth staff read [BOOTH.md](BOOTH.md).
+To set up a new QuietBox 2 for the booth, follow [INSTALL.md](INSTALL.md).
 
 | path | what |
 |------|------|

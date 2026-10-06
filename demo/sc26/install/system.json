@@ -27,7 +27,7 @@
   "watchdog": {"runtime_usec": "2min 30s"},
   "python": "3.12",
   "torch_index": "https://download.pytorch.org/whl/cpu",
-  "weights": ["esmfold2", "esmc-6b", "boltz2-conf", "mols", "openfold3"],
+  "weights": ["openfold3"],
   "video": {
     "file": "sc26-loop-4k-h264.mp4",
     "bytes": 293792497,

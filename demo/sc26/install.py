@@ -269,7 +269,7 @@ def weights():
     missing = [k for k in want if st.get(k) != "present"]
 
     def fix():
-        # tt-bio's own fetch: pinned revisions, verified, resumable. About 33 GB.
+        # tt-bio's own fetch, verified. The booth folds with OpenFold3 only: 2.3 GB.
         run([ENGINE_PY, "-c", "import sys; sys.path.insert(0, sys.argv[1]); from tt_bio import weights as w; "
              "[w.fetch(k) for k in sys.argv[2:]]", REPO, *missing])
     have = "all present" if not missing else "missing: " + " ".join(missing)
@@ -403,7 +403,7 @@ nothing else is running on the box and leave it alone until it says it is done.
        mkdir -p ~/sc26-downloads && cd ~/sc26-downloads
        curl -fLO {f['url']}
        echo "{f['sha256']}  {f['url'].rsplit('/', 1)[1]}" | sha256sum -c
-  2. Flash it (about 5 minutes for both boards; do not interrupt it):
+  2. Flash it (a few minutes for both boards; do not interrupt it):
        ~/sc26-env/tools/bin/tt-flash flash ~/sc26-downloads/{f['url'].rsplit('/', 1)[1]}
      If ~/sc26-env/tools does not exist yet, use the tt-flash that came with the box.
      If tt-flash refuses because the board has NEWER firmware, do not force it. Either ask the
