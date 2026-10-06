@@ -115,3 +115,13 @@ def test_rows_carry_the_matrix_and_its_diagonal():
     assert row["pair_chains_iptm"] == c["pair_chains_iptm"]
     assert row["chains_ptm"] == {0: c["pair_chains_iptm"][0][0], 1: c["pair_chains_iptm"][1][1]}
     assert _chain_rows({}) == {}
+
+
+def test_keys_are_chain_positions_whatever_the_asym_ids():
+    """OpenFold3 numbers chains from 1; the matrix is keyed 0, 1, ... like every other model's,
+    and the numbers are the same as with 0-based ids."""
+    pae_logits, asym = _synthetic([30, 20])
+    zero = ConfidenceHead._chain_confidence(pae_logits, asym)
+    one = ConfidenceHead._chain_confidence(pae_logits, asym + 1)
+    assert sorted(one["pair_chains_iptm"]) == [0, 1]
+    assert one == zero
