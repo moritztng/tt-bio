@@ -191,6 +191,20 @@ def bound(path, cap, keep):
         return 0
 
 
+def booth_sway(pids):
+    """The sway under the booth session's loop (session/session.sh), not the first one pgrep lists: a
+    second sway on the box (a test rig, a desktop) has a lower pid as often as not, and then the
+    booth's would never be restarted. None if no candidate runs under the loop."""
+    for p in pids:
+        try:
+            ppid = Path(f"/proc/{p}/stat").read_text().rsplit(")", 1)[1].split()[1]
+            if b"session.sh" in Path(f"/proc/{ppid}/cmdline").read_bytes():
+                return int(p)
+        except (OSError, IndexError, ValueError):
+            continue
+    return None
+
+
 class Watch:
     def __init__(self, a):
         self.a = a
@@ -240,7 +254,7 @@ class Watch:
                 self.engine_fail = 0
             return None
 
-    def check_page(self, compositor_ok=True):
+    def check_page(self):
         try:
             if self.mn is None:
                 self.mn = Marionette(self.a.marionette)
@@ -250,7 +264,7 @@ class Watch:
             self.close_mn()
             self.page_fail += 1
             self.emit(ev="page_fail", n=self.page_fail, err=str(e)[:200])
-            if self.page_fail >= self.a.page_fails and compositor_ok:
+            if self.page_fail >= self.a.page_fails:
                 self.restart("sc26-kiosk", f"page unreachable {self.page_fail}x")
             return None, None
         href = r.get("href", "")
@@ -276,8 +290,7 @@ class Watch:
         if r.get("timeout") or r.get("fps", 0) < 1:
             self.page_fail += 1
             self.emit(ev="page_frozen", n=self.page_fail, fps=r.get("fps"))
-            # a page cannot draw while the compositor is stuck; restarting the browser would not help
-            if self.page_fail >= self.a.page_fails and compositor_ok:
+            if self.page_fail >= self.a.page_fails:
                 self.restart("sc26-kiosk", f"page drew no frames {self.page_fail}x")
         else:
             self.page_fail = 0
@@ -323,13 +336,9 @@ class Watch:
         self.stuck += 1
         if self.stuck < self.a.sway_fails:
             return "stuck"
-        try:
-            pid = int(subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", "sway"], capture_output=True,
-                                     text=True).stdout.split()[0])
-            parent = Path(f"/proc/{Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[1]}/cmdline")
-            looped = b"session.sh" in parent.read_bytes()
-        except (OSError, ValueError, IndexError):
-            pid, looped = None, False
+        pid = booth_sway(subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", "sway"], capture_output=True,
+                                        text=True).stdout.split())
+        looped = pid is not None
         now = time.monotonic()
         if looped and now - self.last_restart.get("sway", -1e9) > self.a.restart_gap:
             self.last_restart["sway"] = now
@@ -349,7 +358,8 @@ class Watch:
             t0 = time.monotonic()
             eng = self.check_engine()
             scr = self.check_screen()
-            fps, stream_age = self.check_page(compositor_ok=scr != "stuck")
+            # the page cannot draw under a stuck compositor, and its 4 s probe would only delay the next screenshot
+            fps, stream_age = self.check_page() if scr != "stuck" else (None, None)
             row = {"ev": "tick", "engine": eng, "fps": fps, "stream_age_s": stream_age, "screen": scr}
             if t0 - self.last_mem > self.a.mem_every:
                 self.last_mem = t0
@@ -360,7 +370,9 @@ class Watch:
                 if cut:
                     row["bounded"] = cut
             self.emit(**row)
-            time.sleep(max(0.5, self.a.every - (time.monotonic() - t0)))
+            # a screenshot that did not come back is checked again at once, not in 10 s: a stuck
+            # compositor leaves its last frame on the glass until it is restarted
+            time.sleep(1 if 0 < self.stuck < self.a.sway_fails else max(0.5, self.a.every - (time.monotonic() - t0)))
 
 
 def main():
@@ -378,7 +390,8 @@ def main():
     ap.add_argument("--restart-gap", type=float, default=90, help="minimum seconds between two restarts of one unit")
     ap.add_argument("--mem-every", type=float, default=60)
     ap.add_argument("--stream-s", type=float, default=60, help="a page that has heard nothing from the stream this long is reloaded")
-    ap.add_argument("--grim-s", type=float, default=5, help="a screenshot slower than this means the compositor is stuck")
+    ap.add_argument("--grim-s", type=float, default=2,
+                    help="a screenshot slower than this means the compositor is stuck (measured p95 0.21 s on qb2)")
     ap.add_argument("--sway-fails", type=int, default=3, help="stuck screenshots in a row before sway is restarted")
     ap.add_argument("--log-cap-mb", type=int, default=64, help="a log past this is cut to its last --log-keep-mb")
     ap.add_argument("--log-keep-mb", type=int, default=16)
