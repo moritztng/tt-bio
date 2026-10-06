@@ -199,7 +199,8 @@ export class Stream {
     this.fetching = m;
     try {
       const t0 = performance.now();
-      const res = await fetch(`${this.base}/fold/${encodeURIComponent(m.id)}?every=${every}`, { signal: ctl.signal });
+      // no-store: Firefox keeps every reply in the page's memory cache otherwise, ~336 MB an hour
+      const res = await fetch(`${this.base}/fold/${encodeURIComponent(m.id)}?every=${every}`, { cache: 'no-store', signal: ctl.signal });
       if (res.ok) {
         const t1 = performance.now(), buf = await res.arrayBuffer(), dt = (performance.now() - t1) / 1000;
         if (buf.byteLength > 64e3) this.rate = 0.5 * this.rate + 0.5 * buf.byteLength / Math.max(0.05, dt);
