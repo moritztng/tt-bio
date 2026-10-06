@@ -22,6 +22,7 @@ while [ $stop = 0 ]; do
   until curl -sf -o /dev/null --max-time 2 "$url"; do [ $stop = 0 ] || exit 0; sleep 1; done
   rm -rf "$prof"; mkdir -p "$prof"
   cp "$here/user.js" "$prof/user.js"
+  mkdir -p "$prof/chrome"; cp "$here/userChrome.css" "$prof/chrome/"
   firefox --no-remote --profile "$prof" --kiosk "$url" >>"$log" 2>&1 &
   pid=$!
   wait "$pid"; rc=$?

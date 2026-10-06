@@ -1,0 +1,4 @@
+/* The browser window itself, before and around the page: no toolbar, and the app's ground colour
+   instead of Firefox's grey, so a starting browser paints what the app paints. */
+#navigator-toolbox { visibility: collapse !important; }
+:root, #browser, #tabbrowser-tabbox, #tabbrowser-tabpanels, .browserStack, browser { background-color: #08090C !important; }
