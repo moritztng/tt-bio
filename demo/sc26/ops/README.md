@@ -50,13 +50,13 @@ the recovery takes. Every row was injected and watched (`chaos.py`); the times a
 | a chip dies and does not come back after a reset | the reset's check that the chip answers | the chip rests, 15 min doubling to 4 h, and is tried again | its lane says it is resting and when it is back |
 | a chip's worker dies | the engine | the worker restarts; a visitor's fold moves to another chip | that lane says recovering, then warming up |
 | a chip's memory fills up (about 35 min of mixed folds) | the fold fails with out of memory | that worker restarts with empty memory | that lane says recovering for about 40 s |
-| the engine dies | systemd | restarted in 3 s; the page reconnects in 1.5 s | the last fold keeps turning, then recorded folds while the chips warm up |
-| the engine is alive but stuck | it stops telling systemd it is alive (every 2 s) | after 60 s systemd ends it and starts it again | as above, after up to 60 s of lanes saying "no word" |
+| the engine dies | the watchdog (3 unanswered checks, 30 s) and systemd | the old engine stops its chip workers, then a new one starts: answering again 41 to 111 s after the kill (soak, 5 kills); the page reconnects by itself | the last fold keeps turning, then recorded folds while the chips warm up |
+| the engine is alive but stuck | it stops telling systemd it is alive (every 2 s); the watchdog sees /status unanswered | systemd ends it and starts it again: answering again 100 to 111 s after the freeze (soak, 5 freezes) | as above, with lanes saying "no word" until then |
 | the browser crashes | its launcher | Firefox starts again with a fresh profile, once the app answers | the background still (a real fold), then the app |
 | the page or browser freezes | no frames drawn for two checks (20 s), or an unchanged screen for 30 s | the browser is restarted | the frozen frame, then the still, then the app |
-| the page leaves the app | its document is not the app | the watchdog loads the app again | at most one 10 s check of the wrong page |
+| the page leaves the app | its document is not the app | the watchdog loads the app again once it answers; an error page while the app is down restarts the browser, whose launcher shows the still until the app answers | at most one 10 s check of the wrong page |
 | the GPU context is lost | the page itself | the page reloads once the app answers | under a second of the background colour |
-| the page's stream goes silent | the page (6 s); the watchdog backs it up at 60 s | the page reconnects; the watchdog reloads a page that does not | the stage keeps showing what it has |
+| the page's stream goes silent | the page (6 s); the watchdog backs it up at 60 s | the page reconnects; the watchdog reloads a page that does not, but only once the app answers (loading it while the engine restarts showed Firefox's "Unable to connect" page in the 10-06 soak) | the stage keeps showing what it has |
 | the compositor (sway) freezes | screenshots time out three checks in a row | the watchdog restarts sway; the session brings it back with the browser | the frozen frame for up to 40 s, then the still, then the app |
 | the compositor crashes | the session's loop | sway starts again in 2 s, the browser follows | the still within 5 s, the app in about 30 s |
 | the screen is unplugged, or the box boots before it is on | `session/display.sh`, every 2 s | the demo keeps running on an invisible screen and moves onto the real one when it appears | nothing until the screen is back, then the demo |
