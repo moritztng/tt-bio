@@ -12,19 +12,19 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageChops, ImageOps, ImageStat
 
 POSTER = Path(__file__).parent / "session" / "poster.png"
 
 
 def label(path, poster, prev):
-    img = np.asarray(Image.open(path).convert("RGB"), dtype=np.int16)
-    if len(np.unique(img[::7, ::7].reshape(-1, 3), axis=0)) <= 3:
+    img = Image.open(path).convert("RGB")
+    if img.resize((img.width // 7, img.height // 7), Image.NEAREST).getcolors(3) is not None:
         return "flat", img
-    if poster is not None and img.shape == poster.shape and np.abs(img - poster).mean() < 8:
+    if poster is not None and img.size == poster.size and \
+            sum(ImageStat.Stat(ImageChops.difference(img, poster)).mean) / 3 < 8:
         return "poster", img
-    if prev is not None and prev.shape == img.shape and np.array_equal(prev, img):
+    if prev is not None and prev.size == img.size and ImageChops.difference(prev, img).getbbox() is None:
         return "same", img
     return "page", img
 
@@ -45,7 +45,7 @@ def main():
             else:
                 if poster is None:
                     size = Image.open(shot).size
-                    poster = np.asarray(ImageOps.fit(Image.open(POSTER).convert("RGB"), size), dtype=np.int16)
+                    poster = ImageOps.fit(Image.open(POSTER).convert("RGB"), size)
                 lab, img = label(shot, poster, prev)
                 prev = img if lab == "page" else None
             counts[lab] = counts.get(lab, 0) + 1
