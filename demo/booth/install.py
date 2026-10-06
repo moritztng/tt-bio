@@ -8,7 +8,7 @@ What "exactly" means is install/system.json: kernel, driver, firmware, the Tenst
 the Python packages (install/*.lock), the model weights and the booth session. The script checks
 everything first and prints what it found. Then it fixes what it can: the firmware it never
 touches, it only tells you the command. Running it again is safe; a box that already matches is
-left alone and the script says so.
+left alone and the script says so. Last, it starts the demo and waits until every chip folds.
 
 Options:
     --chips 0,1,2,3       chips the demo folds on (default: all four)
@@ -380,10 +380,50 @@ def main():
     if reboot or any(not i.ok for i in after):
         print("Reboot now to finish:  sudo reboot\n"
               "The box comes back straight into the demo. Run this script once more after the reboot;\n"
-              "it should end with 'Nothing to change'.")
-    elif changed:
-        print("Installed. Start the demo now with  ~/tt-bio-booth/demo/booth/ops/boothctl start  or reboot into it.")
-    return 0
+              "it should say 'Nothing to change' and then wait until every chip folds.")
+        return 0
+    return 0 if warm() else 1
+
+
+def warm(limit_s=45 * 60) -> bool:
+    """Start the demo and wait until every chip folds. The first start on a new install builds the
+    chip programs (about 20 min, cached after that), so the person installing pays it, not the
+    booth's first boot. Outside the booth session only the engine starts; the screen comes at reboot."""
+    on_screen = any(Path(f"/run/user/{os.getuid()}").glob("sway-ipc.*.sock"))
+    cfg = dict(l.split("=", 1) for l in read(CFG).splitlines() if "=" in l and not l.startswith("#"))
+    url = f"http://127.0.0.1:{cfg.get('BOOTH_PORT', '8626')}/status"
+
+    def chips_up():
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                st = [c["state"] for c in json.loads(r.read())["chips"] if c["state"] != "out_of_service"]
+        except (OSError, ValueError, KeyError):
+            return 0, None   # the engine is not answering yet
+        return sum(s in ("ready", "busy") for s in st), len(st)
+
+    up, n = chips_up()
+    if n is None or up < n:
+        print("\nStarting the demo. The first start builds the chip programs, about 20 min; "
+              "later starts take about 5.", flush=True)
+        run([OPS / "boothctl", "start"] if on_screen else ["systemctl", "--user", "start", "booth-engine.service"])
+    t, said = time.monotonic(), None
+    while n is None or up < n:
+        if time.monotonic() - t > limit_s:
+            what = "the fold service never answered" if n is None else f"{up} of {n} chips fold"
+            print(f"\nAfter {limit_s // 60} min {what}. Reboot once and run this script again; "
+                  "if it stops here again, call the contact in INSTALL.md.")
+            return False
+        if n is not None and (up, n) != said:
+            print(f"  {time.monotonic() - t:5.0f} s  {up} of {n} chips folding", flush=True)
+            said = (up, n)
+        time.sleep(15)
+        up, n = chips_up()
+    print(f"  {time.monotonic() - t:5.0f} s  all {n} chips folding")
+    if not on_screen:
+        print("The chips are ready. Reboot (sudo reboot): the box comes up straight into the demo.")
+        return True
+    time.sleep(20)   # give the screen watchdog a few checks of the warm page
+    return run([OPS / "boothctl", "health"], check=False, quiet=True).returncode == 0
 
 
 def apply(i) -> bool:

@@ -43,12 +43,14 @@ this list in 6 minutes. Each step prints how long it took.
 If it stops part way (a dropped download, say), run `~/tt-bio-booth/demo/booth/install.py` again. It picks
 up where it stopped and leaves alone whatever is already right.
 
-When it finishes it says either **Reboot now to finish** or **Nothing to change**. Reboot with
+If it says **Reboot now to finish**, reboot with
 
     sudo reboot
 
-and run `~/tt-bio-booth/demo/booth/install.py` once more after the reboot. It should end with
-**Nothing to change: this box matches the booth QuietBox.** That is the sign the install is complete.
+and run `~/tt-bio-booth/demo/booth/install.py` once more after the reboot. It should say
+**Nothing to change: this box matches the booth QuietBox.** Its last step starts the demo and waits
+until every chip folds. The first start builds the chip programs, about 20 minutes, so you pay
+that now and not on the morning of the event. It ends with **HEALTHY**: the install is complete.
 
 ### If the script stops at the firmware
 
@@ -62,14 +64,13 @@ Moritz (below).
 
 ## First start
 
-After the reboot the box logs in by itself and the demo appears. The first time takes longer,
-because each chip compiles its programs once:
+After every reboot the box logs in by itself and the demo appears:
 
 | after the reboot | on the screen |
 |---|---|
 | under 1 min | a still picture of a folded protein |
 | about 1½ min | proteins folding, labelled **Recorded folds**; the chip rows say *warming up* |
-| a few minutes, longer the very first time | **Live on four Blackhole chips**, each chip row folding |
+| about 5 min (20 min if the install's last step never finished) | **Live on four Blackhole chips**, each chip row folding |
 
 From then on the box needs no keyboard and no login. `demo/booth/BOOTH.md` is the one-page sheet
 for the people at the booth (what the screen shows, what to do if it does not, whom to call).
