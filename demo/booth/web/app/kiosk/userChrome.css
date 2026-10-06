@@ -2,3 +2,7 @@
    instead of Firefox's grey, so a starting browser paints what the app paints. */
 #navigator-toolbox { visibility: collapse !important; }
 :root, #browser, #tabbrowser-tabbox, #tabbrowser-tabpanels, .browserStack, browser { background-color: #08090C !important; }
+/* The watchdog runs the browser under Marionette, and Firefox marks a remote-controlled window by
+   striping the address bar. The bar is a popover, so collapsing the toolbox does not hide it and
+   a 1 by 4 px red sliver stayed in the top-left corner. */
+#urlbar-container, #urlbar { display: none !important; }
