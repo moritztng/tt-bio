@@ -84,6 +84,21 @@ def one_round(model, protein_states, losses, one_hot_weight, key_seed, temperatu
     return predictions, gradients
 
 
+def cast_sequences(protein_states, dtype):
+    """Re-type every chain's sequence logits, leaving flags and coordinates alone.
+
+    BindCraft 2 stores `Protein.sequence` as float16. The design loss is differentiated with
+    respect to exactly that array (`af2.py:352` takes `sequences`, `:41` gates it on the DESIGN
+    flag), so the returned gradient is float16 too and anything below float16's smallest
+    subnormal, about 6e-8, lands as exactly zero. That is indistinguishable from "no gradient"
+    until the same call is made in float32.
+    """
+    import numpy as np
+    return {state: {chain: protein.replace(sequence=np.asarray(protein.sequence, dtype=dtype))
+                    for chain, protein in complex_.items()}
+            for state, complex_ in protein_states.items()}
+
+
 def check_states_match(protein_states, binder_length):
     """Refuse a pickle written by a different design from the one these settings build.
 
@@ -126,6 +141,10 @@ def main():
     #: does: its Jacobian is diag(p) - p p^T, and that underflows to zero once p is one-hot in
     #: float32. Raising the temperature is the control that tells a real saturation from a harness
     #: that is extracting the wrong array: at 1.0 the same call must produce a nonzero gradient.
+    parser.add_argument("--sequence-dtype", default="keep",
+                        choices=("keep", "float32", "float64"),
+                        help="re-type the sequence logits before differentiating (default keep, "
+                             "which is BindCraft 2's own float16)")
     parser.add_argument("--temperature", type=float, default=0.01,
                         help="softmax temperature (default 0.01, which is harden's own)")
     parser.add_argument("--key-seed", type=int, default=0,
@@ -171,6 +190,9 @@ def main():
     with open(args.states, "rb") as handle:
         protein_states = pickle.load(handle)
     check_states_match(protein_states, args.binder_length)
+    if args.sequence_dtype != "keep":
+        protein_states = cast_sequences(protein_states, args.sequence_dtype)
+        print(f"sequence logits cast to {args.sequence_dtype}", flush=True)
 
     presets = tuple(args.models)
     # The device blocks apply no dropout, so `evoformer_on_device` refuses the swap by default
