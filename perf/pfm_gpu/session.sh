@@ -3,10 +3,12 @@
 # results, destroys the box and confirms it is gone. A host is rejected (destroyed, next offer) if ssh is not up in
 # 30 min, its power limit is under MINW, or burn_gate.py sees thermal throttle. CAP_H hard-caps the billed time of
 # an accepted box: past it the results so far are pulled and the box is destroyed regardless.
-#   usage: session.sh <label> <cap_h> <minW> <with_acc 0|1> <offer> [offer ...]
+# Offers are searched live before each attempt (a pre-listed offer is often already rented: vast then queues the
+# instance as intended_status=stopped / resources_unavailable, which is dropped after 2 min).
+#   usage: session.sh <label> <cap_h> <minW> <with_acc 0|1> '<vastai search query>' [max_attempts]
 # Status: /tmp/pfmgpu/<label>.log; results perf/pfm_gpu/results/<label>/; accuracy -> ~/pfm-accuracy-data/gpu/out/.
 set -u
-L=$1 CAP_H=$2 MINW=$3 ACC=$4; shift 4
+L=$1 CAP_H=$2 MINW=$3 ACC=$4 Q=$5 NMAX=${6:-8}; TRIED=" "
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
 K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0
 OUT=$P/results/$L; mkdir -p $OUT
@@ -17,7 +19,13 @@ destroy(){ # <id> <why>
   local n; n=$(gone); log "DESTROYED $1 ($2); instances left: $n"
   sed -i "s|^$1  $CAP_H  pfm-gpu$|#$1 DESTROYED $(date -u +%FT%TZ) ($2), confirmed instances=$n|" $B
 }
-for O in "$@"; do
+next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'import json,sys
+t=sys.argv[1].split()
+print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t), ""))' "$TRIED"; }
+state(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys
+print(next((x.get("intended_status") or "" for x in json.load(sys.stdin)["instances"] if x["id"]==int(sys.argv[1])), "gone"))' $1; }
+for _ in $(seq $NMAX); do
+  O=$(next_offer); [ -z "$O" ] && { log "no offer matches: $Q"; break; }; TRIED="$TRIED$O "
   echo "-  $CAP_H  pfm-gpu  # $L creating on offer $O" >> $B
   I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk 80 --ssh --direct --label pfm-gpu-$L --raw 2>&1 | python3 -c 'import json,sys
 try: print(json.load(sys.stdin)["new_contract"])
@@ -25,7 +33,8 @@ except Exception: print("")')
   if [ -z "$I" ]; then sed -i '$d' $B; log "offer $O: create failed"; continue; fi
   sed -i "\$s|.*|$I  $CAP_H  pfm-gpu|" $B; echo "# ^ $L offer $O created $(date -u +%FT%TZ) by session.sh" >> $B
   T0=$(date +%s); log "created $I on offer $O"; S=""
-  while [ $(( $(date +%s) - T0 )) -lt 1800 ]; do
+  while [ $(( $(date +%s) - T0 )) -lt 1500 ]; do
+    [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
     read -r IP PORT < <($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
 x=json.load(sys.stdin); p=(x.get("ports") or {}).get("22/tcp")
 print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get("actual_status")=="running" else print("","")' 2>/dev/null)
@@ -35,7 +44,7 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
     fi
     sleep 30
   done
-  [ -z "$S" ] && { destroy $I "no ssh in 30 min"; continue; }
+  [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I) after $(( ($(date +%s) - T0) / 60 )) min"; continue; }
   W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
   log "$I up at $IP:$PORT, power limit ${W:-?} W"
   [ "${W:-0}" -ge "$MINW" ] || { destroy $I "power limit ${W:-?} W < $MINW"; continue; }
