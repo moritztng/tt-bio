@@ -1904,6 +1904,9 @@ def evoformer_on_device(evo: EvoformerOnDevice,
             if int(num_layers) != evo.blocks:
                 raise ValueError(f"evoformer_fn has {num_layers} blocks, tt-bio holds "
                                  f"{evo.blocks}")
+            # Before `as_jax` takes a slot: a refusal should not strand device resources, and
+            # it is what makes this reachable without a card.
+            _check_dropout(fn, dropout)
             swapped.append(int(num_layers))
             device_stack = evo.as_jax(duotraj.slot())
             masks = find_evoformer_masks(fn)
@@ -1912,7 +1915,6 @@ def evoformer_on_device(evo: EvoformerOnDevice,
                     "evoformer_masks not found in evoformer_fn's closure. The trunk needs the "
                     "MSA and pair masks to fold a padded complex and guessing one is worse than "
                     "stopping.")
-            _check_dropout(fn, dropout)
 
             def on_device(x):
                 activations, safe_key = x

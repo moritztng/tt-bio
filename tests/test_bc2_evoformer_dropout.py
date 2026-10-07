@@ -119,3 +119,48 @@ def test_a_stack_with_no_dropout_in_its_closure_is_left_alone():
         return x
 
     assert _check_dropout(unrelated_fn, "refuse") == ()
+
+
+def test_the_public_swap_refuses_before_it_takes_a_device_slot():
+    """The behavioural half: drive `evoformer_on_device` itself, not the checker.
+
+    Before the guard existed this swapped and folded dropout-free without a word, which is
+    exactly what issue #17 reports. `as_jax` is never reached, so no card is involved; a stub
+    that raises on contact proves that rather than asserting it.
+    """
+    from bindcraft.af.alphafold.model import modules as af_modules
+
+    from tt_bio.bindcraft2 import EVOFORMER_BLOCKS, evoformer_on_device
+
+    class NoCard:
+        host_only = False
+        blocks = EVOFORMER_BLOCKS
+
+        def as_jax(self, *a, **k):
+            raise AssertionError("the swap reached the device after refusing dropout")
+
+    fn = evoformer_fn_like_alphafold(jnp.asarray(True))
+    with evoformer_on_device(NoCard()):
+        factory = af_modules.layer_stack.layer_stack(EVOFORMER_BLOCKS)
+        with pytest.raises(RuntimeError, match="dropout"):
+            factory(fn)
+
+
+def test_the_swap_still_stands_down_for_a_host_only_fold():
+    """`on_host` folds are BindCraft 2's own program, dropout included, so the guard must not
+    turn a validation fold into a refusal."""
+    from bindcraft.af.alphafold.model import modules as af_modules
+
+    from tt_bio.bindcraft2 import EVOFORMER_BLOCKS, evoformer_on_device
+
+    class StoodDown:
+        host_only = True
+        blocks = EVOFORMER_BLOCKS
+
+        def as_jax(self, *a, **k):
+            raise AssertionError("a host_only fold reached the device")
+
+    fn = evoformer_fn_like_alphafold(jnp.asarray(True))
+    with evoformer_on_device(StoodDown()):
+        factory = af_modules.layer_stack.layer_stack(EVOFORMER_BLOCKS)
+        assert factory(fn) is not None
