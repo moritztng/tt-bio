@@ -1738,6 +1738,31 @@ def _jax_wrapped(exc: BaseException) -> _JaxRuntimeErrorLookalike:
             "INTERNAL: CpuCallback error calling callback: " + traceback.format_exc())
 
 
+@pytest.mark.parametrize("cls, stack", [
+    (bindcraft2.ExtraMsaOnDevice, "extra-MSA stack"),
+    (bindcraft2.TemplateOnDevice, "template stack"),
+])
+def test_the_extra_msa_and_template_stacks_name_the_size_when_they_refuse(cls, stack):
+    """Only the Evoformer's seams named the size; a refusal in these two stacks surfaced as the
+    allocator's raw text, with no token axis and no split of what was held (#19's audit)."""
+    class Pool:
+        def trunk_for(self, slot):
+            raise RuntimeError(REFUSAL_608)
+
+    class Tapes:
+        def take(self, token):
+            return {"root": None, "leaf": None, "shape": (608, 608, 4), "n": 586, "mode": "fast"}
+
+    seam = cls.__new__(cls)
+    seam.pool, seam._tapes, seam.memory = Pool(), Tapes(), bindcraft2._Memory()
+    with pytest.raises(MemoryError) as raised:
+        seam._backward("", 0, np.zeros((586, 586, 4), np.float32))
+    msg = str(raised.value)
+    assert f"{stack} backward at 608 tokens" in msg
+    assert "586 residues" in msg
+    assert "largest free block: 326674368 B" in str(raised.value.__cause__)
+
+
 def test_a_refusal_stringified_by_jax_still_reaches_the_caller_as_a_memory_error():
     """On a Wormhole Galaxy chip EVERY refusal above 512 tokens is a stringified one.
 

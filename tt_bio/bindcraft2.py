@@ -290,7 +290,8 @@ def _pad_up_on() -> bool:
 
 
 def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
-                        mode: str = "fast", held_before: "int | None" = None):
+                        mode: str = "fast", held_before: "int | None" = None,
+                        stack: str = "Evoformer"):
     """An allocator refusal rewritten to name the size that caused it, or None.
 
     What a researcher sees without this is a `JaxRuntimeError` wrapping ten Python frames, a
@@ -470,7 +471,7 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
             f"Otherwise {way_down}.")
 
     return MemoryError(
-        f"BindCraft 2 ran out of device memory in the Evoformer {phase} at {padded} tokens.\n"
+        f"BindCraft 2 ran out of device memory in the {stack} {phase} at {padded} tokens.\n"
         f"  complex   {n} residues, padded to {padded} tokens "
         f"(tt-bio buckets the token axis to {TOKEN_BUCKET})\n"
         f"  asked for {_gb(want)} in one {space} buffer "
@@ -519,15 +520,18 @@ def _trajectory_boundaries(campaign) -> "Iterator[None]":
 
 @contextlib.contextmanager
 def _refusal_names_the_size(phase: str, n: int, padded: int,
-                            memory: "_Memory | None" = None) -> "Iterator[None]":
+                            memory: "_Memory | None" = None,
+                            stack: str = "Evoformer") -> "Iterator[None]":
     """Name the token axis on the way out of a device seam. A no-op unless it refuses."""
     try:
         yield
     except Exception as exc:
         mode = memory.used.get(padded, "fast") if memory is not None else "fast"
         better = (_size_aware_refusal(exc, phase=phase, n=n, padded=padded, mode=mode,
-                                      held_before=_HELD_AT_START.get(duotraj.slot()))
-                  or _l1_refusal_names_the_size(exc, phase=phase, n=n, padded=padded))
+                                      held_before=_HELD_AT_START.get(duotraj.slot()),
+                                      stack=stack)
+                  or _l1_refusal_names_the_size(exc, phase=f"{stack} {phase}", n=n,
+                                                padded=padded))
         if better is None:
             raise
         with _REFUSALS_LOCK:
@@ -1426,7 +1430,8 @@ class ExtraMsaOnDevice:
 
     def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
-        with duotraj.card(slot, "extra_msa._primal"):
+        with _refusal_names_the_size("forward", n, z.shape[0], stack="extra-MSA stack"), \
+                duotraj.card(slot, "extra_msa._primal"):
             trunk = self._trunk(slot)
             zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask),
                                  recompute=False)
@@ -1436,7 +1441,9 @@ class ExtraMsaOnDevice:
 
     def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
-        with duotraj.card(slot, "extra_msa._taped"):
+        with _refusal_names_the_size("forward", n, z.shape[0], self.memory,
+                                     stack="extra-MSA stack"), \
+                duotraj.card(slot, "extra_msa._taped"):
             trunk = self._trunk(slot)
             mode = self.memory.mode(trunk, z.shape[0])
             offload = trunk.arm(mode)
@@ -1461,7 +1468,9 @@ class ExtraMsaOnDevice:
         shape, n = entry["shape"], entry["n"]
         gz = torch.zeros(shape)
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        with duotraj.card(slot, "extra_msa._backward"):
+        with _refusal_names_the_size("backward", n, shape[0], self.memory,
+                                     stack="extra-MSA stack"), \
+                duotraj.card(slot, "extra_msa._backward"):
             trunk = self.pool.trunk_for(slot)
             trunk.arm(entry["mode"])
             trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
@@ -1585,7 +1594,8 @@ class TemplateOnDevice:
 
     def _primal(self, slot, act_np, pair_mask_np):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
-        with duotraj.card(slot, "template._primal"):
+        with _refusal_names_the_size("forward", n, act.shape[0], stack="template stack"), \
+                duotraj.card(slot, "template._primal"):
             trunk = self._trunk(slot)
             out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
                                        recompute=False)
@@ -1595,7 +1605,9 @@ class TemplateOnDevice:
 
     def _taped(self, slot, act_np, pair_mask_np):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
-        with duotraj.card(slot, "template._taped"):
+        with _refusal_names_the_size("forward", n, act.shape[0], self.memory,
+                                     stack="template stack"), \
+                duotraj.card(slot, "template._taped"):
             trunk = self._trunk(slot)
             mode = self.memory.mode(trunk, act.shape[0])
             offload = trunk.arm(mode)
@@ -1621,7 +1633,9 @@ class TemplateOnDevice:
         shape, n = entry["shape"], entry["n"]
         g = torch.zeros(shape)
         g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
-        with duotraj.card(slot, "template._backward"):
+        with _refusal_names_the_size("backward", n, shape[0], self.memory,
+                                     stack="template stack"), \
+                duotraj.card(slot, "template._backward"):
             trunk = self.pool.trunk_for(slot)
             trunk.arm(entry["mode"])
             trunk.ag.backward([entry["root"]], [trunk.seed(g, entry["root"])])
