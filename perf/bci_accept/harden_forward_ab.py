@@ -219,6 +219,20 @@ def main():
     # explicitly) while these states are keyed by target name, which is what BindCraft 2's own
     # design loop uses. So drop the unsatisfiable ones HERE, where it can be said out loud, rather
     # than meet them as a KeyError inside a traced function.
+    # If the capture recorded which losses were ACTIVE at harden, use exactly those: it is the
+    # captured article rather than a reconstruction, and it is what trajectory.py:131 passed.
+    import json
+    sidecar = args.states + ".losses.json"
+    if os.path.exists(sidecar):
+        with open(sidecar) as handle:
+            captured_losses = set(json.load(handle))
+        missing = captured_losses - set(losses)
+        if missing:
+            raise SystemExit(f"the capture recorded active losses this settings build does not "
+                             f"produce: {sorted(missing)}")
+        losses = {name: entry for name, entry in losses.items() if name in captured_losses}
+        print(f"losses from the capture's own active set ({sidecar}): {sorted(losses)}",
+              flush=True)
     available = set(protein_states_preview(args.states))
     dropped = {name: sorted(entry.required_states - available)
                for name, entry in losses.items() if not entry.required_states <= available}

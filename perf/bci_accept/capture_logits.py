@@ -96,11 +96,27 @@ def main():
     original_update = GradientSequenceOptimizer.update_sequence
     #: The ProteinStates the `harden` stage starts from. This is the input the device arm and the
     #: host arm have to be handed identically for a one-round comparison to mean anything.
-    harden_entry = {"states": None}
+    #: `losses` is the matching ACTIVE loss set. trajectory.py:131 calls `sequence_gradients` with
+    #: `active_losses` and :145 calls `update_sequence` with `active_protein_states`, a per-round
+    #: subset; handing the states to the FULL loss set instead raises KeyError on a state a
+    #: default-configured loss names. Recording the names here means the A/B does not have to
+    #: reconstruct which losses were live.
+    harden_entry = {"states": None, "losses": None}
+
+    from bindcraft.af2 import AlphaFoldDesignModel
+    original_gradients = AlphaFoldDesignModel.sequence_gradients
+    live_losses = {"names": None}
+
+    def recording_gradients(self, protein_states, losses, *args, **kwargs):
+        live_losses["names"] = sorted(losses)
+        return original_gradients(self, protein_states, losses, *args, **kwargs)
+
+    AlphaFoldDesignModel.sequence_gradients = recording_gradients
 
     def recording_update(self, protein_states, accumulated_gradients):
         if type(self).__name__ == "OneHotSequenceOptimizer" and harden_entry["states"] is None:
             harden_entry["states"] = protein_states
+            harden_entry["losses"] = live_losses["names"]
         updated = original_update(self, protein_states, accumulated_gradients)
         from bindcraft.prediction import collect_shared_chains
         from bindcraft.protein import has_residue_flag, ResidueFlags
@@ -171,11 +187,20 @@ def main():
                                     **run_arguments)
     finally:
         GradientSequenceOptimizer.update_sequence = original_update
+        AlphaFoldDesignModel.sequence_gradients = original_gradients
         if args.dump_states and harden_entry["states"] is not None:
             import pickle
             with open(args.dump_states, "wb") as handle:
                 pickle.dump(harden_entry["states"], handle)
             print(f"wrote {args.dump_states}", flush=True)
+            # A sidecar rather than a second element in the pickle, so every pickle already
+            # written stays loadable by the A/B.
+            if harden_entry["losses"] is not None:
+                import json
+                sidecar = args.dump_states + ".losses.json"
+                with open(sidecar, "w") as handle:
+                    json.dump(harden_entry["losses"], handle)
+                print(f"wrote {sidecar}: {harden_entry['losses']}", flush=True)
         if args.full:
             # Read the accepted count out of BindCraft 2's own ranked table rather than counting
             # anything here: that table is what the reporter quotes his 0 of 8 and 3 of 8 from.
