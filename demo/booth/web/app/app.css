@@ -5,8 +5,8 @@
    smaller"), so it is no louder than it needs to be to lead. Tabular figures only where a number changes
    in place (the time, the step counter); everywhere else they space out hyphens.
    One grid: the same margin --m (72) on all four sides of the frame; the lineup and the right column
-   start on one line (y 248), and the last chip's rule ends on the QR codes' bottom edge (y 1008), 72 above
-   the frame's edge as the marks are 72 below its top. Vertical spacing in the right column is in 8s. */
+   fill one band, from y 248 to the last chip's rule at y 1008, 72 above the frame's edge as the marks are
+   72 below its top. Vertical spacing in the right column is in 8s. */
 @import url(palette.css);
 @font-face { font-family: Inter; src: url(fonts/InterVariable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
 
@@ -29,9 +29,9 @@ canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; display: 
                transition: opacity 600ms var(--fade);
                /* the opening noise is wider than the screen: keep it off the lineup, the right column and the
                   title; nothing on the canvas shows above 24% (y 259), 55 frame px under the line under the title,
-                  or below 86% (y 929), 5 frame px over the QR codes */
+                  or below 93% (y 1004), the band's bottom edge */
                mask-image: linear-gradient(to right, transparent 14%, #000 19%, #000 62%, transparent 71%),
-                           linear-gradient(to bottom, transparent 24%, #000 30%, #000 79%, transparent 86%);
+                           linear-gradient(to bottom, transparent 24%, #000 30%, #000 86%, transparent 93%);
                mask-composite: intersect; }
 
 .tab { font-variant-numeric: tabular-nums; }
@@ -50,18 +50,17 @@ header { position: fixed; left: var(--m); right: var(--m); top: var(--m); }
 #sentence b { display: inline-block; margin-bottom: calc(8 * var(--p)); font-size: calc(40 * var(--p)); font-weight: 600;
               letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); }
 
-/* the lineup: every model, down the left edge; the one the chips run is lit */
+/* the lineup: every model, down the left edge, over the same band as the right column; the one the
+   chips run is lit */
 #lineup { position: fixed; left: var(--m); top: calc(248 * var(--p)); width: calc(200 * var(--p));
           transition: opacity 600ms var(--fade); }
-#lineup section + section { margin-top: calc(22 * var(--p)); }
-#lineup h2 { margin: 0 0 calc(8 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
+#lineup section + section { margin-top: calc(56 * var(--p)); }
+#lineup h2 { margin: 0 0 calc(12 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
              text-transform: uppercase; color: var(--ink3); }
 #lineup ul { list-style: none; margin: 0; padding: 0; }
-#lineup li { position: relative; font-size: calc(16 * var(--p)); line-height: 1.6; font-weight: 400; color: var(--ink2);
+#lineup li { position: relative; font-size: calc(16 * var(--p)); line-height: 2; font-weight: 400; color: var(--ink2);
              white-space: nowrap; }
 #lineup li.on { color: var(--ink); font-weight: 560; }
-/* runs on your own card, not hosted on JapanFold: a word, no legend, in the captions' grey */
-#lineup small { margin-left: calc(4 * var(--p)); font-size: calc(13 * var(--p)); font-weight: 400; color: var(--ink3); }
 /* the dot follows the name, so nothing hangs into the left margin */
 #lineup li.on::after { content: ''; display: inline-block; vertical-align: middle; margin-left: calc(10 * var(--p));
                        width: calc(6 * var(--p)); height: calc(6 * var(--p)); border-radius: 50%; background: var(--live); }
@@ -104,7 +103,7 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
 #legend li { display: flex; align-items: center; gap: calc(7 * var(--p)); }
 #legend i { width: calc(9 * var(--p)); height: calc(9 * var(--p)); border-radius: 1px; }
 
-/* four chips, always visible: under a label, one row each, closing with a rule on the QR codes' bottom edge.
+/* four chips, always visible: under a label, one row each, closing with a rule on the band's bottom edge.
    A row: number, protein, the chip's stage counter, seconds; the whole fold as a bar; the last fold. */
 #chipshead { margin-top: auto; padding-bottom: calc(16 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560;
              letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
@@ -128,16 +127,9 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
 #chips li.on .n { color: var(--live); }
 #chips li .warn { color: var(--ink2); }
 
-/* bottom band: QR left, invitation right */
+/* bottom right: the invitation, when visitors may type */
 footer { position: fixed; left: var(--m); right: var(--m); bottom: var(--m); height: calc(96 * var(--p));
-         display: flex; align-items: flex-end; justify-content: space-between; }
-/* two codes, one unit each: the same symbol size, module, quiet zone and caption, on one line */
-#qr { display: grid; grid-template-columns: repeat(2, calc(312 * var(--p))); }   /* the second code at x 384 at any size */
-#qr > div { display: flex; align-items: center; gap: calc(16 * var(--p)); }
-/* 37 modules, quiet zone included, at 2 px a module in the frame: whole pixels at 1080p and 4K */
-#qr img { width: calc(74 * var(--p)); height: calc(74 * var(--p)); border-radius: calc(3 * var(--p)); }
-#qr p { margin: 0; font-size: calc(13 * var(--p)); line-height: 1.5; color: var(--ink3); font-weight: 400; }
-#qr b { color: var(--ink2); font-weight: 500; }
+         display: flex; align-items: flex-end; justify-content: flex-end; }
 #invite { margin: 0; width: calc(432 * var(--p)); font-size: calc(22 * var(--p)); font-weight: 500; color: var(--ink); }
 #invite kbd, #typing kbd { font: inherit; font-size: 0.72em; font-weight: 600; display: inline-block; padding: 0.12em 0.5em; margin: 0 0.12em;
             border: 1px solid var(--ink3); border-radius: 0.3em; color: var(--ink); vertical-align: 0.1em; }

@@ -37,22 +37,19 @@ const WORD = ['no', 'one', 'two', 'three', 'four'];
 // first, space-separated: esmfold2-fast, opendde-abag and the ESMC/SaProt sizes are checkpoints of one
 // model), plus BindCraft 2, which is not a --model: a third-party design loop whose Evoformer tt_bio.bindcraft2
 // runs on card. OpenFold3, which the chips run, and OpenBind-0 lead (Moritz, 5 Oct 2026).
-// `local` marks what runs on your own card but JapanFold, the QR beside the list, does not host:
-// Protenix-v2 (its weights need ByteDance's consent to redistribute), BindCraft 2 (hosting it needs its
-// authors' licence), Protenix-v1 and Nesso-1. A hosting licence does not cover software you run yourself.
 const LINEUP = [
   ['Structure', [['openfold3', 'OpenFold3'], ['openbind', 'OpenBind-0'], ['boltz2', 'Boltz-2'],
-    ['esmfold2 esmfold2-fast', 'ESMFold2'], ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1', 'local'],
-    ['protenix-v2', 'Protenix-v2', 'local'], ['opendde opendde-abag', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
+    ['esmfold2 esmfold2-fast', 'ESMFold2'], ['rf3', 'RoseTTAFold3'], ['protenix-v1', 'Protenix-v1'],
+    ['protenix-v2', 'Protenix-v2'], ['opendde opendde-abag', 'OpenDDE'], ['af2ig', 'AF2 initial guess']]],
   ['Design', [['boltzgen', 'BoltzGen'], ['rfd3', 'RFdiffusion3'], ['pxdesign', 'PXDesign'],
-    ['bindcraft2', 'BindCraft 2', 'local']]],
+    ['bindcraft2', 'BindCraft 2']]],
   ['Embeddings', [['esmc-300m esmc-600m esmc-6b', 'ESMC'], ['saprot-35m saprot-650m saprot-1.3b', 'SaProt']]],
-  ['Affinity', [['nesso1', 'Nesso-1', 'local']]],
+  ['Affinity', [['nesso1', 'Nesso-1']]],
 ];
 const MODEL = Object.fromEntries(LINEUP.flatMap(([, ms]) => ms.flatMap(([ids, name]) => ids.split(' ').map(id => [id, name]))));
-// The title and the line under it (Moritz, 5 Oct 2026, second look: the claim is the title, and the line
-// says inference and training are both supported).
-const CLAIM = 'More structures per dollar';
+// The title and the line under it. This is the Tenstorrent website's video (Moritz, 7 Oct 2026); the
+// booth's title is on booth-2026-10.
+const CLAIM = 'Biology Models on Tenstorrent';
 const SECOND = 'One open stack for every model, inference and training, from a single card to a Galaxy supercluster';
 const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth'];
 const $ = (id) => document.getElementById(id);
@@ -248,8 +245,8 @@ function drawAll() { drawHeader(); drawTyping(); drawSide(); drawChips(); drawIn
 function drawLineup() {
   const nav = $('lineup');
   if (!nav.children.length) nav.innerHTML = LINEUP.map(([group, ms]) =>
-    `<section><h2>${group}</h2><ul>${ms.map(([ids, name, mark]) =>
-      `<li data-m="${ids}">${name}${mark ? ` <small>${mark}</small>` : ''}</li>`).join('')}</ul></section>`).join('');
+    `<section><h2>${group}</h2><ul>${ms.map(([ids, name]) =>
+      `<li data-m="${ids}">${name}</li>`).join('')}</ul></section>`).join('');
   const f = app.state === 'result' ? app.mine?.fold : app.state === 'waiting' ? app.mine : PLAYS(app.state) ? app.slot?.fold : null;
   const on = !named() ? running()[0] ?? null : app.state === 'waiting' && app.mine?.chip == null ? null : f?.model ?? null;
   if (nav.dataset.on === String(on)) return;
