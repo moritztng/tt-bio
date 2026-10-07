@@ -56,8 +56,20 @@ def design_model(build, af2_weights, presets, recycles, bucket):
                  target_pad_length=0)
 
 
-def one_round(model, protein_states, losses, one_hot_weight):
-    """One `sequence_gradients` call at the harden stage parameters."""
+def one_round(model, protein_states, losses, one_hot_weight, key_seed):
+    """One `sequence_gradients` call at the harden stage parameters, from a fixed key.
+
+    The key reset is not a nicety, it is what makes the comparison a comparison.
+    `sequence_gradients` hands `self.key` to the jitted gradient (af2.py:401) and
+    `_resolve_model_name` splits it on the way in (`self.key, model_random_key =
+    jax.random.split(self.key)`, af2.py:260), so the attribute advances on every call. Two settings
+    run back to back therefore see two different dropout masks, and two arms run back to back start
+    from whatever key the arm before them left behind. Measured on 2026-10-07: the same
+    one_hot_weight=1.0 round read i_pTM 0.7664 as the second call of a run and 0.8125 as the fifth,
+    a 0.046 swing from call order alone, which is larger than the effect the A/B is looking for.
+    """
+    import jax
+    model.key = jax.random.PRNGKey(key_seed)
     predictions, gradients, *_rest = model.sequence_gradients(
         protein_states, losses, None,
         softmax_weight=1.0, one_hot_weight=one_hot_weight, temperature=0.01, logit_scale=2.0)
@@ -101,6 +113,15 @@ def main():
     #: card-free is how you tell a step at the one-hot boundary from a smooth trend.
     parser.add_argument("--one-hot-weights", type=float, nargs="+", default=[0.0, 1.0],
                         help="one_hot_weight settings to run (default: the 0 and 1 harden crosses)")
+    parser.add_argument("--key-seed", type=int, default=0,
+                        help="PRNG key every round is reset to, so settings and arms are matched")
+    #: BindCraft 2 turns dropout OFF for `harden` alone (bindcraft/trajectory.py:219, :301), while
+    #: AlphaFoldDesignModel defaults it ON (af2.py:209). A harden A/B left at the constructor
+    #: default measures a program the stage never runs, and one the on-card trunk cannot run at
+    #: all, since tt-bio's Evoformer applies no dropout. Off is the matched setting; the flag is
+    #: here so the dropout-on case stays reachable without editing the script.
+    parser.add_argument("--dropout", action="store_true",
+                        help="run with AF2 dropout on (default off, which is what harden does)")
     args = parser.parse_args()
 
     from bindcraft.loss import build_losses
@@ -145,8 +166,10 @@ def main():
     for arm_name, predictor_arguments in arms.items():
         with bindcraft2.predictor(**predictor_arguments) as build:
             model = design_model(build, args.af2_weights, presets, args.recycles, args.bucket)
+            model.dropout = args.dropout
             for one_hot_weight in args.one_hot_weights:
-                predictions, gradients = one_round(model, protein_states, losses, one_hot_weight)
+                predictions, gradients = one_round(model, protein_states, losses, one_hot_weight,
+                                                   args.key_seed)
                 results[(arm_name, one_hot_weight)] = (
                     interface_ptm(predictions), plddt(predictions), binder_gradient(gradients))
 
