@@ -350,7 +350,8 @@ def test_no_flag_is_reported_when_none_was_passed():
 
 
 def test_boltz2_reads_every_output_flag():
-    assert unread_flags("boltz2", ALL_FLAGS) == []
+    # --diffusion_precision is a Protenix build option, not an output flag.
+    assert unread_flags("boltz2", {**ALL_FLAGS, "--diffusion_precision": False}) == []
 
 
 def test_every_reason_names_a_model_that_exists():

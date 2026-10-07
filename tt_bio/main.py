@@ -3232,6 +3232,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "thread pools to every core and they would fight for the CPU. Use "
                    "cores//concurrent-predicts.")
 @click.option("--fast", is_flag=True, help="Use block-fp8 for some operations (slightly lower precision, faster)")
+@click.option("--diffusion_precision", type=click.Choice(["fp32", "bf16"]), default=None,
+              help="(Protenix) Precision of the diffusion module. fp32 (default) matches the "
+                   "reference; bf16 is ~9%% faster per fold on Wormhole and stays inside seed noise "
+                   "(docs/protenix-diffusion-precision.md).")
 @click.option("--debug", is_flag=True, help="Debug mode: no Rich display, no output suppression")
 @click.option("--log", is_flag=True, help="With --debug: print per-device stage progress")
 @click.option("--report-energy", "report_energy", is_flag=True, help="Report TT device energy and write a power-vs-time plot (single-device TT runs)")
@@ -3268,7 +3272,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
-            num_devices, device_ids, host_threads, fast, debug, log,
+            num_devices, device_ids, host_threads, fast, diffusion_precision, debug, log,
             report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
     """Run structure prediction.
 
@@ -3422,7 +3426,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         for note in unread_flags(model, {"--write_pae": write_pae, "--contact_cutoff": write_pae,
                                          "--write_pde": write_pde,
                                          "--write_embeddings": write_embeddings,
-                                         "--max_msa_seqs": msa_cap is not None}):
+                                         "--max_msa_seqs": msa_cap is not None,
+                                         "--diffusion_precision": diffusion_precision is not None}):
             click.secho(note, fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
@@ -3484,6 +3489,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # unlike Boltz-2 it never errors out.
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
+            "diffusion_precision": diffusion_precision,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
             "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
             "partial_t": partial_t, "partial_structure": partial_structure,

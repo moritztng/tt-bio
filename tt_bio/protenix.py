@@ -2026,9 +2026,10 @@ class Protenix:
                                               softmax_scope=softmax_scope)
 
     @classmethod
-    def load_from_checkpoint(cls, path, compute_kernel_config=None, device=None):
+    def load_from_checkpoint(cls, path, compute_kernel_config=None, device=None, diffusion_fp32=None):
         """Load a v2 checkpoint (.pt) and build the model. Untrusted weights are read
-        with weights_only=True."""
+        with weights_only=True. diffusion_fp32 is the per-run precision (`--diffusion_precision`);
+        None keeps the default, fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0."""
         import torch
         import ttnn
         from .tenstorrent import get_device
@@ -2042,7 +2043,7 @@ class Protenix:
         # channel moves at c_z=256 and is torch.equal to the sequence it replaces, so it is
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
-        return cls(sd, ckc, dev, gated_move=True)
+        return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32)
 
     def _tt(self, x):
         return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)

@@ -52,6 +52,10 @@ def run_config_hash(cfg: dict[str, Any]) -> str:
     same name."""
     keep = {k: cfg.get(k) for k in ("model", "conf_kwargs", "aff_kwargs", "fast", "method",
                                     "checkpoint")}
+    # Only when set, so every config that does not choose a diffusion precision keeps the hash
+    # it had before the option existed (a controller and its agents may run different versions).
+    if cfg.get("diffusion_precision"):
+        keep["diffusion_precision"] = cfg["diffusion_precision"]
     return hashlib.sha256(json.dumps(keep, sort_keys=True, default=str).encode()).hexdigest()
 
 
