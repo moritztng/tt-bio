@@ -96,6 +96,11 @@ def main():
     parser.add_argument("--models", nargs="+", default=["model_1_multimer_v3"])
     parser.add_argument("--recycles", type=int, default=1)
     parser.add_argument("--bucket", type=int, default=32)
+    #: The card arm compares the two settings `harden` actually crosses, so this defaults to
+    #: exactly 0 and 1 and the device job is unchanged. The host arm is seconds, so sweeping it
+    #: card-free is how you tell a step at the one-hot boundary from a smooth trend.
+    parser.add_argument("--one-hot-weights", type=float, nargs="+", default=[0.0, 1.0],
+                        help="one_hot_weight settings to run (default: the 0 and 1 harden crosses)")
     args = parser.parse_args()
 
     from bindcraft.loss import build_losses
@@ -140,7 +145,7 @@ def main():
     for arm_name, predictor_arguments in arms.items():
         with bindcraft2.predictor(**predictor_arguments) as build:
             model = design_model(build, args.af2_weights, presets, args.recycles, args.bucket)
-            for one_hot_weight in (0.0, 1.0):
+            for one_hot_weight in args.one_hot_weights:
                 predictions, gradients = one_round(model, protein_states, losses, one_hot_weight)
                 results[(arm_name, one_hot_weight)] = (
                     interface_ptm(predictions), plddt(predictions), binder_gradient(gradients))
@@ -152,7 +157,7 @@ def main():
 
     if len(arms) == 2:
         print("\nbinder sequence gradient, on-card against host JAX, on the same logits:")
-        for one_hot_weight in (0.0, 1.0):
+        for one_hot_weight in args.one_hot_weights:
             host = results[("host-JAX", one_hot_weight)][2]
             card = results[("on-card", one_hot_weight)][2]
             cosine = float(np.dot(host, card) / (np.linalg.norm(host) * np.linalg.norm(card) + 1e-30))
