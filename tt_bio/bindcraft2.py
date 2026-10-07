@@ -799,9 +799,9 @@ class TrunkPool:
     ``resident`` caps how many stay on card and evicts least-recently-used. Five AF2 trunks is
     about 910 MB of weights, and holding all five brought a backward-pass allocator refusal
     forward at n=288 that ``resident=1`` ran past, so cap it if a long run dies in the allocator.
-    Eviction drops the only Python reference and relies on ttnn freeing the weight buffers when
-    it is collected; tt-bio has no model-level deallocate, and that release has not been read off
-    the allocator directly.
+    Eviction drops the pool's reference and relies on ttnn freeing the weight buffers when the
+    trunk is collected; tt-bio has no model-level deallocate. Anything else that holds a trunk's
+    weight defeats that; `pair_mm` did, and `_load` now calls `pair_mm.forget` on every eviction.
 
     ``source`` is a directory of ``params_<name>.npz`` (the layout ``tt-bio weights --download
     af2ig`` writes, and the one BindCraft 2's own ``data_dir`` uses), a mapping of model name to
@@ -926,8 +926,15 @@ class TrunkPool:
             if name in self._order:
                 self._order.remove(name)
             self._order.append(name)
+            evicted = False
             while len(self._order) > (self.resident or len(self.paths)):
                 self._trunks.pop(self._order.pop(0), None)
+                evicted = True
+            if evicted:
+                # The pop is not the last reference: `pair_mm` caches a transpose per weight
+                # and holds the weight beside it.
+                from tt_bio import pair_mm
+                pair_mm.forget()
             return trunk
 
     @property
