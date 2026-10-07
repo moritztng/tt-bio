@@ -92,6 +92,12 @@ def one_round(model, protein_states, losses, one_hot_weight, key_seed, temperatu
     return predictions, gradients
 
 
+def protein_states_preview(path):
+    """The state names in the pickle, read before any model is built so a refusal costs nothing."""
+    with open(path, "rb") as handle:
+        return pickle.load(handle)
+
+
 def cast_sequences(protein_states, dtype):
     """Re-type every chain's sequence logits, leaving flags and coordinates alone.
 
@@ -167,7 +173,7 @@ def main():
     args = parser.parse_args()
 
     from bindcraft.loss import build_losses
-    from bindcraft.settings import build_design_settings
+    from bindcraft.settings import build_design_settings, load_settings
     from tt_bio import bindcraft2
 
     if args.card is not None:
@@ -193,8 +199,24 @@ def main():
         "max_trajectories": 1, "number_of_final_designs": 1, "trajectory_only": True,
         "design_models": 1, "campaign_seed": 42,
     }
-    design_settings = build_design_settings(settings)
+    # `build_design_settings` stores this dict RAW (settings.py:655), so a hand-built one never
+    # acquires the `weights_<loss>` keys `build_losses` reads (loss.py:105) and every loss is
+    # dropped. `load_settings` is the merge BindCraft 2's own entry point uses (`read_settings`,
+    # settings.py:714) and is what puts DEFAULT_SETTINGS underneath.
+    design_settings = build_design_settings(load_settings(settings))
     losses = build_losses(design_settings.settings, seed=design_settings.seed)
+    # `weighted_design_loss` sums only the losses whose required_states are present and starts
+    # from a constant 0.0 (loss.py:115), so an empty or unsatisfied loss set does not raise: it
+    # returns a finite forward and an exactly zero gradient. This script spent four probes on that
+    # signature. Never run a gradient A/B without checking it.
+    if not losses:
+        raise SystemExit("build_losses returned no losses: the gradient would be identically zero "
+                         "and the A/B would compare two arms on a constant")
+    unsatisfied = {name for name, entry in losses.items()
+                   if not entry.required_states <= set(protein_states_preview(args.states))}
+    if unsatisfied == set(losses):
+        raise SystemExit(f"no loss's required_states are present in the states; every loss would "
+                         f"be skipped and the gradient would be zero: {sorted(unsatisfied)}")
     with open(args.states, "rb") as handle:
         protein_states = pickle.load(handle)
     check_states_match(protein_states, args.binder_length)
