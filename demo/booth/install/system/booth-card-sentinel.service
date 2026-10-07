@@ -1,0 +1,11 @@
+[Unit]
+Description=TT-Bio booth: reboot at once when a chip card drops off the PCIe bus
+After=systemd-modules-load.service
+
+[Service]
+ExecStart=/usr/local/sbin/booth-card-sentinel
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

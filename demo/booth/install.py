@@ -241,6 +241,20 @@ def watchdog():
     return Item("Hardware watchdog", want, have, None if installed else fix, reboot=True)
 
 
+def card_sentinel():
+    """Reboots the box when a card drops off the bus, minutes before the lockup that follows."""
+    script, unit = Path("/usr/local/sbin/booth-card-sentinel"), Path("/etc/systemd/system/booth-card-sentinel.service")
+    enabled = out(["systemctl", "is-enabled", unit.name]) == "enabled"
+    have = "missing" if not enabled else "running" if read(script) == read(OPS / "card_sentinel.py") else "outdated"
+
+    def fix():
+        run(["install", "-D", "-m", "0755", OPS / "card_sentinel.py", script], sudo=True)
+        run(["install", "-D", "-m", "0644", DEMO / "install" / "system" / unit.name, unit], sudo=True)
+        run(["systemctl", "daemon-reload"], sudo=True)
+        run(["systemctl", "enable", unit.name], sudo=True)
+        run(["systemctl", "restart", unit.name], sudo=True)
+    return Item("Card sentinel", "running", have, fix)
+
 def browser():
     have = "installed" if out(["snap", "list", "firefox"]) else "missing"
     return Item("Firefox", "installed", have, lambda: run(["snap", "install", "firefox"], sudo=True))
@@ -326,7 +340,7 @@ def main():
                     help="carry on although the board firmware differs from the booth's")
     a = ap.parse_args()
 
-    system = [os_release, packages, ppa, debs, kernel, kmd, kmd_options, hugepages, watchdog, browser,
+    system = [os_release, packages, ppa, debs, kernel, kmd, kmd_options, hugepages, watchdog, card_sentinel, browser,
               chip_count, firmware]
     demo = [lambda: lock_env("tools", "tools.lock"),
             lambda: lock_env("engine", "engine.lock", ("--extra-index-url", SPEC["torch_index"])),
