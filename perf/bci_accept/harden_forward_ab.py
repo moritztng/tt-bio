@@ -92,6 +92,66 @@ def one_round(model, protein_states, losses, one_hot_weight, key_seed, temperatu
     return predictions, gradients
 
 
+def captured_losses_for(states_path):
+    """The ACTIVE loss names recorded beside the states, or None if the capture predates them."""
+    import json
+    sidecar = states_path + ".losses.json"
+    if not os.path.exists(sidecar):
+        return None
+    with open(sidecar) as handle:
+        return set(json.load(handle))
+
+
+def active_losses(settings, available_states, captured=None):
+    """The loss set a gradient round at `harden` should actually use, or raise saying why not.
+
+    Three distinct traps live here and each one returns a plausible-looking forward with a
+    silently wrong gradient, so each is a refusal rather than a fallback.
+
+    1. `build_design_settings` stores its settings dict RAW (settings.py:655), so a hand-built
+       one never gains the `weights_<loss>` keys `build_losses` reads (loss.py:105) and EVERY
+       loss is dropped. `load_settings` is the merge BindCraft 2's own entry point uses
+       (`read_settings`, settings.py:714). Without it the design loss is the constant 0 and the
+       sequence gradient is exactly zero.
+    2. `weighted_design_loss` (loss.py:115) seeds its sum with a constant `0.0` and skips a loss
+       whose `required_states` are absent, so an empty or fully unsatisfied set does not raise.
+    3. The jitted `sequence_design_loss` (af2.py:369-371) does NOT skip: it indexes
+       `prediction_arrays[state_name]` and raises KeyError inside a traced function. A
+       default-configured loss keeps `required_states=('complex',)` (loss.py:57) while these
+       states are keyed by target name, which is what the design loop hands `update_sequence`.
+
+    `captured` is the active set recorded at capture time, which is the captured article rather
+    than a reconstruction: trajectory.py:131 passes `active_losses` beside the
+    `active_protein_states` of :145.
+    """
+    from bindcraft.loss import build_losses
+    from bindcraft.settings import build_design_settings, load_settings
+
+    design_settings = build_design_settings(load_settings(settings))
+    losses = build_losses(design_settings.settings, seed=design_settings.seed)
+    if not losses:
+        raise SystemExit("build_losses returned no losses: the gradient would be identically "
+                         "zero and the A/B would compare two arms on a constant")
+    if captured is not None:
+        missing = captured - set(losses)
+        if missing:
+            raise SystemExit(f"the capture recorded active losses this settings build does not "
+                             f"produce: {sorted(missing)}")
+        losses = {name: entry for name, entry in losses.items() if name in captured}
+        print(f"losses from the capture's own active set: {sorted(losses)}", flush=True)
+    dropped = {name: sorted(entry.required_states - available_states)
+               for name, entry in losses.items()
+               if not entry.required_states <= available_states}
+    if dropped:
+        print(f"dropping {len(dropped)} loss(es) whose required states are absent "
+              f"(states present: {sorted(available_states)}): {dropped}", flush=True)
+        losses = {name: entry for name, entry in losses.items() if name not in dropped}
+    if not losses:
+        raise SystemExit("every loss was dropped for missing states; the gradient would be zero")
+    print(f"losses in play, identical for both arms: {sorted(losses)}", flush=True)
+    return losses
+
+
 def protein_states_preview(path):
     """The state names in the pickle, read before any model is built so a refusal costs nothing."""
     with open(path, "rb") as handle:
@@ -172,8 +232,6 @@ def main():
                         help="run with AF2 dropout on (default off, which is what harden does)")
     args = parser.parse_args()
 
-    from bindcraft.loss import build_losses
-    from bindcraft.settings import build_design_settings, load_settings
     from tt_bio import bindcraft2
 
     if args.card is not None:
@@ -199,50 +257,8 @@ def main():
         "max_trajectories": 1, "number_of_final_designs": 1, "trajectory_only": True,
         "design_models": 1, "campaign_seed": 42,
     }
-    # `build_design_settings` stores this dict RAW (settings.py:655), so a hand-built one never
-    # acquires the `weights_<loss>` keys `build_losses` reads (loss.py:105) and every loss is
-    # dropped. `load_settings` is the merge BindCraft 2's own entry point uses (`read_settings`,
-    # settings.py:714) and is what puts DEFAULT_SETTINGS underneath.
-    design_settings = build_design_settings(load_settings(settings))
-    losses = build_losses(design_settings.settings, seed=design_settings.seed)
-    # `weighted_design_loss` sums only the losses whose required_states are present and starts
-    # from a constant 0.0 (loss.py:115), so an empty or unsatisfied loss set does not raise: it
-    # returns a finite forward and an exactly zero gradient. This script spent four probes on that
-    # signature. Never run a gradient A/B without checking it.
-    if not losses:
-        raise SystemExit("build_losses returned no losses: the gradient would be identically zero "
-                         "and the A/B would compare two arms on a constant")
-    # The two sites that consume `losses` disagree about an unsatisfied one. `weighted_design_loss`
-    # (loss.py:115) SKIPS it; the jitted `sequence_design_loss` (af2.py:369-371) indexes
-    # `prediction_arrays[state_name]` and raises KeyError. A default-configured loss can carry
-    # `required_states=('complex',)` (loss.py:57 keeps the state whenever `prediction_state` is set
-    # explicitly) while these states are keyed by target name, which is what BindCraft 2's own
-    # design loop uses. So drop the unsatisfiable ones HERE, where it can be said out loud, rather
-    # than meet them as a KeyError inside a traced function.
-    # If the capture recorded which losses were ACTIVE at harden, use exactly those: it is the
-    # captured article rather than a reconstruction, and it is what trajectory.py:131 passed.
-    import json
-    sidecar = args.states + ".losses.json"
-    if os.path.exists(sidecar):
-        with open(sidecar) as handle:
-            captured_losses = set(json.load(handle))
-        missing = captured_losses - set(losses)
-        if missing:
-            raise SystemExit(f"the capture recorded active losses this settings build does not "
-                             f"produce: {sorted(missing)}")
-        losses = {name: entry for name, entry in losses.items() if name in captured_losses}
-        print(f"losses from the capture's own active set ({sidecar}): {sorted(losses)}",
-              flush=True)
-    available = set(protein_states_preview(args.states))
-    dropped = {name: sorted(entry.required_states - available)
-               for name, entry in losses.items() if not entry.required_states <= available}
-    if dropped:
-        print(f"dropping {len(dropped)} loss(es) whose required states are absent "
-              f"(states present: {sorted(available)}): {dropped}", flush=True)
-        losses = {name: entry for name, entry in losses.items() if name not in dropped}
-    if not losses:
-        raise SystemExit("every loss was dropped for missing states; the gradient would be zero")
-    print(f"losses in play, identical for both arms: {sorted(losses)}", flush=True)
+    losses = active_losses(settings, set(protein_states_preview(args.states)),
+                           captured_losses_for(args.states))
     with open(args.states, "rb") as handle:
         protein_states = pickle.load(handle)
     check_states_match(protein_states, args.binder_length)
