@@ -8,6 +8,8 @@ R=/root/pfm/results; mkdir -p $R
 nvidia-smi -q > $R/nvidia-smi-q.txt 2>&1; nvidia-smi -q -d POWER,CLOCK,PERFORMANCE > $R/power-clock.txt 2>&1
 nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,clocks_event_reasons.active,memory.used --format=csv,noheader -l 1 > $R/smi.csv 2>&1 &
 SMI=$!
+# Reject a hot host before spending the session on it (see burn_gate.py).
+if ! python /root/pfm/burn_gate.py > $R/burn.log 2>&1; then kill $SMI; echo THERMAL-FAIL > $R/THERMAL-FAIL; exit 3; fi
 arm(){ # <name> <mode> <json> [extra pred args]
   local d=$R/$1; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start
   bash run.sh pred --config a100 --mode $2 --input $3 --out_dir $d/pred --model_name protenix-v2 \
@@ -15,5 +17,5 @@ arm(){ # <name> <mode> <json> [extra pred args]
   echo $? > $d/rc; date -u +%FT%T.%3NZ > $d/t_end
 }
 for m in ${MODES:-off exact fast}; do arm time_$m $m /root/pfm/in/timing.json; done
-[ -f /root/pfm/acc/run_acc.sh ] && . /root/pfm/acc/run_acc.sh
+[ -f /root/pfm/acc/run_acc.sh ] && CFG=a100 bash /root/pfm/acc/run_acc.sh > $R/acc.log 2>&1
 kill $SMI; echo ARMS-DONE > $R/ARMS-DONE
