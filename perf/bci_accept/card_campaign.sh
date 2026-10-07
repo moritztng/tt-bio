@@ -14,6 +14,12 @@
 # his did. Without that waiver the run stops at the first swap, which is the fix working, not a
 # reproduction.
 #
+# --full is not optional here, it is the whole reason this job needs a chip at all. Acceptance only
+# exists in a full campaign: a trajectory-only run prints "no design will be accepted" and skips the
+# ProteinMPNN redesign and the validation ensemble, so without --full this burns a chip slot and
+# still cannot report the 0 of 8 / 3 of 8 the issue turns on. The gradient trajectories are the fast
+# part; the redesign and validation that follow them run on host JAX in both arms by design.
+#
 # Its host control is the same script with --trunk jax at the same campaign seed, which runs
 # card-free and is already measured on pc. Both arms pin --trajectories-per-card 1: the interleaving
 # width is chosen from free host memory, so unpinned arms on two boxes draw different widths.
@@ -61,7 +67,7 @@ trap 'kill $SAMPLER 2>/dev/null' EXIT
       --trunk card --card "$CARD" --evoformer-dropout ignore \
       --target-pdb "$TARGET" --af2-weights "$AF2" \
       --out "$WT/.bci/logits_card_chip$CARD.npz" \
-      --project "$PROJ" --design-dropout true \
+      --project "$PROJ" --design-dropout true --full \
       --trajectories "$TRAJ" --trajectories-per-card 1 \
       --binder-lengths "$LEN" "$LEN"
   echo "=== rc=$? ==="
