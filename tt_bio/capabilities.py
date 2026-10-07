@@ -243,6 +243,7 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
     # `make_openfold3_msa_features(max_sequences=)` for the OF3 family.
     "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind",
                        "protenix-v1", "protenix-v2", "opendde", "opendde-abag", "rf3"),
+    "--diffusion_precision": ("protenix-v1", "protenix-v2"),
 }
 
 #: (flag, model) -> why that model does not read it, when the generic line is not the reason.
@@ -259,6 +260,8 @@ FLAG_WHY: dict[tuple[str, str], str] = {
                                   "there is no depth to cap",
     ("--max_msa_seqs", "af2ig"): "AF2-IG is single-sequence on both chains, so there is no "
                                  "depth to cap",
+    **{("--diffusion_precision", m): "only Protenix's diffusion precision is selectable per run"
+       for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2")},
 }
 
 
