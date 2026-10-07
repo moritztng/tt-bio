@@ -186,6 +186,18 @@ def main():
             results.items(), key=lambda item: (item[0][1], item[0][0])):
         print(f"{one_hot_weight:>15.1f}{arm_name:>12}{iptm:>9.4f}{mean_plddt:>9.4f}")
 
+    # A nan or dead gradient is itself the #17 signal, and a cosine of nan cannot say which arm
+    # produced it. Report each arm's own gradient before comparing them.
+    print("\nbinder sequence gradient, per arm:")
+    print(f"{'one_hot_weight':>15}{'arm':>12}{'L2 norm':>14}{'nan':>7}{'max|g|':>12}")
+    for (arm_name, one_hot_weight), (_iptm, _plddt, gradient) in sorted(
+            results.items(), key=lambda item: (item[0][1], item[0][0])):
+        finite = gradient[np.isfinite(gradient)]
+        print(f"{one_hot_weight:>15.1f}{arm_name:>12}"
+              f"{float(np.linalg.norm(finite)):>14.6g}"
+              f"{int((~np.isfinite(gradient)).sum()):>7}"
+              f"{(float(np.abs(finite).max()) if finite.size else float('nan')):>12.6g}")
+
     if len(arms) == 2:
         print("\nbinder sequence gradient, on-card against host JAX, on the same logits:")
         for one_hot_weight in args.one_hot_weights:
