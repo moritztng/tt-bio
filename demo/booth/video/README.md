@@ -1,5 +1,9 @@
 # The demo video
 
+This branch, web-video-2026-10, makes the Tenstorrent website's cut: the title reads "Biology Models on
+Tenstorrent", there are no QR codes and no "local" marks, and the lineup and the protein are spaced over the
+band the QR row used to close. The booth's own screen is on booth-2026-10.
+
 A recorder for a looping video of the booth screen with all four chip lanes busy. The booth itself
 never runs anything here: the kiosk serves `web/` and nothing else, and no file in `web/`, `engine/`
 or `ops/` refers to this directory.
