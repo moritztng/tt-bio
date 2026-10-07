@@ -21,10 +21,14 @@ def main():
     parser.add_argument("--af2-weights", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--binder-length", type=int, default=40)
-    parser.add_argument("--screen", type=int, default=6)
-    parser.add_argument("--refine", type=int, default=3)
-    parser.add_argument("--anneal", type=int, default=6)
+    # BindCraft 2's own defaults (settings.py:604). A 64-token round is seconds on CPU, so the
+    # real schedule is affordable and the logits are the ones a real trajectory reaches.
+    parser.add_argument("--screen", type=int, default=50)
+    parser.add_argument("--refine", type=int, default=25)
+    parser.add_argument("--anneal", type=int, default=45)
     parser.add_argument("--harden", type=int, default=5)
+    parser.add_argument("--dump-states", default=None,
+                        help="pickle the ProteinStates entering harden, for the device A/B")
     parser.add_argument("--project", default="/tmp/bci17_capture")
     args = parser.parse_args()
 
@@ -44,8 +48,13 @@ def main():
         "OneHotSequenceOptimizer": "harden",
     }
     original_update = GradientSequenceOptimizer.update_sequence
+    #: The ProteinStates the `harden` stage starts from. This is the input the device arm and the
+    #: host arm have to be handed identically for a one-round comparison to mean anything.
+    harden_entry = {"states": None}
 
     def recording_update(self, protein_states, accumulated_gradients):
+        if type(self).__name__ == "OneHotSequenceOptimizer" and harden_entry["states"] is None:
+            harden_entry["states"] = protein_states
         updated = original_update(self, protein_states, accumulated_gradients)
         from bindcraft.prediction import collect_shared_chains
         from bindcraft.protein import has_residue_flag, ResidueFlags
@@ -86,6 +95,11 @@ def main():
             bindcraft2.run_campaign(settings, args.project, af2_weights=args.af2_weights)
     finally:
         GradientSequenceOptimizer.update_sequence = original_update
+        if args.dump_states and harden_entry["states"] is not None:
+            import pickle
+            with open(args.dump_states, "wb") as handle:
+                pickle.dump(harden_entry["states"], handle)
+            print(f"wrote {args.dump_states}", flush=True)
         if captured:
             np.savez(args.out, **captured)
             print(f"wrote {args.out}: {sorted(k for k in captured if not k.endswith(':params'))}",
