@@ -1,0 +1,98 @@
+"""Run a short host-JAX BindCraft 2 trajectory on CPU and save the sequence logits each stage ends on.
+
+`stage_conditioning.py` answers "how much of a design round does the trunk's low bits decide" from
+synthetic logits. The answer depends on the gap between each position's top two amino acids, which
+is the one thing synthetic logits get wrong. This produces the real ones.
+
+No card: `trunk="jax"` opens no device (docs/bindcraft2.md:325). Short stage rounds and a 40-aa
+binder against PD-L1, because a CPU gradient round at Siddhant's 288 tokens is minutes. The stage
+*parameters* are untouched, and they are what the conditioning depends on.
+"""
+import argparse
+import json
+import os
+
+import numpy as np
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--target-pdb", required=True)
+    parser.add_argument("--af2-weights", required=True)
+    parser.add_argument("--out", required=True)
+    parser.add_argument("--binder-length", type=int, default=40)
+    parser.add_argument("--screen", type=int, default=6)
+    parser.add_argument("--refine", type=int, default=3)
+    parser.add_argument("--anneal", type=int, default=6)
+    parser.add_argument("--harden", type=int, default=5)
+    parser.add_argument("--project", default="/tmp/bci17_capture")
+    args = parser.parse_args()
+
+    os.environ.setdefault("JAX_PLATFORMS", "cpu")
+
+    import jax.numpy as jnp
+    from bindcraft.sequence_optimization import GradientSequenceOptimizer
+    from tt_bio import bindcraft2
+
+    #: stage name -> logits that stage ended on, filled by the hook below. The optimizer object is
+    #: per stage (bindcraft/trajectory.py:215-218), so its class is the one place every stage's
+    #: update passes through, and `__class__.__name__` says which stage it is.
+    captured: dict[str, np.ndarray] = {}
+    stage_of = {
+        "LogitSequenceOptimizer": "screen_or_refine",
+        "SequenceAnnealingOptimizer": "anneal",
+        "OneHotSequenceOptimizer": "harden",
+    }
+    original_update = GradientSequenceOptimizer.update_sequence
+
+    def recording_update(self, protein_states, accumulated_gradients):
+        updated = original_update(self, protein_states, accumulated_gradients)
+        from bindcraft.prediction import collect_shared_chains
+        from bindcraft.protein import has_residue_flag, ResidueFlags
+        _, chains = collect_shared_chains(updated)
+        for name, chain in chains.items():
+            designed = np.asarray(has_residue_flag(chain.flags, ResidueFlags.DESIGN))
+            if not designed.any():
+                continue
+            stage = stage_of.get(type(self).__name__, type(self).__name__)
+            softmax_weight, one_hot_weight, temperature, _ = self.sequence_parameters()
+            key = f"{stage}:{name}"
+            captured[key] = np.asarray(jnp.asarray(chain.sequence)[designed], dtype=np.float32)
+            captured[key + ":params"] = np.asarray(
+                [float(softmax_weight), float(one_hot_weight), float(temperature)], dtype=np.float32)
+        return updated
+
+    GradientSequenceOptimizer.update_sequence = recording_update
+
+    settings = {
+        "target": "hPDL1",
+        "binder_lengths": [args.binder_length, args.binder_length],
+        "max_trajectories": 1,
+        "number_of_final_designs": 1,
+        "trajectory_only": True,
+        "design_models": 1,
+        "campaign_seed": 42,
+        "screen_steps": args.screen,
+        "refine_steps": args.refine,
+        "anneal_steps": args.anneal,
+        "harden_steps": args.harden,
+        "mutate_steps": 0,
+        "project_folder": args.project,
+    }
+    print("settings:", json.dumps(settings), flush=True)
+
+    try:
+        with bindcraft2.campaign_predictor(trunk="jax", checkpoints=args.af2_weights):
+            bindcraft2.run_campaign(settings, args.project, af2_weights=args.af2_weights)
+    finally:
+        GradientSequenceOptimizer.update_sequence = original_update
+        if captured:
+            np.savez(args.out, **captured)
+            print(f"wrote {args.out}: {sorted(k for k in captured if not k.endswith(':params'))}",
+                  flush=True)
+        else:
+            print("captured nothing", flush=True)
+
+
+if __name__ == "__main__":
+    main()
