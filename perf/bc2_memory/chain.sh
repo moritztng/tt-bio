@@ -14,17 +14,21 @@ mkdir -p "$OUT"
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_DEBUG_STDERR=1
 MESH='from tt_bio.main import ensure_p300_mesh_descriptor; ensure_p300_mesh_descriptor()'
 
-quiet() {   # FDV's perf windows: start nothing while either is live
-  while [ -e /home/ttuser/fdv_perf_quiet ] || pgrep -f perf_ab_r2 >/dev/null; do sleep 60; done
+quiet() {   # FDV's perf windows and the BCI row ahead of us in CHIPS.md: start nothing while any is live
+  while [ -e /home/ttuser/fdv_perf_quiet ] || pgrep -f perf_ab_r2 >/dev/null \
+        || pgrep -f bci_validation/card_campaign.py >/dev/null; do sleep 60; done
 }
 
 leg() {     # leg NAME SECONDS DIR CMD...: SIGINT at the deadline, SIGTERM 120 s later, never more
   local name=$1 limit=$2 dir=$3; shift 3
   quiet
   echo "=== $name start $(date -u +%FT%TZ) in $dir"
-  (cd "$dir" && exec nice -n 10 flock /home/ttuser/bci_chip1.lock "$@") > "$OUT/$name.log" 2>&1 &
-  local pid=$! t=0
-  while kill -0 $pid 2>/dev/null && [ $t -lt "$limit" ]; do sleep 10; t=$((t + 10)); done
+  local mark="$OUT/$name.locked.$$"   # this chain's own marker, so a stale one cannot start the clock
+  (cd "$dir" && exec nice -n 10 flock /home/ttuser/bci_chip1.lock \
+     sh -c 'date -u +%FT%TZ > "$0"; exec "$@"' "$mark" "$@") > "$OUT/$name.log" 2>&1 &
+  local pid=$! t=0   # the deadline counts from taking the lock, not from queueing on it
+  while kill -0 $pid 2>/dev/null && [ $t -lt "$limit" ]; do
+    sleep 10; [ -e "$mark" ] && t=$((t + 10)); done
   if kill -0 $pid 2>/dev/null; then
     echo "=== $name over ${limit}s: SIGINT"; pkill -INT -P $pid; kill -INT $pid; sleep 120
     kill -0 $pid 2>/dev/null && { echo "=== $name still up: SIGTERM"; pkill -TERM -P $pid; kill -TERM $pid; }
