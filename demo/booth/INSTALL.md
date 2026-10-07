@@ -5,7 +5,7 @@ where the four Blackhole chips fold proteins live, and repairs itself if a chip 
 fails. It installs the same kernel, driver, firmware check, software and model weights as the
 QuietBox the demo was built and tested on, so it should behave the same way.
 
-You do this once, a day or more before the event. It takes **under half an hour** plus a reboot,
+You do this once, a day or more before the event. It takes **about an hour** plus a reboot,
 most of it downloading. At the booth itself nothing needs installing.
 
 ## What you need
@@ -38,7 +38,7 @@ password once. Roughly:
 | recorded folds, settings, boot setup | under a minute |
 
 On the QuietBox the demo was built on, a brand-new user account went from nothing to the end of
-this list in 6 minutes. Each step prints how long it took.
+this list in 6 to 13 minutes, depending on the download speed. Each step prints how long it took.
 
 If it stops part way (a dropped download, say), run `~/tt-bio-booth/demo/booth/install.py` again. It picks
 up where it stopped and leaves alone whatever is already right.
@@ -49,7 +49,7 @@ If it says **Reboot now to finish**, reboot with
 
 and run `~/tt-bio-booth/demo/booth/install.py` once more after the reboot. It should say
 **Nothing to change: this box matches the booth QuietBox.** Its last step starts the demo and waits
-until every chip folds. The first start builds the chip programs, about 20 minutes, so you pay
+until every chip folds. The first start builds the chip programs, 20 to 30 minutes, so you pay
 that now and not on the morning of the event. It ends with **HEALTHY**: the install is complete.
 
 ### If the script stops at the firmware
@@ -70,7 +70,7 @@ After every reboot the box logs in by itself and the demo appears:
 |---|---|
 | under 1 min | a still picture of a folded protein |
 | about 1½ min | proteins folding, labelled **Recorded folds**; the chip rows say *warming up* |
-| about 5 min (20 min if the install's last step never finished) | **Live on four Blackhole chips**, each chip row folding |
+| about 5 min (20 to 30 min if the install's last step never finished) | **Live on four Blackhole chips**, each chip row folding |
 
 From then on the box needs no keyboard and no login. `demo/booth/BOOTH.md` is the one-page sheet
 for the people at the booth (what the screen shows, what to do if it does not, whom to call).
