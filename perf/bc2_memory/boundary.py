@@ -177,7 +177,7 @@ def main() -> int:
         after_forget = census.dram(device)["held"]
         out["release"] = {"gc_collect": held - after_gc, "pair_mm_forget": after_gc - after_forget}
         out["clock"] = clock.summary()
-        out["clock_line"] = clock.line(int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
+        out["clock_line"] = clock.line(0)   # tt-smi numbers a pinned chip 0, whatever its node
         save()
         print(f"[bc2_memory] end: gc.collect freed {(held - after_gc) / GB:.3f} GB, "
               f"pair_mm.forget then freed {(after_gc - after_forget) / GB:.3f} GB; "

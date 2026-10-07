@@ -16,7 +16,8 @@ MESH='from tt_bio.main import ensure_p300_mesh_descriptor; ensure_p300_mesh_desc
 
 quiet() {   # FDV's perf windows and the BCI row ahead of us in CHIPS.md: start nothing while any is live
   while [ -e /home/ttuser/fdv_perf_quiet ] || pgrep -f perf_ab_r2 >/dev/null \
-        || pgrep -f bci_validation/card_campaign.py >/dev/null; do sleep 60; done
+        || pgrep -f bci_validation/card_campaign.py >/dev/null \
+        || pgrep -f bci_refusal/run.sh >/dev/null; do sleep 60; done
 }
 
 leg() {     # leg NAME SECONDS DIR CMD...: SIGINT at the deadline, SIGTERM 120 s later, never more
@@ -45,17 +46,23 @@ sys.argv = ['boundary.py', '--params', '$PARAMS', '--arm', '$2', '--steps', '$3'
 runpy.run_path('perf/bc2_memory/boundary.py', run_name='__main__')"
 }
 
-hwtest() {  # hwtest NAME TREE
-  leg "$1" 2400 "$2" env PYTHONPATH="$2:$WT/.bci/bc2" "$PY" -c "$MESH
+hwtest() {  # hwtest NAME TREE: a skip fails the leg, since a skipped test measured nothing
+  leg "$1" 2400 "$2" env PYTHONPATH="$2:$WT/.bci/bc2" AF2IG_PARAMS="$PARAMS" "$PY" -c "$MESH
 import sys, pytest
-sys.exit(pytest.main(['-q', '-p', 'no:cacheprovider', '-s', 'tests/test_bindcraft2_hw.py',
-                      '-k', 'switching_checkpoints']))"
+class Skips:
+    n = 0
+    def pytest_runtest_logreport(self, report):
+        Skips.n += report.skipped
+rc = pytest.main(['-q', '-rs', '-p', 'no:cacheprovider', '-s', 'tests/test_bindcraft2_hw.py',
+                  '-k', 'switching_checkpoints'], plugins=[Skips()])
+sys.exit(rc or (5 if Skips.n else 0))"
 }
 
+want() { case " ${LEGS:-unfixed fixed test_after test_before long} " in *" $1 "*) ;; *) return 1;; esac; }
 rm -rf /tmp/bc2mem_*
-boundary unfixed unfixed "screen=4,refine=2,anneal=4,harden=1,mutate=2" 6 5400
-boundary fixed   fixed   "screen=4,refine=2,anneal=4,harden=1,mutate=2" 6 5400
-hwtest   test_after  "$WT"
-hwtest   test_before "$WT/.bci/before"
-boundary long    fixed   default "$LONG_TRAJ" 25200
+want unfixed && boundary unfixed unfixed "screen=4,refine=2,anneal=4,harden=1,mutate=2" 6 5400
+want fixed && boundary fixed   fixed   "screen=4,refine=2,anneal=4,harden=1,mutate=2" 6 5400
+want test_after && hwtest   test_after  "$WT"
+want test_before && hwtest   test_before "$WT/.bci/before"
+want long && boundary long    fixed   default "$LONG_TRAJ" 25200
 echo "=== chain done $(date -u +%FT%TZ)"
