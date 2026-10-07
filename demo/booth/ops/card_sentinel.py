@@ -3,8 +3,9 @@
 
     sudo /usr/local/sbin/booth-card-sentinel [--observe]
 
-A card that no longer answers on the bus reads 0xFFFFFFFF from its hwmon power and current files.
-On qb2 that reading was followed by a host lockup every time it was seen: 66 of 66 between
+A card that no longer answers on the bus returns all-ones for every telemetry register. The driver
+scales power and current in 32-bit arithmetic (tenstorrent-2.11.0 telemetry.c), so those files read
+the wrapped products, 4293967296 uW and 4294966296 mA; only in0_input reads 4294967295. On qb2 that reading was followed by a host lockup every time it was seen: 66 of 66 between
 2026-09-15 and 2026-10-07, 32 to 197 s later, with nothing in the kernel log. The screen sits at
 1 to 3 fps until the lockup, then frozen until the hardware watchdog resets the board 150 s after
 that. Rebooting at the first sign trades those 3 to 5 minutes for the ~45 s the box takes to boot.
@@ -18,7 +19,10 @@ import glob
 import os
 import time
 
-GONE = str(0xFFFFFFFF)
+ONES = 0xFFFFFFFF
+# what each file reads for an all-ones register: the driver multiplies a u32 and keeps 32 bits
+GONE = {"power1_input": str(ONES * 1000000 % 2**32), "curr1_input": str(ONES * 1000 % 2**32),
+        "in0_input": str(ONES)}
 
 
 def read(p):
@@ -35,7 +39,7 @@ def cards(hwmon):
 
 
 def gone(h):
-    return GONE in (read(f"{h}/power1_input"), read(f"{h}/curr1_input"))
+    return any(read(f"{h}/{f}") == v for f, v in GONE.items())
 
 
 def say(msg, kmsg):
