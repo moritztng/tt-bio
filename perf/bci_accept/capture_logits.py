@@ -30,6 +30,15 @@ def main():
     parser.add_argument("--dump-states", default=None,
                         help="pickle the ProteinStates entering harden, for the device A/B")
     parser.add_argument("--project", default="/tmp/bci17_capture")
+    # The on-card Evoformer applies no dropout at all: tt_bio/bindcraft2.py and tt_bio/tenstorrent.py
+    # contain the string zero times, while BindCraft 2 threads batch["use_dropout"] into every
+    # Evoformer sub-layer (af/alphafold/model/modules_multimer.py:419, :701-737). So a host-JAX run
+    # with design_dropout=false is what the device arm effectively does for the 120 rounds of
+    # screen+refine+anneal, and the default is what the host control does. Running both on the host
+    # is a card-free test of whether that difference alone makes the harden signature.
+    parser.add_argument("--design-dropout", choices=["true", "false"], default="true")
+    parser.add_argument("--trajectories", type=int, default=1)
+    parser.add_argument("--binder-lengths", type=int, nargs=2, default=None)
     args = parser.parse_args()
 
     os.environ.setdefault("JAX_PLATFORMS", "cpu")
@@ -75,9 +84,10 @@ def main():
 
     settings = {
         "target": "hPDL1",
-        "binder_lengths": [args.binder_length, args.binder_length],
-        "max_trajectories": 1,
-        "number_of_final_designs": 1,
+        "binder_lengths": args.binder_lengths or [args.binder_length, args.binder_length],
+        "max_trajectories": args.trajectories,
+        "number_of_final_designs": args.trajectories,
+        "design_dropout": args.design_dropout == "true",
         "trajectory_only": True,
         "design_models": 1,
         "campaign_seed": 42,
