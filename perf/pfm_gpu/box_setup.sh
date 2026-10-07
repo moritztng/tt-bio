@@ -20,6 +20,8 @@ grep -v -E '^(#|protenix==)' environment/requirements.lock > /tmp/stack.txt
 pip install -q --no-deps -r /tmp/stack.txt
 pip install -q --no-deps stock/protenix-2.0.0-py3-none-any.whl
 python -c "import protenix.model.layer_norm.layer_norm"
+# session.sh pushes the checkpoint in parallel and marks it verified with CKPT-OK.
+while [ ! -f /root/pfm/CKPT-OK ]; do sleep 10; done
 bash run.sh install --weights /weights/protenix
 bash run.sh check --config a100
 echo SETUP-OK

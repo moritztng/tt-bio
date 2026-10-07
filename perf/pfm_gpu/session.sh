@@ -48,14 +48,20 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
   log "$I up at $IP:$PORT, power limit ${W:-?} W"
   [ "${W:-0}" -ge "$MINW" ] || { destroy $I "power limit ${W:-?} W < $MINW"; continue; }
+  # 54716955 passed every other check and then pulled 0.8 MB/s: setup alone (5.7 GB of wheels) would have taken 2 h.
+  BW=$(timeout 40 $S 'curl -s -o /dev/null -m 20 -w "%{speed_download}" https://download.pytorch.org/whl/cu130/torch-2.9.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl' 2>/dev/null | tail -1 | cut -d. -f1)
+  log "$I download ${BW:-?} B/s"
+  [ "${BW:-0}" -ge 20000000 ] || { destroy $I "download ${BW:-?} B/s < 20 MB/s"; continue; }
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
   $S 'mkdir -p /root/kit /root/pfm/in /root/pfm/msa /root/pfm/acc /weights/protenix/checkpoint' &&
   R /tmp/pfmgpu/kit.tgz $H:/root/ && $S 'tar -xzf /root/kit.tgz -C /root/kit' &&
   R $P/msa/ $H:/root/pfm/msa/ && R $P/in_timing.json $H:/root/pfm/in/timing.json &&
   R $P/box_setup.sh $P/box_arms.sh $P/burn_gate.py $H:/root/pfm/ &&
-  { [ "$ACC" = 0 ] || R /home/moritz/pfm-accuracy-data/box/ $H:/root/pfm/acc/; } &&
-  R /home/moritz/.boltz/protenix-v2.pt $H:/weights/protenix/checkpoint/ || { destroy $I "push failed"; continue; }
+  { [ "$ACC" = 0 ] || R /home/moritz/pfm-accuracy-data/box/ $H:/root/pfm/acc/; } || { destroy $I "push failed"; continue; }
+  { T1=$(date +%s); R --partial /home/moritz/.boltz/protenix-v2.pt $H:/weights/protenix/checkpoint/ &&
+    $S 'cd /weights/protenix/checkpoint && echo "'$(cut -d' ' -f1 $P/ckpt.sha256)'  protenix-v2.pt" | sha256sum -c - && touch /root/pfm/CKPT-OK' >/dev/null 2>&1
+    log "$I checkpoint push rc=$? in $(( $(date +%s) - T1 )) s"; } &
   log "$I pushed; starting setup + arms"
   $S 'cd /root/pfm && cat > chain.sh <<"E"
 bash box_setup.sh > setup.log 2>&1; grep -q "^SETUP-OK" setup.log || { echo SETUP-FAILED > CHAIN-FAILED; exit 1; }
