@@ -61,8 +61,8 @@ const canvas = $('stage');
 const stage = new Stage(canvas, { ease: q.has('ease') ? parseFloat(q.get('ease')) : 0.12, final: q.get('final') ?? 'cartoon',
   orbitDegPerSec: q.has('orbit') ? parseFloat(q.get('orbit')) : 5,
   ...(q.has('scale') && { scale: parseFloat(q.get('scale')) }), ...(q.has('msaa') && { msaa: parseInt(q.get('msaa')) }) });
-// where the protein sits: between the lineup and the right column, and low enough to stay clear of the subtitle
-const STAGE_X = -0.06, DEPTH_X = -0.21, STAGE_Y = -0.04;
+// where the protein sits: between the lineup and the right column, centred on the band they share (y 248 to 1008)
+const STAGE_X = -0.06, DEPTH_X = -0.21, STAGE_Y = -0.08;
 stage.resize(); stage.setOffset(STAGE_X, STAGE_Y);
 addEventListener('resize', () => stage.resize());
 const director = new Director();

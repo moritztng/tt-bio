@@ -54,7 +54,7 @@ header { position: fixed; left: var(--m); right: var(--m); top: var(--m); }
    chips run is lit */
 #lineup { position: fixed; left: var(--m); top: calc(248 * var(--p)); width: calc(200 * var(--p));
           transition: opacity 600ms var(--fade); }
-#lineup section + section { margin-top: calc(56 * var(--p)); }
+#lineup section + section { margin-top: calc(46 * var(--p)); }
 #lineup h2 { margin: 0 0 calc(12 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560; letter-spacing: 0.14em;
              text-transform: uppercase; color: var(--ink3); }
 #lineup ul { list-style: none; margin: 0; padding: 0; }
