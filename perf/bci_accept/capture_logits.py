@@ -61,6 +61,15 @@ def main():
     # widths and the comparison silently stops being matched (measured 2026-10-07: the pc pair drew
     # 1 and 2). Pinning it costs wall time and buys a comparison.
     parser.add_argument("--trajectories-per-card", type=int, default=1)
+    # Acceptance is the number issue #17 leads with, and it does not exist in a trajectory-only
+    # campaign: BindCraft 2 prints "no design will be accepted" and skips the ProteinMPNN redesign
+    # and the validation ensemble that decide it. The logits capture does not need them, so it
+    # stays the default; the paired comparison does, so it passes --full.
+    parser.add_argument("--full", action="store_true",
+                        help="run the whole pipeline (MPNN redesign and validation), not just the "
+                             "gradient trajectories, so there is an accepted count to report")
+    parser.add_argument("--mpnn", default=None,
+                        help="ProteinMPNN weights for --full (default: BindCraft 2's own neutral)")
     args = parser.parse_args()
 
     if (args.trunk == "card") != (args.card is not None):
@@ -123,7 +132,7 @@ def main():
         "max_trajectories": args.trajectories,
         "number_of_final_designs": args.trajectories,
         "design_dropout": args.design_dropout == "true",
-        "trajectory_only": True,
+        "trajectory_only": not args.full,
         "design_models": 1,
         "campaign_seed": 42,
         "screen_steps": args.screen,
@@ -148,10 +157,18 @@ def main():
     print("arm:", json.dumps({k: v for k, v in predictor_arguments.items()
                               if k != "checkpoints"}), flush=True)
 
+    run_arguments = {}
+    if args.full:
+        # BindCraft 2's own neutral ProteinMPNN weights, the ones a stock campaign uses.
+        import bindcraft
+        run_arguments["mpnn_weights"] = args.mpnn or os.path.join(
+            os.path.dirname(bindcraft.__file__), "weights", "proteinmpnn", "weights_neutral")
+
     try:
         with bindcraft2.campaign_predictor(**predictor_arguments):
             bindcraft2.run_campaign(settings, args.project, af2_weights=args.af2_weights,
-                                    trajectories_per_card=args.trajectories_per_card)
+                                    trajectories_per_card=args.trajectories_per_card,
+                                    **run_arguments)
     finally:
         GradientSequenceOptimizer.update_sequence = original_update
         if args.dump_states and harden_entry["states"] is not None:
@@ -159,6 +176,18 @@ def main():
             with open(args.dump_states, "wb") as handle:
                 pickle.dump(harden_entry["states"], handle)
             print(f"wrote {args.dump_states}", flush=True)
+        if args.full:
+            # Read the accepted count out of BindCraft 2's own ranked table rather than counting
+            # anything here: that table is what the reporter quotes his 0 of 8 and 3 of 8 from.
+            try:
+                import csv
+
+                from bindcraft.campaign_output import accepted_table
+                with open(accepted_table(args.project)) as handle:
+                    accepted = sum(1 for _ in csv.DictReader(handle))
+                print(f"accepted {accepted} of {args.trajectories}", flush=True)
+            except Exception as exc:
+                print(f"accepted count unavailable: {exc!r}", flush=True)
         if captured:
             np.savez(args.out, **captured)
             print(f"wrote {args.out}: {sorted(k for k in captured if not k.endswith(':params'))}",
