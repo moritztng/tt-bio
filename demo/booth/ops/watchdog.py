@@ -227,6 +227,13 @@ class Watch:
         if now - self.last_restart.get(unit, -1e9) < self.a.restart_gap:
             self.emit(ev="restart_skipped", unit=unit, why=why)
             return
+        state = subprocess.run(["systemctl", "--user", "show", "-p", "ActiveState", "--value", f"{unit}.service"],
+                               capture_output=True, text=True, timeout=10).stdout.strip()
+        if state in ("activating", "deactivating", "reloading"):
+            # systemd is already stopping or starting it: a planned restart took 33 s to stop on
+            # 10-06 22:30Z and the watchdog fired a second restart into the middle of it
+            self.emit(ev="restart_skipped", unit=unit, why=f"{why}; unit {state}")
+            return
         self.last_restart[unit] = now
         # --no-block: a unit that is slow to stop must not stall every other check behind it
         rc = subprocess.call(["systemctl", "--user", "--no-block", "restart", f"{unit}.service"], timeout=30)
