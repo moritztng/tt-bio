@@ -99,7 +99,7 @@ def main() -> None:
                               "binder_aromatic": aromatic,
                               "seconds": time.perf_counter() - started})
                 print(f"step {step + 1}/{arguments.steps} loss={float(design_loss):.6f} "
-                      f"binder_aromatic={aromatic:.6f} {trace[-1][seconds]:.1f}s",
+                      f"binder_aromatic={aromatic:.6f} {trace[-1]["seconds"]:.1f}s",
                       file=sys.stderr, flush=True)
             clock.stop.set()
     binder = prediction.protein_complex[design_run.BINDER_CHAIN]
@@ -113,10 +113,10 @@ def main() -> None:
               "seq_sha256": design_run.canonical_digest(
                   collect_shared_chains(protein_states)[1][design_run.BINDER_CHAIN].sequence)}
     print("AICLK " + json.dumps(result["aiclk"]))
-    print(f"FINAL_LOSS {result[final_loss]:.10f}")
+    print(f"FINAL_LOSS {result["final_loss"]:.10f}")
     print("TERMS " + ",".join(f"{n}={v:.6f}" for n, v in sorted(result["terms"].items())))
-    print(f"COORD_SHA256 {result[coord_sha256]}")
-    print(f"SEQ_SHA256 {result[seq_sha256]}")
+    print(f"COORD_SHA256 {result["coord_sha256"]}")
+    print(f"SEQ_SHA256 {result["seq_sha256"]}")
     if arguments.json_path:
         Path(arguments.json_path).write_text(json.dumps(result, indent=2, sort_keys=True))
 
