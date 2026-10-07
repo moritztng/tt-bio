@@ -66,7 +66,8 @@ With no `--head` none of this code runs.
 
 **Boltz-2 and ESMFold-2 (`esmfold2`, `esmfold2-fast`) for now.** Their folds return the trunk
 representations to the host, so a head reads them without extra device traffic. Boltz-2 runs on
-CPU, GPU and Tenstorrent; ESMFold-2 runs on Tenstorrent only. The two models' `z` differ in width,
+CPU, GPU and Tenstorrent; ESMFold-2 runs on Tenstorrent only, and its first fold downloads the
+25.4 GB ESMC-6B language model it is built on, 21 minutes at 20 MB/s. The two models' `z` differ in width,
 so a head trained on one does not load on the other. `predict` refuses `--head` for any other model
 rather than ignoring it.
 

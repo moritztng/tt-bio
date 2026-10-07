@@ -53,7 +53,9 @@ training folds took 59 to 80 s each, and training the head took 4 s (300 epochs,
 ```
 
 The same `./run.sh` on one Blackhole chip (qb2, AICLK 1343 to 1350 MHz during each fold) took
-24 to 34 s per training fold and 35 s for CheY, with the head attached. The scores differ slightly
+24 to 34 s per training fold and 35 s for CheY, with the head attached, once its kernels were
+compiled. On a fresh install the first run compiles them as it goes: 88 s for the first training
+fold, 20 to 51 s for the rest and 53 s for CheY, 5 min 35 s for the whole script. The scores differ slightly
 from the CPU run because the chip computes in lower precision:
 
 ```
