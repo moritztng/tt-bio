@@ -47,6 +47,13 @@ def binder_gradient(gradients):
     return np.concatenate([np.asarray(value).ravel() for _, value in sorted(gradients.items())])
 
 
+def gradient_by_key(gradients):
+    """Per-key norm and shape. A whole-dict norm of 0 cannot say whether every chain is zero or
+    the dict simply does not hold the chain being designed, and those need different fixes."""
+    return {key: (np.asarray(value).shape, float(np.linalg.norm(np.asarray(value), ord=None)))
+            for key, value in sorted(gradients.items())}
+
+
 #: BindCraft 2 builds its design model at campaign.py:262. `predictor` yields the factory that
 #: stands in for `AlphaFoldDesignModel`, so the model has to come from the factory and not from the
 #: class, or the trunk routing in the subclass is never installed.
@@ -186,6 +193,8 @@ def main():
             for one_hot_weight in args.one_hot_weights:
                 predictions, gradients = one_round(model, protein_states, losses, one_hot_weight,
                                                    args.key_seed, args.temperature)
+                print(f"  [{arm_name} one_hot={one_hot_weight}] gradient keys: "
+                      f"{gradient_by_key(gradients)}", flush=True)
                 results[(arm_name, one_hot_weight)] = (
                     interface_ptm(predictions), plddt(predictions), binder_gradient(gradients))
 
