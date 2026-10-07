@@ -15,6 +15,7 @@ import threading
 import time
 import traceback
 import types
+import weakref
 
 import numpy as np
 import pytest
@@ -99,6 +100,37 @@ def test_a_missing_checkpoint_is_recorded_rather_than_refused(tmp_path):
     assert pool.names == ("model_1_ptm",)
     assert pool.holds("model_1_ptm") and not pool.holds("model_3_multimer_v3")
     assert str(tmp_path / "params_model_3_multimer_v3.npz") in pool.absent["model_3_multimer_v3"]
+
+
+def test_an_evicted_trunk_keeps_no_weight_alive(tmp_path, monkeypatch):
+    """Issue 18: a `resident=1` campaign filled the card in four trajectories because every
+    eviction left the old checkpoint's pair weights on it. `pair_mm` caches a transpose for each
+    weight a dX reaches and holds the weight beside it, so the pool's pop was never the last
+    reference. A stand-in weight that takes a weak reference shows whether anything still does."""
+    pair_mm = pytest.importorskip("tt_bio.pair_mm")
+
+    class Weight:
+        pass
+
+    class Trunk:
+        def __init__(self, path, *, template=False):
+            self.weight = Weight()
+
+    monkeypatch.setattr(bindcraft2, "_Trunk", Trunk)
+    monkeypatch.setattr(pair_mm.ttnn, "transpose", lambda w, a, b: Weight())
+    monkeypatch.setattr(pair_mm, "_WT", {})
+    for name in ("a", "b"):
+        (tmp_path / f"params_{name}.npz").touch()
+    pool = bindcraft2.TrunkPool(tmp_path, resident=1)
+    pool.require(["a", "b"])
+
+    first = pool._load("a")
+    pair_mm._transposed(first.weight)          # one pair-track dX on the first checkpoint
+    weight = weakref.ref(first.weight)
+    del first
+    pool._load("b")                            # evicts "a"
+    assert weight() is None, "the evicted checkpoint's weight is still referenced"
+    assert pair_mm._WT == {}
 
 
 def test_a_model_the_pool_was_never_given_is_refused(tmp_path):
