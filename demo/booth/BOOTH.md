@@ -35,7 +35,7 @@ the loop by itself.
 | you see | do this |
 |---|---|
 | **No picture** | Check the cable sits in the motherboard's HDMI and the screen's input matches. If the screen was connected after the box was switched on and nothing appears within 10 seconds, restart it (below). |
-| **A frozen or black screen** | Wait. The box repairs itself, usually within a minute. Rarely the whole box freezes; then it restarts itself after about 3 minutes and is folding again within 10. If the screen is still frozen or black after 10 minutes, restart it. |
+| **A frozen or black screen** | Wait. The box repairs itself, usually within a minute. Rarely the whole box freezes; then it restarts itself within about 3 minutes and is folding again within 10. If the screen is still frozen or black after 10 minutes, restart it. |
 | **Recorded folds** for more than 10 minutes, or every visitor gets *The chips are busy* | Leave it running: what it shows is real, recorded on this box, and labelled as such. Call. |
 | **The demo will not come back** after a restart | Play the video: **Ctrl+Alt+F3**, log in, `~/tt-bio-booth/demo/booth/ops/boothctl video`, **Ctrl+Alt+F2**. |
 
