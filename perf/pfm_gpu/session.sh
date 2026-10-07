@@ -73,6 +73,8 @@ setsid nohup bash chain.sh > chain.log 2>&1 < /dev/null &'
     sleep 60
     st=$(timeout 30 $S 'cd /root/pfm; ls results/ARMS-DONE results/THERMAL-FAIL CHAIN-FAILED arms.rc 2>/dev/null' 2>/dev/null | tr '\n' ' ')
     case "$st" in *THERMAL-FAIL*) END=thermal;; *ARMS-DONE*) END=done;; *CHAIN-FAILED*|*arms.rc*) END=failed;; esac
+    # 54728379: the host stopped the container mid-setup and rented the GPU out; the old loop then waited for the cap.
+    [ -z "$st" ] && [ "$(state $I)" != running ] && END=stopped
     [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-900))") ] && END=${END:-cap}
     [ -n "$END" ] && break
   done
@@ -80,6 +82,7 @@ setsid nohup bash chain.sh > chain.log 2>&1 < /dev/null &'
   R $H:/root/pfm/results/ $OUT/ ; R $H:/root/pfm/setup.log $H:/root/pfm/arms.log $H:/root/pfm/chain.log $OUT/ 2>/dev/null
   if [ "$ACC" = 1 ]; then mkdir -p /home/moritz/pfm-accuracy-data/gpu/out; R $H:/root/pfm/acc/out/ /home/moritz/pfm-accuracy-data/gpu/out/; log "acc pulled: $(find /home/moritz/pfm-accuracy-data/gpu/out -name '*.cif' | wc -l) cif"; fi
   destroy $I "session end: $END"
+  [ "$END" = stopped ] && { mv $OUT $OUT.stopped-$I; mkdir -p $OUT; continue; }
   [ "$END" = thermal ] && { log "$I rejected hot: $(cat $OUT/burn.log 2>/dev/null | tail -1)"; mv $OUT $OUT.hot-$I; mkdir -p $OUT; continue; }
   echo "$END" > $OUT/SESSION-END; log "SESSION-END $END"; exit 0
 done
