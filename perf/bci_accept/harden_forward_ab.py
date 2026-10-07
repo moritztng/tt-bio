@@ -77,10 +77,18 @@ def one_round(model, protein_states, losses, one_hot_weight, key_seed, temperatu
     """
     import jax
     model.key = jax.random.PRNGKey(key_seed)
-    predictions, gradients, *_rest = model.sequence_gradients(
+    predictions, gradients, *rest = model.sequence_gradients(
         protein_states, losses, None,
         softmax_weight=1.0, one_hot_weight=one_hot_weight, temperature=temperature,
         logit_scale=2.0)
+    # A design loss that never attaches to the state gives a finite forward and an exactly zero
+    # gradient, which is the signature seen here. The scalar loss is the cheapest way to tell that
+    # from a real zero, so it is printed rather than dropped into `*_rest`.
+    loss_value = float(rest[0]) if rest else float("nan")
+    print(f"  [loss] design_loss={loss_value:.6g}  losses={sorted(losses)}  "
+          f"states={sorted(protein_states)}  "
+          f"required={sorted({r for entry in losses.values() for r in entry.required_states})}",
+          flush=True)
     return predictions, gradients
 
 
