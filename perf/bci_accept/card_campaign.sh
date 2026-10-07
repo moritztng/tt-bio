@@ -27,10 +27,8 @@ set -u
 CARD=${1:?chip number from CHIPS.md NOW}
 TRAJ=${2:-3}
 LEN=${3:-60}
-WT=/home/ttuser/.coworker/wt/bci-accept
-PY=/home/ttuser/fdv_fresh/venv/bin/python
-TARGET=/home/ttuser/bcx_e2e/bc2/settings/target/structures/hPDL1.pdb
-AF2=/home/ttuser/bcx_e2e/af2_params
+# shellcheck source=perf/bci_accept/host_profile.sh
+. "$(dirname "${BASH_SOURCE[0]}")/host_profile.sh"
 OUT=$WT/.bci/card_campaign_chip$CARD.log
 CLK=$WT/.bci/card_campaign_chip$CARD.aiclk
 PROJ=$WT/.bci/proj_card_chip$CARD
@@ -62,7 +60,7 @@ trap 'kill $SAMPLER 2>/dev/null' EXIT
   echo "=== card campaign, chip $CARD, $TRAJ trajectories, binder $LEN ==="
   git -C "$WT" rev-parse HEAD
   date -u +'start %Y-%m-%dT%H:%M:%SZ'
-  flock -w 60 /home/ttuser/bci_chip$CARD.lock \
+  flock -w 60 "$LOCK" \
     nice -n 10 timeout 14400 "$PY" perf/bci_accept/capture_logits.py \
       --trunk card --card "$CARD" --evoformer-dropout ignore \
       --target-pdb "$TARGET" --af2-weights "$AF2" \
