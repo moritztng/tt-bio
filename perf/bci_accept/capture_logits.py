@@ -4,7 +4,11 @@
 synthetic logits. The answer depends on the gap between each position's top two amino acids, which
 is the one thing synthetic logits get wrong. This produces the real ones.
 
-No card: `trunk="jax"` opens no device (docs/bindcraft2.md:325). Short stage rounds and a 40-aa
+`--trunk card --card N` turns the same script into #17's device arm: the design loop's
+Evoformer runs on the chip and every other stage stays on host JAX, so the two arms differ
+in exactly the component the issue is about, at the same campaign seed.
+
+No card by default: `trunk="jax"` opens no device (docs/bindcraft2.md:325). Short stage rounds and a 40-aa
 binder against PD-L1, because a CPU gradient round at Siddhant's 288 tokens is minutes. The stage
 *parameters* are untouched, and they are what the conditioning depends on.
 """
@@ -41,7 +45,29 @@ def main():
     parser.add_argument("--design-dropout", choices=["true", "false"], default="true")
     parser.add_argument("--trajectories", type=int, default=1)
     parser.add_argument("--binder-lengths", type=int, nargs=2, default=None)
+    # The two arms of #17. `jax` is BindCraft 2 unmodified; `card` swaps the design loop's
+    # Evoformer onto a chip and leaves every other stage, validation included, on host JAX
+    # (campaign_predictor's `validation="jax"` default), which is what makes the design-loop
+    # Evoformer the only difference between the arms.
+    parser.add_argument("--trunk", choices=["jax", "card"], default="jax")
+    parser.add_argument("--card", type=int, default=None,
+                        help="chip index for --trunk card; must match TT_VISIBLE_DEVICES")
+    # Siddhant ran stock BindCraft 2, where design_dropout defaults true and the device trunk
+    # silently dropped it. This branch's fix refuses that swap, so reproducing his arm needs the
+    # refusal waived explicitly. "refuse" is the fixed behaviour; "ignore" is what he actually ran.
+    parser.add_argument("--evoformer-dropout", choices=["refuse", "ignore"], default="ignore")
+    # One trajectory at a time, BindCraft 2's own loop, on both arms. The interleaving width is
+    # chosen from free host memory, so two arms launched together on different boxes get different
+    # widths and the comparison silently stops being matched (measured 2026-10-07: the pc pair drew
+    # 1 and 2). Pinning it costs wall time and buys a comparison.
+    parser.add_argument("--trajectories-per-card", type=int, default=1)
     args = parser.parse_args()
+
+    if (args.trunk == "card") != (args.card is not None):
+        parser.error("--trunk card needs --card N, and --card N is meaningless without it")
+    if args.trunk == "card" and os.environ.get("TT_VISIBLE_DEVICES") != str(args.card):
+        parser.error(f"TT_VISIBLE_DEVICES={os.environ.get('TT_VISIBLE_DEVICES')!r} does not name "
+                     f"card {args.card}; the launcher sets both or neither")
 
     os.environ.setdefault("JAX_PLATFORMS", "cpu")
 
@@ -109,9 +135,23 @@ def main():
     }
     print("settings:", json.dumps(settings), flush=True)
 
+    predictor_arguments = {"checkpoints": args.af2_weights}
+    if args.trunk == "jax":
+        predictor_arguments["trunk"] = "jax"
+    else:
+        # Nothing that reaches ttnn outside tt-bio's own CLI gets the mesh descriptor, and a lone
+        # p300 chip without it raises TT_FATAL (tt_bio/tenstorrent.py::_open_and_init_device).
+        from tt_bio.main import ensure_p300_mesh_descriptor
+        ensure_p300_mesh_descriptor()
+        predictor_arguments["card"] = args.card
+        predictor_arguments["dropout"] = args.evoformer_dropout
+    print("arm:", json.dumps({k: v for k, v in predictor_arguments.items()
+                              if k != "checkpoints"}), flush=True)
+
     try:
-        with bindcraft2.campaign_predictor(trunk="jax", checkpoints=args.af2_weights):
-            bindcraft2.run_campaign(settings, args.project, af2_weights=args.af2_weights)
+        with bindcraft2.campaign_predictor(**predictor_arguments):
+            bindcraft2.run_campaign(settings, args.project, af2_weights=args.af2_weights,
+                                    trajectories_per_card=args.trajectories_per_card)
     finally:
         GradientSequenceOptimizer.update_sequence = original_update
         if args.dump_states and harden_entry["states"] is not None:
