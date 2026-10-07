@@ -46,12 +46,20 @@ def binder_gradient(gradients):
     return np.concatenate([np.asarray(value).ravel() for _, value in sorted(gradients.items())])
 
 
-def one_round(build, protein_states, losses, one_hot_weight, model=None):
+#: BindCraft 2 builds its design model at campaign.py:262. `predictor` yields the factory that
+#: stands in for `AlphaFoldDesignModel`, so the model has to come from the factory and not from the
+#: class, or the trunk routing in the subclass is never installed.
+def design_model(build, af2_weights, presets, recycles, bucket):
+    return build(presets=presets, data_dir=af2_weights, max_cache_size=16, num_recycle=recycles,
+                 models=presets, length_bucket_size=bucket, multi_chain_binders=(),
+                 target_pad_length=0)
+
+
+def one_round(model, protein_states, losses, one_hot_weight):
     """One `sequence_gradients` call at the harden stage parameters."""
-    with build() as design_model:
-        predictions, gradients = design_model.sequence_gradients(
-            protein_states, losses, model,
-            softmax_weight=1.0, one_hot_weight=one_hot_weight, temperature=0.01, logit_scale=2.0)
+    predictions, gradients = model.sequence_gradients(
+        protein_states, losses, None,
+        softmax_weight=1.0, one_hot_weight=one_hot_weight, temperature=0.01, logit_scale=2.0)
     return predictions, gradients
 
 
@@ -62,6 +70,9 @@ def main():
     parser.add_argument("--card", type=int, default=None,
                         help="chip to open; omit to run the host arm alone")
     parser.add_argument("--binder-length", type=int, default=40)
+    parser.add_argument("--models", nargs="+", default=["model_1_multimer_v3"])
+    parser.add_argument("--recycles", type=int, default=1)
+    parser.add_argument("--bucket", type=int, default=32)
     args = parser.parse_args()
 
     from bindcraft.loss import build_losses
@@ -79,16 +90,19 @@ def main():
     with open(args.states, "rb") as handle:
         protein_states = pickle.load(handle)
 
-    arms = {"host-JAX": lambda: bindcraft2.predictor(trunk="jax", checkpoints=args.af2_weights)}
+    presets = tuple(args.models)
+    arms = {"host-JAX": dict(trunk="jax", checkpoints=args.af2_weights)}
     if args.card is not None:
-        arms["on-card"] = lambda: bindcraft2.predictor(card=args.card, checkpoints=args.af2_weights)
+        arms["on-card"] = dict(card=args.card, checkpoints=args.af2_weights)
 
     results = {}
-    for arm_name, build in arms.items():
-        for one_hot_weight in (0.0, 1.0):
-            predictions, gradients = one_round(build, protein_states, losses, one_hot_weight)
-            results[(arm_name, one_hot_weight)] = (
-                interface_ptm(predictions), plddt(predictions), binder_gradient(gradients))
+    for arm_name, predictor_arguments in arms.items():
+        with bindcraft2.predictor(**predictor_arguments) as build:
+            model = design_model(build, args.af2_weights, presets, args.recycles, args.bucket)
+            for one_hot_weight in (0.0, 1.0):
+                predictions, gradients = one_round(model, protein_states, losses, one_hot_weight)
+                results[(arm_name, one_hot_weight)] = (
+                    interface_ptm(predictions), plddt(predictions), binder_gradient(gradients))
 
     print(f"{'one_hot_weight':>15}{'arm':>12}{'i_pTM':>9}{'pLDDT':>9}")
     for (arm_name, one_hot_weight), (iptm, mean_plddt, _) in sorted(
