@@ -37,7 +37,13 @@ ARMS = {
     "fast":       dict(fast=True),
     "diff_bf16+hifi2": dict(diff_fp32=False, fid="hifi2"),
     "diff_bf16+hifi3": dict(diff_fp32=False, fid="hifi3"),
+    # MSA-update placement, bit-exact by construction (every op in the update is per depth row):
+    # the whole-depth path instead of 512-row chunks, and the chunked path at 4x the chunk width.
+    "msa_whole":  dict(env={"TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES": str(1 << 31)}),
+    "msa_c2048":  dict(env={"TT_BIO_MSA_ROW_CHUNK_SIZE": "2048"}),
+    "diff_bf16+msa_whole": dict(diff_fp32=False, env={"TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES": str(1 << 31)}),
 }
+ARM_ENV = sorted({k for a in ARMS.values() for k in a.get("env", {})})
 
 from tt_bio import runtime
 if SHARE:
@@ -124,10 +130,12 @@ for cls, meth, key in [
         (T.PairformerLayer, "__call__", "pf_layer"), (T.MSALayer, "__call__", "msa_layer"),
         (T.TriangleMultiplication, "__call__", "trimul"), (T.TriangleAttention, "__call__", "triatt"),
         (T.AttentionPairBias, "__call__", "apb"), (T.PairWeightedAveraging, "__call__", "pwa"),
+        (T.PairWeightedAveraging, "head_weights", "pwa_w"),
         (T.OuterProductMean, "__call__", "opm"), (T.Transition, "__call__", "transition"),
         (T.DiffusionTransformerLayer, "__call__", "dit_layer")]:
     wrap_method(cls, meth, key)
 wrap_func(P, "edm_sample", "sampler")
+wrap_func(P, "msa_update_chunks", "upd_chunks")
 log(ev="census_hooks", installed=installed)
 
 if os.environ.get("PFM_DRY"):
@@ -146,6 +154,9 @@ def build(arm):
     s = ARMS[arm]
     state.model = None; gc.collect()
     os.environ["PROTENIX_DIFFUSION_FP32_DEVICE"] = "1" if s.get("diff_fp32", True) else "0"
+    for k in ARM_ENV:
+        os.environ.pop(k, None)
+    os.environ.update(s.get("env", {}))
     T._TRUNK_MATH_FIDELITY = s.get("fid", "hifi4")
     T._TRIATT_BIAS_B8 = bool(s.get("bias_b8", False))
     T.set_fast_mode(bool(s.get("fast", False)))
@@ -160,7 +171,8 @@ def build(arm):
     got = dict(diffusion_dtype=rb(lambda: m.diffusion.dtype),
                trunk_fidelity=rb(lambda: m.trunk.compute_kernel_config.math_fidelity),
                diff_fidelity=rb(lambda: m.diffusion.compute_kernel_config.math_fidelity),
-               fast=m._fast, triatt_bias_b8=T._TRIATT_BIAS_B8, triatt_b8=T._TRIATT_B8)
+               fast=m._fast, triatt_bias_b8=T._TRIATT_BIAS_B8, triatt_b8=T._TRIATT_B8,
+               msa_whole_at_1GiB=P._msa_take_whole_path(1 << 30), msa_chunk_rows=P._msa_row_chunk_size())
     log(ev="build", arm=arm, s=time.monotonic() - t, settings=s, readback=got)
     # capture coords + confidences of every fold
     orig = m.fold

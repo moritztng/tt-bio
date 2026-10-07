@@ -2,9 +2,14 @@
 
 Same seed = same initial noise and the same sampler draws, so sample k of a lever arm and sample k of exact
 differ only by the lever. The floor is exact against exact at a different seed, which is the variation a user
-already accepts by picking a seed. Two numbers per pair, both Kabsch-aligned:
-  all  : all real atoms, superposed on all of them
-  bind : chain B (the 150 aa binder) after superposing on chain A (the target), the interface view
+already accepts by picking a seed. Per pair:
+  all  : RMSD, all real atoms, superposed on all of them
+  bind : RMSD of chain B (the 150 aa binder) after superposing on chain A (the target)
+  lddt : backbone lDDT (one atom per token, 15 A radius, 0.5/1/2/4 A), superposition-free
+  ilddt: the same restricted to A-B pairs, the interface
+  B    : RMSD of chain B on itself
+Chain A is multi-domain, so its superposed RMSD mostly measures hinge motion: on this complex exact against
+exact at another seed reads 9-18 A all-atom while the binder alone reads 0.5-1.7 A. lDDT is the fair view.
 usage: compare.py RUN_DIR [RUN_DIR ...]   (reads coords_*.pt from every c*/ under each)
 """
 import glob, itertools, json, sys
@@ -50,18 +55,32 @@ def masks(d):
     ids = sorted(set(chain[real].tolist()))
     return real, real & (chain == ids[0]), real & (chain == ids[-1])
 
+def lddt(P, Q, sel, pairs):
+    """Backbone lDDT of P against reference Q over atoms `sel`, scoring only `pairs` (bool [n, n])."""
+    dp, dq = torch.cdist(P[sel], P[sel]), torch.cdist(Q[sel], Q[sel])
+    m = pairs & (dq < 15.0) & ~torch.eye(int(sel.sum()), dtype=torch.bool)
+    err = (dp - dq).abs()[m]
+    return float(sum((err < t).double().mean() for t in (0.5, 1.0, 2.0, 4.0)) / 4)
+
 def pair(da, db):
     A, B = da["coords"].double(), db["coords"].double()
     real, cA, cB = masks(da)
+    a2t = da["feats"]["atom_to_token_idx"].reshape(-1)[:A.shape[1]].long()
+    first = torch.ones_like(real); first[1:] = a2t[1:] != a2t[:-1]
+    bb = real & first
+    chB = cB[bb]
+    inter = chB[:, None] ^ chB[None, :]
     out = []
     for k in range(A.shape[0]):
-        out.append(dict(all=rmsd_aligned(A[k], B[k], real, real), bind=rmsd_aligned(A[k], B[k], cA, cB)))
+        out.append(dict(all=rmsd_aligned(A[k], B[k], real, real), bind=rmsd_aligned(A[k], B[k], cA, cB),
+                        B=rmsd_aligned(A[k], B[k], cB, cB),
+                        lddt=lddt(A[k], B[k], bb, torch.ones_like(inter)), ilddt=lddt(A[k], B[k], bb, inter)))
     return out
 
 def summ(rows):
     import statistics as st
-    return {m: dict(mean=round(st.mean(r[m] for r in rows), 3), max=round(max(r[m] for r in rows), 3))
-            for m in ("all", "bind")}
+    return {m: dict(mean=round(st.mean(r[m] for r in rows), 3), max=round(max(r[m] for r in rows), 3), min=round(min(r[m] for r in rows), 3))
+            for m in ("all", "bind", "B", "lddt", "ilddt")}
 
 res = {"n_runs": {f"{a}_s{s}": len(v) for (a, s), v in runs.items()}}
 # determinism: two runs of the same arm and seed (cold vs warm, or two chips)
