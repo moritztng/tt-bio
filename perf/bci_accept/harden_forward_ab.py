@@ -56,7 +56,7 @@ def design_model(build, af2_weights, presets, recycles, bucket):
                  target_pad_length=0)
 
 
-def one_round(model, protein_states, losses, one_hot_weight, key_seed):
+def one_round(model, protein_states, losses, one_hot_weight, key_seed, temperature=0.01):
     """One `sequence_gradients` call at the harden stage parameters, from a fixed key.
 
     The key reset is not a nicety, it is what makes the comparison a comparison.
@@ -72,7 +72,8 @@ def one_round(model, protein_states, losses, one_hot_weight, key_seed):
     model.key = jax.random.PRNGKey(key_seed)
     predictions, gradients, *_rest = model.sequence_gradients(
         protein_states, losses, None,
-        softmax_weight=1.0, one_hot_weight=one_hot_weight, temperature=0.01, logit_scale=2.0)
+        softmax_weight=1.0, one_hot_weight=one_hot_weight, temperature=temperature,
+        logit_scale=2.0)
     return predictions, gradients
 
 
@@ -113,6 +114,13 @@ def main():
     #: card-free is how you tell a step at the one-hot boundary from a smooth trend.
     parser.add_argument("--one-hot-weights", type=float, nargs="+", default=[0.0, 1.0],
                         help="one_hot_weight settings to run (default: the 0 and 1 harden crosses)")
+    #: `harden` runs at 0.01 and `logit_scale` is 2.0, so the trunk sees softmax(200*z). The host
+    #: arm's binder gradient came back exactly 0 at that setting, which is what a saturated softmax
+    #: does: its Jacobian is diag(p) - p p^T, and that underflows to zero once p is one-hot in
+    #: float32. Raising the temperature is the control that tells a real saturation from a harness
+    #: that is extracting the wrong array: at 1.0 the same call must produce a nonzero gradient.
+    parser.add_argument("--temperature", type=float, default=0.01,
+                        help="softmax temperature (default 0.01, which is harden's own)")
     parser.add_argument("--key-seed", type=int, default=0,
                         help="PRNG key every round is reset to, so settings and arms are matched")
     #: BindCraft 2 turns dropout OFF for `harden` alone (bindcraft/trajectory.py:219, :301), while
@@ -177,7 +185,7 @@ def main():
             model.dropout = args.dropout
             for one_hot_weight in args.one_hot_weights:
                 predictions, gradients = one_round(model, protein_states, losses, one_hot_weight,
-                                                   args.key_seed)
+                                                   args.key_seed, args.temperature)
                 results[(arm_name, one_hot_weight)] = (
                     interface_ptm(predictions), plddt(predictions), binder_gradient(gradients))
 
