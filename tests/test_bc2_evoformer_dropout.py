@@ -164,3 +164,27 @@ def test_the_swap_still_stands_down_for_a_host_only_fold():
     with evoformer_on_device(StoodDown()):
         factory = af_modules.layer_stack.layer_stack(EVOFORMER_BLOCKS)
         assert factory(fn) is not None
+
+
+def test_predictor_carries_the_policy_as_an_argument():
+    """`predictor` is the entry point a BindCraft 2 campaign on card goes through, so the policy
+    has to be reachable there without setting an environment variable.
+
+    Honest about its reach: this is a signature and call-site check, not a behavioural one.
+    Driving `predictor(trunk="device")` opens a chip, so the forwarding itself is proved by the
+    card run, not here. What this does catch is the regression that actually threatens it -- the
+    argument being dropped from the signature, or `evoformer_on_device` growing a parameter in
+    front of `dropout` so the positional forward starts feeding the wrong one.
+    """
+    import inspect
+
+    from tt_bio.bindcraft2 import evoformer_on_device, predictor
+
+    policy = inspect.signature(predictor).parameters.get("dropout")
+    assert policy is not None, "predictor dropped the dropout policy argument"
+    assert policy.default == "refuse", "predictor must default to the refusing policy"
+    assert policy.kind is inspect.Parameter.KEYWORD_ONLY
+
+    # predictor forwards it as the third positional argument of evoformer_on_device.
+    forwarded = list(inspect.signature(evoformer_on_device).parameters)
+    assert forwarded[2] == "dropout", f"evoformer_on_device's third parameter is now {forwarded[2]}"

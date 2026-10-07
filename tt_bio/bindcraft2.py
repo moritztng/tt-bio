@@ -2202,6 +2202,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               extra_msa: bool = True,
               template: bool = True,
               exact: bool = False,
+              dropout: str = "refuse",
               fast: bool | None = None) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
@@ -2263,6 +2264,12 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
     this same class, which is the control arm every device result should be read against.
 
+    `dropout` is the policy for a fold whose host stack would have applied AlphaFold 2's Evoformer
+    dropout, which the device blocks do not: "refuse" stops, "ignore" swaps anyway and folds
+    dropout-free. It reaches `evoformer_on_device`, and the environment variable there still
+    overrides it. BindCraft 2 leaves dropout live for every gradient stage except `harden`, so a
+    design campaign on card is the case this decides.
+
     With `trunk="device"`, a checkpoint whose weights the source cannot supply folds on that host
     trunk rather than raising, decided per model family and announced on the first such fold. If
     the source supplies nothing at all, building the model raises instead: an empty pool is a
@@ -2300,7 +2307,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # Outermost, so a refusal from any seam under it reaches the caller as the `MemoryError`
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
-            autograd.exact_training(exact), evoformer_on_device(evo, extra), \
+            autograd.exact_training(exact), evoformer_on_device(evo, extra, dropout), \
             template_on_device(tmpl), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
