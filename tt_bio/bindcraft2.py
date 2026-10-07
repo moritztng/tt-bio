@@ -1718,6 +1718,42 @@ def find_evoformer_masks(fn):
     return _free_variable(fn, "evoformer_masks", lambda v: isinstance(v, dict) and "msa" in v)
 
 
+#: Evoformer sub-layer dropout rates AlphaFold 2 ships (`config.py:158-216`): the MSA row
+#: attention residual, and the triangle/pair residuals. `dropout_wrapper` (`modules.py:46`)
+#: applies these to each sub-layer residual BEFORE the skip-add, not to the block output, so
+#: nothing wrapping the stack from outside can reproduce them.
+EVOFORMER_DROPOUT_RATES = (0.15, 0.25)
+
+
+def find_evoformer_dropout(fn):
+    """What dropout AlphaFold 2 would apply inside the stack `fn` is one block of.
+
+    Returns `(use_dropout, rates)`, or `(None, ())` when the closure carries neither.
+    `use_dropout` is `batch["use_dropout"]`, which `af2.py:401` threads in as a TRACED argument
+    (`jnp.asarray(self.dropout)`), so it is an abstract value at trace time and cannot be
+    branched on: the swap cannot decide that this particular fold happened to want no dropout.
+    `rates` are static, read off `evoformer_iteration`'s config.
+    """
+    batch = _free_variable(fn, "batch",
+                           lambda v: isinstance(v, dict) and "use_dropout" in v)
+    use_dropout = None if batch is None else batch["use_dropout"]
+    iteration = _free_variable(fn, "evoformer_iteration", lambda v: hasattr(v, "config"))
+    rates = ()
+    if iteration is not None:
+        config = iteration.config
+        found = set()
+        for name in dir(config):
+            try:
+                sub = getattr(config, name)
+            except Exception:
+                continue
+            rate = getattr(sub, "dropout_rate", None)
+            if rate is not None and float(rate) != 0.0:
+                found.add(float(rate))
+        rates = tuple(sorted(found))
+    return use_dropout, rates
+
+
 #: The two spellings AlphaFold 2 gives the extra-MSA stack's per-block closure. The monomer
 #: path (`modules.py:1517`) calls it `extra_msa_stack_fn`; the multimer path
 #: (`modules_multimer.py:375`) calls it `extra_evoformer_fn`. The name is the only thing that
@@ -1776,9 +1812,39 @@ def installed() -> EvoformerOnDevice | None:
     return _INSTALLED
 
 
+#: What `evoformer_on_device` does when the host stack would apply dropout and the device blocks
+#: cannot. Overridable per run so an Evoformer-only benchmark, which has always been graded
+#: dropout-free, does not have to thread the argument through every call site.
+DROPOUT_POLICY_ENV = "TT_BIO_BC2_EVOFORMER_DROPOUT"
+
+
+def _check_dropout(fn, policy: str):
+    """Stop if the swap would silently drop AlphaFold 2's Evoformer dropout.
+
+    The device blocks apply none. `dropout_wrapper` applies it to each sub-layer residual before
+    the skip-add, so the swap replaces a stochastic program with a deterministic one wherever
+    `use_dropout` is live. BindCraft 2 leaves it live for every gradient stage except `harden`
+    (`trajectory.py:219`), which is most of a design trajectory, and `use_dropout` is traced, so
+    this cannot be narrowed to the folds that actually wanted it.
+    """
+    policy = os.environ.get(DROPOUT_POLICY_ENV, policy)
+    if policy not in ("refuse", "ignore"):
+        raise ValueError(f"dropout policy must be 'refuse' or 'ignore', not {policy!r}")
+    use_dropout, rates = find_evoformer_dropout(fn)
+    if policy == "ignore" or use_dropout is None or not rates:
+        return rates
+    raise RuntimeError(
+        "evoformer_fn carries use_dropout and AlphaFold 2 would apply dropout at rates "
+        f"{rates} inside the stack, which the device blocks do not. Folding on card here is a "
+        "different program from folding on host, and the difference is invisible in the output. "
+        f"Pass dropout='ignore' (or set {DROPOUT_POLICY_ENV}=ignore) to accept a dropout-free "
+        "trunk, or stand the stack down with EvoformerOnDevice.on_host.")
+
+
 @contextlib.contextmanager
 def evoformer_on_device(evo: EvoformerOnDevice,
-                        extra_msa: "ExtraMsaOnDevice | None" = None):
+                        extra_msa: "ExtraMsaOnDevice | None" = None,
+                        dropout: str = "refuse"):
     """Swap AlphaFold 2's Evoformer stack for `evo` for the duration, and nothing else.
 
     `modules.py` calls `layer_stack` three times, twice for the template pair stack and once
@@ -1787,6 +1853,10 @@ def evoformer_on_device(evo: EvoformerOnDevice,
 
     `extra_msa` is the second swap and is independent of the first: the default None leaves the
     extra-MSA stack in JAX, which is the program every Evoformer-only comparison was graded on.
+
+    `dropout` decides what happens when AlphaFold 2 would have applied dropout inside the stack
+    and the device blocks cannot. "refuse" stops; "ignore" swaps anyway and folds dropout-free.
+    See `_check_dropout`.
     """
     from bindcraft.af.alphafold.model import modules
 
@@ -1842,6 +1912,7 @@ def evoformer_on_device(evo: EvoformerOnDevice,
                     "evoformer_masks not found in evoformer_fn's closure. The trunk needs the "
                     "MSA and pair masks to fold a padded complex and guessing one is worse than "
                     "stopping.")
+            _check_dropout(fn, dropout)
 
             def on_device(x):
                 activations, safe_key = x
