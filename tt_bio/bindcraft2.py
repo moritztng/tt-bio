@@ -454,9 +454,9 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
         action = (
             f"What to do: {padded} tokens is within what a {board_name} holds "
             f"({how_cap} {cap}), and most of what is held was held before this trajectory "
-            f"allocated anything, so the size of this fold is not what filled the card. It is "
-            f"held by this process for earlier work: earlier trajectories, and the checkpoints "
-            f"`resident` keeps on the card. Rerun on the same folder with resume=true: a new "
+            f"allocated anything, so the size of this fold is not what filled the card. This "
+            f"process still holds it from earlier work: earlier trajectories, and the "
+            f"checkpoints `resident` keeps on the card. Rerun on the same folder with resume=true: a new "
             f"process starts with the card empty, and every design accepted so far is kept.")
     else:
         # One trajectory already. Advising trajectories_per_card=1 here changes nothing, and a

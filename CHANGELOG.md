@@ -30,6 +30,19 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **A BindCraft 2 out-of-memory refusal says how much of the card the failing trajectory
+  allocated.** It used to call everything allocated on the card "held by this fold", and in one
+  reported campaign three quarters of that had been held before the trajectory started. A
+  campaign now reads the card at each trajectory boundary and the refusal prints both parts; when
+  most of it was inherited it points at `resume=true` instead of at the fold's size (#19).
+
+- **A process that used a Tenstorrent card exits on its own, with its own status.** A BindCraft 2
+  campaign could finish its work and then exit 139, or hang with SIGTERM ignored after an
+  out-of-memory refusal, in teardown after Python was done. tt-bio now ends the process once it
+  has closed the card, with the status the program chose, before the C++ destructors of tt-metal
+  and XLA run. The stderr filter that tt-bio forked at import is gone; the nanobind leak report it
+  dropped is still dropped, and `--debug` (or `TT_BIO_DEBUG_STDERR=1`) shows it (#20).
+
 - **A BindCraft 2 out-of-memory refusal no longer tells a one-trajectory run to pass
   `trajectories_per_card=1`.** Under a board's measured ceiling the message blamed interleaved
   trajectories even when the campaign already ran one, so following it changed nothing. It now
