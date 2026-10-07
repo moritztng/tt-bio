@@ -401,7 +401,7 @@ def main():
 
 def warm(limit_s=45 * 60) -> bool:
     """Start the demo and wait until every chip folds. The first start on a new install builds the
-    chip programs (about 20 min, cached after that), so the person installing pays it, not the
+    chip programs (20 to 30 min, cached after that), so the person installing pays it, not the
     booth's first boot. Outside the booth session only the engine starts; the screen comes at reboot."""
     on_screen = any(Path(f"/run/user/{os.getuid()}").glob("sway-ipc.*.sock"))
     cfg = dict(l.split("=", 1) for l in read(CFG).splitlines() if "=" in l and not l.startswith("#"))
@@ -417,7 +417,7 @@ def warm(limit_s=45 * 60) -> bool:
 
     up, n = chips_up()
     if n is None or up < n:
-        print("\nStarting the demo. The first start builds the chip programs, about 20 min; "
+        print("\nStarting the demo. The first start builds the chip programs, 20 to 30 min; "
               "later starts take about 5.", flush=True)
         run([OPS / "boothctl", "start"] if on_screen else ["systemctl", "--user", "start", "booth-engine.service"])
     t, said = time.monotonic(), None
