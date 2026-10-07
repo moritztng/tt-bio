@@ -290,7 +290,7 @@ def _pad_up_on() -> bool:
 
 
 def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
-                        mode: str = "fast"):
+                        mode: str = "fast", held_before: "int | None" = None):
     """An allocator refusal rewritten to name the size that caused it, or None.
 
     What a researcher sees without this is a `JaxRuntimeError` wrapping ten Python frames, a
@@ -301,6 +301,11 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
 
     None means `exc` is not an allocator refusal and the caller must re-raise it unchanged: a
     wrapper that swallows the shape of an unrelated bug is worse than no wrapper.
+
+    `held_before` is the allocator's `allocated` figure when this trajectory started (see
+    `_trajectory_boundaries`). The refusal's own figure is everything on the card, so without it
+    the message cannot say whose memory that is. Issue #19: a refusal told a user the card was
+    "held by this fold" when about three quarters of it had been held before the fold began.
     """
     hit = _ALLOCATOR_REFUSAL.search(str(exc))
     if hit is None:
@@ -310,6 +315,18 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
     banks, want, per_bank = g["banks"], g["want"], g["per_bank"]
     free_total, largest, bank_size = g["free"] * banks, g["largest"], g["bank_size"]
     card_total, held = bank_size * banks, g["allocated"] * banks
+    # Only a DRAM refusal is measured against a DRAM reading, and a card that gave memory back
+    # since the reading has no split worth printing.
+    if space != "DRAM" or held_before is None or not 0 <= held_before <= held:
+        held_before = None
+    others = duotraj.GATE is not None
+    if held_before is None:
+        holding = f"{_gb(held)} of {_gb(card_total)} is held"
+    else:
+        holding = (f"{_gb(held)} of {_gb(card_total)} is held: {_gb(held_before)} was already "
+                   f"held when this trajectory started and {_gb(held - held_before)} was "
+                   f"allocated since" + (", by it and the trajectories beside it" if others else ""))
+    inherited = held_before is not None and held_before > held - held_before
 
     # Two refusals wear the same words and take different remedies. The card is full when the
     # free memory could not hold the request even in one piece, and also when what is free is
@@ -327,13 +344,13 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
             f"bank needs.")
     elif free_total >= want:
         diagnosis = (
-            f"The card is full: {_gb(held)} of {_gb(card_total)} is held by this fold, and the "
-            f"{_gb(free_total)} left is in pieces of at most {_gb(largest)} a bank against the "
-            f"{_gb(per_bank)} a bank this {_gb(want)} request needs.")
+            f"The card is full: {holding}. The {_gb(free_total)} left is in pieces of at most "
+            f"{_gb(largest)} a bank against the {_gb(per_bank)} a bank this {_gb(want)} request "
+            f"needs.")
     else:
         diagnosis = (
-            f"The card is full: {_gb(free_total)} free against a {_gb(want)} request, with "
-            f"{_gb(held)} of {_gb(card_total)} already held by this fold.")
+            f"The card is full: {_gb(free_total)} free against a {_gb(want)} request. "
+            f"{holding[0].upper()}{holding[1:]}.")
 
     # The ceiling to compare against is THIS board's, where one has been measured. A Wormhole
     # Galaxy chip stops at 512 and a p150a at 576, so a Wormhole user told the p150a number is
@@ -424,13 +441,23 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
             f"sum. {sentence}. {reference} Trimming the "
             f"target to the domain you are binding is the other lever and usually the bigger "
             f"one.")
-    elif duotraj.GATE is not None:
+    elif others:
         action = (
             f"What to do: {padded} tokens fits on a {board_name} with the card to itself "
             f"({how_cap} {cap}), so something else "
             f"is holding this card. Interleaved trajectories are the usual cause: pass "
             f"trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise "
             f"{way_down}.")
+    elif inherited:
+        # The fold fits and most of the card was gone before it allocated anything, so neither its
+        # size nor a slower mode is the lever. What is left of earlier work in this process is.
+        action = (
+            f"What to do: {padded} tokens is within what a {board_name} holds "
+            f"({how_cap} {cap}), and most of what is held was held before this trajectory "
+            f"allocated anything, so the size of this fold is not what filled the card. It is "
+            f"held by this process for earlier work: earlier trajectories, and the checkpoints "
+            f"`resident` keeps on the card. Rerun on the same folder with resume=true: a new "
+            f"process starts with the card empty, and every design accepted so far is kept.")
     else:
         # One trajectory already. Advising trajectories_per_card=1 here changes nothing, and a
         # p150a refused 768 and 832 in fast mode held alone (`state/rel012-verify-bh.md`).
@@ -462,6 +489,34 @@ _REFUSALS_RAISED: "collections.deque[MemoryError]" = collections.deque(maxlen=8)
 _REFUSALS_LOCK = threading.Lock()
 
 
+#: The card's `allocated` DRAM when each trajectory started, by `duotraj.slot()`.
+_HELD_AT_START: "dict[str, int | None]" = {}
+
+
+@contextlib.contextmanager
+def _trajectory_boundaries(campaign) -> "Iterator[None]":
+    """Read the card as each trajectory starts, so a refusal can tell inherited memory from its own.
+
+    BindCraft 2 runs a trajectory as one call of `campaign.run_trajectory`, so its start is the
+    boundary. The reading is one `get_memory_view`, once a trajectory.
+    """
+    real = getattr(campaign, "run_trajectory", None)
+    if real is None:   # a BindCraft 2 that names it otherwise: refusals say only what is held
+        yield
+        return
+
+    def run_trajectory(*args, **kw):
+        _HELD_AT_START[duotraj.slot()] = duotraj.held_device_bytes()
+        return real(*args, **kw)
+
+    campaign.run_trajectory = run_trajectory
+    try:
+        yield
+    finally:
+        campaign.run_trajectory = real
+        _HELD_AT_START.clear()
+
+
 @contextlib.contextmanager
 def _refusal_names_the_size(phase: str, n: int, padded: int,
                             memory: "_Memory | None" = None) -> "Iterator[None]":
@@ -470,7 +525,8 @@ def _refusal_names_the_size(phase: str, n: int, padded: int,
         yield
     except Exception as exc:
         mode = memory.used.get(padded, "fast") if memory is not None else "fast"
-        better = (_size_aware_refusal(exc, phase=phase, n=n, padded=padded, mode=mode)
+        better = (_size_aware_refusal(exc, phase=phase, n=n, padded=padded, mode=mode,
+                                      held_before=_HELD_AT_START.get(duotraj.slot()))
                   or _l1_refusal_names_the_size(exc, phase=phase, n=n, padded=padded))
         if better is None:
             raise
@@ -2307,7 +2363,8 @@ def campaign_predictor(*, validation: str = "jax",
         real = campaign.AlphaFoldDesignModel
         campaign.AlphaFoldDesignModel = build_for_campaign
         try:
-            yield build_for_campaign
+            with _trajectory_boundaries(campaign):
+                yield build_for_campaign
         finally:
             campaign.AlphaFoldDesignModel = real
 

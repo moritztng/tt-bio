@@ -1446,10 +1446,80 @@ def test_a_card_held_to_its_last_percent_is_full_even_when_the_sliver_would_cove
                 "(allocated: 1058951296 B, free: 14790496 B, largest free block: 3954656 B)")
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(boundary),
                                              phase="backward", n=531, padded=544))
-    assert "The card is full: 12.707 GB of 12.885 GB is held by this fold" in msg
+    assert "The card is full: 12.707 GB of 12.885 GB is held." in msg
+    assert "this fold" not in msg.split("What to do")[0]   # nothing measured whose memory it is
     assert "177.5 MB left is in pieces of at most 4.0 MB a bank" in msg
     assert "fragmentation" not in msg
     assert "run a smaller complex" in msg and "512 tokens" in msg
+
+
+# Issue #19's refusal, rebuilt from the reporter's figures: a p300c chip reporting 34.226 GB,
+# 33.435 GB allocated when the Evoformer backward refused at 352 tokens, one trajectory on the card.
+REFUSAL_19 = ("Out of Memory: Not enough space to allocate 1207959552 B DRAM buffer across 8 "
+              "banks, where each bank needs to store 150994944 B, but bank size is 4278190016 B "
+              "(allocated: 4179375000 B, free: 98815016 B, largest free block: 98815016 B)")
+
+
+def test_issue_19_the_refusal_splits_inherited_memory_from_this_trajectorys_own():
+    """24.452 GB was held at the trajectory boundary, before the fold allocated anything. The old
+    message called all 33.435 GB "held by this fold" and pointed the user at the fold's size."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=24_452_000_000))
+    assert ("33.435 GB of 34.226 GB is held: 24.452 GB was already held when this trajectory "
+            "started and 8.983 GB was allocated since.") in msg
+    assert "held by this fold" not in msg
+    # Most of the card was inherited, so the advice is about that and not about the size.
+    assert "the size of this fold is not what filled the card" in msg
+    assert "resume=true" in msg
+    assert "residues off the binder" not in msg
+
+
+def test_issue_19_a_fold_that_filled_the_card_itself_keeps_the_size_advice():
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=2_000_000_000))
+    assert "2.000 GB was already held when this trajectory started and 31.435 GB" in msg
+    assert "not what filled the card" not in msg
+    assert "residues off the binder" in msg
+
+
+def test_issue_19_without_a_boundary_reading_the_refusal_attributes_nothing():
+    """A refusal outside a campaign has no reading to subtract, so it says what is held and
+    nothing about whose: the allocator's figure is the whole card's, never the fold's."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352))
+    assert "33.435 GB of 34.226 GB is held." in msg
+    assert "this fold" not in msg.split("What to do")[0]
+    assert "already held when" not in msg
+
+
+def test_issue_19_a_reading_above_the_refusals_own_figure_is_not_split():
+    """Memory given back since the boundary leaves no inherited share to print."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=34_000_000_000))
+    assert "33.435 GB of 34.226 GB is held." in msg and "already held when" not in msg
+
+
+def test_issue_19_the_boundary_is_read_when_each_trajectory_starts(monkeypatch):
+    """The reading reaches the refusal raised inside the trajectory, and each trajectory gets
+    its own. The campaign module is a stand-in; `run_trajectory` is the name BindCraft 2 calls."""
+    import types
+    readings = iter([0, 24_452_000_000])
+    monkeypatch.setattr(bindcraft2.duotraj, "held_device_bytes", lambda: next(readings))
+
+    def run_trajectory(number):
+        with bindcraft2._refusal_names_the_size("backward", 342, 352):
+            if number == 2:
+                raise RuntimeError(REFUSAL_19)
+        return number
+
+    campaign = types.SimpleNamespace(run_trajectory=run_trajectory)
+    with bindcraft2._trajectory_boundaries(campaign):
+        assert campaign.run_trajectory(1) == 1
+        assert bindcraft2._HELD_AT_START[""] == 0
+        with pytest.raises(MemoryError, match="24.452 GB was already held when this trajectory"):
+            campaign.run_trajectory(2)
+    assert campaign.run_trajectory is run_trajectory
+    assert bindcraft2._HELD_AT_START == {}
 
 
 @pytest.mark.parametrize("dram,banks,pad_up", [
