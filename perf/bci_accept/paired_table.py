@@ -31,6 +31,12 @@ REJECTED = re.compile(r"^\s+rejected at (\w+) design stage(.*?)(?: due to \[(.*)
 FINAL_REJECT = re.compile(r"^\s+trajectory rejected(.*?)(?: due to \[(.*)\])?$")
 #: `  i_pTM=0.83  pLDDT=0.91`, from `metric_field`.
 METRIC = re.compile(r"(\w[\w.]*)=([-\d.]+)")
+#: `[tt_bio.bindcraft2] 2 design trajectories on this card: ...`. The interleaving width is
+#: chosen from free host memory unless --trajectories-per-card pins it, and it is the one thing
+#: that makes this log unparseable: BindCraft 2 prints every interleaved trajectory's stage lines
+#: under whichever header came last, with nothing on the line saying which trajectory it belongs
+#: to. An arm run at width > 1 therefore cannot be paired per trajectory from its log at all.
+WIDTH = re.compile(r"^\[tt_bio\.bindcraft2\] (\d+) design trajector")
 #: `campaign done: 0 accepted design(s) after 1 trajectory, ranked by i_pDAE`
 DONE = re.compile(r"^campaign done: (\d+) accepted design\(s\) after (\d+) trajector")
 
@@ -42,6 +48,8 @@ def read_arm(path):
     trajectories = collections.OrderedDict()
     current = None
     accepted = requested = None
+    width = 1
+    collisions = 0
     with open(path, encoding="utf-8", errors="replace") as handle:
         for line in handle:
             line = line.rstrip("\n")
@@ -51,6 +59,10 @@ def read_arm(path):
                 current = trajectories.setdefault(
                     number, {"design": header.group(2), "stages": collections.OrderedDict()})
                 continue
+            banner = WIDTH.match(line)
+            if banner:
+                width = max(width, int(banner.group(1)))
+                continue
             done = DONE.match(line)
             if done:
                 accepted, requested = int(done.group(1)), int(done.group(2))
@@ -59,6 +71,7 @@ def read_arm(path):
                 continue
             passed = PASSED.match(line)
             if passed:
+                collisions += passed.group(1) in current["stages"]
                 current["stages"][passed.group(1)] = ("passed", dict(METRIC.findall(passed.group(2))))
                 continue
             rejected = REJECTED.match(line)
@@ -69,10 +82,24 @@ def read_arm(path):
             final = FINAL_REJECT.match(line)
             if final:
                 current["stages"]["final"] = ("REJECTED", dict(METRIC.findall(final.group(1))))
-    return {"trajectories": trajectories, "accepted": accepted, "requested": requested}
+    return {"trajectories": trajectories, "accepted": accepted, "requested": requested,
+            "width": width, "collisions": collisions, "path": path}
+
+
+def unpairable(arm):
+    """Why this arm's stage lines cannot be attributed to a trajectory, or None."""
+    if arm["width"] > 1:
+        return (f"ran {arm['width']} trajectories interleaved, so its stage lines are printed "
+                "under whichever header came last")
+    if arm["collisions"]:
+        return (f"printed {arm['collisions']} stage line(s) a second time for a trajectory that "
+                "had already reported that stage, which only happens when arms interleave")
+    return None
 
 
 def cell(arm, number, stage, metric):
+    if unpairable(arm):
+        return "!"
     entry = arm["trajectories"].get(number)
     if entry is None:
         return "-"
@@ -125,6 +152,12 @@ def main():
             print(row)
 
     print()
+    for name, arm in arms.items():
+        why = unpairable(arm)
+        if why:
+            print(f"{name}: ! NOT PAIRABLE -- {why}. Its readings are real but cannot be put "
+                  f"against a trajectory number, so they are withheld rather than filed under the "
+                  f"wrong one. Rerun this arm with --trajectories-per-card 1.")
     for name, arm in arms.items():
         if arm["accepted"] is None:
             reached = len(arm["trajectories"])

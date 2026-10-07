@@ -92,3 +92,52 @@ def test_a_running_campaign_reports_no_count_rather_than_zero(tmp_path):
     path = tmp_path / "partial.log"
     path.write_text(ARM.split("campaign done")[0], encoding="utf-8")
     assert load().read_arm(str(path))["accepted"] is None
+
+
+#: The dropout-off arm on pc, which chose its own interleaving width from free host memory before
+#: `--trajectories-per-card 1` was pinned. Both trajectories' stage lines land under the LAST
+#: header, so `screen` appears twice and trajectory 1's readings are invisible. This is the exact
+#: shape of the real log; filing these under trajectory 2 is the silent failure the table must not
+#: have.
+INTERLEAVED = """BindCraft 2 v1.0.1
+[tt_bio.bindcraft2] 2 design trajectories on this card: 2 of them at 192 tokens hold about 8 GB.
+
+=== trajectory 1 | design_l60_cccc | accepted 0/3 ===
+
+=== trajectory 2 | design_l60_dddd | accepted 0/3 ===
+  passed screen design stage  i_pTM=0.85
+  passed screen design stage  i_pTM=0.87
+  passed refine design stage  i_pTM=0.83
+  passed refine design stage  i_pTM=0.8
+"""
+
+
+def test_interleaved_arm_is_not_paired(tmp_path):
+    """An arm that interleaved trajectories reports ! rather than a number under a guessed row."""
+    module = load()
+    log = tmp_path / "interleaved.log"
+    log.write_text(INTERLEAVED, encoding="utf-8")
+    arm = module.read_arm(str(log))
+
+    assert arm["width"] == 2
+    assert arm["collisions"] == 2, "screen and refine each reported twice"
+    why = module.unpairable(arm)
+    assert why and "interleaved" in why
+    # Every cell is withheld, including the stage that really was reached.
+    assert module.cell(arm, 2, "screen", "i_pTM") == "!"
+    assert module.cell(arm, 1, "screen", "i_pTM") == "!"
+
+
+def test_pinned_arm_is_still_paired(tmp_path):
+    """The control: width 1 parses exactly as before, so the refusal is not blanket."""
+    module = load()
+    log = tmp_path / "pinned.log"
+    log.write_text("[tt_bio.bindcraft2] 1 design trajectory on this card.\n" + ARM,
+                   encoding="utf-8")
+    arm = module.read_arm(str(log))
+
+    assert arm["width"] == 1
+    assert arm["collisions"] == 0
+    assert module.unpairable(arm) is None
+    assert module.cell(arm, 1, "screen", "i_pTM") == "0.85"
+    assert module.cell(arm, 1, "harden", "i_pTM") == "0.14*"
