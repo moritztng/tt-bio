@@ -1649,7 +1649,8 @@ def _template_stack_mask(fn, depth: int = 0, seen=None):
 
 
 @contextlib.contextmanager
-def template_on_device(tmpl: "TemplateOnDevice | None"):
+def template_on_device(tmpl: "TemplateOnDevice | None",
+                       evo: "EvoformerOnDevice | None" = None):
     """Route the multimer template pair stack through `tmpl` for the duration.
 
     The two blocks are `template_stack((act, safe_subkey))`, inline in
@@ -1671,7 +1672,15 @@ def template_on_device(tmpl: "TemplateOnDevice | None"):
             return getattr(self._real, name)
 
         def layer_stack(self, num_block):
+            real_build = self._real.layer_stack(num_block)
+
             def build(fn):
+                if evo is not None and evo.host_only:
+                    # The same stand-down the Evoformer makes, for the same reason: `on_host`
+                    # routes this fold to BindCraft 2's own trunk, so it keeps AlphaFold's
+                    # template stack too, and on the trunk the card holds rather than whichever
+                    # one the design loop last selected. See issue #21.
+                    return real_build(fn)
                 # The jax face is built HERE, at trace time, rather than once for the whole
                 # block: this is the last point that runs on the trajectory's own thread, so
                 # it is where the slot can be read and baked into the callbacks.
@@ -1893,13 +1902,24 @@ def evoformer_on_device(evo: EvoformerOnDevice,
 
         def choose(fn):
             name = getattr(fn, "__name__", None)
-            if extra_msa is not None and name in EXTRA_MSA_FN_NAMES:
-                return choose_extra(fn, made, int(num_layers))
-            if name != "evoformer_fn":
-                return made(fn)
             if evo.host_only:
                 # This fold runs on a checkpoint the card does not hold, or is the control arm
                 # standing down. Hand back BindCraft 2's own stack; see `EvoformerOnDevice.on_host`.
+                #
+                # EVERY stack it asks for, not just the Evoformer. `on_host` stands the whole fold
+                # down, and the extra-MSA swap is installed process-wide by `predictor`, so a
+                # validation ensemble built with `trunk="jax"` inside a live campaign used to keep
+                # BindCraft 2's Evoformer and lose its four extra-MSA blocks. Those blocks then read
+                # their weights from `extra_msa.pool.current`, which is whatever the DESIGN loop last
+                # selected, because a host fold never reaches `pool.use`: on a monomer validation
+                # model that is the multimer design trunk, the supplied target's pair track
+                # collapses, and every binder residue lands within 4 A of it. That is issue #21 --
+                # `Target_pLDDT` ~0.29 constant across sequences and `Interface_Residues` exactly
+                # the binder length -- and the ordering of this check is the whole of it.
+                return made(fn)
+            if extra_msa is not None and name in EXTRA_MSA_FN_NAMES:
+                return choose_extra(fn, made, int(num_layers))
+            if name != "evoformer_fn":
                 return made(fn)
             if int(num_layers) != evo.blocks:
                 raise ValueError(f"evoformer_fn has {num_layers} blocks, tt-bio holds "
@@ -2308,7 +2328,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
             autograd.exact_training(exact), evoformer_on_device(evo, extra, dropout), \
-            template_on_device(tmpl), \
+            template_on_device(tmpl, evo), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)
