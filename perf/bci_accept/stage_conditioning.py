@@ -103,6 +103,59 @@ def margin_report(logits, cotangent, stage, eps, noise):
     return float(jnp.median(gap)), float(jnp.median(disturbance))
 
 
+def captured_stages(path):
+    """(name, (softmax_weight, one_hot_weight, temperature), logits) from a capture_logits.py npz.
+
+    The capture keys each stage as `<stage>:<chain>` with a sibling `<stage>:<chain>:params`, so the
+    stage parameters come from the trajectory that produced the logits rather than from this file's
+    own table. A stage whose params are missing is skipped rather than guessed at."""
+    stages = []
+    for key in sorted(captured_keys(path)):
+        params = f"{key}:params"
+        if params not in path:
+            continue
+        softmax_weight, one_hot_weight, temperature = (float(v) for v in path[params])
+        stages.append((key, (softmax_weight, one_hot_weight, temperature), jnp.asarray(path[key])))
+    return stages
+
+
+def captured_keys(path):
+    return [k for k in path.files if not k.endswith(":params")]
+
+
+def report(label, stages, eps_values, repeats):
+    print(f"== {label} ==")
+    print("stage".ljust(24) + "".join(f"{'eps=2^%d' % int(np.log2(e)):>12}" for e in eps_values))
+    margins = []
+    for name, stage, logits in stages:
+        cells = []
+        for eps in eps_values:
+            flips = []
+            for repeat in range(repeats):
+                cotangent = jax.random.normal(jax.random.key(repeat), logits.shape)
+                noise = jax.random.normal(jax.random.key(1000 + repeat), logits.shape)
+                flips.append(decided_by_noise(logits, cotangent, stage, eps, noise))
+            cells.append(f"{100 * np.mean(flips):11.2f}%")
+        print(name.ljust(24) + "".join(cells))
+        # One cotangent draw moves this ratio by an order of magnitude, so it is averaged over the
+        # same repeats as the flip counts and reported as a median, not a single reading.
+        samples = [margin_report(
+            logits, jax.random.normal(jax.random.key(repeat), logits.shape), stage, eps_values[0],
+            jax.random.normal(jax.random.key(1000 + repeat), logits.shape))
+            for repeat in range(repeats)]
+        margins.append((name, (float(np.median([g for g, _ in samples])),
+                               float(np.median([d for _, d in samples])))))
+    print()
+    print("why, at eps=2^%d: a position flips when the noise moves its update by more than the"
+          % int(np.log2(eps_values[0])))
+    print("gap to its own runner-up amino acid. Both in logit units.\n")
+    print("stage".ljust(24) + f"{'top-2 gap':>12}{'noise moves':>14}{'gap / noise':>14}")
+    for name, (gap, disturbance) in margins:
+        ratio = gap / disturbance if disturbance > 0 else float("inf")
+        print(name.ljust(24) + f"{gap:>12.2e}{disturbance:>14.2e}{ratio:>14.1f}")
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--residues", type=int, default=90)
@@ -112,51 +165,16 @@ def main():
     parser.add_argument("--logits", default=None, help="npz of captured per-stage logits")
     args = parser.parse_args()
 
-    captured = np.load(args.logits) if args.logits else None
-    print(f"eps: 2^-8 = bfloat16 mantissa, 2^-11 = float16, 2^-24 = float32\n")
-
+    print("eps: 2^-8 = bfloat16 mantissa, 2^-11 = float16, 2^-24 = float32\n")
+    if args.logits:
+        report(f"captured logits {args.logits}", captured_stages(np.load(args.logits)),
+               args.eps, args.repeats)
+        return
     for spread in args.spread:
-        source = f"synthetic logits, {args.residues} residues, spread {spread}"
-        if captured is not None:
-            source = f"captured logits {args.logits}"
-        print(f"== {source} ==")
-        margins = []
-        header = "stage".ljust(14) + "".join(f"{'eps=2^%d' % int(np.log2(e)):>12}" for e in args.eps)
-        print(header)
-        for name, stage in STAGES.items():
-            if captured is not None and name not in captured:
-                continue
-            cells = []
-            for eps in args.eps:
-                cosines = []
-                for repeat in range(args.repeats):
-                    key = jax.random.key(repeat)
-                    zkey, nkey = jax.random.split(key)
-                    if captured is not None:
-                        logits = jnp.asarray(captured[name])
-                    else:
-                        logits = synthetic_logits(zkey, args.residues, spread)
-                    cotangent = jax.random.normal(nkey, logits.shape)
-                    noise = jax.random.normal(jax.random.key(1000 + repeat), logits.shape)
-                    cosines.append(decided_by_noise(logits, cotangent, stage, eps, noise))
-                cells.append(f"{100 * np.mean(cosines):11.2f}%")
-            print(name.ljust(14) + "".join(cells))
-            margins.append((name, margin_report(
-                logits, cotangent, stage, args.eps[0],
-                jax.random.normal(jax.random.key(1000), logits.shape))))
-            if captured is not None:
-                break_after = False
-        print()
-        print("why, at eps=2^%d: a position flips when the noise moves its update by more than the"
-              % int(np.log2(args.eps[0])))
-        print("gap to its own runner-up amino acid. Both in logit units.\n")
-        print("stage".ljust(14) + f"{'top-2 gap':>12}{'noise moves':>14}{'gap / noise':>14}")
-        for name, (gap, disturbance) in margins:
-            ratio = gap / disturbance if disturbance > 0 else float("inf")
-            print(name.ljust(14) + f"{gap:>12.2e}{disturbance:>14.2e}{ratio:>14.1f}")
-        print()
-        if captured is not None:
-            break
+        stages = [(name, stage, synthetic_logits(jax.random.key(0), args.residues, spread))
+                  for name, stage in STAGES.items()]
+        report(f"synthetic logits, {args.residues} residues, spread {spread}",
+               stages, args.eps, args.repeats)
 
 
 if __name__ == "__main__":

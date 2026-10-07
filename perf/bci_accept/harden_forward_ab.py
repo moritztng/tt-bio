@@ -57,7 +57,7 @@ def design_model(build, af2_weights, presets, recycles, bucket):
 
 def one_round(model, protein_states, losses, one_hot_weight):
     """One `sequence_gradients` call at the harden stage parameters."""
-    predictions, gradients = model.sequence_gradients(
+    predictions, gradients, *_rest = model.sequence_gradients(
         protein_states, losses, None,
         softmax_weight=1.0, one_hot_weight=one_hot_weight, temperature=0.01, logit_scale=2.0)
     return predictions, gradients
