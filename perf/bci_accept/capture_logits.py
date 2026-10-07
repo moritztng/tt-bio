@@ -17,7 +17,9 @@ import numpy as np
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target-pdb", required=True)
+    parser.add_argument("--target-pdb", required=True, help="ABSOLUTE path to the target structure")
+    parser.add_argument("--target-chains", default="A")
+    parser.add_argument("--hotspots", default="54,56,66,115")
     parser.add_argument("--af2-weights", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--binder-length", type=int, default=40)
@@ -82,8 +84,15 @@ def main():
 
     GradientSequenceOptimizer.update_sequence = recording_update
 
+    # The target has to be given explicitly with an ABSOLUTE path. The `"target": "hPDL1"` preset
+    # carries `"target_path": "structures/hPDL1.pdb"`, which is relative, and from any cwd but
+    # BindCraft 2's own settings directory it resolves to nothing -- silently. The campaign then
+    # runs with NO TARGET CHAIN: it folds the binder alone, reports 64 tokens for a 40-aa binder,
+    # scores iptm exactly 0.000 at every stage, and dies in the interface loss with
+    # KeyError: 'target_seed'. An interface experiment set up that way measures nothing.
     settings = {
-        "target": "hPDL1",
+        "targets": [{"name": "hPDL1", "target_path": args.target_pdb,
+                     "chains": args.target_chains, "hotspots": args.hotspots}],
         "binder_lengths": args.binder_lengths or [args.binder_length, args.binder_length],
         "max_trajectories": args.trajectories,
         "number_of_final_designs": args.trajectories,

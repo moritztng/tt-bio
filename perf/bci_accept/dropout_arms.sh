@@ -25,7 +25,7 @@ for arm in true false; do
   rm -rf "$project"
   echo "=== arm design_dropout=$arm, $TRAJ trajectories, binder $LEN ==="
   nice -n 10 timeout 28800 "$PY" perf/bci_accept/capture_logits.py \
-    --target-pdb /tmp/4zqk.pdb --af2-weights /home/ttuser/bcx_e2e/af2_params \
+    --target-pdb /home/ttuser/bcx_e2e/bc2/settings/target/structures/hPDL1.pdb --af2-weights /home/ttuser/bcx_e2e/af2_params \
     --out "$WT/.bci/logits_$arm.npz" --dump-states "$WT/.bci/harden_states_$arm.pkl" \
     --project "$project" --design-dropout "$arm" --trajectories "$TRAJ" \
     --binder-lengths "$LEN" "$LEN"
