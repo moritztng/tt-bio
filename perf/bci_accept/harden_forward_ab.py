@@ -212,11 +212,23 @@ def main():
     if not losses:
         raise SystemExit("build_losses returned no losses: the gradient would be identically zero "
                          "and the A/B would compare two arms on a constant")
-    unsatisfied = {name for name, entry in losses.items()
-                   if not entry.required_states <= set(protein_states_preview(args.states))}
-    if unsatisfied == set(losses):
-        raise SystemExit(f"no loss's required_states are present in the states; every loss would "
-                         f"be skipped and the gradient would be zero: {sorted(unsatisfied)}")
+    # The two sites that consume `losses` disagree about an unsatisfied one. `weighted_design_loss`
+    # (loss.py:115) SKIPS it; the jitted `sequence_design_loss` (af2.py:369-371) indexes
+    # `prediction_arrays[state_name]` and raises KeyError. A default-configured loss can carry
+    # `required_states=('complex',)` (loss.py:57 keeps the state whenever `prediction_state` is set
+    # explicitly) while these states are keyed by target name, which is what BindCraft 2's own
+    # design loop uses. So drop the unsatisfiable ones HERE, where it can be said out loud, rather
+    # than meet them as a KeyError inside a traced function.
+    available = set(protein_states_preview(args.states))
+    dropped = {name: sorted(entry.required_states - available)
+               for name, entry in losses.items() if not entry.required_states <= available}
+    if dropped:
+        print(f"dropping {len(dropped)} loss(es) whose required states are absent "
+              f"(states present: {sorted(available)}): {dropped}", flush=True)
+        losses = {name: entry for name, entry in losses.items() if name not in dropped}
+    if not losses:
+        raise SystemExit("every loss was dropped for missing states; the gradient would be zero")
+    print(f"losses in play, identical for both arms: {sorted(losses)}", flush=True)
     with open(args.states, "rb") as handle:
         protein_states = pickle.load(handle)
     check_states_match(protein_states, args.binder_length)
