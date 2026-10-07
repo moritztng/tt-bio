@@ -158,9 +158,17 @@ def main():
     check_states_match(protein_states, args.binder_length)
 
     presets = tuple(args.models)
+    # The device blocks apply no dropout, so `evoformer_on_device` refuses the swap by default
+    # rather than fold a different program than the host arm. `use_dropout` is traced, so that
+    # guard cannot see that THIS A/B has turned dropout off on both arms -- which is `harden`'s
+    # own setting (bindcraft/trajectory.py:219) and the one #17 is about. With it off there is no
+    # dropout for the swap to lose and the refusal is a false positive, so waive it. With
+    # --dropout the card really would drop it silently, and then refusing is the correct answer.
+    dropout_policy = "refuse" if args.dropout else "ignore"
     arms = {"host-JAX": dict(trunk="jax", checkpoints=args.af2_weights)}
     if args.card is not None:
-        arms["on-card"] = dict(card=args.card, checkpoints=args.af2_weights)
+        arms["on-card"] = dict(card=args.card, checkpoints=args.af2_weights,
+                               dropout=dropout_policy)
 
     results = {}
     for arm_name, predictor_arguments in arms.items():
