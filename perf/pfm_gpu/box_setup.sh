@@ -4,9 +4,10 @@
 # /weights/protenix/checkpoint/protenix-v2.pt already copied in. Log: /root/pfm/setup.log, marker SETUP-OK.
 set -eux
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq && apt-get install -y -qq wget rsync git kalign >/dev/null
+# No apt: some hosts cannot reach security.ubuntu.com (DE 54695728 hung on it). curl ships in the image;
+# kalign is only needed for templates, which these runs do not use.
 if [ ! -x /usr/local/bin/python3.11 ]; then
-  wget -q -O /tmp/py.tgz "https://github.com/indygreg/python-build-standalone/releases/download/20230826/cpython-3.11.5+20230826-x86_64-unknown-linux-gnu-install_only.tar.gz"
+  curl -fsSL -o /tmp/py.tgz "https://github.com/indygreg/python-build-standalone/releases/download/20230826/cpython-3.11.5+20230826-x86_64-unknown-linux-gnu-install_only.tar.gz"
   echo "fbed6f7694b2faae5d7c401a856219c945397f772eea5ca50c6eb825cbc9d1e1  /tmp/py.tgz" | sha256sum -c -
   tar -xzf /tmp/py.tgz -C /tmp && cp -rL /tmp/python/. /usr/local/ && rm -rf /tmp/python /tmp/py.tgz
 fi
