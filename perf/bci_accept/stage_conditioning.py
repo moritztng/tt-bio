@@ -88,6 +88,21 @@ def synthetic_logits(key, residues, spread):
     return jax.random.normal(key, (residues, 20)) * spread
 
 
+def margin_report(logits, cotangent, stage, eps, noise):
+    """Why a stage is or is not sensitive, in one ratio.
+
+    A position changes amino acid when the noise-induced difference in its update exceeds the gap
+    between its own top two logits. Both are in logit units, so their ratio says how far a stage is
+    from being decided by the trunk's low bits, and it says it without waiting for a flip to be
+    rare enough that counting them stops being informative."""
+    exact = sequence_update(logits, cotangent, stage)
+    perturbed = sequence_update(logits, cotangent * (1.0 + eps * noise), stage)
+    ordered = jnp.sort(logits, axis=-1)
+    gap = ordered[..., -1] - ordered[..., -2]
+    disturbance = jnp.max(jnp.abs(perturbed - exact), axis=-1)
+    return float(jnp.median(gap)), float(jnp.median(disturbance))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--residues", type=int, default=90)
@@ -105,6 +120,7 @@ def main():
         if captured is not None:
             source = f"captured logits {args.logits}"
         print(f"== {source} ==")
+        margins = []
         header = "stage".ljust(14) + "".join(f"{'eps=2^%d' % int(np.log2(e)):>12}" for e in args.eps)
         print(header)
         for name, stage in STAGES.items():
@@ -125,8 +141,19 @@ def main():
                     cosines.append(decided_by_noise(logits, cotangent, stage, eps, noise))
                 cells.append(f"{100 * np.mean(cosines):11.2f}%")
             print(name.ljust(14) + "".join(cells))
+            margins.append((name, margin_report(
+                logits, cotangent, stage, args.eps[0],
+                jax.random.normal(jax.random.key(1000), logits.shape))))
             if captured is not None:
                 break_after = False
+        print()
+        print("why, at eps=2^%d: a position flips when the noise moves its update by more than the"
+              % int(np.log2(args.eps[0])))
+        print("gap to its own runner-up amino acid. Both in logit units.\n")
+        print("stage".ljust(14) + f"{'top-2 gap':>12}{'noise moves':>14}{'gap / noise':>14}")
+        for name, (gap, disturbance) in margins:
+            ratio = gap / disturbance if disturbance > 0 else float("inf")
+            print(name.ljust(14) + f"{gap:>12.2e}{disturbance:>14.2e}{ratio:>14.1f}")
         print()
         if captured is not None:
             break
