@@ -14,7 +14,8 @@ seconds it picks the next event, in rotation:
                   after --wedge-s if the engine has not ended it, so it cannot stay stopped
   board_reset     the board under a folding chip reset with ops/reset_board.sh, as a chip that
                   dies mid-fold: its worker's device calls fail or hang. Only when listed in
-                  --events; it needs the chip ledger's go-ahead (state/bth/CHIPS.md)
+                  --events; it needs the chip ledger's go-ahead (state/bth/CHIPS.md). Skipped while
+                  the board's other chip is lent out of the booth
   queue_flood     60 visitor folds at once, lengths 10-400
   engine_freeze   SIGSTOP to the engine for --freeze-s, then SIGCONT: alive and stuck. Its unit's
                   WatchdogSec must restart it; a SIGINT never lands on a stuck loop
@@ -202,6 +203,9 @@ class Chaos:
                 return "skipped: no chip folding"
             chip = self.rng.choice(busy)
             board = "0,1" if chip in (0, 1) else "2,3"
+            lent = sorted({int(c) for c in board.split(",")} - {c["chip"] for c in st["chips"]})
+            if lent:
+                return f"skipped: chip {lent[0]} on board {board} is lent out of the booth"
             r = subprocess.run([str(HERE / "reset_board.sh"), board], capture_output=True, text=True, timeout=200,
                                env=dict(os.environ, TT_BIO_LEASE_HOLDER="worker:booth-demo"))
             return f"reset board {board} under chip {chip} mid-fold: rc {r.returncode}, {r.stdout.strip().splitlines()[-1:]}"

@@ -87,5 +87,6 @@ for name, script, extra, want_keys, want_text in [
     keys, out = run(script, *extra)
     ok = keys == want_keys and (want_text is None or want_text in out)
     fails += not ok
-    print(f"{'PASS' if ok else 'FAIL'}  {name}: sysrq {keys!r}  {(out.strip().splitlines() or [""])[-1]}")
+    last = (out.strip().splitlines() or [""])[-1]
+    print(f"{'PASS' if ok else 'FAIL'}  {name}: sysrq {keys!r}  {last}")
 sys.exit(1 if fails else 0)

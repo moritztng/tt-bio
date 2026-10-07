@@ -27,7 +27,8 @@ if [ "${1:-}" = --run ]; then
   date -u +%FT%TZ >"$out/started"
   "$py" -u "$ops/chaos.py" --until "$end" --start-index "${n:-0}" --every 900 --events "$events" --out "$out"
   "$py" "$ops/curves.py" ~/booth-logs/watchdog.jsonl --since "$since" --out "$out/curves.png" --json "$out/curves.json"
-  "$py" "$ops/screens.py" "$out" >"$out/screens.txt"
+  # screens.py exits 1 when a sample was not moving; that is the report, not a reason to leave the unit behind
+  "$py" "$ops/screens.py" "$out" >"$out/screens.txt" || echo "screens.py rc=$? (see screens.txt)"
   systemctl --user disable booth-soak.service
   rm -f "$unit"
   systemctl --user daemon-reload
