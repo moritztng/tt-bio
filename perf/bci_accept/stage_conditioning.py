@@ -116,6 +116,9 @@ def captured_stages(path):
             continue
         softmax_weight, one_hot_weight, temperature = (float(v) for v in path[params])
         stages.append((key, (softmax_weight, one_hot_weight, temperature), jnp.asarray(path[key])))
+    if not stages:
+        raise SystemExit("no captured stages in the npz: it was written before the trajectory "
+                         "reached a gradient stage, or read while it was still being written")
     return stages
 
 

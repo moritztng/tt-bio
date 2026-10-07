@@ -21,6 +21,7 @@ Card: this opens a device. Run it only when state/bci/CHIPS.md names this row as
 its RULES (TT_VISIBLE_DEVICES, the mesh descriptor, flock, nice, a timeout, AICLK recorded).
 """
 import argparse
+import os
 import pickle
 
 import numpy as np
@@ -63,13 +64,35 @@ def one_round(model, protein_states, losses, one_hot_weight):
     return predictions, gradients
 
 
+def check_states_match(protein_states, binder_length):
+    """Refuse a pickle written by a different design from the one these settings build.
+
+    The losses and the design settings are rebuilt here from --binder-length and --target-pdb while
+    the states come from whichever trajectory wrote the pickle. If those two disagree the round
+    still runs and still prints numbers, so the mismatch has to be caught before the card opens.
+    """
+    from bindcraft.prediction import collect_shared_chains
+    from bindcraft.protein import has_residue_flag, ResidueFlags
+
+    _, chains = collect_shared_chains(protein_states)
+    for name, chain in chains.items():
+        designed = int(np.asarray(has_residue_flag(chain.flags, ResidueFlags.DESIGN)).sum())
+        if designed and designed != binder_length:
+            raise SystemExit(f"--states chain {name!r} designs {designed} residues, "
+                             f"--binder-length says {binder_length}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--states", required=True, help="harden-entry ProteinStates pickle")
     parser.add_argument("--af2-weights", required=True)
     parser.add_argument("--card", type=int, default=None,
                         help="chip to open; omit to run the host arm alone")
-    parser.add_argument("--binder-length", type=int, default=40)
+    parser.add_argument("--target-pdb", required=True, help="ABSOLUTE path to the target structure")
+    parser.add_argument("--target-chains", default="A")
+    parser.add_argument("--hotspots", default="54,56,66,115")
+    parser.add_argument("--binder-length", type=int, required=True,
+                        help="binder length of the trajectory that produced --states")
     parser.add_argument("--models", nargs="+", default=["model_1_multimer_v3"])
     parser.add_argument("--recycles", type=int, default=1)
     parser.add_argument("--bucket", type=int, default=32)
@@ -79,8 +102,25 @@ def main():
     from bindcraft.settings import build_design_settings
     from tt_bio import bindcraft2
 
+    if args.card is not None:
+        # qb2 is a two-chip p300 board, which ttnn reads as a CUSTOM cluster. Only tt-bio CLI entry
+        # points set the mesh descriptor; a script that reaches the device path directly, as this
+        # one does, gets TT_FATAL about the fabric mesh graph descriptor (tt_bio/tenstorrent.py,
+        # _open_and_init_device). TT_VISIBLE_DEVICES is the wrapper's job.
+        from tt_bio.main import ensure_p300_mesh_descriptor
+        ensure_p300_mesh_descriptor(device=args.card)
+
+    # The target is named by ABSOLUTE path, never by the `"target": "hPDL1"` preset. That preset
+    # carries `"target_path": "structures/hPDL1.pdb"`, which is relative, and from any cwd but
+    # BindCraft 2's own settings tree it resolves to nothing without a word. The campaign then runs
+    # with no target chain at all: it folds the binder alone, reports 64 tokens for a 40-aa binder
+    # and scores iptm exactly 0.000 at every stage. An A/B set up that way compares two arms on a
+    # fold with no interface, which is the one thing this script exists to measure.
+    if not os.path.isabs(args.target_pdb) or not os.path.exists(args.target_pdb):
+        raise SystemExit(f"--target-pdb must be an existing absolute path, got {args.target_pdb!r}")
     settings = {
-        "target": "hPDL1",
+        "targets": [{"name": "hPDL1", "target_path": args.target_pdb,
+                     "chains": args.target_chains, "hotspots": args.hotspots}],
         "binder_lengths": [args.binder_length, args.binder_length],
         "max_trajectories": 1, "number_of_final_designs": 1, "trajectory_only": True,
         "design_models": 1, "campaign_seed": 42,
@@ -89,6 +129,7 @@ def main():
     losses = build_losses(design_settings.settings, seed=design_settings.seed)
     with open(args.states, "rb") as handle:
         protein_states = pickle.load(handle)
+    check_states_match(protein_states, args.binder_length)
 
     presets = tuple(args.models)
     arms = {"host-JAX": dict(trunk="jax", checkpoints=args.af2_weights)}
