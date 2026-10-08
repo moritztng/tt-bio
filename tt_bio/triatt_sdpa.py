@@ -326,7 +326,7 @@ def _reject(reason, shape):
 
 
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
-         q_split_cap: int = -1, gate=None):
+         q_split_cap: int = -1, gate=None, padded_mask: bool = False):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
 
     `q_split_cap=0` lifts `_Q_SPLIT_MAX_S` for this call. Only `_tri_att_sdpa_at`'s above-cap
@@ -335,6 +335,10 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     `gate` folds triangle attention's `o * sigmoid(g)` into the pack stage. It is all or nothing:
     given a gate this returns a GATED output or `None`, never an ungated one, so a caller that
     reads `None` still owes the multiply.
+
+    `padded_mask` admits a q or k chunk that does not divide the sequence: the persistent-mask
+    reader fills the padded tiles with -inf exactly as the per-chunk read does. Only the
+    timing-only LPX prototype passes it.
     """
     from . import ops
     if ops.taping():
@@ -397,7 +401,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
     # everything the hoisted fill assumes
     if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
-            and not p["use_padded_mask"] and p["NKH"] == H and p["NVH"] == H):
+            and (padded_mask or not p["use_padded_mask"]) and p["NKH"] == H and p["NVH"] == H):
         ttnn.deallocate(out)
         return _reject("fill_preconditions", shape)
 

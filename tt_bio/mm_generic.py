@@ -39,7 +39,7 @@ NOC_FOR_DRAM_WRITE = ttnn.NOC.NOC_1
 #: `Tile::get_tile_size` builds tile_hw + aligned_exp_size in
 #: tt_metal/impl/data_format/tile.cpp:79. 1024 here under-sizes every CB page by 6.25 %, which
 #: hangs or corrupts rather than raising.
-_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
+_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088, ttnn.bfloat4_b: 576}
 
 #: The storage dtypes a hand-transcribed fast path may take. `bfloat8_b` is here because every CB
 #: page size in these transcriptions comes from `tile_bytes` and every tile size in their kernels

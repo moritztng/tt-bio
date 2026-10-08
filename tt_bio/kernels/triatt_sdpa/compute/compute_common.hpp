@@ -399,6 +399,11 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
             tile_regs_wait();
 
             if constexpr (write_result_inplace) {
+                // The scores and the running sum alternate on the packer; reconfigure between them
+                // so a score CB narrower than the bf16 statistics is packed in its own format.
+                if constexpr (do_reduce) {
+                    pack_reconfig_data_format(reduce_cb, in0_cb);
+                }
                 for (uint32_t j = 0; j < dst_tiles; ++j) {
                     pack_tile(j, in0_cb);
                 }
@@ -407,6 +412,9 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
             }
 
             if constexpr (do_reduce) {
+                if constexpr (write_result_inplace) {
+                    pack_reconfig_data_format(in0_cb, reduce_cb);
+                }
                 // While we have results in DST, take advantage of L1 accumulation
                 // to reduce row x cols tiles to rows x 1 tiles.
                 if (u > 0) {
@@ -2037,6 +2045,10 @@ void sdpa_inner_loop(
              *  cur_max = max(qk, dim=-1)
              */
             reconfig_data_format(cb_qk_im, cb_identity_scale_in);
+            // The packer still holds cb_qk_im's format from the matmul and the mask add. The row
+            // statistics are bf16, so a narrower score CB needs the packer moved before the max
+            // lands in them (a no-op when both are bf16, the stock table).
+            pack_reconfig_data_format(cb_qk_im, alias_cur_max);
             reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_qk_im, cb_identity_scale_in, Sq_chunk_t, Sk_chunk_t>(
                 alias_cur_max, alias_prev_max, processed_k_chunks > 0);
 

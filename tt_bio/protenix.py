@@ -988,6 +988,9 @@ class DiffusionModule(_KeyedWeights):
                                   softmax_site="protenix.token_dit"),
                 AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
+            # LPX: the bf16 DiT's attention takes the fused SDPA (the token-DiT branch) rather
+            # than the explicit matmul/softmax/matmul chain.
+            self._dit[-1][1].token_dit = _T.LPX and self._dit_dtype == ttnn.bfloat16
 
 
     def _up_dit(self, t):
@@ -2005,6 +2008,8 @@ class Protenix:
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
+        # TT_BIO_LPX (timing-only prototype, tenstorrent.LPX): every stage at LoFi, fp32 acc off.
+        compute_kernel_config = _TT.lpx_compute_kernel_config(compute_kernel_config)
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
         self._c_z = c_z
@@ -2013,7 +2018,7 @@ class Protenix:
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         resolved_diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
-                                   if diffusion_fp32 is None else diffusion_fp32)
+                                   if diffusion_fp32 is None else diffusion_fp32) and not _TT.LPX
         # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8, but bf8
         # in the coordinate-sensitive diffusion collapses the structure (Rg 4.7 vs 22).
         #
