@@ -791,13 +791,18 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * _elem()
+    # The two input CBs take the projection's own format, so a bfp8 producer is read as written
+    # (`GATED_IN_DTYPES`); the unpacker converts on the way into the gate. Everything after the
+    # gate stays in `_DTYPE`.
+    in_dtype = x.dtype
+    in_bytes = _TILE_BYTES_ANY[in_dtype]
 
-    def cb(idx, depth):
+    def cb(idx, depth, dtype=_DTYPE, page=tile_bytes):
         fmt = ttnn.CBFormatDescriptor(
-            buffer_index=idx, data_format=_DTYPE, page_size=tile_bytes
+            buffer_index=idx, data_format=dtype, page_size=page
         )
         return ttnn.CBDescriptor(
-            total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
+            total_size=depth * page, core_ranges=core_grid, format_descriptors=[fmt]
         )
 
     # c_16 keeps the 32-tile group multiple the writer's L1 window needs. The four working CBs are
@@ -805,7 +810,8 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # one tile at a time, and a deeper ring would only hold more of a stream the writer is already
     # the slow end of. That last clause is exactly what GATE_GRANULARITY tests -- if the writer is
     # the slow end then removing compute barriers buys nothing and the A/B reads 1.00x.
-    cbs = [cb(P_CB, 2 * GATE_GRANULARITY), cb(G_CB, 2 * GATE_GRANULARITY),
+    cbs = [cb(P_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
+           cb(G_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
            cb(SIG_CB, 2 * GATE_GRANULARITY), cb(MUL_CB, 2 * GATE_GRANULARITY),
            cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
@@ -928,6 +934,12 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
     return ttnn.generic_op([xw, out], pd)
 
 
+# Formats the gated move reads its projection in. bfp8_b is the spd-trimul lever: the in-projection
+# writes it (`TT_BIO_TRIMUL_INPROJ_B8`), halving its output drain, and only the two input CBs change.
+GATED_IN_DTYPES = (ttnn.bfloat16, ttnn.bfloat8_b)
+_TILE_BYTES_ANY = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
+
+
 # Master switch for folding the trimul's chunk and its two sigmoid gates into the forward move.
 # ON, but every TriangleMultiplication still has to opt in (`gated_move=`). The recorded reason was
 # that the fused pair is a measured LOSS on boltz2 (+0.373 s/fold at 512 aa, only 64 of 560 of its
@@ -983,8 +995,10 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if shape[3] != 4 * slice_c or slice_c % TILE_W:
         return _reject("gated_slice", shape)
     N = shape[2]
-    if xw.dtype != _DTYPE or xw.layout != ttnn.TILE_LAYOUT:
+    if xw.dtype not in GATED_IN_DTYPES or xw.layout != ttnn.TILE_LAYOUT:
         return _reject("gated_dtype_layout", shape)
+    if xw.dtype != _DTYPE and shape[1] != shape[2]:
+        return _reject("gated_b8_rowblock", shape)      # only the whole-tensor move was measured
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_out", shape)
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:

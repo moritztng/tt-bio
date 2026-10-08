@@ -5078,6 +5078,17 @@ _TRIMUL_IBW_FULL = env_flag("TT_BIO_TRIMUL_IBW_FULL", False)
 # its channel slice of one [1, H, H, hidden] output, deleting the closing concat (a full read and
 # write of the hidden tensor, 2.59 ms per call at 736 tokens on Wormhole). Layout only, bit-exact.
 _TRIMUL_BACK_INTO = env_flag("TT_BIO_TRIMUL_BACK_INTO", False)
+# SPD lever (spd-trimul): the in-projection writes bfp8 and the gated channel move reads it, so the
+# projection's output drain (4 x hidden channels, the op's binding cost) halves with no typecast.
+# The move's output, and everything after it, stays bf16. Changes numerics: accuracy-graded.
+_TRIMUL_INPROJ_B8 = env_flag("TT_BIO_TRIMUL_INPROJ_B8", False)
+
+
+def set_trimul_inproj_b8(on: bool) -> bool:
+    """A/B switch for the harness. Returns the previous state."""
+    global _TRIMUL_INPROJ_B8
+    prev, _TRIMUL_INPROJ_B8 = _TRIMUL_INPROJ_B8, bool(on)
+    return prev
 _TRIMUL_IBW_FULL_REFUSED: set = set()
 
 
@@ -7436,7 +7447,7 @@ def device_weights(model) -> dict:
     return {path: t for path, _, _, t in walk_device_weights(model)}
 
 
-def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None):
+def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None):
     """The trimul in-projection: the dual-NOC drain where it applies, else today's call.
 
     `mm_dualnoc.in_proj` is byte-identical to the call below when it fires -- it drives the same
@@ -7447,15 +7458,16 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None):
     `split` asks for the result in several destination buffers instead of one, which only the
     generic path can do; a caller that asks for it and is refused gets None and falls back itself.
     """
+    dtype = dtype or _dtype()
     if bias is None:
         from . import mm_dualnoc as DN
-        out = DN.in_proj(x, w, ckc, _dtype(), memory_config, split)
+        out = DN.in_proj(x, w, ckc, dtype, memory_config, split)
         if out is not None:
             return out
     if split is not None:
         return None
     return ttnn.experimental.minimal_matmul(
-        x, w, bias_tensor=bias, memory_config=memory_config, dtype=_dtype(),
+        x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
         compute_kernel_config=ckc)
 
 
@@ -8348,12 +8360,21 @@ class TriangleMultiplication(Module):
                             else:
                                 gp_in_fused, g_out_fused = pair
                         if gp_in_fused is None:
+                            # `_TRIMUL_INPROJ_B8`: the projection is written in bfp8 for the gated
+                            # move to read as is. Asked only where that move can take it (the
+                            # dtype-independent half of `gated` below); a decline casts back.
+                            b8 = (_TRIMUL_INPROJ_B8 and not row_norm and bias_i is None
+                                  and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                                  and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
+                                  and (mask is None or mask_moved_ok)
+                                  and memory_config.buffer_type == ttnn.BufferType.DRAM)
                             gp_in_fused = (
                                 self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config,
                                                    bias_i)
                                 if row_norm else
                                 _in_proj_matmul(x_norm_in, gp_in_chunks[i],
-                                                self.compute_kernel_config, memory_config, bias_i)
+                                                self.compute_kernel_config, memory_config, bias_i,
+                                                dtype=ttnn.bfloat8_b if b8 else None)
                             )
                         slice_c = int(gp_in_fused.shape[-1]) // 4
                         _eb = 4 if _dtype() == ttnn.float32 else 2
@@ -8384,6 +8405,10 @@ class TriangleMultiplication(Module):
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
                         )
                         branch = "gated-move" if gated else "four-way-split"
+                        if not gated and gp_in_fused.dtype == ttnn.bfloat8_b and _dtype() != ttnn.bfloat8_b:
+                            _b = ttnn.typecast(gp_in_fused, _dtype())
+                            ttnn.deallocate(gp_in_fused)
+                            gp_in_fused = _b
                         if gated:
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused,

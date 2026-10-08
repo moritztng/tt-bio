@@ -93,6 +93,7 @@ LEVERS = {
     "into": [(T.set_trimul_back_into, True)],
     "hifi2": [(T.set_trimul_einsum_fid, "hifi2")],
     "lofi": [(T.set_trimul_einsum_fid, "lofi")],
+    "b8in": [(T.set_trimul_inproj_b8, True)],
 }
 
 
@@ -195,6 +196,7 @@ for var in A.variants.split(","):
             fired["mm_transpose"] = dict((f"{k[0]}/{k[1]}", v) for k, v in T.TRIMUL_MM_TRANSPOSE_STATS.items())
             fired["einsum_fid"] = T._TRIMUL_EINSUM_FID or "trunk"
             fired["back_into"] = T._TRIMUL_BACK_INTO
+            fired["inproj_b8"] = T._TRIMUL_INPROJ_B8
         finally:
             restore(prev)
         outs[arm] = yt
