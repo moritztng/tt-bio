@@ -7,23 +7,23 @@ number that is not here, say you will find out; do not estimate.
 
 - "That cloud is the model's real working. Each step you see is a state the chip computed, not an
   animation."
-- "Press Tab and you can watch the four chips: power, temperature and what each one folds, live."
+- "Press Tab and you can watch the chips: power, temperature and what each one folds, live."
 
 ## Thirty seconds, for anyone
 
 Proteins are the machines in every cell, and what a protein does depends on its 3D shape. Working
 out that shape in a lab can take months. This AI predicts it from the sequence of letters alone,
-and here it does it live on the four Tenstorrent chips under the table. The points are the model's
+and here it does it live on the Tenstorrent chips under the table. The points are the model's
 guesses, step by step, settling into the protein. The finished ribbon is coloured by how sure the
 model is: blue is confident, orange is a guess. The same software is open source and runs as a service, so a lab can use it tomorrow.
 
 ## Two minutes, for an HPC engineer
 
-The model on screen is **Boltz-2**, the open protein-structure model. Each of the four Blackhole
-chips holds its own resident copy and folds one protein at a time: four independent folds in
+The model on screen is **Boltz-2**, the open protein-structure model. Each Blackhole chip
+holds its own resident copy and folds one protein at a time: one independent fold per chip in
 flight, no fold split across chips. A 76-residue protein takes about 5 s with all 200 sampling
-steps; a 300-residue one about 10 s. Kept busy, the four chips finish 0.40 folds a second at
-300 residues, at the chip's top clock of 1350 MHz [1]. The screen shows each fold's real time; the
+steps; a 300-residue one about 10 s. Kept busy, all four chips in this box finished 0.40 folds a second at
+300 residues, at the chip's top clock of 1350 MHz [1]. The booth runs three: one card is out of service. The screen shows each fold's real time; the
 clock sampled during it is in the engine's logs.
 
 What you see is the diffusion sampler's real trajectory: the starting noise and all 200 sampler
@@ -42,7 +42,7 @@ ESMFold2 at 512 residues [4]. The case for it is per dollar: a 32-chip Galaxy do
 
 ## Ten questions this audience asks
 
-**1. Is it really live?** Yes. The label says *Live on four Blackhole chips* when it is, and
+**1. Is it really live?** Yes. The label says *Live on three Blackhole chips* when it is, and
 *Recorded folds* when it is showing folds recorded earlier on this box. A visitor's name is always
 folded live. Every time on screen comes with the clock measured during that fold [1].
 
@@ -62,7 +62,7 @@ structure differs from the reference by 2.15 Å, less than the reference differs
 between two random seeds (1.98 Å is its own spread) [7].
 
 **5. Does it scale out?** Folding is many independent proteins, so it scales by adding chips: here
-four folds run side by side. A Galaxy has 32 chips [4], and JapanFold serves from Galaxies.
+three folds run side by side. A Galaxy has 32 chips [4], and JapanFold serves from Galaxies.
 
 **6. What are the chips doing right now?** Running the whole model on the device: the language
 model reads the sequence, the trunk reasons about which residues touch, the diffusion sampler

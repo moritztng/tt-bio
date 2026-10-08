@@ -1,6 +1,6 @@
 # TT-Bio at the booth
 
-An AI predicts the 3D shape of a protein from its sequence, live, on the four Tenstorrent Blackhole
+An AI predicts the 3D shape of a protein from its sequence, live, on the Tenstorrent Blackhole
 chips inside this QuietBox. The screen folds one protein after another by itself. Nobody needs to log in or
 touch the box once it is on.
 
@@ -21,12 +21,12 @@ touch the box once it is on.
 | after | on the screen |
 |---|---|
 | under 1 min | a still picture of a folded protein |
-| ~1¼ min | points condensing into a protein, labelled **Recorded folds**; the four chip rows say *warming up* |
-| ~1½ min | the label turns **Live on four Blackhole chips** and each chip row names what it is folding |
+| ~1¼ min | points condensing into a protein, labelled **Recorded folds**; the chip rows say *warming up* |
+| ~1½ min | the label turns **Live on three Blackhole chips** and each chip row names what it is folding. The box has four; one is out of service until its card is replaced |
 
 A chip row that says *recovering* or *resetting* for a few minutes is the box repairing that chip
 while the others carry on; leave it. Typing a name to fold it is switched off for now (`?visitors=1` on the kiosk URL brings it
-back). **Tab** shows the four chips'
+back). **Tab** shows each chip's
 power, temperature and what each is folding, Tab again returns. After a minute without input the screen goes back to
 the loop by itself.
 

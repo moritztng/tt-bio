@@ -1,6 +1,6 @@
 # Running the TT-Bio booth demo
 
-qb2 boots straight into the demo: no login prompt, full screen, all four chips folding. Nobody at
+qb2 boots straight into the demo: no login prompt, full screen, the three working chips folding (chip 2 is out of service until its card is replaced). Nobody at
 the booth needs a keyboard. If something breaks, the demo repairs itself and the screen keeps
 showing real folds while it does.
 
