@@ -229,6 +229,15 @@ def main():
     #: here so the dropout-on case stays reachable without editing the script.
     parser.add_argument("--dropout", action="store_true",
                         help="run with AF2 dropout on (default off, which is what harden does)")
+    #: `predictor(exact=True)` runs softmax and layer norm on the host in float64 INSIDE the
+    #: tape, which is the closest this port gets to AF2's own gradient. It costs 24.87x on a
+    #: `sequence_gradients` call at n=192, so it is not a shipping setting -- it is the control
+    #: that says whether the binder gradient's 26% elementwise error against host JAX is bf16
+    #: precision inside the tape or a program difference. If the error survives `exact`, no
+    #: amount of precision work in the tape closes it.
+    parser.add_argument("--exact", action="store_true",
+                        help="run the on-card arm with predictor(exact=True): host float64 "
+                             "softmax and layer norm inside the tape (about 25x slower)")
     parser.add_argument("--memory", default=None,
                         choices=("auto", "fast", "lean"),
                         help="device memory mode for the on-card arm (default: predictor's own "
@@ -293,6 +302,8 @@ def main():
                                recompute=not args.no_recompute)
         if args.memory is not None:
             arms["on-card"]["memory"] = args.memory
+        if args.exact:
+            arms["on-card"]["exact"] = True
 
     results = {}
     for arm_name, predictor_arguments in arms.items():
