@@ -15,6 +15,9 @@ LOG=$ROOT/host_8traj_288.log
 PROJ=$ROOT/proj_host_8traj_288
 mkdir -p "$ROOT"
 
+# capture_logits.py does os.environ.setdefault("JAX_PLATFORMS", "cpu"), so WITHOUT this export the
+# arm would run on the CPU of a box rented for its GPU: days instead of hours, at $0.254/h.
+export JAX_PLATFORMS=cuda
 export PYTHONPATH=/root/tt-bio:/root/bcx_shipped/bc2
 cd /root/tt-bio || exit 1
 
@@ -22,7 +25,12 @@ exec >> "$LOG" 2>&1
 echo "=== host JAX arm: 8 trajectories, 288 tokens, seed 42, GPU ==="
 date -u +"start %Y-%m-%dT%H:%M:%SZ"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
-python -c "import jax; print('jax', jax.__version__, jax.devices())"
+python -c "
+import jax
+d = jax.devices()
+print('jax', jax.__version__, d)
+assert d and d[0].platform == 'gpu', f'arm is not on the GPU: {d}'
+" || { echo 'ABORT: jax is not on the GPU, not spending hours of rental on CPU'; exit 2; }
 
 [ -e "$PROJ" ] && { echo "$PROJ exists; a resume is not a rerun, move it aside"; exit 1; }
 

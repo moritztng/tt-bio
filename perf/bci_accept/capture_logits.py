@@ -188,7 +188,18 @@ def main():
         from tt_bio.main import ensure_p300_mesh_descriptor
         ensure_p300_mesh_descriptor()
         predictor_arguments["card"] = args.card
-        predictor_arguments["dropout"] = args.evoformer_dropout
+        # `dropout` is wk/bci-accept's argument, not main's: on main `predictor()` has no such
+        # parameter and `bindcraft2.py` contains the string zero times, so passing it raises
+        # TypeError before the first fold. It is also inert for the way this row runs -- the
+        # on-card Evoformer applies no dropout at all and both arms run design_dropout=false, so
+        # there is nothing for it to ignore or refuse. Pass it only where it exists, so the same
+        # harness runs on main and on that branch.
+        import inspect
+        if "dropout" in inspect.signature(bindcraft2.predictor).parameters:
+            predictor_arguments["dropout"] = args.evoformer_dropout
+        else:
+            print("predictor() takes no `dropout` on this tree; the on-card Evoformer applies "
+                  "none regardless, and this arm runs design_dropout=false", flush=True)
     print("arm:", json.dumps({k: v for k, v in predictor_arguments.items()
                               if k != "checkpoints"}), flush=True)
 
