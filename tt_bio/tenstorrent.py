@@ -12753,10 +12753,15 @@ class OuterProductMean(Module):
             else:
                 depth_parts = [(ttnn.multiply_(acp, scale), bcp, Sc)
                                for acp, bcp, Sc in depth_parts]
+        # bfp8 operands would make the matmul emit bfp8 too, and z's row-major relayout below then
+        # untilizes bfp8: at 256 tokens that program's CBs overflow L1 (1709344 B), and it quantizes
+        # z, which nothing asked for. So z stays bf16 whatever the operands are.
+        z_dtype = None
         if lever("opm_b8"):
             # The z_rows contraction is the OPM's cost and reads both operands once per row
             # block; one cast each here, after the row-major relayout bfp8 cannot do, feeds every
             # block in bfp8.
+            z_dtype = ttnn.bfloat16
             def b8(t):
                 o = ttnn.typecast(t, ttnn.bfloat8_b)
                 ttnn.deallocate(t)
@@ -12782,14 +12787,14 @@ class OuterProductMean(Module):
 
             if depth_parts is None:
                 a_flat = ttnn.reshape(rows_of(a), (rows * C, S))
-                z = ttnn.matmul(a_flat, b, transpose_b=True,
+                z = ttnn.matmul(a_flat, b, transpose_b=True, dtype=z_dtype,
                                 compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(a_flat)
                 return z
             z = None
             for acp, bcp, Sc in depth_parts:
                 a_flat = ttnn.reshape(rows_of(acp), (rows * C, Sc))
-                zp = ttnn.matmul(a_flat, bcp, transpose_b=True,
+                zp = ttnn.matmul(a_flat, bcp, transpose_b=True, dtype=z_dtype,
                                  compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(a_flat)
                 if z is None:
