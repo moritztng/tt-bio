@@ -55,6 +55,53 @@ filled the card when it does refuse, and exits when it is done.
   (`design_dropout`, default true, off for the `harden` stage); when the Evoformer runs on the card
   it runs without dropout in every stage. Host JAX trajectories keep it.
 
+### The release gate itself
+
+Run on qb1 (`tt-quietbox`), a four-card Blackhole p150a box, from a venv holding the built release
+wheel with `[tenstorrent,test]`, which resolves the `pyproject.toml` ttnn pin (0.68.0). Every arm
+scores the release code: `tt_bio/`, `scripts/` and `pyproject.toml` at 3d3f923ff, identical in the
+tagged commit. The arms were split over cards 0, 2 and 3 to
+fit in a day, so the host was never idle: load 7 to 28 on 32 cores. Timed folds ran at AICLK
+1350 MHz except where noted.
+
+**Implementation parity: PASS.** 44 legs, 39 PASS, 4 GAP, 1 PASS-caveated. The four GAP legs
+reproduce the deviation already committed for them.
+
+**Accuracy against ground truth: PASS.** All 21 per-model release-gate arms cleared their floors,
+including the L1-budget, batch-position, NESSO-1 and RF3 1024-residue arms.
+
+**UX: PASS.** Every surface cleared progress, parse and results shape.
+
+**BindCraft 2 on a card: PASS.** A campaign run from the installed wheel held 1.16 to 1.45 GiB at
+each of six trajectory boundaries and exited on its own with status 0.
+
+**On-device test suite: 9281 passed, 3 failed.** Two are abb3 timing records taken before 0.13.0,
+re-recorded in this release. The third is the opt-in Protenix device confidence path
+(`TT_PROTENIX_CONF_DEVICE`), whose PAE correlation reads 0.9807 against its floor with the same
+digits since 0.6.7; the default path computes confidence on the host.
+
+**Capacity: matches the baseline.** 13 pass, 6 skip, and the two refusals are OpenDDE and
+OpenDDE-abag at 1536 tokens, above the recorded p150a ceiling of 1024.
+
+**Performance: no change against 0.13.0.** The arm failed 8 of 21 models against the recorded
+baselines at load 22.7, so it was settled by pairing 0.13.1 with 0.13.0 on card 0 in interleaved
+rounds. Per-round delta against the baseline, 0.13.1 / 0.13.0: OpenFold3 +0.5, +5.3, +16.5 /
+-14.9, +3.1, +14.6 %; OpenDDE-abag -20.2, -4.8, +9.1 / -16.5, -3.5, +12.3 %; RF3 -13.2, -1.5,
++0.2 / -7.9, -2.8, +0.2 %; ESMC-300M -2.8, -3.5 / -3.3, +0.2 %; BoltzGen -9.8, +18.0 / +8.1,
++17.3 %; Boltz-2 affinity -54.1, -35.7 / -61.0, -41.5 %. 0.13.1 is inside 0.13.0's round spread on
+every model. NESSO-1 ran with the card at 800 MHz in both arms, so its numbers compare the two
+releases and nothing else.
+
+**Supported sizes: no change against 0.13.0.** Boltz-2, ESMFold-2, Protenix-v2, OpenFold3 and
+RF3 passed the full ladder, 256 to 1536 tokens. OpenBind-0 failed on its first rung only (256
+tokens, 37.0 s against 11.4 s recorded) and NESSO-1 read 1.08 to 2.46x slower on every rung,
+smallest rungs most, which is what host load does to a dispatch-bound fold; the release changes
+no code either model runs. Protenix-v1 at 896 tokens and OpenDDE at 768 timed out in warm-up once
+each. Rerun three times per release, interleaved, both folded every time on both: Protenix-v1 in
+76, 104, 99 s on 0.13.1 against 71, 97, 65 s on 0.13.0, OpenDDE in 319, 220, 255 s against 233,
+216, 234 s. The rungs above those two were not re-measured for either model. No baseline was
+re-recorded.
+
 ## [0.13.0] - 2026-10-08
 
 Your own objective and your own outputs, on the models tt-bio already ships. BindCraft 2's design
