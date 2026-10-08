@@ -186,7 +186,6 @@ for n in OPENED:
             pass
 log(ev="device_open", s=t_open, nodes=OPENED, arch=ARCH, card=CARD)
 
-T.set_fast_mode(FAST)  # the worker does this in load_model; without it a fast arm folds exact
 t = time.monotonic()
 
 
