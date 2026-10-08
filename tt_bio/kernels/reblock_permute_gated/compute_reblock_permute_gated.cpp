@@ -31,6 +31,7 @@
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/transpose_wh.h"
+#include "api/compute/reconfig_data_format.h"
 
 void kernel_main() {
     constexpr uint32_t p_cb = get_compile_time_arg_val(0);    // c_0,  value slice
@@ -58,6 +59,11 @@ void kernel_main() {
     // Capped by DST, not by taste: stage 2 holds the value AND the gate for each tile, 2 slots a
     // tile, against 8 slots of a 16-bit DST. So 4 is the ceiling and the host will not pass more.
     constexpr uint32_t GRAN = get_compile_time_arg_val(6);
+    // 1 when p_cb/g_cb carry a format other than the bf16 working CBs (a bfp8 in-projection, spd-trimul
+    // INPROJ_B8). Every unpack then names its source format first: the unpacker keeps whatever format
+    // it was last configured for, and a bfp8 tile read as bf16 (or the reverse) is garbage, not a
+    // rounding. 0 compiles exactly the uniform-bf16 kernel above.
+    constexpr uint32_t mixed_fmt = get_compile_time_arg_val(7);
 
     binary_op_init_common(p_cb, sig_cb, mul_cb);
 
@@ -72,6 +78,9 @@ void kernel_main() {
         cb_reserve_back(sig_cb, n);
         tile_regs_acquire();
         copy_tile_to_dst_init_short(g_cb);
+        if constexpr (mixed_fmt) {
+            reconfig_data_format_srca(g_cb);
+        }
         for (uint32_t j = 0; j < n; ++j) {
             copy_tile(g_cb, j, j);
         }
@@ -97,8 +106,14 @@ void kernel_main() {
         for (uint32_t j = 0; j < n; ++j) {
             // Two DST slots a tile, so the multiply reads the same two operands it always did.
             copy_tile_to_dst_init_short(p_cb);
+            if constexpr (mixed_fmt) {
+                reconfig_data_format_srca(p_cb);
+            }
             copy_tile(p_cb, j, 2 * j);
             copy_tile_to_dst_init_short(sig_cb);
+            if constexpr (mixed_fmt) {
+                reconfig_data_format_srca(sig_cb);
+            }
             copy_tile(sig_cb, j, 2 * j + 1);
             mul_binary_tile_init();
             mul_binary_tile(2 * j, 2 * j + 1, 2 * j);
@@ -118,6 +133,9 @@ void kernel_main() {
         cb_wait_front(mul_cb, n);
         cb_reserve_back(out_cb, n);
         transpose_wh_init(mul_cb, out_cb);
+        if constexpr (mixed_fmt) {
+            reconfig_data_format_srca(mul_cb);
+        }
         tile_regs_acquire();
         for (uint32_t j = 0; j < n; ++j) {
             transpose_wh_tile(mul_cb, j, j);
