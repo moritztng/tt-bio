@@ -5061,8 +5061,38 @@ def _trimul_in0_block_w(seq_len_tiles: int) -> int:
     An unpriced accuracy cost against a win inside the noise is a NO-GO, so the band stays. Widening
     it is Moritz's call and needs a rho margin, not a perf argument.
     """
-    return max(d for d in range(min(_TRIMUL_IN0_BLOCK_W_BAND, seq_len_tiles), 0, -1)
-               if seq_len_tiles % d == 0)
+    band = seq_len_tiles if _TRIMUL_IBW_FULL and seq_len_tiles not in _TRIMUL_IBW_FULL_REFUSED \
+        else _TRIMUL_IN0_BLOCK_W_BAND
+    return max(d for d in range(min(band, seq_len_tiles), 0, -1) if seq_len_tiles % d == 0)
+
+
+# SPD lever (spd-trimul), default off until graded: drop the band and take all of K in one block
+# when its circular buffers fit (`_triangle_mul_program_config` still narrows on the CB budget).
+# At 736 tokens Kt = 23 is prime, so the band leaves in0_block_w = 1 and the einsum runs at 17 %
+# of the HiFi4 roof on Wormhole; lpx-matmul measured ibw 23 at 1.8-2.1x on that matmul alone.
+# Not bit-exact: it reorders the fp32 K accumulation, so it is an accuracy-graded lever.
+# A shape whose wide block clashes with live L1 at program creation is recorded here and falls
+# back to the band for the rest of the process.
+_TRIMUL_IBW_FULL = env_flag("TT_BIO_TRIMUL_IBW_FULL", False)
+# SPD lever (spd-trimul): on the DRAM channel loop the back move writes every chunk straight into
+# its channel slice of one [1, H, H, hidden] output, deleting the closing concat (a full read and
+# write of the hidden tensor, 2.59 ms per call at 736 tokens on Wormhole). Layout only, bit-exact.
+_TRIMUL_BACK_INTO = env_flag("TT_BIO_TRIMUL_BACK_INTO", False)
+_TRIMUL_IBW_FULL_REFUSED: set = set()
+
+
+def set_trimul_back_into(on: bool) -> bool:
+    """A/B switch for the harness. Returns the previous state."""
+    global _TRIMUL_BACK_INTO
+    prev, _TRIMUL_BACK_INTO = _TRIMUL_BACK_INTO, bool(on)
+    return prev
+
+
+def set_trimul_ibw_full(on: bool) -> bool:
+    """A/B switch for the harness. Returns the previous state."""
+    global _TRIMUL_IBW_FULL
+    prev, _TRIMUL_IBW_FULL = _TRIMUL_IBW_FULL, bool(on)
+    return prev
 
 
 # The grid is NOT a tuning knob here, and this records the measurement rather than the argument.
@@ -8247,6 +8277,7 @@ class TriangleMultiplication(Module):
         # independent-channel sum). The clash is recorded, so a shape pays one failed
         # compile per process and every later call starts narrow.
         x_chunks = []
+        x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
         while True:
             try:
                 # Re-read inside the try: a clash retry narrows chunk_size and regroups, and the
@@ -8411,6 +8442,19 @@ class TriangleMultiplication(Module):
                         large_seq
                         or (_TRIMUL_BACK_ONE_PASS_L1
                             and _reblock.eligible_back(x_chunk, back_mc)))
+                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc
+                            and _reblock.eligible_back(x_chunk, back_mc))
+                    if into:
+                        # Each chunk lands in its own channel slice of one output tensor, so the
+                        # concat below never runs. Bit-exact: the same bytes in the same order.
+                        if x_out is None:
+                            x_out = ttnn.allocate_tensor_on_device(
+                                ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
+                                ttnn.TILE_LAYOUT, self.device, back_mc)
+                        _reblock.reblock_permute_back(x_chunk, back_mc, out=x_out, c_off=c_done)
+                        c_done += int(x_chunk.shape[1])
+                        ttnn.deallocate(x_chunk)
+                        continue
                     if one_pass:
                         x_chunk_t = _channel_move_back(x_chunk, back_mc)
                         ttnn.deallocate(x_chunk)
@@ -8448,7 +8492,14 @@ class TriangleMultiplication(Module):
                 mask_clash = (large_seq and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
-                if not oom and not mask_clash and (large_seq or "clash with L1 buffers" not in msg):
+                ibw_clash = ("clash with L1 buffers" in msg and not mask_clash
+                             and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
+                if ibw_clash:
+                    # The full-K block is the newest L1 claimant in this call: give it up first.
+                    _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
+                    program_config = _triangle_mul_program_config(seq_len_tiles)
+                if (not oom and not mask_clash and not ibw_clash
+                        and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
                 if mask_clash:
                     _TRIMUL_MASK_DRAM_SHAPES.add(mask_key)
@@ -8470,6 +8521,9 @@ class TriangleMultiplication(Module):
                     if isinstance(_t, ttnn.Tensor):
                         ttnn.deallocate(_t)
                 x_chunks = []
+                if x_out is not None:
+                    ttnn.deallocate(x_out)
+                x_out, c_done = None, 0
                 # Drop the interrupted iteration's intermediates: whatever was live
                 # at the throw still holds L1, and the retry must allocate against a
                 # clean slate, not against the corpse of the failed attempt.
@@ -8502,7 +8556,7 @@ class TriangleMultiplication(Module):
                           f"above is expected and handled; the result is unchanged.",
                           file=sys.stderr, flush=True)
                     continue
-                if mask_clash:
+                if mask_clash or ibw_clash:
                     continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a
@@ -8553,7 +8607,11 @@ class TriangleMultiplication(Module):
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
             dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
             return self._tail_rows(x_in, x_chunks, H, host_acc, add_to_input)
-        x = _acc_concat(x_chunks, -1, host_acc)
+        if x_out is not None:
+            assert not x_chunks and c_done == self._hidden, (len(x_chunks), c_done, self._hidden)
+            x = x_out
+        else:
+            x = _acc_concat(x_chunks, -1, host_acc)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if rows_tail:
             return self._tail_rows(x_in, x, H, host_acc, add_to_input)

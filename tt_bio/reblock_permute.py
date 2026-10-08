@@ -573,7 +573,7 @@ def _build_back(x, out, device, reader_ct, writer_ct):
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
-        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+        common_runtime_args=[0, Ct, 0], config=ttnn.WriterConfigDescriptor(),
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
     # per tile, and the CB indices are the same.
@@ -613,24 +613,35 @@ def _prepare_back(x, out, device):
 
 
 @_ops.fused_kernel("reblock_permute_back")
-def reblock_permute_back(x, memory_config=None, device=None):
-    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE."""
+def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
+    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE.
+
+    With ``out`` (a ``[1, N, N, C_out]`` tensor, ``C_out >= c_off + C``) the result is written into
+    its channels ``[c_off, c_off + C)`` and ``out`` is returned: a channel loop then fills one tensor
+    in place instead of concatenating its chunks. Same bytes, same order, bit-exact.
+    """
     device = device or x.device()
     mc = memory_config or x.memory_config()
     C, N = int(x.shape[1]), int(x.shape[2])
-    out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
-    )
+    if out is None:
+        out = ttnn.allocate_tensor_on_device(
+            ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
+        )
+    c_out = int(out.shape[-1])
+    assert c_off % TILE_W == 0 and c_off + C <= c_out and tuple(out.shape[1:3]) == (N, N), (
+        "reblock_permute_back: the channel slice must be tile-aligned and inside `out`",
+        C, c_off, tuple(out.shape))
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
+    wargs = [dst, c_out // TILE_W, c_off // TILE_W]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         pd.kernels[0].common_runtime_args = [src]
-        pd.kernels[1].common_runtime_args = [dst]
+        pd.kernels[1].common_runtime_args = wargs
     else:
         reader, writer, compute = entry["kernels"]
         reader.common_runtime_args = [src]
-        writer.common_runtime_args = [dst]
+        writer.common_runtime_args = wargs
         pd = entry["pd"] = ttnn.ProgramDescriptor(
             kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
         )
