@@ -42,6 +42,8 @@ PASSES = 2
 # SKIP_SIGMOID drops the gate so the multiply can be scored alone. Diagnostic only.
 ROUND = 2
 SKIP_SIGMOID = 0
+# TRIMUL_TAIL_ABL, the kernels' stage ablation (see the patch script's HEADER). Diagnostic only.
+ABL = 0
 
 # The epilogue (`TRIMUL_TAIL_EPI` in compute.cpp). 0 is the bit-exact production order above. 1
 # packs each GEMM pass straight out of DST into bf16 (sigmoid applied in DST on the gate pass) and
@@ -211,7 +213,7 @@ def _cb(idx, core_grid, tiles):
 def _build(device, xa, xb, wa, wb, outs, grid, ckc, block, epi, shared):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
             "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID, "TRIMUL_TAIL_EPI": epi,
-            "TRIMUL_TAIL_SHARED_IN0": int(shared)}
+            "TRIMUL_TAIL_SHARED_IN0": int(shared), "TRIMUL_TAIL_ABL": ABL}
     # EPI >= 1 applies the sigmoid to the DST a GEMM pass packs from, which is the finished sum
     # only when the contraction is one K block.
     assert epi == 0 or block[1] == _tiles(wa.shape[-2]), (epi, block, tuple(wa.shape))
@@ -344,7 +346,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
             out, mem = _alloc_out(shape, device, mem)
             outs.append(out)
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
-           epi, str(mem), _block(wa), shared, split)
+           ABL, epi, str(mem), _block(wa), shared, split)
 
     entry = _CACHE.get(key)
     if entry is None:

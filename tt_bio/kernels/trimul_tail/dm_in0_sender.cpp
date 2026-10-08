@@ -35,6 +35,13 @@
 #ifndef TRIMUL_TAIL_SHARED_IN0
 #define TRIMUL_TAIL_SHARED_IN0 0
 #endif
+// Diagnostic only, never set in production: a stage ablation that keeps every CB handshake and
+// the in0 chain but drops one stage's work, so a timing says which stage binds. Bit 1: the in0
+// injector skips its DRAM read. Bit 2: compute skips the matmul. Bit 4: the writer skips its
+// DRAM writes. Bit 8: the in1 sender skips its DRAM read. The output is garbage under any bit.
+#ifndef TRIMUL_TAIL_ABL
+#define TRIMUL_TAIL_ABL 0
+#endif
 // SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -255,7 +262,7 @@ void kernel_main() {
                         // write_block_sync_split is more generic (support multiple output tensors)
                         // But for N_chunks == 1 (non-split minimal_matmul), write_block_sync should be faster
                         if constexpr (N_chunks == 1) {
-                            write_block_sync<M_block_tiles, N_block_tiles>(
+                            if (!(TRIMUL_TAIL_ABL & 4)) write_block_sync<M_block_tiles, N_block_tiles>(
                                 std::get<0>(outputs_tuple),
                                 out_shape,
                                 out_read_ptr,
@@ -265,7 +272,7 @@ void kernel_main() {
                                 defer_write_n_tile,
                                 defer_write_n_tile_end);
                         } else {
-                            write_block_sync_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                            if (!(TRIMUL_TAIL_ABL & 4)) write_block_sync_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
                                 outputs_tuple,
                                 out0_shape,
                                 out_read_ptr,
@@ -298,7 +305,7 @@ void kernel_main() {
                             fused_op_receiver.compute_actual_k_block_iter(n_block_iter == 0, k_block_iter, k_forward);
                     }
 #endif
-                    read_in0_block_sync<M_block_tiles, K_block_tiles>(
+                    if (!(TRIMUL_TAIL_ABL & 1)) read_in0_block_sync<M_block_tiles, K_block_tiles>(
                         pass == 0 ? in0_reader : in0b_reader,
                         in0_shape,
                         in0_start_address,
@@ -420,7 +427,7 @@ void kernel_main() {
                     // write_block_sync_granular_split is more generic (support multiple output tensors)
                     // But for N_chunks == 1 (non-split minimal_matmul), write_block_sync_granular should be faster
                     if constexpr (N_chunks == 1) {
-                        write_block_sync_granular<M_block_tiles, N_block_tiles>(
+                        if (!(TRIMUL_TAIL_ABL & 4)) write_block_sync_granular<M_block_tiles, N_block_tiles>(
                             std::get<0>(outputs_tuple),
                             out_shape,
                             cb_id_out,
