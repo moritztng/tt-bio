@@ -79,12 +79,6 @@ _ENABLED = os.environ.get(
 QK_MASK_PRELOAD = os.environ.get("TT_BIO_TRIATT_QK_MASK_PRELOAD", "1") == "1"
 
 
-# K and V forwarded core to core along the q-chunk cores of each head (`sdpa_generic.build`'s
-# `kv_chain`) instead of each of them reading the same rows from DRAM: at 736 tokens on 72 cores
-# that is 1.1 of the call's 2.2 GB. OFF until it is measured on a device.
-KV_CHAIN = os.environ.get("TT_BIO_TRIATT_KV_CHAIN", "0") == "1"
-
-
 def _mask_defines(k_num_chunks: int) -> dict:
     d = {"PERSISTENT_MASK": k_num_chunks}
     if QK_MASK_PRELOAD:
@@ -484,7 +478,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     try:
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
-                kv_buffer_factor=kv_buffer_factor, gate=gate_arg, kv_chain=KV_CHAIN,
+                kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
                 defines_extra={**_mask_defines(p["k_num_chunks"]),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
