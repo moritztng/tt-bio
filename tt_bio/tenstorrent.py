@@ -345,6 +345,12 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
 # neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
+# Silu on a matmul's fp32 accumulator honours math_approx_mode (exp_21f and one Newton step instead
+# of the accurate exp and two), through a private overlay of ttnn's kernel headers: metal_overlay.py.
+# Must be set before the first device open. Measuring (perf/spd_overhead/swiglu_bench.py).
+if env_flag("TT_BIO_SILU_APPROX", False):
+    from . import metal_overlay as _metal_overlay
+    _metal_overlay.enable(("silu_approx",))
 _FAST_MODE = False
 # Protenix's lower-precision levers, one named switch each (op evidence: perf/lpx_*; fold grades:
 # state/spd). A precision mode is a set of these names. `--fast` runs FAST_LEVERS; normal mode runs
@@ -6269,8 +6275,8 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     against 8192 alignment rows the whole upload is a 3221225472 B buffer a Wormhole chip
     refused, and the whole `m` would only be offloaded to the host afterwards anyway. Every op
     in the projection is per alignment row, so the chunks hold the rows the whole pass does."""
-    up = lambda t: ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT,
-                                   device=get_device(), dtype=ttnn.bfloat16)
+    up = lambda t: ttnn.from_torch((t if t.dtype == torch.bfloat16 else t.float()).contiguous(),
+                                   layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
     lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
     host = torch.is_tensor(feat)
