@@ -406,6 +406,12 @@ def levers(names):
         _LEVERS = prev
 
 
+# Blackhole dispatch on Ethernet cores instead of a Tensix column (spd-bh, measuring, default off).
+# Stock p150a firmware reports 12 Tensix columns (120 of the die's 140 cores); Tensix dispatch takes
+# one, so tt-bio computes on 11x10. Ethernet dispatch leaves all 12: 120 cores, +9.1 %. tt-metal
+# ships the descriptor (core_descriptors/blackhole_140_arch_eth_dispatch.yaml, 2xharvested: 12x10).
+# Single-chip boards only: a p300c's two chips are linked over Ethernet on the board.
+_BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", False)
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
@@ -5844,6 +5850,8 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
             gx = COMPUTE_GRID_X_13
         elif ax < COMPUTE_GRID_X_11 or ay < COMPUTE_GRID_Y:
             gx, gy = ax, ay
+        else:
+            gx = ax   # 12 on a two-column-harvested part whose dispatch is not on a Tensix column
     except Exception:
         pass
     # TT_BIO_FORCE_GRID="x,y" (default off): pin the main grid, e.g. 11,10 on a 13x10
@@ -7028,7 +7036,7 @@ def _open_and_init_device(trace_region_size):
     # hang). So decide up front from the physical chip count and open cleanly
     # once. Default (Tensix) dispatch yields an 8x7 grid that
     # _configure_active_compute_grid picks up and tunes for.
-    eth_dispatch = is_wormhole() and num_chips() <= 1
+    eth_dispatch = (is_wormhole() and num_chips() <= 1) or (_BH_ETH_DISPATCH and not is_wormhole())
     kwargs = (
         {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
         if eth_dispatch else {}
