@@ -19,6 +19,9 @@ say() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/run.log"; }
 exec 9> "$LOCK"
 say "chip $CHIP waiting for flock"
 flock -w "${WAIT:-600}" 9 || { say "flock busy, stopping"; exit 3; }
+# Job control on: a non-interactive shell starts a background job with SIGINT ignored, and Python keeps an
+# inherited SIG_IGN, so without it the watchdog's SIGINT would never reach the fold.
+set -m
 say "start chip $CHIP head $(git rev-parse --short HEAD) arm $ARM inputs $INPUTS stall ${STALL}s args $*"
 "${PY:-python}" perf/spd/bench.py --out "$OUT/b" --chip "$CHIP" --arm "$ARM" --inputs "$INPUTS" "$@" \
   > "$OUT/bench.log" 2>&1 &
