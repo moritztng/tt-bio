@@ -248,8 +248,11 @@ for name, y in INPUTS:
         la0 = os.getloadavg(); t0 = time.monotonic()
         try:
             metrics, _best, _feats = state.predict_one(y, rcfg); err = None
-        except Exception:  # a crashing rep is a result, not the end of the run
-            import traceback; err = traceback.format_exc()[-3000:]; metrics = {}
+        except Exception as e:  # a crashing rep is a result, not the end of the run
+            # Python frames first: a ttnn error message carries a C++ backtrace that would bury them.
+            import traceback
+            err = "".join(traceback.format_tb(e.__traceback__))[-2500:] + f"{type(e).__name__}: {str(e)[:500]}"
+            metrics = {}
         t1 = time.monotonic()
         c = LAST.get("coords")
         finite = bool(c is not None and torch.isfinite(c).all().item()
