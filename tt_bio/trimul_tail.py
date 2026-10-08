@@ -18,6 +18,7 @@ today's three ops.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -41,6 +42,29 @@ PASSES = 2
 # SKIP_SIGMOID drops the gate so the multiply can be scored alone. Diagnostic only.
 ROUND = 2
 SKIP_SIGMOID = 0
+
+# The epilogue (`TRIMUL_TAIL_EPI` in compute.cpp). 0 is the bit-exact production order above. 1
+# packs each GEMM pass straight out of DST into bf16 (sigmoid applied in DST on the gate pass) and
+# gates with the FPU multiply, so no fp32 accumulator copy, no gate copy, no SFPU multiply and no
+# integer rounding: a numerics change at the bf16-ULP level (sigmoid of the unrounded g, the
+# packer's tie rule). spd-trimul A/B, `perf/spd_trimul/bench.py` arm `epi1`. 2 is 1 plus the
+# residual add, for a caller that passes `resid` (the pair tensor the update is added to): the
+# product is added to z in DST and written back into z, and the caller's `add_` is skipped. Without
+# `resid` a call runs as 1.
+EPI = int(os.environ.get("TT_BIO_TRIMUL_TAIL_EPI", "0"))
+
+
+def set_epi(v: int) -> int:
+    """A/B switch for the paired harness. Returns the previous value."""
+    global EPI
+    prev, EPI = EPI, int(v)
+    return prev
+
+
+def _epi() -> int:
+    """EPI, or 2 under Protenix's `trimul_tail` precision lever."""
+    from .tenstorrent import lever
+    return EPI or (2 if lever("trimul_tail") else 0)
 
 # The swept block config each pass runs, resolved per call from the weight's (kt, nt) key through
 # the same `tenstorrent._MM_BLOCK` table production's own projections read, so a served call folds
@@ -169,9 +193,12 @@ def _cb(idx, core_grid, tiles):
         format_descriptors=[fmt])
 
 
-def _build(device, xa, xb, wa, wb, out, grid, ckc, block):
+def _build(device, xa, xb, wa, wb, out, grid, ckc, block, epi):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
-            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID}
+            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID, "TRIMUL_TAIL_EPI": epi}
+    # EPI >= 1 applies the sigmoid to the DST a GEMM pass packs from, which is the finished sum
+    # only when the contraction is one K block.
+    assert epi == 0 or block[1] == _tiles(wa.shape[-2]), (epi, block, tuple(wa.shape))
     entry = MG.build(device, xa, wa, [out], (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
@@ -183,6 +210,9 @@ def _build(device, xa, xb, wa, wb, out, grid, ckc, block):
     entry["cbs"] += [_cb(4, core_grid, out_block * 2),
                      _cb(5, core_grid, out_block * 2),
                      _cb(6, core_grid, 2)]
+    if epi == 2:
+        # c_7: the residual block, read by the non-writer DM kernel, double buffered.
+        entry["cbs"].append(_cb(7, core_grid, out_block * 2))
 
     # The compute kernel is the fork's, not the wheel's, and it needs the pass count too.
     compute = entry["kernels"][4]
@@ -216,8 +246,42 @@ def _repack(entry):
 _CACHE: dict = {}
 
 
-def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None):
+RESID_STATS = [0, 0]    # residual folded into the tail, offered but not taken
+
+
+def _resid_ok(resid, xa, wa, mem):
+    """Whether `resid` can be the tail's in-place destination: the output's exact shape, bf16,
+    tiled, interleaved DRAM, and the product not headed for L1."""
+    return (resid is not None and mem == ttnn.DRAM_MEMORY_CONFIG
+            and resid.dtype == ttnn.bfloat16 and resid.layout == ttnn.TILE_LAYOUT
+            and resid.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+            and [int(d) for d in resid.shape] == [int(d) for d in xa.shape][:-1] + [int(wa.shape[-1])]
+            and tuple(resid.padded_shape) == tuple(xa.padded_shape)[:-1] + (int(wa.padded_shape[-1]),))
+
+
+def _alloc_out(shape, device, mem):
+    """The product's buffer and where it landed: `mem`, or DRAM if the allocator refuses L1."""
+    try:
+        out = ttnn.allocate_tensor_on_device(
+            shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mem)
+    except Exception:                                                      # noqa: BLE001
+        if mem == ttnn.DRAM_MEMORY_CONFIG:
+            raise
+        mem = ttnn.DRAM_MEMORY_CONFIG
+        OUT_L1_STATS[1] += 1
+        out = ttnn.allocate_tensor_on_device(
+            shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mem)
+    else:
+        OUT_L1_STATS[0 if mem != ttnn.DRAM_MEMORY_CONFIG else 1] += 1
+    return out, mem
+
+
+def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None):
     """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope.
+
+    With `resid` and EPI == 2 it computes `resid + p * sigmoid(g)` into `resid` itself and returns
+    `resid` (the caller's in-place add is then already done: `_add_input` sees `u is x`). Any
+    other case ignores `resid` and returns the bare product.
 
     `out_memory_config` is where the product lands. It is a real perf decision and not a
     detail: the three ops this replaces put their product wherever `_trimul_out_proj` put
@@ -239,25 +303,25 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None):
     device = xa.device()
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     mem = out_memory_config or ttnn.DRAM_MEMORY_CONFIG
+    want = _epi()
+    epi = min(want, 1)
+    if want == 2 and resid is not None:
+        if _resid_ok(resid, xa, wa, mem):
+            epi = 2
+            RESID_STATS[0] += 1
+        else:
+            RESID_STATS[1] += 1
     shape = ttnn.Shape([int(d) for d in xa.shape][:-1] + [int(wa.shape[-1])])
-    try:
-        out = ttnn.allocate_tensor_on_device(
-            shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mem)
-    except Exception:                                                      # noqa: BLE001
-        if mem == ttnn.DRAM_MEMORY_CONFIG:
-            raise
-        mem = ttnn.DRAM_MEMORY_CONFIG
-        OUT_L1_STATS[1] += 1
-        out = ttnn.allocate_tensor_on_device(
-            shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mem)
+    if epi == 2:
+        out = resid
     else:
-        OUT_L1_STATS[0 if mem != ttnn.DRAM_MEMORY_CONFIG else 1] += 1
+        out, mem = _alloc_out(shape, device, mem)
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
-           str(mem))
+           epi, str(mem))
 
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, out, grid, ckc, _block(wa))
+        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, out, grid, ckc, _block(wa), epi)
     else:
         # `MG.rebind` repacks the descriptor itself, so only bind B separately when it does not run.
         addrs = (xa.buffer_address(), wa.buffer_address(), (out.buffer_address(),))

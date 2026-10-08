@@ -322,8 +322,13 @@ def note_l1_refusal(message: str) -> None:
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
-          out_im_dtype=None):
+          out_im_dtype=None, kv_chain=False):
     """The ProgramDescriptor for the fold's SDPA call.
+
+    `kv_chain` forwards K and V along the q-chunk cores of each head instead of every core
+    reading them from DRAM: the core owning q chunk 0 reads, then hands each chunk core to core
+    (unicast, the reader's existing chain protocol, `KV_CHAIN_ALL_BATCHES` so it runs on every
+    batch row). Needs one head and one q chunk per core and q_pf > 1; otherwise a no-op.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
@@ -478,6 +483,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # kernel's other granularities use.
         defines["GATE_GRANULARITY"] = str(
             valid_granularity(p["Sq_chunk_t"], max(p["dst_size"] // 2, 1)))
+    if im_dtype not in (None, ttnn.bfloat16):
+        # The block row-max LLK streams the score tiles at bf16's tile stride (its own header says
+        # the operand must be bfloat16_b), so a narrower score CB takes the per-tile reduce.
+        defines["QK_TILEWISE_MAX"] = "1"
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
@@ -500,6 +509,26 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if gate is not None:
         g_a = gate[0].buffer_address()
 
+    chain = kv_chain and p["q_pf"] > 1 and p["q_per_core"] == 1 and p["nh_per_core"] == 1
+    if chain:
+        defines["KV_CHAIN_ALL_BATCHES"] = "1"
+        dlist = sorted(defines.items())
+
+    def phys(i):
+        c = device.worker_core_from_logical_core(ttnn.CoreCoord(i % gx, i // gx))
+        return [c.x, c.y]
+
+    def chain_args(i, ln, lq, lqe):
+        """The 14 chain runtime args (reader_interleaved.cpp): participant, injector, sink, batch,
+        head, two host-only slots, prev x/y, next x/y, next core's q chunks, mcast dests, wait."""
+        qi = i % p["q_pf"]
+        if not chain or lq >= lqe:
+            return [0] * 14
+        last = qi == p["q_pf"] - 1 or (qi + 1) * p["q_per_core"] >= p["q_num_chunks"]
+        prev = phys(i - 1) if qi > 0 else [0, 0]
+        nxt = phys(i + 1) if not last else [0, 0]
+        return [1, int(qi == 0), int(last), 0, ln, 0, 0] + prev + nxt + [0 if last else 1, 0, 0]
+
     rr, wr, cr = [], [], []
     for i in range(num_cores):
         core = ttnn.CoreCoord(i % gx, i // gx)
@@ -511,7 +540,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         lqe = min(lq + p["q_per_core"], p["q_num_chunks"])
         # num_phases=1, chunked_q_chunk_offset=0, read/write_offset=0 (:807-809)
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
-                   + [0] * 14                          # chain metadata, all no-chain (0/0 chains)
+                   + chain_args(i, ln, lq, lqe)        # chain metadata, all no-chain unless kv_chain
                    + ([] if fuse_qkv is None else [x_a, w_a])
                    + ([] if gate is None else [g_a])))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
@@ -584,7 +613,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # `build` was given -- so without it here an A/B that flips the env gets the FIRST arm's
            # compiled program back for both legs and reads a 1.000x that means nothing.
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
-           str(kw.get("im_dtype")), str(kw.get("out_im_dtype")))
+           str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), bool(kw.get("kv_chain")))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,

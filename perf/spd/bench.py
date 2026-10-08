@@ -8,8 +8,9 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
     python perf/spd/bench.py --out RUN/lpx   --chip 3 --arm lpx:TT_BIO_LPX=1 --inputs c730
     python perf/spd/bench.py --out RUN/fast  --chip 3 --arm fast:fast --inputs c730
 
-ARM grammar: NAME[:K=V[,K=V...]][:fast]. K=V are environment variables set before tt_bio is imported;
-`fast` passes --fast. Nothing here edits the model: an arm is only switches the engine already has.
+ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
+before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix under that precision-lever set
+(tenstorrent.LEVERS, e.g. `L=fast-lofi`, `L=normal+opm_b8`), otherwise the mode's own set. Nothing here edits the model: an arm is only switches the engine already has.
 
 Inputs live in --data (default ~/spd-data, built by perf/spd/make_inputs.py): <data>/inputs/<name>.yaml with
 the MSA cache at <data>/msa, read cache-only, so every box folds the same alignment without a search.
@@ -32,25 +33,30 @@ ap.add_argument("--inputs", default="c730")
 ap.add_argument("--warm", type=int, default=3)
 ap.add_argument("--seed", type=int, default=101, help="cold rep seed; warm reps use seed+1..seed+warm")
 ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
-ap.add_argument("--share", type=int, default=0, help="host thread share (runtime.host_thread_cap_env), 0 = all")
+ap.add_argument("--share", type=int, default=None,
+                help="host thread share (runtime.host_thread_cap_env). Default: one share per TT chip on the host, "
+                     "the way serving runs a worker per chip, so concurrent rows on one box do not contend. 0 = all")
 ap.add_argument("--samples", type=int, default=5)
 ap.add_argument("--recycles", type=int, default=10)
 ap.add_argument("--no-coords", action="store_true")
+ap.add_argument("--dry", action="store_true", help="build the config and worker, log them, stop before device open")
 a = ap.parse_args()
 
 
 def parse_arm(spec):
     parts = spec.split(":")
-    env, fast = {}, False
+    env, fast, lv = {}, False, None
     for p in parts[1:]:
         if p == "fast":
             fast = True
+        elif p.startswith("L="):
+            lv = p[2:]
         elif p:
             env.update(kv.split("=", 1) for kv in p.split(","))
-    return parts[0], env, fast
+    return parts[0], env, fast, lv
 
 
-ARM, ARM_ENV, FAST = parse_arm(a.arm)
+ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)
 LOG = open(a.out / "bench.jsonl", "a")
@@ -74,6 +80,8 @@ SHA, DIRTY = git("rev-parse", "HEAD"), bool(git("status", "--porcelain", "--untr
 ENV = {k: v for k, v in sorted(os.environ.items()) if k.startswith(("TT_BIO_", "PROTENIX_", "TT_METAL_"))}
 
 from tt_bio import runtime  # noqa: E402  (after the arm's environment is in place)
+if a.share is None:
+    a.share = len(glob.glob("/sys/class/tenstorrent/tenstorrent!*"))
 if a.share:
     os.environ.update(runtime.host_thread_cap_env(a.share, None))
 
@@ -144,11 +152,14 @@ import tt_bio  # noqa: E402
 import tt_bio.tenstorrent as T  # noqa: E402
 import tt_bio.protenix as P  # noqa: E402
 
-HEAD = dict(sha=SHA, dirty=DIRTY, version=getattr(tt_bio, "__version__", None), arm=ARM, arm_env=ARM_ENV,
-            fast=FAST, host=socket.gethostname(), chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
+HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), arm=ARM, arm_env=ARM_ENV,
+            fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), share=a.share, chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
 log(ev="start", argv=sys.argv, cli=argv, worker=winfo, TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
     torch_threads=torch.get_num_threads(), affinity=len(os.sched_getaffinity(0)), **HEAD)
 
+if a.dry:
+    log(ev="dry", cfg={k: v for k, v in cfg0.items() if "key" not in k and "pass" not in k})
+    os._exit(0)
 state = W._WorkerState("tenstorrent")
 t = time.monotonic(); dev = T.get_device(); t_open = time.monotonic() - t
 
@@ -175,15 +186,31 @@ for n in OPENED:
             pass
 log(ev="device_open", s=t_open, nodes=OPENED, arch=ARCH, card=CARD)
 
-from tt_bio import tenstorrent as TT  # noqa: E402
-
-TT.set_fast_mode(FAST)  # the worker does this in load_model; without it a fast arm folds exact
+T.set_fast_mode(FAST)  # the worker does this in load_model; without it a fast arm folds exact
 t = time.monotonic()
-state.model = P.Protenix.load_from_checkpoint(cfg0["protenix_ckpt"])
+
+
+def lever_set(spec):
+    """`fast-lofi+opm_b8` -> the fast set without lofi, plus opm_b8."""
+    import re
+    toks = re.findall(r"([+-]?)([A-Za-z0-9_]+)", spec)
+    out = T.parse_levers(toks[0][1])
+    for sign, name in toks[1:]:
+        out = out - T.parse_levers(name) if sign == "-" else out | T.parse_levers(name)
+    return sorted(out)
+
+
+LEVER_SET = None if LEVER_SPEC is None else lever_set(LEVER_SPEC)
+# What `Worker.load_model` does before it builds. Without it `load_from_checkpoint` reads fast mode
+# as off, takes NORMAL_LEVERS, and a `:fast` arm folds exact (same digest as `exact` at seed 101).
+T.set_fast_mode(FAST)
+# levers only when asked, so the same harness still runs a tree that predates them (main before SPD)
+state.model = P.Protenix.load_from_checkpoint(
+    cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))
 state.bind_run("spd", dict(cfg0, fast=FAST))
 state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
 m = state.model
-log(ev="build", s=time.monotonic() - t, fast=TT._FAST_MODE)
+log(ev="build", s=time.monotonic() - t, fast=T._FAST_MODE, levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
 orig = m.fold
 

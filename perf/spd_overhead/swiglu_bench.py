@@ -1,0 +1,92 @@
+"""Transition (swiglu) silu placement: accuracy against a float64 reference and ms per module call.
+
+    TT_VISIBLE_DEVICES=N python perf/spd_overhead/swiglu_bench.py --out OUT.json
+
+Arms are `tenstorrent.TRANSITION_SILU` values plus the shipped-off `unfused` form. Each arm runs the
+real `Transition` module on the whole pair tensor, row chunking included, so the time is what a fold
+pays per call. Error is quoted against float64 math on the same bf16 inputs and weights, beside the
+fused arm's own error: an arm is no worse when its error is not above fused's.
+"""
+import argparse, json, os, statistics as st, sys, time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+WARM, REPS = 2, 5
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--arms", default="fused,f32act,f32silu,unfused")
+    ap.add_argument("--shapes", default="736x256x1024,736x128x512")
+    a = ap.parse_args()
+
+    import torch, ttnn
+    import tt_bio.tenstorrent as T
+    from tt_bio.main import ensure_p300_mesh_descriptor
+    ensure_p300_mesh_descriptor()
+    assert Path(T.__file__).resolve().is_relative_to(ROOT), T.__file__
+    dev = T.get_device()
+    arch = "wormhole" if T.is_wormhole() else "blackhole"
+    ckc = (ttnn.types.BlackholeComputeKernelConfig if arch == "blackhole"
+           else ttnn.WormholeComputeKernelConfig)(
+        math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+        fp32_dest_acc_en=True, packer_l1_acc=True)
+    res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": arch,
+           "grid": list(T.COMPUTE_GRID_MAIN), "loadavg": open("/proc/loadavg").read().split()[:3],
+           "rows": []}
+
+    def sync():
+        ttnn.synchronize_device(dev)
+
+    for shp in a.shapes.split(","):
+        S, C, HID = map(int, shp.split("x"))
+        g = torch.Generator().manual_seed(0)
+        bf = lambda t: t.to(torch.bfloat16).to(torch.float64)
+        sd = {"norm.weight": bf(1 + 0.1 * torch.randn(C, generator=g)),
+              "norm.bias": bf(0.1 * torch.randn(C, generator=g)),
+              "fc1.weight": bf(torch.randn(HID, C, generator=g) / C ** 0.5),
+              "fc2.weight": bf(torch.randn(HID, C, generator=g) / C ** 0.5),
+              "fc3.weight": bf(torch.randn(C, HID, generator=g) / HID ** 0.5)}
+        zt = bf(torch.randn(1, S, S, C, generator=g))
+        xn = torch.nn.functional.layer_norm(zt, (C,), sd["norm.weight"], sd["norm.bias"], 1e-5)
+        ref = (torch.nn.functional.silu(xn @ sd["fc1.weight"].T) * (xn @ sd["fc2.weight"].T)) @ sd["fc3.weight"].T
+        tr = T.Transition({k: v.float() for k, v in sd.items()}, ckc)
+        z = ttnn.from_torch(zt.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        for arm in a.arms.split(","):
+            T._UNFUSED_SILU = arm == "unfused"
+            T.TRANSITION_SILU = "fused" if arm == "unfused" else arm
+            row = {"shape": shp, "arm": arm}
+            try:
+                o = tr(z)
+                out = ttnn.to_torch(o).to(torch.float64)
+                ttnn.deallocate(o)
+                d = out - ref
+                row["rel_rms"] = float(d.norm() / ref.norm())
+                row["max_abs"] = float(d.abs().max())
+                row["mean_abs"] = float(d.abs().mean())
+                for _ in range(WARM):
+                    ttnn.deallocate(tr(z))
+                sync()
+                ts = []
+                for _ in range(REPS):
+                    sync(); t0 = time.perf_counter()
+                    o = tr(z); sync()
+                    ts.append((time.perf_counter() - t0) * 1e3)
+                    ttnn.deallocate(o)
+                row["ms"] = round(st.median(ts), 3)
+                row["ms_spread"] = round(max(ts) - min(ts), 3)
+                row["h_chunk"] = [k[2] for k in T.TRANSITION_H_CHUNK_SHAPES if k[0].startswith(f"{S}x{S}x{C}")]
+            except Exception as e:
+                row["error"] = f"{type(e).__name__}: {e}"[:300]
+            print(json.dumps(row), flush=True)
+            res["rows"].append(row)
+        ttnn.deallocate(z)
+    T._UNFUSED_SILU, T.TRANSITION_SILU = False, "fused"
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    a.out.write_text(json.dumps(res, indent=1))
+
+
+if __name__ == "__main__":
+    main()

@@ -21,6 +21,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
+| [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
@@ -51,6 +52,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_SDPA_ADD_GRANULARITY`](#tt_bio_sdpa_add_granularity) | auto | | identical at every value |
 | [`TT_BIO_SDPA_BAND_DIV_K`](#tt_bio_sdpa_band_div_k) | on | Blackhole | moves, inside the bar |
 | [`TT_BIO_SDPA_FUSED_LARGE_S`](#tt_bio_sdpa_fused_large_s) | on | above 1024 tokens | moves, inside the seed spread |
+| [`TT_BIO_SDPA_FUSED_PADDED`](#tt_bio_sdpa_fused_padded) | on | lengths with no dividing chunk (736, 928, 992 ...) | moves |
 | [`TT_BIO_SDPA_GRID_Q_CHUNK`](#tt_bio_sdpa_grid_q_chunk) | on | | identical |
 | [`TT_BIO_SDPA_WIDE_K`](#tt_bio_sdpa_wide_k) | on | twenty padded lengths | moves, inside the seed spread |
 | [`TT_BIO_SOFTMAX_BW_FP32`](#tt_bio_softmax_bw_fp32) | on | training | gradients only |
@@ -63,6 +65,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIATT_DIVIDING_K`](#tt_bio_triatt_dividing_k) | on | OpenFold3 at 832 tokens | moves, inside the bar |
 | [`TT_BIO_TRIATT_FUSED_QKVG`](#tt_bio_triatt_fused_qkvg) | on | | identical |
 | [`TT_BIO_TRIATT_FUSED_QKVGB`](#tt_bio_triatt_fused_qkvgb) | on | | identical |
+| [`TT_BIO_TRIATT_QK_MASK_PRELOAD`](#tt_bio_triatt_qk_mask_preload) | off | fused triangle attention | moves |
 | [`TT_BIO_TRIMUL_FUSED_GOUT`](#tt_bio_trimul_fused_gout) | on | | identical |
 | [`TT_BIO_TRIATT_GATE_EPILOGUE`](#tt_bio_triatt_gate_epilogue) | off | | identical |
 | [`TT_BIO_TRIATT_HIFI_PAD_UP`](#tt_bio_triatt_hifi_pad_up) | on | BindCraft 2, and OpenFold3 at 544 and 608 tokens | moves, far inside the bar |
@@ -184,6 +187,24 @@ identical dimensions. An earlier version of this optimization looked at the shap
 windows wrong, and still wrote the identical structure, because the attention mask is built from the
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
+
+## `TT_BIO_ATOM_SUPERSET_WINDOW`
+
+Default: on.
+
+The Protenix atom transformer attends each block of 32 atoms over a 128-atom key window that starts
+48 atoms to its left, so the window never lines up with the device's 32-row tiles. tt-bio built
+every window by copying rows one at a time (a gather in bf16, a loop of slices in fp32), and that
+copy was most of the module's time. With this flag each block attends over the five whole tiles
+around it instead (160 keys). The 32 extra keys and every key the window mask excludes get a bias
+of -1e9, folded once per fold into the per-block pair bias, so they carry zero weight and the
+attention is the same function. The windows become five aligned slices and one concat.
+
+**Accuracy: the same attention up to rounding.** In float64 the superset output matches the
+128-key window to 1e-12 at 33 to 5,919 atoms and one to five samples
+(`tests/test_atom_superset_window.py`). On the device the softmax and attn@v reduce over 160 keys
+instead of 128, so the result is not bit-exact. The fold-level grade and speed are in progress.
+`TT_BIO_ATOM_SUPERSET_WINDOW=0` restores the windowed path.
 
 ## `TT_BIO_DEVICE_CONDITIONING`
 
@@ -889,6 +910,25 @@ Nesso-1 run their trunk at 4 heads and get the full reach. Sites that run triang
 fp32 (`Fp32TriangleAttention`, and the `fp32_softmax` branch that reaches `_tri_att_sdpa_hifi`)
 never consult this flag.
 
+## `TT_BIO_SDPA_FUSED_PADDED`
+
+Default: on.
+
+Some token counts have no chunk size the fused triangle-attention kernel can split them into. 736
+padded tokens is 23 tiles, a prime, so every dividing chunk is either one tile or the whole
+sequence, and neither fits. Those calls fell to the stock attention, which re-reads the pair bias
+once per row of the pair tensor. The fused kernel can also run a chunk that leaves a padded tail,
+filling the tail with -inf exactly as the stock op does, and then reads the bias once per core.
+This flag offers that pair once per call, right before the first stock rung, so a length that is
+served fused today never reaches it.
+
+**Speed: 2.16x on the attention op** at Protenix-v2's 730-token call on a Wormhole chip at
+1000 MHz, 41.72 to 19.36 ms, measured per op. The fold-level number is in progress.
+
+**Accuracy: not bit-exact**, because the chunking sets the online-softmax order. Against an fp32
+evaluation of the same bf16 operands the padded pair reads rel_rms 0.0226 against the stock op's
+0.0223. The fold-level grade is in progress. `TT_BIO_SDPA_FUSED_PADDED=0` restores the stock rungs.
+
 ## `TT_BIO_SDPA_GRID_Q_CHUNK`
 
 Default: on.
@@ -1221,6 +1261,18 @@ a performance case. It declines nothing at the sizes that matter: 560 fused call
 `perf/b2z2_size_ladder/out/ladder_guard_bh_c0.json`).
 
 **Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
+
+## `TT_BIO_TRIATT_QK_MASK_PRELOAD`
+
+Default: off, until it is measured on a device.
+
+The fused triangle-attention kernel adds the pair bias to the scores in a separate pass over the
+score block, after the QK^T matmul has written it. With this flag the kernel copies the bias tiles
+into the destination registers first and lets the matmul accumulate onto them, so the scores are
+written once with the bias already in. That pass cost 1.17 ms of a 6.55 ms op in an ablation. Only
+the persistent-mask kernel uses it, and only where the add would run on every key chunk.
+
+**Accuracy: not bit-exact.** The score plus bias is rounded once instead of twice.
 
 ## `TT_BIO_TRIMUL_FUSED_GOUT`
 
