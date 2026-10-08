@@ -364,9 +364,16 @@ _FAST_MODE = False
 #                   stop, so it is in no mode until the region is grid-invariant.
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+#   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
+#   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
+#   trimul_glean    the gated channel move's lean compute over an fp32 DST (reblock_permute.GATE_LEAN 2)
+#   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
-          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8")
-FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"}
+          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8",
+          "trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in")
+# Named but in no mode until their fold grade puts them in one.
+UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in"})
+FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"} - UNGRADED_LEVERS
 NORMAL_LEVERS = frozenset()
 _LEVERS = frozenset()
 
@@ -5036,7 +5043,7 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
 _TRIMUL_IN0_BLOCK_W_BAND = 10
 
 
-def _trimul_in0_block_w(seq_len_tiles: int) -> int:
+def _trimul_in0_block_w(seq_len_tiles: int, full: bool = False) -> int:
     """K block width for the trimul matmul: the widest divisor of Kt inside the tuned band.
 
     At a PRIME Kt above 10 the band holds nothing but 1, so the matmul runs with no K blocking at
@@ -5061,7 +5068,7 @@ def _trimul_in0_block_w(seq_len_tiles: int) -> int:
     An unpriced accuracy cost against a win inside the noise is a NO-GO, so the band stays. Widening
     it is Moritz's call and needs a rho margin, not a perf argument.
     """
-    band = seq_len_tiles if _TRIMUL_IBW_FULL and seq_len_tiles not in _TRIMUL_IBW_FULL_REFUSED \
+    band = seq_len_tiles if full and seq_len_tiles not in _TRIMUL_IBW_FULL_REFUSED \
         else _TRIMUL_IN0_BLOCK_W_BAND
     return max(d for d in range(min(band, seq_len_tiles), 0, -1) if seq_len_tiles % d == 0)
 
@@ -5130,10 +5137,13 @@ def set_trimul_ibw_full(on: bool) -> bool:
     """A/B switch for the harness. Returns the previous state."""
     global _TRIMUL_IBW_FULL
     prev, _TRIMUL_IBW_FULL = _TRIMUL_IBW_FULL, bool(on)
-    # The program config is lru-cached per Kt: without this the first arm's block is every arm's
-    # (spd-trimul r1/r2 measured a null "ibw" that had run in0_block_w = 1 throughout).
-    _triangle_mul_program_config.cache_clear()
     return prev
+
+
+def _trimul_ibw_full() -> bool:
+    # Part of the program config's cache key: r1/r2 measured a null "ibw" while the lru cache
+    # handed every arm the first arm's in0_block_w = 1.
+    return _TRIMUL_IBW_FULL or lever("trimul_ibw")
 
 
 # The grid is NOT a tuning knob here, and this records the measurement rather than the argument.
@@ -5161,7 +5171,8 @@ def set_trimul_ibw_full(on: bool) -> bool:
 # and already banked by pinning this program config. KIND=placement, and no Wormhole ratio is
 # carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
-def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
+def _triangle_mul_program_config(seq_len_tiles: int,
+                                 full: bool = False) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
@@ -5175,7 +5186,7 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     # activation of throwing. Past Kt = 113 on Wormhole even a block of 1 is over the bank:
     # the output block itself is the next wall.
     budget = _matmul_cb_budget()
-    in0_block_w = _trimul_in0_block_w(seq_len_tiles)
+    in0_block_w = _trimul_in0_block_w(seq_len_tiles, full)
     while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
@@ -8238,7 +8249,7 @@ class TriangleMultiplication(Module):
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
-        program_config = _triangle_mul_program_config(seq_len_tiles)
+        program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full())
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
@@ -8369,7 +8380,7 @@ class TriangleMultiplication(Module):
                             # `_TRIMUL_INPROJ_B8`: the projection is written in bfp8 for the gated
                             # move to read as is. Asked only where that move can take it (the
                             # dtype-independent half of `gated` below); a decline casts back.
-                            b8 = (_TRIMUL_INPROJ_B8 and not row_norm and bias_i is None
+                            b8 = ((_TRIMUL_INPROJ_B8 or lever("trimul_b8in")) and not row_norm and bias_i is None
                                   and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
                                   and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                                   and (mask is None or mask_moved_ok)
@@ -8553,7 +8564,7 @@ class TriangleMultiplication(Module):
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
-                    program_config = _triangle_mul_program_config(seq_len_tiles)
+                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full())
                 if (not oom and not mask_clash and not ibw_clash
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise

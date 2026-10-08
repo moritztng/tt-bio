@@ -765,7 +765,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
         # FIRST arm's compiled program back for both legs and reads a 1.000x that means nothing.
-        GATE_GRANULARITY, GATE_LEAN,
+        GATE_GRANULARITY, _gate_lean(),
     )
 
 
@@ -851,7 +851,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
         compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID),
-                           GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16), int(GATE_LEAN > 0)],
+                           GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16), int(_gate_lean() > 0)],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
@@ -906,6 +906,12 @@ def set_gate_lean(mode) -> int:
     return prev
 
 
+def _gate_lean() -> int:
+    """GATE_LEAN, or 2 under Protenix's `trimul_glean` precision lever."""
+    from .tenstorrent import lever
+    return GATE_LEAN or (2 if lever("trimul_glean") else 0)
+
+
 @_ops.fused_kernel("reblock_permute_gated")
 def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, device=None,
                           out=None, row_off=0):
@@ -929,7 +935,7 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
             ttnn.Shape([1, slice_c, N, N]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
         )
     assert row_off % TILE_H == 0, f"row_off {row_off} is not a tile boundary"
-    entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC or GATE_LEAN == 2)
+    entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC or _gate_lean() == 2)
     src, dst = xw.buffer_address(), out.buffer_address()
     common_r = [src, p_slice // TILE_W, g_slice // TILE_W, row_off // TILE_H]
     common_w = [dst, row_off // TILE_H]

@@ -60,6 +60,12 @@ def set_epi(v: int) -> int:
     prev, EPI = EPI, int(v)
     return prev
 
+
+def _epi() -> int:
+    """EPI, or 2 under Protenix's `trimul_tail` precision lever."""
+    from .tenstorrent import lever
+    return EPI or (2 if lever("trimul_tail") else 0)
+
 # The swept block config each pass runs, resolved per call from the weight's (kt, nt) key through
 # the same `tenstorrent._MM_BLOCK` table production's own projections read, so a served call folds
 # the identical single K block in the identical order the ops it replaces would.
@@ -297,8 +303,9 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None):
     device = xa.device()
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     mem = out_memory_config or ttnn.DRAM_MEMORY_CONFIG
-    epi = min(EPI, 1)
-    if EPI == 2 and resid is not None:
+    want = _epi()
+    epi = min(want, 1)
+    if want == 2 and resid is not None:
         if _resid_ok(resid, xa, wa, mem):
             epi = 2
             RESID_STATS[0] += 1

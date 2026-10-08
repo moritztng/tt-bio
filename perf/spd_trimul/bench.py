@@ -262,7 +262,7 @@ for var in A.variants.split(","):
         try:
             back0 = list(RB.STATS_BACK)
             tail0, resid0 = list(TTL.STATS), list(TTL.RESID_STATS)
-            fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32)).in0_block_w,
+            fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32), T._trimul_ibw_full()).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
                 yt = accuracy_call(mod)
