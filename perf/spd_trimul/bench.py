@@ -103,7 +103,7 @@ LEVERS = {
     "epi1": [(TTL.set_epi, 1)],
     "epi2": [(TTL.set_epi, 2)],
     "glean": [(RB.set_gate_lean, 1)],
-    "glean32": [(RB.set_gate_lean, 2)],
+    "gleanx": [(RB.set_gate_lean, 2)],
 }
 
 

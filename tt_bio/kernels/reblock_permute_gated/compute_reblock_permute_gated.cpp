@@ -69,9 +69,10 @@ void kernel_main() {
     // on the FPU straight out of DST (`binary_dest_reuse_tiles` ELWMUL). Two pack round trips a tile
     // instead of three, no SFPU multiply. Transposing before the elementwise ops is exact (both are
     // elementwise); what changes is the FPU multiply into the 16-bit DST, which truncates (the header's
-    // second bullet): at most one bf16 ULP low, never a different value class. The host may run this
-    // same path over an fp32 DST (TT_BIO_GATED_LEAN=2): one slot a tile, so GRAN <= 4 still fits, and
-    // the product is then rounded once by the packer instead of truncated.
+    // second bullet): at most one bf16 ULP low, never a different value class.
+    // 2 = the same two stages with the SFPU multiply of the incumbent: p^T and sig^T sit in two DST
+    // slots and `mul_binary_tile` rounds as before. Every value the incumbent computes is computed
+    // here on the transposed tile, so it is bit-exact, and it still drops the mul_cb round trip.
     constexpr uint32_t lean = get_compile_time_arg_val(8);
 
     binary_op_init_common(p_cb, sig_cb, mul_cb);
@@ -106,6 +107,29 @@ void kernel_main() {
             cb_wait_front(p_cb, n);
             cb_wait_front(sig_cb, n);
             cb_reserve_back(out_cb, n);
+            if constexpr (lean == 2) {
+                tile_regs_acquire();
+                for (uint32_t j = 0; j < n; ++j) {
+                    transpose_wh_init_short(p_cb);
+                    reconfig_data_format_srca(p_cb);
+                    transpose_wh_tile(p_cb, j, 2 * j);
+                    copy_tile_to_dst_init_short(sig_cb);
+                    reconfig_data_format_srca(sig_cb);
+                    copy_tile(sig_cb, j, 2 * j + 1);
+                    mul_binary_tile_init();
+                    mul_binary_tile(2 * j, 2 * j + 1, 2 * j);
+                }
+                tile_regs_commit();
+                tile_regs_wait();
+                for (uint32_t j = 0; j < n; ++j) {
+                    pack_tile(2 * j, out_cb);
+                }
+                tile_regs_release();
+                cb_pop_front(p_cb, n);
+                cb_pop_front(sig_cb, n);
+                cb_push_back(out_cb, n);
+                continue;
+            }
             tile_regs_acquire();
             transpose_wh_init_short(p_cb);
             reconfig_data_format_srca(p_cb);
