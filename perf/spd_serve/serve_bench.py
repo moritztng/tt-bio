@@ -122,17 +122,20 @@ if not a.reduce:
 
     def sampler(worker_pid):
         while True:
-            if not node:
-                for fd in glob.glob(f"/proc/{worker_pid}/fd/*") + [f for c in _children(worker_pid)
-                                                                 for f in glob.glob(f"/proc/{c}/fd/*")]:
-                    try:
-                        tgt = os.readlink(fd)
-                    except OSError:
-                        continue
-                    if tgt.startswith("/dev/tenstorrent/"):
-                        node.append(int(tgt.rsplit("/", 1)[1]))
-                        emit(ev="node", node=node[0])
-                        break
+            # UMD discovery opens every chip of the Galaxy for a moment, so the first fd seen can be any node.
+            # The chip that folds is the one node the worker holds alone; follow it if it changes.
+            held = set()
+            for fd in glob.glob(f"/proc/{worker_pid}/fd/*") + [f for c in _children(worker_pid)
+                                                             for f in glob.glob(f"/proc/{c}/fd/*")]:
+                try:
+                    tgt = os.readlink(fd)
+                except OSError:
+                    continue
+                if tgt.startswith("/dev/tenstorrent/"):
+                    held.add(int(tgt.rsplit("/", 1)[1]))
+            if len(held) == 1 and held != set(node):
+                node[:] = list(held)
+                emit(ev="node", node=node[0])
             if node:
                 try:
                     v = int(Path(f"/sys/class/tenstorrent/tenstorrent!{node[0]}/tt_aiclk").read_text().split()[0])
@@ -259,7 +262,7 @@ def reduce() -> None:
     summary = {"ev": "summary", "targets": len(jobs), "ok": sum(d.get("status") == "ok" for d in jobs.values()),
                "aiclk_median": smp.get("aiclk_median"), "aiclk_min": smp.get("aiclk_min"),
                "loadavg_median": smp.get("load_median"), "loadavg_max": smp.get("load_max"),
-               "node": smp.get("node")}
+               "node": smp.get("node"), "nodes_seen": sorted({e["node"] for e in ev if e["ev"] == "node"})}
     if warm:
         # A chip-hour of serving is spent on lease-to-result plus the gap to the next lease.
         # Each size is its own line: the mix of sizes is the customer's, not ours.
