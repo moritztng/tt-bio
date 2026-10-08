@@ -94,20 +94,55 @@ STEPS = [
         ttnn.reshape(ttnn.permute(ttnn.reshape(R["o"], (M, H, NP, dh)), (0, 2, 1, 3)), (M, NP, H * dh)),
         ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh]), ttnn.TILE_LAYOUT))),
 ]
+zrow = lambda r: ttnn.zeros((M, r, H * dh), dtype=DT, layout=ttnn.TILE_LAYOUT, device=dev)
+Z_FRONT, Z_TAIL = zrow(lead), zrow(nbk * nq - lead - NP)
+
+
+def rows_np(x):
+    """(M, N, C) -> (M, NP, C) zero-padded rows, TILE throughout (NP is the tile-padded N)."""
+    return ttnn.pad(x, [[0, 0], [0, NP - N], [0, 0]], 0.0)
+
+
+def heads_tile():
+    """Q (M, H, NP, dh) and K, V (M, H, nbk*nq, dh) by one nlp_create_qkv_heads, no ROW_MAJOR step."""
+    q = ttnn.reshape(rows_np(X["q"]), (M, 1, NP, H * dh))
+    kv = ttnn.concat([rows_np(X["k"]), rows_np(X["v"])], dim=-1)                  # (M, NP, 2C)
+    kv = ttnn.concat([ttnn.concat([Z_FRONT] * 2, dim=-1), kv, ttnn.concat([Z_TAIL] * 2, dim=-1)], dim=1)
+    kv = ttnn.reshape(kv, (M, 1, nbk * nq, 2 * H * dh))
+    return ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=H, num_kv_heads=H, transpose_k_heads=False,
+                                                  memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
+def merge_tile():
+    o = ttnn.experimental.nlp_concat_heads(ttnn.reshape(R["o"], (M, H, NP, dh)), memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    return ttnn.slice(ttnn.reshape(o, (M, NP, H * dh)), [0, 0, 0], [M, N, H * dh])
+
+
+# (name, fn, reference key or None, how the result maps onto the reference)
 VARIANTS = [
     ("qk matmul transpose_b (no k permute)", lambda: ttnn.matmul(R["Qs"], R["Ks"], transpose_b=True,
-                                                                 compute_kernel_config=CKC)),
-    ("softmax in place", lambda: ttnn.softmax_in_place(ttnn.clone(R["sc2"]), compute_kernel_config=smx)),
-    ("clone of scores (in-place baseline)", lambda: ttnn.clone(R["sc2"])),
+                                                                 compute_kernel_config=CKC), "sc", None),
+    ("softmax in place", lambda: ttnn.softmax_in_place(ttnn.clone(R["sc2"]), compute_kernel_config=smx), "p", None),
+    ("clone of scores (in-place baseline)", lambda: ttnn.clone(R["sc2"]), None, None),
+    ("q+k+v heads TILE (nlp_create_qkv_heads)", heads_tile, "Kh", lambda o: o[1]),
+    ("out merge TILE (nlp_concat_heads, tile slice)", merge_tile, "out", None),
 ]
 for name, f in STEPS:
     f()
 ref = ttnn.to_torch(R["out"]).double()
-for name, f in VARIANTS:
+for name, f, rk, pick in VARIANTS:
     try:
-        o = f(); log(ev="variant_ok", name=name, shape=list(o.shape))
+        o = f()
+        o = pick(o) if pick else o
+        eq = None
+        if rk is not None:
+            x, y = ttnn.to_torch(o).double(), ttnn.to_torch(R[rk]).double()
+            eq = dict(shape=list(x.shape), ref_shape=list(y.shape),
+                      max_abs=float((x.reshape(y.shape) - y).abs().max()) if x.numel() == y.numel() else None)
+        log(ev="variant_ok", name=name, check=eq)
     except Exception as e:
         log(ev="variant_refused", name=name, error=str(e).splitlines()[0][:300])
+VARIANTS = [(nm, f) for nm, f, _r, _p in VARIANTS]
 
 
 def clk_window(t0, t1):
