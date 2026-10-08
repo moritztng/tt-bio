@@ -146,8 +146,13 @@ def tinfo(t):
         return d
     except Exception as e:
         return {"err": type(e).__name__}
+CKC = ("math_fidelity", "fp32_dest_acc_en", "packer_l1_acc", "math_approx_mode", "dst_full_sync_en")
+def ckc(x):
+    """A compute kernel config's fields; its repr is only the object address."""
+    return {"CKC": {a: str(getattr(x, a)).split(".")[-1] for a in CKC if hasattr(x, a)}}
 def arginfo(x, depth=0):
     if isinstance(x, ttnn.Tensor): return {"T": tinfo(x)}
+    if hasattr(x, "math_fidelity"): return ckc(x)
     if isinstance(x, (list, tuple)) and depth < 2 and len(x) <= 16: return [arginfo(y, depth + 1) for y in x]
     if isinstance(x, (int, float, bool, str)) or x is None: return x
     r = repr(x)
@@ -161,6 +166,7 @@ def skey(x, depth=0):
     if isinstance(x, (list, tuple)):
         return (len(x),) + tuple(skey(y, depth + 1) for y in x[:4]) if depth < 2 else len(x)
     if isinstance(x, (int, float, bool, str)) or x is None: return x
+    if hasattr(x, "math_fidelity"): return str(ckc(x))
     return type(x).__name__ + ":" + str(hash(repr(x)) if depth == 0 else "")
 KEYS = ("DEVICE KERNEL DURATION [ns]", "DEVICE FW DURATION [ns]", "DEVICE TRISC0 KERNEL DURATION [ns]",
         "DEVICE TRISC1 KERNEL DURATION [ns]", "DEVICE TRISC2 KERNEL DURATION [ns]",

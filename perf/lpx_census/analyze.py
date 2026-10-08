@@ -77,11 +77,17 @@ def tensors(x):
 def nbytes(t):
     if "padded" not in t: return 0
     return int(np.prod(t["padded"])) * BYTES.get(t["dtype"].upper(), 2)
+def ckcfg(e):
+    for v in e.get("kw", {}).values():
+        if isinstance(v, dict) and "CKC" in v: return v["CKC"]
+    return {}
 def kwstr(e): return " ".join(v for v in e.get("kw", {}).values() if isinstance(v, str)) + " " + \
     " ".join(a for a in e.get("args", []) if isinstance(a, str))
 def fidelity(e):
+    if ckcfg(e).get("math_fidelity"): return ckcfg(e)["math_fidelity"]
     m = re.search(r"math_fidelity=(?:MathFidelity::)?(\w+)", kwstr(e)); return m.group(1) if m else None
 def fp32acc(e):
+    if "fp32_dest_acc_en" in ckcfg(e): return ckcfg(e)["fp32_dest_acc_en"].lower()
     m = re.search(r"fp32_dest_acc_en=(\w+)", kwstr(e)); return m.group(1) if m else None
 def program_config(e):
     for k, v in e.get("kw", {}).items():
@@ -146,7 +152,8 @@ for s in np.argsort(-kw_):
     if kw_[s] <= 0: break
     e = sigs[int(s)]; n = ncall_raw[s]; mean_k = k_raw[s] / max(n, 1)
     ins = list(tensors(e.get("args", []))) + list(tensors(e.get("kw", {}))); outs = list(tensors(e.get("out")))
-    by = sum(nbytes(t) for t in ins) + sum(nbytes(t) for t in outs); fl = flops(e)
+    # an in-place op (trailing underscore) writes its first input back, so its output is not extra traffic
+    by = sum(nbytes(t) for t in ins) + (0 if e["op"].endswith("_") else sum(nbytes(t) for t in outs)); fl = flops(e)
     fid = fidelity(e); acc = fp32acc(e) == "true"
     dts = [t.get("dtype", "").upper() for t in ins[:2]]
     dt = "bfp8" if "BFLOAT8_B" in dts else "bfp4" if "BFLOAT4_B" in dts else "bf16"
