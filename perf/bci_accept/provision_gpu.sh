@@ -28,7 +28,19 @@ scp -P "$P" -o StrictHostKeyChecking=no \
 echo "scp rc=$?"
 
 echo "--- remote setup ---"
-$SSH $H 'bash /root/remote_setup.sh'
-echo "remote_setup rc=$?"
+if ! $SSH $H 'bash /root/remote_setup.sh'; then
+  echo "remote_setup FAILED; not launching the arm on an unproved box"
+  date -u +"=== provision aborted %Y-%m-%dT%H:%M:%SZ ==="
+  exit 1
+fi
+echo "remote_setup OK"
 
 date -u +"=== provision end %Y-%m-%dT%H:%M:%SZ ==="
+
+# Launch the arm from here rather than waiting for a pass to notice the box is ready. remote_setup
+# asserts the GPU, the imports and the weights, and `set -e` aborts before this line if any failed,
+# so reaching it means the box is proved. setsid on the far side so the arm outlives this ssh.
+echo "--- launching the host arm ---"
+$SSH $H 'setsid nohup bash /root/host_8traj_288.sh > /root/host_arm.boot 2>&1 < /dev/null & sleep 3; pgrep -af host_8traj_288 | head -2'
+echo "launch rc=$?"
+date -u +"=== arm launched %Y-%m-%dT%H:%M:%SZ ==="
