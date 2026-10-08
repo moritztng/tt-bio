@@ -86,6 +86,8 @@ def main():
                         help="MSA rows. BindCraft 2 designs from a single row.")
     parser.add_argument("--c-m", type=int, default=256)
     parser.add_argument("--c-z", type=int, default=128)
+    parser.add_argument("--model", default="model_1_multimer_v3",
+                        help="AF2 checkpoint, the same preset the card A/B runs")
     parser.add_argument("--blocks", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--scale", type=float, default=0.1,
@@ -131,6 +133,12 @@ def main():
     # and `fast_round()` is what turns the fp32 softmax backward off for it. Measured null at 192
     # tokens either way, but the point of this script is to vary ONE thing.
     pool = bindcraft2.TrunkPool(args.af2_weights)
+    # The pool resolves names lazily and `trunk_for` only falls back to `names[0]` once something
+    # has asked for one, so an unasked pool is empty rather than defaulted.
+    pool.require([args.model])
+    if args.model in pool.absent:
+        raise SystemExit(f"{args.model} not in {args.af2_weights}: {pool.absent[args.model]}")
+    pool.use(args.model)
     results = {}
     with bindcraft2.refusals_unwrapped(), autograd.exact_training(False), \
             bindcraft2.fast_round():
