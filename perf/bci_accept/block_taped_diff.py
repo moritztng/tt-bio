@@ -124,6 +124,16 @@ def main():
                     warm_msa, warm_pair = evo._primal("", warm_msa, warm_pair, mask, pair_mask)
                 print(f"carry settled through {args.warmup} untaped blocks, pair max "
                       f"{float(np.max(np.abs(warm_pair))):.6g}", flush=True)
+                # Say which levers actually resolved. Every other verdict in this row rests on
+                # a run that printed its own evidence -- the fused arm's declines, the softmax
+                # `fired:` line -- and a lever read from the environment rather than from the
+                # process that uses it has twice been wrong here. `enabled_kernels` is the live
+                # read `fast_round` overrides, so this is the set the tape will install.
+                from tt_bio import taped_ttnn
+                print(f"levers: taped kernels {sorted(taped_ttnn.enabled_kernels())}, "
+                      f"mm_layout {bool(getattr(__import__('tt_bio.mm_layout', fromlist=['x']), 'MM_LAYOUT'))}, "
+                      f"softmax ckc {os.environ.get('TT_BIO_SOFTMAX_CKC', '(unset)')!r}, "
+                      f"fused hifi counts {bindcraft2._fused_hifi_counts()}", flush=True)
 
                 print(f"\n{'skipped':>58} {'mean msa':>10} {'mean pair':>10} {'rows':>5}",
                       flush=True)
@@ -147,6 +157,14 @@ def main():
                     print(f"{label:>58} {float(np.mean(msa_readings)):>10.6f} "
                           f"{float(np.mean(pair_readings)):>10.6f} {len(pair_readings):>5}",
                           flush=True)
+                # The same counters AFTER the sweep. Printed before it they are necessarily
+                # zero -- the warm-up runs untaped -- and a zero there cannot tell an inert
+                # lever from an absent one. A kernel set that never fires at this token axis
+                # would read as a null for a reason that has nothing to do with the defect.
+                print(f"after the sweep: fused hifi counts "
+                      f"{bindcraft2._fused_hifi_counts()}, taped kernel stats, served vs declined "
+                      f"{dict(sorted(getattr(taped_ttnn, 'KERNEL_STATS', {}).items()))}",
+                      flush=True)
             finally:
                 trunk.model.device_evoformer = blocks
                 trunk.model.set_skip(())
