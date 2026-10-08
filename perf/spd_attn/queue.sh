@@ -1,6 +1,7 @@
 #!/bin/bash
 # spd-attn jobs on one chip under its SPD flock, run from this checkout. usage:
 #   queue.sh OUT CHIP LOCK PY op            op bench (perf/spd_attn/opbench.py all), ~10 min
+#   queue.sh OUT CHIP LOCK PY atom          op bench, atom attention arms only (opbench.py atom), ~3 min
 #   queue.sh OUT CHIP LOCK PY steps         atom attention step timings, fp32 then bf16 (atom_steps.py), ~5 min
 #   queue.sh OUT CHIP LOCK PY fold          c730 fold, arms off (both levers off) and attn (branch default), 1 cold + 3 warm
 # DATA=<dir> points bench.py at another spd-data tree; SHARE=32 is the Galaxy host-thread share.
@@ -14,8 +15,9 @@ say "waiting for $LOCK; head $(git rev-parse --short HEAD)"
 exec 9>"$LOCK"
 flock -w 10800 9 || { say "flock timeout"; exit 3; }
 say "flock held, load $(cut -d' ' -f1-3 /proc/loadavg)"
-if [ "$JOB" = op ]; then
-    timeout -s INT 2400 $PY perf/spd_attn/opbench.py "$OUT/op" "$CHIP" all > "$OUT/op.log" 2>&1
+if [ "$JOB" = op ] || [ "$JOB" = atom ]; then
+    WHICH=all; [ "$JOB" = atom ] && WHICH=atom
+    timeout -s INT 2400 $PY perf/spd_attn/opbench.py "$OUT/op" "$CHIP" $WHICH > "$OUT/op.log" 2>&1
     say "op rc=$?"
 elif [ "$JOB" = steps ]; then
     for dt in fp32 bf16; do

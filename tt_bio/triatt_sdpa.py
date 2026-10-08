@@ -76,7 +76,7 @@ _ENABLED = os.environ.get(
 # Wormhole Galaxy chip at 1000 MHz (perf/spd_attn/opbench.py, .107 chip 8): q256 k384 20.01 ->
 # 17.39 ms, q256 k768 17.39 -> 15.79 ms; rel_rms against float64 0.02667 -> 0.02672 and
 # 0.02724 -> 0.02721. "0" turns it off.
-QK_MASK_PRELOAD = os.environ.get("TT_BIO_TRIATT_QK_MASK_PRELOAD", "1") == "1"
+QK_MASK_PRELOAD = env_flag("TT_BIO_TRIATT_QK_MASK_PRELOAD", True)
 
 
 def _mask_defines(k_num_chunks: int) -> dict:

@@ -56,7 +56,7 @@ log(ev="nodes_open", nodes=NODES, arch=str(dev.arch()), grid=list(T.COMPUTE_GRID
 up = lambda t, dt: ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev,
                                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
 rel = lambda o, r: float(((o.double() - r).pow(2).mean() / r.pow(2).mean()).sqrt())
-ARMS, REF, SEL = {}, {}, {}
+ARMS, REF, SEL, SAME = {}, {}, {}, {}  # SAME: arm -> the arm its output must equal bit for bit
 
 # ---- triangle attention
 def ta_site(S, full):
@@ -136,7 +136,7 @@ if a.which in ("atom", "all"):
         n._sdpa_ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
                                                        fp32_dest_acc_en=False, packer_l1_acc=False)
         for f in ("_kv_window_idx", "_windows_kv", "_windows_q_m", "_windows_kv_m", "_attention_m", "_superset",
-                  "_superset_bias", "_attention_superset", "_make_pad_bias"):
+                  "_superset_bias", "_attention_superset", "_make_pad_bias", "_zero_rows"):
             setattr(n, f, types.MethodType(getattr(AT, f), n))
         n._lin = lambda x, w, b_=None: t[w.split(".")[-2][-1]]   # linear_q/k/v -> the prepared operand
         return n
@@ -149,24 +149,30 @@ if a.which in ("atom", "all"):
         x = up(torch.zeros(M, N, H * dh), dt)
         return lambda: n._attention_m(x, x, None, "attention.", N, NP, M, pad, z_pre=z)
 
-    def superset(dt, sdpa):
+    def superset(dt, sdpa, tile_heads=True):
         n = ns(dt, sdpa)
+        n._zeros, n._tile_heads = {}, tile_heads
         zs = n._superset_bias(up(hz, dt), mask, nb)
         x = up(torch.zeros(M, N, H * dh), dt)
         return lambda: n._attention_superset(x, x, "attention.", N, NP, zs)
     ARMS["atom windowed fp32 (normal today)"] = ("atom", windowed(ttnn.float32))
-    ARMS["atom superset fp32"] = ("atom", superset(ttnn.float32, False))
     ARMS["atom windowed bf16 (lpx today)"] = ("atom", windowed(ttnn.bfloat16))
-    ARMS["atom superset bf16 explicit"] = ("atom", superset(ttnn.bfloat16, False))
-    ARMS["atom superset bf16 sdpa"] = ("atom", superset(ttnn.bfloat16, True))
+    for dt, sdpa, tag in ((ttnn.float32, False, "fp32"), (ttnn.bfloat16, False, "bf16 explicit"),
+                          (ttnn.bfloat16, True, "bf16 sdpa")):
+        ARMS[f"atom superset {tag} RM heads"] = ("atom", superset(dt, sdpa, False))
+        ARMS[f"atom superset {tag}"] = ("atom", superset(dt, sdpa, True))
+        SAME[f"atom superset {tag}"] = f"atom superset {tag} RM heads"
 
-live = {}
+live, outs = {}, {}
 for name, (site, call) in ARMS.items():
     try:
         o = call()
         if o is None:
             log(ev="declined", arm=name); continue
-        o = ttnn.to_torch(o).double()
+        o = outs[name] = ttnn.to_torch(o).double()
+        if name in SAME and SAME[name] in outs:
+            log(ev="equal", arm=name, to=SAME[name], torch_equal=bool(torch.equal(o, outs[SAME[name]])),
+                max_abs=float((o - outs[SAME[name]]).abs().max()))
         o = (o[SEL[site]] if site in SEL else o).reshape(REF[site].shape)
         log(ev="check", arm=name, finite=bool(torch.isfinite(o).all()), rel_rms_vs_f64=rel(o, REF[site]),
             picks={f"{kk}": vv for kk, vv in T.SDPA_CHUNK_PICKS.items()} if site.startswith("ta") else None)
