@@ -9997,7 +9997,8 @@ class AttentionPairBias(Module):
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
         (1, n_heads, S, S). This is a pure function of z (no per-query dependence), so
         for a fixed z (e.g. the diffusion trunk pair_z, constant across all sampling
-        steps) it can be computed ONCE and replayed via __call__(bias_precomputed=True),
+        steps) it can be computed ONCE and replayed via __call__(bias_precomputed=True)
+        after finish_bias(),
         instead of recomputing this NxNxc_z layer_norm+linear every call. Uses the same
         (head_dim**0.5-scaled) z_weight as the inline path, so the result is identical.
 
@@ -10027,6 +10028,21 @@ class AttentionPairBias(Module):
         return row_block_after_refusal(
             _APB_BIAS_REFUSED, ("compute_bias", tuple(z.padded_shape), str(z.dtype)),
             lambda: bias(z), rows, rows=PAIR_ROW_BLOCK, tag="pair bias")
+
+    def _raw_fp32(self) -> bool:
+        return self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention
+
+    def finish_bias(self, b: ttnn.Tensor) -> ttnn.Tensor:
+        """A precomputed bias as `__call__(bias_precomputed=True)` reads it.
+
+        The fp32 raw-matmul path undoes z_weight's sqrt(head_dim) compensation with a multiply
+        on the bias. For a bias replayed every sampling step that is the same multiply on the
+        same tensor 200 times, so it is done here once instead: identical values, and the
+        Protenix-v2 DiT drops 4800 full-size (1,16,NT,NT) passes per fold (1.66 s at 730
+        tokens on Wormhole). Every other path reads the bias as computed."""
+        if self.compute_pair_bias and self._raw_fp32():
+            return ttnn.multiply(b, self.head_dim ** -0.5)
+        return b
 
     def _attention(
         self,
@@ -10221,7 +10237,7 @@ class AttentionPairBias(Module):
                 transpose_k_heads=False,
             )
             ttnn.deallocate(qkv)
-            # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
+            # bias_precomputed: z is ALREADY finish_bias(compute_bias(z)), (1,n_heads,S,S) -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
                 def whole(z=z):
                     # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to
@@ -10274,19 +10290,20 @@ class AttentionPairBias(Module):
                                        and self.fp32_raw_matmul_attention))
             if self.token_dit and _B2_TOKEN_DIT_SDPA:
                 B2_TOKEN_DIT_SDPA_STATS[0 if token_dit_sdpa else 1] += 1
-            if self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention:
+            if self._raw_fp32():
                 # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
                 # path computes attention as raw matmul. SDPA scales its additive mask
                 # along with QK, so z_weight carries sqrt(head_dim) compensation. Undo
-                # that compensation before adding z after the explicit QK scale.
-                if self.compute_pair_bias:
+                # that compensation before adding z after the explicit QK scale; a
+                # precomputed bias had it undone once by finish_bias.
+                if self.compute_pair_bias and not bias_precomputed:
                     z = ttnn.multiply(z, self.head_dim ** -0.5)
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
-                kt = ttnn.permute(k, (0, 1, 3, 2))
-                sc = batched_matmul(q, kt,
-                                    compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(kt)
+                # k^T is read inside the matmul: torch.equal to permute + matmul on WH at
+                # (5,16,730,48), and the permute was 161 us of each 3.06 ms q@k^T.
+                sc = ttnn.matmul(q, k, transpose_b=True, core_grid=CORE_GRID_MAIN,
+                                 compute_kernel_config=self.compute_kernel_config)
                 sc = scale_add(sc, self.head_dim ** -0.5, z)
                 attn = site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                     host_f64=self._softmax_f64)
