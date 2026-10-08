@@ -1,0 +1,63 @@
+train scheduler 16.0
+inference scheduler 16.0
+Diffusion Module has 16.0
+PHASE item=c730d5889_r0 seed=101 lm_s=- trunk_s=42.845 sampler_s=19.017 conf_s=1.448 fwd_s=63.508 total_s=63.677
+PEAK item=c730d5889_r0 alloc_gib=8.29 reserved_gib=16.50
+PEAK-NOTE item=c730d5889_r0 seed=101
+PHASE item=c730d5889_r1 seed=101 lm_s=- trunk_s=36.827 sampler_s=18.908 conf_s=1.383 fwd_s=57.212 total_s=57.393
+PEAK item=c730d5889_r1 alloc_gib=9.50 reserved_gib=13.12
+PEAK-NOTE item=c730d5889_r1 seed=101
+PHASE item=c730d5889_r2 seed=101 lm_s=- trunk_s=37.236 sampler_s=18.839 conf_s=1.384 fwd_s=57.556 total_s=57.749
+PEAK item=c730d5889_r2 alloc_gib=9.66 reserved_gib=12.70
+PEAK-NOTE item=c730d5889_r2 seed=101
+PHASE item=c730d5889_r3 seed=101 lm_s=- trunk_s=37.140 sampler_s=18.870 conf_s=1.383 fwd_s=57.488 total_s=57.679
+PEAK item=c730d5889_r3 alloc_gib=9.66 reserved_gib=12.19
+PEAK-NOTE item=c730d5889_r3 seed=101
+PHASE item=c730d9987_r0 seed=101 lm_s=- trunk_s=37.658 sampler_s=18.862 conf_s=1.387 fwd_s=58.002 total_s=58.194
+PEAK item=c730d9987_r0 alloc_gib=10.23 reserved_gib=13.66
+PEAK-NOTE item=c730d9987_r0 seed=101
+PHASE item=c730d9987_r1 seed=101 lm_s=- trunk_s=38.600 sampler_s=18.848 conf_s=1.394 fwd_s=58.937 total_s=59.136
+PEAK item=c730d9987_r1 alloc_gib=10.55 reserved_gib=17.88
+PEAK-NOTE item=c730d9987_r1 seed=101
+PHASE item=c730d9987_r2 seed=101 lm_s=- trunk_s=38.234 sampler_s=18.868 conf_s=1.386 fwd_s=58.584 total_s=58.779
+PEAK item=c730d9987_r2 alloc_gib=10.43 reserved_gib=12.68
+PEAK-NOTE item=c730d9987_r2 seed=101
+PHASE item=c730d9987_r3 seed=101 lm_s=- trunk_s=38.520 sampler_s=18.839 conf_s=1.389 fwd_s=58.843 total_s=59.034
+PEAK item=c730d9987_r3 alloc_gib=10.51 reserved_gib=16.37
+PEAK-NOTE item=c730d9987_r3 seed=101
+PHASE item=p8y9t_r0 seed=101 lm_s=- trunk_s=38.466 sampler_s=19.023 conf_s=1.388 fwd_s=58.971 total_s=59.168
+PEAK item=p8y9t_r0 alloc_gib=10.72 reserved_gib=19.94
+PEAK-NOTE item=p8y9t_r0 seed=101
+PHASE item=p8y9t_r1 seed=101 lm_s=- trunk_s=38.837 sampler_s=19.050 conf_s=1.383 fwd_s=59.363 total_s=59.548
+PEAK item=p8y9t_r1 alloc_gib=10.44 reserved_gib=13.23
+PEAK-NOTE item=p8y9t_r1 seed=101
+PHASE item=p8y9t_r2 seed=101 lm_s=- trunk_s=37.960 sampler_s=19.100 conf_s=1.385 fwd_s=58.538 total_s=58.720
+PEAK item=p8y9t_r2 alloc_gib=10.55 reserved_gib=17.65
+PEAK-NOTE item=p8y9t_r2 seed=101
+PHASE item=p8y9t_r3 seed=101 lm_s=- trunk_s=39.593 sampler_s=19.087 conf_s=1.389 fwd_s=60.160 total_s=60.344
+PEAK item=p8y9t_r3 alloc_gib=10.68 reserved_gib=21.68
+PEAK-NOTE item=p8y9t_r3 seed=101
+PHASE item=p9dis_r0 seed=101 lm_s=- trunk_s=38.255 sampler_s=19.425 conf_s=1.456 fwd_s=59.234 total_s=59.418
+PEAK item=p9dis_r0 alloc_gib=9.74 reserved_gib=10.80
+PEAK-NOTE item=p9dis_r0 seed=101
+PHASE item=p9dis_r1 seed=101 lm_s=- trunk_s=38.307 sampler_s=19.413 conf_s=1.458 fwd_s=59.274 total_s=59.455
+PEAK item=p9dis_r1 alloc_gib=9.87 reserved_gib=11.34
+PEAK-NOTE item=p9dis_r1 seed=101
+PHASE item=p9dis_r2 seed=101 lm_s=- trunk_s=38.372 sampler_s=19.437 conf_s=1.459 fwd_s=59.364 total_s=59.544
+PEAK item=p9dis_r2 alloc_gib=9.88 reserved_gib=11.12
+PEAK-NOTE item=p9dis_r2 seed=101
+PHASE item=p9dis_r3 seed=101 lm_s=- trunk_s=38.261 sampler_s=19.405 conf_s=1.463 fwd_s=59.227 total_s=59.407
+PEAK item=p9dis_r3 alloc_gib=9.88 reserved_gib=10.89
+PEAK-NOTE item=p9dis_r3 seed=101
+PHASE item=p9w8a_r0 seed=101 lm_s=- trunk_s=44.807 sampler_s=20.611 conf_s=1.622 fwd_s=67.143 total_s=67.384
+PEAK item=p9w8a_r0 alloc_gib=11.24 reserved_gib=16.94
+PEAK-NOTE item=p9w8a_r0 seed=101
+PHASE item=p9w8a_r1 seed=101 lm_s=- trunk_s=44.954 sampler_s=20.607 conf_s=1.626 fwd_s=67.291 total_s=67.516
+PEAK item=p9w8a_r1 alloc_gib=11.47 reserved_gib=22.79
+PEAK-NOTE item=p9w8a_r1 seed=101
+PHASE item=p9w8a_r2 seed=101 lm_s=- trunk_s=44.897 sampler_s=20.597 conf_s=2.199 fwd_s=67.796 total_s=68.016
+PEAK item=p9w8a_r2 alloc_gib=11.37 reserved_gib=13.71
+PEAK-NOTE item=p9w8a_r2 seed=101
+PHASE item=p9w8a_r3 seed=101 lm_s=- trunk_s=44.735 sampler_s=20.633 conf_s=1.620 fwd_s=67.088 total_s=67.345
+PEAK item=p9w8a_r3 alloc_gib=11.40 reserved_gib=18.12
+PEAK-NOTE item=p9w8a_r3 seed=101

@@ -1,0 +1,94 @@
+[ptx_trimul_routes] APPLIED word=tier bind=tier:fast min_tokens=101 opt_core=0.5.228.0@/root/kit/common/opt_core/opt_core/__init__.py
+train scheduler 16.0
+inference scheduler 16.0
+Diffusion Module has 16.0
+[deadskip] installed: 41/41 manifest-pass modules skipped (EXACT zeros); 0 left on stock: 
+deadskip: 41/41 modules skipped (ckpt sha ok; per-module live re-probe exactly 0 on this process; trimul inplace-safe: 2); on stock: none
+[ptx_trimul_routes] FIRST trimul outgoing N=730 C=256 dtype=bfloat16 residual=True mask=None selection=[trimul row=native word=fast cell=8.0|bf16|C256|H256|N<=800|out|fwd(nearest) stack=A100:2.13.0+cu130/3.7.1/cueq0.11.1 class=tol(maxabs=0.0156;relrms=0.000229) x_stock=1.818 reason=fast winner on A100:2.13.0+cu130/3.7.1/cueq0.11.1]
+[ptx_trimul_routes] FIRST trimul incoming N=730 C=256 dtype=bfloat16 residual=True mask=None selection=[trimul row=native word=fast cell=8.0|bf16|C256|H256|N<=800|in|fwd(nearest) stack=A100:2.13.0+cu130/3.7.1/cueq0.11.1 class=tol(maxabs=0.0156;relrms=0.000229) x_stock=1.829 reason=fast winner on A100:2.13.0+cu130/3.7.1/cueq0.11.1]
+[infopt_graphs] poison per-class probe: ok (classes=43 read=28 read_finite_squash=0 unread=15 replay_noise_max=0.174)
+PHASE item=c730d5889_r0 seed=101 lm_s=- trunk_s=22.021 sampler_s=12.027 conf_s=0.331 fwd_s=34.465 total_s=34.637
+PEAK item=c730d5889_r0 alloc_gib=10.41 reserved_gib=11.66
+PEAK-NOTE item=c730d5889_r0 seed=101
+[protenix-opt] PRED-RELEASE item=c730d5889_r0 released_gib=1.31 allocated_gib=5.48
+PHASE item=c730d5889_r1 seed=101 lm_s=- trunk_s=17.008 sampler_s=7.277 conf_s=0.330 fwd_s=24.700 total_s=24.955
+PEAK item=c730d5889_r1 alloc_gib=10.62 reserved_gib=12.42
+PEAK-NOTE item=c730d5889_r1 seed=101
+[protenix-opt] PRED-RELEASE item=c730d5889_r1 released_gib=1.31 allocated_gib=5.55
+PHASE item=c730d5889_r2 seed=101 lm_s=- trunk_s=17.317 sampler_s=7.263 conf_s=0.328 fwd_s=24.988 total_s=25.241
+PEAK item=c730d5889_r2 alloc_gib=10.62 reserved_gib=12.89
+PEAK-NOTE item=c730d5889_r2 seed=101
+[protenix-opt] PRED-RELEASE item=c730d5889_r2 released_gib=1.31 allocated_gib=5.55
+PHASE item=c730d5889_r3 seed=101 lm_s=- trunk_s=17.240 sampler_s=7.263 conf_s=0.328 fwd_s=24.905 total_s=25.159
+PEAK item=c730d5889_r3 alloc_gib=10.62 reserved_gib=12.91
+PEAK-NOTE item=c730d5889_r3 seed=101
+[protenix-opt] PRED-RELEASE item=c730d5889_r3 released_gib=1.31 allocated_gib=5.55
+PHASE item=c730d9987_r0 seed=101 lm_s=- trunk_s=17.605 sampler_s=7.431 conf_s=0.337 fwd_s=25.452 total_s=25.727
+PEAK item=c730d9987_r0 alloc_gib=11.36 reserved_gib=16.69
+PEAK-NOTE item=c730d9987_r0 seed=101
+[protenix-opt] PRED-RELEASE item=c730d9987_r0 released_gib=1.31 allocated_gib=5.56
+PHASE item=c730d9987_r1 seed=101 lm_s=- trunk_s=18.860 sampler_s=7.266 conf_s=0.328 fwd_s=26.527 total_s=26.798
+PEAK item=c730d9987_r1 alloc_gib=11.85 reserved_gib=14.87
+PEAK-NOTE item=c730d9987_r1 seed=101
+[protenix-opt] PRED-RELEASE item=c730d9987_r1 released_gib=1.31 allocated_gib=5.56
+PHASE item=c730d9987_r2 seed=101 lm_s=- trunk_s=18.002 sampler_s=7.269 conf_s=0.328 fwd_s=25.672 total_s=25.937
+PEAK item=c730d9987_r2 alloc_gib=11.66 reserved_gib=14.54
+PEAK-NOTE item=c730d9987_r2 seed=101
+[protenix-opt] PRED-RELEASE item=c730d9987_r2 released_gib=1.31 allocated_gib=5.56
+PHASE item=c730d9987_r3 seed=101 lm_s=- trunk_s=18.207 sampler_s=7.267 conf_s=0.328 fwd_s=25.875 total_s=26.142
+PEAK item=c730d9987_r3 alloc_gib=11.79 reserved_gib=14.63
+PEAK-NOTE item=c730d9987_r3 seed=101
+[protenix-opt] PRED-RELEASE item=c730d9987_r3 released_gib=1.31 allocated_gib=5.56
+PHASE item=p8y9t_r0 seed=101 lm_s=- trunk_s=17.879 sampler_s=7.372 conf_s=0.329 fwd_s=25.656 total_s=25.972
+PEAK item=p8y9t_r0 alloc_gib=12.39 reserved_gib=18.61
+PEAK-NOTE item=p8y9t_r0 seed=101
+[protenix-opt] PRED-RELEASE item=p8y9t_r0 released_gib=1.26 allocated_gib=5.42
+PHASE item=p8y9t_r1 seed=101 lm_s=- trunk_s=18.104 sampler_s=7.178 conf_s=0.318 fwd_s=25.669 total_s=25.930
+PEAK item=p8y9t_r1 alloc_gib=11.68 reserved_gib=14.72
+PEAK-NOTE item=p8y9t_r1 seed=101
+[protenix-opt] PRED-RELEASE item=p8y9t_r1 released_gib=1.26 allocated_gib=5.42
+PHASE item=p8y9t_r2 seed=101 lm_s=- trunk_s=17.528 sampler_s=7.184 conf_s=0.318 fwd_s=25.100 total_s=25.362
+PEAK item=p8y9t_r2 alloc_gib=11.84 reserved_gib=14.84
+PEAK-NOTE item=p8y9t_r2 seed=101
+[protenix-opt] PRED-RELEASE item=p8y9t_r2 released_gib=1.26 allocated_gib=5.42
+PHASE item=p8y9t_r3 seed=101 lm_s=- trunk_s=18.678 sampler_s=7.185 conf_s=0.318 fwd_s=26.252 total_s=26.516
+PEAK item=p8y9t_r3 alloc_gib=12.23 reserved_gib=15.48
+PEAK-NOTE item=p8y9t_r3 seed=101
+[protenix-opt] PRED-RELEASE item=p8y9t_r3 released_gib=1.26 allocated_gib=5.42
+PHASE item=p9dis_r0 seed=101 lm_s=- trunk_s=17.588 sampler_s=7.598 conf_s=0.361 fwd_s=25.642 total_s=25.885
+PEAK item=p9dis_r0 alloc_gib=10.93 reserved_gib=14.42
+PEAK-NOTE item=p9dis_r0 seed=101
+[protenix-opt] PRED-RELEASE item=p9dis_r0 released_gib=1.40 allocated_gib=5.72
+PHASE item=p9dis_r1 seed=101 lm_s=- trunk_s=17.595 sampler_s=7.291 conf_s=0.345 fwd_s=25.308 total_s=25.571
+PEAK item=p9dis_r1 alloc_gib=11.09 reserved_gib=13.01
+PEAK-NOTE item=p9dis_r1 seed=101
+[protenix-opt] PRED-RELEASE item=p9dis_r1 released_gib=1.40 allocated_gib=5.72
+PHASE item=p9dis_r2 seed=101 lm_s=- trunk_s=17.652 sampler_s=7.294 conf_s=0.345 fwd_s=25.375 total_s=25.621
+PEAK item=p9dis_r2 alloc_gib=11.09 reserved_gib=13.01
+PEAK-NOTE item=p9dis_r2 seed=101
+[protenix-opt] PRED-RELEASE item=p9dis_r2 released_gib=1.40 allocated_gib=5.72
+PHASE item=p9dis_r3 seed=101 lm_s=- trunk_s=17.600 sampler_s=7.299 conf_s=0.346 fwd_s=25.332 total_s=25.660
+PEAK item=p9dis_r3 alloc_gib=11.09 reserved_gib=13.56
+PEAK-NOTE item=p9dis_r3 seed=101
+[protenix-opt] PRED-RELEASE item=p9dis_r3 released_gib=1.40 allocated_gib=5.72
+PHASE item=p9w8a_r0 seed=101 lm_s=- trunk_s=21.278 sampler_s=7.933 conf_s=0.398 fwd_s=29.695 total_s=29.988
+PEAK item=p9w8a_r0 alloc_gib=12.75 reserved_gib=15.34
+PEAK-NOTE item=p9w8a_r0 seed=101
+[protenix-opt] PRED-RELEASE item=p9w8a_r0 released_gib=1.49 allocated_gib=5.95
+PHASE item=p9w8a_r1 seed=101 lm_s=- trunk_s=21.346 sampler_s=7.609 conf_s=0.383 fwd_s=29.420 total_s=29.711
+PEAK item=p9w8a_r1 alloc_gib=13.11 reserved_gib=15.67
+PEAK-NOTE item=p9w8a_r1 seed=101
+[protenix-opt] PRED-RELEASE item=p9w8a_r1 released_gib=1.49 allocated_gib=5.95
+PHASE item=p9w8a_r2 seed=101 lm_s=- trunk_s=21.368 sampler_s=7.610 conf_s=0.383 fwd_s=29.442 total_s=29.734
+PEAK item=p9w8a_r2 alloc_gib=12.97 reserved_gib=15.53
+PEAK-NOTE item=p9w8a_r2 seed=101
+[protenix-opt] PRED-RELEASE item=p9w8a_r2 released_gib=1.49 allocated_gib=5.95
+PHASE item=p9w8a_r3 seed=101 lm_s=- trunk_s=21.241 sampler_s=7.616 conf_s=0.383 fwd_s=29.322 total_s=29.618
+PEAK item=p9w8a_r3 alloc_gib=13.02 reserved_gib=15.63
+PEAK-NOTE item=p9w8a_r3 seed=101
+[dit_fuse] EXIT STATS calls={'ada': 1200, 'gate': 0, 'res': 1500, 'swiglu': 750} fallback=0
+[infopt_graphs] SUMMARY sampler_cache max_entries=1 live_graphs=1 captures=5 evictions=4 empty_cache_deferred=0 empty_cache_flushed=0 empty_cache_passed=65 ceiling_gb=23.7 ceiling_evictions=0 reserved_gb_at_first_defer=None peak_reserved_gb_while_deferring=0.0
+[ptx_trimul_routes] LEVER name=F2.trimul state=on impl=trimul:native@fast/8.0|bf16|C256|H256|N<=800|out|fwd origin=core served=21400 fallback=0 fallback_by=none min_tokens=101 shapes=730x256/bfloat16/outgoing mode=fast errors=none gate=ok word=tier bind=tier:fast lever=trimul_core passthrough=4
+[ptx_trimul_routes] LEVER name=F2.trimul state=on impl=trimul@? origin=none served=0 fallback=0 fallback_by=none min_tokens=101 shapes=none mode=exact errors=none gate=ok word=exact bind=tier:exact lever=trimul_core smalln_exact_calls=0
+[ptx_summary_host] SUMMARY calls=20 samples=100 delegated=0 chains_max=2 pairs=20 d2h=40 h2d=42
+[ptx_keep_pool] SUMMARY skipped=20 passed=46 errors=0 skipped_sites={"protenix/model/modules/confidence.py:204": 20} passed_sites={"graphed.py:685": 4, "graphs.py:449": 1, "pred_release.py:75": 19, "runner/inference.py:505": 20, "sampler_prep.py:283": 2}
