@@ -573,7 +573,7 @@ def _build_back(x, out, device, reader_ct, writer_ct):
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
-        common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
+        common_runtime_args=[0, Ct, 0], config=ttnn.WriterConfigDescriptor(),
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
     # per tile, and the CB indices are the same.
@@ -613,24 +613,35 @@ def _prepare_back(x, out, device):
 
 
 @_ops.fused_kernel("reblock_permute_back")
-def reblock_permute_back(x, memory_config=None, device=None):
-    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE."""
+def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
+    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE.
+
+    With ``out`` (a ``[1, N, N, C_out]`` tensor, ``C_out >= c_off + C``) the result is written into
+    its channels ``[c_off, c_off + C)`` and ``out`` is returned: a channel loop then fills one tensor
+    in place instead of concatenating its chunks. Same bytes, same order, bit-exact.
+    """
     device = device or x.device()
     mc = memory_config or x.memory_config()
     C, N = int(x.shape[1]), int(x.shape[2])
-    out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
-    )
+    if out is None:
+        out = ttnn.allocate_tensor_on_device(
+            ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
+        )
+    c_out = int(out.shape[-1])
+    assert c_off % TILE_W == 0 and c_off + C <= c_out and (int(out.shape[1]), int(out.shape[2])) == (N, N), (
+        "reblock_permute_back: the channel slice must be tile-aligned and inside `out`",
+        C, c_off, [int(d) for d in out.shape])
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
+    wargs = [dst, c_out // TILE_W, c_off // TILE_W]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
         pd.kernels[0].common_runtime_args = [src]
-        pd.kernels[1].common_runtime_args = [dst]
+        pd.kernels[1].common_runtime_args = wargs
     else:
         reader, writer, compute = entry["kernels"]
         reader.common_runtime_args = [src]
-        writer.common_runtime_args = [dst]
+        writer.common_runtime_args = wargs
         pd = entry["pd"] = ttnn.ProgramDescriptor(
             kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
         )
@@ -754,7 +765,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
         # FIRST arm's compiled program back for both legs and reads a 1.000x that means nothing.
-        GATE_GRANULARITY,
+        GATE_GRANULARITY, _gate_lean(),
     )
 
 
@@ -780,13 +791,18 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * _elem()
+    # The two input CBs take the projection's own format, so a bfp8 producer is read as written
+    # (`GATED_IN_DTYPES`); the unpacker converts on the way into the gate. Everything after the
+    # gate stays in `_DTYPE`.
+    in_dtype = x.dtype
+    in_bytes = _TILE_BYTES_ANY[in_dtype]
 
-    def cb(idx, depth):
+    def cb(idx, depth, dtype=_DTYPE, page=tile_bytes):
         fmt = ttnn.CBFormatDescriptor(
-            buffer_index=idx, data_format=_DTYPE, page_size=tile_bytes
+            buffer_index=idx, data_format=dtype, page_size=page
         )
         return ttnn.CBDescriptor(
-            total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
+            total_size=depth * page, core_ranges=core_grid, format_descriptors=[fmt]
         )
 
     # c_16 keeps the 32-tile group multiple the writer's L1 window needs. The four working CBs are
@@ -794,7 +810,8 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # one tile at a time, and a deeper ring would only hold more of a stream the writer is already
     # the slow end of. That last clause is exactly what GATE_GRANULARITY tests -- if the writer is
     # the slow end then removing compute barriers buys nothing and the A/B reads 1.00x.
-    cbs = [cb(P_CB, 2 * GATE_GRANULARITY), cb(G_CB, 2 * GATE_GRANULARITY),
+    cbs = [cb(P_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
+           cb(G_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
            cb(SIG_CB, 2 * GATE_GRANULARITY), cb(MUL_CB, 2 * GATE_GRANULARITY),
            cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
@@ -834,7 +851,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
         compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID),
-                           GATE_GRANULARITY],
+                           GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16), _gate_lean()],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
@@ -873,6 +890,25 @@ GATE_FIDELITY = ttnn.MathFidelity.HiFi4
 GATE_FP32_ACC = False
 # Diagnostic, never on in production: drops the activation so the multiply can be measured alone.
 GATE_SKIP_SIGMOID = False
+
+# The lean gated compute (`lean` in compute_reblock_permute_gated.cpp): g and p are transposed on
+# the unpack, so a tile takes two pack round trips instead of three. 1 multiplies on the FPU from
+# DST, which truncates into the 16-bit DST (one bf16 ULP low on about a quarter of elements; WH
+# module rel_rms 0.0084 against 0.0081). 2 keeps the incumbent's SFPU multiply and is bit-exact
+# (torch.equal to 0 on WH and BH, both trimul variants), so it is the default. 0 is the incumbent
+# three-round-trip compute. spd-trimul A/B arms `glean` (1) and `noglean` (0).
+GATE_LEAN = int(os.environ.get("TT_BIO_GATED_LEAN", "2"))
+
+
+def set_gate_lean(mode) -> int:
+    """A/B switch for the paired harness: 0 off, 1 lean FPU multiply, 2 lean exact. Returns the previous."""
+    global GATE_LEAN
+    prev, GATE_LEAN = GATE_LEAN, int(mode)
+    return prev
+
+
+def _gate_lean() -> int:
+    return GATE_LEAN
 
 
 @_ops.fused_kernel("reblock_permute_gated")
@@ -915,6 +951,12 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
         )
     STATS_GATED[0] += 1
     return ttnn.generic_op([xw, out], pd)
+
+
+# Formats the gated move reads its projection in. bfp8_b is the spd-trimul lever: the in-projection
+# writes it (`TT_BIO_TRIMUL_INPROJ_B8`), halving its output drain, and only the two input CBs change.
+GATED_IN_DTYPES = (ttnn.bfloat16, ttnn.bfloat8_b)
+_TILE_BYTES_ANY = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
 
 
 # Master switch for folding the trimul's chunk and its two sigmoid gates into the forward move.
@@ -972,8 +1014,10 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if shape[3] != 4 * slice_c or slice_c % TILE_W:
         return _reject("gated_slice", shape)
     N = shape[2]
-    if xw.dtype != _DTYPE or xw.layout != ttnn.TILE_LAYOUT:
+    if xw.dtype not in GATED_IN_DTYPES or xw.layout != ttnn.TILE_LAYOUT:
         return _reject("gated_dtype_layout", shape)
+    if xw.dtype != _DTYPE and shape[1] != shape[2]:
+        return _reject("gated_b8_rowblock", shape)      # only the whole-tensor move was measured
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_out", shape)
     if xw.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
