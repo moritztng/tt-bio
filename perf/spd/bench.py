@@ -189,6 +189,9 @@ def lever_set(spec):
 
 
 LEVER_SET = None if LEVER_SPEC is None else lever_set(LEVER_SPEC)
+# What `Worker.load_model` does before it builds. Without it `load_from_checkpoint` reads fast mode
+# as off, takes NORMAL_LEVERS, and a `:fast` arm folds exact (same digest as `exact` at seed 101).
+T.set_fast_mode(FAST)
 # levers only when asked, so the same harness still runs a tree that predates them (main before SPD)
 state.model = P.Protenix.load_from_checkpoint(
     cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))

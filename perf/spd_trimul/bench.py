@@ -39,7 +39,9 @@ ap.add_argument("--resid", action="store_true",
                 help="call the way the Pairformer does, add_to_input=True: z += update in place, so every arm\n"
                      "times the residual add too (the epi2 lever folds it into the tail)")
 ap.add_argument("--fast", action="store_true",
-                help="build and run the module as Protenix's --fast trunk does: fast mode on, FAST_LEVERS active")
+                help="build and run the module as Protenix's --fast trunk does: FAST_LEVERS active, fast mode off")
+ap.add_argument("--legacy-fast", action="store_true",
+                help="the older bfp8-trunk --fast (fast mode on, no levers), which OpenDDE still runs")
 A = ap.parse_args()
 
 OUT = Path(A.out).resolve()
@@ -184,9 +186,12 @@ else:
           "norm_out.weight": 1 + 0.1 * torch.randn(h, generator=g), "norm_out.bias": 0.1 * torch.randn(h, generator=g),
           "g_in.weight": r(2 * h, cz), "p_in.weight": r(2 * h, cz), "g_out.weight": r(cz, cz), "p_out.weight": r(cz, h)}
 
-if A.fast:                                             # for the whole process, before anything is built
-    T.set_fast_mode(True)
+# For the whole process, before anything is built. Protenix builds its trunk under its lever set
+# with fast mode off (`Protenix._build`, legacy_fast=False), so --fast is the levers alone.
+if A.fast:
     T.levers("fast").__enter__()
+if A.legacy_fast:
+    T.set_fast_mode(True)
 from tt_bio.af2 import compute_kernel_config
 CKC = T.trunk_compute_kernel_config(compute_kernel_config())
 gz = torch.Generator().manual_seed(1)
@@ -291,7 +296,7 @@ for var in A.variants.split(","):
         e["vs_base_max_abs"] = (yt - outs["base"]).abs().max().item() if "base" in outs else None
         e["equal_base"] = bool(torch.equal(yt, outs["base"])) if "base" in outs else None
         log(ev="accuracy", variant=var, arm=arm, **e)
-        if arm == "base" and not (e["finite"] and e["rel_rms"] < (0.15 if A.fast else 0.05)):  # bfp8 + LoFi
+        if arm == "base" and not (e["finite"] and e["rel_rms"] < (0.15 if A.fast or A.legacy_fast else 0.05)):  # bfp8 + LoFi
             log(ev="abort", why="baseline misses the float64 reference: reference convention wrong", **e)
             raise SystemExit(2)
     if A.opsplit:                                      # one synced call per arm, per-op wall
