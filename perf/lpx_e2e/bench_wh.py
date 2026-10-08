@@ -62,7 +62,8 @@ class _Stop(Exception): pass
 def _grab(*a, **kw):
     captured["payload"] = a[1] if isinstance(a[0], str) else a[0]; raise _Stop
 M._dispatch_run = _grab; M._dispatch_to_controller = _grab
-MSA_DB = os.path.expanduser("~/japanfold/msa/db")
+# A box without the MSA database (the QuietBoxes) points this at an empty dir; the cached a3m in --msa_dir is hit.
+MSA_DB = os.path.expanduser(os.environ.get("LPX_MSA_DB", "~/japanfold/msa/db"))
 argv = ["predict", str(YAML), "--model", "protenix-v2", "--diffusion_samples", "5",
         "--recycling_steps", "10", "--accelerator", "tenstorrent", "--output_format", "cif",
         "--msa_db_path", MSA_DB, "--msa_dir", str(OUT / "msa"), "--out_dir", str(OUT / "cli")]
