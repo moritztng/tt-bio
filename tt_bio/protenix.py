@@ -1541,22 +1541,54 @@ class ConfidenceHead:
         PAE / PDE matrices (Angstrom). All inputs host tensors; coords (N_atom,3). Recipe
         validated vs the real v2 reference (pae/pde PCC 1.0, plddt ~0.93;
         scripts/protenix_confidence_parity.py)."""
+        return self.confidence_samples(s_inputs, s_trunk, z_trunk, [coords], feats)[0]
+
+    def confidence_samples(self, s_inputs, s_trunk, z_trunk, coords, feats):
+        """`confidence` for every sample in `coords`, one dict each, bit-identical to calling it
+        per sample. The host work is what the chip waited on: 24 s of a 730-token, 5-sample
+        Protenix-v2 fold on Wormhole sat idle ahead of the confidence pairformers. So the
+        sample-invariant part of z is built once, and each sample's host-side z build and the
+        previous sample's host heads run while the chip runs a pairformer. One sample's
+        tensors are on the chip at a time, as before: the previous result is read back before
+        the next input is uploaded."""
         import torch
         import torch.nn.functional as F
         N = s_trunk.shape[0]
-        s_t = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
-        z = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
-             + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0))
-        mask = feats["distogram_rep_atom_mask"].bool()
-        xr = coords.reshape(-1, 3)[mask]
-        d = torch.cdist(xr, xr)
-        oh = ((d.unsqueeze(-1) >= self._g("lower_bins")) & (d.unsqueeze(-1) < self._g("upper_bins"))).float()
-        z = z + F.linear(oh, self._g("linear_no_bias_d.weight")) + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight"))
         T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
-        so, zo = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
-        s_single = torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384)
-        zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
+        s_t = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
+        z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
+                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0))
+        mask = feats["distogram_rep_atom_mask"].bool()
 
+        def z_of(x):
+            xr = x.reshape(-1, 3)[mask]
+            d = torch.cdist(xr, xr)
+            oh = ((d.unsqueeze(-1) >= self._g("lower_bins")) & (d.unsqueeze(-1) < self._g("upper_bins"))).float()
+            return (z_base + F.linear(oh, self._g("linear_no_bias_d.weight"))
+                    + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight")))
+
+        def read(held):
+            so, zo = held
+            out = (torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384),
+                   torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1))
+            ttnn.deallocate(so)
+            ttnn.deallocate(zo)
+            return out
+
+        out, held = [], None
+        for x in coords:
+            z = z_of(x)                                    # host, while the chip runs the last pairformer
+            done = read(held) if held is not None else None
+            held = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
+            if done is not None:
+                out.append(self._heads(*done, feats))      # host, while the chip runs this one
+        out.append(self._heads(*read(held), feats))
+        return out
+
+    def _heads(self, s_single, zf, feats):
+        """pae / pde / plddt heads on the host from the pairformer's (s_single, z)."""
+        import torch
+        import torch.nn.functional as F
         pae_logits = F.linear(F.layer_norm(zf, (zf.shape[-1],)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
                               self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
         pde_logits = F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
@@ -2592,8 +2624,8 @@ class Protenix:
                             s_inputs, s_trunk, z_base_dev, coords[k], feats)
                          for k in range(n_sample)]
             else:
-                confs = [self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
-                         for k in range(n_sample)]
+                confs = self.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk,
+                                                                list(coords), feats)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
 
