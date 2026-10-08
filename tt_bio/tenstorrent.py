@@ -117,6 +117,19 @@ _OPM_DRAM_ROW_CAP: dict[tuple[int, int, int, int], int] = {}
 # shape goes straight to the un-joined depth parts instead of re-paying a projection pass to
 # collect the same refusal.
 _OPM_JOIN_REFUSED: dict[tuple[int, ...], bool] = {}
+# Depth-part shapes (S, I, C, D, J) whose projection join DRAM refused; see `_OPM_JOIN_PARTS`.
+_OPM_PARTS_JOIN_REFUSED: dict[tuple[int, ...], bool] = {}
+# A chunk-list MSA (the trunk's chunked update hands OPM its depth chunks) used to be contracted
+# chunk by chunk: one K=512 matmul per chunk plus a bf16 `add_` of the whole [I*C, D*J] partial.
+# At 730 tokens x 9947 rows that is 19 matmuls at 23.3 ms and 19 adds at 13.4 ms, ~697 ms per call,
+# against 274 ms for the single full-depth matmul block 0 already runs on the same shapes (Wormhole,
+# lpx census r2full). Joining the c=32 projections (2 x 469 MB there) restores the one matmul. It is
+# a different rounding, one fp32-accumulated contraction instead of a bf16 running sum, so closer to
+# the reference and not bit-exact with the chunked sum. A DRAM refusal of the join falls back to the
+# chunked sum, remembered per shape.
+_OPM_JOIN_PARTS = env_flag("TT_BIO_OPM_JOIN_PARTS", True)
+#: [joined, kept as parts after a refusal]
+OPM_JOIN_PARTS_STATS = [0, 0]
 #: Path census: whole-tensor calls, row-blocked calls, and refusals the retry absorbed.
 OPM_ROW_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0, "join_split": 0}
 # Every "largest single buffer of this shape this part has been measured to place" budget scales
@@ -586,6 +599,18 @@ _PWA_L1_NORM = True
 # Gated only on the heads fitting one tile, which is a property of the shape, not of a model.
 _PWA_BATCH_HEAD_WEIGHTS = env_flag("TT_BIO_PWA_BATCH_HEAD_WEIGHTS", True)
 PWA_BATCH_HEAD_STATS = [0, 0]           # [one batched projection, per-head projections]
+# PairWeightedAveraging's head loop, done per head, is eight v projections, eight g projections,
+# eight o projections and seven bf16 accumulator adds, each a full pass over the [rows, tokens, *]
+# chunk with head_dim 8 tile-padded to 32 (the v/g projections re-read the 128-channel input to
+# write one padded tile column). Lpx census r2full, Wormhole, 730 tokens x 9947 rows: 38.0 s of the
+# fold, 31 s of it in those projections and adds. Fused: one v and one g projection for all heads
+# (each head in its own zero-padded 32-wide slot), one batched matmul over the heads, one gate
+# multiply and ONE output projection (K = heads x 32, zero rows in the padding) that sums the heads
+# in its accumulator instead of in bf16 adds. Same algebra; the head sum is rounded once instead of
+# seven times, so not bit-exact with the loop. The taped (training) path keeps the per-head loop.
+_PWA_FUSED_HEADS = env_flag("TT_BIO_PWA_FUSED_HEADS", True)
+PWA_FUSED_STATS = [0, 0]                # [fused, per-head loop]
+_SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
 # projection. The wall is per core, and an aggregate multiple of the tensor cannot see it: the
 # tensor scales with its area, its consumers' static circular buffers scale with the row width.
@@ -12285,6 +12310,82 @@ class PairWeightedAveraging(Module):
         PWA_BATCH_HEAD_STATS[0 if on else 1] += 1
         return on
 
+    def _fused_weights(self):
+        """`(w_v, w_g, w_o)` for the fused head path, or None where the per-head loop runs.
+
+        w_v / w_g are [c_m, heads * 32] with head h's columns at h*32 .. h*32 + head_dim and zeros
+        after; w_o is [heads * 32, c_m] with the matching zero rows. Built on the host from the
+        checkpoint tensors and converted the way `torch_to_tt` converts the originals, so every
+        nonzero entry is the same bf16 value. Zero v columns give zero averaged columns, which the
+        zero rows of w_o drop, so the padding contributes exact zeros."""
+        if (not _PWA_FUSED_HEADS or ttnn is not _SHIPPED_TTNN or self.head_dim > 32
+                or self.head_dim * self.n_heads != int(self.m_weight.shape[-1])):
+            return None
+        cached = getattr(self, "_fused", None)
+        if cached is not None and cached[0] == _device_generation:
+            return cached[1]
+        H, hd, S = self.n_heads, self.head_dim, 32
+        try:
+            m, g, o = (self.weights[k].t() for k in ("proj_m.weight", "proj_g.weight",
+                                                     "proj_o.weight"))
+        except KeyError:
+            return None
+        w_v = torch.zeros(m.shape[0], H * S, dtype=m.dtype)
+        w_g = torch.zeros_like(w_v)
+        w_o = torch.zeros(H * S, o.shape[1], dtype=o.dtype)
+        for h in range(H):
+            w_v[:, h * S:h * S + hd] = m[:, h * hd:(h + 1) * hd]
+            w_g[:, h * S:h * S + hd] = g[:, h * hd:(h + 1) * hd]
+            w_o[h * S:h * S + hd] = o[h * hd:(h + 1) * hd]
+        dt = _dtype(ttnn.bfloat16)
+        packed = tuple(ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+                       for w in (w_v, w_g, w_o))
+        self._fused = (_device_generation, packed)
+        return packed
+
+    def _heads_fused(self, mc, ws, packed):
+        """Every head of `mc` [rows, tokens, c_m] against the token weights `ws`, summed into
+        [rows, tokens, c_m]: the per-head loop's algebra with the heads batched (see
+        `_PWA_FUSED_HEADS`)."""
+        H, S = self.n_heads, 32
+        rows, T = int(mc.shape[0]), int(mc.shape[1])
+        # The fused path holds two [rows, tokens, heads*32] intermediates where the loop held one
+        # [rows, tokens, 32] per head, so a tall input runs in row blocks that keep each under
+        # the per-buffer budget the depth blocking already uses (512 rows at 730 tokens).
+        blk = max(32, PWA_DEPTH_BUDGET_BYTES // (T * H * S * 2))
+        if rows > blk:
+            parts = [self._heads_fused(mc[r:min(r + blk, rows)], ws, packed)
+                     for r in range(0, rows, blk)]
+            out = ttnn.concat(parts, dim=0)
+            for p in parts:
+                ttnn.deallocate(p)
+            return out
+        w_v, w_g, w_o = packed
+        lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        v = ttnn.linear(mc, w_v, **lin)                          # [rows, T, H*S]
+        vt = ttnn.permute(v, (0, 2, 1))                          # [rows, H*S, T]
+        ttnn.deallocate(v)
+        vt = ttnn.reshape(vt, (rows, H, S, T))
+        vh = ttnn.permute(vt, (1, 0, 2, 3))                      # [H, rows, S, T]
+        ttnn.deallocate(vt)
+        vh = ttnn.reshape(vh, (H, rows * S, T))
+        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
+        o = ttnn.matmul(vh, w, transpose_b=True, **lin)          # [H, rows*S, T]
+        ttnn.deallocate(vh)
+        ttnn.deallocate(w)
+        o = ttnn.reshape(o, (H, rows, S, T))
+        ot = ttnn.permute(o, (1, 0, 2, 3))                       # [rows, H, S, T]
+        ttnn.deallocate(o)
+        ot = ttnn.reshape(ot, (rows, H * S, T))
+        o = ttnn.permute(ot, (0, 2, 1))                          # [rows, T, H*S]
+        ttnn.deallocate(ot)
+        g = ttnn.linear(mc, w_g, **lin)
+        o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(g)
+        out = ttnn.linear(o, w_o, **lin)                         # heads summed in the matmul
+        ttnn.deallocate(o)
+        return out
+
     def head_weights(self, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> list:
         """Every head's softmax over the token axis, `n_heads` [1, tokens, tokens] tensors.
 
@@ -12380,6 +12481,19 @@ class PairWeightedAveraging(Module):
             (state/ceiling-openfold3.md). Same elementwise add, same operands, same order,
             written to the accumulator instead of to a new buffer.
             """
+            packed = self._fused_weights()
+            if packed is not None:
+                PWA_FUSED_STATS[0] += 1
+                if ws:
+                    return self._heads_fused(mc, ws, packed)
+                own = (token_weights() if self._batch_head_weights()
+                       else [token_weight(i) for i in range(self.n_heads)])
+                try:
+                    return self._heads_fused(mc, own, packed)
+                finally:
+                    for w in own:
+                        ttnn.deallocate(w)
+            PWA_FUSED_STATS[1] += 1
             acc = None
             own = token_weights() if (not ws and self._batch_head_weights()) else None
             for i in range(self.n_heads):
@@ -12717,6 +12831,25 @@ class OuterProductMean(Module):
                         ttnn.deallocate(d)
             depth_parts, S, I, C, D, J = project_depth_parts(device_chunks())
             a = b = None
+            if (_OPM_JOIN_PARTS and len(depth_parts) > 1
+                    and not _OPM_PARTS_JOIN_REFUSED.get((S, I, C, D, J))):
+                try:
+                    a = ttnn.concat([p[0] for p in depth_parts], dim=-1)    # (I, C, S)
+                    b = ttnn.concat([p[1] for p in depth_parts], dim=-1)    # (D*J, S)
+                except RuntimeError as exc:
+                    if a is not None:
+                        ttnn.deallocate(a)
+                    a = b = None
+                    if not _dram_oom(exc):
+                        raise
+                    _OPM_PARTS_JOIN_REFUSED[(S, I, C, D, J)] = True
+                    OPM_JOIN_PARTS_STATS[1] += 1
+                else:
+                    for acp, bcp, _ in depth_parts:
+                        ttnn.deallocate(acp)
+                        ttnn.deallocate(bcp)
+                    depth_parts, dims = None, (S, I, C, D, J)
+                    OPM_JOIN_PARTS_STATS[0] += 1
         elif _OPM_JOIN_REFUSED.get(tuple(x.shape)):
             # This shape class already refused the contiguous form once in this process.
             # Paying for it again only to collect the same refusal costs a projection pass.
