@@ -364,8 +364,9 @@ _FAST_MODE = False
 #                   stop, so it is in no mode until the region is grid-invariant.
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+#   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
-          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8")
+          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8", "atom_sdpa")
 FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"}
 NORMAL_LEVERS = frozenset()
 _LEVERS = frozenset()

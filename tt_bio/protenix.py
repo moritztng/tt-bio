@@ -547,9 +547,9 @@ class AtomTransformer(_KeyedWeights, Module):
         self._softmax_ckc = softmax_ckc("protenix.atom_transformer")
         self._softmax_f64 = host_f64_softmax_site("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
-        # LPX: the bf16 superset attention runs as one fused SDPA (bf16 mask, never bfp8: the
+        # atom_sdpa lever: the bf16 superset attention runs as one fused SDPA (bf16 mask, never bfp8: the
         # -1e9 entries would share a block exponent with the bias and flush it).
-        self._sdpa = _T.LPX and dtype == ttnn.bfloat16 and _ATOM_SUPERSET
+        self._sdpa = _T.lever("atom_sdpa") and dtype == ttnn.bfloat16 and _ATOM_SUPERSET
         self._sdpa_ckc = ttnn.WormholeComputeKernelConfig(
             math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
             fp32_dest_acc_en=False, packer_l1_acc=False)
