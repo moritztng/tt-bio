@@ -5,7 +5,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
-## [0.13.0] - 2026-10-07
+## [0.13.0] - 2026-10-08
 
 Your own objective and your own outputs, on the models tt-bio already ships. BindCraft 2's design
 loss takes terms you write, every structure model writes its full confidence matrices, and a fold
@@ -74,6 +74,40 @@ can carry an output head of your own.
   trajectories even when the campaign already ran one, so following it changed nothing. It now
   gives that advice only when trajectories are interleaved; otherwise it names the slower memory
   mode and the smaller size that fit.
+
+### The release gate itself
+
+Run on qb2 (`tt-quietbox2`), a four-chip Blackhole p300c box, on chip 3 alone, from a venv holding
+the built release wheel with `[tenstorrent,test]`, which resolves the `pyproject.toml` ttnn pin
+(0.68.0). Every arm scores the release code tree (`tt_bio/`, `scripts/` and `pyproject.toml` at
+3e1b569b6, identical in the tagged commit). Chips 0 and 1 served a live demo throughout, so the
+host was never idle: load 6 to 49 on 16 cores. Every timed fold reached AICLK 1350 MHz.
+
+**Implementation parity: PASS.** 44 legs, 39 PASS, 4 GAP, 1 PASS-caveated. The four GAP legs
+reproduce the deviation already committed for them.
+
+**Accuracy against ground truth: PASS.** All 21 per-model release-gate arms cleared their floors,
+including the L1-budget, batch-position, NESSO-1 and RF3 1024-residue arms. Boltz-2 reads 1.52 A,
+TM 0.941.
+
+**UX: PASS.** Every surface cleared progress, parse and results shape.
+
+**Capacity: matches the baseline.** 13 pass, 6 skip, and the two refusals are OpenDDE and
+OpenDDE-abag at 1536 tokens, above the recorded p300c ceiling of 1024.
+
+**Performance: no change against 0.12.0.** The arm failed 10 of 21 models against the recorded
+p300c baselines, but 0.12.0 fails the same baselines on the same box, so it was settled by pairing
+0.13.0 with 0.12.0 on chip 3 in four interleaved rounds. Mean delta against the baseline, 0.13.0 /
+0.12.0: ESMFold-2 fast -24.1 / -31.7 %, OpenDDE -24.8 / -20.6 %, OpenDDE-abag -20.4 / -21.6 %,
+Protenix-v1 -13.7 / -15.5 %, Protenix-v2 -20.4 / -16.6 %, RF3 -24.4 / -25.9 %. Rounds spread by
++-5 points, so the two releases are equal within noise. The absolute numbers are not clean
+measurements of either release, only the comparison is.
+
+**Supported sizes: no change against 0.12.0.** The size ladder passed 7 of 9 models. Protenix-v2 at
+768 tokens timed out in warm-up at load 40-49; on a quieter host it then folded in 156.4 s cold and
+103.2 s warm (0.12.0: 111.5 s). RF3 read 1.23-2.70x slower than its recorded ladder at every rung,
+and 0.12.0 reads the same on this box: 256, 512 and 768 tokens took 48.5, 68.8 and 101.8 s warm,
+against 48.3, 67.4 and 100.9 s for 0.12.0, run in ABBA order. No baseline was re-recorded.
 
 ## [0.12.0] - 2026-10-02
 
