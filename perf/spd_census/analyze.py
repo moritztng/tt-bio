@@ -209,6 +209,15 @@ out = dict(run=str(RUN), fold=FOLD, cycles_profiled=C, steps_profiled=S, cycles_
            amdahl=amdahl)
 json.dump(out, open(f"{OUTP}_summary.json", "w"), indent=1, default=str)
 
+# every signature, compact, for the owner tables (perf/spd_census/owners.py)
+json.dump([dict(sig=r["sig"], op=r["e"]["op"], cls=r["cls"], phase=r["phase"], site=(r["e"]["site"] or [""])[0],
+                reg=r["e"]["reg"], s=r["kw"] / 1e9, gap_s=r["gap"] / 1e9, calls=round(r["nw"], 1),
+                us=r["mean_k"] / 1e3, bound=r["bound"], lim=r["lim"], roof=round(r["eff"], 3),
+                tflops=r["fl"] / r["mean_k"] / 1e3 if r["fl"] and r["mean_k"] else 0.0,
+                gbs=r["by"] / r["mean_k"] if r["mean_k"] else 0.0, fid=r["fid"], dt=r["dt"],
+                shapes=[t.get("shape") for t in list(tensors(r["e"].get("args", [])))[:3]])
+           for r in rows], open(f"{OUTP}_rows.json", "w"), default=str)
+
 spec = []; acc_ = 0.0
 for r in rows:
     e = r["e"]
@@ -227,8 +236,7 @@ for r in rows:
                      bound=r["bound"]))
     acc_ += r["kw"] / total
     if acc_ >= 0.85 and len(spec) >= 10: break
-json.dump(dict(version=2, note="Protenix-v2 730 tok (580+150), MSA 9947 deep, 5 samples, 10 cycles, 200 steps; one "
-               "Wormhole chip (.107 chip 24); device kernel time from the tt-metal device profiler, programs joined "
+json.dump(dict(version=2, note="Protenix-v2 c730, 5 samples, 10 cycles, 200 steps; one chip; device kernel time from the tt-metal device profiler, programs joined "
                "to ttnn calls by runtime id; signature = op + call site + region + arg shapes/dtypes/configs",
                peaks=out["peaks"], peak_bw_gbs=BW, aiclk=out["aiclk"], device_kernel_s=total / 1e9,
                coverage=acc_, n_ops=len(spec), ops=spec), open(f"{OUTP}_ops.json", "w"), indent=1, default=str)
