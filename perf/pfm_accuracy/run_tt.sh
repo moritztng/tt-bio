@@ -6,6 +6,10 @@
 # $DATA/tt/out/tt<mode>_<seeds>/pred/<PDB>/seed_<s>/predictions/<PDB>_sample_<k>.cif, which score.py reads.
 set -uo pipefail
 DATA=${DATA:?}; HERE=$(cd "$(dirname "$0")" && pwd)
+mkdir -p "$DATA/tt/out"
+# AICLK of every node at 1 Hz for the whole run (accuracy does not depend on it; the log carries it anyway).
+( while :; do echo "$(date -u +%FT%TZ) $(cat /sys/class/tenstorrent/tenstorrent!*/tt_aiclk 2>/dev/null | tr '\n' ' ')"; sleep 1; done ) \
+  >> "$DATA/tt/out/aiclk.log" & CLK=$!; trap 'kill $CLK 2>/dev/null' EXIT
 for s in ${SEEDS:-101 102 103}; do
   for mode in ${MODES:-exact fast}; do
     for y in "$DATA"/inputs/*.yaml; do
