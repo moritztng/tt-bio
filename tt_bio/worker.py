@@ -844,7 +844,10 @@ class _WorkerState:
 
             # Same class for both ids: c_z, the stack depths and the recycling count all come
             # off the weights (Trunk._derive_c_z / n_blocks / trunk_recycles).
-            self.model = Protenix.load_from_checkpoint(cfg["protenix_ckpt"])
+            # --diffusion_precision; unset keeps the class default (fp32, or the env override).
+            prec = cfg.get("diffusion_precision")
+            self.model = Protenix.load_from_checkpoint(
+                cfg["protenix_ckpt"], diffusion_fp32=None if prec is None else prec == "fp32")
         elif model_id in _of3_family():
             import ttnn
 

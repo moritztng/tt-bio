@@ -53,87 +53,12 @@ _os.environ.setdefault(
 )
 
 
-def _install_nanobind_leak_stderr_filter() -> None:
-    """Drop nanobind leak reports while forwarding other fd-level stderr."""
-    try:
-        read_fd, write_fd = _os.pipe()
-        original_stderr_fd = _os.dup(2)
-        ppid = _os.getpid()
-        pid = _os.fork()
-        if pid == 0:
-            try:
-                # Die with the parent: a surviving filter grandchild keeps the
-                # dup of fd 2 open, and when fd 2 is a dispatchers shard pipe
-                # the dispatcher never sees EOF and hangs after the run ends.
-                try:
-                    import ctypes
-                    ctypes.CDLL(None).prctl(1, 9)  # PR_SET_PDEATHSIG, SIGKILL
-                    if _os.getppid() != ppid:
-                        _os._exit(0)
-                except Exception:
-                    pass
-                # Keep only the two fds the filter uses. Anything else inherited here is held for
-                # the whole run, and an flock the parent held at the fork then outlives the
-                # parent's close: a second BindCraft 2 trajectory in one process hung forever on
-                # its compile lock. close-on-exec does not help, a fork is not an exec.
-                from multiprocessing.util import close_all_fds_except
-                close_all_fds_except((read_fd, original_stderr_fd))
-                suppressing_nanobind_leak = False
-                with _os.fdopen(read_fd, "rb", closefd=True) as pipe:
-                    for raw_line in pipe:
-                        line = raw_line.decode("utf-8", errors="replace")
-                        if line.startswith("nanobind: leaked "):
-                            suppressing_nanobind_leak = True
-                            continue
-                        if suppressing_nanobind_leak:
-                            if (
-                                line.startswith(" - ")
-                                or line.startswith("nanobind: this is likely caused")
-                                or line.startswith("See https://nanobind.")
-                            ):
-                                continue
-                            suppressing_nanobind_leak = False
-                        _os.write(original_stderr_fd, raw_line)
-            except Exception:
-                pass
-            finally:
-                _os._exit(0)
-
-        _os.close(read_fd)
-        _os.dup2(write_fd, 2)
-        _os.close(write_fd)
-        python_stderr = _os.fdopen(
-            _os.dup(original_stderr_fd),
-            "w",
-            buffering=1,
-            encoding=getattr(_sys.stderr, "encoding", None) or "utf-8",
-            errors=getattr(_sys.stderr, "errors", None) or "replace",
-        )
-        _sys.stderr = python_stderr
-        _sys.__stderr__ = python_stderr
-        _os.close(original_stderr_fd)
-    except Exception:
-        pass
-
-
-# `--debug` turns the filter off, and it has to travel to the SPAWNED WORKERS, not just to this
-# process. A multiprocessing spawn re-execs python with `-c from multiprocessing.spawn import
-# spawn_main`, so the child's `sys.argv` no longer carries `--debug` and an argv-only test
-# reinstalls the filter in exactly the process whose stderr you asked to see. The filter's
-# forwarding child holds PR_SET_PDEATHSIG SIGKILL, so when a worker dies the child is killed with
-# whatever is still in the pipe -- which is the worker's traceback. That is how OpenDDE's 992-
-# residue deep-MSA failure reported "SpawnProcess-1 exit 0 ... the worker's own traceback above
-# says why" with no traceback above it, twice, on two trees. The environment IS inherited by a
-# spawn, so decide once here and let the children read the decision.
-def _stderr_filter_wanted(argv, env) -> bool:
-    """Whether this process should install the filter. Pure, so it can be tested."""
-    return "--debug" not in argv and not env.get("TT_BIO_DEBUG_STDERR")
-
-
+# `--debug` keeps the C-level stderr that tt-bio otherwise drops at exit (nanobind's report of
+# the ttnn objects alive at shutdown; see runtime.end_after_teardown). It travels as an
+# environment variable because a multiprocessing spawn re-execs python without our argv, and the
+# spawned worker is exactly the process whose stderr `--debug` asked to see.
 if "--debug" in _sys.argv:
     _os.environ["TT_BIO_DEBUG_STDERR"] = "1"
-if _stderr_filter_wanted(_sys.argv, _os.environ):
-    _install_nanobind_leak_stderr_filter()
 
 
 import base64
@@ -3232,6 +3157,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "thread pools to every core and they would fight for the CPU. Use "
                    "cores//concurrent-predicts.")
 @click.option("--fast", is_flag=True, help="Use block-fp8 for some operations (slightly lower precision, faster)")
+@click.option("--diffusion_precision", type=click.Choice(["fp32", "bf16"]), default=None,
+              help="(Protenix) Precision of the diffusion module. fp32 (default) matches the "
+                   "reference; bf16 is ~9%% faster per fold on Wormhole and stays inside seed noise "
+                   "(docs/protenix-diffusion-precision.md).")
 @click.option("--debug", is_flag=True, help="Debug mode: no Rich display, no output suppression")
 @click.option("--log", is_flag=True, help="With --debug: print per-device stage progress")
 @click.option("--report-energy", "report_energy", is_flag=True, help="Report TT device energy and write a power-vs-time plot (single-device TT runs)")
@@ -3268,7 +3197,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
-            num_devices, device_ids, host_threads, fast, debug, log,
+            num_devices, device_ids, host_threads, fast, diffusion_precision, debug, log,
             report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
     """Run structure prediction.
 
@@ -3422,7 +3351,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         for note in unread_flags(model, {"--write_pae": write_pae, "--contact_cutoff": write_pae,
                                          "--write_pde": write_pde,
                                          "--write_embeddings": write_embeddings,
-                                         "--max_msa_seqs": msa_cap is not None}):
+                                         "--max_msa_seqs": msa_cap is not None,
+                                         "--diffusion_precision": diffusion_precision is not None}):
             click.secho(note, fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
@@ -3484,6 +3414,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # unlike Boltz-2 it never errors out.
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
+            "diffusion_precision": diffusion_precision,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
             "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
             "partial_t": partial_t, "partial_structure": partial_structure,

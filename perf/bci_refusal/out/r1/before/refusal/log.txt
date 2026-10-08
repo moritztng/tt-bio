@@ -1,0 +1,324 @@
+     2.54 [tt_bio.bindcraft2] BindCraft 2 is the authors' software under their own licence, which restricts hosting it for others: https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE
+     2.59 2026-10-07 21:39:25.745 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+     2.59 Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+     2.63 /home/ttuser/scratch/bci-refusal-before/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+     2.63   pid = _os.fork()
+     4.46 EVENT opened {"memory": {}, "signals": {"SigBlk": [], "SigIgn": [13, 25], "SigCgt": [2, 4, 6, 7, 8, 11]}, "dram": {"allocated": 16384, "free": 34225503744, "total": 34225520128}}
+     4.47 [tt_bio.bindcraft2] stops at whichever comes first: 10 accepted designs, or 2 trajectories spent. Interleaved arms already running can carry the accepted count past 10, so it is a floor, not a quota.
+     4.47 [tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+     5.81 BindCraft 2 v1.0.1
+     5.81 campaign pdl1
+     5.81 binder length 60
+     5.81 target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+     5.81 losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+     5.81 filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+     5.81 results /home/ttuser/.coworker/wt/bci-refusal/perf/bci_refusal/out/r1/before/refusal/campaign | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+    10.40 
+    10.40 === trajectory 1 | pdl1_denovo_l60_bca8d91a72a99b3d | accepted 0/10 ===
+    10.40 EVENT boundary_probe {"trajectory": 1, "probe": {"allocated": 16384, "free": 34225503744, "total": 34225520128}}
+    10.40 EVENT round {"n": 1, "aiclk": 1350}
+    25.89 [tt_bio.bindcraft2] the fused triangle attention declined all 96 calls at 192 tokens: its circular buffers do not fit L1 at this token axis, so the composed path is running and holding the [192,4,192,192] fp32 scores -- 113.2 MB of device memory this fold would not otherwise need, and a slower round with it. Whether the arm fits is a property of the token axis and is NOT monotone in it, so a neighbouring binder length is often much cheaper: try one 32-token bucket UP as well as one down.
+    35.19 EVENT round {"n": 2, "aiclk": 1350}
+    42.46 EVENT round {"n": 3, "aiclk": 1350}
+    47.83 EVENT round {"n": 4, "aiclk": 1350}
+    56.24   rejected at screen design stage  i_pTM=0.19    pLDDT=0.39   due to [pLDDT]
+    56.26 
+    56.26 === trajectory 2 | pdl1_denovo_l60_5e723abf67a61a33 | accepted 0/10 ===
+    76.41 EVENT boundary_probe {"trajectory": 2, "before_ballast": {"allocated": 1096487936, "free": 33129032192, "total": 34225520128}, "probe": {"allocated": 33225511936, "free": 1000008192, "total": 34225520128}}
+    76.42 EVENT round {"n": 5, "aiclk": 1350}
+    79.49 2026-10-07 21:40:42.648 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 113246208 B DRAM buffer across 8 banks, where each bank needs to store 14155776 B, but bank size is 4278190016 B (allocated: 4255720064 B, free: 22469952 B, largest free block: 14139328 B) (assert.hpp:104)
+    79.49 2026-10-07 21:40:42.650 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 113246208 B DRAM buffer across 8 banks, where each bank needs to store 14155776 B, but bank size is 4278190016 B (allocated: 4255720064 B, free: 22469952 B, largest free block: 14139328 B) (assert.hpp:104)
+    79.49 2026-10-07 21:40:42.651 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 113246208 B DRAM buffer across 8 banks, where each bank needs to store 14155776 B, but bank size is 4278190016 B (allocated: 4255720064 B, free: 22469952 B, largest free block: 14139328 B) (assert.hpp:104)
+    79.50 2026-10-07 21:40:42.652 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 113246208 B DRAM buffer across 8 banks, where each bank needs to store 14155776 B, but bank size is 4278190016 B (allocated: 4255720064 B, free: 22469952 B, largest free block: 14139328 B) (assert.hpp:104)
+    79.50 2026-10-07 21:40:42.653 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 113246208 B DRAM buffer across 8 banks, where each bank needs to store 14155776 B, but bank size is 4278190016 B (allocated: 4255720064 B, free: 22469952 B, largest free block: 14139328 B) (assert.hpp:104)
+    79.50 2026-10-07 21:40:42.654 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 113246208 B DRAM buffer across 8 banks, where each bank needs to store 14155776 B, but bank size is 4278190016 B (allocated: 4255720064 B, free: 22469952 B, largest free block: 14139328 B) (assert.hpp:104)
+    79.50 2026-10-07 21:40:42.655 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 113246208 B DRAM buffer across 8 banks, where each bank needs to store 14155776 B, but bank size is 4278190016 B (allocated: 4255720064 B, free: 22469952 B, largest free block: 14139328 B) (assert.hpp:104)
+    80.28 2026-10-07 21:40:43.435 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 56623104 B DRAM buffer across 8 banks, where each bank needs to store 7077888 B, but bank size is 4278190016 B (allocated: 4264796800 B, free: 13393216 B, largest free block: 7028672 B) (assert.hpp:104)
+    80.39 2026-10-07 21:40:43.550 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4270164608 B, free: 8025408 B, largest free block: 2283456 B) (assert.hpp:104)
+    80.40 [tri_att] DRAM refused the single pass at ((1, 192, 192, 128), False); re-running it in 512-row blocks
+    80.40 2026-10-07 21:40:43.553 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4270164608 B, free: 8025408 B, largest free block: 2283456 B) (assert.hpp:104)
+    80.40 [tri_att] still refused; halving the block to 256 rows
+    80.40 2026-10-07 21:40:43.556 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4270164608 B, free: 8025408 B, largest free block: 2283456 B) (assert.hpp:104)
+    80.40 [tri_att] still refused; halving the block to 128 rows
+    81.71 2026-10-07 21:40:44.869 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 9437184 B DRAM buffer across 8 banks, where each bank needs to store 1179648 B, but bank size is 4278190016 B (allocated: 4270998144 B, free: 7191872 B, largest free block: 1028032 B) (assert.hpp:104)
+    81.71 [tt-bio] trimul DRAM refused the fused in-projection at chunk 128 x group 1 (seq 192): retrying at chunk 64 x group 1. The tt-metal 'Out of Memory' line above is expected and handled; the result is unchanged.
+    82.11 2026-10-07 21:40:45.263 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 12582912 B DRAM buffer across 8 banks, where each bank needs to store 1572864 B, but bank size is 4278190016 B (allocated: 4269548160 B, free: 8641856 B, largest free block: 1413056 B) (assert.hpp:104)
+    82.11 [tri_att] DRAM refused the single pass at ((1, 192, 192, 128), True); re-running it in 512-row blocks
+    82.11 2026-10-07 21:40:45.265 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 12582912 B DRAM buffer across 8 banks, where each bank needs to store 1572864 B, but bank size is 4278190016 B (allocated: 4269548160 B, free: 8641856 B, largest free block: 1413056 B) (assert.hpp:104)
+    82.11 [tri_att] still refused; halving the block to 256 rows
+    82.11 2026-10-07 21:40:45.267 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 12582912 B DRAM buffer across 8 banks, where each bank needs to store 1572864 B, but bank size is 4278190016 B (allocated: 4269548160 B, free: 8641856 B, largest free block: 1413056 B) (assert.hpp:104)
+    82.11 [tri_att] still refused; halving the block to 128 rows
+    83.02 2026-10-07 21:40:46.176 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4270320256 B, free: 7869760 B, largest free block: 2176960 B) (assert.hpp:104)
+    83.02 [tri_att] still refused; halving the block to 64 rows
+    83.04 2026-10-07 21:40:46.199 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4271630976 B, free: 6559040 B, largest free block: 2168768 B) (assert.hpp:104)
+    83.04 [tri_att] still refused; halving the block to 64 rows
+    83.06 2026-10-07 21:40:46.213 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4271366784 B, free: 6823232 B, largest free block: 2162624 B) (assert.hpp:104)
+    83.06 [tri_att] still refused; halving the block to 32 rows
+    83.72 2026-10-07 21:40:46.876 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4270815872 B, free: 7374144 B, largest free block: 2123712 B) (assert.hpp:104)
+    83.73 jax.pure_callback failed
+    83.73 Traceback (most recent call last):
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 470, in _refusal_names_the_size
+    83.73     yield
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 1155, in _taped
+    83.73     mo, zo = trunk.evoformer(ml, zl, self._msa_mask(trunk, mask),
+    83.73              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 680, in evoformer
+    83.73     m, z = self.ag.checkpoint(
+    83.73            ^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/autograd.py", line 2975, in checkpoint
+    83.73     produced = fn(*inputs)
+    83.73                ^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 681, in <lambda>
+    83.73     lambda a, b, blk=block: blk(a, b, msa_mask, *pair_masks), m, z,
+    83.73                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/af2.py", line 924, in __call__
+    83.73     return msa, super().__call__(z, mask, attn_mask)
+    83.73                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/af2.py", line 462, in __call__
+    83.73     z = self._step(lambda t, name=name, device=device:
+    83.73         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/af2.py", line 360, in _step
+    83.73     return step(*inputs) if run is None else run(step, *inputs)
+    83.73            ^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/af2.py", line 463, in <lambda>
+    83.73     self._residual(t, self._update(name, device, t)), z)
+    83.73                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/af2.py", line 447, in _update
+    83.73     return device(x, *args)
+    83.73            ^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/af2.py", line 457, in <lambda>
+    83.73     ("tri_att_start", lambda t: self.tri_att_start(t, attn_mask)),
+    83.73                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 9085, in __call__
+    83.73     u = self._update(x, attn_mask, add_to_input)
+    83.73         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 9112, in _update
+    83.73     return row_block_after_refusal(
+    83.73            ^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 5939, in row_block_after_refusal
+    83.73     out = blocked(rows)
+    83.73           ^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 9092, in blocked
+    83.73     return host_acc_after_refusal(
+    83.73            ^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 6713, in host_acc_after_refusal
+    83.73     return run()
+    83.73            ^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 9094, in <lambda>
+    83.73     lambda: _inplace_guarded("triangle attention", lambda: self._attend_pair(
+    83.73             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 6901, in _inplace_guarded
+    83.73     out = run()
+    83.73           ^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 9094, in <lambda>
+    83.73     lambda: _inplace_guarded("triangle attention", lambda: self._attend_pair(
+    83.73                                                            ^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 9414, in _attend_pair
+    83.73     o_chunk = attend(qkv_chunk, triangle_bias, len(g_chunk.shape) == 4,
+    83.73               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 9218, in attend
+    83.73     return _attend_heads(q, k, v, bias, keep_heads, gate)
+    83.73            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 9253, in _attend_heads
+    83.73     o = _fp32_softmax_attention(
+    83.73         ^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 4441, in _fp32_softmax_attention
+    83.73     return _with_dram_narrowing(
+    83.73            ^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 3452, in _with_dram_narrowing
+    83.73     return run(blk)
+    83.73            ^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 4403, in run
+    83.73     return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
+    83.73            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 4481, in _fp32_softmax_attention_block
+    83.73     attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
+    83.73               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/tenstorrent.py", line 4526, in _fp32_softmax_tail
+    83.73     attn = ttnn.add_(sc, bias_f, input_tensor_a_activations=[
+    83.73            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/taped_ttnn.py", line 1647, in call
+    83.73     out = impl(shipped, args, kwargs)
+    83.73           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/taped_ttnn.py", line 678, in impl
+    83.73     out_v = shipped(a.value, b.value, **kw)
+    83.73             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 473, in __call__
+    83.73     result = self.function(*function_args, **function_kwargs)
+    83.73              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73 RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+    83.73 info:
+    83.73 Out of Memory: Not enough space to allocate 18874368 B DRAM buffer across 8 banks, where each bank needs to store 2359296 B, but bank size is 4278190016 B (allocated: 4270815872 B, free: 7374144 B, largest free block: 2123712 B)
+    83.73 backtrace:
+    83.73  --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x72badd0d2697]
+    83.73  --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)
+    83.73  --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)
+    83.73  --- tt::tt_metal::Buffer::allocate_impl()
+    83.73  --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)
+    83.73  --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)
+    83.73  --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)
+    83.73  --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)
+    83.73  --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)
+    83.73  --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x72bade71886f]
+    83.73  --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorES5_NS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0xa4d) [0x72bade70a4bd]
+    83.73  --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadd7c8) [0x72bade6dd7c8]
+    83.73  --- ttnn::add(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)
+    83.73  --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x5b5dea) [0x72badf9b5dea]
+    83.73  --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x72badf66daa5]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aaeb]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x5a3778]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(PyObject_Call+0x6c) [0x54b12c]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x5a3778]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(PyObject_Call+0x6c) [0x54b12c]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyObject_Call_Prepend+0xc2) [0x54a802]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x5a3778]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyObject_MakeTpCall+0x75) [0x548fb5]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyObject_Call_Prepend+0xc2) [0x54a802]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x5a3778]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(PyObject_Call+0x6c) [0x54b12c]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x54caed]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x6fa365]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x64f780]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyObject_Call_Prepend+0xc2) [0x54a802]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3() [0x5a3778]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(PyObject_Call+0x6c) [0x54b12c]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+    83.73  --- /home/ttuser/bcx_e2e_venv/bin/python3(PyObject_Vectorcall+0x35) [0x5499b5]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3aad4e1) [0x72bc3039d4e1]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a68dc2) [0x72bc30358dc2]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a70c68) [0x72bc30360c68]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a6aae9) [0x72bc3035aae9]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db6e3c) [0x72bc306a6e3c]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db7021) [0x72bc306a7021]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2c3d3) [0x72bc3581c3d3]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2ba3e) [0x72bc3581ba3e]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde1e94b) [0x72bc3a70e94b]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde21f1f) [0x72bc3a711f1f]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde23a06) [0x72bc3a713a06]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde24873) [0x72bc3a714873]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x80d7d7a) [0x72bc349c7d7a]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x95d959c) [0x72bc35ec959c]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x95d9cf2) [0x72bc35ec9cf2]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78ce044) [0x72bc341be044]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78cded1) [0x72bc341bded1]
+    83.73  --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78bd28f) [0x72bc341ad28f]
+    83.73  --- /lib/x86_64-linux-gnu/libc.so.6(+0x9cb84) [0x72bc3c89cb84]
+    83.73  --- /lib/x86_64-linux-gnu/libc.so.6(+0x129ecc) [0x72bc3c929ecc]
+    83.73 
+    83.73 
+    83.73 The above exception was the direct cause of the following exception:
+    83.73 
+    83.73 Traceback (most recent call last):
+    83.73   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 93, in pure_callback_impl
+    83.73     return tree_util.tree_map(np.asarray, callback(*args))
+    83.73                                           ^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+    83.73     return tree_util.tree_leaves(self.callback_func(*args, **kwargs))
+    83.73                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 1148, in _taped
+    83.73     with _refusal_names_the_size("forward", n, z.shape[0], self.memory), \
+    83.73   File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    83.73     self.gen.throw(value)
+    83.73   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 479, in _refusal_names_the_size
+    83.73     raise better from exc
+    83.73 MemoryError: BindCraft 2 ran out of device memory in the Evoformer forward at 192 tokens.
+    83.73   complex   179 residues, padded to 192 tokens (tt-bio buckets the token axis to 32)
+    83.73   asked for 18.9 MB in one DRAM buffer (2.4 MB in each of 8 banks)
+    83.73   free      59.0 MB of 34.226 GB, largest contiguous block 2.1 MB
+    83.73 The card is full: 34.167 GB of 34.226 GB is held by this fold, and the 59.0 MB left is in pieces of at most 2.1 MB a bank against the 2.4 MB a bank this 18.9 MB request needs.
+    83.73 What to do: 192 tokens is within what a p150a holds (the largest axis measured to complete a gradient round is 864), and this fold was the only trajectory on the card. Another process on this card is one cause (tt-smi lists it), but a fold can also refuse under the measured ceiling on a card it holds alone. This fold ran in the 'fast' memory mode. The 'lean' mode should hold 192 tokens on this card, slower: each gradient round runs every Evoformer block's forward once more. Pass memory='lean', or leave memory='auto' and it is picked for you (docs/bindcraft2.md, 'Large complexes'). Otherwise 19 residues off the binder takes this fold to 160 tokens.
+    83.73 The allocator's own refusal follows.
+    83.78 EVENT raised {"type": "MemoryError", "seconds": 79.3, "aiclk": [1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1350, 1343, 1350, 1350, 1350]}
+    83.79 Traceback (most recent call last):
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 562, in refusals_unwrapped
+    83.79     yield
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 2705, in _run_campaign
+    83.79     return campaign.run_campaign(settings, project_folder, **run_campaign_kwargs)
+    83.79            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/bcx_e2e/bc2/bindcraft/campaign.py", line 271, in run_campaign
+    83.79     return run_campaign_arm(settings, project_folder, alphafold_model, validation_model, mpnn_model, key, max_trajectories, build_validation_model, autotune=settings.get('autotune', True), metadata=metadata)
+    83.79            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/bcx_e2e/bc2/bindcraft/campaign.py", line 185, in run_campaign_arm
+    83.79     protein_states, predictions, failed_stage = run_trajectory(design_settings, alphafold_model, trajectory_random_key, trajectory_directory=trajectory_directory, targets=trajectory_targets)
+    83.79                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/.coworker/wt/bci-refusal/perf/bci_refusal/exits.py", line 126, in run_trajectory
+    83.79     return inner(*a, **kw)
+    83.79            ^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/bcx_e2e/bc2/bindcraft/trajectory.py", line 303, in run_trajectory
+    83.79     protein_states, predictions = run_gradient_design_stage(trajectory.protein_states, design_model, sequence_optimizer=stage.sequence_optimizer, design_schedule=design_schedule, record_sequence_update=recorder, select_best_round=len(design_settings.prepared_states) < 2, select_filtered_round=rotating_stage_filter_round(design_settings, target_schedule, trajectory.protein_states, stage.name), **induced_fit_reference_arguments(trajectory.losses, trajectory.binder_alone_reference, design_model, design_settings))
+    83.79                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/bcx_e2e/bc2/bindcraft/trajectory.py", line 131, in run_gradient_design_stage
+    83.79     predictions, chain_gradients, graph_design_loss = design_model.sequence_gradients(active_protein_states, active_losses, softmax_weight=softmax_weight, one_hot_weight=one_hot_weight, temperature=temperature, logit_scale=logit_scale, reference_predictions=reference_predictions)
+    83.79                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/.coworker/wt/bci-refusal/perf/bci_refusal/exits.py", line 109, in sequence_gradients
+    83.79     return real_grad(self, *a, **kw)
+    83.79            ^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 2017, in sequence_gradients
+    83.79     return super().sequence_gradients(protein_states, losses, passed,
+    83.79            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/bcx_e2e/bc2/bindcraft/af2.py", line 406, in sequence_gradients
+    83.79     (design_loss, prediction_arrays), shared_chain_gradients = compiled_sequence_gradients(*gradient_arguments)
+    83.79                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79 ValueError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):
+    83.79   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+    83.79   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+    83.79   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 96, in pure_callback_impl
+    83.79   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 1148, in _taped
+    83.79   File "/usr/lib/python3.12/contextlib.py", line 190, in __exit__
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 479, in _refusal_names_the_size
+    83.79 MemoryError: BindCraft 2 ran out of device memory in the Evoformer forward at 192 tokens.
+    83.79   complex   179 residues, padded to 192 tokens (tt-bio buckets the token axis to 32)
+    83.79   asked for 18.9 MB in one DRAM buffer (2.4 MB in each of 8 banks)
+    83.79   free      59.0 MB of 34.226 GB, largest contiguous block 2.1 MB
+    83.79 The card is full: 34.167 GB of 34.226 GB is held by this fold, and the 59.0 MB left is in pieces of at most 2.1 MB a bank against the 2.4 MB a bank this 18.9 MB request needs.
+    83.79 What to do: 192 tokens is within what a p150a holds (the largest axis measured to complete a gradient round is 864), and this fold was the only trajectory on the card. Another process on this card is one cause (tt-smi lists it), but a fold can also refuse under the measured ceiling on a card it holds alone. This fold ran in the 'fast' memory mode. The 'lean' mode should hold 192 tokens on this card, slower: each gradient round runs every Evoformer block's forward once more. Pass memory='lean', or leave memory='auto' and it is picked for you (docs/bindcraft2.md, 'Large complexes'). Otherwise 19 residues off the binder takes this fold to 160 tokens.
+    83.79 The allocator's own refusal follows.
+    83.79 
+    83.79 The above exception was the direct cause of the following exception:
+    83.79 
+    83.79 Traceback (most recent call last):
+    83.79   File "/home/ttuser/.coworker/wt/bci-refusal/perf/bci_refusal/exits.py", line 149, in <module>
+    83.79     main()
+    83.79   File "/home/ttuser/.coworker/wt/bci-refusal/perf/bci_refusal/exits.py", line 130, in main
+    83.79     got = bindcraft2.run_campaign(settings, project, trajectories_per_card=1,
+    83.79           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 2630, in run_campaign
+    83.79     return _run_campaign(settings, project_folder, trajectories_per_card=trajectories_per_card,
+    83.79            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 2704, in _run_campaign
+    83.79     with refusals_unwrapped():
+    83.79   File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    83.79     self.gen.throw(value)
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 567, in refusals_unwrapped
+    83.79     raise better from exc
+    83.79   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+    83.79     out_vals = callback(*args)
+    83.79                ^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+    83.79     pure_callback_impl(
+    83.79   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 93, in pure_callback_impl
+    83.79     return tree_util.tree_map(np.asarray, callback(*args))
+    83.79                                           ^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+    83.79     return tree_util.tree_leaves(self.callback_func(*args, **kwargs))
+    83.79                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 1148, in _taped
+    83.79     with _refusal_names_the_size("forward", n, z.shape[0], self.memory), \
+    83.79   File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    83.79     self.gen.throw(value)
+    83.79   File "/home/ttuser/scratch/bci-refusal-before/tt_bio/bindcraft2.py", line 479, in _refusal_names_the_size
+    83.79     raise better from exc
+    83.79 MemoryError: BindCraft 2 ran out of device memory in the Evoformer forward at 192 tokens.
+    83.79   complex   179 residues, padded to 192 tokens (tt-bio buckets the token axis to 32)
+    83.79   asked for 18.9 MB in one DRAM buffer (2.4 MB in each of 8 banks)
+    83.79   free      59.0 MB of 34.226 GB, largest contiguous block 2.1 MB
+    83.79 The card is full: 34.167 GB of 34.226 GB is held by this fold, and the 59.0 MB left is in pieces of at most 2.1 MB a bank against the 2.4 MB a bank this 18.9 MB request needs.
+    83.79 What to do: 192 tokens is within what a p150a holds (the largest axis measured to complete a gradient round is 864), and this fold was the only trajectory on the card. Another process on this card is one cause (tt-smi lists it), but a fold can also refuse under the measured ceiling on a card it holds alone. This fold ran in the 'fast' memory mode. The 'lean' mode should hold 192 tokens on this card, slower: each gradient round runs every Evoformer block's forward once more. Pass memory='lean', or leave memory='auto' and it is picked for you (docs/bindcraft2.md, 'Large complexes'). Otherwise 19 residues off the binder takes this fold to 160 tokens.
+    83.79 The allocator's own refusal follows.

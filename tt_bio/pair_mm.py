@@ -10,7 +10,9 @@ differently): pair-transition fc2 810 -> 367 us, the OPM out-projection 1098 -> 
 
 ``matmul`` returns the product or None, and None means the caller runs its own call unchanged.
 minimal_matmul takes no transpose, so a ``transpose_b`` call gets the weight transposed once and
-cached: AF2's weights live as long as the model.
+cached. The cache holds the weight as well as its transpose, because a ttnn tensor takes no weak
+reference and an id alone could hand a recycled id a stale transpose. So an entry keeps its weight
+on card after the model that owned it is gone, and whoever drops a model calls `forget`.
 """
 
 from __future__ import annotations
@@ -49,6 +51,18 @@ def _transposed(w):
     if hit is None or hit[0] is not w:
         hit = _WT[id(w)] = (w, ttnn.transpose(w, -2, -1))
     return hit[1]
+
+
+def forget() -> None:
+    """Drop every cached transpose, and with it the last reference to an evicted weight.
+
+    `bindcraft2.TrunkPool` calls this when it evicts a checkpoint. Without it every eviction
+    left that checkpoint's pair weights and their transposes on card, and a `resident=1`
+    campaign on the five multimer models reloads a trunk most rounds
+    (github.com/moritztng/tt-bio/issues/18). The live trunk's entries go too and are rebuilt on
+    their next dX, one transpose per weight.
+    """
+    _WT.clear()
 
 
 def config(x, w, transpose_b: bool = False):

@@ -15,6 +15,7 @@ import threading
 import time
 import traceback
 import types
+import weakref
 
 import numpy as np
 import pytest
@@ -99,6 +100,37 @@ def test_a_missing_checkpoint_is_recorded_rather_than_refused(tmp_path):
     assert pool.names == ("model_1_ptm",)
     assert pool.holds("model_1_ptm") and not pool.holds("model_3_multimer_v3")
     assert str(tmp_path / "params_model_3_multimer_v3.npz") in pool.absent["model_3_multimer_v3"]
+
+
+def test_an_evicted_trunk_keeps_no_weight_alive(tmp_path, monkeypatch):
+    """Issue 18: a `resident=1` campaign filled the card in four trajectories because every
+    eviction left the old checkpoint's pair weights on it. `pair_mm` caches a transpose for each
+    weight a dX reaches and holds the weight beside it, so the pool's pop was never the last
+    reference. A stand-in weight that takes a weak reference shows whether anything still does."""
+    pair_mm = pytest.importorskip("tt_bio.pair_mm")
+
+    class Weight:
+        pass
+
+    class Trunk:
+        def __init__(self, path, *, template=False):
+            self.weight = Weight()
+
+    monkeypatch.setattr(bindcraft2, "_Trunk", Trunk)
+    monkeypatch.setattr(pair_mm.ttnn, "transpose", lambda w, a, b: Weight())
+    monkeypatch.setattr(pair_mm, "_WT", {})
+    for name in ("a", "b"):
+        (tmp_path / f"params_{name}.npz").touch()
+    pool = bindcraft2.TrunkPool(tmp_path, resident=1)
+    pool.require(["a", "b"])
+
+    first = pool._load("a")
+    pair_mm._transposed(first.weight)          # one pair-track dX on the first checkpoint
+    weight = weakref.ref(first.weight)
+    del first
+    pool._load("b")                            # evicts "a"
+    assert weight() is None, "the evicted checkpoint's weight is still referenced"
+    assert pair_mm._WT == {}
 
 
 def test_a_model_the_pool_was_never_given_is_refused(tmp_path):
@@ -1446,10 +1478,80 @@ def test_a_card_held_to_its_last_percent_is_full_even_when_the_sliver_would_cove
                 "(allocated: 1058951296 B, free: 14790496 B, largest free block: 3954656 B)")
     msg = str(bindcraft2._size_aware_refusal(RuntimeError(boundary),
                                              phase="backward", n=531, padded=544))
-    assert "The card is full: 12.707 GB of 12.885 GB is held by this fold" in msg
+    assert "The card is full: 12.707 GB of 12.885 GB is held." in msg
+    assert "this fold" not in msg.split("What to do")[0]   # nothing measured whose memory it is
     assert "177.5 MB left is in pieces of at most 4.0 MB a bank" in msg
     assert "fragmentation" not in msg
     assert "run a smaller complex" in msg and "512 tokens" in msg
+
+
+# Issue #19's refusal, rebuilt from the reporter's figures: a p300c chip reporting 34.226 GB,
+# 33.435 GB allocated when the Evoformer backward refused at 352 tokens, one trajectory on the card.
+REFUSAL_19 = ("Out of Memory: Not enough space to allocate 1207959552 B DRAM buffer across 8 "
+              "banks, where each bank needs to store 150994944 B, but bank size is 4278190016 B "
+              "(allocated: 4179375000 B, free: 98815016 B, largest free block: 98815016 B)")
+
+
+def test_issue_19_the_refusal_splits_inherited_memory_from_this_trajectorys_own():
+    """24.452 GB was held at the trajectory boundary, before the fold allocated anything. The old
+    message called all 33.435 GB "held by this fold" and pointed the user at the fold's size."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=24_452_000_000))
+    assert ("33.435 GB of 34.226 GB is held: 24.452 GB was already held when this trajectory "
+            "started and 8.983 GB was allocated since.") in msg
+    assert "held by this fold" not in msg
+    # Most of the card was inherited, so the advice is about that and not about the size.
+    assert "the size of this fold is not what filled the card" in msg
+    assert "resume=true" in msg
+    assert "residues off the binder" not in msg
+
+
+def test_issue_19_a_fold_that_filled_the_card_itself_keeps_the_size_advice():
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=2_000_000_000))
+    assert "2.000 GB was already held when this trajectory started and 31.435 GB" in msg
+    assert "not what filled the card" not in msg
+    assert "residues off the binder" in msg
+
+
+def test_issue_19_without_a_boundary_reading_the_refusal_attributes_nothing():
+    """A refusal outside a campaign has no reading to subtract, so it says what is held and
+    nothing about whose: the allocator's figure is the whole card's, never the fold's."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352))
+    assert "33.435 GB of 34.226 GB is held." in msg
+    assert "this fold" not in msg.split("What to do")[0]
+    assert "already held when" not in msg
+
+
+def test_issue_19_a_reading_above_the_refusals_own_figure_is_not_split():
+    """Memory given back since the boundary leaves no inherited share to print."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_19), phase="backward",
+                                             n=342, padded=352, held_before=34_000_000_000))
+    assert "33.435 GB of 34.226 GB is held." in msg and "already held when" not in msg
+
+
+def test_issue_19_the_boundary_is_read_when_each_trajectory_starts(monkeypatch):
+    """The reading reaches the refusal raised inside the trajectory, and each trajectory gets
+    its own. The campaign module is a stand-in; `run_trajectory` is the name BindCraft 2 calls."""
+    import types
+    readings = iter([0, 24_452_000_000])
+    monkeypatch.setattr(bindcraft2.duotraj, "held_device_bytes", lambda: next(readings))
+
+    def run_trajectory(number):
+        with bindcraft2._refusal_names_the_size("backward", 342, 352):
+            if number == 2:
+                raise RuntimeError(REFUSAL_19)
+        return number
+
+    campaign = types.SimpleNamespace(run_trajectory=run_trajectory)
+    with bindcraft2._trajectory_boundaries(campaign):
+        assert campaign.run_trajectory(1) == 1
+        assert bindcraft2._HELD_AT_START[""] == 0
+        with pytest.raises(MemoryError, match="24.452 GB was already held when this trajectory"):
+            campaign.run_trajectory(2)
+    assert campaign.run_trajectory is run_trajectory
+    assert bindcraft2._HELD_AT_START == {}
 
 
 @pytest.mark.parametrize("dram,banks,pad_up", [
@@ -1666,6 +1768,31 @@ def _jax_wrapped(exc: BaseException) -> _JaxRuntimeErrorLookalike:
     except BaseException:                                                 # noqa: BLE001
         return _JaxRuntimeErrorLookalike(
             "INTERNAL: CpuCallback error calling callback: " + traceback.format_exc())
+
+
+@pytest.mark.parametrize("cls, stack", [
+    (bindcraft2.ExtraMsaOnDevice, "extra-MSA stack"),
+    (bindcraft2.TemplateOnDevice, "template stack"),
+])
+def test_the_extra_msa_and_template_stacks_name_the_size_when_they_refuse(cls, stack):
+    """Only the Evoformer's seams named the size; a refusal in these two stacks surfaced as the
+    allocator's raw text, with no token axis and no split of what was held (#19's audit)."""
+    class Pool:
+        def trunk_for(self, slot):
+            raise RuntimeError(REFUSAL_608)
+
+    class Tapes:
+        def take(self, token):
+            return {"root": None, "leaf": None, "shape": (608, 608, 4), "n": 586, "mode": "fast"}
+
+    seam = cls.__new__(cls)
+    seam.pool, seam._tapes, seam.memory = Pool(), Tapes(), bindcraft2._Memory()
+    with pytest.raises(MemoryError) as raised:
+        seam._backward("", 0, np.zeros((586, 586, 4), np.float32))
+    msg = str(raised.value)
+    assert f"{stack} backward at 608 tokens" in msg
+    assert "586 residues" in msg
+    assert "largest free block: 326674368 B" in str(raised.value.__cause__)
 
 
 def test_a_refusal_stringified_by_jax_still_reaches_the_caller_as_a_memory_error():

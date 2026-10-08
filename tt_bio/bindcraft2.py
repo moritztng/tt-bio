@@ -290,7 +290,8 @@ def _pad_up_on() -> bool:
 
 
 def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
-                        mode: str = "fast"):
+                        mode: str = "fast", held_before: "int | None" = None,
+                        stack: str = "Evoformer"):
     """An allocator refusal rewritten to name the size that caused it, or None.
 
     What a researcher sees without this is a `JaxRuntimeError` wrapping ten Python frames, a
@@ -301,6 +302,11 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
 
     None means `exc` is not an allocator refusal and the caller must re-raise it unchanged: a
     wrapper that swallows the shape of an unrelated bug is worse than no wrapper.
+
+    `held_before` is the allocator's `allocated` figure when this trajectory started (see
+    `_trajectory_boundaries`). The refusal's own figure is everything on the card, so without it
+    the message cannot say whose memory that is. Issue #19: a refusal told a user the card was
+    "held by this fold" when about three quarters of it had been held before the fold began.
     """
     hit = _ALLOCATOR_REFUSAL.search(str(exc))
     if hit is None:
@@ -310,6 +316,18 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
     banks, want, per_bank = g["banks"], g["want"], g["per_bank"]
     free_total, largest, bank_size = g["free"] * banks, g["largest"], g["bank_size"]
     card_total, held = bank_size * banks, g["allocated"] * banks
+    # Only a DRAM refusal is measured against a DRAM reading, and a card that gave memory back
+    # since the reading has no split worth printing.
+    if space != "DRAM" or held_before is None or not 0 <= held_before <= held:
+        held_before = None
+    others = duotraj.GATE is not None
+    if held_before is None:
+        holding = f"{_gb(held)} of {_gb(card_total)} is held"
+    else:
+        holding = (f"{_gb(held)} of {_gb(card_total)} is held: {_gb(held_before)} was already "
+                   f"held when this trajectory started and {_gb(held - held_before)} was "
+                   f"allocated since" + (", by it and the trajectories beside it" if others else ""))
+    inherited = held_before is not None and held_before > held - held_before
 
     # Two refusals wear the same words and take different remedies. The card is full when the
     # free memory could not hold the request even in one piece, and also when what is free is
@@ -327,13 +345,13 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
             f"bank needs.")
     elif free_total >= want:
         diagnosis = (
-            f"The card is full: {_gb(held)} of {_gb(card_total)} is held by this fold, and the "
-            f"{_gb(free_total)} left is in pieces of at most {_gb(largest)} a bank against the "
-            f"{_gb(per_bank)} a bank this {_gb(want)} request needs.")
+            f"The card is full: {holding}. The {_gb(free_total)} left is in pieces of at most "
+            f"{_gb(largest)} a bank against the {_gb(per_bank)} a bank this {_gb(want)} request "
+            f"needs.")
     else:
         diagnosis = (
-            f"The card is full: {_gb(free_total)} free against a {_gb(want)} request, with "
-            f"{_gb(held)} of {_gb(card_total)} already held by this fold.")
+            f"The card is full: {_gb(free_total)} free against a {_gb(want)} request. "
+            f"{holding[0].upper()}{holding[1:]}.")
 
     # The ceiling to compare against is THIS board's, where one has been measured. A Wormhole
     # Galaxy chip stops at 512 and a p150a at 576, so a Wormhole user told the p150a number is
@@ -424,13 +442,23 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
             f"sum. {sentence}. {reference} Trimming the "
             f"target to the domain you are binding is the other lever and usually the bigger "
             f"one.")
-    elif duotraj.GATE is not None:
+    elif others:
         action = (
             f"What to do: {padded} tokens fits on a {board_name} with the card to itself "
             f"({how_cap} {cap}), so something else "
             f"is holding this card. Interleaved trajectories are the usual cause: pass "
             f"trajectories_per_card=1 to run BindCraft 2's own one-at-a-time loop. Otherwise "
             f"{way_down}.")
+    elif inherited:
+        # The fold fits and most of the card was gone before it allocated anything, so neither its
+        # size nor a slower mode is the lever. What is left of earlier work in this process is.
+        action = (
+            f"What to do: {padded} tokens is within what a {board_name} holds "
+            f"({how_cap} {cap}), and most of what is held was held before this trajectory "
+            f"allocated anything, so the size of this fold is not what filled the card. This "
+            f"process still holds it from earlier work: earlier trajectories, and the "
+            f"checkpoints `resident` keeps on the card. Rerun on the same folder with resume=true: a new "
+            f"process starts with the card empty, and every design accepted so far is kept.")
     else:
         # One trajectory already. Advising trajectories_per_card=1 here changes nothing, and a
         # p150a refused 768 and 832 in fast mode held alone (`state/rel012-verify-bh.md`).
@@ -443,7 +471,7 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
             f"Otherwise {way_down}.")
 
     return MemoryError(
-        f"BindCraft 2 ran out of device memory in the Evoformer {phase} at {padded} tokens.\n"
+        f"BindCraft 2 ran out of device memory in the {stack} {phase} at {padded} tokens.\n"
         f"  complex   {n} residues, padded to {padded} tokens "
         f"(tt-bio buckets the token axis to {TOKEN_BUCKET})\n"
         f"  asked for {_gb(want)} in one {space} buffer "
@@ -462,16 +490,48 @@ _REFUSALS_RAISED: "collections.deque[MemoryError]" = collections.deque(maxlen=8)
 _REFUSALS_LOCK = threading.Lock()
 
 
+#: The card's `allocated` DRAM when each trajectory started, by `duotraj.slot()`.
+_HELD_AT_START: "dict[str, int | None]" = {}
+
+
+@contextlib.contextmanager
+def _trajectory_boundaries(campaign) -> "Iterator[None]":
+    """Read the card as each trajectory starts, so a refusal can tell inherited memory from its own.
+
+    BindCraft 2 runs a trajectory as one call of `campaign.run_trajectory`, so its start is the
+    boundary. The reading is one `get_memory_view`, once a trajectory.
+    """
+    real = getattr(campaign, "run_trajectory", None)
+    if real is None:   # a BindCraft 2 that names it otherwise: refusals say only what is held
+        yield
+        return
+
+    def run_trajectory(*args, **kw):
+        _HELD_AT_START[duotraj.slot()] = duotraj.held_device_bytes()
+        return real(*args, **kw)
+
+    campaign.run_trajectory = run_trajectory
+    try:
+        yield
+    finally:
+        campaign.run_trajectory = real
+        _HELD_AT_START.clear()
+
+
 @contextlib.contextmanager
 def _refusal_names_the_size(phase: str, n: int, padded: int,
-                            memory: "_Memory | None" = None) -> "Iterator[None]":
+                            memory: "_Memory | None" = None,
+                            stack: str = "Evoformer") -> "Iterator[None]":
     """Name the token axis on the way out of a device seam. A no-op unless it refuses."""
     try:
         yield
     except Exception as exc:
         mode = memory.used.get(padded, "fast") if memory is not None else "fast"
-        better = (_size_aware_refusal(exc, phase=phase, n=n, padded=padded, mode=mode)
-                  or _l1_refusal_names_the_size(exc, phase=phase, n=n, padded=padded))
+        better = (_size_aware_refusal(exc, phase=phase, n=n, padded=padded, mode=mode,
+                                      held_before=_HELD_AT_START.get(duotraj.slot()),
+                                      stack=stack)
+                  or _l1_refusal_names_the_size(exc, phase=f"{stack} {phase}", n=n,
+                                                padded=padded))
         if better is None:
             raise
         with _REFUSALS_LOCK:
@@ -799,9 +859,9 @@ class TrunkPool:
     ``resident`` caps how many stay on card and evicts least-recently-used. Five AF2 trunks is
     about 910 MB of weights, and holding all five brought a backward-pass allocator refusal
     forward at n=288 that ``resident=1`` ran past, so cap it if a long run dies in the allocator.
-    Eviction drops the only Python reference and relies on ttnn freeing the weight buffers when
-    it is collected; tt-bio has no model-level deallocate, and that release has not been read off
-    the allocator directly.
+    Eviction drops the pool's reference and relies on ttnn freeing the weight buffers when the
+    trunk is collected; tt-bio has no model-level deallocate. Anything else that holds a trunk's
+    weight defeats that; `pair_mm` did, and `_load` now calls `pair_mm.forget` on every eviction.
 
     ``source`` is a directory of ``params_<name>.npz`` (the layout ``tt-bio weights --download
     af2ig`` writes, and the one BindCraft 2's own ``data_dir`` uses), a mapping of model name to
@@ -926,8 +986,15 @@ class TrunkPool:
             if name in self._order:
                 self._order.remove(name)
             self._order.append(name)
+            evicted = False
             while len(self._order) > (self.resident or len(self.paths)):
                 self._trunks.pop(self._order.pop(0), None)
+                evicted = True
+            if evicted:
+                # The pop is not the last reference: `pair_mm` caches a transpose per weight
+                # and holds the weight beside it.
+                from tt_bio import pair_mm
+                pair_mm.forget()
             return trunk
 
     @property
@@ -1370,7 +1437,8 @@ class ExtraMsaOnDevice:
 
     def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
-        with duotraj.card(slot, "extra_msa._primal"):
+        with _refusal_names_the_size("forward", n, z.shape[0], stack="extra-MSA stack"), \
+                duotraj.card(slot, "extra_msa._primal"):
             trunk = self._trunk(slot)
             zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask),
                                  recompute=False)
@@ -1380,7 +1448,9 @@ class ExtraMsaOnDevice:
 
     def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
-        with duotraj.card(slot, "extra_msa._taped"):
+        with _refusal_names_the_size("forward", n, z.shape[0], self.memory,
+                                     stack="extra-MSA stack"), \
+                duotraj.card(slot, "extra_msa._taped"):
             trunk = self._trunk(slot)
             mode = self.memory.mode(trunk, z.shape[0])
             offload = trunk.arm(mode)
@@ -1405,7 +1475,9 @@ class ExtraMsaOnDevice:
         shape, n = entry["shape"], entry["n"]
         gz = torch.zeros(shape)
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        with duotraj.card(slot, "extra_msa._backward"):
+        with _refusal_names_the_size("backward", n, shape[0], self.memory,
+                                     stack="extra-MSA stack"), \
+                duotraj.card(slot, "extra_msa._backward"):
             trunk = self.pool.trunk_for(slot)
             trunk.arm(entry["mode"])
             trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
@@ -1529,7 +1601,8 @@ class TemplateOnDevice:
 
     def _primal(self, slot, act_np, pair_mask_np):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
-        with duotraj.card(slot, "template._primal"):
+        with _refusal_names_the_size("forward", n, act.shape[0], stack="template stack"), \
+                duotraj.card(slot, "template._primal"):
             trunk = self._trunk(slot)
             out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
                                        recompute=False)
@@ -1539,7 +1612,9 @@ class TemplateOnDevice:
 
     def _taped(self, slot, act_np, pair_mask_np):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
-        with duotraj.card(slot, "template._taped"):
+        with _refusal_names_the_size("forward", n, act.shape[0], self.memory,
+                                     stack="template stack"), \
+                duotraj.card(slot, "template._taped"):
             trunk = self._trunk(slot)
             mode = self.memory.mode(trunk, act.shape[0])
             offload = trunk.arm(mode)
@@ -1565,7 +1640,9 @@ class TemplateOnDevice:
         shape, n = entry["shape"], entry["n"]
         g = torch.zeros(shape)
         g[:n, :n] = torch.from_numpy(np.asarray(g_act_np).copy()).float()
-        with duotraj.card(slot, "template._backward"):
+        with _refusal_names_the_size("backward", n, shape[0], self.memory,
+                                     stack="template stack"), \
+                duotraj.card(slot, "template._backward"):
             trunk = self.pool.trunk_for(slot)
             trunk.arm(entry["mode"])
             trunk.ag.backward([entry["root"]], [trunk.seed(g, entry["root"])])
@@ -1649,7 +1726,8 @@ def _template_stack_mask(fn, depth: int = 0, seen=None):
 
 
 @contextlib.contextmanager
-def template_on_device(tmpl: "TemplateOnDevice | None"):
+def template_on_device(tmpl: "TemplateOnDevice | None",
+                       evo: "EvoformerOnDevice | None" = None):
     """Route the multimer template pair stack through `tmpl` for the duration.
 
     The two blocks are `template_stack((act, safe_subkey))`, inline in
@@ -1671,7 +1749,15 @@ def template_on_device(tmpl: "TemplateOnDevice | None"):
             return getattr(self._real, name)
 
         def layer_stack(self, num_block):
+            real_build = self._real.layer_stack(num_block)
+
             def build(fn):
+                if evo is not None and evo.host_only:
+                    # The same stand-down the Evoformer makes, for the same reason: `on_host`
+                    # routes this fold to BindCraft 2's own trunk, so it keeps AlphaFold's
+                    # template stack too, and on the trunk the card holds rather than whichever
+                    # one the design loop last selected. See issue #21.
+                    return real_build(fn)
                 # The jax face is built HERE, at trace time, rather than once for the whole
                 # block: this is the last point that runs on the trajectory's own thread, so
                 # it is where the slot can be read and baked into the callbacks.
@@ -1823,13 +1909,24 @@ def evoformer_on_device(evo: EvoformerOnDevice,
 
         def choose(fn):
             name = getattr(fn, "__name__", None)
-            if extra_msa is not None and name in EXTRA_MSA_FN_NAMES:
-                return choose_extra(fn, made, int(num_layers))
-            if name != "evoformer_fn":
-                return made(fn)
             if evo.host_only:
                 # This fold runs on a checkpoint the card does not hold, or is the control arm
                 # standing down. Hand back BindCraft 2's own stack; see `EvoformerOnDevice.on_host`.
+                #
+                # EVERY stack it asks for, not just the Evoformer. `on_host` stands the whole fold
+                # down, and the extra-MSA swap is installed process-wide by `predictor`, so a
+                # validation ensemble built with `trunk="jax"` inside a live campaign used to keep
+                # BindCraft 2's Evoformer and lose its four extra-MSA blocks. Those blocks then read
+                # their weights from `extra_msa.pool.current`, which is whatever the DESIGN loop last
+                # selected, because a host fold never reaches `pool.use`: on a monomer validation
+                # model that is the multimer design trunk, the supplied target's pair track
+                # collapses, and every binder residue lands within 4 A of it. That is issue #21 --
+                # `Target_pLDDT` ~0.29 constant across sequences and `Interface_Residues` exactly
+                # the binder length -- and the ordering of this check is the whole of it.
+                return made(fn)
+            if extra_msa is not None and name in EXTRA_MSA_FN_NAMES:
+                return choose_extra(fn, made, int(num_layers))
+            if name != "evoformer_fn":
                 return made(fn)
             if int(num_layers) != evo.blocks:
                 raise ValueError(f"evoformer_fn has {num_layers} blocks, tt-bio holds "
@@ -2228,7 +2325,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
             autograd.exact_training(exact), evoformer_on_device(evo, extra), \
-            template_on_device(tmpl), \
+            template_on_device(tmpl, evo), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)
@@ -2307,7 +2404,8 @@ def campaign_predictor(*, validation: str = "jax",
         real = campaign.AlphaFoldDesignModel
         campaign.AlphaFoldDesignModel = build_for_campaign
         try:
-            yield build_for_campaign
+            with _trajectory_boundaries(campaign):
+                yield build_for_campaign
         finally:
             campaign.AlphaFoldDesignModel = real
 

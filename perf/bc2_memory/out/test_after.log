@@ -1,0 +1,6 @@
+[tt_bio.bindcraft2] BindCraft 2 is the authors' software under their own licence, which restricts hosting it for others: https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE
+[tt_bio.bindcraft2] the fused triangle attention declined all 96 calls at 192 tokens: its circular buffers do not fit L1 at this token axis, so the composed path is running and holding the [192,4,192,192] fp32 scores -- 113.2 MB of device memory this fold would not otherwise need, and a slower round with it. Whether the arm fits is a property of the token axis and is NOT monotone in it, so a neighbouring binder length is often much cheaper: try one 32-token bucket UP as well as one down.
+
+held DRAM after each round, GB: [0.491, 1.285, 0.548, 0.777, 1.551, 1.19]; selections {'model_1_multimer_v3': 3, 'model_2_multimer_v3': 3}; growth over rounds 2-6 -94.4 MB
+.
+1 passed, 4 deselected in 178.46s (0:02:58)

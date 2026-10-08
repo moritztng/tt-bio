@@ -1,0 +1,20 @@
+     2.58 [tt_bio.bindcraft2] BindCraft 2 is the authors' software under their own licence, which restricts hosting it for others: https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE
+     2.62 2026-10-07 21:36:24.167 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+     2.62 Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+    50.27 EVENT opened {"memory": {}, "signals": {"SigBlk": [], "SigIgn": [13, 25], "SigCgt": [2, 4, 6, 7, 8, 11]}, "dram": {"allocated": 16384, "free": 34225503744, "total": 34225520128}}
+    50.28 [tt_bio.bindcraft2] stops at whichever comes first: 10 accepted designs, or 1 trajectory spent. Interleaved arms already running can carry the accepted count past 10, so it is a floor, not a quota.
+    50.28 [tt_bio.bindcraft2] a trajectory is also ended mid-design by the per-stage gates, which the campaign's own `filters` line does not list: screen pLDDT >= 0.6 (min_plddt_screen), refine pLDDT >= 0.6 (min_plddt_refine), anneal i_pTM >= 0.5 (min_iptm_anneal), anneal pLDDT >= 0.65 (min_plddt_anneal), harden i_pTM >= 0.5 (min_iptm_harden), harden pLDDT >= 0.65 (min_plddt_harden), mutate i_pTM >= 0.5 (min_iptm_mutate), mutate pLDDT >= 0.6 (min_plddt_mutate), final i_pTM >= 0.7 (min_iptm_final), final monomer pLDDT >= 0.7 (min_monomer_plddt_final), final pLDDT >= 0.7 (min_plddt_final). A trajectory that misses one is charged against the budget and counted under `terminated`, and the rejection names the metric (i_pTM/monomer pLDDT/pLDDT), not the setting.
+    51.97 BindCraft 2 v1.0.1
+    51.97 campaign pdl1
+    51.97 binder length 60
+    51.97 target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+    51.97 losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+    51.97 filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+    51.97 results /home/ttuser/.coworker/wt/bci-refusal/perf/bci_refusal/out/r1/fixed/sigterm/campaign | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+    58.26 
+    58.26 === trajectory 1 | pdl1_denovo_l60_62c1983a745380f5 | accepted 0/10 ===
+    58.27 EVENT boundary_probe {"trajectory": 1, "probe": {"allocated": 16384, "free": 34225503744, "total": 34225520128}}
+    58.27 EVENT round {"n": 1, "aiclk": 1350}
+    82.99 [tt_bio.bindcraft2] the fused triangle attention declined all 96 calls at 192 tokens: its circular buffers do not fit L1 at this token axis, so the composed path is running and holding the [192,4,192,192] fp32 scores -- 113.2 MB of device memory this fold would not otherwise need, and a slower round with it. Whether the arm fits is a property of the token axis and is NOT monotone in it, so a neighbouring binder length is often much cheaper: try one 32-token bucket UP as well as one down.
+    94.55 EVENT round {"n": 2, "aiclk": 1350}
+   101.80 EVENT round {"n": 3, "aiclk": 1350}
