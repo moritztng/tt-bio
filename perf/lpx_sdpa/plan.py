@@ -70,6 +70,17 @@ def triangle(cls, H):
             for dn, dt in (("bf16", BF), ("bfp8", U("bfp8")), ("bfp4", U("bfp4")))
             for fid in ("HiFi2", "LoFi")]
     add(cls, "reuse", g0, base, arms)
+    # narrower score CB (cb_qk_im) on the mask-reuse kernel, after the packer-reconfigure fix in compute_common
+    pairs = ((64, 736), (128, 736), (64, 384)) if H == 2 else ((96, 736), (96, 384), (128, 736), (192, 736), (256, 256))
+    arms = []
+    for q, k in pairs:
+        for nm, dt, im in (("bf16", BF, None), ("bf16 im8", BF, "bfp8"), ("bfp8", U("bfp8"), None),
+                           ("bfp8 im8", U("bfp8"), "bfp8"), ("bfp8 im4", U("bfp8"), "bfp4")):
+            for fid in ("HiFi2", "LoFi"):
+                a = dict(impl="fused", qc=q, kc=k, dt=dt, fid=fid, name=f"reuse q{q} k{k} {nm} {fid}")
+                if im: a["im"] = im
+                arms.append(a)
+    add(cls, "im", g0, base, arms)
     arms = [dict(impl="explicit", style="plain", bchunk=bc, dt=dt, fid=fid, name=f"explicit b{bc} {dn} {fid}")
             for bc in (23, 92) for dn, dt in (("bf16", BF), ("bfp8", U("bfp8"))) for fid in ("HiFi2", "LoFi")]
     add(cls, "explicit", g0, base, arms)
@@ -112,6 +123,16 @@ def dit():
                 if "oim8" in nm: a["oim"] = "bfp8"
                 arms.append(a)
     add("DIT", "kernel", g0, base, arms)
+    # the in-model swap: AttentionPairBias's fp32 non-raw branch, typecasts included. Bias cast per call
+    # (today's branch as written) or hoisted to the SDPA format once per fold (the bias is step-invariant).
+    arms = []
+    for q, k in ((736, 128), (256, 256)):
+        for dn, dt in (("bf16", BF), ("bfp8", U("bfp8"))):
+            for cast, cn in ((["q", "k", "v", "mask"], "bias cast per call"), (["q", "k", "v"], "bias hoisted")):
+                for fid, acc in (("HiFi2", False), ("HiFi4", True)):
+                    arms.append(dict(impl="stock", qc=q, kc=k, dt=dt, fid=fid, acc=acc, cast=cast,
+                                     name=f"swap q{q} k{k} {dn} {cn} {fid} acc{int(acc)}"))
+    add("DIT", "swap", g0, base, arms)
 
 def apb():
     B, H, S, D = 1, 16, 736, 32

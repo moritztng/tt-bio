@@ -115,6 +115,21 @@ def make_call(a, g):
         pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=GRID, exp_approx_mode=bool(a.get("exp", False)),
                                     q_chunk_size=a["qc"], k_chunk_size=a["kc"])
         kw = {} if a.get("fid") == "default" else {"compute_kernel_config": ckc_obj(a)}
+        if a.get("cast"):
+            # the in-model swap for an fp32 site (AttentionPairBias's fp32 non-raw branch): fp32 operands
+            # typecast to the SDPA format per call, the output cast back. `cast` lists the operands that
+            # arrive fp32; the rest (a bias hoisted to bf16 once per fold) are read as they are.
+            src = {o: (dev_tensor(o, "fp32") if o in a["cast"] else t) for o, t in zip(("q", "k", "v", "mask"), (q, k, v, m))}
+            def call():
+                c = {o: (ttnn.typecast(t, DT[d[o]]) if o in a["cast"] else t) for o, t in src.items()}
+                o_ = ttnn.transformer.scaled_dot_product_attention(
+                    c["q"], c["k"], c["v"], attn_mask=c["mask"], is_causal=False, scale=scale, program_config=pc, **kw)
+                for o in a["cast"]:
+                    ttnn.deallocate(c[o])
+                r = ttnn.typecast(o_, ttnn.float32)
+                ttnn.deallocate(o_)
+                return r
+            return call
         def call():
             return ttnn.transformer.scaled_dot_product_attention(
                 q, k, v, attn_mask=m, is_causal=False, scale=scale, program_config=pc, **kw)
