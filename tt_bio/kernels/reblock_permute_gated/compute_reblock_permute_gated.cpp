@@ -64,8 +64,71 @@ void kernel_main() {
     // it was last configured for, and a bfp8 tile read as bf16 (or the reverse) is garbage, not a
     // rounding. 0 compiles exactly the uniform-bf16 kernel above.
     constexpr uint32_t mixed_fmt = get_compile_time_arg_val(7);
+    // 1 = the lean form (TT_BIO_GATED_LEAN, spd-trimul): NOT bit-exact. g is unpacked transposed,
+    // its sigmoid taken in DST and packed (sig^T); then p is unpacked transposed and multiplied by sig^T
+    // on the FPU straight out of DST (`binary_dest_reuse_tiles` ELWMUL). Two pack round trips a tile
+    // instead of three, no SFPU multiply. Transposing before the elementwise ops is exact (both are
+    // elementwise); what changes is the FPU multiply into the 16-bit DST, which truncates (the header's
+    // second bullet): at most one bf16 ULP low, never a different value class.
+    constexpr uint32_t lean = get_compile_time_arg_val(8);
 
     binary_op_init_common(p_cb, sig_cb, mul_cb);
+
+    if constexpr (lean) {
+        for (uint32_t i = 0; i < num_tiles; i += GRAN) {
+            const uint32_t n = (num_tiles - i < GRAN) ? (num_tiles - i) : GRAN;
+
+            cb_wait_front(g_cb, n);
+            cb_reserve_back(sig_cb, n);
+            tile_regs_acquire();
+            transpose_wh_init_short(g_cb);
+            reconfig_data_format_srca(g_cb);
+            for (uint32_t j = 0; j < n; ++j) {
+                transpose_wh_tile(g_cb, j, j);
+            }
+            if constexpr (!skip_sigmoid) {
+                sigmoid_tile_init();
+                for (uint32_t j = 0; j < n; ++j) {
+                    sigmoid_tile(j);
+                }
+            }
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t j = 0; j < n; ++j) {
+                pack_tile(j, sig_cb);
+            }
+            tile_regs_release();
+            cb_pop_front(g_cb, n);
+            cb_push_back(sig_cb, n);
+
+            cb_wait_front(p_cb, n);
+            cb_wait_front(sig_cb, n);
+            cb_reserve_back(out_cb, n);
+            tile_regs_acquire();
+            transpose_wh_init_short(p_cb);
+            reconfig_data_format_srca(p_cb);
+            for (uint32_t j = 0; j < n; ++j) {
+                transpose_wh_tile(p_cb, j, j);
+            }
+            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                sig_cb);
+            reconfig_data_format_srcb(sig_cb);
+            for (uint32_t j = 0; j < n; ++j) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    sig_cb, j, j);
+            }
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t j = 0; j < n; ++j) {
+                pack_tile(j, out_cb);
+            }
+            tile_regs_release();
+            cb_pop_front(p_cb, n);
+            cb_pop_front(sig_cb, n);
+            cb_push_back(out_cb, n);
+        }
+        return;
+    }
 
     for (uint32_t i = 0; i < num_tiles; i += GRAN) {
         const uint32_t n = (num_tiles - i < GRAN) ? (num_tiles - i) : GRAN;

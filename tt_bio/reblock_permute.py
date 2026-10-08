@@ -765,7 +765,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
         # FIRST arm's compiled program back for both legs and reads a 1.000x that means nothing.
-        GATE_GRANULARITY,
+        GATE_GRANULARITY, GATE_LEAN,
     )
 
 
@@ -851,7 +851,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
         compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID),
-                           GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16)],
+                           GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16), int(GATE_LEAN)],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
@@ -890,6 +890,18 @@ GATE_FIDELITY = ttnn.MathFidelity.HiFi4
 GATE_FP32_ACC = False
 # Diagnostic, never on in production: drops the activation so the multiply can be measured alone.
 GATE_SKIP_SIGMOID = False
+
+# The lean gated compute (`lean` in compute_reblock_permute_gated.cpp): transpose on the unpack, FPU
+# multiply from DST, two pack round trips a tile instead of three. Not bit-exact (the FPU product
+# truncates into the 16-bit DST, at most one bf16 ULP low). OFF; spd-trimul A/B arm `glean`.
+GATE_LEAN = env_flag("TT_BIO_GATED_LEAN", False)
+
+
+def set_gate_lean(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global GATE_LEAN
+    prev, GATE_LEAN = GATE_LEAN, bool(on)
+    return prev
 
 
 @_ops.fused_kernel("reblock_permute_gated")

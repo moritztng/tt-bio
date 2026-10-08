@@ -102,6 +102,7 @@ LEVERS = {
     "b8in": [(T.set_trimul_inproj_b8, True)],
     "epi1": [(TTL.set_epi, 1)],
     "epi2": [(TTL.set_epi, 2)],
+    "glean": [(RB.set_gate_lean, True)],
 }
 
 
@@ -271,6 +272,7 @@ for var in A.variants.split(","):
             fired["inproj_b8"] = T._TRIMUL_INPROJ_B8
             fired["tail_f1"] = [a - b for a, b in zip(TTL.STATS, tail0)]
             fired["tail_epi"] = TTL.EPI
+            fired["gate_lean"] = RB.GATE_LEAN
             fired["tail_resid"] = [a - b for a, b in zip(TTL.RESID_STATS, resid0)]
         finally:
             restore(prev)
