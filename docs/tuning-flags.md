@@ -21,6 +21,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
+| [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
@@ -185,6 +186,24 @@ identical dimensions. An earlier version of this optimization looked at the shap
 windows wrong, and still wrote the identical structure, because the attention mask is built from the
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
+
+## `TT_BIO_ATOM_SUPERSET_WINDOW`
+
+Default: on.
+
+The Protenix atom transformer attends each block of 32 atoms over a 128-atom key window that starts
+48 atoms to its left, so the window never lines up with the device's 32-row tiles. tt-bio built
+every window by copying rows one at a time (a gather in bf16, a loop of slices in fp32), and that
+copy was most of the module's time. With this flag each block attends over the five whole tiles
+around it instead (160 keys). The 32 extra keys and every key the window mask excludes get a bias
+of -1e9, folded once per fold into the per-block pair bias, so they carry zero weight and the
+attention is the same function. The windows become five aligned slices and one concat.
+
+**Accuracy: the same attention up to rounding.** In float64 the superset output matches the
+128-key window to 1e-12 at 33 to 5,919 atoms and one to five samples
+(`tests/test_atom_superset_window.py`). On the device the softmax and attn@v reduce over 160 keys
+instead of 128, so the result is not bit-exact. The fold-level grade and speed are in progress.
+`TT_BIO_ATOM_SUPERSET_WINDOW=0` restores the windowed path.
 
 ## `TT_BIO_DEVICE_CONDITIONING`
 

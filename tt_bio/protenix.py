@@ -317,6 +317,18 @@ def _msa_keep_bytes(tokens, m_bytes):
 _UPLOAD_REFUSED_ROWS = {}  # host m shape -> depth-chunk rows, once DRAM refused its whole upload or the OPM over it
 _TEMPLATE_ROWS_REFUSED = {}  # pair shape -> row block the template residual settled at
 
+# AtomTransformer attention over a SUPERSET key window, ON. The key window of query block i is
+# atoms [32i - 48, 32i + 80): it does not start on a tile, which is why K and V were windowed by a
+# row-major gather (bf16) or a per-sample slice loop (fp32), ~14-18 ms of the 29 ms module at 730
+# tokens and 5 samples on a Wormhole chip (state/lpx-sdpa.md, atomwin2). The superset is the five
+# whole tiles i-2 .. i+2 (160 keys); its 16 slack keys on each side and every invalid key take a
+# -1e9 bias folded once per fold into the per-block pair bias, so they get exactly zero weight and
+# the attention is the same function. K and V become five tile-aligned block slices and one concat.
+# Not bit-exact: the softmax and attn@v reduce over 160 keys instead of 128.
+# `TT_BIO_ATOM_SUPERSET_WINDOW=0` restores the windowed path.
+_ATOM_SUPERSET = env_flag("TT_BIO_ATOM_SUPERSET_WINDOW", True)
+ATOM_SUPERSET_STATS = [0, 0]  # (attention calls on the superset window, on the windowed path)
+
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
                   # CURRENT mesh. gen = tenstorrent.device_generation(): a model switch closes
                   # the mesh and this module-level dict survives, so entries from an older
@@ -535,6 +547,12 @@ class AtomTransformer(_KeyedWeights, Module):
         self._softmax_ckc = softmax_ckc("protenix.atom_transformer")
         self._softmax_f64 = host_f64_softmax_site("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
+        # LPX: the bf16 superset attention runs as one fused SDPA (bf16 mask, never bfp8: the
+        # -1e9 entries would share a block exponent with the bias and flush it).
+        self._sdpa = _T.LPX and dtype == ttnn.bfloat16 and _ATOM_SUPERSET
+        self._sdpa_ckc = ttnn.WormholeComputeKernelConfig(
+            math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
+            fp32_dest_acc_en=False, packer_l1_acc=False)
 
     def _adaln(self, a, s, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
@@ -596,6 +614,75 @@ class AtomTransformer(_KeyedWeights, Module):
         x = ttnn.permute(x, (0, 2, 1, 3))
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
 
+    def _superset(self):
+        """(lead, W): left pad of the superset key axis and its width, both whole tiles."""
+        nq = self.N_QUERIES
+        lead = -(-self.PAD_LEFT // nq) * nq
+        return lead, -(-(lead - self.PAD_LEFT + self.N_KEYS) // nq) * nq
+
+    def _superset_bias(self, z, mask_trunked, nb):
+        """Pair bias z (B*nb, H, nq, nk) + window validity (B'*nb, nq, nk, host) -> the superset
+        bias (B, H*nb, nq, W), heads-major to match `_attention_superset`'s scores.
+
+        Built on the host from the device z: once per fold, and the key-axis shift by 16 is not a
+        tile-aligned pad on the device. Valid entries keep z's exact value. For the fused SDPA the
+        bias is pre-divided by the scale, which that kernel applies to the mask too."""
+        H, nq, nk = self.N_HEADS, self.N_QUERIES, self.N_KEYS
+        lead, W = self._superset()
+        sl = lead - self.PAD_LEFT
+        zh = ttnn.to_torch(z).float()
+        B = zh.shape[0] // nb
+        pad = torch.where(mask_trunked.float() < 0.5, -1e9, 0.0).reshape(-1, nb, 1, nq, nk)
+        zz = torch.nn.functional.pad((zh.reshape(B, nb, H, nq, nk) + pad).permute(0, 2, 1, 3, 4),
+                                     (sl, W - nk - sl), value=-1e9)
+        dtype = z.dtype
+        if self._sdpa:
+            zz, dtype = zz.clamp(min=-1e4) * self.HEAD_DIM ** 0.5, ttnn.bfloat16
+        return ttnn.from_torch(zz.reshape(B, H * nb, nq, W).contiguous(), dtype=dtype,
+                               layout=ttnn.TILE_LAYOUT, device=self.device)
+
+    def _attention_superset(self, q_norm, kv_norm, apb, N, NP, zs):
+        """Windowed attention for (M, N, c) inputs over the superset key window. Q is
+        (M, H*nb, nq, dh); K/V are (M, H*nb, W, dh), built from the padded key rows as W/nq
+        block-shifted slices of one (M*H, nb + W/nq - 1, nq, dh) tensor."""
+        H, dh, nq = self.N_HEADS, self.HEAD_DIM, self.N_QUERIES
+        lead, W = self._superset()
+        M, nb, S = q_norm.shape[0], NP // nq, W // nq
+        nbk = nb + S - 1
+
+        def heads(x, front, rows):                       # (M, N, H*dh) -> (M, H, rows, dh)
+            x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+            x = ttnn.pad(x, [[0, 0], [front, rows - front - N], [0, 0]], 0.0)
+            x = ttnn.permute(ttnn.reshape(x, (M, rows, H, dh)), (0, 2, 1, 3))
+            return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+
+        def windows(x):
+            x = ttnn.reshape(heads(x, lead, nbk * nq), (M * H, nbk, nq, dh))
+            x = ttnn.concat([ttnn.slice(x, [0, j, 0, 0], [M * H, j + nb, nq, dh])
+                             for j in range(S)], dim=2)
+            return ttnn.reshape(x, (M, H * nb, W, dh))
+
+        Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
+        Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
+        Ks = windows(self._lin(kv_norm, apb + "attention.linear_k.weight"))
+        Vs = windows(self._lin(kv_norm, apb + "attention.linear_v.weight"))
+        if self._sdpa:
+            o = _T.fused_sdpa(Qs, Ks, Vs, attn_mask=zs, scale=dh ** -0.5,
+                              program_config=_T._sdpa_program_config(nq, W),
+                              compute_kernel_config=self._sdpa_ckc)
+        else:
+            sc = batched_matmul(Qs, ttnn.permute(Ks, (0, 1, 3, 2)),
+                                compute_kernel_config=self.compute_kernel_config)
+            sc = scale_add(sc, dh ** -0.5, zs)           # zs broadcasts over M at a leading 1
+            o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                            host_f64=self._softmax_f64),
+                               Vs, compute_kernel_config=self.compute_kernel_config)
+        o = ttnn.permute(ttnn.reshape(o, (M, H, NP, dh)), (0, 2, 1, 3))
+        o = ttnn.reshape(o, (M, NP, H * dh))
+        o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])
+        ATOM_SUPERSET_STATS[0] += 1
+        return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
+
     def _pair_bias(self, p, apb):
         """Atom-pair attention bias: LayerNorm(p, weight only) -> linear_nobias_z -> permute
         to (nb,H,nq,nk). Pure function of p; in the diffusion enc/decoder p is constant across
@@ -655,6 +742,12 @@ class AtomTransformer(_KeyedWeights, Module):
         __call__(bias_cache=...) to avoid recomputing them every step (24->1 per fold)."""
         z_pre = [self._pair_bias(p, f"diffusion_transformer.blocks.{b}.attention_pair_bias.")
                  for b in range(self.n_blocks)]
+        if _ATOM_SUPERSET:
+            # The pad bias is folded into each block's superset bias; merge_conds reads None.
+            zs = [self._superset_bias(z, mask_trunked, mask_trunked.shape[0]) for z in z_pre]
+            for z in z_pre:
+                ttnn.deallocate(z)
+            return (zs, None)
         return (z_pre, self._make_pad_bias(mask_trunked))
 
     def __call__(self, a, s, p, mask_trunked, bias_cache=None):
@@ -720,11 +813,14 @@ class AtomTransformer(_KeyedWeights, Module):
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)
         return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
 
-    def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None):
+    def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None, zs=None):
         P = f"diffusion_transformer.blocks.{b}."; apb = P + "attention_pair_bias."
         q_norm = self._adaln(a, s, apb + "layernorm_a.")
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
-        o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
+        if zs is not None:
+            o = self._attention_superset(q_norm, kv_norm, apb, N, NP, zs)
+        else:
+            o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
         g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
                         compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -749,6 +845,19 @@ class AtomTransformer(_KeyedWeights, Module):
         block); else the M=1 per-sample path. Returns (1,N,c_atom) at M=1, (M,N,c_atom) at M>1."""
         N = a.shape[1] if multiplicity == 1 else a.shape[1]
         NP = ((N + self.N_QUERIES - 1) // self.N_QUERIES) * self.N_QUERIES
+        if _ATOM_SUPERSET:
+            # One path for every M: the superset bias is (1 or M, H*nb, nq, W) and broadcasts
+            # over the samples in the score add, and only s needs a real M dim (AdaLN).
+            s_m = s if s.shape[0] == multiplicity else ttnn.to_layout(
+                ttnn.concat([s] * multiplicity, dim=0), ttnn.TILE_LAYOUT)
+            x = a
+            for b in range(self.n_blocks):
+                zs = bias_cache[0][b] if bias_cache is not None else self._superset_bias(
+                    self._pair_bias(p, f"diffusion_transformer.blocks.{b}.attention_pair_bias."),
+                    mask_trunked, NP // self.N_QUERIES)
+                x = self._block_m(x, s_m, None, b, N, NP, multiplicity, None, zs=zs)
+            return x
+        ATOM_SUPERSET_STATS[1] += self.n_blocks
         if multiplicity == 1:
             z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
             x = a
@@ -3088,7 +3197,7 @@ def merge_conds(diffusion_module, conds):
     for key in ("atxE_bias", "atxD_bias"):
         z_pre = [c[key][0] for c in conds]
         m[key] = ([cat([z[b] for z in z_pre]) for b in range(len(z_pre[0]))],
-                  cat([c[key][1] for c in conds]))
+                  None if conds[0][key][1] is None else cat([c[key][1] for c in conds]))
     if conds[0].get("dit_block_biases") is not None:
         m["dit_block_biases"] = [cat([_T.host_unpark(c["dit_block_biases"][b]) for c in conds])
                                  for b in range(len(conds[0]["dit_block_biases"]))]
