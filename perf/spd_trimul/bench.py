@@ -28,7 +28,7 @@ ap.add_argument("--n", type=int, default=736)
 ap.add_argument("--valid", type=int, default=730)
 ap.add_argument("--cz", type=int, default=256)
 ap.add_argument("--hidden", type=int, default=256)
-ap.add_argument("--arms", default="base,ibw,into,ibw+into")
+ap.add_argument("--arms", default="base,ibw,into,ibw+into,ibw+hifi2,ibw+lofi")
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--calls", type=int, default=4)
 ap.add_argument("--chip", type=int, default=None)
@@ -89,6 +89,8 @@ def aiclk(t0, t1):
 LEVERS = {
     "ibw": [(T.set_trimul_ibw_full, True)],
     "into": [(T.set_trimul_back_into, True)],
+    "hifi2": [(T.set_trimul_einsum_fid, "hifi2")],
+    "lofi": [(T.set_trimul_einsum_fid, "lofi")],
 }
 
 

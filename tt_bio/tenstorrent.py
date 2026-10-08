@@ -5081,6 +5081,30 @@ _TRIMUL_BACK_INTO = env_flag("TT_BIO_TRIMUL_BACK_INTO", False)
 _TRIMUL_IBW_FULL_REFUSED: set = set()
 
 
+# SPD lever (spd-trimul): the einsum's own math fidelity, "" = the trunk's. With all of K in one block
+# (`_TRIMUL_IBW_FULL`) the 736-token einsum sits near the HiFi4 math roof (3.6 ms of 204 GFLOP), so
+# fidelity becomes a lever there where it was none at in0_block_w = 1. Accuracy-graded.
+_TRIMUL_EINSUM_FID = os.environ.get("TT_BIO_TRIMUL_EINSUM_FID", "").lower()
+
+
+def _trimul_einsum_ckc(base):
+    if not _TRIMUL_EINSUM_FID:
+        return base
+    cfg = type(base)(math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[_TRIMUL_EINSUM_FID]),
+                     math_approx_mode=base.math_approx_mode, fp32_dest_acc_en=base.fp32_dest_acc_en,
+                     packer_l1_acc=base.packer_l1_acc)
+    cfg.dst_full_sync_en = base.dst_full_sync_en
+    cfg.throttle_level = base.throttle_level
+    return cfg
+
+
+def set_trimul_einsum_fid(fid: str) -> str:
+    """A/B switch for the harness ("" | "hifi2" | "lofi" | ...). Returns the previous value."""
+    global _TRIMUL_EINSUM_FID
+    prev, _TRIMUL_EINSUM_FID = _TRIMUL_EINSUM_FID, fid
+    return prev
+
+
 def set_trimul_back_into(on: bool) -> bool:
     """A/B switch for the harness. Returns the previous state."""
     global _TRIMUL_BACK_INTO
@@ -8417,7 +8441,7 @@ class TriangleMultiplication(Module):
                     x_chunk = ttnn.matmul(
                         a_chunk,
                         b_chunk,
-                        compute_kernel_config=self.compute_kernel_config,
+                        compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
                         memory_config=out_mc,
                         program_config=program_config,
                         dtype=ttnn.bfloat16,
