@@ -4,7 +4,7 @@
 #   queue.sh OUT CHIP LOCK PY atom          op bench, atom attention arms only (opbench.py atom), ~3 min
 #   queue.sh OUT CHIP LOCK PY steps         atom attention step timings, fp32 then bf16 (atom_steps.py), ~5 min
 #   queue.sh OUT CHIP LOCK PY fold          c730 fold, arms off (both levers off) and attn (branch default), 1 cold + 3 warm
-# DATA=<dir> points bench.py at another spd-data tree; SHARE=32 is the Galaxy host-thread share.
+# ARMS="attn off:..." replaces the fold arms. DATA=<dir> points bench.py at another spd-data tree; SHARE=32 is the Galaxy host-thread share.
 set -u
 OUT=$1 CHIP=$2 LOCK=$3 PY=$4 JOB=$5
 cd "$(dirname "$0")/../.."
@@ -26,7 +26,7 @@ elif [ "$JOB" = steps ]; then
     done
 else
     OFF=TT_BIO_SDPA_FUSED_PADDED=0,TT_BIO_ATOM_SUPERSET_WINDOW=0
-    for arm in "off:$OFF" attn "off2:$OFF"; do
+    for arm in ${ARMS:-"off:$OFF" attn "off2:$OFF"}; do
         name=${arm%%:*}
         timeout -s INT 5400 $PY perf/spd/bench.py --out "$OUT/$name" --chip "$CHIP" --arm "$arm" --inputs c730 --warm 3 ${DATA:+--data "$DATA"} ${SHARE:+--share "$SHARE"} \
             > "$OUT/$name.log" 2>&1
