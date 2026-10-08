@@ -217,16 +217,24 @@ def chunk_divisors(seq, tile=TILE):
 
 
 def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=None,
-             extra_cbs=()):
+             extra_cbs=(), im_dtype=None, out_im_dtype=None):
     """(buffer index, tiles, page bytes, data format) for every CB the factory creates, :405-414.
 
     `mask_cb_tiles` overrides `cb_mask_in`: K2 fronts the whole head's mask grid
     (`k_num_chunks * Sq_chunk_t * Sk_chunk_t` tiles) where the stock op double-buffers one chunk.
     `extra_cbs` are rows in the same shape, appended -- the qkv fold's resident x block and weight
     slices go through here so `cb_fits_l1` prices them with everything else.
+
+    `im_dtype` sets the score CB (`cb_qk_im`, the Sq_chunk x Sk_chunk tile block) and
+    `out_im_dtype` the two output accumulators. The factory pins both to bf16 (:651-653); `None`
+    keeps that. The standard compute path reconfigures unpack/pack formats at every stage boundary,
+    so a narrower intermediate is a page-size change, not a kernel change. The row statistics and
+    the scalar tiles stay bf16 either way.
     """
     im_df = stats_df = scalar_df = ttnn.bfloat16      # :651-653, always bf16
     im_ts = stats_ts = scalar_ts = 2048
+    qk_df = im_dtype or im_df
+    oim_df = out_im_dtype or im_df
     nmask = p["mask_tiles"] if mask_cb_tiles is None else mask_cb_tiles
     return [
         (0, p["q_tiles"], tile_bytes(q_dtype), q_dtype),
@@ -236,9 +244,9 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
         (5, 1, scalar_ts, scalar_df),
         (7, 1, scalar_ts, scalar_df),
         (4, 1, im_ts, im_df),                         # c_recip_scratch, :746 (no attention sink)
-        (24, p["qk_tiles"], im_ts, im_df),
-        (25, p["out_im_tiles"], im_ts, im_df),
-        (26, p["out_im_tiles"], im_ts, im_df),
+        (24, p["qk_tiles"], tile_bytes(qk_df), qk_df),
+        (25, p["out_im_tiles"], tile_bytes(oim_df), oim_df),
+        (26, p["out_im_tiles"], tile_bytes(oim_df), oim_df),
         (27, p["statistics_tiles"], stats_ts, stats_df),
         (28, p["statistics_tiles"], stats_ts, stats_df),
         (29, p["statistics_tiles"], stats_ts, stats_df),
@@ -250,10 +258,11 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
 
 def cb_bytes(p, q_dtype=ttnn.bfloat16, k_dtype=ttnn.bfloat16, v_dtype=ttnn.bfloat16,
              mask_dtype=ttnn.bfloat16, out_dtype=ttnn.bfloat16, mask_cb_tiles=None,
-             extra_cbs=()) -> int:
+             extra_cbs=(), im_dtype=None, out_im_dtype=None) -> int:
     """L1 the static circular buffers hold, per core."""
     return sum(n * page for _i, n, page, _f in cb_table(
-        p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles, extra_cbs))
+        p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles, extra_cbs,
+        im_dtype, out_im_dtype))
 
 
 def cb_fits_l1(p, **kw) -> bool:
@@ -312,7 +321,8 @@ def note_l1_refusal(message: str) -> None:
 
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
-          split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None):
+          split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
+          out_im_dtype=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
@@ -369,7 +379,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         format_descriptors=[ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt,
                                                     page_size=page)])
         for idx, n_tiles, page, fmt in cb_table(
-            p, q.dtype, k.dtype, v.dtype, mask.dtype, out.dtype, mask_cb_tiles, extra_cbs)]
+            p, q.dtype, k.dtype, v.dtype, mask.dtype, out.dtype, mask_cb_tiles, extra_cbs,
+            im_dtype, out_im_dtype)]
 
     # Three semaphores, created for every non-causal call (:539), ids 0..2 in creation order.
     semaphores = [
@@ -572,7 +583,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # `build` reads this one define from the environment, and the cache is keyed on what
            # `build` was given -- so without it here an A/B that flips the env gets the FIRST arm's
            # compiled program back for both legs and reads a 1.000x that means nothing.
-           os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"))
+           os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
+           str(kw.get("im_dtype")), str(kw.get("out_im_dtype")))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,
