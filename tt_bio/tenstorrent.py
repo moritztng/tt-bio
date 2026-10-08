@@ -631,6 +631,15 @@ PWA_BATCH_HEAD_STATS = [0, 0]           # [one batched projection, per-head proj
 # seven times, so not bit-exact with the loop. The taped (training) path keeps the per-head loop.
 _PWA_FUSED_HEADS = env_flag("TT_BIO_PWA_FUSED_HEADS", True)
 PWA_FUSED_STATS = [0, 0]                # [fused, per-head loop]
+# The fused form still pads head_dim 8 to a 32-wide slot, so v, the batched matmul's M and its
+# output carry 4x their data. Unpadded, head h's values are laid out [tokens, head_dim * rows]
+# (each row-major [head_dim, rows] block of a [tokens, heads * head_dim, rows] tensor is one head's
+# columns, a free view), and the eight heads are one batched [T, T] x [T, head_dim * rows] matmul,
+# N = 4096 at 512 rows. Same products and sums as the fused form; the head regrouping is two
+# row-major permutes of a [rows, T, 64] tensor instead of four tile permutes of a [rows, T, 256] one.
+# Needs head_dim * rows on whole tiles; a ragged depth block takes the padded form.
+_PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
+PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
 # projection. The wall is per core, and an aggregate multiple of the tensor cannot see it: the
@@ -12370,6 +12379,12 @@ class PairWeightedAveraging(Module):
         `_PWA_FUSED_HEADS`)."""
         H, S = self.n_heads, 32
         rows, T = int(mc.shape[0]), int(mc.shape[1])
+        hd = self.head_dim
+        if (_PWA_UNPADDED and (hd * rows) % 32 == 0 and (H * hd) % 32 == 0 and T % 32 == 0
+                and rows * T * H * hd * 2 <= PWA_DEPTH_BUDGET_BYTES):
+            PWA_UNPADDED_STATS[0] += 1
+            return self._heads_unpadded(mc, ws)
+        PWA_UNPADDED_STATS[1] += 1
         # The fused path holds two [rows, tokens, heads*32] intermediates where the loop held one
         # [rows, tokens, 32] per head, so a tall input runs in row blocks that keep each under
         # the per-buffer budget the depth blocking already uses (512 rows at 730 tokens).
@@ -12404,6 +12419,36 @@ class PairWeightedAveraging(Module):
         o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(g)
         out = ttnn.linear(o, w_o, **lin)                         # heads summed in the matmul
+        ttnn.deallocate(o)
+        return out
+
+    def _heads_unpadded(self, mc, ws):
+        """`_heads_fused` without the head padding (see `_PWA_UNPADDED`)."""
+        H, hd = self.n_heads, self.head_dim
+        rows, T = int(mc.shape[0]), int(mc.shape[1])
+        lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        RM, TL = ttnn.ROW_MAJOR_LAYOUT, ttnn.TILE_LAYOUT
+        v = ttnn.linear(mc, self.m_weight, **lin)                # [rows, T, H*hd]
+        vt = ttnn.permute(v, (1, 2, 0))                          # [T, H*hd, rows]
+        ttnn.deallocate(v)
+        vt = ttnn.to_layout(vt, RM)
+        vh = ttnn.permute(ttnn.reshape(vt, (T, H, hd * rows)), (1, 0, 2))   # [H, T, hd*rows]
+        ttnn.deallocate(vt)
+        vh = ttnn.to_layout(vh, TL)
+        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
+        o = ttnn.matmul(w, vh, **lin)                            # [H, T, hd*rows]
+        ttnn.deallocate(vh)
+        ttnn.deallocate(w)
+        o = ttnn.to_layout(o, RM)
+        ot = ttnn.reshape(ttnn.permute(o, (1, 0, 2)), (T, H * hd, rows))
+        ttnn.deallocate(o)
+        ot = ttnn.to_layout(ot, TL)
+        o = ttnn.permute(ot, (2, 0, 1))                          # [rows, T, H*hd]
+        ttnn.deallocate(ot)
+        g = ttnn.linear(mc, self.g_weight, **lin)
+        o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(g)
+        out = ttnn.linear(o, self.o_weight, **lin)               # heads summed in the matmul
         ttnn.deallocate(o)
         return out
 
