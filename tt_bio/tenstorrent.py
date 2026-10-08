@@ -7034,8 +7034,17 @@ def _footprint_at_exit():
         pass
 
 
+def _end_after_teardown():
+    """Skip the C++ destructors once the card is closed. See runtime.end_after_teardown."""
+    from . import runtime
+
+    runtime.end_after_teardown()
+
+
 # atexit runs its registrations in reverse, so read these bottom-up: collect cycles while the
-# chip is still open, close the device, hand the freed heap back, then record what is left.
+# chip is still open, close the device, hand the freed heap back, record what is left, then
+# end the process without the destructors that hung and crashed issue #20's campaigns.
+atexit.register(_end_after_teardown)
 atexit.register(_footprint_at_exit)
 atexit.register(_release_at_exit)
 atexit.register(cleanup)

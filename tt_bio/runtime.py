@@ -623,3 +623,54 @@ def release_address_space() -> tuple[int, int]:
     if libc is not None:
         libc.malloc_trim(0)
     return address_space()
+
+
+def quiet_teardown_wanted(env=None) -> bool:
+    """Whether `end_after_teardown` drops the C-level stderr of the interpreter's last steps.
+
+    `--debug` sets ``TT_BIO_DEBUG_STDERR`` rather than being read from argv, because a
+    multiprocessing spawn inherits the environment and not the argv: a worker spawned by
+    ``tt-bio predict --debug`` has to keep its stderr too.
+    """
+    env = os.environ if env is None else env
+    return not env.get("TT_BIO_DEBUG_STDERR")
+
+
+def end_after_teardown() -> None:
+    """The last atexit hook: once tt-bio has closed its card, end the process without the
+    C++ static destructors of tt-metal and XLA.
+
+    After the device is closed and its lease released there is nothing left for those
+    destructors to do, and running them is where a finished BindCraft 2 campaign died
+    (issue #20): exit 139 after printing its final status, exit 139 four seconds after an
+    allocator refusal, or a hang with every thread in ``futex_do_wait``. They run inside
+    ``exit()``, after Python has finalised, alongside XLA and tt-metal worker threads that are
+    still alive. So this registers libc's own ``_exit`` with ``on_exit``. glibc calls it with
+    the real exit status, ahead of every handler registered before it, which is all of them:
+    a library registers its destructors when it loads. Whatever status Python chose, from
+    ``sys.exit(n)`` or an uncaught exception, is the one the caller sees.
+
+    It also points C's ``stderr`` at /dev/null for the rest of finalisation. What writes there
+    after this point is nanobind's report of the ttnn objects still alive at shutdown, dozens
+    of lines on every run that are noise to a user. Python's own ``sys.stderr`` writes fd 2
+    directly and is untouched, so a traceback, an "Exception ignored" and a faulthandler dump
+    still print. tt-bio used to drop the report with a filter process forked at import, which
+    is unsafe next to JAX's threads and lost the parent's last words when it crashed.
+    ``TT_BIO_DEBUG_STDERR=1`` (or ``--debug``) keeps the report.
+    """
+    import ctypes
+
+    try:
+        libc = ctypes.CDLL(None)
+        libc.fflush(None)
+        if quiet_teardown_wanted():
+            libc.fopen.restype = ctypes.c_void_p
+            libc.fopen.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+            sink = libc.fopen(b"/dev/null", b"w")
+            if sink:
+                # The global, not its FILE: freopen would close fd 2 under Python's sys.stderr.
+                ctypes.c_void_p.in_dll(libc, "stderr").value = sink
+        libc.on_exit.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        libc.on_exit(ctypes.cast(libc._exit, ctypes.c_void_p), None)
+    except (OSError, AttributeError, ValueError):
+        pass   # no glibc: exit the ordinary way

@@ -53,87 +53,12 @@ _os.environ.setdefault(
 )
 
 
-def _install_nanobind_leak_stderr_filter() -> None:
-    """Drop nanobind leak reports while forwarding other fd-level stderr."""
-    try:
-        read_fd, write_fd = _os.pipe()
-        original_stderr_fd = _os.dup(2)
-        ppid = _os.getpid()
-        pid = _os.fork()
-        if pid == 0:
-            try:
-                # Die with the parent: a surviving filter grandchild keeps the
-                # dup of fd 2 open, and when fd 2 is a dispatchers shard pipe
-                # the dispatcher never sees EOF and hangs after the run ends.
-                try:
-                    import ctypes
-                    ctypes.CDLL(None).prctl(1, 9)  # PR_SET_PDEATHSIG, SIGKILL
-                    if _os.getppid() != ppid:
-                        _os._exit(0)
-                except Exception:
-                    pass
-                # Keep only the two fds the filter uses. Anything else inherited here is held for
-                # the whole run, and an flock the parent held at the fork then outlives the
-                # parent's close: a second BindCraft 2 trajectory in one process hung forever on
-                # its compile lock. close-on-exec does not help, a fork is not an exec.
-                from multiprocessing.util import close_all_fds_except
-                close_all_fds_except((read_fd, original_stderr_fd))
-                suppressing_nanobind_leak = False
-                with _os.fdopen(read_fd, "rb", closefd=True) as pipe:
-                    for raw_line in pipe:
-                        line = raw_line.decode("utf-8", errors="replace")
-                        if line.startswith("nanobind: leaked "):
-                            suppressing_nanobind_leak = True
-                            continue
-                        if suppressing_nanobind_leak:
-                            if (
-                                line.startswith(" - ")
-                                or line.startswith("nanobind: this is likely caused")
-                                or line.startswith("See https://nanobind.")
-                            ):
-                                continue
-                            suppressing_nanobind_leak = False
-                        _os.write(original_stderr_fd, raw_line)
-            except Exception:
-                pass
-            finally:
-                _os._exit(0)
-
-        _os.close(read_fd)
-        _os.dup2(write_fd, 2)
-        _os.close(write_fd)
-        python_stderr = _os.fdopen(
-            _os.dup(original_stderr_fd),
-            "w",
-            buffering=1,
-            encoding=getattr(_sys.stderr, "encoding", None) or "utf-8",
-            errors=getattr(_sys.stderr, "errors", None) or "replace",
-        )
-        _sys.stderr = python_stderr
-        _sys.__stderr__ = python_stderr
-        _os.close(original_stderr_fd)
-    except Exception:
-        pass
-
-
-# `--debug` turns the filter off, and it has to travel to the SPAWNED WORKERS, not just to this
-# process. A multiprocessing spawn re-execs python with `-c from multiprocessing.spawn import
-# spawn_main`, so the child's `sys.argv` no longer carries `--debug` and an argv-only test
-# reinstalls the filter in exactly the process whose stderr you asked to see. The filter's
-# forwarding child holds PR_SET_PDEATHSIG SIGKILL, so when a worker dies the child is killed with
-# whatever is still in the pipe -- which is the worker's traceback. That is how OpenDDE's 992-
-# residue deep-MSA failure reported "SpawnProcess-1 exit 0 ... the worker's own traceback above
-# says why" with no traceback above it, twice, on two trees. The environment IS inherited by a
-# spawn, so decide once here and let the children read the decision.
-def _stderr_filter_wanted(argv, env) -> bool:
-    """Whether this process should install the filter. Pure, so it can be tested."""
-    return "--debug" not in argv and not env.get("TT_BIO_DEBUG_STDERR")
-
-
+# `--debug` keeps the C-level stderr that tt-bio otherwise drops at exit (nanobind's report of
+# the ttnn objects alive at shutdown; see runtime.end_after_teardown). It travels as an
+# environment variable because a multiprocessing spawn re-execs python without our argv, and the
+# spawned worker is exactly the process whose stderr `--debug` asked to see.
 if "--debug" in _sys.argv:
     _os.environ["TT_BIO_DEBUG_STDERR"] = "1"
-if _stderr_filter_wanted(_sys.argv, _os.environ):
-    _install_nanobind_leak_stderr_filter()
 
 
 import base64

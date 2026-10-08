@@ -735,14 +735,25 @@ A refusal distinguishes a full card from a fragmented one, because the remedies 
 card means run something smaller:
 
 ```
-The card is full: 243.0 MB free against a 277.1 MB request, with 33.9 GB of 34.2 GB already
-held by this fold.
+The card is full: 243.0 MB free against a 277.1 MB request. 33.9 GB of 34.2 GB is held.
 ```
 
 ```
-The card is full: 12.707 GB of 12.885 GB is held by this fold, and the 177.5 MB left is in
-pieces of at most 4.0 MB a bank against the 12.6 MB a bank this 151.5 MB request needs.
+The card is full: 12.707 GB of 12.885 GB is held. The 177.5 MB left is in pieces of at most
+4.0 MB a bank against the 12.6 MB a bank this 151.5 MB request needs.
 ```
+
+What is held is everything allocated on the card, which is not the same as what the failing fold
+allocated. A campaign reads the card as each trajectory starts, and the refusal splits the two:
+
+```
+33.272 GB of 34.226 GB is held: 24.703 GB was already held when this trajectory started and
+8.569 GB was allocated since.
+```
+
+When most of the card was held before the trajectory began, the size of the fold is not what
+filled it, and the refusal says so: rerun on the same folder with `resume=true`, which starts a
+new process on an empty card and keeps every design accepted so far.
 
 Fragmentation means a real share of the card is free and the fold could not get a contiguous run
 of it, so a smaller buffer may still go through:
