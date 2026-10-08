@@ -16,7 +16,7 @@ usage: bench_wh.py OUT CHIP SHARE YAML PLAN
 PLAN: ';'-separated  arm:seed[,seed...][:census]   e.g.  "exact:102,101,103:census;diff_bf16:102,101"
 The first seed of each arm is its cold rep (compile), the second its timed warm rep.
 """
-import gc, glob, json, os, sys, threading, time
+import gc, glob, json, os, re, sys, threading, time
 from pathlib import Path
 
 OUT = Path(sys.argv[1]); CHIP = int(sys.argv[2]); SHARE = int(sys.argv[3]); YAML = Path(sys.argv[4])
@@ -43,6 +43,20 @@ ARMS = {
     "msa_c2048":  dict(env={"TT_BIO_MSA_ROW_CHUNK_SIZE": "2048"}),
     "diff_bf16+msa_whole": dict(diff_fp32=False, env={"TT_BIO_MSA_ROW_CHUNK_BUDGET_BYTES": str(1 << 31)}),
 }
+
+
+def lever_spec(arm):
+    """An arm named `L=<set>[+lever|-lever...]` builds Protenix under that precision-lever set,
+    e.g. `L=fast`, `L=fast-lofi`, `L=normal+opm_b8` (tenstorrent.LEVERS); None for other arms."""
+    if not arm.startswith("L="):
+        return None
+    toks = re.findall(r"([+-]?)([a-z0-9_]+)", arm[2:])
+    out = set(T.parse_levers(toks[0][1]))
+    for sign, name in toks[1:]:
+        (out.discard if sign == "-" else out.add)(name)
+    return T.parse_levers(sorted(out))
+
+
 ARM_ENV = sorted({k for a in ARMS.values() for k in a.get("env", {})})
 
 from tt_bio import runtime
@@ -151,7 +165,8 @@ log(ev="nodes_open", nodes=opened)
 
 CKPT = cfg0["protenix_ckpt"]
 def build(arm):
-    s = ARMS[arm]
+    lv = lever_spec(arm)
+    s = ARMS[arm] if lv is None else dict(levers=sorted(lv))
     state.model = None; gc.collect()
     os.environ["PROTENIX_DIFFUSION_FP32_DEVICE"] = "1" if s.get("diff_fp32", True) else "0"
     for k in ARM_ENV:
@@ -161,7 +176,7 @@ def build(arm):
     T._TRIATT_BIAS_B8 = bool(s.get("bias_b8", False))
     T.set_fast_mode(bool(s.get("fast", False)))
     t = time.monotonic()
-    state.model = P.Protenix.load_from_checkpoint(CKPT)
+    state.model = P.Protenix.load_from_checkpoint(CKPT, levers=lv)
     state.bind_run("pfm", dict(cfg0, fast=bool(s.get("fast", False))))
     m = state.model
     state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
@@ -171,7 +186,7 @@ def build(arm):
     got = dict(diffusion_dtype=rb(lambda: m.diffusion.dtype),
                trunk_fidelity=rb(lambda: m.trunk.compute_kernel_config.math_fidelity),
                diff_fidelity=rb(lambda: m.diffusion.compute_kernel_config.math_fidelity),
-               fast=m._fast, triatt_bias_b8=T._TRIATT_BIAS_B8, triatt_b8=T._TRIATT_B8,
+               fast=m._fast, levers=sorted(m._levers), triatt_bias_b8=T._TRIATT_BIAS_B8, triatt_b8=T._TRIATT_B8,
                msa_whole_at_1GiB=P._msa_take_whole_path(1 << 30), msa_chunk_rows=P._msa_row_chunk_size())
     log(ev="build", arm=arm, s=time.monotonic() - t, settings=s, readback=got)
     # capture coords + confidences of every fold
