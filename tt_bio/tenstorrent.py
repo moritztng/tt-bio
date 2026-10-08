@@ -411,9 +411,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_r
           "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8",
           "trimul_ibw", "trimul_tail", "trimul_b8in", "atom_sdpa")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_b8in"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in"})
 FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"} - UNGRADED_LEVERS
-NORMAL_LEVERS = frozenset()
+# trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
+# 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
+# better side (state/spd/BOARD.md, spd-trimul 2026-10-08 22:40Z).
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail"})
 _LEVERS = frozenset()
 
 
