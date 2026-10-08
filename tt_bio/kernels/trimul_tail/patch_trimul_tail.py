@@ -93,7 +93,24 @@ HEADER = """// SPDX-FileCopyrightText: (c) 2026 Tenstorrent USA, Inc.
 #ifndef TRIMUL_TAIL_EPI
 #define TRIMUL_TAIL_EPI 0
 #endif
+// Both passes read the same activation (the in-projection's p and g of one x): pass 1 reuses pass
+// 0's in0 block, which compute pops only after pass 1, so each activation block is read and
+// forwarded down the in0 chain once instead of twice.
+#ifndef TRIMUL_TAIL_SHARED_IN0
+#define TRIMUL_TAIL_SHARED_IN0 0
+#endif
 """
+
+SHARED_IN0_DM = (
+    "                if (reuse_block && pass == 0 && k_block_iter == 0) {",
+    "                if (TRIMUL_TAIL_SHARED_IN0 && pass == 1) {\n"
+    "                    continue;  // pass 0's block is still in c_0\n"
+    "                }\n"
+    "                if (reuse_block && pass == 0 && k_block_iter == 0) {")
+SHARED_IN0_COMPUTE = (
+    "                if (!reuse_in0_block) {\n                    cb_pop_front(in0_cb, in0_block_num_tiles);",
+    "                if (!reuse_in0_block && !(TRIMUL_TAIL_SHARED_IN0 && pass == 0)) {\n"
+    "                    cb_pop_front(in0_cb, in0_block_num_tiles);")
 
 K_LOOP_CLOSE = """                }
             }
@@ -131,6 +148,7 @@ def patch_in0(src: str) -> str:
                         pass == 0 ? in0_reader : in0b_reader,""",
               "in0 read call")
     src = sub(src, K_LOOP_CLOSE, K_LOOP_CLOSE_NEW, "in0 k loop close")
+    src = sub(src, *SHARED_IN0_DM, "in0 shared skip")
     return HEADER + patch_resid(src)
 
 
@@ -522,6 +540,7 @@ def patch_compute_epi(src: str) -> str:
               "#else\n"
               "            gate_block(p_cb, g_cb, sig_cb, out_cb, out_block_num_tiles);\n"
               "#endif\n", "epi gate call")
+    src = sub(src, *SHARED_IN0_COMPUTE, "shared in0 pop")
     return src
 
 

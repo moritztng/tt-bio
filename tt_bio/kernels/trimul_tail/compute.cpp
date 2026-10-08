@@ -29,6 +29,12 @@
 #ifndef TRIMUL_TAIL_EPI
 #define TRIMUL_TAIL_EPI 0
 #endif
+// Both passes read the same activation (the in-projection's p and g of one x): pass 1 reuses pass
+// 0's in0 block, which compute pops only after pass 1, so each activation block is read and
+// forwarded down the in0 chain once instead of twice.
+#ifndef TRIMUL_TAIL_SHARED_IN0
+#define TRIMUL_TAIL_SHARED_IN0 0
+#endif
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -559,7 +565,7 @@ void kernel_main() {
                         reuse_in0_block = true;
                     }
                 }
-                if (!reuse_in0_block) {
+                if (!reuse_in0_block && !(TRIMUL_TAIL_SHARED_IN0 && pass == 0)) {
                     cb_pop_front(in0_cb, in0_block_num_tiles);
                 }
                 cb_pop_front(in1_cb, in1_block_num_tiles);
