@@ -1,6 +1,6 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the BCP merge tree.
-RECORDED-AT: 3e1b569b65978a4038add5ea5582bf84ba92df36 scripts/abb3_port/model_gate.py
+RECORDED-AT: a2332fb4566a64783f187c433af67757240ed2d1 scripts/abb3_port/model_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
 # Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
@@ -45,6 +45,14 @@ RECORDED-AT: 3e1b569b65978a4038add5ea5582bf84ba92df36 scripts/abb3_port/model_ga
 # to the rel012 record; the sigma 0.3 / 256-token stress arm still FAILs angles at 5.11e-02. Only the
 # float32 torch-vs-torch CPU control moves, in its third digit at ~1e-6. AICLK on card 3 over this run
 # and the step gate, 30 s samples: 1350 MHz on 16 of 18, 800 on 2 (between processes). NO TIMING CLAIM.
+#
+# RE-RECORDED for the 0.13.1 release on wk/bci-release a2332fb45 (v0.13.0 plus the BindCraft 2 fixes for
+# #18, #19, #20, #21), 08:35-08:36Z 2026-10-08, qb2 card 3, the release venv (TT-NN 0.68.0). The closure
+# moved in tt_bio/pair_mm.py (the transpose cache keeps its weight and gains forget) and tt_bio/tenstorrent.py
+# (an atexit hook that ends the process after teardown); neither touches this gate's math. Every ok/FAIL row
+# and every gradient row is identical to the 0.13.0 record; the sigma 0.3 / 256-token stress arm still FAILs
+# angles at 5.11e-02. AICLK on card 3 over this run and the step gate, 30 s samples: 1350 MHz on 13 of 14,
+# 1343 on 1. NO TIMING CLAIM.
 #
 === sigma=0.05, 64 tokens, 8 blocks, batch 2 ===
   sigma 0.05, 8 blocks, batch 2 x 64 tokens
