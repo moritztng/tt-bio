@@ -229,6 +229,12 @@ def main():
     #: here so the dropout-on case stays reachable without editing the script.
     parser.add_argument("--dropout", action="store_true",
                         help="run with AF2 dropout on (default off, which is what harden does)")
+    parser.add_argument("--memory", default=None,
+                        choices=("auto", "fast", "lean"),
+                        help="device memory mode for the on-card arm (default: predictor's own "
+                             "'auto'). 'fast' and 'lean' recompute and offload differently and "
+                             "must return the same gradient; a difference between them is a bug "
+                             "in that machinery, provable without leaving the card.")
     parser.add_argument("--no-recompute", action="store_true",
                         help="run the on-card arm with gradient checkpointing OFF "
                              "(predictor(recompute=False)). The taped forward checkpoints by "
@@ -285,6 +291,8 @@ def main():
         arms["on-card"] = dict(card=args.card, checkpoints=args.af2_weights,
                                dropout=dropout_policy,
                                recompute=not args.no_recompute)
+        if args.memory is not None:
+            arms["on-card"]["memory"] = args.memory
 
     results = {}
     for arm_name, predictor_arguments in arms.items():
