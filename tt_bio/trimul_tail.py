@@ -128,9 +128,24 @@ def _block_for(kt, nt):
     return TT._MM_BLOCK[(kt, nt)] if (kt, nt) in F1_BLOCK_KEYS else None
 
 
+# A/B only (spd-trimul): the tail's own (M, K, N, subblock_h, subblock_w) in place of `_MM_BLOCK`'s
+# for an allow-listed key. K must stay the whole contraction (one K block), so the order of the sum
+# and the numerics do not move; only how output tiles map to cores and how often a core reads each
+# activation tile. None is production's entry.
+BLOCK = None
+
+
+def set_block(b):
+    """A/B switch for the paired harness. Returns the previous value."""
+    global BLOCK
+    prev, BLOCK = BLOCK, (tuple(b) if b else None)
+    return prev
+
+
 def _block(w):
     """F1's block config for this weight, or None when its (kt, nt) key is not allow-listed."""
-    return _block_for(_tiles(w.shape[-2]), _tiles(w.shape[-1]))
+    b = _block_for(_tiles(w.shape[-2]), _tiles(w.shape[-1]))
+    return b if b is None or BLOCK is None else BLOCK
 
 STATS = [0, 0]          # served, declined
 OUT_L1_STATS = [0, 0]   # products packed straight into L1, products that went to DRAM
@@ -317,7 +332,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None):
     else:
         out, mem = _alloc_out(shape, device, mem)
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
-           epi, str(mem))
+           epi, str(mem), _block(wa))
 
     entry = _CACHE.get(key)
     if entry is None:
