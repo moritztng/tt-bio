@@ -25,6 +25,10 @@ import os
 
 import numpy as np
 
+#: The op classes `AF2PairBlock._update` dispatches, which `set_skip` drops.
+OP_CLASSES = ("msa_row_attn", "msa_col_attn", "msa_transition", "tri_mul_out",
+              "tri_mul_in", "tri_att_start", "tri_att_end", "pair_transition")
+
 
 def rel_l2(a: np.ndarray, b: np.ndarray) -> float:
     denominator = float(np.linalg.norm(b.ravel()))
@@ -45,6 +49,19 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--scale", type=float, default=0.1)
     parser.add_argument("--exact", action="store_true")
+    parser.add_argument("--skip-sweep", action="store_true",
+                        help="attribute the settled-carry difference to an op class. For the "
+                             "control and then each op class in turn, drop that class from both "
+                             "device stacks (`AF2DeviceModel.set_skip`, the shipped cost-census "
+                             "lever) and remeasure. The arm that drops is the one carrying the "
+                             "difference. Skipping also removes work, so a class is only "
+                             "implicated if its leg falls much further than the others.")
+    parser.add_argument("--warmup", type=int, default=2,
+                        help="blocks the carry is advanced untaped before any row is measured. "
+                             "The raw random input is off-distribution and the first block "
+                             "amplifies it; a settled carry is what the per-block reading needs.")
+    parser.add_argument("--rows", type=int, default=6,
+                        help="blocks measured per configuration")
     parser.add_argument("--order", default="forward", choices=("forward", "reverse"),
                         help="block order. The forward run put the whole 48-block difference in "
                              "the FIRST row and ~0.0014 in every other, which is either the "
@@ -89,6 +106,43 @@ def main():
         order = list(range(len(blocks)))
         if args.order == "reverse":
             order.reverse()
+
+        if args.skip_sweep:
+            configs = [()] + [(name,) for name in OP_CLASSES]
+            warm_msa, warm_pair = msa, pair
+            try:
+                for index in range(args.warmup):
+                    trunk.model.device_evoformer = [blocks[index]]
+                    warm_msa, warm_pair = evo._primal("", warm_msa, warm_pair, mask, pair_mask)
+                print(f"carry settled through {args.warmup} untaped blocks, pair max "
+                      f"{float(np.max(np.abs(warm_pair))):.6g}", flush=True)
+
+                print(f"\n{'skipped':>16} {'mean msa':>10} {'mean pair':>10} {'rows':>5}",
+                      flush=True)
+                for names in configs:
+                    # `set_skip` walks `device_evoformer` to set each block's `skip`, so the
+                    # list has to be whole when it is called -- the row loop below leaves it
+                    # sliced to one block.
+                    trunk.model.device_evoformer = blocks
+                    trunk.model.set_skip(names)
+                    carry_msa, carry_pair = warm_msa, warm_pair
+                    msa_readings, pair_readings = [], []
+                    for index in range(args.warmup, args.warmup + args.rows):
+                        trunk.model.device_evoformer = [blocks[index]]
+                        untaped = evo._primal("", carry_msa, carry_pair, mask, pair_mask)
+                        taped_msa, taped_pair, _t = evo._taped("", carry_msa, carry_pair,
+                                                               mask, pair_mask)
+                        msa_readings.append(rel_l2(taped_msa, untaped[0]))
+                        pair_readings.append(rel_l2(taped_pair, untaped[1]))
+                        carry_msa, carry_pair = untaped
+                    label = names[0] if names else "(control)"
+                    print(f"{label:>16} {float(np.mean(msa_readings)):>10.6f} "
+                          f"{float(np.mean(pair_readings)):>10.6f} {len(pair_readings):>5}",
+                          flush=True)
+            finally:
+                trunk.model.device_evoformer = blocks
+                trunk.model.set_skip(())
+            return
 
         carry_msa, carry_pair = msa, pair
         print(f"\n{'row':>4}{'block':>6} {'msa rel L2':>12} {'pair rel L2':>12} "
