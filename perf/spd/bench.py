@@ -151,10 +151,17 @@ log(ev="start", argv=sys.argv, cli=argv, worker=winfo, TT_VISIBLE_DEVICES=os.env
 
 state = W._WorkerState("tenstorrent")
 t = time.monotonic(); dev = T.get_device(); t_open = time.monotonic() - t
-OPENED = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1])
-                 for fd in os.listdir("/proc/self/fd")
-                 if os.path.exists(f"/proc/self/fd/{fd}")
-                 and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")})
+
+
+def _fd_target(fd):
+    try:  # the runtime's threads open and close fds while we list them
+        return os.readlink(f"/proc/self/fd/{fd}")
+    except OSError:
+        return ""
+
+
+OPENED = sorted({int(t.rsplit("/", 1)[1]) for t in map(_fd_target, os.listdir("/proc/self/fd"))
+                 if t.startswith("/dev/tenstorrent/")})
 try:
     ARCH = str(dev.arch()).split(".")[-1].lower()
 except Exception as e:
