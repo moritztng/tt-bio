@@ -23,6 +23,12 @@ cd "$WT" || exit 1
 export PYTHONPATH=/home/ttuser/bcx_e2e/bc2:$WT
 export TT_VISIBLE_DEVICES=$CARD
 
+# Extra arguments for the A/B itself, so a lever rides this launcher rather than forking a copy
+# of it that then drifts. BCI_TAG already keeps the logs apart. Unquoted on purpose: this is a
+# word list, and the levers it carries are flags, not paths.
+# shellcheck disable=SC2206
+EXTRA=(${BCI_EXTRA:-})
+
 # The AICLK sets the fold time, so it is sampled DURING the run, not before it: a sample taken while
 # the chip is idle says nothing about the clock the work actually ran at. A dead ARC answers
 # 4294967295 without raising, so that value is a sentinel, not a reading.
@@ -38,12 +44,12 @@ SAMPLER=$!
 trap 'kill $SAMPLER 2>/dev/null' EXIT
 
 {
-  echo "=== card A/B, chip $CARD, binder $LEN, states $STATES ==="
+  echo "=== card A/B, chip $CARD, binder $LEN, states $STATES ${BCI_EXTRA:-} ==="
   date -u +'start %Y-%m-%dT%H:%M:%SZ'
   flock -w "$LOCK_WAIT" "$LOCK" \
     nice -n 10 timeout 5400 "$PY" perf/bci_accept/harden_forward_ab.py \
       --states "$STATES" --af2-weights "$AF2" --target-pdb "$TARGET" \
-      --binder-length "$LEN" --card "$CARD"
+      --binder-length "$LEN" --card "$CARD" ${EXTRA[@]+"${EXTRA[@]}"}
   echo "=== rc=$? ==="
   date -u +'end %Y-%m-%dT%H:%M:%SZ'
 } > "$OUT" 2>&1
