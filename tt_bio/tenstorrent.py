@@ -5074,10 +5074,13 @@ def _trimul_in0_block_w(seq_len_tiles: int) -> int:
 # A shape whose wide block clashes with live L1 at program creation is recorded here and falls
 # back to the band for the rest of the process.
 _TRIMUL_IBW_FULL = env_flag("TT_BIO_TRIMUL_IBW_FULL", False)
-# SPD lever (spd-trimul): on the DRAM channel loop the back move writes every chunk straight into
-# its channel slice of one [1, H, H, hidden] output, deleting the closing concat (a full read and
-# write of the hidden tensor, 2.59 ms per call at 736 tokens on Wormhole). Layout only, bit-exact.
-_TRIMUL_BACK_INTO = env_flag("TT_BIO_TRIMUL_BACK_INTO", False)
+# On the DRAM channel loop the back move writes every chunk straight into its channel slice of one
+# [1, H, H, hidden] output, deleting the closing concat (a full read and write of the hidden tensor,
+# 2.59 ms per call at 736 tokens on Wormhole). Layout only: torch.equal to the concat on both
+# variants at 384 and 736 tokens, and 1.0153x per trimul call at 736 on a p150a at 1350 MHz
+# (30.926 -> 30.459 ms starting, 31.722 -> 31.245 ending; perf/spd_trimul/bench.py, spd-trimul r1).
+TRIMUL_BACK_INTO = True
+_TRIMUL_BACK_INTO = env_flag("TT_BIO_TRIMUL_BACK_INTO", TRIMUL_BACK_INTO)
 # SPD lever (spd-trimul): the in-projection writes bfp8 and the gated channel move reads it, so the
 # projection's output drain (4 x hidden channels, the op's binding cost) halves with no typecast.
 # The move's output, and everything after it, stays bf16. Changes numerics: accuracy-graded.

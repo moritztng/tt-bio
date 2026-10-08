@@ -92,6 +92,7 @@ def aiclk(t0, t1, pad=0.3):
 LEVERS = {
     "ibw": [(T.set_trimul_ibw_full, True)],
     "into": [(T.set_trimul_back_into, True)],
+    "nointo": [(T.set_trimul_back_into, False)],
     "hifi2": [(T.set_trimul_einsum_fid, "hifi2")],
     "lofi": [(T.set_trimul_einsum_fid, "lofi")],
     "b8in": [(T.set_trimul_inproj_b8, True)],
