@@ -91,8 +91,34 @@ def main():
         st["fc2_absmax"] = float(x2d[0, r - s, c].abs().max())
         st["prod_absmax"] = float(pd[0, r - s, c].abs().max())
         st["ref_absmax"] = float(ref[0, r, c].abs().max())
+        e2 = (x2d - xnd @ sd["fc2.weight"].T)[0, r - s, c]
+        j = int(e2.abs().argmax())
+        st["fc2_at"] = {"channel": j, "device": float(x2d[0, r - s, c, j]),
+                        "want": float((xnd @ sd["fc2.weight"].T)[0, r - s, c, j])}
         res["stages"] = st
         print(json.dumps(st), flush=True)
+        # fc2 alone over the whole block under each kernel config: count elements off by > 0.5.
+        want2 = xnd @ sd["fc2.weight"].T
+        sweep = []
+        for fid in ("HiFi4", "HiFi2"):
+            for f32 in (True, False):
+                for l1acc in (True, False):
+                    k = type(ckc)(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=True,
+                                  fp32_dest_acc_en=f32, packer_l1_acc=l1acc)
+                    for odt in ("bf16", "fp32"):
+                        y2 = ttnn.linear(x_norm, tr.fc2_weight, compute_kernel_config=k,
+                                         memory_config=ttnn.L1_MEMORY_CONFIG, core_grid=T.CORE_GRID_MAIN,
+                                         dtype=ttnn.bfloat16 if odt == "bf16" else ttnn.float32)
+                        d2 = (dt(y2) - want2).abs()
+                        ttnn.deallocate(y2)
+                        sweep.append({"fid": fid, "fp32_acc": f32, "l1_acc": l1acc, "out": odt,
+                                      "n_over_0.5": int((d2 > 0.5).sum()), "max": float(d2.max())})
+                        print(json.dumps(sweep[-1]), flush=True)
+        res["fc2_sweep"] = sweep
+        # The device's own copy of the weight against the bf16 values it was built from.
+        w2 = dt(tr.fc2_weight).reshape(-1, HID)[:C]
+        res["fc2_weight_vs_sd"] = float((w2 - sd["fc2.weight"].T).abs().max())
+        print(json.dumps({"fc2_weight_vs_sd": res["fc2_weight_vs_sd"]}), flush=True)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res, indent=1))
 
