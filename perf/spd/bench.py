@@ -36,6 +36,7 @@ ap.add_argument("--share", type=int, default=0, help="host thread share (runtime
 ap.add_argument("--samples", type=int, default=5)
 ap.add_argument("--recycles", type=int, default=10)
 ap.add_argument("--no-coords", action="store_true")
+ap.add_argument("--dry", action="store_true", help="build the config and worker, log them, stop before device open")
 a = ap.parse_args()
 
 
@@ -144,11 +145,14 @@ import tt_bio  # noqa: E402
 import tt_bio.tenstorrent as T  # noqa: E402
 import tt_bio.protenix as P  # noqa: E402
 
-HEAD = dict(sha=SHA, dirty=DIRTY, version=getattr(tt_bio, "__version__", None), arm=ARM, arm_env=ARM_ENV,
+HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), arm=ARM, arm_env=ARM_ENV,
             fast=FAST, host=socket.gethostname(), chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
 log(ev="start", argv=sys.argv, cli=argv, worker=winfo, TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
     torch_threads=torch.get_num_threads(), affinity=len(os.sched_getaffinity(0)), **HEAD)
 
+if a.dry:
+    log(ev="dry", cfg={k: v for k, v in cfg0.items() if "key" not in k and "pass" not in k})
+    os._exit(0)
 state = W._WorkerState("tenstorrent")
 t = time.monotonic(); dev = T.get_device(); t_open = time.monotonic() - t
 OPENED = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1])
