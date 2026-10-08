@@ -1,19 +1,20 @@
 """spd-msa: the MSA transition (LN -> fc1 silu, fc2 -> multiply -> fc3) under fidelity / fp32-dest-acc configs.
 
-One 512-row MSA chunk at the campaign cell, x [736, 512, 64] (c_m 64, hidden 256), issued exactly as
+One MSA row chunk at the campaign cell, x [ROWS, 736, 128] (c_m 128, hidden 512, as the census shows), issued exactly as
 `Transition._transition`'s 3-D path issues it (L1 intermediates, CORE_GRID_MAIN). Per config: median ms of REPS
 synced calls and the error of the output against a float64 evaluation of the same bf16 inputs and weights.
 lpx-matmul put the transition's cost in fp32 partials (half-size dest, fp32 L1), not math or DRAM; the question
 here is what turning fp32 dest accumulation off costs in accuracy at K = 64 and K = 256, i.e. whether it can be a
 normal-mode lever for the MSA track alone.
 
-usage: TT_VISIBLE_DEVICES=<chip> python transition_acc.py OUT [ROWS=512] [REPS=10]
+usage: TT_VISIBLE_DEVICES=<chip> python transition_acc.py OUT [ROWS=16] [REPS=10]
+The `_unfused` configs issue silu as its own op on fc1's output (TT_BIO_UNFUSED_SILU's form).
 """
 import json, statistics, sys, time
 from pathlib import Path
 
 OUT = Path(sys.argv[1]); OUT.mkdir(parents=True, exist_ok=True)
-ROWS = int(sys.argv[2]) if len(sys.argv) > 2 else 512
+ROWS = int(sys.argv[2]) if len(sys.argv) > 2 else 16
 REPS = int(sys.argv[3]) if len(sys.argv) > 3 else 10
 LOG = open(OUT / "transition.jsonl", "a")
 
@@ -31,11 +32,12 @@ import tt_bio.tenstorrent as T
 dev = T.get_device()
 F = ttnn.MathFidelity
 CONFIGS = [("hifi4_acc", F.HiFi4, True), ("hifi4_noacc", F.HiFi4, False), ("hifi2_acc", F.HiFi2, True),
-           ("hifi2_noacc", F.HiFi2, False), ("lofi_noacc", F.LoFi, False)]
-T_, C, H = 736, 64, 256
+           ("hifi2_noacc", F.HiFi2, False), ("lofi_noacc", F.LoFi, False), ("hifi4_acc_unfused", F.HiFi4, True),
+           ("hifi4_noacc_unfused", F.HiFi4, False)]
+T_, C, H = 736, 128, 512
 
 torch.manual_seed(0)
-x_h = torch.randn(T_, ROWS, C).bfloat16()
+x_h = torch.randn(1, ROWS, T_, C).bfloat16()
 lw_h, lb_h = (1 + 0.1 * torch.randn(C)).bfloat16(), (0.1 * torch.randn(C)).bfloat16()
 w1_h, w2_h = (torch.randn(C, H) / C ** 0.5).bfloat16(), (torch.randn(C, H) / C ** 0.5).bfloat16()
 w3_h = (torch.randn(H, C) / H ** 0.5).bfloat16()
@@ -54,10 +56,12 @@ w1, w2, w3 = tt(w1_h), tt(w2_h), tt(w3_h)
 L1 = ttnn.L1_MEMORY_CONFIG
 
 
-def swiglu(k):
+def swiglu(k, unfused=False):
     xn = ttnn.layer_norm(x, weight=lw, bias=lb, epsilon=1e-5, compute_kernel_config=k, memory_config=L1)
-    x1 = ttnn.linear(xn, w1, activation="silu", compute_kernel_config=k, memory_config=L1,
+    x1 = ttnn.linear(xn, w1, activation=None if unfused else "silu", compute_kernel_config=k, memory_config=L1,
                      dtype=ttnn.bfloat16, core_grid=T.CORE_GRID_MAIN)
+    if unfused:
+        x1 = ttnn.silu(x1, memory_config=L1, output_tensor=x1)
     x2 = ttnn.linear(xn, w2, compute_kernel_config=k, memory_config=L1, dtype=ttnn.bfloat16,
                      core_grid=T.CORE_GRID_MAIN)
     ttnn.deallocate(xn)
@@ -80,14 +84,15 @@ def aiclk():
 
 log(ev="start", rows=ROWS, tokens=T_, c=C, hidden=H, arch=str(dev.arch()), aiclk=aiclk())
 for name, fid, acc in CONFIGS:
+    uf = name.endswith("_unfused")
     k = ttnn.WormholeComputeKernelConfig(math_fidelity=fid, math_approx_mode=False, fp32_dest_acc_en=acc,
                                          packer_l1_acc=True)
     try:
-        out = swiglu(k); ttnn.synchronize_device(dev)
+        out = swiglu(k, uf); ttnn.synchronize_device(dev)
         ts = []
         for _ in range(REPS):
             ttnn.deallocate(out)
-            t0 = time.perf_counter(); out = swiglu(k); ttnn.synchronize_device(dev)
+            t0 = time.perf_counter(); out = swiglu(k, uf); ttnn.synchronize_device(dev)
             ts.append((time.perf_counter() - t0) * 1e3)
         o = ttnn.to_torch(out).double(); ttnn.deallocate(out)
         d = (o - ref).abs()
