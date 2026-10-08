@@ -21,6 +21,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--px", default="190,429,806")
+    ap.add_argument("--h", type=int, default=5, help="the Transition's row-block height on this chip")
     a = ap.parse_args()
     import torch, ttnn
     import tt_bio.tenstorrent as T
@@ -41,7 +42,7 @@ def main():
           "fc3.weight": bf(torch.randn(C, HID, generator=g) / HID ** 0.5)}
     zt = bf(torch.randn(1, S, S, C, generator=g))
     tr = T.Transition({k: v.float() for k, v in sd.items()}, K("HiFi4"))
-    h = [k[2] for k in T.TRANSITION_H_CHUNK_SHAPES][0]
+    h = a.h
     s = (r // h) * h
     z = ttnn.from_torch(zt[:, s:s + h].float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     xn = ttnn.layer_norm(z, weight=tr.norm_weight, bias=tr.norm_bias, epsilon=1e-5,
