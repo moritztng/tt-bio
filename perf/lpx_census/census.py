@@ -166,7 +166,13 @@ def drain():
 NODEV = {"ttnn.deallocate", "ttnn.to_torch", "ttnn.from_device", "ttnn.is_tensor_storage_on_device",
          "ttnn.get_memory_config", "ttnn.synchronize_device"}
 MODE = {"m": None, "n": 0, "depth": 0}
-REC = []
+class _Rec(list):
+    """Records stream to ops_<mode>.jsonl as they are made, so a killed run keeps what it measured."""
+    f = None
+    def append(self, r):
+        super().append(r)
+        if self.f: self.f.write(json.dumps(r, default=str) + "\n")
+REC = _Rec()
 def make(orig):
     def call(self, *a, **k):
         if MODE["m"] is None or MODE["depth"] > 0:
@@ -217,6 +223,7 @@ for mode in sys.argv[6].split(","):
     rcfg = dict(cfg0, seed=101, recycling_steps=CYC, sampling_steps=STEPS)
     sdir = OUT / f"struct_{mode}"; sdir.mkdir(exist_ok=True); rcfg["struct_dir"] = str(sdir)
     REC.clear(); CUR.update(cyc=-1, step=-1); MODE.update(m=mode, n=0)
+    REC.f = open(OUT / f"ops_{mode}.jsonl", "w", buffering=1 << 20)
     n0 = len(samples); t0 = time.monotonic(); err = None
     try:
         metrics, best, feats = state.predict_one(YAML, rcfg)
@@ -226,8 +233,7 @@ for mode in sys.argv[6].split(","):
     REC.append(dict(i=len(REC), op="<tail>", reg="", cyc=CUR["cyc"], step=CUR["step"], progs=drain()))
     t1 = time.monotonic()
     clk = sorted(r[NODE] for s_, r in samples[n0:] if t0 <= s_ <= t1)
-    with open(OUT / f"ops_{mode}.jsonl", "w") as f:
-        for r in REC: f.write(json.dumps(r, default=str) + "\n")
+    REC.f.close(); REC.f = None
     log(ev="fold", mode=mode, wall_s=t1 - t0, err=err, n_rec=len(REC), cycles=CUR["cyc"] + 1, steps=CUR["step"] + 1,
         aiclk_n=len(clk), aiclk_median=clk[len(clk) // 2] if clk else None, aiclk_min=clk[0] if clk else None,
         aiclk_max=clk[-1] if clk else None,
