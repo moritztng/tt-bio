@@ -187,7 +187,10 @@ if not a.reduce:
             shutil.copy(a.data / "inputs" / f"{t.rsplit('_', 1)[0]}.yaml", tdir / f"{t}.yaml")
         cmd = [py, "-m", "tt_bio.main", "predict", str(tdir), "--controller", url, "--model", a.model,
                "--accelerator", "tenstorrent", "--output_format", "cif", "--msa_dir", str(a.data / "msa"),
-               "--msa_db_path", str(Path("~/japanfold/msa/db").expanduser()), "--out_dir", str(out / "pred")]
+               "--out_dir", str(out / "pred")]
+        msa_db = Path("~/japanfold/msa/db").expanduser()  # a Galaxy's; the BH boxes fold from the MSA cache alone
+        if msa_db.exists():
+            cmd += ["--msa_db_path", str(msa_db)]
         if a.fast:
             cmd.append("--fast")
         if a.samples:
@@ -290,3 +293,5 @@ def reduce() -> None:
 
 
 reduce()
+if not a.reduce and client.returncode:
+    sys.exit(f"client rc={client.returncode}, see {out / 'client.log'}")
