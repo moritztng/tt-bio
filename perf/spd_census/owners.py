@@ -30,8 +30,8 @@ def owner(r):
         return "spd-overhead"
     if ph == "diffusion" or "dit" in reg or "sampler" in reg:
         return "spd-diffusion"
-    if "transitions" in cls and op in ("linear", "matmul"):
-        return "spd-overhead"          # PLAN 3: tiny chunked linears (swiglu at 5 rows of 736)
+    if "transitions" in cls:
+        return "spd-overhead"          # PLAN 3 + from-orchestrator: spd-overhead keeps the swiglu (5-row chunks)
     return "NOBODY"
 
 
@@ -70,10 +70,10 @@ for r in rows:
         key = (r["phase"], r["cls"]); nob[key][0] += r["s"]; nob[key][1] += r["gap_s"]
         if nob[key][2] is None or r["s"] > nob[key][2]["s"]:
             nob[key][2] = r
-print("\nNOBODY (unowned cost by phase x class, device + idle before):\n")
+print("\nNOBODY (unowned device cost by phase x class; idle gaps are spd-overhead's and not listed):\n")
 print("| phase | class | device s | idle before s | biggest op |\n|---|---|---|---|---|")
-for (p, c), (s, g, top) in sorted(nob.items(), key=lambda x: -(x[1][0] + x[1][1])):
-    if s + g >= 0.5:
+for (p, c), (s, g, top) in sorted(nob.items(), key=lambda x: -x[1][0]):
+    if s >= 0.5:
         print(f"| {p} | {c} | {s:.1f} | {g:.1f} | {top['op'].replace('ttnn.', '')} {top['site']} {top['s']:.1f} s |")
 if TARGET:
     print(f"\nSeconds to target: {WALL:.1f} s now, target {TARGET:.0f} s, {WALL - TARGET:.1f} s must go "
