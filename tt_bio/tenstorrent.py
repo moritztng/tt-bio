@@ -13052,8 +13052,9 @@ class OuterProductMean(Module):
                 e = min(s + MSA_CHUNK_SIZE, x.shape[0])
                 yield x[s:e], None if msa_mask is None else msa_mask[s:e]
 
-        def contiguous_ab():
-            """`a` and `b` built whole and laid out for `z_rows`.
+        def contiguous_ab(chunks=None):
+            """`a` and `b` built whole and laid out for `z_rows`. `chunks` (an iterator of
+            (chunk, mask) pairs) projects those instead of `x`.
 
             Every allocation that needs one contiguous full-depth buffer is in here, so a
             single refusal can decline the lot. There are two of them, not one: the join, and
@@ -13068,10 +13069,10 @@ class OuterProductMean(Module):
             """
             a_parts, b_parts, a, b = [], [], None, None
             try:
-                if x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
+                if chunks is None and x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
                     a, b = project_ab(x, msa_mask)
                 else:
-                    for c, maskc in depth_slices():
+                    for c, maskc in chunks or depth_slices():
                         ac, bc = project_ab(c, maskc)
                         a_parts.append(ac)
                         b_parts.append(bc)
@@ -13125,27 +13126,26 @@ class OuterProductMean(Module):
                     yield ttnn.reshape(d, tuple(d.shape)[1:]), None
                     if d is not c:
                         ttnn.deallocate(d)
-            depth_parts, S, I, C, D, J = project_depth_parts(device_chunks())
-            a = b = None
-            if (_OPM_JOIN_PARTS and len(depth_parts) > 1
-                    and not _OPM_PARTS_JOIN_REFUSED.get((S, I, C, D, J))):
+            # The join runs on the raw (rows, I, C) projections along the OUTER axis and lays
+            # the whole out once, exactly as the contiguous path does. Joining the parts after
+            # their per-chunk permute put the concat on the innermost (depth) axis, which ran
+            # at ~6 GB/s (80 ms for a 469 MB `a` at 736 tokens x 9947 rows, 3.6 s per fold).
+            # Same values either way: concat and permute move numbers, they do not round them.
+            key = (sum(c.shape[1] for c in x_chunks), *tuple(x_chunks[0].shape)[2:])
+            joined = False
+            if _OPM_JOIN_PARTS and len(x_chunks) > 1 and not _OPM_PARTS_JOIN_REFUSED.get(key):
                 try:
-                    a = ttnn.concat([p[0] for p in depth_parts], dim=-1)    # (I, C, S)
-                    b = ttnn.concat([p[1] for p in depth_parts], dim=-1)    # (D*J, S)
+                    a, b, dims = contiguous_ab(device_chunks())
+                    joined = True
+                    OPM_JOIN_PARTS_STATS[0] += 1
                 except RuntimeError as exc:
-                    if a is not None:
-                        ttnn.deallocate(a)
-                    a = b = None
                     if not _dram_oom(exc):
                         raise
-                    _OPM_PARTS_JOIN_REFUSED[(S, I, C, D, J)] = True
+                    _OPM_PARTS_JOIN_REFUSED[key] = True
                     OPM_JOIN_PARTS_STATS[1] += 1
-                else:
-                    for acp, bcp, _ in depth_parts:
-                        ttnn.deallocate(acp)
-                        ttnn.deallocate(bcp)
-                    depth_parts, dims = None, (S, I, C, D, J)
-                    OPM_JOIN_PARTS_STATS[0] += 1
+            if not joined:
+                depth_parts, S, I, C, D, J = project_depth_parts(device_chunks())
+                a = b = None
         elif _OPM_JOIN_REFUSED.get(tuple(x.shape)):
             # This shape class already refused the contiguous form once in this process.
             # Paying for it again only to collect the same refusal costs a projection pass.
