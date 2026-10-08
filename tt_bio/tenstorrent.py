@@ -12693,6 +12693,18 @@ class OuterProductMean(Module):
             else:
                 depth_parts = [(ttnn.multiply_(acp, scale), bcp, Sc)
                                for acp, bcp, Sc in depth_parts]
+        if LPX:
+            # The z_rows contraction is the OPM's cost and reads both operands once per row
+            # block; one cast each here, after the row-major relayout bfp8 cannot do, feeds every
+            # block in bfp8.
+            def b8(t):
+                o = ttnn.typecast(t, ttnn.bfloat8_b)
+                ttnn.deallocate(t)
+                return o
+            if depth_parts is None:
+                a, b = b8(a), b8(b)
+            else:
+                depth_parts = [(b8(acp), b8(bcp), Sc) for acp, bcp, Sc in depth_parts]
 
         def z_rows(i0, i1):
             """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
