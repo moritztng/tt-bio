@@ -3,7 +3,8 @@
 Two modes, one process each.
 
   cond OUT CHIP YAML
-      Runs the serving path (tt-bio predict, protenix-v2, 10 recycles, the host MSA cache) up to the
+      Runs the serving path (tt-bio predict, protenix-v2, 10 recycles, spd-bench's cache-only MSA at
+      $SPD_DATA/msa, default ~/spd-data; YAML is e.g. ~/spd-data/inputs/c730.yaml) up to the
       end of the trunk and saves the diffusion conditioning to OUT/cond.pt. Done once per target;
       every arm then samples from the same conditioning.
 
@@ -66,10 +67,10 @@ def _grab(*a, **kw):
 def serving_cfg(yaml):
     """The config tt-bio predict would hand a worker for this target (pfm-ttfast's serving path)."""
     M._dispatch_run = _grab; M._dispatch_to_controller = _grab
+    data = Path(os.environ.get("SPD_DATA", "~/spd-data")).expanduser()
     argv = ["predict", str(yaml), "--model", "protenix-v2", "--diffusion_samples", "5",
             "--recycling_steps", "10", "--accelerator", "tenstorrent", "--output_format", "cif",
-            "--msa_db_path", os.path.expanduser("~/japanfold/msa/db"), "--msa_dir", str(OUT / "msa"),
-            "--out_dir", str(OUT / "cli")]
+            "--msa_dir", str(data / "msa"), "--msa_cache_only", "--out_dir", str(OUT / "cli")]
     try:
         M.cli.main(argv, standalone_mode=False)
     except _Stop:
