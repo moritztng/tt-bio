@@ -346,19 +346,62 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 _FAST_MODE = False
-# TIMING-ONLY PROTOTYPE (lpx-e2e), default off, never a shipped mode: every op the LPX campaign
-# measured faster in a lower-precision configuration moves to it at once, to measure what that
-# buys a whole Protenix-v2 fold on Wormhole. Accuracy is deliberately not checked here; the
-# results and the per-op evidence are in perf/lpx_e2e/. What it moves:
-#   * every Protenix stage's matmul kernel config: LoFi, fp32 dest accumulation off
-#     (`lpx_compute_kernel_config`);
-#   * the diffusion stack to bf16, and its token DiT attention onto the fused SDPA;
-#   * triangle attention's interior and bias to bfp8 (`_TRIATT_B8`, `_TRIATT_BIAS_B8`), on the
-#     mask-reuse fused kernel at (q192, k384) LoFi (`_tri_att_sdpa_at`);
-#   * pair-bias attention off the explicit fp32-softmax chain onto the fused SDPA;
-#   * the transition's weights and its two hidden activations to bfp8, produced by the
-#     matmuls themselves so no typecast is added.
-LPX = env_flag("TT_BIO_LPX", False)
+# Protenix's lower-precision levers, one named switch each (op evidence: perf/lpx_*; fold grades:
+# state/spd). A precision mode is a set of these names. `--fast` runs FAST_LEVERS; normal mode runs
+# NORMAL_LEVERS, the ones graded inside the normal bar. Protenix applies its set around its own
+# build and fold with `levers(...)`, so a model built later in the same process never sees it.
+# Levels are read at build time (weights, kernel configs) AND at run time (dtypes, kernel picks),
+# which is why the set must be the same for both.
+#   lofi            every Protenix stage's matmuls at LoFi (`lpx_compute_kernel_config`)
+#   acc_off         ... with fp32 dest accumulation off
+#   diffusion_bf16  the diffusion stack in bf16 instead of fp32 (what `--diffusion_precision bf16` does)
+#   dit_sdpa        the bf16 token DiT's attention on the fused SDPA, not matmul/softmax/matmul
+#   apb_sdpa        pair-bias attention on the fused SDPA instead of the explicit fp32-softmax chain
+#   triatt_reuse    triangle attention on the mask-reuse fused kernel at (q192, k384)
+#   triatt_bias_b8  triangle attention's bias in bfp8
+#   triatt_b8       triangle attention's interior in bfp8. Same input on two core grids gives two
+#                   structures (825f18772, release gate leg `l1-budget`): card dependence is a hard
+#                   stop, so it is in no mode until the region is grid-invariant.
+#   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
+#   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
+          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8")
+FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"}
+NORMAL_LEVERS = frozenset()
+_LEVERS = frozenset()
+
+
+def lever(name: str) -> bool:
+    return name in _LEVERS
+
+
+def parse_levers(spec) -> frozenset:
+    """A lever set from names (iterable or comma string); `fast`/`normal` expand to the mode sets."""
+    names = spec.split(",") if isinstance(spec, str) else list(spec)
+    out = set()
+    for n in (x.strip() for x in names):
+        if n in ("", "none"):
+            continue
+        if n in ("fast", "normal"):
+            out |= FAST_LEVERS if n == "fast" else NORMAL_LEVERS
+        elif n in LEVERS:
+            out.add(n)
+        else:
+            raise ValueError(f"unknown precision lever {n!r}; known: {', '.join(LEVERS)}")
+    return frozenset(out)
+
+
+@contextlib.contextmanager
+def levers(names):
+    """Run the block with exactly `names` active, then restore the previous set."""
+    global _LEVERS
+    prev, _LEVERS = _LEVERS, parse_levers(names)
+    try:
+        yield
+    finally:
+        _LEVERS = prev
+
+
 _LPX_TRIATT_CHUNKS = (192, 384)
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
@@ -572,11 +615,13 @@ _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4":
 
 
 def lpx_compute_kernel_config(base):
-    """`base` at LoFi with fp32 dest accumulation off when `LPX` is on, else `base` itself."""
-    if not LPX:
+    """`base` under the `lofi` and `acc_off` levers, or `base` itself when neither is on."""
+    if not (lever("lofi") or lever("acc_off")):
         return base
-    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi, math_approx_mode=base.math_approx_mode,
-                     fp32_dest_acc_en=False, packer_l1_acc=base.packer_l1_acc)
+    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi if lever("lofi") else base.math_fidelity,
+                     math_approx_mode=base.math_approx_mode,
+                     fp32_dest_acc_en=base.fp32_dest_acc_en and not lever("acc_off"),
+                     packer_l1_acc=base.packer_l1_acc)
     cfg.dst_full_sync_en = base.dst_full_sync_en
     cfg.throttle_level = base.throttle_level
     return cfg
@@ -592,7 +637,7 @@ def trunk_compute_kernel_config(base):
     if _TRUNK_MATH_FIDELITY not in _MATH_FIDELITIES:
         raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
                          f"got {_TRUNK_MATH_FIDELITY!r}")
-    if LPX:
+    if lever("lofi") or lever("acc_off"):
         return lpx_compute_kernel_config(base)
     cfg = type(base)(
         math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[_TRUNK_MATH_FIDELITY]),
@@ -1702,7 +1747,7 @@ def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_di
 # 0.0185-0.0217, so the block amplifies it ~16x and the fold is the only denominator that decides.
 # The cast itself is 4.19 MB read + 2.10 MB written at N=512; the win is the re-read, which the
 # SDPA reader pays once per (q_chunk, k_chunk) pair.
-_TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", LPX)
+_TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 
 # Triangle attention's INTERIOR in bfp8, and nothing else. This is its own flag and not a mode:
 # `_FAST_MODE` bundles unrelated changes and measures 0.95x on the fold, and `_dtype()` staying
@@ -1733,12 +1778,20 @@ _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", LPX)
 # That is card-dependence, a hard stop, and it is not scored against the Angstrom bar.
 # `825f18772` closed it on exactly that and `docs/tuning-flags.md` names the failing arm
 # (`l1-budget`). Re-opens only if someone makes the region grid-invariant.
-_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", LPX)
+_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", False)
+
+
+def _triatt_b8() -> bool:
+    return _TRIATT_B8 or lever("triatt_b8")
+
+
+def _triatt_bias_b8() -> bool:
+    return _TRIATT_BIAS_B8 or lever("triatt_bias_b8")
 
 
 def _triatt_dtype():
     """The storage format for triangle attention's q/k/v/gate/bias, i.e. the region's interior."""
-    return ttnn.bfloat8_b if _TRIATT_B8 else _dtype()
+    return ttnn.bfloat8_b if _triatt_b8() else _dtype()
 
 
 # When the production q_chunk does not divide the padded length, offer the dividing chunks below
@@ -2014,7 +2067,7 @@ def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
 
 
 def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
-    if (_TRIATT_BIAS_B8 or _TRIATT_B8) and bias is not None and bias.dtype != ttnn.bfloat8_b:
+    if (_triatt_bias_b8() or _triatt_b8()) and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
             return _tri_att_sdpa_at(q, k, v, b8, scale, ckc)
@@ -2320,11 +2373,12 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     still owes `o * sigmoid(gate)`.
     """
     q_len, k_len = q.shape[2], k.shape[2]
-    if LPX and q_len == k_len:
+    if lever("triatt_reuse") and q_len == k_len:
         # The mask-reuse pair lpx-sdpa measured fastest at 736 (q192 k384, LoFi): a narrow q
         # chunk that need not divide the sequence, so every core reads its mask block once.
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, _LPX_TRIATT_CHUNKS[0], _LPX_TRIATT_CHUNKS[1],
-                              ckc_default=(ttnn.MathFidelity.LoFi, True, False, False),
+                              ckc_default=((ttnn.MathFidelity.LoFi, True, False, False)
+                                           if lever("lofi") else None),
                               q_split_cap=0, gate=gate, padded_mask=True)
         if o is not None:
             _sdpa_pick(q_len, k_len, *_LPX_TRIATT_CHUNKS, "fused")
@@ -2469,7 +2523,7 @@ def _tri_att_gated_sdpa(att, q, k, v, bias, scale: float, gate, ckc=None):
         return _triatt_sdpa._gate_reject("head_dim", shape)
     if att.biased or _FP32_SOFTMAX or att.fp32_softmax:
         return _triatt_sdpa._gate_reject("site", shape)
-    if _TRIATT_BIAS_B8 or _TRIATT_DUALPROBE:
+    if _triatt_bias_b8() or _TRIATT_DUALPROBE:
         # Instruments, not shipped paths: one retypes the bias under this call and the other
         # re-runs the attention beside it against an ungated reference.
         return _triatt_sdpa._gate_reject("instrument", shape)
@@ -9894,7 +9948,7 @@ class AttentionPairBias(Module):
         v: ttnn.Tensor,
         bias: ttnn.Tensor,
     ) -> ttnn.Tensor:
-        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32 and not LPX:
+        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32 and not lever("apb_sdpa"):
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
             #
             # Do not reroute this to the fused SDPA to skip the re-materialisation traffic. It is
@@ -10322,9 +10376,9 @@ class Transition(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.dtype = dtype
         weight_dtype = dtype if dtype is not None else ttnn.bfloat16
-        # LPX: the three matmul weights and the hidden activations fc1/fc2 write in bfp8; the norm
-        # stays at the stage dtype, and so does fc3's output, which is added into the residual.
-        self._hidden_b8 = LPX and weight_dtype == ttnn.bfloat16
+        # transition_b8: the three matmul weights and the hidden activations fc1/fc2 write in bfp8;
+        # the norm stays at the stage dtype, and so does fc3's output, added into the residual.
+        self._hidden_b8 = lever("transition_b8") and weight_dtype == ttnn.bfloat16
         fc_dtype = ttnn.bfloat8_b if self._hidden_b8 else weight_dtype
         self.norm_weight = self.torch_to_tt("norm.weight", dtype=weight_dtype)
         self.norm_bias = self.torch_to_tt("norm.bias", dtype=weight_dtype)
@@ -12761,7 +12815,7 @@ class OuterProductMean(Module):
             else:
                 depth_parts = [(ttnn.multiply_(acp, scale), bcp, Sc)
                                for acp, bcp, Sc in depth_parts]
-        if LPX:
+        if lever("opm_b8"):
             # The z_rows contraction is the OPM's cost and reads both operands once per row
             # block; one cast each here, after the row-major relayout bfp8 cannot do, feeds every
             # block in bfp8.

@@ -8,8 +8,9 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
     python perf/spd/bench.py --out RUN/lpx   --chip 3 --arm lpx:TT_BIO_LPX=1 --inputs c730
     python perf/spd/bench.py --out RUN/fast  --chip 3 --arm fast:fast --inputs c730
 
-ARM grammar: NAME[:K=V[,K=V...]][:fast]. K=V are environment variables set before tt_bio is imported;
-`fast` passes --fast. Nothing here edits the model: an arm is only switches the engine already has.
+ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
+before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix under that precision-lever set
+(tenstorrent.LEVERS, e.g. `L=fast-lofi`, `L=normal+opm_b8`), otherwise the mode's own set. Nothing here edits the model: an arm is only switches the engine already has.
 
 Inputs live in --data (default ~/spd-data, built by perf/spd/make_inputs.py): <data>/inputs/<name>.yaml with
 the MSA cache at <data>/msa, read cache-only, so every box folds the same alignment without a search.
@@ -42,16 +43,18 @@ a = ap.parse_args()
 
 def parse_arm(spec):
     parts = spec.split(":")
-    env, fast = {}, False
+    env, fast, lv = {}, False, None
     for p in parts[1:]:
         if p == "fast":
             fast = True
+        elif p.startswith("L="):
+            lv = p[2:]
         elif p:
             env.update(kv.split("=", 1) for kv in p.split(","))
-    return parts[0], env, fast
+    return parts[0], env, fast, lv
 
 
-ARM, ARM_ENV, FAST = parse_arm(a.arm)
+ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)
 LOG = open(a.out / "bench.jsonl", "a")
@@ -173,11 +176,26 @@ for n in OPENED:
 log(ev="device_open", s=t_open, nodes=OPENED, arch=ARCH, card=CARD)
 
 t = time.monotonic()
-state.model = P.Protenix.load_from_checkpoint(cfg0["protenix_ckpt"])
+
+
+def lever_set(spec):
+    """`fast-lofi+opm_b8` -> the fast set without lofi, plus opm_b8."""
+    import re
+    toks = re.findall(r"([+-]?)([A-Za-z0-9_]+)", spec)
+    out = T.parse_levers(toks[0][1])
+    for sign, name in toks[1:]:
+        out = out - T.parse_levers(name) if sign == "-" else out | T.parse_levers(name)
+    return sorted(out)
+
+
+LEVER_SET = None if LEVER_SPEC is None else lever_set(LEVER_SPEC)
+# levers only when asked, so the same harness still runs a tree that predates them (main before SPD)
+state.model = P.Protenix.load_from_checkpoint(
+    cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))
 state.bind_run("spd", dict(cfg0, fast=FAST))
 state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
 m = state.model
-log(ev="build", s=time.monotonic() - t, fast=getattr(m, "_fast", None))
+log(ev="build", s=time.monotonic() - t, fast=getattr(m, "_fast", None), levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
 orig = m.fold
 
