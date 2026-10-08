@@ -46,7 +46,7 @@ from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
-from .eltwise_fusion import scale_add, norm_residual
+from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -1433,12 +1433,12 @@ class DiffusionModule(_KeyedWeights):
                 ttnn.deallocate(bias_dev)
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
-            ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
+            ao = gated_add(a_t, attn, sg)
             an2 = ctb_adaln(ao, s_t)
             bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
                                linb(an2, Cc + "linear_nobias_a2.weight"))
             cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = ttnn.add(ttnn.multiply(cs, linb(bb, Cc + "linear_nobias_b.weight")), ao)
+            a_t = gated_add(ao, linb(bb, Cc + "linear_nobias_b.weight"), cs)
         return a_t
 
 
