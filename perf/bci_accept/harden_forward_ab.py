@@ -229,6 +229,13 @@ def main():
     #: here so the dropout-on case stays reachable without editing the script.
     parser.add_argument("--dropout", action="store_true",
                         help="run with AF2 dropout on (default off, which is what harden does)")
+    parser.add_argument("--no-recompute", action="store_true",
+                        help="run the on-card arm with gradient checkpointing OFF "
+                             "(predictor(recompute=False)). The taped forward checkpoints by "
+                             "default and the backward recomputes each block; if that recompute "
+                             "does not reproduce the taped forward bit for bit, the VJP is taken "
+                             "at a different point than the forward was. Costs memory: the whole "
+                             "stack's activations stay resident.")
     args = parser.parse_args()
 
     from tt_bio import bindcraft2
@@ -276,10 +283,15 @@ def main():
     arms = {"host-JAX": dict(trunk="jax", checkpoints=args.af2_weights)}
     if args.card is not None:
         arms["on-card"] = dict(card=args.card, checkpoints=args.af2_weights,
-                               dropout=dropout_policy)
+                               dropout=dropout_policy,
+                               recompute=not args.no_recompute)
 
     results = {}
     for arm_name, predictor_arguments in arms.items():
+        # Print the arm's actual predictor arguments. Every lever A/B in this row is graded on a
+        # difference of a few parts in a thousand, so "which program did this arm run" has to come
+        # out of the run rather than out of the launcher.
+        print(f"  [{arm_name}] predictor {dict(sorted(predictor_arguments.items()))}", flush=True)
         with bindcraft2.predictor(**predictor_arguments) as build:
             model = design_model(build, args.af2_weights, presets, args.recycles, args.bucket)
             model.dropout = args.dropout
