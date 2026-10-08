@@ -129,12 +129,24 @@ K_LOOP_CLOSE_NEW = """                }
 #ifdef FUSE_BIAS"""
 
 
+# The granular writers own the output CB's wait/pop, so under bit 4 they are replaced by the same
+# per-row wait/pop with no NoC write; the deferred writers get a block the caller already waited on.
+ABL_DRAIN = ("if (TRIMUL_TAIL_ABL & 4) {\n"
+             "                            for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {\n"
+             "                                cb_wait_front(cb_id_out, N_block_tiles);\n"
+             "                                cb_pop_front(cb_id_out, N_block_tiles);\n"
+             "                            }\n"
+             "                        } else ")
+
+
 def patch_abl_write(src: str) -> str:
-    for call in ("write_block_sync<", "write_block_sync_split<", "write_block_sync_granular<"):
-        src = sub(src, f"                            {call}" if call != "write_block_sync_granular<"
-                  else f"                        {call}",
-                  (f"                            if (!(TRIMUL_TAIL_ABL & 4)) {call}" if call != "write_block_sync_granular<"
-                   else f"                        if (!(TRIMUL_TAIL_ABL & 4)) {call}"), f"abl {call}")
+    for call in ("write_block_sync<", "write_block_sync_split<"):
+        src = sub(src, f"                            {call}",
+                  f"                            if (!(TRIMUL_TAIL_ABL & 4)) {call}", f"abl {call}")
+    src = sub(src, "                        write_block_sync_granular<",
+              "                        " + ABL_DRAIN + "write_block_sync_granular<", "abl granular")
+    src = sub(src, "                        write_block_sync_granular_split<",
+              "                        " + ABL_DRAIN + "write_block_sync_granular_split<", "abl granular split")
     return src
 
 

@@ -427,7 +427,12 @@ void kernel_main() {
                     // write_block_sync_granular_split is more generic (support multiple output tensors)
                     // But for N_chunks == 1 (non-split minimal_matmul), write_block_sync_granular should be faster
                     if constexpr (N_chunks == 1) {
-                        if (!(TRIMUL_TAIL_ABL & 4)) write_block_sync_granular<M_block_tiles, N_block_tiles>(
+                        if (TRIMUL_TAIL_ABL & 4) {
+                            for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {
+                                cb_wait_front(cb_id_out, N_block_tiles);
+                                cb_pop_front(cb_id_out, N_block_tiles);
+                            }
+                        } else write_block_sync_granular<M_block_tiles, N_block_tiles>(
                             std::get<0>(outputs_tuple),
                             out_shape,
                             cb_id_out,
@@ -437,7 +442,12 @@ void kernel_main() {
                             n_tile,
                             n_tile_end);
                     } else {
-                        write_block_sync_granular_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                        if (TRIMUL_TAIL_ABL & 4) {
+                            for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {
+                                cb_wait_front(cb_id_out, N_block_tiles);
+                                cb_pop_front(cb_id_out, N_block_tiles);
+                            }
+                        } else write_block_sync_granular_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
                             outputs_tuple,
                             out0_shape,
                             cb_id_out,
