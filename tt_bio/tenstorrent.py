@@ -130,6 +130,27 @@ _OPM_PARTS_JOIN_REFUSED: dict[tuple[int, ...], bool] = {}
 _OPM_JOIN_PARTS = env_flag("TT_BIO_OPM_JOIN_PARTS", True)
 #: [joined, kept as parts after a refusal]
 OPM_JOIN_PARTS_STATS = [0, 0]
+# OuterProductMean's output projection is one (rows*J, C*D) x (C*D, c_z) matmul. Issued as one 2D
+# matmul with M in the hundreds of thousands, the auto program config lands at 68 ms for
+# [541696, 1024] x [1024, 256] (730 tokens, Wormhole, 4.2 TF/s, 20 GB/s); handed the same buffer as
+# a batch of row blocks (a free leading-dim view) it picks a config that runs 20.8 ms and returns
+# the identical bytes (torch.equal against the 2D call, perf/spd_msa/sweep_opm_out.py). Splits of
+# 2 or 4 stay slow, 8 and up are fast, so the block is sized to ~16k rows.
+_OPM_PROJ_BATCH = env_flag("TT_BIO_OPM_PROJ_BATCH", True)
+OPM_PROJ_BLOCK_ROWS = 16384
+
+
+def opm_proj_blocks(rows: int, J: int) -> int:
+    """How many row blocks the (rows*J, C*D) projection input is viewed as: the fewest whole
+    token-row groups whose blocks hold at most OPM_PROJ_BLOCK_ROWS rows. 1 means one 2D call."""
+    if not _OPM_PROJ_BATCH or J % 32 or rows * J <= OPM_PROJ_BLOCK_ROWS:
+        return 1
+    per = max(1, OPM_PROJ_BLOCK_ROWS // J)
+    while rows % per:
+        per -= 1
+    return rows // per
+
+
 #: Path census: whole-tensor calls, row-blocked calls, and refusals the retry absorbed.
 OPM_ROW_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0, "join_split": 0}
 # Every "largest single buffer of this shape this part has been measured to place" budget scales
@@ -12964,7 +12985,8 @@ class OuterProductMean(Module):
                 # reshape is a leading-dim merge with the last dim unchanged and the second-to-last
                 # a multiple of 32, i.e. ttnn's own zero-cost view (0.0333 ms measured), and it is
                 # value-exact against a float64 reference.
-                z = ttnn.reshape(z, (rows * J, C * D))
+                nb = opm_proj_blocks(rows, J)
+                z = ttnn.reshape(z, (rows * J, C * D) if nb == 1 else (nb, rows * J // nb, C * D))
             o_bias = self.o_bias
             if self.scale_bias:
                 o_bias = ttnn.multiply(self.o_bias, scale)

@@ -6,7 +6,8 @@ and grades (error against a float64 host reference computed from the same bf16 i
 * pwa: PairWeightedAveraging over one 512-row depth chunk, per-head loop vs fused heads
   (`TT_BIO_PWA_FUSED_HEADS`).
 * opm: OuterProductMean over the trunk's depth-chunk list, chunked running sum vs one full-depth
-  contraction (`TT_BIO_OPM_JOIN_PARTS`), with the residual, scale_bias=True as Protenix builds it.
+  contraction (`TT_BIO_OPM_JOIN_PARTS`), then with the output projection as a row-block batch
+  (`TT_BIO_OPM_PROJ_BATCH`), with the residual, scale_bias=True as Protenix builds it.
 
 Shapes default to the campaign cell: 730 tokens padded to 736, MSA depth 9947, c_m 128, c_z 256.
 AICLK of every Tenstorrent node is sampled every 0.25 s while the timed loops run.
@@ -166,15 +167,16 @@ def bench_opm():
     ref = outer @ sd["proj_o.weight"].double().t() + sd["proj_o.bias"].double() / DEPTH + z[0, :R].double()
     del outer, a, b
     res = {}
-    for arm, flag in (("chunked", False), ("joined", True)):
-        T._OPM_JOIN_PARTS = flag
+    for arm, join, pb in (("chunked", False, False), ("joined", True, False), ("joined_pb", True, True)):
+        T._OPM_JOIN_PARTS, T._OPM_PROJ_BATCH = join, pb
         out, ts, clk = timed(lambda: opm(chunks, None, None, residual=z_tt), REPS)
         res[arm] = ttnn.to_torch(out).reshape(T_, T_, C_Z)[:R]
         log(ev="opm", arm=arm, depth=DEPTH, tokens=T_, ms=ts, ms_med=statistics.median(ts), aiclk=clk,
             err=err(res[arm], ref), err_update=err(res[arm] - z[0, :R].double(), ref - z[0, :R].double()),
             stats=list(T.OPM_JOIN_PARTS_STATS))
         ttnn.deallocate(out)
-    log(ev="opm_ab", joined_vs_chunked=err(res["joined"], res["chunked"].double()))
+    log(ev="opm_ab", joined_vs_chunked=err(res["joined"], res["chunked"].double()),
+        proj_batch_bitident=bool(torch.equal(res["joined_pb"], res["joined"])))
 
 
 for w in WHAT:
