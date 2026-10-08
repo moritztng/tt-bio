@@ -6095,8 +6095,15 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
     if (gx, gy) == COMPUTE_GRID_MAIN:
         return
 
-    CORE_GRID_MAIN = ttnn.CoreGrid(y=gy, x=gx)
+    stale, CORE_GRID_MAIN = CORE_GRID_MAIN, ttnn.CoreGrid(y=gy, x=gx)
     COMPUTE_GRID_MAIN = (gx, gy)
+    # `from .tenstorrent import CORE_GRID_MAIN` in a model module bound the import-time guess, and
+    # the rebind above does not reach it (CoreGrid is immutable). ttnn ignores a user grid larger
+    # than the device, so Wormhole ran on its own grid anyway, but on a 12- or 13-wide Blackhole
+    # grid every such call site stayed on 11 columns.
+    for mod in list(sys.modules.values()):
+        if getattr(mod, "__name__", "").startswith("tt_bio.") and getattr(mod, "CORE_GRID_MAIN", None) is stale:
+            mod.CORE_GRID_MAIN = CORE_GRID_MAIN
     _apply_grid_thresholds((gx, gy), device)
     _sdpa_program_config.cache_clear()
     _grid_q_chunk.cache_clear()
@@ -15141,10 +15148,10 @@ class PairAssemblyDevice:
             layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16
         ) if dist_embed is not None else None
 
-    def _linear(self, x, weight, bias=None, activation=None, core_grid=CORE_GRID_MAIN):
+    def _linear(self, x, weight, bias=None, activation=None, core_grid=...):
         return ops.linear(x, weight, bias=bias, activation=activation,
                           compute_kernel_config=self.compute_kernel_config,
-                          core_grid=core_grid)
+                          core_grid=CORE_GRID_MAIN if core_grid is ... else core_grid)
 
     def _pack(self, feats, padded):
         """The one host feature upload: ``[1, padded, padded, n_pack]``, zero-padded.
