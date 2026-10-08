@@ -426,9 +426,15 @@ class _KeyedWeights:
         return v
 
     def _up(self, t):
-        """Upload an activation/host tensor (per call, not cached)."""
-        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                               dtype=getattr(self, "dtype", ttnn.bfloat16))
+        """Upload an activation/host tensor (per call, not cached).
+
+        A float32 tensor bound for bf16 is rounded by torch first: torch and ttnn round the same
+        way, so the device tensor is identical, and ttnn tilizes bf16 4x faster than it converts
+        and tilizes float32 (0.66 against 2.73 s for the 730-token MSA feature)."""
+        dtype = getattr(self, "dtype", ttnn.bfloat16)
+        if dtype == ttnn.bfloat16 and t.dtype == torch.float32:
+            t = t.to(torch.bfloat16)
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=dtype)
 
     def _opm_from_host(self, opm, t, z):
         """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
@@ -509,6 +515,13 @@ def n_blocks(state_dict, prefix):
     pat = re.compile(re.escape(prefix) + r"\.blocks\.(\d+)\.")
     idx = {int(m.group(1)) for k in state_dict if (m := pat.match(k))}
     return 1 + max(idx) if idx else 0
+
+
+#: Build the atom attention windows in TILE layout, every sample in one pass (`AtomTransformer.
+#: _windows_tiled`), instead of a ROW_MAJOR pad/reshape/permute round trip per sample. Pure data
+#: movement: the windows, the K transpose and the head merge are the same values in the same places.
+ATOM_WINDOWS_TILED = env_flag("TT_BIO_ATOM_WINDOWS_TILED", False)
+_HEADS_SPLIT_REFUSED: set = set()
 
 
 class AtomTransformer(_KeyedWeights, Module):
@@ -638,14 +651,20 @@ class AtomTransformer(_KeyedWeights, Module):
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
         K = self._lin(kv_norm, apb + "attention.linear_k.weight")
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
-        Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
+        if ATOM_WINDOWS_TILED:
+            Qb, KbT, Vb = self._windows_tiled(Q, K, V, 1, N, NP)
+        else:
+            Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
+            KbT = ttnn.permute(Kb, (0, 1, 3, 2))
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)   # precomputed (fixed p) or inline
-        sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = batched_matmul(Qb, KbT, compute_kernel_config=self.compute_kernel_config)
         sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
         o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                         host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
+        if ATOM_WINDOWS_TILED:
+            return self._merge_heads(o, 0, N, NP)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, H * dh])
@@ -686,6 +705,54 @@ class AtomTransformer(_KeyedWeights, Module):
         return (z_pre, self._make_pad_bias(mask_trunked))
 
 
+    def _windows_tiled(self, Q, K, V, M, N, NP):
+        """Q windows, transposed K windows and V windows of M samples, in TILE layout throughout.
+
+        Q, K, V are (M, N, H*dh). Window i holds queries [i*nq, (i+1)*nq) and keys
+        [i*nq - PAD_LEFT, i*nq - PAD_LEFT + nk), zeros outside the sequence. nq is one tile row, so
+        once K|V are shifted by PAD_LEFT (the only step that is not tile aligned) every window is
+        nk/nq consecutive tile rows: nk/nq slices and one concat build all of them. The head split
+        and the K transpose are one `nlp_create_qkv_heads`. Returns q (M*nb, H, nq, dh),
+        kT (M*nb, H, dh, nk), v (M*nb, H, nk, dh), what `_windows_q_m` / `_windows_kv_m` give.
+        """
+        H, dh, nq, nk = self.N_HEADS, self.HEAD_DIM, self.N_QUERIES, self.N_KEYS
+        nb, C, r = NP // nq, H * dh, nk // nq
+        rm = lambda x: ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+        tile = lambda x: ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+        q = tile(ttnn.pad(rm(Q), [[0, 0], [0, NP - N], [0, 0]], 0.0))                  # (M, NP, C)
+        q = ttnn.reshape(q, (M * nb, 1, nq, C))
+        kv = ttnn.concat([K, V], dim=-1)                                                # (M, N, 2C)
+        kv = tile(ttnn.pad(rm(kv), [[0, 0], [self.PAD_LEFT, NP + nk - nq - self.PAD_LEFT - N], [0, 0]], 0.0))
+        kv = ttnn.reshape(kv, (M, nb + r - 1, nq, 2 * C))
+        kv = ttnn.concat([ttnn.slice(kv, [0, j, 0, 0], [M, j + nb, nq, 2 * C]) for j in range(r)], dim=2)
+        kv = ttnn.reshape(kv, (M * nb, 1, nk, 2 * C))
+        key = (tuple(q.padded_shape), str(q.dtype))
+        if key not in _HEADS_SPLIT_REFUSED:
+            try:
+                return ttnn.experimental.nlp_create_qkv_heads(
+                    q, kv, num_heads=H, num_kv_heads=H, transpose_k_heads=True,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            except RuntimeError as e:                                                   # e.g. a dtype it does not take
+                _HEADS_SPLIT_REFUSED.add(key)
+                print(f"[tt-bio] nlp_create_qkv_heads refused atom windows {key}: {e}; splitting heads "
+                      f"by slices", file=sys.stderr, flush=True)
+        B = M * nb
+        heads = lambda x, c0, n: ttnn.concat(
+            [ttnn.slice(x, [0, 0, 0, c0 + h * dh], [B, 1, n, c0 + (h + 1) * dh]) for h in range(H)], dim=1)
+        return heads(q, 0, nq), ttnn.transpose(heads(kv, 0, nk), -2, -1), heads(kv, C, nk)
+
+    def _merge_heads(self, o, M, N, NP):
+        """(M*nb, H, nq, dh) attention output -> (M, N, H*dh), or (N, H*dh) at M == 0."""
+        C = self.N_HEADS * self.HEAD_DIM
+        o = ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # (M*nb, 1, nq, C)
+        if M == 0:
+            o = ttnn.reshape(o, (NP, C))
+            o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, C])
+        else:
+            o = ttnn.reshape(o, (M, NP, C))
+            o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, C])
+        return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
+
     # --- M-aware (multiplicity-batched) path --------------------------------------
     # Mirrors the M=1 _block/_attention but carries M as the leading batch dim. The
     # sample-invariant s (c_la) is replicated (AdaLN needs it elementwise); the
@@ -713,9 +780,13 @@ class AtomTransformer(_KeyedWeights, Module):
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
         K = self._lin(kv_norm, apb + "attention.linear_k.weight")
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
-        Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
+        if ATOM_WINDOWS_TILED:
+            Qb, KbT, Vb = self._windows_tiled(Q, K, V, M, N, NP)
+        else:
+            Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
+            KbT = ttnn.permute(Kb, (0, 1, 3, 2))
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)
-        sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = batched_matmul(Qb, KbT, compute_kernel_config=self.compute_kernel_config)
         if z.shape[0] != sc.shape[0]:
             # z is the sample-INVARIANT precomputed bias, still (nb,H,nq,nk). Fold the
             # (M*nb, H) leading dims into (M, nb*H) so the add broadcasts it over M --
@@ -732,6 +803,8 @@ class AtomTransformer(_KeyedWeights, Module):
         o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                         host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
+        if ATOM_WINDOWS_TILED:
+            return self._merge_heads(o, M, N, NP)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
         o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)
@@ -1608,22 +1681,54 @@ class ConfidenceHead:
         PAE / PDE matrices (Angstrom). All inputs host tensors; coords (N_atom,3). Recipe
         validated vs the real v2 reference (pae/pde PCC 1.0, plddt ~0.93;
         scripts/protenix_confidence_parity.py)."""
+        return self.confidence_samples(s_inputs, s_trunk, z_trunk, [coords], feats)[0]
+
+    def confidence_samples(self, s_inputs, s_trunk, z_trunk, coords, feats):
+        """`confidence` for every sample in `coords`, one dict each, bit-identical to calling it
+        per sample. The host work is what the chip waited on: 24 s of a 730-token, 5-sample
+        Protenix-v2 fold on Wormhole sat idle ahead of the confidence pairformers. So the
+        sample-invariant part of z is built once, and each sample's host-side z build and the
+        previous sample's host heads run while the chip runs a pairformer. One sample's
+        tensors are on the chip at a time, as before: the previous result is read back before
+        the next input is uploaded."""
         import torch
         import torch.nn.functional as F
         N = s_trunk.shape[0]
-        s_t = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
-        z = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
-             + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0))
-        mask = feats["distogram_rep_atom_mask"].bool()
-        xr = coords.reshape(-1, 3)[mask]
-        d = torch.cdist(xr, xr)
-        oh = ((d.unsqueeze(-1) >= self._g("lower_bins")) & (d.unsqueeze(-1) < self._g("upper_bins"))).float()
-        z = z + F.linear(oh, self._g("linear_no_bias_d.weight")) + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight"))
         T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
-        so, zo = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
-        s_single = torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384)
-        zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
+        s_t = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
+        z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
+                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0))
+        mask = feats["distogram_rep_atom_mask"].bool()
 
+        def z_of(x):
+            xr = x.reshape(-1, 3)[mask]
+            d = torch.cdist(xr, xr)
+            oh = ((d.unsqueeze(-1) >= self._g("lower_bins")) & (d.unsqueeze(-1) < self._g("upper_bins"))).float()
+            return (z_base + F.linear(oh, self._g("linear_no_bias_d.weight"))
+                    + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight")))
+
+        def read(held):
+            so, zo = held
+            out = (torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384),
+                   torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1))
+            ttnn.deallocate(so)
+            ttnn.deallocate(zo)
+            return out
+
+        out, held = [], None
+        for x in coords:
+            z = z_of(x)                                    # host, while the chip runs the last pairformer
+            done = read(held) if held is not None else None
+            held = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
+            if done is not None:
+                out.append(self._heads(*done, feats))      # host, while the chip runs this one
+        out.append(self._heads(*read(held), feats))
+        return out
+
+    def _heads(self, s_single, zf, feats):
+        """pae / pde / plddt heads on the host from the pairformer's (s_single, z)."""
+        import torch
+        import torch.nn.functional as F
         pae_logits = F.linear(F.layer_norm(zf, (zf.shape[-1],)) * self._g("pae_ln.weight") + self._bias("pae_ln.bias"),
                               self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
         pde_logits = F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
@@ -2661,8 +2766,8 @@ class Protenix:
                             s_inputs, s_trunk, z_base_dev, coords[k], feats)
                          for k in range(n_sample)]
             else:
-                confs = [self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
-                         for k in range(n_sample)]
+                confs = self.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk,
+                                                                list(coords), feats)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
 
@@ -3037,8 +3142,13 @@ class Trunk(_KeyedWeights):
                  for t in te_at]
         nse_d = self._noisy_structure_dist(feat, N)
         # msa feature
-        msa = F.one_hot(feat["msa"].long(), 32).float()
-        ms = torch.cat([msa, feat["has_deletion"].unsqueeze(-1), feat["deletion_value"].unsqueeze(-1)], -1).unsqueeze(0)
+        # Built in bf16, the dtype it is uploaded in: the one-hot and has_deletion are exact and
+        # torch rounds deletion_value as the fp32 upload did, so the device tensor is identical,
+        # and at 730 tokens x 9,947 rows the host build and tilize drop from 3.3 s to 1.0 s.
+        bf = torch.bfloat16
+        msa = F.one_hot(feat["msa"].long(), 32).to(bf)
+        ms = torch.cat([msa, feat["has_deletion"].to(bf).unsqueeze(-1),
+                        feat["deletion_value"].float().to(bf).unsqueeze(-1)], -1).unsqueeze(0)
         # The MSA representation is this trunk's DRAM limiter on a 12 GiB part: it scales as
         # depth * tokens, and a deep-MSA target OOMs right here. Tag the upload and the
         # projection SEPARATELY, with shape and dtype, because the two are the same number of

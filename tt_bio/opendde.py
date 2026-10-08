@@ -602,8 +602,7 @@ class OpenDDE:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the
             # original residue-level dict -- identical call shape to Protenix.fold's.
-            confs = [P.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords[k], feats)
-                     for k in range(n_sample)]
+            confs = P.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk, list(coords), feats)
             if distogram:
                 # Upstream's DistogramHead on the same residue-axis trunk pair
                 # (compute_distogram_contact_probs reads select_pair_output_branch's pair_z):
