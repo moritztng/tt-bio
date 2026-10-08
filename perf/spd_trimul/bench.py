@@ -34,6 +34,7 @@ ap.add_argument("--calls", type=int, default=4)
 ap.add_argument("--chip", type=int, default=None)
 ap.add_argument("--weights", default=None, help="torch .pt with one trimul's state dict (real weights)")
 ap.add_argument("--variants", default="start,end")
+ap.add_argument("--opsplit", action="store_true", help="also log a synced per-op wall split per arm")
 A = ap.parse_args()
 
 OUT = Path(A.out).resolve()
@@ -116,6 +117,45 @@ def apply(setters):
 def restore(prev):
     for f, v in reversed(prev):
         f(v)
+
+
+# ---------------- per-op split: every device-op entry point synced and wall-timed ----------------
+import contextlib
+OPS = []
+_WRAP = ["matmul", "layer_norm", "concat", "multiply_", "multiply", "add_", "add", "typecast", "generic_op",
+         "permute", "transpose", "reallocate", "clone", "to_memory_config", "unsqueeze"]
+
+
+@contextlib.contextmanager
+def op_timer():
+    saved, depth = {}, [0]
+
+    def wrap(name, fn):
+        def w(*a, **k):
+            if depth[0]:
+                return fn(*a, **k)
+            depth[0] += 1
+            try:
+                ttnn.synchronize_device(dev)
+                t0 = time.perf_counter()
+                r = fn(*a, **k)
+                ttnn.synchronize_device(dev)
+                OPS.append((f"{name}@{sys._getframe(1).f_code.co_name}", 1e3 * (time.perf_counter() - t0)))
+                return r
+            finally:
+                depth[0] -= 1
+        return w
+    for n in _WRAP:
+        saved[n] = getattr(ttnn, n)
+        setattr(ttnn, n, wrap(n, saved[n]))
+    saved["mm"] = ttnn.experimental.minimal_matmul
+    ttnn.experimental.minimal_matmul = wrap("minimal_matmul", saved["mm"])
+    try:
+        yield
+    finally:
+        ttnn.experimental.minimal_matmul = saved.pop("mm")
+        for n, f in saved.items():
+            setattr(ttnn, n, f)
 
 
 # ---------------- weights, inputs, reference ----------------
@@ -208,6 +248,21 @@ for var in A.variants.split(","):
         if arm == "base" and not (e["finite"] and e["rel_rms"] < 0.05):
             log(ev="abort", why="baseline misses the float64 reference: reference convention wrong", **e)
             raise SystemExit(2)
+    if A.opsplit:                                      # one synced call per arm, per-op wall
+        for arm in arms:
+            if arm == "base'":
+                continue
+            prev = apply(arm_setters(arm))
+            try:
+                for rep in range(3):
+                    OPS.clear()
+                    with op_timer():
+                        ttnn.deallocate(mod(z_dev, m_dev))
+                    if rep == 2:
+                        log(ev="opsplit", variant=var, arm=arm, total_ms=round(sum(t for _, t in OPS), 3),
+                            ops=[[n, round(t, 3)] for n, t in OPS])
+            finally:
+                restore(prev)
     times = {a: [] for a in arms}
     for rep in range(A.reps):                          # timing, interleaved
         for arm in arms:
