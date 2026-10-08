@@ -536,7 +536,7 @@ class AtomTransformer(_KeyedWeights, Module):
         self._softmax_f64 = host_f64_softmax_site("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
 
-    def _adaln(self, a, s, pre):
+    def _adaln_mod(self, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
         # (ttnn.from_torch) every call, which for the diffusion enc/decoder means thousands
         # of redundant device writes per fold (2 AdaLN x 3 blocks x 200 steps). Building once
@@ -549,7 +549,35 @@ class AtomTransformer(_KeyedWeights, Module):
             sub = {k[len(pre):]: v for k, v in self._w.items() if k.startswith(pre)}
             ada = AdaLN(False, remap_adaln(sub), self.compute_kernel_config, dtype=self.dtype)
             cache[pre] = ada
-        return ada(a, s)
+        return ada
+
+    def _adaln(self, a, s, pre, s_terms=None):
+        return self._adaln_mod(pre)(a, s, s_terms=s_terms)
+
+    @staticmethod
+    def _prefixes(b):
+        P = f"diffusion_transformer.blocks.{b}."
+        return P + "attention_pair_bias.", P + "conditioned_transition_block."
+
+    def cond_terms(self, s):
+        """Every term of every block that reads only the conditioning `s`: the three AdaLN
+        (scale, shift) pairs and the two output gates, pre-sigmoid. In the diffusion
+        enc/decoder `s` is the atom conditioning c_la, fixed for the whole fold and shared by
+        every sample, yet these were computed for each of the M samples at every step: 8
+        projections and 3 layer norms of (M,N,128) per block. Computed once here, at the
+        leading dim `s` has, they broadcast over M in the block's binary ops. Same ops on the
+        same values, so the result does not change."""
+        terms = []
+        for b in range(self.n_blocks):
+            apb, ctb = self._prefixes(b)
+            terms.append({
+                "a": self._adaln_mod(apb + "layernorm_a.").s_terms(s),
+                "kv": self._adaln_mod(apb + "layernorm_kv.").s_terms(s),
+                "ctb": self._adaln_mod(ctb + "adaln.").s_terms(s),
+                "gate": self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias"),
+                "cg": self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias"),
+            })
+        return terms
 
     def _windows_q(self, x, N, NP):
         H, dh = self.N_HEADS, self.HEAD_DIM
@@ -623,24 +651,24 @@ class AtomTransformer(_KeyedWeights, Module):
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, H * dh])
         return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
 
-    def _block(self, a, s, p, b, N, NP, pad_bias, z_pre=None):
-        P = f"diffusion_transformer.blocks.{b}."; apb = P + "attention_pair_bias."
-        q_norm = self._adaln(a, s, apb + "layernorm_a.")
-        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
+    def _block(self, a, s, p, b, N, NP, pad_bias, z_pre=None, terms=None):
+        apb, ctb = self._prefixes(b)
+        t = terms or {}
+        q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
+        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
         o = self._attention(q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=z_pre)
         g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
                         compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
-        gate = self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
+        gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
         attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         a1 = ttnn.add(attn, a)
-        ctb = P + "conditioned_transition_block."
-        an = self._adaln(a1, s, ctb + "adaln.")
+        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"))
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
         out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
-        cg = self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
+        cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
         out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         return ttnn.add(out, a1)
 
@@ -657,17 +685,6 @@ class AtomTransformer(_KeyedWeights, Module):
                  for b in range(self.n_blocks)]
         return (z_pre, self._make_pad_bias(mask_trunked))
 
-    def __call__(self, a, s, p, mask_trunked, bias_cache=None):
-        """a,s: (1,N,c_atom); p: (nb,nq,nk,c_atompair); mask_trunked: (nb,nq,nk) host
-        tensor of per-window key validity. bias_cache = optional (per-block z_pre, pad_bias)
-        from precompute_biases() (when p/mask are fixed across calls). Returns (1,N,c_atom)."""
-        N = a.shape[1]
-        NP = ((N + self.N_QUERIES - 1) // self.N_QUERIES) * self.N_QUERIES
-        z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
-        x = a
-        for b in range(self.n_blocks):
-            x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
-        return x
 
     # --- M-aware (multiplicity-batched) path --------------------------------------
     # Mirrors the M=1 _block/_attention but carries M as the leading batch dim. The
@@ -720,40 +737,44 @@ class AtomTransformer(_KeyedWeights, Module):
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)
         return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
 
-    def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None):
-        P = f"diffusion_transformer.blocks.{b}."; apb = P + "attention_pair_bias."
-        q_norm = self._adaln(a, s, apb + "layernorm_a.")
-        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.")
+    def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None, terms=None):
+        apb, ctb = self._prefixes(b)
+        t = terms or {}
+        q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
+        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
         o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
         g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
                         compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
-        gate = self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
+        gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
         attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         a1 = ttnn.add(attn, a)
-        ctb = P + "conditioned_transition_block."
-        an = self._adaln(a1, s, ctb + "adaln.")
+        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"))
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
         out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
-        cg = self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
+        cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
         out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         return ttnn.add(out, a1)
 
-    def __call__(self, a, s, p, mask_trunked, bias_cache=None, multiplicity=1):
+    def __call__(self, a, s, p, mask_trunked, bias_cache=None, multiplicity=1, terms=None):
         """a,s: (1,N,c_atom) at M=1, (M,N,c_atom) at M>1; p: (nb,nq,nk,c_atompair) shared;
         mask_trunked: (nb,nq,nk) host. bias_cache = optional (per-block z_pre, pad_bias)
-        from precompute_biases() (shared across samples). multiplicity (M): when >1 and
-        supports_multiplicity is on, run the M-aware batched path (one batched forward per
-        block); else the M=1 per-sample path. Returns (1,N,c_atom) at M=1, (M,N,c_atom) at M>1."""
+        from precompute_biases() (shared across samples). terms = optional cond_terms(s), the
+        per-block terms that read only `s`; when given, `s` itself is not read. multiplicity
+        (M): when >1 and supports_multiplicity is on, run the M-aware batched path (one
+        batched forward per block); else the M=1 per-sample path. Returns (1,N,c_atom) at
+        M=1, (M,N,c_atom) at M>1."""
+        tb = (lambda b: terms[b]) if terms is not None else (lambda b: None)
         N = a.shape[1] if multiplicity == 1 else a.shape[1]
         NP = ((N + self.N_QUERIES - 1) // self.N_QUERIES) * self.N_QUERIES
         if multiplicity == 1:
             z_pre, pad_bias = bias_cache if bias_cache is not None else (None, self._make_pad_bias(mask_trunked))
             x = a
             for b in range(self.n_blocks):
-                x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
+                x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None),
+                                terms=tb(b))
             return x
         # M-aware. Only the per-atom single s needs a real M dim (AdaLN is elementwise);
         # the pair bias z_pre is broadcast over M in _attention_m rather than replicated,
@@ -764,7 +785,7 @@ class AtomTransformer(_KeyedWeights, Module):
         # protenix._merge_conds) hands in tensors that already carry the M members, so pass
         # those straight through -- same shapes, no copy.
         nb_ = NP // self.N_QUERIES
-        s_m = s if s.shape[0] == multiplicity else ttnn.to_layout(
+        s_m = s if (terms is not None or s.shape[0] == multiplicity) else ttnn.to_layout(
             ttnn.concat([s] * multiplicity, dim=0), ttnn.TILE_LAYOUT)                         # (M,N,c_atom)
         p_m = p if (z_pre is not None or p.shape[0] == multiplicity * nb_) else ttnn.to_layout(
             ttnn.concat([p] * multiplicity, dim=0), ttnn.TILE_LAYOUT)                         # (M*nb,nq,nk,c_ap)
@@ -775,7 +796,7 @@ class AtomTransformer(_KeyedWeights, Module):
         x = a
         for b in range(self.n_blocks):
             x = self._block_m(x, s_m, p_m, b, N, NP, multiplicity, pad_bias,
-                                z_pre=(z_pre[b] if z_pre is not None else None))
+                                z_pre=(z_pre[b] if z_pre is not None else None), terms=tb(b))
         return x
 
 
@@ -1054,6 +1075,22 @@ class DiffusionModule(_KeyedWeights):
         mtf = cond["mask_trunked"].float()
         cond["atxE_bias"] = self.atxE.precompute_biases(cond["p_dev"], mtf)
         cond["atxD_bias"] = self.atxD.precompute_biases(cond["p_dev"], mtf)
+        self._atom_terms(cond)
+
+    def _atom_terms(self, cond):
+        """Both atom transformers' conditioning terms (AtomTransformer.cond_terms) from c_la,
+        once per fold. They are 8 tensors of c_la's shape per block, 48 at the shipped depths
+        (145 MB in fp32 at 5,919 atoms), so they are kept only while that is a small share of
+        the free DRAM; otherwise each step recomputes them as before."""
+        c_la = cond["c_la_dev"]
+        c3 = c_la if len(c_la.shape) == 3 else ttnn.reshape(c_la, (1, c_la.shape[0], c_la.shape[-1]))
+        n_terms = 8 * (self.atxE.n_blocks + self.atxD.n_blocks)
+        need = n_terms * _T._padded_bytes(tuple(c3.shape), 4 if self.dtype == ttnn.float32 else 2)
+        if need * 20 > _T.dram_free():
+            cond["atxE_terms"] = cond["atxD_terms"] = None
+            return
+        cond["atxE_terms"] = self.atxE.cond_terms(c3)
+        cond["atxD_terms"] = self.atxD.cond_terms(c3)
 
     def denoise(self, x_noisy, t_hat, cond):
         """x_noisy (1,N,3) host at M=1, (M,N,3) at M>1; t_hat scalar host tensor (1,); cond dict with host
@@ -1088,7 +1125,7 @@ class DiffusionModule(_KeyedWeights):
         r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
         q_l = ttnn.add(c_la, self._lin(T(r_noisy[0]), E + "linear_no_bias_r.weight"))
         q_out = self.atxE(ttnn.reshape(q_l, (1, N, 128)), ttnn.reshape(c_la, (1, N, 128)), p, mt,
-                          bias_cache=cond.get("atxE_bias"))
+                          bias_cache=cond.get("atxE_bias"), terms=cond.get("atxE_terms"))
         a_tok = ttnn.matmul(cond["Smean_dev"], ttnn.reshape(ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight")), (N, 768)),
                             compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         q_skip = q_out; c_skip = c_la; p_skip = p
@@ -1122,7 +1159,7 @@ class DiffusionModule(_KeyedWeights):
                                  compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN),
                      ttnn.reshape(q_skip, (N, 128)))
         qd = self.atxD(ttnn.reshape(q, (1, N, 128)), ttnn.reshape(c_skip, (1, N, 128)), p_skip, mt,
-                       bias_cache=cond.get("atxD_bias"))
+                       bias_cache=cond.get("atxD_bias"), terms=cond.get("atxD_terms"))
         qn = self._ln(qd, DE + "layernorm_q.weight")
         # The device tensor the coordinate update comes off, kept before the host
         # round-trip. `to_torch` is where a tape ends, so a training step that wants a
@@ -1170,7 +1207,7 @@ class DiffusionModule(_KeyedWeights):
         s_single = ss
         q_l = ttnn.add(c_la, self._lin(r_noisy_dev, E + "linear_no_bias_r.weight"))
         q_out = self.atxE(ttnn.reshape(q_l, (1, N, 128)), ttnn.reshape(c_la, (1, N, 128)), p, mt,
-                          bias_cache=cond.get("atxE_bias"))
+                          bias_cache=cond.get("atxE_bias"), terms=cond.get("atxE_terms"))
         a_tok = ttnn.matmul(cond["Smean_dev"], ttnn.reshape(ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight")), (N, 768)),
                             compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         q_skip = q_out; c_skip = c_la; p_skip = p
@@ -1190,7 +1227,7 @@ class DiffusionModule(_KeyedWeights):
                                  compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN),
                      ttnn.reshape(q_skip, (N, 128)))
         qd = self.atxD(ttnn.reshape(q, (1, N, 128)), ttnn.reshape(c_skip, (1, N, 128)), p_skip, mt,
-                       bias_cache=cond.get("atxD_bias"))
+                       bias_cache=cond.get("atxD_bias"), terms=cond.get("atxD_terms"))
         qn = self._ln(qd, DE + "layernorm_q.weight")
         return ttnn.reshape(self._lin(qn, DE + "linear_no_bias_out.weight"), (1, N, 3))
 
@@ -1418,10 +1455,6 @@ class DiffusionModule(_KeyedWeights):
         E = "atom_attention_encoder."
         mt = cond["mask_trunked"].float()
         c_la = cond["c_la_dev"]; p = cond["p_dev"]
-        # A merged cond (protenix._merge_conds) already carries one entry per member, so
-        # every replication below is a pass-through there; sample batching keeps its
-        # leading dim of 1 and gets the copy.
-        rep = lambda t: t if t.shape[0] == M else stack_samples([t] * M)
         # c_la_dev is 2D (N,128) (see _atom_cond) and sample-invariant, so it is kept at
         # (1,N,128) and broadcast over M. Merged it is already (M,N,128).
         c_la_1 = c_la if len(c_la.shape) == 3 else ttnn.reshape(c_la, (1, N, 128))
@@ -1445,7 +1478,8 @@ class DiffusionModule(_KeyedWeights):
         r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
         q_l = ttnn.add(self._lin(T(r_noisy), E + "linear_no_bias_r.weight"), c_la_1)  # (M,N,128)
         q_out = self.atxE(q_l, c_la_1, p, mt,
-                          bias_cache=cond.get("atxE_bias"), multiplicity=M)   # (M,N,128)
+                          bias_cache=cond.get("atxE_bias"), multiplicity=M,
+                          terms=cond.get("atxE_terms"))   # (M,N,128)
         qo_lin = ttnn.relu(self._lin(q_out, E + "linear_no_bias_q.weight"))   # (M,N,768)
         _smean = cond["Smean_dev"]
         Smean_m = _smean if len(_smean.shape) == 3 else stack_samples(
@@ -1468,7 +1502,10 @@ class DiffusionModule(_KeyedWeights):
             # broadcast over M in the QK-scale add. Replicating it (M copies of 24 x
             # (n_heads,NT,NT)) was the multiplicity path's dominant allocation: 1.9 GB per
             # copy at NT=1095 in fp32, i.e. ~9.6 GB at M=5.
-            a_t = self._token_dit_device(ttnn.reshape(a_tok, (M, NT, 768)), rep(s_single),
+            # s_single depends on the step, not the sample: every DiT term that reads only it
+            # (the AdaLN scale/shift and both output gates) runs once at a leading dim of 1 and
+            # broadcasts over M, instead of M times on replicated copies.
+            a_t = self._token_dit_device(ttnn.reshape(a_tok, (M, NT, 768)), s_single,
                                          cond["dit_block_biases"], NT)
             a_t = (self._ln_dit if self._dit_fp32 else self._ln)(a_t, "layernorm_a.weight")
         else:
@@ -1489,7 +1526,8 @@ class DiffusionModule(_KeyedWeights):
         q = ttnn.add(ttnn.matmul(S_m, a_lin, compute_kernel_config=self.compute_kernel_config,
                                  core_grid=CORE_GRID_MAIN), q_out)            # (M,N,128)
         qd = self.atxD(q, c_la_1, p, mt,
-                       bias_cache=cond.get("atxD_bias"), multiplicity=M)      # (M,N,128)
+                       bias_cache=cond.get("atxD_bias"), multiplicity=M,
+                       terms=cond.get("atxD_terms"))      # (M,N,128)
         qn = self._ln(qd, DE + "layernorm_q.weight")
         r_update = torch.Tensor(ttnn.to_torch(self._lin(qn, DE + "linear_no_bias_out.weight"))
                                 ).float().reshape(M, N, 3)[:, :N]
@@ -3129,6 +3167,9 @@ def merge_conds(diffusion_module, conds):
     if conds[0].get("dit_block_biases") is not None:
         m["dit_block_biases"] = [cat([_T.host_unpark(c["dit_block_biases"][b]) for c in conds])
                                  for b in range(len(conds[0]["dit_block_biases"]))]
+    # dict(conds[0]) carried member 0's atom conditioning terms; the merged c_la has one row
+    # block per member, so its terms are recomputed from it.
+    diffusion_module._atom_terms(m)
     m["_members"] = B
     return m
 
