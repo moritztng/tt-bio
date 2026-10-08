@@ -5,26 +5,30 @@
 # with its ProteinMPNN weights) and a 1.8 GB af2_params, the same files bci-accept's host arms
 # used. Shipping pc's copy rather than qb1's 5.3 GB superset keeps weight parity with the prior
 # host arm and moves a third of the bytes.
-set -eu
+set -u
 H=root@ssh4.vast.ai
 P=27702
 SSH="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20 -p $P"
-LOG=/home/moritz/.bci-seventeen-host/.bci/provision.log
+ROOT=/home/moritz/.bci-seventeen-host
+LOG=$ROOT/.bci/provision.log
 exec >> "$LOG" 2>&1
 date -u +"=== provision start %Y-%m-%dT%H:%M:%SZ ==="
 
-$SSH $H 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader; nproc; df -h / | tail -1'
-
 echo "--- bc2 + af2 params ---"
-rsync -a --info=progress2 -e "$SSH" \
-  /home/moritz/bcx_shipped/ $H:/root/bcx_shipped/
-echo "--- tt-bio host path, this branch ---"
-rsync -a -e "$SSH" --exclude .git --exclude '*.pyc' \
-  /home/moritz/.bci-seventeen-host/tt-bio/ $H:/root/tt-bio/
+rsync -a --info=progress2 -e "$SSH" "$ROOT/../bcx_shipped/" $H:/root/bcx_shipped/
+echo "rsync bcx_shipped rc=$?"
 
-echo "--- jax[cuda12] ---"
-$SSH $H 'pip install -q --no-input "jax[cuda12]" && python -c "import jax;print(\"jax\",jax.__version__,jax.devices())"'
-echo "--- bc2 deps ---"
-$SSH $H 'pip install -q --no-input biopython pandas scipy matplotlib seaborn tqdm pdbfixer 2>&1 | tail -3; true'
+echo "--- tt-bio host path, this branch ---"
+rsync -a -e "$SSH" --exclude '__pycache__' "$ROOT/tt-bio/" $H:/root/tt-bio/
+echo "rsync tt-bio rc=$?"
+
+echo "--- scripts ---"
+scp -P "$P" -o StrictHostKeyChecking=no \
+  "$ROOT/requirements_host.txt" "$ROOT/remote_setup.sh" "$ROOT/host_8traj_288.sh" $H:/root/
+echo "scp rc=$?"
+
+echo "--- remote setup ---"
+$SSH $H 'bash /root/remote_setup.sh'
+echo "remote_setup rc=$?"
 
 date -u +"=== provision end %Y-%m-%dT%H:%M:%SZ ==="
