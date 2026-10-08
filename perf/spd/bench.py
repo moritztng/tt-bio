@@ -16,7 +16,8 @@ the MSA cache at <data>/msa, read cache-only, so every box folds the same alignm
 
 Record fields: git sha + dirty, tt_bio version, arm, env (every TT_BIO_/PROTENIX_/TT_METAL_ variable), argv,
 host, arch, chip, opened device nodes, input, tokens, seed, kind (cold|warm), fold_s (model.fold only),
-wall_s (predict_one end to end), aiclk median/min/max/n per opened node sampled every 0.5 s DURING the rep,
+wall_s (predict_one end to end), per-sample confidences by rank (samples_conf) with the sample CIFs in
+struct_dir (<input>.cif is rank 0, <input>_model_<k>.cif rank k; grade.py scores these), aiclk median/min/max/n per opened node sampled every 0.5 s DURING the rep,
 loadavg, finite (coords and confidences), plddt/ptm/iptm, coords digest. Coordinates of every sample are kept
 as coords_<input>_s<seed>.pt so summarize.py can quote an arm's structural deviation in Angstrom.
 """
@@ -223,12 +224,13 @@ for name, y in INPUTS:
         if c is not None and not a.no_coords:
             torch.save({"coords": c, "conf": LAST.get("conf"), "feats": LAST.get("feats")},
                        a.out / f"coords_{name}_s{sd}.pt")
-        tokens = metrics.get("n_residues") or (int(LAST["feats"]["token_index"].shape[-1])
-                                               if "token_index" in LAST.get("feats", {}) else None)
+        tokens = metrics.get("n_tokens") or metrics.get("n_residues")
         log(ev="rep", input=name, tokens=tokens, seed=sd, kind=kind, fold_s=LAST.get("fold_s"), wall_s=t1 - t0,
             aiclk=clock(t0, t1), arch=ARCH, nodes=OPENED, finite=finite, digest=digest, err=err,
             loadavg=[round(la0[0], 2), round(os.getloadavg()[0], 2)], conf=LAST.get("conf"),
-            metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "confidence_score")
-                     if k in metrics}, **HEAD)
+            metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "n_tokens", "confidence_score")
+                     if k in metrics},
+            samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
+            struct_dir=str(sdir), **HEAD)
 log(ev="end")
 os._exit(0)

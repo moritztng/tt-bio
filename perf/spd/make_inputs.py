@@ -15,6 +15,9 @@ Writes <data>/inputs/<name>.yaml and merges every cache into <data>/msa:
                 stay row-aligned), so these rungs keep the 730's alignment depth
   l1024 l1536   chain A cropped to 512, as a homodimer and a homotrimer. Identical chains do not pair, so these
                 rungs carry the 1,911-row unpaired alignment of chain A on every copy
+  <PDB> x 11    the accuracy set (perf/pfm_accuracy/set.tsv): post-cutoff two-chain complexes with deposited
+                structures, copied from --acc (pfm-accuracy's data dir: inputs/, msa/cache/, ref/) with their
+                references into <data>/ref
 """
 import argparse, hashlib, re, shutil
 from pathlib import Path
@@ -25,6 +28,7 @@ from tt_bio.cache import paired_msa_dir, seq_hash
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
+ap.add_argument("--acc", type=Path, default=Path("~/pfm-accuracy-data").expanduser())
 a = ap.parse_args()
 D = a.data
 MSA = D / "msa"
@@ -84,6 +88,16 @@ for pdb in ("8y9t", "9dis", "9w8a"):
         print(f"skip p{pdb}: no cache at {src}"); continue
     shutil.copytree(src, MSA, dirs_exist_ok=True)
     shutil.copy(D / "build" / "inputs" / f"{pdb}.yaml", D / "inputs" / f"p{pdb}.yaml")
+
+if (a.acc / "msa" / "cache").exists():
+    shutil.copytree(a.acc / "msa" / "cache", MSA, dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns("*_tmp_*"))
+    shutil.copytree(a.acc / "ref", D / "ref", dirs_exist_ok=True)
+    for pdb in (l.split("\t")[0] for l in (Path(__file__).parents[1] / "pfm_accuracy" / "set.tsv")
+                .read_text().splitlines()[1:]):
+        shutil.copy(a.acc / "inputs" / f"{pdb}.yaml", D / "inputs" / f"{pdb}.yaml")
+else:
+    print(f"skip accuracy set: no {a.acc}/msa/cache")
 
 # Manifest: what every box must hold, byte for byte.
 for f in sorted((D / "inputs").glob("*.yaml")):
