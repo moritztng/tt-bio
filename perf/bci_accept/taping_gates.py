@@ -40,6 +40,7 @@ def main():
     parser.add_argument("--scale", type=float, default=0.1)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--rows", type=int, default=3, help="blocks measured per configuration")
+    parser.add_argument("--only-all", action="store_true", help="control and ALL legs only")
     args = parser.parse_args()
     if "TT_VISIBLE_DEVICES" not in os.environ:
         raise SystemExit("set TT_VISIBLE_DEVICES to the leased card before running this")
@@ -60,9 +61,14 @@ def main():
     def taping():
         frame = sys._getframe(1)
         if frame.f_code.co_filename == tenstorrent.__file__:
-            asked[frame.f_lineno] = asked.get(frame.f_lineno, 0) + 1
+            real = real_taping()
+            # Split by arm: a gate the UNTAPED arm never asks cannot be forced from here, and
+            # an all-digits-identical leg would then be an inert lever, not a null.
+            key = (frame.f_lineno, "taped" if real else "untaped")
+            asked[key] = asked.get(key, 0) + 1
             if frame.f_lineno in forced:
                 return True
+            return real
         return real_taping()
 
     ops.taping = taping
@@ -109,15 +115,17 @@ def main():
                     return
                 msa_mean = float(np.mean([r[0] for r in readings]))
                 pair_mean = float(np.mean([r[1] for r in readings]))
-                reached = sorted(k for k in asked if k in lines) if lines else sorted(asked)
+                reached = sorted(f"{k[0]}:{k[1]}x{v}" for k, v in asked.items()
+                                 if not lines or k[0] in lines)
                 print(f"{label:>34}  msa {msa_mean:.6f}  pair {pair_mean:.6f}  "
                       f"gates asked {reached}", flush=True)
 
             print(f"\n{'forced in the untaped arm':>34}  mean over {args.rows} blocks", flush=True)
             measure("(none: control)", set())
             measure("ALL gates", set(gates))
-            for line in gates:
-                measure(f"tenstorrent.py:{line}", {line})
+            if not args.only_all:
+                for line in gates:
+                    measure(f"tenstorrent.py:{line}", {line})
         finally:
             ops.taping = real_taping
             trunk.model.device_evoformer = blocks
