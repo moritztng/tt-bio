@@ -24,7 +24,18 @@ if pip install -q --no-input -r /root/requirements_host.txt 2>&1 | tail -5; then
 else
   echo "!! exact pins did not resolve on $(python3 -V 2>&1); falling back to UNPINNED names"
   echo "!! versions below are a fresh resolve, not pc's set -- report this with the numbers"
-  python3 -c 'import numpy;print("numpy=="+numpy.__version__)' > /root/constraints.txt
+  # Constrain the CUDA stack too, not just numpy. The per-package retry installs torch, whose own
+  # pin DOWNGRADES nvidia-cudnn-cu12 under the jax that was already proved working on this box:
+  # jax then still enumerates the GPU and fails at XLA compile with "dnn_support != nullptr",
+  # hours later and with nothing in the message naming cudnn. Freeze what the proved stack stands on.
+  python3 - > /root/constraints.txt <<'PIN'
+import importlib.metadata as md
+for name in ("numpy", "nvidia-cudnn-cu12", "nvidia-cublas-cu12", "nvidia-cuda-runtime-cu12"):
+    try:
+        print(name + "==" + md.version(name))
+    except md.PackageNotFoundError:
+        pass
+PIN
   sed -E 's/[=<>!~].*$//' /root/requirements_host.txt | grep -vE '^[[:space:]]*$|^#' | sort -u \
     > /root/req_unpinned.txt
   # PER-PACKAGE, not `-r`: the list was frozen from a venv that also had the LOCAL packages
@@ -77,10 +88,21 @@ import os, bindcraft
 w = os.path.join(os.path.dirname(bindcraft.__file__), "weights", "proteinmpnn", "weights_neutral")
 print("mpnn weights:", w, "exists:", os.path.isdir(w))
 assert os.path.isdir(w), "ProteinMPNN neutral weights missing; --full cannot redesign"
+# OPEN each required file, do not count directory entries. A dangling symlink is an entry and
+# endswith(".npz") is true of its NAME, so the count form reported "af2 param files: 7" on a box
+# where params_model_1_multimer_v3.npz pointed at a path that does not exist there; the arm then
+# raised "no AlphaFold parameters for model_1_multimer_v3" after the whole provision had passed.
+import numpy as np
 p = "/root/bcx_shipped/af2_params"
-n = len([f for f in os.listdir(p) if f.endswith(".npz")])
-print("af2 param files:", n)
-assert n, "no af2 params"
+missing = []
+for i in range(1, 6):
+    f = os.path.join(p, "params_model_%d_multimer_v3.npz" % i)
+    try:
+        with np.load(f) as z:
+            print("af2 %s: %.0f MB, %d arrays" % (os.path.basename(f), os.path.getsize(f) / 1e6, len(z.files)))
+    except Exception as e:
+        missing.append("%s: %s" % (os.path.basename(f), e))
+assert not missing, "af2 params unreadable: " + "; ".join(missing)
 t = "/root/bcx_shipped/bc2/settings/target/structures/hPDL1.pdb"
 print("target:", t, "exists:", os.path.isfile(t))
 assert os.path.isfile(t), "target pdb missing"

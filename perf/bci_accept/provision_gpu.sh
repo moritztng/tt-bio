@@ -15,7 +15,10 @@ exec >> "$LOG" 2>&1
 date -u +"=== provision start %Y-%m-%dT%H:%M:%SZ ==="
 
 echo "--- bc2 + af2 params ---"
-rsync -a --info=progress2 -e "$SSH" "$ROOT/../bcx_shipped/" $H:/root/bcx_shipped/
+# -aL, not -a: af2_params/params_model_1_multimer_v3.npz and params_model_1_ptm.npz are symlinks
+# to paths OUTSIDE this tree, so -a copies two dangling links. The box then has 7 directory
+# entries, passes a check that counts them, and the arm dies at model construction an hour in.
+rsync -aL --info=progress2 -e "$SSH" "$ROOT/../bcx_shipped/" $H:/root/bcx_shipped/
 echo "rsync bcx_shipped rc=$?"
 
 echo "--- tt-bio host path, this branch ---"
