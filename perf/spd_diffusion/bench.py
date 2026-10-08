@@ -136,11 +136,17 @@ log(ev="start", mode="diff", arm=ARM, seeds=SEEDS, engine=str(eng), engine_head=
                                        if k.startswith(("TT_BIO_", "PROTENIX_", "TT_VISIBLE"))})
 TRACE = os.environ.get("SPD_TRACE") == "1"
 dev = T.get_device(trace="protenix" if TRACE else None)
-t = time.monotonic(); m = P.Protenix.load_from_checkpoint(saved["ckpt"]); dm = m.diffusion
+# TT_BIO_LEVERS=<spec> (spd-bench's grammar): the Protenix lever set, applied at build AND around
+# each sample, as a fold applies it. Trees before tenstorrent.LEVERS ignore it (TT_BIO_LPX there).
+LV = os.environ.get("TT_BIO_LEVERS")
+lv_kw = {"levers": T.parse_levers(LV)} if LV and hasattr(T, "parse_levers") else {}
+t = time.monotonic(); m = P.Protenix.load_from_checkpoint(saved["ckpt"], **lv_kw); dm = m.diffusion
+import contextlib
+in_levers = (lambda: T.levers(m._levers)) if hasattr(T, "levers") else contextlib.nullcontext
 NODE = opened_node()
 log(ev="build", s=time.monotonic() - t, node=NODE, diffusion_dtype=str(dm.dtype),
     diff_fidelity=str(dm.compute_kernel_config.math_fidelity),
-    diff_acc=dm.compute_kernel_config.fp32_dest_acc_en, lpx=getattr(T, "LPX", None))
+    diff_acc=dm.compute_kernel_config.fp32_dest_acc_en, lpx=getattr(T, "LPX", None), levers=sorted(getattr(m, "_levers", ())))
 
 # region timers (census rep only): device-synced, so they add sync stalls; compare like with like
 STACK, REG, ON = [], {}, {"v": False}
@@ -193,11 +199,13 @@ for sd, kind, cen in reps:
     REG.clear(); ON["v"] = cen
     ttnn.synchronize_device(dev)
     n0 = len(samples); t0 = time.monotonic()
-    cond = fresh_cond()
+    with in_levers():
+        cond = fresh_cond()
     err = None
     try:
-        x = P.edm_sample(dm, cond, saved["N"], n_step=200, multiplicity=5,
-                         max_parallel_samples=P.DEFAULT_MAX_PARALLEL_SAMPLES, seed=sd, trace=TRACE)
+        with in_levers():
+            x = P.edm_sample(dm, cond, saved["N"], n_step=200, multiplicity=5,
+                             max_parallel_samples=P.DEFAULT_MAX_PARALLEL_SAMPLES, seed=sd, trace=TRACE)
         ttnn.synchronize_device(dev)
     except Exception:
         import traceback; err = traceback.format_exc()[-3000:]; x = None
