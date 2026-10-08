@@ -88,6 +88,17 @@ if a.which in ("ta", "all"):
     for qc in (256, 192):
         ARMS[f"ta padded q{qc} k768 (one k chunk)"] = ("ta", lambda qc=qc: TS.sdpa(
             q, k, v, b, sc, qc, 768, q_split_cap=0, padded_mask=True))
+    # The bias seeded into DST ahead of QK^T (TT_BIO_TRIATT_QK_MASK_PRELOAD), on the shipped pair and on k768.
+    def preload(qc, kc):
+        def call():
+            TS.QK_MASK_PRELOAD = True
+            try:
+                return TS.sdpa(q, k, v, b, sc, qc, kc, q_split_cap=0, padded_mask=True)
+            finally:
+                TS.QK_MASK_PRELOAD = False
+        return call
+    for qc, kc in ((256, 384), (256, 768)):
+        ARMS[f"ta padded q{qc} k{kc} + mask preload"] = ("ta", preload(qc, kc))
     log(ev="ta_pairs", cores=cores, pairs=TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)[:a.pairs])
 
 # ---- atom attention module

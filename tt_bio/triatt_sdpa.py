@@ -70,6 +70,19 @@ TRIATT_PERSISTENT_MASK = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_PERSISTENT_MASK", "1" if TRIATT_PERSISTENT_MASK else "0") == "1"
 
+# Add the persistent mask by seeding DST with it ahead of the QK^T matmul, instead of a separate
+# add pass over the score block (one of the four whole-block packs per k chunk; ABLATE_MASKADD
+# priced that pass at 1.17 ms of a 6.55 ms op). OFF until it is measured on a device.
+QK_MASK_PRELOAD = os.environ.get("TT_BIO_TRIATT_QK_MASK_PRELOAD", "0") == "1"
+
+
+def _mask_defines(k_num_chunks: int) -> dict:
+    d = {"PERSISTENT_MASK": k_num_chunks}
+    if QK_MASK_PRELOAD:
+        d["QK_MASK_PRELOAD"] = 1
+    return d
+
+
 # The q-split above, ON by default up to _Q_SPLIT_MAX_S padded tokens. Verified at 768 aa with the
 # _PM_OVER_L1 fix in place: -17.670 s (6.4 %) on the fold, byte-identical CIF and plDDT, 7x the
 # 2.543 s A/A floor (perf/sizes/qsplitfix_768.json, qb1 card 2, benchlock). Raised to 1024 on the
@@ -454,7 +467,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
                 kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
-                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"],
+                defines_extra={**_mask_defines(p["k_num_chunks"]),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
         ttnn.deallocate(out)
@@ -570,7 +583,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
         SG.sdpa(dev, out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent, kv_buffer_factor=kvbf,
                 fuse_qkv=(x, w, xbf),
-                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
+                defines_extra=_mask_defines(p["k_num_chunks"]))
     except Exception as exc:  # noqa: BLE001
         ttnn.deallocate(out)
         if "circular buffers" not in str(exc):

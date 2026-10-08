@@ -65,6 +65,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIATT_DIVIDING_K`](#tt_bio_triatt_dividing_k) | on | OpenFold3 at 832 tokens | moves, inside the bar |
 | [`TT_BIO_TRIATT_FUSED_QKVG`](#tt_bio_triatt_fused_qkvg) | on | | identical |
 | [`TT_BIO_TRIATT_FUSED_QKVGB`](#tt_bio_triatt_fused_qkvgb) | on | | identical |
+| [`TT_BIO_TRIATT_QK_MASK_PRELOAD`](#tt_bio_triatt_qk_mask_preload) | off | fused triangle attention | moves |
 | [`TT_BIO_TRIMUL_FUSED_GOUT`](#tt_bio_trimul_fused_gout) | on | | identical |
 | [`TT_BIO_TRIATT_GATE_EPILOGUE`](#tt_bio_triatt_gate_epilogue) | off | | identical |
 | [`TT_BIO_TRIATT_HIFI_PAD_UP`](#tt_bio_triatt_hifi_pad_up) | on | BindCraft 2, and OpenFold3 at 544 and 608 tokens | moves, far inside the bar |
@@ -1260,6 +1261,18 @@ a performance case. It declines nothing at the sizes that matter: 560 fused call
 `perf/b2z2_size_ladder/out/ladder_guard_bh_c0.json`).
 
 **Speed:** the largest of the three. 1.02491x on the pairformer block by itself.
+
+## `TT_BIO_TRIATT_QK_MASK_PRELOAD`
+
+Default: off, until it is measured on a device.
+
+The fused triangle-attention kernel adds the pair bias to the scores in a separate pass over the
+score block, after the QK^T matmul has written it. With this flag the kernel copies the bias tiles
+into the destination registers first and lets the matmul accumulate onto them, so the scores are
+written once with the bias already in. That pass cost 1.17 ms of a 6.55 ms op in an ablation. Only
+the persistent-mask kernel uses it, and only where the add would run on every key chunk.
+
+**Accuracy: not bit-exact.** The score plus bias is rounded once instead of twice.
 
 ## `TT_BIO_TRIMUL_FUSED_GOUT`
 

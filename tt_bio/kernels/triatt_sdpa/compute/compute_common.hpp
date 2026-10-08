@@ -1395,7 +1395,9 @@ ALWI void matmul_blocks(
     const bool& transpose,
     const bool& add_mask = false,
     const uint32_t& mask_cb = 0,
-    const uint32_t& zero_cb = 0) {
+    const uint32_t& zero_cb = 0,
+    const bool& preload_mask = false,
+    const uint32_t& mask_base = 0) {
     // precondition: in0_cb has M*K produced
     // precondition: in1_cb has K*N produced
     // postcondition: in0_cb is full, in1_cb is empty
@@ -1416,12 +1418,39 @@ ALWI void matmul_blocks(
     reconfig_data_format(in1_cb, in0_cb);
     cb_wait_front(in1_cb, K * N);
     cb_reserve_back(out_cb, output_num_tiles);
+#ifdef QK_MASK_PRELOAD
+    if (preload_mask) {
+        // The persistent mask block for this k chunk is tiles [mask_base, mask_base + M*N), laid
+        // out like the output; it is never popped.
+        cb_wait_front(mask_cb, mask_base + output_num_tiles);
+    }
+#endif
 
     for (uint32_t in0_subblock = 0; in0_subblock < in0_num_subblocks; ++in0_subblock) {
         cb_wait_front(in0_cb, in0_wait_tiles);
         uint32_t in1_index_offset = 0;
         for (uint32_t in1_subblock = 0; in1_subblock < in1_num_subblocks; ++in1_subblock) {
             tile_regs_acquire();
+
+#ifdef QK_MASK_PRELOAD
+            if (preload_mask) {
+                // Seed DST with the mask so the matmul accumulates QK^T onto it: the scores are
+                // packed once with the bias already in, and the separate add pass goes away.
+                reconfig_data_format_srca(in1_cb, mask_cb);
+                copy_tile_to_dst_init_short(mask_cb);
+                uint32_t d = 0;
+                const uint32_t m0 = mask_base + in0_subblock * in0_subblock_all_cols_num_tiles +
+                                    in1_subblock * subblock_w;
+                for (uint32_t r = 0; r < subblock_h; r++) {
+                    for (uint32_t c = 0; c < subblock_w; c++) {
+                        copy_tile(mask_cb, m0 + r * N + c, d++);
+                    }
+                }
+                reconfig_data_format_srca(mask_cb, in1_cb);
+                mm_block_init_short(
+                    in0_cb, in1_cb, transpose, subblock_w /*ct_dim*/, subblock_h /*rt_dim*/, in0_block_w /*kt_dim*/);
+            }
+#endif
 
             uint32_t dst_index = 0;
             uint32_t in0_index = in0_index_offset;
@@ -1945,6 +1974,12 @@ void sdpa_inner_loop(
              */
             reconfig_data_format(cb_k_in, cb_q_in);
             pack_reconfig_data_format(cb_qk_im);
+#if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
+            // Only where the add below would run on every k chunk: a provided mask, nothing causal,
+            // windowed, ring or lightweight.
+            const bool qk_mask_preload = use_provided_mask && !is_causal && sliding_window_size == 0 &&
+                                         sdpa_type != RING && !lw_mask.enabled;
+#endif
             matmul_blocks(
                 cb_q_in,
                 cb_k_in,
@@ -1958,7 +1993,16 @@ void sdpa_inner_loop(
                 qk_in0_block_w,
                 qk_subblock_h,
                 qk_subblock_w,
-                true /*transpose*/);
+                true /*transpose*/
+#if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
+                ,
+                false,
+                cb_mask_in,
+                0,
+                qk_mask_preload,
+                k_chunk * qk_chunk_tiles
+#endif
+            );
 
             /**
              * Note
@@ -2010,7 +2054,15 @@ void sdpa_inner_loop(
                         local_n_mask_chunk_id,
                         joint_n_mask_chunk_id);
                 } else {
-#if defined(PERSISTENT_MASK) && defined(ABLATE_MASKADD)
+#if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD)
+                    // The mask went into DST ahead of the QK^T matmul. Dropping the add is
+                    // CB-neutral, as ABLATE_MASKADD measured: with pop_in1 false it pops and
+                    // re-pushes in0 with no net effect.
+                    if (!qk_mask_preload) {
+                        add_block_inplace<false>(
+                            cb_qk_im, cb_mask_in, qk_chunk_tiles, k_chunk * qk_chunk_tiles);
+                    }
+#elif defined(PERSISTENT_MASK) && defined(ABLATE_MASKADD)
                     // Instrument arm: the reader still fills the whole fronted mask, so this
                     // prices the ADD alone, not the mask's bytes. With pop_in1 false the call
                     // it replaces pops and re-pushes in0 with no net effect, so dropping it
