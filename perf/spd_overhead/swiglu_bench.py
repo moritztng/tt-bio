@@ -74,6 +74,15 @@ def main():
                 row["rel_rms"] = float(d.norm() / ref.norm())
                 row["max_abs"] = float(d.abs().max())
                 row["mean_abs"] = float(d.abs().mean())
+                i = int(d.abs().argmax())
+                row["argmax"] = [int(v) for v in torch.unravel_index(torch.tensor(i), d.shape)]
+                row["at"] = [float(out.flatten()[i]), float(ref.flatten()[i])]
+                # The same call again, warm: a cold-only error is a different bug from a steady one.
+                o = tr(z)
+                d2 = ttnn.to_torch(o).to(torch.float64) - ref
+                ttnn.deallocate(o)
+                row["max_abs_warm"] = float(d2.abs().max())
+                row["n_over_0.1"] = [int((d.abs() > 0.1).sum()), int((d2.abs() > 0.1).sum())]
                 for _ in range(WARM):
                     ttnn.deallocate(tr(z))
                 sync()
