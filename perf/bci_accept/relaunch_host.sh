@@ -14,6 +14,15 @@ curl -s -X PUT -H "Authorization: Bearer $K" -H "Content-Type: application/json"
 for i in $(seq 1 40); do s=$(state); echo "  $(date -u +%H:%M:%SZ) state=$s"; [ "$s" = "running" ] && break; sleep 20; done
 for i in $(seq 1 30); do $SSH $H true 2>/dev/null && { echo "ssh up at $(date -u +%H:%M:%SZ)"; break; }; sleep 20; done
 
+# Ship the recovery script every firing. The box keeps /root across stops, so a stale copy there
+# silently outlives a fix: the orphan-folder sweep landed at 21:1xZ and the box was still running
+# the version that stalled the arm six times. Pushing it here means the fix applies on the next
+# relaunch without touching the watchdog.
+scp -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=20 -P $P \
+  /home/moritz/.bci-seventeen-host/host_recover.py $H:/root/host_recover.py \
+  && echo "shipped host_recover.py ($(md5sum /home/moritz/.bci-seventeen-host/host_recover.py | cut -c1-8))" \
+  || echo "WARN: could not ship host_recover.py; the box keeps its previous copy"
+
 $SSH $H 'set -u
 exec > >(tee -a /root/box_relaunch.log) 2>&1
 echo "=== on-box relaunch $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
@@ -36,7 +45,7 @@ print("af2 params complete and byte-identical to pc")
 PY
 python3 -c "import jax,sys; d=jax.devices(); print(\"jax devices:\",d); sys.exit(0 if d[0].platform==\"gpu\" else 5)" || exit 5
 ROOT=/root/bci-seventeen; PROJ=$ROOT/proj_host_8traj_288
-[ -e "$PROJ" ] && mv "$PROJ" "$PROJ.dead.$(date -u +%H%M%S)" && echo "moved a dead project folder aside; a resume is not a rerun"
+python3 -I /root/host_recover.py "$PROJ" || exit 6
 setsid nohup bash /root/host_8traj_288.sh </dev/null >> /root/host_arm.boot 2>&1 &
 sleep 120
 echo "--- arm pids ---"; pgrep -af "host_8traj_288|capture_logits" | head
