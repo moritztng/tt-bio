@@ -2,6 +2,7 @@
 # spd-attn jobs on one chip under its SPD flock, run from this checkout. usage:
 #   queue.sh OUT CHIP LOCK PY op            op bench (perf/spd_attn/opbench.py all), ~10 min
 #   queue.sh OUT CHIP LOCK PY fold          c730 fold, arms off (both levers off) and attn (branch default), 1 cold + 3 warm
+# DATA=<dir> in the environment points bench.py at another spd-data tree.
 set -u
 OUT=$1 CHIP=$2 LOCK=$3 PY=$4 JOB=$5
 cd "$(dirname "$0")/../.."
@@ -19,7 +20,7 @@ else
     OFF=TT_BIO_SDPA_FUSED_PADDED=0,TT_BIO_ATOM_SUPERSET_WINDOW=0
     for arm in "off:$OFF" attn "off2:$OFF"; do
         name=${arm%%:*}
-        timeout -s INT 5400 $PY perf/spd/bench.py --out "$OUT/$name" --chip "$CHIP" --arm "$arm" --inputs c730 --warm 3 \
+        timeout -s INT 5400 $PY perf/spd/bench.py --out "$OUT/$name" --chip "$CHIP" --arm "$arm" --inputs c730 --warm 3 ${DATA:+--data "$DATA"} \
             > "$OUT/$name.log" 2>&1
         say "$name rc=$?"
     done
