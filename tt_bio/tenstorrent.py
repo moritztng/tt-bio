@@ -345,6 +345,11 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
 # neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
+# Where Transition's silu runs while the fp32 accumulator still holds fc1: "fused" (the matmul's
+# packer, shipped), "f32act" (fc1 written fp32, silu applied as the multiply's input activation)
+# or "f32silu" (fc1 fp32, standalone silu, then the multiply). The last two keep silu off a bf16
+# rounding of fc1, which is what the unfused form gets wrong. Measuring (perf/spd_overhead).
+TRANSITION_SILU = os.environ.get("TT_BIO_TRANSITION_SILU", "fused")
 _FAST_MODE = False
 # Protenix's lower-precision levers, one named switch each (op evidence: perf/lpx_*; fold grades:
 # state/spd). A precision mode is a set of these names. `--fast` runs FAST_LEVERS; normal mode runs
@@ -10402,16 +10407,17 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=_tape_mc,
             )
+            mode = "unfused" if _UNFUSED_SILU else TRANSITION_SILU
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
-                activation=None if _UNFUSED_SILU else "silu",
+                activation="silu" if mode == "fused" else None,
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=_tape_mc,
-                dtype=hidden,
+                dtype=ttnn.float32 if mode in ("f32act", "f32silu") else hidden,
                 core_grid=CORE_GRID_MAIN,
             )
-            if _UNFUSED_SILU:
+            if mode in ("unfused", "f32silu"):
                 x_1 = ttnn.silu(x_1, memory_config=_tape_mc, output_tensor=x_1)
             x_2 = ttnn.linear(
                 x_norm,
@@ -10422,7 +10428,15 @@ class Transition(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
-            x = ttnn.multiply_(x_1, x_2)
+            if mode == "f32act":
+                x = ttnn.multiply(x_1, x_2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU],
+                                  dtype=hidden, memory_config=_tape_mc)
+                ttnn.deallocate(x_1)
+            elif mode == "f32silu":
+                x = ttnn.multiply(x_1, x_2, dtype=hidden, memory_config=_tape_mc)
+                ttnn.deallocate(x_1)
+            else:
+                x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
             x_dram = ttnn.linear(
                 x,
