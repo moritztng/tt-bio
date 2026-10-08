@@ -175,12 +175,15 @@ for n in OPENED:
             pass
 log(ev="device_open", s=t_open, nodes=OPENED, arch=ARCH, card=CARD)
 
+from tt_bio import tenstorrent as TT  # noqa: E402
+
+TT.set_fast_mode(FAST)  # the worker does this in load_model; without it a fast arm folds exact
 t = time.monotonic()
 state.model = P.Protenix.load_from_checkpoint(cfg0["protenix_ckpt"])
 state.bind_run("spd", dict(cfg0, fast=FAST))
 state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
 m = state.model
-log(ev="build", s=time.monotonic() - t, fast=getattr(m, "_fast", None))
+log(ev="build", s=time.monotonic() - t, fast=TT._FAST_MODE)
 LAST = {}
 orig = m.fold
 
