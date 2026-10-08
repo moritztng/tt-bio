@@ -7,10 +7,14 @@
          tt-bio's own entry points, bfp8 operands / LoFi / no fp32 acc. Their CB formats follow the tensors.
   chain  layer_norm -> consumer matmul as ONE traced call: bf16 throughout, layer_norm emitting bfp8, and
          layer_norm bf16 + typecast. gamma/beta are [1, 1, W/32, 32] ROW_MAJOR (r2 passed [W] and TT_FATALed).
+         ttnn.layer_norm has no output dtype in this wheel (its output takes the input's format), so "emits
+         bfp8" is measured as layer_norm reading a bfp8 copy of its input, i.e. a bfp8 residual upstream.
   opm    OPM z_rows [23552, 512] x [23552, 512]^T: the auto config is the only one whose per-core block fits.
          Tries in1 pre-transposed, and M-chunked explicit configs whose output block fits L1 only at bfp8.
 Device time is trace replay (devtime.Bench), as in r1/r2.
 
+  padcost  ttnn.pad 736 -> 768 of the einsum operands and the slice back, the price of the pad lever when the
+         producer does not write the padded layout itself.
 usage (on .107, chip carved for lpx-matmul):  r3.py R1_DIR OUT_DIR [section,...]
 """
 import json, math, os, sys, time
@@ -214,7 +218,7 @@ if "chain" in SECTIONS:
     for name, rank in (("pwa_ln->head_out", 1), ("transition_ln->swiglu_w1", 0)):
         c = calls[rank]; op, a, kw = parse(c["key"]); ckc = CK.get(c["key"], TRUNK)
         mc = ttnn.L1_MEMORY_CONFIG if a[0][3] == "L1" else ttnn.DRAM_MEMORY_CONFIG
-        x = B.mk(a[0]); gam, bet = ln_params(a[0][1][-1])
+        x = B.mk(a[0]); x8 = B.mk(a[0], DT["b8"]); gam, bet = ln_params(a[0][1][-1])
         w16, w8 = B.mk(a[1]), B.mk(a[1], DT["b8"])
         def consumer(h, w, fid=None, acc=None, o=None):
             kws = {k: v for k, v in kw.items() if not (isinstance(v, tuple) and v[:1] == ("T",))}
@@ -222,7 +226,7 @@ if "chain" in SECTIONS:
             if o: kws["dtype"] = DT[o]
             return OPS[op](h, w, **kws)
         def ln(dtype=None):
-            return ttnn.layer_norm(x, weight=gam, bias=bet, memory_config=mc, **({"dtype": dtype} if dtype else {}))
+            return ttnn.layer_norm(x8 if dtype == ttnn.bfloat8_b else x, weight=gam, bias=bet, memory_config=mc)
         def chain(prod, w, **ck):
             def fn():
                 h = prod(); r = consumer(h, w, **ck); B.free(h); return r
@@ -235,8 +239,19 @@ if "chain" in SECTIONS:
                timed("ln_b8_lofi_noacc", chain(lambda: ln(ttnn.bfloat8_b), w8, **b8ck)),
                timed("ln_b8_lofi_noacc_ob8", chain(lambda: ln(ttnn.bfloat8_b), w8, o="b8", **b8ck)),
                timed("ln_cast_b8_lofi_noacc", chain(lambda: ttnn.typecast(ln(), ttnn.bfloat8_b), w8, **b8ck))]
-        for t in (x, gam, bet, w16, w8): B.free(t)
+        for t in (x, x8, gam, bet, w16, w8): B.free(t)
         log(ev="chain", name=name, rank=rank, key=c["key"], n_total=c["n_total"], results=speedups(res), aiclk=aiclk())
+
+# ---- padcost: what producing the 768-padded einsum operands costs when the producer cannot write them padded
+if "padcost" in SECTIONS:
+    res = []
+    for shape in ((1, 128, 736, 736), (1, 64, 736, 736)):
+        x = B.mk(("T", shape, "BFLOAT16", "DRAM")); y = B.mk(("T", shape[:2] + (768, 768), "BFLOAT16", "DRAM"))
+        tag = "x".join(map(str, shape))
+        res.append(timed(f"pad_{tag}_to_768", lambda: ttnn.pad(x, [(0, 0), (0, 0), (0, 32), (0, 32)], 0.0)))
+        res.append(timed(f"slice_{tag}_from_768", lambda: ttnn.slice(y, [0, 0, 0, 0], list(shape))))
+        B.free(x); B.free(y)
+    log(ev="padcost", results=res, aiclk=aiclk())
 
 # ---- opm: z_rows at 23552 x 512 x 23552, layouts the auto config does not try
 if "opm" in SECTIONS:
