@@ -5,13 +5,11 @@ and four whole-stack levers have attributed 16% of it (the softmax forward's com
 config) and left the rest. Two of those four were argued from source before being run and were
 wrong, so this stops arguing and walks the stack a block at a time.
 
-Two readings per block, and they answer different questions:
-
-* **per-block**: both arms are fed the SAME input, the untaped carry. This is the difference ONE
-  block creates, with no history. A flat curve here means every block contributes alike and the
-  cause is an op the blocks share; a spike at one block means it is that block's own.
-* **accumulated**: each arm carries its own output forward, which is what the stack actually does.
-  Comparing this against the per-block curve says whether the difference compounds or saturates.
+Each row is one Evoformer block run twice on the same input, untaped against taped. Both arms
+are fed the untaped carry, so a row is what ONE block contributes with no history behind it. A
+flat curve means every block contributes alike and the cause is an op the blocks share; a spike
+at one block means it is that block's own. The 48-block number already measured, 0.0333, is the
+accumulated endpoint this curve has to add up to.
 
 No checkpointing, no recompute, no memory mode: `recompute=False` on both arms, so the only
 difference is the tape. That is the base defect isolated in the trunk VJP script, now resolved
@@ -47,6 +45,13 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--scale", type=float, default=0.1)
     parser.add_argument("--exact", action="store_true")
+    parser.add_argument("--order", default="forward", choices=("forward", "reverse"),
+                        help="block order. The forward run put the whole 48-block difference in "
+                             "the FIRST row and ~0.0014 in every other, which is either the "
+                             "block or the position it sits in. Reversing separates them: if "
+                             "the spike stays on the first ROW it is the position and the raw "
+                             "input it sees, if it follows block 0 to the last row it is that "
+                             "block's own.")
     args = parser.parse_args()
 
     if "TT_VISIBLE_DEVICES" not in os.environ:
@@ -58,10 +63,10 @@ def main():
 
     rng = np.random.default_rng(args.seed)
     n = args.tokens
-    msa_np = (rng.standard_normal((args.n_seq, n, args.c_m)) * args.scale).astype(np.float32)
-    pair_np = (rng.standard_normal((n, n, args.c_z)) * args.scale).astype(np.float32)
-    mask_np = np.ones((args.n_seq, n), dtype=np.float32)
-    pair_mask_np = np.ones((n, n), dtype=np.float32)
+    msa = (rng.standard_normal((args.n_seq, n, args.c_m)) * args.scale).astype(np.float32)
+    pair = (rng.standard_normal((n, n, args.c_z)) * args.scale).astype(np.float32)
+    mask = np.ones((args.n_seq, n), dtype=np.float32)
+    pair_mask = np.ones((n, n), dtype=np.float32)
 
     pool = bindcraft2.TrunkPool(args.af2_weights)
     pool.require([args.model])
@@ -69,64 +74,49 @@ def main():
         raise SystemExit(f"{args.model} not in {args.af2_weights}: {pool.absent[args.model]}")
     pool.use(args.model)
 
-    print(f"tokens {n}, msa {msa_np.shape}, pair {pair_np.shape}, seed {args.seed}, "
+    print(f"tokens {n}, msa {msa.shape}, pair {pair.shape}, seed {args.seed}, "
           f"exact={args.exact}", flush=True)
+    print("each row is ONE block run twice on the SAME input, untaped against taped, "
+          "recompute=False both ways", flush=True)
 
     with bindcraft2.refusals_unwrapped(), autograd.exact_training(args.exact), \
             bindcraft2.fast_round():
         evo = bindcraft2.EvoformerOnDevice(pool, blocks=bindcraft2.EVOFORMER_BLOCKS,
                                            recompute=False,
                                            memory=bindcraft2._Memory("fast"))
-        m, z, mask, pair_mask, n_real = evo._inputs(msa_np, pair_np, mask_np, pair_mask_np)
-        m_shape, z_shape = tuple(m.shape), tuple(z.shape)
         trunk = evo._trunk("")
-        msa_mask = evo._msa_mask(trunk, mask)
-        pair_masks = evo._pair_masks(trunk, pair_mask)
+        blocks = list(trunk.model.device_evoformer)
+        order = list(range(len(blocks)))
+        if args.order == "reverse":
+            order.reverse()
 
-        def down(mo, zo):
-            return (trunk.down(mo, m_shape)[:, :n_real].numpy(),
-                    trunk.down(zo, z_shape)[:n_real, :n_real].numpy())
-
-        # The untaped carry, which both arms are measured against and which the per-block arm is
-        # re-fed at every step.
-        carry_m, carry_z = trunk.up(m), trunk.up(z)
-        acc_m, acc_z = trunk.up(m), trunk.up(z)
-
-        print(f"\n{'block':>6} {'per-block msa':>14} {'per-block pair':>15} "
-              f"{'accum msa':>12} {'accum pair':>12}")
-        for index, block in enumerate(trunk.model.device_evoformer):
-            # Untaped: the reference carry advances one block.
-            with autograd.no_grad():
-                next_m, next_z = block(carry_m, carry_z, msa_mask, *pair_masks)
-            trunk.sync()
-
-            # Per-block: the taped arm runs THIS block on the untaped carry, so the reading is
-            # this block's own contribution with no history behind it. A fresh tape each time,
-            # dropped immediately; nothing is differentiated here.
-            with trunk.taped.tape():
-                # `trunk.leaf` uploads a torch tensor; these are already on the card, so the
-                # tape wrapper goes straight round them. Same tensor, same bytes, both arms.
-                leaf_m = trunk.ag.Tensor(carry_m, requires_grad=True)
-                leaf_z = trunk.ag.Tensor(carry_z, requires_grad=True)
-                taped_m, taped_z = block(leaf_m, leaf_z, msa_mask, *pair_masks)
-                per_block = down(taped_m.value, taped_z.value)
-            trunk.ag.release_pins()
-
-            # Accumulated: the taped arm carries its own output, which is what the stack does.
-            with trunk.taped.tape():
-                leaf_m = trunk.ag.Tensor(acc_m, requires_grad=True)
-                leaf_z = trunk.ag.Tensor(acc_z, requires_grad=True)
-                out_m, out_z = block(leaf_m, leaf_z, msa_mask, *pair_masks)
-                acc_m, acc_z = out_m.value, out_z.value
-                accumulated = down(acc_m, acc_z)
-            trunk.ag.release_pins()
-
-            reference = down(next_m, next_z)
-            carry_m, carry_z = next_m, next_z
-            print(f"{index:>6} {rel_l2(per_block[0], reference[0]):>14.6f} "
-                  f"{rel_l2(per_block[1], reference[1]):>15.6f} "
-                  f"{rel_l2(accumulated[0], reference[0]):>12.6f} "
-                  f"{rel_l2(accumulated[1], reference[1]):>12.6f}", flush=True)
+        carry_msa, carry_pair = msa, pair
+        print(f"\n{'row':>4}{'block':>6} {'msa rel L2':>12} {'pair rel L2':>12} "
+              f"{'pair max|d|':>12} {'ref max|.|':>12}", flush=True)
+        try:
+            for row, index in enumerate(order):
+                block = blocks[index]
+                # One block at a time, through the SAME entry points a design round uses. An
+                # earlier version of this script called the block object directly and segfaulted
+                # in the first layer_norm: `_primal` and `_taped` do setup -- the memory mode, the
+                # trunk's arm, the refusal and card contexts -- that a bare call skips. Slicing
+                # the block list is the smallest way to keep all of it and vary only the depth.
+                trunk.model.device_evoformer = [block]
+                untaped = evo._primal("", carry_msa, carry_pair, mask, pair_mask)
+                taped_msa, taped_pair, _token = evo._taped("", carry_msa, carry_pair,
+                                                           mask, pair_mask)
+                reference_pair = untaped[1]
+                print(f"{row:>4}{index:>6} {rel_l2(taped_msa, untaped[0]):>12.6f} "
+                      f"{rel_l2(taped_pair, reference_pair):>12.6f} "
+                      f"{float(np.max(np.abs(taped_pair - reference_pair))):>12.6g} "
+                      f"{float(np.max(np.abs(reference_pair))):>12.6g}", flush=True)
+                # The untaped arm is the carry, so every row reads one block's own contribution
+                # with no history behind it. The carry round-trips through bf16 on each upload,
+                # equally for both arms, which is why this is a per-block reading and not a
+                # second estimate of the 48-block number.
+                carry_msa, carry_pair = untaped
+        finally:
+            trunk.model.device_evoformer = blocks
 
 
 if __name__ == "__main__":
