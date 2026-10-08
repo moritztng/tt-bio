@@ -1,9 +1,9 @@
 /* One 1920x1080 layout; 4K is the same frame at twice the pixels. --p is one frame pixel.
    One type scale, in frame pixels, about 1.25 a step from the title down: 40 the title, 32 the protein's
-   name and its time, 20 the line under the title, 17 the story, 16 the lineup and the chip rows, 15 small
+   name and its model, 20 the line under the title, 17 the story, 16 the lineup and the chip rows, 15 small
    text, 13 captions, 12 caps labels. The title is the claim now (Moritz, 5 Oct 2026: "significantly
    smaller"), so it is no louder than it needs to be to lead. Tabular figures only where a number changes
-   in place (the time, the step counter); everywhere else they space out hyphens.
+   in place (the step counters); everywhere else they space out hyphens.
    One grid: the same margin --m (72) on all four sides of the frame; the lineup and the right column
    fill one band, from y 248 to the last chip's rule at y 1008, 72 above the frame's edge as the marks are
    72 below its top. Vertical spacing in the right column is in 8s. */
@@ -104,23 +104,24 @@ body.visitors aside { bottom: calc(166 * var(--p)); }   /* the invitation takes 
 #legend i { width: calc(9 * var(--p)); height: calc(9 * var(--p)); border-radius: 1px; }
 
 /* four chips, always visible: under a label, one row each, closing with a rule on the band's bottom edge.
-   A row: number, protein, the chip's stage counter, seconds; the whole fold as a bar; the last fold. */
+   A row: number, protein, the chip's stage counter at the right edge; the whole fold as a bar; the last
+   fold. No times: the website video shows none (Moritz, 8 Oct 2026). */
 #chipshead { margin-top: auto; padding-bottom: calc(16 * var(--p)); font-size: calc(12 * var(--p)); font-weight: 560;
              letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink3); }
 #chips { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
-#chips li { display: grid; grid-template-columns: calc(20 * var(--p)) 1fr auto minmax(calc(52 * var(--p)), auto); align-items: baseline;
+#chips li { display: grid; grid-template-columns: calc(20 * var(--p)) 1fr auto; align-items: baseline;
             column-gap: calc(6 * var(--p)); padding: calc(12 * var(--p)) 0; border-top: 1px solid var(--rule);
             font-size: calc(16 * var(--p)); font-weight: 400; color: var(--ink3); }
 #chips li .n { font-weight: 560; font-size: calc(12 * var(--p)); letter-spacing: 0.06em; }
 #chips li .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#chips li .st, #chips li .t { font-size: calc(15 * var(--p)); white-space: nowrap; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
-#chips li .t { text-align: right; color: var(--ink2); }
-#chips li .last { grid-column: 2 / 5; margin-top: calc(8 * var(--p)); font-size: calc(13 * var(--p)); color: var(--ink3);
+#chips li .st { font-size: calc(15 * var(--p)); white-space: nowrap; font-feature-settings: 'ss01', 'cv11', 'tnum';
+                text-align: right; color: var(--ink2); }
+#chips li .last { grid-column: 2 / 4; margin-top: calc(8 * var(--p)); font-size: calc(13 * var(--p)); color: var(--ink3);
                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-feature-settings: 'ss01', 'cv11', 'tnum'; }
 #chips li .last:empty { display: none; }
 #chips li.busy .what { color: var(--ink); }
 #chips li.busy .n, #chips li.ready .n { color: var(--ink2); }
-#chips li .bar { grid-column: 2 / 5; height: calc(2 * var(--p)); margin-top: calc(8 * var(--p)); }
+#chips li .bar { grid-column: 2 / 4; height: calc(2 * var(--p)); margin-top: calc(8 * var(--p)); }
 #chips li.busy .bar { background: var(--rule); }
 #chips li .bar i { display: block; height: 100%; background: var(--ink3); transform-origin: left; transform: scaleX(0); }
 #chips li.on .bar i { background: var(--live); }

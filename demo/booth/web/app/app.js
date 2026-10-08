@@ -318,10 +318,8 @@ function drawSide() {
         : m.chip != null ? ''
         : m.position > 0 ? (m.position === 1 ? 'Next in line for a chip.' : `${ORDINAL[m.position] ?? m.position + 'th'} in line for a chip.`)
         : 'Finding a free chip.';
-      // the one running clock on screen: wall-clock seconds since the chip took their fold, in step
-      // with the chip because it is the same seconds; it stops when the fold lands
-      src.textContent = seat(m.chip) ? `Folding on chip ${seat(m.chip)}${named() ? ' with' : ''}` : '';
-      setNumber(m.t0 ? byModel(m, '·', `${((performance.now() - m.t0) / 1000).toFixed(1)} s`) : '');
+      src.textContent = seat(m.chip) ? `Folding on chip ${seat(m.chip)} with` : '';
+      setNumber(seat(m.chip) ? modelName(m) : '');
       numBox.classList.remove('locked', 'none');
       M.textContent = m.instead ? '' : `${m.parsed.sequence.length} amino acids`;
       $('step').textContent = '';
@@ -348,60 +346,50 @@ function setName(el, text) {
   if (el.textContent !== text) { el.textContent = text; el.classList.toggle('long', text.length > 22); }
 }
 
-const byModel = (f, word, t) => named() && MODEL[f.model] ? `<b>${MODEL[f.model]}</b> <span class="dim">${word}</span> ${t}` : t;
+// The website video shows no times anywhere (Moritz, 8 Oct 2026): a seconds figure dates the video
+// and invites a speed argument it is not making. The number block names the model instead.
+const modelName = (f) => MODEL[f.model] ?? MODEL[running()[0]] ?? '';
 
-// the number block: the model, then the time; rewritten only when it changes
+// the number block, the model's name; rewritten only when it changes
 function setNumber(html) { const num = $('num'); if (num.innerHTML !== html) num.innerHTML = html; }
 
-// Every fold on the stage has already finished on its chip, so its time is a measured fact, shown
-// still from the first frame: nothing on the stage counts seconds. What moves is the sampler's own
-// step counter, and the line under it says how much slower than the chip the steps are replayed.
-// A gallery recording shows the seconds it took when it was recorded on this box, through the same
-// chip worker that folds live (gallery/record.py), so it is labelled as recorded and nothing else.
-// Live or recorded is one rule (stage.js Director.add): the stage shows each protein's newest live fold
-// from the chips, and a recording only for a protein no chip has folded since this page started. So
-// the live label says how long ago the chip finished, and a recording says why it is one.
+// Every fold on the stage has already finished on its chip. What moves is the sampler's own step
+// counter. A gallery recording was made on this box through the same chip worker that folds live
+// (gallery/record.py), so it is labelled as recorded and nothing else. Live or recorded is one rule
+// (stage.js Director.add): the stage shows each protein's newest live fold from the chips, and a
+// recording only for a protein no chip has folded since this page started, and says why it is one.
 function drawNumber(f) {
   const src = $('source'), box = $('number'), live = f.source === 'live';
-  const st = stage.step, of = stage.of, k = live ? stage.slowdown : 0;
-  // one decimal below 3: an OpenFold3 attract fold replays 1.4x slower, which rounds to a meaningless 1x
-  const x = (r) => r >= 10 ? Math.round(r / 5) * 5 : r >= 3 ? Math.round(r) : r.toFixed(1);
-  const pace = !k ? '' : k > 1.05 ? `\nReplayed ${x(k)}× slower than the chip ran it`
-    : k < 0.95 ? `\nReplayed ${x(1 / k)}× faster than the chip ran it` : '\nReplayed at the chip’s own pace';
+  const st = stage.step, of = stage.of;
   const why = live ? '' : '\nA recording until a chip finishes this one live';
   // over a slow link the page pulls every k-th state (stream.js): it says so, and the counter stays the sampler's own
   const shown = f.coords.length - 1;
   $('step').textContent = !of ? '' : (stage.landed ? (shown < of ? `${shown} of ${of} diffusion steps shown` : `All ${of} diffusion steps shown`)
-    : `Diffusion step ${Math.max(0, st + 1)} of ${of}${pace}`) + why;
+    : `Diffusion step ${Math.max(0, st + 1)} of ${of}`) + why;
   $('legend').classList.toggle('on', !!stage.landed && f.plddtMean != null);
   $('legend').firstChild.textContent = 'Model confidence (pLDDT)' + (f.plddtMean != null ? `, mean ${Math.round(100 * f.plddtMean)}` : '');
-  const by = named() ? 'by' : 'in';
-  // how long ago the chip finished it, on this page's clock (the moment its fold_done arrived)
-  const min = Math.floor((performance.now() - f.received) / 60000);
-  const ago = f.received > 0 ? (min < 1 ? ', just now,' : `, ${min} min ago,`) : '';
-  src.textContent = !live ? 'Recorded on this box in'
-    : seat(f.chip) ? `Folded live on chip ${seat(f.chip)}${ago} ${by}` : `Folded on this box${ago} ${by}`;
-  setNumber(f.seconds > 0 ? byModel(f, 'in', `${f.seconds.toFixed(2)} s`) : '');
+  const name = modelName(f);
+  src.textContent = (!live ? 'Recorded on this box' : seat(f.chip) ? `Folded live on chip ${seat(f.chip)}` : 'Folded on this box')
+    + (name ? ' with' : '');
+  setNumber(name);
   box.classList.add('locked');
   box.classList.remove('none');
 }
 
 // The four chips, bottom right: what each one is doing now, from its own events and nothing else.
-// A row names the protein, the stage the chip last reported with the chip's own counter in it (trunk
-// recycle k of K, sampler step k of K), and the seconds since the chip took the fold. The bar is the
-// whole fold, each stage as wide as its share of real time here, and it moves on the chip's events
-// (progress.js). Under it, the measured seconds of the fold the chip finished last. A chip that sends
-// nothing for three times the step it is on says so instead of counting, and its bar stands still.
+// A row names the protein and the stage the chip last reported with the chip's own counter in it
+// (trunk recycle k of K, sampler step k of K). The bar is the whole fold, each stage as wide as its
+// share of real time here, and it moves on the chip's events (progress.js). Under it, the fold the
+// chip finished last. No row shows a time. A chip that sends nothing for three times the step it is
+// on says so, and its bar stands still.
 const STAGE_WORD = { taken: 'preparing input', trunk: 'trunk', diffusion: 'diffusion', confidence: 'confidence', lm: 'language model' };
-const secs = (s) => `${s.toFixed(1)} s`;
 
 function laneFor(c, now) {
   const job = c?.job ? stream.jobs[c.job] : null;
   const last = c?.last_fold?.seconds > 0 ? c.last_fold : null;
-  const lastLine = last ? `Last: ${last.name ?? 'a protein'}, ${last.n_res} amino acids in ${last.seconds.toFixed(2)} s` : '';
+  const lastLine = last ? `Last: ${last.name ?? 'a protein'}, ${last.n_res} amino acids` : '';
   if (c?.state === 'busy' && job) {
     const who = app.mine && c.job === app.mine.id ? 'Your name' : job.kind === 'visitor' ? 'A visitor’s name' : job.name ?? 'A protein';
-    const quiet = now - job.tAt;
     const silent = now - Math.max(job.tAt, stream.openedAt ?? 0);   // while the page itself was cut off, the chip was not silent
     const k = job.step, K = job.total;
     // before the chip names a stage: preparing the input, then the stage that follows it in this model's plan
@@ -409,12 +397,12 @@ function laneFor(c, now) {
     const first = job.mark === 'taken' ? STAGE_WORD.taken : job.mark === 'start' ? STAGE_WORD[after] ?? 'starting' : 'starting';
     const stage = job.stage === 'trunk' && K > 1 ? `trunk ${Math.min(k + 1, K)}/${K}`
       : job.stage === 'diffusion' && K > 1 ? `diffusion ${k}/${K}` : STAGE_WORD[job.stage] ?? (job.stage === 'done' ? 'done' : first);
-    const t = job.stage !== 'done' && silent > quietAfter(job) && stream.connected ? `<span class="warn">no word for ${Math.floor(silent)} s</span>`
-      : job.stage === 'done' ? secs(job.seconds) : secs(job.tChip + quiet);
-    return { cls: 'busy', name: `${named() && MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who}`, stage, t,
+    const quietNow = job.stage !== 'done' && silent > quietAfter(job) && stream.connected;
+    return { cls: 'busy', name: `${named() && MODEL[job.model] ? `<b>${MODEL[job.model]}</b> ` : ''}${who}`,
+      stage: quietNow ? '<span class="warn">no word from the chip</span>' : stage,
       last: lastLine };
   }
-  const idle = (name, cls = '', t = '') => ({ cls, name, stage: '', t, last: lastLine });
+  const idle = (name, cls = '') => ({ cls, name, stage: '', last: lastLine });
   switch (c?.state) {
     case 'busy': return idle('Folding, joined mid-way', 'busy');
     case 'ready': return idle('Ready', 'ready');
@@ -425,10 +413,8 @@ function laneFor(c, now) {
     case 'recovering': return idle('Restarting', 'recovering');
     case 'resetting': return idle('Resetting its board', 'recovering');
     case 'stopped': return idle('Stopped', 'recovering');
-    case 'resting': {  // the engine rests a chip that keeps hanging; it rejoins by itself at back_at
-      const min = Math.max(1, Math.ceil((c.back_at - Date.now() / 1000) / 60));
-      return { ...idle('Resting after a hang', 'oos', `back in ${min} min`), last: 'Rejoins by itself' };
-    }
+    // the engine rests a chip that keeps hanging; it rejoins by itself at back_at
+    case 'resting': return { ...idle('Resting after a hang', 'oos'), last: 'Rejoins by itself' };
     default: return idle('Not in the demo');
   }
 }
@@ -440,7 +426,7 @@ function drawChips() {
   if (ol.dataset.k !== shown.join()) {
     ol.dataset.k = shown.join();
     ol.innerHTML = shown.map((i, row) =>
-      `<li><span class="n">${row + 1}</span><span class="what"></span><span class="st"></span><span class="t"></span>` +
+      `<li><span class="n">${row + 1}</span><span class="what"></span><span class="st"></span>` +
       `<span class="bar"><i></i></span><span class="last"></span></li>`).join('');
   }
   const onStage = (app.state === 'result' ? app.mine?.fold : app.slot?.fold);
@@ -448,8 +434,8 @@ function drawChips() {
   for (const [row, i] of shown.entries()) {
     const li = ol.children[row], c = stream.chips.find(x => x.chip === i), L = laneFor(c, now);
     li.className = L.cls + (onStage && onStage.source === 'live' && onStage.chip === i ? ' on' : '');
-    for (const k of ['what', 'st', 't', 'last']) {
-      const el = li.querySelector('.' + k), v = { what: L.name, st: L.stage, t: L.t, last: L.last }[k];
+    for (const k of ['what', 'st', 'last']) {
+      const el = li.querySelector('.' + k), v = { what: L.name, st: L.stage, last: L.last }[k];
       if (el.innerHTML !== v) el.innerHTML = v;
     }
   }
