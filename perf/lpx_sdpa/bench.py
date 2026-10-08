@@ -153,7 +153,7 @@ def make_call(a, g):
                                    f"nh_per_core={p['nh_per_core']}")
             kw.update(split=split, kernel_dir=TS.KERNEL_DIR,
                       mask_cb_tiles=p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"],
-                      defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
+                      defines_extra={"PERSISTENT_MASK": p["k_num_chunks"], **a.get("defs", {})})
         def call():
             SG.sdpa(dev, q, k, v, m, out, a["qc"], a["kc"], GRID, ckc_tuple(a), scale, **kw)
             return None

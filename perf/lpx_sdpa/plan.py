@@ -81,6 +81,12 @@ def triangle(cls, H):
                 if im: a["im"] = im
                 arms.append(a)
     add(cls, "im", g0, base, arms)
+    # instruments, wrong output by construction: what the reuse kernel spends on the exponential and the mask add
+    q, k = (64, 736) if H == 2 else (96, 736)
+    arms = [dict(impl="fused", qc=q, kc=k, dt=dt, fid="HiFi2", defs=defs, name=f"reuse q{q} k{k} {dn} {dname}")
+            for dn, dt in (("bf16", BF), ("bfp8", U("bfp8")))
+            for dname, defs in (("plain", {}), ("ABLATE_EXP", {"ABLATE_EXP": 1}), ("ABLATE_MASKADD", {"ABLATE_MASKADD": 1}))]
+    add(cls, "ablate", g0, base, arms)
     arms = [dict(impl="explicit", style="plain", bchunk=bc, dt=dt, fid=fid, name=f"explicit b{bc} {dn} {fid}")
             for bc in (23, 92) for dn, dt in (("bf16", BF), ("bfp8", U("bfp8"))) for fid in ("HiFi2", "LoFi")]
     add(cls, "explicit", g0, base, arms)
