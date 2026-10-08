@@ -56,6 +56,7 @@ if A.chip is not None:
 import torch
 import ttnn
 import tt_bio.tenstorrent as T
+import tt_bio.reblock_permute as RB
 
 dev = T.get_device()
 opened = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
@@ -76,11 +77,12 @@ log(ev="nodes_open", nodes=opened, grid=tuple(T.COMPUTE_GRID_MAIN), arch=str(dev
     args=vars(A))
 
 
-def aiclk(t0, t1):
+def aiclk(t0, t1, pad=0.3):
+    """(min, max, n) MHz over [t0 - pad, t1 + pad]: the sampler ticks every 250 ms, longer than a rep."""
     v = []
     for line in CLKF.read_text().splitlines():
         ts, mhz = line.split("\t")
-        if t0 <= float(ts) <= t1 and int(mhz) > 0:
+        if t0 - pad <= float(ts) <= t1 + pad and int(mhz) > 0:
             v.append(int(mhz))
     return (min(v), max(v), len(v)) if v else None
 
@@ -181,15 +183,23 @@ for var in A.variants.split(","):
     for arm in arms:                                   # warm + accuracy, one arm at a time
         prev = apply(arm_setters(arm))
         try:
+            back0 = list(RB.STATS_BACK)
+            fired = {"in0_block_w": T._trimul_in0_block_w(-(-N // 32)),
+                     "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
                 y = mod(z_dev, m_dev)
                 ttnn.synchronize_device(dev)
                 yt = ttnn.to_torch(y).float()
                 ttnn.deallocate(y)
+            fired["back_kernel_calls"] = RB.STATS_BACK[0] - back0[0]
+            fired["mm_transpose"] = dict((f"{k[0]}/{k[1]}", v) for k, v in T.TRIMUL_MM_TRANSPOSE_STATS.items())
+            fired["einsum_fid"] = T._TRIMUL_EINSUM_FID or "trunk"
+            fired["back_into"] = T._TRIMUL_BACK_INTO
         finally:
             restore(prev)
         outs[arm] = yt
         e = err(yt, ref)
+        e["fired"] = fired
         e["vs_base_max_abs"] = (yt - outs["base"]).abs().max().item() if "base" in outs else None
         e["equal_base"] = bool(torch.equal(yt, outs["base"])) if "base" in outs else None
         log(ev="accuracy", variant=var, arm=arm, **e)
