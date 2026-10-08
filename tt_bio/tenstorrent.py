@@ -364,9 +364,16 @@ _FAST_MODE = False
 #                   stop, so it is in no mode until the region is grid-invariant.
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+#   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
+#   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
+#   trimul_glean    the gated channel move's lean two-stage compute (reblock_permute.GATE_LEAN 2)
+#   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
-          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8")
-FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"}
+          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8",
+          "trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in")
+# Named but in no mode until their fold grade puts them in one.
+UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in"})
+FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"} - UNGRADED_LEVERS
 NORMAL_LEVERS = frozenset()
 _LEVERS = frozenset()
 
@@ -5041,7 +5048,7 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
 _TRIMUL_IN0_BLOCK_W_BAND = 10
 
 
-def _trimul_in0_block_w(seq_len_tiles: int) -> int:
+def _trimul_in0_block_w(seq_len_tiles: int, full: bool = False) -> int:
     """K block width for the trimul matmul: the widest divisor of Kt inside the tuned band.
 
     At a PRIME Kt above 10 the band holds nothing but 1, so the matmul runs with no K blocking at
@@ -5066,8 +5073,97 @@ def _trimul_in0_block_w(seq_len_tiles: int) -> int:
     An unpriced accuracy cost against a win inside the noise is a NO-GO, so the band stays. Widening
     it is Moritz's call and needs a rho margin, not a perf argument.
     """
-    return max(d for d in range(min(_TRIMUL_IN0_BLOCK_W_BAND, seq_len_tiles), 0, -1)
-               if seq_len_tiles % d == 0)
+    band = seq_len_tiles if full and seq_len_tiles not in _TRIMUL_IBW_FULL_REFUSED \
+        else _TRIMUL_IN0_BLOCK_W_BAND
+    return max(d for d in range(min(band, seq_len_tiles), 0, -1) if seq_len_tiles % d == 0)
+
+
+# SPD lever (spd-trimul), default off until graded: drop the band and take all of K in one block
+# when its circular buffers fit (`_triangle_mul_program_config` still narrows on the CB budget).
+# At 736 tokens Kt = 23 is prime, so the band leaves in0_block_w = 1 and the einsum runs at 17 %
+# of the HiFi4 roof on Wormhole; lpx-matmul measured ibw 23 at 1.8-2.1x on that matmul alone.
+# Not bit-exact: it reorders the fp32 K accumulation, so it is an accuracy-graded lever.
+# A shape whose wide block clashes with live L1 at program creation is recorded here and falls
+# back to the band for the rest of the process.
+_TRIMUL_IBW_FULL = env_flag("TT_BIO_TRIMUL_IBW_FULL", False)
+# On the DRAM channel loop the back move writes every chunk straight into its channel slice of one
+# [1, H, H, hidden] output, deleting the closing concat (a full read and write of the hidden tensor,
+# 2.59 ms per call at 736 tokens on Wormhole). Layout only: torch.equal to the concat on both
+# variants at 384 and 736 tokens, and 1.0153x per trimul call at 736 on a p150a at 1350 MHz
+# (30.926 -> 30.459 ms starting, 31.722 -> 31.245 ending; perf/spd_trimul/bench.py, spd-trimul r1).
+TRIMUL_BACK_INTO = True
+_TRIMUL_BACK_INTO = env_flag("TT_BIO_TRIMUL_BACK_INTO", TRIMUL_BACK_INTO)
+# SPD lever (spd-trimul): the in-projection writes bfp8 and the gated channel move reads it, so the
+# projection's output drain (4 x hidden channels, the op's binding cost) halves with no typecast.
+# The move's output, and everything after it, stays bf16. Changes numerics: accuracy-graded.
+_TRIMUL_INPROJ_B8 = env_flag("TT_BIO_TRIMUL_INPROJ_B8", False)
+
+
+def set_trimul_inproj_b8(on: bool) -> bool:
+    """A/B switch for the harness. Returns the previous state."""
+    global _TRIMUL_INPROJ_B8
+    prev, _TRIMUL_INPROJ_B8 = _TRIMUL_INPROJ_B8, bool(on)
+    return prev
+_TRIMUL_IBW_FULL_REFUSED: set = set()
+
+
+# SPD lever (spd-trimul): the einsum's own math fidelity, "" = the trunk's. With all of K in one block
+# (`_TRIMUL_IBW_FULL`) the 736-token einsum sits near the HiFi4 math roof (3.6 ms of 204 GFLOP), so
+# fidelity becomes a lever there where it was none at in0_block_w = 1. Accuracy-graded.
+_TRIMUL_EINSUM_FID = os.environ.get("TT_BIO_TRIMUL_EINSUM_FID", "").lower()
+
+
+def _trimul_einsum_ckc(base):
+    if not _TRIMUL_EINSUM_FID:
+        return base
+    cfg = type(base)(math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[_TRIMUL_EINSUM_FID]),
+                     math_approx_mode=base.math_approx_mode, fp32_dest_acc_en=base.fp32_dest_acc_en,
+                     packer_l1_acc=base.packer_l1_acc)
+    cfg.dst_full_sync_en = base.dst_full_sync_en
+    cfg.throttle_level = base.throttle_level
+    return cfg
+
+
+def set_trimul_einsum_fid(fid: str) -> str:
+    """A/B switch for the harness ("" | "hifi2" | "lofi" | ...). Returns the previous value."""
+    global _TRIMUL_EINSUM_FID
+    prev, _TRIMUL_EINSUM_FID = _TRIMUL_EINSUM_FID, fid
+    return prev
+
+
+def set_trimul_back_into(on: bool) -> bool:
+    """A/B switch for the harness. Returns the previous state."""
+    global _TRIMUL_BACK_INTO
+    prev, _TRIMUL_BACK_INTO = _TRIMUL_BACK_INTO, bool(on)
+    return prev
+
+
+def set_trimul_ibw_full(on: bool) -> bool:
+    """A/B switch for the harness. Returns the previous state."""
+    global _TRIMUL_IBW_FULL
+    prev, _TRIMUL_IBW_FULL = _TRIMUL_IBW_FULL, bool(on)
+    return prev
+
+
+# A/B (spd-trimul): the einsum's output subblock (h, w), "1x1" = production. At in0_block_w = 23 the
+# 736-token einsum reads ~54 TF on Wormhole's 64 engaged cores at HiFi4 and LoFi buys nothing, so the
+# limit at lower fidelity is the unpack of both operands per tile-matmul that a 1x1 subblock forces.
+# A dimension that does not divide the per-core block falls back to 1. Not bit-exact only if the
+# factory reorders K, which it does not: the subblock tiles the OUTPUT.
+_TRIMUL_SUBBLOCK = tuple(int(v) for v in os.environ.get("TT_BIO_TRIMUL_SUBBLOCK", "1x1").split("x"))
+
+
+def set_trimul_subblock(sub: tuple) -> tuple:
+    """A/B switch for the harness. Returns the previous value."""
+    global _TRIMUL_SUBBLOCK
+    prev, _TRIMUL_SUBBLOCK = _TRIMUL_SUBBLOCK, tuple(sub)
+    return prev
+
+
+def _trimul_ibw_full() -> bool:
+    # Part of the program config's cache key: r1/r2 measured a null "ibw" while the lru cache
+    # handed every arm the first arm's in0_block_w = 1.
+    return _TRIMUL_IBW_FULL or lever("trimul_ibw")
 
 
 # The grid is NOT a tuning knob here, and this records the measurement rather than the argument.
@@ -5095,7 +5191,8 @@ def _trimul_in0_block_w(seq_len_tiles: int) -> int:
 # and already banked by pinning this program config. KIND=placement, and no Wormhole ratio is
 # carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
-def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
+def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False,
+                                 sub: tuple = (1, 1)) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
@@ -5109,14 +5206,14 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     # activation of throwing. Past Kt = 113 on Wormhole even a block of 1 is over the bank:
     # the output block itself is the next wall.
     budget = _matmul_cb_budget()
-    in0_block_w = _trimul_in0_block_w(seq_len_tiles)
+    in0_block_w = _trimul_in0_block_w(seq_len_tiles, full)
     while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,
-        out_subblock_h=1,
-        out_subblock_w=1,
+        out_subblock_h=sub[0] if per_core_M % sub[0] == 0 else 1,
+        out_subblock_w=sub[1] if per_core_N % sub[1] == 0 else 1,
         out_block_h=per_core_M,
         out_block_w=per_core_N,
         per_core_M=per_core_M,
@@ -7387,7 +7484,7 @@ def device_weights(model) -> dict:
     return {path: t for path, _, _, t in walk_device_weights(model)}
 
 
-def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None):
+def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None):
     """The trimul in-projection: the dual-NOC drain where it applies, else today's call.
 
     `mm_dualnoc.in_proj` is byte-identical to the call below when it fires -- it drives the same
@@ -7398,15 +7495,16 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None):
     `split` asks for the result in several destination buffers instead of one, which only the
     generic path can do; a caller that asks for it and is refused gets None and falls back itself.
     """
+    dtype = dtype or _dtype()
     if bias is None:
         from . import mm_dualnoc as DN
-        out = DN.in_proj(x, w, ckc, _dtype(), memory_config, split)
+        out = DN.in_proj(x, w, ckc, dtype, memory_config, split)
         if out is not None:
             return out
     if split is not None:
         return None
     return ttnn.experimental.minimal_matmul(
-        x, w, bias_tensor=bias, memory_config=memory_config, dtype=_dtype(),
+        x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
         compute_kernel_config=ckc)
 
 
@@ -8171,7 +8269,7 @@ class TriangleMultiplication(Module):
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
-        program_config = _triangle_mul_program_config(seq_len_tiles)
+        program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _TRIMUL_SUBBLOCK)
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
@@ -8252,6 +8350,7 @@ class TriangleMultiplication(Module):
         # independent-channel sum). The clash is recorded, so a shape pays one failed
         # compile per process and every later call starts narrow.
         x_chunks = []
+        x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
         while True:
             try:
                 # Re-read inside the try: a clash retry narrows chunk_size and regroups, and the
@@ -8298,12 +8397,21 @@ class TriangleMultiplication(Module):
                             else:
                                 gp_in_fused, g_out_fused = pair
                         if gp_in_fused is None:
+                            # `_TRIMUL_INPROJ_B8`: the projection is written in bfp8 for the gated
+                            # move to read as is. Asked only where that move can take it (the
+                            # dtype-independent half of `gated` below); a decline casts back.
+                            b8 = ((_TRIMUL_INPROJ_B8 or lever("trimul_b8in")) and not row_norm and bias_i is None
+                                  and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                                  and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
+                                  and (mask is None or mask_moved_ok)
+                                  and memory_config.buffer_type == ttnn.BufferType.DRAM)
                             gp_in_fused = (
                                 self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config,
                                                    bias_i)
                                 if row_norm else
                                 _in_proj_matmul(x_norm_in, gp_in_chunks[i],
-                                                self.compute_kernel_config, memory_config, bias_i)
+                                                self.compute_kernel_config, memory_config, bias_i,
+                                                dtype=ttnn.bfloat8_b if b8 else None)
                             )
                         slice_c = int(gp_in_fused.shape[-1]) // 4
                         _eb = 4 if _dtype() == ttnn.float32 else 2
@@ -8334,6 +8442,10 @@ class TriangleMultiplication(Module):
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
                         )
                         branch = "gated-move" if gated else "four-way-split"
+                        if not gated and gp_in_fused.dtype == ttnn.bfloat8_b and _dtype() != ttnn.bfloat8_b:
+                            _b = ttnn.typecast(gp_in_fused, _dtype())
+                            ttnn.deallocate(gp_in_fused)
+                            gp_in_fused = _b
                         if gated:
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
@@ -8391,7 +8503,7 @@ class TriangleMultiplication(Module):
                     x_chunk = ttnn.matmul(
                         a_chunk,
                         b_chunk,
-                        compute_kernel_config=self.compute_kernel_config,
+                        compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
                         memory_config=out_mc,
                         program_config=program_config,
                         dtype=ttnn.bfloat16,
@@ -8416,6 +8528,19 @@ class TriangleMultiplication(Module):
                         large_seq
                         or (_TRIMUL_BACK_ONE_PASS_L1
                             and _reblock.eligible_back(x_chunk, back_mc)))
+                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc
+                            and _reblock.eligible_back(x_chunk, back_mc))
+                    if into:
+                        # Each chunk lands in its own channel slice of one output tensor, so the
+                        # concat below never runs. Bit-exact: the same bytes in the same order.
+                        if x_out is None:
+                            x_out = ttnn.allocate_tensor_on_device(
+                                ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
+                                ttnn.TILE_LAYOUT, self.device, back_mc)
+                        _reblock.reblock_permute_back(x_chunk, back_mc, out=x_out, c_off=c_done)
+                        c_done += int(x_chunk.shape[1])
+                        ttnn.deallocate(x_chunk)
+                        continue
                     if one_pass:
                         x_chunk_t = _channel_move_back(x_chunk, back_mc)
                         ttnn.deallocate(x_chunk)
@@ -8453,7 +8578,15 @@ class TriangleMultiplication(Module):
                 mask_clash = (large_seq and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
-                if not oom and not mask_clash and (large_seq or "clash with L1 buffers" not in msg):
+                ibw_clash = ("clash with L1 buffers" in msg and not mask_clash
+                             and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
+                if ibw_clash:
+                    # The full-K block is the newest L1 claimant in this call: give it up first.
+                    _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
+                    _triangle_mul_program_config.cache_clear()
+                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _TRIMUL_SUBBLOCK)
+                if (not oom and not mask_clash and not ibw_clash
+                        and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
                 if mask_clash:
                     _TRIMUL_MASK_DRAM_SHAPES.add(mask_key)
@@ -8475,6 +8608,9 @@ class TriangleMultiplication(Module):
                     if isinstance(_t, ttnn.Tensor):
                         ttnn.deallocate(_t)
                 x_chunks = []
+                if x_out is not None:
+                    ttnn.deallocate(x_out)
+                x_out, c_done = None, 0
                 # Drop the interrupted iteration's intermediates: whatever was live
                 # at the throw still holds L1, and the retry must allocate against a
                 # clean slate, not against the corpse of the failed attempt.
@@ -8507,7 +8643,7 @@ class TriangleMultiplication(Module):
                           f"above is expected and handled; the result is unchanged.",
                           file=sys.stderr, flush=True)
                     continue
-                if mask_clash:
+                if mask_clash or ibw_clash:
                     continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a
@@ -8558,7 +8694,11 @@ class TriangleMultiplication(Module):
             # block of it at a time: uploaded whole it is a second pair-sized tensor beside z.
             dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
             return self._tail_rows(x_in, x_chunks, H, host_acc, add_to_input)
-        x = _acc_concat(x_chunks, -1, host_acc)
+        if x_out is not None:
+            assert not x_chunks and c_done == self._hidden, (len(x_chunks), c_done, self._hidden)
+            x = x_out
+        else:
+            x = _acc_concat(x_chunks, -1, host_acc)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if rows_tail:
             return self._tail_rows(x_in, x, H, host_acc, add_to_input)
@@ -8602,10 +8742,13 @@ class TriangleMultiplication(Module):
                                   + [int(self.out_p_weight.shape[-1])], 2),
                     1.0, _PAIR_L1_CONSUMER_RESERVE):
                 out_mc = ttnn.L1_MEMORY_CONFIG
+            # With TT_BIO_TRIMUL_TAIL_EPI=2 the residual add is folded in: `x_in + update` is
+            # written into `x_in` and returned, and `_add_input` sees the sum (`u is x`).
             fused = _trimul_tail.fused_tail(
                 x, x_norm_in, self.out_p_weight, self.g_out_weight,
                 _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                out_memory_config=out_mc)
+                out_memory_config=out_mc,
+                resid=x_in if add_to_input and not ops.taping() else None)
             if fused is not None:
                 ttnn.deallocate(x)
                 ttnn.deallocate(x_norm_in)
