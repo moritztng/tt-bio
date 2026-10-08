@@ -7,8 +7,8 @@ import pytest
 import tt_bio.tenstorrent as T
 
 
-def test_fast_set_is_every_lever_but_the_grid_dependent_one():
-    assert T.FAST_LEVERS == frozenset(T.LEVERS) - {"triatt_b8"}
+def test_fast_set_never_holds_the_grid_dependent_lever():
+    assert T.FAST_LEVERS <= frozenset(T.LEVERS) and "triatt_b8" not in T.FAST_LEVERS
     assert T.NORMAL_LEVERS <= T.FAST_LEVERS
 
 
@@ -23,7 +23,7 @@ def test_parse_expands_modes_and_rejects_unknown_names():
 def test_parse_adds_and_drops_after_the_first_term():
     assert T.parse_levers("fast-lofi-acc_off") == T.FAST_LEVERS - {"lofi", "acc_off"}
     assert T.parse_levers("normal+opm_b8+lofi") == T.NORMAL_LEVERS | {"opm_b8", "lofi"}
-    assert T.parse_levers("fast+triatt_b8") == frozenset(T.LEVERS)
+    assert T.parse_levers("fast+triatt_b8") == T.FAST_LEVERS | {"triatt_b8"}
 
 
 def test_levers_restore_the_previous_set_even_on_error():

@@ -356,17 +356,16 @@ _FAST_MODE = False
 #   acc_off         ... with fp32 dest accumulation off
 #   diffusion_bf16  the diffusion stack in bf16 instead of fp32 (what `--diffusion_precision bf16` does)
 #   dit_sdpa        the bf16 token DiT's attention on the fused SDPA, not matmul/softmax/matmul
-#   apb_sdpa        pair-bias attention on the fused SDPA instead of the explicit fp32-softmax chain
-#   triatt_reuse    triangle attention on the mask-reuse fused kernel at (q192, k384)
-#   triatt_bias_b8  triangle attention's bias in bfp8
+#   triatt_bias_b8  triangle attention's bias in bfp8. Out of the fast set: it moves the structure
+#                   and bought no time at c730 on Wormhole (state/spd-fast.md, LOO 21:20Z).
 #   triatt_b8       triangle attention's interior in bfp8. Same input on two core grids gives two
 #                   structures (825f18772, release gate leg `l1-budget`): card dependence is a hard
 #                   stop, so it is in no mode until the region is grid-invariant.
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
-LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
-          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8")
-FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"}
+LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+          "transition_b8", "opm_b8")
+FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8", "triatt_bias_b8"}
 NORMAL_LEVERS = frozenset()
 _LEVERS = frozenset()
 
@@ -407,7 +406,6 @@ def levers(names):
         _LEVERS = prev
 
 
-_LPX_TRIATT_CHUNKS = (192, 384)
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
@@ -2342,16 +2340,6 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     still owes `o * sigmoid(gate)`.
     """
     q_len, k_len = q.shape[2], k.shape[2]
-    if lever("triatt_reuse") and q_len == k_len:
-        # The mask-reuse pair lpx-sdpa measured fastest at 736 (q192 k384, LoFi): a narrow q
-        # chunk that need not divide the sequence, so every core reads its mask block once.
-        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, _LPX_TRIATT_CHUNKS[0], _LPX_TRIATT_CHUNKS[1],
-                              ckc_default=((ttnn.MathFidelity.LoFi, True, False, False)
-                                           if lever("lofi") else None),
-                              q_split_cap=0, gate=gate, padded_mask=True)
-        if o is not None:
-            _sdpa_pick(q_len, k_len, *_LPX_TRIATT_CHUNKS, "fused")
-            return o
     served = _tri_att_fused_large_s(q, k, v, bias, scale, ckc, gate)
     if served is not None:
         o, q_chunk, k_chunk = served
@@ -9898,7 +9886,7 @@ class AttentionPairBias(Module):
         v: ttnn.Tensor,
         bias: ttnn.Tensor,
     ) -> ttnn.Tensor:
-        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32 and not lever("apb_sdpa"):
+        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32:
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
             #
             # Do not reroute this to the fused SDPA to skip the re-materialisation traffic. It is
