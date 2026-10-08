@@ -110,5 +110,52 @@ for name, kw in [("sms", {}), ("sms_causal", {"is_causal_mask": True})]:
         oh = host(o)
         log(op=name + "_check", equal=bool(torch.equal(oh, p_h)), max_abs=float((oh - p_h).abs().max()),
             max_abs_f64=float((oh.double() - ref64).abs().max())); ttnn.deallocate(o)
+# candidate: q@k^T per chunk of samples with q padded to 24 M-tiles. 23 tiles is prime, so the
+# batched reuse factory has no legal per_core_M (1 trips its multi-block stride bug, 23 needs a
+# 2.1 MB fp32 output CB) and ttnn's default re-reads in0 and in1 for every output tile.
+cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
+MP = 768
+qp_h = torch.zeros(M, H, MP, DP); qp_h[:, :, :NT] = q_h
+qp = up(qp_h)
+
+
+def qk_chunks(b, p, src):
+    sub_h = max(h for h in range(1, 5) if p % h == 0)
+    cfg = ttnn.MatmulMultiCoreReuseProgramConfig(
+        compute_with_storage_grid_size=T.COMPUTE_GRID_MAIN, in0_block_w=DP // 32,
+        out_subblock_h=sub_h, out_subblock_w=1, per_core_M=p, per_core_N=(NT + 31) // 32)
+    outs = []
+    for i in range(0, M, b):
+        j = min(i + b, M)
+        qi = ttnn.slice(src, [i, 0, 0, 0], [j, H, MP, DP]) if (i, j) != (0, M) else src
+        ki = ttnn.slice(kt, [i, 0, 0, 0], [j, H, DP, NT]) if (i, j) != (0, M) else kt
+        outs.append(ttnn.matmul(qi, ki, program_config=cfg, compute_kernel_config=ckc))
+    return outs
+
+
+class _L(list):
+    def deallocate(self):
+        for t in self:
+            ttnn.deallocate(t)
+
+
+_dealloc = ttnn.deallocate
+ttnn.deallocate = lambda t, *a, **k: t.deallocate() if isinstance(t, _L) else _dealloc(t, *a, **k)
+for b in (1, 2, 5):
+    for p in (3, 4, 6, 8, 12, 24):
+        if b * H * (MP // 32) // p > cores:
+            continue
+        name = f"qk_pad24_b{b}_p{p}"
+        o = timed(name, lambda b=b, p=p: _L(qk_chunks(b, p, qp)), keep=True)
+        if o is not None:
+            oh = torch.cat([host(t)[:, :, :NT] for t in o]); log(op=name + "_check", equal=bool(torch.equal(oh, sc_h)),
+                                                                 max_abs=float((oh - sc_h).abs().max()))
+            o.deallocate()
+timed("pad_q", lambda: ttnn.pad(q, [(0, 0), (0, 0), (0, MP - NT), (0, 0)], 0.0))
+try:
+    o = ttnn.transformer.scaled_dot_product_attention(q, k, v, attn_mask=bias, is_causal=False, scale=s)
+    log(op="sdpa_fp32", ok=True)
+except Exception as e:
+    log(op="sdpa_fp32", error=str(e)[:300])
 log(op="end")
 os._exit(0)
