@@ -107,13 +107,14 @@ def main():
             for line in f.read_text().splitlines():
                 r = json.loads(line)
                 if r.get("ev") == "rep" and r["input"] in SET and r["arm"] in (a.base, a.test):
-                    reps.append(r)
+                    reps.append(dict(r, _dir=f.parent))
     folds, failed = {}, []
     for r in reps:
         key = (r["arch"], r["arm"], r["input"], r["seed"])
         if r["err"] or not r["finite"] or not r.get("samples_conf"):
             failed.append(key); continue
         sd = Path(r["struct_dir"])
+        sd = sd if sd.exists() else r["_dir"] / sd.name  # a run copied off its box
         cifs = [sd / (f"{r['input']}.cif" if k == 0 else f"{r['input']}_model_{k}.cif")
                 for k in range(len(r["samples_conf"]))]
         folds[key] = dict(cifs=cifs, conf=r["samples_conf"])
