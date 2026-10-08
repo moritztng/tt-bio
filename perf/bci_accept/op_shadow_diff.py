@@ -119,12 +119,13 @@ def main():
             except Exception:                 # an op the shadow cannot replay is counted, not fatal
                 row[4] += 1
             finally:
+                # The reference is dropped, never deallocated. Several shipped verbs --
+                # reshape, typecast, to_layout -- hand back a view onto an operand's own
+                # buffer, so `ttnn.deallocate` on the result frees an INPUT that the run is
+                # still using: the first attempt died one op later in `_k_rne_add` with
+                # "Tensor is not allocated". Letting the binding's refcount free it is both
+                # correct and enough at this token axis.
                 measuring[0] = True
-                if isinstance(reference, ttnn.Tensor):
-                    try:
-                        ttnn.deallocate(reference)
-                    except Exception:
-                        pass
             return out
         return wrapped
 
