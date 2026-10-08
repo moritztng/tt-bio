@@ -49,8 +49,10 @@ while os.getppid() == parent:
     except Exception: v = "-1"
     f.write(str(time.monotonic()) + chr(9) + v + chr(10)); f.flush(); time.sleep(0.25)
 """])
-log(ev="nodes_open", nodes=NODES, arch=str(dev.arch()), grid=list(T.COMPUTE_GRID_MAIN), git=os.popen(
-    f"git -C {Path(__file__).resolve().parents[2]} rev-parse --short HEAD").read().strip())
+ROOT = Path(__file__).resolve().parents[2]
+REV = os.popen(f"git -C {ROOT} rev-parse --short HEAD 2>/dev/null").read().strip() or (
+    (ROOT / "REVISION").read_text().strip() if (ROOT / "REVISION").exists() else "unknown")
+log(ev="nodes_open", nodes=NODES, arch=str(dev.arch()), grid=list(T.COMPUTE_GRID_MAIN), git=REV)
 up = lambda t, dt: ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev,
                                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
 rel = lambda o, r: float(((o.double() - r).pow(2).mean() / r.pow(2).mean()).sqrt())
