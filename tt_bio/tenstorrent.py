@@ -10072,11 +10072,14 @@ class AttentionPairBias(Module):
             if self.kq_norm:
                 qkv = self._apply_kq_norm(qkv)
             qkv = ttnn.unsqueeze(qkv, 1)
+            # The fp32 raw-matmul branch below wants k^T; the head split writes it transposed in
+            # the same pass instead of a separate permute of k (0.74 s of a Protenix-v2 fold).
+            raw_fp32 = self.dtype == ttnn.float32 and self.fp32_raw_matmul_attention
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 qkv,
                 num_heads=self.n_heads,
                 num_kv_heads=self.n_heads,
-                transpose_k_heads=False,
+                transpose_k_heads=raw_fp32,
             )
             ttnn.deallocate(qkv)
             # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
@@ -10141,10 +10144,8 @@ class AttentionPairBias(Module):
                     z = ttnn.multiply(z, self.head_dim ** -0.5)
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
-                kt = ttnn.permute(k, (0, 1, 3, 2))
-                sc = batched_matmul(q, kt,
+                sc = batched_matmul(q, k,                                    # k is k^T here
                                     compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(kt)
                 sc = scale_add(sc, self.head_dim ** -0.5, z)
                 attn = site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                     host_f64=self._softmax_f64)
