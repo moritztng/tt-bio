@@ -225,8 +225,17 @@ def per_core_cost(p, q_chunk: int, seq: int) -> int:
             + p["batch_per_core"] * 2 * seq)
 
 
+# Chunk widths, in tiles, that `fused_pairs(padded=True)` offers. A padded chunk is free to be any
+# width, and the cost model alone would take the widest k (one chunk, no rescale), but a prime tile
+# count leaves the matmul and reduce stages one tile wide. MEASURED at 736 tokens (23 tiles), 8
+# heads, bf16, mask-reuse kernel, one Wormhole chip at 1000 MHz (state/lpx-sdpa.md, reuse1): q192
+# against k256 / k384 / k736 = 24.81 / 22.17 / 24.54 ms, and q96 k384 / k736 = 27.69 / 28.19.
+_PADDED_CHUNK_TILES = (16, 12, 8, 6, 4)
+
+
 @lru_cache(maxsize=None)
-def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None) -> tuple:
+def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
+                padded: bool = False) -> tuple:
     """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first.
 
     Its two constraints pull in opposite directions, and neither is on the stock op's ladder:
@@ -251,10 +260,17 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
 
     Empty when nothing fits, which is the answer at 1184, 1312, 1856 and every other padded
     length whose only 32-aligned divisors are 32 and itself.
+
+    `padded=True` answers for exactly those lengths: pairs that leave a padded tail, for
+    `sdpa(..., padded_mask=True)`, whose persistent-mask reader fills the tail tiles with -inf as
+    the per-chunk read does. Priced on the padded extents the kernel actually runs, and drawn from
+    `_PADDED_CHUNK_TILES` rather than every multiple of 32.
     """
     out = []
-    for kc in SG.chunk_divisors(seq):
-        for qc in SG.chunk_divisors(seq):
+    chunks = (tuple(t * SG.TILE for t in _PADDED_CHUNK_TILES if t * SG.TILE < seq) if padded
+              else SG.chunk_divisors(seq))
+    for kc in chunks:
+        for qc in chunks:
             q_pf = q_parallel_factor(seq, heads, qc, cores, cap=0)
             # `plan` reads the grid only as a core count here, and its split assert is against
             # that count -- so the grid has to carry the caller's `cores`, not the module default.
@@ -263,7 +279,7 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             # the fold rather than falling through to the stock ladder.
             p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, grid=(cores, 1), split=(
                 max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
-            if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
+            if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"] != padded:
                 continue
             pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
             # Every operand CB at the dtype the call will carry, not just the mask.
@@ -274,7 +290,7 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             dts = {} if mask_dtype is None else {
                 f"{o}_dtype": mask_dtype for o in ("q", "k", "v", "mask", "out")}
             if SG.cb_fits_l1(p, mask_cb_tiles=pers, **dts):
-                out.append((per_core_cost(p, qc, seq), qc, kc))
+                out.append((per_core_cost(p, qc, p["k_num_chunks"] * kc), qc, kc))
     return tuple((qc, kc) for _c, qc, kc in sorted(out))
 
 
@@ -337,8 +353,8 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     reads `None` still owes the multiply.
 
     `padded_mask` admits a q or k chunk that does not divide the sequence: the persistent-mask
-    reader fills the padded tiles with -inf exactly as the per-chunk read does. Only the
-    timing-only LPX prototype passes it.
+    reader fills the padded tiles with -inf exactly as the per-chunk read does. Taken from
+    `fused_pairs(..., padded=True)` at lengths with no dividing pair, and by the LPX prototype.
     """
     from . import ops
     if ops.taping():

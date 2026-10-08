@@ -51,6 +51,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_SDPA_ADD_GRANULARITY`](#tt_bio_sdpa_add_granularity) | auto | | identical at every value |
 | [`TT_BIO_SDPA_BAND_DIV_K`](#tt_bio_sdpa_band_div_k) | on | Blackhole | moves, inside the bar |
 | [`TT_BIO_SDPA_FUSED_LARGE_S`](#tt_bio_sdpa_fused_large_s) | on | above 1024 tokens | moves, inside the seed spread |
+| [`TT_BIO_SDPA_FUSED_PADDED`](#tt_bio_sdpa_fused_padded) | on | lengths with no dividing chunk (736, 928, 992 ...) | moves |
 | [`TT_BIO_SDPA_GRID_Q_CHUNK`](#tt_bio_sdpa_grid_q_chunk) | on | | identical |
 | [`TT_BIO_SDPA_WIDE_K`](#tt_bio_sdpa_wide_k) | on | twenty padded lengths | moves, inside the seed spread |
 | [`TT_BIO_SOFTMAX_BW_FP32`](#tt_bio_softmax_bw_fp32) | on | training | gradients only |
@@ -888,6 +889,25 @@ fewer lengths: 36 of 50 at 4 heads on 110 cores, 25 at 8 heads, 18 at 12. Boltz-
 Nesso-1 run their trunk at 4 heads and get the full reach. Sites that run triangle attention in
 fp32 (`Fp32TriangleAttention`, and the `fp32_softmax` branch that reaches `_tri_att_sdpa_hifi`)
 never consult this flag.
+
+## `TT_BIO_SDPA_FUSED_PADDED`
+
+Default: on.
+
+Some token counts have no chunk size the fused triangle-attention kernel can split them into. 736
+padded tokens is 23 tiles, a prime, so every dividing chunk is either one tile or the whole
+sequence, and neither fits. Those calls fell to the stock attention, which re-reads the pair bias
+once per row of the pair tensor. The fused kernel can also run a chunk that leaves a padded tail,
+filling the tail with -inf exactly as the stock op does, and then reads the bias once per core.
+This flag offers that pair once per call, right before the first stock rung, so a length that is
+served fused today never reaches it.
+
+**Speed: 2.16x on the attention op** at Protenix-v2's 730-token call on a Wormhole chip at
+1000 MHz, 41.72 to 19.36 ms, measured per op. The fold-level number is in progress.
+
+**Accuracy: not bit-exact**, because the chunking sets the online-softmax order. Against an fp32
+evaluation of the same bf16 operands the padded pair reads rel_rms 0.0226 against the stock op's
+0.0223. The fold-level grade is in progress. `TT_BIO_SDPA_FUSED_PADDED=0` restores the stock rungs.
 
 ## `TT_BIO_SDPA_GRID_Q_CHUNK`
 
