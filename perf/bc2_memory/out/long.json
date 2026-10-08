@@ -1,0 +1,758 @@
+{
+ "arm": "fixed",
+ "tokens": 352,
+ "binder": 224,
+ "resident": 1,
+ "steps": "default",
+ "trajectories_asked": 8,
+ "seed": 0,
+ "card": "1",
+ "rows": [
+  {
+   "phase": "open",
+   "traj": 0,
+   "t": 1791410949.7464862,
+   "held": 16384,
+   "free": 34225503744,
+   "largest_per_bank": 4278187968,
+   "card": 34225520128,
+   "loads": 0,
+   "wt_entries": 0,
+   "trunks_alive": 0,
+   "trunks_pooled": 0,
+   "census": {
+    "by_owner": {},
+    "attributed": 0,
+    "walked": 4693
+   }
+  },
+  {
+   "phase": "before",
+   "traj": 1,
+   "t": 1791410956.1160367,
+   "held": 16384,
+   "free": 34225503744,
+   "largest_per_bank": 4278187968,
+   "card": 34225520128,
+   "loads": 0,
+   "wt_entries": 0,
+   "trunks_alive": 0,
+   "trunks_pooled": 0,
+   "census": {
+    "by_owner": {},
+    "attributed": 0,
+    "walked": 4708
+   }
+  },
+  {
+   "phase": "after",
+   "traj": 1,
+   "t": 1791412667.2583022,
+   "seconds": 1710.6,
+   "traj_loads": 106,
+   "calls": {
+    "primal": 32,
+    "taped": 250,
+    "backward": 125
+   },
+   "held": 1239911936,
+   "free": 32985608192,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 106,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1
+  },
+  {
+   "phase": "before",
+   "traj": 2,
+   "t": 1791412675.638149,
+   "held": 1239911936,
+   "free": 32985608192,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 106,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1,
+   "census": {
+    "by_owner": {
+     "autograd._WRAPPED": [
+      3950,
+      630063104
+     ],
+     "trunk model_4_multimer_v3": [
+      4646,
+      251150336
+     ],
+     "elsewhere: tt_bio.af2.ReluTransition": [
+      612,
+      72556544
+     ],
+     "elsewhere: tt_bio.af2.AF2Attention": [
+      816,
+      70385664
+     ],
+     "elsewhere: builtins.dict": [
+      1072,
+      49758208
+     ],
+     "autograd._ZERO_CACHE": [
+      1,
+      31719424
+     ],
+     "elsewhere: builtins.list": [
+      848,
+      17235968
+     ],
+     "elsewhere: tt_bio.af2.AF2MaskedOuterProductMean": [
+      384,
+      16318464
+     ],
+     "elsewhere: tt_bio.tenstorrent.TriangleMultiplication": [
+      864,
+      12091392
+     ],
+     "evoformer masks": [
+      3,
+      292864
+     ],
+     "extra-MSA masks": [
+      2,
+      270336
+     ],
+     "elsewhere: tt_bio.af2.AF2SingleActivations": [
+      2,
+      221184
+     ]
+    },
+    "attributed": 1152063488,
+    "walked": 78513
+   }
+  },
+  {
+   "phase": "after",
+   "traj": 2,
+   "t": 1791414543.975134,
+   "seconds": 1867.0,
+   "traj_loads": 111,
+   "calls": {
+    "primal": 32,
+    "taped": 250,
+    "backward": 125
+   },
+   "held": 1779600896,
+   "free": 32445919232,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 217,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1
+  },
+  {
+   "phase": "before",
+   "traj": 3,
+   "t": 1791414544.496823,
+   "held": 1779600896,
+   "free": 32445919232,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 217,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1,
+   "census": {
+    "by_owner": {
+     "autograd._WRAPPED": [
+      3950,
+      630063104
+     ],
+     "trunk model_3_multimer_v3": [
+      4646,
+      251150336
+     ],
+     "elsewhere: tt_bio.af2.ReluTransition": [
+      1836,
+      217669632
+     ],
+     "elsewhere: tt_bio.af2.AF2Attention": [
+      2448,
+      211156992
+     ],
+     "elsewhere: builtins.dict": [
+      3312,
+      174440448
+     ],
+     "elsewhere: builtins.list": [
+      2544,
+      51707904
+     ],
+     "elsewhere: tt_bio.af2.AF2MaskedOuterProductMean": [
+      1152,
+      48955392
+     ],
+     "elsewhere: tt_bio.tenstorrent.TriangleMultiplication": [
+      2592,
+      36274176
+     ],
+     "autograd._ZERO_CACHE": [
+      1,
+      31719424
+     ],
+     "elsewhere: tt_bio.af2.AF2SingleActivations": [
+      6,
+      663552
+     ],
+     "evoformer masks": [
+      3,
+      292864
+     ],
+     "extra-MSA masks": [
+      2,
+      270336
+     ]
+    },
+    "attributed": 1654364160,
+    "walked": 78513
+   }
+  },
+  {
+   "phase": "after",
+   "traj": 3,
+   "t": 1791416439.9923606,
+   "seconds": 1893.6,
+   "traj_loads": 116,
+   "calls": {
+    "primal": 32,
+    "taped": 250,
+    "backward": 125
+   },
+   "held": 1239911936,
+   "free": 32985608192,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 333,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1
+  },
+  {
+   "phase": "before",
+   "traj": 4,
+   "t": 1791416447.2416494,
+   "held": 1239911936,
+   "free": 32985608192,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 333,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1,
+   "census": {
+    "by_owner": {
+     "autograd._WRAPPED": [
+      3950,
+      630063104
+     ],
+     "trunk model_4_multimer_v3": [
+      4646,
+      251150336
+     ],
+     "elsewhere: tt_bio.af2.ReluTransition": [
+      612,
+      72556544
+     ],
+     "elsewhere: tt_bio.af2.AF2Attention": [
+      816,
+      70385664
+     ],
+     "elsewhere: builtins.dict": [
+      1072,
+      49758208
+     ],
+     "autograd._ZERO_CACHE": [
+      1,
+      31719424
+     ],
+     "elsewhere: builtins.list": [
+      848,
+      17235968
+     ],
+     "elsewhere: tt_bio.af2.AF2MaskedOuterProductMean": [
+      384,
+      16318464
+     ],
+     "elsewhere: tt_bio.tenstorrent.TriangleMultiplication": [
+      864,
+      12091392
+     ],
+     "evoformer masks": [
+      3,
+      292864
+     ],
+     "extra-MSA masks": [
+      2,
+      270336
+     ],
+     "elsewhere: tt_bio.af2.AF2SingleActivations": [
+      2,
+      221184
+     ]
+    },
+    "attributed": 1152063488,
+    "walked": 78513
+   }
+  },
+  {
+   "phase": "after",
+   "traj": 4,
+   "t": 1791418242.4305067,
+   "seconds": 1793.2,
+   "traj_loads": 113,
+   "calls": {
+    "primal": 32,
+    "taped": 250,
+    "backward": 125
+   },
+   "held": 1779600896,
+   "free": 32445919232,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 446,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1
+  },
+  {
+   "phase": "before",
+   "traj": 5,
+   "t": 1791418242.7437305,
+   "held": 1779600896,
+   "free": 32445919232,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 446,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1,
+   "census": {
+    "by_owner": {
+     "autograd._WRAPPED": [
+      3950,
+      630063104
+     ],
+     "trunk model_2_multimer_v3": [
+      4646,
+      251150336
+     ],
+     "elsewhere: tt_bio.af2.ReluTransition": [
+      1836,
+      217669632
+     ],
+     "elsewhere: tt_bio.af2.AF2Attention": [
+      2448,
+      211156992
+     ],
+     "elsewhere: builtins.dict": [
+      3312,
+      174440448
+     ],
+     "elsewhere: builtins.list": [
+      2544,
+      51707904
+     ],
+     "elsewhere: tt_bio.af2.AF2MaskedOuterProductMean": [
+      1152,
+      48955392
+     ],
+     "elsewhere: tt_bio.tenstorrent.TriangleMultiplication": [
+      2592,
+      36274176
+     ],
+     "autograd._ZERO_CACHE": [
+      1,
+      31719424
+     ],
+     "elsewhere: tt_bio.af2.AF2SingleActivations": [
+      6,
+      663552
+     ],
+     "evoformer masks": [
+      3,
+      292864
+     ],
+     "extra-MSA masks": [
+      2,
+      270336
+     ]
+    },
+    "attributed": 1654364160,
+    "walked": 78513
+   }
+  },
+  {
+   "phase": "after",
+   "traj": 5,
+   "t": 1791420063.4062057,
+   "seconds": 1818.9,
+   "traj_loads": 115,
+   "calls": {
+    "primal": 32,
+    "taped": 250,
+    "backward": 125
+   },
+   "held": 1509756416,
+   "free": 32715763712,
+   "largest_per_bank": 3907708864,
+   "card": 34225520128,
+   "loads": 561,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1
+  },
+  {
+   "phase": "before",
+   "traj": 6,
+   "t": 1791420063.7558303,
+   "held": 1509756416,
+   "free": 32715763712,
+   "largest_per_bank": 3907708864,
+   "card": 34225520128,
+   "loads": 561,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1,
+   "census": {
+    "by_owner": {
+     "autograd._WRAPPED": [
+      3950,
+      630063104
+     ],
+     "trunk model_5_multimer_v3": [
+      4646,
+      251150336
+     ],
+     "elsewhere: tt_bio.af2.ReluTransition": [
+      1224,
+      145113088
+     ],
+     "elsewhere: tt_bio.af2.AF2Attention": [
+      1632,
+      140771328
+     ],
+     "elsewhere: builtins.dict": [
+      2192,
+      112099328
+     ],
+     "elsewhere: builtins.list": [
+      1696,
+      34471936
+     ],
+     "elsewhere: tt_bio.af2.AF2MaskedOuterProductMean": [
+      768,
+      32636928
+     ],
+     "autograd._ZERO_CACHE": [
+      1,
+      31719424
+     ],
+     "elsewhere: tt_bio.tenstorrent.TriangleMultiplication": [
+      1728,
+      24182784
+     ],
+     "elsewhere: tt_bio.af2.AF2SingleActivations": [
+      4,
+      442368
+     ],
+     "evoformer masks": [
+      3,
+      292864
+     ],
+     "extra-MSA masks": [
+      2,
+      270336
+     ]
+    },
+    "attributed": 1403213824,
+    "walked": 78513
+   }
+  },
+  {
+   "phase": "after",
+   "traj": 6,
+   "t": 1791421983.2700882,
+   "seconds": 1917.8,
+   "traj_loads": 118,
+   "calls": {
+    "primal": 32,
+    "taped": 250,
+    "backward": 125
+   },
+   "held": 1509756416,
+   "free": 32715763712,
+   "largest_per_bank": 3906717632,
+   "card": 34225520128,
+   "loads": 679,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1
+  },
+  {
+   "phase": "before",
+   "traj": 7,
+   "t": 1791421987.8048377,
+   "held": 1509756416,
+   "free": 32715763712,
+   "largest_per_bank": 3906717632,
+   "card": 34225520128,
+   "loads": 679,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1,
+   "census": {
+    "by_owner": {
+     "autograd._WRAPPED": [
+      3950,
+      630063104
+     ],
+     "trunk model_2_multimer_v3": [
+      4646,
+      251150336
+     ],
+     "elsewhere: tt_bio.af2.ReluTransition": [
+      1224,
+      145113088
+     ],
+     "elsewhere: tt_bio.af2.AF2Attention": [
+      1632,
+      140771328
+     ],
+     "elsewhere: builtins.dict": [
+      2192,
+      112099328
+     ],
+     "elsewhere: builtins.list": [
+      1696,
+      34471936
+     ],
+     "elsewhere: tt_bio.af2.AF2MaskedOuterProductMean": [
+      768,
+      32636928
+     ],
+     "autograd._ZERO_CACHE": [
+      1,
+      31719424
+     ],
+     "elsewhere: tt_bio.tenstorrent.TriangleMultiplication": [
+      1728,
+      24182784
+     ],
+     "elsewhere: tt_bio.af2.AF2SingleActivations": [
+      4,
+      442368
+     ],
+     "evoformer masks": [
+      3,
+      292864
+     ],
+     "extra-MSA masks": [
+      2,
+      270336
+     ]
+    },
+    "attributed": 1403213824,
+    "walked": 78513
+   }
+  },
+  {
+   "phase": "after",
+   "traj": 7,
+   "t": 1791423627.112106,
+   "seconds": 1637.9,
+   "traj_loads": 108,
+   "calls": {
+    "primal": 32,
+    "taped": 250,
+    "backward": 125
+   },
+   "held": 1239911936,
+   "free": 32985608192,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 787,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1
+  },
+  {
+   "phase": "before",
+   "traj": 8,
+   "t": 1791423627.4753325,
+   "held": 1239911936,
+   "free": 32985608192,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 787,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1,
+   "census": {
+    "by_owner": {
+     "autograd._WRAPPED": [
+      3950,
+      630063104
+     ],
+     "trunk model_2_multimer_v3": [
+      4646,
+      251150336
+     ],
+     "elsewhere: tt_bio.af2.ReluTransition": [
+      612,
+      72556544
+     ],
+     "elsewhere: tt_bio.af2.AF2Attention": [
+      816,
+      70385664
+     ],
+     "elsewhere: builtins.dict": [
+      1072,
+      49758208
+     ],
+     "autograd._ZERO_CACHE": [
+      1,
+      31719424
+     ],
+     "elsewhere: builtins.list": [
+      848,
+      17235968
+     ],
+     "elsewhere: tt_bio.af2.AF2MaskedOuterProductMean": [
+      384,
+      16318464
+     ],
+     "elsewhere: tt_bio.tenstorrent.TriangleMultiplication": [
+      864,
+      12091392
+     ],
+     "evoformer masks": [
+      3,
+      292864
+     ],
+     "extra-MSA masks": [
+      2,
+      270336
+     ],
+     "elsewhere: tt_bio.af2.AF2SingleActivations": [
+      2,
+      221184
+     ]
+    },
+    "attributed": 1152063488,
+    "walked": 78513
+   }
+  },
+  {
+   "phase": "after",
+   "traj": 8,
+   "t": 1791424864.574779,
+   "seconds": 1235.7,
+   "traj_loads": 88,
+   "calls": {
+    "primal": 32,
+    "taped": 186,
+    "backward": 93
+   },
+   "held": 1239911936,
+   "free": 32985608192,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 875,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1
+  },
+  {
+   "phase": "end",
+   "traj": 8,
+   "t": 1791424864.8033478,
+   "held": 1239911936,
+   "free": 32985608192,
+   "largest_per_bank": 3937445824,
+   "card": 34225520128,
+   "loads": 875,
+   "wt_entries": 0,
+   "trunks_alive": 1,
+   "trunks_pooled": 1,
+   "census": {
+    "by_owner": {
+     "autograd._WRAPPED": [
+      3950,
+      630063104
+     ],
+     "trunk model_5_multimer_v3": [
+      4646,
+      251150336
+     ],
+     "elsewhere: tt_bio.af2.ReluTransition": [
+      612,
+      72556544
+     ],
+     "elsewhere: tt_bio.af2.AF2Attention": [
+      816,
+      70385664
+     ],
+     "elsewhere: builtins.dict": [
+      1072,
+      49758208
+     ],
+     "autograd._ZERO_CACHE": [
+      1,
+      31719424
+     ],
+     "elsewhere: builtins.list": [
+      848,
+      17235968
+     ],
+     "elsewhere: tt_bio.af2.AF2MaskedOuterProductMean": [
+      384,
+      16318464
+     ],
+     "elsewhere: tt_bio.tenstorrent.TriangleMultiplication": [
+      864,
+      12091392
+     ],
+     "evoformer masks": [
+      3,
+      292864
+     ],
+     "extra-MSA masks": [
+      2,
+      270336
+     ],
+     "elsewhere: tt_bio.af2.AF2SingleActivations": [
+      2,
+      221184
+     ]
+    },
+    "attributed": 1152063488,
+    "walked": 78513
+   }
+  }
+ ],
+ "ended": "completed",
+ "release": {
+  "gc_collect": 269844480,
+  "pair_mm_forget": 0
+ },
+ "clock": {
+  "0": {
+   "min": 1281,
+   "max": 1350,
+   "median": 1350,
+   "n": 2437
+  }
+ },
+ "clock_line": "CLOCK: dev0 min 1281 / median 1350 / max 1350 MHz over 2437 samples, polled DURING the work"
+}
