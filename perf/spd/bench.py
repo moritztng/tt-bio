@@ -33,7 +33,9 @@ ap.add_argument("--inputs", default="c730")
 ap.add_argument("--warm", type=int, default=3)
 ap.add_argument("--seed", type=int, default=101, help="cold rep seed; warm reps use seed+1..seed+warm")
 ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
-ap.add_argument("--share", type=int, default=0, help="host thread share (runtime.host_thread_cap_env), 0 = all")
+ap.add_argument("--share", type=int, default=None,
+                help="host thread share (runtime.host_thread_cap_env). Default: one share per TT chip on the host, "
+                     "the way serving runs a worker per chip, so concurrent rows on one box do not contend. 0 = all")
 ap.add_argument("--samples", type=int, default=5)
 ap.add_argument("--recycles", type=int, default=10)
 ap.add_argument("--no-coords", action="store_true")
@@ -78,6 +80,8 @@ SHA, DIRTY = git("rev-parse", "HEAD"), bool(git("status", "--porcelain", "--untr
 ENV = {k: v for k, v in sorted(os.environ.items()) if k.startswith(("TT_BIO_", "PROTENIX_", "TT_METAL_"))}
 
 from tt_bio import runtime  # noqa: E402  (after the arm's environment is in place)
+if a.share is None:
+    a.share = len(glob.glob("/sys/class/tenstorrent/tenstorrent!*"))
 if a.share:
     os.environ.update(runtime.host_thread_cap_env(a.share, None))
 
@@ -149,7 +153,7 @@ import tt_bio.tenstorrent as T  # noqa: E402
 import tt_bio.protenix as P  # noqa: E402
 
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), arm=ARM, arm_env=ARM_ENV,
-            fast=FAST, host=socket.gethostname(), chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
+            fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), share=a.share, chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
 log(ev="start", argv=sys.argv, cli=argv, worker=winfo, TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
     torch_threads=torch.get_num_threads(), affinity=len(os.sched_getaffinity(0)), **HEAD)
 
@@ -158,10 +162,17 @@ if a.dry:
     os._exit(0)
 state = W._WorkerState("tenstorrent")
 t = time.monotonic(); dev = T.get_device(); t_open = time.monotonic() - t
-OPENED = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1])
-                 for fd in os.listdir("/proc/self/fd")
-                 if os.path.exists(f"/proc/self/fd/{fd}")
-                 and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")})
+
+
+def _fd_target(fd):
+    try:  # the runtime's threads open and close fds while we list them
+        return os.readlink(f"/proc/self/fd/{fd}")
+    except OSError:
+        return ""
+
+
+OPENED = sorted({int(t.rsplit("/", 1)[1]) for t in map(_fd_target, os.listdir("/proc/self/fd"))
+                 if t.startswith("/dev/tenstorrent/")})
 try:
     ARCH = str(dev.arch()).split(".")[-1].lower()
 except Exception as e:
@@ -175,6 +186,7 @@ for n in OPENED:
             pass
 log(ev="device_open", s=t_open, nodes=OPENED, arch=ARCH, card=CARD)
 
+T.set_fast_mode(FAST)  # the worker does this in load_model; without it a fast arm folds exact
 t = time.monotonic()
 
 
@@ -195,7 +207,7 @@ state.model = P.Protenix.load_from_checkpoint(
 state.bind_run("spd", dict(cfg0, fast=FAST))
 state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
 m = state.model
-log(ev="build", s=time.monotonic() - t, fast=getattr(m, "_fast", None), levers=sorted(getattr(m, "_levers", ())))
+log(ev="build", s=time.monotonic() - t, fast=T._FAST_MODE, levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
 orig = m.fold
 

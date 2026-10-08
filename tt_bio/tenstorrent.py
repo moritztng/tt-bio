@@ -377,18 +377,23 @@ def lever(name: str) -> bool:
 
 
 def parse_levers(spec) -> frozenset:
-    """A lever set from names (iterable or comma string); `fast`/`normal` expand to the mode sets."""
-    names = spec.split(",") if isinstance(spec, str) else list(spec)
+    """A lever set from names (iterable or comma string); `fast`/`normal` expand to the mode sets.
+    A string may add or drop names after its first term: `fast-lofi`, `normal+opm_b8`."""
+    if isinstance(spec, str):
+        terms = re.findall(r"([+,-]?)([^+,-]+)", spec.replace(" ", ""))
+    else:
+        terms = [("", n) for n in spec]
     out = set()
-    for n in (x.strip() for x in names):
+    for op, n in terms:
         if n in ("", "none"):
             continue
         if n in ("fast", "normal"):
-            out |= FAST_LEVERS if n == "fast" else NORMAL_LEVERS
+            names = FAST_LEVERS if n == "fast" else NORMAL_LEVERS
         elif n in LEVERS:
-            out.add(n)
+            names = {n}
         else:
             raise ValueError(f"unknown precision lever {n!r}; known: {', '.join(LEVERS)}")
+        out = out - names if op == "-" else out | names
     return frozenset(out)
 
 

@@ -2194,7 +2194,8 @@ class Protenix:
         with weights_only=True. diffusion_fp32 is the per-run precision (`--diffusion_precision`);
         None keeps the mode's default (fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0, bf16 under
         the `diffusion_bf16` lever). levers: None takes the mode's set, `FAST_LEVERS` under
-        `--fast` and `NORMAL_LEVERS` otherwise."""
+        `--fast` and `NORMAL_LEVERS` otherwise. A harness grading a lever set through the serving
+        path sets TT_BIO_LEVERS (`parse_levers` grammar, e.g. `fast-lofi`); no user does."""
         import tt_bio.tenstorrent as _TT
         import torch
         import ttnn
@@ -2210,7 +2211,8 @@ class Protenix:
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
         if levers is None:
-            levers = _TT.FAST_LEVERS if _TT._FAST_MODE else _TT.NORMAL_LEVERS
+            levers = os.environ.get("TT_BIO_LEVERS") or (
+                _TT.FAST_LEVERS if _TT._FAST_MODE else _TT.NORMAL_LEVERS)
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):
