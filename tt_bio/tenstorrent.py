@@ -6008,14 +6008,16 @@ def pair_row_blocks(fn, tensors, rows, consume=None):
 MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
-def msa_host_offload(m):
-    """`m` moved to the host when it is past `MSA_HOST_OFFLOAD_MIN_BYTES`, else `m` unchanged.
+def msa_host_offload(m, keep=None):
+    """`m` moved to the host when it is past `keep` bytes (`MSA_HOST_OFFLOAD_MIN_BYTES` unless the
+    trunk says otherwise), else `m` unchanged.
 
     Bit-exact: to_torch keeps the bf16 bytes and the upload re-tilizes the same values. bf16
     only, because a bfloat8_b tensor is block floating point and a host round trip would
     re-quantise its tile scales."""
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
-    if m.dtype != ttnn.bfloat16 or m.logical_volume() * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES):
+    lim = int(v) if v else (MSA_HOST_OFFLOAD_MIN_BYTES if keep is None else keep)
+    if m.dtype != ttnn.bfloat16 or m.logical_volume() * 2 <= lim:
         return m
     h = ttnn.to_torch(m)
     ttnn.deallocate(m)
@@ -6106,8 +6108,8 @@ def place_by_reserve(t, reserve):
     return h
 
 
-def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
-    """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload` places it.
+def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
+    """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload(m, keep)` places it.
 
     `feat` is the MSA input feature [1, depth, tokens, c], on the device or on the host, and
     `project` maps a device slice of it to `m` rows (the embedder's linear plus the broadcast
@@ -6127,7 +6129,7 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
         x = up(feat) if host else feat
         m = project(x)
         ttnn.deallocate(x)
-        return msa_host_offload(m)
+        return msa_host_offload(m, keep)
     m = None
     for s in range(0, D, rows):
         x = up(feat[:, s:s + rows])
