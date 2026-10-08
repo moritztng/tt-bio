@@ -21,8 +21,9 @@ PAIRED: test(s) - base(s), same seed; averaged per complex over seeds, then a pe
 
 Verdict, from state/spd/CHARTER.md:
   normal  every fold finite and present; DockQ, CA-lDDT, TM, pLDDT, ipTM intervals reach 0 or lie on the better
-          side, LRMSD's likewise (lower is better); median same-seed pose deviation <= 0.60 A (kill bar)
-          (the A/A seed floor median is printed beside it)
+          side, LRMSD's likewise (lower is better); median same-seed pose deviation <= max(0.60 A kill bar,
+          this arch's A/A seed floor median) (orchestrator 2026-10-08: on the 11-set a re-seed moves the top pose
+          0.82 A, so the bar as written would fail a re-seed)
   fast    every fold finite; mean paired CA-lDDT and pLDDT drop each <= 0.03; no complex loses > 0.05 pLDDT
           (confidence collapse); docking success (DockQ >= 0.23, top pose) at most 5 points below base
   Either: fewer than 4 paired seeds, or a complex missing from one arm, is INSUFFICIENT, never PASS.
@@ -214,8 +215,10 @@ def main():
                 bad = lo > 0 if m in LOWER_BETTER else hi < 0
                 if bad:
                     why.append(f"{m} worse, CI [{lo:+.4f}, {hi:+.4f}] excludes 0")
-            if dev and statistics.median(dev) > KILL_BAR:
-                why.append(f"median pose deviation {statistics.median(dev):.3f} A > kill bar {KILL_BAR} A")
+            bar = max(KILL_BAR, statistics.median(pose_floor)) if pose_floor else KILL_BAR
+            if dev and statistics.median(dev) > bar:
+                why.append(f"median pose deviation {statistics.median(dev):.3f} A > bar {bar:.3f} A "
+                           f"(max of kill bar {KILL_BAR} A and A/A floor median)")
             v = "FAIL" if why else "PASS"
         else:
             if res["lddt_ca"][0] < -0.03:
