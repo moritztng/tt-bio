@@ -72,8 +72,10 @@ including the L1-budget, batch-position, NESSO-1 and RF3 1024-residue arms.
 
 **UX: PASS.** Every surface cleared progress, parse and results shape.
 
-**BindCraft 2 on a card: PASS.** A campaign run from the installed wheel held 1.16 to 1.45 GiB at
-each of six trajectory boundaries and exited on its own with status 0.
+**BindCraft 2 on a card: PASS.** A campaign on the release code held 1.16 to 1.45 GiB at each of
+six trajectory boundaries and exited on its own with status 0. After publishing, the same campaign
+run from `pip install tt-bio[tenstorrent]==0.13.1` in a clean environment held 1.41 and 1.21 GiB
+after its two trajectories and exited 0.
 
 **On-device test suite: 9281 passed, 3 failed.** Two are abb3 timing records taken before 0.13.0,
 re-recorded in this release. The third is the opt-in Protenix device confidence path
