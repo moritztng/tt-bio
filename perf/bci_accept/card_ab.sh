@@ -12,8 +12,8 @@ STATES=${2:?harden-entry ProteinStates pickle from a host-JAX trajectory}
 LEN=${3:-60}
 # shellcheck source=perf/bci_accept/host_profile.sh
 . "$(dirname "${BASH_SOURCE[0]}")/host_profile.sh"
-OUT=$WT/.bci/card_ab_chip${CARD}_l${LEN}.log
-CLK=$WT/.bci/card_ab_chip${CARD}_l${LEN}.aiclk
+OUT=$WT/.bci/card_ab_chip${CARD}_l${LEN}${TAG}.log
+CLK=$WT/.bci/card_ab_chip${CARD}_l${LEN}${TAG}.aiclk
 
 cd "$WT" || exit 1
 [ -f "$STATES" ] || { echo "no states pickle at $STATES" >&2; exit 1; }

@@ -29,3 +29,8 @@ AF2=/home/ttuser/bcx_e2e/af2_params
 # cannot get the lock should say so rather than hang -- but a job deliberately chained behind
 # another BCI job on the same card sets this to the chain's expected length.
 LOCK_WAIT=${BCI_LOCK_WAIT:-60}
+# An optional suffix on this job's artifacts, for running the SAME card, length and script
+# under a different lever -- BCI_TAG=softmax_fp32 beside the untagged control. Empty by
+# default, so a plain run keeps the name it had. Without it the second arm of a lever A/B
+# overwrites the first and the comparison is gone before anyone reads it.
+TAG=${BCI_TAG:+_$BCI_TAG}

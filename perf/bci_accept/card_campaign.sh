@@ -29,9 +29,9 @@ TRAJ=${2:-3}
 LEN=${3:-60}
 # shellcheck source=perf/bci_accept/host_profile.sh
 . "$(dirname "${BASH_SOURCE[0]}")/host_profile.sh"
-OUT=$WT/.bci/card_campaign_chip${CARD}_l${LEN}.log
-CLK=$WT/.bci/card_campaign_chip${CARD}_l${LEN}.aiclk
-PROJ=$WT/.bci/proj_card_chip${CARD}_l${LEN}
+OUT=$WT/.bci/card_campaign_chip${CARD}_l${LEN}${TAG}.log
+CLK=$WT/.bci/card_campaign_chip${CARD}_l${LEN}${TAG}.aiclk
+PROJ=$WT/.bci/proj_card_chip${CARD}_l${LEN}${TAG}
 
 cd "$WT" || exit 1
 [ -e /home/ttuser/fdv_perf_quiet ] && { echo "fdv_perf_quiet exists: FDV is measuring, not starting" >&2; exit 1; }

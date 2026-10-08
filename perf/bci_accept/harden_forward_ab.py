@@ -290,6 +290,17 @@ def main():
                       f"{gradient_by_key(gradients)}", flush=True)
                 results[(arm_name, one_hot_weight)] = (
                     interface_ptm(predictions), plddt(predictions), binder_gradient(gradients))
+                # Say whether the fp32 softmax backward actually fired, rather than inferring it
+                # from the env var having been set. `bindcraft2.fast_round()` turns
+                # SOFTMAX_BW_FP32 OFF for a BindCraft 2 predictor (bindcraft2.py:2152) even though
+                # tt_bio.autograd defaults it ON, and `fast` itself defaults to `not exact`. A
+                # lever A/B whose only evidence is the variable it exported cannot tell a lever
+                # that did nothing from a lever that changed nothing.
+                if arm_name != "host-JAX":
+                    from tt_bio import autograd as _autograd
+                    print(f"  [{arm_name} one_hot={one_hot_weight}] SOFTMAX_BW_FP32="
+                          f"{_autograd.SOFTMAX_BW_FP32} stats={_autograd.SOFTMAX_BW_FP32_STATS}",
+                          flush=True)
 
     print(f"{'one_hot_weight':>15}{'arm':>12}{'i_pTM':>9}{'pLDDT':>9}")
     for (arm_name, one_hot_weight), (iptm, mean_plddt, _) in sorted(
