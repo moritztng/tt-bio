@@ -1,7 +1,7 @@
 """Turn an lpx_matmul run (calls.json + bench.jsonl) into the SHAPES / SWEEP / BEST / CHAIN tables.
 
 usage: analyze.py RUN_DIR [FOLD_S]   -> RUN_DIR/summary.md and RUN_DIR/summary.json
-FOLD_S (the untimed warm fold, default 623.9 s from pfm-ttfast) is the denominator of "share of fold".
+FOLD_S, default the capture fold's own wall time, is the denominator of "share of fold".
 Roofline: Wormhole 8x9 cores at the AICLK the sweep logged, 4096 FLOP/cycle/core at LoFi (/2 HiFi2, /3 HiFi3,
 /4 HiFi4), DRAM 288 GB/s; operands whose memory config is L1 are not charged DRAM bytes.
 """
@@ -9,20 +9,28 @@ import json, re, sys
 from math import prod
 from pathlib import Path
 
-RUN = Path(sys.argv[1]); FOLD_S = float(sys.argv[2]) if len(sys.argv) > 2 else 623.9
+RUN = Path(sys.argv[1]); FOLD_S = float(sys.argv[2]) if len(sys.argv) > 2 else None
 BYTES = {"BFLOAT16": 2.0, "BFLOAT8_B": 1.0625, "BFLOAT4_B": 0.5625, "FLOAT32": 4.0}
 FIDDIV = {"LoFi": 1, "HiFi2": 2, "HiFi3": 3, "HiFi4": 4}
 CORES, DRAM = 72, 288e9
 T = re.compile(r"(a\d|[a-z_]+)=\('T', \(([\d, ]*)\), 'DataType\.(\w+)', 'Layout\.(\w+)', (MemoryConfig\(.*?\)|None)\)")
 
+# Call-site function -> class, from engine 7c080f158 (the .107 serving engine): head_out/heads_over are
+# PairWeightedAveraging, z_rows/project_ab/outer_product_mean are OuterProductMean, _multiply/_in_proj_matmul/
+# fused_tail/reblock_* are TriangleMultiplication, _narrow_proj_linear < whole is AttentionPairBias.
+CLASSES = [("transition", ("_transition", "swiglu")), ("pwa", ("head_out", "heads_over")),
+           ("opm", ("z_rows", "project_ab", "outer_product_mean", "contiguous_ab")),
+           ("trimul", ("_multiply", "_in_proj_matmul", "fused_tail", "_transform_chunk_gated", "_channel_move_back")),
+           ("triatt_proj", ("_fused_qkvgb", "qkvgb_heads", "gate_and_project")),
+           ("atom_tx", ("_attention_m", "_block_m", "_adaln")),
+           ("dit_attn", ("batched_matmul < tenstorrent.py:10044", "batched_matmul < tenstorrent.py:10050")),
+           ("diffusion_proj", ("_token_dit_device", "_denoise")),
+           ("apb_proj", ("_narrow_proj_linear",)), ("confidence", ("confidence",)), ("template", ("template",))]
+
 def classify(sites):
     s = " ".join(sites)
-    for pat, name in [(r"[Tt]ri\w*[Mm]ul|trimul|tri_mul|_tm_", "trimul"), (r"[Oo]uter[Pp]roduct|opm", "opm"),
-                      (r"[Pp]air[Ww]eighted|pwa", "pwa"), (r"[Tt]ransition|swiglu", "transition"),
-                      (r"[Tt]ri\w*[Aa]tt|triatt", "triatt_proj"), (r"[Aa]ttention[Pp]air[Bb]ias|apb", "apb_proj"),
-                      (r"AtomTransformer|atom_|_window", "atom"), (r"[Dd]iffusion|denoise|dit", "diffusion"),
-                      (r"[Cc]onfidence", "confidence"), (r"[Tt]emplate", "template"), (r"[Mm][Ss][Aa]", "msa_other")]:
-        if re.search(pat, s):
+    for name, keys in CLASSES:
+        if any(k in s for k in keys):
             return name
     return "other"
 
@@ -55,13 +63,14 @@ ev = [json.loads(l) for l in open(RUN / "bench.jsonl")]
 sweeps = {e["key"]: e for e in ev if e.get("ev") == "sweep"}
 folds = {e["kind"]: e for e in ev if e.get("ev") == "fold"}
 cap_s = folds.get("capture", {}).get("wall_s")
+FOLD_S = FOLD_S or cap_s   # the synced times were taken in the capture fold, so it is their denominator
 
 out = ["# lpx-matmul summary: " + str(RUN), ""]
-out.append(f"capture fold (synced per call) {cap_s and round(cap_s, 1)} s; share denominator {FOLD_S} s (warm untimed).")
+out.append(f"capture fold (synced per call) {cap_s and round(cap_s, 1)} s; share denominator {FOLD_S:.1f} s.")
 cls_tot = {}
 rows = []
 for c in calls:
-    cl = "generic_op" if c["op"] == "generic_op" else classify(c["sites"])
+    cl = classify(c["sites"]) + ("/generic_op" if c["op"] == "generic_op" else "")
     cls_tot.setdefault(cl, [0, 0.0]); cls_tot[cl][0] += c["n_total"]; cls_tot[cl][1] += c["est_total_s"]
     sw = sweeps.get(c["key"]); fid = (sw or {}).get("ckc", {}).get("math_fidelity", "HiFi4")
     r = roof(c["key"], fid=fid if fid in FIDDIV else "HiFi4", clk_mhz=(sw or {}).get("aiclk_median") or 1000) \
