@@ -64,8 +64,23 @@ def run_one(pool, memory_mode: str, recompute: bool, blocks: int,
 
     evo = bindcraft2.EvoformerOnDevice(pool, blocks=blocks, recompute=recompute,
                                        memory=bindcraft2._Memory(memory_mode))
+    # Which triangle-attention kernel actually served, per phase. The first run of this script
+    # printed the "fused arm declined all 96 calls" note under the two checkpointed
+    # configurations and NOT under recompute=False, which says the configurations are not running
+    # the same kernels -- a far better explanation of a forward difference than any of the
+    # precision levers tried so far. Counted rather than inferred from whether a note appeared.
+    before_forward = bindcraft2._fused_hifi_counts()
     msa_out, pair_out, token = evo._taped("", msa, pair, mask, pair_mask)
+    after_forward = bindcraft2._fused_hifi_counts()
     grad_msa, grad_pair = evo._backward("", token, g_msa, g_pair)
+    after_backward = bindcraft2._fused_hifi_counts()
+    fused = {
+        "forward served": after_forward[0] - before_forward[0],
+        "forward declined": after_forward[1] - before_forward[1],
+        "backward served": after_backward[0] - after_forward[0],
+        "backward declined": after_backward[1] - after_forward[1],
+    }
+    print(f"  triangle attention {fused}", flush=True)
     live = evo.live_tapes("")
     if live:
         # The tape bank is keyed by token and swept per slot. A configuration that leaves one
