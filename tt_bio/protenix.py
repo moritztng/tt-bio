@@ -511,6 +511,13 @@ def n_blocks(state_dict, prefix):
     return 1 + max(idx) if idx else 0
 
 
+#: Build the atom attention windows in TILE layout, every sample in one pass (`AtomTransformer.
+#: _windows_tiled`), instead of a ROW_MAJOR pad/reshape/permute round trip per sample. Pure data
+#: movement: the windows, the K transpose and the head merge are the same values in the same places.
+ATOM_WINDOWS_TILED = env_flag("TT_BIO_ATOM_WINDOWS_TILED", False)
+_HEADS_SPLIT_REFUSED: set = set()
+
+
 class AtomTransformer(_KeyedWeights, Module):
     """Protenix AtomTransformer = DiffusionTransformer(cross_attention_mode=True),
     3 blocks, local windowed attention (n_queries=32, n_keys=128). Fully on-device.
@@ -610,14 +617,20 @@ class AtomTransformer(_KeyedWeights, Module):
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
         K = self._lin(kv_norm, apb + "attention.linear_k.weight")
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
-        Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
+        if ATOM_WINDOWS_TILED:
+            Qb, KbT, Vb = self._windows_tiled(Q, K, V, 1, N, NP)
+        else:
+            Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
+            KbT = ttnn.permute(Kb, (0, 1, 3, 2))
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)   # precomputed (fixed p) or inline
-        sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = batched_matmul(Qb, KbT, compute_kernel_config=self.compute_kernel_config)
         sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
         o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                         host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
+        if ATOM_WINDOWS_TILED:
+            return self._merge_heads(o, 0, N, NP)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, H * dh])
@@ -669,6 +682,54 @@ class AtomTransformer(_KeyedWeights, Module):
             x = self._block(x, s, p, b, N, NP, pad_bias, z_pre=(z_pre[b] if z_pre is not None else None))
         return x
 
+    def _windows_tiled(self, Q, K, V, M, N, NP):
+        """Q windows, transposed K windows and V windows of M samples, in TILE layout throughout.
+
+        Q, K, V are (M, N, H*dh). Window i holds queries [i*nq, (i+1)*nq) and keys
+        [i*nq - PAD_LEFT, i*nq - PAD_LEFT + nk), zeros outside the sequence. nq is one tile row, so
+        once K|V are shifted by PAD_LEFT (the only step that is not tile aligned) every window is
+        nk/nq consecutive tile rows: nk/nq slices and one concat build all of them. The head split
+        and the K transpose are one `nlp_create_qkv_heads`. Returns q (M*nb, H, nq, dh),
+        kT (M*nb, H, dh, nk), v (M*nb, H, nk, dh), what `_windows_q_m` / `_windows_kv_m` give.
+        """
+        H, dh, nq, nk = self.N_HEADS, self.HEAD_DIM, self.N_QUERIES, self.N_KEYS
+        nb, C, r = NP // nq, H * dh, nk // nq
+        rm = lambda x: ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+        tile = lambda x: ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+        q = tile(ttnn.pad(rm(Q), [[0, 0], [0, NP - N], [0, 0]], 0.0))                  # (M, NP, C)
+        q = ttnn.reshape(q, (M * nb, 1, nq, C))
+        kv = ttnn.concat([K, V], dim=-1)                                                # (M, N, 2C)
+        kv = tile(ttnn.pad(rm(kv), [[0, 0], [self.PAD_LEFT, NP + nk - nq - self.PAD_LEFT - N], [0, 0]], 0.0))
+        kv = ttnn.reshape(kv, (M, nb + r - 1, nq, 2 * C))
+        kv = ttnn.concat([ttnn.slice(kv, [0, j, 0, 0], [M, j + nb, nq, 2 * C]) for j in range(r)], dim=2)
+        kv = ttnn.reshape(kv, (M * nb, 1, nk, 2 * C))
+        key = (tuple(q.padded_shape), str(q.dtype))
+        if key not in _HEADS_SPLIT_REFUSED:
+            try:
+                return ttnn.experimental.nlp_create_qkv_heads(
+                    q, kv, num_heads=H, num_kv_heads=H, transpose_k_heads=True,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            except RuntimeError as e:                                                   # e.g. a dtype it does not take
+                _HEADS_SPLIT_REFUSED.add(key)
+                print(f"[tt-bio] nlp_create_qkv_heads refused atom windows {key}: {e}; splitting heads "
+                      f"by slices", file=sys.stderr, flush=True)
+        B = M * nb
+        heads = lambda x, c0, n: ttnn.concat(
+            [ttnn.slice(x, [0, 0, 0, c0 + h * dh], [B, 1, n, c0 + (h + 1) * dh]) for h in range(H)], dim=1)
+        return heads(q, 0, nq), ttnn.transpose(heads(kv, 0, nk), -2, -1), heads(kv, C, nk)
+
+    def _merge_heads(self, o, M, N, NP):
+        """(M*nb, H, nq, dh) attention output -> (M, N, H*dh), or (N, H*dh) at M == 0."""
+        C = self.N_HEADS * self.HEAD_DIM
+        o = ttnn.experimental.nlp_concat_heads(o, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # (M*nb, 1, nq, C)
+        if M == 0:
+            o = ttnn.reshape(o, (NP, C))
+            o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0], [N, C])
+        else:
+            o = ttnn.reshape(o, (M, NP, C))
+            o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, C])
+        return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
+
     # --- M-aware (multiplicity-batched) path --------------------------------------
     # Mirrors the M=1 _block/_attention but carries M as the leading batch dim. The
     # sample-invariant s (c_la) is replicated (AdaLN needs it elementwise); the
@@ -696,9 +757,13 @@ class AtomTransformer(_KeyedWeights, Module):
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
         K = self._lin(kv_norm, apb + "attention.linear_k.weight")
         V = self._lin(kv_norm, apb + "attention.linear_v.weight")
-        Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
+        if ATOM_WINDOWS_TILED:
+            Qb, KbT, Vb = self._windows_tiled(Q, K, V, M, N, NP)
+        else:
+            Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
+            KbT = ttnn.permute(Kb, (0, 1, 3, 2))
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)
-        sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
+        sc = batched_matmul(Qb, KbT, compute_kernel_config=self.compute_kernel_config)
         if z.shape[0] != sc.shape[0]:
             # z is the sample-INVARIANT precomputed bias, still (nb,H,nq,nk). Fold the
             # (M*nb, H) leading dims into (M, nb*H) so the add broadcasts it over M --
@@ -715,6 +780,8 @@ class AtomTransformer(_KeyedWeights, Module):
         o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                         host_f64=self._softmax_f64),
                            Vb, compute_kernel_config=self.compute_kernel_config)
+        if ATOM_WINDOWS_TILED:
+            return self._merge_heads(o, M, N, NP)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
         o = ttnn.reshape(o, (M, NP, H * dh))                    # (M, NP, H*dh)
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])  # (M, N, H*dh)
