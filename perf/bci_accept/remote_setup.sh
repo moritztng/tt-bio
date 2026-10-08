@@ -27,8 +27,19 @@ else
   python3 -c 'import numpy;print("numpy=="+numpy.__version__)' > /root/constraints.txt
   sed -E 's/[=<>!~].*$//' /root/requirements_host.txt | grep -vE '^[[:space:]]*$|^#' | sort -u \
     > /root/req_unpinned.txt
-  pip install --no-input --no-cache-dir -c /root/constraints.txt -r /root/req_unpinned.txt \
-    2>&1 | tail -5
+  # PER-PACKAGE, not `-r`: the list was frozen from a venv that also had the LOCAL packages
+  # installed (tt-bio, bindcraft), and those are not on PyPI at all. With `-r`, the first such
+  # name aborts the whole retry -- which is exactly how the first repair attempt died, on
+  # "No matching distribution found for tt-bio". Per package, a bad name costs its own line.
+  FAILED=""
+  while read -r pkg; do
+    [ -z "$pkg" ] && continue
+    case "$pkg" in tt-bio|tt_bio|bindcraft*|bcx*) continue;; esac
+    pip install -q --no-input --no-cache-dir -c /root/constraints.txt "$pkg" >/dev/null 2>&1 \
+      || FAILED="$FAILED $pkg"
+  done < /root/req_unpinned.txt
+  echo "unresolved packages:${FAILED:- none}"
+  # Not fatal on its own: the deep import check below is what decides whether the arm may run.
 fi
 
 # Installed LAST so the CUDA build wins the numpy / ml-dtypes pins above.
