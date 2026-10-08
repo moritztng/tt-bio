@@ -986,11 +986,11 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
             for i, p in enumerate(parents):
                 if i in sel:
                     p.pinned = True
-        _evict_read_parents(parents)
+        _evict_read_parents(parents, out)
     return out
 
 
-def _evict_read_parents(parents: Sequence[Tensor]) -> None:
+def _evict_read_parents(parents: Sequence[Tensor], out: Tensor | None = None) -> None:
     """Move every L1-resident intermediate this op has just read down to DRAM.
 
     `free` is the tape's answer to `ttnn.deallocate`, and it only ever runs where the shipped
@@ -1028,8 +1028,20 @@ def _evict_read_parents(parents: Sequence[Tensor]) -> None:
     tape turned L1-placement levers from 1.19-1.29x faster into 0.83-0.85x slower, paid
     deliberately here because in OF3 the alternative is not a slower step but no step at all.
     """
+    group = _members(out.shares) if out is not None and out.shares is not None else ()
     for p in parents:
         if p.node is None or not p.evictable:
+            continue
+        # A parent the output is a VIEW of has not been consumed, it has been renamed. Its
+        # storage is still live through `out`, and evicting it moves the whole group --
+        # `out` included -- to DRAM before any consumer has read `out` at all. Measured on
+        # the AF2 triangle attention (`perf/bci_accept/op_trace_diff.py`): the taped
+        # `unsqueeze` of the L1 qkv projection evicted qkv and its view, `nlp_create_qkv_heads`
+        # then inherited DRAM, and `batched_matmul`'s tuned branch, which is gated on DRAM
+        # operands, ran a different program from the untaped forward on the same inputs. The
+        # taped forward stopped being the forward `ag.checkpoint` propagates. The real
+        # consumer downstream still evicts, so the L1 is returned one op later, not never.
+        if any(p is m for m in group):
             continue
         try:
             if p.value.memory_config().buffer_type != ttnn.BufferType.L1:
