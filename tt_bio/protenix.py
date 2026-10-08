@@ -25,14 +25,17 @@ structures within sample variance of the reference (scripts/protenix_fold_e2e.py
 scripts/protenix_predict.py -> PDB). Remaining (packaging): data-pipeline vendoring
 (sequence/CCD -> feats dict), worker/CLI --model protenix-v2, unified README.
 """
+import gc
 import math
 import os
 import re
+import sys
 import torch
 import ttnn
 
 from . import protenix_weights as PW
 from .envflags import env_flag
+from .size_limits import is_alloc_refusal
 from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
@@ -291,6 +294,24 @@ def _window_q(x, N, NP, nq=32):
     x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
     x = ttnn.pad(x, [[0, 0], [0, NP - N], [0, 0]], 0.0)
     return ttnn.to_layout(ttnn.reshape(x, (NP // nq, nq, x.shape[-1])), ttnn.TILE_LAYOUT)
+
+
+_MSA_RESIDENT_REFUSED = []  # (tokens, m bytes) of every MSA a recycling cycle could not hold on the chip
+
+
+def _msa_keep_bytes(tokens, m_bytes):
+    """Bytes of the pristine MSA representation the trunk keeps on the chip instead of the host.
+
+    All of it, unless a target with no more tokens and no larger `m` was already refused in this
+    process: then the shared host offload size, the streamed path. Held on the chip, `m` is read
+    in place; streamed, every recycling cycle moves it across PCIe seven times up and three times
+    down with the chip idle (130 s of a 624 s fold at 730 tokens against 9947 rows on a Wormhole
+    chip). `msa_embed` only ever holds a whole `m` whose feature fit one upload, so this is at
+    most ~2 GiB, and a cycle DRAM refuses is re-run streamed (`Trunk.__call__`), so no size that
+    folds streamed can fail resident. `TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES` still overrides both."""
+    if any(tokens >= n and m_bytes >= b for n, b in _MSA_RESIDENT_REFUSED):
+        return None
+    return m_bytes
 
 
 _UPLOAD_REFUSED_ROWS = {}  # host m shape -> depth-chunk rows, once DRAM refused its whole upload or the OPM over it
@@ -2921,12 +2942,14 @@ class Trunk(_KeyedWeights):
         dram_peak(f"trunk msa pre-upload [ms={tuple(ms.shape)} {ms.dtype}"
                   f" -> dtype={getattr(self, 'dtype', ttnn.bfloat16)}]")
         # Deep-MSA offload: every read of the pristine m_feat is row-local (PWA/Transition per
-        # row, OPM per chunk), so past 1 GiB `msa_embed` builds it one depth chunk at a time on
-        # the host and update_msa streams it back up a chunk at a time. Neither the whole `ms`
-        # upload nor a full-size device copy of m_feat enters the per-cycle peak.
+        # row, OPM per chunk), so past 1 GiB of feature `msa_embed` builds it one depth chunk at a
+        # time on the host and update_msa streams it back up a chunk at a time. Neither the whole
+        # `ms` upload nor a full-size device copy of m_feat enters the per-cycle peak. Below that,
+        # m_feat stays on the chip (`_msa_keep_bytes`) unless a cycle is refused.
         s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
+        m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
         m_feat = msa_embed(ms, lambda x: ttnn.add(
-            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m))
+            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m), keep=_msa_keep_bytes(*m_key))
         ttnn.deallocate(s_m)
         dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
@@ -2934,6 +2957,45 @@ class Trunk(_KeyedWeights):
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
+
+        def cycle(cyc, carry, m_feat):
+            # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
+            # it did inline; only a caller that kept its own copy holds it longer.
+            z3, s = carry
+            carry.clear()
+            zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
+            zi = host_unpark(z_init)
+            z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
+            if zi is not z_init:
+                ttnn.deallocate(zi)
+            if nse_d is not None:
+                z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
+            # Gate on BOTH the feature's template slots and the checkpoint's own template
+            # pairformer depth. `nt` counts slots and protenix_data.dummy_template_features
+            # always emits 4, so `nt > 0` alone is not a statement about the model. Upstream
+            # v0.5.0 pairformer.py:1000 returns literal 0 from TemplateEmbedder.forward when
+            # n_blocks < 1, and the v0.5.0 base checkpoint ships 0 blocks: its five template
+            # projections are dead weight. Without `self.TPL` the port would add
+            # linear_u(relu(mean(LN(tpl_a + linear_z(LN(z)))))) to z on every recycling cycle
+            # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
+            # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
+            if nt > 0 and self.TPL:
+                z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
+            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
+            sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
+            s = ttnn.add(s_init, sc)
+            s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
+            s = ttnn.reshape(s, (N, 384))
+            # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
+            # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
+            # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
+            trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
+            trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
+            return [z3, s]
+
+        carry = [z3, s]
+        del z3, s
+
         for cyc in range(n_cycles):
             # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
             # the tape holds one cycle instead of n_cycles of them. That is upstream's own
@@ -2943,34 +3005,32 @@ class Trunk(_KeyedWeights):
             with ops.recycle_region(cyc, n_cycles - 1):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
-                zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
-                zi = host_unpark(z_init)
-                z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
-                if zi is not z_init:
-                    ttnn.deallocate(zi)
-                if nse_d is not None:
-                    z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
-                # Gate on BOTH the feature's template slots and the checkpoint's own template
-                # pairformer depth. `nt` counts slots and protenix_data.dummy_template_features
-                # always emits 4, so `nt > 0` alone is not a statement about the model. Upstream
-                # v0.5.0 pairformer.py:1000 returns literal 0 from TemplateEmbedder.forward when
-                # n_blocks < 1, and the v0.5.0 base checkpoint ships 0 blocks: its five template
-                # projections are dead weight. Without `self.TPL` the port would add
-                # linear_u(relu(mean(LN(tpl_a + linear_z(LN(z)))))) to z on every recycling cycle
-                # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
-                # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
-                if nt > 0 and self.TPL:
-                    z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
-                z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
-                sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
-                s = ttnn.add(s_init, sc)
-                s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
-                s = ttnn.reshape(s, (N, 384))
-                # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
-                # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
-                # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
-                trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
-                trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
+                if torch.is_tensor(m_feat):
+                    carry = cycle(cyc, carry, m_feat)
+                    continue
+                # A device-resident m keeps its cycle's inputs, so a cycle DRAM refuses runs again
+                # from them with m streamed from the host, the path a larger target takes from the
+                # start. Same ops on the same bytes, so the retry is bit-exact. The retry runs
+                # outside the handler: the traceback pins every tensor the refused cycle made.
+                inputs = list(carry)
+                try:
+                    carry = cycle(cyc, carry, m_feat)
+                    inputs = None
+                except RuntimeError as exc:
+                    if not is_alloc_refusal(exc):
+                        raise
+                if inputs is None:
+                    continue
+                _MSA_RESIDENT_REFUSED.append(m_key)
+                print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(m_feat.shape)} "
+                      f"on the chip; streaming it from the host from here on. The tt-metal 'Out of "
+                      f"Memory' line above is expected and handled.", file=sys.stderr, flush=True)
+                h = ttnn.to_torch(m_feat)
+                ttnn.deallocate(m_feat)
+                m_feat = h
+                gc.collect()
+                carry, inputs = cycle(cyc, inputs, m_feat), None
+        z3, s = carry
         for t in [z_init, *tpl_a]:
             if t.storage_type() == ttnn.StorageType.DEVICE:
                 ttnn.deallocate(t)

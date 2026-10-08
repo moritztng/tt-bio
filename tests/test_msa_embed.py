@@ -55,3 +55,19 @@ def test_a_device_feature_is_embedded_whole_and_consumed(dev, monkeypatch):
     out = T.msa_embed(x, project)
     assert not x.is_allocated()
     assert torch.equal(ttnn.to_torch(out), ref)
+
+
+def test_keep_holds_m_on_the_chip_and_the_env_override_still_wins(dev, monkeypatch):
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 40, n, c)
+    up = lambda: ttnn.from_torch(feat, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    m_bytes = 40 * n * 64 * 2
+    monkeypatch.delenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", raising=False)
+    monkeypatch.setattr(T, "MSA_HOST_OFFLOAD_MIN_BYTES", m_bytes - 1)
+    parked = T.msa_embed(up(), project)
+    assert torch.is_tensor(parked)
+    kept = T.msa_embed(up(), project, keep=m_bytes)
+    assert not torch.is_tensor(kept)
+    assert torch.equal(ttnn.to_torch(kept), parked)
+    monkeypatch.setenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", "0")
+    assert torch.is_tensor(T.msa_embed(up(), project, keep=m_bytes))
