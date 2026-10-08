@@ -410,9 +410,12 @@ _FAST_MODE = False
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_b8in"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in"})
 FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
-NORMAL_LEVERS = frozenset()
+# trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
+# 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
+# better side (state/spd/BOARD.md, spd-trimul 2026-10-08 22:40Z).
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail"})
 _LEVERS = frozenset()
 
 
@@ -5206,6 +5209,17 @@ _TRIMUL_BACK_INTO = env_flag("TT_BIO_TRIMUL_BACK_INTO", TRIMUL_BACK_INTO)
 # projection's output drain (4 x hidden channels, the op's binding cost) halves with no typecast.
 # The move's output, and everything after it, stays bf16. Changes numerics: accuracy-graded.
 _TRIMUL_INPROJ_B8 = env_flag("TT_BIO_TRIMUL_INPROJ_B8", False)
+# spd-trimul A/B: the in-projection and its two gates as one `trimul_tail` call per channel chunk
+# (`_gp_in_gated`), so the projection is never written whole and the gated moves become plain ones.
+_TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
+
+
+def set_trimul_gated_inproj(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_GATED_INPROJ
+    prev, _TRIMUL_GATED_INPROJ = _TRIMUL_GATED_INPROJ, bool(on)
+    return prev
+
 
 
 def set_trimul_inproj_b8(on: bool) -> bool:
@@ -7944,6 +7958,7 @@ class TriangleMultiplication(Module):
         # Same four weights again with `g_out`'s columns on the end, built only if the fused-gate
         # lever ever takes a call at this width.
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
+        self._gp_gated_cache: dict = {}
         # The in-projection as device leaves, set only by `train_in_proj`. Inference never
         # sets them and reads the caches above.
         self.g_in_weight = self.p_in_weight = None
@@ -7997,6 +8012,27 @@ class TriangleMultiplication(Module):
         ]
         self._gp_cache[key] = chunks
         return chunks
+
+    def _gp_in_gated(self, C: int, group: int) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
+        """Per channel chunk, the in-projection's `([p_a | p_b], [g_a | g_b])` weights.
+
+        The columns of `_gp_in_chunks`, regrouped so one `trimul_tail` call computes
+        `a = p_a * sigmoid(g_a)` and `b` alike as the two halves of its split output.
+        """
+        key = (C, group, gp_roles())
+        cached = self._gp_gated_cache.get(key)
+        if cached is None:
+            sc = C * group
+            col = lambda t, r: t[:, gp_off(r, sc):gp_off(r, sc) + sc]  # noqa: E731
+            dev = lambda t: ttnn.from_torch(  # noqa: E731
+                t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+            cached = [
+                (dev(torch.cat([col(t, "p_a"), col(t, "p_b")], dim=-1)),
+                 dev(torch.cat([col(t, "g_a"), col(t, "g_b")], dim=-1)))
+                for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
+            ]
+            self._gp_gated_cache[key] = cached
+        return cached
 
     def _gp_in_gout(self, C: int, group: int) -> ttnn.Tensor:
         """`_gp_in_chunks(C, group)[0]` with `g_out`'s columns appended.
@@ -8492,6 +8528,33 @@ class TriangleMultiplication(Module):
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
+                    if (a_chunk is None and _TRIMUL_GATED_INPROJ and bias_i is None
+                            and not row_norm and x_norm_in is not None
+                            and self.g_in_weight is None and not ops.taping()
+                            and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
+                            and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
+                            and (mask is None or mask_moved_ok)
+                            and memory_config.buffer_type == ttnn.BufferType.DRAM):
+                        # The projection and both gates in one trimul_tail call: p and g of the same
+                        # x, each activation block read once for both passes, a and b written as
+                        # two tensors. Only the plain channel moves are left.
+                        wa, wb = self._gp_in_gated(chunk_size, group)[i]
+                        ab = _trimul_tail.fused_tail(
+                            x_norm_in, x_norm_in, wa, wb,
+                            _mm_generic.ckc_args(self.compute_kernel_config),
+                            tuple(COMPUTE_GRID_MAIN), split=2)
+                        branch = "gated-inproj-declined"
+                        if ab is not None:
+                            a_chunk = self._transform_chunk(
+                                ab[0], perm_a, memory_config, realloc=n_pairs // group > 1,
+                                defer_transpose=defer)
+                            b_chunk = self._transform_chunk(
+                                ab[1], perm_b, memory_config, realloc=n_pairs // group > 1,
+                                defer_transpose=defer)
+                            branch = "gated-inproj"
+                            if defer:
+                                defer_a = perm_a == (0, 3, 2, 1)
+                                defer_b = perm_b == (0, 3, 2, 1)
                     if a_chunk is not None:
                         gated = True
                         tail_mc = out_mc = memory_config

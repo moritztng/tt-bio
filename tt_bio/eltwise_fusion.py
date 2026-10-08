@@ -106,6 +106,20 @@ def mask_add(x, y, mask, **kwargs):
     return ttnn.add(x, ttnn.multiply(y, mask), **kwargs)
 
 
+def gated_add(x, y, gate, **kwargs):
+    """``x + y * gate`` -- the gated residual of a DiT block, one ``ttnn.addcmul``.
+
+    Fused for fp32 operands only, by the same rule and for the same reason as `scale_add`:
+    at fp32 the unfused product is stored at full precision, so both forms round alike; at
+    bf16 the fused op skips a rounding the unfused chain makes, and a diffusion trajectory
+    turns that ULP into a different structure. ``gate`` may broadcast over the leading dim.
+    """
+    if (FUSE_MASK_ADD and x.dtype == ttnn.float32 and y.dtype == ttnn.float32
+            and gate.dtype == ttnn.float32 and not _taping()):
+        return ttnn.addcmul(x, y, gate, value=1.0, **kwargs)
+    return ttnn.add(ttnn.multiply(y, gate), x, **kwargs)
+
+
 def norm_residual(x, residual, **kwargs):
     """``layer_norm(x + residual)`` -- the add folded into the norm's own kernel.
 

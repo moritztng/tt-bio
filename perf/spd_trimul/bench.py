@@ -114,6 +114,13 @@ LEVERS = {
     "noglean": [(RB.set_gate_lean, 0)],
     "sb13": [(T.set_trimul_subblock, (1, 3))],
     "sb31": [(T.set_trimul_subblock, (3, 1))],
+    # the tail's GEMM block (M, K, N, sh, sw); production is (4, 8, 1, 4, 1)
+    "tb81": [(TTL.set_block, (8, 8, 1, 4, 1))],
+    "tb82": [(TTL.set_block, (8, 8, 2, 2, 2))],
+    "tb84": [(TTL.set_block, (8, 8, 4, 1, 4))],
+    "tb88": [(TTL.set_block, (8, 8, 8, 1, 4))],
+    "tb48": [(TTL.set_block, (4, 8, 8, 1, 4))],
+    "gin": [(T.set_trimul_gated_inproj, True)],
 }
 
 
