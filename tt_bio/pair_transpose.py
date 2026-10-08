@@ -24,8 +24,9 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "pair_transpose"
 IN_CB, OUT_CB = 0, 16
 _ELEM = {ttnn.bfloat16: 2, ttnn.float32: 4}
 
-#: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
-PAIR_TRANSPOSE_FUSED = env_flag("TT_BIO_PAIR_TRANSPOSE_FUSED", False)
+#: The lever. On by default: bit-exact by construction, graded in BindCraft 2's round on Blackhole and
+#: digest-equal over Protenix-v2's 730-token fold on Wormhole.
+PAIR_TRANSPOSE_FUSED = env_flag("TT_BIO_PAIR_TRANSPOSE_FUSED", True)
 
 #: (calls served, calls declined), cumulative; sample at a round boundary.
 STATS = [0, 0]

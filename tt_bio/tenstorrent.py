@@ -4870,7 +4870,7 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
 def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     # One read and one write of whole tiles, the row moves done in L1 (`tt_bio.pair_transpose`):
     # 0.648 -> 0.234 ms at [288, 288, 128] bf16 against the ROW_MAJOR round trip below,
-    # torch.equal. Off unless `PAIR_TRANSPOSE_FUSED`; under a recording tape only with its entry.
+    # torch.equal. Gated by `PAIR_TRANSPOSE_FUSED` (default on); under a recording tape only with its entry.
     if _pair_tr.eligible(t):
         return _pair_tr.pair_transpose(t, memory_config)
     if (_PT_ROW_MAJOR and len(t.shape) == 3

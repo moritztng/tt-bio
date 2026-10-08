@@ -532,7 +532,8 @@ def n_blocks(state_dict, prefix):
 #: Build the atom attention windows in TILE layout, every sample in one pass (`AtomTransformer.
 #: _windows_tiled`), instead of a ROW_MAJOR pad/reshape/permute round trip per sample. Pure data
 #: movement: the windows, the K transpose and the head merge are the same values in the same places.
-ATOM_WINDOWS_TILED = env_flag("TT_BIO_ATOM_WINDOWS_TILED", False)
+#: On by default: the 730-token fold's digests match the round trip on Wormhole, torch.equal on p150a.
+ATOM_WINDOWS_TILED = env_flag("TT_BIO_ATOM_WINDOWS_TILED", True)
 _HEADS_SPLIT_REFUSED: set = set()
 
 
