@@ -136,6 +136,7 @@ for i, (c, cl, r, sw) in enumerate(rows):
     if base and res:
         bx = min(res, key=lambda x: x["us"])
         bb = min((x for x in res if not is_fmt(x["var"])), key=lambda x: x["us"])
+        b8 = min((x for x in res if "b4" not in x["var"].split(":")[-1]), key=lambda x: x["us"])  # bfp4 excluded
         ch = sw.get("chain", {})
         cast = 0.0
         v = bx["var"].split(":")[-1]
@@ -145,7 +146,7 @@ for i, (c, cl, r, sw) in enumerate(rows):
         if v.endswith("ob8") or "lofi" in v and v.startswith("b8lofi"):
             cast += ch.get("out_b8_to_bf16", {}).get("us", 0.0)
         best.append(dict(rank=i, cls=cl, op=c["op"], calls=c["n_total"], base_us=base["us"], best=bx["var"], best_us=bx["us"],
-                         best_bf16=bb["var"], best_bf16_us=bb["us"],
+                         best_bf16=bb["var"], best_bf16_us=bb["us"], best_b8=b8["var"], best_b8_us=b8["us"],
                          speedup=base["us"] / bx["us"], cast_us=cast, chain_speedup=base["us"] / (bx["us"] + cast),
                          saved_s=(base["us"] - bx["us"]) * c["n_total"] / 1e6,
                          ai=r and r["ai"], t_math_us=r and r["t_math_us"], t_dram_us=r and r["t_dram_us"]))
@@ -160,17 +161,20 @@ for b in best:
 # per class, over the swept signatures: device time x calls at base, best bf16-only, best any format, best + casts
 roll = {}
 for b in best:
-    r = roll.setdefault(b["cls"], [0.0] * 5)
-    for j, us in enumerate((b["base_us"], b["best_bf16_us"], b["best_us"], b["best_us"] + b["cast_us"])):
+    r = roll.setdefault(b["cls"], [0.0] * 6)
+    for j, us in enumerate((b["base_us"], b["best_bf16_us"], b["best_us"], b["best_us"] + b["cast_us"], b["best_b8_us"])):
         r[j] += us * b["calls"] / 1e6
-    r[4] += 1
+    r[5] += 1
 out += ["", "## BEST by class (swept signatures, device s per fold = us x calls)",
-        "| class | sigs | base s | bf16-only s | x | any-format s | x | any-format + standalone casts s | x |", "|---|---|---|---|---|---|---|---|---|"]
-tot = [0.0] * 4
+        "| class | sigs | base s | bf16-only s | x | bfp8 at most s | x | any-format s | x | any-format + standalone casts s | x |",
+        "|---|---|---|---|---|---|---|---|---|---|---|"]
+tot = [0.0] * 5
 for cl, r in sorted(roll.items(), key=lambda kv: -kv[1][0]):
-    out.append(f"| {cl} | {r[4]:.0f} | {r[0]:.2f} | {r[1]:.2f} | {r[0] / r[1]:.2f} | {r[2]:.2f} | {r[0] / r[2]:.2f} | {r[3]:.2f} | {r[0] / r[3]:.2f} |")
+    out.append(f"| {cl} | {r[5]:.0f} | {r[0]:.2f} | {r[1]:.2f} | {r[0] / r[1]:.2f} | {r[4]:.2f} | {r[0] / r[4]:.2f} | "
+               f"{r[2]:.2f} | {r[0] / r[2]:.2f} | {r[3]:.2f} | {r[0] / r[3]:.2f} |")
     tot = [t + v for t, v in zip(tot, r)]
-out.append(f"| **all swept** | {len(best)} | {tot[0]:.2f} | {tot[1]:.2f} | {tot[0] / tot[1]:.2f} | {tot[2]:.2f} | {tot[0] / tot[2]:.2f} | {tot[3]:.2f} | {tot[0] / tot[3]:.2f} |")
+out.append(f"| **all swept** | {len(best)} | {tot[0]:.2f} | {tot[1]:.2f} | {tot[0] / tot[1]:.2f} | {tot[4]:.2f} | {tot[0] / tot[4]:.2f} | "
+           f"{tot[2]:.2f} | {tot[0] / tot[2]:.2f} | {tot[3]:.2f} | {tot[0] / tot[3]:.2f} |")
 
 gen_base = {}
 for c in calls:
