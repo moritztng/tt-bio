@@ -43,6 +43,8 @@ NOT_A_TUNING_ROW: dict[str, str] = {
     "PROTENIX_CKPT": "a checkpoint path, documented in docs/weights.md",
     "OF3_CKPT": "a checkpoint path, documented in docs/weights.md",
     "TT_BIO_OPENBIND": "a checkpoint path, documented in docs/weights.md",
+    # Shows stderr that tt-bio filters by default, for debugging; the same as `--debug`.
+    "TT_BIO_DEBUG_STDERR": "a debug switch, the environment form of --debug",
 }
 
 
