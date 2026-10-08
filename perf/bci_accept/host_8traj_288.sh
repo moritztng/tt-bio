@@ -32,7 +32,17 @@ print('jax', jax.__version__, d)
 assert d and d[0].platform == 'gpu', f'arm is not on the GPU: {d}'
 " || { echo 'ABORT: jax is not on the GPU, not spending hours of rental on CPU'; exit 2; }
 
-[ -e "$PROJ" ] && { echo "$PROJ exists; a resume is not a rerun, move it aside"; exit 1; }
+# A resume is safe exactly when the claim ledger is gone. claim_trajectory() increments
+# `trajectories` in .campaign_state.json before the work runs, so a folder that still carries that
+# file carries a claim for a trajectory no row was written for, and resuming counts it as spent.
+# host_recover.py prunes the folder to its complete trajectories and deletes the ledger, after which
+# recovered_state() recounts from the rows on disk and fold_in(key, n) redraws the same trajectory.
+if [ -e "$PROJ" ]; then
+  [ -e "$PROJ/.campaign_state.json" ] && {
+    echo "$PROJ still carries .campaign_state.json: a phantom claim would be counted as spent."
+    echo "run perf/bci_accept/host_recover.py against it first"; exit 1; }
+  echo "resuming $PROJ: claim ledger absent, campaign recounts from completed rows"
+fi
 
 ( while :; do printf "%s %s\n" "$(date -u +%H:%M:%SZ)" \
     "$(nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader 2>/dev/null)"; \
