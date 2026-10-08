@@ -72,8 +72,11 @@ _ENABLED = os.environ.get(
 
 # Add the persistent mask by seeding DST with it ahead of the QK^T matmul, instead of a separate
 # add pass over the score block (one of the four whole-block packs per k chunk; ABLATE_MASKADD
-# priced that pass at 1.17 ms of a 6.55 ms op). OFF until it is measured on a device.
-QK_MASK_PRELOAD = os.environ.get("TT_BIO_TRIATT_QK_MASK_PRELOAD", "0") == "1"
+# priced that pass at 1.17 ms of a 6.55 ms op). MEASURED at [736, 8, 736, 32] bf16 on one
+# Wormhole Galaxy chip at 1000 MHz (perf/spd_attn/opbench.py, .107 chip 8): q256 k384 20.01 ->
+# 17.39 ms, q256 k768 17.39 -> 15.79 ms; rel_rms against float64 0.02667 -> 0.02672 and
+# 0.02724 -> 0.02721. "0" turns it off.
+QK_MASK_PRELOAD = os.environ.get("TT_BIO_TRIATT_QK_MASK_PRELOAD", "1") == "1"
 
 
 def _mask_defines(k_num_chunks: int) -> dict:
@@ -243,7 +246,16 @@ def per_core_cost(p, q_chunk: int, seq: int) -> int:
 # count leaves the matmul and reduce stages one tile wide. MEASURED at 736 tokens (23 tiles), 8
 # heads, bf16, mask-reuse kernel, one Wormhole chip at 1000 MHz (state/lpx-sdpa.md, reuse1): q192
 # against k256 / k384 / k736 = 24.81 / 22.17 / 24.54 ms, and q96 k384 / k736 = 27.69 / 28.19.
+# The whole row is offered as one k chunk at an EVEN tile count instead (`_one_k_chunk`): 24 tiles
+# at 736 keeps 2-wide subblocks, and q256 k768 measured 17.39 ms against q256 k384's 20.01 ms on
+# the same chip (perf/spd_attn/opbench.py), the rescale gone and only one padded tile computed.
 _PADDED_CHUNK_TILES = (16, 12, 8, 6, 4)
+
+
+def _one_k_chunk(seq: int) -> int:
+    """The whole padded row as one k chunk, rounded up to an even tile count."""
+    t = -(-seq // SG.TILE)
+    return (t + t % 2) * SG.TILE
 
 
 @lru_cache(maxsize=None)
@@ -282,7 +294,7 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
     out = []
     chunks = (tuple(t * SG.TILE for t in _PADDED_CHUNK_TILES if t * SG.TILE < seq) if padded
               else SG.chunk_divisors(seq))
-    for kc in chunks:
+    for kc in (chunks + (_one_k_chunk(seq),) if padded else chunks):
         for qc in chunks:
             q_pf = q_parallel_factor(seq, heads, qc, cores, cap=0)
             # `plan` reads the grid only as a core count here, and its split assert is against

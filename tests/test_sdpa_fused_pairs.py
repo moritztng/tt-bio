@@ -128,18 +128,20 @@ def test_env_int_refuses_a_value_it_cannot_parse(monkeypatch):
 
 def test_padded_pairs_at_736_lead_with_the_measured_best():
     """736 is 23 tiles, prime: no dividing pair, so the ladder offers the padded route. On a
-    Wormhole 8x9 grid at Protenix-v2's 8 heads its first pick must be q256 k384, the fastest
-    padded pair lpx-sdpa measured (19.36 ms against 22.17 at q192 k384 and 24.54 at q192 k736)."""
+    Wormhole 8x9 grid at Protenix-v2's 8 heads its first pick must be q256 k768, the whole row as
+    one even k chunk, the fastest padded pair measured (17.39 ms against 20.01 at q256 k384 and
+    20.10 at q192 k768, perf/spd_attn/opbench.py on .107 chip 8)."""
     assert TS.fused_pairs(736, 8, HEAD_DIM, 72) == ()
     pairs = TS.fused_pairs(736, 8, HEAD_DIM, 72, padded=True)
-    assert pairs[0] == (256, 384)
+    assert pairs[:2] == ((256, 768), (256, 384))
 
 
 @pytest.mark.parametrize("cores", (72, 110, 130))
 @pytest.mark.parametrize("seq", (544, 608, 736, 928, 992, 1184))
 def test_every_padded_pair_pads_fits_and_is_one_q_chunk_per_core(seq, cores):
     for qc, kc in TS.fused_pairs(seq, 8, HEAD_DIM, cores, padded=True):
-        assert qc // SG.TILE in TS._PADDED_CHUNK_TILES and kc // SG.TILE in TS._PADDED_CHUNK_TILES
+        assert qc // SG.TILE in TS._PADDED_CHUNK_TILES
+        assert kc // SG.TILE in TS._PADDED_CHUNK_TILES or kc == TS._one_k_chunk(seq)
         q_pf = TS.q_parallel_factor(seq, 8, qc, cores, cap=0)
         p = SG.plan_for_shape(seq, 8, HEAD_DIM, qc, kc, grid=(cores, 1),
                               split=(max(cores // (8 * q_pf), 1), 8, q_pf))

@@ -1,8 +1,8 @@
 """spd-attn op bench: Protenix-v2's attention sites at the c730 shapes, today's call against this row's levers.
 
-  ta:     triangle attention [736, 8, 736, 32] bf16 + [1, 8, 736, 736] bias through `_tri_att_sdpa_at`, with
-          `_SDPA_FUSED_PADDED` off (today: stock op) and on (padded fused pair), plus every padded pair in
-          `fused_pairs(padded=True)` order up to --pairs, so the ranking can be checked against the device.
+  ta:     triangle attention [S, 8, S, 32] bf16 + [1, 8, S, S] bias through `_tri_att_sdpa_at` at each --ta-seq,
+          stock op (padded off) against the shipped ladder with and without the mask preload; at 736 also every
+          padded pair in `fused_pairs(padded=True)` order up to --pairs plus fixed reference pairs.
   atom:   the diffusion atom-attention module (5 samples, 5,919 atoms, 4 heads), windows + core + re-layout:
           today's windowed path (fp32 = normal, bf16 = TT_BIO_LPX) against the superset window (fp32 explicit,
           bf16 explicit, bf16 fused SDPA).
@@ -15,7 +15,7 @@ from pathlib import Path
 
 ap = argparse.ArgumentParser()
 ap.add_argument("out"); ap.add_argument("chip", type=int); ap.add_argument("which", nargs="?", default="all")
-ap.add_argument("--pairs", type=int, default=6); ap.add_argument("--reps", type=int, default=10)
+ap.add_argument("--pairs", type=int, default=6); ap.add_argument("--ta-seq", type=int, nargs="+", default=[736, 928, 1184]); ap.add_argument("--reps", type=int, default=10)
 a = ap.parse_args()
 OUT = Path(a.out).resolve(); OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "bench.jsonl", "a")
@@ -59,47 +59,50 @@ rel = lambda o, r: float(((o.double() - r).pow(2).mean() / r.pow(2).mean()).sqrt
 ARMS, REF, SEL = {}, {}, {}
 
 # ---- triangle attention
-if a.which in ("ta", "all"):
-    S, H, D = 736, 8, 32
-    torch.manual_seed(0)
+def ta_site(S, full):
+    """Arms at [S, 8, S, 32]; `full` adds every padded pair and the explicit k768 / preload arms (736 only)."""
+    H, D, site = 8, 32, f"ta{S}"
+    torch.manual_seed(S)
     hq, hk, hv = (torch.randn(S, H, S, D) for _ in range(3))
     hb = torch.randn(1, H, S, S) * 2
     q, k, v, b = (up(t, ttnn.bfloat16) for t in (hq, hk, hv, hb))
     sc = D ** -0.5
     # The fused kernels add the bias before scaling: exp((qk + b - max) * scale).
-    # Scored on every 23rd batch row: a float64 reference of the whole call is 4 GB of host memory.
-    SEL["ta"] = slice(0, S, 23)
-    q16, k16, v16 = (ttnn.to_torch(t)[SEL["ta"]].double() for t in (q, k, v))
-    REF["ta"] = torch.softmax((q16 @ k16.transpose(-1, -2) + ttnn.to_torch(b).double()) * sc, -1) @ v16
+    # Scored on every 23rd batch row: a float64 reference of the whole call is GBs of host memory.
+    SEL[site] = slice(0, S, 23)
+    q16, k16, v16 = (ttnn.to_torch(t)[SEL[site]].double() for t in (q, k, v))
+    REF[site] = torch.softmax((q16 @ k16.transpose(-1, -2) + ttnn.to_torch(b).double()) * sc, -1) @ v16
 
-    def ta_ladder(padded):
+    def arm(fn, padded=True, preload=True):
         def call():
-            T._SDPA_FUSED_PADDED = padded
-            return T._tri_att_sdpa_at(q, k, v, b, sc)
-        return call
-    ARMS["ta stock (padded off)"] = ("ta", ta_ladder(False))
-    ARMS["ta ladder (padded on)"] = ("ta", ta_ladder(True))
-    cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
-    for qc, kc in TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)[:a.pairs]:
-        ARMS[f"ta padded q{qc} k{kc}"] = ("ta", lambda qc=qc, kc=kc: TS.sdpa(
-            q, k, v, b, sc, qc, kc, q_split_cap=0, padded_mask=True))
-    # One whole-row k chunk (24 tiles, padded): drops the online-softmax rescale and a round of stage
-    # inits; 24 keeps 2x4 subblocks where 23 forces 1-wide. Not offered by fused_pairs until measured.
-    for qc in (256, 192):
-        ARMS[f"ta padded q{qc} k768 (one k chunk)"] = ("ta", lambda qc=qc: TS.sdpa(
-            q, k, v, b, sc, qc, 768, q_split_cap=0, padded_mask=True))
-    # The bias seeded into DST ahead of QK^T (TT_BIO_TRIATT_QK_MASK_PRELOAD), on the shipped pair and on k768.
-    def preload(qc, kc):
-        def call():
-            TS.QK_MASK_PRELOAD = True
+            prev = T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD
+            T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD = padded, preload
             try:
-                return TS.sdpa(q, k, v, b, sc, qc, kc, q_split_cap=0, padded_mask=True)
+                return fn()
             finally:
-                TS.QK_MASK_PRELOAD = False
+                T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD = prev
         return call
-    for qc, kc in ((256, 384), (256, 768)):
-        ARMS[f"ta padded q{qc} k{kc} + mask preload"] = ("ta", preload(qc, kc))
-    log(ev="ta_pairs", cores=cores, pairs=TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)[:a.pairs])
+    ladder = lambda: T._tri_att_sdpa_at(q, k, v, b, sc)
+    pair = lambda qc, kc: lambda: TS.sdpa(q, k, v, b, sc, qc, kc, q_split_cap=0, padded_mask=True)
+    ARMS[f"ta{S} stock (padded off)"] = (site, arm(ladder, padded=False))
+    ARMS[f"ta{S} ladder, no preload"] = (site, arm(ladder, preload=False))
+    ARMS[f"ta{S} ladder (shipped)"] = (site, arm(ladder))
+    cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
+    pairs = TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)
+    log(ev="ta_pairs", seq=S, cores=cores, pairs=pairs[:a.pairs])
+    if not full:
+        return
+    for qc, kc in pairs[:a.pairs]:
+        ARMS[f"ta{S} q{qc} k{kc}"] = (site, arm(pair(qc, kc)))
+        ARMS[f"ta{S} q{qc} k{kc} no preload"] = (site, arm(pair(qc, kc), preload=False))
+    for qc, kc in ((256, 768), (192, 768), (384, 768), (256, 384), (384, 384)):
+        if (qc, kc) not in pairs[:a.pairs]:
+            ARMS[f"ta{S} q{qc} k{kc}"] = (site, arm(pair(qc, kc)))
+
+
+if a.which in ("ta", "all"):
+    for S in a.ta_seq:
+        ta_site(S, S == 736)
 
 # ---- atom attention module
 if a.which in ("atom", "all"):
@@ -166,13 +169,13 @@ for name, (site, call) in ARMS.items():
         o = ttnn.to_torch(o).double()
         o = (o[SEL[site]] if site in SEL else o).reshape(REF[site].shape)
         log(ev="check", arm=name, finite=bool(torch.isfinite(o).all()), rel_rms_vs_f64=rel(o, REF[site]),
-            picks={f"{k}": v for k, v in T.SDPA_CHUNK_PICKS.items()} if site == "ta" else None)
+            picks={f"{kk}": vv for kk, vv in T.SDPA_CHUNK_PICKS.items()} if site.startswith("ta") else None)
         live[name] = call
     except Exception as e:
         log(ev="refused", arm=name, error=str(e).splitlines()[0][:300])
 
 samples = {n: [] for n in live}; clk = {n: [] for n in live}
-ncall = {n: (20 if ARMS[n][0] == "ta" else 10) for n in live}
+ncall = {n: (20 if ARMS[n][0].startswith("ta") else 10) for n in live}
 
 
 def clk_window(t0, t1):
