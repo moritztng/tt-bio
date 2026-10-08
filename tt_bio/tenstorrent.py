@@ -5130,6 +5130,9 @@ def set_trimul_ibw_full(on: bool) -> bool:
     """A/B switch for the harness. Returns the previous state."""
     global _TRIMUL_IBW_FULL
     prev, _TRIMUL_IBW_FULL = _TRIMUL_IBW_FULL, bool(on)
+    # The program config is lru-cached per Kt: without this the first arm's block is every arm's
+    # (spd-trimul r1/r2 measured a null "ibw" that had run in0_block_w = 1 throughout).
+    _triangle_mul_program_config.cache_clear()
     return prev
 
 
@@ -8549,6 +8552,7 @@ class TriangleMultiplication(Module):
                 if ibw_clash:
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
+                    _triangle_mul_program_config.cache_clear()
                     program_config = _triangle_mul_program_config(seq_len_tiles)
                 if (not oom and not mask_clash and not ibw_clash
                         and (large_seq or "clash with L1 buffers" not in msg)):
