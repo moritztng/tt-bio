@@ -89,6 +89,13 @@ def main():
     parser.add_argument("--model", default="model_1_multimer_v3",
                         help="AF2 checkpoint, the same preset the card A/B runs")
     parser.add_argument("--blocks", type=int, default=None)
+    parser.add_argument("--exact", action="store_true",
+                        help="run under autograd.exact_training(True). The input-scale sweep "
+                             "cannot separate a structural defect from accumulated bf16: "
+                             "floating-point relative error is scale-invariant too, so a flat "
+                             "sweep is consistent with both. This lever can. If the "
+                             "configurations converge under exact training the disagreement is "
+                             "precision; if they still disagree it is structural.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--scale", type=float, default=0.1,
                         help="standard deviation of the random activations")
@@ -140,7 +147,8 @@ def main():
         raise SystemExit(f"{args.model} not in {args.af2_weights}: {pool.absent[args.model]}")
     pool.use(args.model)
     results = {}
-    with bindcraft2.refusals_unwrapped(), autograd.exact_training(False), \
+    print(f"exact_training={args.exact}", flush=True)
+    with bindcraft2.refusals_unwrapped(), autograd.exact_training(args.exact), \
             bindcraft2.fast_round():
         for config in args.configs:
             mode, _, recompute_text = config.partition(":")
