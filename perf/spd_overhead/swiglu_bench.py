@@ -3,8 +3,7 @@
     TT_VISIBLE_DEVICES=N python perf/spd_overhead/swiglu_bench.py --out OUT.json [--silu-approx]
 
 Arms: `fused` (silu in fc1's epilogue, shipped) and `unfused` (standalone silu on bf16 fc1, held off
-on accuracy), plus `dramN` (fused silu, intermediates in DRAM, N-row blocks: TRANSITION_DRAM_ROWS).
-`--silu-approx` runs the whole process on the metal_overlay patch that lets the fused
+on accuracy). `--silu-approx` runs the whole process on the metal_overlay patch that lets the fused
 silu honour math_approx_mode; run once with and once without and compare `fused`. Each arm runs the
 real `Transition` module on the whole pair tensor, row chunking included, with Protenix's compute
 config, so the time is what a fold pays per call. Error is quoted against float64 math on the same
@@ -63,8 +62,6 @@ def main():
         z = ttnn.from_torch(zt.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
         for arm in a.arms.split(","):
             T._UNFUSED_SILU = arm == "unfused"
-            T.TRANSITION_DRAM_ROWS = int(arm[4:]) if arm.startswith("dram") else 0
-            T.TRANSITION_H_CHUNK_SHAPES.clear()
             row = {"shape": shp, "arm": arm}
             try:
                 o = tr(z)
@@ -100,7 +97,7 @@ def main():
             print(json.dumps(row), flush=True)
             res["rows"].append(row)
         ttnn.deallocate(z)
-    T._UNFUSED_SILU, T.TRANSITION_DRAM_ROWS = False, 0
+    T._UNFUSED_SILU = False
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res, indent=1))
 

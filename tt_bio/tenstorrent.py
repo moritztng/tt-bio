@@ -351,13 +351,6 @@ TRANSITION_L1_CHUNK_BYTES_PER_CORE = _BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE
 # Screen hook for the Blackhole raise, same pattern as every other lever here: the shipped
 # default has to stay A/B-able on one build without editing a derivation. On by default.
 _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
-# Row height for a pair Transition whose intermediates live in DRAM instead of L1; 0 keeps the L1
-# path. The L1 budget holds Protenix-v2's c=256 pair transition to 5 rows on the Wormhole Galaxy,
-# 147 row blocks of six small ops per call, and the census reads that as dispatch- and
-# small-block bound (fc1 at 0.15 of roof). Taller blocks in DRAM trade L1 reuse for fewer, larger
-# programs. Row-local, so the block boundaries move no output byte. Measuring
-# (perf/spd_overhead/swiglu_bench.py --arms dram16,dram64,...).
-TRANSITION_DRAM_ROWS = env_int("TT_BIO_TRANSITION_DRAM_ROWS", 0)
 
 # A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
 # same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
@@ -10678,9 +10671,7 @@ class Transition(Module):
         # where it was slow rather than fatal, and it settles the question that row left
         # open: the L1 lever is INFERENCE-ONLY. Under a tape the intermediates go to DRAM,
         # which is also cheaper than keeping them in L1 and paying eviction traffic on top.
-        _dram_rows = TRANSITION_DRAM_ROWS if len(x.shape) == 4 else 0
-        _tape_mc = (ttnn.DRAM_MEMORY_CONFIG if ops.taping() or _dram_rows
-                    else ttnn.L1_MEMORY_CONFIG)
+        _tape_mc = ttnn.DRAM_MEMORY_CONFIG if ops.taping() else ttnn.L1_MEMORY_CONFIG
         def swiglu(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             hidden = ttnn.bfloat8_b if self._hidden_b8 else dtype
@@ -10895,8 +10886,6 @@ class Transition(Module):
         _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))
-        if _dram_rows:
-            transition_h_chunk_size = min(_dram_rows, H)
         # Record what the height actually came out as, AFTER every clause including the screen
         # hook, because a ladder rung that reads "served" off a constant and not off the call is
         # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
