@@ -37,11 +37,19 @@ mkdir -p "$ROOT/.bci"
 
 # Wait for the dropout pair to finish. Poll the pids, not the logs: a log goes quiet mid-stage
 # because BindCraft 2 prints only at stage end, so a quiet log is not a finished arm.
-echo "waiting for the dropout pair to free pc's cores, from $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-while pgrep -f 'capture_logits.py .*--design-dropout (true|false) --trajectories' >/dev/null 2>&1; do
-  sleep 60
-done
-echo "pair gone at $(date -u +%Y-%m-%dT%H:%M:%SZ), load $(cut -d' ' -f1-3 /proc/loadavg)"
+# The wait above is a guess about how long the pair has left, and a guess decays. Set
+# BCI_AFTER_NOWAIT=1 when you have looked at the load and the pair's actual progress and decided
+# there are cores to spare: this arm is on the critical path for AFTER, and idling it behind a
+# restarted arm that turned out to have hours left costs more than the contention does.
+if [ "${BCI_AFTER_NOWAIT:-0}" = 1 ]; then
+  echo "BCI_AFTER_NOWAIT=1, starting beside the pair at $(date -u +%Y-%m-%dT%H:%M:%SZ), load $(cut -d' ' -f1-3 /proc/loadavg)"
+else
+  echo "waiting for the dropout pair to free pc's cores, from $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  while pgrep -f 'capture_logits.py .*--design-dropout (true|false) --trajectories' >/dev/null 2>&1; do
+    sleep 60
+  done
+  echo "pair gone at $(date -u +%Y-%m-%dT%H:%M:%SZ), load $(cut -d' ' -f1-3 /proc/loadavg)"
+fi
 
 FREE_MB=$(df -Pm / | awk 'NR==2 {print $4}')
 [ "$FREE_MB" -lt 200 ] && { echo "only ${FREE_MB}MB free on /, refusing to start an hours-long arm" >&2; exit 1; }
