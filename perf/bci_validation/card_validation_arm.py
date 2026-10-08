@@ -57,11 +57,11 @@ def chain_sequence(pdb, chain):
 
 
 def mutants(sequence, count):
-    """`count` candidate sequences: the native binder, then deterministic point mutants of it.
+    """Fallback candidates: the native binder, then deterministic point mutants of it.
 
-    Different sequences are the reporter's sharpest signal. Their ten MPNN candidates differ from
-    each other and still scored an identical `Target_pLDDT`, because the damage is in the TARGET's
-    pair track. A mutant is enough to show that; what matters is that the sequences differ.
+    Only reached with `--candidates-from mutants`. Different sequences are the reporter's sharpest
+    signal: their ten MPNN candidates differ from each other and still scored an identical
+    `Target_pLDDT`, because the damage is in the TARGET's pair track.
     """
     out = [sequence]
     swap = {"A": "V", "V": "A", "L": "I", "I": "L", "S": "T", "T": "S", "D": "E", "E": "D",
@@ -73,6 +73,25 @@ def mutants(sequence, count):
             chars[i] = swap.get(chars[i], "A")
         out.append("".join(chars))
     return out
+
+
+def mpnn_candidates(states, count, weights, bucket, temperature=0.1):
+    """The campaign's own candidate source: ProteinMPNN redesigns the binder on the complex.
+
+    `MPNN_stage.decode_sequence_candidates` in one call, minus the trajectory bookkeeping. These
+    are the kind of sequences the reporter's ten numbers are scored on, and a redesigned binder on
+    a real interface is something a validation fold can plausibly accept.
+    """
+    from bindcraft.filters import binder_one_letter_sequence
+    from bindcraft.MPNN_stage import mark_redesign_residues
+    from bindcraft.proteinmpnn import ProteinMPNNSequenceModel
+
+    model = ProteinMPNNSequenceModel(data_dir=weights, length_bucket_size=bucket,
+                                     temperature=temperature, variant="neutral")
+    redesign = mark_redesign_residues(states["complex"], "binder", "target", keep_interface=False)
+    decoded = model.predict_candidates({"complex": redesign}, candidate_count=count)
+    return ["".join(binder_one_letter_sequence(candidate["complex"].protein_complex["binder"]))
+            for candidate in decoded]
 
 
 def states_for(pdb, target_chain, binder_sequence):
@@ -114,7 +133,12 @@ def main():
     ap.add_argument("--binder-chain", dest="binder_chain", default="B")
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--settings", default=None)
-    ap.add_argument("--candidates", type=int, default=3)
+    ap.add_argument("--candidates", type=int, default=10,
+                    help="the reporter scored ten MPNN candidates")
+    ap.add_argument("--candidates-from", dest="candidates_from", default="mpnn",
+                    choices=("mpnn", "mutants"))
+    ap.add_argument("--mpnn", default="/home/ttuser/bcx_e2e/bc2/bindcraft/weights/proteinmpnn/"
+                                      "weights_neutral")
     ap.add_argument("--recycle", type=int, default=3)
     ap.add_argument("--bucket", type=int, default=32)
     ap.add_argument("--resident", type=int, default=1)
@@ -147,7 +171,6 @@ def main():
     filters = build_design_settings(settings).filters
 
     native = chain_sequence(args.pdb, args.binder_chain)
-    sequences = mutants(native, args.candidates)
     sequence_parameters = dict(softmax_weight=1.0, one_hot_weight=1.0, temperature=0.01,
                                logit_scale=2.0)
 
@@ -162,7 +185,7 @@ def main():
         "pci": M.CLOCK.pci, "aiclk_sysfs": M.CLOCK.path,
         "pdb": args.pdb, "target_chain": args.target_chain, "binder_chain": args.binder_chain,
         "target_length": None, "binder_length": len(native),
-        "candidates_asked": len(sequences), "extra_msa": args.extra_msa,
+        "candidates_asked": args.candidates, "extra_msa": args.extra_msa,
         "resident": args.resident, "recycle": args.recycle, "bucket": args.bucket,
         "settings_file": settings_file, "filters": sorted(filters),
         "started_utc": time.strftime("%FT%TZ", time.gmtime()),
@@ -197,8 +220,13 @@ def main():
                                            extra_msa=args.extra_msa, template=True,
                                            exact=False) as build:
             stamp["fast"], stamp["memory_mode"] = build.fast, build.memory.used
-            states = states_for(args.pdb, args.target_chain, sequences[0])
+            states = states_for(args.pdb, args.target_chain, native)
             stamp["target_length"] = len(states["complex"]["target"])
+            sequences = (mpnn_candidates(states, args.candidates, args.mpnn, args.bucket)
+                         if args.candidates_from == "mpnn"
+                         else mutants(native, args.candidates))
+            stamp["candidates_from"] = args.candidates_from
+            stamp["candidate_sequences"] = sequences
 
             # 1. The design model. First build, so it goes on card: it selects a checkpoint into
             #    the trunk pool and builds the device stacks. Without this fold the pool holds
