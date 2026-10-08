@@ -21,6 +21,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--px", default="190,429,806")
+    ap.add_argument("--ab", type=Path, help="write the failing [64, 256] x [256, 64] window for hifi4_min.py and stop")
     ap.add_argument("--h", type=int, default=5, help="the Transition's row-block height on this chip")
     a = ap.parse_args()
     import torch, ttnn
@@ -53,6 +54,15 @@ def main():
     res = {"px": [r, c, ch], "h": h, "f64": float(x @ w),
            "kpart_f64": [float(x[i:i + 32] @ w[i:i + 32]) for i in range(0, C, 32)]}
     dt = lambda t: ttnn.to_torch(t).to(torch.float64)
+    flat = (r - s) * S + c
+    if a.ab:
+        m0, n0 = (flat // 64) * 64, (ch // 64) * 64
+        g = T.CORE_GRID_MAIN
+        torch.save({"a": xnd[0].reshape(-1, C)[m0:m0 + 64].to(torch.bfloat16),
+                    "b": sd["fc2.weight"][n0:n0 + 64].T.contiguous().to(torch.bfloat16),
+                    "ij": (flat - m0, ch - n0), "grid": f"{g.y}x{g.x}"}, a.ab)
+        print(json.dumps({"ab": str(a.ab), "ij": [flat - m0, ch - n0], "grid": f"{g.y}x{g.x}"}), flush=True)
+        return
 
     def lin(xin, wt, fid, grid=True):
         kw = dict(compute_kernel_config=K(fid), memory_config=ttnn.L1_MEMORY_CONFIG, dtype=ttnn.float32)
@@ -65,7 +75,6 @@ def main():
         y = lin(xn, tr.fc2_weight, fid)
         cases[f"block_{fid}"] = float(y[0, r - s, c, ch])
     # One tile pair. Row position inside its tile in the flattened [h*S, C] view, column inside its tile.
-    flat = (r - s) * S + c
     tr_row, tc = flat % 32, ch % 32
     rows = xnd[0].reshape(-1, C)[flat - tr_row: flat - tr_row + 32]     # the 32 rows of the original tile
     cols = sd["fc2.weight"][ch - tc: ch - tc + 32].T                    # [256, 32]
