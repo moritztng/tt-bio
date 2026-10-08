@@ -98,27 +98,51 @@ def arm_fp32(gather):
         return relayout(core_explicit(Qb, Kb, Vb))
     return call
 
-def arm_sdpa(dt, fid):
-    m = up(mask_h, dt)
+def arm_sdpa(dt, fid, kv="gather", mdt=None):
+    m = up(mask_h, mdt or dt)
     pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=tuple(T.COMPUTE_GRID_MAIN), q_chunk_size=32, k_chunk_size=128)
     ck = ttnn.WormholeComputeKernelConfig(math_fidelity=fid, math_approx_mode=True, fp32_dest_acc_en=False, packer_l1_acc=False)
+    def windows(x):
+        if kv == "gather":
+            return kv_gather(x, dt)
+        w = AT._windows_kv_m(ns, x, M, N, NP)
+        return w if dt == ttnn.bfloat16 else ttnn.typecast(w, dt)
     def call():
         qb = ttnn.typecast(q32, ttnn.bfloat16); kb = ttnn.typecast(k32, ttnn.bfloat16); vb = ttnn.typecast(v32, ttnn.bfloat16)
         Qb = AT._windows_q_m(ns, qb, M, N, NP)
         if dt != ttnn.bfloat16:
             Qb = ttnn.typecast(Qb, dt)
-        o = ttnn.transformer.scaled_dot_product_attention(Qb, kv_gather(kb, dt), kv_gather(vb, dt), attn_mask=m,
+        o = ttnn.transformer.scaled_dot_product_attention(Qb, windows(kb), windows(vb), attn_mask=m,
                                                           is_causal=False, scale=s, program_config=pc, compute_kernel_config=ck)
         return ttnn.typecast(relayout(o), ttnn.float32)
     return call
 
+# Attribution arms: one stage of the bf16 module alone, on inputs prepared outside the timed call.
+k16 = ttnn.typecast(k32, ttnn.bfloat16)
+part_q = AT._windows_q_m(ns, ttnn.typecast(q32, ttnn.bfloat16), M, N, NP)
+part_k, part_v = AT._windows_kv_m(ns, k16, M, N, NP), AT._windows_kv_m(ns, k16, M, N, NP)
+part_m = up(mask_h, ttnn.bfloat16)
+part_pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=tuple(T.COMPUTE_GRID_MAIN), q_chunk_size=32, k_chunk_size=128)
+part_ck = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
+                                           fp32_dest_acc_en=False, packer_l1_acc=False)
+PARTS = {
+    "part: K+V windows, bf16 slice/concat loop": lambda: (AT._windows_kv_m(ns, k16, M, N, NP), AT._windows_kv_m(ns, k16, M, N, NP))[1],
+    "part: K+V windows, bf16 one gather": lambda: (kv_gather(k16, ttnn.bfloat16), kv_gather(k16, ttnn.bfloat16))[1],
+    "part: K+V windows, fp32 slice/concat loop": lambda: (AT._windows_kv_m(ns, k32, M, N, NP), AT._windows_kv_m(ns, k32, M, N, NP))[1],
+    "part: bf16 SDPA core": lambda: ttnn.transformer.scaled_dot_product_attention(
+        part_q, part_k, part_v, attn_mask=part_m, is_causal=False, scale=s, program_config=part_pc, compute_kernel_config=part_ck),
+}
+
 ARMS = {"fp32_loop": arm_fp32(False), "fp32_gather": arm_fp32(True),
         "bf16_sdpa HiFi2": arm_sdpa(ttnn.bfloat16, ttnn.MathFidelity.HiFi2),
+        "bf16_loop_sdpa HiFi2": arm_sdpa(ttnn.bfloat16, ttnn.MathFidelity.HiFi2, kv="loop"),
         "bfp8_sdpa HiFi2": arm_sdpa(ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2),
+        "bfp8_sdpa bf16 mask HiFi2": arm_sdpa(ttnn.bfloat8_b, ttnn.MathFidelity.HiFi2, mdt=ttnn.bfloat16),
+        "bfp8_loop_sdpa bf16 mask LoFi": arm_sdpa(ttnn.bfloat8_b, ttnn.MathFidelity.LoFi, kv="loop", mdt=ttnn.bfloat16),
         "bfp8_sdpa LoFi": arm_sdpa(ttnn.bfloat8_b, ttnn.MathFidelity.LoFi)}
 
 ref = None
-live = {}
+live = dict(PARTS)
 for name, call in ARMS.items():
     try:
         o = ttnn.to_torch(call()).float()
