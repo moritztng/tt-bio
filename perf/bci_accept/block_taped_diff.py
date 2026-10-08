@@ -56,6 +56,13 @@ def main():
                              "lever) and remeasure. The arm that drops is the one carrying the "
                              "difference. Skipping also removes work, so a class is only "
                              "implicated if its leg falls much further than the others.")
+    parser.add_argument("--also-skip", action="append", default=[],
+                        help="an extra sweep leg, comma-separated op classes. Dropping msa_row_attn "
+                             "zeroes the MSA track, but that op is also the ONLY MSA op that reads "
+                             "the pair track, so the zero may be imported divergence rather than a "
+                             "defect of its own. Dropping every pair op instead decides it: if the "
+                             "MSA difference collapses with msa_row_attn still running, it was "
+                             "coming through the pair bias.")
     parser.add_argument("--warmup", type=int, default=2,
                         help="blocks the carry is advanced untaped before any row is measured. "
                              "The raw random input is off-distribution and the first block "
@@ -108,7 +115,8 @@ def main():
             order.reverse()
 
         if args.skip_sweep:
-            configs = [()] + [(name,) for name in OP_CLASSES]
+            configs = ([()] + [(name,) for name in OP_CLASSES]
+                       + [tuple(group.split(",")) for group in args.also_skip])
             warm_msa, warm_pair = msa, pair
             try:
                 for index in range(args.warmup):
@@ -117,7 +125,7 @@ def main():
                 print(f"carry settled through {args.warmup} untaped blocks, pair max "
                       f"{float(np.max(np.abs(warm_pair))):.6g}", flush=True)
 
-                print(f"\n{'skipped':>16} {'mean msa':>10} {'mean pair':>10} {'rows':>5}",
+                print(f"\n{'skipped':>58} {'mean msa':>10} {'mean pair':>10} {'rows':>5}",
                       flush=True)
                 for names in configs:
                     # `set_skip` walks `device_evoformer` to set each block's `skip`, so the
@@ -135,8 +143,8 @@ def main():
                         msa_readings.append(rel_l2(taped_msa, untaped[0]))
                         pair_readings.append(rel_l2(taped_pair, untaped[1]))
                         carry_msa, carry_pair = untaped
-                    label = names[0] if names else "(control)"
-                    print(f"{label:>16} {float(np.mean(msa_readings)):>10.6f} "
+                    label = "+".join(names) if names else "(control)"
+                    print(f"{label:>58} {float(np.mean(msa_readings)):>10.6f} "
                           f"{float(np.mean(pair_readings)):>10.6f} {len(pair_readings):>5}",
                           flush=True)
             finally:
