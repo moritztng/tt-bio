@@ -14,7 +14,7 @@ AICLK of every Tenstorrent node is sampled every 0.25 s while the timed loops ru
 
 usage: TT_VISIBLE_DEVICES=<chip> python bench_msa_ops.py OUT [pwa,opm] [TOKENS] [DEPTH] [REPS]
 """
-import glob, json, os, statistics, sys, threading, time
+import glob, hashlib, json, os, statistics, sys, threading, time
 from pathlib import Path
 
 OUT = Path(sys.argv[1])
@@ -175,7 +175,8 @@ def bench_opm():
         res[arm] = ttnn.to_torch(out).reshape(T_, T_, C_Z)[:R]
         log(ev="opm", arm=arm, depth=DEPTH, tokens=T_, ms=ts, ms_med=statistics.median(ts), aiclk=clk,
             err=err(res[arm], ref), err_update=err(res[arm] - z[0, :R].double(), ref - z[0, :R].double()),
-            stats=list(T.OPM_JOIN_PARTS_STATS))
+            stats=list(T.OPM_JOIN_PARTS_STATS),
+            sha=hashlib.sha1(res[arm].contiguous().view(torch.int16).numpy().tobytes()).hexdigest()[:12])
         ttnn.deallocate(out)
     log(ev="opm_ab", joined_vs_chunked=err(res["joined"], res["chunked"].double()),
         proj_batch_bitident=bool(torch.equal(res["joined_pb"], res["joined"])))
