@@ -5,20 +5,104 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-08
+
+Fixes for the BindCraft 2 issues reported against 0.12.0. A campaign on a Tenstorrent card scores its
+designs correctly again, keeps its device memory flat from one trajectory to the next, says what
+filled the card when it does refuse, and exits when it is done.
+
+### Added
+
+- **`--diffusion_precision bf16` for Protenix.** Runs the diffusion module in bf16, about 9 %
+  faster per fold on Wormhole with structures inside seed-to-seed variation. The default stays
+  `fp32`. [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+
 ### Fixed
 
+- **BindCraft 2 validation scores the complex it designed, so it no longer rejects every design
+  (#21).** Validation is meant to refold each design on BindCraft 2's own JAX model, but only
+  the Evoformer was kept off the card: the extra-MSA stack and the template embedder still ran on
+  the card with the design model's weights. Every design came back with `Target_pLDDT` near 0.3
+  and `Interface_Residues` equal to the binder length, and nothing passed the filters. Validation
+  now runs every stack on the host and returns the same `Target_pLDDT`, `pLDDT`,
+  `Interface_Residues`, `Binder_RMSD` and i_pTM as BindCraft 2 alone, so a design passes or fails
+  the filters on its own merits. The design loop is unchanged. This was also why on-card
+  campaigns accepted fewer designs than host JAX (#17): their redesigns carried the same signature,
+  and with this fix an on-card campaign accepted 1 of 3 trajectories where host JAX accepted 0 of 3
+  on the same seeds. Three trajectories cannot rank the two, so read that as no measurable gap
+  left, not as a lead.
+- **Device memory no longer grows across BindCraft 2 trajectories (#18).** With `resident=1`,
+  each time the campaign switched design model it left the previous model's pair weights on the
+  card, about 60 MB per switch and over a hundred switches per trajectory, so a 352-token campaign
+  on a p300c was refused after about four trajectories. Those weights are now released when the
+  model is evicted, and held memory stays flat across trajectories: about 1.2 to 1.7 GiB at each
+  boundary over an eight-trajectory campaign, depending on which model is resident.
 - **A BindCraft 2 out-of-memory refusal says how much of the card the failing trajectory
   allocated.** It used to call everything allocated on the card "held by this fold", and in one
   reported campaign three quarters of that had been held before the trajectory started. A
   campaign now reads the card at each trajectory boundary and the refusal prints both parts; when
   most of it was inherited it points at `resume=true` instead of at the fold's size (#19).
-
 - **A process that used a Tenstorrent card exits on its own, with its own status.** A BindCraft 2
   campaign could finish its work and then exit 139, or hang with SIGTERM ignored after an
   out-of-memory refusal, in teardown after Python was done. tt-bio now ends the process once it
   has closed the card, with the status the program chose, before the C++ destructors of tt-metal
   and XLA run. The stderr filter that tt-bio forked at import is gone; the nanobind leak report it
   dropped is still dropped, and `--debug` (or `TT_BIO_DEBUG_STDERR=1`) shows it (#20).
+
+### Known issues
+
+- **The on-card Evoformer applies no dropout.** BindCraft 2 designs with dropout on
+  (`design_dropout`, default true, off for the `harden` stage); when the Evoformer runs on the card
+  it runs without dropout in every stage. Host JAX trajectories keep it.
+
+### The release gate itself
+
+Run on qb1 (`tt-quietbox`), a four-card Blackhole p150a box, from a venv holding the built release
+wheel with `[tenstorrent,test]`, which resolves the `pyproject.toml` ttnn pin (0.68.0). Every arm
+scores the release code: `tt_bio/`, `scripts/` and `pyproject.toml` at 3d3f923ff, identical in the
+tagged commit. The arms were split over cards 0, 2 and 3 to
+fit in a day, so the host was never idle: load 7 to 28 on 32 cores. Timed folds ran at AICLK
+1350 MHz except where noted.
+
+**Implementation parity: PASS.** 44 legs, 39 PASS, 4 GAP, 1 PASS-caveated. The four GAP legs
+reproduce the deviation already committed for them.
+
+**Accuracy against ground truth: PASS.** All 21 per-model release-gate arms cleared their floors,
+including the L1-budget, batch-position, NESSO-1 and RF3 1024-residue arms.
+
+**UX: PASS.** Every surface cleared progress, parse and results shape.
+
+**BindCraft 2 on a card: PASS.** A campaign on the release code held 1.16 to 1.45 GiB at each of
+six trajectory boundaries and exited on its own with status 0. After publishing, the same campaign
+run from `pip install tt-bio[tenstorrent]==0.13.1` in a clean environment held 1.41 and 1.21 GiB
+after its two trajectories and exited 0.
+
+**On-device test suite: 9281 passed, 3 failed.** Two are abb3 timing records taken before 0.13.0,
+re-recorded in this release. The third is the opt-in Protenix device confidence path
+(`TT_PROTENIX_CONF_DEVICE`), whose PAE correlation reads 0.9807 against its floor with the same
+digits since 0.6.7; the default path computes confidence on the host.
+
+**Capacity: matches the baseline.** 13 pass, 6 skip, and the two refusals are OpenDDE and
+OpenDDE-abag at 1536 tokens, above the recorded p150a ceiling of 1024.
+
+**Performance: no change against 0.13.0.** The arm failed 8 of 21 models against the recorded
+baselines at load 22.7, so it was settled by pairing 0.13.1 with 0.13.0 on card 0 in interleaved
+rounds. Per-round delta against the baseline, 0.13.1 / 0.13.0: OpenFold3 +0.5, +5.3, +16.5 /
+-14.9, +3.1, +14.6 %; OpenDDE-abag -20.2, -4.8, +9.1 / -16.5, -3.5, +12.3 %; RF3 -13.2, -1.5,
++0.2 / -7.9, -2.8, +0.2 %; ESMC-300M -2.8, -3.5 / -3.3, +0.2 %; BoltzGen -9.8, +18.0 / +8.1,
++17.3 %; Boltz-2 affinity -54.1, -35.7 / -61.0, -41.5 %. 0.13.1 is inside 0.13.0's round spread on
+every model. NESSO-1 ran with the card at 800 MHz in both arms, so its numbers compare the two
+releases and nothing else.
+
+**Supported sizes: no change against 0.13.0.** Boltz-2, ESMFold-2, Protenix-v2, OpenFold3 and
+RF3 passed the full ladder, 256 to 1536 tokens. OpenBind-0 failed on its first rung only (256
+tokens, 37.0 s against 11.4 s recorded) and NESSO-1 read 1.08 to 2.46x slower on every rung,
+smallest rungs most, which is what host load does to a dispatch-bound fold; the release changes
+no code either model runs. Protenix-v1 at 896 tokens and OpenDDE at 768 timed out in warm-up once
+each. Rerun three times per release, interleaved, both folded every time on both: Protenix-v1 in
+76, 104, 99 s on 0.13.1 against 71, 97, 65 s on 0.13.0, OpenDDE in 319, 220, 255 s against 233,
+216, 234 s. The rungs above those two were not re-measured for either model. No baseline was
+re-recorded.
 
 ## [0.13.0] - 2026-10-08
 
