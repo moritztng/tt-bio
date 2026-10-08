@@ -24,12 +24,12 @@ A = ap.parse_args()
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 import torch, ttnn
-from tt_bio import tenstorrent as T, trimul_tail as TT
+from tt_bio import tenstorrent as T, trimul_tail as TT, mm_generic as MG
 from tt_bio.af2 import compute_kernel_config
 
 dev = T.get_device()
-ckc = T.trunk_compute_kernel_config(compute_kernel_config())
-grid = T.COMPUTE_GRID_MAIN
+ckc = MG.ckc_args(T.trunk_compute_kernel_config(compute_kernel_config()))
+grid = tuple(T.COMPUTE_GRID_MAIN)
 g = torch.Generator().manual_seed(0)
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
