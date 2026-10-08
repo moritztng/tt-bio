@@ -17,7 +17,12 @@ CAP=1800            # absolute ceiling per box, however well it is progressing
 exec >> "$LOG" 2>&1
 date -u +"=== rent_until_good start %Y-%m-%dT%H:%M:%SZ ==="
 
-Q='{"gpu_ram":{"gte":24000},"num_gpus":{"eq":1},"disk_space":{"gte":100},"rentable":{"eq":true},"inet_down":{"gte":400},"cpu_cores_effective":{"gte":8},"cpu_ram":{"gte":28000},"reliability2":{"gte":0.95},"type":"on-demand","order":[["dph_total","asc"]],"limit":20}'
+# Rank offers by throughput per dollar, not by price. Ordering by dph_total asc rented a V100 at
+# $0.11/h that needed 33-40 min per trajectory while the box itself was evicted every ~20 min, so the
+# trajectory could never finish: the arm restarted it 14 times over five hours and banked nothing.
+# A box is only useful if one trajectory fits inside its own uptime, so require real throughput
+# (dlperf >= 60, about 2x that V100) and a reliability floor, and cap the price instead.
+Q='{"gpu_ram": {"gte": 24000}, "num_gpus": {"eq": 1}, "disk_space": {"gte": 100}, "rentable": {"eq": true}, "inet_down": {"gte": 400}, "cpu_cores_effective": {"gte": 8}, "cpu_ram": {"gte": 28000}, "reliability2": {"gte": 0.98}, "dlperf": {"gte": 60}, "dph_total": {"lte": 0.6}, "gpu_name": {"in": ["RTX 4090", "RTX 4090D", "RTX 3090", "A100 SXM4", "A100 PCIE", "L40S", "RTX 6000Ada", "RTX A6000"]}, "type": "on-demand", "order": [["dlperf_per_dphtotal", "desc"]], "limit": 20}'
 OFFERS=$(curl -s -G -H "Authorization: Bearer $K" --data-urlencode "q=$Q" "$API/bundles/" \
   | python3 -c "import sys,json;[print(o['id'],o['gpu_name'].replace(' ','_'),round(o['dph_total'],3)) for o in json.load(sys.stdin).get('offers',[])]")
 echo "$OFFERS" | wc -l | xargs echo "candidate offers:"
