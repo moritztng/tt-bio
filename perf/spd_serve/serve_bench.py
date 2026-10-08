@@ -12,7 +12,15 @@ the worker and the client; the log records which tt_bio each one imported.
 The first target of each distinct input is the cold fold of that size on this worker and is
 reported apart. Throughput is measured over the warm ones: from the first warm target's start
 to the last one's end, so every gap between folds (complete, lease, scrub, featurise, write)
-is inside it. AICLK of the chip's node is sampled every 0.5 s for the whole run.
+is inside it. A fold starts when the worker leases it and ends when the controller has its
+result; ``fold`` is the engine's own runtime_s, and the rest of the served time is host work on the
+chip's clock. AICLK of the chip's node and the host's loadavg are sampled every 0.5 s.
+
+The run carries one account, the way an agent task does, so the chipworker scrubs the chip once
+for it rather than before every fold (it scrubs whenever a run has no account). Each scrub's cost
+is in ``ws/chips/<chip>.json``.
+
+``--reduce`` recomputes the summary of an earlier ``--out`` from its serve.jsonl and results.json.
 
 Run it on a chip CHIPS.md gives you, with the box's env sourced (``. ~/japanfold/env.sh``), and
 ``TT_BIO_LEASE_HOLDER`` set the way CHIPS.md says. Inputs and their MSA cache come from
@@ -36,8 +44,9 @@ from pathlib import Path
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", type=Path, required=True)
-ap.add_argument("--chip", required=True)
-ap.add_argument("--inputs", required=True)
+ap.add_argument("--reduce", action="store_true", help="only recompute the summary of an existing --out")
+ap.add_argument("--chip")
+ap.add_argument("--inputs")
 ap.add_argument("--copies", type=int, default=3)
 ap.add_argument("--model", default="protenix-v2")
 ap.add_argument("--engine", type=Path)
@@ -52,7 +61,7 @@ a = ap.parse_args()
 
 out = a.out.resolve()
 out.mkdir(parents=True, exist_ok=True)
-log = open(out / "serve.jsonl", "a")
+log = open(out / ("reduce.jsonl" if a.reduce else "serve.jsonl"), "a")
 
 
 def emit(**kw):
@@ -98,146 +107,183 @@ def get(path):
         return json.loads(r.read())
 
 
-which = subprocess.run([py, "-c", "import tt_bio, subprocess, os; d=os.path.dirname(os.path.dirname(tt_bio.__file__));"
-                        "print(d, subprocess.run(['git','-C',d,'rev-parse','HEAD'],capture_output=True,text=True).stdout.strip())"],
-                       env=env, capture_output=True, text=True).stdout.split()
-emit(ev="engine", path=which[0] if which else None, sha=which[1] if len(which) > 1 else None, env=a.env,
-     fast=a.fast, model=a.model, chip=a.chip, loadavg=open("/proc/loadavg").read().split()[:3])
+if not a.reduce:
+    which = subprocess.run([py, "-c", "import tt_bio, subprocess, os; d=os.path.dirname(os.path.dirname(tt_bio.__file__));"
+                            "print(d, subprocess.run(['git','-C',d,'rev-parse','HEAD'],capture_output=True,text=True).stdout.strip())"],
+                           env=env, capture_output=True, text=True).stdout.split()
+    emit(ev="engine", path=which[0] if which else None, sha=which[1] if len(which) > 1 else None, env=a.env,
+         fast=a.fast, model=a.model, chip=a.chip, loadavg=open("/proc/loadavg").read().split()[:3])
 
-# Clock of the node the worker opens. Which node that is shows up in the worker's open fds.
-clock: list[tuple[float, int]] = []
-node: list[int] = []
+    # Clock of the node the worker opens. Which node that is shows up in the worker's open fds.
+    clock: list[tuple[float, int]] = []
+    load: list[float] = []
+    node: list[int] = []
 
 
-def sampler(worker_pid):
-    while True:
-        if not node:
-            for fd in glob.glob(f"/proc/{worker_pid}/fd/*") + [f for c in _children(worker_pid)
-                                                             for f in glob.glob(f"/proc/{c}/fd/*")]:
+    def sampler(worker_pid):
+        while True:
+            if not node:
+                for fd in glob.glob(f"/proc/{worker_pid}/fd/*") + [f for c in _children(worker_pid)
+                                                                 for f in glob.glob(f"/proc/{c}/fd/*")]:
+                    try:
+                        tgt = os.readlink(fd)
+                    except OSError:
+                        continue
+                    if tgt.startswith("/dev/tenstorrent/"):
+                        node.append(int(tgt.rsplit("/", 1)[1]))
+                        emit(ev="node", node=node[0])
+                        break
+            if node:
                 try:
-                    tgt = os.readlink(fd)
-                except OSError:
-                    continue
-                if tgt.startswith("/dev/tenstorrent/"):
-                    node.append(int(tgt.rsplit("/", 1)[1]))
-                    emit(ev="node", node=node[0])
-                    break
-        if node:
-            try:
-                v = int(Path(f"/sys/class/tenstorrent/tenstorrent!{node[0]}/tt_aiclk").read_text().split()[0])
-                if 100 <= v <= 3000:    # a dead ARC answers 0xFFFFFFFF without raising
-                    clock.append((time.time(), v))
-            except (OSError, ValueError):
-                pass
-        time.sleep(0.5)
-
-
-def _children(pid):
-    try:
-        return [int(c) for c in Path(f"/proc/{pid}/task/{pid}/children").read_text().split()]
-    except OSError:
-        return []
-
-
-try:
-    spawn("controller", [py, "-m", "tt_bio.main", "controller", "--port", str(a.port), "--no-local-workers",
-                         "--accelerator", "tenstorrent"], cwd=out)
-    for _ in range(120):
-        try:
-            get("/cluster")
-            break
-        except Exception:
+                    v = int(Path(f"/sys/class/tenstorrent/tenstorrent!{node[0]}/tt_aiclk").read_text().split()[0])
+                    if 100 <= v <= 3000:    # a dead ARC answers 0xFFFFFFFF without raising
+                        clock.append((time.time(), v))
+                except (OSError, ValueError):
+                    pass
+            load.append(float(open("/proc/loadavg").read().split()[0]))
             time.sleep(0.5)
-    ws = out / "ws"
-    worker = spawn("worker", [py, "-m", "japanfold.chipworker", "serve", "--connect", url, "--chip", str(a.chip),
-                              "--share", str(a.share), "--workspace", str(ws)], cwd=a.app)
-    threading.Thread(target=sampler, args=(worker.pid,), daemon=True).start()
-    t_up = time.time()
-    while True:
-        if worker.poll() is not None:
-            raise SystemExit(f"worker exited rc={worker.returncode}; see {out}/worker.log")
-        c = get("/cluster")
-        if c.get("online_workers") or c.get("workers"):
-            break
-        time.sleep(1)
-    emit(ev="worker_online", after_s=round(time.time() - t_up, 1))
 
-    # One run, every target in it: copy k of input X is X_k.yaml, its MSAs in the shared cache.
-    names = a.inputs.split(",")
-    tdir = out / "targets"
-    shutil.rmtree(tdir, ignore_errors=True)
-    tdir.mkdir()
-    order = [f"{n}_{k}" for k in range(a.copies) for n in names]
-    for t in order:
-        shutil.copy(a.data / "inputs" / f"{t.rsplit('_', 1)[0]}.yaml", tdir / f"{t}.yaml")
-    cmd = [py, "-m", "tt_bio.main", "predict", str(tdir), "--controller", url, "--model", a.model,
-           "--accelerator", "tenstorrent", "--output_format", "cif", "--msa_dir", str(a.data / "msa"),
-           "--msa_db_path", str(Path("~/japanfold/msa/db").expanduser()), "--out_dir", str(out / "pred")]
-    if a.fast:
-        cmd.append("--fast")
-    if a.samples:
-        cmd += ["--diffusion_samples", str(a.samples)]
-    run_id = f"spd-serve-{int(time.time())}"
-    cmd += ["--run-id", run_id]
-    t_sub = time.time()
-    client = spawn("client", cmd, cwd=out)
-    # Every job's status and live stage, every 0.5 s: the first time a (job, status, stage) is seen is
-    # when it happened, to within the poll. That times each fold's phases as served.
-    seen: dict = {}
-    while True:
+
+    def _children(pid):
         try:
-            for j in get(f"/runs/{run_id}/jobs").get("jobs", []):
-                key = (j["id"], j["status"], j.get("stage"))
-                if key not in seen:
-                    seen[key] = time.time()
-                    emit(ev="job", id=j["id"], status=j["status"], stage=j.get("stage"))
-        except Exception:
-            pass
-        if client.poll() is not None:
-            break
-        time.sleep(0.5)
-    emit(ev="client_done", rc=client.returncode, wall_s=round(time.time() - t_sub, 1))
-finally:
-    stop_all()
+            return [int(c) for c in Path(f"/proc/{pid}/task/{pid}/children").read_text().split()]
+        except OSError:
+            return []
 
-# Per target: start (first non-queued sighting) and end (first ok/failed sighting).
-jobs: dict = {}
-for (jid, status, stage), t in seen.items():
-    d = jobs.setdefault(jid, {"stages": {}})
-    if status in ("ok", "failed"):
-        d["end"], d["status"] = min(t, d.get("end", t)), status
-    elif status != "queued":
-        d["start"] = min(t, d.get("start", t))
-        if stage:
-            d["stages"][stage] = min(t, d["stages"].get(stage, t))
-done = sorted((d for d in jobs.values() if "start" in d and "end" in d), key=lambda d: d["start"])
-names_seen, warm = set(), []
-for jid, d in sorted(jobs.items(), key=lambda kv: kv[1].get("start", 0)):
-    base = jid.rsplit("_", 1)[0]
-    d["cold"] = base not in names_seen
-    names_seen.add(base)
-    if not d["cold"] and "start" in d and "end" in d and d.get("status") == "ok":
-        warm.append(d)
-clk = [v for t, v in clock]
-summary = {"ev": "summary", "targets": len(done), "ok": sum(d.get("status") == "ok" for d in done),
-           "aiclk_median": statistics.median(clk) if clk else None, "aiclk_min": min(clk) if clk else None,
-           "node": node[0] if node else None}
-if len(warm) >= 2:
-    span = max(d["end"] for d in warm) - min(d["start"] for d in warm)
-    # The span runs from the first warm start to the last warm end, so it holds n folds and n-1 gaps;
-    # add one mean gap so a fold-plus-gap is the unit, the way a chip-hour of serving is spent.
-    per = [d["end"] - d["start"] for d in warm]
-    gaps = [b["start"] - a["end"] for a, b in zip(warm, warm[1:])]
-    unit = (span + (statistics.mean(gaps) if gaps else 0)) / len(warm)
-    summary.update(warm_n=len(warm), fold_s_mean=round(statistics.mean(per), 2),
-                   fold_s_spread=round(max(per) - min(per), 2), gap_s_mean=round(statistics.mean(gaps), 2) if gaps else None,
-                   s_per_fold_served=round(unit, 2), folds_per_chip_hour=round(3600 / unit, 3),
-                   usd_per_fold_at_0_26=round(0.26 * unit / 3600, 4))
-for jid, d in jobs.items():
-    st = sorted(d["stages"].items(), key=lambda kv: kv[1])
-    marks = st + [("end", d.get("end"))]
-    d["phase_s"] = {s: round(marks[i + 1][1] - t, 1) for i, (s, t) in enumerate(st) if marks[i + 1][1]}
-emit(**summary)
-emit(ev="targets", rows=[{"id": jid, "cold": d.get("cold"), "status": d.get("status"),
-                          "fold_s": round(d["end"] - d["start"], 1) if "start" in d and "end" in d else None,
-                          "phase_s": d.get("phase_s")} for jid, d in jobs.items()])
+
+    try:
+        spawn("controller", [py, "-m", "tt_bio.main", "controller", "--port", str(a.port), "--no-local-workers",
+                             "--accelerator", "tenstorrent"], cwd=out)
+        for _ in range(120):
+            try:
+                get("/cluster")
+                break
+            except Exception:
+                time.sleep(0.5)
+        ws = out / "ws"
+        worker = spawn("worker", [py, "-m", "japanfold.chipworker", "serve", "--connect", url, "--chip", str(a.chip),
+                                  "--share", str(a.share), "--workspace", str(ws)], cwd=a.app)
+        threading.Thread(target=sampler, args=(worker.pid,), daemon=True).start()
+        t_up = time.time()
+        while True:
+            if worker.poll() is not None:
+                raise SystemExit(f"worker exited rc={worker.returncode}; see {out}/worker.log")
+            c = get("/cluster")
+            if c.get("online_workers") or c.get("workers"):
+                break
+            time.sleep(1)
+        emit(ev="worker_online", after_s=round(time.time() - t_up, 1))
+
+        # One run, every target in it: copy k of input X is X_k.yaml, its MSAs in the shared cache.
+        names = a.inputs.split(",")
+        tdir = out / "targets"
+        shutil.rmtree(tdir, ignore_errors=True)
+        tdir.mkdir()
+        order = [f"{n}_{k}" for k in range(a.copies) for n in names]
+        for t in order:
+            shutil.copy(a.data / "inputs" / f"{t.rsplit('_', 1)[0]}.yaml", tdir / f"{t}.yaml")
+        cmd = [py, "-m", "tt_bio.main", "predict", str(tdir), "--controller", url, "--model", a.model,
+               "--accelerator", "tenstorrent", "--output_format", "cif", "--msa_dir", str(a.data / "msa"),
+               "--msa_db_path", str(Path("~/japanfold/msa/db").expanduser()), "--out_dir", str(out / "pred")]
+        if a.fast:
+            cmd.append("--fast")
+        if a.samples:
+            cmd += ["--diffusion_samples", str(a.samples)]
+        run_id = f"spd-serve-{int(time.time())}"
+        cmd += ["--run-id", run_id]
+        (ws / "runs").mkdir(parents=True, exist_ok=True)
+        (ws / "runs" / run_id).write_text("spd-serve\n")
+        t_sub = time.time()
+        client = spawn("client", cmd, cwd=out)
+        # Every job's status and live stage, every 0.5 s: the first time a (job, status, stage) is seen is
+        # when it happened, to within the poll. That times each fold's phases as served.
+        seen: dict = {}
+        while True:
+            try:
+                for j in get(f"/runs/{run_id}/jobs").get("jobs", []):
+                    key = (j["id"], j["status"], j.get("stage"))
+                    if key not in seen:
+                        seen[key] = time.time()
+                        emit(ev="job", id=j["id"], status=j["status"], stage=j.get("stage"))
+            except Exception:
+                pass
+            if client.poll() is not None:
+                break
+            time.sleep(0.5)
+        emit(ev="client_done", rc=client.returncode, wall_s=round(time.time() - t_sub, 1))
+    finally:
+        stop_all()
+    emit(ev="samples", node=node[0] if node else None,
+         aiclk_median=statistics.median(v for _, v in clock) if clock else None,
+         aiclk_min=min((v for _, v in clock), default=None),
+         load_median=statistics.median(load) if load else None, load_max=max(load, default=None))
+
+
+def reduce() -> None:
+    """Per fold, from the run's own records: lease to result as the controller saw it (job events
+    in serve.jsonl), and the engine's runtime_s and load_s (results.json)."""
+    ev = [json.loads(l) for l in open(out / "serve.jsonl") if l.strip()]
+    ev = ev[next((k for k in range(len(ev) - 1, -1, -1) if ev[k]["ev"] == "engine"), 0):]  # the last run
+    first: dict = {}
+    for e in ev:
+        if e["ev"] == "job":
+            first.setdefault((e["id"], e["status"], e.get("stage")), e["t"])
+    rows = {r["id"]: r for p in out.glob("pred/*/results.json") for r in json.load(open(p))}
+    jobs: dict = {}
+    for (jid, status, stage), t in first.items():
+        d = jobs.setdefault(jid, {"stages": {}})
+        if status in ("ok", "failed"):
+            d["end"], d["status"] = min(t, d.get("end", t)), status
+        elif status == "running":           # leased; "pending" is only queued behind other targets
+            d["start"] = min(t, d.get("start", t))
+            if stage:
+                d["stages"][stage] = min(t, d["stages"].get(stage, t))
+    names_seen, warm = set(), []
+    for jid, d in sorted(jobs.items(), key=lambda kv: kv[1].get("start", float("inf"))):
+        base = jid.rsplit("_", 1)[0]
+        d["cold"] = base not in names_seen
+        names_seen.add(base)
+        r = rows.get(jid, {})
+        d["runtime_s"], d["load_s"] = r.get("runtime_s"), r.get("load_s")
+        if "start" in d and "end" in d:
+            d["served_s"] = d["end"] - d["start"]
+            if not d["cold"] and d.get("status") == "ok":
+                warm.append(d)
+        st = sorted(d["stages"].items(), key=lambda kv: kv[1])
+        marks = st + [("end", d.get("end"))]
+        d["phase_s"] = {s: round(marks[k + 1][1] - t, 1) for k, (s, t) in enumerate(st) if marks[k + 1][1]}
+    # Runs before 2026-10-08 22Z have no samples line; their old summary carries the clock.
+    smp = next((e for e in ev if e["ev"] == "samples"), None) or next(
+        ({"aiclk_median": e["aiclk_median"], "aiclk_min": e["aiclk_min"], "node": e["node"]}
+         for e in ev if e["ev"] == "summary"), {})
+    summary = {"ev": "summary", "targets": len(jobs), "ok": sum(d.get("status") == "ok" for d in jobs.values()),
+               "aiclk_median": smp.get("aiclk_median"), "aiclk_min": smp.get("aiclk_min"),
+               "loadavg_median": smp.get("load_median"), "loadavg_max": smp.get("load_max"),
+               "node": smp.get("node")}
+    if warm:
+        # A chip-hour of serving is spent on lease-to-result plus the gap to the next lease.
+        # Each size is its own line: the mix of sizes is the customer's, not ours.
+        for jid, d in jobs.items():
+            d["base"] = jid.rsplit("_", 1)[0]
+        nxt = {}
+        order = sorted((d for d in jobs.values() if "start" in d), key=lambda d: d["start"])
+        for x, y in zip(order, order[1:]):
+            nxt[id(x)] = max(0.0, y["start"] - x["end"]) if "end" in x else 0.0
+        per = {}
+        for d in warm:
+            unit = d["served_s"] + nxt.get(id(d), 0.0)
+            per.setdefault(d["base"], []).append((unit, d["runtime_s"] or 0.0))
+        summary["sizes"] = {b: {"n": len(v), "served_s": round(statistics.mean(u for u, _ in v), 1),
+                                "engine_runtime_s": round(statistics.mean(r for _, r in v), 1),
+                                "host_s_on_chip_clock": round(statistics.mean(u - r for u, r in v), 1),
+                                "folds_per_chip_hour": round(3600 / statistics.mean(u for u, _ in v), 2),
+                                "usd_per_fold_at_0_26": round(0.26 * statistics.mean(u for u, _ in v) / 3600, 4)}
+                            for b, v in sorted(per.items())}
+    emit(**summary)
+    emit(ev="targets", rows=[{"id": jid, "cold": d["cold"], "status": d.get("status"),
+                              "served_s": round(d["served_s"], 1) if "served_s" in d else None,
+                              "runtime_s": d["runtime_s"], "load_s": d["load_s"], "phase_s": d["phase_s"]}
+                             for jid, d in sorted(jobs.items(), key=lambda kv: kv[1].get("start", 0))])
+
+
+reduce()
