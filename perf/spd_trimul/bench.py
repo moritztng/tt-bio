@@ -102,7 +102,8 @@ LEVERS = {
     "b8in": [(T.set_trimul_inproj_b8, True)],
     "epi1": [(TTL.set_epi, 1)],
     "epi2": [(TTL.set_epi, 2)],
-    "glean": [(RB.set_gate_lean, True)],
+    "glean": [(RB.set_gate_lean, 1)],
+    "glean32": [(RB.set_gate_lean, 2)],
 }
 
 

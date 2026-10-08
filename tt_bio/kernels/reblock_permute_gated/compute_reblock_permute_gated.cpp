@@ -69,7 +69,9 @@ void kernel_main() {
     // on the FPU straight out of DST (`binary_dest_reuse_tiles` ELWMUL). Two pack round trips a tile
     // instead of three, no SFPU multiply. Transposing before the elementwise ops is exact (both are
     // elementwise); what changes is the FPU multiply into the 16-bit DST, which truncates (the header's
-    // second bullet): at most one bf16 ULP low, never a different value class.
+    // second bullet): at most one bf16 ULP low, never a different value class. The host may run this
+    // same path over an fp32 DST (TT_BIO_GATED_LEAN=2): one slot a tile, so GRAN <= 4 still fits, and
+    // the product is then rounded once by the packer instead of truncated.
     constexpr uint32_t lean = get_compile_time_arg_val(8);
 
     binary_op_init_common(p_cb, sig_cb, mul_cb);

@@ -851,7 +851,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
         compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID),
-                           GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16), int(GATE_LEAN)],
+                           GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16), int(GATE_LEAN > 0)],
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
@@ -893,14 +893,16 @@ GATE_SKIP_SIGMOID = False
 
 # The lean gated compute (`lean` in compute_reblock_permute_gated.cpp): transpose on the unpack, FPU
 # multiply from DST, two pack round trips a tile instead of three. Not bit-exact (the FPU product
-# truncates into the 16-bit DST, at most one bf16 ULP low). OFF; spd-trimul A/B arm `glean`.
-GATE_LEAN = env_flag("TT_BIO_GATED_LEAN", False)
+# truncates into the 16-bit DST, at most one bf16 ULP low). 2 runs the same kernel over an fp32 DST:
+# the product and the (accurate-branch) sigmoid are rounded once, by the packer, so it errs the other
+# way from 1, toward float64. OFF; spd-trimul A/B arms `glean` (1) and `glean32` (2).
+GATE_LEAN = int(os.environ.get("TT_BIO_GATED_LEAN", "0"))
 
 
-def set_gate_lean(on: bool) -> bool:
-    """A/B switch for the paired harness. Returns the previous state."""
+def set_gate_lean(mode) -> int:
+    """A/B switch for the paired harness: 0 off, 1 lean, 2 lean over fp32 DST. Returns the previous."""
     global GATE_LEAN
-    prev, GATE_LEAN = GATE_LEAN, bool(on)
+    prev, GATE_LEAN = GATE_LEAN, int(mode)
     return prev
 
 
@@ -927,7 +929,7 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
             ttnn.Shape([1, slice_c, N, N]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
         )
     assert row_off % TILE_H == 0, f"row_off {row_off} is not a tile boundary"
-    entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC)
+    entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC or GATE_LEAN == 2)
     src, dst = xw.buffer_address(), out.buffer_address()
     common_r = [src, p_slice // TILE_W, g_slice // TILE_W, row_off // TILE_H]
     common_w = [dst, row_off // TILE_H]
