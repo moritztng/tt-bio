@@ -133,9 +133,9 @@ def make_call(a, g):
             q_pf = TS.q_parallel_factor(S, H, a["qc"], cores, cap=0)
             split = (cores // (H * q_pf), H, q_pf)
             p = SG.plan(q, k, v, m, out, a["qc"], a["kc"], GRID, ckc_tuple(a), scale, split)
-            if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"] and not p["use_padded_mask"]):
+            if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]):
                 raise RuntimeError(f"fused fill_preconditions: q_per_core={p['q_per_core']} "
-                                   f"nh_per_core={p['nh_per_core']} padded_mask={p['use_padded_mask']}")
+                                   f"nh_per_core={p['nh_per_core']}")
             kw.update(split=split, kernel_dir=TS.KERNEL_DIR,
                       mask_cb_tiles=p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"],
                       defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})

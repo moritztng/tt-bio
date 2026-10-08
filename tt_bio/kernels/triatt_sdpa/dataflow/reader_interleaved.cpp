@@ -330,27 +330,38 @@ void kernel_main() {
     // each, so read all PERSISTENT_MASK k-chunk blocks once here and never refill. Blocks are laid
     // out k-chunk-major, so block kc starts at tile kc * mask_chunk_tiles and the compute side
     // indexes it with that base. The host asserts the preconditions: one head and one q chunk per
-    // core, a batch-broadcast mask, and no padded mask.
+    // core and a batch-broadcast mask. A padded mask (a chunk that does not divide the sequence)
+    // is filled exactly as the per-chunk read below fills it: -inf past valid_Sqt / valid_Skt.
     {
         constexpr uint32_t persistent_mask_tiles = PERSISTENT_MASK * mask_chunk_tiles;
         cb_reserve_back(cb_mask_in, persistent_mask_tiles);
         uint32_t pm_write_ptr = get_write_ptr(cb_mask_in);
         uint32_t pm_barrier = 0;
+        uint32_t pm_tile = 0;
         for (uint32_t kc = 0; kc < PERSISTENT_MASK; ++kc) {
             uint32_t pm_row_start = local_q_start * Sq_chunk_t * valid_Skt;
             if constexpr (!broadcast_provided_mask_heads) {
                 pm_row_start += local_nh_start * valid_Sqt * valid_Skt;
             }
             for (uint32_t row = 0; row < Sq_chunk_t; ++row) {
+                const bool q_valid = !use_padded_mask || (local_q_start * Sq_chunk_t + row < valid_Sqt);
                 for (uint32_t col = 0; col < Sk_chunk_t; ++col) {
-                    noc_async_read_tile(pm_row_start + kc * Sk_chunk_t + col, mask_reader, pm_write_ptr);
+                    const uint32_t k_tile = kc * Sk_chunk_t + col;
+                    if (q_valid && (!use_padded_mask || k_tile < valid_Skt)) {
+                        noc_async_read_tile(pm_row_start + k_tile, mask_reader, pm_write_ptr);
+                    } else {
+                        fill_neginf_tile<mask_tile_bytes>(cb_mask_in, pm_tile);
+                    }
                     pm_write_ptr += mask_tile_bytes;
+                    pm_tile++;
                     if (++pm_barrier == barrier_threshold) {
                         noc_async_read_barrier();
                         pm_barrier = 0;
                     }
                 }
-                pm_row_start += valid_Skt;
+                if (q_valid) {
+                    pm_row_start += valid_Skt;
+                }
             }
         }
         noc_async_read_barrier();

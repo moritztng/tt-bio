@@ -62,6 +62,14 @@ def triangle(cls, H):
                     if oim: a["oim"] = oim
                     arms.append(a)
     add(cls, "kernel", g0, base, arms)
+    # the mask-reuse kernel: one (head, q chunk) per core, its mask block read once and reused over
+    # every batch row that core owns, padded chunks allowed (fused = K2's PERSISTENT_MASK reader)
+    arms = [dict(impl="fused", qc=q, kc=k, dt=dt, fid=fid, name=f"reuse q{q} k{k} {dn} {fid}")
+            for q in ((64, 128, 256, 384) if H == 2 else (96, 128, 192, 256, 384))
+            for k in (128, 256, 384, 736)
+            for dn, dt in (("bf16", BF), ("bfp8", U("bfp8")), ("bfp4", U("bfp4")))
+            for fid in ("HiFi2", "LoFi")]
+    add(cls, "reuse", g0, base, arms)
     arms = [dict(impl="explicit", style="plain", bchunk=bc, dt=dt, fid=fid, name=f"explicit b{bc} {dn} {fid}")
             for bc in (23, 92) for dn, dt in (("bf16", BF), ("bfp8", U("bfp8"))) for fid in ("HiFi2", "LoFi")]
     add(cls, "explicit", g0, base, arms)
