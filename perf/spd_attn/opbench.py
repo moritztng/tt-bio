@@ -171,8 +171,8 @@ for name, (site, call) in ARMS.items():
     except Exception as e:
         log(ev="refused", arm=name, error=str(e).splitlines()[0][:300])
 
-samples = {k: [] for k in live}; clk = {k: [] for k in live}
-ncall = {k: (20 if ARMS[k][0] == "ta" else 10) for k in live}
+samples = {n: [] for n in live}; clk = {n: [] for n in live}
+ncall = {n: (20 if ARMS[n][0] == "ta" else 10) for n in live}
 
 
 def clk_window(t0, t1):
@@ -180,15 +180,16 @@ def clk_window(t0, t1):
 
 
 for rep in range(a.reps):
-    for k in (list(live) if rep % 2 == 0 else list(reversed(live))):
+    # Not `k`: the triangle-attention arms close over the module-level K tensor of that name.
+    for arm in (list(live) if rep % 2 == 0 else list(reversed(live))):
         ttnn.synchronize_device(dev); t0 = time.monotonic(); p0 = time.perf_counter()
-        for _ in range(ncall[k]):
-            live[k]()
+        for _ in range(ncall[arm]):
+            live[arm]()
         ttnn.synchronize_device(dev)
-        samples[k].append((time.perf_counter() - p0) / ncall[k] * 1e3); clk[k] += clk_window(t0, time.monotonic())
-for k, v in samples.items():
-    c = sorted(clk[k]); med = statistics.median(v)
-    log(ev="arm", arm=k, site=ARMS[k][0], ms=med, ms_min=min(v), ms_max=max(v),
-        spread_pct=(max(v) - min(v)) / med * 100, reps=a.reps, ncall=ncall[k],
+        samples[arm].append((time.perf_counter() - p0) / ncall[arm] * 1e3); clk[arm] += clk_window(t0, time.monotonic())
+for arm, ts in samples.items():
+    c = sorted(clk[arm]); med = statistics.median(ts)
+    log(ev="arm", arm=arm, site=ARMS[arm][0], ms=med, ms_min=min(ts), ms_max=max(ts),
+        spread_pct=(max(ts) - min(ts)) / med * 100, reps=a.reps, ncall=ncall[arm],
         aiclk=dict(n=len(c), med=c[len(c) // 2] if c else None, min=c[0] if c else None, max=c[-1] if c else None))
 log(ev="end")
