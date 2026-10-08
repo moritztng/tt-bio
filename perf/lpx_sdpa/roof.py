@@ -17,6 +17,7 @@ dev = T.get_device()
 node = sorted(int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
               if os.path.exists(f"/proc/self/fd/{fd}") and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/"))[0]
 LOG = open(OUT / "roof.jsonl", "a")
+print(json.dumps({"ev": "nodes_open", "nodes": [node]}), flush=True)   # run_on_chip.sh restarts the agent on this line
 def log(**kw):
     s = json.dumps(kw, default=str); LOG.write(s + "\n"); LOG.flush(); print(s, flush=True)
 def clk():
