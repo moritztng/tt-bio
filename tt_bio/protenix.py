@@ -1804,7 +1804,9 @@ class ConfidenceHead:
         import torch
         import torch.nn.functional as F
         N = s_trunk.shape[0]
-        T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        # Tilized on the host, off the device's critical path, and cast to bf16 by torch first (the
+        # same round-to-nearest-even ttnn applies, ~4x faster to tilize); only the copy waits.
+        H = lambda x: ttnn.from_torch(x.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
         s_t = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
         z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
                   + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0))
@@ -1826,10 +1828,12 @@ class ConfidenceHead:
             return out
 
         out, held = [], None
+        s_h = H(s_t.unsqueeze(0))
         for x in coords:
-            z = z_of(x)                                    # host, while the chip runs the last pairformer
+            z_h = H(z_of(x).unsqueeze(0))                  # host, while the chip runs the last pairformer
             done = read(held) if held is not None else None
-            held = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
+            held = bucketed_pairformer(self.pf, ttnn.to_device(s_h, self.dev), ttnn.to_device(z_h, self.dev),
+                                       self.dev)
             if done is not None:
                 out.append(self._heads(*done, feats))      # host, while the chip runs this one
         out.append(self._heads(*read(held), feats))

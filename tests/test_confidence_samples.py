@@ -33,6 +33,7 @@ def _stub(monkeypatch):
 
     monkeypatch.setattr(P.ttnn, "from_torch", from_torch)
     monkeypatch.setattr(P.ttnn, "to_torch", to_torch)
+    monkeypatch.setattr(P.ttnn, "to_device", lambda d, dev: _Dev(d.t))
     monkeypatch.setattr(P.ttnn, "deallocate", deallocate)
     monkeypatch.setattr(P, "bucketed_pairformer", pairformer)
     return pairformer
