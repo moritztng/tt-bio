@@ -31,6 +31,7 @@
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/transpose_wh.h"
+#include "api/compute/reconfig_data_format.h"
 
 void kernel_main() {
     constexpr uint32_t p_cb = get_compile_time_arg_val(0);    // c_0,  value slice
@@ -58,8 +59,102 @@ void kernel_main() {
     // Capped by DST, not by taste: stage 2 holds the value AND the gate for each tile, 2 slots a
     // tile, against 8 slots of a 16-bit DST. So 4 is the ceiling and the host will not pass more.
     constexpr uint32_t GRAN = get_compile_time_arg_val(6);
+    // 1 when p_cb/g_cb carry a format other than the bf16 working CBs (a bfp8 in-projection, spd-trimul
+    // INPROJ_B8). Every unpack then names its source format first: the unpacker keeps whatever format
+    // it was last configured for, and a bfp8 tile read as bf16 (or the reverse) is garbage, not a
+    // rounding. 0 compiles exactly the uniform-bf16 kernel above.
+    constexpr uint32_t mixed_fmt = get_compile_time_arg_val(7);
+    // 1 = the lean form (TT_BIO_GATED_LEAN, spd-trimul): NOT bit-exact. g is unpacked transposed,
+    // its sigmoid taken in DST and packed (sig^T); then p is unpacked transposed and multiplied by sig^T
+    // on the FPU straight out of DST (`binary_dest_reuse_tiles` ELWMUL). Two pack round trips a tile
+    // instead of three, no SFPU multiply. Transposing before the elementwise ops is exact (both are
+    // elementwise); what changes is the FPU multiply into the 16-bit DST, which truncates (the header's
+    // second bullet): at most one bf16 ULP low, never a different value class.
+    // 2 = the same two stages with the SFPU multiply of the incumbent: p^T and sig^T sit in two DST
+    // slots and `mul_binary_tile` rounds as before. Every value the incumbent computes is computed
+    // here on the transposed tile, so it is bit-exact, and it still drops the mul_cb round trip.
+    constexpr uint32_t lean = get_compile_time_arg_val(8);
 
     binary_op_init_common(p_cb, sig_cb, mul_cb);
+
+    if constexpr (lean) {
+        for (uint32_t i = 0; i < num_tiles; i += GRAN) {
+            const uint32_t n = (num_tiles - i < GRAN) ? (num_tiles - i) : GRAN;
+
+            cb_wait_front(g_cb, n);
+            cb_reserve_back(sig_cb, n);
+            tile_regs_acquire();
+            transpose_wh_init_short(g_cb);
+            reconfig_data_format_srca(g_cb);
+            for (uint32_t j = 0; j < n; ++j) {
+                transpose_wh_tile(g_cb, j, j);
+            }
+            if constexpr (!skip_sigmoid) {
+                sigmoid_tile_init();
+                for (uint32_t j = 0; j < n; ++j) {
+                    sigmoid_tile(j);
+                }
+            }
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t j = 0; j < n; ++j) {
+                pack_tile(j, sig_cb);
+            }
+            tile_regs_release();
+            cb_pop_front(g_cb, n);
+            cb_push_back(sig_cb, n);
+
+            cb_wait_front(p_cb, n);
+            cb_wait_front(sig_cb, n);
+            cb_reserve_back(out_cb, n);
+            if constexpr (lean == 2) {
+                tile_regs_acquire();
+                for (uint32_t j = 0; j < n; ++j) {
+                    transpose_wh_init_short(p_cb);
+                    reconfig_data_format_srca(p_cb);
+                    transpose_wh_tile(p_cb, j, 2 * j);
+                    copy_tile_to_dst_init_short(sig_cb);
+                    reconfig_data_format_srca(sig_cb);
+                    copy_tile(sig_cb, j, 2 * j + 1);
+                    mul_binary_tile_init();
+                    mul_binary_tile(2 * j, 2 * j + 1, 2 * j);
+                }
+                tile_regs_commit();
+                tile_regs_wait();
+                for (uint32_t j = 0; j < n; ++j) {
+                    pack_tile(2 * j, out_cb);
+                }
+                tile_regs_release();
+                cb_pop_front(p_cb, n);
+                cb_pop_front(sig_cb, n);
+                cb_push_back(out_cb, n);
+                continue;
+            }
+            tile_regs_acquire();
+            transpose_wh_init_short(p_cb);
+            reconfig_data_format_srca(p_cb);
+            for (uint32_t j = 0; j < n; ++j) {
+                transpose_wh_tile(p_cb, j, j);
+            }
+            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                sig_cb);
+            reconfig_data_format_srcb(sig_cb);
+            for (uint32_t j = 0; j < n; ++j) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    sig_cb, j, j);
+            }
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t j = 0; j < n; ++j) {
+                pack_tile(j, out_cb);
+            }
+            tile_regs_release();
+            cb_pop_front(p_cb, n);
+            cb_pop_front(sig_cb, n);
+            cb_push_back(out_cb, n);
+        }
+        return;
+    }
 
     for (uint32_t i = 0; i < num_tiles; i += GRAN) {
         const uint32_t n = (num_tiles - i < GRAN) ? (num_tiles - i) : GRAN;
@@ -72,6 +167,9 @@ void kernel_main() {
         cb_reserve_back(sig_cb, n);
         tile_regs_acquire();
         copy_tile_to_dst_init_short(g_cb);
+        if constexpr (mixed_fmt) {
+            reconfig_data_format_srca(g_cb);
+        }
         for (uint32_t j = 0; j < n; ++j) {
             copy_tile(g_cb, j, j);
         }
@@ -97,8 +195,14 @@ void kernel_main() {
         for (uint32_t j = 0; j < n; ++j) {
             // Two DST slots a tile, so the multiply reads the same two operands it always did.
             copy_tile_to_dst_init_short(p_cb);
+            if constexpr (mixed_fmt) {
+                reconfig_data_format_srca(p_cb);
+            }
             copy_tile(p_cb, j, 2 * j);
             copy_tile_to_dst_init_short(sig_cb);
+            if constexpr (mixed_fmt) {
+                reconfig_data_format_srca(sig_cb);
+            }
             copy_tile(sig_cb, j, 2 * j + 1);
             mul_binary_tile_init();
             mul_binary_tile(2 * j, 2 * j + 1, 2 * j);
@@ -118,6 +222,9 @@ void kernel_main() {
         cb_wait_front(mul_cb, n);
         cb_reserve_back(out_cb, n);
         transpose_wh_init(mul_cb, out_cb);
+        if constexpr (mixed_fmt) {
+            reconfig_data_format_srca(mul_cb);
+        }
         tile_regs_acquire();
         for (uint32_t j = 0; j < n; ++j) {
             transpose_wh_tile(mul_cb, j, j);

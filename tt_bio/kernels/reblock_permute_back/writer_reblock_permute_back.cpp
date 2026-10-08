@@ -44,6 +44,11 @@ void kernel_main() {
         get_compile_time_arg_val(GQ + 7)>(get_absolute_logical_x(), get_absolute_logical_y());
 
     const uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
+    // The destination may be a wider [1, N, N, Ct_out*32] tensor that this call fills only the
+    // channel tiles [ct_off, ct_off + Ct) of, so a channel loop writes its chunks in place and
+    // never concatenates them. Ct_out == Ct and ct_off == 0 is the plain move.
+    const uint32_t Ct_out = get_common_arg_val<uint32_t>(1);
+    const uint32_t ct_off = get_common_arg_val<uint32_t>(2);
     const uint32_t first_group = (GQ_ON ? (gq.first) : get_arg_val<uint32_t>(0));
     const uint32_t num_groups = (GQ_ON ? (gq.num) : get_arg_val<uint32_t>(1));
     const uint32_t Nt = (GQ_ON ? (get_compile_time_arg_val(GQ + 8)) : get_arg_val<uint32_t>(2));
@@ -77,6 +82,7 @@ void kernel_main() {
     const auto s = TensorAccessor(dst_args, dst_addr);
 
     const uint32_t NtCt = Nt * Ct;
+    const uint32_t NtCt_out = Nt * Ct_out;
     uint32_t group = first_group;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
         const uint32_t it = group / NtCt;
@@ -86,11 +92,11 @@ void kernel_main() {
 
         cb_wait_front(cb_id_out, TILE_HEIGHT);
         uint32_t l1_read_addr = get_read_ptr(cb_id_out);
-        uint32_t out_page = (it * TILE_HEIGHT) * NtCt + jt * Ct + ct;
+        uint32_t out_page = (it * TILE_HEIGHT) * NtCt_out + jt * Ct_out + ct + ct_off;
         for (uint32_t il = 0; il < TILE_HEIGHT; ++il) {
             noc_async_write(l1_read_addr, s.get_noc_addr(out_page), tile_bytes);
             l1_read_addr += tile_bytes;
-            out_page += NtCt;
+            out_page += NtCt_out;
         }
         noc_async_write_barrier();
         cb_pop_front(cb_id_out, TILE_HEIGHT);
