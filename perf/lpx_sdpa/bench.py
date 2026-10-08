@@ -22,7 +22,7 @@ Arm fields (all optional except impl):
   sdt    explicit only: score dtype      pdt  explicit only: probability dtype
 Group fields: shape {"q":[B,H,S,D], "k":[...], "v":[...], "mask":[MB,MH,S,S]}, scale, reps, n, trace, arms.
 """
-import json, math, os, statistics, sys, threading, time, glob, traceback
+import json, math, os, statistics, sys, time, traceback
 from pathlib import Path
 
 OUT = Path(sys.argv[1]); PLAN = json.loads(Path(sys.argv[2]).read_text())
@@ -32,17 +32,6 @@ LOG = open(OUT / "bench.jsonl", "a")
 def log(**kw):
     kw["t_unix"] = time.time()
     s = json.dumps(kw, default=str); LOG.write(s + "\n"); LOG.flush(); print(s[:400], flush=True)
-
-NODES = sorted(int(p.rsplit("!", 1)[1]) for p in glob.glob("/sys/class/tenstorrent/tenstorrent!*"))
-CLK = []
-def _sampler():
-    while True:
-        row = {}
-        for n in NODES:
-            try: row[n] = int(Path(f"/sys/class/tenstorrent/tenstorrent!{n}/tt_aiclk").read_text().split()[0])
-            except Exception: row[n] = -1
-        CLK.append((time.monotonic(), row)); time.sleep(0.25)
-threading.Thread(target=_sampler, daemon=True).start()
 
 if CHIP is not None:
     from tt_bio import runtime, worker as W
@@ -59,6 +48,18 @@ opened = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for f
                  if os.path.exists(f"/proc/self/fd/{fd}")
                  and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")})
 NODE = opened[0]
+# AICLK from a separate process: ttnn holds the GIL through a device sync, which starves an in-process
+# sampler thread for exactly the windows we time. CLOCK_MONOTONIC is shared, so the stamps line up.
+import subprocess
+CLKF = OUT / "aiclk.tsv"
+_SAMPLER = subprocess.Popen([sys.executable, "-c", f"""
+import os, time
+f = open({str(CLKF)!r}, "a"); parent = os.getppid()
+while os.getppid() == parent:      # dies with the bench, never orphaned
+    try: v = open("/sys/class/tenstorrent/tenstorrent!{NODE}/tt_aiclk").read().split()[0]
+    except Exception: v = "-1"
+    f.write(f"{{time.monotonic()}}\t{{v}}\n"); f.flush(); time.sleep(0.25)
+"""])
 GRID = tuple(T.COMPUTE_GRID_MAIN)
 log(ev="nodes_open", nodes=opened, grid=GRID, arch=str(dev.arch()), tt_bio=T.__file__)
 
@@ -113,11 +114,10 @@ def make_call(a, g):
     if impl == "stock":
         pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=GRID, exp_approx_mode=bool(a.get("exp", False)),
                                     q_chunk_size=a["qc"], k_chunk_size=a["kc"])
-        ck = ckc_obj(a)
+        kw = {} if a.get("fid") == "default" else {"compute_kernel_config": ckc_obj(a)}
         def call():
             return ttnn.transformer.scaled_dot_product_attention(
-                q, k, v, attn_mask=m, is_causal=False, scale=scale, program_config=pc,
-                compute_kernel_config=ck)
+                q, k, v, attn_mask=m, is_causal=False, scale=scale, program_config=pc, **kw)
         return call
     if impl in ("generic", "fused"):
         B, H, S, D = (int(x) for x in q.shape)
@@ -145,27 +145,54 @@ def make_call(a, g):
         call.out = out
         return call
     if impl == "explicit":
+        # The model's own unfused chains, op for op:
+        #   style "dit"   (DiffusionTransformer, fp32): z*scale, permute k, matmul, addalpha, softmax, matmul
+        #   style "apb"   (Pairformer single track): transpose k, matmul, add_ z, multiply_ scale,
+        #                 5-op fp32 softmax (typecast/max/sub/exp/sum/divide/typecast), matmul
+        #   style "plain" matmul(transpose_b), add, multiply, softmax, matmul
         B = int(q.shape[0]); bc = a.get("bchunk") or B
-        ck = ckc_obj(a); sdt = DT[a.get("sdt", "bf16")]; pdt = DT[a.get("pdt", a.get("sdt", "bf16"))]
-        odt = DT[d["out"]]
+        ck = ckc_obj(a); sdt = DT[a.get("sdt", d["q"])]; odt = DT[d["out"]]
+        smck = None if a.get("smck") == "none" else ck
+        style = a.get("style", "plain")
+        def chain(qs, ks, vs):
+            if style == "dit":
+                zs = ttnn.multiply(m, scale)
+                kt = ttnn.permute(ks, (0, 1, 3, 2))
+                s = ttnn.matmul(qs, kt, compute_kernel_config=ck, dtype=sdt); ttnn.deallocate(kt)
+                s2 = ttnn.addalpha(zs, s, scale); ttnn.deallocate(s); ttnn.deallocate(zs)
+                p = ttnn.softmax(s2, dim=-1, compute_kernel_config=smck); ttnn.deallocate(s2)
+            elif style == "apb":
+                kt = ttnn.transpose(ks, -2, -1)
+                s = ttnn.matmul(qs, kt, compute_kernel_config=ck, dtype=sdt); ttnn.deallocate(kt)
+                s = ttnn.add_(s, m); s = ttnn.multiply_(s, scale)
+                if a.get("softmax", "accurate") == "accurate":
+                    f = ttnn.typecast(s, ttnn.float32); ttnn.deallocate(s)
+                    mx = ttnn.max(f, dim=-1, keepdim=True)
+                    e = ttnn.subtract(f, mx); ttnn.deallocate(mx)
+                    ttnn.exp(e, output_tensor=e)
+                    sm = ttnn.sum(e, dim=-1, keepdim=True, compute_kernel_config=ck)
+                    pr = ttnn.divide(e, sm); ttnn.deallocate(e); ttnn.deallocate(sm); ttnn.deallocate(f)
+                    p = ttnn.typecast(pr, sdt); ttnn.deallocate(pr)
+                else:
+                    p = ttnn.softmax(s, dim=-1, compute_kernel_config=smck); ttnn.deallocate(s)
+            else:
+                s = ttnn.matmul(qs, ks, transpose_b=True, compute_kernel_config=ck, dtype=sdt)
+                s2 = ttnn.add(s, m, dtype=sdt); ttnn.deallocate(s)
+                s3 = ttnn.multiply(s2, scale); ttnn.deallocate(s2)
+                p = ttnn.softmax(s3, dim=-1, compute_kernel_config=smck); ttnn.deallocate(s3)
+            if a.get("pdt") and p.dtype != DT[a["pdt"]]:
+                p2 = ttnn.typecast(p, DT[a["pdt"]]); ttnn.deallocate(p); p = p2
+            o = ttnn.matmul(p, vs, compute_kernel_config=ck, dtype=odt); ttnn.deallocate(p)
+            return o
         def call():
+            if bc == B:
+                return chain(q, k, v)
             outs = []
             for b0 in range(0, B, bc):
-                qs = q if bc == B else ttnn.slice(q, [b0, 0, 0, 0], [min(b0 + bc, B)] + list(q.shape)[1:])
-                ks = k if bc == B else ttnn.slice(k, [b0, 0, 0, 0], [min(b0 + bc, B)] + list(k.shape)[1:])
-                vs = v if bc == B else ttnn.slice(v, [b0, 0, 0, 0], [min(b0 + bc, B)] + list(v.shape)[1:])
-                s = ttnn.matmul(qs, ks, transpose_b=True, compute_kernel_config=ck, dtype=sdt)
-                s2 = ttnn.multiply(s, scale); ttnn.deallocate(s)
-                s3 = ttnn.add(s2, m, dtype=sdt); ttnn.deallocate(s2)
-                p = ttnn.softmax(s3, dim=-1, compute_kernel_config=ck); ttnn.deallocate(s3)
-                if p.dtype != pdt:
-                    p2 = ttnn.typecast(p, pdt); ttnn.deallocate(p); p = p2
-                o = ttnn.matmul(p, vs, compute_kernel_config=ck, dtype=odt); ttnn.deallocate(p)
-                if bc != B:
-                    for t in (qs, ks, vs): ttnn.deallocate(t)
-                outs.append(o)
-            if len(outs) == 1:
-                return outs[0]
+                e = [min(b0 + bc, B)]
+                qs, ks, vs = (ttnn.slice(t, [b0, 0, 0, 0], e + list(t.shape)[1:]) for t in (q, k, v))
+                outs.append(chain(qs, ks, vs))
+                for t in (qs, ks, vs): ttnn.deallocate(t)
             o = ttnn.concat(outs, dim=0)
             for t in outs: ttnn.deallocate(t)
             return o
@@ -193,7 +220,8 @@ def reference_check(a, g, call):
     mr = ttnn.to_torch(dev_tensor("mask", d["mask"])).float()
     mr = mr[:nb] if mr.shape[0] > 1 else mr
     S_q, S_k = qr.shape[2], kr.shape[2]
-    sc = torch.einsum("bhqd,bhkd->bhqk", qr, kr) * g["scale"] + mr[..., :S_q, :S_k]
+    # every path here scales the additive mask with the scores: softmax((q k^T + mask) * scale)
+    sc = (torch.einsum("bhqd,bhkd->bhqk", qr, kr) + mr[..., :S_q, :S_k]) * g["scale"]
     ref = torch.einsum("bhqk,bhkd->bhqd", torch.softmax(sc, -1), vr)
     got = ob[:nb, :, :S_q, :ref.shape[-1]]
     finite = bool(torch.isfinite(ob).all())
@@ -215,7 +243,12 @@ def timed_rep(call, n, trace_id=None):
     return (time.perf_counter() - t0) / n
 
 def clk_window(t0, t1):
-    c = sorted(r[NODE] for s, r in CLK if t0 <= s <= t1)
+    c = []
+    for line in open(CLKF):
+        t, v = line.split()
+        if t0 <= float(t) <= t1:
+            c.append(int(v))
+    c.sort()
     return dict(n=len(c), med=c[len(c) // 2] if c else None, min=c[0] if c else None, max=c[-1] if c else None)
 
 # ---------------- groups ----------------
@@ -271,4 +304,5 @@ for gi, g in enumerate(PLAN["groups"]):
     free_inputs()
     log(ev="group_done", group=gname, base_ms=1e3 * base, aa_floor_pct=100 * aa, aiclk=clk, s=t1 - t0)
 log(ev="end")
+_SAMPLER.kill()
 os._exit(0)

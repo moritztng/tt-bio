@@ -5,6 +5,8 @@
 cd ~/lpx-sdpa; . ~/japanfold/env.sh
 export PATH="$PATH:$HOME/japanfold/msa/venv/bin" TT_BIO_LEASE_HOLDER=lpx-sdpa TT_BIO_LEASE_TIMEOUT=600
 CHIP=$1; OUT=$2; shift 2
+# LPX_ENGINE: a tt_bio checkout to run instead of the installed engine (our branch, for kernel changes)
+[ -n "$LPX_ENGINE" ] && export PYTHONPATH="$LPX_ENGINE"
 say(){ echo "$(date -u +%FT%TZ) $*"; }
 busy=$(curl -s -m5 localhost:8767/cluster | python -c 'import json,sys; d=json.load(sys.stdin); print(sum(len(w.get("running") or []) for w in d["workers"]))')
 [ "$busy" = "0" ] || { say "REFUSED: $busy job(s) running on .107 workers"; exit 3; }
