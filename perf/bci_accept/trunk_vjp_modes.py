@@ -178,6 +178,33 @@ def main():
                                       msa, pair, mask, pair_mask, g_msa, g_pair)
             print(f"  seams {results[config][4]}", flush=True)
 
+    # The base defect isolated with NO checkpointing anywhere. `_primal` runs the stack untaped
+    # (recompute=False, no tape context) and `_taped` with recompute=False runs the identical
+    # `trunk.evoformer(..., recompute=False)` call inside a tape. Nothing else differs: same
+    # blocks, same order, same masks, no checkpoint, no recompute. `substep`'s docstring asserts
+    # these are "the same ops on the same inputs", so a difference here is that assertion failing
+    # at its simplest, and it separates "taping changes the arithmetic" from "checkpoint's own
+    # mechanics change it".
+    with bindcraft2.refusals_unwrapped(), autograd.exact_training(args.exact), \
+            bindcraft2.fast_round():
+        evo_primal = bindcraft2.EvoformerOnDevice(pool, blocks=blocks, recompute=False,
+                                                  memory=bindcraft2._Memory("fast"))
+        before = bindcraft2._fused_hifi_counts()
+        msa_primal, pair_primal = evo_primal._primal("", msa, pair, mask, pair_mask)
+        after = bindcraft2._fused_hifi_counts()
+    msa_primal, pair_primal = np.asarray(msa_primal), np.asarray(pair_primal)
+    taped_reference = results.get("none:False")
+    print(f"\nuntaped _primal against taped _taped, both recompute=False "
+          f"(triangle attention served {after[0] - before[0]}, declined {after[1] - before[1]}):")
+    if taped_reference is None:
+        print("  no none:False configuration was run, so there is nothing to compare it to")
+    else:
+        for label, got, ref in (("forward msa", msa_primal, taped_reference[0]),
+                                ("forward pair", pair_primal, taped_reference[1])):
+            row = report(label, got, ref)
+            print(f"  {label:>14} rel L2 {row['rel_l2']:.6f}  cosine {row['cosine']:.6f}  "
+                  f"max|diff| {row['max_abs_diff']:.6g}  bit-identical {row['bit_identical']}")
+
     reference_name = args.configs[0]
     msa_ref, pair_ref, g_msa_ref, g_pair_ref, _ = results[reference_name]
     print(f"\nread against {reference_name}:\n")
