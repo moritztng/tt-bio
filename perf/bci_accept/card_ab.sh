@@ -29,7 +29,7 @@ export TT_VISIBLE_DEVICES=$CARD
 sample_aiclk() {
   while :; do
     printf '%s %s\n' "$(date -u +%H:%M:%SZ)" \
-      "$(cat "/sys/class/tenstorrent/tenstorrent!$CARD/tt_aiclk" 2>/dev/null || echo unread)"
+      "$(cat "/sys/class/tenstorrent/tenstorrent!$CLK_NODE/tt_aiclk" 2>/dev/null || echo unread)"
     sleep 10
   done > "$CLK"
 }
@@ -40,7 +40,7 @@ trap 'kill $SAMPLER 2>/dev/null' EXIT
 {
   echo "=== card A/B, chip $CARD, binder $LEN, states $STATES ==="
   date -u +'start %Y-%m-%dT%H:%M:%SZ'
-  flock -w 60 "$LOCK" \
+  flock -w "$LOCK_WAIT" "$LOCK" \
     nice -n 10 timeout 5400 "$PY" perf/bci_accept/harden_forward_ab.py \
       --states "$STATES" --af2-weights "$AF2" --target-pdb "$TARGET" \
       --binder-length "$LEN" --card "$CARD"
