@@ -1,8 +1,10 @@
 # The demo video
 
-This branch, web-video-2026-10, makes the Tenstorrent website's cut: the title reads "Biology Models on
-Tenstorrent", there are no QR codes and no "local" marks, and the lineup and the protein are spaced over the
-band the QR row used to close. The booth's own screen is on booth-2026-10.
+This branch, web-video-notime-2026-10, makes the Tenstorrent website's cut without any times: the title
+reads "Biology Models on Tenstorrent", there are no QR codes and no "local" marks, and no fold time, stopwatch
+or replay speed appears anywhere. The number under each protein names the model that folded it, and each chip
+row ends on the chip's stage counter. The cut with times is web-video-2026-10; the booth's own screen is on
+booth-2026-10.
 
 A recorder for a looping video of the booth screen with all four chip lanes busy. The booth itself
 never runs anything here: the kiosk serves `web/` and nothing else, and no file in `web/`, `engine/`
