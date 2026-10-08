@@ -353,11 +353,13 @@ _FAST_MODE = False
 #   * every Protenix stage's matmul kernel config: LoFi, fp32 dest accumulation off
 #     (`lpx_compute_kernel_config`);
 #   * the diffusion stack to bf16, and its token DiT attention onto the fused SDPA;
-#   * triangle attention's interior and bias to bfp8 (`_TRIATT_B8`, `_TRIATT_BIAS_B8`);
+#   * triangle attention's interior and bias to bfp8 (`_TRIATT_B8`, `_TRIATT_BIAS_B8`), on the
+#     mask-reuse fused kernel at (q192, k384) LoFi (`_tri_att_sdpa_at`);
 #   * pair-bias attention off the explicit fp32-softmax chain onto the fused SDPA;
 #   * the transition's weights and its two hidden activations to bfp8, produced by the
 #     matmuls themselves so no typecast is added.
 LPX = env_flag("TT_BIO_LPX", False)
+_LPX_TRIATT_CHUNKS = (192, 384)
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
@@ -2282,6 +2284,15 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     still owes `o * sigmoid(gate)`.
     """
     q_len, k_len = q.shape[2], k.shape[2]
+    if LPX and q_len == k_len:
+        # The mask-reuse pair lpx-sdpa measured fastest at 736 (q192 k384, LoFi): a narrow q
+        # chunk that need not divide the sequence, so every core reads its mask block once.
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, _LPX_TRIATT_CHUNKS[0], _LPX_TRIATT_CHUNKS[1],
+                              ckc_default=(ttnn.MathFidelity.LoFi, True, False, False),
+                              q_split_cap=0, gate=gate, padded_mask=True)
+        if o is not None:
+            _sdpa_pick(q_len, k_len, *_LPX_TRIATT_CHUNKS, "fused")
+            return o
     served = _tri_att_fused_large_s(q, k, v, bias, scale, ckc, gate)
     if served is not None:
         o, q_chunk, k_chunk = served
