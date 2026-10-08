@@ -167,7 +167,6 @@ def cast_sequences(protein_states, dtype):
     subnormal, about 6e-8, lands as exactly zero. That is indistinguishable from "no gradient"
     until the same call is made in float32.
     """
-    import numpy as np
     return {state: {chain: protein.replace(sequence=np.asarray(protein.sequence, dtype=dtype))
                     for chain, protein in complex_.items()}
             for state, complex_ in protein_states.items()}

@@ -196,7 +196,6 @@ def main():
             # A sidecar rather than a second element in the pickle, so every pickle already
             # written stays loadable by the A/B.
             if harden_entry["losses"] is not None:
-                import json
                 sidecar = args.dump_states + ".losses.json"
                 with open(sidecar, "w") as handle:
                     json.dump(harden_entry["losses"], handle)
