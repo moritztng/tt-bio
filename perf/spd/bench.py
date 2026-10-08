@@ -210,7 +210,7 @@ state.model = P.Protenix.load_from_checkpoint(
 state.bind_run("spd", dict(cfg0, fast=FAST))
 state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
 m = state.model
-log(ev="build", s=time.monotonic() - t, fast=getattr(m, "_fast", None), levers=sorted(getattr(m, "_levers", ())))
+log(ev="build", s=time.monotonic() - t, fast=T._FAST_MODE, levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
 orig = m.fold
 
