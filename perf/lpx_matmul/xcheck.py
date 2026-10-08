@@ -5,12 +5,13 @@ acc + bfp8 out, same program config): 8 eager calls, profiler drained after each
 over the call's programs, then devtime.Bench's trace replay of the same call. Needs a Tracy build of tt-metal
 (TT_METAL_DEVICE_PROFILER=1, e.g. lpx-census's ~/lpx/census/env.sh with this row's chip and lease dir).
 
-usage (on .107):  xcheck.py R1_DIR OUT.jsonl N_TOP
+usage (on .107):  xcheck.py R1_DIR OUT.jsonl N_TOP [rank,rank,...]
 """
 import json, os, sys, time
 from pathlib import Path
 
 R1 = Path(sys.argv[1]); OUT = open(sys.argv[2], "a"); NTOP = int(sys.argv[3]) if len(sys.argv) > 3 else 12
+RANKS = {int(r) for r in sys.argv[4].split(",")} if len(sys.argv) > 4 else None
 
 import ttnn
 import tt_bio.tenstorrent as T
@@ -35,13 +36,15 @@ ck = {e["key"]: e["ckc"] for e in map(json.loads, open(R1 / "bench.jsonl")) if e
 done = 0
 for rank, c in enumerate(calls):
     if done >= NTOP: break
-    if c["op"] not in OPS or c["key"] not in ck: continue
+    if c["op"] not in OPS or c["key"] not in ck or (RANKS and rank not in RANKS): continue
     op, a, kw = parse(c["key"])
     for var, i0, fid, acc, o in (("base", None, None, None, None), ("noacc", None, None, False, None),
                                  ("b8b8_lofi_noacc_ob8", "b8", "LoFi", False, "b8")):
         args, kws = list(a), dict(kw)
         args[0] = B.mk(a[0], B.DT[i0] if i0 else None)
         args[1] = B.mk(a[1], B.DT[i0] if i0 else None)
+        for k2, v in kw.items():                 # bias: a tensor kwarg (rank 14 died on it unbuilt)
+            if isinstance(v, tuple) and v[:1] == ("T",): kws[k2] = B.mk(v, B.DT[i0] if i0 else None)
         kws["compute_kernel_config"] = B.ckc(ck[c["key"]], fid, acc)
         if o: kws["dtype"] = B.DT[o]
         fn = lambda: OPS[op](*args, **kws)
@@ -57,7 +60,7 @@ for rank, c in enumerate(calls):
         except Exception as e:
             rec["err"] = f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
         finally:
-            B.free(args[0]); B.free(args[1])
+            for t in (*args[:2], *(v for v in kws.values() if isinstance(v, ttnn.Tensor))): B.free(t)
         rec.update(aiclk=aiclk(), t_unix=time.time())
         OUT.write(json.dumps(rec) + "\n"); OUT.flush(); print(json.dumps(rec), flush=True)
     done += 1
