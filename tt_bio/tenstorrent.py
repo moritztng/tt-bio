@@ -5140,6 +5140,21 @@ def set_trimul_ibw_full(on: bool) -> bool:
     return prev
 
 
+# A/B (spd-trimul): the einsum's output subblock (h, w), "1x1" = production. At in0_block_w = 23 the
+# 736-token einsum reads ~54 TF on Wormhole's 64 engaged cores at HiFi4 and LoFi buys nothing, so the
+# limit at lower fidelity is the unpack of both operands per tile-matmul that a 1x1 subblock forces.
+# A dimension that does not divide the per-core block falls back to 1. Not bit-exact only if the
+# factory reorders K, which it does not: the subblock tiles the OUTPUT.
+_TRIMUL_SUBBLOCK = tuple(int(v) for v in os.environ.get("TT_BIO_TRIMUL_SUBBLOCK", "1x1").split("x"))
+
+
+def set_trimul_subblock(sub: tuple) -> tuple:
+    """A/B switch for the harness. Returns the previous value."""
+    global _TRIMUL_SUBBLOCK
+    prev, _TRIMUL_SUBBLOCK = _TRIMUL_SUBBLOCK, tuple(sub)
+    return prev
+
+
 def _trimul_ibw_full() -> bool:
     # Part of the program config's cache key: r1/r2 measured a null "ibw" while the lru cache
     # handed every arm the first arm's in0_block_w = 1.
@@ -5171,8 +5186,8 @@ def _trimul_ibw_full() -> bool:
 # and already banked by pinning this program config. KIND=placement, and no Wormhole ratio is
 # carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
-def _triangle_mul_program_config(seq_len_tiles: int,
-                                 full: bool = False) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
+def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False,
+                                 sub: tuple = (1, 1)) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
@@ -5192,8 +5207,8 @@ def _triangle_mul_program_config(seq_len_tiles: int,
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,
-        out_subblock_h=1,
-        out_subblock_w=1,
+        out_subblock_h=sub[0] if per_core_M % sub[0] == 0 else 1,
+        out_subblock_w=sub[1] if per_core_N % sub[1] == 0 else 1,
         out_block_h=per_core_M,
         out_block_w=per_core_N,
         per_core_M=per_core_M,
@@ -8249,7 +8264,7 @@ class TriangleMultiplication(Module):
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
-        program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full())
+        program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _TRIMUL_SUBBLOCK)
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
@@ -8564,7 +8579,7 @@ class TriangleMultiplication(Module):
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
-                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full())
+                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _TRIMUL_SUBBLOCK)
                 if (not oom and not mask_clash and not ibw_clash
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
