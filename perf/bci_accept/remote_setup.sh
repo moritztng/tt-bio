@@ -19,7 +19,11 @@ nproc; df -h / | tail -1
 # constrained to the numpy already present so the resolve cannot move numpy under the jax/torch
 # CUDA stack. A fallback install is a DISCLOSED deviation, not a silent one -- it says so.
 echo "--- bc2 deps (pinned) ---"
-if pip install -q --no-input -r /root/requirements_host.txt 2>&1 | tail -5; then
+# `if pip ... | tail -5` tests TAIL's exit status, which is always 0, so a failed resolve printed
+# "exact pins installed" and this fallback never ran: the A100 rented 2026-10-08T22:11Z came up on
+# the image's own numpy 2.1.2 with none of the 104 pins applied. Take pip's own status.
+pip install -q --no-input -r /root/requirements_host.txt 2>&1 | tail -5
+if [ "${PIPESTATUS[0]}" -eq 0 ]; then
   echo "exact pins installed"
 else
   echo "!! exact pins did not resolve on $(python3 -V 2>&1); falling back to UNPINNED names"
