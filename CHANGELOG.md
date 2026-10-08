@@ -7,8 +7,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [0.13.1] - 2026-10-08
 
-Fixes for the BindCraft 2 issues reported against 0.12.0. A campaign on a Tenstorrent card can
-accept designs again, keeps its device memory flat from one trajectory to the next, says what
+Fixes for the BindCraft 2 issues reported against 0.12.0. A campaign on a Tenstorrent card scores its
+designs correctly again, keeps its device memory flat from one trajectory to the next, says what
 filled the card when it does refuse, and exits when it is done.
 
 ### Added
@@ -19,19 +19,20 @@ filled the card when it does refuse, and exits when it is done.
 
 ### Fixed
 
-- **BindCraft 2 validation scores the complex it designed, so designs can be accepted again
+- **BindCraft 2 validation scores the complex it designed, so it no longer rejects every design
   (#21).** Validation is meant to refold each design on BindCraft 2's own JAX model, but only
   the Evoformer was kept off the card: the extra-MSA stack and the template embedder still ran on
   the card with the design model's weights. Every design came back with `Target_pLDDT` near 0.3
   and `Interface_Residues` equal to the binder length, and nothing passed the filters. Validation
-  now runs every stack on the host, and on the reporter's settings it returns the same
-  `Target_pLDDT`, `pLDDT`, `Interface_Residues`, `Binder_RMSD` and i_pTM as BindCraft 2 alone.
-  The design loop is unchanged.
+  now runs every stack on the host and returns the same `Target_pLDDT`, `pLDDT`,
+  `Interface_Residues`, `Binder_RMSD` and i_pTM as BindCraft 2 alone, so a design passes or fails
+  the filters on its own merits. The design loop is unchanged.
 - **Device memory no longer grows across BindCraft 2 trajectories (#18).** With `resident=1`,
   each time the campaign switched design model it left the previous model's pair weights on the
   card, about 60 MB per switch and over a hundred switches per trajectory, so a 352-token campaign
   on a p300c was refused after about four trajectories. Those weights are now released when the
-  model is evicted, and held memory returns to the same level at every trajectory boundary.
+  model is evicted, and held memory stays flat across trajectories: about 1.2 to 1.7 GiB at each
+  boundary over an eight-trajectory campaign, depending on which model is resident.
 - **A BindCraft 2 out-of-memory refusal says how much of the card the failing trajectory
   allocated.** It used to call everything allocated on the card "held by this fold", and in one
   reported campaign three quarters of that had been held before the trajectory started. A
