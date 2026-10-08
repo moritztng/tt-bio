@@ -426,9 +426,15 @@ class _KeyedWeights:
         return v
 
     def _up(self, t):
-        """Upload an activation/host tensor (per call, not cached)."""
-        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
-                               dtype=getattr(self, "dtype", ttnn.bfloat16))
+        """Upload an activation/host tensor (per call, not cached).
+
+        A float32 tensor bound for bf16 is rounded by torch first: torch and ttnn round the same
+        way, so the device tensor is identical, and ttnn tilizes bf16 4x faster than it converts
+        and tilizes float32 (0.66 against 2.73 s for the 730-token MSA feature)."""
+        dtype = getattr(self, "dtype", ttnn.bfloat16)
+        if dtype == ttnn.bfloat16 and t.dtype == torch.float32:
+            t = t.to(torch.bfloat16)
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=dtype)
 
     def _opm_from_host(self, opm, t, z):
         """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
@@ -3067,8 +3073,13 @@ class Trunk(_KeyedWeights):
                  for t in te_at]
         nse_d = self._noisy_structure_dist(feat, N)
         # msa feature
-        msa = F.one_hot(feat["msa"].long(), 32).float()
-        ms = torch.cat([msa, feat["has_deletion"].unsqueeze(-1), feat["deletion_value"].unsqueeze(-1)], -1).unsqueeze(0)
+        # Built in bf16, the dtype it is uploaded in: the one-hot and has_deletion are exact and
+        # torch rounds deletion_value as the fp32 upload did, so the device tensor is identical,
+        # and at 730 tokens x 9,947 rows the host build and tilize drop from 3.3 s to 1.0 s.
+        bf = torch.bfloat16
+        msa = F.one_hot(feat["msa"].long(), 32).to(bf)
+        ms = torch.cat([msa, feat["has_deletion"].to(bf).unsqueeze(-1),
+                        feat["deletion_value"].float().to(bf).unsqueeze(-1)], -1).unsqueeze(0)
         # The MSA representation is this trunk's DRAM limiter on a 12 GiB part: it scales as
         # depth * tokens, and a deep-MSA target OOMs right here. Tag the upload and the
         # projection SEPARATELY, with shape and dtype, because the two are the same number of

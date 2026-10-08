@@ -6173,8 +6173,8 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     against 8192 alignment rows the whole upload is a 3221225472 B buffer a Wormhole chip
     refused, and the whole `m` would only be offloaded to the host afterwards anyway. Every op
     in the projection is per alignment row, so the chunks hold the rows the whole pass does."""
-    up = lambda t: ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT,
-                                   device=get_device(), dtype=ttnn.bfloat16)
+    up = lambda t: ttnn.from_torch((t if t.dtype == torch.bfloat16 else t.float()).contiguous(),
+                                   layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
     lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
     host = torch.is_tensor(feat)
