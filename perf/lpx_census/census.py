@@ -4,23 +4,30 @@ Needs a Tracy-enabled tt-metal (the pip wheel has the device profiler compiled o
 TT_METAL_DEVICE_PROFILER=1 TT_METAL_PROFILER_MID_RUN_DUMP=1 TT_METAL_PROFILER_CPP_POST_PROCESS=1.
 Setup is pfm-ttfast's bench_wh.py (serving-path config, MSA cache), so the fold is the one users get.
 
-Two folds in one process, both at a reduced cycle/step count that the analysis scales back up by call
-count (trunk cycles x N_CYCLES/CYC, denoise steps x 200/STEPS):
+Attribution without a per-op sync: every device program carries the runtime id ttnn hands out per device
+operation (ttnn::CoreIDs device_operation_id), so each top-level ttnn call records the id range [id0, id1)
+it consumed, and the profiler records read every FLUSH device ops are joined back by runtime id. The fold
+therefore runs at its own dispatch pace, and device-idle gaps between consecutive programs inside a flush
+batch are real gaps. Programs launched outside a top-level ttnn call (Tensor methods etc.) fall in the id
+holes and are recorded as "<unhooked>" at the next call's site.
 
-  A  "op":   every top-level ttnn op is bracketed by synchronize + ReadDeviceProfiler, so the device
-             programs read after it are exactly that op's, joined to its args, kwargs and call site.
-             Programs launched outside any ttnn op (Tensor methods etc.) are caught by the flush before
-             the next op and recorded as "unhooked" at that call site.
-  B  "pipe": same fold, no per-op sync; a flush every FLUSH ops. Gives device-idle gaps under the real
-             dispatch pattern (start/end timestamps of consecutive programs inside one flush batch).
+Each fold in FOLDS (name:cycles:steps) is profiled the same way; run a short one first so the measured fold
+is warm (program cache built, lazy caches filled).
 
-usage: census.py OUT CHIP YAML CYC STEPS
+Outputs in OUT: census.jsonl (events), sigs_<f>.jsonl (one line per distinct op signature: op, call site,
+region, args/kwargs/out with shapes, dtypes, layouts, memory configs, compute/program configs),
+ops_<f>.jsonl ([sig, id0, id1, cycle, step] per call), progs_<f>.jsonl (per program: runtime id, flush
+batch, cores, kernel/fw/risc durations, start/end).
+
+usage: census.py OUT CHIP YAML FOLDS     e.g. census.py r2 24 complex730.yaml warm:2:4,full:10:200
 """
 import json, os, sys, threading, time, glob
 from pathlib import Path
 
+os.environ.setdefault("TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT", "5000")
 OUT = Path(sys.argv[1]); CHIP = int(sys.argv[2]); YAML = Path(sys.argv[3])
-CYC = int(sys.argv[4]); STEPS = int(sys.argv[5]); FLUSH = 400
+FOLDS = [(f.split(":")[0], int(f.split(":")[1]), int(f.split(":")[2])) for f in sys.argv[4].split(",")]
+FLUSH = [1000]
 OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "census.jsonl", "a")
 def log(**kw):
@@ -120,8 +127,8 @@ def _recycle_region(cyc, last):
     CUR["cyc"] = cyc; return _rr(cyc, last)
 OPS.recycle_region = _recycle_region
 
-# ---------------- per-op device time ----------------
-HERE = os.path.abspath(__file__)
+# ---------------- per-op attribution by runtime id ----------------
+OPID = ttnn._ttnn.get_device_operation_id
 def callsite():
     f = sys._getframe(2); out = []
     while f is not None and len(out) < 3:
@@ -145,62 +152,76 @@ def arginfo(x, depth=0):
     if isinstance(x, (int, float, bool, str)) or x is None: return x
     r = repr(x)
     return r if len(r) < 1500 else r[:1500] + "..."
+def skey(x, depth=0):
+    """Cheap identity of an argument for signature dedup: tensor shape+dtype+memory layout, scalars by value."""
+    if isinstance(x, ttnn.Tensor):
+        try: return (tuple(x.shape), int(x.dtype.value) if hasattr(x.dtype, "value") else str(x.dtype),
+                     x.is_sharded() if x.storage_type() == ttnn.StorageType.DEVICE else None)
+        except Exception: return "T?"
+    if isinstance(x, (list, tuple)):
+        return (len(x),) + tuple(skey(y, depth + 1) for y in x[:4]) if depth < 2 else len(x)
+    if isinstance(x, (int, float, bool, str)) or x is None: return x
+    return type(x).__name__ + ":" + str(hash(repr(x)) if depth == 0 else "")
 KEYS = ("DEVICE KERNEL DURATION [ns]", "DEVICE FW DURATION [ns]", "DEVICE TRISC0 KERNEL DURATION [ns]",
         "DEVICE TRISC1 KERNEL DURATION [ns]", "DEVICE TRISC2 KERNEL DURATION [ns]",
-        "DEVICE BRISC KERNEL DURATION [ns]", "DEVICE NCRISC KERNEL DURATION [ns]",
-        "DEVICE KERNEL FIRST TO LAST START [ns]")
-SHORT = ("k", "fw", "t0", "t1", "t2", "br", "nc", "f2l")
+        "DEVICE BRISC KERNEL DURATION [ns]", "DEVICE NCRISC KERNEL DURATION [ns]")
+SHORT = ("k", "fw", "t0", "t1", "t2", "br", "nc")
+F = {"sig": None, "ops": None, "progs": None}
+SIGS = {}; ST = {"on": False, "depth": 0, "last": 0, "flushed": 0, "batch": 0, "nprog": 0, "nops": 0, "missing": 0}
 def drain():
     ttnn.synchronize_device(DEV["d"]); ttnn.ReadDeviceProfiler(DEV["d"])
-    out = []
+    hi = OPID(); n = 0; seen = set()
     for chip, progs in ttnn.get_latest_programs_perf_data().items():
         for p in progs:
-            r = p.program_analyses_results; d = {"rid": p.program_execution_uid.runtime_id, "cores": p.core_count}
-            for k, s in zip(KEYS, SHORT):
-                if k in r: d[s] = r[k].duration
+            r = p.program_analyses_results; u = p.program_execution_uid
+            d = [u.runtime_id, ST["batch"], p.core_count]
+            for k in KEYS:
+                d.append(r[k].duration if k in r else None)
             kk = r.get("DEVICE KERNEL DURATION [ns]")
-            if kk is not None: d["s"], d["e"] = kk.start_timestamp, kk.end_timestamp
-            out.append(d)
-    out.sort(key=lambda d: d["rid"])
-    return out
-NODEV = {"ttnn.deallocate", "ttnn.to_torch", "ttnn.from_device", "ttnn.is_tensor_storage_on_device",
-         "ttnn.get_memory_config", "ttnn.synchronize_device"}
-MODE = {"m": None, "n": 0, "depth": 0}
-class _Rec(list):
-    """Records stream to ops_<mode>.jsonl as they are made, so a killed run keeps what it measured."""
-    f = None
-    def append(self, r):
-        super().append(r)
-        if self.f: self.f.write(json.dumps(r, default=str) + "\n")
-REC = _Rec()
+            d += [kk.start_timestamp, kk.end_timestamp] if kk is not None else [None, None]
+            if F["progs"]: F["progs"].write(json.dumps(d) + "\n")
+            seen.add(u.runtime_id); n += 1
+    # every id handed out since the last flush should have come back once
+    miss = sum(1 for i in range(ST["flushed"], hi) if i not in seen)
+    if miss and ST["on"]:
+        ST["missing"] += miss
+        # a profiler buffer that overflowed drops a run of programs; shrink the batch. A stray id or two is
+        # an id consumed without a launch, not an overflow.
+        if miss > 0.01 * (hi - ST["flushed"]) and FLUSH[0] > 50:
+            FLUSH[0] //= 2; log(ev="flush_missing", missing=miss, expected=hi - ST["flushed"], new_flush=FLUSH[0])
+    ST["flushed"] = hi; ST["batch"] += 1; ST["nprog"] += n
+def emit(name, a, k, id0, id1):
+    site = callsite(); reg = "/".join(REG)
+    key = (name, tuple(site), reg, tuple(skey(x) for x in a), tuple((kk, skey(v)) for kk, v in k.items()))
+    sid = SIGS.get(key)
+    if sid is None:
+        sid = SIGS[key] = len(SIGS)
+        F["sig"].write(json.dumps(dict(sig=sid, op=name, site=site, reg=reg, args=[arginfo(x) for x in a],
+                                       kw={kk: arginfo(v) for kk, v in k.items()}), default=str) + "\n")
+    F["ops"].write(f"[{sid},{id0},{id1},{CUR['cyc']},{CUR['step']}]\n"); ST["nops"] += 1
+    return sid
 def make(orig):
     def call(self, *a, **k):
-        if MODE["m"] is None or MODE["depth"] > 0:
+        if not ST["on"] or ST["depth"] > 0:
             return orig(self, *a, **k)
-        name = self.python_fully_qualified_name
-        MODE["depth"] += 1
+        ST["depth"] += 1
         try:
-            if MODE["m"] == "op" and name not in NODEV:
-                site = callsite(); reg = "/".join(REG); cs = (CUR["cyc"], CUR["step"])
-                pre = drain()
-                if pre:
-                    REC.append(dict(i=len(REC), op="<unhooked>", site=site, reg=reg, cyc=cs[0], step=cs[1], progs=pre))
-                out = orig(self, *a, **k)
-                progs = drain()
-                REC.append(dict(i=len(REC), op=name, site=site, reg=reg, cyc=cs[0], step=cs[1],
-                                args=[arginfo(x) for x in a], kw={kk: arginfo(v) for kk, v in k.items()},
-                                out=arginfo(out), progs=progs))
-                return out
+            id0 = OPID()
+            if id0 > ST["last"]:
+                emit("<unhooked>", (), {}, ST["last"], id0)
             out = orig(self, *a, **k)
-            if MODE["m"] == "pipe":
-                MODE["n"] += 1
-                if MODE["n"] % FLUSH == 0:
-                    REC.append(dict(i=len(REC), op="<batch>", reg="/".join(REG), cyc=CUR["cyc"], step=CUR["step"],
-                                    progs=drain()))
+            id1 = OPID(); ST["last"] = id1
+            if id1 > id0:
+                sid = emit(self.python_fully_qualified_name, a, k, id0, id1)
+                if sid not in OUTS:
+                    OUTS.add(sid); F["sig"].write(json.dumps(dict(sig=sid, out=arginfo(out)), default=str) + "\n")
+            if id1 - ST["flushed"] >= FLUSH[0]:
+                drain()
             return out
         finally:
-            MODE["depth"] -= 1
+            ST["depth"] -= 1
     return call
+OUTS = set()
 D.FastOperation.__call__ = make(D.FastOperation.__call__)
 D.Operation.__call__ = make(D.Operation.__call__)
 
@@ -219,22 +240,26 @@ log(ev="build", trunk_fid=str(m.trunk.compute_kernel_config.math_fidelity), diff
     n_cycles=m.trunk.N_CYCLES)
 drain()
 
-for mode in sys.argv[6].split(","):
-    rcfg = dict(cfg0, seed=101, recycling_steps=CYC, sampling_steps=STEPS)
-    sdir = OUT / f"struct_{mode}"; sdir.mkdir(exist_ok=True); rcfg["struct_dir"] = str(sdir)
-    REC.clear(); CUR.update(cyc=-1, step=-1); MODE.update(m=mode, n=0)
-    REC.f = open(OUT / f"ops_{mode}.jsonl", "w", buffering=1 << 20)
+for name, cyc, steps in FOLDS:
+    rcfg = dict(cfg0, seed=101, recycling_steps=cyc, sampling_steps=steps)
+    sdir = OUT / f"struct_{name}"; sdir.mkdir(exist_ok=True); rcfg["struct_dir"] = str(sdir)
+    CUR.update(cyc=-1, step=-1)
+    for kk in ("sig", "ops", "progs"):
+        F[kk] = open(OUT / f"{kk}_{name}.jsonl", "w", buffering=1 << 20)
+    SIGS.clear(); OUTS.clear()
+    drain(); ST.update(on=True, last=OPID(), nprog=0, nops=0, missing=0, batch=0)
     n0 = len(samples); t0 = time.monotonic(); err = None
     try:
         metrics, best, feats = state.predict_one(YAML, rcfg)
     except Exception:
         import traceback; err = traceback.format_exc()[-3000:]; metrics = {}
-    MODE["m"] = None
-    REC.append(dict(i=len(REC), op="<tail>", reg="", cyc=CUR["cyc"], step=CUR["step"], progs=drain()))
     t1 = time.monotonic()
+    ST["on"] = False; drain()
     clk = sorted(r[NODE] for s_, r in samples[n0:] if t0 <= s_ <= t1)
-    REC.f.close(); REC.f = None
-    log(ev="fold", mode=mode, wall_s=t1 - t0, err=err, n_rec=len(REC), cycles=CUR["cyc"] + 1, steps=CUR["step"] + 1,
+    for kk in F:
+        F[kk].close(); F[kk] = None
+    log(ev="fold", fold=name, wall_s=t1 - t0, err=err, n_ops=ST["nops"], n_sigs=len(SIGS), n_progs=ST["nprog"],
+        missing=ST["missing"], flush=FLUSH[0], n_flush=ST["batch"], cycles=CUR["cyc"] + 1, steps=CUR["step"] + 1,
         aiclk_n=len(clk), aiclk_median=clk[len(clk) // 2] if clk else None, aiclk_min=clk[0] if clk else None,
         aiclk_max=clk[-1] if clk else None,
         metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "n_residues", "msa_depth") if k in metrics})

@@ -12,7 +12,11 @@ import tt_bio.tenstorrent as T
 d = T.get_device()
 NODES = sorted(int(p.rsplit("!", 1)[1]) for p in glob.glob("/sys/class/tenstorrent/tenstorrent!*"))
 def aiclk():
-    return {n: int(Path(f"/sys/class/tenstorrent/tenstorrent!{n}/tt_aiclk").read_text().split()[0]) for n in NODES}
+    out = {}
+    for n in NODES:
+        try: out[n] = int(Path(f"/sys/class/tenstorrent/tenstorrent!{n}/tt_aiclk").read_text().split()[0])
+        except (OSError, ValueError): out[n] = None
+    return out
 def drain():
     ttnn.synchronize_device(d); ttnn.ReadDeviceProfiler(d)
     return sorted([(p.program_execution_uid.runtime_id, p.program_analyses_results["DEVICE KERNEL DURATION [ns]"].duration,
