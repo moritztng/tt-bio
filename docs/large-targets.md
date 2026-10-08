@@ -11,7 +11,9 @@ row-local along the token axis, so past a size threshold they run in row blocks 
 intermediate that is not the input or the output. The peak then scales as three live pair
 tensors instead of four. The blocks are joined on the chip, and on the host only when the chip refuses the join. A deep alignment's MSA representation lives on the host and passes
 through the chip one depth chunk at a time instead of being held whole beside the pair
-tensors. ESMFold2's pair initialisation is row-tiled the same way.
+tensors. Protenix-v2 first keeps it on the chip when it is at most about 2 GiB and streams it only
+if the chip refuses a recycling cycle, which takes a 730-residue fold with 9947 alignment rows from
+620 s to 495 s on Wormhole with the same output. ESMFold2's pair initialisation is row-tiled the same way.
 
 Measured on the WH Galaxy (12 GiB chips) on the four targets the AbAg-XM campaign had to
 exclude:
