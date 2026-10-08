@@ -6,7 +6,7 @@ Shipped (protenix fp32 raw-matmul path, tenstorrent.py AttentionPairBias):
     kt = permute(k); sc = batched_matmul(q, kt); sc = scale_add(sc, s, bias); p = softmax(sc); o = batched_matmul(p, v)
 Candidates, each checked for torch.equal / max |d| against the shipped intermediate it replaces:
     qk_tb      ttnn.matmul(q, k, transpose_b=True)  (no permute of k)
-    sms        ttnn.scale_mask_softmax(sc, s, bias)  (scale, bias add and softmax in one pass)
+    sms        ttnn.scale_mask_softmax(sc, s, mask=bias)  (scale, bias add and softmax in one pass)
     sms_causal the same with is_causal_mask=True (the variant that reads a full H x W mask)
 Timings are device-synced wall times over REPS calls after one warm-up call, AICLK sampled around them.
 """
@@ -105,7 +105,7 @@ for name, fn in [("qk_tb_ttnn", lambda: ttnn.matmul(q, k, transpose_b=True, comp
 
 # candidate: scale + bias + softmax in one op
 for name, kw in [("sms", {}), ("sms_causal", {"is_causal_mask": True})]:
-    o = timed(name, lambda kw=kw: ttnn.scale_mask_softmax(sc, s, bias, **kw), keep=True)
+    o = timed(name, lambda kw=kw: ttnn.scale_mask_softmax(sc, s, mask=bias, **kw), keep=True)
     if o is not None:
         oh = host(o)
         log(op=name + "_check", equal=bool(torch.equal(oh, p_h)), max_abs=float((oh - p_h).abs().max()),
