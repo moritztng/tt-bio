@@ -9,10 +9,16 @@
 #
 # Never re-enters a project folder: BindCraft 2 charges a claimed-but-unfinished trajectory against
 # the budget and never retries it, so a resume would silently run fewer than 8.
+#
+# RUNTAG suffixes every output path, so a second campaign on the same box gets its own log, project
+# and npz instead of colliding with the first. Empty by default, which is the original single-arm
+# layout relaunch_host.sh resumes. RUNTAG=_B is the host-against-host control: same box, same
+# install, same seed, so anything the two runs disagree on is host JAX disagreeing with itself.
 set -u
+RUNTAG=${RUNTAG:-}
 ROOT=/root/bci-seventeen
-LOG=$ROOT/host_8traj_288.log
-PROJ=$ROOT/proj_host_8traj_288
+LOG=$ROOT/host_8traj_288$RUNTAG.log
+PROJ=$ROOT/proj_host_8traj_288$RUNTAG
 mkdir -p "$ROOT"
 
 # capture_logits.py does os.environ.setdefault("JAX_PLATFORMS", "cpu"), so WITHOUT this export the
@@ -46,7 +52,7 @@ fi
 
 ( while :; do printf "%s %s\n" "$(date -u +%H:%M:%SZ)" \
     "$(nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader 2>/dev/null)"; \
-    sleep 60; done > "$ROOT/host_8traj_288.gpu" ) &
+    sleep 60; done > "$ROOT/host_8traj_288$RUNTAG.gpu" ) &
 SAMPLER=$!
 trap "kill $SAMPLER 2>/dev/null" EXIT
 
@@ -54,7 +60,7 @@ python perf/bci_accept/capture_logits.py \
   --trunk jax --full \
   --target-pdb /root/bcx_shipped/bc2/settings/target/structures/hPDL1.pdb \
   --af2-weights /root/bcx_shipped/af2_params \
-  --out "$ROOT/logits_host_8traj_288.npz" \
+  --out "$ROOT/logits_host_8traj_288$RUNTAG.npz" \
   --project "$PROJ" \
   --design-dropout false --trajectories 8 --trajectories-per-card 1 \
   --binder-lengths 173 173
