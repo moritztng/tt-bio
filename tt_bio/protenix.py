@@ -1239,6 +1239,9 @@ class DiffusionModule(_KeyedWeights):
         self.device_dit = True
         DT = "diffusion_transformer."
         sub = lambda pfx: {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
+        # dit_sdpa32: the fp32 DiT's attention as one SDPA program on a token axis padded by
+        # sdpa32_rows; _token_dit_device pads and slices, finish_bias builds the padded mask.
+        self._dit_sdpa32 = _T.lever("dit_sdpa32") and self._dit_dtype == ttnn.float32
         self._dit = []
         for b in range(self.DIT_BLOCKS):
             A = DT + f"blocks.{b}.attention_pair_bias."
@@ -1254,6 +1257,7 @@ class DiffusionModule(_KeyedWeights):
             # dit_sdpa: the bf16 DiT's attention takes the fused SDPA (the token-DiT branch)
             # rather than the explicit matmul/softmax/matmul chain.
             self._dit[-1][1].token_dit = _T.lever("dit_sdpa") and self._dit_dtype == ttnn.bfloat16
+            self._dit[-1][1].sdpa32 = self._dit_sdpa32
 
 
     def _up_dit(self, t):
@@ -1622,6 +1626,8 @@ class DiffusionModule(_KeyedWeights):
         # scores, the softmax) beside one bias uploaded for its read: keep that free, park the
         # rest. At 2987 structural tokens the 24 biases are 13.9 GB of fp32 on a 12 GiB chip.
         NT = int(z_dev.shape[-2])
+        if self._dit_sdpa32:
+            NT = _T.sdpa32_rows(NT)
         one = _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
                                4 if self._dit_dtype == ttnn.float32 else 2)
         reserve = 4 * one
@@ -1666,6 +1672,11 @@ class DiffusionModule(_KeyedWeights):
             a_t = ttnn.typecast(a_t, self._dit_dtype)
             s_t = ttnn.typecast(s_t, self._dit_dtype)
         wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
+        NP = _T.sdpa32_rows(NT) if self._dit_sdpa32 else NT
+        if NP != NT:
+            # Rows are independent everywhere but the attention, whose mask hides the new keys.
+            a_t, s_t = (ttnn.pad(x, [(0, 0)] * (len(x.shape) - 2) + [(0, NP - NT), (0, 0)], value=0.0)
+                        for x in (a_t, s_t))
 
         def linb(x, wk, bk=None, act=None):
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
@@ -1684,7 +1695,7 @@ class DiffusionModule(_KeyedWeights):
                                linb(an2, Cc + "linear_nobias_a2.weight"))
             cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
             a_t = gated_add(ao, linb(bb, Cc + "linear_nobias_b.weight"), cs)
-        return a_t
+        return a_t[:, :NT, :] if NP != NT else a_t
 
 
     def _denoise_multiplicity(self, x_noisy, t_hat, cond):

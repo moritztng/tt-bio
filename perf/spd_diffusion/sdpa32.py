@@ -91,8 +91,9 @@ def shipped():
 
 o = shipped(); ttnn.synchronize_device(dev)
 ref_err = float((host(o)[..., :NT, :D] - o64).abs().max())
+ref_mean = float((host(o)[..., :NT, :D] - o64).abs().mean())
 us, clk = timed("shipped", shipped)
-log(op="shipped", us=us, aiclk=clk, max_abs_vs_f64=ref_err, logits_absmax=logits_absmax)
+log(op="shipped", us=us, aiclk=clk, max_abs_vs_f64=ref_err, mean_abs_vs_f64=ref_mean, logits_absmax=logits_absmax)
 
 
 def pad(t, rows):
@@ -101,41 +102,47 @@ def pad(t, rows):
 
 
 qp, kp, vp = up(pad(q_h, NP)), up(pad(k_h, NP)), up(pad(v_h, NP))
-mask_h = torch.full((1, H, NP, NP), -1e4); mask_h[:, :, :NT, :NT] = bias_h / s
+mask_h = torch.full((1, H, NP, NP), -1e4); mask_h[:, :, :, :NT] = 0; mask_h[:, :, :NT, :NT] = bias_h / s
 mask = up(mask_h)
+NT32 = -(-NT // 32) * 32
+tail = [(0, 0), (0, 0), (0, NT32 - NT), (0, 0)]
+# inside the last tile ttnn.pad relabels the logical shape and zero-fills the tile tail, no copy
+qi, ki, vi = (ttnn.pad(t, tail, value=0.0) for t in (q, k, v))
 try:
-    us, clk = timed("pad_q", lambda: ttnn.pad(q, [(0, 0), (0, 0), (0, NP - NT), (0, 0)], 0.0))
-    log(op="pad_one_operand", us=us, aiclk=clk)
+    us, clk = timed("pad_tail", lambda: ttnn.clone(ttnn.pad(k, tail, value=0.0)))
+    log(op="pad_tail_plus_clone", us=us, aiclk=clk)
 except Exception as e:
-    log(op="pad_one_operand", error=str(e)[:300])
+    log(op="pad_tail", error=str(e)[:300])
+CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 
-for qc, kc in [(128, 256), (256, 256), (64, 256), (128, 128), (256, 128), (128, 384), (64, 768), (128, 768)]:
-    if NP % qc or NP % kc:
-        continue
-    for stats in (ttnn.float32, None):
-        name = f"sdpa32_q{qc}_k{kc}_stats{'32' if stats else '16'}"
-        kw = dict(im_dtype=ttnn.float32, out_im_dtype=ttnn.float32, stats_dtype=stats)
-        p = SG.plan(qp, kp, vp, mask, qp, qc, kc, GRID, (ttnn.MathFidelity.HiFi4, False, True, False), s)
-        if not SG.cb_fits_l1(p, q_dtype=ttnn.float32, k_dtype=ttnn.float32, v_dtype=ttnn.float32,
-                             mask_dtype=ttnn.float32, out_dtype=ttnn.float32, **kw):
-            log(op=name, error="cb over L1 (host model)", cb_bytes=SG.cb_bytes(
-                p, q_dtype=ttnn.float32, k_dtype=ttnn.float32, v_dtype=ttnn.float32, mask_dtype=ttnn.float32,
-                out_dtype=ttnn.float32, **kw))
+for form, (Q, K, V, rows) in [("pad768", (qp, kp, vp, NP)), ("tail736", (qi, ki, vi, NT32))]:
+    for qc, kc in [(128, 256), (256, 256), (128, 128), (256, 128), (128, 384), (256, 384), (128, 768), (64, 768)]:
+        if NP % qc or NP % kc:
             continue
+        for im in (None, ttnn.float32):
+            name = f"sdpa_{form}_q{qc}_k{kc}_im{'32' if im else '16'}"
+            kw = dict(im_dtype=im, out_im_dtype=im, stats_dtype=im)
+            p = SG.plan(Q, K, V, mask, Q, qc, kc, GRID, CKC, s)
+            dts = dict(q_dtype=ttnn.float32, k_dtype=ttnn.float32, v_dtype=ttnn.float32, mask_dtype=ttnn.float32,
+                       out_dtype=ttnn.float32)
+            if not SG.cb_fits_l1(p, **dts, **kw):
+                log(op=name, error="cb over L1 (host model)", cb_bytes=SG.cb_bytes(p, **dts, **kw))
+                continue
 
-        def run(qc=qc, kc=kc, kw=kw):
-            out = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H, NP, D]), ttnn.float32, ttnn.TILE_LAYOUT, dev,
-                                                 ttnn.DRAM_MEMORY_CONFIG)
-            SG.sdpa(dev, qp, kp, vp, mask, out, qc, kc, GRID, (ttnn.MathFidelity.HiFi4, False, True, False), s,
-                    **kw)
-            return out
-        try:
-            a = run(); ttnn.synchronize_device(dev); ah = host(a); ttnn.deallocate(a)
-            b = run(); ttnn.synchronize_device(dev); bh = host(b); ttnn.deallocate(b)
-            us, clk = timed(name, run)
-        except Exception as e:
-            log(op=name, error=str(e)[:600]); continue
-        err = float((ah[..., :NT, :D] - o64).abs().max())
-        log(op=name, us=us, aiclk=clk, max_abs_vs_f64=err, err_ratio_vs_shipped=round(err / ref_err, 3),
-            finite=bool(torch.isfinite(ah).all()), run_to_run_equal=bool(torch.equal(ah, bh)))
+            def run(qc=qc, kc=kc, kw=kw, Q=Q, K=K, V=V, rows=rows):
+                out = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H, rows, D]), ttnn.float32, ttnn.TILE_LAYOUT,
+                                                     dev, ttnn.DRAM_MEMORY_CONFIG)
+                SG.sdpa(dev, Q, K, V, mask, out, qc, kc, GRID, CKC, s, **kw)
+                return out
+            try:
+                a = run(); ttnn.synchronize_device(dev); ah = host(a); ttnn.deallocate(a)
+                b = run(); ttnn.synchronize_device(dev); bh = host(b); ttnn.deallocate(b)
+                us, clk = timed(name, run)
+            except Exception as e:
+                log(op=name, error=str(e)[:600]); continue
+            d = ah[..., :NT, :D] - o64
+            log(op=name, us=us, aiclk=clk, use_padded_mask=p["use_padded_mask"], max_abs_vs_f64=float(d.abs().max()),
+                mean_abs_vs_f64=float(d.abs().mean()), err_ratio_vs_shipped=round(float(d.abs().max()) / ref_err, 3),
+                mean_ratio_vs_shipped=round(float(d.abs().mean()) / ref_mean, 3),
+                finite=bool(torch.isfinite(ah).all()), run_to_run_equal=bool(torch.equal(ah, bh)))
 log(op="end")

@@ -412,12 +412,14 @@ _FAST_MODE = False
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
+#   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
+#                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trunk_hifi3")
+          "trunk_hifi3", "dit_sdpa32")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in"})
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
@@ -427,7 +429,10 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # trunk_hifi3: Wormhole 11-set grade PASS on staging2 and staging3, 44 paired folds, top pose median
 # 0.289 A against the exact floor (spd-msa 2026-10-09 02:10Z). Inert under acc_off, so in fast mode
 # it changes nothing.
-NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3"})
+# dit_sdpa32: alone it moves pLDDT by -0.0001 (CI excludes 0) with the structure null (top pose 0.220 A
+# vs the 0.60 A bar); the base softmax loses 0.3-1.3 % row mass in float64 and the lever 4-6x less
+# (spd-diffusion g2). In normal mode for the staging6 stack grade, which decides it.
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32"})
 _LEVERS = frozenset()
 
 
@@ -2085,6 +2090,58 @@ def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
 
 
 _ZERO_MASKS = {}  # (id(device), Lq, Lk) -> (device, zero [1, 1, Lq, Lk]); cleanup() empties it
+
+
+# A padded key's mask. SDPA adds the mask before the scale, so it enters the exponent as
+# -1e4 / sqrt(head_dim), far below any score, and exp sends it to exactly 0.
+_SDPA32_PAD_MASK = -1e4
+_SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
+
+
+def sdpa32_rows(n: int) -> int:
+    """The token length `_sdpa32` runs at: `n` padded to 128, so a 256 or 128 chunk divides it.
+
+    The kernel's own padded-mask path (a chunk that does not divide the tile-padded length) is
+    wrong at fp32 operands, so the padding is explicit: the caller pads its token stream once and
+    `sdpa32_mask` masks the new keys."""
+    return -(-n // 128) * 128
+
+
+def sdpa32_mask(b: ttnn.Tensor) -> ttnn.Tensor:
+    """A (1, H, n, n) pair bias as `_sdpa32`'s mask: padded to `sdpa32_rows(n)`, new keys masked,
+    new query rows 0 (they are sliced off, and a row masked everywhere would divide by zero).
+
+    Always a fresh buffer: inside the last tile `ttnn.pad` aliases its source, and the caller
+    frees the bias it hands in."""
+    n = int(b.shape[-1])
+    pad = sdpa32_rows(n) - n
+    r = ttnn.pad(b, [(0, 0), (0, 0), (0, pad), (0, 0)], value=0.0)
+    m = ttnn.pad(r, [(0, 0), (0, 0), (0, 0), (0, pad)], value=_SDPA32_PAD_MASK)
+    if r.buffer_address() not in (b.buffer_address(), m.buffer_address()):
+        ttnn.deallocate(r)
+    return ttnn.clone(m) if m.buffer_address() == b.buffer_address() else m
+
+
+def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
+    """softmax((q @ k^T + mask) * scale) @ v with fp32 operands and output, as ONE program.
+
+    ttnn's SDPA op refuses fp32 operands; `sdpa_generic` runs the same kernels through
+    generic_op. The exponentiated scores, the output accumulators and the row statistics stay
+    in the kernel's bf16 CBs: the fp32 variants of those CBs come back wrong (the compute kernel
+    does not move the packer for a WIDER intermediate). Measured on Wormhole at (5,16,730,48):
+    1.84 ms against 8.15 ms for matmul + scale_add + softmax + matmul, and against a float64
+    reference 0.77x that chain's mean error (perf/spd_diffusion/sdpa32.py)."""
+    from . import sdpa_generic as SG
+    n = int(q.shape[2])
+    assert n % 128 == 0 and int(mask.shape[-1]) == n == int(k.shape[2]), \
+        ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
+    chunk = 256 if n % 256 == 0 else 128
+    dev = q.device()
+    g = dev.compute_with_storage_grid_size()
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in q.shape]), ttnn.float32,
+                                         ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, chunk, (g.x, g.y), _SDPA32_CKC, scale)
+    return out
 
 
 def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
@@ -10133,6 +10190,9 @@ class AttentionPairBias(Module):
         # Set by DiffusionTransformerLayer for the token-level diffusion DiT only. S6 reads it,
         # so no trunk / MSA / template / confidence site can be rerouted by that flag.
         self.token_dit = False
+        # Set by protenix's DiffusionModule under `dit_sdpa32`: the fp32 token DiT's attention
+        # runs as `_sdpa32` on a padded token axis, and `finish_bias` makes its mask.
+        self.sdpa32 = False
         if atom_level:
             self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
             self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
@@ -10248,7 +10308,8 @@ class AttentionPairBias(Module):
         Protenix-v2 DiT drops 4800 full-size (1,16,NT,NT) passes per fold (1.66 s at 730
         tokens on Wormhole). Every other path reads the bias as computed."""
         if self.compute_pair_bias and self._raw_fp32():
-            return ttnn.multiply(b, self.head_dim ** -0.5)
+            # `_sdpa32` scales its mask with the scores, so it keeps the compensation.
+            return sdpa32_mask(b) if self.sdpa32 else ttnn.multiply(b, self.head_dim ** -0.5)
         return b
 
     def _attention(
@@ -10497,7 +10558,10 @@ class AttentionPairBias(Module):
                                        and self.fp32_raw_matmul_attention))
             if self.token_dit and _B2_TOKEN_DIT_SDPA:
                 B2_TOKEN_DIT_SDPA_STATS[0 if token_dit_sdpa else 1] += 1
-            if self._raw_fp32():
+            if self._raw_fp32() and self.sdpa32:
+                assert bias_precomputed and seq_mask is None, "_sdpa32 reads a finish_bias mask"
+                o = _sdpa32(q, k, v, z, self.head_dim ** -0.5)
+            elif self._raw_fp32():
                 # ttnn SDPA rejects fp32 inputs (bf16/bf8 only), so the Protenix fp32 DiT
                 # path computes attention as raw matmul. SDPA scales its additive mask
                 # along with QK, so z_weight carries sqrt(head_dim) compensation. Undo
