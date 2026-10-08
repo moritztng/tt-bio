@@ -45,9 +45,38 @@ def caller_site():
     return None
 
 
-def shapes(args, kwargs):
+#: Ops whose operands are described in full rather than by shape. `batched_matmul`s tuned
+#: branch is gated on dtype equality and on BOTH operands being DRAM interleaved
+#: (`tenstorrent.py:3322`), so a shape-only trace cannot say why one arm qualifies for it and
+#: the other does not.
+DETAILED = {"matmul", "experimental.minimal_matmul", "linear"}
+
+
+def describe(value):
+    shape = getattr(value, "shape", None)
+    if shape is None:
+        return None
+    try:
+        shape = tuple(int(d) for d in shape)
+    except Exception:
+        return "?"
+    try:
+        memory = value.memory_config()
+        where = f"{memory.buffer_type.name}/{memory.memory_layout.name}"
+    except Exception:
+        where = "?"
+    return f"{shape}:{str(getattr(value, 'dtype', '?')).rsplit('.', 1)[-1]}:{where}"
+
+
+def shapes(args, kwargs, name=""):
+    detail = name in DETAILED
     out = []
     for value in list(args) + list(kwargs.values()):
+        if detail:
+            described = describe(value)
+            if described is not None:
+                out.append(described)
+            continue
         shape = getattr(value, "shape", None)
         if shape is not None:
             try:
@@ -68,7 +97,7 @@ class Recorded:
             site = caller_site()
             if site is not None:
                 self._sink.trace[self._sink.arm].append(
-                    (self._name, site, shapes(args, kwargs)))
+                    (self._name, site, shapes(args, kwargs, self._name)))
         return self._fn(*args, **kwargs)
 
     def __getattr__(self, attr):
@@ -162,9 +191,12 @@ def main():
                 sink.arm = None
                 if arm == "untaped":
                     reference = out
+                from tt_bio import tenstorrent as _tt
                 print(f"{arm:>14}: {len(sink.trace[arm])} ops, msa rel L2 "
                       f"{rel_l2(out[0], reference[0]):.6f}, pair rel L2 "
-                      f"{rel_l2(out[1], reference[1]):.6f}", flush=True)
+                      f"{rel_l2(out[1], reference[1]):.6f}, bmm rungs "
+                      f"{dict(getattr(_tt, '_BMM_CFG_RUNG', {}))}, refused "
+                      f"{len(getattr(_tt, '_BMM_CFG_REFUSED', ()))}", flush=True)
         finally:
             trunk.model.device_evoformer = blocks
 
