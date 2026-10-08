@@ -19,6 +19,7 @@ ap.add_argument("--n", type=int, default=736)
 ap.add_argument("--cz", type=int, default=256)
 ap.add_argument("--calls", type=int, default=20)
 ap.add_argument("--reps", type=int, default=3)
+ap.add_argument("--fid", action="store_true", help="only production's block, at every fidelity / acc setting")
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -40,7 +41,7 @@ mt, kt, nt = A.n * A.n // 32, A.cz // 32, A.cz // 32
 P = A.n * A.n * A.cz * 2
 
 
-def mm(M, K, N, sh, sw):
+def mm(M, K, N, sh, sw, ckc=ckc):
     cfg = ttnn.MinimalMatmulConfig(M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh,
                                    subblock_w=sw, compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
     return lambda: ttnn.experimental.minimal_matmul(input_tensor=xd, weight_tensor=wd, bias_tensor=None,
@@ -58,15 +59,24 @@ def mm1d(sh, sw):
 
 
 ARMS = {"prod_4_8_1_4_1": mm(4, 8, 1, 4, 1)}
-for M in (1, 2, 4, 8):
+if A.fid:
+    F = ttnn.MathFidelity
+    for fid in ("HiFi4", "HiFi3", "HiFi2", "LoFi"):
+        for acc in (True, False):
+            k = ttnn.WormholeComputeKernelConfig(math_fidelity=getattr(F, fid), math_approx_mode=False,
+                                                 fp32_dest_acc_en=acc, packer_l1_acc=True)
+            ARMS[f"{fid}_acc{int(acc)}"] = mm(4, 8, 1, 4, 1, ckc=k)
+            ARMS[f"{fid}_acc{int(acc)}_m8"] = mm(8, 8, 1, 4, 1, ckc=k)
+for M in (() if A.fid else (1, 2, 4, 8)):
     for N in (2, 4, 8):
         for sh, sw in ((1, 4), (2, 2), (4, 1), (1, 2), (2, 1), (1, 1)):
             if M % sh or N % sw or mt % M:
                 continue
             ARMS[f"mm_{M}_8_{N}_{sh}_{sw}"] = mm(M, 8, N, sh, sw)
-for sh, sw in ((1, 4), (2, 2), (4, 1)):
+for sh, sw in (() if A.fid else ((1, 4), (2, 2), (4, 1))):
     ARMS[f"mm1d_{sh}x{sw}"] = mm1d(sh, sw)
 
+R64 = (x.double() @ w.double()).reshape(1, A.n * A.n, A.cz)
 ref = None
 for name, f in ARMS.items():
     rec = {"arm": name}
@@ -77,6 +87,7 @@ for name, f in ARMS.items():
         if ref is None:
             ref = yt
         rec["equal"] = bool(torch.equal(yt, ref))
+        rec["rel_rms_f64"] = ((yt.double() - R64).pow(2).mean().sqrt() / R64.pow(2).mean().sqrt()).item()
         rec["max_abs"] = (yt.float() - ref.float()).abs().max().item()
         ms = []
         for _ in range(A.reps):
