@@ -1392,7 +1392,10 @@ class DiffusionModule(_KeyedWeights):
             b = apb.compute_bias(z_dev)
             if extra is not None:
                 b = ttnn.add(b, extra)
-            biases.append(place(b, reserve))
+            fb = apb.finish_bias(b)
+            if fb is not b:
+                ttnn.deallocate(b)
+            biases.append(place(fb, reserve))
         # z_dev's only reader was this loop, and the room it frees takes parked biases back.
         ttnn.deallocate(z_dev)
         if not fits:
