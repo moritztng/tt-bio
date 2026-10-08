@@ -58,6 +58,7 @@ import torch
 import ttnn
 import tt_bio.tenstorrent as T
 import tt_bio.reblock_permute as RB
+import tt_bio.trimul_tail as TTL
 
 dev = T.get_device()
 opened = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
@@ -96,6 +97,7 @@ LEVERS = {
     "hifi2": [(T.set_trimul_einsum_fid, "hifi2")],
     "lofi": [(T.set_trimul_einsum_fid, "lofi")],
     "b8in": [(T.set_trimul_inproj_b8, True)],
+    "epi1": [(TTL.set_epi, 1)],
 }
 
 
@@ -226,6 +228,7 @@ for var in A.variants.split(","):
         prev = apply(arm_setters(arm))
         try:
             back0 = list(RB.STATS_BACK)
+            tail0 = list(TTL.STATS)
             fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32)).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
@@ -238,6 +241,8 @@ for var in A.variants.split(","):
             fired["einsum_fid"] = T._TRIMUL_EINSUM_FID or "trunk"
             fired["back_into"] = T._TRIMUL_BACK_INTO
             fired["inproj_b8"] = T._TRIMUL_INPROJ_B8
+            fired["tail_f1"] = [a - b for a, b in zip(TTL.STATS, tail0)]
+            fired["tail_epi"] = TTL.EPI
         finally:
             restore(prev)
         outs[arm] = yt

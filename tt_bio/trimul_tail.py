@@ -18,6 +18,7 @@ today's three ops.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -41,6 +42,20 @@ PASSES = 2
 # SKIP_SIGMOID drops the gate so the multiply can be scored alone. Diagnostic only.
 ROUND = 2
 SKIP_SIGMOID = 0
+
+# The epilogue (`TRIMUL_TAIL_EPI` in compute.cpp). 0 is the bit-exact production order above. 1
+# packs each GEMM pass straight out of DST into bf16 (sigmoid applied in DST on the gate pass) and
+# gates with the FPU multiply, so no fp32 accumulator copy, no gate copy, no SFPU multiply and no
+# integer rounding: a numerics change at the bf16-ULP level (sigmoid of the unrounded g, the
+# packer's tie rule). spd-trimul A/B, `perf/spd_trimul/bench.py` arm `epi1`.
+EPI = int(os.environ.get("TT_BIO_TRIMUL_TAIL_EPI", "0"))
+
+
+def set_epi(v: int) -> int:
+    """A/B switch for the paired harness. Returns the previous value."""
+    global EPI
+    prev, EPI = EPI, int(v)
+    return prev
 
 # The swept block config each pass runs, resolved per call from the weight's (kt, nt) key through
 # the same `tenstorrent._MM_BLOCK` table production's own projections read, so a served call folds
@@ -171,7 +186,10 @@ def _cb(idx, core_grid, tiles):
 
 def _build(device, xa, xb, wa, wb, out, grid, ckc, block):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
-            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID}
+            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID, "TRIMUL_TAIL_EPI": EPI}
+    # EPI 1 applies the sigmoid to the DST a GEMM pass packs from, which is the finished sum only
+    # when the contraction is one K block.
+    assert EPI == 0 or block[1] == _tiles(wa.shape[-2]), (EPI, block, tuple(wa.shape))
     entry = MG.build(device, xa, wa, [out], (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
@@ -253,7 +271,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None):
     else:
         OUT_L1_STATS[0 if mem != ttnn.DRAM_MEMORY_CONFIG else 1] += 1
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
-           str(mem))
+           EPI, str(mem))
 
     entry = _CACHE.get(key)
     if entry is None:

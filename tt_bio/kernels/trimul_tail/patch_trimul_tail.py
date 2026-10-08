@@ -82,6 +82,14 @@ HEADER = """// SPDX-FileCopyrightText: (c) 2026 Tenstorrent USA, Inc.
 #ifndef TRIMUL_TAIL_SKIP_SIGMOID
 #define TRIMUL_TAIL_SKIP_SIGMOID 0
 #endif
+// The epilogue. 0 is production's order, bit-exact: fp32 accumulator -> bf16 copy per pass, a
+// sigmoid copy, the SFPU multiply and the integer rounding. 1 packs each pass straight out of DST
+// into its bf16 CB (the sigmoid applied in DST on the gate pass) and gates with the FPU multiply:
+// four unpack/pack round trips and two SFPU ops fewer per output tile, at one bf16 ULP on ties.
+// 1 needs exactly one K block, which `trimul_tail.eligible` already requires.
+#ifndef TRIMUL_TAIL_EPI
+#define TRIMUL_TAIL_EPI 0
+#endif
 """
 
 K_LOOP_CLOSE = """                }
@@ -344,7 +352,122 @@ def patch_compute(src: str) -> str:
               "compute cb decls")
     src = sub(src, COMPUTE_BODY_OLD, COMPUTE_BODY_NEW, "compute block body")
     src = sub(src, COMPUTE_DRAIN_OLD, COMPUTE_DRAIN_NEW, "compute drain")
-    return HEADER + src
+    return HEADER + patch_compute_epi(src)
+
+
+# TRIMUL_TAIL_EPI == 1 (see HEADER). Applied after the anchors above, on their output.
+GATE_FPU = """
+// out = p * sig, the FPU multiply over one output block, four tiles per DST acquire (the fp32
+// half-sync capacity). Used by TRIMUL_TAIL_EPI == 1 only.
+void gate_block_fpu(uint32_t p_cb, uint32_t sig_cb, uint32_t out_cb, uint32_t block_num_tiles) {
+    mul_tiles_init(p_cb, sig_cb);
+    reconfig_data_format(p_cb, sig_cb);
+    pack_reconfig_data_format(out_cb);
+    for (uint32_t t0 = 0; t0 < block_num_tiles; t0 += 4) {
+        const uint32_t n = (block_num_tiles - t0) < 4 ? (block_num_tiles - t0) : 4;
+        tile_regs_acquire();
+        for (uint32_t i = 0; i < n; i++) {
+            mul_tiles(p_cb, sig_cb, t0 + i, t0 + i, i);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t i = 0; i < n; i++) {
+            pack_tile(i, out_cb);
+        }
+        tile_regs_release();
+    }
+    cb_push_back(out_cb, block_num_tiles);
+}
+"""
+
+
+def patch_compute_epi(src: str) -> str:
+    src = sub(src, "\n// ---------------------------------------------------------------- TRIMUL_TAIL: the gate epilogue\n",
+              "\n// ---------------------------------------------------------------- TRIMUL_TAIL: the gate epilogue\n",
+              "epi prologue marker")
+    src = sub(src, "    cb_push_back(out_cb, block_num_tiles);\n}\n",
+              "    cb_push_back(out_cb, block_num_tiles);\n}\n" + GATE_FPU, "epi gate_block_fpu")
+    src = sub(src, "    const uint32_t subblock_w) {",
+              "    const uint32_t subblock_w,\n"
+              "    const bool tail_sigmoid = false) {", "epi matmul_blocks signature")
+    src = sub(src, """                in1_index += full_N_block_tiles;
+            }
+            tile_regs_commit();""", """                in1_index += full_N_block_tiles;
+            }
+            if (tail_sigmoid) {
+                for (uint32_t i = 0; i < subblock_h * subblock_w; i++) {
+                    sigmoid_bf16_tile(i);
+                }
+            }
+            tile_regs_commit();""", "epi sigmoid in DST")
+    src = sub(src, """            const uint32_t pass_cb = (pass == 0) ? p_cb : g_cb;
+            mm_block_init_short(""", """            const uint32_t pass_cb = (pass == 0) ? p_cb : g_cb;
+#if TRIMUL_TAIL_EPI == 1
+            const uint32_t mm_out_cb = pass_cb;
+#else
+            const uint32_t mm_out_cb = intermediate_cb;
+#endif
+            mm_block_init_short(""", "epi mm_out_cb")
+    src = sub(src, """            reconfig_data_format(in1_cb, in0_cb);
+            pack_reconfig_data_format(intermediate_cb);
+            // Accumulation buffer
+            cb_reserve_back(intermediate_cb, out_block_num_tiles);
+            for (uint32_t k_block = 0; k_block < K_num_blocks; k_block++) {""",
+              """            reconfig_data_format(in1_cb, in0_cb);
+            pack_reconfig_data_format(mm_out_cb);
+            // Accumulation buffer
+            cb_reserve_back(mm_out_cb, out_block_num_tiles);
+            for (uint32_t k_block = 0; k_block < K_num_blocks; k_block++) {""", "epi reserve")
+    src = sub(src, """                matmul_blocks(
+                    in0_cb,
+                    in1_cb,
+                    intermediate_cb,
+                    current_M_block_tiles,
+                    current_N_block_tiles,
+                    N_block_tiles,
+                    K_block_tiles,
+                    current_subblock_h,
+                    current_subblock_w);""", """                matmul_blocks(
+                    in0_cb,
+                    in1_cb,
+                    mm_out_cb,
+                    current_M_block_tiles,
+                    current_N_block_tiles,
+                    N_block_tiles,
+                    K_block_tiles,
+                    current_subblock_h,
+                    current_subblock_w,
+                    TRIMUL_TAIL_EPI == 1 && pass == 1);""", "epi matmul_blocks call")
+    src = sub(src, """            cb_push_back(intermediate_cb, out_block_num_tiles);
+            PACK((llk_pack_reconfig_l1_acc(0)));
+
+            // The fp32 accumulator -> bf16, through the wheel's own copy_block: this is the
+            // identical pack that writes p_out and g_out to DRAM in production.
+            cb_reserve_back(pass_cb, out_block_num_tiles);
+            cb_wait_front(intermediate_cb, out_block_num_tiles);
+            copy_block(intermediate_cb, pass_cb, M_block_tiles, N_block_tiles);
+            cb_pop_front(intermediate_cb, out_block_num_tiles);
+            }  // pass
+""", """            cb_push_back(mm_out_cb, out_block_num_tiles);
+            PACK((llk_pack_reconfig_l1_acc(0)));
+
+#if TRIMUL_TAIL_EPI == 0
+            // The fp32 accumulator -> bf16, through the wheel's own copy_block: this is the
+            // identical pack that writes p_out and g_out to DRAM in production.
+            cb_reserve_back(pass_cb, out_block_num_tiles);
+            cb_wait_front(intermediate_cb, out_block_num_tiles);
+            copy_block(intermediate_cb, pass_cb, M_block_tiles, N_block_tiles);
+            cb_pop_front(intermediate_cb, out_block_num_tiles);
+#endif
+            }  // pass
+""", "epi drain")
+    src = sub(src, "            gate_block(p_cb, g_cb, sig_cb, out_cb, out_block_num_tiles);\n",
+              "#if TRIMUL_TAIL_EPI == 1\n"
+              "            gate_block_fpu(p_cb, g_cb, out_cb, out_block_num_tiles);\n"
+              "#else\n"
+              "            gate_block(p_cb, g_cb, sig_cb, out_cb, out_block_num_tiles);\n"
+              "#endif\n", "epi gate call")
+    return src
 
 
 def main() -> int:
