@@ -403,11 +403,12 @@ _FAST_MODE = False
 #                   stop, so it is in no mode until the region is grid-invariant.
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+#   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
-          "transition_b8", "opm_b8", "trimul_ibw", "trimul_tail", "trimul_b8in")
+          "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_b8in"})
 FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
@@ -2403,6 +2404,42 @@ def _tri_att_fused_large_s(q, k, v, bias, scale: float, ckc=None, gate=None):
     return None
 
 
+# The fused mask-reuse kernel at a (q_chunk, k_chunk) that leaves a padded tail, for lengths where
+# no dividing pair runs fused. ON.
+#
+# 736 tokens is 23 tiles, prime: no dividing chunk fits the fused kernel, so triangle attention
+# fell to the stock op, which re-reads the [1, 8, 736, 736] mask once per batch row (>= 7.49 GB a
+# call, DRAM-bound at 41.7 ms on a Wormhole chip). The persistent-mask reader fills a padded tail
+# with -inf exactly as the per-chunk read does (lpx-sdpa, 607e16634), so it can take a q chunk that
+# does not divide and read each mask block once per core. MEASURED on one Wormhole chip at 1000 MHz,
+# Protenix-v2's [736, 8, 736, 32] bf16 call: stock q256 k256 41.72 ms, padded fused q256 k384 HiFi2
+# 19.36 ms (2.16x), output rel_rms against an fp32 reference 0.0226 against stock's 0.0223
+# (state/lpx-sdpa.md). Not bit-exact: the chunking sets the online-softmax order.
+#
+# Offered once per call, right before the ladder's first STOCK rung, so a length that is served
+# fused today never reaches it and keeps its numbers. `TT_BIO_SDPA_FUSED_PADDED=0` restores the
+# stock rungs.
+_SDPA_FUSED_PADDED = env_flag("TT_BIO_SDPA_FUSED_PADDED", True)
+SDPA_FUSED_PADDED_STATS = [0, 0]  # (calls served, calls offered and declined)
+
+
+def _tri_att_fused_padded(q, k, v, bias, scale: float, ckc=None, gate=None):
+    """`(o, q_chunk, k_chunk)` from the fused kernel at a padded pair, or None."""
+    q_len = int(q.shape[2])
+    if not (_SDPA_FUSED_PADDED and q_len == int(k.shape[2]) and q_len % SDPA_CHUNK_TILE == 0):
+        return None
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
+            q_len, int(q.shape[1]), int(q.shape[3]), cores, bias.dtype, padded=True):
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
+                              q_split_cap=0, gate=gate, padded_mask=True)
+        if o is not None:
+            SDPA_FUSED_PADDED_STATS[0] += 1
+            return o, q_chunk, k_chunk
+    SDPA_FUSED_PADDED_STATS[1] += 1
+    return None
+
+
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     """The q_chunk / k_chunk ladder. With `gate` set, only the FUSED rungs are offered.
 
@@ -2418,6 +2455,19 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         SDPA_K_CHUNK_STATS[0] += 1
         _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
         return o
+    padded_offered = []
+
+    def padded():
+        # The padded fused pair, offered once, ahead of whichever stock rung would serve first.
+        if padded_offered:
+            return None
+        padded_offered.append(True)
+        served = _tri_att_fused_padded(q, k, v, bias, scale, ckc, gate)
+        if served is None:
+            return None
+        _sdpa_pick(q_len, k_len, served[1], served[2], "fused")
+        return served[0]
+
     k_chunks = _tri_att_k_chunks(q_len, k_len, int(q.shape[1]), int(q.shape[3]),
                                  q.dtype)
     if len(k_chunks) > 1:
@@ -2445,6 +2495,9 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                     return o
                 if gate is not None:
                     continue
+                o = padded()
+                if o is not None:
+                    return o
                 try:
                     o = fused_sdpa(
                         q, k, v, attn_mask=bias, scale=scale,
@@ -2469,6 +2522,9 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         if o is not None:
             _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
             return o
+    o = padded()
+    if o is not None:
+        return o
     if gate is not None:
         # Every fused rung declined. The stock op below cannot apply the gate, so hand the caller
         # back its multiply rather than a silently ungated output.

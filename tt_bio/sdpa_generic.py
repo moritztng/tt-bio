@@ -482,6 +482,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # kernel's other granularities use.
         defines["GATE_GRANULARITY"] = str(
             valid_granularity(p["Sq_chunk_t"], max(p["dst_size"] // 2, 1)))
+    if im_dtype not in (None, ttnn.bfloat16):
+        # The block row-max LLK streams the score tiles at bf16's tile stride (its own header says
+        # the operand must be bfloat16_b), so a narrower score CB takes the per-tile reduce.
+        defines["QK_TILEWISE_MAX"] = "1"
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
