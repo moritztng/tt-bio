@@ -7,7 +7,7 @@ Two modes, one process each.
       end of the trunk and saves the diffusion conditioning to OUT/cond.pt. Done once per target;
       every arm then samples from the same conditioning.
 
-  diff OUT CHIP COND ARM SEEDS [census]
+  diff OUT CHIP COND ARM SEEDS [census]   (SPD_TRACE=1: trace region at open, edm_sample(trace=True))
       Builds the model, then per seed: a fresh conditioning from COND (the per-fold hoists, DiT pair
       biases and atom terms, are inside the timed region, as in a fold), one `edm_sample` with the
       fold's own arguments, a device sync, the conditioning freed. AICLK is sampled every 0.5 s
@@ -133,7 +133,8 @@ head = (eng / "HEAD").read_text().strip() if (eng / "HEAD").exists() else "?"
 log(ev="start", mode="diff", arm=ARM, seeds=SEEDS, engine=str(eng), engine_head=head, chip=CHIP,
     N=saved["N"], NT=saved["NT"], env={k: v for k, v in os.environ.items()
                                        if k.startswith(("TT_BIO_", "PROTENIX_", "TT_VISIBLE"))})
-dev = T.get_device()
+TRACE = os.environ.get("SPD_TRACE") == "1"
+dev = T.get_device(trace="protenix" if TRACE else None)
 t = time.monotonic(); m = P.Protenix.load_from_checkpoint(saved["ckpt"]); dm = m.diffusion
 NODE = opened_node()
 log(ev="build", s=time.monotonic() - t, node=NODE, diffusion_dtype=str(dm.dtype),
@@ -195,7 +196,7 @@ for sd, kind, cen in reps:
     err = None
     try:
         x = P.edm_sample(dm, cond, saved["N"], n_step=200, multiplicity=5,
-                         max_parallel_samples=P.DEFAULT_MAX_PARALLEL_SAMPLES, seed=sd)
+                         max_parallel_samples=P.DEFAULT_MAX_PARALLEL_SAMPLES, seed=sd, trace=TRACE)
         ttnn.synchronize_device(dev)
     except Exception:
         import traceback; err = traceback.format_exc()[-3000:]; x = None
@@ -212,5 +213,8 @@ for sd, kind, cen in reps:
     if cen:
         rec["regions"] = [{"path": p, "n": d["n"], "incl_s": round(d["incl"], 4),
                            "self_s": round(d["incl"] - d["child"], 4)} for p, d in sorted(REG.items())]
+    rec["trace"] = TRACE
     log(**rec)
+    if TRACE:
+        dm._release_trace()   # a trace is keyed on its cond; the next rep's cond is fresh
 log(ev="end"); os._exit(0)
