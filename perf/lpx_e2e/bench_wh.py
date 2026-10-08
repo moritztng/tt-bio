@@ -23,6 +23,8 @@ def log(**kw):
 ARMS = {
     "exact":      dict(),
     "lpx":        dict(lpx=True),
+    # lpx stacked with lpx-dispatch's MSA residency (a2d430280): m stays on the chip across cycles.
+    "lpx+msa_dev": dict(lpx=True, env={"TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES": str(1 << 40)}),
     "diff_bf16":  dict(diff_fp32=False),
     "hifi2":      dict(fid="hifi2"),
     "hifi3":      dict(fid="hifi3"),
