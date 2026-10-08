@@ -26,7 +26,11 @@ filled the card when it does refuse, and exits when it is done.
   and `Interface_Residues` equal to the binder length, and nothing passed the filters. Validation
   now runs every stack on the host and returns the same `Target_pLDDT`, `pLDDT`,
   `Interface_Residues`, `Binder_RMSD` and i_pTM as BindCraft 2 alone, so a design passes or fails
-  the filters on its own merits. The design loop is unchanged.
+  the filters on its own merits. The design loop is unchanged. This was also why on-card
+  campaigns accepted fewer designs than host JAX (#17): their redesigns carried the same signature,
+  and with this fix an on-card campaign accepted 1 of 3 trajectories where host JAX accepted 0 of 3
+  on the same seeds. Three trajectories cannot rank the two, so read that as no measurable gap
+  left, not as a lead.
 - **Device memory no longer grows across BindCraft 2 trajectories (#18).** With `resident=1`,
   each time the campaign switched design model it left the previous model's pair weights on the
   card, about 60 MB per switch and over a hundred switches per trajectory, so a 352-token campaign
@@ -47,9 +51,9 @@ filled the card when it does refuse, and exits when it is done.
 
 ### Known issues
 
-- **On-card acceptance can still trail host JAX (#17).** A campaign whose Evoformer runs on the
-  card has accepted fewer trajectories than the same seeds on host JAX. That investigation is
-  still open and this release does not change it.
+- **The on-card Evoformer applies no dropout.** BindCraft 2 designs with dropout on
+  (`design_dropout`, default true, off for the `harden` stage); when the Evoformer runs on the card
+  it runs without dropout in every stage. Host JAX trajectories keep it.
 
 ## [0.13.0] - 2026-10-08
 
