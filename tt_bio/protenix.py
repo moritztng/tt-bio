@@ -1918,10 +1918,10 @@ class ConfidenceHead:
         N = s_trunk.shape[0]
         s_t_h = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
         s_t = T(s_t_h.unsqueeze(0))                                       # (1,N,384)
-        # coords gather: which atoms pass distogram_rep_atom_mask (== N tokens)
-        mask = feats["distogram_rep_atom_mask"].bool()
-        idx = torch.nonzero(mask, as_tuple=False).reshape(-1).to(torch.int32)   # (N,)
-        idx_dev = ttnn.from_torch(idx.reshape(1, N), layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        # Distance bins in fp32, so the bin of every pair is the host path's (the edges are bf16-exact).
+        F32 = lambda k: ttnn.from_torch(self._g(k).reshape(1, 1, 1, -1), layout=ttnn.TILE_LAYOUT,
+                                        device=self.dev, dtype=ttnn.float32)
+        lb4, ub4 = F32("lower_bins"), F32("upper_bins")
         # plddt per-atom-type weight table (24, 384, 50) -> flat (24, 384*50) for embedding gather
         pw = self._g("plddt_weight")                                       # (n_tokatom, 384, 50)
         n_ta, c, nb = pw.shape
@@ -1931,7 +1931,7 @@ class ConfidenceHead:
         a2ta_dev = ttnn.from_torch(a2ta, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
         a2t = feats["atom_to_token_idx"].long().to(torch.int32).reshape(-1, 1)     # (N_atom,1) -> s_single gather
         a2t_dev = ttnn.from_torch(a2t, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, idx_dev=idx_dev, N=N,
+        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, lb4=lb4, ub4=ub4, N=N,
                      pw_dev=pw_dev, a2ta_dev=a2ta_dev, a2t_dev=a2t_dev,
                      pw_shape=(n_ta, c, nb))
         return cache
@@ -1965,27 +1965,17 @@ class ConfidenceHead:
         N = rc["N"]
         dram_peak(f"confidence: resident built [N={N}]")
         # ---- per-sample distance-embed on device ----
-        coords_tbl = ttnn.from_torch(coords.float().reshape(coords.shape[0], 3), layout=ttnn.ROW_MAJOR_LAYOUT,
-                                     device=self.dev, dtype=ttnn.bfloat16)        # (N_atom,3) gather table
-        xr = ttnn.embedding(rc["idx_dev"], coords_tbl, layout=ttnn.ROW_MAJOR_LAYOUT,
-                            memory_config=ttnn.DRAM_MEMORY_CONFIG)               # (1,N,3)
-        xr = ttnn.to_layout(ttnn.reshape(xr, (1, N, 3)), ttnn.TILE_LAYOUT)
-        # squared dist = |xr|^2 + |xr|^2 - 2 xr.xr^T ; d = sqrt(clamp(d2, 0))
-        sq = ttnn.pow(xr, 2.0)
-        srow = ttnn.sum(sq, dim=-1)                                          # (1,N)
-        d2 = ttnn.add(ttnn.add(srow, ttnn.reshape(srow, (1, 1, N))),
-                      ttnn.multiply(ttnn.matmul(xr, ttnn.permute(xr, (0, 2, 1)),
-                                                compute_kernel_config=self.compute_kernel_config,
-                                                core_grid=CORE_GRID_MAIN), -2.0))
-        d2 = ttnn.clamp(d2, 0.0, None)
-        d = ttnn.sqrt(d2)                                                    # (1,N,N)
+        # The distances are the host path's own fp32 cdist. In bf16 on the device, |x|^2 + |y|^2 -
+        # 2 x.y cancels: 40 A from the origin |x|^2 is ~1600, where bf16 steps by 8 A^2, so a 3.8 A
+        # neighbour pair (14.4 A^2) came out anywhere from 0 to ~5 A and pLDDT fell 0.046 at c730.
+        xr = coords.float().reshape(-1, 3)[feats["distogram_rep_atom_mask"].bool()]
+        d = ttnn.from_torch(torch.cdist(xr, xr).reshape(1, N, N), layout=ttnn.TILE_LAYOUT,
+                            device=self.dev, dtype=ttnn.float32)                # (1,N,N), 2 MB at N=730
         d3 = ttnn.unsqueeze(d, -1)                                           # (1,N,N,1)
-        lb = self._wtt("lower_bins", False); ub = self._wtt("upper_bins", False)
-        lb4 = ttnn.reshape(lb, (1, 1, 1, lb.shape[-1])); ub4 = ttnn.reshape(ub, (1, 1, 1, ub.shape[-1]))
-        ge = ttnn.ge(d3, lb4)                                                # (1,N,N,39) bool->bf16
-        lt = ttnn.lt(d3, ub4)
-        oh = ttnn.multiply(ge, lt)                                           # AND
-        oh = ttnn.to_layout(oh, ttnn.TILE_LAYOUT) if oh.layout != ttnn.TILE_LAYOUT else oh
+        ge = ttnn.ge(d3, rc["lb4"])                                          # (1,N,N,39)
+        lt = ttnn.lt(d3, rc["ub4"])
+        oh = ttnn.typecast(ttnn.multiply(ge, lt), ttnn.bfloat16)             # AND, 0/1 exact in bf16
+        d3 = ttnn.typecast(d3, ttnn.bfloat16)
         z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
         z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
         # ---- confidence Pairformer (device, z stays resident) ----
