@@ -4,7 +4,7 @@ Times (synced wall per call, the call is a chain of 20-40 multi-ms device ops so
 and grades (error against a float64 host reference computed from the same bf16 inputs and weights):
 
 * pwa: PairWeightedAveraging over one 512-row depth chunk, per-head loop vs fused heads
-  (`TT_BIO_PWA_FUSED_HEADS`).
+  (`TT_BIO_PWA_FUSED_HEADS`) vs fused without the head padding (`TT_BIO_PWA_UNPADDED`).
 * opm: OuterProductMean over the trunk's depth-chunk list, chunked running sum vs one full-depth
   contraction (`TT_BIO_OPM_JOIN_PARTS`), then with the output projection as a row-block batch
   (`TT_BIO_OPM_PROJ_BATCH`), with the residual, scale_bias=True as Protenix builds it.
@@ -135,14 +135,16 @@ def bench_pwa():
     o = torch.einsum("hij,rjhc->rihc", w_host, v) * g
     ref = o.reshape(rows, T_, H * HD) @ sd["proj_o.weight"].double().t()
     res = {}
-    for arm, flag in (("loop", False), ("fused", True)):
-        T._PWA_FUSED_HEADS = flag
+    for arm, fused, unpad in (("loop", False, False), ("fused", True, False), ("unpadded", True, True)):
+        T._PWA_FUSED_HEADS, T._PWA_UNPADDED = fused, unpad
         out, ts, clk = timed(lambda: pwa(m_tt, None, weights=ws), REPS)
         res[arm] = ttnn.to_torch(out).reshape(rows, T_, C_M)
         log(ev="pwa", arm=arm, rows=rows, tokens=T_, ms=ts, ms_med=statistics.median(ts),
-            aiclk=clk, err=err(res[arm], ref), stats=list(T.PWA_FUSED_STATS))
+            aiclk=clk, err=err(res[arm], ref), stats=list(T.PWA_FUSED_STATS) + list(T.PWA_UNPADDED_STATS))
         ttnn.deallocate(out)
-    log(ev="pwa_ab", fused_vs_loop=err(res["fused"], res["loop"].double()))
+    log(ev="pwa_ab", fused_vs_loop=err(res["fused"], res["loop"].double()),
+        unpadded_vs_fused=err(res["unpadded"], res["fused"].double()),
+        unpadded_bitident=bool(torch.equal(res["unpadded"], res["fused"])))
 
 
 def bench_opm():
