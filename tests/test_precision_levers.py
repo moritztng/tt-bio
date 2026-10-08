@@ -20,6 +20,12 @@ def test_parse_expands_modes_and_rejects_unknown_names():
         T.parse_levers("lofi,bfp2")
 
 
+def test_parse_adds_and_drops_after_the_first_term():
+    assert T.parse_levers("fast-lofi-acc_off") == T.FAST_LEVERS - {"lofi", "acc_off"}
+    assert T.parse_levers("normal+opm_b8+lofi") == T.NORMAL_LEVERS | {"opm_b8", "lofi"}
+    assert T.parse_levers("fast+triatt_b8") == frozenset(T.LEVERS)
+
+
 def test_levers_restore_the_previous_set_even_on_error():
     assert not T.lever("lofi")
     with pytest.raises(RuntimeError):
@@ -54,6 +60,9 @@ def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast, want)
     torch.save({"model": {}}, ckpt)
     P.Protenix.load_from_checkpoint(str(ckpt), compute_kernel_config=object(), device=object())
     assert seen["levers"] == want
+    monkeypatch.setenv("TT_BIO_LEVERS", "fast-lofi")
+    P.Protenix.load_from_checkpoint(str(ckpt), compute_kernel_config=object(), device=object())
+    assert T.parse_levers(seen["levers"]) == T.FAST_LEVERS - {"lofi"}
 
 
 def test_fold_runs_under_the_models_levers_and_restores():

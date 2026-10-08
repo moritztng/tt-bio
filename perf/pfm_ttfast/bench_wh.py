@@ -48,13 +48,7 @@ ARMS = {
 def lever_spec(arm):
     """An arm named `L=<set>[+lever|-lever...]` builds Protenix under that precision-lever set,
     e.g. `L=fast`, `L=fast-lofi`, `L=normal+opm_b8` (tenstorrent.LEVERS); None for other arms."""
-    if not arm.startswith("L="):
-        return None
-    toks = re.findall(r"([+-]?)([a-z0-9_]+)", arm[2:])
-    out = set(T.parse_levers(toks[0][1]))
-    for sign, name in toks[1:]:
-        (out.discard if sign == "-" else out.add)(name)
-    return T.parse_levers(sorted(out))
+    return T.parse_levers(arm[2:]) if arm.startswith("L=") else None
 
 
 ARM_ENV = sorted({k for a in ARMS.values() for k in a.get("env", {})})
