@@ -83,6 +83,11 @@ if a.which in ("ta", "all"):
     for qc, kc in TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)[:a.pairs]:
         ARMS[f"ta padded q{qc} k{kc}"] = ("ta", lambda qc=qc, kc=kc: TS.sdpa(
             q, k, v, b, sc, qc, kc, q_split_cap=0, padded_mask=True))
+    # One whole-row k chunk (24 tiles, padded): drops the online-softmax rescale and a round of stage
+    # inits; 24 keeps 2x4 subblocks where 23 forces 1-wide. Not offered by fused_pairs until measured.
+    for qc in (256, 192):
+        ARMS[f"ta padded q{qc} k768 (one k chunk)"] = ("ta", lambda qc=qc: TS.sdpa(
+            q, k, v, b, sc, qc, 768, q_split_cap=0, padded_mask=True))
     log(ev="ta_pairs", cores=cores, pairs=TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)[:a.pairs])
 
 # ---- atom attention module
