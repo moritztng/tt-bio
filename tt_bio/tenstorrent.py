@@ -346,6 +346,18 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 _FAST_MODE = False
+# TIMING-ONLY PROTOTYPE (lpx-e2e), default off, never a shipped mode: every op the LPX campaign
+# measured faster in a lower-precision configuration moves to it at once, to measure what that
+# buys a whole Protenix-v2 fold on Wormhole. Accuracy is deliberately not checked here; the
+# results and the per-op evidence are in perf/lpx_e2e/. What it moves:
+#   * every Protenix stage's matmul kernel config: LoFi, fp32 dest accumulation off
+#     (`lpx_compute_kernel_config`);
+#   * the diffusion stack to bf16, and its token DiT attention onto the fused SDPA;
+#   * triangle attention's interior and bias to bfp8 (`_TRIATT_B8`, `_TRIATT_BIAS_B8`);
+#   * pair-bias attention off the explicit fp32-softmax chain onto the fused SDPA;
+#   * the transition's weights and its two hidden activations to bfp8, produced by the
+#     matmuls themselves so no typecast is added.
+LPX = env_flag("TT_BIO_LPX", False)
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
@@ -557,6 +569,17 @@ _TRUNK_MATH_FIDELITY = os.environ.get("TT_BIO_TRUNK_MATH_FIDELITY", "hifi4").low
 _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
 
 
+def lpx_compute_kernel_config(base):
+    """`base` at LoFi with fp32 dest accumulation off when `LPX` is on, else `base` itself."""
+    if not LPX:
+        return base
+    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi, math_approx_mode=base.math_approx_mode,
+                     fp32_dest_acc_en=False, packer_l1_acc=base.packer_l1_acc)
+    cfg.dst_full_sync_en = base.dst_full_sync_en
+    cfg.throttle_level = base.throttle_level
+    return cfg
+
+
 def trunk_compute_kernel_config(base):
     """`base` with the trunk's matmul fidelity, as a distinct object.
 
@@ -567,6 +590,8 @@ def trunk_compute_kernel_config(base):
     if _TRUNK_MATH_FIDELITY not in _MATH_FIDELITIES:
         raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
                          f"got {_TRUNK_MATH_FIDELITY!r}")
+    if LPX:
+        return lpx_compute_kernel_config(base)
     cfg = type(base)(
         math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[_TRUNK_MATH_FIDELITY]),
         math_approx_mode=base.math_approx_mode,
@@ -1675,7 +1700,7 @@ def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_di
 # 0.0185-0.0217, so the block amplifies it ~16x and the fold is the only denominator that decides.
 # The cast itself is 4.19 MB read + 2.10 MB written at N=512; the win is the re-read, which the
 # SDPA reader pays once per (q_chunk, k_chunk) pair.
-_TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
+_TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", LPX)
 
 # Triangle attention's INTERIOR in bfp8, and nothing else. This is its own flag and not a mode:
 # `_FAST_MODE` bundles unrelated changes and measures 0.95x on the fold, and `_dtype()` staying
@@ -1706,7 +1731,7 @@ _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 # That is card-dependence, a hard stop, and it is not scored against the Angstrom bar.
 # `825f18772` closed it on exactly that and `docs/tuning-flags.md` names the failing arm
 # (`l1-budget`). Re-opens only if someone makes the region grid-invariant.
-_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", False)
+_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", LPX)
 
 
 def _triatt_dtype():
@@ -9801,7 +9826,7 @@ class AttentionPairBias(Module):
         v: ttnn.Tensor,
         bias: ttnn.Tensor,
     ) -> ttnn.Tensor:
-        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32:
+        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32 and not LPX:
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
             #
             # Do not reroute this to the fused SDPA to skip the re-materialisation traffic. It is
@@ -10229,11 +10254,15 @@ class Transition(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.dtype = dtype
         weight_dtype = dtype if dtype is not None else ttnn.bfloat16
+        # LPX: the three matmul weights and the hidden activations fc1/fc2 write in bfp8; the norm
+        # stays at the stage dtype, and so does fc3's output, which is added into the residual.
+        self._hidden_b8 = LPX and weight_dtype == ttnn.bfloat16
+        fc_dtype = ttnn.bfloat8_b if self._hidden_b8 else weight_dtype
         self.norm_weight = self.torch_to_tt("norm.weight", dtype=weight_dtype)
         self.norm_bias = self.torch_to_tt("norm.bias", dtype=weight_dtype)
-        self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=weight_dtype)
-        self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
-        self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
+        self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=fc_dtype)
+        self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=fc_dtype)
+        self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=fc_dtype)
 
     def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
                  add_to_input: bool = False,
@@ -10296,6 +10325,7 @@ class Transition(Module):
         _tape_mc = ttnn.DRAM_MEMORY_CONFIG if ops.taping() else ttnn.L1_MEMORY_CONFIG
         def swiglu(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
+            hidden = ttnn.bfloat8_b if self._hidden_b8 else dtype
             x_norm = ttnn.layer_norm(
                 x,
                 weight=self.norm_weight,
@@ -10310,7 +10340,7 @@ class Transition(Module):
                 activation=None if _UNFUSED_SILU else "silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=_tape_mc,
-                dtype=dtype,
+                dtype=hidden,
                 core_grid=CORE_GRID_MAIN,
             )
             if _UNFUSED_SILU:
@@ -10320,7 +10350,7 @@ class Transition(Module):
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=_tape_mc,
-                dtype=dtype,
+                dtype=hidden,
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
