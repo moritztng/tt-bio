@@ -8,7 +8,7 @@
           bf16 explicit, bf16 fused SDPA).
 Accuracy: rel_rms of each arm against a float64 torch evaluation of the same operands.
 Timing: back-to-back slope (NCALL calls, one sync) x REPS, arms interleaved round-robin, AICLK sampled out of process.
-usage: opbench.py OUT CHIP [ta|atom|all] [--pairs N]
+usage: opbench.py OUT CHIP [ta|atom|roof|all] [--pairs N]
 """
 import argparse, json, os, statistics, subprocess, sys, time, types
 from pathlib import Path
@@ -163,6 +163,25 @@ if a.which in ("atom", "all"):
         ARMS[f"atom superset {tag}"] = ("atom", superset(dt, sdpa, True))
         SAME[f"atom superset {tag}"] = f"atom superset {tag} RM heads"
 
+# ---- roof: what this chip's matmul reaches, for placing the arms above on the roofline (FLOPS: arm -> flop/call)
+FLOPS = {}
+if a.which in ("roof", "all"):
+    for fid in ("LoFi", "HiFi2", "HiFi4"):
+        ck = ttnn.WormholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=True,
+                                              fp32_dest_acc_en=False, packer_l1_acc=True)
+        A_, B_ = up(torch.randn(4096, 4096), ttnn.bfloat16), up(torch.randn(4096, 4096), ttnn.bfloat16)
+        ARMS[f"roof matmul 4096^3 bf16 {fid}"] = ("roof", lambda A_=A_, B_=B_, ck=ck: ttnn.matmul(A_, B_, compute_kernel_config=ck))
+        FLOPS[f"roof matmul 4096^3 bf16 {fid}"] = 2 * 4096 ** 3
+        # Triangle attention's QK^T and PV at 736 tokens, 64 of its 5,888 (row, head) batches: inner dims 32 and 736.
+        q_, kt_ = up(torch.randn(64, 736, 32), ttnn.bfloat16), up(torch.randn(64, 32, 736), ttnn.bfloat16)
+        p_, v_ = up(torch.randn(64, 736, 736), ttnn.bfloat16), up(torch.randn(64, 736, 32), ttnn.bfloat16)
+        ARMS[f"roof QK^T [64,736,32]x[32,736] {fid}"] = ("roof", lambda q_=q_, kt_=kt_, ck=ck: ttnn.matmul(q_, kt_, compute_kernel_config=ck))
+        ARMS[f"roof PV [64,736,736]x[736,32] {fid}"] = ("roof", lambda p_=p_, v_=v_, ck=ck: ttnn.matmul(p_, v_, compute_kernel_config=ck))
+        FLOPS[f"roof QK^T [64,736,32]x[32,736] {fid}"] = FLOPS[f"roof PV [64,736,736]x[736,32] {fid}"] = 2 * 64 * 736 * 736 * 32
+for S in a.ta_seq:   # QK^T and PV of the whole triangle-attention call
+    FLOPS.update({n: 4 * S * 8 * S * S * 32 for n, (site, _) in ARMS.items() if site == f"ta{S}"})
+FLOPS.update({n: 4 * 5 * 4 * 5920 * 160 * 32 for n, (site, _) in ARMS.items() if site == "atom"})
+
 live, outs = {}, {}
 for name, (site, call) in ARMS.items():
     try:
@@ -173,6 +192,8 @@ for name, (site, call) in ARMS.items():
         if name in SAME and SAME[name] in outs:
             log(ev="equal", arm=name, to=SAME[name], torch_equal=bool(torch.equal(o, outs[SAME[name]])),
                 max_abs=float((o - outs[SAME[name]]).abs().max()))
+        if site not in REF:
+            log(ev="check", arm=name, finite=bool(torch.isfinite(o).all())); live[name] = call; continue
         o = (o[SEL[site]] if site in SEL else o).reshape(REF[site].shape)
         log(ev="check", arm=name, finite=bool(torch.isfinite(o).all()), rel_rms_vs_f64=rel(o, REF[site]),
             picks={f"{kk}": vv for kk, vv in T.SDPA_CHUNK_PICKS.items()} if site.startswith("ta") else None)
@@ -199,6 +220,7 @@ for rep in range(a.reps):
 for arm, ts in samples.items():
     c = sorted(clk[arm]); med = statistics.median(ts)
     log(ev="arm", arm=arm, site=ARMS[arm][0], ms=med, ms_min=min(ts), ms_max=max(ts),
+        tflops=FLOPS[arm] / med / 1e9 if arm in FLOPS else None,
         spread_pct=(max(ts) - min(ts)) / med * 100, reps=a.reps, ncall=ncall[arm],
         aiclk=dict(n=len(c), med=c[len(c) // 2] if c else None, min=c[0] if c else None, max=c[-1] if c else None))
 log(ev="end")
