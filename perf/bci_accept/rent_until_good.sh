@@ -12,7 +12,8 @@ LOG=$ROOT/.bci/rent.log
 K=$(cat /home/moritz/.config/vastai/vast_api_key)
 API=https://console.vast.ai/api/v0
 IMAGE=pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
-WINDOW=420          # seconds to give one box before writing it off
+STALL=300           # seconds with NO change in the box's status message before writing it off
+CAP=1800            # absolute ceiling per box, however well it is progressing
 exec >> "$LOG" 2>&1
 date -u +"=== rent_until_good start %Y-%m-%dT%H:%M:%SZ ==="
 
@@ -29,8 +30,19 @@ while read -r ID NAME DPH; do
   if [ -z "$C" ]; then echo "$(date -u +%H:%M:%SZ) offer $ID ($NAME) unavailable"; continue; fi
   echo "$(date -u +%H:%M:%SZ) rented $C from offer $ID ($NAME, \$$DPH/h); proving it"
 
-  OK=0; DEADLINE=$(( $(date +%s) + WINDOW ))
-  while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+  # Judge a box on PROGRESS, not on a clock. A fixed deadline discards a healthy box whose image
+  # simply takes longer than the deadline to pull: a V100 was 7 minutes into a pull that was still
+  # advancing layer by layer when a 420 s window came up, and destroying it would have thrown away
+  # the 7 minutes and started another box from zero. So the test is whether the status message has
+  # changed recently, with an absolute cap so a wedged box still cannot run forever.
+  OK=0; LAST=""; MOVED=$(date +%s); CAPAT=$(( $(date +%s) + CAP ))
+  while [ "$(date +%s)" -lt "$CAPAT" ]; do
+    MSG=$(curl -s -H "Authorization: Bearer $K" "$API/instances/$C/" \
+          | python3 -c "import sys,json;d=json.load(sys.stdin).get('instances',{});print(str(d.get('status_msg'))[-120:].replace(chr(10),' '))" 2>/dev/null)
+    if [ "$MSG" != "$LAST" ]; then LAST=$MSG; MOVED=$(date +%s); fi
+    if [ $(( $(date +%s) - MOVED )) -ge "$STALL" ]; then
+      echo "$(date -u +%H:%M:%SZ) $C stalled ${STALL}s on: $MSG"; break
+    fi
     EP=$(bash "$ROOT/endpoint.sh" "$C" 2>/dev/null) || { sleep 20; continue; }
     set -- $EP
     if timeout 25 ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 \
@@ -45,7 +57,7 @@ while read -r ID NAME DPH; do
     date -u +"=== handing off to provision %Y-%m-%dT%H:%M:%SZ ==="
     exec bash "$ROOT/provision_gpu.sh"
   fi
-  echo "$(date -u +%H:%M:%SZ) $C did not prove out in ${WINDOW}s, destroying"
+  echo "$(date -u +%H:%M:%SZ) $C did not prove out, destroying"
   curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$C/" > /dev/null
 done <<< "$OFFERS"
 date -u +"=== no offer proved out %Y-%m-%dT%H:%M:%SZ ==="
