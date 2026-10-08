@@ -25,7 +25,7 @@ Group fields: shape {"q":[B,H,S,D], "k":[...], "v":[...], "mask":[MB,MH,S,S]}, s
 import json, math, os, statistics, sys, time, traceback
 from pathlib import Path
 
-OUT = Path(sys.argv[1]); PLAN = json.loads(Path(sys.argv[2]).read_text())
+OUT = Path(sys.argv[1]).resolve(); PLAN = json.loads(Path(sys.argv[2]).resolve().read_text())
 CHIP = int(sys.argv[3]) if len(sys.argv) > 3 else None
 OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "bench.jsonl", "a")
@@ -51,15 +51,15 @@ NODE = opened[0]
 # AICLK from a separate process: ttnn holds the GIL through a device sync, which starves an in-process
 # sampler thread for exactly the windows we time. CLOCK_MONOTONIC is shared, so the stamps line up.
 import subprocess
-CLKF = OUT / "aiclk.tsv"
+CLKF = OUT / "aiclk.tsv"; CLKF.touch()
 _SAMPLER = subprocess.Popen([sys.executable, "-c", f"""
 import os, time
 f = open({str(CLKF)!r}, "a"); parent = os.getppid()
 while os.getppid() == parent:      # dies with the bench, never orphaned
     try: v = open("/sys/class/tenstorrent/tenstorrent!{NODE}/tt_aiclk").read().split()[0]
     except Exception: v = "-1"
-    f.write(f"{{time.monotonic()}}\t{{v}}\n"); f.flush(); time.sleep(0.25)
-"""])
+    f.write(f"{{time.monotonic()}}\\t{{v}}\\n"); f.flush(); time.sleep(0.25)
+"""], stderr=open(OUT / "sampler.err", "w"))
 GRID = tuple(T.COMPUTE_GRID_MAIN)
 log(ev="nodes_open", nodes=opened, grid=GRID, arch=str(dev.arch()), tt_bio=T.__file__)
 
@@ -244,7 +244,7 @@ def timed_rep(call, n, trace_id=None):
 
 def clk_window(t0, t1):
     c = []
-    for line in open(CLKF):
+    for line in (open(CLKF) if CLKF.exists() else ()):
         t, v = line.split()
         if t0 <= float(t) <= t1:
             c.append(int(v))
