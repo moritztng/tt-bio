@@ -99,17 +99,6 @@ def ta_site(S, full):
         if (qc, kc) not in pairs[:a.pairs]:
             ARMS[f"ta{S} q{qc} k{kc}"] = (site, arm(pair(qc, kc)))
 
-    # INSTRUMENT: only q chunk 0's core reads K/V (TT_BIO_TRIATT_ABLATE=KVREAD); prices a forwarding chain.
-    def ablate(fn, what):
-        def call():
-            prev, TS._ABLATE = TS._ABLATE, (what,)
-            try:
-                return fn()
-            finally:
-                TS._ABLATE = prev
-        return call
-    ARMS[f"ta{S} q256 k768 ABLATE_KVREAD (instrument, wrong values)"] = (site, arm(ablate(pair(256, 768), "KVREAD")))
-
 
 if a.which in ("ta", "all"):
     for S in a.ta_seq:
