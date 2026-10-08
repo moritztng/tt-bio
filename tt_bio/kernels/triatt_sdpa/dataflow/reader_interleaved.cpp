@@ -531,10 +531,16 @@ void kernel_main() {
                     bool should_forward = false;
                     bool should_receive = false;
                     if constexpr (!is_causal) {
-                        should_forward = is_chain_participant && !is_sink && (nb == chain_batch && nq == chain_head) &&
-                                         (q_iter < next_core_q_chunks);
-                        should_receive =
-                            is_chain_participant && !is_injector && (nb == chain_batch && nq == chain_head);
+#ifdef KV_CHAIN_ALL_BATCHES
+                        // One chain per head over every batch row this core owns: the q-chunk cores
+                        // of a head walk the same rows in the same order, so their K/V CBs advance
+                        // in lockstep and the injector's write pointer is the receivers'.
+                        const bool chain_here = nq == chain_head;
+#else
+                        const bool chain_here = nb == chain_batch && nq == chain_head;
+#endif
+                        should_forward = is_chain_participant && !is_sink && chain_here && (q_iter < next_core_q_chunks);
+                        should_receive = is_chain_participant && !is_injector && chain_here;
                     }
 
                     // loop while k_low < q_high

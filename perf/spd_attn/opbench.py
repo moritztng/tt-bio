@@ -8,7 +8,7 @@
           bf16 explicit, bf16 fused SDPA).
 Accuracy: rel_rms of each arm against a float64 torch evaluation of the same operands.
 Timing: back-to-back slope (NCALL calls, one sync) x REPS, arms interleaved round-robin, AICLK sampled out of process.
-usage: opbench.py OUT CHIP [ta|atom|all] [--pairs N]
+usage: opbench.py OUT CHIP [ta|atom|all|chain] [--pairs N]   (chain: the K/V forwarding arms alone, 736)
 """
 import argparse, json, os, statistics, subprocess, sys, time, types
 from pathlib import Path
@@ -99,6 +99,22 @@ def ta_site(S, full):
         if (qc, kc) not in pairs[:a.pairs]:
             ARMS[f"ta{S} q{qc} k{kc}"] = (site, arm(pair(qc, kc)))
 
+    def chained(fn):
+        def call():
+            prev, TS.KV_CHAIN = TS.KV_CHAIN, True
+            try:
+                return fn()
+            finally:
+                TS.KV_CHAIN = prev
+        return call
+    if a.which == "chain":
+        # Its own job: a chain bug deadlocks the cores and wedges the chip, so it never rides `all`.
+        ARMS.clear()
+        ARMS[f"ta{S} ladder (shipped)"] = (site, arm(ladder))
+        ARMS[f"ta{S} q256 k768 + kv chain"] = (site, arm(chained(pair(256, 768))))
+        ARMS[f"ta{S} ladder + kv chain"] = (site, arm(chained(ladder)))
+        return
+
     # INSTRUMENT: only q chunk 0's core reads K/V (TT_BIO_TRIATT_ABLATE=KVREAD); prices a forwarding chain.
     def ablate(fn, what):
         def call():
@@ -114,6 +130,8 @@ def ta_site(S, full):
 if a.which in ("ta", "all"):
     for S in a.ta_seq:
         ta_site(S, S == 736)
+if a.which == "chain":
+    ta_site(736, True)
 
 # ---- atom attention module
 if a.which in ("atom", "all"):
