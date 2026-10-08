@@ -141,6 +141,8 @@ def main():
     # runs with NO TARGET CHAIN: it folds the binder alone, reports 64 tokens for a 40-aa binder,
     # scores iptm exactly 0.000 at every stage, and dies in the interface loss with
     # KeyError: 'target_seed'. An interface experiment set up that way measures nothing.
+    from bindcraft.settings import load_settings
+
     settings = {
         "targets": [{"name": "hPDL1", "target_path": args.target_pdb,
                      "chains": args.target_chains, "hotspots": args.hotspots}],
@@ -158,7 +160,24 @@ def main():
         "mutate_steps": 0,
         "project_folder": args.project,
     }
-    print("settings:", json.dumps(settings), flush=True)
+    # BindCraft 2's campaign entry point is `read_settings`, which is `load_settings` plus path
+    # resolution, and `load_settings` is what lays the hand-built dict over DEFAULT_SETTINGS.
+    # `campaign.run_campaign_arm` calls `build_design_settings(settings)` on whatever it is handed
+    # (campaign.py:136), so a raw dict goes straight through with every default missing and nothing
+    # says so. The one that matters here is `filters`: raw it builds 0 filters, merged it builds 31,
+    # including the i_pTM >= 0.7 and Interface_Residues >= 7 thresholds this issue is graded on.
+    # Without them every redesign candidate is written out with outcome=passed and an empty
+    # failed_filters, so the acceptance count -- the reporter's whole headline -- is vacuous, and
+    # `trajectory.round_passes_stage_filter` is None as well, so the stages do not gate rounds
+    # either. Our paths are already absolute, so `load_settings` is the right half of
+    # `read_settings` to call.
+    settings = load_settings(settings)
+    print("settings:", json.dumps({k: v for k, v in settings.items() if k != "filters"}),
+          flush=True)
+    print("filters:", ", ".join(f"{name}{'>=' if entry.get('higher') else '<='}"
+                                f"{entry['threshold']}"
+                                for name, entry in sorted((settings.get("filters") or {}).items())
+                                if entry.get("threshold") is not None) or "NONE", flush=True)
 
     predictor_arguments = {"checkpoints": args.af2_weights}
     if args.trunk == "jax":
