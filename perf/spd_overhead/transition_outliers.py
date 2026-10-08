@@ -100,7 +100,7 @@ def main():
         # fc2 alone over the whole block under each kernel config: count elements off by > 0.5.
         want2 = xnd @ sd["fc2.weight"].T
         sweep = []
-        for fid in ("HiFi4", "HiFi2"):
+        for fid in ("HiFi4", "HiFi3", "HiFi2"):
             for f32 in (True, False):
                 for l1acc in (True, False):
                     k = type(ckc)(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=True,
