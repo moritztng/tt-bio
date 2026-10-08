@@ -56,12 +56,26 @@ def prune(proj):
     reached = refolded_designs(proj)
     keep = [r for r in rows if (r.get("terminated") or "").strip() or r.get("design") in reached]
     dropped = [r for r in rows if r not in keep]
+    orphans = []
     for row in dropped:
         directory = os.path.join(proj, TRAJ, row.get("design", ""))
         if row.get("design") and os.path.isdir(directory):
             shutil.rmtree(directory)
         print(f"  dropped in-flight trajectory {row.get('trajectory')} {row.get('design')}"
               f" (terminated={row.get('terminated')!r}, reached redesign=False)")
+    # A folder with no row at all is the same fault one step earlier. TrajectoryRecorder creates the
+    # folder when the trajectory starts; the row is appended only when the gradient design returns.
+    # A box that dies mid-design leaves a folder the table never mentions. Pruning by row alone never
+    # saw it, so it survived every resume -- and the retry, which draws the same key and the same
+    # design hash, hit TrajectoryRecorder's own 'already has trajectory output' guard and killed the
+    # arm seconds after launch. Six relaunches between 19:21Z and 21:01Z did exactly that.
+    banked = {r.get("design") for r in keep}
+    for directory in sorted(glob.glob(os.path.join(proj, TRAJ, "design_*"))):
+        if os.path.isdir(directory) and os.path.basename(directory) not in banked:
+            shutil.rmtree(directory)
+            orphans.append(os.path.basename(directory))
+            print(f"  removed orphan folder {os.path.basename(directory)}:"
+                  f" started, no row ever written")
     if dropped:
         tmp = table + ".partial"
         with open(tmp, "w", newline="") as handle:
@@ -74,7 +88,7 @@ def prune(proj):
         path = os.path.join(proj, name)
         if os.path.exists(path):
             os.remove(path)
-    return len(keep), len(dropped)
+    return len(keep), len(dropped), orphans
 
 
 def complete_count(proj):
@@ -105,8 +119,9 @@ def main():
             shutil.move(proj, proj + ".superseded." + str(os.getpid()))
         shutil.move(best, proj)
         print(f"promoted {os.path.basename(best)} to the live folder")
-    kept, dropped = prune(proj)
-    print(f"resuming with {kept} complete trajectories banked, {dropped} in-flight dropped for rerun")
+    kept, dropped, orphans = prune(proj)
+    print(f"resuming with {kept} complete trajectories banked, {dropped} in-flight dropped for rerun,"
+          f" {len(orphans)} orphan folder(s) removed")
     return 0
 
 
