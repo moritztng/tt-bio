@@ -34,9 +34,13 @@ for N in (2048, 4096, 6144):
             for acc in (False, True):
                 cfg = ttnn.WormholeComputeKernelConfig(math_fidelity=fid, fp32_dest_acc_en=acc, packer_l1_acc=True)
                 ks = []
-                for i in range(6):
-                    c = ttnn.matmul(a, a, compute_kernel_config=cfg, dtype=ttnn.bfloat16)
-                    pr = drain(); ks.append(sum(k for _, k, _ in pr)); ttnn.deallocate(c)
+                try:
+                    for i in range(6):
+                        c = ttnn.matmul(a, a, compute_kernel_config=cfg, dtype=ttnn.bfloat16)
+                        pr = drain(); ks.append(sum(k for _, k, _ in pr)); ttnn.deallocate(c)
+                except RuntimeError as e:  # default program config can overflow L1 at some (N, format, acc)
+                    print(json.dumps(dict(N=N, dtype=dn, fid=fn, fp32_acc=acc, err=str(e).splitlines()[0][:200])), flush=True)
+                    continue
                 k = med(ks[1:]); fl = 2.0 * N ** 3
                 byt = 2 * N * N * {"bf16": 2, "bfp8": 1088 / 1024, "bfp4": 576 / 1024}[dn] + N * N * 2
                 r = dict(N=N, dtype=dn, fid=fn, fp32_acc=acc, kernel_us=k / 1e3, tflops=fl / k / 1e3,

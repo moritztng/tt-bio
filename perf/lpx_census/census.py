@@ -180,7 +180,7 @@ def drain():
             kk = r.get("DEVICE KERNEL DURATION [ns]")
             d += [kk.start_timestamp, kk.end_timestamp] if kk is not None else [None, None]
             if F["progs"]: F["progs"].write(json.dumps(d) + "\n")
-            seen.add(u.runtime_id); n += 1
+            seen.add(u.runtime_id >> 10); n += 1   # mesh workloads carry (device op id << 10) | sub-id
     # every id handed out since the last flush should have come back once
     miss = sum(1 for i in range(ST["flushed"], hi) if i not in seen)
     if miss and ST["on"]:
@@ -228,8 +228,11 @@ D.Operation.__call__ = make(D.Operation.__call__)
 state = W._WorkerState("tenstorrent")
 DEV = {}
 t = time.monotonic(); DEV["d"] = T.get_device(); log(ev="device_open", s=time.monotonic() - t)
-opened = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
-                 if os.path.exists(f"/proc/self/fd/{fd}") and os.readlink(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")})
+def _fdnode(fd):
+    try: l = os.readlink(f"/proc/self/fd/{fd}")
+    except OSError: return None
+    return int(l.rsplit("/", 1)[1]) if l.startswith("/dev/tenstorrent/") else None
+opened = sorted({n for n in map(_fdnode, os.listdir("/proc/self/fd")) if n is not None})
 NODE = opened[0]; log(ev="nodes_open", nodes=opened, grid=str(DEV["d"].compute_with_storage_grid_size()))
 CKPT = cfg0["protenix_ckpt"]
 state.model = P.Protenix.load_from_checkpoint(CKPT)
