@@ -4,7 +4,7 @@
     venv/bin/python score.py <data dir> <run root> > preds.tsv
 
 <run root> holds <arm>/pred/<PDB>/seed_<s>/predictions/<PDB>_sample_<k>.cif (+ _summary_confidence_sample_<k>.json),
-with <arm> named <mode>_<seeds>. Chain 1 of every file is the target, chain 2 the binder; residues are matched
+with <arm> named <mode>_<seeds>. Chain 1 of every prediction is the target, chain 2 the binder (reference chains are picked by set.tsv); residues are matched
 by their position in the deposited entity sequence (label_seq_id), so unmodelled reference residues just drop
 out. Per prediction: DockQ v2 (fnat, iRMSD, LRMSD), TM-score of the complex, target and binder with the fixed
 residue correspondence, and the model's own pLDDT / ipTM / pTM / ranking score.
@@ -17,18 +17,19 @@ import numpy as np
 from DockQ.DockQ import load_PDB, run_on_all_native_interfaces
 
 
-def chains(path):
-    """[(label_seq -> residue)] for the first two polymer chains, protein only, hydrogens dropped."""
+def chains(path, names=None):
+    """[(label_seq -> residue)] for the two polymer chains (`names` in that order, else the first two),
+    protein only, hydrogens dropped."""
     st = gemmi.read_structure(str(path))
     st.setup_entities()
     st.remove_hydrogens()
     st.remove_ligands_and_waters()
-    out = []
+    out = {}
     for ch in st[0]:
         pol = ch.get_polymer()
-        if len(pol):
-            out.append({r.label_seq: r for r in pol if r.label_seq is not None})
-    return out[:2]
+        if len(pol) and ch.name not in out:
+            out[ch.name] = {r.label_seq: r for r in pol if r.label_seq is not None}
+    return [out[n] for n in names] if names else list(out.values())[:2]
 
 
 def write_pdb(chs, keep, path):
@@ -87,9 +88,11 @@ def tm_score(P, Q, Lnorm):
     return best
 
 
-def score(pred, ref, tmp, n):
-    p, r = chains(pred), chains(ref)
-    keys = [sorted(set(pc) & set(rc)) for pc, rc in zip(p, r)]
+def score(pred, ref, names, tmp, n, only=None):
+    """`only`: per-chain residue keys to restrict to (pose-to-pose passes the deposited ones, so disordered
+    tails that the reference never resolved do not dominate the comparison)."""
+    p, r = chains(pred), chains(ref, names)
+    keys = [sorted(set(pc) & set(rc) & (set(o) if only else set(rc))) for pc, rc, o in zip(p, r, only or r)]
     # DockQ's load_PDB is cached by path: every pair gets its own file names.
     pp, rp = Path(tmp) / f"m{n}.pdb", Path(tmp) / f"n{n}.pdb"
     write_pdb(p, keys, pp)
@@ -98,7 +101,7 @@ def score(pred, ref, tmp, n):
     iface = next(iter(res.values()))
     P = [ca(p[i], keys[i]) for i in range(2)]
     Q = [ca(r[i], keys[i]) for i in range(2)]
-    full_r = [len(rc) for rc in r]
+    full_r = [len(k) for k in keys] if only else [len(rc) for rc in r]
     return dict(dockq=iface["DockQ"], fnat=iface["fnat"], irmsd=iface["iRMSD"], lrmsd=iface["LRMSD"],
                 tm_complex=tm_score(np.vstack(P), np.vstack(Q), sum(full_r)),
                 tm_target=tm_score(P[0], Q[0], full_r[0]), tm_binder=tm_score(P[1], Q[1], full_r[1]))
@@ -108,6 +111,7 @@ def main():
     data, root = Path(sys.argv[1]), Path(sys.argv[2])
     cols = ["pdb", "mode", "seed", "sample", "ranking_score", "iptm", "ptm", "plddt",
             "dockq", "fnat", "irmsd", "lrmsd", "tm_complex", "tm_target", "tm_binder"]
+    names = {l.split("\t")[0]: l.split("\t")[1:3] for l in (Path(__file__).parent / "set.tsv").read_text().splitlines()[1:]}
     print("\t".join(cols), flush=True)
     with tempfile.TemporaryDirectory() as tmp:
         for n, cif in enumerate(sorted(root.glob("*/pred/*/seed_*/predictions/*_sample_*.cif"))):
@@ -115,7 +119,7 @@ def main():
             mode, pdb, seed, k = m.groups()
             conf = json.loads((cif.parent / f"{pdb}_summary_confidence_sample_{k}.json").read_text())
             row = dict(pdb=pdb, mode=mode, seed=seed, sample=k, **{c: conf.get(c) for c in ("ranking_score", "iptm", "ptm", "plddt")},
-                       **score(cif, data / "ref" / f"{pdb}.cif", tmp, n))
+                       **score(cif, data / "ref" / f"{pdb}.cif", names[pdb], tmp, n))
             print("\t".join(f"{row[c]:.4f}" if isinstance(row[c], float) else str(row[c]) for c in cols), flush=True)
 
 
