@@ -579,7 +579,18 @@ void kernel_main() {
                                 if (should_forward) {
                                     cb_k_start_address = read_chunk_for_forwarding<k_tile_bytes, true>(
                                         k_reader, cb_k_in, k_start_tile_id, kv_row_tile_count, DHt, Sk_chunk_t, DHt);
-                                } else {
+                                } else
+#ifdef ABLATE_KVREAD
+                                    // INSTRUMENT (TT_BIO_TRIATT_ABLATE=KVREAD): only the core owning q chunk 0
+                                    // reads K and V; the others push the CB unread. That is the DRAM traffic a
+                                    // K/V forwarding chain over the q-chunk cores of one head would remove, so
+                                    // the time difference prices it. The output is wrong on purpose.
+                                    if (local_q_start != 0) {
+                                        cb_reserve_back(cb_k_in, k_chunk_tiles);
+                                        cb_push_back(cb_k_in, k_chunk_tiles);
+                                    } else
+#endif
+                                {
                                     read_chunk_with_padding<k_tile_bytes>(
                                         k_reader,
                                         cb_k_in,
@@ -738,7 +749,14 @@ void kernel_main() {
                                         Sk_chunk_t,
                                         vDHt,
                                         skip_src_cols);
-                                } else {
+                                } else
+#ifdef ABLATE_KVREAD
+                                    if (local_q_start != 0) {
+                                        cb_reserve_back(cb_v_in, v_chunk_tiles);
+                                        cb_push_back(cb_v_in, v_chunk_tiles);
+                                    } else
+#endif
+                                {
                                     read_chunk_with_padding<v_tile_bytes>(
                                         v_reader,
                                         cb_v_in,
