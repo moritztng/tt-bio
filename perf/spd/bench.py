@@ -149,7 +149,7 @@ import tt_bio.tenstorrent as T  # noqa: E402
 import tt_bio.protenix as P  # noqa: E402
 
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), arm=ARM, arm_env=ARM_ENV,
-            fast=FAST, host=socket.gethostname(), chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
+            fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
 log(ev="start", argv=sys.argv, cli=argv, worker=winfo, TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
     torch_threads=torch.get_num_threads(), affinity=len(os.sched_getaffinity(0)), **HEAD)
 

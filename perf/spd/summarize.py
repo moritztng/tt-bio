@@ -9,7 +9,9 @@ diffusion sample, reported as the max over samples and seeds, in Angstrom (the c
 512 aa; re-running exact with another seed moves a 512 aa structure 1.84 A).
 
 A row is marked CLOCK when its AICLK is not trustworthy: any sample below 95 % of its median, or a Blackhole
-median under 1200 MHz. Such a number is an artifact, not a regression.
+median under 1200 MHz. Such a number is an artifact, not a regression. LOAD: the host's 1-minute load average
+exceeded its CPU count during a warm rep, so the host part of the fold was contended. VOID: a fast arm whose
+engine built exact (bench.py before 530a4520 never turned fast mode on); never post it as a fast number.
 """
 import argparse, json, statistics
 from collections import defaultdict
@@ -24,10 +26,13 @@ a = ap.parse_args()
 
 reps = []
 for f in a.records:
+    built_fast = None
     for line in f.read_text().splitlines():
         r = json.loads(line)
+        if r.get("ev") == "build":
+            built_fast = r.get("fast")
         if r.get("ev") == "rep":
-            r["_dir"] = f.parent
+            r["_dir"], r["_built_fast"] = f.parent, built_fast
             reps.append(r)
 
 groups = defaultdict(list)
@@ -80,6 +85,10 @@ for key in sorted(groups):
         flag.append("CLOCK")
     if arch.startswith("blackhole") and med and med < 1200:
         flag.append("CLOCK")
+    if any(r.get("ncpu") and max(r["loadavg"]) > r["ncpu"] for r in warm):
+        flag.append("LOAD")
+    if any(r.get("fast") and not r["_built_fast"] for r in warm):
+        flag.append("VOID")
     x, dev = "", ""
     if a.base and arm != a.base:
         b = groups.get((arch, host, chip, a.base, inp))
