@@ -2,7 +2,7 @@
 # spd-bh: everything one Blackhole chip owes the BOARD, in order, under the chip flock from state/spd/CHIPS.md.
 # 1. c730 with spd-bench harness, arms exact (the BH "before" line), fast:fast (today --fast), lpx (TT_BIO_LPX=1),
 #    1 cold + 3 warm each. 2. triangle-attention chunk surface (perf/spd_bh/plan_triatt.py), TA and TT.
-# usage: queue.sh RUNROOT CHIP LOCK      e.g. queue.sh ~/spd-bh/runs/p300c-c3 3 ~/spd_qb2_chip3.lock
+# usage: [ARMS=...] queue.sh RUNROOT CHIP LOCK      e.g. queue.sh ~/spd-bh/runs/p300c-c3 3 ~/spd_qb2_chip3.lock
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd)
 ROOT=${1:?run root}; CHIP=${2:?logical chip}; LOCK=${3:?flock path}
@@ -14,7 +14,7 @@ say "wait for $LOCK, engine $(git -C "$WT" rev-parse --short HEAD) host $(hostna
 exec 9>"$LOCK"; flock -w 14400 9 || { say "no lock in 4 h"; exit 1; }
 say "lock held, load $(cat /proc/loadavg)"
 cd "$WT"
-for ARM in exact fast:fast lpx:TT_BIO_LPX=1; do
+for ARM in ${ARMS:-exact fast:fast lpx:TT_BIO_LPX=1}; do
   N=${ARM%%:*}
   say "arm $N start"
   nice -n 5 timeout 5400 "$PY" perf/spd/bench.py --out "$ROOT/$N" --chip "$CHIP" --arm "$ARM" --inputs c730 --warm 3 \
