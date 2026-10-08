@@ -99,6 +99,16 @@ def flops(e):
     """Useful FLOPs from padded operand shapes: matmul family and SDPA; elementwise is not math worth a roof."""
     op = e["op"]; ins = list(tensors(e.get("args", []))) + list(tensors(e.get("kw", {})))
     outs = list(tensors(e.get("out")))
+    if op == "ttnn.generic_op" and ins:
+        # tt-bio's own kernels: the operand list is [inputs..., outputs...]; the kind comes from the call site
+        site = (e.get("site") or [""])[0]
+        if "mm_generic" in site and len(ins) >= 3:
+            a, b = ins[0]["padded"], ins[1]["padded"]
+            return 2 * int(np.prod(a[:-1])) * a[-1] * b[-1]
+        if "sdpa_generic" in site and len(ins) >= 3:
+            q, k = ins[0]["padded"], ins[1]["padded"]
+            return 4 * int(np.prod(q[:-1])) * k[-2] * q[-1]
+        return 0
     if not ins or not outs: return 0
     if op in MM and len(ins) >= 2:
         return 2 * int(np.prod(outs[0]["padded"])) * ins[0]["padded"][-1]
