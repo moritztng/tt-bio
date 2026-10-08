@@ -6,7 +6,7 @@
 # Offers are searched live before each attempt (a pre-listed offer is often already rented: vast then queues the
 # instance as intended_status=stopped / resources_unavailable, which is dropped after 2 min).
 #   usage: session.sh <label> <cap_h> <minW> <with_acc 0|1> '<vastai search query>' [max_attempts]
-# Status: /tmp/pfmgpu/<label>.log; results perf/pfm_gpu/results/<label>/; accuracy -> ~/pfm-accuracy-data/gpu/out/.
+# Status: /home/moritz/pfm-gpu-run/<label>.log; results perf/pfm_gpu/results/<label>/; accuracy -> ~/pfm-accuracy-data/gpu/out/.
 set -u
 L=$1 CAP_H=$2 MINW=$3 ACC=$4 Q=$5 NMAX=${6:-8}; TRIED=" "
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
@@ -55,7 +55,7 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
   $S 'mkdir -p /root/kit /root/pfm/in /root/pfm/msa /root/pfm/acc /weights/protenix/checkpoint' &&
-  R /tmp/pfmgpu/kit.tgz $H:/root/ && $S 'tar -xzf /root/kit.tgz -C /root/kit' &&
+  R /home/moritz/pfm-gpu-run/kit.tgz $H:/root/ && $S 'tar -xzf /root/kit.tgz -C /root/kit' &&
   R $P/msa/ $H:/root/pfm/msa/ && R $P/in_timing.json $H:/root/pfm/in/timing.json &&
   R $P/box_setup.sh $P/box_arms.sh $P/burn_gate.py $H:/root/pfm/ &&
   { [ "$ACC" = 0 ] || R /home/moritz/pfm-accuracy-data/box/ $H:/root/pfm/acc/; } || { destroy $I "push failed"; continue; }
