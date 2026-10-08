@@ -143,6 +143,10 @@ def main():
     parser.add_argument("--scale", type=float, default=0.1)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--hunks", type=int, default=30, help="differing hunks printed")
+    parser.add_argument("--dump", default=".bci/trace",
+                        help="path prefix for the full per-arm traces. The hunks printed below "
+                             "are an alignment, not the data; the tsv is what a later pass reads "
+                             "to answer a question this run did not ask, with no card.")
     args = parser.parse_args()
 
     if "TT_VISIBLE_DEVICES" not in os.environ:
@@ -199,6 +203,13 @@ def main():
                       f"{len(getattr(_tt, '_BMM_CFG_REFUSED', ()))}", flush=True)
         finally:
             trunk.model.device_evoformer = blocks
+
+    for arm, entries in sink.trace.items():
+        path = f"{args.dump}_{arm}_t{args.tokens}.tsv"
+        with open(path, "w") as handle:
+            for index, (name, site, operands) in enumerate(entries):
+                handle.write(f"{index}\t{name}\t{site}\t{operands}\n")
+        print(f"wrote {len(entries)} ops to {path}", flush=True)
 
     def key(entry):
         return entry[0], entry[1]
