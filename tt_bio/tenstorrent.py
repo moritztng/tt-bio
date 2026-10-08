@@ -7170,8 +7170,14 @@ _PAIR_INPLACE = env_flag("TT_BIO_PAIR_INPLACE", PAIR_INPLACE)
 # (pair ops served in place, blocks written)
 PAIR_INPLACE_STATS = [0, 0]
 
+# The pair Transition's `z + t(z)` written back row block by row block at every size, not only
+# past `concat_host_bytes()`. Below it the transition took ttnn.chunk (a full copy of z), joined
+# the blocks with a concat and then ran a full-size add_: three passes over z that the in-place
+# path does not make. Same adds on the same rows, so bit-exact. Off until measured.
+TRANSITION_ROWS_INPLACE = env_flag("TT_BIO_TRANSITION_ROWS_INPLACE", False)
 
-def _pair_inplace(z: ttnn.Tensor, add_to_input: bool) -> bool:
+
+def _pair_inplace(z: ttnn.Tensor, add_to_input: bool, any_size: bool = False) -> bool:
     """Whether a row-blocked `z + update` should be written back into `z` block by block.
 
     From the size where the join may go to the host (`host_acc_after_refusal`), so every smaller
@@ -7181,7 +7187,7 @@ def _pair_inplace(z: ttnn.Tensor, add_to_input: bool) -> bool:
     under a tape: the write mutates a tensor the tape may still hold."""
     return (add_to_input and _PAIR_INPLACE and not ops.taping()
             and z.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
-            and z.logical_volume() * 2 > concat_host_bytes() and _page_copy.ok(z, z))
+            and (any_size or z.logical_volume() * 2 > concat_host_bytes()) and _page_copy.ok(z, z))
 
 
 def _write_rows(z: ttnn.Tensor, blk: ttnn.Tensor, start: int) -> None:
@@ -10654,7 +10660,9 @@ class Transition(Module):
         path each block adds its own rows, so the assembly can free `x` before it needs room
         for the result; elsewhere it is the caller's `ttnn.add_` done here.
         """
-        if add_to_input and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
+        rows_inplace = (TRANSITION_ROWS_INPLACE and len(x.shape) == 4
+                        and _pair_inplace(x, add_to_input, any_size=True))
+        if add_to_input and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING) and not rows_inplace:
             u = self(x, memory_config)
             x = ttnn.add_(x, u)
             ttnn.deallocate(u)
@@ -10920,7 +10928,7 @@ class Transition(Module):
                     else "base-unraised")
             _k = (_why, f"{H}x{W}x{x.shape[-1]}")
             TRANSITION_H_CHUNK_REJECTS[_k] = TRANSITION_H_CHUNK_REJECTS.get(_k, 0) + 1
-        if H > SEQ_LEN_MORE_CHUNKING:
+        if H > SEQ_LEN_MORE_CHUNKING or rows_inplace:
             # Tag on ENTRY as well as on exit. The eager branch below tags before its loop, so a
             # long call there is visible as a tag with no successor; this branch only tagged after
             # its loop, so a Transition that grinds here writes NOTHING and the trace simply stops
@@ -10936,7 +10944,7 @@ class Transition(Module):
             # Host-assemble the row blocks when the full result is large enough that
             # the concat's full-size allocation would risk a fragmented-DRAM refusal
             # (concat_host_bytes()). Guarded on the swiglu output dtype being bf16.
-            inplace = (_pair_inplace(x, add_to_input) and transition_h_chunk_size < H
+            inplace = ((rows_inplace or _pair_inplace(x, add_to_input)) and transition_h_chunk_size < H
                        and (self.dtype or _dtype()) == ttnn.bfloat16)
             host_acc = (not inplace and _host_concat(x)
                         and (self.dtype or _dtype()) == ttnn.bfloat16)
