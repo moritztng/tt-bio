@@ -1,7 +1,9 @@
 """Turn an lpx_matmul run (calls.json + bench.jsonl) into the SHAPES / SWEEP / BEST / CHAIN tables.
 
-usage: analyze.py RUN_DIR [FOLD_S]   -> RUN_DIR/summary.md and RUN_DIR/summary.json
+usage: analyze.py RUN_DIR [FOLD_S] [--merge RUN2_DIR ...]   -> RUN_DIR/summary.md and RUN_DIR/summary.json
 FOLD_S, default the capture fold's own wall time, is the denominator of "share of fold".
+--merge folds sweep2.py runs (program-config search, bf16 arms, generic_op equivalents, producers) into the tables;
+their variants keep r1's base as the reference.
 Roofline: Wormhole 8x9 cores at the AICLK the sweep logged, 4096 FLOP/cycle/core at LoFi (/2 HiFi2, /3 HiFi3,
 /4 HiFi4), DRAM 288 GB/s; operands whose memory config is L1 are not charged DRAM bytes.
 """
@@ -9,7 +11,10 @@ import json, re, sys
 from math import prod
 from pathlib import Path
 
-RUN = Path(sys.argv[1]); FOLD_S = float(sys.argv[2]) if len(sys.argv) > 2 else None
+argv = sys.argv[1:]
+MERGE = [Path(x) for x in argv[argv.index("--merge") + 1:]] if "--merge" in argv else []
+argv = argv[:argv.index("--merge")] if "--merge" in argv else argv
+RUN = Path(argv[0]); FOLD_S = float(argv[1]) if len(argv) > 1 else None
 BYTES = {"BFLOAT16": 2.0, "BFLOAT8_B": 1.0625, "BFLOAT4_B": 0.5625, "FLOAT32": 4.0}
 FIDDIV = {"LoFi": 1, "HiFi2": 2, "HiFi3": 3, "HiFi4": 4}
 CORES, DRAM = 72, 288e9
@@ -62,6 +67,23 @@ calls = json.loads((RUN / "calls.json").read_text())
 ev = [json.loads(l) for l in open(RUN / "bench.jsonl")]
 sweeps = {e["key"]: e for e in ev if e.get("ev") == "sweep"}
 folds = {e["kind"]: e for e in ev if e.get("ev") == "fold"}
+extra = []
+for m in MERGE:
+    tag = m.name
+    for l in open(m / "bench.jsonl"):
+        e = json.loads(l)
+        if e.get("ev") == "sweep2" and e["key"] in sweeps:
+            sw = sweeps[e["key"]]; b0 = next((x["us"] for x in sw["results"] if x["var"] == "base" and "us" in x), None)
+            for x in e["results"]:
+                if x["var"] == "base" or "us" not in x:
+                    continue
+                sw["results"].append(dict(x, var=f"{tag}:{x['var']}", speedup=b0 / x["us"] if b0 else 0))
+            sw.setdefault("errs", 0); sw["errs"] += sum("err" in x for x in e["results"])
+        elif e.get("ev") in ("generic_equiv", "producer"):
+            extra.append(e)
+
+def is_fmt(var):  # a lower-precision operand or output format (bfp8/bfp4), as opposed to bf16 / fp32-acc / config only
+    return bool(re.search(r"b8|b4", var.split(":")[-1]))
 cap_s = folds.get("capture", {}).get("wall_s")
 FOLD_S = FOLD_S or cap_s   # the synced times were taken in the capture fold, so it is their denominator
 
@@ -113,22 +135,64 @@ for i, (c, cl, r, sw) in enumerate(rows):
         out.append("chain: " + json.dumps({k: (round(v["us"], 1) if "us" in v else v.get("err", "")[:80]) for k, v in sw["chain"].items()}))
     if base and res:
         bx = min(res, key=lambda x: x["us"])
+        bb = min((x for x in res if not is_fmt(x["var"])), key=lambda x: x["us"])
         ch = sw.get("chain", {})
         cast = 0.0
-        if bx["in0"] in ("b8", "b4"):
-            cast += ch.get(f"in_to_{bx['in0']}", {}).get("us", 0.0)
-        if bx["out"] == "b8":
+        v = bx["var"].split(":")[-1]
+        i0 = "b4" if v.startswith("b4") else "b8" if re.match(r"b8(b8|lofi|_)", v) or v.startswith("b8b8") else None
+        if i0:  # ttnn.matmul takes two activations (linear's in1 is a weight, cast once at load); r1 timed in0's cast only
+            cast += ch.get(f"in_to_{i0}", {}).get("us", 0.0) * (2 if c["op"] == "matmul" else 1)
+        if v.endswith("ob8") or "lofi" in v and v.startswith("b8lofi"):
             cast += ch.get("out_b8_to_bf16", {}).get("us", 0.0)
         best.append(dict(rank=i, cls=cl, op=c["op"], calls=c["n_total"], base_us=base["us"], best=bx["var"], best_us=bx["us"],
+                         best_bf16=bb["var"], best_bf16_us=bb["us"],
                          speedup=base["us"] / bx["us"], cast_us=cast, chain_speedup=base["us"] / (bx["us"] + cast),
                          saved_s=(base["us"] - bx["us"]) * c["n_total"] / 1e6,
                          ai=r and r["ai"], t_math_us=r and r["t_math_us"], t_dram_us=r and r["t_dram_us"]))
 
-out += ["", "## BEST", "| # | class | calls | base us | best variant | best us | speedup | +cast us | chain speedup | fold s saved (no cast) | FLOP/B | math us | dram us |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+out += ["", "## BEST", "| # | class | calls | base us | best bf16-only variant | us | speedup | best any-format variant | us | speedup | +cast us | chain speedup | fold s saved (no cast) | FLOP/B | math us (HiFi4) | dram us |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
 for b in best:
-    out.append(f"| {b['rank']} | {b['cls']} | {b['calls']} | {b['base_us']:.0f} | {b['best']} | {b['best_us']:.0f} | {b['speedup']:.2f} | "
+    out.append(f"| {b['rank']} | {b['cls']} | {b['calls']} | {b['base_us']:.0f} | {b['best_bf16']} | {b['best_bf16_us']:.0f} | "
+               f"{b['base_us'] / b['best_bf16_us']:.2f} | {b['best']} | {b['best_us']:.0f} | {b['speedup']:.2f} | "
                f"{b['cast_us']:.0f} | {b['chain_speedup']:.2f} | {b['saved_s']:.1f} | {b['ai'] or 0:.0f} | {b['t_math_us'] or 0:.0f} | {b['t_dram_us'] or 0:.0f} |")
+
+# per class, over the swept signatures: device time x calls at base, best bf16-only, best any format, best + casts
+roll = {}
+for b in best:
+    r = roll.setdefault(b["cls"], [0.0] * 5)
+    for j, us in enumerate((b["base_us"], b["best_bf16_us"], b["best_us"], b["best_us"] + b["cast_us"])):
+        r[j] += us * b["calls"] / 1e6
+    r[4] += 1
+out += ["", "## BEST by class (swept signatures, device s per fold = us x calls)",
+        "| class | sigs | base s | bf16-only s | x | any-format s | x | any-format + standalone casts s | x |", "|---|---|---|---|---|---|---|---|---|"]
+tot = [0.0] * 4
+for cl, r in sorted(roll.items(), key=lambda kv: -kv[1][0]):
+    out.append(f"| {cl} | {r[4]:.0f} | {r[0]:.2f} | {r[1]:.2f} | {r[0] / r[1]:.2f} | {r[2]:.2f} | {r[0] / r[2]:.2f} | {r[3]:.2f} | {r[0] / r[3]:.2f} |")
+    tot = [t + v for t, v in zip(tot, r)]
+out.append(f"| **all swept** | {len(best)} | {tot[0]:.2f} | {tot[1]:.2f} | {tot[0] / tot[1]:.2f} | {tot[2]:.2f} | {tot[0] / tot[2]:.2f} | {tot[3]:.2f} | {tot[0] / tot[3]:.2f} |")
+
+gen_base = {}
+for c in calls:
+    if c["op"] == "generic_op":
+        site = max(c["sites"], key=c["sites"].get)
+        gen_base.setdefault(site.split(" < ")[0], []).append((c["n_total"], c["med_s"]))
+for e in extra:
+    if e["ev"] == "generic_equiv":
+        out += ["", f"## generic_op equivalent: {e['name']} {e['shape']} ({e['n_calls']} calls/fold), device us, aiclk {e.get('aiclk')}",
+                "| variant | us | spread |", "|---|---|---|"]
+        for x in sorted(e["results"], key=lambda x: x.get("us", 1e18)):
+            out.append(f"| {x['var']} | {x['us']:.1f} | {100 * x['spread']:.1f} % |" if "us" in x else f"| {x['var']} | {x.get('err')} | |")
+    else:
+        out += ["", f"## producer: {e['name']} {e['shape']}, device us, aiclk {e.get('aiclk')}",
+                "| variant | us |", "|---|---|"]
+        for k, v in e["results"].items():
+            out.append(f"| {k} | {v['us']:.1f} |" if "us" in v else f"| {k} | {v.get('err')} |")
+if gen_base:
+    out += ["", "## generic_op calls in the capture fold (synced us, includes host dispatch)", "| site | calls | med us |", "|---|---|---|"]
+    for site, v in gen_base.items():
+        for n, m in v:
+            out.append(f"| {site} | {n} | {1e6 * (m or 0):.0f} |")
 (RUN / "summary.md").write_text("\n".join(out) + "\n")
-(RUN / "summary.json").write_text(json.dumps(dict(classes=cls_tot, best=best), indent=1, default=str))
+(RUN / "summary.json").write_text(json.dumps(dict(classes=cls_tot, best=best, roll=roll, extra=extra), indent=1, default=str))
 print("\n".join(out[:80]))
