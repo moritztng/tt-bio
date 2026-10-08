@@ -6,10 +6,10 @@
 # used. Shipping pc's copy rather than qb1's 5.3 GB superset keeps weight parity with the prior
 # host arm and moves a third of the bytes.
 set -u
-H=root@ssh4.vast.ai
-P=27702
-SSH="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20 -p $P"
 ROOT=/home/moritz/.bci-seventeen-host
+read -r HOST P < "$ROOT/endpoint.txt"
+H=root@$HOST
+SSH="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20 -p $P"
 LOG=$ROOT/.bci/provision.log
 exec >> "$LOG" 2>&1
 date -u +"=== provision start %Y-%m-%dT%H:%M:%SZ ==="
