@@ -35,6 +35,9 @@ ap.add_argument("--chip", type=int, default=None)
 ap.add_argument("--weights", default=None, help="torch .pt with one trimul's state dict (real weights)")
 ap.add_argument("--variants", default="start,end")
 ap.add_argument("--opsplit", action="store_true", help="also log a synced per-op wall split per arm")
+ap.add_argument("--resid", action="store_true",
+                help="call the way the Pairformer does, add_to_input=True: z += update in place, so every arm\n"
+                     "times the residual add too (the epi2 lever folds it into the tail)")
 A = ap.parse_args()
 
 OUT = Path(A.out).resolve()
@@ -98,6 +101,7 @@ LEVERS = {
     "lofi": [(T.set_trimul_einsum_fid, "lofi")],
     "b8in": [(T.set_trimul_inproj_b8, True)],
     "epi1": [(TTL.set_epi, 1)],
+    "epi2": [(TTL.set_epi, 2)],
 }
 
 
@@ -205,6 +209,33 @@ def reference(ending):
     return (o @ Wd["p_out.weight"].T) * torch.sigmoid(x @ Wd["g_out.weight"].T)
 
 
+def call(mod):
+    """One timed call. With --resid the Pairformer's form: z_dev += update in place, nothing freed."""
+    if A.resid:
+        mod(z_dev, m_dev, add_to_input=True)
+    else:
+        ttnn.deallocate(mod(z_dev, m_dev))
+
+
+def accuracy_call(mod):
+    """The update as a host tensor. With --resid, on a fresh upload of z_host, minus z_host."""
+    if not A.resid:
+        y = mod(z_dev, m_dev)
+        ttnn.synchronize_device(dev)
+        yt = ttnn.to_torch(y).float()
+        ttnn.deallocate(y)
+        return yt
+    zc = ttnn.from_torch(z_host, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                         memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    y = mod(zc, m_dev, add_to_input=True)
+    ttnn.synchronize_device(dev)
+    yt = ttnn.to_torch(y).float() - z_host
+    ttnn.deallocate(y)
+    if zc.is_allocated():
+        ttnn.deallocate(zc)
+    return yt
+
+
 def err(y, ref):
     y, ref = y[0, :NV, :NV].double(), ref[0, :NV, :NV].double()
     d = y - ref
@@ -228,14 +259,11 @@ for var in A.variants.split(","):
         prev = apply(arm_setters(arm))
         try:
             back0 = list(RB.STATS_BACK)
-            tail0 = list(TTL.STATS)
+            tail0, resid0 = list(TTL.STATS), list(TTL.RESID_STATS)
             fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32)).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
-                y = mod(z_dev, m_dev)
-                ttnn.synchronize_device(dev)
-                yt = ttnn.to_torch(y).float()
-                ttnn.deallocate(y)
+                yt = accuracy_call(mod)
             fired["back_kernel_calls"] = RB.STATS_BACK[0] - back0[0]
             fired["mm_transpose"] = dict((f"{k[0]}/{k[1]}", v) for k, v in T.TRIMUL_MM_TRANSPOSE_STATS.items())
             fired["einsum_fid"] = T._TRIMUL_EINSUM_FID or "trunk"
@@ -243,6 +271,7 @@ for var in A.variants.split(","):
             fired["inproj_b8"] = T._TRIMUL_INPROJ_B8
             fired["tail_f1"] = [a - b for a, b in zip(TTL.STATS, tail0)]
             fired["tail_epi"] = TTL.EPI
+            fired["tail_resid"] = [a - b for a, b in zip(TTL.RESID_STATS, resid0)]
         finally:
             restore(prev)
         outs[arm] = yt
@@ -263,7 +292,7 @@ for var in A.variants.split(","):
                 for rep in range(3):
                     OPS.clear()
                     with op_timer():
-                        ttnn.deallocate(mod(z_dev, m_dev))
+                        call(mod)
                     if rep == 2:
                         log(ev="opsplit", variant=var, arm=arm, total_ms=round(sum(t for _, t in OPS), 3),
                             ops=[[n, round(t, 3)] for n, t in OPS])
@@ -277,7 +306,7 @@ for var in A.variants.split(","):
                 ttnn.synchronize_device(dev)
                 t0 = time.monotonic()
                 for _ in range(A.calls):
-                    ttnn.deallocate(mod(z_dev, m_dev))
+                    call(mod)
                 ttnn.synchronize_device(dev)
                 t1 = time.monotonic()
             finally:

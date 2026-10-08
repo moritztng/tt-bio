@@ -18,6 +18,17 @@
 #ifndef TRIMUL_TAIL_SKIP_SIGMOID
 #define TRIMUL_TAIL_SKIP_SIGMOID 0
 #endif
+// The epilogue. 0 is production's order, bit-exact: fp32 accumulator -> bf16 copy per pass, a
+// sigmoid copy, the SFPU multiply and the integer rounding. 1 packs each pass straight out of DST
+// into its bf16 CB (the sigmoid applied in DST on the gate pass) and gates with the FPU multiply:
+// four unpack/pack round trips and two SFPU ops fewer per output tile, at one bf16 ULP on ties.
+// 1 needs exactly one K block, which `trimul_tail.eligible` already requires. 2 is 1 plus the
+// residual: the output tensor IS the pair being updated, the non-writer DM kernel reads each
+// block's z tiles through the output accessor before the writer overwrites them, and the compute
+// adds them to the gated product in DST, so the trailing `add_` (2P read, 1P write) is gone.
+#ifndef TRIMUL_TAIL_EPI
+#define TRIMUL_TAIL_EPI 0
+#endif
 // SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -277,6 +288,30 @@ void kernel_main() {
                 }
             }
             }
+#if TRIMUL_TAIL_EPI == 2
+            // TRIMUL_TAIL: the residual. The output IS the pair tensor being updated (written in
+            // place), so this block's z tiles are read through the output accessor before the
+            // writer overwrites them: same tile ids as write_block_sync_granular, one row of
+            // N_block_tiles per M tile, into c_7.
+            if constexpr (!is_output_writer) {
+                constexpr uint32_t cb_id_resid = tt::CBIndex::c_7;
+                cb_reserve_back(cb_id_resid, M_block_tiles * N_block_tiles);
+                const uint32_t resid_wp = get_write_ptr(cb_id_resid);
+                for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {
+                    const uint32_t mt = m_tile + m_id;
+                    if (mt >= m_tile_end || mt >= out_shape.logical_d0) {
+                        break;
+                    }
+                    uint32_t wp = resid_wp + m_id * N_block_tiles * out_tile_size;
+                    for (uint32_t nt = n_tile; nt < n_tile_end && nt < out_shape.logical_d1; nt++) {
+                        noc_async_read_tile(mt * out_shape.logical_d1 + nt, std::get<0>(outputs_tuple), wp);
+                        wp += out_tile_size;
+                    }
+                }
+                noc_async_read_barrier();
+                cb_push_back(cb_id_resid, M_block_tiles * N_block_tiles);
+            }
+#endif
 #ifdef FUSE_BIAS
             if constexpr (!is_output_writer) {
                 cb_reserve_back(cb_id_in2, N_block_tiles);

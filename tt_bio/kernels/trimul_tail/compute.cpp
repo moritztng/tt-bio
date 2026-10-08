@@ -22,7 +22,10 @@
 // sigmoid copy, the SFPU multiply and the integer rounding. 1 packs each pass straight out of DST
 // into its bf16 CB (the sigmoid applied in DST on the gate pass) and gates with the FPU multiply:
 // four unpack/pack round trips and two SFPU ops fewer per output tile, at one bf16 ULP on ties.
-// 1 needs exactly one K block, which `trimul_tail.eligible` already requires.
+// 1 needs exactly one K block, which `trimul_tail.eligible` already requires. 2 is 1 plus the
+// residual: the output tensor IS the pair being updated, the non-writer DM kernel reads each
+// block's z tiles through the output accessor before the writer overwrites them, and the compute
+// adds them to the gated product in DST, so the trailing `add_` (2P read, 1P write) is gone.
 #ifndef TRIMUL_TAIL_EPI
 #define TRIMUL_TAIL_EPI 0
 #endif
@@ -136,16 +139,27 @@ void gate_block(
 }
 
 // out = p * sig, the FPU multiply over one output block, four tiles per DST acquire (the fp32
-// half-sync capacity). Used by TRIMUL_TAIL_EPI == 1 only.
-void gate_block_fpu(uint32_t p_cb, uint32_t sig_cb, uint32_t out_cb, uint32_t block_num_tiles) {
-    mul_tiles_init(p_cb, sig_cb);
+// half-sync capacity). Used by TRIMUL_TAIL_EPI >= 1 only.
+// With RESID (TRIMUL_TAIL_EPI == 2) it adds the residual block in resid_cb in DST: out = z + p * sig.
+template <bool RESID>
+void gate_block_fpu(
+    uint32_t p_cb, uint32_t sig_cb, uint32_t resid_cb, uint32_t out_cb, uint32_t block_num_tiles) {
     reconfig_data_format(p_cb, sig_cb);
     pack_reconfig_data_format(out_cb);
     for (uint32_t t0 = 0; t0 < block_num_tiles; t0 += 4) {
         const uint32_t n = (block_num_tiles - t0) < 4 ? (block_num_tiles - t0) : 4;
         tile_regs_acquire();
+        mul_tiles_init(p_cb, sig_cb);
         for (uint32_t i = 0; i < n; i++) {
             mul_tiles(p_cb, sig_cb, t0 + i, t0 + i, i);
+        }
+        if constexpr (RESID) {
+            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                resid_cb);
+            for (uint32_t i = 0; i < n; i++) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    resid_cb, t0 + i, i);
+            }
         }
         tile_regs_commit();
         tile_regs_wait();
@@ -503,7 +517,7 @@ void kernel_main() {
 
             for (uint32_t pass = 0; pass < TRIMUL_TAIL_PASSES; pass++) {
             const uint32_t pass_cb = (pass == 0) ? p_cb : g_cb;
-#if TRIMUL_TAIL_EPI == 1
+#if TRIMUL_TAIL_EPI >= 1
             const uint32_t mm_out_cb = pass_cb;
 #else
             const uint32_t mm_out_cb = intermediate_cb;
@@ -533,7 +547,7 @@ void kernel_main() {
                     K_block_tiles,
                     current_subblock_h,
                     current_subblock_w,
-                    TRIMUL_TAIL_EPI == 1 && pass == 1);
+                    TRIMUL_TAIL_EPI >= 1 && pass == 1);
 
                 if (k_block == K_num_blocks - 1) {
                     /**
@@ -572,7 +586,11 @@ void kernel_main() {
             cb_wait_front(p_cb, out_block_num_tiles);
             cb_wait_front(g_cb, out_block_num_tiles);
 #if TRIMUL_TAIL_EPI == 1
-            gate_block_fpu(p_cb, g_cb, out_cb, out_block_num_tiles);
+            gate_block_fpu<false>(p_cb, g_cb, g_cb, out_cb, out_block_num_tiles);
+#elif TRIMUL_TAIL_EPI == 2
+            cb_wait_front(tt::CBIndex::c_7, out_block_num_tiles);
+            gate_block_fpu<true>(p_cb, g_cb, tt::CBIndex::c_7, out_cb, out_block_num_tiles);
+            cb_pop_front(tt::CBIndex::c_7, out_block_num_tiles);
 #else
             gate_block(p_cb, g_cb, sig_cb, out_cb, out_block_num_tiles);
 #endif

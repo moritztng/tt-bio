@@ -8707,10 +8707,13 @@ class TriangleMultiplication(Module):
                                   + [int(self.out_p_weight.shape[-1])], 2),
                     1.0, _PAIR_L1_CONSUMER_RESERVE):
                 out_mc = ttnn.L1_MEMORY_CONFIG
+            # With TT_BIO_TRIMUL_TAIL_EPI=2 the residual add is folded in: `x_in + update` is
+            # written into `x_in` and returned, and `_add_input` sees the sum (`u is x`).
             fused = _trimul_tail.fused_tail(
                 x, x_norm_in, self.out_p_weight, self.g_out_weight,
                 _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                out_memory_config=out_mc)
+                out_memory_config=out_mc,
+                resid=x_in if add_to_input and not ops.taping() else None)
             if fused is not None:
                 ttnn.deallocate(x)
                 ttnn.deallocate(x_norm_in)

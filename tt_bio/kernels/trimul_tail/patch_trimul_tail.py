@@ -86,7 +86,10 @@ HEADER = """// SPDX-FileCopyrightText: (c) 2026 Tenstorrent USA, Inc.
 // sigmoid copy, the SFPU multiply and the integer rounding. 1 packs each pass straight out of DST
 // into its bf16 CB (the sigmoid applied in DST on the gate pass) and gates with the FPU multiply:
 // four unpack/pack round trips and two SFPU ops fewer per output tile, at one bf16 ULP on ties.
-// 1 needs exactly one K block, which `trimul_tail.eligible` already requires.
+// 1 needs exactly one K block, which `trimul_tail.eligible` already requires. 2 is 1 plus the
+// residual: the output tensor IS the pair being updated, the non-writer DM kernel reads each
+// block's z tiles through the output accessor before the writer overwrites them, and the compute
+// adds them to the gated product in DST, so the trailing `add_` (2P read, 1P write) is gone.
 #ifndef TRIMUL_TAIL_EPI
 #define TRIMUL_TAIL_EPI 0
 #endif
@@ -128,7 +131,7 @@ def patch_in0(src: str) -> str:
                         pass == 0 ? in0_reader : in0b_reader,""",
               "in0 read call")
     src = sub(src, K_LOOP_CLOSE, K_LOOP_CLOSE_NEW, "in0 k loop close")
-    return HEADER + src
+    return HEADER + patch_resid(src)
 
 
 def patch_in1(src: str) -> str:
@@ -150,7 +153,7 @@ def patch_in1(src: str) -> str:
                         pass == 0 ? in1_reader : in1b_reader,""",
               "in1 read call")
     src = sub(src, K_LOOP_CLOSE, K_LOOP_CLOSE_NEW, "in1 k loop close")
-    return HEADER + src
+    return HEADER + patch_resid(src)
 
 
 # The bf16 rounding the product goes through before the pack. Shared with
@@ -355,19 +358,67 @@ def patch_compute(src: str) -> str:
     return HEADER + patch_compute_epi(src)
 
 
+# TRIMUL_TAIL_EPI == 2: the residual read, in whichever DM kernel is not the output writer.
+RESID_READ = """#if TRIMUL_TAIL_EPI == 2
+            // TRIMUL_TAIL: the residual. The output IS the pair tensor being updated (written in
+            // place), so this block's z tiles are read through the output accessor before the
+            // writer overwrites them: same tile ids as write_block_sync_granular, one row of
+            // N_block_tiles per M tile, into c_7.
+            if constexpr (!is_output_writer) {
+                constexpr uint32_t cb_id_resid = tt::CBIndex::c_7;
+                cb_reserve_back(cb_id_resid, M_block_tiles * N_block_tiles);
+                const uint32_t resid_wp = get_write_ptr(cb_id_resid);
+                for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {
+                    const uint32_t mt = m_tile + m_id;
+                    if (mt >= m_tile_end || mt >= out_shape.logical_d0) {
+                        break;
+                    }
+                    uint32_t wp = resid_wp + m_id * N_block_tiles * out_tile_size;
+                    for (uint32_t nt = n_tile; nt < n_tile_end && nt < out_shape.logical_d1; nt++) {
+                        noc_async_read_tile(mt * out_shape.logical_d1 + nt, std::get<0>(outputs_tuple), wp);
+                        wp += out_tile_size;
+                    }
+                }
+                noc_async_read_barrier();
+                cb_push_back(cb_id_resid, M_block_tiles * N_block_tiles);
+            }
+#endif
+"""
+RESID_ANCHOR = """            }
+            }
+#ifdef FUSE_BIAS
+            if constexpr (!is_output_writer) {"""
+
+
+def patch_resid(src: str) -> str:
+    return sub(src, RESID_ANCHOR, RESID_ANCHOR.replace("#ifdef FUSE_BIAS", RESID_READ + "#ifdef FUSE_BIAS", 1),
+               "resid read")
+
+
 # TRIMUL_TAIL_EPI == 1 (see HEADER). Applied after the anchors above, on their output.
 GATE_FPU = """
 // out = p * sig, the FPU multiply over one output block, four tiles per DST acquire (the fp32
-// half-sync capacity). Used by TRIMUL_TAIL_EPI == 1 only.
-void gate_block_fpu(uint32_t p_cb, uint32_t sig_cb, uint32_t out_cb, uint32_t block_num_tiles) {
-    mul_tiles_init(p_cb, sig_cb);
+// half-sync capacity). Used by TRIMUL_TAIL_EPI >= 1 only.
+// With RESID (TRIMUL_TAIL_EPI == 2) it adds the residual block in resid_cb in DST: out = z + p * sig.
+template <bool RESID>
+void gate_block_fpu(
+    uint32_t p_cb, uint32_t sig_cb, uint32_t resid_cb, uint32_t out_cb, uint32_t block_num_tiles) {
     reconfig_data_format(p_cb, sig_cb);
     pack_reconfig_data_format(out_cb);
     for (uint32_t t0 = 0; t0 < block_num_tiles; t0 += 4) {
         const uint32_t n = (block_num_tiles - t0) < 4 ? (block_num_tiles - t0) : 4;
         tile_regs_acquire();
+        mul_tiles_init(p_cb, sig_cb);
         for (uint32_t i = 0; i < n; i++) {
             mul_tiles(p_cb, sig_cb, t0 + i, t0 + i, i);
+        }
+        if constexpr (RESID) {
+            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                resid_cb);
+            for (uint32_t i = 0; i < n; i++) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    resid_cb, t0 + i, i);
+            }
         }
         tile_regs_commit();
         tile_regs_wait();
@@ -402,7 +453,7 @@ def patch_compute_epi(src: str) -> str:
             tile_regs_commit();""", "epi sigmoid in DST")
     src = sub(src, """            const uint32_t pass_cb = (pass == 0) ? p_cb : g_cb;
             mm_block_init_short(""", """            const uint32_t pass_cb = (pass == 0) ? p_cb : g_cb;
-#if TRIMUL_TAIL_EPI == 1
+#if TRIMUL_TAIL_EPI >= 1
             const uint32_t mm_out_cb = pass_cb;
 #else
             const uint32_t mm_out_cb = intermediate_cb;
@@ -437,7 +488,7 @@ def patch_compute_epi(src: str) -> str:
                     K_block_tiles,
                     current_subblock_h,
                     current_subblock_w,
-                    TRIMUL_TAIL_EPI == 1 && pass == 1);""", "epi matmul_blocks call")
+                    TRIMUL_TAIL_EPI >= 1 && pass == 1);""", "epi matmul_blocks call")
     src = sub(src, """            cb_push_back(intermediate_cb, out_block_num_tiles);
             PACK((llk_pack_reconfig_l1_acc(0)));
 
@@ -463,7 +514,11 @@ def patch_compute_epi(src: str) -> str:
 """, "epi drain")
     src = sub(src, "            gate_block(p_cb, g_cb, sig_cb, out_cb, out_block_num_tiles);\n",
               "#if TRIMUL_TAIL_EPI == 1\n"
-              "            gate_block_fpu(p_cb, g_cb, out_cb, out_block_num_tiles);\n"
+              "            gate_block_fpu<false>(p_cb, g_cb, g_cb, out_cb, out_block_num_tiles);\n"
+              "#elif TRIMUL_TAIL_EPI == 2\n"
+              "            cb_wait_front(tt::CBIndex::c_7, out_block_num_tiles);\n"
+              "            gate_block_fpu<true>(p_cb, g_cb, tt::CBIndex::c_7, out_cb, out_block_num_tiles);\n"
+              "            cb_pop_front(tt::CBIndex::c_7, out_block_num_tiles);\n"
               "#else\n"
               "            gate_block(p_cb, g_cb, sig_cb, out_cb, out_block_num_tiles);\n"
               "#endif\n", "epi gate call")
