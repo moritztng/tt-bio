@@ -87,6 +87,28 @@ def main():
         ref = A @ B
         cases[f"{tag}_f64"] = float(ref[i, jj])
     res["cases"] = cases
+    # Bisect: the same bf16 values re-uploaded as a 2-D [h*S, C] tensor, cut to an M window holding
+    # the row and an N window holding the channel, with and without the module's core grid.
+    A2 = xnd[0].reshape(-1, C)
+    W2 = sd["fc2.weight"].T                                    # [C, HID]
+    bis = []
+    for m in (A2.shape[0], 1024, 256, 64, 32):
+        m0 = min((flat // m) * m, A2.shape[0] - m)
+        for n in (HID, 256, 64, 32):
+            n0 = (ch // n) * n
+            A = A2[m0:m0 + m]; B = W2[:, n0:n0 + n]
+            At = ttnn.from_torch(A.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+            Bt = ttnn.from_torch(B.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+            want = A @ B
+            for grid in (True, False):
+                y = lin(At, Bt, "HiFi4", grid=grid)
+                d = (y - want).abs()
+                bis.append({"m": m, "n": n, "grid": grid, "at_px": float(y[flat - m0, ch - n0]),
+                            "n_over_0.5": int((d > 0.5).sum()), "max": float(d.max()),
+                            "worst": [int(i) for i in divmod(int(d.argmax()), n)]})
+                print(json.dumps(bis[-1]), flush=True)
+            ttnn.deallocate(At); ttnn.deallocate(Bt)
+    res["bisect"] = bis
     torch.save({"x": x.to(torch.bfloat16), "w": w.to(torch.bfloat16), "res": res}, a.out)
     res["x_hex"] = x.to(torch.bfloat16).view(torch.int16).numpy().astype("uint16").tobytes().hex()
     res["w_hex"] = w.to(torch.bfloat16).view(torch.int16).numpy().astype("uint16").tobytes().hex()
