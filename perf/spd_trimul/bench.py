@@ -111,6 +111,7 @@ LEVERS = {
     "epi2": [(TTL.set_epi, 2)],
     "glean": [(RB.set_gate_lean, 1)],
     "gleanx": [(RB.set_gate_lean, 2)],
+    "noglean": [(RB.set_gate_lean, 0)],
     "sb13": [(T.set_trimul_subblock, (1, 3))],
     "sb31": [(T.set_trimul_subblock, (3, 1))],
 }

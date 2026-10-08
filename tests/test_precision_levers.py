@@ -83,8 +83,8 @@ def test_trimul_levers_reach_their_kernels_only_inside_the_set():
     import tt_bio.reblock_permute as RB
     import tt_bio.trimul_tail as TTL
 
-    assert (T._trimul_ibw_full(), TTL._epi(), RB._gate_lean()) == (False, 0, 0)
-    with T.levers("trimul_ibw,trimul_tail,trimul_glean"):
+    assert (T._trimul_ibw_full(), TTL._epi(), RB._gate_lean()) == (False, 0, 2)
+    with T.levers("trimul_ibw,trimul_tail"):
         assert (T._trimul_ibw_full(), TTL._epi(), RB._gate_lean()) == (True, 2, 2)
         assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 23
     assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 1
