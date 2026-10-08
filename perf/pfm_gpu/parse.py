@@ -17,7 +17,7 @@ def iso(p): return dt.datetime.strptime(p.read_text().strip()[:23], "%Y-%m-%dT%H
 
 for box in map(Path, sys.argv[1:]):
     smi = [r for r in csv.reader(open(box / "smi.csv")) if len(r) >= 9 and r[0][:2] == "20"]
-    card = "A100-80" if "80" in (box / "nvidia-smi-q.txt").read_text().split("Product Name")[1][:40] else "A100-40"
+    card = "A100-80" if "80GB" in (box / "nvidia-smi-q.txt").read_text().split("Product Name")[1].splitlines()[0] else "A100-40"
     print(f"## {box.name} ({card})")
     print("| arm | input | cold r0 s | warm r1-r3 mean s | range s | median SM MHz | median W | reasons | Modal $/fold |")
     print("|---|---|---|---|---|---|---|---|---|")
