@@ -107,6 +107,8 @@ def main():
             for line in f.read_text().splitlines():
                 r = json.loads(line)
                 if r.get("ev") == "rep" and r["input"] in SET and r["arm"] in (a.base, a.test):
+                    if r.get("struct_dir") and not Path(r["struct_dir"]).exists():   # a copy of the run dir
+                        r["struct_dir"] = str(f.parent / Path(r["struct_dir"]).name)
                     reps.append(r)
     folds, failed = {}, []
     for r in reps:
