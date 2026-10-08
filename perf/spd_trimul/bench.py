@@ -185,7 +185,7 @@ for var in A.variants.split(","):
         prev = apply(arm_setters(arm))
         try:
             back0 = list(RB.STATS_BACK)
-            fired = {"in0_block_w": T._trimul_in0_block_w(-(-N // 32)),
+            fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32)).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
                 y = mod(z_dev, m_dev)
