@@ -139,11 +139,16 @@ void reduce_c(uint32_t out_cb, uint32_t prev_cb, bool do_eltwise_max = false) {
              * Note that this special invocation of copy_tile is necessary to produce
              * tiles in DST with transposed faces, as `reduce_block_max_row` expects.
              */
+            // The previous max is bf16 while srcA still holds the score CB's format. With a bfp8
+            // score CB, copying it under that format reads garbage into every k chunk after the
+            // first, so move srcA for the copy and back (both no-ops in the all-bf16 stock table).
+            reconfig_data_format_srca(in0_cb, prev_cb);
             sdpa_reduce_copy_tile_to_dst_init_short(prev_cb);
             for (uint32_t i = 0; i < dst_tiles; i++) {
                 const uint32_t cur_max_dst_idx = i;
                 copy_tile(prev_cb, (row_start_idx + i), cur_max_dst_idx);
             }
+            reconfig_data_format_srca(prev_cb, in0_cb);
         }
 
         /**
@@ -206,8 +211,10 @@ void reduce_c(uint32_t out_cb, uint32_t prev_cb, uint32_t cols, bool do_eltwise_
         }
         reduce_uninit();
         if (do_eltwise_max) {
+            reconfig_data_format_srca(in0_cb, prev_cb);
             copy_tile_to_dst_init_short(prev_cb);
             copy_tile(prev_cb, i, prev_max_dst_idx);
+            reconfig_data_format_srca(prev_cb, in0_cb);
             binary_max_tile(reduce_dst_idx, prev_max_dst_idx, reduce_dst_idx, static_cast<int>(vector_mode));
         }
 
@@ -2049,8 +2056,13 @@ void sdpa_inner_loop(
             // statistics are bf16, so a narrower score CB needs the packer moved before the max
             // lands in them (a no-op when both are bf16, the stock table).
             pack_reconfig_data_format(cb_qk_im, alias_cur_max);
+#ifdef QK_TILEWISE_MAX
+            reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_qk_im, cb_identity_scale_in, Sq_chunk_t>(
+                alias_cur_max, alias_prev_max, Sk_chunk_t, processed_k_chunks > 0);
+#else
             reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_qk_im, cb_identity_scale_in, Sq_chunk_t, Sk_chunk_t>(
                 alias_cur_max, alias_prev_max, processed_k_chunks > 0);
+#endif
 
             /**
              * sub_exp fuses a few operations.
