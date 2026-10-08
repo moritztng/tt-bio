@@ -988,9 +988,9 @@ class DiffusionModule(_KeyedWeights):
                                   softmax_site="protenix.token_dit"),
                 AdaLN(False, remap_adaln(sub(Cc + "adaln.")), self._dit_ckc, dtype=self._dit_dtype),
                 A, Cc))
-            # LPX: the bf16 DiT's attention takes the fused SDPA (the token-DiT branch) rather
-            # than the explicit matmul/softmax/matmul chain.
-            self._dit[-1][1].token_dit = _T.LPX and self._dit_dtype == ttnn.bfloat16
+            # dit_sdpa: the bf16 DiT's attention takes the fused SDPA (the token-DiT branch)
+            # rather than the explicit matmul/softmax/matmul chain.
+            self._dit[-1][1].token_dit = _T.lever("dit_sdpa") and self._dit_dtype == ttnn.bfloat16
 
 
     def _up_dit(self, t):
@@ -1979,6 +1979,18 @@ def _pz_cond_probe(pz, z_in_sha):
     return r1.float()
 
 
+
+def _under_levers(method):
+    """Run a fold entry point under the model's own precision levers (see Protenix.__init__)."""
+    import functools
+
+    @functools.wraps(method)
+    def run(self, *a, **kw):
+        import tt_bio.tenstorrent as _TT
+        with _TT.levers(getattr(self, "_levers", ())):
+            return method(self, *a, **kw)
+    return run
+
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
 
@@ -1995,7 +2007,7 @@ class Protenix:
 
     def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None,
                  msa_update_first=False, diffusion_fp32=None, gated_move=False,
-                 softmax_scope="protenix"):
+                 softmax_scope="protenix", levers=None):
         """diffusion_fp32: explicit per-instantiation override for the coordinate-sensitive
         diffusion stack's precision; None falls back to PROTENIX_DIFFUSION_FP32_DEVICE (default
         fp32). Callers that share this class across models (e.g. OpenDDE) should pass this
@@ -2004,11 +2016,24 @@ class Protenix:
         softmax_scope: which model owns the two Pairformer construction sites this class builds
         (the 48-block trunk and the confidence head). OpenDDE instantiates this class, so those
         sites are shared, and per-construction-site alone would tie an OpenDDE softmax decision
-        to Protenix-v2's. Same hazard as diffusion_fp32 above, same fix: the caller names itself."""
+        to Protenix-v2's. Same hazard as diffusion_fp32 above, same fix: the caller names itself.
+
+        levers: the precision levers (`tenstorrent.LEVERS`) this model builds and folds under,
+        active only inside its own build and fold. `load_from_checkpoint` passes the mode's set,
+        and then `--fast` means those levers and nothing else. None keeps the older `--fast`, a
+        bfp8 trunk, for the callers that build this class directly (OpenDDE)."""
+        import tt_bio.tenstorrent as _TT
+        self._levers = _TT.parse_levers(levers or ())
+        with _TT.levers(self._levers):
+            self._build(model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
+                        diffusion_fp32, gated_move, softmax_scope, legacy_fast=levers is None)
+
+    def _build(self, model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
+               diffusion_fp32, gated_move, softmax_scope, legacy_fast):
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
-        # TT_BIO_LPX (timing-only prototype, tenstorrent.LPX): every stage at LoFi, fp32 acc off.
+        # The `lofi` / `acc_off` levers reach every stage through this one config.
         compute_kernel_config = _TT.lpx_compute_kernel_config(compute_kernel_config)
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
@@ -2018,7 +2043,9 @@ class Protenix:
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         resolved_diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
-                                   if diffusion_fp32 is None else diffusion_fp32) and not _TT.LPX
+                                   if diffusion_fp32 is None else diffusion_fp32)
+        if diffusion_fp32 is None and _TT.lever("diffusion_bf16"):
+            resolved_diffusion_fp32 = False
         # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8, but bf8
         # in the coordinate-sensitive diffusion collapses the structure (Rg 4.7 vs 22).
         #
@@ -2032,7 +2059,7 @@ class Protenix:
         # that already ships it, and the trunk PCC alone would have said the opposite. Capture the --fast intent, then build each stage at its
         # own precision; fold() re-applies the per-stage flag (the trunk's triangle/transition
         # ops read _dtype() at RUNTIME, so the global flag must match the weights per stage).
-        self._fast = _TT._FAST_MODE
+        self._fast = _TT._FAST_MODE and legacy_fast
         _TT.set_fast_mode(False)   # input embedder stays bf16; diffusion precision is gate-controlled
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
         diffusion_dtype = ttnn.float32 if resolved_diffusion_fp32 else ttnn.bfloat16
@@ -2052,10 +2079,14 @@ class Protenix:
                                               softmax_scope=softmax_scope)
 
     @classmethod
-    def load_from_checkpoint(cls, path, compute_kernel_config=None, device=None, diffusion_fp32=None):
+    def load_from_checkpoint(cls, path, compute_kernel_config=None, device=None, diffusion_fp32=None,
+                             levers=None):
         """Load a v2 checkpoint (.pt) and build the model. Untrusted weights are read
         with weights_only=True. diffusion_fp32 is the per-run precision (`--diffusion_precision`);
-        None keeps the default, fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0."""
+        None keeps the mode's default (fp32 unless PROTENIX_DIFFUSION_FP32_DEVICE=0, bf16 under
+        the `diffusion_bf16` lever). levers: None takes the mode's set, `FAST_LEVERS` under
+        `--fast` and `NORMAL_LEVERS` otherwise."""
+        import tt_bio.tenstorrent as _TT
         import torch
         import ttnn
         from .tenstorrent import get_device
@@ -2069,7 +2100,9 @@ class Protenix:
         # channel moves at c_z=256 and is torch.equal to the sequence it replaces, so it is
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
-        return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32)
+        if levers is None:
+            levers = _TT.FAST_LEVERS if _TT._FAST_MODE else _TT.NORMAL_LEVERS
+        return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):
         return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
@@ -2334,6 +2367,7 @@ class Protenix:
         return torch.stack([ztok[aq[b][:, None].expand(NQ, NK), ak[b][None, :].expand(NQ, NK)]
                             for b in range(nb)], 0)                            # (nb,nq,nk,16)
 
+    @_under_levers
     def fold_many(self, feats_list, *, n_step=200, seed=None, progress_fn=None,
                   return_confidence=False, n_cycles=None):
         """Fold B targets with ONE batched diffusion trajectory. Returns a list of B coord
@@ -2447,6 +2481,7 @@ class Protenix:
             cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
         return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
 
+    @_under_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
              max_parallel_samples=None, gamma0=None, step_scale=None):
