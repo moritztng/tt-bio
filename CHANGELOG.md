@@ -5,6 +5,83 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-08
+
+Fixes for the BindCraft 2 issues reported against 0.12.0. A campaign on a Tenstorrent card can
+accept designs again, keeps its device memory flat from one trajectory to the next, says what
+filled the card when it does refuse, and exits when it is done.
+
+### Added
+
+- **`--diffusion_precision bf16` for Protenix.** Runs the diffusion module in bf16, about 9 %
+  faster per fold on Wormhole with structures inside seed-to-seed variation. The default stays
+  `fp32`. [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+
+### Fixed
+
+- **BindCraft 2 validation scores the complex it designed, so designs can be accepted again
+  (#21).** Validation is meant to refold each design on BindCraft 2's own JAX model, but only
+  the Evoformer was kept off the card: the extra-MSA stack and the template embedder still ran on
+  the card with the design model's weights. Every design came back with `Target_pLDDT` near 0.3
+  and `Interface_Residues` equal to the binder length, and nothing passed the filters. Validation
+  now runs every stack on the host, and on the reporter's settings it returns the same
+  `Target_pLDDT`, `pLDDT`, `Interface_Residues`, `Binder_RMSD` and i_pTM as BindCraft 2 alone.
+  The design loop is unchanged.
+- **Device memory no longer grows across BindCraft 2 trajectories (#18).** With `resident=1`,
+  each time the campaign switched design model it left the previous model's pair weights on the
+  card, about 60 MB per switch and over a hundred switches per trajectory, so a 352-token campaign
+  on a p300c was refused after about four trajectories. Those weights are now released when the
+  model is evicted, and held memory returns to the same level at every trajectory boundary.
+- **A BindCraft 2 out-of-memory refusal says how much of the card the failing trajectory
+  allocated.** It used to call everything allocated on the card "held by this fold", and in one
+  reported campaign three quarters of that had been held before the trajectory started. A
+  campaign now reads the card at each trajectory boundary and the refusal prints both parts; when
+  most of it was inherited it points at `resume=true` instead of at the fold's size (#19).
+- **A process that used a Tenstorrent card exits on its own, with its own status.** A BindCraft 2
+  campaign could finish its work and then exit 139, or hang with SIGTERM ignored after an
+  out-of-memory refusal, in teardown after Python was done. tt-bio now ends the process once it
+  has closed the card, with the status the program chose, before the C++ destructors of tt-metal
+  and XLA run. The stderr filter that tt-bio forked at import is gone; the nanobind leak report it
+  dropped is still dropped, and `--debug` (or `TT_BIO_DEBUG_STDERR=1`) shows it (#20).
+
+### Known issues
+
+- **On-card acceptance can still trail host JAX (#17).** A campaign whose Evoformer runs on the
+  card has accepted fewer trajectories than the same seeds on host JAX. That investigation is
+  still open and this release does not change it.
+
+## [0.13.0] - 2026-10-07
+
+Your own objective and your own outputs, on the models tt-bio already ships. BindCraft 2's design
+loss takes terms you write, every structure model writes its full confidence matrices, and a fold
+can carry an output head of your own.
+
+### Added
+
+- **A BindCraft 2 loss you can change.** `bindcraft2.loss_terms` adds a term of your own,
+  reweights or switches off any of BindCraft 2's 37, or replaces what one computes, from ordinary
+  Python with the settings file untouched. A term reaches the gradient, the mutation and
+  acceptance scoring and `losses.csv` alike, on the card and on BindCraft 2's own JAX trunk.
+  `bindcraft2.check_gradient` grades a term against float64 central differences, and a term whose
+  gradient is silently zero is refused by name before a campaign spends on it. With no custom term
+  the design loop is unchanged. Worked example: `examples/bindcraft2_custom_loss.py`; reference:
+  [`docs/bindcraft2.md`](docs/bindcraft2.md#custom-loss).
+- **Confidence exports for every structure model.** `--write_pae` now writes `<name>_pae.npz` with
+  the full PAE matrix, the PDE matrix and contact probabilities from the model's own distogram,
+  plus a JSON sidecar naming each array's shape and units, for Boltz-2, OpenDDE, OpenFold3,
+  OpenBind-0, ESMFold-2, RF3, Protenix and AF2-IG. ESMFold-2 and AF2-IG compute a full PAE matrix
+  for the first time, and OpenFold3, OpenBind-0, RF3 and AF2-IG report the chain-pair ipTM matrix
+  in `results.json`. `--contact_cutoff` sets the contact distance. Protenix has no contact
+  probabilities and AF2-IG no PDE, and the sidecar says so.
+  [`docs/confidence-outputs.md`](docs/confidence-outputs.md).
+- **An extension surface.** `tt-bio predict --head FILE.py:NAME` runs your own output head on a
+  Boltz-2 fold (Tenstorrent, CPU or GPU) or an ESMFold-2 fold (Tenstorrent) and writes what it
+  returns beside the structure; the structure itself is unchanged. Boltz-2 and ESMFold-2 also expose an optional
+  per-step trajectory hook, off by default. [`docs/extending.md`](docs/extending.md) says which
+  change to a model takes which route, [`docs/porting-a-model.md`](docs/porting-a-model.md) covers
+  a full port, and `examples/custom_head` trains a contact head with its own loss and folds a
+  protein it never saw.
+
 ### Changed
 
 - **tt-bio no longer downloads the Protenix-v2 weights.** The Protenix code is Apache-2.0, and
@@ -30,19 +107,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
-- **A BindCraft 2 out-of-memory refusal says how much of the card the failing trajectory
-  allocated.** It used to call everything allocated on the card "held by this fold", and in one
-  reported campaign three quarters of that had been held before the trajectory started. A
-  campaign now reads the card at each trajectory boundary and the refusal prints both parts; when
-  most of it was inherited it points at `resume=true` instead of at the fold's size (#19).
-
-- **A process that used a Tenstorrent card exits on its own, with its own status.** A BindCraft 2
-  campaign could finish its work and then exit 139, or hang with SIGTERM ignored after an
-  out-of-memory refusal, in teardown after Python was done. tt-bio now ends the process once it
-  has closed the card, with the status the program chose, before the C++ destructors of tt-metal
-  and XLA run. The stderr filter that tt-bio forked at import is gone; the nanobind leak report it
-  dropped is still dropped, and `--debug` (or `TT_BIO_DEBUG_STDERR=1`) shows it (#20).
-
+- **Boltz-2 folds on a CPU-only install again.** Since 0.10.0 every Boltz-2 fold on a host without
+  ttnn failed after its confidence step with `No module named 'ttnn'`.
+- **An offline paired MSA search now pairs.** `compute_msa_offline(pair=True)` searched each chain
+  on its own, so every "paired" alignment was that chain's unpaired hits: OpenBind-0 refused every
+  protein heteromer on its depth check, and ESMFold-2 and OpenDDE read rows of two unrelated
+  alignments as one organism. Paired results are cached under a new directory, so no old file is
+  served.
 - **A BindCraft 2 out-of-memory refusal no longer tells a one-trajectory run to pass
   `trajectories_per_card=1`.** Under a board's measured ceiling the message blamed interleaved
   trajectories even when the campaign already ran one, so following it changed nothing. It now
