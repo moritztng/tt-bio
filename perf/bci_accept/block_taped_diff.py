@@ -133,6 +133,8 @@ def main():
                 print(f"levers: taped kernels {sorted(taped_ttnn.enabled_kernels())}, "
                       f"mm_layout {bool(getattr(__import__('tt_bio.mm_layout', fromlist=['x']), 'MM_LAYOUT'))}, "
                       f"softmax ckc {os.environ.get('TT_BIO_SOFTMAX_CKC', '(unset)')!r}, "
+                      f"tri_att g bias in matmul "
+                      f"{bool(getattr(__import__('tt_bio.af2', fromlist=['x']).AF2PairBlock, 'tri_att_g_in_matmul'))}, "
                       f"fused hifi counts {bindcraft2._fused_hifi_counts()}", flush=True)
 
                 print(f"\n{'skipped':>58} {'mean msa':>10} {'mean pair':>10} {'rows':>5}",
