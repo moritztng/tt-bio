@@ -366,13 +366,12 @@ _FAST_MODE = False
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
-#   trimul_glean    the gated channel move's lean two-stage compute (reblock_permute.GATE_LEAN 2)
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
           "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8",
-          "trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in")
+          "trimul_ibw", "trimul_tail", "trimul_b8in")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in"})
+UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_b8in"})
 FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"} - UNGRADED_LEVERS
 NORMAL_LEVERS = frozenset()
 _LEVERS = frozenset()
