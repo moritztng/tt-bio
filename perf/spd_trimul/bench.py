@@ -14,7 +14,7 @@ AICLK is sampled from a separate process (ttnn holds the GIL through a sync), fr
 process opened.
 
 usage: bench.py OUT [--n 736] [--valid 730] [--arms base,ibw,into,...] [--reps 5] [--calls 4] [--chip C]
-       [--weights layer.pt]
+       [--weights layer.pt] [--fast]
 """
 import argparse, json, os, statistics, subprocess, sys, time
 from pathlib import Path
@@ -38,6 +38,8 @@ ap.add_argument("--opsplit", action="store_true", help="also log a synced per-op
 ap.add_argument("--resid", action="store_true",
                 help="call the way the Pairformer does, add_to_input=True: z += update in place, so every arm\n"
                      "times the residual add too (the epi2 lever folds it into the tail)")
+ap.add_argument("--fast", action="store_true",
+                help="build and run the module as Protenix's --fast trunk does: fast mode on, FAST_LEVERS active")
 A = ap.parse_args()
 
 OUT = Path(A.out).resolve()
@@ -180,6 +182,9 @@ else:
           "norm_out.weight": 1 + 0.1 * torch.randn(h, generator=g), "norm_out.bias": 0.1 * torch.randn(h, generator=g),
           "g_in.weight": r(2 * h, cz), "p_in.weight": r(2 * h, cz), "g_out.weight": r(cz, cz), "p_out.weight": r(cz, h)}
 
+if A.fast:                                             # for the whole process, before anything is built
+    T.set_fast_mode(True)
+    T.levers("fast").__enter__()
 from tt_bio.af2 import compute_kernel_config
 CKC = T.trunk_compute_kernel_config(compute_kernel_config())
 gz = torch.Generator().manual_seed(1)
@@ -283,7 +288,7 @@ for var in A.variants.split(","):
         e["vs_base_max_abs"] = (yt - outs["base"]).abs().max().item() if "base" in outs else None
         e["equal_base"] = bool(torch.equal(yt, outs["base"])) if "base" in outs else None
         log(ev="accuracy", variant=var, arm=arm, **e)
-        if arm == "base" and not (e["finite"] and e["rel_rms"] < 0.05):
+        if arm == "base" and not (e["finite"] and e["rel_rms"] < (0.15 if A.fast else 0.05)):  # bfp8 + LoFi
             log(ev="abort", why="baseline misses the float64 reference: reference convention wrong", **e)
             raise SystemExit(2)
     if A.opsplit:                                      # one synced call per arm, per-op wall
