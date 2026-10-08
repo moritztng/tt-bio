@@ -93,6 +93,10 @@ def configs(pc, a, kw, acc):
     out = []
     if pc is not None:
         j = json.loads(pc.to_json())
+        for k in ("per_core_M", "per_core_N"):            # a per-core split of the 23-tile token axis becomes 24
+            if j[k] % 23 == 0: j[k] = j[k] // 23 * 24
+        pc = type(pc).from_json(json.dumps(j))
+        out.append(("pc_768", pc))
         for ibw in ibws:
             for h, w in subblocks(j["per_core_M"], j["per_core_N"], acc):
                 try: out.append((f"ibw{ibw}_sb{h}x{w}", type(pc).from_json(json.dumps(dict(j, in0_block_w=ibw, out_subblock_h=h, out_subblock_w=w)))))
@@ -101,7 +105,8 @@ def configs(pc, a, kw, acc):
     if len(s1) > 2 and math.prod(s1[:-2]) > 1:
         return out
     tb = kw.get("transpose_b") is True
-    Mt = tiles(math.prod(s0[:-1])); Nt = tiles(s1[-2] if tb else s1[-1])
+    Mt = math.prod(s0[:-2]) * tiles(s0[-2]) if len(s0) > 2 else tiles(s0[0])   # each batch's rows pad to a tile
+    Nt = tiles(s1[-2] if tb else s1[-1])
     for lay, pm, pn in (("2d", tiles(Mt * 32 / 9), tiles(Nt * 32 / 8)), ("1d_h", tiles(Mt * 32 / 72), Nt)):
         if lay == "2d" and Nt < 8: continue
         for ibw in ibws:
@@ -125,7 +130,7 @@ def padded(a):
 
 # ---- pad: token axis to 768 so K = 24 tiles
 if "pad" in SECTIONS:
-    for rank in (10, 12, 13, 17):
+    for rank in map(int, os.environ.get("LPX_PAD_RANKS", "10,12,13,17").split(",")):
         c = calls[rank]; op, a, kw = parse(c["key"]); ckc = CK.get(c["key"], TRUNK)
         acc_on = bool(ckc.get("fp32_dest_acc_en")); fp32 = a[0][2] == "FLOAT32"
         pa = padded(a); pc = kw.get("program_config")
