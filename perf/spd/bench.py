@@ -189,7 +189,9 @@ def lever_set(spec):
 
 
 LEVER_SET = None if LEVER_SPEC is None else lever_set(LEVER_SPEC)
-state.model = P.Protenix.load_from_checkpoint(cfg0["protenix_ckpt"], levers=LEVER_SET)
+# levers only when asked, so the same harness still runs a tree that predates them (main before SPD)
+state.model = P.Protenix.load_from_checkpoint(
+    cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))
 state.bind_run("spd", dict(cfg0, fast=FAST))
 state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
 m = state.model
