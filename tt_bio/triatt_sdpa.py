@@ -76,13 +76,13 @@ _ENABLED = os.environ.get(
 # Wormhole Galaxy chip at 1000 MHz (perf/spd_attn/opbench.py, .107 chip 8): q256 k384 20.01 ->
 # 17.39 ms, q256 k768 17.39 -> 15.79 ms; rel_rms against float64 0.02667 -> 0.02672 and
 # 0.02724 -> 0.02721. "0" turns it off.
-QK_MASK_PRELOAD = os.environ.get("TT_BIO_TRIATT_QK_MASK_PRELOAD", "1") == "1"
+QK_MASK_PRELOAD = env_flag("TT_BIO_TRIATT_QK_MASK_PRELOAD", True)
 
 
 # K and V forwarded core to core along the q-chunk cores of each head (`sdpa_generic.build`'s
 # `kv_chain`) instead of each of them reading the same rows from DRAM: at 736 tokens on 72 cores
 # that is 1.1 of the call's 2.2 GB. OFF until it is measured on a device.
-KV_CHAIN = os.environ.get("TT_BIO_TRIATT_KV_CHAIN", "0") == "1"
+KV_CHAIN = env_flag("TT_BIO_TRIATT_KV_CHAIN", False)
 
 
 def _mask_defines(k_num_chunks: int) -> dict:

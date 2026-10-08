@@ -24,7 +24,7 @@ def test_parse_expands_modes_and_rejects_unknown_names():
 def test_parse_adds_and_drops_after_the_first_term():
     assert T.parse_levers("fast-lofi-acc_off") == T.FAST_LEVERS - {"lofi", "acc_off"}
     assert T.parse_levers("normal+opm_b8+lofi") == T.NORMAL_LEVERS | {"opm_b8", "lofi"}
-    assert T.parse_levers("fast+triatt_b8") == frozenset(T.LEVERS)
+    assert T.parse_levers("fast+triatt_b8") == frozenset(T.LEVERS) - T.UNGRADED_LEVERS
 
 
 def test_levers_restore_the_previous_set_even_on_error():
