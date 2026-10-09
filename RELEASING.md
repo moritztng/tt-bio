@@ -86,13 +86,20 @@ python3 -c "import importlib.metadata as m; print(m.version('ttnn'))"   # must e
 
 The surest way is to build the release artifacts first and run every gate from the
 venv you installed the wheel into, with `PYTHONPATH="$PWD"` so the tree under test
-stays the repository:
+stays the repository. `scripts/gate_host_prep.sh <root> <sha>` does exactly that on a gate host
+(`gate_fanout.py` runs it for you): it builds the commit's wheel with plain PyPI (no extra index,
+so torch is the build a user gets), installs it with `[tenstorrent,test]` into
+`<root>/venv-<sha12>`, and builds `<root>/venv312-<sha12>` on Python 3.12 with BindCraft 2
+installed after the wheel, which pytest and the BindCraft 2 leg need. By hand:
 
 ```bash
 python3 -m build && python3 -m venv ~/scratch/relvenv
 ~/scratch/relvenv/bin/pip install "$(echo dist/tt_bio-*.whl)[tenstorrent,test]"
 PYTHONPATH="$PWD" ~/scratch/relvenv/bin/python3 scripts/full_parity_gate.py ...
 ```
+
+BindCraft 2 goes in as a second install because one resolve of both is unsatisfiable: its jax
+needs numpy >= 2 and ttnn pins numpy < 2. That is also the order a user installs them in.
 
 Keep that venv off `/tmp`. A gate chain runs for hours and a box can reboot under it:
 on 2026-09-17 qb2 rebooted mid-gate, `/tmp` went with it, and the next three arms
@@ -140,6 +147,19 @@ governor has not ramped; sample the clock DURING a fold, not before, and record 
 you publish.
 
 ### The gate interpreter on the WH Galaxy
+
+On an SPD pool Galaxy (`.114`, `.107`) use the same `gate_host_prep.sh` venvs as any other host,
+under a root of your own (`~/spd/<row>`), and give the legs a private lease dir, `XDG_CACHE_HOME`,
+`TT_METAL_CACHE` and `MPLCONFIGDIR` so nothing collides with the JapanFold agent's. The pool's chip
+ids are UMD ids and its locks are `~/spd/locks/chip<N>.lock`; open only chips CHIPS.md grants.
+The host has no C compiler, so put a DockQ wheel built elsewhere at `<root>/prereq/`.
+
+Wormhole has size-ladder baselines but no `perf_baselines.json` cell. The first Wormhole gate seeds
+one (`"args": {"perf": ["--update-baseline", "--note", ...]}` in hosts.json; the leg reads SEEDED,
+and `perf_regression.py` still refuses to seed from a contended host). Commit the seeded file and
+remove the `args` entry; every later Wormhole gate is then a regression check.
+
+The older recipe below is for GWH02, the production Galaxy, and is kept for it.
 
 `japanfold-ssh` (GWH02) has exactly one tt-bio env, `/home/cust-team/mthuening/tt-bio/env`, and
 that env serves JapanFold. It stays on the versions prod ships, so it fails the preflight above

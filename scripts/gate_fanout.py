@@ -45,11 +45,19 @@ Under `root` the runner keeps a clone (root/repo, which must exist), one tree pe
 (root/trees/<sha12>) and the interpreters scripts/gate_host_prep.sh builds from that commit's own
 wheel: root/venv-<sha12> for every leg, root/venv312-<sha12> (with BindCraft 2) for pytest and the
 BindCraft 2 leg. `python` / `python_for` override those. Every `env` value is exported to the leg
-and also fills `{NAME}` in a leg's argv.
+and also fills `{NAME}` in a leg's argv. `args` adds flags to one leg family on that host, and they
+are part of the leg's key.
+
+SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
+failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
+"<why>"]}`: the leg then reports SEEDED, not PASS (there was nothing to regress against), and the
+runner copies the seeded docs/perf_baselines.json to <out>/seeded/<arch>/ to commit. Drop the
+`args` entry once it is committed, and the next gate on that card type is a regression check.
 """
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import fnmatch
 import hashlib
 import json
@@ -74,6 +82,8 @@ EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
           "pytest_cpu": 1800, "bc2": 1200}
 TIMED = {"perf"}
+#: Results that do not fail the gate. REUSED is a ledger hit of one of the others.
+OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
 LOG_CAP = 20 << 20
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
@@ -263,6 +273,14 @@ class Host:
                    else f"{self.root}/venv-{s}/bin/python")
         return self.cfg.get("python_for", {}).get(family, self.cfg.get("python", default))
 
+    def leg(self, leg: Leg) -> Leg:
+        """`leg` with this host's extra flags for its family (hosts.json `args`)."""
+        extra = self.cfg.get("args", {}).get(leg.family, [])
+        return dataclasses.replace(leg, argv=leg.argv + extra) if extra else leg
+
+    def seeding(self, leg: Leg) -> bool:
+        return "--update-baseline" in self.cfg.get("args", {}).get(leg.family, [])
+
     def run_py(self, code: str, python: str | None = None) -> dict:
         cmd = (f"cd {self.tree} && TT_VISIBLE_DEVICES= PYTHONPATH={self.tree}:{self.tree}/scripts "
                f"timeout 300 {python or self.python('')} -c {shlex.quote(code)}")
@@ -283,7 +301,7 @@ class Host:
             for k, v in subst.items():
                 a = a.replace(k, v)
             return a
-        argv = [self.python(leg.family) if a == "PY" else fill(a) for a in leg.argv]
+        argv = [self.python(leg.family) if a == "PY" else fill(a) for a in self.leg(leg).argv]
         body = (f"echo \"##LEG-START $(date +%s)\"; exec timeout -s INT {leg.budget} nice -n 10 "
                 + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
@@ -338,7 +356,7 @@ class Ledger:
 def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
     by = {(r["leg"], r["arch"]): r for r in results}
     legs = sorted({r["leg"] for r in results})
-    ok = all(r["verdict"] in ("PASS", "REUSED", "BLOCKED") for r in results)
+    ok = all(r["verdict"] in OK for r in results)
     lines = [f"# Gate {sha[:12]}: {'PASS' if ok else 'FAIL'}", "",
              f"{len(legs)} legs x {', '.join(archs)}; written {now()}.", "",
              "| leg | " + " | ".join(archs) + " |", "|---|" + "---|" * len(archs)]
@@ -353,6 +371,11 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
             else:
                 cells.append(f"{r['verdict']} {r.get('wall_s', 0) / 60:.0f} min {r.get('worker', '')}")
         lines.append(f"| {lg} | " + " | ".join(cells) + " |")
+    seeded = [r for r in results if r["verdict"] == "SEEDED"]
+    if seeded:
+        lines += ["", "SEEDED: no baseline existed on these card types, so these legs recorded one "
+                  "instead of checking against one. Commit the files and drop the host's `args`:"]
+        lines += [f"- {r['leg']} {r['card_type']}: {r.get('seeded', '?')}" for r in seeded]
     (out / "VERDICT.md").write_text("\n".join(lines) + "\n")
     (out / "verdict.json").write_text(json.dumps({"sha": sha, "pass": ok, "archs": archs,
                                                   "results": results}, indent=1))
@@ -472,13 +495,24 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 except ValueError:
                     pass
         verdict = classify(leg, rc, report)
+        seeded = None
+        if verdict == "PASS" and host.seeding(leg):
+            verdict = "SEEDED"
+            dst = out / "seeded" / host.arch / "perf_baselines.json"
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            r = host.ssh(f"cat {host.tree}/docs/perf_baselines.json", capture_output=True, timeout=120)
+            if r.returncode == 0:
+                dst.write_text(r.stdout)
+                seeded = str(dst)
         end = time.time()
         res = {"leg": leg.name, "arch": host.arch if leg.card else "any", "verdict": verdict,
                "rc": rc, "worker": f"{host.name}:{card}", "card_type": host.cfg["card_type"],
                "queued_s": round((start or end) - t0), "wall_s": round(end - (start or t0)),
                "log": str(log), "remote_dir": f"{host.name}:{rdir}", "ended": now(), "sha": sha,
                "key": keys[(leg.name, host.arch if leg.card else "any")]}
-        if verdict in ("PASS", "BLOCKED"):
+        if seeded:
+            res["seeded"] = seeded
+        if verdict in OK:
             ledger.put(res["key"], res)
         return res
     return execute
@@ -546,10 +580,10 @@ def main() -> int:
         for a in (archs if lg.card else [archs[0]]):
             slot = a if lg.card else "any"
             k = leg_key(content, envs[f"{a} {first[a].python(lg.family)}"],
-                        ctype[a] if lg.card else "cpu", lg)
+                        ctype[a] if lg.card else "cpu", first[a].leg(lg))
             keys[(lg.name, slot)] = k
             hit = None if args.no_reuse else ledger.get(k)
-            if hit and hit.get("verdict") in ("PASS", "BLOCKED"):
+            if hit and hit.get("verdict") in OK:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "REUSED", "key": k,
                                 "evidence": f"{hit['worker']} {hit['ended']} {hit['sha'][:9]} {hit['log']}",
                                 "reused_verdict": hit["verdict"]})

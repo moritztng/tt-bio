@@ -179,3 +179,22 @@ def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path
     assert "/r/venv312-aaaaaaaaaaaa/bin/python -m pytest" in free
     bc2 = h.command(next(lg for lg in _legs() if lg.family == "bc2"), 1, "/t/out/z")
     assert "PYTHONPATH=/bc2 " in bc2 and "/r/trees" not in bc2.split("&&")[-1].split("bash -c")[0]
+
+
+def test_a_seeding_host_adds_its_flags_to_the_key_and_reports_seeded_not_pass(tmp_path):
+    seed = ["--update-baseline", "--note", "seed tt-galaxy-wh-l"]
+    wh = gf.Host("g", {"arch": "wh", "card_type": "w", "root": "/r", "lock": "/l{card}",
+                       "args": {"perf": seed}}, "a" * 40)
+    bh = gf.Host("q", {"arch": "bh", "card_type": "p", "root": "/r", "lock": "/l{card}"}, "a" * 40)
+    perf = next(lg for lg in _legs() if lg.name == "perf")
+    assert wh.seeding(perf) and not bh.seeding(perf)
+    assert "--update-baseline" in wh.command(perf, 5, "/o") and "--update-baseline" not in bh.command(perf, 3, "/o")
+    assert gf.leg_key("c", "e", "w", wh.leg(perf)) != gf.leg_key("c", "e", "w", perf)
+    ux = next(lg for lg in _legs() if lg.family == "ux")
+    assert wh.leg(ux) is ux
+    rows = [{"leg": "perf", "arch": "wh", "verdict": "SEEDED", "wall_s": 60, "worker": "g:5",
+             "card_type": "w", "seeded": "/o/seeded/wh/perf_baselines.json"},
+            {"leg": "perf", "arch": "bh", "verdict": "PASS", "wall_s": 60, "worker": "q:3"}]
+    assert gf.write_verdict(tmp_path, "a" * 40, ["bh", "wh"], rows)
+    md = (tmp_path / "VERDICT.md").read_text()
+    assert "SEEDED 1 min g:5" in md and "/o/seeded/wh/perf_baselines.json" in md
