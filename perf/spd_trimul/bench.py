@@ -43,6 +43,8 @@ ap.add_argument("--resid", action="store_true",
                      "times the residual add too (the epi2 lever folds it into the tail)")
 ap.add_argument("--fast", action="store_true",
                 help="build and run the module as Protenix's --fast trunk does: FAST_LEVERS active, fast mode off")
+ap.add_argument("--normal", action="store_true",
+                help="build and run under Protenix's normal-mode NORMAL_LEVERS (trimul_ibw, trimul_tail, trunk_hifi3, ...)")
 ap.add_argument("--legacy-fast", action="store_true",
                 help="the older bfp8-trunk --fast (fast mode on, no levers), which OpenDDE still runs")
 A = ap.parse_args()
@@ -123,6 +125,8 @@ LEVERS = {
     "gin": [(T.set_trimul_gated_inproj, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
+    "gmf": [(RB.set_gated_mask_fold, True)],          # spd-trikern-mm: pair mask folded into a's gated move
+    "nogmf": [(RB.set_gated_mask_fold, False)],
 }
 
 
@@ -223,8 +227,16 @@ else:
 
 # For the whole process, before anything is built. Protenix builds its trunk under its lever set
 # with fast mode off (`Protenix._build`, legacy_fast=False), so --fast is the levers alone.
+# Keep the context manager referenced: a bare `T.levers(...).__enter__()` drops the generator at once, its
+# `finally` restores the previous set, and the levers are off again before the module is built (spd-trikern-mm).
+_LEVERS_CM = None
 if A.fast:
-    T.levers("fast").__enter__()
+    _LEVERS_CM = T.levers("fast")
+elif A.normal:
+    _LEVERS_CM = T.levers(T.NORMAL_LEVERS)
+if _LEVERS_CM is not None:
+    _LEVERS_CM.__enter__()
+    assert T.lever("trimul_ibw"), "levers did not stay active"
 if A.legacy_fast:
     T.set_fast_mode(True)
 from tt_bio.af2 import compute_kernel_config
@@ -309,6 +321,7 @@ for var in A.variants.split(","):
         try:
             back0 = list(RB.STATS_BACK)
             tail0, resid0, mf0 = list(TTL.STATS), list(TTL.RESID_STATS), TTL.MASK_STATS[0]
+            gmf0 = RB.STATS_GATED_MASK[0]
             fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32), T._trimul_ibw_full(), T._TRIMUL_SUBBLOCK).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
@@ -325,6 +338,9 @@ for var in A.variants.split(","):
             fired["tail_resid"] = [a - b for a, b in zip(TTL.RESID_STATS, resid0)]
             fired["tail_res"] = list(TTL.RES_STATS)
             fired["mask_fold"] = TTL.MASK_STATS[0] - mf0
+            fired["gated_mask_fold"] = RB.STATS_GATED_MASK[0] - gmf0
+            fired["mm_pipe"] = T.MM_PIPE
+            fired["levers"] = sorted(T._LEVERS)
         finally:
             restore(prev)
         outs[arm] = yt

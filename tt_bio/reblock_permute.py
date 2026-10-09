@@ -769,7 +769,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
     )
 
 
-def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
+def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc, masked=False):
     # `x` may be a ROW BLOCK of the wide projection, [1, R, N, Cw] with R < N, while `out` is
     # always the full [1, slice_c, N, N] destination. Nt is therefore read off the destination and
     # Nrt off the source: the block is its own tensor and is addressed locally, while every
@@ -814,6 +814,9 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
            cb(G_CB, 2 * GATE_GRANULARITY, in_dtype, in_bytes),
            cb(SIG_CB, 2 * GATE_GRANULARITY), cb(MUL_CB, 2 * GATE_GRANULARITY),
            cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
+    if masked:   # c_5: the group's mask tile; c_6: the row-broadcast mask tiles, one per input tile
+        cbs += [cb(5, 1, ttnn.bfloat16, 2048), cb(6, 2 * GATE_GRANULARITY, ttnn.bfloat16, 2048)]
+    mdef = [("GATED_MASK", "1")] if masked else []
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
@@ -835,8 +838,8 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED / "reader_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
-        common_runtime_args=[0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
+        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt, defines=mdef,
+        common_runtime_args=[0, 0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
     )
     # The writer is a fork of the ungated one: same gather, same staging, same DRAM write, but the
     # work unit carries the channel tile and the destination index carries the block's row offset.
@@ -852,7 +855,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         core_ranges=core_grid,
         compile_time_args=[P_CB, G_CB, SIG_CB, MUL_CB, OUT_CB, int(GATE_SKIP_SIGMOID),
                            GATE_GRANULARITY, int(in_dtype != ttnn.bfloat16), _gate_lean()],
-        runtime_args=compute_rt,
+        runtime_args=compute_rt, defines=mdef,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
         ),
@@ -862,23 +865,26 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     global ADDR_WRITE_MODE
     if ADDR_WRITE_MODE is None:
         probe = 0xABCD1234
-        pd.kernels[0].common_runtime_args = [probe, 0, 0, 0]
+        pd.kernels[0].common_runtime_args = [probe, 0, 0, 0, 0]
         ADDR_WRITE_MODE = "in_place" if list(pd.kernels[0].common_runtime_args)[0] == probe \
             else "rebuild_pd"
-        pd.kernels[0].common_runtime_args = [0, 0, 0, 0]
+        pd.kernels[0].common_runtime_args = [0, 0, 0, 0, 0]
 
     return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs, "core_grid": core_grid}
 
 
-def _prepare_gated(x, out, device, fidelity, fp32_acc):
+def _prepare_gated(x, out, device, fidelity, fp32_acc, mask=None):
     reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    if mask is not None:
+        reader_ct = reader_ct + ["mask"] + list(ttnn.TensorAccessorArgs(mask).get_compile_time_args())
     writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key_gated(x, out, device, reader_ct, writer_ct)
     entry = _CACHE_GATED.get(key)
     if entry is None:
         entry = _CACHE_GATED[key] = _build_gated(
-            x, out, device, reader_ct, writer_ct, fidelity, fp32_acc)
+            x, out, device, [v for v in reader_ct if v != "mask"], writer_ct, fidelity, fp32_acc,
+            masked=mask is not None)
     return entry
 
 
@@ -913,7 +919,7 @@ def _gate_lean() -> int:
 
 @_ops.fused_kernel("reblock_permute_gated")
 def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, device=None,
-                          out=None, row_off=0):
+                          out=None, row_off=0, mask=None):
     """``permute(chunk(xw, 4, -1)[p_slice] * sigmoid(chunk(xw, 4, -1)[g_slice]), (0, 3, 1, 2))``.
 
     ``xw`` is ``[1, N, N, Cw]`` bf16 TILE and the result is ``[1, slice_c, N, N]``. The slice
@@ -925,6 +931,10 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
     ``[1, N, N, Cw]`` projection is 512 MB at 512 aa against 160 MB of L1, and a 64-row block is
     67 MB. The result is identical to moving the whole tensor: the destination index is absolute
     and the blocks partition it.
+
+    With ``mask`` (see `mask_fold_ok`), the pair mask ``m[x, y]`` is multiplied in as well: the
+    result is then ``permute(p * sigmoid(g) * m[..., None], (0, 3, 1, 2))``, bit-identical to the
+    separate ``multiply_`` by the moved mask that it replaces.
     """
     device = device or xw.device()
     if out is None:
@@ -934,9 +944,10 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
             ttnn.Shape([1, slice_c, N, N]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
         )
     assert row_off % TILE_H == 0, f"row_off {row_off} is not a tile boundary"
-    entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC)
+    entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC, mask)
     src, dst = xw.buffer_address(), out.buffer_address()
-    common_r = [src, p_slice // TILE_W, g_slice // TILE_W, row_off // TILE_H]
+    common_r = [src, p_slice // TILE_W, g_slice // TILE_W, row_off // TILE_H,
+                mask.buffer_address() if mask is not None else 0]
     common_w = [dst, row_off // TILE_H]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]
@@ -950,7 +961,39 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
             kernels=[reader, writer, compute], semaphores=[], cbs=entry["cbs"]
         )
     STATS_GATED[0] += 1
+    if mask is not None:
+        STATS_GATED_MASK[0] += 1
+        return ttnn.generic_op([xw, mask, out], pd)
     return ttnn.generic_op([xw, out], pd)
+
+
+# spd-trikern-mm: the trimul's pair-mask multiply (`multiply_(a, mask_moved)`, [1, C, N, N] by
+# [1, 1, N, N], a full read and write of the chunk) folded into the gated move of `a`. The reader adds
+# one mask tile per group and the lean compute one row-broadcast SFPU multiply into the sigmoid; the
+# move's binding resource is the writer's gather, so neither is on its critical path. Bit-exact: the
+# mask is 0/1 and the sigmoid positive, so p * (sig * m) rounds to round(p * sig) * m exactly.
+GATED_MASK_FOLD = env_flag("TT_BIO_GATED_MASK_FOLD", True)
+STATS_GATED_MASK = [0]
+
+
+def set_gated_mask_fold(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global GATED_MASK_FOLD
+    prev, GATED_MASK_FOLD = GATED_MASK_FOLD, bool(on)
+    return prev
+
+
+def mask_fold_ok(mask, out_n: int) -> bool:
+    """Whether `reblock_permute_gated(..., mask=mask)` can take this pair mask: a bf16 TILE
+    interleaved [1, N, N] or [1, 1, N, N] whose padded square is the destination's, under the lean
+    compute (the mask multiplies the TRANSPOSED sigmoid, row-broadcast)."""
+    if not GATED_MASK_FOLD or mask is None or _gate_lean() == 0:
+        return False
+    shp = [int(d) for d in mask.padded_shape]
+    np_ = -(-int(out_n) // TILE_H) * TILE_H
+    return (len(shp) in (3, 4) and all(d == 1 for d in shp[:-2]) and shp[-2:] == [np_, np_]
+            and mask.dtype == ttnn.bfloat16 and mask.layout == ttnn.TILE_LAYOUT
+            and mask.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
 # Formats the gated move reads its projection in. bfp8_b is the spd-trimul lever: the in-projection
