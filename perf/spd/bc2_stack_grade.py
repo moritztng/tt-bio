@@ -30,9 +30,10 @@ ap.add_argument("--arm", required=True)
 ap.add_argument("--n", type=int, default=128)
 ap.add_argument("--params", default=A.DEFAULT_PARAMS)
 ap.add_argument("--threads", type=int, default=8)
+ap.add_argument("--seed", type=int, default=0, help="input seed; one arm per seed separates a lever from noise")
 a = ap.parse_args()
 # One directory per arm, so arms can run side by side on one tree without renaming each other's output.
-A.OUT = A.OUT / f"spd_bc2_{a.arm}"
+A.OUT = A.OUT / f"spd_bc2_{a.arm}_s{a.seed}"
 
 # afgrad's own main() sets this; cmd_stack does not, and an unthrottled float64 graph took 13 cores of
 # a shared Galaxy host whose other rows' folds are host-sensitive.
@@ -42,7 +43,7 @@ ensure_p300_mesh_descriptor()
 from tt_bio import bindcraft2  # noqa: E402
 
 ns = argparse.Namespace(params=a.params, card=int(os.environ.get("TT_VISIBLE_DEVICES", "0")), n=a.n,
-                        extra=4, evo=48, seed=0, controls_only=False, eps="1e-1,3e-2,1e-2,3e-3,1e-3",
+                        extra=4, evo=48, seed=a.seed, controls_only=False, eps="1e-1,3e-2,1e-2,3e-3,1e-3",
                         ckpt=True, memory="fast", msa_mask=False, threads=a.threads)
 stem = f"stack_n{a.n}_e4_v48_ckpt"
 with bindcraft2.fast_round() as armed:
@@ -56,6 +57,6 @@ d = json.loads((A.OUT / f"{stem}_spd_bc2_{a.arm}.json").read_text())
 d["armed"] = {k: str(v) for k, v in armed.items()}
 d["env"] = {k: v for k, v in sorted(os.environ.items()) if k.startswith("TT_BIO_")}
 (A.OUT / f"{stem}_spd_bc2_{a.arm}.json").write_text(json.dumps(d, indent=1, default=str))
-print(f"== arm {a.arm} device_vs_f64 {d['device_vs_f64']} loss dev {d['device']['loss']} "
+print(f"== arm {a.arm} seed {a.seed} device_vs_f64 {d['device_vs_f64']} loss dev {d['device']['loss']} "
       f"f64 {d['f64']['loss']} fd {d.get('fd_best', {}).get('ratio_fd_over_device')} "
       f"timing {d['device']['timing']}", flush=True)
