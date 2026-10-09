@@ -41,10 +41,14 @@ for n in [int(v) for v in A.n.split(",")]:
         for res in ((False, True) if epi == 2 else (False,)):
             TTL.set_res(res)
             z_d = up(z)
+            st0 = (list(TTL.RES_STATS), list(TTL.RESID_STATS), dict(TTL.REJECTS))
             y = TTL.fused_tail(xa_d, xb_d, wa_d, wb_d, ckc, grid, resid=z_d if epi == 2 else None)
             if y is None:
                 rec[f"epi{epi}_res{int(res)}"] = {"declined": {f"{k[0]}": v for k, v in TTL.REJECTS.items()}}
                 continue
+            route = {"res": [a - b for a, b in zip(TTL.RES_STATS, st0[0])],
+                     "resid": [a - b for a, b in zip(TTL.RESID_STATS, st0[1])],
+                     "same_buffer_as_z": y is z_d, "rne": TTL.RNE, "RES": TTL.RES}
             out = ttnn.to_torch(y).to(d)
             ttnn.deallocate(z_d)
             if epi == 1:
@@ -57,7 +61,7 @@ for n in [int(v) for v in A.n.split(",")]:
             over = (out - want).abs() > tol
             e = (out - exact).abs()
             idx = torch.nonzero(over)[:8].tolist()
-            rec[f"epi2_res{int(res)}"] = {
+            rec[f"epi2_res{int(res)}"] = {"route": route,
                 "n_over_tol": int(over.sum()), "of": out.numel(),
                 "max_err_vs_f64": round(float(e.max()), 5),
                 "test_ref_max_err_vs_f64": round(float((want - exact).abs().max()), 5),
