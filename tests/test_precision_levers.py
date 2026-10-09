@@ -88,3 +88,17 @@ def test_trimul_levers_reach_their_kernels_only_inside_the_set():
         assert (T._trimul_ibw_full(), TTL._epi(), RB._gate_lean()) == (True, 2, 2)
         assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 23
     assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 1
+
+
+def test_bfp8_fidelity_drops_to_hifi2_only_when_both_operands_are_bfp8():
+    import types
+    import ttnn
+    b8, bf = types.SimpleNamespace(dtype=ttnn.bfloat8_b), types.SimpleNamespace(dtype=ttnn.bfloat16)
+    ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=True,
+                                           fp32_dest_acc_en=False, packer_l1_acc=True)
+    out = T.bfp8_fidelity(ckc, b8, b8)
+    assert out.math_fidelity == ttnn.MathFidelity.HiFi2
+    assert (out.math_approx_mode, out.fp32_dest_acc_en, out.packer_l1_acc) == (True, False, True)
+    assert T.bfp8_fidelity(ckc, b8, bf) is ckc and T.bfp8_fidelity(ckc, bf, b8) is ckc
+    lofi = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.LoFi)
+    assert T.bfp8_fidelity(lofi, b8, b8) is lofi
