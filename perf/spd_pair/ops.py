@@ -8,6 +8,8 @@ Groups (--groups):
   ln    ttnn.layer_norm on [1, N, N, c_z] bf16 under several fidelity / dest-accumulation configs
   tail  triangle attention's tail: multiply_(o, g, SIGMOID on b), the head-major out projection, add_
   add   the bare residual add_ of two pair tensors
+  trans the pair transition's assembly at row height h (--trans-h): today ttnn.chunk + concat of the
+        block updates + add_, against a slice per block + pair_add.add_rows into z; torch.equal checked
 
 usage: ops.py OUT [--n 736] [--cz 256] [--groups ln,tail,add] [--reps 5] [--calls 8] [--chip C]
 """
@@ -22,6 +24,7 @@ ap.add_argument("out")
 ap.add_argument("--n", type=int, default=736)
 ap.add_argument("--cz", type=int, default=256)
 ap.add_argument("--groups", default="ln,tail,add")
+ap.add_argument("--trans-h", default="5,32")
 ap.add_argument("--ln-arms", default="fast_today,normal_today,hifi4_f32,hifi2_f32,lofi_f32,hifi3_b16,hifi2_b16,lofi_b16")
 ap.add_argument("--tail-arms", default="base,fused")
 ap.add_argument("--tail-variants", default="",
@@ -252,6 +255,42 @@ if "tail" in groups:
         arms["base_nores"] = (lambda: (lambda g: (TQ.out_proj(g, wd, k, ttnn.bfloat16), ttnn.deallocate(g))[0])(mul()),
                               score_base_nores)
     run_arms("tail", arms, A.calls)
+
+if "trans" in groups:
+    from tt_bio import pair_add as PA
+    up_host = (torch.randn(1, N, N, C) * 0.05).bfloat16()
+    for h in [int(v) for v in A.trans_h.split(",")]:
+        nb = -(-N // h)
+        zt = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        ub = [ttnn.from_torch(up_host[:, s:min(s + h, N)].contiguous(), layout=ttnn.TILE_LAYOUT, device=dev,
+                              dtype=ttnn.bfloat16) for s in range(0, N, h)]
+
+        def base(zt=zt, ub=ub, nb=nb):
+            for c in ttnn.chunk(zt, nb, dim=1):
+                ttnn.deallocate(c)
+            u = ttnn.concat(ub, dim=1)
+            ttnn.add_(zt, u); ttnn.deallocate(u)
+
+        def rows(zt=zt, ub=ub, h=h):
+            for i, s in enumerate(range(0, N, h)):
+                c = zt[:, s:min(s + h, N)]
+                ttnn.deallocate(c)
+                PA.add_rows(zt, ub[i], s)
+
+        # bytes: both start from the same z, one runs today's join + add_, the other the in-place rows
+        za = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        zb = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        u = ttnn.concat(ub, dim=1); ttnn.add_(za, u); ttnn.deallocate(u)
+        for i, s in enumerate(range(0, N, h)):
+            PA.add_rows(zb, ub[i], s)
+        ta, tb = ttnn.to_torch(za), ttnn.to_torch(zb)
+        log(ev="trans_equal", h=h, equal=bool(torch.equal(ta, tb)), ndiff=int((ta != tb).sum()),
+            rel=rel(tb.float(), (z_host.double() + up_host.double()).float())["rel_rms"])
+        ttnn.deallocate(za); ttnn.deallocate(zb)
+        run_arms(f"trans_h{h}", {"join_add": (lambda f=base: (f(), None)[1], None),
+                                 "add_rows": (lambda f=rows: (f(), None)[1], None)}, max(2, A.calls // 4))
+        for t in ub + [zt]:
+            ttnn.deallocate(t)
 
 log(ev="done")
 _SAMPLER.terminate()

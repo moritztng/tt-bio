@@ -19,6 +19,7 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from . import page_copy as _page_copy
+from . import pair_add as _pair_add
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
 from .eltwise_fusion import scale_add
@@ -7496,6 +7497,16 @@ _PAIR_INPLACE = env_flag("TT_BIO_PAIR_INPLACE", PAIR_INPLACE)
 PAIR_INPLACE_STATS = [0, 0]
 
 
+# The pair transition's residual, added block by block into z's rows instead of a concat of the
+# blocks and an add_ over the whole pair (`Transition._transition`, `tt_bio/pair_add.py`). Byte-identical
+# by construction and checked with torch.equal (perf/spd_pair/ops.py --groups trans).
+# `TT_BIO_TRANSITION_ADD_ROWS=0` restores the join.
+TRANSITION_ADD_ROWS = True
+_TRANSITION_ADD_ROWS = env_flag("TT_BIO_TRANSITION_ADD_ROWS", TRANSITION_ADD_ROWS)
+# (served, fell back to join + add_)
+TRANSITION_ADD_ROWS_STATS = [0, 0]
+
+
 def _pair_inplace(z: ttnn.Tensor, add_to_input: bool) -> bool:
     """Whether a row-blocked `z + update` should be written back into `z` block by block.
 
@@ -11070,6 +11081,12 @@ class Transition(Module):
             ttnn.deallocate(out)
         return masked
 
+    def _add_rows_ok(self, x, memory_config) -> bool:
+        return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
+                and x.shape[1] <= SEQ_LEN_MORE_CHUNKING
+                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
+                and (self.dtype or _dtype()) == ttnn.bfloat16 and _pair_add.ok(x, x))
+
     def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
                     add_to_input: bool) -> ttnn.Tensor:
         """`memory_config` names where the assembled result lands; None keeps it in DRAM.
@@ -11082,7 +11099,8 @@ class Transition(Module):
         path each block adds its own rows, so the assembly can free `x` before it needs room
         for the result; elsewhere it is the caller's `ttnn.add_` done here.
         """
-        if add_to_input and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
+        add_rows = add_to_input and self._add_rows_ok(x, memory_config)
+        if add_to_input and not add_rows and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
             u = self(x, memory_config)
             x = ttnn.add_(x, u)
             ttnn.deallocate(u)
@@ -11425,8 +11443,34 @@ class Transition(Module):
                 return x
             return _acc_concat(parts, 1, host_acc, memory_config,
                                consume=x if add_to_input else None)
+        if add_rows and not w_chunked:
+            # `x + transition(x)` with each row block's update added straight into x's rows. The
+            # eager path below joins the blocks with a concat and the caller then runs add_ over
+            # the whole pair: 2P + 3P of traffic for 3P here. swiglu is row-local, so block I's
+            # update depends on x[I] alone and x[I] can take the sum once the block is done. Same
+            # heights, same blocks, and `pair_add` adds the way ttnn.add does: the same bytes.
+            for s in range(0, H, transition_h_chunk_size):
+                c = x if transition_h_chunk_size >= H else x[:, s:min(s + transition_h_chunk_size, H)]
+                y = swiglu(c)
+                if c is not x:
+                    ttnn.deallocate(c)
+                _pair_add.add_rows(x, y, s)
+                ttnn.deallocate(y)
+                PAIR_INPLACE_STATS[1] += 1
+            TRANSITION_ADD_ROWS_STATS[0] += 1
+            return x
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
+        if add_rows:
+            # w-chunked: no shipped shape lands here (see the W gate above); keep the old join + add_.
+            TRANSITION_ADD_ROWS_STATS[1] += 1
+            out = _concat_to([
+                ttnn.concat([swiglu(c[:, :, w:min(w + w_chunk, W), :]) for w in range(0, W, w_chunk)], dim=2)
+                for c in chunks
+            ], 1, None)
+            x = ttnn.add_(x, out)
+            ttnn.deallocate(out)
+            return x
         if not w_chunked:
             return _concat_to(
                 [swiglu(c) for c in chunks], 1, memory_config)
