@@ -84,15 +84,24 @@ def tally(acc, key, got, want):
     return nb
 
 
-acc = {}
-for s in range(0, S - rows + 1, rows):
-    blk = ttnn.from_torch(zt[:, s:s + rows].float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+def block(s, h):
+    """x_norm of rows s..s+h on device, its float64 copy, and float64 fc1/fc2 pre-activations."""
+    blk = ttnn.from_torch(zt[:, s:s + h].float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     xn = ttnn.layer_norm(blk, weight=tr.norm_weight, bias=tr.norm_bias, epsilon=1e-5, compute_kernel_config=CKC,
                          memory_config=ttnn.L1_MEMORY_CONFIG)
     ttnn.deallocate(blk)
     X = dt(xn)
-    Z1, Z2 = X @ W1, X @ W2
-    # interleaved: the fold's own path, stage by stage
+    return xn, X @ W1, X @ W2
+
+
+# The interleaved path at the fold's own row height (the module's chunk), the sharded one at the shard rows.
+T.TRANSITION_H_CHUNK_SHAPES.clear()
+with T.levers("normal-transition_shard"):
+    ttnn.deallocate(tr(ttnn.from_torch(zt.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)))
+il_rows = [k[2] for k in T.TRANSITION_H_CHUNK_SHAPES][0]
+acc = {}
+for s in range(0, S - il_rows + 1, il_rows):
+    xn, Z1, Z2 = block(s, il_rows)
     x1 = T._transition_linear("fc1", xn, tr.fc1_weight, silu=True, compute_kernel_config=SILU_CKC,
                               memory_config=ttnn.L1_MEMORY_CONFIG, dtype=ttnn.bfloat16)
     x2 = T._transition_linear("fc2", xn, tr.fc2_weight, compute_kernel_config=CKC,
@@ -110,6 +119,9 @@ for s in range(0, S - rows + 1, rows):
         ttnn.deallocate(t)
     if bad:
         acc.setdefault("il.blocks_bad", []).append(s)
+    ttnn.deallocate(xn)
+for s in range(0, S - rows + 1, rows):
+    xn, Z1, Z2 = block(s, rows)
     # sharded: fc1/fc2 per K block, the product at the shipped K block, fc3 per K block
     for bw in (8, 4, 2, 1):
         x1 = ttnn.linear(xn, tr.fc1_weight, program_config=cfg(bw, pn, SILU), compute_kernel_config=SILU_CKC,
@@ -139,7 +151,7 @@ for s in range(0, S - rows + 1, rows):
           flush=True)
 
 res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH, "S": S,
-       "seed": a.seed, "ckc": a.ckc, "fidelity": str(CKC.math_fidelity), "rows": rows, "grid": [gx, gy],
+       "seed": a.seed, "ckc": a.ckc, "fidelity": str(CKC.math_fidelity), "rows": rows, "il_rows": il_rows, "grid": [gx, gy],
        "pm": pm, "pn": pn, "bad": a.bad, "stages": acc}
 print(json.dumps(res), flush=True)
 a.out.parent.mkdir(parents=True, exist_ok=True)
