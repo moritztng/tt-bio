@@ -412,15 +412,22 @@ _FAST_MODE = False
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
+#   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
+#                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
+#                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
-          "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in")
+          "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
+          "trunk_hifi3")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in"})
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
 # better side (state/spd/BOARD.md, spd-trimul 2026-10-08 22:40Z).
-NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail"})
+# trunk_hifi3: Wormhole 11-set grade PASS on staging2 and staging3, 44 paired folds, top pose median
+# 0.289 A against the exact floor (spd-msa 2026-10-09 02:10Z). Inert under acc_off, so in fast mode
+# it changes nothing.
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3"})
 _LEVERS = frozenset()
 
 
@@ -697,8 +704,8 @@ _TEMPLATE_L1_NORM = True
 # so the setting is scoped to the trunk, whose operands are bf16 and bf8 under --fast. Other models
 # opt in at their own construction site after their own envelope run -- a shared default across five
 # models is the shape that cost OpenDDE 60x once already.
-# Default hifi4 = production unchanged; the A/B and the envelope gate flip it.
-_TRUNK_MATH_FIDELITY = os.environ.get("TT_BIO_TRUNK_MATH_FIDELITY", "hifi4").lower()
+# The `trunk_hifi3` lever picks HiFi3 (normal mode), else HiFi4; the env var, when set, wins over both.
+_TRUNK_MATH_FIDELITY = os.environ.get("TT_BIO_TRUNK_MATH_FIDELITY", "").lower()
 _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
 
 
@@ -722,13 +729,14 @@ def trunk_compute_kernel_config(base):
     in-place write to `model.trunk.compute_kernel_config.math_fidelity` that provably cannot reach
     the diffusion or confidence stages.
     """
-    if _TRUNK_MATH_FIDELITY not in _MATH_FIDELITIES:
+    fid = _TRUNK_MATH_FIDELITY or ("hifi3" if lever("trunk_hifi3") else "hifi4")
+    if fid not in _MATH_FIDELITIES:
         raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
-                         f"got {_TRUNK_MATH_FIDELITY!r}")
+                         f"got {fid!r}")
     if lever("lofi") or lever("acc_off"):
         return lpx_compute_kernel_config(base)
     cfg = type(base)(
-        math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[_TRUNK_MATH_FIDELITY]),
+        math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[fid]),
         math_approx_mode=base.math_approx_mode,
         fp32_dest_acc_en=base.fp32_dest_acc_en,
         packer_l1_acc=base.packer_l1_acc,
