@@ -8098,19 +8098,22 @@ class TriangleMultiplication(Module):
         self._gp_cache[key] = chunks
         return chunks
 
-    def _gp_in_gated(self, C: int, group: int) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
+    def _gp_in_gated(self, C: int, group: int,
+                     transposed: bool = False) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
         """Per channel chunk, the in-projection's `([p_a | p_b], [g_a | g_b])` weights.
 
         The columns of `_gp_in_chunks`, regrouped so one `trimul_tail` call computes
         `a = p_a * sigmoid(g_a)` and `b` alike as the two halves of its split output.
+        `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`.
         """
-        key = (C, group, gp_roles())
+        key = (C, group, gp_roles(), transposed)
         cached = self._gp_gated_cache.get(key)
         if cached is None:
             sc = C * group
             col = lambda t, r: t[:, gp_off(r, sc):gp_off(r, sc) + sc]  # noqa: E731
             dev = lambda t: ttnn.from_torch(  # noqa: E731
-                t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+                (t.t() if transposed else t).contiguous(), layout=ttnn.TILE_LAYOUT,
+                device=self.device, dtype=ttnn.bfloat16)
             cached = [
                 (dev(torch.cat([col(t, "p_a"), col(t, "p_b")], dim=-1)),
                  dev(torch.cat([col(t, "g_a"), col(t, "g_b")], dim=-1)))
@@ -8626,14 +8629,29 @@ class TriangleMultiplication(Module):
                         # x, each activation block read once for both passes, a and b written as
                         # two tensors. Only the plain channel moves are left.
                         wa, wb = self._gp_in_gated(chunk_size, group)[i]
+                        ckc = _mm_generic.ckc_args(self.compute_kernel_config)
+                        if _trimul_tail.GIN_MOVE and defer:
+                            # The channel moves fused in as well (both chunks leave as (0,3,1,2)
+                            # moves once the matmul takes the inner swap).
+                            wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
+                            fold = mask is not None and _trimul_tail.gin_moved_ok(x_norm_in, wpT, mask)
+                            ab = _trimul_tail.gin_moved(x_norm_in, wpT, wgT, ckc,
+                                                        tuple(COMPUTE_GRID_MAIN),
+                                                        mask=mask if fold else None)
+                            if ab is not None:
+                                a_chunk, b_chunk = ab
+                                a_masked = fold
+                                branch = "gated-inproj-moved"
+                                defer_a = perm_a == (0, 3, 2, 1)
+                                defer_b = perm_b == (0, 3, 2, 1)
                         # The pair mask rides in the same kernel where it can (`a` only, row-wise
                         # m[x, y] before the move, which is what the moved multiply below applies).
                         fold = mask is not None and _trimul_tail.mask_ok(mask, x_norm_in, wa)
-                        ab = _trimul_tail.fused_tail(
-                            x_norm_in, x_norm_in, wa, wb,
-                            _mm_generic.ckc_args(self.compute_kernel_config),
+                        ab = None if a_chunk is not None else _trimul_tail.fused_tail(
+                            x_norm_in, x_norm_in, wa, wb, ckc,
                             tuple(COMPUTE_GRID_MAIN), split=2, mask=mask if fold else None)
-                        branch = "gated-inproj-declined"
+                        if a_chunk is None:
+                            branch = "gated-inproj-declined"
                         if ab is not None:
                             a_masked = fold
                             # No reallocate: freeing ab[0] leaves a hole under a_chunk, so it would
