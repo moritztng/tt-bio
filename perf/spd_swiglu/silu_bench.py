@@ -60,17 +60,21 @@ OPENED = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for f
 samples = []
 
 
+def _sample():
+    row = {}
+    for n in OPENED:
+        try:
+            v = int(Path(f"/sys/class/tenstorrent/tenstorrent!{n}/tt_aiclk").read_text().split()[0])
+            if 100 <= v <= 3000:
+                row[n] = v
+        except Exception:
+            pass
+    samples.append((time.monotonic(), row))
+
+
 def _sampler():
     while True:
-        row = {}
-        for n in OPENED:
-            try:
-                v = int(Path(f"/sys/class/tenstorrent/tenstorrent!{n}/tt_aiclk").read_text().split()[0])
-                if 100 <= v <= 3000:
-                    row[n] = v
-            except Exception:
-                pass
-        samples.append((time.monotonic(), row))
+        _sample()
         time.sleep(0.2)
 
 
@@ -78,6 +82,8 @@ threading.Thread(target=_sampler, daemon=True).start()
 
 
 def clock(t0, t1):
+    _sample()  # a window shorter than the sampler's period still gets one reading inside it
+    t1 = max(t1, samples[-1][0])
     v = sorted(x for ts, r in samples if t0 <= ts <= t1 for x in r.values())
     return dict(median=v[len(v) // 2], min=v[0], max=v[-1], n=len(v)) if v else None
 
@@ -114,7 +120,10 @@ if "exact" not in skip:
     X[:rows] = xin.view(rows, 32)
     xt = ttnn.from_torch(X.view(1, 1, rows_p, 32), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
     it = ttnn.from_torch(torch.eye(32).view(1, 1, 32, 32), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
-    o = ttnn.linear(xt, it, activation="silu", compute_kernel_config=CKC, dtype=ttnn.float32)
+    # core_grid matters: without it ttnn.linear runs the activation as a separate unary op (approx off,
+    # so the wheel's silu whatever the overlay), which is what run 1 measured in every arm.
+    o = ttnn.linear(xt, it, activation="silu", compute_kernel_config=CKC, dtype=ttnn.float32,
+                    core_grid=T.CORE_GRID_MAIN)
     got = ttnn.to_torch(o).view(-1)[:n].to(torch.float64)
     x64 = xs.to(torch.float64)
     ref = x64 / (1 + torch.exp(-x64))
