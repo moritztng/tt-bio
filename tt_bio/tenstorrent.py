@@ -573,10 +573,14 @@ _FAST_MODE = False
 #                   q/k/v, the gate, the residual updates and the residual stream stay bf16. Inert in fp32.
 #   atom_k1         the fp32 diffusion atom transformer's linears on `k1_linear`'s program (Wormhole:
 #                   one K tile per dest pass), same formats. Inert in bf16 and on Blackhole.
+#   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
+#                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
+#                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
-          "transition_shard", "dit_mm16", "atom_k1", "dit_b8")
+          "transition_shard", "dit_mm16", "atom_k1", "dit_b8",
+          "swiglu_fc12g")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
@@ -619,6 +623,10 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # atom_k1: bit-exact. The c730 sampler (5 samples x 200 steps, seeds 101-103) returns torch.equal
 # coordinates with and without it on Wormhole (.107, 1000 MHz) and on Blackhole (p150a, where it is
 # ttnn's own program), and saves 0.76 s of the Wormhole sampler (63.75 -> 62.99 s, spd-difflin ab2).
+# swiglu_fc12g is fast-only and, inside transition_shard, Wormhole-only. Fast vs fast, 11-set, 44 paired
+# folds: PASS, CA-lDDT +0.0018 [-0.0004, +0.0055], top pose median 0.570 A (floor 0.909 A), docking
+# 32 -> 35/44; c730 warm A/B/A at AICLK 1000: 218.2 -> 213.5 -> 218.1 s. Normal is held out: against
+# float64 its rel rms is 0.0041 vs 0.0029 for the three-op swiglu, at either multiply fidelity.
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
                            "transition_shard", "atom_k1"})
 _LEVERS = frozenset()
@@ -3795,7 +3803,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard")}
+                               "transition_shard", "swiglu_fc12g")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -11468,6 +11476,9 @@ def _transition_linear(op: str, x: ttnn.Tensor, w: ttnn.Tensor, silu: bool = Fal
 # gy / gcd(W tiles, gy). The MSA transition's 128-channel output splits over 4 columns at most,
 # and on 4x8 it is slower than interleaved (39.1 against 27.4 us a row), so it keeps its path.
 _TRANSITION_SHARD_PM = 23  # row tiles per core measured to fit next to the sharded hidden pair
+# Blackhole with bfp8 hidden (fast): the shard grid stops at 8 of 11 columns, which loses in normal mode
+# (+7.5 % a row) but wins under fast's LoFi, where the body is NoC-bound (-4.4 % at 10 rows, p150a op bench).
+_TRANSITION_SHARD_BH_B8 = False
 _TRANSITION_SHARD_REFUSED: set = set()
 
 
@@ -11495,8 +11506,42 @@ def _transition_shard_rows(W: int, c: int, hid: int) -> int:
     return 0
 
 
-def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype):
-    """fc3(silu(fc1(x)) * fc2(x)) with block-sharded intermediates, or None where no grid fits."""
+_FC12G_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kernels", "fc12g", "compute_fc12g.cpp")
+
+
+def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden):
+    """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`).
+
+    One subblock is one fc half (1..4 rows x pn tiles, an fp32 dest half), fc1's then fc2's; the kernel runs the
+    silu on the PACK thread while MATH does fc2, then multiplies fc2 by the gate in dest (kernels/fc12g).
+    """
+    from .mm2d_generic import generic_matmul_2d
+    sh = max(h for h in range(1, 5) if pm % h == 0 and h * pn <= 4)
+    pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
+        out_subblock_w=pn, out_block_h=pm, out_block_w=2 * pn, per_core_M=pm, per_core_N=2 * pn,
+        transpose_mcast=False, fused_activation=None, fuse_batch=True)
+    shape = list(x.shape)
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape[:-1] + [gx * pn * 32]), hidden, ttnn.TILE_LAYOUT,
+                                         x.device(), mc)
+    # Everything the descriptor depends on that the arguments below do not already fix.
+    key = ("fc12g", tuple(shape), x.dtype, x.memory_config().buffer_type, w12.dtype, hidden, pm, pn, sh, bw, gx,
+           gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc)
+    return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=1, compute_src=_FC12G_SRC,
+                             compute_defines={"FC12G_PACK_SILU": "1"}, gate_tiles=2 * sh * pn, key=key)
+
+
+def _fc12_interleave(w1: torch.Tensor, w2: torch.Tensor, gx: int) -> torch.Tensor:
+    """[K, 2N] whose j-th of `gx` column blocks is w1's j-th block then w2's: one core column's fc1 and fc2."""
+    b = w1.shape[1] // gx
+    return torch.cat([t for j in range(gx) for t in (w1[:, j * b:(j + 1) * b], w2[:, j * b:(j + 1) * b])], 1)
+
+
+def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=None):
+    """fc3(silu(fc1(x)) * fc2(x)) with block-sharded intermediates, or None where no grid fits.
+
+    `w12` (fc1 and fc2 interleaved per core column, `_fc12_interleave`) runs the fused fc12g kernel instead of
+    fc1, fc2 and the multiply."""
     xs = [int(d) for d in x.padded_shape]
     mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
     nt, ct = int(w1.shape[-1]) // 32, int(w3.shape[-1]) // 32
@@ -11520,13 +11565,20 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype):
     bw = max(b for b in (8, 4, 2, 1) if kt % b == 0)
     x1 = x2 = None
     try:
-        x1 = ttnn.linear(x, w1, program_config=cfg(bw, pn, ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)),
-                         compute_kernel_config=silu_ckc, memory_config=mc, dtype=hidden)
-        x2 = ttnn.linear(x, w2, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
-                         dtype=hidden)
-        h = ttnn.multiply_(x1, x2)
-        ttnn.deallocate(x2)
-        x2 = None
+        if w12 is not None and gx == 8 and pn <= 4 and kt == bw:
+            x1 = _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden)
+            _latch("swiglu_fc12g", "served")
+        else:
+            if w12 is not None:
+                _latch("swiglu_fc12g", "declined")
+            x1 = ttnn.linear(x, w1, program_config=cfg(bw, pn, ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)),
+                             compute_kernel_config=silu_ckc, memory_config=mc, dtype=hidden)
+            x2 = ttnn.linear(x, w2, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
+                             dtype=hidden)
+            ttnn.multiply_(x1, x2)
+            ttnn.deallocate(x2)
+            x2 = None
+        h = x1
         # K block 1 under fp32 dest acc: a K block of several tiles accumulates in dest, which is where
         # the Wormhole HiFi3/HiFi4 + fp32-acc erratum writes its ~4.0 errors (fc3 at the shard width:
         # 2 pixels per 736-token call at HiFi3). One tile per block accumulates through the packer
@@ -11565,6 +11617,17 @@ class Transition(Module):
         self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=fc_dtype)
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=fc_dtype)
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=fc_dtype)
+
+    def _fc12_weight(self):
+        """fc1|fc2 interleaved for the fc12g kernel, built on first use; None unless `swiglu_fc12g` is on (and
+        silu_f32, whose PACK-thread silu the kernel runs)."""
+        if not (lever("swiglu_fc12g") and lever("silu_f32")):
+            return None
+        if getattr(self, "_w12", None) is None:
+            self._w12 = ttnn.from_torch(
+                _fc12_interleave(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(), 8),
+                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.fc1_weight.dtype)
+        return self._w12
 
     def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
                  add_to_input: bool = False,
@@ -11644,7 +11707,8 @@ class Transition(Module):
                                          memory_config=ttnn.L1_MEMORY_CONFIG)
                 out = _transition_swiglu_sharded(
                     x_norm, self.fc1_weight, self.fc2_weight, self.fc3_weight, self.compute_kernel_config,
-                    silu_ckc(self.compute_kernel_config), ttnn.bfloat8_b if self._hidden_b8 else dtype, dtype)
+                    silu_ckc(self.compute_kernel_config), ttnn.bfloat8_b if self._hidden_b8 else dtype, dtype,
+                    self._fc12_weight())
                 ttnn.deallocate(x_norm)
                 if out is not None:
                     return out
@@ -11891,7 +11955,7 @@ class Transition(Module):
         # the size, i.e. LESS element-work, and still takes more than twice the wall clock. Forcing
         # the height is what separates "h=2 is a bad height here" from "the size is the problem",
         # and it must not require editing a derivation to find out. Unset in production.
-        if (lever("transition_shard") and _IS_SMALL_GRID
+        if (lever("transition_shard") and (_IS_SMALL_GRID or (_TRANSITION_SHARD_BH_B8 and self._hidden_b8))
                 and not (ops.taping() or _UNFUSED_SILU or w_chunked)):
             shard_rows = _transition_shard_rows(W, _c, _hid)
             if shard_rows:
