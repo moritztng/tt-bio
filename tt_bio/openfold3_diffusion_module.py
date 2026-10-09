@@ -420,7 +420,8 @@ class OF3DiffusionModule(Module):
         * The 24-block DiT is 3-D and 4-D throughout, so a leading sample dim is a taller
           matmul. Its per-block pair bias is a pure function of ``zij``, stays
           ``[1, 16, N, N]`` in ``cache`` and broadcasts in the QK-scale add, the same call
-          Protenix makes.
+          Protenix makes. Its conditioning ``si`` is one per step, so it stays ``[1, N, 384]``
+          and every block's conditioning linears run once, not S times.
 
         At ``len(samples) == 1`` this runs exactly the ops ``_post_encoder`` runs, in the same
         order, with no concat and no slice: the S=1 arm is the A/B control and it is
@@ -434,11 +435,19 @@ class OF3DiffusionModule(Module):
         ql = self.enc_at(ql_pad, cl_pad, plm, atom_mask_col, enc_key_block_idxs_tt,
                          enc_valid_mask, enc_mask_bias, n_atom, NP, nb, cache=cache)
         ttnn.deallocate(ql_pad)
+        # The samples of one step share their noise level, so the sampler hands every one the
+        # same ``si``. Its glue term and the DiT's conditioning are then computed once and
+        # broadcast over the axis instead of once per sample.
+        si = samples[0][0]
+        shared = all(x[0] is si for x in samples)
+        glue = self._si_glue(si, n_token) if shared and S > 1 else None
         # The token aggregation is per sample: its [1, n_token, n_atom] mean matrix is the
         # matmul's in0, and ttnn broadcasts a batch over in1 only.
         ai = [self._pre_dit(ql if S == 1 else ql[k:k + 1], si_k, atom_to_token_mean_tt,
-                            n_token, n_tok_pad)[0]
+                            n_token, n_tok_pad, si_proj=glue)[0]
               for k, (si_k, _rl, _xl, _t) in enumerate(samples)]
+        if glue is not None:
+            ttnn.deallocate(glue)
 
         # At S=1 nothing is stacked and nothing is sliced, so the control arm allocates
         # exactly what the per-replicate loop allocates. Above 1 the parts are freed as soon
@@ -446,13 +455,14 @@ class OF3DiffusionModule(Module):
         # evicts instead, so this costs a taped step nothing and gives an inference one back
         # S-1 copies of the largest tensor on the token path.
         if S == 1:
-            a_b, s_b = ai[0], samples[0][0]
+            a_b, s_b = ai[0], si
         else:
-            a_b, s_b = stack_samples(ai), stack_samples([x[0] for x in samples])
+            a_b = stack_samples(ai)
+            s_b = si if shared else stack_samples([x[0] for x in samples])
             for t in ai:
                 ttnn.deallocate(t)
         a_b = self.dit(a_b, s_b, zij, token_mask_pad_tt, tok_mask_col_pad_tt, cache=cache)
-        if S > 1:
+        if s_b is not si:
             ttnn.deallocate(s_b)
 
         rl_update = self._decode(a_b, ql, cl_pad, plm, atom_mask_col, atom_to_token_idx_tt,
@@ -494,13 +504,24 @@ class OF3DiffusionModule(Module):
             enc_key_block_idxs_tt, enc_valid_mask, enc_mask_bias,
             n_atom, NP, nb, t, sigma_data, _return_intermediates, cache)
 
+    def _si_glue(self, si, n_token):
+        """linear_s(LN_s(si)) [1, n_token, 768]: the noise-level glue added to the aggregation."""
+        si_ln = ttnn.layer_norm(si, weight=self.ln_s_w, epsilon=1e-5,
+                                compute_kernel_config=self.compute_kernel_config)
+        si_proj = self._lin(si_ln, self.w_ls)                  # [1, n_tok_pad, 768]
+        ttnn.deallocate(si_ln)
+        si_proj = ttnn.to_layout(si_proj, ttnn.ROW_MAJOR_LAYOUT)
+        si_proj = ttnn.slice(si_proj, [0, 0, 0], [1, n_token, 768])
+        return ttnn.to_layout(si_proj, ttnn.TILE_LAYOUT)
+
     def _pre_dit(self, ql_enc, si, atom_to_token_mean_tt, n_token, n_tok_pad,
-                 _return_intermediates=False):
+                 _return_intermediates=False, si_proj=None):
         """Encoder output -> the DiT's input ``ai_pad`` [1, n_tok_pad, 768], one sample.
 
         Split out of ``_post_encoder`` so the sample-batched route runs the same ops in the
-        same order rather than a second copy of them. Everything here is per-sample: ``ql``
-        carries the noisy coordinates and ``si`` carries the noise-level embedding.
+        same order rather than a second copy of them. ``ql`` carries the noisy coordinates and
+        ``si`` the noise-level embedding; a caller whose samples share ``si`` passes its glue
+        ``si_proj`` (``_si_glue``) once for all of them.
         """
         lin = self._lin
 
@@ -510,15 +531,12 @@ class OF3DiffusionModule(Module):
                          compute_kernel_config=self.compute_kernel_config)  # [1, n_token, 768]
         ttnn.deallocate(qproj)
         # Glue: ai += linear_s(LN_s(si)) (si tile-padded; slice the result to n_token).
-        si_ln = ttnn.layer_norm(si, weight=self.ln_s_w, epsilon=1e-5,
-                                compute_kernel_config=self.compute_kernel_config)
-        si_proj = lin(si_ln, self.w_ls)                        # [1, n_tok_pad, 768]
-        ttnn.deallocate(si_ln)
-        si_proj = ttnn.to_layout(si_proj, ttnn.ROW_MAJOR_LAYOUT)
-        si_proj = ttnn.slice(si_proj, [0, 0, 0], [1, n_token, 768])
-        si_proj = ttnn.to_layout(si_proj, ttnn.TILE_LAYOUT)
+        own = si_proj is None
+        if own:
+            si_proj = self._si_glue(si, n_token)
         ai = ttnn.add(ai, si_proj)
-        ttnn.deallocate(si_proj)
+        if own:
+            ttnn.deallocate(si_proj)
         ai_postglue = ttnn.clone(ai) if _return_intermediates else None
 
         # Feed the DiT padded (n_tok_pad) with the padded token mask.

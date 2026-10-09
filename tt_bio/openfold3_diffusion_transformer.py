@@ -312,15 +312,17 @@ class OF3DiffusionTransformer(Module):
 
     Inputs (device bf16):
         a:        [S, N, 768]   token single (evolving)
-        s:        [S, N, 384]   conditioning single (si, one per sample)
+        s:        [S or 1, N, 384] conditioning single (si); at 1 it broadcasts
         z:        [1, N, N, 128] conditioning pair (zij, shared by every sample)
         token_mask:   [1, N]    shared
         tok_mask_col: [1, N, 1] token mask for transition masking, shared
     Returns [S, N, 768].
 
-    **S is the sample axis and the stack is written once for every S.** The two tensors
-    that differ between samples are ``a`` and ``s``; ``z`` and the masks are pure functions
-    of the trunk output, so they keep a leading dim of 1 and broadcast. The per-block pair
+    **S is the sample axis and the stack is written once for every S.** Only ``a`` has to
+    differ between samples. ``z`` and the masks are pure functions of the trunk output and
+    ``s`` of the step's noise level, which the sampler's samples share, so they keep a
+    leading dim of 1 and broadcast: AdaLN's conditioning half and the two ``s`` gates then
+    run once per block instead of once per sample. The per-block pair
     bias is the expensive shared term -- ``[1, 16, N, N]``, cached, and added to the
     ``[S, 16, N, N]`` scores by broadcast, never replicated, which is what keeps the sample
     axis nearly free on DRAM (Protenix measured 1.9 GB per replicated copy at 1095 tokens,
