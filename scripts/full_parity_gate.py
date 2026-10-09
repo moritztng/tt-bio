@@ -810,10 +810,12 @@ def _of3_ckpt_default() -> Path | None:
 
 
 def _openbind_ckpt_default() -> Path | None:
-    """The OpenBind-0 checkpoint at a known default location, if one exists.
-    Unlike preview2 this row has no legacy env var — tt_bio.weights resolves it."""
-    for p in (Path.home() / ".boltz" / "of3-ob-2025-06-30-174k.pt",
-              Path.home() / "of3-weights" / "of3-ob-2025-06-30-174k.pt"):
+    """The OpenBind-0 checkpoint where tt_bio.weights resolves it ($TT_BIO_CACHE /
+    $BOLTZ_CACHE / ~/.boltz), else the fleet copy. Unlike preview2 there is no legacy env var."""
+    from tt_bio import weights as _weights
+    if (p := _weights.cached_path("openbind")) is not None:
+        return p
+    for p in (Path.home() / "of3-weights" / "of3-ob-2025-06-30-174k.pt",):
         if p.exists():
             return p
     return None
@@ -870,7 +872,7 @@ def preflight_check(legs: list) -> list:
             if _openbind_ckpt_default() is None:
                 problems.append(
                     f"{leg.id}: OpenBind checkpoint not found — `tt-bio weights fetch "
-                    f"openbind` or drop of3-ob-2025-06-30-174k.pt in ~/.boltz "
+                    f"openbind` or drop of3-ob-2025-06-30-174k.pt in the weights cache "
                     f"(fleet copy ~/of3-weights/); the fold otherwise fails inside "
                     f"tt_bio/worker.py after paying for setup")
         if leg.kind == "rf3_xtal":
