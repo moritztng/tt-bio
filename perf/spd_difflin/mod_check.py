@@ -54,8 +54,15 @@ def main():
 
         def fused(dt, order):
             sg = ttnn.sigmoid(tsc)
-            y = ttnn.addcmul(tsb, ta, sg, value=1.0, dtype=dt) if order == 0 else \
-                ttnn.addcmul(tsb, sg, ta, value=1.0, dtype=dt)
+            # addcmul takes no dtype: a bf16 output goes through a preallocated output_tensor.
+            out = {} if dt == ta.dtype else {"output_tensor": ttnn.allocate_tensor_on_device(
+                ttnn.Shape(list(ta.shape)), dt, ttnn.TILE_LAYOUT, ta.device())}
+            if order == 0:
+                y = ttnn.addcmul(tsb, ta, sg, value=1.0, **out)
+            elif order == 1:
+                y = ttnn.addcmul(tsb, sg, ta, value=1.0, **out)
+            else:  # mac(a, b, c) = a * b + c, the full-size operand first (fp32 only)
+                y = ttnn.mac(ta, sg, tsb) if not out else ttnn.typecast(ttnn.mac(ta, sg, tsb), dt)
             ttnn.deallocate(sg)
             return y
 
@@ -63,11 +70,11 @@ def main():
             yc = ttnn.to_torch(cur(dt)).float()
             print(f"{name} out={dl} cur   vs f64 {err(yc.double(), ref)} {timed(lambda: cur(dt)):8.1f} us",
                   flush=True)
-            for order in (0, 1):
+            for order in (0, 1, 2):
                 try:
                     yf = ttnn.to_torch(fused(dt, order)).float()
                 except Exception as e:  # an order ttnn cannot broadcast
-                    print(f"{name} out={dl} fused{order} ERR {str(e).splitlines()[0][:160]}", flush=True)
+                    print(f"{name} out={dl} fused{order} ERR {' | '.join(l for l in str(e).splitlines() if l.strip())[:400]}", flush=True)
                     continue
                 print(f"{name} out={dl} fused{order} equal_cur {torch.equal(yf, yc)} "
                       f"wrong {(yf != yc).sum().item()} vs f64 {err(yf.double(), ref)} "

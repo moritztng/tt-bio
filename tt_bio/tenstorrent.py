@@ -579,12 +579,14 @@ _FAST_MODE = False
 #   atom_b8         fast mode's bf16 atom transformer linears on bfp8 weights at HiFi2 (`b8_linear`): the kv and
 #                   transition adaLN outputs and the swiglu product are written bfp8; q_norm, q/k/v, the gate,
 #                   the outputs and the residual stream stay bf16. Inert in fp32.
+#   adaln_mod       every fp32 AdaLN modulates in one addcmul, `s_bias + ln(a) * sigmoid(s_scale)`, instead of
+#                   multiply then add: the activation is read and written once. Inert in bf16.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8", "transition_b8",
           "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in", "trimul_gin", "trunk_hifi3",
           "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
-          "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "atom_b8")
+          "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "atom_b8", "adaln_mod")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "atom_b8"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "atom_b8", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -13109,13 +13111,25 @@ class AdaLN(Module):
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
-        a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        if dtype is not None and dtype != a.dtype:
-            out = ttnn.add(a, s_bias, dtype=dtype)
+        if lever("adaln_mod") and a.dtype == ttnn.float32:
+            # One addcmul reads and writes the [M, rows, C] activation once; the sigmoid runs on
+            # the [1, rows, C] scale. addcmul takes no dtype, so a narrower output is preallocated.
+            # Wormhole [5, 768, 768] to bf16: 329 -> 265 us (perf/spd_difflin/mod_check.py).
+            sg = ttnn.sigmoid(s_scale)
+            kw = {} if dtype in (None, a.dtype) else {"output_tensor": ttnn.allocate_tensor_on_device(
+                ttnn.Shape(list(a.shape)), dtype, ttnn.TILE_LAYOUT, a.device())}
+            out = ttnn.addcmul(s_bias, a, sg, value=1.0, **kw)
+            ttnn.deallocate(sg)
             ttnn.deallocate(a)
             a = out
         else:
-            a = ttnn.add_(a, s_bias)
+            a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            if dtype is not None and dtype != a.dtype:
+                out = ttnn.add(a, s_bias, dtype=dtype)
+                ttnn.deallocate(a)
+                a = out
+            else:
+                a = ttnn.add_(a, s_bias)
         if own:                     # a cached pair belongs to the caller
             ttnn.deallocate(s_scale)
             ttnn.deallocate(s_bias)
