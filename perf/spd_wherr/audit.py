@@ -27,14 +27,15 @@ ACT = {"silu": torch.nn.functional.silu, "relu": torch.relu, "sigmoid": torch.si
        "gelu": lambda t: torch.nn.functional.gelu(t)}
 
 
-def site():
-    f = sys._getframe(2)
-    while f is not None:
+def site(depth=3):
+    """The first `depth` tt_bio frames above the call, innermost first: the first is often a shared wrapper."""
+    f, out = sys._getframe(2), []
+    while f is not None and len(out) < depth:
         p = f.f_code.co_filename
         if "/tt_bio/" in p:
-            return f"tt_bio/{p.rsplit('/tt_bio/', 1)[1]}:{f.f_lineno}:{f.f_code.co_name}"
+            out.append(f"{p.rsplit('/tt_bio/', 1)[1]}:{f.f_lineno}:{f.f_code.co_name}")
         f = f.f_back
-    return "?"
+    return " < ".join(out) or "?"
 
 
 def ckc_desc(k):
