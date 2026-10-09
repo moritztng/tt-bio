@@ -7026,6 +7026,43 @@ def trace_region_bytes(capture):
                          f"known captures: {sorted(TRACE_REGIONS)}") from None
 
 
+# Tilize/untilize of a large one-off transfer on the chip instead of the host. ttnn's host tilize
+# runs in one thread and holds the GIL, so the chip idles through it and the host lane cannot run
+# beside it. Row-major upload + `to_layout` on the chip is the same permutation, bit for bit.
+# Device side costs a second copy of the tensor for a moment, so it is bounded; bigger tensors and
+# TT_BIO_DEVICE_TILIZE=0 take the host path.
+DEVICE_TILIZE_MIN = 4 << 20
+DEVICE_TILIZE_MAX = 1 << 30
+_TORCH_DT = {ttnn.float32: torch.float32, ttnn.bfloat16: torch.bfloat16}
+
+
+def _device_tilize(nbytes, dtype):
+    return (dtype in _TORCH_DT and DEVICE_TILIZE_MIN <= nbytes <= DEVICE_TILIZE_MAX
+            and os.environ.get("TT_BIO_DEVICE_TILIZE", "1") != "0")
+
+
+def upload(t, dtype=ttnn.bfloat16, device=None):
+    """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
+    device = device or get_device()
+    if not _device_tilize(t.numel() * _TORCH_DT.get(dtype, torch.float32).itemsize, dtype):
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=dtype)
+    rm = ttnn.from_torch(t.to(_TORCH_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                         device=device, dtype=dtype)
+    out = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
+    ttnn.deallocate(rm)
+    return out
+
+
+def download(t):
+    """`ttnn.to_torch(t)` of a TILE device tensor, untilized on the chip when that pays."""
+    if t.layout != ttnn.TILE_LAYOUT or not _device_tilize(t.volume() * t.element_size(), t.dtype):
+        return ttnn.to_torch(t)
+    rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT)
+    h = ttnn.to_torch(rm)
+    ttnn.deallocate(rm)
+    return h
+
+
 def require_trace_region(what):
     """Raise, naming ``what``, unless the open device reserved a trace region."""
     if _trace_region_size <= 0:

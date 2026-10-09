@@ -461,8 +461,7 @@ class _KeyedWeights:
         A float32 tensor bound for bf16 is rounded by torch first: torch and ttnn round the same
         way, so the device tensor is identical, and ttnn tilizes bf16 4x faster than it converts
         and tilizes float32 (0.66 against 2.73 s for the 730-token MSA feature)."""
-        return ttnn.from_torch(self._host_cast(t), layout=ttnn.TILE_LAYOUT, device=get_device(),
-                               dtype=getattr(self, "dtype", ttnn.bfloat16))
+        return _T.upload(self._host_cast(t), getattr(self, "dtype", ttnn.bfloat16))
 
     def _host_cast(self, t):
         """The host half of `_up`: the torch rounding to bf16, on its own so the host lane can do it."""
@@ -1268,7 +1267,7 @@ class DiffusionModule(_KeyedWeights):
 
     def _up_dit(self, t):
         """Upload an activation/host tensor at the DiT dtype (fp32 when the gate is on)."""
-        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
+        return _T.upload(t, self._dit_dtype)
 
     def _w_tt_dit(self, key, transpose=True):
         """Dedicated DiT weight-upload cache at the active diffusion dtype."""
@@ -1613,7 +1612,7 @@ class DiffusionModule(_KeyedWeights):
         the validated trunk-pairformer convention, incl. the head-dim scaling)."""
         import torch.nn.functional as F
         z_h = F.layer_norm(pair_z, (pair_z.shape[-1],)).unsqueeze(0).contiguous()
-        return ttnn.from_torch(z_h, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=self._dit_dtype)
+        return _T.upload(z_h, self._dit_dtype, self.dev)
 
     def _dit_block_biases(self, z_dev, extra_attn_bias=None):
         """Per-block DiT attention pair biases, computed ONCE per fold from z_dev=LN(pair_z).
@@ -2040,7 +2039,7 @@ class ConfidenceHead:
 
     def z_base_upload(self, z_base):
         import ttnn
-        return ttnn.from_torch(z_base, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        return _T.upload(z_base, ttnn.bfloat16, self.dev)
 
     def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """Device-resident confidence forward. z_base_dev is the RESIDENT bf16
@@ -2506,7 +2505,7 @@ class Protenix:
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):
-        return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        return _T.upload(x, ttnn.bfloat16, self.dev)
 
     @staticmethod
     def _to_host(t, shape=None, fp32=True):
@@ -2514,7 +2513,7 @@ class Protenix:
         call sites whose consumers only cast it back (the OpenDDE z_trunk seam): bf16 -> fp32 is
         lossless, so the upcast is 402 MB of host writes that buy nothing. Default stays fp32."""
         import torch
-        h = torch.Tensor(ttnn.to_torch(t))
+        h = torch.Tensor(_T.download(t))
         if fp32:
             h = h.float()
         return h.reshape(shape) if shape is not None else h
