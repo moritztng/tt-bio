@@ -11978,18 +11978,21 @@ class Transition(Module):
         # Scoped to 256 < c <= 384 on purpose. c=128 is already unshrunk and its shipped h=16
         # measured fastest with no clash at any height; c=256 measures 1.0738x at W=512 but is
         # protenix-v2's channel and the cap above is its crash fix, so it is left exactly alone.
-        # The W/H guard keeps this to the regime where every arm was torch.equal. It reads the
-        # 608-token threshold as a plain bound on that regime, NOT as the chunking decision, which
-        # is now derived from the budget a few lines up. Widening it would need its own arms.
+        #
+        # Up to 1088 tokens, not only below the 608-token chunking threshold: at c=384 the ratio
+        # alone left h=2 from 608 to 896 and h=1 from 928 up. MEASURED, same harness, WH Galaxy
+        # .114 (state/spd-opendde.md th1): W=736 h=2 153.41 ms | h=3 137.65 | h=4 139.02 (1.104x);
+        # W=896 h=2 217.16 | h=3 207.96 (1.044x). Every arm at or under the element budget is
+        # torch.equal to h=1. The budget is also the correctness bound here: above it, inside the
+        # L1 cap below, the module returns WRONG values without raising (W=736 h=5/6, W=896 h=4/5,
+        # max |diff| 2.0) before it clashes (W=896 h=6), so the cap must never raise the height.
+        # Hence `=` and not `max`: under --fast the base is 32 and the ratio alone lands above the
+        # budget (h=4 at W=896, one of the wrong arms), so the budget sets the height both ways.
         _c = int(x.shape[-1])
         if (_IS_SMALL_GRID and SMALL_GRID_TRANSITION_ELEMS
-                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C
-                # NOT `w_chunked`: this bound is the regime the raise was validated in
-                # (every arm torch.equal below it), which is a token count of its own and does
-                # not follow the chunking gate above.
-                and W <= transition_w_chunking_threshold and H <= SEQ_LEN_MORE_CHUNKING):
-            transition_h_chunk_size = max(transition_h_chunk_size,
-                                          min(_base_h, SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
+                and 256 < _c <= SMALL_GRID_TRANSITION_MAX_C and H <= SEQ_LEN_MORE_CHUNKING):
+            transition_h_chunk_size = max(1, min(_base_h,
+                                                 SMALL_GRID_TRANSITION_ELEMS // (w_eff * _c)))
         if _IS_SMALL_GRID:
             # Cap the row chunk by measured per-core L1. The budget above scales by per-core L1
             # and by the channel excess; neither term sees that the Galaxy has 45% fewer cores
