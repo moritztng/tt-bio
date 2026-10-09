@@ -581,12 +581,15 @@ _FAST_MODE = False
 #                   the outputs and the residual stream stay bf16. Inert in fp32.
 #   adaln_mod       every fp32 AdaLN modulates in one addcmul, `s_bias + ln(a) * sigmoid(s_scale)`, instead of
 #                   multiply then add: the activation is read and written once. Inert in bf16.
+#   dit_heads       the token DiT re-assembles its heads in one `nlp_concat_heads` and keeps the pad lanes (the
+#                   `_APB_CONCAT_HEADS` path, any dtype): the gate and the output projection run 1024 wide on
+#                   weights zero in the pad lanes. Exact up to accumulation order: o's pad lanes are zero.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8", "transition_b8",
           "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in", "trimul_gin", "trunk_hifi3",
           "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
-          "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "atom_b8", "adaln_mod")
+          "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "atom_b8", "adaln_mod", "dit_heads")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod", "dit_heads"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10799,7 +10802,8 @@ class AttentionPairBias(Module):
         # the storage dtype and the pad width -- is known at load time, and the weights it needs are
         # a different shape. torch_to_tt runs exactly once either way, so the shared tiled-weight
         # cache's call index does not move.
-        self._concat_heads = _APB_CONCAT_HEADS and not atom_level and self.dtype != ttnn.float32
+        self._concat_heads = not atom_level and (lever("dit_heads")
+                                                 or _APB_CONCAT_HEADS and self.dtype != ttnn.float32)
         _relane = (lambda ax: (lambda w: _pad_head_lanes(w.t(), self.n_heads, self.head_dim,
                                                          self.padded_head_dim, ax))) \
             if self._concat_heads and getattr(self, "padded_head_dim", head_dim) != head_dim \
