@@ -687,15 +687,6 @@ _TRUNK_MATH_FIDELITY = os.environ.get("TT_BIO_TRUNK_MATH_FIDELITY", "hifi4").low
 _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4": "HiFi4"}
 
 
-# Wormhole matmul throttle under the fast levers (ttnn.ThrottleLevel 1-5 = 73/67/50/40/33 % of the peak
-# MVMUL rate; tt-metal applies it only to matmuls on more than 48 cores). Without it a LoFi fold on a
-# Wormhole Galaxy stopped the device in ~8 % of folds: one core's unpacker never retired inside a
-# 72-core multicast matmul and the other 71 waited on it (tt-triage, state/spd-fasthang.md). tt-metal
-# names this class di/dt (compute_throttle_utils.cpp); Blackhole's firmware throttles on its own, so
-# only Wormhole is pinned. Screen hook only, unset in production.
-_LPX_WH_THROTTLE = env_int("TT_BIO_LPX_WH_THROTTLE", 1)
-
-
 def lpx_compute_kernel_config(base):
     """`base` under the `lofi` and `acc_off` levers, or `base` itself when neither is on."""
     if not (lever("lofi") or lever("acc_off")):
@@ -706,8 +697,6 @@ def lpx_compute_kernel_config(base):
                      packer_l1_acc=base.packer_l1_acc)
     cfg.dst_full_sync_en = base.dst_full_sync_en
     cfg.throttle_level = base.throttle_level
-    if is_wormhole() and base.throttle_level.value < _LPX_WH_THROTTLE:
-        cfg.throttle_level = ttnn.ThrottleLevel(_LPX_WH_THROTTLE)
     return cfg
 
 
