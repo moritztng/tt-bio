@@ -24,6 +24,8 @@ ap.add_argument("--cz", type=int, default=256)
 ap.add_argument("--groups", default="ln,tail,add")
 ap.add_argument("--ln-arms", default="fast_today,normal_today,hifi4_f32,hifi2_f32,lofi_f32,hifi3_b16,hifi2_b16,lofi_b16")
 ap.add_argument("--tail-arms", default="base,fused")
+ap.add_argument("--tail-variants", default="",
+                help="extra fused arms, name=SIGPOLY/RNE/fidelity/f32 separated by commas, e.g. poly=1/3/HiFi3/1")
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--calls", type=int, default=8)
 ap.add_argument("--chip", type=int, default=None)
@@ -229,6 +231,23 @@ if "tail" in groups:
             g = mul(); u = TQ.out_proj(g, wd, k, ttnn.bfloat16); ttnn.deallocate(g)
             r = rel(ttnn.to_torch(u).float().reshape(N, N, C), ref_nores); ttnn.deallocate(u); return r
         arms["fused_seq"] = (fused, score_fused)
+        for spec in filter(None, A.tail_variants.split(",")):
+            name, cfg = spec.split("=")
+            sp, rn, fid, f32 = cfg.split("/")
+            kv = ckc(fid, f32 == "1")
+
+            def var(sp=int(sp), rn=int(rn), kv=kv):
+                TQ.TAIL_SIGPOLY, TQ.TAIL_RNE = sp, rn
+                try:
+                    zz = ttnn.clone(zd)
+                    assert TQ.gated_out_proj(od, gd, wd, kv, resid=zz) is zz
+                    return zz
+                finally:
+                    TQ.TAIL_SIGPOLY, TQ.TAIL_RNE = 0, 3
+
+            def score_var(var=var):
+                o = var(); r = rel(ttnn.to_torch(o).float().reshape(1, N, N, C), ref); ttnn.deallocate(o); return r
+            arms[f"fused_{name}"] = (var, score_var)
         arms["fused_nores"] = (fused_nores, score_nores)
         arms["base_nores"] = (lambda: (lambda g: (TQ.out_proj(g, wd, k, ttnn.bfloat16), ttnn.deallocate(g))[0])(mul()),
                               score_base_nores)
