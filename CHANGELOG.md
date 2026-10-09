@@ -23,6 +23,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   right and once a confidently wrong fold that ranks first. The default stays fp32.
   [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
 
+### Added
+- **OpenDDE constraint guidance** (upstream 1.2.0 Test-Time Structure-Space Search). A `constraint:`
+  block with contact pairs or an epitope, plus `--use_tfg_guidance`, moves the antibody as a rigid body
+  during sampling (refine, search, refine) and applies OpenDDE's physics restraints. Output matches
+  upstream's dense functions exactly on the tested complexes. `--trunk_cache DIR` reuses the trunk
+  across inputs that differ only in their constraint. Without the flag folds are bit-identical to
+  before. [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
+- protenix-v2 and opendde rebuild a C-terminal OXT that the diffusion left on C or O, or detached,
+  from the CCD ideal geometry before writing (upstream OpenDDE 6685cef).
+
 ### Fixed
 - The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour
   anywhere from 0 to 5 A, started every sample's pairformer from the previous sample's output, and
