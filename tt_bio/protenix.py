@@ -594,8 +594,27 @@ class AtomTransformer(_KeyedWeights, Module):
         self._kvwin = _ATOM_KV_WINDOW
         # atom_k1: the fp32 linears on k1_linear's program (one K tile per dest pass on Wormhole).
         self._k1 = _T.lever("atom_k1") and dtype == ttnn.float32
+        # atom_mm16: the fp32 superset attention's linears on bf16 operands with fp32 accumulation. The
+        # adaLN outputs, q/k/v, the gate and the swiglu hidden are written bf16; the two output projections,
+        # the residual stream and the superset bias stay fp32.
+        self._mm16 = _T.lever("atom_mm16") and self._sdpa32 and self._tile_heads
 
-    def _lin(self, x, wkey, bkey=None, activation=None):
+    def _w16(self, key, transpose=True):
+        cache = self.__dict__.setdefault("_wc16", {})
+        v = cache.get((key, transpose))
+        if v is None:
+            w = self._w[key]
+            v = cache[(key, transpose)] = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                                          layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                                          dtype=ttnn.bfloat16)
+        return v
+
+    def _lin(self, x, wkey, bkey=None, activation=None, dtype=None):
+        """`dtype`: what an `atom_mm16` linear (a bf16 `x`) writes, bf16 unless given."""
+        if self._mm16 and x.dtype == ttnn.bfloat16:
+            return _T.k1_linear(x, self._w16(wkey), self._w16(bkey, False) if bkey else None,
+                                dtype=dtype or ttnn.bfloat16, activation=activation,
+                                compute_kernel_config=self.compute_kernel_config)
         w = self._w_tt(wkey)
         # One K tile leaves the program no K blocking to choose: those keep the shared path.
         if not self._k1 or int(w.padded_shape[0]) <= 32:
@@ -606,7 +625,7 @@ class AtomTransformer(_KeyedWeights, Module):
     def _lin_g(self, q_norm, apb):
         """The attention gate's linear: no narrow-projection offer and the input's dtype, as before."""
         key = apb + "attention.linear_g.weight"
-        if self._k1:
+        if self._k1 or self._mm16:
             return self._lin(q_norm, key)
         return ttnn.linear(q_norm, self._w_tt(key), compute_kernel_config=self.compute_kernel_config,
                            core_grid=CORE_GRID_MAIN)
@@ -626,8 +645,8 @@ class AtomTransformer(_KeyedWeights, Module):
             cache[pre] = ada
         return ada
 
-    def _adaln(self, a, s, pre, s_terms=None):
-        return self._adaln_mod(pre)(a, s, s_terms=s_terms)
+    def _adaln(self, a, s, pre, s_terms=None, dtype=None):
+        return self._adaln_mod(pre)(a, s, s_terms=s_terms, dtype=dtype)
 
     @staticmethod
     def _prefixes(b):
@@ -988,22 +1007,26 @@ class AtomTransformer(_KeyedWeights, Module):
     def _block_m(self, a, s, p, b, N, NP, M, pad_bias, z_pre=None, terms=None, zs=None):
         apb, ctb = self._prefixes(b)
         t = terms or {}
+        # atom_mm16: the kv adaLN reads the fp32 q_norm and writes bf16; q/g read one bf16 copy of it.
+        lo = ttnn.bfloat16 if self._mm16 and zs is not None else None
         q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
-        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
+        kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"), dtype=lo)
+        if lo is not None:
+            q_norm = ttnn.typecast(q_norm, lo)
         if zs is not None:
             o = self._attention_superset(q_norm, kv_norm, apb, N, NP, zs)
         else:
             o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
         g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        attn = self._lin(o, apb + "attention.linear_o.weight")
+        attn = self._lin(o, apb + "attention.linear_o.weight", dtype=self.dtype)
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
         attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         a1 = ttnn.add(attn, a)
-        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"))
+        an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"), dtype=lo)
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
-        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
+        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight", dtype=self.dtype)
         cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
         out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         return ttnn.add(out, a1)
