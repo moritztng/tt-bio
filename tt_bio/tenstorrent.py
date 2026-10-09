@@ -437,6 +437,13 @@ TRANSITION_H_CHUNK_REJECTS: dict = {}
 # ladder rung dies partway through a fold -- "served=2 then a CB clash" does not identify the
 # shape, and the row height that ships has to be derived from the shape that binds.
 TRANSITION_H_CHUNK_SHAPES: dict = {}
+# {(tiled W, c, hidden): smallest row height the device refused}. The derived heights are fits to
+# an EMPTY L1, and a call site can hold resident L1 the fit never saw: OpenDDE at 256 tokens on a
+# p150a runs the c=64 MSA Transition beside its update-first MSA block, and fc2's static circular
+# buffers ran 2,560 B into a live buffer (890880 vs 893440, 11x9 cores) on every seed. A refused
+# height is recorded here and the call re-run at half of it; row height is row-local, so the
+# re-run writes the same bytes, and the record keeps every later call off the refused height.
+TRANSITION_H_CLASH: dict = {}
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -11181,7 +11188,7 @@ class Transition(Module):
                              "on padded positions; upstream masks t(x) only")
         out = host_acc_after_refusal(
             ("transition", tuple(x.padded_shape)), x, lambda: _inplace_guarded(
-                "transition", lambda: self._transition(x, memory_config, add_to_input)))
+                "transition", lambda: self._transition_fit(x, memory_config, add_to_input)))
         if mask is None:
             return out
         masked = ttnn.multiply(out, mask)
@@ -11196,6 +11203,23 @@ class Transition(Module):
                 and x.shape[1] <= SEQ_LEN_MORE_CHUNKING
                 and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
                 and (self.dtype or _dtype()) == ttnn.bfloat16 and _pair_add.ok(x, x))
+
+    def _transition_fit(self, x, memory_config, add_to_input):
+        """`_transition`, re-run at half the row height while the device refuses the height's
+        circular buffers (TRANSITION_H_CLASH). Only before any block was written into `x`."""
+        n0 = PAIR_INPLACE_STATS[1]
+        while True:
+            self._h_last = None
+            try:
+                return self._transition(x, memory_config, add_to_input)
+            except RuntimeError as exc:
+                last = self._h_last
+                if (last is None or last[1] <= 1 or PAIR_INPLACE_STATS[1] != n0
+                        or not x.is_allocated() or TRANSITION_H_CLASH.get(last[0], last[1] + 1) <= last[1]
+                        or not report_l1_refusal("transition", exc)):
+                    raise
+                TRANSITION_H_CLASH[last[0]] = last[1]
+                gc.collect()        # the refused attempt's L1 blocks, still referenced from its traceback
 
     def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
                     add_to_input: bool) -> ttnn.Tensor:
@@ -11455,9 +11479,14 @@ class Transition(Module):
         # the size, i.e. LESS element-work, and still takes more than twice the wall clock. Forcing
         # the height is what separates "h=2 is a bad height here" from "the size is the problem",
         # and it must not require editing a derivation to find out. Unset in production.
+        _clash_key = (_tile(w_eff), _c, _hid)
+        if _clash_key in TRANSITION_H_CLASH:
+            transition_h_chunk_size = min(transition_h_chunk_size,
+                                          max(1, TRANSITION_H_CLASH[_clash_key] // 2))
         _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))
+        self._h_last = (_clash_key, transition_h_chunk_size)
         # Record what the height actually came out as, AFTER every clause including the screen
         # hook, because a ladder rung that reads "served" off a constant and not off the call is
         # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
