@@ -8,13 +8,16 @@ per_core_M band, the first 256 and the last 512 rows of the matrix, which zmm_ru
 A case written TOKENS:DEPTH:u first runs ttnn's auto matmul on the UNPADDED operands, which is what zmm_rule.py
 did before every padded pair.
 
-usage: TT_VISIBLE_DEVICES=<chip> python zmm_check.py OUT [CASES=384:4097,896:9947,736:9947,512:9947]
+L1ACC=0 runs both with packer_l1_acc off (the model's kernel config has it on).
+
+usage: TT_VISIBLE_DEVICES=<chip> python zmm_check.py OUT [CASES=384:4097,896:9947,736:9947,512:9947] [L1ACC=1]
 """
 import json, sys, time
 from pathlib import Path
 
 OUT = Path(sys.argv[1]); OUT.mkdir(parents=True, exist_ok=True)
 CASES = [c.split(":") for c in (sys.argv[2] if len(sys.argv) > 2 else "384:4097,896:9947,736:9947,512:9947").split(",")]
+L1ACC = (sys.argv[3] if len(sys.argv) > 3 else "1") == "1"
 LOG = open(OUT / "zmm_check.jsonl", "a")
 
 
@@ -31,8 +34,8 @@ import tt_bio.tenstorrent as T
 dev = T.get_device()
 grid = dev.compute_with_storage_grid_size()
 ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
-                                             math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
-log(ev="start", cases=[":".join(c) for c in CASES], arch=str(dev.arch()), grid=[grid.x, grid.y])
+                                             math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=L1ACC)
+log(ev="start", l1acc=L1ACC, cases=[":".join(c) for c in CASES], arch=str(dev.arch()), grid=[grid.x, grid.y])
 for case in CASES:
     tok, depth, pre = int(case[0]), int(case[1]), case[2:] == ["u"]
     N = tok * 32
