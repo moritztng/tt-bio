@@ -2386,7 +2386,7 @@ _NA_HEADER_TYPES = {"rna": "rna", "rnasequence": "rna", "dna": "dna", "dnasequen
 #: complex one chain short, `constrains:` folded without the covalent bond, both status=ok.
 #: What a MODEL does with a key it cannot honour is a separate question, answered by the one
 #: table in tt_bio/capabilities.py.
-_DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates"})
+_DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates", "constraint"})
 _ENTRY_KEYS = frozenset({"protein", "rna", "dna", "ligand"})
 _POLYMER_KEYS = frozenset({"id", "sequence", "msa", "modifications", "cyclic", "templates"})
 _LIGAND_KEYS = frozenset({"id", "ccd", "smiles"})
