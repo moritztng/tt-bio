@@ -583,7 +583,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16", "dit_qkv16", "atom_mm16"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -624,8 +624,12 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # atom_k1: bit-exact. The c730 sampler (5 samples x 200 steps, seeds 101-103) returns torch.equal
 # coordinates with and without it on Wormhole (.107, 1000 MHz) and on Blackhole (p150a, where it is
 # ttnn's own program), and saves 0.76 s of the Wormhole sampler (63.75 -> 62.99 s, spd-difflin ab2).
+# dit_mm16 + dit_qkv16, graded as one stack: Wormhole 11-set normal grade against the same tree's normal, 44 paired
+# folds, PASS: CA-lDDT -0.0007 [-0.0023, +0.0010], iRMSD -0.29 [-0.78, -0.01], ipTM +0.019 [+0.0004, +0.049],
+# same-seed top pose median 0.172 A against the 0.60 A bar (A/A floor 0.776 A), docking 33 -> 33 of 44
+# (spd-difflin g3). Saves 8.18 s of the Wormhole c730 sampler at `_sdpa32`'s k chunk 256 (62.19 -> 54.01 s, 1000 MHz).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard", "atom_k1"})
+                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
