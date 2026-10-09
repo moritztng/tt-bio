@@ -319,6 +319,24 @@ def enable(names) -> Path:
     return out
 
 
+# Blackhole Ethernet dispatch needs a ttnn whose idle-ERISC firmware region holds the dispatch kernels. Stock 0.68.0
+# reserves 24 KB for firmware and kernel together and the prefetch kernel overflows it; a ttnn built with
+# scripts/ttnn_bh_eth reserves 40 KB. The host library and these headers ship in one wheel, so the header is the
+# capability.
+BH_MEM_MAP = Path("tt_metal/hw/inc/internal/tt-1xx/blackhole/dev_mem_map.h")
+_IERISC_FW_KB = re.compile(r"^#define MEM_IERISC_FIRMWARE_SIZE \((\d+) \* 1024\)", re.M)
+
+
+def bh_eth_dispatch_supported(root: Path | None = None) -> bool:
+    """True when the ttnn tt-bio runs can dispatch on Blackhole Ethernet cores."""
+    root = root or Path(os.environ.get("TT_METAL_RUNTIME_ROOT") or runtime_root() or "")
+    try:
+        m = _IERISC_FW_KB.search((root / BH_MEM_MAP).read_text())
+    except OSError:
+        return False
+    return m is not None and int(m.group(1)) >= 40
+
+
 def blackhole_host() -> bool:
     for dev in Path("/sys/class/tenstorrent").glob("tenstorrent!*"):
         try:
