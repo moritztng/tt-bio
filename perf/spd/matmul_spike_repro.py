@@ -53,6 +53,7 @@ configs = {
     "hifi4_fp32acc_l1acc": dict(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True),
     "hifi4_fp32acc": dict(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=False),
     "hifi4_bf16acc": dict(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False, packer_l1_acc=False),
+    "hifi3_fp32acc": dict(math_fidelity=ttnn.MathFidelity.HiFi3, fp32_dest_acc_en=True, packer_l1_acc=False),
     "hifi2_fp32acc": dict(math_fidelity=ttnn.MathFidelity.HiFi2, fp32_dest_acc_en=True, packer_l1_acc=False),
     "lofi_fp32acc": dict(math_fidelity=ttnn.MathFidelity.LoFi, fp32_dest_acc_en=True, packer_l1_acc=False),
 }
@@ -100,5 +101,16 @@ while hi - lo > 1:                             # narrow to the smallest K range 
 res["narrowest"] = {"k": [lo, hi], "x": xr[lo:hi].tolist(), "w": wc[lo:hi].tolist()}
 m = torch.zeros(128, dtype=torch.float64); m[lo:hi] = 1
 res["narrowest"]["device"], res["narrowest"]["truth"] = dev_dot(m)
+# 4. Greedy: drop single K terms while the device still disagrees, down to a minimal set.
+keep = m.clone()
+for k in range(lo, hi):
+    trial = keep.clone(); trial[k] = 0
+    got, want = dev_dot(trial)
+    if abs(got - want) > 0.25:
+        keep = trial
+ks = [int(k) for k in keep.nonzero().flatten()]
+got, want = dev_dot(keep)
+res["minimal"] = {"k": ks, "x": [float(xr[k]) for k in ks], "w": [float(wc[k]) for k in ks],
+                  "device": got, "truth": want}
 print(json.dumps(res, indent=1))
 pathlib.Path(a.out).write_text(json.dumps(res, indent=1))
