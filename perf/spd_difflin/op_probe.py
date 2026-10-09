@@ -131,6 +131,7 @@ def main():
     ap.add_argument("--shapes", default=",".join(SHAPES))
     ap.add_argument("--fam", default="normal,fast")
     ap.add_argument("--draws", type=int, default=2)
+    ap.add_argument("--outs", action="store_true", help="normal family: output format x K block (1, 2, 4) instead")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     torch.set_num_threads(8)
@@ -157,7 +158,15 @@ def main():
             mt, kt, nt = -(-m // 32), k // 32, n // 32
             acc = fam == "normal"
             arms = []   # (label, in dtype, w dtype, out dtype, fid, program or None)
-            if fam == "normal":
+            if fam == "normal" and a.outs:
+                # fp32 dest acc throughout; what the output format and K blocking cost on their own
+                for ind, wd in (("f32", "f32"), ("bf16", "bf16")):
+                    lab = "f32" if ind == "f32" else "a16w16"
+                    for od in ("f32", "bf16"):
+                        arms.append((f"{lab}_o{od}_auto", ind, wd, od, "HiFi4", None))
+                        for pl, pc in programs(mt, kt, nt, grid, True, (1, 2, 4)):
+                            arms.append((f"{lab}_o{od}_{pl}", ind, wd, od, "HiFi4", pc))
+            elif fam == "normal":
                 for ind, wd in (("f32", "f32"), ("bf16", "f32"), ("bf16", "bf16")):
                     lab = {"f32": "f32", "bf16": "a16"}[ind] + ("w16" if wd == "bf16" else "")
                     arms.append((lab + "_auto", ind, wd, "f32", "HiFi4", None))
