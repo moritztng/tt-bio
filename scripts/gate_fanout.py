@@ -121,6 +121,12 @@ POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the po
 POOL_POLL_S = 30
 LOAD_REFUSAL = "refusing to run the gate. host load:"
 LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
+#: ssh's own words when the connection, not the leg, failed (exit 255). qb1 dropped off the LAN for
+#: minutes on 2026-10-09 and five BH legs were recorded FAIL without running.
+SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not responding\.|"
+                      r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
+                      r"kex_exchange_identification: .*)$", re.M)
+SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
@@ -590,14 +596,28 @@ class Host:
 # ---------------------------------------------------------------------------------------------
 # verdicts
 # ---------------------------------------------------------------------------------------------
-def classify(leg: Leg, rc: int, report: dict | None) -> str:
+def classify(leg: Leg, rc: int, report: dict | None, baseline: dict | None = None) -> str:
     """PASS / FAIL / BLOCKED. A parity leg the gate itself reports BLOCKED-REF-REGEN-NEEDED does
     not fail the gate (RELEASING.md, verdict semantics); a one-leg run of it exits nonzero as
-    GATE INCONCLUSIVE, so read the report rather than the exit code."""
+    GATE INCONCLUSIVE, so read the report rather than the exit code.
+
+    A capacity cell the engine's own size guard refuses (opendde on Blackhole: 1536 freezes the
+    trunk, so the cap is 1024) exits 1 on every run. It passes when the committed baseline for
+    this card type (`baseline`, its "cells") records the same refusal; anything else still fails."""
     if leg.family == "parity" and report:
         verdicts = {r.get("verdict") for r in report.get("legs", [])}
         if verdicts == {"BLOCKED-REF-REGEN-NEEDED"}:
             return "BLOCKED"
+    if rc and leg.family == "capacity" and report and baseline is not None:
+        c = report.get("counts", {})
+        failed = [r for r in report.get("results", []) if r.get("verdict") != "PASS"]
+        if (failed and not c.get("GATE_BUG") and not c.get("BAD_FIXTURE")
+                and not report.get("coverage_gaps")
+                and all(r.get("verdict") == "FAIL" and r.get("mechanism") == "size_guard"
+                        and (baseline.get(r.get("model")) or {}).get("verdict") == "FAIL"
+                        and (baseline.get(r.get("model")) or {}).get("mechanism") == "size_guard"
+                        for r in failed)):
+            return "PASS"
     return "PASS" if rc == 0 else "FAIL"
 
 
@@ -781,14 +801,25 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     QUEUED[job] = host
     while True:
         time.sleep(POOL_POLL_S)
-        r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
+        try:
+            r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            continue        # a busy sshd; the job runs on regardless, ask again
         if r.returncode == 0 and r.stdout.strip():
             rc = int(r.stdout.strip())
             break
     QUEUED.pop(job, None)
-    r = host.ssh(f"L={q(rdir)}/leg.log; head -c {LOG_CAP} $L; [ $(stat -c%s $L) -le {LOG_CAP} ] || "
-                 f"{{ echo; echo '# ... log capped at {LOG_CAP} bytes; last 400 lines:'; tail -n 400 $L; }}",
-                 capture_output=True, timeout=300)
+    for _ in range(SSH_LOST_TRIES):
+        try:
+            r = host.ssh(f"L={q(rdir)}/leg.log; head -c {LOG_CAP} $L; [ $(stat -c%s $L) -le {LOG_CAP} ] || "
+                         f"{{ echo; echo '# ... log capped at {LOG_CAP} bytes; last 400 lines:'; tail -n 400 $L; }}",
+                         capture_output=True, timeout=300)
+            break
+        except subprocess.TimeoutExpired:
+            time.sleep(POOL_POLL_S)
+    else:
+        f.write(f"# could not read {host.name}:{rdir}/leg.log\n")
+        return rc
     f.write(r.stdout)
     return rc
 
@@ -821,6 +852,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
+        lost = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -829,6 +861,11 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             text = log.read_text(errors="replace")
             # The gate scripts refuse to start on an overloaded host (gate_guard's load ceiling).
             # That is not a verdict: wait for the load to drop and start the leg again.
+            if rc == 255 and SSH_LOST.search(text) and lost < SSH_LOST_TRIES:
+                # The connection dropped, not the leg: run it again once the host answers.
+                lost += 1
+                time.sleep(SSH_LOST_RETRY_S)
+                continue
             if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
                 break
             time.sleep(LOAD_RETRY_S)
@@ -845,7 +882,12 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                     report = json.loads(r.stdout)
                 except ValueError:
                     pass
-        verdict = classify(leg, rc, report)
+        baseline = None
+        if rc and leg.family == "capacity" and report:
+            r = host.ssh(f"cat {host.tree}/docs/capacity_gate_baseline.json", capture_output=True, timeout=120)
+            if r.returncode == 0:
+                baseline = (json.loads(r.stdout).get("cards", {}).get(host.cfg["card_type"]) or {}).get("cells", {})
+        verdict = classify(leg, rc, report, baseline)
         seeded = None
         if verdict == "PASS" and host.seeding(leg):
             verdict = "SEEDED"

@@ -176,6 +176,25 @@ def test_parity_blocked_is_not_a_failure_but_a_scored_gap_is():
     assert gf.classify(leg, 1, None) == "FAIL"
 
 
+def test_capacity_size_guard_refusal_passes_only_when_the_baseline_records_it():
+    leg = next(lg for lg in _legs() if lg.family == "capacity")
+    refused = {"model": "opendde", "verdict": "FAIL", "mechanism": "size_guard"}
+    report = {"counts": {"fail_like": 1}, "coverage_gaps": [], "results": [refused]}
+    recorded = {"opendde": {"verdict": "FAIL", "mechanism": "size_guard"}}
+    assert gf.classify(leg, 1, report, recorded) == "PASS"
+    assert gf.classify(leg, 1, report, {}) == "FAIL"
+    assert gf.classify(leg, 1, report, None) == "FAIL"
+    oom = {**refused, "mechanism": "dram_oom"}
+    assert gf.classify(leg, 1, {**report, "results": [oom]}, recorded) == "FAIL"
+    assert gf.classify(leg, 1, {**report, "coverage_gaps": ["x"]}, recorded) == "FAIL"
+
+
+def test_a_dropped_ssh_connection_is_not_a_leg_result():
+    assert gf.SSH_LOST.search("# leg\nssh: connect to host 192.168.178.70 port 22: No route to host\n")
+    assert gf.SSH_LOST.search("Timeout, server 192.168.178.70 not responding.\n")
+    assert not gf.SSH_LOST.search("FAILED tests/test_x.py::test_ssh_connect_to_host\n")
+
+
 def _host(name, arch, tmp_path):
     return gf.Host(name, {"arch": arch, "card_type": arch, "root": str(tmp_path)}, "f" * 40)
 
