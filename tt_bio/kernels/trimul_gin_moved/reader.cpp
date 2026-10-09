@@ -16,7 +16,8 @@ void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(1);
     constexpr uint32_t St = get_compile_time_arg_val(2);
     constexpr uint32_t MASK = get_compile_time_arg_val(3);
-    constexpr auto x_args = TensorAccessorArgs<4>();
+    constexpr uint32_t ABL = get_compile_time_arg_val(4);   // bit 3: no x reads (diagnostic)
+    constexpr auto x_args = TensorAccessorArgs<5>();
     constexpr auto wp_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<wp_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<wg_args.next_compile_time_args_offset()>();
@@ -51,7 +52,8 @@ void kernel_main() {
         uint32_t page = ((b * S + xt * 32) * St + yt) * Kt;
         for (uint32_t il = 0; il < 32; ++il, page += St * Kt) {
             uint32_t dst = base + il * tb;
-            for (uint32_t dt = 0; dt < Kt; ++dt, dst += 32 * tb) noc_async_read_page(page + dt, x, dst);
+            if constexpr (!(ABL & 8))
+                for (uint32_t dt = 0; dt < Kt; ++dt, dst += 32 * tb) noc_async_read_page(page + dt, x, dst);
         }
         noc_async_read_barrier();
         cb_push_back(x_cb, 32 * Kt);

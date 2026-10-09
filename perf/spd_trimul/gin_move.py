@@ -16,6 +16,9 @@ ap.add_argument("--c", type=int, default=128, help="channels per output chunk (a
 ap.add_argument("--calls", type=int, default=10)
 ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--nomask", action="store_true")
+ap.add_argument("--abl", default="", help="time only, moved route: stage ablation bits, e.g. 1,2,4,8,16")
+ap.add_argument("--nb", default="", help="time only, moved route: writer tiles per read barrier, e.g. 1,4,8")
+ap.add_argument("--only-timing", action="store_true", help="skip the two-route check, run only --abl/--nb")
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -66,6 +69,37 @@ def moved():
 def rel(a, r):
     return float(((a.double() - r) ** 2).mean().sqrt() / (r ** 2).mean().sqrt())
 
+
+def timed(f):
+    for t in f():
+        ttnn.deallocate(t)
+    ms = []
+    for _ in range(A.reps):
+        t0 = time.perf_counter()
+        for _ in range(A.calls):
+            for t in f():
+                ttnn.deallocate(t)
+        ttnn.synchronize_device(dev)
+        ms.append((time.perf_counter() - t0) * 1e3 / A.calls)
+    return round(min(ms), 4)
+
+
+# NB first (an output-preserving change: checked against float64 too), then the ablations at the default NB.
+for nb in [int(v) for v in A.nb.split(",") if v]:
+    TT.GIN_MOVE_NB = nb
+    res = moved()
+    host = [ttnn.to_torch(t) for t in res]
+    for t in res:
+        ttnn.deallocate(t)
+    print(json.dumps({"nb": nb, "ms": timed(moved), "rel_rms_f64": [round(rel(h, r), 6) for h, r in zip(host, ref)]}),
+          flush=True)
+NB0 = TT.GIN_MOVE_NB = int(__import__("os").environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))
+for abl in [int(v) for v in A.abl.split(",") if v]:
+    TT.GIN_MOVE_ABL = abl
+    print(json.dumps({"abl": abl, "nb": NB0, "ms": timed(moved)}), flush=True)
+TT.GIN_MOVE_ABL = 0
+if A.only_timing:
+    sys.exit(0)
 
 out = {}
 for name, f in (("today", today), ("moved", moved)):

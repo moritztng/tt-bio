@@ -530,10 +530,12 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
 # BOARD 2026-10-09 04:55Z). TT_BIO_TRIMUL_GIN_MOVE=0 takes the split route back.
 GIN_MOVE = env_flag("TT_BIO_TRIMUL_GIN_MOVE", True)
 GIN_MOVE_STATS = [0, 0]   # served, declined
+GIN_MOVE_ABL = 0          # the three kernels' stage ablation bits (see each .cpp). Diagnostic only.
+GIN_MOVE_NB = int(os.environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))   # writer tiles per read barrier
 
 
 def _gin_move_tiles(kt, ct2, mask):
-    return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 + (33 if mask else 0)
+    return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB + (33 if mask else 0)
 
 
 def gin_moved_ok(x, wpT, mask=None):
@@ -583,22 +585,22 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask):
     d = KERNEL_DIR.parent / "trimul_gin_moved"
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, St, int(mask is not None)] + acc(x) + acc(wpT) + acc(wgT)
+        compile_time_args=[kt, ct2, St, int(mask is not None), GIN_MOVE_ABL] + acc(x) + acc(wpT) + acc(wgT)
         + acc(mask if mask is not None else x),
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St] + acc(outs[0]) + acc(outs[1]),
+        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB] + acc(outs[0]) + acc(outs[1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, 4, int(mask is not None)], runtime_args=cp,
+        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL], runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
     cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
-           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(24, core_grid, 2)]
+           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
     if mask is not None:
         cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
@@ -620,7 +622,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
                                            ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
             for _ in range(2)]
     key = ("gin_move", str(x.padded_shape), str(wpT.padded_shape), tuple(grid),
-           tuple(str(c) for c in ckc), mask is not None)
+           tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask)

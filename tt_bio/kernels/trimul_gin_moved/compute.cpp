@@ -26,6 +26,8 @@ void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(1);
     constexpr uint32_t SBW = get_compile_time_arg_val(2);
     constexpr uint32_t MASK = get_compile_time_arg_val(3);
+    // Stage ablation, diagnostic only: bit 0 no sigmoid, bit 1 no gate multiply, bit 4 no matmul.
+    constexpr uint32_t ABL = get_compile_time_arg_val(4);
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -53,10 +55,10 @@ void kernel_main() {
                     tile_regs_acquire();
                     uint32_t i0 = (pass * CT2 + q) * Kt;
                     uint32_t i1 = il0;
-                    for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += 32) {
+                    for (uint32_t k = 0; k < Kt && !(ABL & 16); ++k, ++i0, i1 += 32) {
                         matmul_block(w_cb, x_cb, i0, i1, 0, true, SBW, 1, Kt);
                     }
-                    if (pass == 1) {
+                    if (pass == 1 && !(ABL & 1)) {
                         for (uint32_t i = 0; i < SBW; ++i) sigmoid_bf16_tile(i);
                     }
                     tile_regs_commit();
@@ -73,7 +75,8 @@ void kernel_main() {
             pack_reconfig_data_format(out_cb);
             for (uint32_t t0 = 0; t0 < 32; t0 += 4) {
                 tile_regs_acquire();
-                if (MASK && q < CT2 / 2) {
+                if constexpr (ABL & 2) {
+                } else if (MASK && q < CT2 / 2) {
                     mul_bcast_rows_init_short(g_cb, m_cb);
                     for (uint32_t i = 0; i < 4; ++i) mul_tiles_bcast_rows(g_cb, m_cb, t0 + i, t0 + i, i);
                     binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
