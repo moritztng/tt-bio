@@ -155,12 +155,29 @@ class OF3ConfidenceHead:
     def _bw(self, i, name):
         return self._w[(_BLK % i) + name].to(self._dtype)
 
-    def _host_s_block(self, s, z_host, i, s_mask=None):
+    def _pair_bias_device(self, z_d, i, N):
+        """Block ``i``'s attention-pair bias, LN_z + linear_z in fp32 on device -> host [H, N, N]."""
+        pfx = (_BLK % i) + "attn_pair_bias."
+        f32 = ttnn.float32
+        z32 = ttnn.typecast(z_d, f32)
+        zn = ttnn.layer_norm(z32, weight=self._wd(pfx + "layer_norm_z.weight", False, f32),
+                             bias=self._wd(pfx + "layer_norm_z.bias", False, f32), epsilon=1e-5,
+                             compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(z32)
+        b = ttnn.linear(zn, self._wd(pfx + "linear_z.weight", True, f32),
+                        compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(zn)
+        out = torch.Tensor(ttnn.to_torch(b)).float().reshape(N, N, _APB_HEADS).permute(2, 0, 1)
+        ttnn.deallocate(b)
+        return out
+
+    def _host_s_block(self, s, z_host, i, s_mask=None, bias=None):
         """One host-fp32 s-path block: AttentionPairBias + Transition (reference formula).
 
         ``s`` is [N, c_s] fp32; ``z_host`` is the device-computed [N, N, c_z] pair for this
         block (brought host-side for the pair-bias LN+linear, which must match the
-        reference's no-sqrt-scaling formula). Returns the updated ``s``.
+        reference's no-sqrt-scaling formula), unless ``bias`` [H, N, N] is passed already
+        computed (:meth:`_pair_bias_device`). Returns the updated ``s``.
 
         ``s_mask`` is the reference's ``single_mask`` as a [N] float, or None. Upstream's
         AttentionPairBias adds ``inf * (mask - 1)`` to the scores over the key axis and its
@@ -169,9 +186,10 @@ class OF3ConfidenceHead:
         pfx = "attn_pair_bias."
         a = F.layer_norm(s, (_C_S,), self._bw(i, pfx + "layer_norm_a.weight"),
                          self._bw(i, pfx + "layer_norm_a.bias"))
-        zn = F.layer_norm(z_host, (_C_Z,), self._bw(i, pfx + "layer_norm_z.weight"),
-                          self._bw(i, pfx + "layer_norm_z.bias"))
-        bias = F.linear(zn, self._bw(i, pfx + "linear_z.weight")).permute(2, 0, 1)  # [H, N, N]
+        if bias is None:
+            zn = F.layer_norm(z_host, (_C_Z,), self._bw(i, pfx + "layer_norm_z.weight"),
+                              self._bw(i, pfx + "layer_norm_z.bias"))
+            bias = F.linear(zn, self._bw(i, pfx + "linear_z.weight")).permute(2, 0, 1)  # [H, N, N]
         q = F.linear(a, self._bw(i, pfx + "mha.linear_q.weight"),
                      self._bw(i, pfx + "mha.linear_q.bias"))
         k = F.linear(a, self._bw(i, pfx + "mha.linear_k.weight"))
@@ -355,7 +373,8 @@ class OF3ConfidenceHead:
 
     def forward(self, si_input, si_trunk, zij_trunk, repr_x_pred,
                 max_atom_per_token_mask, use_zij_trunk_embedding=True,
-                s_path=None, dtype=None, token_mask=None, single_mask=None, shared=None):
+                s_path=None, dtype=None, token_mask=None, single_mask=None, shared=None,
+                return_pair=False):
         """Confidence forward -> dict of head logits (host fp32) + the confidence
         Pairformer (si_conf, zij_conf).
 
@@ -382,7 +401,8 @@ class OF3ConfidenceHead:
             pde_logits:      [N_tok, N_tok, 64]
             distogram_logits: [N_tok, N_tok, 64]
             si_conf:         [N_tok, 384]   (confidence Pairformer single, host-fp32)
-            zij_conf:        [N_tok, N_tok, 128] (device z-path output)
+            zij_conf:        [N_tok, N_tok, 128] (device z-path output); in fp32 inference
+                             None unless ``return_pair`` (it is not otherwise pulled)
         """
         N = si_trunk.shape[0]
         self._dtype = dtype or torch.float32
@@ -441,6 +461,10 @@ class OF3ConfidenceHead:
             attn_d = to_dev(((1.0 - tm) * -1e9).reshape(1, 1, 1, N))
         s = si_trunk.clone()
         zf = z
+        # In fp32 inference the pair never comes back to the host: each block's attention bias
+        # (LN_z + linear_z, 16 channels) and the pae / pde heads run on device in fp32, and only
+        # their outputs cross. The float64 reference keeps the whole pair on the host.
+        device_pair = self._dtype == torch.float32
         for i, blk in enumerate(self.pf.blocks):
             u = blk.triangle_multiplication_start(z_d, pm_d); z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
             u = blk.triangle_multiplication_end(z_d, pm_d);   z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
@@ -450,10 +474,12 @@ class OF3ConfidenceHead:
             if pm_d is not None:
                 u = ttnn.multiply_(u, pm_u)
             z_d = ttnn.add_(z_d, u); ttnn.deallocate(u)
-            z_host = torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
-            s = self._host_s_block(s, z_host, i, s_mask)
-            zf = z_host
-        s_single, zij_conf = s, zf
+            if device_pair:
+                s = self._host_s_block(s, None, i, s_mask, bias=self._pair_bias_device(z_d, i, N))
+            else:
+                zf = torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
+                s = self._host_s_block(s, zf, i, s_mask)
+        s_single = s
 
         # --- output heads (host fp32) ---
         # Distogram reads the TRUNK pair (reference: computed before the confidence
@@ -463,13 +489,23 @@ class OF3ConfidenceHead:
             shared["distogram"] = dlog + dlog.transpose(-2, -3)
         distogram_logits = shared["distogram"]
 
-        pae_logits = F.linear(
-            F.layer_norm(zij_conf, (_C_Z,)) * self._g("pae.layer_norm.weight") + self._bias("pae.layer_norm.bias"),
-            self._g("pae.linear.weight"))
-
-        plog = F.linear(
-            F.layer_norm(zij_conf, (_C_Z,)) * self._g("pde.layer_norm.weight") + self._bias("pde.layer_norm.bias"),
-            self._g("pde.linear.weight"))
+        if device_pair:
+            z32 = ttnn.typecast(z_d, ttnn.float32)
+            pae_logits, plog = (
+                torch.Tensor(ttnn.to_torch(self._lin(self._ln(z32, h, fp32=True), h + ".linear.weight")))
+                .float().reshape(N, N, -1) for h in ("pae", "pde"))
+            ttnn.deallocate(z32)
+            zij_conf = (torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
+                        if return_pair else None)
+            ttnn.deallocate(z_d)
+        else:
+            zij_conf = zf
+            pae_logits = F.linear(
+                F.layer_norm(zij_conf, (_C_Z,)) * self._g("pae.layer_norm.weight") + self._bias("pae.layer_norm.bias"),
+                self._g("pae.linear.weight"))
+            plog = F.linear(
+                F.layer_norm(zij_conf, (_C_Z,)) * self._g("pde.layer_norm.weight") + self._bias("pde.layer_norm.bias"),
+                self._g("pde.linear.weight"))
         pde_logits = plog + plog.transpose(-2, -3)
 
         plddt_logits = self._atom_head(s_single, "plddt", max_atom_per_token_mask, 50)
