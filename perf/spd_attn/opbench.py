@@ -95,6 +95,23 @@ def ta_site(S, full):
     cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
     pairs = TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)
     log(ev="ta_pairs", seq=S, cores=cores, pairs=pairs[:a.pairs])
+    if a.which == "tastream" and S == a.ta_seq[0]:
+        # Diagnostics for the streaming kernel, scored against a NO-mask float64 reference: (A) a zero bias
+        # through the mask-seeded streaming path, (B) the real bias with the seed compiled out.
+        zb = up(torch.zeros(1, H, S, S), ttnn.bfloat16)
+        REF[f"ta{S}z"] = torch.softmax((q16 @ k16.transpose(-1, -2)) * sc, -1) @ v16
+        SEL[f"ta{S}z"] = SEL[site]
+        def noseed(fn):
+            def call():
+                TS._STREAM_NOSEED = True
+                try:
+                    return fn()
+                finally:
+                    TS._STREAM_NOSEED = False
+            return call
+        ARMS[f"ta{S} zero-bias ladder"] = (f"ta{S}z", arm(lambda: T._tri_att_sdpa_at(q, k, v, zb, sc)))
+        ARMS[f"ta{S} zero-bias ladder stream"] = (f"ta{S}z", arm(lambda: T._tri_att_sdpa_at(q, k, v, zb, sc), stream=True))
+        ARMS[f"ta{S} ladder stream noseed"] = (f"ta{S}z", arm(noseed(ladder), stream=True))
     if a.which == "tastream":
         # Ceiling for a streaming-softmax TA kernel: the wheel's own SDPA with NO mask, where the streaming
         # v2 compute is eligible (fp32 dest off), against the same call forced onto the standard compute

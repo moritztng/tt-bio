@@ -86,12 +86,15 @@ QK_MASK_PRELOAD = env_flag("TT_BIO_TRIATT_QK_MASK_PRELOAD", True)
 # QK_MASK_PRELOAD does on the standard path. Needs fp32 dest off and no gate epilogue.
 # Off until measured.
 STREAM = env_flag("TT_BIO_TRIATT_STREAM", False)
+_STREAM_NOSEED = False
 
 
 def _mask_defines(k_num_chunks: int, stream: bool = False) -> dict:
     d = {"PERSISTENT_MASK": k_num_chunks}
     if stream:
         d["STREAM_PMASK"] = 1
+        if _STREAM_NOSEED:
+            d["STREAM_PMASK_NOSEED"] = 1   # diagnostic: the streaming path with the mask left out
     elif QK_MASK_PRELOAD:
         d["QK_MASK_PRELOAD"] = 1
     return d

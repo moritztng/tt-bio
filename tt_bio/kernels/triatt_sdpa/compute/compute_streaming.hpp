@@ -97,7 +97,7 @@ SDPA_NOINLINE void blocked_matmul_and_pack(
     uint32_t pmask_index = NO_PMASK,
     uint32_t pmask_row_tiles = 0) {
     tile_regs_acquire();
-#ifdef STREAM_PMASK
+#if defined(STREAM_PMASK) && !defined(STREAM_PMASK_NOSEED)
     if (pmask_index != NO_PMASK) {
         // tt-bio: seed DST with the persistent mask so Q@KT accumulates onto it and the scores
         // are packed once with the bias in, as matmul_blocks' QK_MASK_PRELOAD does on the
