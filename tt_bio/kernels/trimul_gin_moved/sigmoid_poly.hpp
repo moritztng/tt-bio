@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// The trimul gates' sigmoid as a polynomial on the SFPU, shared by trimul_gin_moved and trimul_tail_res.
+// SFPU helpers shared by trimul_gin_moved and trimul_tail_res: the gates' sigmoid as a polynomial, and a
+// round-to-nearest-even of DST to bf16 ahead of a pack.
 #pragma once
 
 #ifdef TRISC_MATH
@@ -37,6 +38,19 @@ inline void _sigmoid_poly_() {
         sfpi::dst_reg++;
     }
 }
+
+// Round DST to bf16, nearest-even, so the pack that follows is exact. The fp32 -> bf16 pack from DST
+// truncates: the resident tail's z + p * sigmoid(g) came out a full bf16 ULP short toward zero on
+// 0.18 % of elements, rel_rms 0.0024 to float64 where one rounding gives 0.0014 (epi2_diag.py).
+template <int ITERATIONS = 8>
+inline void _round_bf16_rne_() {
+#pragma GCC unroll 8
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat v = sfpi::dst_reg[0];
+        sfpi::dst_reg[0] = sfpi::reinterpret<sfpi::vFloat>(sfpi::float_to_fp16b(v, sfpi::RoundMode::NearestEven));
+        sfpi::dst_reg++;
+    }
+}
 }  // namespace sfpu
 }  // namespace ckernel
 #endif  // TRISC_MATH
@@ -44,4 +58,9 @@ inline void _sigmoid_poly_() {
 ALWI void sigmoid_poly_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         ckernel::sfpu::_sigmoid_poly_<8>, idst, (int)VectorMode::RC)));
+}
+
+ALWI void round_bf16_rne_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_round_bf16_rne_<8>, idst, (int)VectorMode::RC)));
 }

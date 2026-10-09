@@ -19,6 +19,8 @@ ap.add_argument("--nomask", action="store_true")
 ap.add_argument("--abl", default="", help="time only, moved route: stage ablation bits, e.g. 1,2,4,8,16")
 ap.add_argument("--nb", default="", help="time only, moved route: writer tiles per read barrier, e.g. 1,4,8")
 ap.add_argument("--sigpoly", action="store_true", help="add 'moved_poly' and 'today_poly' routes: the polynomial sigmoid")
+ap.add_argument("--var", action="append", default=[],
+                help="NAME:SIGPOLY:RNE, both routes under those kernel options (float64 error, ms); repeatable")
 ap.add_argument("--only-timing", action="store_true", help="skip the two-route check, run only --abl/--nb")
 A = ap.parse_args()
 
@@ -99,6 +101,20 @@ for abl in [int(v) for v in A.abl.split(",") if v]:
     TT.GIN_MOVE_ABL = abl
     print(json.dumps({"abl": abl, "nb": NB0, "ms": timed(moved)}), flush=True)
 TT.GIN_MOVE_ABL = 0
+for spec in A.var:
+    vname, sp, rn = spec.split(":")
+    TT.SIGPOLY, TT.RNE = bool(int(sp)), int(rn)
+    for rname, f in (("today", today), ("moved", moved)):
+        res = f()
+        host = [ttnn.to_torch(t) for t in res]
+        for t in res:
+            ttnn.deallocate(t)
+        print(json.dumps({"var": vname, "sigpoly": TT.SIGPOLY, "rne": TT.RNE, "route": rname, "ms": timed(f),
+                          "rel_rms_f64": [round(rel(h, r), 6) for h, r in zip(host, ref)],
+                          "max_err": [round(float((h.double() - r).abs().max()), 4) for h, r in zip(host, ref)],
+                          "mean_err": [float(f"{float((h.double() - r).mean()):.2e}") for h, r in zip(host, ref)]}),
+              flush=True)
+TT.SIGPOLY, TT.RNE = False, 0
 if A.only_timing:
     sys.exit(0)
 

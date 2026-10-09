@@ -36,6 +36,8 @@ void kernel_main() {
     constexpr uint32_t ABL = get_compile_time_arg_val(6);
     constexpr uint32_t MASK = get_compile_time_arg_val(7);
     constexpr uint32_t SIGPOLY = get_compile_time_arg_val(8);   // 1: sigmoid_poly.hpp's polynomial
+    // Round to nearest even before a pack (the pack truncates): bit 0 the output, bit 1 p and g.
+    constexpr uint32_t RNE = get_compile_time_arg_val(9);
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t in0_cb = tt::CBIndex::c_0;
@@ -75,6 +77,9 @@ void kernel_main() {
                             else sigmoid_bf16_tile(i);
                         }
                     }
+                    if constexpr (RNE & 2) {
+                        for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
+                    }
                     tile_regs_commit();
                     tile_regs_wait();
                     for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, pass_cb, mi * Nt + n0 + i);
@@ -112,6 +117,9 @@ void kernel_main() {
                 for (uint32_t i = 0; i < 4; ++i)
                     binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
                         z_cb, t0 + i, i);
+            }
+            if constexpr (RNE & 1) {
+                for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
             }
             tile_regs_commit();
             tile_regs_wait();

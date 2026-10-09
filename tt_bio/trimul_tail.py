@@ -297,6 +297,9 @@ def set_mask_fold(on: bool) -> bool:
 # The gates' sigmoid as a degree-8 polynomial in gin_moved and the resident tail
 # (kernels/trimul_gin_moved/sigmoid_poly.hpp), max |error| 3e-4 against exp + reciprocal's bf16 rounding.
 SIGPOLY = env_flag("TT_BIO_TRIMUL_SIGPOLY", False)
+# Round DST to bf16 nearest-even before the packs of those two kernels (the pack truncates toward zero):
+# bit 0 the output, bit 1 the p and g intermediates (sigmoid_poly.hpp, `_round_bf16_rne_`).
+RNE = int(os.environ.get("TT_BIO_TRIMUL_RNE", "0"))
 RES_ABL = 0          # the resident compute's stage ablation (see its compute.cpp). Diagnostic only.
 RES_STATS = [0, 0]   # served by the resident program, declined to the 2D one
 
@@ -370,7 +373,7 @@ def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared, mask=None):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, sbw, int(shared), resid, RES_ABL, int(mask is not None),
-                           int(SIGPOLY)],
+                           int(SIGPOLY), RNE],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
@@ -489,7 +492,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
             ttnn.deallocate(o)
         return _reject("mask", "x".join(str(int(d)) for d in mask.padded_shape))
     if _res_ok(xa, wa, epi, split, mem) and not ABL:
-        key = ("res", RES_ABL, SIGPOLY, None if mask is None else str(mask.padded_shape)) + key
+        key = ("res", RES_ABL, SIGPOLY, RNE, None if mask is None else str(mask.padded_shape)) + key
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs, grid, ckc, _block(wa), epi,
@@ -599,7 +602,7 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask):
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, int(SIGPOLY)],
+        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, int(SIGPOLY), RNE],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
@@ -627,7 +630,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
                                            ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
             for _ in range(2)]
     key = ("gin_move", str(x.padded_shape), str(wpT.padded_shape), tuple(grid),
-           tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, SIGPOLY)
+           tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, SIGPOLY, RNE)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask)

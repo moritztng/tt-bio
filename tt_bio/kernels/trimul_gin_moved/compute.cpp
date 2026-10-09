@@ -30,7 +30,9 @@ void kernel_main() {
     constexpr uint32_t MASK = get_compile_time_arg_val(3);
     // Stage ablation, diagnostic only: bit 0 no sigmoid, bit 1 no gate multiply, bit 4 no matmul.
     constexpr uint32_t ABL = get_compile_time_arg_val(4);
-    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(5);   // 1: the polynomial sigmoid above
+    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(5);   // 1: sigmoid_poly.hpp's polynomial
+    // Round to nearest even before a pack (the pack truncates): bit 0 the output, bit 1 p and g.
+    constexpr uint32_t RNE = get_compile_time_arg_val(6);
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -67,6 +69,9 @@ void kernel_main() {
                             else sigmoid_bf16_tile(i);
                         }
                     }
+                    if constexpr (RNE & 2) {
+                        for (uint32_t i = 0; i < SBW; ++i) round_bf16_rne_tile(i);
+                    }
                     tile_regs_commit();
                     tile_regs_wait();
                     for (uint32_t i = 0; i < SBW; ++i) pack_tile<true>(i, pass_cb, il0 + i);
@@ -93,6 +98,9 @@ void kernel_main() {
                 } else {
                     mul_tiles_init(p_cb, g_cb);
                     for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, g_cb, t0 + i, t0 + i, i);
+                }
+                if constexpr (RNE & 1) {
+                    for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
                 }
                 tile_regs_commit();
                 tile_regs_wait();
