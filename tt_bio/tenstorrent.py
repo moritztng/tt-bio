@@ -421,6 +421,12 @@ _BH_TRANSITION_CHUNK_ELEMS = 3145728
 # Raising this bound needs a per-core budget measured AT that channel and a core count the matmul
 # actually uses, not an extrapolation of this one.
 _BH_TRANSITION_L1_ROWS_MAX_C = 128
+# The same bound when fc1/fc2 write the hidden activations in bfp8 (the `transition_b8` lever, fast
+# mode). Measured on a p150a, real module, empty L1 (perf/spd_bh/transition_h.py): at c=256 and
+# 736 tokens bfp8 hidden runs h=32 clean where the byte budget below says 28, while bf16 hidden
+# clashes at h=20 against a budget of 16. Normal mode keeps 128: its c=256 raise is worth 3.7 %
+# of the module at 736 tokens, nothing at 1024, and moves the digest.
+_BH_TRANSITION_L1_ROWS_MAX_C_B8 = 256
 TRANSITION_L1_CHUNK_BYTES_PER_CORE = _BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE
 # Screen hook for the Blackhole raise, same pattern as every other lever here: the shipped
 # default has to stay A/B-able on one build without editing a derivation. On by default.
@@ -11119,11 +11125,14 @@ class Transition(Module):
         _tile = lambda v: -(-int(v) // 32) * 32
         _hid = int(self.fc1_weight.shape[-1])
         _gx, _gy = COMPUTE_GRID_MAIN
+        # Bytes per hidden element: x_1 and x_2 are bfp8 under `transition_b8` (a 32x32 tile is
+        # 1024 mantissa bytes + 64 exponent bytes), bf16 otherwise. x_norm is always bf16.
+        _hb = 1088 / 1024 if self._hidden_b8 else 2
+        _row_bytes = 2 * _tile(x.shape[-1]) + 2 * _hb * _tile(_hid)
 
         def _l1_rows_at(w):
             """Row height the per-core L1 budget alone allows at swiglu width `w`."""
-            return (TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
-                    / (2 * _tile(w) * (_tile(x.shape[-1]) + 2 * _tile(_hid))))
+            return TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy / (_tile(w) * _row_bytes)
 
         def _rows_at(w):
             """Row height EVERY budget allows at swiglu width `w`, BEFORE the floor at 1."""
@@ -11186,7 +11195,8 @@ class Transition(Module):
             # undo that measured raise.
             transition_h_chunk_size = min(transition_h_chunk_size,
                                           max(1, int(_l1_rows_at(w_eff))))
-        elif _TRANSITION_L1_ROWS and _c <= _BH_TRANSITION_L1_ROWS_MAX_C:
+        elif _TRANSITION_L1_ROWS and _c <= (_BH_TRANSITION_L1_ROWS_MAX_C_B8 if self._hidden_b8
+                                             else _BH_TRANSITION_L1_ROWS_MAX_C):
             # Blackhole: the same per-core budget, read the other way round. On a small grid the
             # measured L1 ceiling always sits BELOW the tuned base, so it only ever shrinks; on
             # Blackhole it sits well above it (48 rows against a shipped 16 at 512 aa), and the
@@ -11203,7 +11213,9 @@ class Transition(Module):
             transition_h_chunk_size = max(
                 transition_h_chunk_size,
                 max(1, int(min(_l1_rows_at(w_eff),
-                               _BH_TRANSITION_CHUNK_ELEMS / (w_eff * _c)))))
+                               # the element cap is the byte budget at bf16 hidden = 4c, i.e.
+                               # 18c bytes per row element; bfp8 hidden needs (2 + 8 * 1.0625)c
+                               _BH_TRANSITION_CHUNK_ELEMS * 18 / (w_eff * _c * (2 + 8 * _hb))))))
         # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
         # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
         # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation
@@ -11231,7 +11243,7 @@ class Transition(Module):
             # a barrier per call costs the pipelining the whole file is built on.
             if _trace == "sync":
                 ttnn.synchronize_device(x.device())
-            _pc = 2 * transition_h_chunk_size * _tile(w_eff) * (_tile(_c) + 2 * _tile(_hid))
+            _pc = int(transition_h_chunk_size * _tile(w_eff) * _row_bytes)
             print(f"[transition-h] t={time.time():.3f} z={H}x{W}x{_c} hid={_hid} w_eff={w_eff} "
                   f"chunked={int(w_chunked)} h={transition_h_chunk_size} base={_base_h} "
                   f"l1_rows={_l1_rows_at(w_eff):.2f} "
