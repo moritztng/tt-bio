@@ -48,6 +48,12 @@ BindCraft 2 leg. `python` / `python_for` override those. Every `env` value is ex
 and also fills `{NAME}` in a leg's argv. `args` adds flags to one leg family on that host, and they
 are part of the leg's key.
 
+POOL. A host shared through a chip pool (a queue directory a pool runner drains onto idle healthy
+chips, starting each job as `CHIP=<id> bash <job>`) names it, `"pool": {"queue": "<dir>", "prio": 5,
+"row": "<holder>"}`, and is granted as `host:pool`, once per leg it may run at a time (`g114:pool`
+four times = at most four legs queued or running there). Each leg becomes one job file; the pool
+picks the chip, the leg still takes that chip's flock, and the runner waits for the job's exit code.
+
 SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
 failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
 "<why>"]}`: the leg then reports SEEDED, not PASS (there was nothing to regress against), and the
@@ -61,6 +67,7 @@ import dataclasses
 import fnmatch
 import hashlib
 import json
+import re
 import shlex
 import subprocess
 import sys
@@ -86,6 +93,9 @@ TIMED = {"perf"}
 #: Results that do not fail the gate. REUSED is a ledger hit of one of the others.
 OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
 LOG_CAP = 20 << 20
+POOL = "pool"            # --workers host:pool, a slot in the host's chip pool
+POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the pool starts it
+POOL_POLL_S = 30
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
@@ -458,6 +468,63 @@ class Gate:
         return self.results
 
 
+def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
+    """A job file for the host's chip pool (CHIPS.md "Chip pool"): the pool starts it as
+    `CHIP=<umd> bash <job>` on an idle healthy chip, and it leaves its log and exit code in rdir."""
+    cmd = host.command(leg, POOL_CARD, rdir)
+    q = shlex.quote
+    return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n"
+            f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc\ncmd={q(cmd)}\n"
+            f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} > {q(rdir)}/leg.log 2>&1\n"
+            f"echo $? > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")
+
+
+def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
+    """Queue `leg` in the host's pool, wait for its exit code, copy its log (capped) into f."""
+    pool = host.cfg["pool"]
+    name = f"{pool.get('prio', 5)}-{pool.get('row', 'gate')}-{host.sha[:9]}-" + \
+        leg.name.replace(":", "_").replace("/", "-")
+    job, q = f"{pool['queue']}/{name}.sh", shlex.quote
+    r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
+                 input=pool_job(host, leg, rdir, name), capture_output=True, timeout=120)
+    if r.returncode:
+        f.write(f"cannot queue {job}: {r.stderr.strip()}\n")
+        return 1
+    f.write(f"# queued {host.name}:{job}\n")
+    f.flush()
+    while True:
+        time.sleep(POOL_POLL_S)
+        r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
+        if r.returncode == 0 and r.stdout.strip():
+            rc = int(r.stdout.strip())
+            break
+    r = host.ssh(f"L={q(rdir)}/leg.log; head -c {LOG_CAP} $L; [ $(stat -c%s $L) -le {LOG_CAP} ] || "
+                 f"{{ echo; echo '# ... log capped at {LOG_CAP} bytes; last 400 lines:'; tail -n 400 $L; }}",
+                 capture_output=True, timeout=300)
+    f.write(r.stdout)
+    return rc
+
+
+def run_over_ssh(host: Host, card, leg: Leg, rdir: str, f) -> int:
+    """Run `leg` on a named card, streaming its log into f."""
+    cmd = host.command(leg, card, rdir)
+    p = subprocess.Popen(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60", host.cfg["ssh"], cmd]
+                         if host.cfg.get("ssh") not in (None, "", "localhost") else ["bash", "-c", cmd],
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    # The runner's host keeps every leg's log; cap each at LOG_CAP bytes (head kept, last lines
+    # kept in memory) so one chatty leg cannot fill its disk.
+    written, tail = 0, []
+    for line in p.stdout:
+        if written < LOG_CAP:
+            f.write(line)
+            written += len(line)
+        else:
+            tail = (tail + [line])[-400:]
+    if tail:
+        f.write(f"\n# ... log capped at {LOG_CAP} bytes; last {len(tail)} lines:\n" + "".join(tail))
+    return p.wait()
+
+
 def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: str):
     def execute(host: Host, card, leg: Leg) -> dict:
         tag = leg.name.replace(":", "_").replace("/", "-")
@@ -465,29 +532,16 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         log.parent.mkdir(parents=True, exist_ok=True)
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
-        start = None
         with open(log, "w") as f:
             f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
             f.flush()
-            p = subprocess.Popen(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60",
-                                  host.cfg["ssh"], host.command(leg, card, rdir)]
-                                 if host.cfg.get("ssh") not in (None, "", "localhost") else
-                                 ["bash", "-c", host.command(leg, card, rdir)],
-                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            # The runner's host keeps every leg's log; cap each at LOG_CAP bytes (head kept, last
-            # lines kept in memory) so one chatty leg cannot fill its disk.
-            written, tail = 0, []
-            for line in p.stdout:
-                if line.startswith("##LEG-START ") and start is None:
-                    start = float(line.split()[1])
-                if written < LOG_CAP:
-                    f.write(line)
-                    written += len(line)
-                else:
-                    tail = (tail + [line])[-400:]
-            if tail:
-                f.write(f"\n# ... log capped at {LOG_CAP} bytes; last {len(tail)} lines:\n" + "".join(tail))
-            rc = p.wait()
+            rc = (run_in_pool if card == POOL else run_over_ssh)(host, card, leg, rdir, f)
+        text = log.read_text(errors="replace")
+        m = re.search(r"^##LEG-START (\d+)", text, re.M)
+        start = float(m.group(1)) if m else None
+        m = re.search(r"^##CHIP (\d+)", text, re.M)
+        if m:
+            card = f"{POOL}/{m.group(1)}"
         report = None
         if leg.workdir:
             r = host.ssh(f"cat {shlex.quote(rdir + '/report.json')}", capture_output=True, timeout=120)
@@ -526,7 +580,9 @@ def parse_workers(spec: str, hosts: dict) -> list:
         h, c = w.rsplit(":", 1)
         if h not in hosts:
             raise SystemExit(f"--workers names {h!r}, not in the hosts file")
-        out.append((hosts[h], int(c)))
+        if c == POOL and "pool" not in hosts[h].cfg:
+            raise SystemExit(f"--workers {w}: {h} has no pool in the hosts file")
+        out.append((hosts[h], c if c == POOL else int(c)))
     return out
 
 

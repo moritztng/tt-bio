@@ -198,3 +198,35 @@ def test_a_seeding_host_adds_its_flags_to_the_key_and_reports_seeded_not_pass(tm
     assert gf.write_verdict(tmp_path, "a" * 40, ["bh", "wh"], rows)
     md = (tmp_path / "VERDICT.md").read_text()
     assert "SEEDED 1 min g:5" in md and "/o/seeded/wh/perf_baselines.json" in md
+
+
+def test_a_pool_leg_is_one_job_file_that_runs_on_the_chip_the_pool_picks(tmp_path, monkeypatch):
+    """The pool, not the runner, chooses the chip: the job reads $CHIP for the card, its flock and
+    the leg's own arguments, and the runner takes the exit code and log from what the job left."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    queue = tmp_path / "queue"
+    queue.mkdir()
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 5, "row": "spd-shipflow"}}, sha)
+    leg = gf.Leg("ux:x", ["PY", "-c", "import os, sys; print('card', os.environ['TT_VISIBLE_DEVICES'], "
+                          "sys.argv[1]); sys.exit(3)", "localhost:{CARD}"], "ux")
+
+    def pool():  # what the pool runner does: start the job on chip 7
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        assert jobs[0].name == "5-spd-shipflow-bbbbbbbbb-ux_x.sh"
+        subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "PATH": "/usr/bin:/bin"}, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    log = tmp_path / "leg.log"
+    with open(log, "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "out"), f)
+    t.join()
+    assert rc == 3
+    text = log.read_text()
+    assert "##CHIP 7" in text and "card 7 localhost:7" in text and "##LEG-START" in text
+    assert (tmp_path / "chip7.lock").exists()
+    assert gf.parse_workers("g:pool,g:pool", {"g": h}) == [(h, "pool"), (h, "pool")]
