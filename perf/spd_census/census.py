@@ -228,7 +228,7 @@ def drain():
         try:
             ttnn.ReadDeviceProfiler(DEV["d"]); break
         except RuntimeError as e:
-            if "ARC to respond" not in str(e) or attempt == 3: raise
+            if not any(m in str(e) for m in ("ARC to respond", "Failed to get AICLK")) or attempt == 3: raise
             log(ev="arc_retry", attempt=attempt); time.sleep(2)
     hi = OPID(); n = 0; seen = set()
     for chip, progs in ttnn.get_latest_programs_perf_data().items():
