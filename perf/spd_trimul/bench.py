@@ -227,10 +227,16 @@ else:
 
 # For the whole process, before anything is built. Protenix builds its trunk under its lever set
 # with fast mode off (`Protenix._build`, legacy_fast=False), so --fast is the levers alone.
+# Keep the context manager referenced: a bare `T.levers(...).__enter__()` drops the generator at once, its
+# `finally` restores the previous set, and the levers are off again before the module is built (spd-trikern-mm).
+_LEVERS_CM = None
 if A.fast:
-    T.levers("fast").__enter__()
-if A.normal:
-    T.levers(T.NORMAL_LEVERS).__enter__()
+    _LEVERS_CM = T.levers("fast")
+elif A.normal:
+    _LEVERS_CM = T.levers(T.NORMAL_LEVERS)
+if _LEVERS_CM is not None:
+    _LEVERS_CM.__enter__()
+    assert T.lever("trimul_ibw"), "levers did not stay active"
 if A.legacy_fast:
     T.set_fast_mode(True)
 from tt_bio.af2 import compute_kernel_config
@@ -334,6 +340,7 @@ for var in A.variants.split(","):
             fired["mask_fold"] = TTL.MASK_STATS[0] - mf0
             fired["gated_mask_fold"] = RB.STATS_GATED_MASK[0] - gmf0
             fired["mm_pipe"] = T.MM_PIPE
+            fired["levers"] = sorted(T._LEVERS)
         finally:
             restore(prev)
         outs[arm] = yt
