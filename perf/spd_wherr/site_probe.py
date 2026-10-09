@@ -81,7 +81,10 @@ def main():
                     if pc == "skip":
                         continue
                     kw = dict(compute_kernel_config=ck, dtype=ttnn.bfloat16)
-                    kw.update(core_grid=ttnn.CoreGrid(y=grid[1], x=grid[0]) if pc is None else dict(program_config=pc))
+                    if pc is None:
+                        kw["core_grid"] = ttnn.CoreGrid(y=grid[1], x=grid[0])
+                    else:
+                        kw["program_config"] = pc
                     x = ta3 if v == "auto3d" else ta
                     run = lambda: ttnn.linear(x, tw, **kw)
                     try:
