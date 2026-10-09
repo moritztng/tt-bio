@@ -17,7 +17,7 @@ say "waiting for $LOCK; head $(git rev-parse --short HEAD)"
 exec 9>"$LOCK"
 flock -w ${LOCKWAIT:-10800} 9 || { say "flock timeout"; exit 3; }
 say "flock held, load $(cut -d' ' -f1-3 /proc/loadavg)"
-if [ "$JOB" = op ] || [ "$JOB" = atom ] || [ "$JOB" = roof ] || [ "$JOB" = pair ]; then
+if [ "$JOB" = op ] || [ "$JOB" = atom ] || [ "$JOB" = roof ] || [ "$JOB" = pair ] || [ "$JOB" = narrow ]; then
     WHICH=all; [ "$JOB" = op ] || WHICH=$JOB
     timeout -s TERM 2520 timeout -s INT 2400 $PY perf/spd_attn/opbench.py "$OUT/op" "$CHIP" $WHICH > "$OUT/op.log" 2>&1
     say "op rc=$?"

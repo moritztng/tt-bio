@@ -59,6 +59,7 @@ up = lambda t, dt: ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=
                                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
 rel = lambda o, r: float(((o.double() - r).pow(2).mean() / r.pow(2).mean()).sqrt())
 ARMS, REF, SEL, SAME = {}, {}, {}, {}  # SAME: arm -> the arm its output must equal bit for bit
+BYTES = {}   # arm -> DRAM bytes moved per call at one read + one write
 
 # ---- triangle attention
 def ta_site(S, full):
@@ -170,9 +171,33 @@ if a.which in ("atom", "all"):
     SAME["atom superset bf16 sdpa kvwin"] = "atom superset bf16 sdpa"
     SAME["atom superset fp32 sdpa32 kvwin"] = "atom superset fp32 sdpa32"
 
+# ---- narrow pair projections: pairformer pair bias [1,S,S,256] @ [256,16] and PWA's [1,S,S,256] @ [256,8],
+# DRAM in and out, at the production K block (1) and the narrow_bw lever's (16), against a float64 matmul
+if a.which in ("narrow", "all"):
+    for S in a.ta_seq:
+        for n_out in (16, 8):
+            site = f"narrow{S}x{n_out}"
+            torch.manual_seed(3)
+            hx, hw = torch.randn(1, S, S, 256), torch.randn(256, n_out) * 0.06
+            x, w = up(hx, ttnn.bfloat16), up(hw, ttnn.bfloat16)
+            REF[site] = ttnn.to_torch(x).double() @ ttnn.to_torch(w).double()
+            ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                                   fp32_dest_acc_en=True, packer_l1_acc=True)
+            def nar(bw, x=x, w=w, ckc=ckc):
+                T._NARROW_PROJ_BW = bw
+                try:
+                    return T._narrow_proj_linear(x, w, ckc, ttnn.bfloat16)
+                finally:
+                    T._NARROW_PROJ_BW = 1
+            ARMS[f"narrow {S}x{n_out} bw1"] = (site, lambda nar=nar: nar(1))
+            ARMS[f"narrow {S}x{n_out} bw16"] = (site, lambda nar=nar: nar(16))
+            ARMS[f"narrow {S}x{n_out} stock"] = (site, lambda x=x, w=w, ckc=ckc: ttnn.linear(
+                x, w, compute_kernel_config=ckc, core_grid=T.CORE_GRID_MAIN))
+            SAME[f"narrow {S}x{n_out} bw1"] = f"narrow {S}x{n_out} stock"
+            BYTES.update({f"narrow {S}x{n_out} {t}": S * S * 256 * 2 + S * S * 32 * 2 for t in ("bw1", "bw16", "stock")})
+
 # ---- pair transpose: the ending-node triangle attention's dim0/dim1 swap of the [S, S, 256] pair, DRAM to DRAM,
 # today's route (ROW_MAJOR round trip) against tt_bio.pair_transpose (one tile read, L1 row shuffle, one tile write)
-BYTES = {}   # arm -> DRAM bytes moved per call at one read + one write
 if a.which in ("pair", "all"):
     from tt_bio import pair_transpose as PTR
     for S in a.ta_seq:
