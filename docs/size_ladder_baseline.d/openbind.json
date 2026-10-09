@@ -5973,7 +5973,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "512": {
@@ -6291,7 +6291,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "640": {
@@ -6608,7 +6608,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "768": {
@@ -6925,7 +6925,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "896": {
@@ -7242,7 +7242,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1024": {
@@ -7559,7 +7559,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1280": {
@@ -7877,7 +7877,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             },
             "1536": {
@@ -8193,7 +8193,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: never offered: the padded pair is tried only ahead of the first stock rung, and every triangle-attention call at this length is served by a dividing fused pair first. It exists for lengths with no dividing chunk (736 = 23 tiles), which no ladder rung is"
               }
             }
           },

@@ -130,8 +130,29 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     git("add", "."), git("commit", "-qm", "10")
     assert gf.content_hash("HEAD", tmp_path) == c8          # a fix to this runner: same key
 
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_only_pytest.py").write_text("def test_a(): pass\n")
+    (tmp_path / "tests" / "test_loaded.py").write_text("def test_b(): pass\n")
+    (tmp_path / "scripts" / "gate.py").write_text("load('tests/test_loaded.py')\n"
+                                                  "# covered by tests/test_only_pytest.py\n")
+    (tmp_path / "scripts" / "run.sh").write_text("pytest tests/test_only_pytest.py\n")
+    git("add", "."), git("commit", "-qm", "11")
+    c11 = gf.content_hash("HEAD", tmp_path)
+    t11 = gf.tests_hash("HEAD", "pytest_device", tmp_path)
+    assert gf.test_only("HEAD", tmp_path) == {"tests/test_only_pytest.py"}
+    assert gf.tests_hash("HEAD", "parity", tmp_path) == ""
+    (tmp_path / "tests" / "test_only_pytest.py").write_text("def test_a(): assert 1\n")
+    git("commit", "-qam", "12")
+    assert gf.content_hash("HEAD", tmp_path) == c11         # a test fix: same code key,
+    assert gf.tests_hash("HEAD", "pytest_device", tmp_path) != t11  # the pytest legs rerun
+    assert gf.content_hash("HEAD", tmp_path, tests=True) != gf.content_hash("HEAD~", tmp_path, tests=True)
+    (tmp_path / "tests" / "test_loaded.py").write_text("def test_b(): assert 1\n")
+    git("commit", "-qam", "13")
+    assert gf.content_hash("HEAD", tmp_path) != c11         # a test a gate script loads is code
+
     leg = _legs()[3]
     k = gf.leg_key(c1, "env", "p150a", leg)
+    assert k == gf.leg_key(c1, "env", "p150a", leg, "", "")   # an empty input keeps the old key
     assert k == gf.leg_key(c1, "env", "p150a", leg)
     assert k != gf.leg_key(c1, "env2", "p150a", leg)
     assert k != gf.leg_key(c1, "env", "tt-galaxy-wh-l", leg)

@@ -35,12 +35,14 @@ REUSE. Every leg result is keyed by
            measurements and gate baselines, interpreter's installed distributions except
            tt-bio, card type, leg name, leg argv, and the baseline files the leg compares
            against: docs/size_ladder_baseline* for ladder legs, docs/perf_baselines.json for
-           perf, docs/capacity_gate_baseline.json for capacity)
+           perf, docs/capacity_gate_baseline.json for capacity; for the pytest legs, the
+           tests/test_*.py files no Python file outside tests/ loads)
 and written to --ledger. A leg whose key already holds a PASS is not run again; the verdict names
 the evidence it reused (its log, host, card, date). So a crossmodel or suite run done through this
 runner during grading counts toward the release on the same code, and a docs-only commit on top of
-a gated tree does not repeat the gate. Any change to code, tests, scripts, data, fixtures, the
-interpreter's packages or the card type is a different key and runs fresh.
+a gated tree does not repeat the gate, and a fix to a test file reruns the pytest legs only. Any
+change to code, scripts, data, fixtures, the interpreter's packages or the card type is a different
+key and runs fresh.
 
 hosts.json names, per host, how to reach it and what to run with (no host facts live in this file):
     {"qb1": {"ssh": "qb1", "arch": "bh", "card_type": "p150a", "root": "/home/ttuser/gate",
@@ -71,6 +73,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import fnmatch
+import functools
 import hashlib
 import inspect
 import json
@@ -185,9 +188,28 @@ BASELINES = {"ladder": ("docs/size_ladder_baseline.json", "docs/size_ladder_base
 _BASELINE_PATHS = tuple(p for ps in BASELINES.values() for p in ps)
 
 
+def _commit(sha: str, repo: Path) -> str:
+    """The commit id `sha` names, so a cache keyed on it survives a moving ref like HEAD."""
+    return subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", f"{sha}^{{commit}}"],
+                          check=True, capture_output=True, text=True).stdout.strip()
+
+
 def _ls_tree(sha: str, repo: Path) -> list[str]:
+    return _ls_tree_at(_commit(sha, repo), repo)
+
+
+@functools.lru_cache(maxsize=None)
+def _ls_tree_at(sha: str, repo: Path) -> list[str]:
     return subprocess.run(["git", "-C", str(repo), "ls-tree", "-r", "--full-tree", sha], check=True,
                           capture_output=True, text=True).stdout.splitlines()
+
+
+def _same_code(sha: str, content: str, repo: Path = REPO) -> bool:
+    """True when `sha` is in this repo and holds the code `content` hashes."""
+    try:
+        return content_hash(sha, repo) == content
+    except subprocess.CalledProcessError:
+        return False
 
 
 def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "") -> str:
@@ -205,12 +227,73 @@ def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "") -> 
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
 
 
+#: The leg families that run the test suite, and so read the test files the content key leaves out.
+PYTEST = ("pytest_cpu", "pytest_device")
+
+
+def test_only(sha: str, repo: Path = REPO) -> frozenset:
+    return _test_only_at(_commit(sha, repo), repo)
+
+
+@functools.lru_cache(maxsize=None)
+def _test_only_at(sha: str, repo: Path) -> frozenset:
+    """tests/test_*.py that only pytest reads: no Python file outside tests/ names them in code.
+    Every leg but the pytest ones runs Python, so a gate script that loads a test (release_gate
+    imports tests/test_structure.py by path) names it, and that file stays in the content key
+    with the code that runs it. Only string literals and imports count: a comment or docstring
+    pointing at the test that covers a function does not load it, and most of tt_bio's do."""
+    stems = {Path(t).stem: t for t in test_files(sha, repo)}
+    if not stems:
+        return frozenset()
+    git = ["git", "-C", str(repo)]
+    files = subprocess.run([*git, "grep", "-l", "-w", "-F", *[x for t in stems for x in ("-e", t)], sha,
+                            "--", "*.py", ":(exclude)tests/"],
+                           capture_output=True, text=True).stdout.splitlines()
+    word = re.compile(r"\b(" + "|".join(map(re.escape, stems)) + r")\b")
+    named = set()
+    for f in files:
+        text = subprocess.run([*git, "show", f], capture_output=True, text=True).stdout
+        named |= set(word.findall("\n".join(_code_strings(text))))
+    return frozenset(t for stem, t in stems.items() if stem not in named)
+
+
+def _code_strings(src: str) -> list:
+    """String literals and imported module names of a Python file, docstrings and comments left
+    out. Unparseable source is returned whole, which can only keep a test in the content key."""
+    import ast
+    try:
+        tree = ast.parse(src)
+    except SyntaxError:
+        return [src]
+    docs = {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Expr)
+            and isinstance(n.value, ast.Constant) and isinstance(n.value.value, str)}
+    out = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
+            out.append(n.value)
+        elif isinstance(n, ast.Import):
+            out += [a.name for a in n.names]
+        elif isinstance(n, ast.ImportFrom):
+            out += [n.module or ""] + [a.name for a in n.names]
+    return out
+
+
+def tests_hash(sha: str, family: str, repo: Path = REPO) -> str:
+    """Blob ids of the test-only files at `sha` for a pytest leg ('' for any other family), so a
+    test fix reruns the pytest legs and not the folds."""
+    if family not in PYTEST:
+        return ""
+    only = test_only(sha, repo)
+    rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1] in only]
+    return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
 RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py", "scripts/splice_ladder_fragments.py",
                 "scripts/gate_host_prep.sh",
                 "tests/test_gate_fanout.py", "tests/test_release_next.py")
 
 
-def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
+def content_hash(sha: str, repo: Path = REPO, baselines: bool = False, tests: bool = False) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
@@ -221,7 +304,9 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
     Gate baselines (BASELINES) are left out too and keyed per leg family instead;
     `baselines=True` keeps them, the key every ledger row before 2026-10-09 15Z was written under.
     So is this runner (RUNNER_FILES): it decides where a leg runs, not what the leg computes, and
-    a fix to it must not throw away a gate's worth of evidence."""
+    a fix to it must not throw away a gate's worth of evidence. Test files only pytest reads
+    (test_only) are keyed on the pytest legs instead; `tests=True` keeps them, the key every
+    ledger row before 2026-10-09 21Z was written under."""
     def git(*a, ok=(0,)):
         p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
         if p.returncode not in ok:
@@ -229,10 +314,11 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
         return p.stdout
     recorded = {ln.split(":", 1)[1] for ln in git("grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt",
                                                   ok=(0, 1)).splitlines()}
+    only = set() if tests else test_only(sha, repo)
     rows = []
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
-        if (path.endswith(".md") or path in recorded or path in RUNNER_FILES
+        if (path.endswith(".md") or path in recorded or path in RUNNER_FILES or path in only
                 or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
@@ -247,8 +333,10 @@ def env_hash(probe: dict) -> str:
     return sha256(probe["python"], probe["dists"])
 
 
-def leg_key(content: str, env: str, card_type: str, leg: "Leg", baseline: str = "") -> str:
-    return sha256(content, env, card_type, leg.name, leg.argv, *([baseline] if baseline else []))
+def leg_key(content: str, env: str, card_type: str, leg: "Leg", *inputs: str) -> str:
+    """`inputs` are the leg family's own files outside the content key (baselines, test files);
+    an empty one drops out, so a family that reads none keeps the key it always had."""
+    return sha256(content, env, card_type, leg.name, leg.argv, *[x for x in inputs if x])
 
 
 # ---------------------------------------------------------------------------------------------
@@ -489,6 +577,16 @@ class Ledger:
     def get(self, key: str) -> dict | None:
         p = self.path / f"{key}.json"
         return json.loads(p.read_text()) if p.exists() else None
+
+    def shas(self) -> set:
+        """Every commit a row was recorded at."""
+        out = set()
+        for p in self.path.glob("*.json"):
+            try:
+                out.add(json.loads(p.read_text())["sha"])
+            except (ValueError, KeyError):
+                continue
+        return out
 
     def history(self) -> dict:
         """leg name -> the latest wall clock any run of it took, for ordering only."""
@@ -810,7 +908,7 @@ def main() -> int:
     roster = first[archs[0]].run_py(ENUMERATE)
     legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full),
                   [p for p in args.legs.split(",") if p])
-    content, legacy = content_hash(sha), content_hash(sha, baselines=True)
+    content, legacy = content_hash(sha), content_hash(sha, baselines=True, tests=True)
     probes = {}
     for a in archs:
         for py in {first[a].python(lg.family) for lg in legs}:
@@ -830,22 +928,31 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     ledger = Ledger(args.ledger)
+    # Rows written while test files were inside the content key (until 2026-10-09 21Z), at this
+    # commit or at any commit with the same code, which a leg accepts when its own inputs match too.
+    tests_in = {s: content_hash(s, tests=True) for s in {sha} | ledger.shas()
+                if s == sha or _same_code(s, content)}
     keys, results, todo = {}, [], {a: [] for a in archs}
     for lg in legs:
         for a in (archs if lg.card else [archs[0]]):
             slot = a if lg.card else "any"
-            k = leg_key(content, envs[f"{a} {first[a].python(lg.family)}"],
-                        ctype[a] if lg.card else "cpu", first[a].leg(lg),
-                        baseline_hash(sha, lg.family, model=lg.name.split(":", 1)[1] if lg.family == "ladder" else ""))
+            env, ct, hleg = (envs[f"{a} {first[a].python(lg.family)}"], ctype[a] if lg.card else "cpu",
+                             first[a].leg(lg))
+            model = lg.name.split(":", 1)[1] if lg.family == "ladder" else ""
+            base, tst = baseline_hash(sha, lg.family, model=model), tests_hash(sha, lg.family)
+            k = leg_key(content, env, ct, hleg, base, tst)
             keys[(lg.name, slot)] = k
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
             # measurements the key leaves out.
-            # A row under the old key (baselines inside the content hash) proved the same code
-            # against the same baselines, so it is as good as a row under the new one.
-            old = leg_key(legacy, envs[f"{a} {first[a].python(lg.family)}"],
-                          ctype[a] if lg.card else "cpu", first[a].leg(lg))
+            # A row under an older key scheme proved the same code against the same inputs, so it
+            # is as good as a row under the new one: baselines inside the content hash (legacy),
+            # or test files inside it, at any commit whose code and this leg's inputs match.
+            olds = [leg_key(legacy, env, ct, hleg)] + [
+                leg_key(c, env, ct, hleg, base) for s, c in tests_in.items()
+                if s == sha or (baseline_hash(s, lg.family, model=model) == base
+                                and tests_hash(s, lg.family) == tst)]
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
-                   else ledger.get(k) or ledger.get(old))
+                   else next(filter(None, map(ledger.get, [k, *olds])), None))
             owes = owed_by(roster, ctype[a], lg)
             if owes:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "OWED", "owed": owes,

@@ -51,7 +51,9 @@ not part of the key either, so re-recording them in the release commit reuses ev
 card-free legs always run, and `pytest_cpu` is where a stale recording fails. The gate baselines
 (`docs/size_ladder_baseline*`, `docs/perf_baselines.json`, `docs/capacity_gate_baseline.json`)
 key only the legs that compare against them, so re-recording the size ladder reruns the ladder
-legs and nothing else. So a docs-only commit, or the release commit's version bump and
+legs and nothing else. Likewise a `tests/test_*.py` file that no Python file outside `tests/` loads keys
+only the pytest legs, so a test fix does not rerun the folds; a test a gate script loads (such as
+`tests/test_structure.py`) stays in the code key. So a docs-only commit, or the release commit's version bump and
 re-recordings, costs nothing, and a grade-time crossmodel or suite run done through
 `gate_fanout.py --legs 'rg:*'` on the same wheel venv counts for the release. Any change to code,
 tests, data, fixtures, packages or card type is a new key and runs fresh. `--legs` also takes
