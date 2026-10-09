@@ -282,14 +282,18 @@ class BoundField:
         if self.nvox >= 2**24:
             return self.classify(X.reshape(-1, 3), samples.repeat_interleave(X.shape[1]), ra.repeat(X.shape[0]))
         # a point off the grid is clamped onto its outermost voxel layer, which no atom's offset ball reaches (atoms
-        # sit k + 1 voxels in, offsets reach k): inf there, as classify gives off the grid
-        c = torch.floor((X - self.lo[samples][:, None]) / self.v).clamp_(min=0)
-        c = torch.minimum(c, (self.dims - 1).to(X.dtype), out=c)
+        # sit k + 1 voxels in, offsets reach k): inf there, as classify gives off the grid. x / v as x * (1 / v), and
+        # the thresholds with delta folded in, move a bound by ~1e-6 A at most, far inside the 1e-3 A margin.
+        c = (X - self.lo[samples][:, None]).mul_(1.0 / self.v).floor_().clamp_(min=0)
+        for a in range(3):
+            c[..., a].clamp_(max=float(self.dims[a] - 1))
         dy, dz = float(self.dims[1]), float(self.dims[2])
-        flat = ((c[..., 0] * dy + c[..., 1]) * dz + c[..., 2]).long() + (samples * self.nvox)[:, None]
+        # integral fp32 values below 2^24: the dot product is exact
+        flat = torch.mv(c.view(-1, 3), torch.tensor([dy * dz, dz, 1.0], dtype=X.dtype)).view(c.shape[:2]).long()
+        flat += (samples * self.nvox)[:, None]
         soft = self.soft[flat]
-        far = soft - self.delta >= SOFT * ra + self.margin
-        severe = (soft + self.lift) + self.delta < HARD * ra - self.margin
+        far = soft >= (SOFT * ra + self.margin) + self.delta
+        severe = soft < (HARD * ra - self.margin) - (self.lift + self.delta)
         return far.reshape(-1), severe.reshape(-1)
 
     def classify(self, X, sample, ra):
