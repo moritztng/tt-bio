@@ -7,6 +7,8 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("gate_fanout", REPO / "scripts" / "gate_fanout.py")
 gf = importlib.util.module_from_spec(spec)
@@ -62,6 +64,18 @@ def test_record_lever_legs_splice_into_a_copy_and_are_only_built_on_request():
     assert "cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d /o/ && " in cmd
     assert "--size-ladder-baseline /o/size_ladder_baseline.json" in cmd
     assert "--size-ladder-record-lever SDPA_FUSED_PADDED" in cmd
+
+
+def test_record_full_re_records_a_refused_model_and_splices_the_rest():
+    legs = {lg.name: lg for lg in gf.build_legs(ROSTER, [], 1, "SDPA_FUSED_PADDED", "rf3")
+            if lg.family == "record"}
+    assert "--size-ladder-record" in legs["record:rf3"].argv
+    assert "--size-ladder-record-lever" not in legs["record:rf3"].argv
+    assert "--size-ladder-record-lever" in legs["record:boltz2"].argv
+    only = [lg.name for lg in gf.build_legs(ROSTER, [], 1, "", "rf3") if lg.family == "record"]
+    assert only == ["record:rf3"]
+    with pytest.raises(SystemExit):
+        gf.build_legs(ROSTER, [], 1, "", "nope")
 
 
 def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):

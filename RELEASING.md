@@ -70,7 +70,9 @@ python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
 
 The fragments land in `<out>/recorded/<card_type>/<model>.json`; copy them over
 `docs/size_ladder_baseline.d/` in the release commit. The ladder legs then rerun against them and
-every other leg is reused.
+every other leg is reused. A model whose splice is refused (something besides the new lever
+moved, e.g. a guard's decline reason) needs a full re-record of its own fragment: add
+`--record-full <model>` and that model's record leg re-records every rung instead.
 
 **Duplicates.** The parity gate runs `release_gate.py`'s boltzgen, opendde-abag, capacity,
 nesso1 and rf3-1024aa arms in-process with the same arguments and adds a drift check, so the
