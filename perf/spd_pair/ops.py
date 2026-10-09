@@ -10,6 +10,8 @@ Groups (--groups):
   add   the bare residual add_ of two pair tensors
   trans the pair transition's assembly at row height h (--trans-h): today ttnn.chunk + concat of the
         block updates + add_, against a slice per block + pair_add.add_rows into z; torch.equal checked
+  tadd  the ending triangle attention's way back: pair_transpose(u) + add_ into z, against
+        pair_transpose_add.transpose_add(u, z); torch.equal checked
 
 usage: ops.py OUT [--n 736] [--cz 256] [--groups ln,tail,add] [--reps 5] [--calls 8] [--chip C]
 """
@@ -291,6 +293,30 @@ if "trans" in groups:
                                  "add_rows": (lambda f=rows: (f(), None)[1], None)}, max(2, A.calls // 4))
         for t in ub + [zt]:
             ttnn.deallocate(t)
+
+if "tadd" in groups:
+    from tt_bio import pair_transpose as PT, pair_transpose_add as PTA
+    up_host = (torch.randn(N, N, C) * 0.05).bfloat16()
+    ud = ttnn.from_torch(up_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    zt = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    za = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    zb = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    t = PT.pair_transpose(ud); ttnn.add_(za, ttnn.reshape(t, (1, N, N, C))); ttnn.deallocate(t)
+    assert PTA.eligible(ud, zb)
+    PTA.transpose_add(ud, zb)
+    ta, tb = ttnn.to_torch(za), ttnn.to_torch(zb)
+    ref = z_host.double() + up_host.double().permute(1, 0, 2).unsqueeze(0)
+    log(ev="tadd_equal", equal=bool(torch.equal(ta, tb)), ndiff=int((ta != tb).sum()),
+        rel=rel(tb.float(), ref.float())["rel_rms"])
+    ttnn.deallocate(za); ttnn.deallocate(zb)
+
+    def tbase():
+        t = PT.pair_transpose(ud); ttnn.add_(zt, ttnn.reshape(t, (1, N, N, C))); ttnn.deallocate(t)
+
+    run_arms("tadd", {"transpose": (lambda: PT.pair_transpose(ud), None),
+                      "transpose_add_": (lambda: (tbase(), None)[1], None),
+                      "fused": (lambda: (PTA.transpose_add(ud, zt), None)[1], None)}, A.calls)
+    ttnn.deallocate(ud); ttnn.deallocate(zt)
 
 log(ev="done")
 _SAMPLER.terminate()

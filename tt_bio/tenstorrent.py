@@ -20,6 +20,7 @@ from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
+from . import pair_transpose_add as _pair_tr_add
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
 from .eltwise_fusion import scale_add
@@ -10396,6 +10397,18 @@ class TriangleAttention(Module):
             x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending,
                                  resid=x_in if add_to_input and not self.ending else None)
             if x is x_in:
+                return x_in
+        if self.ending and add_to_input and _pair_tr_add.eligible(x, x_in):
+            # The update goes back to z's orientation and into z in one program (3P instead of the
+            # transpose's 2P and the caller's add_ 3P), the bytes pair_transpose + add_ wrote.
+            try:
+                _pair_tr_add.transpose_add(x, x_in)
+            except RuntimeError as exc:
+                if "circular buffers" not in str(exc):
+                    raise
+                _pair_tr_add.STATS[1] += 1
+            else:
+                ttnn.deallocate(x)
                 return x_in
         if self.ending:
             x = _pair_transpose(
