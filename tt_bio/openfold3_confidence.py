@@ -129,7 +129,10 @@ class OF3ConfidenceHead:
                              tri_att_scale_pair_bias=False,
                              fp32_softmax=True,
                              accurate_softmax=accurate_softmax_site("openfold3.confidence"),
-                             tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.confidence"),
+                             # Default ON: the fused route moves no coordinate (this head runs
+                             # after sampling) and at 730 tokens on Wormhole it takes 14 s off
+                             # a 184 s fold (spd-of3 ab11c, 5 samples x 4 blocks).
+                             tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.confidence", True),
                              s_fp32_residual=True)
         self.n_blocks = n_blocks
 
