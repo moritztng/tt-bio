@@ -972,7 +972,8 @@ def main() -> int:
     plan = {"sha": sha, "content": content, "envs": envs, "card_types": ctype, "archs": archs,
             "workers": [f"{h.name}:{c}" for h, c in workers], "timed": sorted(map(list, timed)),
             "env_probe": probes, "run": {a: [lg.name for lg in q] for a, q in todo.items()},
-            "reused": [r["leg"] + "@" + r["arch"] for r in results],
+            "reused": [r["leg"] + "@" + r["arch"] for r in results if r["verdict"] == "REUSED"],
+            "owed": [r["leg"] + "@" + r["arch"] for r in results if r["verdict"] == "OWED"],
             # A dry run, or one limited by --legs or --arch, is not a release verdict.
             "partial": bool(args.legs or args.arch or args.dry_run or args.record_lever
                        or args.record_full),
@@ -980,7 +981,7 @@ def main() -> int:
             "pid": os.getpid(), "host": socket.gethostname()}
     (args.out / "plan.json").write_text(json.dumps(plan, indent=1))
     print(f"gate {sha[:12]}: {sum(len(q) for q in todo.values())} legs to run, "
-          f"{len(results)} reused, archs {archs}, {len(workers)} cards")
+          f"{len(plan['reused'])} reused, {len(plan['owed'])} owed, archs {archs}, {len(workers)} cards")
     if args.dry_run:
         for a, q in todo.items():
             print(f"  {a}: " + " ".join(lg.name for lg in q))
