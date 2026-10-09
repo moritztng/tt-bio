@@ -9,7 +9,7 @@ B=~/spd-bheth; R=$B/runs/p150a-$(date -u +%m%dT%H%M); mkdir -p $R
 say(){ echo "$(date -u +%FT%TZ) $*" | tee -a $R/queue.log; }
 node_of(){ case $1 in 0) echo 1;; 1) echo 2;; 2) echo 3;; 3) echo 0;; esac; }   # qb1 logical -> /dev/tenstorrent node
 
-while pgrep -f "build_wheel.sh $B/w1" >/dev/null; do sleep 120; done
+while pgrep -f "^/bin/bash [^ ]*build_wheel.sh $B/w1" >/dev/null; do sleep 120; done   # anchored: a shell quoting this command must not match
 W=$(ls $B/w1/dist/ttnn-0.68.0+bh.eth1-*.whl 2>/dev/null | head -1)
 [ -n "$W" ] || { say "no wheel (see $B/build.log)"; exit 1; }
 say "wheel $(basename $W) sha256 $(sha256sum $W | cut -c1-16)"
