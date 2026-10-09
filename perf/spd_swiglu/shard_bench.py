@@ -12,7 +12,8 @@ is the same program config, so their bytes do not move; fc3's K block becomes th
 Arms per shape and row count:
   cur              what the fold runs today (ttnn.linear core_grid, interleaved L1 intermediates)
   bw               the same with the `transition_bw` K-block table
-  shard:gXxY:bwB   block-sharded intermediates on an X x Y grid, fc1/fc2 in0_block_w B, fc3 K block = shard width
+  shard:gXxY:bwB:bw3K  block-sharded intermediates on an X x Y grid, fc1/fc2 in0_block_w B, fc3 K block K from the
+                   shard; K = 0 converts the product back to interleaved L1 and runs fc3 as the fold does
 us per call and us per token row (rows x W), error of the body vs float64, digest of fc3's output.
 """
 import argparse
@@ -157,6 +158,14 @@ def body_shard(x, w1, w2, w3, gx, gy, bw, bw3):
                      memory_config=mc, dtype=HDT)
     h = ttnn.multiply_(x1, x2)
     ttnn.deallocate(x2)
+    if bw3 == 0:  # fc3's output does not split over gx: back to interleaved L1, fc3 as the fold runs it
+        hi = ttnn.sharded_to_interleaved(h, ttnn.L1_MEMORY_CONFIG)
+        ttnn.deallocate(h)
+        with T.levers(a.mode + "+transition_bw"):
+            out = T._transition_linear("fc3", hi, w3, compute_kernel_config=CKC, dtype=ttnn.bfloat16,
+                                       memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(hi)
+        return out
     out = ttnn.linear(h, w3, program_config=cfg2d(gx, gy, pm, ct // gx, bw3), compute_kernel_config=CKC,
                       dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     ttnn.deallocate(h)
@@ -166,13 +175,14 @@ def body_shard(x, w1, w2, w3, gx, gy, bw, bw3):
 def shard_arms(mt, kt, nt, ct):
     out = []
     for gx in sorted({GX, 8, 4}, reverse=True):
-        if gx > GX or nt % gx or ct % gx:
+        if gx > GX or nt % gx:
             continue
         for gy in range(GY, 0, -1):
             if mt % gy == 0:
                 break
         for bw in [b for b in (8, 4, 2, 1) if kt % b == 0][:2]:
-            for bw3 in [b for b in (nt // gx, 2, 1) if (nt // gx) % b == 0]:
+            # bw3 0: product back to interleaved, fc3 on the fold's path (the only option when ct % gx)
+            for bw3 in [b for b in (nt // gx, 2, 1) if (nt // gx) % b == 0 and not ct % gx] + [0]:
                 out.append((f"shard:g{gx}x{gy}:bw{bw}:bw3{bw3}", (gx, gy, bw, bw3)))
     return list(dict(out).items())
 
