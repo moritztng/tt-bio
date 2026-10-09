@@ -2357,10 +2357,14 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
     chunk = 256 if n % 256 == 0 else 128
     dev = q.device()
+    # On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
+    # occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
+    # Measured at (5, 16, 768, 64): 1.92 -> 2.50 ms a call, errors of 1.2-1.7 gone (perf/spd_wherr/sdpa_probe.py).
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
     g = dev.compute_with_storage_grid_size()
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, q, k, v, mask, out, chunk, chunk, (g.x, g.y), _SDPA32_CKC, scale)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale)
     return out
 
 
