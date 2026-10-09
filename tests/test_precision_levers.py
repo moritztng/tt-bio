@@ -72,12 +72,28 @@ def test_fold_runs_under_the_models_levers_and_restores():
     for wrap in (T.under_levers, B._under_levers):
         class M:
             _levers = frozenset({"acc_off"})
+            use_tenstorrent = True
 
             @wrap
             def fold(self):
                 return T.lever("acc_off")
 
         assert M().fold() is True and not T.lever("acc_off")
+
+
+def test_boltz2_folds_with_the_process_fast_switch_off(monkeypatch):
+    import tt_bio.boltz2 as B
+
+    class M:
+        _levers = B.LEVERS_FAST
+        use_tenstorrent = True
+
+        @B._under_levers
+        def fold(self):
+            return T._FAST_MODE, T.lever("acc_off")
+
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert M().fold() == (False, True) and T._FAST_MODE and not T.lever("acc_off")
 
 
 def test_model_levers_take_the_mode_set_unless_a_harness_names_one(monkeypatch):

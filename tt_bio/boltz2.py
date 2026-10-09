@@ -56,20 +56,30 @@ tenstorrent = _LazyTenstorrent()
 # A/A seed floor 1.784 A, every paired CI covers 0 or sits on the better side, docking 24/44 both;
 # c730 157.98 -> 147.17 s (spd-boltz2 g1/s1, 2026-10-09).
 LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
-LEVERS_FAST = frozenset()
+# Fast: tenstorrent.FAST_LEVERS on the normal path. The process-wide `--fast` switch
+# (tenstorrent._FAST_MODE: bfp8 activations, narrower chunks) is off inside Boltz-2, because on
+# Wormhole c730 it folds in 159.7 s against 135.5 s for normal mode, while this set folds in 123.4 s
+# (l1024: 217.4 / 181.6 / 168.3 s; spd-boltz2 s4, 2026-10-09).
+LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
+                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
 
 
 def _under_levers(method):
-    """Run a device-building or folding entry point under the model's `_levers`."""
+    """Run a device-building or folding entry point under the model's `_levers`, with the
+    process-wide `--fast` paths off (the mode is carried by the lever set instead)."""
     import functools
 
     @functools.wraps(method)
     def run(self, *a, **kw):
-        lv = getattr(self, "_levers", None)
-        if not lv:
+        if not getattr(self, "use_tenstorrent", False):
             return method(self, *a, **kw)
-        with tenstorrent.levers(lv):
-            return method(self, *a, **kw)
+        fast = tenstorrent._FAST_MODE
+        tenstorrent.set_fast_mode(False)
+        try:
+            with tenstorrent.levers(self._levers):
+                return method(self, *a, **kw)
+        finally:
+            tenstorrent.set_fast_mode(fast)
     return run
 
 
