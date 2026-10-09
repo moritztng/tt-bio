@@ -26,6 +26,9 @@ void kernel_main() {
     constexpr uint32_t SBW = get_compile_time_arg_val(3);
     constexpr uint32_t SHARED = get_compile_time_arg_val(4);
     constexpr uint32_t RESID = get_compile_time_arg_val(5);
+    // Diagnostic stage ablation, 0 in production (output garbage otherwise): bit 1 no sigmoid,
+    // bit 2 no matmul, bit 4 no gate math (the out block is still packed).
+    constexpr uint32_t ABL = get_compile_time_arg_val(6);
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t in0_cb = tt::CBIndex::c_0;
@@ -53,12 +56,12 @@ void kernel_main() {
                     tile_regs_acquire();
                     uint32_t i0 = mi * Kt;
                     uint32_t i1 = pass * Kt * Nt + n0;
-                    for (uint32_t k = 0; k < Kt; ++k) {
+                    for (uint32_t k = 0; k < Kt && !(ABL & 2); ++k) {
                         matmul_block(in0_cb, in1_cb, i0, i1, 0, false, SBW, 1, Kt);
                         i0++;
                         i1 += Nt;
                     }
-                    if (pass == 1) {
+                    if (pass == 1 && !(ABL & 1)) {
                         for (uint32_t i = 0; i < SBW; ++i) sigmoid_bf16_tile(i);
                     }
                     tile_regs_commit();
@@ -79,9 +82,11 @@ void kernel_main() {
         pack_reconfig_data_format(out_cb);
         for (uint32_t t0 = 0; t0 < blk; t0 += 4) {
             tile_regs_acquire();
+            if constexpr (!(ABL & 4)) {
             mul_tiles_init(p_cb, g_cb);
             for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, g_cb, t0 + i, t0 + i, i);
-            if constexpr (RESID) {
+            }
+            if constexpr (RESID && !(ABL & 4)) {
                 binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
                     z_cb);
                 for (uint32_t i = 0; i < 4; ++i)

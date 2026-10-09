@@ -15,6 +15,7 @@ ap.add_argument("--n", type=int, default=736)
 ap.add_argument("--calls", type=int, default=20)
 ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--epi", default="1,2")
+ap.add_argument("--abl", default="", help="time only: resident stage ablations, e.g. 1,2,4,7")
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -91,4 +92,17 @@ for epi in (int(e) for e in A.epi.split(",")):
                 if False in ms_of and True in ms_of:
                     rec["speedup"] = round(ms_of[False] / ms_of[True], 3)
             print(json.dumps(rec), flush=True)
+TT.set_res(False)
+TT.set_epi(2)
+for abl in [int(a) for a in A.abl.split(",") if a]:
+    TT.set_res(True); TT.RES_ABL = abl
+    z = up(h["z"])
+    f = lambda: TT.fused_tail(d["xa"], d["xa"], d["wa"], d["wb"], ckc, grid, resid=z)
+    f(); ttnn.synchronize_device(dev)
+    ms = []
+    for _ in range(A.reps):
+        t0 = time.perf_counter(); [f() for _ in range(A.calls)]; ttnn.synchronize_device(dev)
+        ms.append((time.perf_counter() - t0) * 1e3 / A.calls)
+    print(json.dumps({"epi": 2, "shared": True, "res": True, "abl": abl, "ms": round(min(ms), 4)}), flush=True)
+TT.RES_ABL = 0
 TT.set_res(False)

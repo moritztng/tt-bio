@@ -267,6 +267,7 @@ def _repack(entry):
 # a 3.4 ms GEMM pass at 736 with every stage's work removed). Same epilogue as EPI 1 / 2, op for
 # op, so the output is the same bits. bf16, one K block, DRAM output, no split.
 RES = env_flag("TT_BIO_TRIMUL_TAIL_RES", False)
+RES_ABL = 0          # the resident compute's stage ablation (see its compute.cpp). Diagnostic only.
 RES_STATS = [0, 0]   # served by the resident program, declined to the 2D one
 
 
@@ -323,7 +324,7 @@ def _build_res(xa, xb, wa, wb, out, grid, ckc, block, epi, shared):
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, Mb, sbw, int(shared), resid], runtime_args=cp,
+        compile_time_args=[kt, nt, Mb, sbw, int(shared), resid, RES_ABL], runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
@@ -431,7 +432,7 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
            ABL, epi, str(mem), _block(wa), shared, split)
     if _res_ok(xa, wa, epi, split, mem) and not ABL:
-        key = ("res",) + key
+        key = ("res", RES_ABL) + key
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs[0], grid, ckc, _block(wa), epi,
