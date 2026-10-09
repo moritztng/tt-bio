@@ -2,7 +2,9 @@
 
 `OF3DiffusionModule.__call__(..., samples=[(si, rl_noisy, xl_noisy, t), ...])` stacks the
 samples on the leading dim of the atom encoder, the 24-block token DiT and the atom decoder.
-Only the per-sample token aggregation and the EDM output scaling loop over the samples.
+Only the per-sample token aggregation and the EDM output scaling loop over the samples. Samples
+that share their conditioning `si` (the sampler's, one noise level per step) get its glue term
+once and hand the DiT one unstacked `si` to broadcast.
 
 No device here and no ttnn op: the leaves are stubbed and what runs is the orchestration --
 how many calls a batch makes, which slice each structure's EDM step reads, and whether the
@@ -39,13 +41,19 @@ class _Recorder:
 
     def __init__(self):
         self.dit_calls, self.enc_calls, self.dec_calls, self.edm = [], [], [], []
+        self.glue_calls, self.pre_dit_glue = [], []
         self.npe = type("npe", (), {"ql_at_np": lambda _s, cl, rl: _Stub(f"ql({rl.name})", rl.s)})()
 
     def enc_at(self, ql_pad, *a, **kw):
         self.enc_calls.append(ql_pad.name)
         return _Stub(f"enc({ql_pad.name})", ql_pad.s)
 
-    def _pre_dit(self, q, si, *a, **kw):
+    def _si_glue(self, si, _n_token):
+        self.glue_calls.append(si.name)
+        return _Stub(f"glue({si.name})")
+
+    def _pre_dit(self, q, si, *a, si_proj=None, **kw):
+        self.pre_dit_glue.append(si_proj and si_proj.name)
         return _Stub(f"ai({q.name},{si.name})"), None
 
     def _decode(self, a, ql, *rest):
@@ -59,13 +67,15 @@ class _Recorder:
     denoise = M.OF3DiffusionModule._denoise_samples
 
 
-def _run(rec, S):
+def _run(rec, S, shared_si=False):
     def dit(a, s, *rest, **kw):
         rec.dit_calls.append((a.name, s.name, a.s))
         return _Stub("dit_out", s=a.s)
 
     rec.dit = dit
-    samples = [(_Stub(f"si{k}"), _Stub(f"rl{k}"), _Stub(f"xl{k}"), 1.0 + k) for k in range(S)]
+    si = _Stub("si")
+    samples = [(si if shared_si else _Stub(f"si{k}"), _Stub(f"rl{k}"), _Stub(f"xl{k}"), 1.0 + k)
+               for k in range(S)]
     # cl_pad, plm, zij, then the nine shared masks/maps, then the five extents, sigma, cache.
     out = rec.denoise(samples, _Stub("cl"), _Stub("plm"), _Stub("zij"), *[None] * 9,
                       *[None] * 5, 16.0, {})
@@ -101,6 +111,20 @@ def test_every_structure_reads_its_own_slice_and_its_own_sigma():
         xl, rl_update, got_t = rec.edm[k]
         assert (xl, rl_update) == (f"xl{k}", f"dec(dit_out)[{k}]"), f"structure {k} read the wrong slice"
         assert got_t == t, "the EDM output scaling is per structure and must keep its sigma"
+
+
+def test_a_shared_si_is_conditioned_once_and_broadcast():
+    rec = _Recorder()
+    _run(rec, 3, shared_si=True)
+    assert rec.glue_calls == ["si"], "the shared glue term must be computed once per step"
+    assert rec.pre_dit_glue == ["glue(si)"] * 3
+    assert rec.dit_calls[0][1] == "si", "the DiT must get the one si to broadcast, not a stack"
+
+
+def test_per_sample_si_keeps_its_own_glue_and_stack():
+    rec = _Recorder()
+    _run(rec, 3)
+    assert rec.glue_calls == [] and rec.pre_dit_glue == [None] * 3
 
 
 def test_one_sample_is_the_per_replicate_loop_with_no_stack_and_no_slice():
