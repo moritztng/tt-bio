@@ -206,6 +206,7 @@ def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "") -> 
 
 
 RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py", "scripts/splice_ladder_fragments.py",
+                "scripts/gate_host_prep.sh",
                 "tests/test_gate_fanout.py", "tests/test_release_next.py")
 
 
