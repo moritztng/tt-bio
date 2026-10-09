@@ -60,7 +60,8 @@ def main():
         else:
             mt, nt = m // 32, n // 32
             pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-                compute_with_storage_grid_size=(g.x, g.y), in0_block_w=4, out_subblock_h=1, out_subblock_w=4,
+                compute_with_storage_grid_size=(g.x, g.y), in0_block_w=4, out_subblock_h=1,
+                out_subblock_w=max(s for s in (1, 2, 3, 4) if (nt // g.x) % s == 0),
                 out_block_h=mt // g.y, out_block_w=nt // g.x, per_core_M=mt // g.y, per_core_N=nt // g.x,
                 transpose_mcast=False, fused_activation=None, fuse_batch=True)
             run = lambda: ttnn.matmul(ta, tw, compute_kernel_config=ck, dtype=ttnn.bfloat16, program_config=pc)

@@ -28,7 +28,8 @@ import ttnn
 ENABLED = os.environ.get("TT_BIO_DEST_GUARD", "1") != "0"
 _ON = [False]                 # set by install() on a Wormhole device
 STATS = {"rewritten": 0, "kept": 0, "refused": 0}
-_REFUSED: dict = {}           # (op, shapes, config) -> error; the original call runs instead
+_REFUSED: dict = {}           # (op, shapes, config) -> the last refusal's error
+_CHOSEN: dict = {}            # call key -> the kwargs it swaps in (False: run as written)
 
 _PC_FIELDS = ("compute_with_storage_grid_size", "in0_block_w", "out_subblock_h", "out_subblock_w",
               "out_block_h", "out_block_w", "per_core_M", "per_core_N", "transpose_mcast",
@@ -72,8 +73,13 @@ def _l1acc(ckc):
     return _L1ACC[key]
 
 
-def _auto2d(a, b):
-    """ttnn's 2D multicast at in0_block_w 1 for an unconfigured call on a 2D weight, or None."""
+# Output block caps (tiles) tried in order for an unconfigured call: the largest block keeps ttnn's own
+# operand reuse, a smaller one is the fallback when L1 is already holding something.
+_AUTO_CAPS = (128, 32, 8)
+
+
+def _auto2d(a, b, cap):
+    """2D multicast at in0_block_w 1 for an unconfigured call on a 2D weight, or None."""
     ash, bsh = [int(d) for d in a.shape], [int(d) for d in b.shape]
     if len(bsh) > 2 and any(d != 1 for d in bsh[:-2]):
         return None
@@ -87,7 +93,7 @@ def _auto2d(a, b):
     pm, pn = -(-mt // g.y), -(-nt // g.x)
     sw = max(s for s in range(1, min(4, pn) + 1) if pn % s == 0)
     sh = max(h for h in range(1, max(1, 4 // sw) + 1) if pm % h == 0)
-    bh = max(h for h in range(sh, pm + 1, sh) if pm % h == 0 and (h * pn <= 32 or h == sh))
+    bh = max(h for h in range(sh, pm + 1, sh) if pm % h == 0 and (h * pn <= cap or h == sh))
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(g.x, g.y), in0_block_w=1, out_subblock_h=sh, out_subblock_w=sw,
         out_block_h=bh, out_block_w=pn, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
@@ -95,7 +101,7 @@ def _auto2d(a, b):
 
 
 def _rewrite(op, a, b, kw):
-    """The kwargs at K block 1, or None to run the call as it is."""
+    """Candidate kwargs at K block 1, best first; empty to run the call as it is."""
     kw2 = dict(kw)
     kw2["compute_kernel_config"] = _l1acc(kw["compute_kernel_config"])
     if op == "minimal_matmul":
@@ -110,45 +116,63 @@ def _rewrite(op, a, b, kw):
                 M_block_size=c.M_block_size, K_block_size=1, N_block_size=c.N_block_size,
                 subblock_h=c.subblock_h, subblock_w=c.subblock_w,
                 compute_with_storage_grid_size=c.compute_with_storage_grid_size)
-        return kw2
+        return [kw2]
     pc = kw.get("program_config")
     if pc is not None:
         if getattr(pc, "in0_block_w", 1) > 1:
             kw2["program_config"] = type(pc)(**{f: getattr(pc, f) for f in _PC_FIELDS if hasattr(pc, f)}
                                              | {"in0_block_w": 1})
-        return kw2
-    pc = _auto2d(a, b)
-    if pc is None:
-        return None
-    kw2["program_config"] = pc
+        return [kw2]
     kw2.pop("core_grid", None)
-    return kw2
+    out = []
+    for cap in _AUTO_CAPS:
+        pc = _auto2d(a, b, cap)
+        if pc is None:
+            return []
+        if not out or pc.out_block_h != out[-1]["program_config"].out_block_h:
+            out.append(dict(kw2, program_config=pc))
+    return out
 
 
 def _wrap(op, fn, operands):
     @functools.wraps(fn)
     def guarded(*args, **kw):
-        if not exposed(kw.get("compute_kernel_config")):
+        ckc = kw.get("compute_kernel_config")
+        if not exposed(ckc):
             return fn(*args, **kw)
         a, b = operands(args, kw)
-        key = (op, tuple(a.shape), tuple(b.shape), repr(kw.get("program_config") or kw.get("config")))
-        if key in _REFUSED:
-            STATS["refused"] += 1
-            return fn(*args, **kw)
-        kw2 = _rewrite(op, a, b, kw)
-        if kw2 is None:
-            STATS["kept"] += 1
-            return fn(*args, **kw)
-        try:
-            y = fn(*args, **kw2)
-        except Exception as e:   # a config the device refuses: the call runs as written, once noted
-            _REFUSED[key] = str(e)[:300]
-            STATS["refused"] += 1
-            return fn(*args, **kw)
-        STATS["rewritten"] += 1
-        return y
+        cfg = kw.get("program_config") or kw.get("config")
+        key = (op, tuple(a.shape), tuple(b.shape), repr(cfg), str(ckc.math_fidelity),
+               bool(getattr(ckc, "packer_l1_acc", False)), "core_grid" in kw)
+        swap = _CHOSEN.get(key)
+        if swap is not None:     # the rewrite this call shape took the first time
+            if swap is False:
+                return fn(*args, **kw)
+            STATS["rewritten"] += 1
+            return fn(*args, **_apply(kw, swap))
+        cands = _rewrite(op, a, b, kw)
+        for kw2 in cands:
+            try:
+                y = fn(*args, **kw2)
+            except Exception as e:   # a config the device refuses (L1): try the next one down
+                _REFUSED[key] = str(e)[:300]
+                continue
+            _CHOSEN[key] = {k: v for k, v in kw2.items() if kw.get(k) is not v} | (
+                {"core_grid": None} if "core_grid" in kw and "core_grid" not in kw2 else {})
+            STATS["rewritten"] += 1
+            return y
+        _CHOSEN[key] = False
+        STATS["refused" if cands else "kept"] += 1
+        return fn(*args, **kw)
     guarded.__wrapped_by_dest_guard__ = True
     return guarded
+
+
+def _apply(kw, swap):
+    kw2 = dict(kw, **swap)
+    if "core_grid" in swap:
+        del kw2["core_grid"]
+    return kw2
 
 
 def install(device) -> bool:
