@@ -55,7 +55,8 @@ void kernel_main() {
     constexpr uint32_t out_cb_id = get_named_compile_time_arg_val("cb_out");
     constexpr uint32_t gate_cb_id = get_named_compile_time_arg_val("cb_intermed0");
     constexpr uint32_t n = out_subblock_num_tiles;
-#ifdef FC12G_MUL_HIFI4
+    // MATH_FIDELITY exists only in the math thread's build; the other threads never use mul_fidelity.
+#if defined(FC12G_MUL_HIFI4) || !defined(TRISC_MATH)
     constexpr auto mul_fidelity = MathFidelity::HiFi4;
 #else
     constexpr auto mul_fidelity = static_cast<MathFidelity>(MATH_FIDELITY);
