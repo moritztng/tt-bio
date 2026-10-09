@@ -12,6 +12,7 @@ kernel; bit-exact by construction. The work split is rne_add's.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import ttnn
@@ -21,7 +22,7 @@ from .envflags import env_flag
 from .rne_add import _split_plan
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "pair_transpose"
-IN_CB, OUT_CB = 0, 16
+IN_CB, HALF_CB, FREE_CB, OUT_CB = 0, 1, 2, 16
 _ELEM = {ttnn.bfloat16: 2, ttnn.float32: 4}
 
 #: On by default: it moves the same elements, so it cannot change a fold, and it is faster wherever
@@ -30,6 +31,10 @@ _ELEM = {ttnn.bfloat16: 2, ttnn.float32: 4}
 #: 9.66 -> 4.05 ms at 736, 15.36 -> 6.37 at 928, 25.05 -> 10.41 at 1184, 2.4x each. A recording tape
 #: still declines it unless its kernel list names it (`eligible`). TT_BIO_PAIR_TRANSPOSE_FUSED=0 is the A/B.
 PAIR_TRANSPOSE_FUSED = env_flag("TT_BIO_PAIR_TRANSPOSE_FUSED", True)
+
+#: Output tiles per unit the READER shuffles (split kernels), 0 for the plain pair where the writer does
+#: all 32. The plain writer shuffles and then writes, serially, while its reader idles between tile reads.
+PAIR_TRANSPOSE_SPLIT = int(os.environ.get("TT_BIO_PAIR_TRANSPOSE_SPLIT", "0"))
 
 #: (calls served, calls declined), cumulative; sample at a round boundary.
 STATS = [0, 0]
@@ -77,7 +82,7 @@ def _cb(idx, depth, dtype, core_grid):
                              format_descriptors=[fmt])
 
 
-def _build(t, out, device, S1t, S2t, Ct):
+def _build(t, out, device, S1t, S2t, Ct, split=0):
     U = S1t * S2t * Ct
     num_cores, core_grid, cg1, cg2, work1, work2 = _split_plan(device, U)
     rt = ttnn.RuntimeArgs()
@@ -90,19 +95,23 @@ def _build(t, out, device, S1t, S2t, Ct):
                     placed += per_core
     assert placed == U, (placed, U)
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    row = 16 * _ELEM[t.dtype]
+    tag, rd_args, wr_args = ("", [S1t, S2t, Ct], [S1t, S2t, Ct, row]) if not split else (
+        "_split", [S1t, S2t, Ct, row, split], [S1t, S2t, Ct, row, split])
     reader = ttnn.KernelDescriptor(
-        kernel_source=str(KERNEL_DIR / "reader_pair_transpose.cpp"), source_type=src,
+        kernel_source=str(KERNEL_DIR / f"reader_pair_transpose{tag}.cpp"), source_type=src,
         core_ranges=core_grid,
-        compile_time_args=[S1t, S2t, Ct] + list(ttnn.TensorAccessorArgs(t).get_compile_time_args()),
+        compile_time_args=rd_args + list(ttnn.TensorAccessorArgs(t).get_compile_time_args()),
         runtime_args=rt, common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
-        kernel_source=str(KERNEL_DIR / "writer_pair_transpose.cpp"), source_type=src,
+        kernel_source=str(KERNEL_DIR / f"writer_pair_transpose{tag}.cpp"), source_type=src,
         core_ranges=core_grid,
-        compile_time_args=[S1t, S2t, Ct, 16 * _ELEM[t.dtype]]
-        + list(ttnn.TensorAccessorArgs(out).get_compile_time_args()),
+        compile_time_args=wr_args + list(ttnn.TensorAccessorArgs(out).get_compile_time_args()),
         runtime_args=rt, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
-    return {"kernels": [reader, writer],
-            "cbs": [_cb(IN_CB, 64, t.dtype, core_grid), _cb(OUT_CB, 32, t.dtype, core_grid)]}
+    cbs = [_cb(IN_CB, 64, t.dtype, core_grid), _cb(OUT_CB, 64 if split else 32, t.dtype, core_grid)]
+    if split:   # two tokens each: "reader's rows are in" and "slot written out"
+        cbs += [_cb(HALF_CB, 2, t.dtype, core_grid), _cb(FREE_CB, 2, t.dtype, core_grid)]
+    return {"kernels": [reader, writer], "cbs": cbs}
 
 
 @ops.fused_kernel("pair_transpose")
@@ -115,10 +124,10 @@ def pair_transpose(t, memory_config=None):
                      memory_config or ttnn.DRAM_MEMORY_CONFIG)
     g_ = device.compute_with_storage_grid_size()
     key = (device.id(), S1, S2, C, str(t.dtype), t.memory_config().buffer_type,
-           out.memory_config().buffer_type, g_.x, g_.y)
+           out.memory_config().buffer_type, g_.x, g_.y, PAIR_TRANSPOSE_SPLIT)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(t, out, device, S1 // 32, S2 // 32, C // 32)
+        entry = _CACHE[key] = _build(t, out, device, S1 // 32, S2 // 32, C // 32, PAIR_TRANSPOSE_SPLIT)
     reader, writer = entry["kernels"]
     reader.common_runtime_args = [t.buffer_address()]
     writer.common_runtime_args = [out.buffer_address()]

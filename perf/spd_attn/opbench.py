@@ -17,6 +17,7 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("out"); ap.add_argument("chip", type=int); ap.add_argument("which", nargs="?", default="all")
 ap.add_argument("--pairs", type=int, default=6); ap.add_argument("--ta-seq", type=int, nargs="+", default=[736, 928, 1184]); ap.add_argument("--reps", type=int, default=10)
+ap.add_argument("--split", type=int, nargs="*", default=[8, 16, 24], help="pair: reader-share arms of the split kernel")
 a = ap.parse_args()
 OUT = Path(a.out).resolve(); OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "bench.jsonl", "a")
@@ -171,16 +172,20 @@ if a.which in ("pair", "all"):
     from tt_bio import pair_transpose as PTR
     for S in a.ta_seq:
         x = up(torch.randn(S, S, 256), ttnn.bfloat16)
-        def pt(fused, x=x):
-            PTR.PAIR_TRANSPOSE_FUSED = fused
+        def pt(fused, split=0, x=x):
+            PTR.PAIR_TRANSPOSE_FUSED, PTR.PAIR_TRANSPOSE_SPLIT = fused, split
             try:
                 return T._pair_transpose(x, ttnn.DRAM_MEMORY_CONFIG)
             finally:
-                PTR.PAIR_TRANSPOSE_FUSED = False
+                PTR.PAIR_TRANSPOSE_FUSED, PTR.PAIR_TRANSPOSE_SPLIT = False, 0
         ARMS[f"pair transpose {S} today"] = (f"pair{S}", lambda pt=pt: pt(False))
         ARMS[f"pair transpose {S} fused"] = (f"pair{S}", lambda pt=pt: pt(True))
-        SAME[f"pair transpose {S} fused"] = f"pair transpose {S} today"
-        BYTES[f"pair transpose {S} today"] = BYTES[f"pair transpose {S} fused"] = 2 * S * S * 256 * 2
+        for qr in a.split:
+            ARMS[f"pair transpose {S} fused split{qr}"] = (f"pair{S}", lambda pt=pt, qr=qr: pt(True, qr))
+        for n in [n for n, (site, _) in ARMS.items() if site == f"pair{S}"]:
+            BYTES[n] = 2 * S * S * 256 * 2
+            if n != f"pair transpose {S} today":
+                SAME[n] = f"pair transpose {S} today"
 
 # ---- roof: what this chip's matmul reaches, for placing the arms above on the roofline (FLOPS: arm -> flop/call)
 FLOPS = {}
@@ -213,7 +218,7 @@ for name, (site, call) in ARMS.items():
             log(ev="equal", arm=name, to=SAME[name], torch_equal=bool(torch.equal(o, outs[SAME[name]])),
                 max_abs=float((o.float() - outs[SAME[name]].float()).abs().max()))
             if site.startswith("pair"):
-                del outs[name], outs[SAME[name]]
+                del outs[name]
         if site not in REF:
             log(ev="check", arm=name, finite=bool(torch.isfinite(o).all())); live[name] = call; continue
         o = (o[SEL[site]] if site in SEL else o).reshape(REF[site].shape)
