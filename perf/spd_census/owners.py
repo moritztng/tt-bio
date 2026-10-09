@@ -3,11 +3,11 @@
 Every op signature gets the SPD row that owns its cost (state/spd/PLAN.md "Order of attack"; one op, one row, the
 row listed higher in PLAN wins), or NOBODY. Device idle gaps belong to spd-overhead (host idle, dispatch).
 
-usage: owners.py LABEL PREFIX UNPROFILED_WALL_S [TARGET_S]   (prints markdown)
+usage: owners.py LABEL PREFIX UNPROFILED_WALL_S|- [TARGET_S]   (prints markdown; - = no unprofiled wall)
 """
 import collections, json, re, sys
 
-LABEL, PREFIX, WALL = sys.argv[1], sys.argv[2], float(sys.argv[3])
+LABEL, PREFIX, WALL = sys.argv[1], sys.argv[2], sys.argv[3]
 TARGET = float(sys.argv[4]) if len(sys.argv) > 4 else None
 rows = json.load(open(f"{PREFIX}_rows.json")); summ = json.load(open(f"{PREFIX}_summary.json"))
 ATTN_OPS = re.compile(r"scaled_dot_product_attention|softmax|sdpa")
@@ -40,10 +40,12 @@ for r in rows:
 dev, gap = summ["device_kernel_s"], summ["device_idle_gap_s"]
 recon = dev + gap
 # scale so device + idle sums to the unprofiled wall: the profiler adds a little per-program time
-k = WALL / recon if recon else 1.0
+WALL = float(WALL) if WALL != "-" else None
+k = WALL / recon if WALL and recon else 1.0
 print(f"### {LABEL}\n")
-print(f"Device kernel {dev:.1f} s + idle gaps {gap:.1f} s = {recon:.1f} s against the unprofiled wall {WALL:.1f} s "
-      f"({(recon / WALL - 1) * 100:+.1f} %). AICLK {summ['aiclk']['median']} MHz median (min {summ['aiclk']['min']}, "
+vs = (f"against the unprofiled wall {WALL:.1f} s ({(recon / WALL - 1) * 100:+.1f} %)" if WALL
+      else "(no unprofiled wall of this tree to reconcile against)")
+print(f"Device kernel {dev:.1f} s + idle gaps {gap:.1f} s = {recon:.1f} s {vs}. AICLK {summ['aiclk']['median']} MHz median (min {summ['aiclk']['min']}, "
       f"n {summ['aiclk']['n']}). {summ['n_calls']:,} calls, {summ['n_sigs']:,} signatures, {summ['n_programs']:,} "
       f"programs, {summ['missing']} ids missing. Profiled wall {summ['wall_s']:.0f} s.\n")
 by_owner = collections.defaultdict(lambda: [0.0, 0.0])
