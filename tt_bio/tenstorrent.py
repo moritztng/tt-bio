@@ -11034,7 +11034,14 @@ class Transition(Module):
             return swiglu(x)
 
         H, W = x.shape[1], x.shape[2]
-        transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_FAST if _FAST_MODE else TRANSITION_H_CHUNK_SIZE
+        # bfp8 hidden (`transition_b8`) at c <= 128 starts from the fast base too, so on a small grid
+        # the bfp8-priced L1 cap below sets the height: 28 rows for the c=128 MSA transition at 736
+        # tokens instead of 16. Row height does not change a row-local swiglu's result (torch.equal
+        # at h=16..48); WH module 26.14 -> 23.69 ms at h=24 (perf/spd_bh/transition_h.py, .107).
+        # Blackhole is unchanged: its L1 raise always lands above this base. c=256 is left alone,
+        # its pair transition is non-monotonic in the height on WH (h=14 slower than h=5).
+        _fast_rows = _FAST_MODE or (self._hidden_b8 and x.shape[-1] <= 128)
+        transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_FAST if _fast_rows else TRANSITION_H_CHUNK_SIZE
         if not _FAST_MODE and W <= TRANSITION_H_CHUNK_BIG_MAX_W and x.shape[-1] <= 256:
             transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_BIG
         # Per-chunk swiglu L1 use ~ h_chunk * W * channel. The chunk size is tuned for the
