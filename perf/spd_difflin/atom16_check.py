@@ -20,7 +20,7 @@ import tt_bio.tenstorrent as T  # noqa: E402
 from tt_bio import sdpa_generic as SG  # noqa: E402
 from tt_bio.protenix import _ATOM_SDPA32_CKC  # noqa: E402
 
-M, H, DH, NQ, W, LEAD = 5, 4, 32, 32, 128, 48
+M, H, DH, NQ, W, LEAD = 5, 4, 32, 32, 160, 64   # AtomTransformer._superset(): whole tiles around the 128 keys
 NB = 185                                    # 5919 atoms, the c730 cell
 F = (NB + W // NQ - 1) * NQ                 # frame rows
 
