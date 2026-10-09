@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import collections
 import math
+import os
 import pathlib
 import struct
 
@@ -26,6 +27,8 @@ REACH: collections.Counter = collections.Counter()
 _CACHE: dict = {}
 _AFFINE: dict = {}
 _TILE = 32
+# xc and xc^2 from one DEST batch (compute.cpp SQ) instead of a second pass over xc.
+PAIR_LN_SQ = int(os.environ.get("TT_BIO_PAIR_LN_SQ", "1"))
 _BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
 CB_X, CB_GAMMA, CB_BETA, CB_SCALER, CB_EPS, CB_MEAN, CB_XC, CB_SQ, CB_VAR, CB_RSTD, CB_OUT = \
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 16
@@ -73,7 +76,8 @@ def _build(x, g32, b32, out, eps, device, ckc):
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(
         device.compute_with_storage_grid_size(), rows, 0)
     f32, bf16 = ttnn.float32, ttnn.bfloat16
-    db = 4 if Wt % 4 == 0 else (2 if Wt % 2 == 0 else 1)
+    sq = PAIR_LN_SQ
+    db = next(d for d in ((2, 1) if sq else (4, 2, 1)) if Wt % d == 0)
     cbs = [_cb(CB_X, 2 * Wt, x.dtype, grid), _cb(CB_GAMMA, Wt, f32, grid), _cb(CB_BETA, Wt, f32, grid),
            _cb(CB_SCALER, 1, bf16, grid), _cb(CB_EPS, 1, f32, grid), _cb(CB_OUT, 2 * Wt, out.dtype, grid),
            _cb(CB_XC, Wt, f32, grid), _cb(CB_SQ, Wt, f32, grid)]
@@ -103,7 +107,7 @@ def _build(x, g32, b32, out, eps, device, ckc):
                                    compile_time_args=writer_ct, runtime_args=rr, common_runtime_args=[0],
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=grid,
-                                    compile_time_args=[Wt, db], runtime_args=cr,
+                                    compile_time_args=[Wt, db, sq], runtime_args=cr,
                                     config=ttnn.ComputeConfigDescriptor(math_fidelity=ckc[0], math_approx_mode=False,
                                                                         fp32_dest_acc_en=True))
     return {"kernels": [reader, writer, compute], "cbs": cbs}
@@ -115,7 +119,7 @@ def layer_norm(x, gamma, beta, eps=1e-5, dtype=ttnn.bfloat16, fidelity=ttnn.Math
     g32, b32 = affine(gamma, beta, device)
     out = ttnn.allocate_tensor_on_device(x.shape, dtype, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(int(d) for d in x.padded_shape), dtype, float(eps), str(fidelity),
-           x.memory_config().buffer_type)
+           x.memory_config().buffer_type, PAIR_LN_SQ)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, g32, b32, out, eps, device, (fidelity,))

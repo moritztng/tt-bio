@@ -186,12 +186,17 @@ if "pln" in groups:
 
             def fn(k=k):
                 return ttnn.layer_norm(x, weight=gw, bias=bw, epsilon=1e-5, compute_kernel_config=k)
-        else:                                   # own_<fidelity>_<b16|b8>
-            _, fid, fmt = a.split("_")
+        else:                                   # own_<fidelity>_<b16|b8>[_sq0|_sq1]
+            _, fid, fmt, *sq = a.split("_")
             dt = ttnn.bfloat8_b if fmt == "b8" else ttnn.bfloat16
+            sq = int(sq[0][2:]) if sq else PLN.PAIR_LN_SQ
 
-            def fn(fid=fid, dt=dt):
-                return PLN.layer_norm(x, gw, bw, 1e-5, dt, getattr(ttnn.MathFidelity, fid))
+            def fn(fid=fid, dt=dt, sq=sq):
+                prev, PLN.PAIR_LN_SQ = PLN.PAIR_LN_SQ, sq
+                try:
+                    return PLN.layer_norm(x, gw, bw, 1e-5, dt, getattr(ttnn.MathFidelity, fid))
+                finally:
+                    PLN.PAIR_LN_SQ = prev
 
         def score(fn=fn):
             o = fn(); r = rel(ttnn.to_torch(o).float(), ref); ttnn.deallocate(o); return r

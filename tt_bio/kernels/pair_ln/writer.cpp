@@ -19,7 +19,8 @@ void kernel_main() {
         cb_wait_front(cb_out, Wt);
         uint32_t rd = get_read_ptr(cb_out);
         for (uint32_t j = 0; j < Wt; ++j) { noc_async_write(rd, sd.get_noc_addr(page + j), tb); rd += tb; }
-        noc_async_write_barrier();
+        noc_async_writes_flushed();
         cb_pop_front(cb_out, Wt);
     }
+    noc_async_write_barrier();
 }

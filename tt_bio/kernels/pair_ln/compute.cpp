@@ -20,6 +20,9 @@
 
 constexpr uint32_t Wt = get_compile_time_arg_val(0);
 constexpr uint32_t DB = get_compile_time_arg_val(1);   // tiles per DEST batch, divides Wt
+// SQ: xc and xc^2 from one DEST batch (sub into slots j and DB + j, SFPU square on the second), so
+// xc is not unpacked twice more for an FPU square. Needs 2 * DB DEST tiles.
+constexpr uint32_t SQ = get_compile_time_arg_val(2);
 constexpr uint32_t cb_x = 0, cb_gamma = 1, cb_beta = 2, cb_scaler = 3, cb_eps = 4, cb_mean = 5,
                    cb_xc = 6, cb_sq = 7, cb_var = 8, cb_rstd = 9, cb_out = 16;
 
@@ -50,37 +53,50 @@ void kernel_main() {
     for (uint32_t r = 0; r < num_rows; ++r) {
         row_mean(cb_x, cb_mean);
         cb_wait_front(cb_mean, 1);
-        // xc = x - mean
+        // xc = x - mean (and with SQ its square, same pass)
         reconfig_data_format(cb_x, cb_mean);
         pack_reconfig_data_format(cb_xc);
         sub_bcast_cols_init_short(cb_x, cb_mean);
         cb_reserve_back(cb_xc, Wt);
+        if constexpr (SQ) {
+            cb_reserve_back(cb_sq, Wt);
+            square_tile_init();
+        }
         for (uint32_t i = 0; i < Wt; i += DB) {
             tile_regs_acquire();
             for (uint32_t j = 0; j < DB; ++j) sub_tiles_bcast_cols(cb_x, cb_mean, i + j, 0, j);
+            if constexpr (SQ) {
+                for (uint32_t j = 0; j < DB; ++j) sub_tiles_bcast_cols(cb_x, cb_mean, i + j, 0, DB + j);
+                for (uint32_t j = 0; j < DB; ++j) square_tile(DB + j);
+            }
             tile_regs_commit();
             tile_regs_wait();
             for (uint32_t j = 0; j < DB; ++j) pack_tile(j, cb_xc);
+            if constexpr (SQ) {
+                for (uint32_t j = 0; j < DB; ++j) pack_tile(DB + j, cb_sq);
+            }
             tile_regs_release();
         }
         cb_push_back(cb_xc, Wt);
+        if constexpr (SQ) cb_push_back(cb_sq, Wt);
         cb_pop_front(cb_x, Wt);
         cb_pop_front(cb_mean, 1);
-        // xc^2
-        cb_wait_front(cb_xc, Wt);
-        reconfig_data_format(cb_xc, cb_xc);
-        pack_reconfig_data_format(cb_sq);
-        mul_tiles_init(cb_xc, cb_xc);
-        cb_reserve_back(cb_sq, Wt);
-        for (uint32_t i = 0; i < Wt; i += DB) {
-            tile_regs_acquire();
-            for (uint32_t j = 0; j < DB; ++j) mul_tiles(cb_xc, cb_xc, i + j, i + j, j);
-            tile_regs_commit();
-            tile_regs_wait();
-            for (uint32_t j = 0; j < DB; ++j) pack_tile(j, cb_sq);
-            tile_regs_release();
+        if constexpr (!SQ) {   // xc^2
+            cb_wait_front(cb_xc, Wt);
+            reconfig_data_format(cb_xc, cb_xc);
+            pack_reconfig_data_format(cb_sq);
+            mul_tiles_init(cb_xc, cb_xc);
+            cb_reserve_back(cb_sq, Wt);
+            for (uint32_t i = 0; i < Wt; i += DB) {
+                tile_regs_acquire();
+                for (uint32_t j = 0; j < DB; ++j) mul_tiles(cb_xc, cb_xc, i + j, i + j, j);
+                tile_regs_commit();
+                tile_regs_wait();
+                for (uint32_t j = 0; j < DB; ++j) pack_tile(j, cb_sq);
+                tile_regs_release();
+            }
+            cb_push_back(cb_sq, Wt);
         }
-        cb_push_back(cb_sq, Wt);
         row_mean(cb_sq, cb_var);
         cb_pop_front(cb_sq, Wt);
         // rstd = rsqrt(var + eps)
