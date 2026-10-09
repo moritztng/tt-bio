@@ -22,18 +22,20 @@ P300C = (11, 10)       # 110 cores, the part every height below was measured on
 P150A = (13, 10)       # 130 cores
 
 
-def _height(W, c=C, hid=HID, grid=P300C, budget=None):
-    """`Transition.__call__`'s Blackhole height at this shape, mirrored."""
+def _height(W, c=C, hid=HID, grid=P300C, budget=None, b8=False):
+    """`Transition.__call__`'s Blackhole height at this shape, mirrored. `b8`: the hidden is bfp8."""
     tile = lambda v: -(-int(v) // 32) * 32
     gx, gy = grid
     budget = T.TRANSITION_L1_CHUNK_BYTES_PER_CORE if budget is None else budget
     b = (T.TRANSITION_H_CHUNK_SIZE_BIG
          if W <= T.TRANSITION_H_CHUNK_BIG_MAX_W and c <= 256 else T.TRANSITION_H_CHUNK_SIZE)
     base = max(1, int(b * min(1.0, (1024 * 128) / (W * c))))
-    if c > T._BH_TRANSITION_L1_ROWS_MAX_C:
+    if c > (T._BH_TRANSITION_L1_ROWS_MAX_C_B8 if b8 else T._BH_TRANSITION_L1_ROWS_MAX_C):
         return base
-    l1_rows = budget * gx * gy / (2 * tile(W) * (tile(c) + 2 * tile(hid)))
-    return max(base, max(1, int(min(l1_rows, T._BH_TRANSITION_CHUNK_ELEMS / (W * c)))))
+    hb = 1088 / 1024 if b8 else 2
+    l1_rows = budget * gx * gy / (tile(W) * (2 * tile(c) + 2 * hb * tile(hid)))
+    elems = T._BH_TRANSITION_CHUNK_ELEMS * 18 / (W * c * (2 + 8 * hb))
+    return max(base, max(1, int(min(l1_rows, elems))))
 
 
 def test_the_budget_is_the_ceil_of_the_measured_aggregate():
@@ -119,3 +121,23 @@ def test_the_channels_that_do_ship_are_unaffected_by_the_bound():
     """c=128 pair track and c=64 MSA track, the two the heights were measured at."""
     assert _height(512) == 48 and _height(768) == 32 and _height(1024) == 24
     assert _height(512, c=MSA_C, hid=MSA_HID) == 96
+
+
+@pytest.mark.parametrize("W,h_bf16,h_b8", [(736, 11, 28), (1024, 8, 20)])
+def test_bfp8_hidden_is_priced_at_its_own_width(W, h_bf16, h_b8):
+    """Fast mode (`transition_b8`) writes x_1/x_2 in bfp8, 1088 B per 1024 elements. Priced as
+    bf16 and stopped at c=128, Protenix-v2's c=256 pair transition ran the ratio height (11 at 736
+    tokens) in fast mode too. On a p150a the bfp8 module ran h=32 clean at 736 and was 1.2x faster
+    than h=11 (perf/spd_bh/transition_h.py); bf16 hidden clashes at h=20, so normal keeps its bound."""
+    assert _height(W, c=256, hid=1024) == h_bf16
+    assert _height(W, c=256, hid=1024, b8=True) == h_b8
+
+
+def test_bfp8_hidden_at_the_bf16_bound_is_the_byte_ratio():
+    # c=128: the same bytes per row hold (2 + 8 * 2) / (2 + 8 * 1.0625) = 1.714x the rows.
+    assert _height(736) == 33
+    assert _height(736, b8=True) == 57
+
+
+def test_bfp8_hidden_does_not_reach_opendde_channel():
+    assert _height(512, c=384, hid=1536, b8=True) == _height(512, c=384, hid=1536)
