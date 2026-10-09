@@ -13849,34 +13849,10 @@ class OuterProductMean(Module):
                     ttnn.deallocate(zp)
             return z
 
-        # A whole call's z between its contraction and its first relayout copy. See `outer_product_mean`.
-        whole_z = []
-
-        def release_operands():
-            nonlocal a, b
-            ttnn.deallocate(a)
-            ttnn.deallocate(b)
-            a = b = None
-
-        def outer_product_mean(i0, i1, z=None):
-            """Token rows [i0, i1) of the output; `z` is their contraction when the caller already has it."""
+        def outer_product_mean(i0, i1):
             rows = i1 - i0
-            if z is None:
-                z = z_rows(i0, i1)
-                if rows == I and depth_parts is None:
-                    # The whole contraction is the operands' last use, so they go before the relayout
-                    # asks for a second z-sized buffer. Holding `b` there is what got that copy refused
-                    # on Wormhole at 736 tokens x 9947 (92,450,816 B per bank against a largest free
-                    # block of 92,450,432), 6 calls in 40, each paying the contraction twice; and the
-                    # memo then row-blocked every later call. If the copy is still refused, `run`
-                    # relayouts this z in row blocks: it cannot contract again.
-                    release_operands()
-                    whole_z.append(z)
-            zt = z
-            z = ttnn.to_layout(zt, ttnn.ROW_MAJOR_LAYOUT)
-            if whole_z and whole_z[0] is zt:
-                whole_z.clear()
-            ttnn.deallocate(zt)
+            z = z_rows(i0, i1)
+            z = ttnn.to_layout(z, ttnn.ROW_MAJOR_LAYOUT)
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
             z = ttnn.permute(z, (0, 2, 1))
@@ -13943,23 +13919,6 @@ class OuterProductMean(Module):
             rows_blk = min(rows_blk, z_cap)
 
         def run(rows_blk):
-            if whole_z:
-                # A whole call's first relayout copy was refused after its operands were freed.
-                # Relayout the same z in row blocks: the rows of z are the token rows, so this is
-                # the blocked path's data, contracted once.
-                OPM_ROW_STATS["blocked"] += 1
-                zw, parts = whole_z[0], []
-                try:
-                    for i in range(0, I, rows_blk):
-                        e = min(i + rows_blk, I)
-                        parts.append(outer_product_mean(i, e, zw[i * C:e * C, :]))
-                except BaseException:
-                    for p in parts:
-                        ttnn.deallocate(p)
-                    raise
-                whole_z.clear()
-                ttnn.deallocate(zw)
-                return _acc_concat(parts, 0, host=False, consume=residual)
             if rows_blk >= I:
                 OPM_ROW_STATS["whole"] += 1
                 return outer_product_mean(0, I)
@@ -13988,8 +13947,6 @@ class OuterProductMean(Module):
             -- `run` gives its partial accumulator back before re-raising -- so compacting them
             is what turns the free bytes the allocator reports into one run it can use."""
             nonlocal a, b, depth_parts
-            if whole_z:
-                return
             if depth_parts is None:
                 a = ttnn.reallocate(a)
                 b = ttnn.reallocate(b)
@@ -14002,8 +13959,8 @@ class OuterProductMean(Module):
             lambda b: _dram_narrow(_OPM_DRAM_ROW_CAP, (I, C, D, J), b, OPM_ROW_STATS),
             compact=compact)
         if depth_parts is None:
-            if a is not None:
-                release_operands()
+            ttnn.deallocate(a)
+            ttnn.deallocate(b)
         else:
             for acp, bcp, _ in depth_parts:
                 ttnn.deallocate(acp)
