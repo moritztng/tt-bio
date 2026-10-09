@@ -1,9 +1,9 @@
-"""The rigid passes of guidance on several host cores: one child process per group of samples.
+"""Guidance for several samples on several host cores: one child process per group of samples.
 
-The rigid solvers act on each sample alone and their turns are batch-invariant (``rigid.small_rotation``),
-so a group's output equals the rows of the batched output exactly. Only the rigid passes go to the
-children: the per-step potentials stay batched in the fold's process, where batching amortises the op
-overhead better than a process per group would.
+Guidance is separable over samples (every term and solver acts on each sample alone, and the rigid
+turns are batch-invariant, see ``rigid.small_rotation``), so a group's output equals the rows of
+the batched output exactly. Batching amortises Python and op overhead, so this only pays when the
+fold's host share is wider than the 1-2 threads a batched step uses well.
 
 The children are plain ``python -m tt_bio.tfg.samples`` processes talking pickle over their pipes,
 so nothing of the parent (its ``__main__``, the open device) is imported or inherited.
@@ -17,6 +17,11 @@ import sys
 from pathlib import Path
 
 import torch
+
+
+def _rows(v, rows, m):
+    """The group's rows of a per-sample value (a tensor with leading dim m), else the value itself."""
+    return v[rows] if torch.is_tensor(v) and v.ndim and v.shape[0] == m else v
 
 
 class SampleWorkers:
@@ -38,11 +43,11 @@ class SampleWorkers:
             p.stdin.flush()
             self.procs.append(p)
 
-    def call(self, method, x, *args):
-        """Guidance.<method>(x[group], *args) in every child, rows concatenated back in order."""
-        rows = [r for r in torch.arange(x.shape[0]).tensor_split(self.workers) if len(r)]
+    def step(self, x_noisy, x0, **kw):
+        m = x_noisy.shape[0]
+        rows = [r for r in torch.arange(m).tensor_split(self.workers) if len(r)]
         for p, r in zip(self.procs, rows):
-            pickle.dump((method, x[r], args), p.stdin)
+            pickle.dump((x_noisy[r], x0[r], {k: _rows(v, r, m) for k, v in kw.items()}), p.stdin)
             p.stdin.flush()
         return torch.cat([self._recv(p) for p in self.procs[:len(rows)]])
 
@@ -74,9 +79,9 @@ def _serve():
         msg = pickle.load(src)
         if msg is None:
             return
-        method, x, args = msg
+        x_noisy, x0, kw = msg
         try:
-            out = getattr(g, method)(x, *args)
+            out = g._step(x_noisy, x0, **kw)
         except Exception as exc:  # noqa: BLE001 -- handed to the parent, which raises it
             out = exc
         pickle.dump(out, dst)

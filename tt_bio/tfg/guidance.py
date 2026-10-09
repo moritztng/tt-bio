@@ -41,7 +41,7 @@ class Guidance:
     """
 
     def __init__(self, feats, *, schedule: RigidSchedule = RigidSchedule(), config=None, workers=1):
-        self.workers = workers             # >1: the rigid passes run on sample groups in that many one-thread children
+        self.workers = workers             # >1: sample groups guided in that many one-thread children (samples.py)
         self._pool = None
         cfg = dict(default_guidance_config() if config is None else config)
         cfg["enable"] = True
@@ -86,7 +86,8 @@ class Guidance:
         t0 = time.perf_counter()
         if step == 0:
             self.seconds = 0.0
-        x = self._step(x_noisy, x0, t_hat=t_hat, sigma_t=sigma_t, eta=eta, step=step, n_step=n_step)
+        kw = dict(t_hat=t_hat, sigma_t=sigma_t, eta=eta, step=step, n_step=n_step)
+        x = self._pool.step(x_noisy, x0, **kw) if self._pool else self._step(x_noisy, x0, **kw)
         self.seconds += time.perf_counter() - t0
         if step == n_step - 1:
             log.info("TFG guidance: %.1f s host time over %d steps", self.seconds, n_step)
@@ -99,25 +100,11 @@ class Guidance:
             self._pool = None
 
     def _step(self, x_noisy, x0, *, t_hat, sigma_t, eta, step, n_step):
-        pool = self._pool
-
-        def hook(y, step_i):
-            if pool is not None and self.mode == "on" and rigid.x0_step_active(step_i, self.schedule):
-                return pool.call("_x0_hook", y, step_i)
-            return self._x0_hook(y, step_i)
-
         x = self.engine.update(
             x_noisy, x0, t_hat=t_hat, c_tau=sigma_t, step_scale_eta=eta, step_i=step,
-            num_diffusion_steps=n_step, feats=self.feats, x0_hook=hook)
+            num_diffusion_steps=n_step, feats=self.feats, x0_hook=self._x0_hook)
         if self.mode != "on" or not rigid.late_pass_enabled(self.schedule):
             return x
-        coarse, refine = rigid.intervention_schedule(n_step, self.schedule)
-        if step not in coarse and step not in refine:
-            return x
-        return pool.call("_late", x, step, n_step) if pool is not None else self._late(x, step, n_step)
-
-    def _late(self, x, step, n_step):
-        """The late rigid pass on the sampled state at a scheduled step."""
         coarse, refine = rigid.intervention_schedule(n_step, self.schedule)
         pocket = epitope.active(self.feats)
         if step in coarse:
