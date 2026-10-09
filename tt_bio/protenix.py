@@ -2962,6 +2962,27 @@ class Protenix:
         return coords
 
 
+def msa_cycle_rows(msa, n_cycles, depth, generator):
+    """Per recycling cycle, the alignment rows OpenDDE's MSAModule reads (opendde
+    model/msa_sampling.py subsample_msa_feature_dict_valid_first): rows holding any non-gap token
+    in random order, then all-gap rows in random order, the first `depth` of them; one fresh draw
+    per cycle from `generator`. msa: [depth_total, tokens] token ids, real columns only. None
+    when the whole alignment fits, where a draw would only reorder rows the module sums over."""
+    import torch
+    if msa.shape[0] <= depth:
+        return None
+    valid = (msa != 31).any(-1)
+    v_idx, i_idx = valid.nonzero().squeeze(-1), (~valid).nonzero().squeeze(-1)
+    out = []
+    for _ in range(n_cycles):
+        pick = v_idx[torch.randperm(v_idx.numel(), generator=generator)][:depth]
+        if pick.numel() < depth:
+            extra = i_idx[torch.randperm(i_idx.numel(), generator=generator)][:depth - pick.numel()]
+            pick = torch.cat([pick, extra])
+        out.append(pick)
+    return out
+
+
 def trunk_recycles(state_dict):
     """Recycling count this checkpoint was trained for, read off the checkpoint.
 
@@ -3262,11 +3283,13 @@ class Trunk(_KeyedWeights):
         _TRUNK_TAP_CALL += 1
         return z3
 
-    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None):
+    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, msa_sample=None):
         """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
         tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
         number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
-        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). Returns
+        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). msa_sample=(depth, generator)
+        gives every cycle its own random `depth` alignment rows, as OpenDDE's MSAModule does
+        (see msa_cycle_rows); None feeds the whole alignment to every cycle. Returns
         (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
         import torch
         import torch.nn.functional as F
@@ -3357,15 +3380,19 @@ class Trunk(_KeyedWeights):
         # m_feat stays on the chip (`_msa_keep_bytes`) unless a cycle is refused.
         s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
         m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
-        m_feat = msa_embed(ms, lambda x: ttnn.add(
-            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m), keep=_msa_keep_bytes(*m_key))
-        ttnn.deallocate(s_m)
-        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
+        m_proj = lambda x: ttnn.add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
+        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
+        # The embedding is per alignment row, so embedding a cycle's rows equals picking them out
+        # of the embedded whole; only the picked rows are ever built.
+        rows = None if msa_sample is None else msa_cycle_rows(feat["msa"][:, :n_real], n_cycles, *msa_sample)
+        if rows is None:
+            m_feat = msa_embed(ms, m_proj, keep=_msa_keep_bytes(*m_key))
+            ttnn.deallocate(s_m)
+            dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
-        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
 
         def cycle(cyc, carry, m_feat):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
@@ -3414,6 +3441,12 @@ class Trunk(_KeyedWeights):
             with ops.recycle_region(cyc, n_cycles - 1):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
+                if rows is not None:
+                    m_c = msa_embed(ms[:, rows[cyc]], m_proj)
+                    carry = cycle(cyc, carry, m_c)
+                    if not torch.is_tensor(m_c):
+                        ttnn.deallocate(m_c)
+                    continue
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
                     continue
@@ -3440,6 +3473,8 @@ class Trunk(_KeyedWeights):
                 gc.collect()
                 carry, inputs = cycle(cyc, inputs, m_feat), None
         z3, s = carry
+        if rows is not None:
+            ttnn.deallocate(s_m)
         for t in [z_init, *tpl_a]:
             if t.storage_type() == ttnn.StorageType.DEVICE:
                 ttnn.deallocate(t)
