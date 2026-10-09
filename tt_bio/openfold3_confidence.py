@@ -355,7 +355,7 @@ class OF3ConfidenceHead:
 
     def forward(self, si_input, si_trunk, zij_trunk, repr_x_pred,
                 max_atom_per_token_mask, use_zij_trunk_embedding=True,
-                s_path=None, dtype=None, token_mask=None, single_mask=None):
+                s_path=None, dtype=None, token_mask=None, single_mask=None, shared=None):
         """Confidence forward -> dict of head logits (host fp32) + the confidence
         Pairformer (si_conf, zij_conf).
 
@@ -371,6 +371,9 @@ class OF3ConfidenceHead:
                 with None this runs unmasked, which is only equal to the reference when every
                 token is real. Pass it whenever the token axis carries padding.
             single_mask: [N_tok], the reference's ``repr_x_mask``. Defaults to ``token_mask``.
+            shared: a dict the caller keeps across the samples of one fold (same trunk
+                inputs); the sample-independent z-embedding and distogram are computed into
+                it once. None computes them for this call alone.
 
         Returns:
             plddt_logits:                [N_atom, 50]
@@ -400,12 +403,19 @@ class OF3ConfidenceHead:
             return host
 
         # --- z-embedding (host, AF3 Algorithm 31 lines 1-3) ---
+        # The trunk terms are the same for every sample of a fold: `shared` carries them from the
+        # first sample's call to the next (same ops on the same inputs, so the same bits).
         si_input, si_trunk = si_input.to(self._dtype), si_trunk.to(self._dtype)
         zij_trunk, repr_x_pred = zij_trunk.to(self._dtype), repr_x_pred.to(self._dtype)
-        z = zij_trunk if use_zij_trunk_embedding else zij_trunk * 0.0
-        z = (z
-             + F.linear(si_input, self._g("pairformer_embedding.linear_i.weight")).unsqueeze(-2)
-             + F.linear(si_input, self._g("pairformer_embedding.linear_j.weight")).unsqueeze(-3))
+        if shared is None:
+            shared = {}
+        if "z_trunk" not in shared:
+            z = zij_trunk if use_zij_trunk_embedding else zij_trunk * 0.0
+            shared["z_trunk"] = (
+                z
+                + F.linear(si_input, self._g("pairformer_embedding.linear_i.weight")).unsqueeze(-2)
+                + F.linear(si_input, self._g("pairformer_embedding.linear_j.weight")).unsqueeze(-3))
+        z = shared["z_trunk"]
         dij = torch.sum((repr_x_pred[..., None, :] - repr_x_pred[..., None, :, :]) ** 2, dim=-1,
                         keepdim=True)  # [N, N, 1]
         oh = ((dij > self._squared_bins.to(dij.dtype)) &
@@ -448,8 +458,10 @@ class OF3ConfidenceHead:
         # --- output heads (host fp32) ---
         # Distogram reads the TRUNK pair (reference: computed before the confidence
         # Pairformer), symmetrised as L(z) + L(z).T (no LayerNorm).
-        dlog = F.linear(zij_trunk, self._g("distogram.linear.weight"))
-        distogram_logits = dlog + dlog.transpose(-2, -3)
+        if "distogram" not in shared:
+            dlog = F.linear(zij_trunk, self._g("distogram.linear.weight"))
+            shared["distogram"] = dlog + dlog.transpose(-2, -3)
+        distogram_logits = shared["distogram"]
 
         pae_logits = F.linear(
             F.layer_norm(zij_conf, (_C_Z,)) * self._g("pae.layer_norm.weight") + self._bias("pae.layer_norm.bias"),

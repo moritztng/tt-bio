@@ -268,7 +268,7 @@ class OpenFold3(Module):
             t_l.append(t); c_tau_l.append(c_tau)
         return xl_init, rots_l, trans_l, noise_l, t_l, c_tau_l
 
-    def _confidence(self, sample, si_input, si_trunk, zij_trunk, aux):
+    def _confidence(self, sample, si_input, si_trunk, zij_trunk, aux, shared=None):
         if self.confidence_head is None:
             self.confidence_head = OF3ConfidenceHead(
                 self._confidence_sd, self.device, self.ckc)
@@ -289,7 +289,7 @@ class OpenFold3(Module):
             si_input=si_input.float(), si_trunk=si_trunk.float(),
             zij_trunk=zij_trunk.float(), repr_x_pred=representative.float(),
             max_atom_per_token_mask=aux["max_atom_per_token_mask"].float(),
-            use_zij_trunk_embedding=True,
+            use_zij_trunk_embedding=True, shared=shared,
         )
         bins = (torch.arange(50, dtype=torch.float32) + 0.5) / 50
         plddt_atom = (torch.softmax(out["plddt_logits"].float(), -1) * bins).sum(-1)
@@ -474,12 +474,12 @@ class OpenFold3(Module):
                 progress_fn("confidence", step=0, total=0)
             si_trunk = torch.Tensor(ttnn.to_torch(si_trunk_d)).float().reshape(n_token, -1)
             zij_trunk = torch.Tensor(ttnn.to_torch(zij_trunk_d)).float().reshape(n_token, n_token, -1)
+            shared = {}                           # trunk terms, computed with the first sample
             confidence = [
-                self._confidence(sample, s_input, si_trunk, zij_trunk, confidence_aux_host)
+                self._confidence(sample, s_input, si_trunk, zij_trunk, confidence_aux_host,
+                                 shared)
                 for sample in samples
             ]
-            for c in confidence[1:]:              # one [N, N, 64] per fold, not per sample
-                c["distogram"] = confidence[0]["distogram"]
             best_index = max(range(len(samples)), key=lambda i: confidence[i]["ranking_score"])
             dram_peak(f"confidence done [samples={len(samples)}]")
         else:
