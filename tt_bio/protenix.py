@@ -2879,10 +2879,9 @@ class Protenix:
                 # fp32 on host and upload as a resident bf16 device tensor, then
                 # run the per-sample distance-embed + Pairformer + heads on device
                 # -- the (N,N,256) z never round-trips per sample. Restricted to
-                # NT>=128: at small N the per-sample bf16 dist-embed rounding
-                # diverges from the host path's fp32-then-round (amplified by the
-                # Pairformer into the precision-sensitive plddt head), so the host
-                # path is kept there (it is only ~23 ms at NT=38 anyway).
+                # NT>=128, where the host path's round trip starts to cost (it is
+                # ~23 ms at NT=38). The small-N divergence once blamed for the gate
+                # was the bf16 distance cancellation fixed in confidence_device.
                 z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
                 try:
                     confs = [self.confidence_head.confidence_device(
