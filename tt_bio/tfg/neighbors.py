@@ -118,7 +118,9 @@ class PairList:
         if self.Q is None:
             return False
         ref = self.Q if Q.dim() == self.Q.dim() else self.Q[:, None]
-        return float((Q - ref).norm(dim=-1).max()) < self.skin
+        # squared, 1e-3 A short of the skin: rounding can only cause an early rebuild, and the list is a superset
+        # either way (pairs come in per-query order, so which build made it does not change any sum)
+        return float(square_length(Q - ref).max()) < (self.skin - 1e-3) ** 2
 
     def build(self, Q, reach=0.0):
         """Build at Q [S, M, 3] with a skin that also covers moves of up to `reach` from Q."""
@@ -151,7 +153,7 @@ class SparseClash:
         if all(self.list.valid(p) for p in poses):
             return
         ref = poses[0] if poses[0].dim() == 3 else poses[0][:, 0]
-        reach = max(float((p - (ref if p.dim() == 3 else ref[:, None])).norm(dim=-1).max()) for p in poses)
+        reach = max(float(square_length(p - (ref if p.dim() == 3 else ref[:, None])).max()) for p in poses) ** 0.5
         self.list.build(ref, reach)
 
     def terms(self, x, want_gradient=False):
