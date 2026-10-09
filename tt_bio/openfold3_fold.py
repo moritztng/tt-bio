@@ -229,8 +229,9 @@ class OpenFold3(Module):
         # that closed the Protenix HSA leg (PROTENIX_DIFFUSION_FP32_DEVICE, also
         # default-on). In bf16 the 9BK6 complex leg misses the all-atom noise floor
         # (X 1.889 > 1.821 threshold); in fp32 it passes (X 1.627, seeds 0-4:
-        # 1.35-2.18 A). OF3_DIFFUSION_FP32_DEVICE=0 opts back out to bf16.
-        if env_flag("OF3_DIFFUSION_FP32_DEVICE", True):
+        # 1.35-2.18 A). OF3_DIFFUSION_FP32_DEVICE=0 opts back out to bf16, and so does the
+        # shared `diffusion_bf16` lever (fast mode), as it does for Protenix-v2.
+        if env_flag("OF3_DIFFUSION_FP32_DEVICE", True) and not _T.lever("diffusion_bf16"):
             with device_dtype_override(ttnn.float32):
                 self.sampler = OF3SampleDiffusion(_sub(sd, "diffusion_module"),
                                                   compute_kernel_config,
