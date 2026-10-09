@@ -106,6 +106,7 @@ def test_declines_on_wormhole(monkeypatch):
     """Card-free: the kernel was graded on Blackhole, so a Wormhole chip keeps the composed path."""
     from tt_bio import lnbw, tenstorrent
     monkeypatch.setattr(lnbw, "FUSED", True)
+    monkeypatch.setattr(lnbw, "WORMHOLE", False)
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
     before = lnbw.REACH["declined: arch"]
     assert not lnbw.eligible(None, None, None)
