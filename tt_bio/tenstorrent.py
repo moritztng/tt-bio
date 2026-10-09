@@ -8,7 +8,7 @@ import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping, NamedTuple
 from math import gcd, pi, prod
-from functools import lru_cache, partial
+from functools import lru_cache, partial, wraps
 from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
 
 from . import ops
@@ -730,6 +730,36 @@ def levers(names):
         yield
     finally:
         _LEVERS = prev
+
+
+def mode_levers(spec=None) -> frozenset:
+    """The lever set a model builds under when its caller names none: `TT_BIO_LEVERS` (the bench
+    harness's switch), else FAST_LEVERS under `--fast` and NORMAL_LEVERS otherwise."""
+    if spec is None:
+        spec = os.environ.get("TT_BIO_LEVERS") or (FAST_LEVERS if _FAST_MODE else NORMAL_LEVERS)
+    return parse_levers(spec)
+
+
+@contextlib.contextmanager
+def lever_scope(names):
+    """`levers(names)` with the older bfp8 `--fast` (`_FAST_MODE`) off inside: a model that builds
+    and folds on a lever set takes its precision from the set alone."""
+    global _FAST_MODE
+    prev, _FAST_MODE = _FAST_MODE, False
+    try:
+        with levers(names):
+            yield
+    finally:
+        _FAST_MODE = prev
+
+
+def under_lever_scope(method):
+    """Run a model method inside `lever_scope(self._levers)`."""
+    @wraps(method)
+    def run(self, *a, **kw):
+        with lever_scope(self._levers):
+            return method(self, *a, **kw)
+    return run
 
 
 # Blackhole dispatch on Ethernet cores instead of a Tensix column (spd-bh, measuring, default off).

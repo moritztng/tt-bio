@@ -63,6 +63,7 @@ import torch
 import ttnn
 
 from . import ops
+from . import tenstorrent as _T
 from .tenstorrent import AdaLN, CORE_GRID_MAIN, Module, _cached, _dtype, batched_matmul, host_f64_softmax_site, pair_row_blocks, row_block_after_refusal, site_softmax, softmax_ckc
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
@@ -121,6 +122,9 @@ class _DiTBlock(Module):
         # not because it is expensive. perf/of3t_fwdkcfg/.
         self._softmax_ckc = softmax_ckc("openfold3.diffusion_transformer")
         self._softmax_f64 = host_f64_softmax_site("openfold3.diffusion_transformer")
+        # dit_sdpa32 (normal-mode lever, shared with Protenix-v2's token DiT): the fp32 attention
+        # as one `_sdpa32` program instead of matmul, scale_add, softmax and matmul. Inert in bf16.
+        self.sdpa32 = _T.lever("dit_sdpa32") and self._act_dtype == ttnn.float32
 
         apb = "attention_pair_bias."
         self.adaln_a = AdaLN(False, remap_of3_adaln(_sub(self._w, apb + "layer_norm_a")),
@@ -198,20 +202,7 @@ class _DiTBlock(Module):
         zb = ttnn.to_layout(zb, ttnn.TILE_LAYOUT)
         return ttnn.add_(zb, mask_bias)                 # + mask_bias [1,1,1,N]
 
-    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
-        lin = self._lin
-        # AdaLN-conditioned a.
-        a_ln = self.adaln_a(a, s)
-
-        zb = _cached(cache, (id(self), "pair_bias"),
-                     lambda: self._pair_bias(z, mask_bias))
-
-        # Fused padded qkv -> heads.
-        qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)   # [1, N, 3072]
-        qkv = ttnn.unsqueeze(qkv, 1)
-        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
-            qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
-        ttnn.deallocate(qkv)
+    def _attend(self, q, k, v, bias, cache):
         # Manual attention with an fp32 softmax: the fused SDPA does softmax in bf16,
         # and its per-block error (~0.998) compounds to ~0.967 over 24 blocks. A CPU
         # bf16 control with an fp32 softmax holds 0.99996 over the same stack, so the
@@ -220,10 +211,10 @@ class _DiTBlock(Module):
         scale = HEAD_DIM ** -0.5
         sc = batched_matmul(q, ttnn.permute(k, (0, 1, 3, 2)),
                             compute_kernel_config=self.compute_kernel_config)
-        sc = scale_add(sc, scale, zb)
+        sc = scale_add(sc, scale, bias)
         ttnn.deallocate(q); ttnn.deallocate(k)
         if cache is None:
-            ttnn.deallocate(zb)
+            ttnn.deallocate(bias)
         sc = ttnn.typecast(sc, ttnn.float32)
         attn = site_softmax(sc, dim=-1, numeric_stable=True,
                             compute_kernel_config=self._softmax_ckc,
@@ -232,6 +223,56 @@ class _DiTBlock(Module):
         attn = ttnn.typecast(attn, self._act_dtype)
         o = batched_matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
         ttnn.deallocate(attn); ttnn.deallocate(v)
+        return o
+
+    def _sdpa32_mask(self, z, mask_bias):
+        """The pair bias as `_sdpa32`'s fp32 mask. `_sdpa32` scales mask and scores together, so
+        the bias is divided by the scale; the token axis is padded to `sdpa32_rows`."""
+        zb = self._pair_bias(z, mask_bias)
+        b = ttnn.multiply(zb, HEAD_DIM ** 0.5)
+        ttnn.deallocate(zb)
+        m = _T.sdpa32_mask(b)
+        ttnn.deallocate(b)
+        return m
+
+    def _attend32(self, q, k, v, mask, cache):
+        """softmax(q k^T * scale + bias) v as one `_sdpa32` program on the padded token axis."""
+        n = int(q.shape[2])
+        pad = int(mask.shape[-1]) - n
+        if pad:
+            qkv = [ttnn.pad(x, [(0, 0), (0, 0), (0, pad), (0, 0)], value=0.0) for x in (q, k, v)]
+            for x in (q, k, v):
+                ttnn.deallocate(x)
+            q, k, v = qkv
+        o = _T._sdpa32(q, k, v, mask, HEAD_DIM ** -0.5)
+        ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
+        if cache is None:
+            ttnn.deallocate(mask)
+        if not pad:
+            return o
+        sl = o[:, :, :n, :]
+        ttnn.deallocate(o)
+        return sl
+
+    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
+        lin = self._lin
+        # AdaLN-conditioned a.
+        a_ln = self.adaln_a(a, s)
+
+        if self.sdpa32:
+            bias = _cached(cache, (id(self), "pair_bias32"),
+                           lambda: self._sdpa32_mask(z, mask_bias))
+        else:
+            bias = _cached(cache, (id(self), "pair_bias"),
+                           lambda: self._pair_bias(z, mask_bias))
+
+        # Fused padded qkv -> heads.
+        qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)   # [1, N, 3072]
+        qkv = ttnn.unsqueeze(qkv, 1)
+        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+            qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
+        ttnn.deallocate(qkv)
+        o = (self._attend32 if self.sdpa32 else self._attend)(q, k, v, bias, cache)
         # Slice padded head_dim 64->48, merge heads -> [1, N, 768].
         o = o[:, :, :, :HEAD_DIM]
         o = ttnn.permute(o, (0, 1, 3, 2))               # [1, 16, 48, N]

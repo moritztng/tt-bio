@@ -8,12 +8,13 @@ import ttnn
 
 from . import align
 from . import ranking as rank
+from . import tenstorrent as _T
 from .tenstorrent import Module, device_dtype_override, dram_peak
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
 from .openfold3_sample_diffusion import OF3SampleDiffusion
-from .protenix import ConfidenceHead
+from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, ConfidenceHead
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
@@ -196,13 +197,26 @@ class OpenFold3(Module):
         num_cycles: trunk recycle cycles (OF3 default 4 = num_recycles+1).
     """
 
-    def __init__(self, sd, compute_kernel_config, num_cycles: int = 4):
+    def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None):
+        """``levers``: the precision levers (``tenstorrent.LEVERS``) this model builds and folds
+        under, active only inside its own build and fold, as for Protenix-v2. None takes the
+        mode's set (``tenstorrent.mode_levers``), so ``--fast`` means FAST_LEVERS and nothing
+        else: the older bfp8 trunk is off inside the scope."""
+        self._levers = _T.mode_levers(levers)
+        with _T.lever_scope(self._levers):
+            self._build(sd, compute_kernel_config, num_cycles)
+
+    def _build(self, sd, compute_kernel_config, num_cycles):
+        # The `lofi` / `acc_off` levers reach every stage through this one config.
+        compute_kernel_config = _T.lpx_compute_kernel_config(compute_kernel_config)
         super().__init__(sd, compute_kernel_config)
         self.sd = sd
         self.ckc = compute_kernel_config
         self.input_glue = InputEmbedderGlue(
             _sub(sd, "input_embedder"), compute_kernel_config)
-        self.trunk = OF3Trunk(sd, compute_kernel_config, num_cycles=num_cycles)
+        # The trunk gets its own config (`trunk_hifi3`), which cannot reach the diffusion module.
+        self.trunk = OF3Trunk(sd, _T.trunk_compute_kernel_config(compute_kernel_config),
+                              num_cycles=num_cycles)
         self._confidence_sd = _sub(sd, "aux_heads")
         self.confidence_head = None
         fourier_w = sd["diffusion_module.diffusion_conditioning.fourier_emb.w"]
@@ -323,15 +337,19 @@ class OpenFold3(Module):
             "distogram": out["distogram_logits"],
         }
 
+    @_T.under_lever_scope
     def fold(self, *, template_feat, msa_feat, s_input, relpos, token_bonds,
              token_mask, dm_aux_host, n_atom, n_token, no_rollout_steps, seed,
              no_samples=1, confidence_aux_host=None, progress_fn=None,
-             template_slots=None):
+             template_slots=None, max_parallel_samples=None):
         """Run the device input glue + trunk and confidence-rank fresh rollouts.
 
         ``msa_feat`` is the searched, post-subsample 34-channel MSA input. The returned
         result keeps every sample and identifies ``coordinates`` / ``best_index`` using
         the OF3 sample-ranking score (0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 clash).
+        ``max_parallel_samples`` caps how many samples share one diffusion-module call
+        (default ``protenix.DEFAULT_MAX_PARALLEL_SAMPLES``); it moves memory and time, not a
+        sample's draws.
         """
         import torch.nn.functional as F
         from .token_axis import (TILE, bucket_enabled, bucket_multiple, bucketed_width,
@@ -420,38 +438,35 @@ class OpenFold3(Module):
 
         dram_peak("of3 diffusion entry")
         noise_schedule = create_noise_schedule(no_rollout_steps, **self.ns_cfg)
-        n_steps = len(noise_schedule) - 1
+        # Every sample's draws up front, each from its own seed, so a sample's numbers do not
+        # depend on how many run beside it; then all of them step together (the sampler's list
+        # form), max_parallel_samples per diffusion-module call.
+        rollouts = [self._gen_rollout(noise_schedule, n_atom, seed + k) for k in range(no_samples)]
+        _, _, _, _, t_l, c_tau_l = rollouts[0]
+        xl_init_devs = [ft(r[0].unsqueeze(0)) for r in rollouts]
+        if max_parallel_samples is None:
+            max_parallel_samples = DEFAULT_MAX_PARALLEL_SAMPLES
+        xl_final_devs = self.sampler(
+            xl_init_devs, si_trunk_d, si_input_dev, zij_trunk_d, relpos_dev,
+            tm_dev, pair_mask_dev, tok_mask_dev,
+            aux["cl0_d"], aux["plm0_d"], aux["amc_d"], aux["amc_na_d"],
+            aux["idx_tt"], aux["flat_tt"], aux["zij_mask_d"], aux["kidx_tt"],
+            aux["valid_d"], aux["mb_d"], aux["pm_d"], aux["mean_d"],
+            aux["tok_pad_tt"], aux["tok_col_pad_tt"],
+            n_atom, NP, nb, n_token, n_tok_pad,
+            noise_schedule, [r[1] for r in rollouts], [r[2] for r in rollouts],
+            [r[3] for r in rollouts], t_l, c_tau_l,
+            self.step_scale, progress_fn=progress_fn, max_parallel_samples=max_parallel_samples)
+        del rollouts
         samples = []
-        for sample_index in range(no_samples):
-            # One monotonic diffusion sweep across samples (protenix batches its
-            # samples and ticks total=n_step once; this sampler is per-sample, so
-            # offset the steps of each sample to keep the live view advancing).
-            if progress_fn is not None:
-                def _sample_pfn(stage, step, total, _si=sample_index):
-                    progress_fn(stage, step=_si * n_steps + step,
-                                total=n_steps * no_samples)
-            else:
-                _sample_pfn = None
-            xl_init, rots_l, trans_l, noise_l, t_l, c_tau_l = self._gen_rollout(
-                noise_schedule, n_atom, seed + sample_index)
-            xl_init_dev = ft(xl_init.unsqueeze(0))
-            xl_final_dev = self.sampler(
-                xl_init_dev, si_trunk_d, si_input_dev, zij_trunk_d, relpos_dev,
-                tm_dev, pair_mask_dev, tok_mask_dev,
-                aux["cl0_d"], aux["plm0_d"], aux["amc_d"], aux["amc_na_d"],
-                aux["idx_tt"], aux["flat_tt"], aux["zij_mask_d"], aux["kidx_tt"],
-                aux["valid_d"], aux["mb_d"], aux["pm_d"], aux["mean_d"],
-                aux["tok_pad_tt"], aux["tok_col_pad_tt"],
-                n_atom, NP, nb, n_token, n_tok_pad,
-                noise_schedule, rots_l, trans_l, noise_l, t_l, c_tau_l,
-                self.step_scale, progress_fn=_sample_pfn)
-            xl_final = torch.Tensor(ttnn.to_torch(xl_final_dev)).float().reshape(n_atom, 3)
-            ttnn.deallocate(xl_init_dev)
-            ttnn.deallocate(xl_final_dev)
+        for sample_index, (x0, xf) in enumerate(zip(xl_init_devs, xl_final_devs)):
+            xl_final = torch.Tensor(ttnn.to_torch(xf)).float().reshape(n_atom, 3)
+            ttnn.deallocate(x0)
+            ttnn.deallocate(xf)
             samples.append(xl_final)
-            dram_peak("diffusion sample done")
             print(f"  [fold] sample {sample_index}: xl_final std={float(xl_final.std()):.4f} "
                   f"range=[{float(xl_final.min()):.2f},{float(xl_final.max()):.2f}]")
+        dram_peak("diffusion samples done")
 
         confidence = []
         if confidence_aux_host is not None:
