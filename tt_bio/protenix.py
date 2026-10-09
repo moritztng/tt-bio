@@ -548,7 +548,8 @@ def n_blocks(state_dict, prefix):
 #: Build the atom attention windows in TILE layout, every sample in one pass (`AtomTransformer.
 #: _windows_tiled`), instead of a ROW_MAJOR pad/reshape/permute round trip per sample. Pure data
 #: movement: the windows, the K transpose and the head merge are the same values in the same places.
-ATOM_WINDOWS_TILED = env_flag("TT_BIO_ATOM_WINDOWS_TILED", False)
+#: On by default: the 730-token fold's digests match the round trip on Wormhole, torch.equal on p150a.
+ATOM_WINDOWS_TILED = env_flag("TT_BIO_ATOM_WINDOWS_TILED", True)
 _HEADS_SPLIT_REFUSED: set = set()
 
 
@@ -1822,6 +1823,7 @@ class ConfidenceHead:
         self._w = dict(conf_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
+        self._device_default = softmax_scope == "protenix"
         nb = 1 + max(int(re.search(r"pairformer_stack\.blocks\.(\d+)\.", k).group(1))
                      for k in self._w if k.startswith("pairformer_stack.blocks."))
         comb = {}
@@ -1862,7 +1864,9 @@ class ConfidenceHead:
         import torch
         import torch.nn.functional as F
         N = s_trunk.shape[0]
-        T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+        # Tilized on the host, off the device's critical path, and cast to bf16 by torch first (the
+        # same round-to-nearest-even ttnn applies, ~4x faster to tilize); only the copy waits.
+        H = lambda x: ttnn.from_torch(x.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
         s_t = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
         z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
                   + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0))
@@ -1884,10 +1888,12 @@ class ConfidenceHead:
             return out
 
         out, held = [], None
+        s_h = H(s_t.unsqueeze(0))
         for x in coords:
-            z = z_of(x)                                    # host, while the chip runs the last pairformer
+            z_h = H(z_of(x).unsqueeze(0))                  # host, while the chip runs the last pairformer
             done = read(held) if held is not None else None
-            held = bucketed_pairformer(self.pf, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), self.dev)
+            held = bucketed_pairformer(self.pf, ttnn.to_device(s_h, self.dev), ttnn.to_device(z_h, self.dev),
+                                       self.dev)
             if done is not None:
                 out.append(self._heads(*done, feats))      # host, while the chip runs this one
         out.append(self._heads(*read(held), feats))
@@ -1919,16 +1925,15 @@ class ConfidenceHead:
     # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
     # run on device, and only the small final logits (pae/pde (N,N,64), plddt
     # (N_atom,50)) are downloaded. Feature-detected + gated behind
-    # TT_PROTENIX_CONF_DEVICE=1; off by default until PCC is verified (plddt is
-    # precision-sensitive: the host path is already PCC ~0.93 vs the reference,
-    # and moving the einsum to bf16 can regress it -- see the parity harness).
+    # TT_PROTENIX_CONF_DEVICE. On by default for Protenix-v2, where it passed the
+    # normal-mode grade (11 complexes x 4 seeds on Wormhole, pLDDT within 0.003 per
+    # complex); OpenDDE shares this class and keeps it opt-in until graded itself.
     # ---------------------------------------------------------------------------
-    @staticmethod
-    def device_confidence_enabled():
-        """True only if the user opted in (TT_PROTENIX_CONF_DEVICE=1) AND the
-        installed ttnn exposes every op the device path needs. Off otherwise
-        (the host-heads path in confidence() is the default)."""
-        if not env_flag("TT_PROTENIX_CONF_DEVICE", False):
+    def device_confidence_enabled(self):
+        """True if TT_PROTENIX_CONF_DEVICE (default: on for Protenix-v2, off for
+        OpenDDE) asks for it AND the installed ttnn exposes every op the device
+        path needs. Otherwise confidence() runs its host heads."""
+        if not env_flag("TT_PROTENIX_CONF_DEVICE", self._device_default):
             return False
         import ttnn
         need = ("clamp", "ge", "lt", "sqrt", "embedding", "layer_norm", "linear",
@@ -1972,10 +1977,10 @@ class ConfidenceHead:
         N = s_trunk.shape[0]
         s_t_h = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
         s_t = T(s_t_h.unsqueeze(0))                                       # (1,N,384)
-        # coords gather: which atoms pass distogram_rep_atom_mask (== N tokens)
-        mask = feats["distogram_rep_atom_mask"].bool()
-        idx = torch.nonzero(mask, as_tuple=False).reshape(-1).to(torch.int32)   # (N,)
-        idx_dev = ttnn.from_torch(idx.reshape(1, N), layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
+        # Distance bins in fp32, so the bin of every pair is the host path's (the edges are bf16-exact).
+        F32 = lambda k: ttnn.from_torch(self._g(k).reshape(1, 1, 1, -1), layout=ttnn.TILE_LAYOUT,
+                                        device=self.dev, dtype=ttnn.float32)
+        lb4, ub4 = F32("lower_bins"), F32("upper_bins")
         # plddt per-atom-type weight table (24, 384, 50) -> flat (24, 384*50) for embedding gather
         pw = self._g("plddt_weight")                                       # (n_tokatom, 384, 50)
         n_ta, c, nb = pw.shape
@@ -1985,10 +1990,17 @@ class ConfidenceHead:
         a2ta_dev = ttnn.from_torch(a2ta, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
         a2t = feats["atom_to_token_idx"].long().to(torch.int32).reshape(-1, 1)     # (N_atom,1) -> s_single gather
         a2t_dev = ttnn.from_torch(a2t, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, idx_dev=idx_dev, N=N,
+        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, lb4=lb4, ub4=ub4, N=N,
                      pw_dev=pw_dev, a2ta_dev=a2ta_dev, a2t_dev=a2t_dev,
                      pw_shape=(n_ta, c, nb))
         return cache
+
+    def drop_device_resident(self):
+        """Free what _device_resident cached for this fold, z_base included. Held, the next fold's
+        trunk ran beside them and its pair transition was refused DRAM at c730."""
+        for v in self.__dict__.pop("_dev_res", {}).values():
+            if isinstance(v, ttnn.Tensor):
+                ttnn.deallocate(v)
 
     def z_base_device(self, s_inputs, s_trunk, z_trunk):
         """Build the sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] +
@@ -2019,31 +2031,24 @@ class ConfidenceHead:
         N = rc["N"]
         dram_peak(f"confidence: resident built [N={N}]")
         # ---- per-sample distance-embed on device ----
-        coords_tbl = ttnn.from_torch(coords.float().reshape(coords.shape[0], 3), layout=ttnn.ROW_MAJOR_LAYOUT,
-                                     device=self.dev, dtype=ttnn.bfloat16)        # (N_atom,3) gather table
-        xr = ttnn.embedding(rc["idx_dev"], coords_tbl, layout=ttnn.ROW_MAJOR_LAYOUT,
-                            memory_config=ttnn.DRAM_MEMORY_CONFIG)               # (1,N,3)
-        xr = ttnn.to_layout(ttnn.reshape(xr, (1, N, 3)), ttnn.TILE_LAYOUT)
-        # squared dist = |xr|^2 + |xr|^2 - 2 xr.xr^T ; d = sqrt(clamp(d2, 0))
-        sq = ttnn.pow(xr, 2.0)
-        srow = ttnn.sum(sq, dim=-1)                                          # (1,N)
-        d2 = ttnn.add(ttnn.add(srow, ttnn.reshape(srow, (1, 1, N))),
-                      ttnn.multiply(ttnn.matmul(xr, ttnn.permute(xr, (0, 2, 1)),
-                                                compute_kernel_config=self.compute_kernel_config,
-                                                core_grid=CORE_GRID_MAIN), -2.0))
-        d2 = ttnn.clamp(d2, 0.0, None)
-        d = ttnn.sqrt(d2)                                                    # (1,N,N)
+        # The distances are the host path's own fp32 cdist. In bf16 on the device, |x|^2 + |y|^2 -
+        # 2 x.y cancels: 40 A from the origin |x|^2 is ~1600, where bf16 steps by 8 A^2, so a 3.8 A
+        # neighbour pair (14.4 A^2) came out anywhere from 0 to ~5 A and pLDDT fell 0.046 at c730.
+        xr = coords.float().reshape(-1, 3)[feats["distogram_rep_atom_mask"].bool()]
+        d = ttnn.from_torch(torch.cdist(xr, xr).reshape(1, N, N), layout=ttnn.TILE_LAYOUT,
+                            device=self.dev, dtype=ttnn.float32)                # (1,N,N), 2 MB at N=730
         d3 = ttnn.unsqueeze(d, -1)                                           # (1,N,N,1)
-        lb = self._wtt("lower_bins", False); ub = self._wtt("upper_bins", False)
-        lb4 = ttnn.reshape(lb, (1, 1, 1, lb.shape[-1])); ub4 = ttnn.reshape(ub, (1, 1, 1, ub.shape[-1]))
-        ge = ttnn.ge(d3, lb4)                                                # (1,N,N,39) bool->bf16
-        lt = ttnn.lt(d3, ub4)
-        oh = ttnn.multiply(ge, lt)                                           # AND
-        oh = ttnn.to_layout(oh, ttnn.TILE_LAYOUT) if oh.layout != ttnn.TILE_LAYOUT else oh
+        ge = ttnn.ge(d3, rc["lb4"])                                          # (1,N,N,39)
+        lt = ttnn.lt(d3, rc["ub4"])
+        oh = ttnn.typecast(ttnn.multiply(ge, lt), ttnn.bfloat16)             # AND, 0/1 exact in bf16
+        d3 = ttnn.typecast(d3, ttnn.bfloat16)
         z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
         z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
         # ---- confidence Pairformer (device, z stays resident) ----
-        so, zo = bucketed_pairformer(self.pf, rc["s_t"], z, self.dev)        # (1,N,384),(1,N,N,c_z)
+        # The pairformer adds its residuals into s in place, so every sample gets its own copy of the
+        # cached s_t. Handed s_t itself, sample k started from sample k-1's output: pLDDT 0.768 on
+        # sample 0, then 0.746, 0.731, 0.722, 0.718 where the host path reads 0.767-0.768 (c730).
+        so, zo = bucketed_pairformer(self.pf, ttnn.clone(rc["s_t"]), z, self.dev)  # (1,N,384),(1,N,N,c_z)
         # ---- heads on device ----
         zof = ttnn.reshape(zo, (1, N, N, zo.shape[-1]))                      # c_z: 256 v2, 128 v1
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
@@ -2755,13 +2760,15 @@ class Protenix:
         return out, confs
 
     def _confidence_for(self, aux, feats, coords):
-        """Confidence head for one prediction's coords (N,3). Same device/host split fold()
-        uses: the device path needs NT>=128, below which bf16 distance-embed rounding moves
-        the pLDDT head."""
+        """Confidence head for one prediction's coords (N,3). Same device/host split and the
+        same NT>=128 gate fold() uses, and like fold() it frees the resident tensors after."""
         s_inputs, s_trunk, z_trunk = aux["s_inputs"], aux["s_trunk"], aux["z_trunk"]
         if self.confidence_head.device_confidence_enabled() and aux["NT"] >= 128:
             z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
-            return self.confidence_head.confidence_device(s_inputs, s_trunk, z_base_dev, coords, feats)
+            try:
+                return self.confidence_head.confidence_device(s_inputs, s_trunk, z_base_dev, coords, feats)
+            finally:
+                self.confidence_head.drop_device_resident()
         return self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords, feats)
 
     def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None):
@@ -2916,7 +2923,7 @@ class Protenix:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
-            # Device-resident path (opt-in, TT_PROTENIX_CONF_DEVICE=1): keep z_base
+            # Device-resident path (TT_PROTENIX_CONF_DEVICE, see above): keep z_base
             # on device across samples -- pass the raw trunk z device tensor
             # straight in, skipping the (N,N,256) host round-trip the host-heads
             # path takes. Falls back to the host-heads path otherwise.
@@ -2925,14 +2932,16 @@ class Protenix:
                 # fp32 on host and upload as a resident bf16 device tensor, then
                 # run the per-sample distance-embed + Pairformer + heads on device
                 # -- the (N,N,256) z never round-trips per sample. Restricted to
-                # NT>=128: at small N the per-sample bf16 dist-embed rounding
-                # diverges from the host path's fp32-then-round (amplified by the
-                # Pairformer into the precision-sensitive plddt head), so the host
-                # path is kept there (it is only ~23 ms at NT=38 anyway).
+                # NT>=128, where the host path's round trip starts to cost (it is
+                # ~23 ms at NT=38). The small-N divergence once blamed for the gate
+                # was the bf16 distance cancellation fixed in confidence_device.
                 z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
-                confs = [self.confidence_head.confidence_device(
-                            s_inputs, s_trunk, z_base_dev, coords[k], feats)
-                         for k in range(n_sample)]
+                try:
+                    confs = [self.confidence_head.confidence_device(
+                                s_inputs, s_trunk, z_base_dev, coords[k], feats)
+                             for k in range(n_sample)]
+                finally:
+                    self.confidence_head.drop_device_resident()
             else:
                 confs = self.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk,
                                                                 list(coords), feats)

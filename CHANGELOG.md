@@ -5,6 +5,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- Protenix-v2 runs its confidence head on the card by default (`TT_PROTENIX_CONF_DEVICE`, `0` turns it
+  off). A warm 730-token fold on Wormhole drops from 384 to 368 s; coordinates are unchanged and
+  pLDDT, pTM and ipTM match the host heads to 2e-4. OpenDDE keeps the host heads unless asked.
+
+### Fixed
+- The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour
+  anywhere from 0 to 5 A, started every sample's pairformer from the previous sample's output, and
+  left the fold's resident tensors on the card for the next fold.
+
 ## [0.13.1] - 2026-10-08
 
 Fixes for the BindCraft 2 issues reported against 0.12.0. A campaign on a Tenstorrent card scores its
