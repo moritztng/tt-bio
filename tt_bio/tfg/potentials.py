@@ -41,7 +41,17 @@ def register(cls):
 
 
 class Potential:
-    """Base potential: subclasses implement `_eval` and optionally `_project`."""
+    """Base potential: subclasses implement `_eval` and optionally `_project`.
+
+    INDEX names the feature listing the atoms a term acts on; a term whose INDEX is empty returns exact zeros
+    (energy, gradient and projection), which `inert` reports so a caller can skip it.
+    """
+
+    INDEX: Optional[str] = None
+
+    def inert(self, feats) -> bool:
+        idx = feats.get(self.INDEX) if self.INDEX else None
+        return idx is not None and idx.numel() == 0
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         self._default_params = default_params
@@ -342,6 +352,8 @@ def _sum_energy(e):
 class InterchainBondPotential(Potential):
     """Linear upper bound `buffer` (default 2.0) on `interchain_bond_index [2, M]` distances."""
 
+    INDEX = "interchain_bond_index"
+
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 2.0}
         if default_params is not None:
@@ -367,6 +379,8 @@ class UserDistanceRestraintPotential(Potential):
 
     feats: `user_distance_restraint_index [2, M]`, `user_distance_restraint_{lower,upper}_bound [M]` (A).
     """
+
+    INDEX = "user_distance_restraint_index"
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults: dict[str, Any] = {}
@@ -415,6 +429,8 @@ class PairwiseDistancePotential(Potential):
     Clash pairs (neither bond nor angle) get upper = inf and lower >= 0.35 + 0.5 (r_i + r_j);
     bond pairs get upper <= that same VDW limit.
     """
+
+    INDEX = "pairwise_distance_index"
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"bond_buffer": 0.05, "angle_buffer": 0.05, "clash_buffer": 0.05}
@@ -533,6 +549,8 @@ class StereoBondPotential(Potential):
     `stereo_bond_orientation > 0.5` wants |phi| >= pi - buffer (trans), else |phi| <= buffer.
     """
 
+    INDEX = "stereo_bond_index"
+
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.52360}
         if default_params is not None:
@@ -564,6 +582,8 @@ class ChiralAtomPotential(Potential):
     `_project` repairs violated centres with the linearised solver and, with `scale_x` (default),
     rescales the touched atoms of each chain so their per-chain radius of gyration is unchanged.
     """
+
+    INDEX = "chiral_index"
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.34906, "scale_x": True}
@@ -637,6 +657,8 @@ class PlanarImproperPotential(Potential):
     `planar_improper_is_carbonyl` is read only for its shape and dtype (k = ones_like).
     """
 
+    INDEX = "planar_improper_index"
+
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.1309}
         if default_params is not None:
@@ -660,6 +682,8 @@ class PlanarImproperPotential(Potential):
 @register
 class LinearBondPotential(Potential):
     """Triple-bond linearity: angle of `linear_triple_bond_index [3, M]` >= pi - buffer (linear penalty)."""
+
+    INDEX = "linear_triple_bond_index"
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.08726646259}
@@ -689,6 +713,8 @@ class ExperimentalTorsionPotential(Potential):
     feats: `experimental_torsion_index [4, M]`, `experimental_torsion_{force_constant,sign} [M, 6]`.
     cos(n phi) is expanded as Chebyshev polynomials of cos(phi).
     """
+
+    INDEX = "experimental_torsion_index"
 
     def _eval(self, coords, feats, params, need_grad: bool):
         idx = feats["experimental_torsion_index"]
