@@ -5,7 +5,7 @@
 
 a is N(0, 1) (a layer-norm output), w is N(0, 1/k) (an initialised projection), both rounded to bf16, so every
 output is ~N(0, 1). `auto` is how tt-bio calls it (ttnn.linear with core_grid = the full grid, ttnn picks the
-program); `kbN` is a 2D multicast program with in0_block_w = N (`kbfull` = all of K) on the same grid. fp32 dest
+program); `auto3d` the same with the input as [batch, m/batch, k], the shape the fold passes; `kbN` is a 2D multicast program with in0_block_w = N (`kbfull` = all of K) on the same grid. fp32 dest
 acc and packer L1 acc on, bf16 output, as the trunk and diffusion run in normal mode. A pixel is wrong under the
 same rule as perf/spd_wherr/audit.py: error above 8 bf16 ulps of the float64 value and above 16x the call's rms
 error. The time per call (median of 5 after a warm call) rides along, so the cost of a clean config is known.
@@ -32,7 +32,7 @@ def wrong(R, Y):
 
 
 def program(variant, mt, kt, nt, grid):
-    if variant == "auto":
+    if variant.startswith("auto"):
         return None
     w = kt if variant == "kbfull" else int(variant[2:])
     if kt % w:
@@ -54,6 +54,7 @@ def main():
     ap.add_argument("--n", type=int, required=True)
     ap.add_argument("--variants", default="auto,kb1,kb2,kb4,kbfull")
     ap.add_argument("--fid", default="HiFi4,HiFi3")
+    ap.add_argument("--batch", type=int, default=5, help="leading dim of the auto3d variant's input, as the fold passes it")
     ap.add_argument("--draws", type=int, default=8)
     ap.add_argument("--seed0", type=int, default=0)
     ap.add_argument("--out", type=Path, required=True)
@@ -69,6 +70,7 @@ def main():
             A = torch.randn(a.m, a.k).bfloat16(); W = (torch.randn(a.k, a.n) / a.k ** 0.5).bfloat16()
             R = A.double() @ W.double()
             ta = ttnn.from_torch(A, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+            ta3 = ttnn.reshape(ta, (a.batch, a.m // a.batch, a.k))
             tw = ttnn.from_torch(W, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
             for fid in a.fid.split(","):
                 ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=getattr(ttnn.MathFidelity, fid),
@@ -80,12 +82,13 @@ def main():
                         continue
                     kw = dict(compute_kernel_config=ck, dtype=ttnn.bfloat16)
                     kw.update(core_grid=ttnn.CoreGrid(y=grid[1], x=grid[0]) if pc is None else dict(program_config=pc))
-                    run = lambda: ttnn.linear(ta, tw, **kw)
+                    x = ta3 if v == "auto3d" else ta
+                    run = lambda: ttnn.linear(x, tw, **kw)
                     try:
                         y = run()
                     except Exception as e:
                         res["cells"].append(dict(draw=d, fid=fid, v=v, error=str(e)[:200])); continue
-                    Y = ttnn.to_torch(y).double(); ttnn.deallocate(y)
+                    Y = ttnn.to_torch(y).double().reshape(a.m, a.n); ttnn.deallocate(y)
                     nb, nbig, mx, rms, worst = wrong(R, Y)
                     ts = None
                     if d == 0:
