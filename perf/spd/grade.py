@@ -25,7 +25,9 @@ numbers for base seed pairs. So a speed run's own folds grade the lever at 256-1
 
 Verdict, from state/spd/CHARTER.md:
   normal  every fold finite and present; DockQ, CA-lDDT, TM, pLDDT, ipTM intervals reach 0 or lie on the better
-          side, LRMSD's likewise (lower is better); median same-seed pose deviation <= max(0.60 A kill bar,
+          side, LRMSD's likewise (lower is better); pLDDT and ipTM may sit below 0 by at most CONF_TOL
+          (orchestrator 2026-10-09: 44 near-deterministic pairs resolve a 1e-4 shift, which is no accuracy loss);
+          median same-seed pose deviation <= max(0.60 A kill bar,
           this arch's A/A seed floor median) (orchestrator 2026-10-08: on the 11-set a re-seed moves the top pose
           0.82 A, so the bar as written would fail a re-seed)
   fast    every fold finite; mean paired CA-lDDT and pLDDT drop each <= 0.03; no complex loses > 0.05 pLDDT
@@ -46,6 +48,7 @@ from score import ca, chains, kabsch, score  # noqa: E402
 
 SET = {l.split("\t")[0]: l.split("\t")[1:3] for l in (HERE.parent / "pfm_accuracy" / "set.tsv").read_text().splitlines()[1:]}
 KILL_BAR = 0.60
+CONF_TOL = 0.005  # normal: tolerated mean pLDDT / ipTM drop (fast bar is 0.03)
 SUCCESS = 0.23
 
 
@@ -254,7 +257,7 @@ def main():
             why.append(f"{sum(k[0] == arch for k in failed)} failed/non-finite folds" if any(k[0] == arch for k in failed) else "")
         elif a.mode == "normal":
             for m, (mu, lo, hi) in res.items():
-                bad = lo > 0 if m in LOWER_BETTER else hi < 0
+                bad = lo > 0 if m in LOWER_BETTER else hi < (-CONF_TOL if m in ("plddt", "iptm") else 0)
                 if bad:
                     why.append(f"{m} worse, CI [{lo:+.4f}, {hi:+.4f}] excludes 0")
             bar = max(KILL_BAR, statistics.median(pose_floor)) if pose_floor else KILL_BAR
