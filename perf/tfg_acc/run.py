@@ -39,6 +39,8 @@ ap.add_argument("--recycles", type=int, default=10)
 ap.add_argument("--model", default="opendde-abag")
 ap.add_argument("--share", type=int, default=None, help="host thread share (default: one per chip on the host)")
 ap.add_argument("--host-threads", type=int, default=2, help="torch threads for the host guidance work")
+ap.add_argument("--dry", action="store_true", help="write the inputs, build the run config and validate the "
+                "constraints against the features, then stop before weights and device")
 a = ap.parse_args()
 a.panel, a.out = a.panel.expanduser().resolve(), a.out.expanduser().resolve()
 SEEDS = [int(s) for s in a.seeds.split(",")]
@@ -139,6 +141,23 @@ try:
 except _Stop:
     pass
 cfg0 = dict(captured["payload"]["config"])
+if a.dry:
+    from tt_bio.main import _read_bio_bonds, _read_bio_chains
+    from tt_bio.protenix_data import build_complex_features
+
+    for cond, y in inputs.items():
+        chains = _read_bio_chains(y)
+        bonds = _read_bio_bonds(y, chains)
+        W_specs = __import__("tt_bio.worker", fromlist=["x"])
+        cs = W_specs._build_chain_specs(chains, msa_dir, cfg0, protein_only=False)
+        pa = W_specs._paired_a3ms(y, chains, msa_dir, cfg0)
+        feats = build_complex_features(cs, chain_ids=[c[0] for c in chains], bonds=bonds, paired_a3ms=pa,
+                                       modifications=[c[4] for c in chains])
+        g = W_specs._tfg_guidance(y, dict(cfg0, use_tfg_guidance=cond != "unconstrained"), feats, chains, bonds)
+        log(ev="dry", target=a.target, cond=cond, chains=[c[0] for c in chains], bonds=len(bonds),
+            tokens=int(feats["restype"].shape[0]), msa_depth=int(feats["msa"].shape[0]), paired=pa is not None,
+            guided=g is not None)
+    os._exit(0)
 
 import torch  # noqa: E402
 
