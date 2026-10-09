@@ -46,18 +46,20 @@ def _plan(gates, name, sha, repo, **kw):
 
 def test_gate_the_newest_staging_and_never_restart_a_running_gate(tmp_path):
     git = _repo(tmp_path)
-    for n in (8, 10):
+    for n, msg in ((8, "Merge wk/spd-int-next8 (staging8): levers"),
+                   (10, "Merge wk/spd-int-next10 (staging10): levers"),
+                   ("11d", "Merge staging11d (wk/spd-orch-s11d 92f99b28f): levers")):
         git("checkout", "-qb", f"s{n}")
-        (tmp_path / "a.py").write_text(f"x = {n}\n")
+        (tmp_path / "a.py").write_text(f"x = '{n}'\n")
         git("commit", "-qam", f"lever {n}")
         git("checkout", "-q", "main")
-        git("merge", "-q", "--no-ff", f"s{n}", "-m", f"Merge wk/spd-int-next{n} (staging{n}): levers")
-    s8 = git("rev-parse", "main^")
+        git("merge", "-q", "--no-ff", f"s{n}", "-m", msg)
+    s8 = git("rev-parse", "main^^")
     head = git("rev-parse", "main")
     gates = tmp_path / "gates"
     _plan(gates, "g8", s8, tmp_path)
     d = rn.decide(tmp_path, gates, "main")
-    assert d["stagings_since"] == ["8", "10"]
+    assert d["stagings_since"] == ["8", "10", "11d"]
     assert d["do"] == "GATE" and d["sha"] == head
     assert "finish the running gate on " + s8[:9] in d["why"]
 

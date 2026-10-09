@@ -23,6 +23,7 @@ plus three card-free legs run once on the first host: check, packaging_smoke, py
 A ladder leg whose model's baseline has no row for a lever its fold resolves (owed_levers) is not
 folded: it reads OWED, failing the verdict, which names the `--record-lever` run that clears it.
   record:<model>     release_gate.py --size-ladder-record-lever <FLAGS>  only with --record-lever
+                     release_gate.py --size-ladder-record                 only with --record-full
 
 TIMED legs measure speed, so they must not share a host with this gate's own load. They run only
 on a --timed card, after every correctness leg of that arch has been handed out, and while one runs
@@ -113,6 +114,13 @@ PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # same arguments (full_parity_gate.py: run_inprocess -> release_gate.run_<arm>). Running the rg
 # arm as well folds the same thing twice.
 PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa"}
+
+def owed_by(roster: dict, card_type: str, lg) -> list[str]:
+    """Levers a ladder leg's baseline lacks on this card type; every other leg owes none."""
+    if lg.family != "ladder":
+        return []
+    return roster.get("owed", {}).get(card_type, {}).get(lg.name.split(":", 1)[1], [])
+
 
 def owed_levers(docs, levers, models) -> dict:
     """{card_type: {model: [flag, ...]}}: census levers a ladder model's fold will resolve that its
@@ -246,7 +254,8 @@ class Leg:
         return BUDGET[self.family]
 
 
-def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = "") -> list:
+def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = "",
+               record_full: str = "") -> list:
     legs = [Leg("check", ["PY", "scripts/full_parity_gate.py", "--check", "--workdir", "{OUT}",
                          "--workers", "localhost:0"], "check",
                 card=False),
@@ -289,10 +298,22 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
     # --record-lever: add census levers to each ladder model's baseline (one fold per rung, refused
     # unless every other lever still matches), on a copy in the leg's out dir so the tree the
     # ladder legs read stays the commit's. The runner fetches each fragment to <out>/recorded/.
-    for m in roster["ladder"] if record_lever else ():
+    # --record-full: the models whose splice was refused because something else moved get a full
+    # re-record of their own fragment instead (every rung, timings included), which also carries
+    # the new levers.
+    full = [m for m in record_full.split(",") if m]
+    unknown = [m for m in full if m not in roster["ladder"]]
+    if unknown:
+        raise SystemExit(f"--record-full: not ladder models: {', '.join(unknown)}")
+    for m in roster["ladder"]:
+        if m in full:
+            how = ["--size-ladder-record"]
+        elif record_lever:
+            how = ["--size-ladder-record-lever", record_lever]
+        else:
+            continue
         legs.append(Leg(f"record:{m}", ["PY", "scripts/release_gate.py", "--model", "size-ladder",
-                                        "--size-ladder-models", m, "--size-ladder-record-lever",
-                                        record_lever, "--size-ladder-baseline",
+                                        "--size-ladder-models", m, *how, "--size-ladder-baseline",
                                         "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
                         setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/"))
     return legs
@@ -407,8 +428,11 @@ class Host:
     def command(self, leg: Leg, card, out: str) -> str:
         c = self.cfg
         pp = ":".join([self.tree] * leg.tree_on_path + c.get("pythonpath_extra", []))
+        # Every leg folds in one shared tree per host, so release_gate's size-ladder scratch must be
+        # the leg's own: the first ladder or record leg to finish rmtrees the shared default under
+        # the others, and a fold whose census dumps vanished reads every lever "not-imported".
         env = {"PYTHONPATH": pp, "TT_VISIBLE_DEVICES": "" if card is None else str(card),
-               **c.get("env", {})}
+               "RELEASE_GATE_SIZE_WORKDIR": f"{out}/sizegate-work", **c.get("env", {})}
         subst = {"{CARD}": str(card), "{OUT}": out,
                  **{f"{{{k}}}": v for k, v in c.get("env", {}).items()}}
 
@@ -733,6 +757,9 @@ def main() -> int:
     ap.add_argument("--record-lever", default="", metavar="FLAG[,FLAG...]",
                     help="add record:<model> legs that splice these census levers into each ladder "
                          "model's size-ladder baseline per card type; fragments land in <out>/recorded/")
+    ap.add_argument("--record-full", default="", metavar="MODEL[,MODEL...]",
+                    help="fully re-record these ladder models' baselines per card type (for a model "
+                         "whose --record-lever splice was refused); fragments land in <out>/recorded/")
     ap.add_argument("--arch", default="", help="limit to these archs (default: every arch in --workers)")
     ap.add_argument("--shards", type=int, default=4, help="pytest_device shards")
     ap.add_argument("--out", required=True, type=Path)
@@ -765,7 +792,7 @@ def main() -> int:
         list(ex.map(lambda h: h.prepare(pins), rest))
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
     roster = first[archs[0]].run_py(ENUMERATE)
-    legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever),
+    legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever, args.record_full),
                   [p for p in args.legs.split(",") if p])
     content, legacy = content_hash(sha), content_hash(sha, baselines=True)
     probes = {}
@@ -802,8 +829,8 @@ def main() -> int:
                           ctype[a] if lg.card else "cpu", first[a].leg(lg))
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
                    else ledger.get(k) or ledger.get(old))
-            owes = roster.get("owed", {}).get(ctype[a], {}).get(lg.name.split(":", 1)[1], [])
-            if lg.family == "ladder" and owes:
+            owes = owed_by(roster, ctype[a], lg)
+            if owes:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "OWED", "owed": owes,
                                 "card_type": ctype[a]})
             elif hit and hit.get("verdict") in OK:
@@ -823,7 +850,8 @@ def main() -> int:
             "env_probe": probes, "run": {a: [lg.name for lg in q] for a, q in todo.items()},
             "reused": [r["leg"] + "@" + r["arch"] for r in results],
             # A dry run, or one limited by --legs or --arch, is not a release verdict.
-            "partial": bool(args.legs or args.arch or args.dry_run or args.record_lever),
+            "partial": bool(args.legs or args.arch or args.dry_run or args.record_lever
+                       or args.record_full),
             # release_next.py tells a live run from one that was stopped before its verdict.
             "pid": os.getpid(), "host": socket.gethostname()}
     (args.out / "plan.json").write_text(json.dumps(plan, indent=1))
