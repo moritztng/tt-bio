@@ -24,7 +24,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--mode", default="fast", choices=("normal", "fast"))
 ap.add_argument("--reps", type=int, default=20)
-ap.add_argument("--arms", default="base,fc12g_math,fc12g_pack,fc12g_pack_alt")
+ap.add_argument("--arms", default="base,fc12g_math,fc12g_pack,fc12g_pack_alt,fc12g_split1,fc12g_split2,fc12g_split3")
 a = ap.parse_args()
 os.environ["TT_BIO_LEVERS"] = a.mode
 
@@ -103,23 +103,31 @@ def base():
     return h
 
 
+def defines(pack, math_silu=0):
+    d = {"FC12G_PACK_SILU": "1"} if pack else {}
+    if pack and math_silu:
+        d["FC12G_MATH_SILU"] = str(math_silu)
+    return d
+
+
 out_alt = ttnn.allocate_tensor_on_device(ttnn.Shape([1, R, W, HID]), HDT, ttnn.TILE_LAYOUT, dev, mc)
 flip = [0]
 
 
-def fc12g(pack, alternate=False):
+def fc12g(pack, alternate=False, math_silu=0):
     def run():
         o = out_g
         if alternate:  # a new output buffer every call, as in the fold: the cached runtime args are rebound
             flip[0] ^= 1
             o = out_alt if flip[0] else out_g
         return generic_matmul_2d(dev, x, w12, o, PC12, SILU_CKC, out_nzsb_w=1, compute_src=str(KERNEL),
-                                 compute_defines={"FC12G_PACK_SILU": "1"} if pack else {}, gate_tiles=2 * pn)
+                                 compute_defines=defines(pack, math_silu), gate_tiles=2 * pn)
     return run
 
 
 ARMS = {"base": (base, True), "fc12g_math": (fc12g(False), False), "fc12g_pack": (fc12g(True), False),
-        "fc12g_pack_alt": (fc12g(True, True), False)}
+        "fc12g_pack_alt": (fc12g(True, True), False),
+        **{f"fc12g_split{k}": (fc12g(True, False, k), False) for k in (1, 2, 3)}}
 arms = [s for s in a.arms.split(",") if s]
 res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH, "mode": a.mode,
        "b8": B8, "grid": [gx, gy], "pm": pm, "pn": pn, "fidelity": str(SILU_CKC.math_fidelity),
@@ -166,8 +174,7 @@ for n in live:
     res["arms"][n].update(us=round(us, 1), enqueue_us=round(enq, 1))
 # Host cost of the generic path's pieces, per call (no device work in any of them).
 if "fc12g_pack" in live:
-    defs = {"FC12G_PACK_SILU": "1"}
-    args = (x, w12, out_g, PC12, SILU_CKC, 1, str(KERNEL), defs, None, 2 * pn)
+    args = (x, w12, out_g, PC12, SILU_CKC, 1, str(KERNEL), defines(True), None, 2 * pn)
     entry = G._CACHE[G._key(*args)]
     host = {}
     t = time.perf_counter()

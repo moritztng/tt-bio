@@ -17,6 +17,8 @@
 // FC12G_PACK_SILU: the silu runs on the PACK thread over the fc1 dest half while MATH starts fc2 in the other half
 // (the same handoff as the silu_f32 overlay of the stock kernel, tt_bio/metal_overlay.py). It needs the silu_f32
 // overlay (APPROX silu = calculate_silu_f32). Without it the silu runs on MATH after the fc1 matmul.
+// FC12G_MATH_SILU=k (with FC12G_PACK_SILU): MATH takes the first k tiles of each fc1 subblock and PACK the rest, so
+// the two threads' work per row can be balanced (PACK also packs both subblocks).
 
 #include <cstdint>
 
@@ -62,9 +64,17 @@ void kernel_main() {
     mm_block_init(in0_cb_id, in1_cb_id, out_cb_id, false, out_subblock_w, out_subblock_h, in0_block_w);
 #ifdef FC12G_PACK_SILU
     PACK((llk_math_eltwise_unary_sfpu_silu_init<true>()));
-#else
-    silu_tile_init();
+#ifndef FC12G_MATH_SILU
+#define FC12G_MATH_SILU 0
 #endif
+    constexpr uint32_t math_silu = FC12G_MATH_SILU;
+#else
+    constexpr uint32_t math_silu = out_subblock_num_tiles;
+#endif
+    static_assert(math_silu <= out_subblock_num_tiles);
+    if constexpr (math_silu > 0) {
+        silu_tile_init();
+    }
 
     in0_cb.wait_front(in0_block_num_tiles);
     in1_cb.wait_front(in1_block_num_tiles);
@@ -76,11 +86,9 @@ void kernel_main() {
         for (uint32_t k = 0, in0_i = in0_offset, in1_i = 0; k < in0_block_w; k++, in0_i++, in1_i += in1_block_w) {
             matmul_block(in0_cb_id, in1_cb_id, in0_i, in1_i, 0, false, out_subblock_w, out_subblock_h, in0_block_w);
         }
-#ifndef FC12G_PACK_SILU
-        for (uint32_t i = 0; i < n; i++) {
+        for (uint32_t i = 0; i < math_silu; i++) {
             silu_tile(i);
         }
-#endif
         tile_regs_commit();
         gate_cb.reserve_back(n);
 #ifdef FC12G_PACK_SILU
@@ -88,7 +96,7 @@ void kernel_main() {
         PACK(TTI_SEMWAIT(
             p_stall::STALL_TDMA | p_stall::STALL_CFG, semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
         PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
-        for (uint32_t i = 0; i < n; i++) {
+        for (uint32_t i = math_silu; i < n; i++) {
             PACK((llk_math_eltwise_unary_sfpu_silu<true, DST_ACCUM_MODE>(i)));
         }
         PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
