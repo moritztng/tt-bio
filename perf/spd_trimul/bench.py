@@ -126,8 +126,6 @@ LEVERS = {
     "gin": [(T.set_trimul_gated_inproj, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
-    "gmf": [(RB.set_gated_mask_fold, True)],          # spd-trikern-mm: pair mask folded into a's gated move
-    "nogmf": [(RB.set_gated_mask_fold, False)],
 }
 
 
@@ -322,7 +320,6 @@ for var in A.variants.split(","):
         try:
             back0 = list(RB.STATS_BACK)
             tail0, resid0, mf0 = list(TTL.STATS), list(TTL.RESID_STATS), TTL.MASK_STATS[0]
-            gmf0 = RB.STATS_GATED_MASK[0]
             fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32), T._trimul_ibw_full(), T._trimul_subblock()).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
@@ -339,7 +336,6 @@ for var in A.variants.split(","):
             fired["tail_resid"] = [a - b for a, b in zip(TTL.RESID_STATS, resid0)]
             fired["tail_res"] = list(TTL.RES_STATS)
             fired["mask_fold"] = TTL.MASK_STATS[0] - mf0
-            fired["gated_mask_fold"] = RB.STATS_GATED_MASK[0] - gmf0
             fired["mm_pipe"] = T.MM_PIPE
             fired["levers"] = sorted(T._LEVERS)
         finally:
