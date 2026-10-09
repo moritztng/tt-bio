@@ -512,8 +512,8 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
 def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     """Queue `leg` in the host's pool, wait for its exit code, copy its log (capped) into f."""
     pool = host.cfg["pool"]
-    name = f"{pool.get('prio', 5)}-{pool.get('row', 'gate')}-{host.sha[:9]}-" + \
-        leg.name.replace(":", "_").replace("/", "-")
+    run, _, tag = Path(rdir).parts[-3:]     # <root>/out-<sha12>/<run>/<arch>/<leg>
+    name = f"{pool.get('prio', 5)}-{pool.get('row', 'gate')}-{run}-{tag}"
     job, q = f"{pool['queue']}/{name}.sh", shlex.quote
     r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
                  input=pool_job(host, leg, rdir, name), capture_output=True, timeout=120)

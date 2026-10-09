@@ -225,13 +225,13 @@ def test_a_pool_leg_is_one_job_file_that_runs_on_the_chip_the_pool_picks(tmp_pat
     def pool():  # what the pool runner does: start the job on chip 7
         while not (jobs := list(queue.glob("*.sh"))):
             time.sleep(0.02)
-        assert jobs[0].name == "5-spd-shipflow-bbbbbbbbb-ux_x.sh"
+        assert jobs[0].name == "5-spd-shipflow-run1-ux_x.sh"
         subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "PATH": "/usr/bin:/bin"}, check=True)
     t = threading.Thread(target=pool)
     t.start()
     log = tmp_path / "leg.log"
     with open(log, "w") as f:
-        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "out"), f)
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "ux_x"), f)
     t.join()
     assert rc == 3
     text = log.read_text()
