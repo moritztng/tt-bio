@@ -68,6 +68,7 @@ import argparse
 import dataclasses
 import fnmatch
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -110,10 +111,38 @@ PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # arm as well folds the same thing twice.
 PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa"}
 
-ENUMERATE = r"""
+def owed_levers(docs, levers, models) -> dict:
+    """{card_type: {model: [flag, ...]}}: census levers a ladder model's fold will resolve that its
+    size-ladder baseline has no row for, so its ladder leg fails "new lever not in the baseline" at
+    every rung after folding them all. A lever's module is imported in a model's fold exactly when
+    another lever of that module resolved there. Runs inside the tree under test (ENUMERATE)."""
+    import json
+    from pathlib import Path
+    docs, module = Path(docs), {flag: mod for flag, mod, *_ in levers}
+    entries = {}
+    for f in [docs / "size_ladder_baseline.json", *sorted((docs / "size_ladder_baseline.d").glob("*.json"))]:
+        if f.exists():
+            for card, c in json.loads(f.read_text()).get("cards", {}).items():
+                entries.update({(card, m): e for m, e in c.get("models", {}).items()})
+    out = {}
+    for (card, model), e in sorted(entries.items()):
+        if model not in models:
+            continue
+        new = set()
+        for rows in (e.get("levers") or {}).values():
+            imported = {module.get(f) for f, r in rows.items() if r.get("resolved") != "not-imported"}
+            new |= {f for f, mod in module.items() if f not in rows and mod in imported}
+        if new:
+            out.setdefault(card, {})[model] = sorted(new)
+    return out
+
+
+ENUMERATE = inspect.getsource(owed_levers) + r"""
 import json, full_parity_gate as f, release_gate as r, capacity_gate as c, ux_regression as u
+import lever_census
 print(json.dumps({"parity": [l.id for l in f.LEGS if not l.opt_in], "rg": r.default_arms(),
-                  "ladder": list(r.SIZE_LADDER_MODELS), "capacity": c.roster(), "ux": u.ALL_LEGS}))
+                  "ladder": list(r.SIZE_LADDER_MODELS), "capacity": c.roster(), "ux": u.ALL_LEGS,
+                  "owed": owed_levers("docs", lever_census.LEVERS, r.SIZE_LADDER_MODELS)}))
 """
 ENV_PROBE = r"""
 import json, sys, importlib.metadata as m
@@ -452,6 +481,8 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
                 cells.append("-")
             elif r["verdict"] == "REUSED":
                 cells.append(f"REUSED ({r['evidence']})")
+            elif r["verdict"] == "OWED":
+                cells.append(f"OWED {','.join(r['owed'])}")
             else:
                 cells.append(f"{r['verdict']} {r.get('wall_s', 0) / 60:.0f} min {r.get('worker', '')}")
         lines.append(f"| {lg} | " + " | ".join(cells) + " |")
@@ -460,6 +491,16 @@ def write_verdict(out: Path, sha: str, archs: list, results: list) -> bool:
         lines += ["", "SEEDED: no baseline existed on these card types, so these legs recorded one "
                   "instead of checking against one. Commit the files and drop the host's `args`:"]
         lines += [f"- {r['leg']} {r['card_type']}: {r.get('seeded', '?')}" for r in seeded]
+    owed = sorted({f for r in results if r["verdict"] == "OWED" for f in r["owed"]})
+    if owed:
+        lines += ["", "OWED: the size-ladder baseline at this commit has no row for a lever these "
+                  "models resolve, so their ladder legs were not folded. Record it, commit the "
+                  "fragments, and gate that commit (RELEASING.md, Baselines a new lever owes):",
+                  f"`gate_fanout.py --legs 'record:*' --record-lever {','.join(owed)} ...`"]
+    recorded = [r for r in results if r["leg"].startswith("record:") and r.get("seeded")]
+    if recorded:
+        lines += ["", "RECORDED: copy these over docs/size_ladder_baseline.d/ in the release commit:"]
+        lines += [f"- {r['leg']} {r['card_type']}: {r['seeded']}" for r in recorded]
     (out / "VERDICT.md").write_text("\n".join(lines) + "\n")
     (out / "verdict.json").write_text(json.dumps({"sha": sha, "pass": ok, "archs": archs,
                                                   "results": results}, indent=1))
@@ -758,7 +799,11 @@ def main() -> int:
                           ctype[a] if lg.card else "cpu", first[a].leg(lg))
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
                    else ledger.get(k) or ledger.get(old))
-            if hit and hit.get("verdict") in OK:
+            owes = roster.get("owed", {}).get(ctype[a], {}).get(lg.name.split(":", 1)[1], [])
+            if lg.family == "ladder" and owes:
+                results.append({"leg": lg.name, "arch": slot, "verdict": "OWED", "owed": owes,
+                                "card_type": ctype[a]})
+            elif hit and hit.get("verdict") in OK:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "REUSED", "key": k,
                                 "evidence": f"{hit['worker']} {hit['ended']} {hit['sha'][:9]} {hit['log']}",
                                 "reused_verdict": hit["verdict"]})

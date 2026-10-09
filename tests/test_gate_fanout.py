@@ -280,3 +280,30 @@ def test_a_leg_refused_for_host_load_starts_again_instead_of_failing(tmp_path, m
     ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "wh"): "k"}, "o")
     res = ex(h, 3, leg)
     assert len(calls) == 3 and res["verdict"] == "PASS"
+
+
+def test_a_lever_an_imported_module_registers_is_owed_by_a_baseline_without_its_row(tmp_path):
+    """SDPA_FUSED_PADDED reached main with no size-ladder row; the WH gate learned it after 40 min
+    per ladder model. The baseline already says which modules each model's fold imports."""
+    levers = [("A", "tt_bio.tenstorrent", "", "", ""), ("B", "tt_bio.tenstorrent", "", "", ""),
+              ("C", "tt_bio.esmc", "", "", "")]
+    base = {"cards": {"w": {"models": {
+        "m": {"levers": {"256": {"A": {"resolved": "True"}, "C": {"resolved": "not-imported"}}}},
+        "n": {"levers": {"256": {"A": {"resolved": "not-imported"}, "C": {"resolved": "not-imported"}}}},
+        "x": {"levers": {"256": {"A": {"resolved": "True"}}}}}}}}
+    (tmp_path / "size_ladder_baseline.d").mkdir()
+    (tmp_path / "size_ladder_baseline.json").write_text(json.dumps(base))
+    assert gf.owed_levers(tmp_path, levers, ["m", "n"]) == {"w": {"m": ["B"]}}
+    rows = base["cards"]["w"]["models"]["m"]["levers"]["256"]
+    rows["B"] = {"resolved": "True"}
+    (tmp_path / "size_ladder_baseline.d" / "m.json").write_text(json.dumps(
+        {"cards": {"w": {"models": {"m": {"levers": {"256": rows}}}}}}))
+    assert gf.owed_levers(tmp_path, levers, ["m", "n"]) == {}        # the fragment overrides
+
+
+def test_an_owed_ladder_leg_fails_the_verdict_and_names_the_record_command(tmp_path):
+    results = [{"leg": "ladder:m", "arch": "wh", "verdict": "OWED", "owed": ["B"], "card_type": "w"},
+               {"leg": "perf", "arch": "wh", "verdict": "PASS", "wall_s": 60, "worker": "h:1"}]
+    assert not gf.write_verdict(tmp_path, "a" * 40, ["wh"], results)
+    text = (tmp_path / "VERDICT.md").read_text()
+    assert "| ladder:m | OWED B |" in text and "--record-lever B" in text
