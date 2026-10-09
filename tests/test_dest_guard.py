@@ -122,6 +122,9 @@ def test_off_device_is_untouched(guard, monkeypatch):
 def test_generic_descriptor_and_class_list(guard, monkeypatch):
     assert guard.descriptor((4, 8, 4, 2, 2), (None, False, True, False)) == (4, 1, 4, 2, 2)
     assert guard.descriptor((4, 8, 4, 2, 2), (None, False, False, False)) == (4, 8, 4, 2, 2)
+    monkeypatch.setattr(dest_guard, "GUARDED", frozenset({"tri"}))
+    assert guard.descriptor((4, 8, 4, 2, 2), (None, False, True, False)) == (4, 8, 4, 2, 2)
+    assert guard.descriptor((4, 8, 4, 2, 2), (None, False, True, False), "tri") == (4, 1, 4, 2, 2)
     monkeypatch.setattr(dest_guard, "GUARDED", frozenset({"pc"}))
     assert guard.descriptor((4, 8, 4, 2, 2), (None, False, True, False)) == (4, 8, 4, 2, 2)
     assert not guard.tail_exposed(_ckc())

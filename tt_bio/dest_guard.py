@@ -20,7 +20,8 @@ At K block 1 dest holds one K tile at a time and the packer adds the partial sum
 
 Off by default: guarding everything costs +22 % of a Wormhole normal c730 fold (272 -> 333 s warm, AICLK 1000)
 for a fault that writes about ten wrong values per fold; 1HCL scores 0.900 with it on and off. `TT_BIO_DEST_GUARD=1`
-turns it on; a comma list of classes (pc, auto, mmm, gen, tail), or joined by +, guards only those.
+turns it on; a comma list of classes (pc, auto, mmm, gen, tri, tail), or joined by +, guards only those
+(tri: the triangle-attention projections, the generic launches gen does not cover).
 Blackhole and bf16-dest calls are untouched (Blackhole does not have the fault).
 """
 import functools
@@ -28,7 +29,7 @@ import os
 
 import ttnn
 
-_CLASSES = ("pc", "auto", "mmm", "gen", "tail")
+_CLASSES = ("pc", "auto", "mmm", "gen", "tri", "tail")
 _ENV = os.environ.get("TT_BIO_DEST_GUARD", "0")
 ENABLED = _ENV != "0"
 GUARDED = frozenset(_CLASSES if _ENV in ("0", "1") else _ENV.replace("+", ",").split(","))
@@ -62,9 +63,9 @@ def exposed_args(ckc_args, cls="tail") -> bool:
     return _ON[0] and cls in GUARDED and bool(ckc_args[2])
 
 
-def descriptor(blk, ckc_args):
+def descriptor(blk, ckc_args, cls="gen"):
     """A generic minimal_matmul block (M, K, N, subblock_h, subblock_w) at K 1 when exposed."""
-    if blk is None or not exposed_args(ckc_args, "gen") or blk[1] == 1:
+    if blk is None or not exposed_args(ckc_args, cls) or blk[1] == 1:
         return blk
     return (blk[0], 1) + tuple(blk[2:])
 

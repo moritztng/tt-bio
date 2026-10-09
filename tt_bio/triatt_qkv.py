@@ -109,7 +109,7 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR)
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, guard="tri")
     STATS[0] += 1
     return tuple(outs)
 
@@ -231,7 +231,7 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
         dev, ttnn.DRAM_MEMORY_CONFIG)
     G.generic_minimal_matmul(
         dev, x, w_g, out, (_mm_block_for(w_g), tuple(COMPUTE_GRID_MAIN)),
-        G.ckc_args(ckc), {"HEAD_MAJOR_OUT_MT": pad[-2] // TILE}, KERNEL_DIR)
+        G.ckc_args(ckc), {"HEAD_MAJOR_OUT_MT": pad[-2] // TILE}, KERNEL_DIR, guard="tri")
     TAIL_STATS[0] += 1
     return out
 
@@ -318,7 +318,7 @@ def qkvg_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config):
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR)
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, guard="tri")
     QKVG_STATS[0] += 1
     STATS[0] += 1
     TAIL_STATS[0] += 1
@@ -344,7 +344,7 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
     G.generic_minimal_matmul(
         dev, gated, w, out, (_mm_block_for(w), tuple(COMPUTE_GRID_MAIN)),
         G.ckc_args(ckc), {"HEAD_MAJOR_IN0_MT": pad[-2] // TILE}, KERNEL_DIR,
-        m_k=(pad[0] * pad[-2], H * D))
+        m_k=(pad[0] * pad[-2], H * D), guard="tri")
     return out
 
 
@@ -634,7 +634,7 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
         dev, ttnn.DRAM_MEMORY_CONFIG))
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, n_widths=[c // TILE] * 4 + [1])
+        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR, n_widths=[c // TILE] * 4 + [1], guard="tri")
     QKVGB_STATS[0] += 1
     QKVG_STATS[0] += 1
     STATS[0] += 1
