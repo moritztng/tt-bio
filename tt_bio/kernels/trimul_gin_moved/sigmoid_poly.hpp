@@ -17,22 +17,21 @@ namespace sfpu {
 // exp_21f + reciprocal, and the sigmoid was 3.3 of gin_moved's 7.3 ms at 736 on WH (stage ablation).
 template <int ITERATIONS = 8>
 inline void _sigmoid_poly_() {
-    const sfpi::vFloat c8 = 9.57322883605957f, c7 = -51.5362548828125f, c6 = 114.75630187988281f,
-                       c5 = -135.66062927246094f, c4 = 89.25188446044922f, c3 = -29.09324073791504f,
-                       c2 = 0.9815341234207153f, c1 = 2.2268805503845215f;
-#pragma GCC unroll 8
+#pragma GCC unroll 0
     for (int d = 0; d < ITERATIONS; d++) {
         sfpi::vFloat x = sfpi::dst_reg[0];
         sfpi::vFloat t = sfpi::abs(x) * 0.1111111119389534f;
         v_if(t > 1.0f) { t = 1.0f; }
         v_endif;
-        sfpi::vFloat h = c8 * t + c7;
-        h = h * t + c6;
-        h = h * t + c5;
-        h = h * t + c4;
-        h = h * t + c3;
-        h = h * t + c2;
-        h = h * t + c1;
+        // Coefficients as immediates: hoisting all eight into LREGs leaves too few for the loop
+        // (SFPI's reload pass gives up).
+        sfpi::vFloat h = t * 9.57322883605957f - 51.5362548828125f;
+        h = h * t + 114.75630187988281f;
+        h = h * t - 135.66062927246094f;
+        h = h * t + 89.25188446044922f;
+        h = h * t - 29.09324073791504f;
+        h = h * t + 0.9815341234207153f;
+        h = h * t + 2.2268805503845215f;
         h = h * t;
         sfpi::dst_reg[0] = sfpi::setsgn(h, x) + 0.5f;
         sfpi::dst_reg++;
