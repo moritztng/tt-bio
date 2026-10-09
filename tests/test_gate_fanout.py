@@ -238,3 +238,22 @@ def test_a_pool_leg_is_one_job_file_that_runs_on_the_chip_the_pool_picks(tmp_pat
     assert "##CHIP 7" in text and "card 7 localhost:7" in text and "##LEG-START" in text
     assert (tmp_path / "chip7.lock").exists()
     assert gf.parse_workers("g:pool,g:pool", {"g": h}) == [(h, "pool"), (h, "pool")]
+
+
+def test_a_leg_refused_for_host_load_starts_again_instead_of_failing(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "LOAD_RETRY_S", 0)
+    calls = []
+
+    def fake_run(host, card, leg, rdir, f):
+        calls.append(card)
+        if len(calls) < 3:
+            f.write("PREFLIGHT - " + gf.LOAD_REFUSAL + " 1-min loadavg 131.89\n")
+            return 1
+        f.write("##LEG-START 5\nok\n")
+        return 0
+    monkeypatch.setattr(gf, "run_over_ssh", fake_run)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": "/r"}, "c" * 40)
+    leg = gf.Leg("ux:x", ["PY"], "ux")
+    ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "wh"): "k"}, "o")
+    res = ex(h, 3, leg)
+    assert len(calls) == 3 and res["verdict"] == "PASS"

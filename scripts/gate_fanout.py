@@ -96,6 +96,8 @@ LOG_CAP = 20 << 20
 POOL = "pool"            # --workers host:pool, a slot in the host's chip pool
 POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the pool starts it
 POOL_POLL_S = 30
+LOAD_REFUSAL = "refusing to run the gate. host load:"
+LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
@@ -543,11 +545,18 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         log.parent.mkdir(parents=True, exist_ok=True)
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
-        with open(log, "w") as f:
-            f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
-            f.flush()
-            rc = (run_in_pool if card == POOL else run_over_ssh)(host, card, leg, rdir, f)
-        text = log.read_text(errors="replace")
+        run = run_in_pool if card == POOL else run_over_ssh
+        while True:
+            with open(log, "w") as f:
+                f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
+                f.flush()
+                rc = run(host, card, leg, rdir, f)
+            text = log.read_text(errors="replace")
+            # The gate scripts refuse to start on an overloaded host (gate_guard's load ceiling).
+            # That is not a verdict: wait for the load to drop and start the leg again.
+            if not (rc and LOAD_REFUSAL in text and time.time() - t0 < LOAD_WAIT_MAX_S):
+                break
+            time.sleep(LOAD_RETRY_S)
         m = re.search(r"^##LEG-START (\d+)", text, re.M)
         start = float(m.group(1)) if m else None
         m = re.search(r"^##CHIP (\d+)", text, re.M)
