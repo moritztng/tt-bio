@@ -3,7 +3,7 @@
 Arms are kernel configurations of `tt_bio.triatt_sdpa.sdpa` at one (q_chunk, k_chunk) pair, by default the pair the
 shipped ladder picks (`T._tri_att_sdpa_at` is timed too, as the control that the pair is the fold's).
   ablate:X[+Y]   instrument: TT_BIO_TRIATT_ABLATE stages removed (EXP, ROWSUM, MAX, PRELOAD, PV); wrong on purpose
-  lever:NAME     a candidate (rowsum_mm, mask_l1acc), graded by rel_rms against float64 beside the shipped arm's
+  lever:NAME     a candidate (rowsum_mm, mask_l1acc, ckc=LoFi/1/0), graded by rel_rms against float64 beside the shipped arm's
 Timing: NCALL back-to-back calls per sample, one sync, arms interleaved round-robin with direction flipped every rep,
 AICLK sampled out of process during every sample. Output: OUT/bench.jsonl.
 usage: tabench.py OUT CHIP [--seq 736 ...] [--pair 256 768] [--arms ...] [--reps 10]
@@ -76,12 +76,14 @@ for S in a.seq:
 
     def arm(ablate=(), lever=None, q=q, k=k, v=v, b=b, sc=sc, qc=qc, kc=kc):
         def call():
-            prev = TS._ABLATE, TS.ROWSUM_MM, TS.MASK_L1ACC
+            prev = TS._ABLATE, TS.ROWSUM_MM, TS.MASK_L1ACC, TS._CKC_OVERRIDE
             TS._ABLATE, TS.ROWSUM_MM, TS.MASK_L1ACC = tuple(ablate), lever == "rowsum_mm", lever == "mask_l1acc"
+            if lever and lever.startswith("ckc="):
+                TS._CKC_OVERRIDE = TS.ckc_from_env(lever[4:].replace("/", ","))
             try:
                 return TS.sdpa(q, k, v, b, sc, qc, kc, q_split_cap=0, padded_mask=True)
             finally:
-                TS._ABLATE, TS.ROWSUM_MM, TS.MASK_L1ACC = prev
+                TS._ABLATE, TS.ROWSUM_MM, TS.MASK_L1ACC, TS._CKC_OVERRIDE = prev
         return call
     for name in a.arms:
         if name == "ladder":
