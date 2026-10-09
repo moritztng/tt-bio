@@ -31,12 +31,14 @@ venv() {  # venv <dir> <python> [package installed after the wheel]
     rm -rf "$v"
     "$UV" venv -q --seed -p "$py" "$v"   # --seed: pip, as in a user's venv (packaging_smoke uses it)
     # Pins: another host's resolution of the same commit (gate_fanout.py writes them), so PyPI
-    # releases between two hosts' preps cannot give them different packages.
-    local pins=$ROOT/pins-$S/$(basename "$v").txt c=()
-    [ -f "$pins" ] && c=(-c "$pins")
-    "$UV" pip install -q -p "$v/bin/python" "${c[@]}" "$WHL[tenstorrent,test]"
+    # releases between two hosts' preps cannot give them different packages. The wheel step is
+    # held to the plain venv's set, the BindCraft 2 step to the finished 3.12 venv's.
+    local p=$ROOT/pins-$S c1=() c2=()
+    [ -f "$p/venv-$S.txt" ] && c1=(-c "$p/venv-$S.txt")
+    [ -f "$p/$(basename "$v").txt" ] && c2=(-c "$p/$(basename "$v").txt")
+    "$UV" pip install -q -p "$v/bin/python" "${c1[@]}" "$WHL[tenstorrent,test]"
     # Editable, as BindCraft 2's own install.sh does: its settings/ sit beside the package, not in it.
-    [ -z "${3:-}" ] || "$UV" pip install -q -p "$v/bin/python" "${c[@]}" -e "$3"
+    [ -z "${3:-}" ] || "$UV" pip install -q -p "$v/bin/python" "${c2[@]}" -e "$3"
     touch "$v/done"
 }
 venv "$ROOT/venv-$S" "${GATE_PYTHON:-python3}"
