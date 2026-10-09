@@ -207,7 +207,7 @@ def stage_arms(x, w1, w2, w3, w12):
     mc, mc2 = block_sharded(gx, gy, pm, pn), block_sharded(gx, gy, pm, 2 * pn)
     bw = max(b for b in (8, 4, 2, 1) if kt % b == 0)
     bw3 = 1 if CKC.fp32_dest_acc_en else pn
-    xn = ttnn.to_memory_config(x, ttnn.L1_MEMORY_CONFIG)
+    xn = x
     fc1 = lambda: ttnn.linear(xn, w1, program_config=cfg2d(gx, gy, pm, pn, bw, SILU), compute_kernel_config=SILU_CKC,
                               memory_config=mc, dtype=HDT)
     fc1n = lambda: ttnn.linear(xn, w1, program_config=cfg2d(gx, gy, pm, pn, bw), compute_kernel_config=CKC,
@@ -219,11 +219,27 @@ def stage_arms(x, w1, w2, w3, w12):
     x1, x2 = fc1(), fc2()
     mul = lambda: ttnn.multiply(x1, x2, memory_config=mc)
     h = mul()
-    LIVE.extend((xn, x1, x2, h, w12))
-    fc3 = lambda: ttnn.linear(h, w3, program_config=cfg2d(gx, gy, pm, ct // gx, bw3), compute_kernel_config=CKC,
-                              dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-    return [(f"stage:{n}:g{gx}x{gy}", f) for n, f in
-            (("fc1", fc1), ("fc1_nosilu", fc1n), ("fc2", fc2), ("fc12", fc12), ("mul", mul), ("fc3", fc3))]
+    LIVE.extend((x1, x2, h, w12))
+
+    def fc3(kb, ckc=CKC):
+        return lambda: ttnn.linear(h, w3, program_config=cfg2d(gx, gy, pm, ct // gx, kb), compute_kernel_config=ckc,
+                                   dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+    def fc3_il():  # the product back to interleaved L1, fc3 on ttnn's own config (the fold's old path)
+        hi = ttnn.sharded_to_interleaved(h, ttnn.L1_MEMORY_CONFIG)
+        out = ttnn.linear(hi, w3, core_grid=T.CORE_GRID_MAIN, compute_kernel_config=CKC, dtype=ttnn.bfloat16,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(hi)
+        return out
+
+    # fc3 at the shipped K block, at the full shard width (the WH fp32-acc erratum config, timing only), and both
+    # at HiFi2: whether a lower fidelity buys back the K block 1 cost is the question.
+    hifi2 = CKC_CLS(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=CKC.math_approx_mode,
+                    fp32_dest_acc_en=CKC.fp32_dest_acc_en, packer_l1_acc=CKC.packer_l1_acc)
+    arms = [("fc1", fc1), ("fc1_nosilu", fc1n), ("fc2", fc2), ("fc12", fc12), ("mul", mul), ("fc3", fc3(bw3)),
+            (f"fc3_kb{pn}", fc3(pn)), ("fc3_kb2", fc3(2)), ("fc3_hifi2", fc3(bw3, hifi2)),
+            (f"fc3_hifi2_kb{pn}", fc3(pn, hifi2)), ("fc3_il", fc3_il)]
+    return [(f"stage:{n}:g{gx}x{gy}", f) for n, f in arms]
 
 
 def interleave_cols(w1h, w2h, gx):
@@ -253,7 +269,7 @@ for spec in a.rows.split(";"):
         if a.stages:
             w12 = ttnn.from_torch(interleave_cols(w1h, w2h, min(GX, 8)), dtype=WDT, layout=ttnn.TILE_LAYOUT,
                                   device=dev)
-            arms = arms[:1] + stage_arms(x, w1, w2, w3, w12)
+            arms = stage_arms(x, w1, w2, w3, w12)
         else:
             arms += [(n, (lambda p=p: body_shard(x, w1, w2, w3, *p)))
                      for n, p in shard_arms(mt, C // 32, HID // 32, C // 32)]
