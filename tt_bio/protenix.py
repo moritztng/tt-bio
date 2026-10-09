@@ -2144,22 +2144,24 @@ class ConfidenceHead:
         Identical to the tail of confidence() so device/host paths share it."""
         import torch
 
-        def _expected(logits, max_a=32.0):
-            nb = logits.shape[-1]
-            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-            return (torch.softmax(logits, -1) * centers).sum(-1)
-        pae = _expected(pae_logits)
-        pde = _expected(pde_logits)
-        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"))
-        nb = plddt_logits.shape[-1]
-        plddt_atom = (torch.softmax(plddt_logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
+        def _expected(probs, max_a=32.0):
+            nb = probs.shape[-1]
+            return probs @ ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb * max_a)
+        # One softmax of the pae logits feeds pae, pTM/ipTM and the chain keys, and every bin
+        # reduction is a matmul: the broadcast multiply-sum and the (N,N,nb) subsets cost ~1 s
+        # per c730 sample on the host, which the chip waited for after its last sample.
+        probs = torch.softmax(pae_logits.float(), -1)
+        pae = _expected(probs)
+        pde = _expected(torch.softmax(pde_logits.float(), -1))
+        ptm, iptm = self._ptm_iptm(pae_logits, feats.get("asym_id"), probs=probs)
+        plddt_atom = _expected(torch.softmax(plddt_logits.float(), -1), 1.0)
         out = {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                "ptm": ptm, "iptm": iptm}
-        out.update(self._chain_confidence(pae_logits, feats.get("asym_id")))
+        out.update(self._chain_confidence(pae_logits, feats.get("asym_id"), probs=probs))
         return out
 
     @staticmethod
-    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None):
+    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None, probs=None):
         """Predicted TM-score (pTM) and interface pTM (ipTM) from the PAE bin logits,
         the standard AlphaFold formula. pTM = max over alignment frame i of the mean
         predicted TM to all tokens j; ipTM restricts j to *other* chains (via asym_id).
@@ -2183,16 +2185,19 @@ class ConfidenceHead:
         ``compute_ptm`` in float64 (``perf/of3t_d10_d107/d10_rule_vs_upstream.py``). With
         eight frameless tokens in that same complex the mask is worth 3.853e-03 on pTM and
         reorders the samples.
+
+        ``probs`` is ``softmax(pae_logits)`` when the caller already has it.
         """
         import torch
 
         N, _, nb = pae_logits.shape
         centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-        probs = torch.softmax(pae_logits.float(), -1)                       # (N,N,nb)
+        if probs is None:
+            probs = torch.softmax(pae_logits.float(), -1)                   # (N,N,nb)
         n = max(N, 19)
         d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
         tm_per_bin = 1.0 / (1.0 + (centers / d0) ** 2)                      # (nb,)
-        e_tm = (probs * tm_per_bin).sum(-1)                                 # (N,N) E[TM] per pair
+        e_tm = probs @ tm_per_bin                                           # (N,N) E[TM] per pair
         frame = (None if has_frame is None else
                  has_frame.reshape(-1).bool().to(e_tm.device))
         if frame is not None and frame.numel() != N:
@@ -2225,7 +2230,8 @@ class ConfidenceHead:
         return round(ptm, 6), round(iptm, 6)
 
     @staticmethod
-    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0, centers=None, has_frame=None):
+    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0, centers=None, has_frame=None,
+                          probs=None):
         """The chain-level confidence keys, protenix's `calculate_chain_based_ptm`.
 
         `chain_ptm[c]` is pTM computed inside chain c alone, so its TM normalisation uses that
@@ -2253,6 +2259,7 @@ class ConfidenceHead:
         the frame mask their global pTM/ipTM take the max over: a token without an alignment
         frame (an atomized ligand atom that fails the angle test) cannot win a row max here
         either. None means every token has a frame, which holds for standard residues.
+        ``probs`` is ``softmax(pae_logits)`` when the caller already has it.
         """
         import torch
 
@@ -2265,15 +2272,23 @@ class ConfidenceHead:
         nb = pae_logits.shape[-1]
         if centers is None:
             centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-        probs = torch.softmax(pae_logits.float(), -1)
+        if probs is None:
+            probs = torch.softmax(pae_logits.float(), -1)
         frame = (torch.ones(a.numel(), dtype=torch.bool) if has_frame is None
                  else has_frame.bool().reshape(-1))
 
+        # E[TM] depends on a subset only through its token count (the TM normalisation), so the
+        # bins are reduced once per distinct count over the whole (N,N), and each subset slices
+        # the (N,N) result: nb times less to copy than slicing the probabilities.
+        e_tm = {}
+
         def pair_tm(mask):
             """E[TM] per token pair, restricted to `mask` and normalised on its own count."""
-            sub = probs[mask][:, mask]
-            d0 = 1.24 * (max(int(mask.sum()), 19) - 15) ** (1.0 / 3.0) - 1.8
-            return (sub * (1.0 / (1.0 + (centers / d0) ** 2))).sum(-1)
+            n = max(int(mask.sum()), 19)
+            if n not in e_tm:
+                d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
+                e_tm[n] = probs @ (1.0 / (1.0 + (centers / d0) ** 2))
+            return e_tm[n][mask][:, mask]
 
         def row_max(row, mask):
             # Zeroing a frameless row is upstream's form; E[TM] >= 0, so it cannot win.
