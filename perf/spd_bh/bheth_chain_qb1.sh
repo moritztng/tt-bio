@@ -1,8 +1,8 @@
 #!/bin/bash
-# spd-bheth on qb1: wait for the ttnn 0.68.0+bh.eth1 wheel, build a private venv, check it on the CPU, then take the
-# first free p150a card by its flock and run: dispatch probe (bare ttnn, Tensix then ETH; tt-bio's own open), then
+# spd-bheth on qb1: wait for the ttnn 0.68.0+bh.eth1 wheel, build a private venv, check it on the CPU, then queue on one
+# p150a card by its flock and run: dispatch probe (bare ttnn, Tensix then ETH; tt-bio's own open), then
 # c730 Tensix vs ETH dispatch in normal and fast mode, 1 cold + 3 warm each.
-#   chain_qb1.sh ENGINE_SHA
+#   [QB1_CARD=N] chain_qb1.sh ENGINE_SHA
 set -u
 SHA=${1:?engine sha}
 B=~/spd-bheth; R=$B/runs/p150a-$(date -u +%m%dT%H%M); mkdir -p $R
@@ -25,11 +25,9 @@ say "engine $(git rev-parse --short HEAD), ttnn $($PY -c 'import importlib.metad
 $PY -c "from tt_bio import metal_overlay as M; assert M.bh_eth_dispatch_supported(), 'capability check says no'" \
   || { say "capability check failed"; exit 1; }
 
-CARD=; for i in $(seq 1 600); do
-  for c in 1 0 2 3; do exec 9>~/spd_qb1_card$c.lock; if flock -n 9; then CARD=$c; break 2; fi; exec 9>&-; done
-  sleep 60
-done
-[ -n "$CARD" ] || { say "no qb1 card in 10 h"; exit 1; }
+# Block on one card like every other row: a 60 s flock -n poll never wins against flock -w waiters.
+CARD=${QB1_CARD:-2}; exec 9>~/spd_qb1_card$CARD.lock
+flock -w 43200 9 || { say "no qb1 card $CARD in 12 h"; exit 1; }
 N=$(node_of $CARD); export TT_VISIBLE_DEVICES=$CARD
 dead(){ [ "$(cat /sys/class/tenstorrent/tenstorrent!$N/tt_heartbeat 2>/dev/null)" = 4294967295 ]; }
 say "lock held: qb1 card $CARD (node $N), load $(cut -d' ' -f1-3 /proc/loadavg)"
