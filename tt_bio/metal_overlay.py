@@ -160,37 +160,24 @@ _BMM_LAST_NEW = """#if not defined FUSE_BIAS and defined SFPU_OP_INIT_ACTIVATION
                                         p_stall::STALL_ON_ZERO));
                                     PACK(TT_SETC16(
                                         DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+                                    for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                                        PACK((llk_math_eltwise_unary_sfpu_silu<true, DST_ACCUM_MODE>(i)));
+                                    }
+                                    PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
                                 } else
 #endif
                                 {
                                     tile_regs_wait();
                                 }
 """
-_BMM_PACK = """                                pack_tile_block(start_dst_index, mm_out_cb_id, out_subblock_num_tiles);
-"""
-_BMM_PACK_NEW = """#if not defined FUSE_BIAS and defined SFPU_OP_INIT_ACTIVATION
-                                if (tb_pack_silu) {
-                                    // silu tile i, then pack it while the SFPU runs tile i + 1: the packer reads
-                                    // rows the SFPU is done with. Same tiles, same order as pack_tile_block.
-                                    for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
-                                        PACK((llk_math_eltwise_unary_sfpu_silu<true, DST_ACCUM_MODE>(i)));
-                                        PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
-                                        PACK((llk_matmul_pack<DST_ACCUM_MODE, false, false>(i, mm_out_cb_id, 1)));
-                                    }
-                                } else
-#endif
-                                {
-                                    pack_tile_block(start_dst_index, mm_out_cb_id, out_subblock_num_tiles);
-                                }
-"""
 _BMM_INC = '#include "api/compute/eltwise_unary/sfpu_split_includes.h"\n'
 
 
 def _patch_bmm_silu_pack(src: str) -> str:
-    if "tb_silu_on_pack" in src or [src.count(a) for a in (_BMM_INC, _BMM_INIT, _BMM_LAST, _BMM_PACK)] != [1, 1, 1, 1]:
+    if "tb_silu_on_pack" in src or [src.count(a) for a in (_BMM_INC, _BMM_INIT, _BMM_LAST)] != [1, 1, 1]:
         raise RuntimeError("silu_f32: bmm_large_block_zm_fused_bias_activation.cpp anchors moved or already patched")
     return (src.replace(_BMM_INC, _BMM_INC + _BMM_DECL).replace(_BMM_INIT, _BMM_INIT_NEW)
-            .replace(_BMM_LAST, _BMM_LAST_NEW).replace(_BMM_PACK, _BMM_PACK_NEW))
+            .replace(_BMM_LAST, _BMM_LAST_NEW))
 
 
 DATAFLOW_API = "tt_metal/hw/inc/api/dataflow/dataflow_api.h"
