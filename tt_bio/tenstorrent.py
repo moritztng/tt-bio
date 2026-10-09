@@ -13052,9 +13052,19 @@ class PairWeightedAveraging(Module):
         o = ttnn.matmul(vh, w, transpose_b=True, **lin)          # [H, hd*rows, T]
         ttnn.deallocate(vh)
         ttnn.deallocate(w)
-        o = ttnn.reshape(o, (H * hd, rows, T))
-        ot = ttnn.permute(o, (1, 2, 0))                          # [rows, T, H*hd]
-        ttnn.deallocate(o)
+        if rows % 32:
+            o = ttnn.reshape(o, (H * hd, rows, T))
+            ot = ttnn.permute(o, (1, 2, 0))                      # [rows, T, H*hd]
+            ttnn.deallocate(o)
+        else:
+            # The same move as permute (1, 2, 0), as the two tile transposes ttnn has kernels for:
+            # 2.9x faster on Blackhole (4.44 -> 1.53 ms at 512 x 736), 1.05x on Wormhole, same bytes.
+            o = ttnn.reshape(o, (1, H * hd, rows, T))
+            ot = ttnn.transpose(o, 1, 2)                         # [1, rows, H*hd, T]
+            ttnn.deallocate(o)
+            o = ttnn.transpose(ot, 2, 3)                         # [1, rows, T, H*hd]
+            ttnn.deallocate(ot)
+            ot = ttnn.reshape(o, (rows, T, H * hd))
         g = ttnn.linear(mc, self.g_weight, **lin)
         ot = ttnn.multiply_(ot, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(g)
