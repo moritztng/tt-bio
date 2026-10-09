@@ -103,7 +103,7 @@ def test_parity_blocked_is_not_a_failure_but_a_scored_gap_is():
 
 
 def _host(name, arch, tmp_path):
-    return gf.Host(name, {"arch": arch, "card_type": arch, "trees": str(tmp_path)}, "f" * 40)
+    return gf.Host(name, {"arch": arch, "card_type": arch, "root": str(tmp_path)}, "f" * 40)
 
 
 def test_scheduler_runs_every_leg_once_per_arch_and_timed_legs_alone(tmp_path):
@@ -165,13 +165,17 @@ def test_every_family_has_a_budget_and_an_expectation():
 
 
 def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path):
-    h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "trees": "/t", "python": "/v/py",
+    h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r",
                         "lock": "/l/card{card}.lock", "env": {"ESM_ROOT": "/esm"},
                         "pythonpath_extra": ["/bc2"]}, "a" * 40)
     leg = next(lg for lg in _legs() if lg.family == "parity")
     cmd = h.command(leg, 2, "/t/out/x")
     assert "flock /l/card2.lock" in cmd and "TT_VISIBLE_DEVICES=2" in cmd
-    assert "PYTHONPATH=/t/aaaaaaaaaaaa:/bc2" in cmd and "ESM_ROOT=/esm" in cmd
-    assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd and "/v/py" in cmd
+    assert "PYTHONPATH=/r/trees/aaaaaaaaaaaa:/bc2" in cmd and "ESM_ROOT=/esm" in cmd
+    assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd
+    assert "/r/venv-aaaaaaaaaaaa/bin/python scripts/full_parity_gate.py" in cmd
     free = h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y")
     assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
+    assert "/r/venv312-aaaaaaaaaaaa/bin/python -m pytest" in free
+    bc2 = h.command(next(lg for lg in _legs() if lg.family == "bc2"), 1, "/t/out/z")
+    assert "PYTHONPATH=/bc2 " in bc2 and "/r/trees" not in bc2.split("&&")[-1].split("bash -c")[0]

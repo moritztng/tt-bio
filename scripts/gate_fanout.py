@@ -37,15 +37,15 @@ a gated tree does not repeat the gate. Any change to code, tests, scripts, data,
 interpreter's packages or the card type is a different key and runs fresh.
 
 hosts.json names, per host, how to reach it and what to run with (no host facts live in this file):
-    {"qb1": {"ssh": "qb1", "arch": "bh", "card_type": "p150a",
-             "repo": "/home/ttuser/tt-bio", "trees": "/home/ttuser/scratch/gate-trees",
-             "python": "/home/ttuser/scratch/relvenv/bin/python3",
+    {"qb1": {"ssh": "qb1", "arch": "bh", "card_type": "p150a", "root": "/home/ttuser/gate",
              "lock": "/home/ttuser/spd_qb1_card{card}.lock",
-             "python_for": {"pytest_device": ".../bc2venv/bin/python3", "pytest_cpu": "...",
-                            "bc2": "..."},
-             "env": {"ESM_ROOT": "/home/ttuser/esm", "AF2_PARAMS_DIR": "..."},
-             "pythonpath_extra": ["/home/ttuser/bcx_e2e/bc2"]}}
-Every `env` value is exported to the leg and also fills `{NAME}` in a leg's argv.
+             "prep_env": {"GATE_PYTHON": "/usr/bin/python3", "BC2": "/home/ttuser/bcx_e2e/bc2"},
+             "env": {"ESM_ROOT": "/home/ttuser/esm", "AF2_PARAMS_DIR": "...", ...}}}
+Under `root` the runner keeps a clone (root/repo, which must exist), one tree per commit
+(root/trees/<sha12>) and the interpreters scripts/gate_host_prep.sh builds from that commit's own
+wheel: root/venv-<sha12> for every leg, root/venv312-<sha12> (with BindCraft 2) for pytest and the
+BindCraft 2 leg. `python` / `python_for` override those. Every `env` value is exported to the leg
+and also fills `{NAME}` in a leg's argv.
 """
 from __future__ import annotations
 
@@ -75,6 +75,7 @@ EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_cpu": 1800, "bc2": 1200}
 TIMED = {"perf"}
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
+PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
 # same arguments (full_parity_gate.py: run_inprocess -> release_gate.run_<arm>). Running the rg
 # arm as well folds the same thing twice.
@@ -221,8 +222,12 @@ class Host:
         return self.cfg["arch"]
 
     @property
+    def root(self) -> str:
+        return self.cfg["root"]
+
+    @property
     def tree(self) -> str:
-        return f"{self.cfg['trees']}/{self.sha[:12]}"
+        return f"{self.root}/trees/{self.sha[:12]}"
 
     def ssh(self, cmd: str, **kw) -> subprocess.CompletedProcess:
         if self.cfg.get("ssh") in (None, "", "localhost"):
@@ -232,24 +237,31 @@ class Host:
 
     def prepare(self) -> None:
         """A tree of its own at exactly `sha` (never a shared checkout moved under someone), with
-        the parity fixtures restored."""
-        c, t = self.cfg, self.tree
-        cmd = (f"set -e; if [ ! -d {t} ]; then git -C {c['repo']} fetch -q origin; "
-               f"mkdir -p {c['trees']}; git -C {c['repo']} worktree add -q --detach {t} {self.sha}; "
+        the parity fixtures restored, and the interpreters built from that commit's wheel."""
+        r, t = self.root, self.tree
+        envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in self.cfg.get("prep_env", {}).items())
+        cmd = (f"set -e; if [ ! -d {t} ]; then git -C {r}/repo fetch -q origin; "
+               f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; "
                f"cd {t}; bash scripts/fetch_parity_fixtures.sh >/dev/null; fi; "
-               f"test \"$(git -C {t} rev-parse HEAD)\" = {self.sha}")
-        r = self.ssh(cmd, capture_output=True, timeout=1800)
-        if r.returncode:
-            raise SystemExit(f"{self.name}: cannot prepare {t} at {self.sha}: {r.stderr.strip()[-400:]}")
+               f"test \"$(git -C {t} rev-parse HEAD)\" = {self.sha}; "
+               f"cd {t} && env {envs} bash scripts/gate_host_prep.sh {r} {self.sha}")
+        p = self.ssh(cmd, capture_output=True, timeout=3600)
+        if p.returncode:
+            raise SystemExit(f"{self.name}: cannot prepare {t} at {self.sha}: "
+                             f"{(p.stderr or p.stdout).strip()[-600:]}")
+        print(f"{self.name}: {p.stdout.strip()}")
 
     def python(self, family: str) -> str:
-        """The interpreter a leg family runs under: `python`, unless `python_for` names another
-        (pytest needs the venv that also carries BindCraft 2's dependencies)."""
-        return self.cfg.get("python_for", {}).get(family, self.cfg["python"])
+        """The interpreter a leg family runs under (pytest and the BindCraft 2 leg need the
+        Python 3.12 venv that also carries BindCraft 2)."""
+        s = self.sha[:12]
+        default = (f"{self.root}/venv312-{s}/bin/python" if family in PY312
+                   else f"{self.root}/venv-{s}/bin/python")
+        return self.cfg.get("python_for", {}).get(family, self.cfg.get("python", default))
 
     def run_py(self, code: str, python: str | None = None) -> dict:
         cmd = (f"cd {self.tree} && TT_VISIBLE_DEVICES= PYTHONPATH={self.tree}:{self.tree}/scripts "
-               f"timeout 300 {python or self.cfg['python']} -c {shlex.quote(code)}")
+               f"timeout 300 {python or self.python('')} -c {shlex.quote(code)}")
         r = self.ssh(cmd, capture_output=True, timeout=400)
         if r.returncode:
             raise SystemExit(f"{self.name}: probe failed: {r.stderr.strip()[-400:]}")
@@ -422,7 +434,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         tag = leg.name.replace(":", "_").replace("/", "-")
         log = out / "logs" / host.arch / f"{tag}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
-        rdir = f"{host.cfg['trees']}/{remote_out}/{host.arch}/{tag}"
+        rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         start = None
         with open(log, "w") as f:

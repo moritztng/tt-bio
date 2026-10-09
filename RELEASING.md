@@ -1,7 +1,57 @@
 # Releasing TT-Bio
 
 A release is cut only from the exact commit that passes the host suite and every
-on-device gate below. Run device checks serially on an otherwise idle card.
+on-device gate below, on both Blackhole and Wormhole (JapanFold serves on Wormhole).
+Correctness checks are independent folds and run side by side, one per card, on as many
+cards as you have; only the timed checks (`perf_regression.py`) need a card on an otherwise
+quiet host. `scripts/gate_fanout.py` does both for you, see [Run the gate](#run-the-gate).
+
+## What ships
+
+Always the newest code on `main`. A staging lands on `main` only after its Wormhole and
+Blackhole grades pass, so `main`'s head is the newest graded staging, and a release that gates
+an older commit ships numbers that are already stale. `scripts/release_next.py` answers what to
+do next from `main`, the last tag and the gate runs:
+
+```bash
+python3 scripts/release_next.py --gates ~/gates   # GATE <sha> | WAIT | FIX | CUT | NOTHING
+```
+
+If a newer staging lands while a gate runs, finish that gate (do not restart it), release it if
+it passes, and start the next gate on the new head right away.
+
+## Run the gate
+
+`scripts/gate_fanout.py` runs every gate below as independent legs (each parity leg, each
+`release_gate.py` arm, the size ladder and capacity gate per model, UX per model, pytest in
+shards, the BindCraft 2 wheel check, plus the card-free legs) once per architecture, on any free
+card of that architecture, each under the card's own `flock`, longest legs first. It writes one
+`VERDICT.md` with a row per leg and a column per architecture.
+
+```bash
+PYTHONPATH="$PWD" python3 scripts/gate_fanout.py --sha <commit> --hosts hosts.json \
+    --workers qb1:0,qb1:1,qb1:2,qb1:3,g114:4,g114:5,g114:6,g114:7 \
+    --timed qb1:3,g114:7 --out ~/gates/gate-<sha9>
+```
+
+`hosts.json` says, per host, how to reach it, its architecture and card type, the interpreter
+(the wheel's venv, see below), the card lock path and the environment the legs need
+(`ESM_ROOT`, `AF2IG_PARAMS`, `OF3_CKPT`, `OPENDDE_DOCKQ_PYTHON`, ...); the module docstring has
+the format. The runner builds its own tree at exactly `<commit>` on every host and never moves
+a shared checkout. Run it detached; re-running the same command resumes, because every passed
+leg is in the ledger.
+
+**Reuse, never redo.** Each leg result is keyed by the content of every tracked file except
+Markdown and pyproject's version line, the interpreter's installed packages, the card type, and
+the leg's exact command. A leg whose key already passed is not run again and the verdict names
+the run it reused. So a docs-only commit, or the release commit's version bump, costs nothing,
+and a grade-time crossmodel or suite run done through `gate_fanout.py --legs 'rg:*'` on the same
+wheel venv counts for the release. Any change to code, tests, data, fixtures, packages or card
+type is a new key and runs fresh.
+
+**Duplicates.** The parity gate runs `release_gate.py`'s boltzgen, opendde-abag, capacity,
+nesso1 and rf3-1024aa arms in-process with the same arguments and adds a drift check, so the
+runner does not run those five arms a second time.
 
 ## Prerequisites
 
@@ -78,8 +128,11 @@ exit 255 in 0 s while the in-process legs passed. The preflight catches it, but 
 excluded, and a `tt-smi -r` on any card takes its whole board pair down rather than that chip, so
 pass `--no-card-reset` to the capacity gate when anything else could land on the pair.
 
-Run the arms **serially**. The parity, capacity and size-ladder arms all take cards, and the perf
-arm is timed: an arm of your own gate running beside it is a co-tenant like any other.
+The perf arm is timed: an arm of your own gate running beside it is a co-tenant like any other, so
+run it with nothing else of the gate on the host (`gate_fanout.py` does this for `--timed` cards).
+The parity, capacity and size-ladder arms are correctness checks and may run on sibling cards. The
+size ladder's exponent is a runtime ratio between rungs folded on one card, with a tolerance of at
+least 0.50, and 0.13.1 already ran two ladder cards beside three other arms on qb1.
 
 The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
 so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
