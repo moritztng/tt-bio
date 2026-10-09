@@ -2432,16 +2432,15 @@ class Protenix:
 
         levers: the precision levers (`tenstorrent.LEVERS`) this model builds and folds under,
         active only inside its own build and fold. `load_from_checkpoint` passes the mode's set,
-        and then `--fast` means those levers and nothing else. None keeps the older `--fast`, a
-        bfp8 trunk, for the callers that build this class directly (OpenDDE)."""
+        and then `--fast` means those levers and nothing else. None is the empty set."""
         import tt_bio.tenstorrent as _TT
         self._levers = _TT.parse_levers(levers or ())
         with _TT.levers(self._levers):
             self._build(model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
-                        diffusion_fp32, gated_move, softmax_scope, legacy_fast=levers is None)
+                        diffusion_fp32, gated_move, softmax_scope)
 
     def _build(self, model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
-               diffusion_fp32, gated_move, softmax_scope, legacy_fast):
+               diffusion_fp32, gated_move, softmax_scope):
         from .tenstorrent import get_device
         import tt_bio.tenstorrent as _TT
         self._w = model_state_dict
@@ -2458,32 +2457,17 @@ class Protenix:
                                    if diffusion_fp32 is None else diffusion_fp32)
         if diffusion_fp32 is None and _TT.lever("diffusion_bf16"):
             resolved_diffusion_fp32 = False
-        # --fast for Protenix changes only the trunk to bf8. The trunk tolerates bf8, but bf8
-        # in the coordinate-sensitive diffusion collapses the structure (Rg 4.7 vs 22).
-        #
-        # "Tolerates" is per checkpoint, not per class -- the pair track is c_z wide and bf8
-        # costs more where it is narrower. Measured against the CPU reference on a 228-token
-        # 2-chain target: protenix-v2 (c_z 256) s/z PCC 0.99; protenix-v1 (c_z 128) s 0.99993
-        # but z_trunk 0.9892, i.e. marginally UNDER the 0.99 the v2 number states. End to end
-        # that ordering reverses, on a converged 117-aa MSA fold, --fast against default:
-        # protenix-v1 0.4378 A RMSD (pLDDT 0.7646 -> 0.8592), protenix-v2 2.6816 A
-        # (pLDDT 0.8810 -> 0.7525). So --fast is ~6x LESS disruptive on v1 than on the model
-        # that already ships it, and the trunk PCC alone would have said the opposite. Capture the --fast intent, then build each stage at its
-        # own precision; fold() re-applies the per-stage flag (the trunk's triangle/transition
-        # ops read _dtype() at RUNTIME, so the global flag must match the weights per stage).
-        self._fast = _TT._FAST_MODE and legacy_fast
-        _TT.set_fast_mode(False)   # input embedder stays bf16; diffusion precision is gate-controlled
+        # `--fast` is the lever set, not the global bfp8 flag: build every stage with it off.
+        _TT.set_fast_mode(False)
         self.input_aae = AtomAttentionEncoder(under("input_embedder.atom_attention_encoder."), compute_kernel_config)
         diffusion_dtype = ttnn.float32 if resolved_diffusion_fp32 else ttnn.bfloat16
         self.diff_feat = AtomFeaturization(under("diffusion_module.atom_attention_encoder."),
                                             compute_kernel_config, dtype=diffusion_dtype)
-        _TT.set_fast_mode(self._fast)   # trunk: bf8 when --fast
         # The trunk gets its OWN compute kernel config, so its matmul fidelity cannot reach the
         # diffusion module, which runs fp32 on purpose and does need all four mantissa passes.
         self.trunk = Trunk(model_state_dict, _TT.trunk_compute_kernel_config(compute_kernel_config),
                            c_z=self._c_z, msa_update_first=msa_update_first,
                            gated_move=gated_move, softmax_scope=softmax_scope)
-        _TT.set_fast_mode(False)   # diffusion uses its gate-controlled dtype; confidence stays bf16
         self.diffusion = DiffusionModule(under("diffusion_module."), self.dev, compute_kernel_config,
                                           diffusion_fp32=resolved_diffusion_fp32)
         self.confidence_head = ConfidenceHead(under("confidence_head."), self.dev,
@@ -2514,8 +2498,7 @@ class Protenix:
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
         if levers is None:
-            levers = os.environ.get("TT_BIO_LEVERS") or (
-                _TT.FAST_LEVERS if _TT._FAST_MODE else _TT.NORMAL_LEVERS)
+            levers = _TT.mode_levers()
         return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
 
     def _tt(self, x):
@@ -2876,18 +2859,10 @@ class Protenix:
                                                dtt(feats["ref_mask"].reshape(N, 1)), dtt(fi["f_in"])), (N, 128))
         p_lm = self._to_host(self.diff_feat.p_lm(dtt(fi["d"]), dtt(fi["v"]), dtt(fi["invd"]), mt_dev),
                              (nb, nq, nk, 16))
-        # 3) trunk (bf8 under --fast: toggle the global flag ON so the trunk's triangle/
-        #    transition runtime _dtype() matches its bf8 weights, then restore bf16 for the
-        #    coordinate-sensitive diffusion. Trunk tolerates bf8; diffusion does not. The per-
-        #    checkpoint bf8 numbers are in __init__ -- z_trunk is 0.99 at c_z 256 and 0.9892 at 128.)
-        import tt_bio.tenstorrent as _TT
+        # 3) trunk
         relp, host = trunk_host.result()
-        if self._fast:
-            _TT.set_fast_mode(True)
         s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats["token_bonds"],
                                       progress_fn=progress_fn, n_cycles=n_cycles, host=host)
-        if self._fast:
-            _TT.set_fast_mode(False)
         s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         # Raw trunk z, for the confidence head only. Read now, while z_tt exists, but untilized on
         # the host lane: the chip goes straight on to the pair conditioning. aux carries a Future.

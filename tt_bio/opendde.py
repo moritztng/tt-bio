@@ -17,7 +17,7 @@ device.
 import torch
 import ttnn
 
-from .protenix import _KeyedWeights
+from .protenix import _KeyedWeights, _under_levers
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
 from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device
@@ -380,7 +380,16 @@ class OpenDDE:
     a 4-block structural-token refiner (a reused ``Pairformer``), on the structural-token
     axis. Ships co-folding only (no design/affinity)."""
 
-    def __init__(self, state_dict, compute_kernel_config, device=None):
+    def __init__(self, state_dict, compute_kernel_config, device=None, levers=None):
+        """levers: the precision levers this model builds and folds under, the same switches
+        Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
+        (`tenstorrent.mode_levers`), so `--fast` is `FAST_LEVERS` here too."""
+        import tt_bio.tenstorrent as _TT
+        self._levers = _TT.parse_levers(_TT.mode_levers() if levers is None else levers)
+        with _TT.levers(self._levers):
+            self._build(state_dict, compute_kernel_config, device)
+
+    def _build(self, state_dict, compute_kernel_config, device):
         from .tenstorrent import get_device, Pairformer, accurate_softmax_site
         from .protenix import Protenix
         self.dev = device or get_device()
@@ -404,7 +413,7 @@ class OpenDDE:
         self._protenix = Protenix(
             self._shared, compute_kernel_config, self.dev, c_z=C["c_z"], msa_update_first=True,
             diffusion_fp32=env_flag("OPENDDE_DIFFUSION_FP32", False), gated_move=True,
-            softmax_scope="opendde")
+            softmax_scope="opendde", levers=self._levers)
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
@@ -415,7 +424,8 @@ class OpenDDE:
             accurate_softmax=accurate_softmax_site("opendde.refiner", default=True))
 
     @classmethod
-    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None):
+    def load_from_checkpoint(cls, path=None, *, abag=False, compute_kernel_config=None, device=None,
+                             levers=None):
         """Fetch/load ``opendde.pt`` (or ``opendde_abag.pt`` when ``abag=True``) and build
         the model on ``device`` (card 0 by default)."""
         import ttnn
@@ -423,8 +433,9 @@ class OpenDDE:
         dev = device or get_device()
         ckc = compute_kernel_config or ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
-        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev)
+        return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev, levers=levers)
 
+    @_under_levers
     def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,
                           extra_attn_bias=True, return_attn_bias=False):
         """The novel seam (opendde/model/opendde.py forward): residue-trunk (s_inputs, s, z)
@@ -464,6 +475,7 @@ class OpenDDE:
             return (*result, attn_bias)
         return result
 
+    @_under_levers
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
              return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
              max_parallel_samples=None, distogram=False):
@@ -488,9 +500,8 @@ class OpenDDE:
         assumed). Confidence is independent of the structural-token diffusion axis, so no
         structural-token distogram-rep-atom machinery is needed here.
 
-        --fast and multi-card fanout ride the existing Protenix-v2 machinery (the trunk
-        reads the global fast flag; the predict scheduler fans targets across --devices),
-        both apply unchanged to OpenDDE. trace=True replays a
+        --fast is the model's lever set (FAST_LEVERS, see __init__) and multi-card fanout is the
+        predict scheduler's, both shared with Protenix-v2. trace=True replays a
         captured ttnn trace of the shared denoise stream (lossless; faster on
         dispatch-bound diffusion, mirroring Protenix-v2.fold(trace=)); needs a device
         opened with get_device(trace="protenix"). Returns

@@ -618,6 +618,12 @@ def lever(name: str) -> bool:
     return name in _LEVERS
 
 
+def mode_levers():
+    """The lever set a model built now takes: its mode's (`FAST_LEVERS` under `--fast`, else
+    `NORMAL_LEVERS`), or TT_BIO_LEVERS when a harness grades a set through the serving path."""
+    return os.environ.get("TT_BIO_LEVERS") or (FAST_LEVERS if _FAST_MODE else NORMAL_LEVERS)
+
+
 _SILU_CKCS = {}
 
 
