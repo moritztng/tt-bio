@@ -1447,7 +1447,9 @@ ALWI void matmul_blocks(
         for (uint32_t in1_subblock = 0; in1_subblock < in1_num_subblocks; ++in1_subblock) {
             tile_regs_acquire();
 
-#if defined(QK_MASK_PRELOAD) && !defined(MASK_L1ACC)
+// INSTRUMENT (TT_BIO_TRIATT_ABLATE=PRELOADALL): the whole per-subblock preload block gone, its
+// unpack/math re-inits with it, where PRELOAD keeps those and drops only the copies.
+#if defined(QK_MASK_PRELOAD) && !defined(MASK_L1ACC) && !defined(ABLATE_PRELOADALL)
             if (preload_mask) {
                 // Seed DST with the mask so the matmul accumulates QK^T onto it: the scores are
                 // packed once with the bias already in, and the separate add pass goes away.
@@ -2060,6 +2062,16 @@ void sdpa_inner_loop(
             // windowed, ring or lightweight.
             const bool qk_mask_preload = use_provided_mask && !is_causal && sliding_window_size == 0 &&
                                          sdpa_type != RING && !lw_mask.enabled;
+#endif
+#ifdef ABLATE_QK
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=QK): the QK^T matmul (and the mask preload in it)
+            // removed, CB-neutral; the scores are whatever cb_qk_im last held.
+            cb_wait_front(cb_q_in, q_chunk_tiles);
+            cb_wait_front(cb_k_in, k_chunk_tiles);
+            cb_pop_front(cb_k_in, k_chunk_tiles);
+            cb_reserve_back(cb_qk_im, qk_chunk_tiles);
+            cb_push_back(cb_qk_im, qk_chunk_tiles);
+            if (false)
 #endif
             matmul_blocks(
                 cb_q_in,
