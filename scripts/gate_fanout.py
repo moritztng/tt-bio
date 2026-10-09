@@ -768,7 +768,8 @@ def main() -> int:
                 todo.setdefault("any", []).append(lg)
     hist = ledger.history()
     for q in todo.values():
-        q.sort(key=lambda lg: -hist.get(lg.name, EXPECT[lg.family]))
+        # Record legs first: the ladder legs of the release commit wait on their fragments.
+        q.sort(key=lambda lg: (lg.family != "record", -hist.get(lg.name, EXPECT[lg.family])))
     plan = {"sha": sha, "content": content, "envs": envs, "card_types": ctype, "archs": archs,
             "workers": [f"{h.name}:{c}" for h, c in workers], "timed": sorted(map(list, timed)),
             "env_probe": probes, "run": {a: [lg.name for lg in q] for a, q in todo.items()},
