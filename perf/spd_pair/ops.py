@@ -243,7 +243,7 @@ if "tail" in groups:
                     assert TQ.gated_out_proj(od, gd, wd, kv, resid=zz) is zz
                     return zz
                 finally:
-                    TQ.TAIL_SIGPOLY, TQ.TAIL_RNE = 0, 3
+                    TQ.TAIL_SIGPOLY, TQ.TAIL_RNE = 1, 0
 
             def score_var(var=var):
                 o = var(); r = rel(ttnn.to_torch(o).float().reshape(1, N, N, C), ref); ttnn.deallocate(o); return r

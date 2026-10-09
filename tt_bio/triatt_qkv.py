@@ -356,10 +356,19 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
 # `gated_out_proj` reads o, g and z once and writes z once (4P), with Wo resident in L1: one output row
 # tile per unit, the gate applied in DST, the whole K in one block, the residual added on the FPU.
 # Numerics move at the bf16-ULP level: sigmoid(g) is never rounded to bf16 before the multiply.
-TAIL_SIGPOLY = int(os.environ.get("TT_BIO_TRIATT_TAIL_SIGPOLY", "0"))
-TAIL_RNE = int(os.environ.get("TT_BIO_TRIATT_TAIL_RNE", "3"))
+#
+# Variants at 736, WH 1000 MHz, z += tail with the residual, rel. RMS vs float64 (perf/spd_pair/ops.py, op3):
+#   three ops today            11.95 ms   0.001723
+#   fused, sigmoid_bf16, RNE    6.24 ms   0.001719
+#   fused, poly, RNE            5.22 ms   0.001727
+#   fused, sigmoid_bf16, no RNE 5.64 ms   0.001719  (output identical to RNE: the packer already rounds)
+#   fused, HiFi4 no f32 (fast)  6.49 ms   0.001974
+# So: poly sigmoid, no explicit RNE, and HiFi3 with fp32 DST in both modes (faster AND closer than fast's
+# config, as for the pair layer norms).
+TAIL_SIGPOLY = int(os.environ.get("TT_BIO_TRIATT_TAIL_SIGPOLY", "1"))
+TAIL_RNE = int(os.environ.get("TT_BIO_TRIATT_TAIL_RNE", "0"))
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
-TAIL_STATS = [0, 0]   # served, declined
+GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
 _TAIL_CACHE: dict = {}
 
@@ -434,6 +443,7 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid):
         compile_time_args=[nt] + acc(out), runtime_args=wr, common_runtime_args=[0],
         config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
+    fid, fp32 = ttnn.MathFidelity.HiFi3, True
     compute = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, 4], runtime_args=cp,
@@ -451,7 +461,7 @@ def gated_out_proj(o, g, w, ckc, resid=None):
     (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid` in place and
     `resid` is returned. None where it declines; the caller then runs the three ops."""
     if _taping() or not tail_on() or not _tail_ok(o, g, w, resid):
-        TAIL_STATS[1] += 1
+        GOP_STATS[1] += 1
         return None
     from .tenstorrent import COMPUTE_GRID_MAIN
     B, S = int(o.shape[0]), int(o.shape[2])
@@ -472,7 +482,7 @@ def gated_out_proj(o, g, w, ckc, resid=None):
     writer.common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
     ttnn.generic_op([o, g, w, out], pd)
-    TAIL_STATS[0] += 1
+    GOP_STATS[0] += 1
     return out
 
 
