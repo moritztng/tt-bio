@@ -22,8 +22,7 @@
 
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
-#include "api/compute/eltwise_unary/eltwise_unary.h"
-#include "api/compute/eltwise_unary/activations.h"
+#include "api/compute/compute_kernel_api.h"
 #include "experimental/circular_buffer.h"
 
 #if defined(FC12G_PACK_SILU) && defined(TRISC_PACK)

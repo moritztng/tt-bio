@@ -139,7 +139,7 @@ def _throttle_stagger_defines(arch, n_cores, ckc):
 
 
 def build(device, in0, in1, out, pc, ckc, out_nzsb_w=None, compute_src=None, compute_defines=(),
-          compute_ct_override=None):
+          compute_ct_override=None, gate_tiles=None):
     arch = _arch()
     math_fidelity, math_approx_mode, fp32_dest_acc_en, _ = ckc_args(ckc)
     packer_l1_acc = bool(getattr(ckc, "packer_l1_acc", False))
@@ -429,7 +429,10 @@ def build(device, in0, in1, out, pc, ckc, out_nzsb_w=None, compute_src=None, com
            _cb(1, all_cores, in1_dt, in1_ts, in1_CB_tiles * in1_ts)]
     out_cb_size = out_CB_tiles * out_ts
     out_cb = ttnn.cb_descriptor_from_sharded_tensor(4, out, total_size=out_cb_size, core_ranges=all_cores)
-    if do_not_inplace_interm0_out_CB or interm_dt != out_dt:                        # F2D:942-966
+    if gate_tiles is not None:                      # c_5 as a gate buffer for a patched K6, in the output's format
+        interm_dt, interm_ts, do_not_inplace_interm0_out_CB = out_dt, out_ts, True
+        cbs.append(_cb(5, all_cores, out_dt, out_ts, int(gate_tiles) * out_ts))
+    elif do_not_inplace_interm0_out_CB or interm_dt != out_dt:                      # F2D:942-966
         cbs.append(_cb(5, all_cores, interm_dt, interm_ts, interm0_CB_tiles * interm_ts))
     else:                                                                           # F2D:967-976, shared
         out_cb.format_descriptors = list(out_cb.format_descriptors) + [_fmt(5, interm_dt, interm_ts)]
@@ -609,7 +612,7 @@ def _pc_key(pc):
             None if act is None else repr(act))
 
 
-def _key(in0, in1, out, pc, ckc, out_nzsb_w, compute_src, compute_defines, compute_ct_override):
+def _key(in0, in1, out, pc, ckc, out_nzsb_w, compute_src, compute_defines, compute_ct_override, gate_tiles=None):
     spec = lambda t: (str(t.padded_shape), str(t.shape), str(t.dtype), str(t.memory_config()))
     ov = compute_ct_override
     if isinstance(ov, dict):
@@ -619,11 +622,12 @@ def _key(in0, in1, out, pc, ckc, out_nzsb_w, compute_src, compute_defines, compu
     env = tuple(os.environ.get(k) for k in ("TT_MM_STAGGER_TYPE", "TT_MM_STAGGER_VALUE", "TT_MM_THROTTLE_PERF"))
     return (spec(in0), spec(in1), spec(out), _pc_key(pc), _ckc_key(ckc), out_nzsb_w,
             None if compute_src is None else str(compute_src),
-            tuple(sorted((str(k), str(v)) for k, v in dict(compute_defines).items())), ov, env, str(kernel_root()))
+            tuple(sorted((str(k), str(v)) for k, v in dict(compute_defines).items())), ov, env, str(kernel_root()),
+            gate_tiles)
 
 
 def generic_matmul_2d(device, in0, in1, out, program_config, compute_kernel_config, *, out_nzsb_w=None,
-                      compute_src=None, compute_defines=(), compute_ct_override=None):
+                      compute_src=None, compute_defines=(), compute_ct_override=None, gate_tiles=None):
     """``ttnn.linear(in0, in1, program_config=..., compute_kernel_config=..., memory_config=out's,
     dtype=out's)`` written into the pre-allocated block-sharded ``out``, through ``generic_op``.
 
@@ -631,14 +635,15 @@ def generic_matmul_2d(device, in0, in1, out, program_config, compute_kernel_conf
     OUT_SHARDED only sets how many tiles they wait for at the end; ``out`` must then be sharded
     [per_core_M, out_nzsb_w * out_subblock_w] tiles and c_4 is pinned to that. ``compute_src`` (a path,
     absolute or relative to the matmul kernels dir), ``compute_defines`` (merged over the factory's) and
-    ``compute_ct_override`` (a full list, or {index: value}) swap K6 for a patched kernel.
+    ``compute_ct_override`` (a full list, or {index: value}) swap K6 for a patched kernel. ``gate_tiles`` makes
+    c_5 a separate buffer of that many tiles in the output's format, for a K6 that stages a gate there.
     """
     key = _key(in0, in1, out, program_config, compute_kernel_config, out_nzsb_w, compute_src, compute_defines,
-               compute_ct_override)
+               compute_ct_override, gate_tiles)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = build(device, in0, in1, out, program_config, compute_kernel_config, out_nzsb_w,
-                                    compute_src, compute_defines, compute_ct_override)
+                                    compute_src, compute_defines, compute_ct_override, gate_tiles)
     addrs = (in0.buffer_address(), in1.buffer_address(), out.buffer_address())
     if addrs != entry["addrs"] or out is not entry["out"]:
         rebind(entry, in0, in1, out)
