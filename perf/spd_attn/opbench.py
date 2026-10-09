@@ -225,11 +225,10 @@ if a.which in ("pairbias", "all"):
         torch.manual_seed(4)
         hz, hg, hb, hw = torch.randn(1, S, S, 256), 1 + 0.1 * torch.randn(256), 0.1 * torch.randn(256), torch.randn(256, 16) * 0.06
         z, w = up(hz, ttnn.bfloat16), up(hw, ttnn.bfloat16)
-        g = ttnn.from_torch(hg.reshape(1, 256), dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
-        b = ttnn.from_torch(hb.reshape(1, 256), dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        g, b = up(hg.reshape(1, 256), ttnn.bfloat16), up(hb.reshape(1, 256), ttnn.bfloat16)   # TILE, like torch_to_tt
         zd = ttnn.to_torch(z).double()
-        REF[site] = torch.nn.functional.layer_norm(zd, (256,), ttnn.to_torch(g).double().reshape(256),
-                                                   ttnn.to_torch(b).double().reshape(256), 1e-5) @ ttnn.to_torch(w).double()
+        REF[site] = torch.nn.functional.layer_norm(zd, (256,), ttnn.to_torch(g).double().reshape(-1)[:256],
+                                                   ttnn.to_torch(b).double().reshape(-1)[:256], 1e-5) @ ttnn.to_torch(w).double()
         ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                                fp32_dest_acc_en=True, packer_l1_acc=True)
 
