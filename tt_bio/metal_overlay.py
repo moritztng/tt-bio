@@ -6,23 +6,34 @@ that mirrors the installed package lets tt-bio change what a kernel function doe
 ``site-packages`` or rebuilding ``_ttnn.so``. Only the directories on the way to a patched file are
 real; every sibling is a symlink back into the wheel, so the overlay is a few hundred inodes.
 
-The one patch today, ``silu_approx``: ``calculate_silu`` drops the caller's ``APPROXIMATION_MODE``
+``bh_dram_read_split`` (Blackhole hosts, on at ``import tt_bio``): a DRAM read larger than 2 KiB is
+issued as reads of at most 2 KiB. A large DRAM read alongside other cores' non-posted DRAM writes on
+the same NoC can lose its read response on Blackhole and hang the chip; tt-metal works around it the
+same way (tenstorrent/tt-metal#59622, issue #52270) and the ttnn wheels tt-bio runs on predate that.
+Every Protenix-v2 hang diagnosed on p150a/p300c had its signature. Same bytes, so bit-identical.
+``TT_BIO_BH_DRAM_READ_SPLIT=0`` turns it off; a ``TT_METAL_RUNTIME_ROOT`` the user set is respected.
+
+``silu_approx`` (measuring only, ``TT_BIO_SILU_APPROX``): ``calculate_silu`` drops the caller's ``APPROXIMATION_MODE``
 (every sibling activation honours it), so a matmul with ``fp32_dest_acc_en=True`` and
 ``math_approx_mode=True`` -- every Protenix Transition fc1 -- runs the accurate exp and a two-step
 reciprocal on each element. The patch threads the flag through: under approx mode silu takes
 exp_21f (about 1 ulp of bfloat16) and one Newton step, still on the fp32 accumulator, so the input
 is never rounded. Sites with ``math_approx_mode=False`` compile exactly as before.
 
-``enable()`` must run before the first device open. A patch whose anchor text is missing (a ttnn
-version that changed the header) raises rather than serving the unpatched kernel under a patched
-name.
+``enable()`` must run before the first device open; a second call adds its names to the overlay
+already enabled. Each overlay gets its own JIT cache: tt-metal keys a compiled kernel on its defines
+and compile args, not on the headers it included, so a shared cache would serve stock binaries under
+a patched root. A patch whose anchor text is missing (a ttnn version that changed the header, or
+already carries the fix) raises rather than serving the unpatched kernel under a patched name.
 """
 
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import os
 import re
+import shutil
 from pathlib import Path
 
 ARCHES = ("wormhole_b0", "blackhole")
@@ -57,7 +68,43 @@ def _patch_silu_llk(src: str) -> str:
     return src
 
 
+DATAFLOW_API = "tt_metal/hw/inc/api/dataflow/dataflow_api.h"
+_READ_ANCHOR = """    if constexpr (max_page_size <= NOC_MAX_BURST_SIZE) {
+        noc_async_read_one_packet<false>(src_noc_addr, dst_local_l1_addr, size, noc, read_req_vc);"""
+_READ_SPLIT = """#ifdef ARCH_BLACKHOLE
+    // tt-bio: tt-metal#59622 workaround. A read from a DRAM bank larger than 2 KiB is issued as reads of at most
+    // 2 KiB; a large DRAM read alongside other cores' non-posted DRAM writes can stall the NoC on Blackhole.
+    constexpr uint32_t BH_DRAM_READ_MAX_PACKET_SIZE = 2048;
+    if (size > BH_DRAM_READ_MAX_PACKET_SIZE) {
+        const uint32_t src_xy = static_cast<uint32_t>(src_noc_addr >> NOC_ADDR_COORD_SHIFT);
+        bool src_is_dram = false;
+        for (uint32_t bank = 0; bank < NUM_DRAM_BANKS; ++bank) {
+            src_is_dram |= src_xy == dram_bank_to_noc_xy[noc][bank];
+        }
+        if (src_is_dram) {
+            while (size > BH_DRAM_READ_MAX_PACKET_SIZE) {
+                noc_async_read_one_packet<false>(
+                    src_noc_addr, dst_local_l1_addr, BH_DRAM_READ_MAX_PACKET_SIZE, noc, read_req_vc);
+                src_noc_addr += BH_DRAM_READ_MAX_PACKET_SIZE;
+                dst_local_l1_addr += BH_DRAM_READ_MAX_PACKET_SIZE;
+                size -= BH_DRAM_READ_MAX_PACKET_SIZE;
+            }
+            noc_async_read_one_packet<false>(src_noc_addr, dst_local_l1_addr, size, noc, read_req_vc);
+            return;
+        }
+    }
+#endif
+"""
+
+
+def _patch_dram_read_split(src: str) -> str:
+    if "BH_DRAM_READ_MAX_PACKET_SIZE" in src or src.count(_READ_ANCHOR) != 1:
+        raise RuntimeError("bh_dram_read_split: dataflow_api.h anchor moved or already patched")
+    return src.replace(_READ_ANCHOR, _READ_SPLIT + _READ_ANCHOR)
+
+
 PATCHES = {
+    "bh_dram_read_split": {DATAFLOW_API: _patch_dram_read_split},
     "silu_approx": {
         f"{_SFPU.format(arch=arch)}/{name}": fn
         for arch in ARCHES
@@ -69,19 +116,22 @@ PATCHES = {
 }
 
 
-def runtime_root() -> Path:
-    """The installed package's runtime root: the directory holding ``tt_metal/`` and ``ttnn/cpp``."""
-    env = os.environ.get("TT_METAL_RUNTIME_ROOT")
-    if env:
-        return Path(env)
-    import ttnn
-
-    return Path(ttnn.__file__).resolve().parent
+def runtime_root() -> Path | None:
+    """The runtime root ttnn would pick itself (the directory holding ``tt_metal/``): the wheel's
+    package dir or a source build's checkout. Found without importing ttnn."""
+    spec = importlib.util.find_spec("ttnn")
+    if spec is None or not spec.submodule_search_locations:
+        return None
+    pkg = Path(next(iter(spec.submodule_search_locations))).resolve()
+    for root in (pkg, pkg.parent.parent):
+        if (root / "tt_metal").is_dir():
+            return root
+    return None
 
 
 def build(names, root: Path | None = None, cache: Path | None = None) -> Path:
     """Build (or reuse) the overlay of ``root`` with the named patches applied; return its path."""
-    root = (root or runtime_root()).resolve()
+    root = (root or Path(os.environ.get("TT_BIO_METAL_OVERLAY_STOCK") or runtime_root())).resolve()
     files: dict[str, str] = {}
     for name in sorted(names):
         for rel, fn in PATCHES[name].items():
@@ -104,6 +154,7 @@ def build(names, root: Path | None = None, cache: Path | None = None) -> Path:
     except OSError:  # another process built the same overlay first
         if not (out / ".complete").exists():
             raise
+        shutil.rmtree(tmp, ignore_errors=True)
     return out
 
 
@@ -128,9 +179,48 @@ def _mirror(root: Path, dst: Path, rel: Path) -> None:
     (here_dst / rel.name).unlink()
 
 
-def enable(names=("silu_approx",)) -> Path:
-    """Point this process's kernel compiler at an overlay with ``names`` applied."""
-    out = build(names)
+def enable(names) -> Path:
+    """Point this process's kernel compiler (and its children) at an overlay with ``names`` applied,
+    plus whatever an earlier call enabled."""
+    have = os.environ.get("TT_BIO_METAL_OVERLAY")
+    want = sorted(set(names) | set(have.split(",") if have else ()))
+    if have == ",".join(want):
+        return Path(os.environ["TT_METAL_RUNTIME_ROOT"])
+    if have is None:
+        stock = runtime_root()
+        if stock is None:
+            raise RuntimeError("metal overlay: no ttnn runtime root found")
+        os.environ["TT_BIO_METAL_OVERLAY_STOCK"] = str(stock)
+        os.environ["TT_BIO_METAL_OVERLAY_CACHE"] = os.environ.get("TT_METAL_CACHE", "")
+    out = build(want)
     os.environ["TT_METAL_RUNTIME_ROOT"] = str(out)
-    os.environ["TT_METAL_HOME"] = str(out)
+    if "TT_METAL_HOME" in os.environ:
+        os.environ["TT_METAL_HOME"] = str(out)
+    base = os.environ["TT_BIO_METAL_OVERLAY_CACHE"]
+    os.environ["TT_METAL_CACHE"] = str(Path(base) / out.name if base else out / "jit")
+    os.environ["TT_BIO_METAL_OVERLAY"] = ",".join(want)
     return out
+
+
+def blackhole_host() -> bool:
+    for dev in Path("/sys/class/tenstorrent").glob("tenstorrent!*"):
+        try:
+            if (dev / "device" / "device").read_text().strip().lower() == "0xb140":
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def ensure_bh_dram_read_split() -> Path | None:
+    """``bh_dram_read_split`` on a Blackhole host. Returns the overlay, or None when not applied."""
+    if os.environ.get("TT_BIO_BH_DRAM_READ_SPLIT", "1") == "0":
+        return None
+    if "TT_METAL_RUNTIME_ROOT" in os.environ and "TT_BIO_METAL_OVERLAY" not in os.environ:
+        return None
+    if not blackhole_host():
+        return None
+    try:
+        return enable(("bh_dram_read_split",))
+    except (OSError, RuntimeError):
+        return None
