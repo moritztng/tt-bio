@@ -5334,9 +5334,18 @@ def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False,
     # reorders the fp32 K accumulation of a shape that threw or sat within a live
     # activation of throwing. Past Kt = 113 on Wormhole even a block of 1 is over the bank:
     # the output block itself is the next wall.
+    #
+    # `transpose_a` (`_mm_transpose_deferred`, the ending variant) makes the factory allocate a
+    # tile-transpose CB the size of the whole in0 CB (c_10 in the 2D mcast factory), so that is
+    # priced too. Leaving it out admitted full-K blocks that overflowed L1 at program creation:
+    # 1024 tokens on Wormhole asked 1774880 B against 1499136 (spd-orchestrator ladder, 10-08).
+    # Priced whenever the deferral may be taken, so both variants share one block; it moves no
+    # band width at any size from 256 to 2048 tokens on either arch.
     budget = _matmul_cb_budget()
     in0_block_w = _trimul_in0_block_w(seq_len_tiles, full)
-    while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2) > budget:
+    transposed = lambda w: 2 * w * per_core_M if _TRIMUL_MM_TRANSPOSE else 0
+    while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2,
+                                               extra_tiles=transposed(in0_block_w)) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
@@ -8756,7 +8765,8 @@ class TriangleMultiplication(Module):
                 mask_clash = (large_seq and "clash with L1 buffers" in msg
                               and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
                                       for _m in _mask_moved_memo.values()))
-                ibw_clash = ("clash with L1 buffers" in msg and not mask_clash
+                ibw_clash = (("clash with L1 buffers" in msg or "beyond max L1 size" in msg)
+                             and not mask_clash
                              and program_config.in0_block_w > _TRIMUL_IN0_BLOCK_W_BAND)
                 if ibw_clash:
                     # The full-K block is the newest L1 claimant in this call: give it up first.
