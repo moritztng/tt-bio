@@ -1,7 +1,7 @@
 """Exact pair search (tt_bio.tfg.neighbors) and the accelerated VinaSteric path, against brute force and the dense path."""
 import torch
 
-from tt_bio.tfg.neighbors import pairs_within
+from tt_bio.tfg.neighbors import BoundField, pairs_within
 from tt_bio.tfg.potentials import VinaStericPotential
 
 
@@ -60,3 +60,21 @@ def test_residue_distances_pruned_equals_cdist():
         d0, a0, p0, _ = residue_distances(posed, epi, slots, valid, torch.arange(300))
         d1, a1, p1 = rd(posed, epi, torch.arange(2), slots=True)
         assert torch.equal(d0, d1) and torch.equal(a0, a1) and torch.equal(p0, p1)
+
+
+def test_classify_rows_equals_classify_off_grid_too():
+    """classify_rows clamps off-grid points onto the outermost voxel layer, which must be inf (no atom reaches it)."""
+    g = torch.Generator().manual_seed(3)
+    fixed = torch.rand(3, 400, 3, generator=g) * 30
+    rb = torch.rand(400, generator=g) + 1.2
+    field = BoundField(fixed, rb, 1.9)
+    grid = field.soft.view(3, *(int(d) for d in field.dims))
+    for face in (grid[:, 0], grid[:, -1], grid[:, :, 0], grid[:, :, -1], grid[..., 0], grid[..., -1]):
+        assert torch.isinf(face).all()
+    X = torch.rand(3, 20000, 3, generator=g) * 60 - 15
+    ra = torch.rand(20000, generator=g) + 1.2
+    samples = torch.tensor([2, 0, 1])
+    far, severe = field.classify(X.reshape(-1, 3), samples.repeat_interleave(20000), ra.repeat(3))
+    far_r, severe_r = field.classify_rows(X, samples, ra)
+    assert torch.equal(far, far_r) and torch.equal(severe, severe_r)
+    assert far.any() and (~far).any() and severe.any()

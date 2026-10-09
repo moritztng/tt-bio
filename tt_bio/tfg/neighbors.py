@@ -277,11 +277,13 @@ class BoundField:
         [n * K]. Same flags; the cell index stays in fp32 (integral, below 2^24 per sample) until one long()."""
         if self.nvox >= 2**24:
             return self.classify(X.reshape(-1, 3), samples.repeat_interleave(X.shape[1]), ra.repeat(X.shape[0]))
-        c = torch.floor((X - self.lo[samples][:, None]) / self.v)
-        inb = (c.amin(-1) >= 0) & (c - self.dims.to(X.dtype)).amax(-1).lt(0)
+        # a point off the grid is clamped onto its outermost voxel layer, which no atom's offset ball reaches (atoms
+        # sit k + 1 voxels in, offsets reach k): inf there, as classify gives off the grid
+        c = torch.floor((X - self.lo[samples][:, None]) / self.v).clamp_(min=0)
+        c = torch.minimum(c, (self.dims - 1).to(X.dtype), out=c)
         dy, dz = float(self.dims[1]), float(self.dims[2])
         flat = ((c[..., 0] * dy + c[..., 1]) * dz + c[..., 2]).long() + (samples * self.nvox)[:, None]
-        soft = torch.where(inb, self.soft[torch.where(inb, flat, 0)], float("inf"))
+        soft = self.soft[flat]
         far = soft - self.delta >= SOFT * ra + self.margin
         severe = (soft + self.lift) + self.delta < HARD * ra - self.margin
         return far.reshape(-1), severe.reshape(-1)
