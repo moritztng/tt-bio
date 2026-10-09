@@ -7,7 +7,7 @@ import gc
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
-from math import pi, prod
+from math import gcd, pi, prod
 from functools import lru_cache, partial
 from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
 
@@ -507,11 +507,13 @@ _FAST_MODE = False
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 #   transition_bw   the transition's three matmuls take the K block and grid measured fastest at
 #                   no loss against float64 (`_TRANSITION_BW`); others keep ttnn's in0_block_w
+#   transition_shard the pair transition's swiglu on block-sharded intermediates, in row blocks that
+#                   fill the grid (`_transition_swiglu_sharded`); fc3's K block becomes the shard width
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "transition_bw")
+          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "transition_bw", "transition_shard")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "transition_shard"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -3542,7 +3544,8 @@ _BMM_CFG_REFUSED: set = set()
 # all-or-nothing retirement that cost RF3 1.264x on the fp32-softmax tail at 1024 aa.
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
-                               "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw")}
+                               "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
+                               "transition_shard")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -11056,6 +11059,90 @@ def _transition_linear(op: str, x: ttnn.Tensor, w: ttnn.Tensor, silu: bool = Fal
     return ttnn.linear(x, w, activation="silu" if silu else None, core_grid=CORE_GRID_MAIN, **kw)
 
 
+# transition_shard: the swiglu's intermediates block-sharded on the matmul grid. Interleaved in L1,
+# every tile fc1 and fc2 write crosses the NoC to the page's owner, the gate multiply reads both
+# back the same way and fc3's reader fetches the product again; sharded, fc1/fc2 write their own
+# block, the multiply is core-local and fc3 takes its in0 straight from the shard (K split over x,
+# so its K block is the shard width). Pair transition at c730 on a Wormhole Galaxy chip, AICLK 1000,
+# fc1..fc3 (perf/spd_swiglu/shard_bench.py, .107 sh13): normal 63.3 us a token row (5-row blocks,
+# interleaved) -> 50.1 (9-row blocks, 8x9), fast 46.9 -> 40.3; error vs float64 0.00351 -> 0.00341.
+# The blocks must fill the grid's y exactly, so the row height becomes a multiple of
+# gy / gcd(W tiles, gy). The MSA transition's 128-channel output splits over 4 columns at most,
+# and on 4x8 it is slower than interleaved (39.1 against 27.4 us a row), so it keeps its path.
+_TRANSITION_SHARD_PM = 23  # row tiles per core measured to fit next to the sharded hidden pair
+_TRANSITION_SHARD_REFUSED: set = set()
+
+
+def _transition_shard_grid(mt: int, nt: int, ct: int):
+    """(gx, gy) on which a block of `mt` row tiles shards evenly, or None."""
+    gx, gy_max = min(COMPUTE_GRID_MAIN[0], 8), COMPUTE_GRID_MAIN[1]
+    if gx < 8 or nt % gx or ct % gx:
+        return None
+    gy = next(d for d in range(gy_max, 0, -1) if mt % d == 0)
+    if 2 * gy < gy_max or mt // gy > _TRANSITION_SHARD_PM:
+        return None
+    return gx, gy
+
+
+def _transition_shard_rows(W: int, c: int, hid: int) -> int:
+    """Pair rows per block whose sharded swiglu fills the most grid rows, or 0 where none fits."""
+    wt, gy_max = -(-W // 32), COMPUTE_GRID_MAIN[1]
+    for gy in range(gy_max, (gy_max + 1) // 2 - 1, -1):
+        r0 = gy // gcd(wt, gy)
+        pm0 = r0 * wt // gy
+        if pm0 <= _TRANSITION_SHARD_PM:
+            rows = r0 * (_TRANSITION_SHARD_PM // pm0)
+            if _transition_shard_grid(rows * wt, hid // 32, c // 32):
+                return rows
+    return 0
+
+
+def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype):
+    """fc3(silu(fc1(x)) * fc2(x)) with block-sharded intermediates, or None where no grid fits."""
+    xs = [int(d) for d in x.padded_shape]
+    mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
+    nt, ct = int(w1.shape[-1]) // 32, int(w3.shape[-1]) // 32
+    grid = _transition_shard_grid(mt, nt, ct)
+    if grid is None or (mt, kt, nt, hidden) in _TRANSITION_SHARD_REFUSED:
+        return None
+    gx, gy = grid
+    pm, pn = mt // gy, nt // gx
+
+    def cfg(bw, n, act=None):
+        sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
+                      if h * w <= 4 and pm % h == 0 and n % w == 0), key=lambda s: (s[0] * s[1], s[1]))
+        return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
+            out_subblock_w=sw, out_block_h=pm, out_block_w=n, per_core_M=pm, per_core_N=n,
+            transpose_mcast=False, fused_activation=act, fuse_batch=True)
+
+    cores = ttnn.CoreRangeSet({ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))})
+    mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
+                           ttnn.ShardSpec(cores, [pm * 32, pn * 32], ttnn.ShardOrientation.ROW_MAJOR))
+    bw = max(b for b in (8, 4, 2, 1) if kt % b == 0)
+    x1 = x2 = None
+    try:
+        x1 = ttnn.linear(x, w1, program_config=cfg(bw, pn, ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)),
+                         compute_kernel_config=silu_ckc, memory_config=mc, dtype=hidden)
+        x2 = ttnn.linear(x, w2, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
+                         dtype=hidden)
+        h = ttnn.multiply_(x1, x2)
+        ttnn.deallocate(x2)
+        x2 = None
+        out = ttnn.linear(h, w3, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=dtype,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: ttnn's path from then on
+        for t in (x1, x2):
+            if t is not None:
+                ttnn.deallocate(t)
+        _TRANSITION_SHARD_REFUSED.add((mt, kt, nt, hidden))
+        _latch("transition_shard", "refused", e)
+        return None
+    ttnn.deallocate(h)
+    _latch("transition_shard", "served")
+    return out
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -11135,7 +11222,35 @@ class Transition(Module):
         # open: the L1 lever is INFERENCE-ONLY. Under a tape the intermediates go to DRAM,
         # which is also cheaper than keeping them in L1 and paying eviction traffic on top.
         _tape_mc = ttnn.DRAM_MEMORY_CONFIG if ops.taping() else ttnn.L1_MEMORY_CONFIG
+        # transition_shard: 4-D row blocks of `shard_rows` rows go through the sharded swiglu; a block
+        # it declines is cut back to the interleaved path's own height, `safe_h`.
+        shard_rows = safe_h = 0
+
         def swiglu(x):
+            if shard_rows:
+                dtype = self.dtype if self.dtype is not None else _dtype()
+                x_norm = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias, epsilon=1e-5,
+                                         compute_kernel_config=self.compute_kernel_config,
+                                         memory_config=ttnn.L1_MEMORY_CONFIG)
+                out = _transition_swiglu_sharded(
+                    x_norm, self.fc1_weight, self.fc2_weight, self.fc3_weight, self.compute_kernel_config,
+                    silu_ckc(self.compute_kernel_config), ttnn.bfloat8_b if self._hidden_b8 else dtype, dtype)
+                ttnn.deallocate(x_norm)
+                if out is not None:
+                    return out
+                if x.shape[1] > safe_h:
+                    parts = []
+                    for s in range(0, x.shape[1], safe_h):
+                        c = x[:, s:min(s + safe_h, x.shape[1])]
+                        parts.append(swiglu_l1(c))
+                        ttnn.deallocate(c)
+                    out = ttnn.concat(parts, dim=1)
+                    for p in parts:
+                        ttnn.deallocate(p)
+                    return out
+            return swiglu_l1(x)
+
+        def swiglu_l1(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             hidden = ttnn.bfloat8_b if self._hidden_b8 else dtype
             x_norm = ttnn.layer_norm(
@@ -11352,6 +11467,10 @@ class Transition(Module):
         # the size, i.e. LESS element-work, and still takes more than twice the wall clock. Forcing
         # the height is what separates "h=2 is a bad height here" from "the size is the problem",
         # and it must not require editing a derivation to find out. Unset in production.
+        if lever("transition_shard") and not (ops.taping() or _UNFUSED_SILU or w_chunked):
+            shard_rows = _transition_shard_rows(W, _c, _hid)
+            if shard_rows:
+                safe_h, transition_h_chunk_size = transition_h_chunk_size, min(shard_rows, H)
         _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))
