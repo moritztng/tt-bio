@@ -22,6 +22,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
 | [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves |
+| [`TT_BIO_BH_DRAM_READ_SPLIT`](#tt_bio_bh_dram_read_split) | on | Blackhole | identical |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
@@ -37,6 +38,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_GATE_GRANULARITY`](#tt_bio_gate_granularity) | 2 | | identical at every value |
 | [`TT_BIO_HOST_LEVERS`](#tt_bio_host_levers) | on | Boltz-2 | switches two other flags together |
 | [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_LEVERS`](#tt_bio_levers) | Protenix-v2's graded set | Protenix-v2 | moves, inside the seed-to-seed spread |
 | [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_MM_LAYOUT`](#tt_bio_mm_layout) | off | training | moves |
 | [`TT_BIO_MSA_LADDER`](#tt_bio_msa_ladder) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
@@ -207,6 +209,21 @@ attention is the same function. The windows become five aligned slices and one c
 (`tests/test_atom_superset_window.py`). On the device the softmax and attn@v reduce over 160 keys
 instead of 128, so the result is not bit-exact. The fold-level grade and speed are in progress.
 `TT_BIO_ATOM_SUPERSET_WINDOW=0` restores the windowed path.
+
+## `TT_BIO_BH_DRAM_READ_SPLIT`
+
+Default: on, Blackhole only.
+
+A device kernel's DRAM read larger than 2 KiB is issued as reads of at most 2 KiB. On Blackhole a
+large DRAM read next to other cores' DRAM writes can lose its response and hang the chip; newer
+tt-metal releases work around it the same way (tenstorrent/tt-metal#59622), and the ttnn wheels
+tt-bio runs on predate the fix. tt-bio applies it by compiling kernels from a private copy of ttnn's
+headers with that one function patched, so the installed package is never edited.
+
+**Accuracy: identical.** The same bytes arrive, only in smaller pieces.
+
+`TT_BIO_BH_DRAM_READ_SPLIT=0` compiles against the stock headers. A `TT_METAL_RUNTIME_ROOT` you set
+yourself is respected and the patch is not applied.
 
 ## `TT_BIO_DEVICE_CONDITIONING`
 
@@ -478,6 +495,27 @@ Default: on, Boltz-2 only.
 Not an optimization of its own. It gates `TT_BIO_FUSE_BIAS_STACKS` and `TT_BIO_HOST_BLOCK_PAIRWISE` together, so `0` takes the pre-lever host path for both in one variable. Each flag still answers to its own name; this one is the AND in front of them.
 
 Bisecting a host-side result is what it is for: turn the group off, confirm the result moves, then put the members back one at a time.
+
+## `TT_BIO_LEVERS`
+
+Default: the graded set for the run's mode. Protenix-v2 only.
+
+Protenix-v2 runs a few of its kernels with cheaper numerics than its reference path: the triangle
+multiplication's contraction in one block with its residual folded into the epilogue, the trunk's
+matmuls at HiFi3 instead of HiFi4, and the diffusion transformer's fp32 attention as one fused kernel.
+Each was graded on its own and then all together, and only the combination that passed is on.
+`--fast` uses a larger set. `TT_BIO_LEVERS=none` runs the reference numerics; a comma list of names
+picks a set by hand (the names are listed in `tt_bio/tenstorrent.py`).
+
+**Accuracy: moves, inside the seed-to-seed spread.** On 11 post-cutoff complexes x 4 seeds the
+same-seed top-pose deviation from the reference path has a median of 0.38 A on Wormhole and 0.32 A on
+Blackhole, against a 0.60 A bar and a 0.8 A median between two seeds of the reference path itself.
+Every paired metric (DockQ, CA-lDDT, TM, pLDDT, ipTM) has a confidence interval reaching zero, and
+docking success is unchanged.
+
+**Speed: 1.63x on the fold**, 501.4 to 307.1 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
+10 recycles) on a Wormhole Galaxy chip at 1000 MHz, n=3 warm each. That figure also contains the
+lossless changes shipped alongside the set.
 
 ## `TT_BIO_LNBW_FUSED`
 
