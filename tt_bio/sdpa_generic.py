@@ -91,7 +91,7 @@ def _packed_identity_scalar():
 
 
 def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None,
-         kv_buffer_factor=2):
+         kv_buffer_factor=2, rowsum_mm=False):
     """Everything the descriptor needs, derived exactly as the factory derives it.
 
     `split` overrides `(batch_parallel_factor, nh_parallel_factor, q_parallel_factor)`. The
@@ -139,8 +139,11 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
     qk_in0_ns, qk_in1_ns = Sq_chunk_t // qk_sb_h, Sk_chunk_t // qk_sb_w
     qk_num_blocks = DHt // qk_in0_block_w
     out_in0_block_w = Sk_chunk_t
-    out_sb_h, out_sb_w = largest_subblock(Sq_chunk_t, vDHt, dst_size)
-    out_in0_ns, out_in1_ns = Sq_chunk_t // out_sb_h, vDHt // out_sb_w
+    # `rowsum_mm`: V and the output accumulators carry one more tile column, the softmax row sum
+    # (kernels/triatt_sdpa ROWSUM_MM). The final output is still vDHt wide.
+    vW = vDHt + int(rowsum_mm)
+    out_sb_h, out_sb_w = largest_subblock(Sq_chunk_t, vW, dst_size)
+    out_in0_ns, out_in1_ns = Sq_chunk_t // out_sb_h, vW // out_sb_w
     out_num_blocks = Sk_chunk_t // out_in0_block_w
 
     return dict(
@@ -161,10 +164,10 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
         # the CB tile counts, straight off :405-414
         q_tiles=Sq_chunk_t * DHt * q_buffer_factor,
         k_tiles=Sk_chunk_t * DHt * kv_buffer_factor,
-        v_tiles=Sk_chunk_t * vDHt * kv_buffer_factor,
+        v_tiles=Sk_chunk_t * vW * kv_buffer_factor,
         mask_tiles=Sq_chunk_t * Sk_chunk_t * 2,
         qk_tiles=Sq_chunk_t * Sk_chunk_t,
-        out_im_tiles=Sq_chunk_t * vDHt,
+        out_im_tiles=Sq_chunk_t * vW, rowsum_mm=bool(rowsum_mm),
         out0_t=Sq_chunk_t * vDHt,
         statistics_tiles=Sq_chunk_t,
     )
@@ -370,7 +373,7 @@ def note_l1_refusal(message: str) -> None:
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
-          out_im_dtype=None, stats_dtype=None, kv_window=None):
+          out_im_dtype=None, stats_dtype=None, kv_window=None, rowsum_mm=False):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
@@ -408,7 +411,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
             assert int(q.padded_shape[1]) == NKH_ * nbw, (q.shape, k.shape, kv_window)
         kernel_dir = kernel_dir or kv_window_kernel_dir()
     p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
-             kv_buffer_factor)
+             kv_buffer_factor, rowsum_mm)
     if kv_window is not None and len(kv_window) == 4:
         q = q_frame
     gx, gy, num_cores = p["gx"], p["gy"], p["num_cores"]
@@ -538,6 +541,11 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
             "TT_BIO_SDPA_ADD_GRANULARITY") or str(valid_granularity(p["Sq_chunk_t"], ds)),
         "EXP_APPROX_MODE": str(int(exp_approx_mode)),
     }
+    if rowsum_mm:
+        # The reader writes the ones column into every V tile row the CB holds, once.
+        assert fuse_qkv is None and gate is None and kv_window is None, "rowsum_mm: stock V reads only"
+        assert v.dtype == ttnn.bfloat16, ("rowsum_mm writes bf16 ones", v.dtype)
+        defines["ROWSUM_MM"] = str(p["Sk_chunk_t"] * kv_buffer_factor)
     if fuse_qkv is not None:
         defines["FUSE_QKV"] = str(Ct)
         defines["PROJ_SUBBLOCK_H"] = str(proj_h)
@@ -664,7 +672,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # compiled program back for both legs and reads a 1.000x that means nothing.
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
-           kw.get("kv_window"))
+           kw.get("kv_window"), bool(kw.get("rowsum_mm")))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,

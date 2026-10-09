@@ -69,7 +69,7 @@ void kernel_main() {
 
     constexpr uint32_t q_chunk_tiles = Sq_chunk_t * DHt;
     constexpr uint32_t k_chunk_tiles = Sk_chunk_t * DHt;
-    constexpr uint32_t v_chunk_tiles = Sk_chunk_t * vDHt;
+    constexpr uint32_t v_chunk_tiles = Sk_chunk_t * (vDHt + ROWSUM_COLS);
     constexpr uint32_t qk_chunk_tiles = Sq_chunk_t * Sk_chunk_t;
     constexpr uint32_t out_chunk_tiles = Sq_chunk_t * vDHt;
 

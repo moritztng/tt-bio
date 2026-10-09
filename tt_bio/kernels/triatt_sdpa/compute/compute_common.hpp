@@ -418,6 +418,7 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                 cb_push_back(in0_cb, dst_tiles);
             }
 
+#ifndef ABLATE_ROWSUM
             if constexpr (do_reduce) {
                 if constexpr (write_result_inplace) {
                     pack_reconfig_data_format(in0_cb, reduce_cb);
@@ -436,6 +437,7 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                     }
                 }
             }
+#endif
             tile_regs_release();
             if constexpr (do_reduce) {
                 PACK((llk_pack_reconfig_l1_acc(0)));
@@ -1441,11 +1443,15 @@ ALWI void matmul_blocks(
                 uint32_t d = 0;
                 const uint32_t m0 = mask_base + in0_subblock * in0_subblock_all_cols_num_tiles +
                                     in1_subblock * subblock_w;
+#ifndef ABLATE_PRELOAD
                 for (uint32_t r = 0; r < subblock_h; r++) {
                     for (uint32_t c = 0; c < subblock_w; c++) {
                         copy_tile(mask_cb, m0 + r * N + c, d++);
                     }
                 }
+#else
+                (void)d; (void)m0;
+#endif
                 reconfig_data_format_srca(mask_cb, in1_cb);
                 mm_block_init_short(
                     in0_cb, in1_cb, transpose, subblock_w /*ct_dim*/, subblock_h /*rt_dim*/, in0_block_w /*kt_dim*/);
@@ -1806,6 +1812,62 @@ enum SDPAType {
  * @param cb_prev_out - Previous output buffer
  * @param cb_out - Output buffer
  */
+#ifdef ROWSUM_MM
+// ROWSUM_MM: the softmax row sum comes out of the PV matmul instead of an L1-accumulated pack.
+// The reader stores V as [Sk_chunk_t x (vDHt + 1)] with an all-ones tile in the last column, so
+// OUT_IM = P @ [V | 1] carries sum_j P[i, j] in every column of its last tile, accumulated with the
+// output it normalises and rescaled by the same exp(prev_max - cur_max) factor. That deletes one of
+// the three whole-score-block pack passes per k chunk (the packer is what binds this kernel at
+// head_dim 32), for one extra matmul tile per score tile on the FPU.
+constexpr uint32_t ROWSUM_COLS = 1;
+
+/**
+ * out_cb[r, c] = im_cb[r, c] / im_cb[r, vcols] for c < vcols. im_cb is rows x (vcols + 1) tiles.
+ */
+template <uint32_t rows, uint32_t vcols>
+void rowsum_mm_normalize(uint32_t im_cb, uint32_t recip_cb, uint32_t out_cb) {
+    constexpr uint32_t W = vcols + ROWSUM_COLS;
+    cb_wait_front(im_cb, rows * W);
+
+    copy_tile_to_dst_init_short(im_cb);
+    recip_tile_init();
+    reconfig_data_format_srca(im_cb);
+    pack_reconfig_data_format(recip_cb);
+    cb_reserve_back(recip_cb, rows);
+    for (uint32_t r = 0; r < rows; ++r) {
+        acquire_dst();
+        copy_tile(im_cb, r * W + vcols, 0);
+        MATH((recip_tile_first_column(0)));
+        pack_tile(0, recip_cb);
+        release_dst();
+    }
+    cb_push_back(recip_cb, rows);
+
+    reconfig_data_format(im_cb, recip_cb);
+    pack_reconfig_data_format(out_cb);
+    mul_bcast_cols_init_short(im_cb, recip_cb);
+    cb_wait_front(recip_cb, rows);
+    cb_reserve_back(out_cb, rows * vcols);
+    for (uint32_t r = 0; r < rows; ++r) {
+        tile_regs_acquire();
+        for (uint32_t c = 0; c < vcols; ++c) {
+            mul_tiles_bcast_cols(im_cb, recip_cb, r * W + c, r, c);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t c = 0; c < vcols; ++c) {
+            pack_tile(c, out_cb);
+        }
+        tile_regs_release();
+    }
+    cb_push_back(out_cb, rows * vcols);
+    cb_pop_front(recip_cb, rows);
+    cb_pop_front(im_cb, rows * W);
+}
+#else
+constexpr uint32_t ROWSUM_COLS = 0;
+#endif
+
 template <
     SDPAType sdpa_type,
     uint32_t cb_qk_im,
@@ -2108,7 +2170,12 @@ void sdpa_inner_loop(
             // statistics are bf16, so a narrower score CB needs the packer moved before the max
             // lands in them (a no-op when both are bf16, the stock table).
             pack_reconfig_data_format(cb_qk_im, alias_cur_max);
-#ifdef QK_TILEWISE_MAX
+#if defined(ABLATE_MAX)
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=MAX): the row-max pass removed, the max CB pushed
+            // unwritten. Wrong by construction; only the time means anything.
+            cb_reserve_back(alias_cur_max, Sq_chunk_t);
+            cb_push_back(alias_cur_max, Sq_chunk_t);
+#elif defined(QK_TILEWISE_MAX)
             reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_qk_im, cb_identity_scale_in, Sq_chunk_t>(
                 alias_cur_max, alias_prev_max, Sk_chunk_t, processed_k_chunks > 0);
 #else
@@ -2126,7 +2193,7 @@ void sdpa_inner_loop(
              * Partial reduce_sum is used to push the final row_reduction within a tile
              * outside of the loop over K chunks.
              */
-            sub_exp_block_bcast_cols_inplace<cb_qk_im, Sq_chunk_t, scale_fp32, true>(
+            sub_exp_block_bcast_cols_inplace<cb_qk_im, Sq_chunk_t, scale_fp32, true, ROWSUM_COLS == 0>(
                 alias_cur_max, alias_cur_sum, Sk_chunk_t);
 
             // Reconfigure unpackers: srcA (context 0) = cb_v_in, srcB (context 1) = cb_qk_im (operands are swapped in matmul)
@@ -2134,12 +2201,21 @@ void sdpa_inner_loop(
             pack_reconfig_data_format(alias_mm2_cur_out);
 
             /* OUT_IM = QK @ V_CHUNK */
+#ifdef ABLATE_PV
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=PV): the PV matmul removed, CB-neutral.
+            cb_wait_front(cb_qk_im, qk_chunk_tiles);
+            cb_wait_front(cb_v_in, v_chunk_tiles);
+            cb_pop_front(cb_v_in, v_chunk_tiles);
+            cb_reserve_back(alias_mm2_cur_out, out_chunk_tiles);
+            cb_push_back(alias_mm2_cur_out, out_chunk_tiles);
+            if (false)
+#endif
             matmul_blocks(
                 cb_qk_im,
                 cb_v_in,
                 alias_mm2_cur_out,
                 Sq_chunk_t,
-                vDHt,
+                vDHt + ROWSUM_COLS,
                 Sk_chunk_t,
                 out_num_blocks,
                 out_in0_num_subblocks,
@@ -2166,16 +2242,19 @@ void sdpa_inner_loop(
                  * This is a bcast_cols since max_diff is a column vector and prev_sum is a partial
                  * reduction, containing the sum of tiles in dim=-1 of QK.
                  */
+#ifndef ROWSUM_MM
                 mul_tiles_bcast_cols_inplace(alias_prev_sum, cb_exp_max_diff, Sq_chunk_t);
 
                 /* cb_cur_sum += cb_prev_sum */
                 add_block_inplace(alias_cur_sum, alias_prev_sum, Sq_chunk_t);
+#endif
 
                 /**
                  * alias_mm2_cur_out += alias_mm2_prev_out * cb_exp_max_diff
-                 * This uses L1 accumulation to accumulate onto mm2_cur_out.
+                 * This uses L1 accumulation to accumulate onto mm2_cur_out. Under ROWSUM_MM the
+                 * row-sum column is rescaled here with the output.
                  */
-                mul_block_bcast_cols<Sq_chunk_t, vDHt, false, true>(
+                mul_block_bcast_cols<Sq_chunk_t, vDHt + ROWSUM_COLS, false, true>(
                     alias_mm2_prev_out, cb_exp_max_diff, alias_mm2_cur_out);
             }
 
@@ -2190,7 +2269,9 @@ void sdpa_inner_loop(
         /**
          * Performs final row-reduction on the partial sum.
          */
+#ifndef ROWSUM_MM
         matmul_reduce<Sq_chunk_t>(cb_col_identity, alias_prev_sum);
+#endif
 
         /**
          * Process attention sink as a virtual K chunk.
@@ -2302,6 +2383,9 @@ void sdpa_inner_loop(
                 copy_block(alias_prev_max, cb_lse_out, Sq_chunk_t);
             }
         } else {
+#ifdef ROWSUM_MM
+            rowsum_mm_normalize<Sq_chunk_t, vDHt>(alias_mm2_prev_out, alias_prev_sum, cb_out);
+#else
             /* cb_cur_sum = 1.0 / cb_cur_sum */
             recip_block_inplace(alias_prev_sum, Sq_chunk_t);
 
@@ -2314,6 +2398,7 @@ void sdpa_inner_loop(
                 alias_mm2_prev_out, alias_prev_sum, tt::CBIndex::c_12, cb_out);
 #else
             mul_block_bcast_cols<Sq_chunk_t, vDHt, false, false>(alias_mm2_prev_out, alias_prev_sum, cb_out);
+#endif
 #endif
 
             // free up cb_prev_max after K chunks

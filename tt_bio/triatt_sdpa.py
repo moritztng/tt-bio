@@ -79,6 +79,12 @@ _ENABLED = os.environ.get(
 QK_MASK_PRELOAD = env_flag("TT_BIO_TRIATT_QK_MASK_PRELOAD", True)
 
 
+# The softmax row sum out of the PV matmul (P @ [V | 1]) instead of a third whole-score-block pack
+# pass (`ROWSUM_MM` in kernels/triatt_sdpa). Not with the gate epilogue, which owns the final
+# normalisation. "1" turns it on.
+ROWSUM_MM = env_flag("TT_BIO_TRIATT_ROWSUM_MM", False)
+
+
 def _mask_defines(k_num_chunks: int) -> dict:
     d = {"PERSISTENT_MASK": k_num_chunks}
     if QK_MASK_PRELOAD:
@@ -439,7 +445,9 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
     ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
 
-    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
+    rowsum = ROWSUM_MM and gate is None
+    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split, kv_buffer_factor,
+                rowsum)
     # everything the hoisted fill assumes
     if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
             and (padded_mask or not p["use_padded_mask"]) and p["NKH"] == H and p["NVH"] == H):
@@ -478,7 +486,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     try:
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
-                kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
+                kv_buffer_factor=kv_buffer_factor, gate=gate_arg, rowsum_mm=rowsum,
                 defines_extra={**_mask_defines(p["k_num_chunks"]),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller

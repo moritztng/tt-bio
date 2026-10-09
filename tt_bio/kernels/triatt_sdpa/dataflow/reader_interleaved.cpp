@@ -222,7 +222,14 @@ void kernel_main() {
 
     constexpr uint32_t q_chunk_tiles = Sq_chunk_t * DHt;
     constexpr uint32_t k_chunk_tiles = Sk_chunk_t * DHt;
-    constexpr uint32_t v_chunk_tiles = Sk_chunk_t * vDHt;
+#ifdef ROWSUM_MM
+    // V is stored [Sk_chunk_t x (vDHt + 1)], the last column an all-ones tile, so the compute
+    // kernel's PV matmul also produces the softmax row sum (compute_common.hpp, ROWSUM_MM).
+    constexpr uint32_t v_cb_cols = vDHt + 1;
+#else
+    constexpr uint32_t v_cb_cols = vDHt;
+#endif
+    constexpr uint32_t v_chunk_tiles = Sk_chunk_t * v_cb_cols;
     constexpr uint32_t mask_chunk_tiles = Sq_chunk_t * Sk_chunk_t;
 
     constexpr uint32_t cb_q_in = tt::CBIndex::c_0;
@@ -324,6 +331,25 @@ void kernel_main() {
             // Legacy: extend by offset so one program can serve all chunks (valid_Skt is chunk 0's).
             valid_Skt_bound = valid_Skt + chunked_q_chunk_offset * Sq_chunk_t;
         }
+
+#ifdef ROWSUM_MM
+    // Write the ones column once. The V CB holds ROWSUM_MM = kv_buffer_factor * Sk_chunk_t tile rows
+    // and every reserve is exactly one chunk, so chunk boundaries never move and the V reads below
+    // only ever write the vDHt columns: the ones tiles stay where they are for the whole program.
+    {
+        const uint32_t v_base = get_write_ptr(cb_v_in);
+        const uint32_t ones0 = v_base + vDHt * v_tile_bytes;
+        volatile tt_l1_ptr uint32_t* w = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(ones0);
+        for (uint32_t i = 0; i < v_tile_bytes / 4; ++i) {
+            w[i] = 0x3F803F80;  // two bf16 1.0
+        }
+        const uint64_t ones_noc = get_noc_addr(ones0);
+        for (uint32_t r = 1; r < ROWSUM_MM; ++r) {
+            noc_async_read(ones_noc, v_base + (r * v_cb_cols + vDHt) * v_tile_bytes, v_tile_bytes);
+        }
+        noc_async_read_barrier();
+    }
+#endif
 
 #ifdef PERSISTENT_MASK
     // K2: the mask depends only on (head, q_chunk, k_chunk), and this core owns exactly one of
@@ -739,6 +765,30 @@ void kernel_main() {
                                         vDHt,
                                         skip_src_cols);
                                 } else {
+#ifdef ROWSUM_MM
+                                    // read_chunk_with_padding would zero the ones column as padding.
+                                    cb_reserve_back(cb_v_in, v_chunk_tiles);
+                                    const uint32_t v_wp = get_write_ptr(cb_v_in);
+                                    uint32_t v_tid = v_start_tile_id;
+                                    uint32_t v_bar = 0;
+                                    for (uint32_t row = 0; row < Sk_chunk_t; ++row) {
+                                        for (uint32_t col = 0; col < vDHt; ++col) {
+                                            if (row < kv_row_tile_count) {
+                                                noc_async_read_tile(
+                                                    v_tid + col, v_reader, v_wp + (row * v_cb_cols + col) * v_tile_bytes);
+                                                if (++v_bar == barrier_threshold) {
+                                                    noc_async_read_barrier();
+                                                    v_bar = 0;
+                                                }
+                                            } else {
+                                                fill_tile_zeros<v_tile_bytes, false>(cb_v_in, row * v_cb_cols + col);
+                                            }
+                                        }
+                                        v_tid += vDHt + skip_src_cols;
+                                    }
+                                    noc_async_read_barrier();
+                                    cb_push_back(cb_v_in, v_chunk_tiles);
+#else
                                     read_chunk_with_padding<v_tile_bytes>(
                                         v_reader,
                                         cb_v_in,
@@ -750,6 +800,7 @@ void kernel_main() {
                                         barrier_threshold,
                                         false,
                                         skip_src_cols);
+#endif
                                 }
                             }
                         }
