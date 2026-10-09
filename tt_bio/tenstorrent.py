@@ -137,19 +137,22 @@ OPM_JOIN_PARTS_STATS = [0, 0]
 # the identical bytes (torch.equal against the 2D call, perf/spd_msa/sweep_opm_out.py). Splits of
 # 2 or 4 stay slow, 8 and up are fast, so the block is sized to ~16k rows.
 _OPM_PROJ_BATCH = env_flag("TT_BIO_OPM_PROJ_BATCH", True)
-# The OPM contraction z = a b^T runs over the MSA depth, and the matmul's auto config can only step
-# K by a divisor of its tile count. At 9947 rows K is 311 tiles, a prime, so every core walks K one
-# tile at a time: 288 ms for the whole-row call on Wormhole (HiFi3) against 237 ms with 37 zero rows
-# appended (312 tiles), and 157 vs 102 ms for a row-blocked call (perf/spd_msa/zmm_kpad*.py). Zero
-# rows add exact zeros to every dot product and the mean still divides by the real depth, so the
-# result moves only by the accumulation order. The rows ride along in the join's concat, so the
-# chunk-list path pays nothing for them. 0 or 1 turns it off.
-_OPM_KPAD_TILES = env_int("TT_BIO_OPM_KPAD_TILES", 2)
+# The OPM contraction z = a b^T runs over the MSA depth. With every operand in DRAM, ttnn's auto
+# config blocks K as Kt / grid_x when the core grid's width divides the K tile count, and one tile
+# at a time otherwise (matmul_program_config.cpp, `all_dram_interleaved`). At 9947 rows K is 311
+# tiles, a prime: 288 ms for the whole-row call on Wormhole (HiFi3, grid 8 wide) against 237 ms with
+# 37 zero rows appended (312 tiles), and 157 vs 102 ms for a row-blocked call; 1.2-1.6x at depths
+# 4097-13602 (perf/spd_msa/zmm_kpad*.py). Zero rows add exact zeros to every dot product and the
+# mean still divides by the real depth, so only the accumulation order moves. The rows ride in the
+# join's concat, so the chunk-list path pays nothing for them. A shallow MSA would pay more for
+# the zeros than the blocking returns, so the pad stays under an eighth of the depth.
+_OPM_KPAD = env_flag("TT_BIO_OPM_KPAD", True)
 
 
-def opm_kpad_rows(depth: int) -> int:
-    """Zero rows that round the OPM contraction depth up to a multiple of `_OPM_KPAD_TILES` tiles."""
-    return -depth % (32 * _OPM_KPAD_TILES) if _OPM_KPAD_TILES > 1 else 0
+def opm_kpad_rows(depth: int, grid_x: int) -> int:
+    """Zero rows that round the OPM contraction depth up to a multiple of `grid_x` tiles, or 0."""
+    rows = -depth % (32 * grid_x)
+    return rows if _OPM_KPAD and rows * 8 <= depth else 0
 
 OPM_PROJ_BLOCK_ROWS = 16384
 
@@ -13096,7 +13099,8 @@ class OuterProductMean(Module):
                     a_parts.append(ac)
                     b_parts.append(bc)
                 depth = sum(p.shape[0] for p in a_parts)
-                pad = 0 if small_depth(depth) else opm_kpad_rows(depth)
+                pad = 0 if small_depth(depth) else opm_kpad_rows(
+                    depth, a_parts[0].device().compute_with_storage_grid_size().x)
                 if pad:
                     a_parts.append(zero_rows(a_parts[0], pad))
                     b_parts.append(zero_rows(b_parts[0], pad))
