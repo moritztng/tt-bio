@@ -2489,12 +2489,14 @@ class Protenix:
         return dict(N=N, NT=NT, nb=nb, nq=nq, nk=nk, f_in=f_in, d=d, v=v, invd=invd,
                     mt=mt.float(), a2t=a2t, S=S, ref_charge_asinh=torch.arcsinh(feats["ref_charge"]).reshape(N, 1))
 
-    def _diffusion_pair_cond(self, z_trunk_tt, relp):
+    def _diffusion_pair_cond(self, z_trunk_tt, relp, keep_device=False):
         """DiffusionConditioning pair branch (computed once; t-independent):
         zc = LN(concat[z_trunk, relpe(relp)]); pz = linear_z(zc); pz += transition_z1 +
         transition_z2. Reference diffusion_module.diffusion_conditioning. Validated
         PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host, and
-        frees `z_trunk_tt`, whose only reader this is.
+        frees `z_trunk_tt`, whose only reader this is. `keep_device` returns the (1,N,N,c)
+        device tensor instead when the chain ran whole; a row-blocked chain is on the host
+        either way.
 
         When c_z_pair_diffusion < c_z (OpenDDE: pair-diffusion channel compressed to 128 vs
         the shared Trunk's c_z=384; Protenix-v2 keeps them equal, 256==256, no compression),
@@ -2606,7 +2608,8 @@ class Protenix:
             return pz
 
         def _whole():
-            return _pz_cond_probe(_chain(z_trunk_tt, relp), _z_sha)
+            pz = _chain(z_trunk_tt, relp)
+            return pz if keep_device and _z_sha is None else _pz_cond_probe(pz, _z_sha)
 
         def _rows(rb):
             # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size relpe, cast, LN'd z,
@@ -2647,6 +2650,44 @@ class Protenix:
         E = "diffusion_module.atom_attention_encoder."
         lnz = F.layer_norm(pair_z, (pair_z.shape[-1],)) * self._w[E + "layernorm_z.weight"]
         ztok = F.linear(lnz, self._w[E + "linear_no_bias_z.weight"])     # (NT,NT,16)
+        return self._plm_gather(ztok, a2t, nb, nq, nk)
+
+    def _pair_cond_device_terms(self, pz):
+        """The two diffusion inputs derived from the conditioned pair, made on the device from
+        the device `pz` (1,NT,NT,c) instead of a 546 MB host round trip at 730 tokens: the
+        DiT's LN(pair_z) (what `_dit_z_device` uploads) and the atom encoder's W_z(LN_z(pair_z))
+        (NT,NT,16), which comes back to the host for `_plm_gather`. Frees `pz`. Returns None,
+        with `pz` still allocated, when DRAM refuses one of the two full-size norms.
+
+        Same math as the host path, in the diffusion's dtype (fp32 by default) on the device's
+        layer norm and matmul, so not bit-exact against torch."""
+        D = self.diffusion
+        E = "atom_attention_encoder."
+        held = []
+        try:
+            held.append(D._ln_dit(pz, E + "layernorm_z.weight"))
+            ztok = ttnn.linear(held[-1], D._w_tt_dit(E + "linear_no_bias_z.weight"),
+                               compute_kernel_config=D._dit_ckc)
+            ttnn.deallocate(held.pop())
+            ztok_h = self._to_host(ztok)
+            ttnn.deallocate(ztok)
+            dit_z = ops.layer_norm(pz, epsilon=1e-5, compute_kernel_config=D._dit_ckc)
+        except RuntimeError as exc:
+            if not is_alloc_refusal(exc):
+                raise
+            for t in held:
+                ttnn.deallocate(t)
+            return None
+        ttnn.deallocate(pz)
+        if dit_z.dtype != D._dit_dtype:
+            dit_z = ttnn.typecast(dit_z, D._dit_dtype)
+        NT = int(ztok_h.shape[-2])
+        return dit_z, ztok_h.reshape(NT, NT, -1)
+
+    @staticmethod
+    def _plm_gather(ztok, a2t, nb, nq, nk):
+        """Token-pair (NT,NT,16) -> windowed atom-pair blocks (nb,nq,nk,16) by each atom's token."""
+        import torch
         N = a2t.shape[0]; NQ, NK, PADL = 32, 128, 48; NP = nb * NQ
         aq = torch.cat([a2t, torch.zeros(NP - N, dtype=torch.long)]).reshape(nb, NQ)
         ak_src = torch.cat([torch.zeros(PADL, dtype=torch.long), a2t,
@@ -2757,18 +2798,31 @@ class Protenix:
         s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         z_trunk = self._to_host(z_tt, (NT, NT, self.trunk.C_Z))   # raw trunk z (for confidence)
         # diffusion pair conditioning (once, t-independent): conditioned pair_z
-        pair_z = self._diffusion_pair_cond(z_tt, relp).reshape(NT, NT, self.trunk.C_Z)
-        # diffusion p_lm cache also carries the (conditioned) pair-z broadcast to atom pairs
-        p_lm = p_lm + self._plm_z_term(pair_z, fi["a2t"], nb, nq, nk)
-        # 4) EDM sampler
-        cond = {"s_trunk": s_trunk, "s_inputs": s_inputs, "pair_z": pair_z, "c_l": c_l,
-                "p_lm": p_lm, "S": S, "mask_trunked": mt.float()}
-        # DiT pair input is t-independent -> upload LN(pair_z) once (on-device DiT derives the
-        # per-block bias), or precompute the host biases for the fp32 fallback.
-        if self.diffusion.device_dit:
-            cond["dit_z"] = self.diffusion._dit_z_device(pair_z)
+        pair_z = self._diffusion_pair_cond(z_tt, relp, keep_device=self.diffusion.device_dit)
+        cond = {"s_trunk": s_trunk, "s_inputs": s_inputs, "c_l": c_l, "S": S,
+                "mask_trunked": mt.float()}
+        # The on-device DiT and the p_lm term are all that read the conditioned pair, so it
+        # stays on the chip and only the 16-channel token-pair term comes back.
+        terms = self._pair_cond_device_terms(pair_z) if isinstance(pair_z, ttnn.Tensor) else None
+        if terms is not None:
+            cond["dit_z"], ztok = terms
+            p_lm = p_lm + self._plm_gather(ztok, fi["a2t"], nb, nq, nk)
         else:
-            cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
+            if isinstance(pair_z, ttnn.Tensor):
+                pz_dev, pair_z = pair_z, self._to_host(pair_z)
+                ttnn.deallocate(pz_dev)
+            pair_z = pair_z.reshape(NT, NT, self.trunk.C_Z)
+            # diffusion p_lm cache also carries the (conditioned) pair-z broadcast to atom pairs
+            p_lm = p_lm + self._plm_z_term(pair_z, fi["a2t"], nb, nq, nk)
+            cond["pair_z"] = pair_z
+            # DiT pair input is t-independent -> upload LN(pair_z) once (on-device DiT derives
+            # the per-block bias), or precompute the host biases for the fp32 fallback.
+            if self.diffusion.device_dit:
+                cond["dit_z"] = self.diffusion._dit_z_device(pair_z)
+            else:
+                cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
+        # 4) EDM sampler
+        cond["p_lm"] = p_lm
         return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
 
     @_under_levers
