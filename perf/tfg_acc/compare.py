@@ -79,14 +79,14 @@ def main():
     ap.add_argument("--tt", required=True)
     ap.add_argument("--gpu")
     ap.add_argument("--targets", required=True)
-    ap.add_argument("--conds", default="contact,pocket")
+    ap.add_argument("--conds", default="contact,pocket", help="'none' compares unguided only")
     ap.add_argument("--seeds", default="101,102,103,104,105")
     ap.add_argument("--boot", type=int, default=1000)
     ap.add_argument("--json")
     a = ap.parse_args()
     seeds = [int(s) for s in a.seeds.split(",")]
     tids = [t for t in open(a.targets).read().split() if t]
-    conds = a.conds.split(",")
+    conds = [c for c in a.conds.split(",") if c and c != "none"]  # "none": unguided only
     pols = policies(conds)
     arms = {"tt": load(a.tt, set(tids), set(seeds))}
     if a.gpu:
