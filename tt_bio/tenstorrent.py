@@ -652,7 +652,9 @@ PWA_FUSED_STATS = [0, 0]                # [fused, per-head loop]
 # back. Same products and sums as the fused form, two tile permutes of a [rows, T, 64] tensor
 # instead of four of a [rows, T, 256] one. Wormhole, 512 rows x 736 tokens: 12.6 ms per chunk
 # against 17.7 for the earlier row-major regroup and 33.8 padded (perf/spd_msa/pwa_opsplit.py).
-# Needs rows on whole tiles; a ragged depth block takes the padded form.
+# A ragged depth block (rows not on whole tiles) runs the same ops, the two reshapes then move data.
+# Which path runs must not depend on the rows of a block, or a chunked MSA update stops being a
+# partition of the whole one (tests/test_msa_update_chunks.py).
 _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
@@ -12612,7 +12614,7 @@ class PairWeightedAveraging(Module):
         H, S = self.n_heads, 32
         rows, T = int(mc.shape[0]), int(mc.shape[1])
         hd = self.head_dim
-        if (_PWA_UNPADDED and rows % 32 == 0 and (H * hd) % 32 == 0 and T % 32 == 0
+        if (_PWA_UNPADDED and (H * hd) % 32 == 0 and T % 32 == 0
                 and rows * T * H * hd * 2 <= PWA_DEPTH_BUDGET_BYTES):
             PWA_UNPADDED_STATS[0] += 1
             return self._heads_unpadded(mc, ws)
@@ -12662,7 +12664,7 @@ class PairWeightedAveraging(Module):
         v = ttnn.linear(mc, self.m_weight, **lin)                # [rows, T, H*hd]
         vh = ttnn.permute(v, (2, 0, 1))                          # [H*hd, rows, T]
         ttnn.deallocate(v)
-        vh = ttnn.reshape(vh, (H, hd * rows, T))                 # a view: rows on whole tiles
+        vh = ttnn.reshape(vh, (H, hd * rows, T))                 # a view when rows % 32 == 0
         w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
         o = ttnn.matmul(vh, w, transpose_b=True, **lin)          # [H, hd*rows, T]
         ttnn.deallocate(vh)

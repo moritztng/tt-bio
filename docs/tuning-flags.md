@@ -594,8 +594,7 @@ These four make the MSA module do the same arithmetic in fewer, larger device ca
   and sums the heads inside the output projection, instead of looping over heads and adding their
   outputs in bf16.
 * `TT_BIO_PWA_UNPADDED`: the fused heads without padding each head to a full 32-wide tile, which
-  matters for narrow heads (Protenix-v2 uses 8 heads of width 8). Needs the rows of a depth block
-  to be a multiple of 32; otherwise the padded form runs.
+  matters for narrow heads (Protenix-v2 uses 8 heads of width 8).
 
 **Accuracy: moves, inside the normal-mode bar.** The join and the fused heads round the sums
 differently (once in fp32 rather than repeatedly in bf16), so the structure is not byte-identical.
