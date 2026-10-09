@@ -8,7 +8,8 @@ per_core_M band, the first 256 and the last 512 rows of the matrix, which zmm_ru
 A case written TOKENS:DEPTH:u first runs ttnn's auto matmul on the UNPADDED operands, which is what zmm_rule.py
 did before every padded pair.
 
-L1ACC=0 runs both with packer_l1_acc off (the model's kernel config has it on).
+L1ACC=0 runs both with packer_l1_acc off (the model's kernel config has it on). The arm rule_n always runs the
+rule with packer_l1_acc off. Every arm is also timed: mean of 3 synchronized calls after its checked one (ms).
 
 usage: TT_VISIBLE_DEVICES=<chip> python zmm_check.py OUT [CASES=384:4097,896:9947,736:9947,512:9947] [L1ACC=1]
 """
@@ -33,8 +34,10 @@ import tt_bio.tenstorrent as T
 
 dev = T.get_device()
 grid = dev.compute_with_storage_grid_size()
-ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
-                                             math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=L1ACC)
+ckcs = {acc: ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
+                                                     math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=acc)
+        for acc in (False, True)}
+ckc = ckcs[L1ACC]
 log(ev="start", l1acc=L1ACC, cases=[":".join(c) for c in CASES], arch=str(dev.arch()), grid=[grid.x, grid.y])
 for case in CASES:
     tok, depth, pre = int(case[0]), int(case[1]), case[2:] == ["u"]
@@ -53,21 +56,26 @@ for case in CASES:
     b_h = torch.randn(N, k).bfloat16()
     a = ttnn.from_torch(a_h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     b = ttnn.from_torch(b_h, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-    cfg = T.opm_contract_config(N // 32, N // 32, k // 32, grid)
+    cfg = T.opm_contract_config(N // 32, N // 32, -(-k // 32), grid)
     pcm = cfg.per_core_M * 32 if cfg else N
     rows = sorted({r for s in range(0, N, pcm) for r in range(s, min(s + 64, N))} | set(range(256))
                   | set(range(N - 512, N)))
     idx = torch.tensor(rows)
     ref = a_h[idx].double() @ b_h.double().T
     outs = {}
-    for name, pc in (("auto", None), ("rule1", cfg), ("rule2", cfg), ("auto2", None)):
-        z = ttnn.matmul(a, b, transpose_b=True, program_config=pc, compute_kernel_config=ckc)
+    for name, pc, kc in (("auto", None, ckc), ("rule1", cfg, ckc), ("rule2", cfg, ckc), ("auto2", None, ckc),
+                         ("rule_n", cfg, ckcs[False])):
+        z = ttnn.matmul(a, b, transpose_b=True, program_config=pc, compute_kernel_config=kc)
         zt = ttnn.to_torch(z)[idx].double()
         ttnn.deallocate(z)
+        ttnn.synchronize_device(dev); t0 = time.perf_counter()
+        for _ in range(3):
+            ttnn.deallocate(ttnn.matmul(a, b, transpose_b=True, program_config=pc, compute_kernel_config=kc))
+        ttnn.synchronize_device(dev); ms = (time.perf_counter() - t0) / 3 * 1e3
         e = (zt - ref).abs()
         bad = (e > 0.25).nonzero()
         outs[name] = zt
-        log(ev="arm", tokens=tok, depth=depth, k=k, arm=name, max_err=e.max().item(), n_bad=len(bad),
+        log(ev="arm", tokens=tok, depth=depth, k=k, arm=name, ms=round(ms, 2), max_err=e.max().item(), n_bad=len(bad),
             bad_tiles=sorted({(rows[i] // 32, j // 32) for i, j in bad.tolist()})[:20],
             bad_rows=sorted({rows[i] for i in bad[:, 0].tolist()})[:20],
             bad_cols=sorted(set(bad[:, 1].tolist()))[:20])
