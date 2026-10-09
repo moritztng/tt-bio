@@ -53,9 +53,11 @@ class Grid:
         return q, self.order[st.repeat_interleave(n) + within] % self.N
 
 
-def pairs_within(Q, P, r):
+def pairs_within(Q, P, r, query_order=False):
     """Every (s, i, j) with |Q[s, i] - P[s, j]| < r; Q [S, M, 3], P [S, N, 3]. Query points are binned into the same
-    cells as P, so the 27-cell lookup runs once per occupied query cell and expands into its atom pairs."""
+    cells as P, so the 27-cell lookup runs once per occupied query cell and expands into its atom pairs.
+    `query_order` lists the pairs per query point (s, i), then in grid order of j (cell, then index): the order a
+    27-cell lookup per point gives, which the rigid clash sums keep so their fp32 sums do not move."""
     S, M, _ = Q.shape
     g = Grid(P, r)
     dy, dz = int(g.dims[1]), int(g.dims[2])
@@ -81,10 +83,16 @@ def pairs_within(Q, P, r):
     idx = torch.arange(int(blk.sum())) - (torch.cumsum(blk, 0) - blk).repeat_interleave(blk)
     npr = npc.repeat_interleave(blk)
     q = qo[qstart.repeat_interleave(27)[live].repeat_interleave(blk) + idx // npr]
-    j = g.order[g.start[cid.reshape(-1)[live]].repeat_interleave(blk) + idx % npr] % g.N
+    jpos = g.start[cid.reshape(-1)[live]].repeat_interleave(blk) + idx % npr
+    j = g.order[jpos] % g.N
     s, i = q // M, q % M
     keep = (Q[s, i] - P[s, j]).square().sum(-1) < r * r
-    return s[keep], i[keep], j[keep]
+    if not query_order:
+        return s[keep], i[keep], j[keep]
+    q, jpos = q[keep], jpos[keep]
+    o = torch.argsort(q * g.order.numel() + jpos)
+    q = q[o]
+    return q // M, q % M, g.order[jpos[o]] % g.N
 
 
 def square_length(v):
@@ -115,7 +123,7 @@ class PairList:
     def build(self, Q, reach=0.0):
         """Build at Q [S, M, 3] with a skin that also covers moves of up to `reach` from Q."""
         self.skin = max(self.skin0, 1.25 * float(reach) + 0.1)
-        self.s, self.i, self.j = pairs_within(Q, self.P, self.cut + self.skin)
+        self.s, self.i, self.j = pairs_within(Q, self.P, self.cut + self.skin, query_order=True)
         self.Q = Q.clone()
         return self
 
