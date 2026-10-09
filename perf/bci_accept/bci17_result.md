@@ -33,6 +33,36 @@ Neither arm produced a `candidate` scope in `summary.csv`, so neither carries th
 `Interface_Residues` signature of #21: at 288 tokens with these filters no trajectory on either arm
 survives to redesign, which is the stage #21 lives in.
 
+## Host JAX does not reproduce itself
+
+Design hash `f20e2293b3df8030` ran twice on one box, same install, same settings, same seed. Round 1
+of screen is bit-identical in every loss column. Round 2 differs by 7.3%, round 11 by more than
+100%, and the two runs end on opposite verdicts: i_pTM 0.85 against 0.28, passed harden against
+rejected at harden. Three more hashes flipped their verdict the same way across two boxes, including
+`fb272c068a88033f`, accepted on one host run and rejected at anneal on another.
+
+Divergence entering at the first gradient step and saturating within ten rounds is what a chaotic
+optimisation loop does to a sub-1% numeric difference. `autotune: true` picks XLA kernels per run,
+which changes reduction order, and is a sufficient source; the measurement pins where the divergence
+enters without proving autotune is the only one. Running both arms with autotune off would settle
+that.
+
+So **a per-trajectory card-against-host comparison carries no information**: host does not agree
+with itself on the identical input. The stage-depth margin in the table below is one to two
+trajectories, which is inside the width measured here. Read it as a margin to explain, not as a card
+deficit.
+
+Reproduce from the banked evidence, which survives the rented box being destroyed:
+
+```
+host_determinism.py <A>/design_l173_f20e2293b3df8030_losses.csv \
+                    <B>/design_l173_f20e2293b3df8030_losses.csv
+```
+
+with A and B the two `1_Trajectories/design_l173_f20e2293b3df8030/` folders under
+`pc:~/.bci-seventeen-host/evidence_v100/proj_host_8traj_288.dead.170159/` and
+`.../proj_host_8traj_288/`.
+
 ## Per-stage i_pTM, paired by trajectory
 
 ```
