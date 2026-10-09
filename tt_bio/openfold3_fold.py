@@ -18,6 +18,11 @@ from .protenix import DEFAULT_MAX_PARALLEL_SAMPLES, ConfidenceHead
 from .openfold3_weights import _sub
 from .envflags import env_flag
 
+# OpenFold3's `--fast` set is its normal set. The two fast-only levers that reach it buy no time
+# and cost confidence: on Wormhole, 9LLG warm 139.6 s normal against 143.2 (diffusion_bf16),
+# 142.8 (acc_off) and 141.0 (FAST_LEVERS), with mean pLDDT 0.733 falling to 0.688, 0.712 and
+# 0.631; FAST_LEVERS fails the fast bar on the 11-set (CA-lDDT -0.101, six complexes collapse).
+FAST_LEVERS = _T.NORMAL_LEVERS
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
@@ -200,9 +205,9 @@ class OpenFold3(Module):
     def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None):
         """``levers``: the precision levers (``tenstorrent.LEVERS``) this model builds and folds
         under, active only inside its own build and fold, as for Protenix-v2. None takes the
-        mode's set (``tenstorrent.mode_levers``), so ``--fast`` means FAST_LEVERS and nothing
-        else: the older bfp8 trunk is off inside the scope."""
-        self._levers = _T.mode_levers(levers)
+        mode's set (``tenstorrent.mode_levers``): ``--fast`` means ``FAST_LEVERS`` below and
+        nothing else, the older bfp8 trunk is off inside the scope."""
+        self._levers = _T.mode_levers(levers, fast=FAST_LEVERS)
         with _T.lever_scope(self._levers):
             self._build(sd, compute_kernel_config, num_cycles)
 

@@ -13,6 +13,19 @@ def test_fast_set_never_holds_the_grid_dependent_lever_or_an_ungraded_one():
     assert T.NORMAL_LEVERS <= T.FAST_LEVERS
 
 
+def test_a_model_names_its_own_fast_set_and_the_harness_switch_still_wins(monkeypatch):
+    from tt_bio import openfold3_fold
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert T.mode_levers() == T.FAST_LEVERS
+    assert T.mode_levers(fast=openfold3_fold.FAST_LEVERS) == T.NORMAL_LEVERS
+    monkeypatch.setenv("TT_BIO_LEVERS", "fast")
+    assert T.mode_levers(fast=openfold3_fold.FAST_LEVERS) == T.FAST_LEVERS
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    monkeypatch.delenv("TT_BIO_LEVERS")
+    assert T.mode_levers(fast=openfold3_fold.FAST_LEVERS) == T.NORMAL_LEVERS
+
+
 def test_parse_expands_modes_and_rejects_unknown_names():
     assert T.parse_levers("fast") == T.FAST_LEVERS
     assert T.parse_levers("normal,opm_b8") == T.NORMAL_LEVERS | {"opm_b8"}
