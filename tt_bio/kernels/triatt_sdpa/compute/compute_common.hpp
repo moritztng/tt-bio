@@ -1391,8 +1391,8 @@ constexpr uint32_t MASK_FREE_CB = tt::CBIndex::c_14;
  * never leave DST unexponentiated. exp(scale * (qk + mask)) runs on DST right after the matmul,
  * P is packed once, and each P tile is packed a second time with L1 accumulation into
  * exp_sum_cb's row tile, so the row-max pass and the sub+exp pass over the score block are gone.
- * There is no max subtraction: the caller guarantees scale * (qk + mask) stays below the exp
- * window (the fast exp's int overflow at ~88), and softmax is shift-invariant.
+ * There is no max subtraction: the caller guarantees scale * (qk + mask) stays inside the clamped
+ * fast exp's range (below ~89), and softmax is shift-invariant.
  */
 #if defined(EXP_EPILOGUE) && !(defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD) && PERSISTENT_MASK == 1)
 #error "EXP_EPILOGUE needs the preloaded persistent mask and a single k chunk"
@@ -1457,8 +1457,7 @@ ALWI void matmul_blocks(
     const bool exp_epi = exp_epi_t && preload_mask;
     if (exp_epi) {
         cb_reserve_back(exp_sum_cb, M);
-        // The fast exp is wrong (negative) below ~-88, which is every masked key; ReLU zeroes it,
-        // as in sub_exp_block_bcast_cols_inplace.
+        // Belt and braces: the clamped exp below never goes negative, ReLU costs nothing.
         PACK((llk_pack_relu_config(ReluType::ZERO_RELU)));
     }
 #endif
@@ -1516,9 +1515,11 @@ ALWI void matmul_blocks(
 #ifdef EXP_EPILOGUE
             if constexpr (exp_epi_t) {
                 if (exp_epi) {
-                    exp_tile_init<true, true, exp_scale_fp32, InputClamping::None>();
+                    // The clamped fast exp: its input is unshifted, and the unclamped one saturates
+                    // at exp(0.72) (valid range [-88, 0.72]). Clamped, it covers [-88.5, ~89].
+                    exp_tile_init<true, true, exp_scale_fp32, InputClamping::ClampToNegative>();
                     for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
-                        exp_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                        exp_tile<true, true, false, false, InputClamping::ClampToNegative>(i);
                     }
                     // The next subblock's mask preload re-inits the matmul.
                 }
