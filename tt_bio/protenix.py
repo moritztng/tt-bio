@@ -2439,16 +2439,6 @@ def _pz_cond_probe(pz, z_in_sha):
 
 
 
-def _under_levers(method):
-    """Run a fold entry point under the model's own precision levers (see Protenix.__init__)."""
-    import functools
-
-    @functools.wraps(method)
-    def run(self, *a, **kw):
-        import tt_bio.tenstorrent as _TT
-        with _TT.levers(getattr(self, "_levers", ())):
-            return method(self, *a, **kw)
-    return run
 
 class Protenix:
     """Top-level Protenix-v2 structure predictor on Tenstorrent (inference-only).
@@ -2828,7 +2818,7 @@ class Protenix:
         return torch.stack([ztok[aq[b][:, None].expand(NQ, NK), ak[b][None, :].expand(NQ, NK)]
                             for b in range(nb)], 0)                            # (nb,nq,nk,16)
 
-    @_under_levers
+    @_T.under_levers
     def fold_many(self, feats_list, *, n_step=200, seed=None, progress_fn=None,
                   return_confidence=False, n_cycles=None):
         """Fold B targets with ONE batched diffusion trajectory. Returns a list of B coord
@@ -2955,7 +2945,7 @@ class Protenix:
             cond["dit_biases"] = self.diffusion._dit_pair_biases(pair_z)
         return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
 
-    @_under_levers
+    @_T.under_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
              max_parallel_samples=None, gamma0=None, step_scale=None):

@@ -49,6 +49,41 @@ class _LazyTenstorrent:
 tenstorrent = _LazyTenstorrent()
 
 
+# Boltz-2's precision levers (tenstorrent.LEVERS) per mode: the shared kernels' switches, graded on
+# this model's own accuracy set before a name goes in, so a lever graded only on another model never
+# reaches it. A harness grades a candidate through the serving path with TT_BIO_LEVERS.
+# Normal: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median 0.895 A against the
+# A/A seed floor 1.784 A, every paired CI covers 0 or sits on the better side, docking 24/44 both;
+# c730 157.98 -> 147.17 s (spd-boltz2 g1/s1, 2026-10-09).
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+# Fast: tenstorrent.FAST_LEVERS on the normal path. The process-wide `--fast` switch
+# (tenstorrent._FAST_MODE: bfp8 activations, narrower chunks) is off inside Boltz-2, because on
+# Wormhole c730 it folds in 159.7 s against 135.5 s for normal mode, while this set folds in 123.4 s
+# (l1024: 217.4 / 181.6 / 168.3 s; spd-boltz2 s4, 2026-10-09). Wormhole fast grade against normal, 11-set x 4 seeds:
+# PASS, CA-lDDT +0.0018, pLDDT -0.0002, docking 24/44 both (spd-boltz2 gf1).
+LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
+                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+
+
+def _under_levers(method):
+    """Run a device-building or folding entry point under the model's `_levers`, with the
+    process-wide `--fast` paths off (the mode is carried by the lever set instead)."""
+    import functools
+
+    @functools.wraps(method)
+    def run(self, *a, **kw):
+        if not getattr(self, "use_tenstorrent", False):
+            return method(self, *a, **kw)
+        fast = tenstorrent._FAST_MODE
+        tenstorrent.set_fast_mode(False)
+        try:
+            with tenstorrent.levers(self._levers):
+                return method(self, *a, **kw)
+        finally:
+            tenstorrent.set_fast_mode(fast)
+    return run
+
+
 def _dram_peak(tag):
     """tenstorrent.dram_peak without importing ttnn when the census is off (CPU/GPU hosts)."""
     if os.environ.get("TT_BIO_DRAM_PEAK"):
@@ -5330,6 +5365,8 @@ class Boltz2(nn.Module):
         diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
+        self._levers = (tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_FAST)
+                        if use_tenstorrent else frozenset())
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
         if diffusion_trace:
@@ -5526,6 +5563,14 @@ class Boltz2(nn.Module):
             if use_tenstorrent
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )
+        if use_tenstorrent:
+            # The trunk's own matmul fidelity (the `trunk_hifi3` lever), as Protenix-v2's trunk
+            # takes it. Without the lever or TT_BIO_TRUNK_MATH_FIDELITY it is HiFi4, as before.
+            with tenstorrent.levers(self._levers):
+                for trunk in (self.msa_module,) + (
+                        () if self.affinity_trunk_fp32 else (self.pairformer_module,)):
+                    trunk.compute_kernel_config = tenstorrent.trunk_compute_kernel_config(
+                        trunk.compute_kernel_config)
         if compile_pairformer:
             self.is_pairformer_compiled = True
             self.pairformer_module = torch.compile(
@@ -5732,6 +5777,12 @@ class Boltz2(nn.Module):
             self._tt_cond = cond
         return cond
 
+    @_under_levers
+    def load_state_dict(self, *a, **kw):
+        # The device modules are built here (TorchWrapper._load_from_state_dict).
+        return super().load_state_dict(*a, **kw)
+
+    @_under_levers
     def forward(
         self,
         feats: dict[str, Tensor],

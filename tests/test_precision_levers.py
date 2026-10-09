@@ -79,16 +79,45 @@ def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast, want)
 
 
 def test_fold_runs_under_the_models_levers_and_restores():
-    import tt_bio.protenix as P
+    import tt_bio.boltz2 as B
+
+    for wrap in (T.under_levers, B._under_levers):
+        class M:
+            _levers = frozenset({"acc_off"})
+            use_tenstorrent = True
+
+            @wrap
+            def fold(self):
+                return T.lever("acc_off")
+
+        assert M().fold() is True and not T.lever("acc_off")
+
+
+def test_boltz2_folds_with_the_process_fast_switch_off(monkeypatch):
+    import tt_bio.boltz2 as B
 
     class M:
-        _levers = frozenset({"acc_off"})
+        _levers = B.LEVERS_FAST
+        use_tenstorrent = True
 
-        @P._under_levers
+        @B._under_levers
         def fold(self):
-            return T.lever("acc_off")
+            return T._FAST_MODE, T.lever("acc_off")
 
-    assert M().fold() is True and not T.lever("acc_off")
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert M().fold() == (False, True) and T._FAST_MODE and not T.lever("acc_off")
+
+
+def test_model_levers_take_the_mode_set_unless_a_harness_names_one(monkeypatch):
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == {"silu_f32"}
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == {"opm_b8"}
+    monkeypatch.setenv("TT_BIO_LEVERS", "none")
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == frozenset()
+    monkeypatch.setenv("TT_BIO_LEVERS", "normal-trimul_ibw")
+    assert T.model_levers((), ()) == T.NORMAL_LEVERS - {"trimul_ibw"}
 
 
 def test_trimul_levers_reach_their_kernels_only_inside_the_set():
@@ -114,3 +143,10 @@ def test_bfp8_fidelity_drops_to_hifi2_only_when_both_operands_are_bfp8():
     assert T.bfp8_fidelity(ckc, b8, bf) is ckc and T.bfp8_fidelity(ckc, bf, b8) is ckc
     lofi = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.LoFi)
     assert T.bfp8_fidelity(lofi, b8, b8) is lofi
+
+
+def test_boltz2_mode_sets_name_only_known_levers():
+    import tt_bio.boltz2 as B
+
+    for s in (B.LEVERS_NORMAL, B.LEVERS_FAST):
+        assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS

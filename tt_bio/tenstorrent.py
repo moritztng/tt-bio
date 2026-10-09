@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import contextlib
+import functools
 import gc
 import torch, ttnn, atexit
 from torch import nn
@@ -732,6 +733,21 @@ def levers(names):
         _LEVERS = prev
 
 
+def model_levers(normal, fast) -> frozenset:
+    """The lever set a model builds and folds under: TT_BIO_LEVERS when a harness grades a set
+    through the serving path (no user sets it), else the model's graded set for the current mode."""
+    return parse_levers(os.environ.get("TT_BIO_LEVERS") or (fast if _FAST_MODE else normal))
+
+
+def under_levers(method):
+    """Run a model entry point under the model's own `_levers` (see `model_levers`)."""
+    @functools.wraps(method)
+    def run(self, *a, **kw):
+        with levers(getattr(self, "_levers", ())):
+            return method(self, *a, **kw)
+    return run
+
+
 # Blackhole dispatch on Ethernet cores instead of a Tensix column (spd-bh, measuring, default off).
 # Stock p150a firmware reports 12 Tensix columns (120 of the die's 140 cores); Tensix dispatch takes
 # one, so tt-bio computes on 11x10. Ethernet dispatch leaves all 12: 120 cores, +9.1 %. tt-metal
@@ -939,6 +955,11 @@ PWA_FUSED_STATS = [0, 0]                # [fused, per-head loop]
 # Which path runs must not depend on the rows of a block, or a chunked MSA update stops being a
 # partition of the whole one (tests/test_msa_update_chunks.py).
 _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
+# At head_dim 32 there is no padding to drop: the fused path's layout carries the same bytes and
+# moves them with a tile transpose and an outer-axis tile permute, where `_heads_unpadded` pays two
+# general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
+# path: c730 on Wormhole 157.95 -> 152.61 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
+_PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
@@ -2071,6 +2092,13 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # not describe any default. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step form back.
 # Read at CALL time, not import time, so an interleaved A/B can flip it.
 _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
+# Every diffusion sample of a fold sees the same noise level and the same trunk output, so the
+# token conditioning `s` and everything the DiT derives from it (the hoisted AdaLN and gate
+# projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
+# times all equal and one trunk row, the step runs them on ONE sample and the ops that meet the
+# per-sample `a` broadcast it: the same values, computed once instead of once per sample.
+# Boltz-2 c730, 5 samples, Wormhole: 157.95 -> 152.07 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
+_DIT_SHARED_COND = env_flag("TT_BIO_DIT_SHARED_COND", True)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -7537,6 +7565,15 @@ def pwa_depth_block(depth: int, tokens: int, c_m: int, budget: int | None = None
     return min(depth, rows)
 
 
+def pwa_fused_row_block(tokens: int, n_heads: int) -> int:
+    """MSA rows per block of PWA's fused head path: two [rows, tokens, heads*32] intermediates,
+    each under PWA_DEPTH_BUDGET_BYTES, and whole tiles of rows. Whole tiles keep the two reshapes
+    in `_heads_unpadded` views; at 736 tokens the unrounded 712 rows made them copies, 12.7 ms
+    each per block on Wormhole (Boltz-2 c730, 13312 rows: 7.3 s of device time and 8 s of host
+    stall per fold, census m9). Rows are independent, so the block never changes a value."""
+    return max(32, PWA_DEPTH_BUDGET_BYTES // (tokens * n_heads * 32 * 2) // 32 * 32)
+
+
 def concat_host_bytes() -> int:
     """Pair-tensor byte size above which a chunked path assembles its blocks on the host.
 
@@ -11671,9 +11708,10 @@ class Transition(Module):
         # the bfp8-priced L1 cap below sets the height: 28 rows for the c=128 MSA transition at 736
         # tokens instead of 16. Row height does not change a row-local swiglu's result (torch.equal
         # at h=16..48); WH module 26.14 -> 23.69 ms at h=24 (perf/spd_bh/transition_h.py, .107).
-        # Blackhole is unchanged: its L1 raise always lands above this base. c=256 is left alone,
-        # its pair transition is non-monotonic in the height on WH (h=14 slower than h=5).
-        _fast_rows = _FAST_MODE or (self._hidden_b8 and x.shape[-1] <= 128)
+        # Small grid only: on Blackhole this base would sit above the measured c=128 height at
+        # 1024 tokens (24). c=256 is left alone, its pair transition is non-monotonic in the height
+        # on WH (h=14 slower than h=5).
+        _fast_rows = _FAST_MODE or (self._hidden_b8 and x.shape[-1] <= 128 and _IS_SMALL_GRID)
         transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_FAST if _fast_rows else TRANSITION_H_CHUNK_SIZE
         if not _FAST_MODE and W <= TRANSITION_H_CHUNK_BIG_MAX_W and x.shape[-1] <= 256:
             transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_BIG
@@ -11823,12 +11861,22 @@ class Transition(Module):
             # W=512/768/1024, and worth nothing at and above 1536 tokens where the base already
             # sits at the cap. A forced constant cannot do this: 768 aa refuses h=48 and 1024 aa
             # refuses h=28, so every flat value in {24,28,32,40,48} dies on some rung.
+            #
+            # bfp8 hidden is priced at its own width only above c=128, where it was measured (h=32
+            # clean at c=256, 736 tokens). At c <= 128 the byte ratio would raise the pair height
+            # 1.7x past the measured bf16 heights, and that is not safe: Boltz-2 fast at 704 tokens
+            # (9TH6) ran h=59 and threw the static-CB clash at fc2 on every seed, while the bf16
+            # height there runs clean. At a bf16-confirmed height bfp8 hidden needs no more L1 in
+            # any buffer or circular buffer than bf16, so it keeps that height.
+            _hb_raise = _hb if _c > _BH_TRANSITION_L1_ROWS_MAX_C else 2
+            _l1_rows = (TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
+                        / (_tile(w_eff) * (2 * _tile(_c) + 2 * _hb_raise * _tile(_hid))))
             transition_h_chunk_size = max(
                 transition_h_chunk_size,
-                max(1, int(min(_l1_rows_at(w_eff),
+                max(1, int(min(_l1_rows,
                                # the element cap is the byte budget at bf16 hidden = 4c, i.e.
                                # 18c bytes per row element; bfp8 hidden needs (2 + 8 * 1.0625)c
-                               _BH_TRANSITION_CHUNK_ELEMS * 18 / (w_eff * _c * (2 + 8 * _hb))))))
+                               _BH_TRANSITION_CHUNK_ELEMS * 18 / (w_eff * _c * (2 + 8 * _hb_raise))))))
         # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
         # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
         # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation
@@ -13595,14 +13643,15 @@ class PairWeightedAveraging(Module):
         rows, T = int(mc.shape[0]), int(mc.shape[1])
         hd = self.head_dim
         if (_PWA_UNPADDED and (H * hd) % 32 == 0 and T % 32 == 0
+                and not (_PWA_FULL_HEADS_FUSED and hd == S)
                 and rows * T * H * hd * 2 <= PWA_DEPTH_BUDGET_BYTES):
             PWA_UNPADDED_STATS[0] += 1
             return self._heads_unpadded(mc, ws)
         PWA_UNPADDED_STATS[1] += 1
         # The fused path holds two [rows, tokens, heads*32] intermediates where the loop held one
         # [rows, tokens, 32] per head, so a tall input runs in row blocks that keep each under
-        # the per-buffer budget the depth blocking already uses (512 rows at 730 tokens).
-        blk = max(32, PWA_DEPTH_BUDGET_BYTES // (T * H * S * 2))
+        # the per-buffer budget the depth blocking already uses (see `pwa_fused_row_block`).
+        blk = pwa_fused_row_block(T, H)
         if rows > blk:
             parts = [self._heads_fused(mc[r:min(r + blk, rows)], ws, packed)
                      for r in range(0, rows, blk)]
@@ -15542,6 +15591,9 @@ class DiffusionModule(TorchWrapper):
         atom_pad_cached = self._cache_get("atom_pad", 0)
         if atom_pad_cached:
             r = torch.nn.functional.pad(r, (0, 0, 0, atom_pad_cached))
+        if (_DIT_SHARED_COND and times.numel() > 1 and s_trunk.shape[0] == 1
+                and s_inputs.shape[0] == 1 and bool((times == times.reshape(-1)[0]).all())):
+            times = times[:1]
         out = self._run_diffusion_device(
             self._from_torch(r), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING)
         return self._to_torch(out)[:, :N, :]
