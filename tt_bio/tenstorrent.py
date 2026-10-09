@@ -595,6 +595,13 @@ _LEVERS = frozenset()
 if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT_BIO_LEVERS", ""):
     from . import metal_overlay as _metal_overlay
     _metal_overlay.enable(("silu_f32",))
+# mm_pipe: ttnn's 2D-mcast matmul writes each output block after the NEXT block's in1 transfer instead of
+# before it (kernels/mm_pipe). Pure reordering of data movement, byte-identical output. Process-wide (the
+# kernel sources are read at JIT time), so it is an env switch, not a lever: TT_BIO_MM_PIPE=1.
+MM_PIPE = env_flag("TT_BIO_MM_PIPE", False)
+if MM_PIPE:
+    from . import metal_overlay as _metal_overlay
+    _metal_overlay.enable(("mm_pipe",))
 
 
 def lever(name: str) -> bool:

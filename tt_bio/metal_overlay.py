@@ -215,8 +215,20 @@ def _patch_dram_read_split(src: str) -> str:
     return src.replace(_READ_ANCHOR, _READ_SPLIT + _READ_ANCHOR)
 
 
+def _mm_pipe():
+    import importlib.util as _u
+    spec = _u.spec_from_file_location(
+        "tt_bio_mm_pipe", Path(__file__).resolve().parent / "kernels" / "mm_pipe" / "patch_mm_pipe.py")
+    mod = _u.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return {mod.SENDER: mod.patch_sender, mod.RECEIVER: mod.patch_receiver}
+
+
 PATCHES = {
     "bh_dram_read_split": {DATAFLOW_API: _patch_dram_read_split},
+    # TT_BIO_MM_PIPE: the 2D-mcast matmul writes a block's output after the next block's in1 transfer
+    # (kernels/mm_pipe/patch_mm_pipe.py). Byte-identical output; the trimul einsum's batches stop serialising.
+    "mm_pipe": _mm_pipe(),
     "silu_f32": {
         f"{_SFPU.format(arch=arch)}/{name}": fn
         for arch in ARCHES

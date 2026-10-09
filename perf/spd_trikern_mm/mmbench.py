@@ -60,7 +60,8 @@ while os.getppid() == parent:
 """])
 REV = os.popen(f"git -C {ROOT} rev-parse --short HEAD 2>/dev/null").read().strip() or (
     (ROOT / "REVISION").read_text().strip() if (ROOT / "REVISION").exists() else "unknown")
-log(ev="nodes_open", nodes=NODES, arch=str(dev.arch()), grid=list(T.COMPUTE_GRID_MAIN), git=REV, args=vars(A))
+log(ev="nodes_open", nodes=NODES, arch=str(dev.arch()), grid=list(T.COMPUTE_GRID_MAIN), git=REV, args=vars(A),
+    mm_pipe=T.MM_PIPE, overlay=os.environ.get("TT_BIO_METAL_OVERLAY"), runtime_root=os.environ.get("TT_METAL_RUNTIME_ROOT"))
 
 
 def aiclk(t0, t1, pad=0.3):
@@ -176,7 +177,8 @@ for n in names:                                                      # warm + ac
         ttnn.deallocate(y)
         r = ref(*REFS[n])
         sel = yt[0, REFCH].double()
-        e = {"rel_rms": float(((sel - r).pow(2).mean() / r.pow(2).mean()).sqrt()), "finite": bool(torch.isfinite(yt).all())}
+        e = {"rel_rms": float(((sel - r).pow(2).mean() / r.pow(2).mean()).sqrt()), "finite": bool(torch.isfinite(yt).all()),
+             "sha": __import__("hashlib").sha256(yt.to(torch.bfloat16).view(torch.int16).numpy().tobytes()).hexdigest()[:16]}
         if n in SAME and SAME[n] in outs:
             e["equal_" + SAME[n]] = bool(torch.equal(yt, outs[SAME[n]]))
             e["max_abs_vs_" + SAME[n]] = float((yt - outs[SAME[n]]).abs().max())
