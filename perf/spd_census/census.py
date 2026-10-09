@@ -77,7 +77,9 @@ if a.share is None:
     a.share = len(glob.glob("/sys/class/tenstorrent/tenstorrent!*"))
 if a.share:
     os.environ.update(runtime.host_thread_cap_env(a.share, None))
-NODES = sorted(int(p.rsplit("!", 1)[1]) for p in glob.glob("/sys/class/tenstorrent/tenstorrent!*"))
+# Only the opened chip's clock, filled in at device open. Polling every chip on a 32-chip Galaxy from five censuses
+# at once coincided with ReadDeviceProfiler's own ARC message timing out (r9b, 07:57Z).
+NODES = []
 samples = []
 def _sampler():
     while True:
@@ -221,7 +223,13 @@ SHORT = ("k", "fw", "t0", "t1", "t2", "br", "nc")
 F = {"sig": None, "ops": None, "progs": None}
 SIGS = {}; ST = {"on": False, "depth": 0, "last": 0, "flushed": 0, "batch": 0, "nprog": 0, "nops": 0, "missing": 0}
 def drain():
-    ttnn.synchronize_device(DEV["d"]); ttnn.ReadDeviceProfiler(DEV["d"])
+    ttnn.synchronize_device(DEV["d"])
+    for attempt in range(4):  # the read asks ARC for the clock; on a loaded box ARC can miss its 1 s deadline
+        try:
+            ttnn.ReadDeviceProfiler(DEV["d"]); break
+        except RuntimeError as e:
+            if "ARC to respond" not in str(e) or attempt == 3: raise
+            log(ev="arc_retry", attempt=attempt); time.sleep(2)
     hi = OPID(); n = 0; seen = set()
     for chip, progs in ttnn.get_latest_programs_perf_data().items():
         for p in progs:
@@ -285,7 +293,7 @@ def _fdnode(fd):
     except OSError: return None
     return int(l.rsplit("/", 1)[1]) if l.startswith("/dev/tenstorrent/") else None
 opened = sorted({n for n in map(_fdnode, os.listdir("/proc/self/fd")) if n is not None})
-NODE = opened[0]; log(ev="nodes_open", nodes=opened, grid=str(DEV["d"].compute_with_storage_grid_size()))
+NODE = opened[0]; NODES[:] = opened; log(ev="nodes_open", nodes=opened, grid=str(DEV["d"].compute_with_storage_grid_size()))
 def lever_set(spec):
     import re
     toks = re.findall(r"([+-]?)([A-Za-z0-9_]+)", spec)
