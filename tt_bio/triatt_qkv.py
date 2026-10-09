@@ -416,6 +416,13 @@ def _tail_cb(idx, core_grid, tiles):
                              format_descriptors=[fmt])
 
 
+def _tail_dw(kt, nt):
+    """Tiles per DST batch: four fit a 32-bit DST, and the batch must divide both K and N. A width that
+    does not (the template stack's 64-channel pair has Kt = Nt = 2) packs past the end of the circular
+    buffers and overwrites the residual's tiles."""
+    return next(d for d in (4, 2, 1) if kt % d == 0 and nt % d == 0)
+
+
 def _build_tail(o, g, w, out, z, ckc, grid, resid):
     B, kt, St = int(o.padded_shape[0]), int(o.padded_shape[1]), int(o.padded_shape[2]) // TILE
     nt = int(w.shape[-1]) // TILE
@@ -446,7 +453,7 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid):
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
     compute = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, 4], runtime_args=cp,
+        compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt)], runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=fp32, dst_full_sync_en=full))
     cbs = [_tail_cb(0, core_grid, kt * nt), _tail_cb(1, core_grid, 2 * kt), _tail_cb(2, core_grid, 2 * kt),
