@@ -12,6 +12,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   seeds, median top-pose deviation 0.38 / 0.32 A against a 0.8 A re-seed). `TT_BIO_LEVERS=none` restores
   the reference numerics. `--fast` now runs a larger graded set: 246 s on the same fold on Wormhole.
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
+- **OpenDDE is 1.3x faster on Wormhole**, because it runs Protenix-v2's trunk and inherits those levers.
+  A warm 730-token fold (5 samples) takes 594 s on a Galaxy chip at 1000 MHz, against 763 s before; 256 tokens
+  103 s against 134 s, 1024 tokens 1161 s against 1286 s. OpenFold3 and Boltz-2 are unchanged.
 - Blackhole kernels split DRAM reads larger than 2 KiB, the tt-metal#59622 workaround for a NoC hang
   (`TT_BIO_BH_DRAM_READ_SPLIT`, same bytes).
 - Protenix-v2 runs its confidence head on the card by default (`TT_PROTENIX_CONF_DEVICE`, `0` turns it
@@ -26,6 +29,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour
   anywhere from 0 to 5 A, started every sample's pairformer from the previous sample's output, and
   left the fold's resident tensors on the card for the next fold.
+
+### Known issues
+- On Wormhole, a bf16 matmul at HiFi3 with fp32 accumulation whose K block is wider than one tile puts about
+  one output element in 10^9 off by exactly 1, 2 or 4. This is in ttnn's default matmul plan, not in TT-Bio's
+  levers, and it is far below what a structure grade can see. Reproducer: a [23552, 9984] x [23552, 9984]^T
+  product with `torch.manual_seed(2000)` gets elements (6828, 8513) and (23180, 5313) wrong by 2.0 on every
+  run and chip.
 
 ## [0.13.1] - 2026-10-08
 
