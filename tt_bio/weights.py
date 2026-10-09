@@ -269,7 +269,7 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("boltz2-aff", ("boltz2",), "file", "MIT",
              repo=BOLTZ2_REPO, filename="boltz2_aff.ckpt", approx_bytes=2062139170,
              note="affinity head; only read for ligand affinity"),
-    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2"), "file", "MIT",
+    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag"), "file", "MIT",
              repo=BOLTZ2_REPO, filename="mols.tar", approx_bytes=1855662080,
              derived=Derived("mols", "tar", min_entries=45227),
              note="CCD molecule library, extracted to <cache>/mols"),
