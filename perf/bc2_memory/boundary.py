@@ -14,6 +14,10 @@ model draws, not by its index, and a cost that grows has to be read against both
 cuts the stage rounds (BindCraft 2's defaults are 50+25+45+5+15); `--steps default` keeps them.
 Every stage gate is set to 0 so that every trajectory runs its whole schedule and does the same
 work. The target is BindCraft 2's own hPDL1 with the binder length chosen to land on `--tokens`.
+`--binder-lengths A,B` instead draws a length per trajectory from [A, B] as a campaign does, and
+`--gates stock` keeps BindCraft 2's own stage gates. Each row also carries the device's program
+cache size and the allocator's live and free block counts: a compiled program keeps its kernel
+binaries in a DRAM buffer of its own, which no Python object holds and the census cannot see.
 """
 from __future__ import annotations
 
@@ -43,12 +47,20 @@ def _settings(args):
     path = args.settings or str(pathlib.Path(bindcraft.__file__).resolve().parents[1]
                                 / "examples/pdl1.json")
     common = [f"campaign_seed={args.seed}", f"max_trajectories={args.trajectories}",
-              "trajectory_only=true", f"project_folder={args.project}",
-              "min_plddt_screen=0", "min_plddt_refine=0", "min_iptm_anneal=0",
-              "min_plddt_anneal=0", "min_iptm_harden=0", "min_plddt_harden=0",
-              "min_plddt_mutate=0", "min_iptm_mutate=0"]
+              "trajectory_only=true", f"project_folder={args.project}"]
+    if args.gates == "zero":
+        common += ["min_plddt_screen=0", "min_plddt_refine=0", "min_iptm_anneal=0",
+                   "min_plddt_anneal=0", "min_iptm_harden=0", "min_plddt_harden=0",
+                   "min_plddt_mutate=0", "min_iptm_mutate=0"]
     if args.steps != "default":
         common += [f"{k}_steps={v}" for k, v in (kv.split("=") for kv in args.steps.split(","))]
+    if args.binder_lengths:
+        lo, hi = (int(v) for v in args.binder_lengths.split(","))
+        span = [cleaned_campaign_settings(read_settings(path, parse_setting_overrides(
+            common + [f"binder_lengths=[{n},{n}]"]))) for n in (lo, hi)]
+        s = cleaned_campaign_settings(read_settings(path, parse_setting_overrides(
+            common + [f"binder_lengths=[{lo},{hi}]"])))
+        return f"{lo}-{hi}", s, [bindcraft2.design_tokens(t) for t in span]
     best = None
     for length in range(40, 400):
         s = cleaned_campaign_settings(read_settings(path, parse_setting_overrides(
@@ -60,7 +72,7 @@ def _settings(args):
             break
     if best is None:
         raise SystemExit(f"no binder length puts {path} on {args.tokens} tokens")
-    return best
+    return (*best, [args.tokens])
 
 
 def main() -> int:
@@ -70,6 +82,8 @@ def main() -> int:
     ap.add_argument("--tokens", type=int, default=352)
     ap.add_argument("--trajectories", type=int, default=6)
     ap.add_argument("--steps", default="screen=4,refine=2,anneal=4,harden=1,mutate=2")
+    ap.add_argument("--binder-lengths", help="A,B: draw each trajectory's binder length from [A, B]")
+    ap.add_argument("--gates", choices=("zero", "stock"), default="zero")
     ap.add_argument("--resident", type=int, default=1)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--arm", choices=("fixed", "unfixed"), default="fixed")
@@ -79,8 +93,8 @@ def main() -> int:
     args = ap.parse_args()
     if args.dry:
         from tt_bio import bindcraft2
-        binder, settings = _settings(args)
-        print(f"binder {binder} aa -> {bindcraft2.design_tokens(settings)} tokens")
+        binder, settings, tokens = _settings(args)
+        print(f"binder {binder} aa -> {tokens} tokens")
         print(bindcraft2.stage_gates(settings))
         return 0
 
@@ -93,7 +107,7 @@ def main() -> int:
     from perf import clocksample
     from tt_bio import bindcraft2, pair_mm
 
-    binder, settings = _settings(args)
+    binder, settings, tokens = _settings(args)
     forget = pair_mm.forget
     if args.arm == "unfixed":
         pair_mm.forget = lambda: None
@@ -107,7 +121,7 @@ def main() -> int:
 
     bindcraft2._Trunk.__init__ = counted
 
-    out = {"arm": args.arm, "tokens": args.tokens, "binder": binder, "resident": args.resident,
+    out = {"arm": args.arm, "tokens": tokens, "binder": binder, "gates": args.gates, "resident": args.resident,
            "steps": args.steps, "trajectories_asked": args.trajectories, "seed": args.seed,
            "card": os.environ.get("TT_VISIBLE_DEVICES"), "rows": []}
     path = pathlib.Path(args.out)
@@ -118,6 +132,8 @@ def main() -> int:
 
     with clocksample.during(period=5.0) as clock, \
             bindcraft2.campaign_predictor(checkpoints=args.params, resident=args.resident) as build:
+        import ttnn
+
         from tt_bio.tenstorrent import get_device
         device = get_device()
         evo, extra = build.evoformer, build.extra_msa
@@ -130,13 +146,23 @@ def main() -> int:
                 r += [("extra-MSA tapes", extra._tapes), ("extra-MSA masks", extra._pair_mask_dev)]
             return r + census.module_roots()
 
+        def programs():
+            return int(device.num_program_cache_entries())
+
+        def blocks():
+            table = ttnn.get_memory_view(device, ttnn.BufferType.DRAM).block_table
+            live = [int(b["size"]) for b in table if b.get("allocated") == "yes"]
+            small = [n for n in live if n < 2 ** 20]   # per-bank sizes; a tensor here is >= 1 MiB/bank
+            return {"blocks_live": len(live), "blocks_free": len(table) - len(live),
+                    "small_live": len(small), "small_bytes_per_bank": sum(small)}
+
         def probe(phase, traj, **extra_fields):
             d = census.dram(device)
             row = {"phase": phase, "traj": traj, "t": time.time(), **extra_fields,
                    "held": d["held"], "free": d["free"], "largest_per_bank": d["largest_per_bank"],
                    "card": d["total"], "loads": loads[0], "wt_entries": len(pair_mm._WT),
                    "trunks_alive": sum(isinstance(o, bindcraft2._Trunk) for o in gc.get_objects()),
-                   "trunks_pooled": len(build.pool._trunks)}
+                   "trunks_pooled": len(build.pool._trunks), "programs": programs(), **blocks()}
             if phase != "after":
                 row["census"] = census.census(roots())
             out["rows"].append(row)
@@ -175,12 +201,18 @@ def main() -> int:
         after_gc = census.dram(device)["held"]
         forget()
         after_forget = census.dram(device)["held"]
-        out["release"] = {"gc_collect": held - after_gc, "pair_mm_forget": after_gc - after_forget}
+        n_programs, b0 = programs(), blocks()
+        device.clear_program_cache()
+        after_programs = census.dram(device)["held"]
+        out["release"] = {"gc_collect": held - after_gc, "pair_mm_forget": after_gc - after_forget,
+                          "program_cache": after_forget - after_programs, "programs": n_programs,
+                          "blocks_before": b0, "blocks_after": blocks()}
         out["clock"] = clock.summary()
         out["clock_line"] = clock.line(0)   # tt-smi numbers a pinned chip 0, whatever its node
         save()
         print(f"[bc2_memory] end: gc.collect freed {(held - after_gc) / GB:.3f} GB, "
-              f"pair_mm.forget then freed {(after_gc - after_forget) / GB:.3f} GB; "
+              f"pair_mm.forget then freed {(after_gc - after_forget) / GB:.3f} GB, clearing "
+              f"{n_programs} cached programs freed {(after_forget - after_programs) / GB:.3f} GB; "
               f"{out['ended']}; {out['clock_line']}", flush=True)
     return 0
 
