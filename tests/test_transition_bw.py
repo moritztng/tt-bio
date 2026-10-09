@@ -48,3 +48,11 @@ def test_grid_that_does_not_split_n_declines(monkeypatch):
 def test_lever_is_named_and_in_no_mode_yet():
     assert "transition_bw" in tt.LEVERS
     assert "transition_bw" not in tt.NORMAL_LEVERS | tt.FAST_LEVERS
+
+
+def test_c384_fc3_names_a_six_column_grid():
+    """OpenDDE's c=384 fc3 has 12 output tiles, which 8 columns do not split: its entry asks for 6."""
+    cfg = tt._transition_bw_config("fc3", 92, 48, 12, False, False)
+    assert cfg.in0_block_w == 16
+    assert (cfg.compute_with_storage_grid_size.x, cfg.per_core_N) == (6, 2)
+    assert cfg.compute_with_storage_grid_size.y * cfg.per_core_M >= 92
