@@ -1936,6 +1936,13 @@ class ConfidenceHead:
                      pw_shape=(n_ta, c, nb))
         return cache
 
+    def drop_device_resident(self):
+        """Free what _device_resident cached for this fold, z_base included. Held, the next fold's
+        trunk ran beside them and its pair transition was refused DRAM at c730."""
+        for v in self.__dict__.pop("_dev_res", {}).values():
+            if isinstance(v, ttnn.Tensor):
+                ttnn.deallocate(v)
+
     def z_base_device(self, s_inputs, s_trunk, z_trunk):
         """Build the sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] +
         s2(s_inputs)[None,:] in fp32 on host (precision-safe -- bf16-accumulating
@@ -2877,9 +2884,12 @@ class Protenix:
                 # Pairformer into the precision-sensitive plddt head), so the host
                 # path is kept there (it is only ~23 ms at NT=38 anyway).
                 z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
-                confs = [self.confidence_head.confidence_device(
-                            s_inputs, s_trunk, z_base_dev, coords[k], feats)
-                         for k in range(n_sample)]
+                try:
+                    confs = [self.confidence_head.confidence_device(
+                                s_inputs, s_trunk, z_base_dev, coords[k], feats)
+                             for k in range(n_sample)]
+                finally:
+                    self.confidence_head.drop_device_resident()
             else:
                 confs = self.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk,
                                                                 list(coords), feats)
