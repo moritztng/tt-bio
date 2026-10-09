@@ -93,11 +93,15 @@ class OF3AtomTransformer(Module):
         self.adaln_t = [
             AdaLN(False, remap_of3_adaln(_sub(self._w, f"blocks.{b}.conditioned_transition.layer_norm.")),
                   compute_kernel_config) for b in range(3)]
-        # The fp32 windowed attention as one SDPA program over a superset key window, Protenix's
-        # atom_sdpa32 recipe and the same switch (TT_BIO_ATOM_SDPA32). See `_superset`.
-        from .protenix import _ATOM_SDPA32, _ATOM_SDPA32_CKC
-        self._sdpa32 = _ATOM_SDPA32 and self._act_dtype == ttnn.float32
-        self._sdpa32_ckc = _ATOM_SDPA32_CKC
+        # The windowed attention as one SDPA program over a superset key window, Protenix's
+        # atom_sdpa32 recipe and the same switch (TT_BIO_ATOM_SDPA32). See `_superset`. OF3's atom
+        # activations are bf16, so unlike Protenix the switch covers bf16 too: at atom_sdpa32's
+        # exact config (HiFi4, exact exp, fp32 accumulation) by default, at atom_sdpa's under that
+        # lever, as Protenix's bf16 site runs.
+        from .protenix import _ATOM_SDPA32, _ATOM_SDPA32_CKC, _ATOM_SDPA_CKC
+        self._sdpa32 = _ATOM_SDPA32
+        self._sdpa32_ckc = (_ATOM_SDPA_CKC if _T.lever("atom_sdpa") and self._act_dtype == ttnn.bfloat16
+                            else _ATOM_SDPA32_CKC)
         self._zeros: dict = {}
 
     #: Key fragments of the three AdaLNs per block, which upload their own weights.
@@ -238,7 +242,7 @@ class OF3AtomTransformer(Module):
             full = torch.full((nb, H, nq, self.SUP_W), -1e9).scatter_(-1, col, zb)
             full = full.clamp(min=-1e4) * dh ** 0.5
             bias = ttnn.from_torch(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, self.SUP_W)
-                                   .contiguous(), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                                   .contiguous(), dtype=self._act_dtype, layout=ttnn.TILE_LAYOUT,
                                    device=self.device)
             terms = ((self.adaln_q[b].s_terms(s), self.adaln_k[b].s_terms(s))
                      if _T.ADALN_S_HOIST else ((), ()))   # () not None: the cache free walks it
