@@ -32,6 +32,9 @@ ap.add_argument("--params", default=A.DEFAULT_PARAMS)
 ap.add_argument("--threads", type=int, default=8)
 a = ap.parse_args()
 
+# afgrad's own main() sets this; cmd_stack does not, and an unthrottled float64 graph took 13 cores of
+# a shared Galaxy host whose other rows' folds are host-sensitive.
+A.torch.set_num_threads(a.threads)
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
 ensure_p300_mesh_descriptor()
 from tt_bio import bindcraft2  # noqa: E402
