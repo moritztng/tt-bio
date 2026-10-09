@@ -44,7 +44,10 @@ leg is in the ledger.
 **Reuse, never redo.** Each leg result is keyed by the content of every tracked file except
 Markdown and pyproject's version line, the interpreter's installed packages, the card type, and
 the leg's exact command. A leg whose key already passed is not run again and the verdict names
-the run it reused. So a docs-only commit, or the release commit's version bump, costs nothing,
+the run it reused. Recorded measurements (`perf/**.txt` files with a `RECORDED-AT:` line) are
+not part of the key either, so re-recording them in the release commit reuses everything; the
+card-free legs always run, and `pytest_cpu` is where a stale recording fails. So a docs-only
+commit, or the release commit's version bump and re-recordings, costs nothing,
 and a grade-time crossmodel or suite run done through `gate_fanout.py --legs 'rg:*'` on the same
 wheel venv counts for the release. Any change to code, tests, data, fixtures, packages or card
 type is a new key and runs fresh.
@@ -151,7 +154,11 @@ you publish.
 On an SPD pool Galaxy (`.114`, `.107`) use the same `gate_host_prep.sh` venvs as any other host,
 under a root of your own (`~/spd/<row>`), and give the legs a private lease dir, `XDG_CACHE_HOME`,
 `TT_METAL_CACHE` and `MPLCONFIGDIR` so nothing collides with the JapanFold agent's. The pool's chip
-ids are UMD ids and its locks are `~/spd/locks/chip<N>.lock`; open only chips CHIPS.md grants.
+ids are UMD ids and its locks are `~/spd/locks/chip<N>.lock`. Grant the gate pool slots rather
+than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 5, "row": "<row>"}` in hosts.json,
+`--workers g114:pool,g114:pool,g114:pool,g114:pool` keeps at most four legs queued or running
+there, each as one job file the pool starts on an idle healthy chip. Stopping the runner (SIGINT)
+takes back the jobs that have not started.
 The host has no C compiler, so put a DockQ wheel built elsewhere at `<root>/prereq/`.
 
 Wormhole has size-ladder baselines but no `perf_baselines.json` cell. The first Wormhole gate seeds
