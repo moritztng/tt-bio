@@ -36,6 +36,8 @@ import re
 import shutil
 from pathlib import Path
 
+from .envflags import env_flag
+
 ARCHES = ("wormhole_b0", "blackhole")
 _SFPU = "tt_metal/hw/ckernels/{arch}/metal/llk_api/llk_sfpu"
 
@@ -214,7 +216,7 @@ def blackhole_host() -> bool:
 
 def ensure_bh_dram_read_split() -> Path | None:
     """``bh_dram_read_split`` on a Blackhole host. Returns the overlay, or None when not applied."""
-    if os.environ.get("TT_BIO_BH_DRAM_READ_SPLIT", "1") == "0":
+    if not env_flag("TT_BIO_BH_DRAM_READ_SPLIT", True):
         return None
     if "TT_METAL_RUNTIME_ROOT" in os.environ and "TT_BIO_METAL_OVERLAY" not in os.environ:
         return None
