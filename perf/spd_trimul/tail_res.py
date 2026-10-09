@@ -127,6 +127,36 @@ for res in ((False, True) if A.split else ()):
         if False in ms_of and True in ms_of:
             rec["speedup"] = round(ms_of[False] / ms_of[True], 3)
     print(json.dumps(rec), flush=True)
+if A.split and True in got:
+    # The pair mask folded into the split epilogue: a must be the unmasked a times m[x, y], b unchanged.
+    TT.set_res(True)
+    mh = (torch.rand(1, A.n, A.n, generator=g) > 0.2).to(torch.bfloat16)
+    md = up(mh)
+    x4 = up(h["xa"].reshape(1, A.n, A.n, 256))
+    rec = {"epi": 1, "shared": True, "split": 2, "res": True, "mask": True, "mask_ok": TT.mask_ok(md, x4, d["wa"])}
+    try:
+        f = lambda: TT.fused_tail(x4, x4, d["wa"], d["wb"], ckc, grid, split=2, mask=md)
+        ys = f(); ttnn.synchronize_device(dev)
+        y = torch.cat([ttnn.to_torch(t) for t in ys], -1).reshape(h["z"].shape)
+        want = got[True].clone()
+        want[..., :128] *= mh.reshape(1, -1, 1)
+        rec["equal"] = bool(torch.equal(y, want))
+        rec["max_abs"] = float((y.float() - want.float()).abs().max())
+        rec["n_diff"] = int((y != want).sum())
+        ms = []
+        for _ in range(A.reps):
+            t0 = time.perf_counter()
+            outs = [f() for _ in range(A.calls)]
+            ttnn.synchronize_device(dev)
+            ms.append((time.perf_counter() - t0) * 1e3 / A.calls)
+            for o in outs:
+                for t in o:
+                    ttnn.deallocate(t)
+        rec["ms"] = round(min(ms), 4)
+        rec["vs_unmasked_ms"] = ms_of.get(True)
+    except Exception as e:                                                    # noqa: BLE001
+        rec["err"] = str(e).splitlines()[0][:300]
+    print(json.dumps(rec), flush=True)
 TT.set_res(False)
 TT.set_epi(2)
 for abl in [int(a) for a in A.abl.split(",") if a]:

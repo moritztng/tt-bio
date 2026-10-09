@@ -270,6 +270,16 @@ def _repack(entry):
 # sigmoid (~2.0 ms) and the GEMM math (~1.8 ms) serialized on the math thread, over a 3.7 ms data
 # floor (perf/spd_trimul/tail_res.py --abl). bf16, one K block, DRAM output, no split.
 RES = env_flag("TT_BIO_TRIMUL_TAIL_RES", True)
+# The gated in-projection's pair mask folded into the resident epilogue (`mask_ok`).
+MASK_FOLD = env_flag("TT_BIO_TRIMUL_MASK_FOLD", True)
+MASK_STATS = [0]     # calls that folded the mask
+
+
+def set_mask_fold(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global MASK_FOLD
+    prev, MASK_FOLD = MASK_FOLD, bool(on)
+    return prev
 RES_ABL = 0          # the resident compute's stage ablation (see its compute.cpp). Diagnostic only.
 RES_STATS = [0, 0]   # served by the resident program, declined to the 2D one
 
@@ -288,7 +298,21 @@ def _res_ok(xa, wa, epi, split, mem):
             and wa.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
 
 
-def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared):
+def mask_ok(mask, xa, wa):
+    """Whether `fused_tail(..., split=2, mask=mask)` can fold the pair mask into the resident
+    epilogue: a bf16 tiled DRAM [B, S, S] mask, S a whole number of tiles, and the activation
+    [B, S, S, K] so its flattened rows are the mask's (b, x, y)."""
+    if not (RES and MASK_FOLD) or mask is None or len(mask.shape) != 3:
+        return False
+    B, S, S2 = (int(d) for d in mask.shape)
+    return (S == S2 and S % TILE == 0 and tuple(int(d) for d in mask.padded_shape) == (B, S, S)
+            and mask.dtype == ttnn.bfloat16 and mask.layout == ttnn.TILE_LAYOUT
+            and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+            and [int(d) for d in xa.shape][:-1] in ([B, S, S], [1, B, S, S])
+            and _tiles(wa.shape[-1]) % 8 == 0)
+
+
+def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared, mask=None):
     Mb = block[0]
     sbw = block[4]
     kt, nt = _tiles(wa.shape[-2]), _tiles(wa.shape[-1])
@@ -312,14 +336,15 @@ def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared):
         b0 += n
     assert b0 == nb, (b0, nb)
     resid = int(epi == 2)
+    S_t = int(mask.shape[-1]) // TILE if mask is not None else 0
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     d = KERNEL_DIR.parent / "trimul_tail_res"
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, int(shared), resid] + acc(xa) + acc(wa) + acc(xb)
-        + acc(wb) + acc(outs[0]),
-        runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
+        + acc(wb) + acc(outs[0]) + [int(mask is not None), S_t] + acc(mask if mask is not None else xa),
+        runtime_args=rd, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[nt, Mb, len(outs)] + acc(outs[0]) + acc(outs[-1]),
@@ -327,7 +352,8 @@ def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared):
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, Mb, sbw, int(shared), resid, RES_ABL], runtime_args=cp,
+        compile_time_args=[kt, nt, Mb, sbw, int(shared), resid, RES_ABL, int(mask is not None)],
+        runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
@@ -336,16 +362,19 @@ def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared):
            _cb(2, core_grid, 2 * blk), _cb(4, core_grid, blk), _cb(5, core_grid, blk)]
     if resid:
         cbs.append(_cb(7, core_grid, 2 * blk))
+    if mask is not None:
+        cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 2 * Mb)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def _run_res(entry, xa, xb, wa, wb, outs):
+def _run_res(entry, xa, xb, wa, wb, outs, mask=None):
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [xa.buffer_address(), wa.buffer_address(), xb.buffer_address(),
-                                  wb.buffer_address(), outs[0].buffer_address()]
+                                  wb.buffer_address(), outs[0].buffer_address(),
+                                  (mask if mask is not None else xa).buffer_address()]
     writer.common_runtime_args = [outs[0].buffer_address(), outs[-1].buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([xa, wa, xb, wb, *outs], pd)
+    ttnn.generic_op([xa, wa, xb, wb, *outs] + ([mask] if mask is not None else []), pd)
 
 
 _CACHE: dict = {}
@@ -381,12 +410,14 @@ def _alloc_out(shape, device, mem):
     return out, mem
 
 
-def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, split=1):
+def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, split=1, mask=None):
     """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope.
 
     `xa is xb` (the trimul in-projection: p and g of one activation) reads each activation block
     once for both passes. `split` > 1 writes the product as that many equal column chunks, separate
-    tensors, and returns them as a list (no residual then).
+    tensors, and returns them as a list (no residual then). With `split=2` and `mask` (only where
+    `mask_ok`) the first chunk comes out multiplied by the pair mask; None if the resident program
+    does not serve the call, so a mask is never silently dropped.
 
     With `resid` and EPI == 2 it computes `resid + p * sigmoid(g)` into `resid` itself and returns
     `resid` (the caller's in-place add is then already done: `_add_input` sees `u is x`). Any
@@ -434,13 +465,19 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
             outs.append(out)
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
            ABL, epi, str(mem), _block(wa), shared, split)
+    if mask is not None and not (split == 2 and mask_ok(mask, xa, wa)
+                                 and _res_ok(xa, wa, epi, split, mem) and not ABL):
+        for o in outs:
+            ttnn.deallocate(o)
+        return _reject("mask", "x".join(str(int(d)) for d in mask.padded_shape))
     if _res_ok(xa, wa, epi, split, mem) and not ABL:
-        key = ("res", RES_ABL) + key
+        key = ("res", RES_ABL, None if mask is None else str(mask.padded_shape)) + key
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs, grid, ckc, _block(wa), epi,
-                                             shared)
-        _run_res(entry, xa, xb, wa, wb, outs)
+                                             shared, mask)
+        _run_res(entry, xa, xb, wa, wb, outs, mask)
+        MASK_STATS[0] += mask is not None
         STATS[0] += 1
         RES_STATS[0] += 1
         return outs if split > 1 else outs[0]

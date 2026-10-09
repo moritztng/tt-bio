@@ -7,7 +7,11 @@
 // order) and are never popped. The epilogue is trimul_tail's EPI 1 / 2 op for op (one K block
 // accumulated in DST in k order, each pass packed straight to bf16, sigmoid in DST on the gate
 // pass, FPU multiply, residual added in DST), so the output is the same bits.
+// MASK (gated in-projection, no residual): the first Nt / 2 columns (a) are p * (sigmoid(g) * m) with
+// m the pair mask of the tile's 32 rows, column 0 of c_6 broadcast across columns. For a 0/1 mask
+// that is the bits of the unmasked product or zero.
 #include "api/compute/compute_kernel_api.h"
+#include "api/compute/bcast.h"
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/tile_move_copy.h"
@@ -29,6 +33,7 @@ void kernel_main() {
     // Diagnostic stage ablation, 0 in production (output garbage otherwise): bit 1 no sigmoid,
     // bit 2 no matmul, bit 4 no gate math (the out block is still packed).
     constexpr uint32_t ABL = get_compile_time_arg_val(6);
+    constexpr uint32_t MASK = get_compile_time_arg_val(7);
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t in0_cb = tt::CBIndex::c_0;
@@ -37,6 +42,7 @@ void kernel_main() {
     constexpr uint32_t p_cb = tt::CBIndex::c_4;
     constexpr uint32_t g_cb = tt::CBIndex::c_5;
     constexpr uint32_t z_cb = tt::CBIndex::c_7;
+    constexpr uint32_t m_cb = tt::CBIndex::c_6;
     constexpr uint32_t blk = Mb * Nt;
 
     sigmoid_tile_init();
@@ -77,12 +83,21 @@ void kernel_main() {
         cb_wait_front(p_cb, blk);
         cb_wait_front(g_cb, blk);
         if constexpr (RESID) cb_wait_front(z_cb, blk);
+        if constexpr (MASK) cb_wait_front(m_cb, Mb);
         cb_reserve_back(out_cb, blk);
         reconfig_data_format(p_cb, g_cb);
         pack_reconfig_data_format(out_cb);
         for (uint32_t t0 = 0; t0 < blk; t0 += 4) {
             tile_regs_acquire();
-            if constexpr (!(ABL & 4)) {
+            if (MASK && t0 % Nt < Nt / 2) {
+                mul_bcast_cols_init_short(g_cb, m_cb);
+                for (uint32_t i = 0; i < 4; ++i) mul_tiles_bcast_cols(g_cb, m_cb, t0 + i, t0 / Nt, i);
+                binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                    p_cb);
+                for (uint32_t i = 0; i < 4; ++i)
+                    binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                        p_cb, t0 + i, i);
+            } else if constexpr (!(ABL & 4)) {
             mul_tiles_init(p_cb, g_cb);
             for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, g_cb, t0 + i, t0 + i, i);
             }
@@ -102,5 +117,6 @@ void kernel_main() {
         cb_pop_front(p_cb, blk);
         cb_pop_front(g_cb, blk);
         if constexpr (RESID) cb_pop_front(z_cb, blk);
+        if constexpr (MASK) cb_pop_front(m_cb, Mb);
     }
 }

@@ -8591,6 +8591,7 @@ class TriangleMultiplication(Module):
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
                     a_chunk = b_chunk = None
+                    a_masked = False
                     # Set only where the chunk really was left in the move's own (0,3,1,2)
                     # layout. All three channel-move branches can leave it there now; the census
                     # below records which one each call took.
@@ -8622,12 +8623,16 @@ class TriangleMultiplication(Module):
                         # x, each activation block read once for both passes, a and b written as
                         # two tensors. Only the plain channel moves are left.
                         wa, wb = self._gp_in_gated(chunk_size, group)[i]
+                        # The pair mask rides in the same kernel where it can (`a` only, row-wise
+                        # m[x, y] before the move, which is what the moved multiply below applies).
+                        fold = mask is not None and _trimul_tail.mask_ok(mask, x_norm_in, wa)
                         ab = _trimul_tail.fused_tail(
                             x_norm_in, x_norm_in, wa, wb,
                             _mm_generic.ckc_args(self.compute_kernel_config),
-                            tuple(COMPUTE_GRID_MAIN), split=2)
+                            tuple(COMPUTE_GRID_MAIN), split=2, mask=mask if fold else None)
                         branch = "gated-inproj-declined"
                         if ab is not None:
+                            a_masked = fold
                             # No reallocate: freeing ab[0] leaves a hole under a_chunk, so it would
                             # copy the whole chunk (1.3 ms at 736 on WH). The chunks end up above
                             # the freed projection either way, as on the gated-move route.
@@ -8751,7 +8756,7 @@ class TriangleMultiplication(Module):
                             if defer:
                                 defer_a = perm_a == (0, 3, 2, 1)
                                 defer_b = perm_b == (0, 3, 2, 1)
-                    if mask_moved_ok:
+                    if mask_moved_ok and not a_masked:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`
                         # into a fresh tensor and deallocate -- same bytes, one more allocation.
