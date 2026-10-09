@@ -531,6 +531,8 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
 GIN_MOVE = env_flag("TT_BIO_TRIMUL_GIN_MOVE", True)
 GIN_MOVE_STATS = [0, 0]   # served, declined
 GIN_MOVE_ABL = 0          # the three kernels' stage ablation bits (see each .cpp). Diagnostic only.
+# The gate's sigmoid as a degree-8 polynomial (kernels/trimul_gin_moved/compute.cpp), max |error| 3e-4.
+GIN_SIGPOLY = env_flag("TT_BIO_TRIMUL_GIN_SIGPOLY", False)
 GIN_MOVE_NB = int(os.environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))   # writer tiles per read barrier
 
 
@@ -595,7 +597,8 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask):
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL], runtime_args=cp,
+        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, int(GIN_SIGPOLY)],
+        runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
@@ -622,7 +625,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
                                            ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
             for _ in range(2)]
     key = ("gin_move", str(x.padded_shape), str(wpT.padded_shape), tuple(grid),
-           tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB)
+           tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, GIN_SIGPOLY)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask)

@@ -21,6 +21,48 @@ ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
 }
 
+#ifdef TRISC_MATH
+#include "llk_math_eltwise_unary_sfpu_params.h"
+#include "sfpi.h"
+
+namespace ckernel {
+namespace sfpu {
+// sigmoid(x) = 0.5 + sign(x) * h(t), t = min(|x| / 9, 1), h a degree-8 polynomial with h(0) = 0 fitted
+// (weighted minimax) to sigmoid(9 t) - 0.5 on [0, 1]. Max |error| 3.0e-4 over all x in float32 (bf16's
+// half-ULP is 1-2e-3 above 0.25), output inside (0, 1). ~25 SFPU instructions against ~55 for
+// exp_21f + reciprocal, and the sigmoid was 3.3 of gin_moved's 7.3 ms at 736 on WH (stage ablation).
+template <int ITERATIONS = 8>
+inline void _sigmoid_poly_() {
+    const sfpi::vFloat c8 = 9.57322883605957f, c7 = -51.5362548828125f, c6 = 114.75630187988281f,
+                       c5 = -135.66062927246094f, c4 = 89.25188446044922f, c3 = -29.09324073791504f,
+                       c2 = 0.9815341234207153f, c1 = 2.2268805503845215f;
+#pragma GCC unroll 8
+    for (int d = 0; d < ITERATIONS; d++) {
+        sfpi::vFloat x = sfpi::dst_reg[0];
+        sfpi::vFloat t = sfpi::abs(x) * 0.1111111119389534f;
+        v_if(t > 1.0f) { t = 1.0f; }
+        v_endif;
+        sfpi::vFloat h = c8 * t + c7;
+        h = h * t + c6;
+        h = h * t + c5;
+        h = h * t + c4;
+        h = h * t + c3;
+        h = h * t + c2;
+        h = h * t + c1;
+        h = h * t;
+        sfpi::dst_reg[0] = sfpi::setsgn(h, x) + 0.5f;
+        sfpi::dst_reg++;
+    }
+}
+}  // namespace sfpu
+}  // namespace ckernel
+#endif  // TRISC_MATH
+
+ALWI void sigmoid_poly_tile(uint32_t idst) {
+    MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
+        ckernel::sfpu::_sigmoid_poly_<8>, idst, (int)VectorMode::RC)));
+}
+
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
     constexpr uint32_t CT2 = get_compile_time_arg_val(1);
@@ -28,6 +70,7 @@ void kernel_main() {
     constexpr uint32_t MASK = get_compile_time_arg_val(3);
     // Stage ablation, diagnostic only: bit 0 no sigmoid, bit 1 no gate multiply, bit 4 no matmul.
     constexpr uint32_t ABL = get_compile_time_arg_val(4);
+    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(5);   // 1: the polynomial sigmoid above
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -59,7 +102,10 @@ void kernel_main() {
                         matmul_block(w_cb, x_cb, i0, i1, 0, true, SBW, 1, Kt);
                     }
                     if (pass == 1 && !(ABL & 1)) {
-                        for (uint32_t i = 0; i < SBW; ++i) sigmoid_bf16_tile(i);
+                        for (uint32_t i = 0; i < SBW; ++i) {
+                            if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                            else sigmoid_bf16_tile(i);
+                        }
                     }
                     tile_regs_commit();
                     tile_regs_wait();

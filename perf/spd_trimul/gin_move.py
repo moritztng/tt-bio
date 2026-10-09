@@ -18,6 +18,7 @@ ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--nomask", action="store_true")
 ap.add_argument("--abl", default="", help="time only, moved route: stage ablation bits, e.g. 1,2,4,8,16")
 ap.add_argument("--nb", default="", help="time only, moved route: writer tiles per read barrier, e.g. 1,4,8")
+ap.add_argument("--sigpoly", action="store_true", help="add a 'moved_poly' route: the polynomial sigmoid")
 ap.add_argument("--only-timing", action="store_true", help="skip the two-route check, run only --abl/--nb")
 A = ap.parse_args()
 
@@ -102,7 +103,16 @@ if A.only_timing:
     sys.exit(0)
 
 out = {}
-for name, f in (("today", today), ("moved", moved)):
+def moved_poly():
+    TT.GIN_SIGPOLY = True
+    try:
+        return moved()
+    finally:
+        TT.GIN_SIGPOLY = False
+
+
+routes = (("today", today), ("moved", moved)) + ((("moved_poly", moved_poly),) if A.sigpoly else ())
+for name, f in routes:
     rec = {"route": name}
     try:
         res = f()
@@ -127,7 +137,7 @@ for name, f in (("today", today), ("moved", moved)):
     except Exception as e:  # noqa: BLE001
         rec["error"] = f"{type(e).__name__}: {e}"[:400]
     print(json.dumps(rec), flush=True)
-if len(out) == 2:
+if "today" in out and "moved" in out:
     d = [float((a.float() - b.float()).abs().max()) for a, b in zip(out["today"], out["moved"])]
     ne = [int((a != b).sum()) for a, b in zip(out["today"], out["moved"])]
     print(json.dumps({"max_abs_today_vs_moved": d, "differing": ne, "of": out["today"][0].numel()}))

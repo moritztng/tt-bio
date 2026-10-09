@@ -31,6 +31,9 @@ def _rel_rms(a, b):
 @pytest.mark.parametrize("n,masked", [(64, True), (160, True), (160, False)])
 def test_gin_moved_matches_split_route_and_float64(n, masked, monkeypatch):
     dev = T.get_device()
+    # Production's fidelity (trunk_hifi3): HiFi4 with fp32 accumulation returns wrong values on some
+    # row blocks on Wormhole, in both routes, which this test would otherwise be measuring.
+    monkeypatch.setattr(T, "_TRUNK_MATH_FIDELITY", "hifi3")
     monkeypatch.setattr(TTL, "GIN_MOVE", True)
     monkeypatch.setattr(TTL, "EPI", 1)       # the resident split route needs the lean epilogue
     g = torch.Generator().manual_seed(n)
