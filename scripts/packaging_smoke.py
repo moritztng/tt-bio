@@ -40,6 +40,7 @@ UX gates. See the v0.3.4 changelog for the incident this prevents.
 """
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -83,10 +84,15 @@ def _build() -> tuple[Path, Path]:
     dist = REPO_ROOT / "dist"
     if dist.exists():
         shutil.rmtree(dist)
-    subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--quiet", "build"],
-                   check=True, timeout=PIP_TIMEOUT_S)
-    subprocess.run([sys.executable, "-m", "build", "--quiet"], cwd=REPO_ROOT,
-                   check=True, timeout=BUILD_TIMEOUT_S)
+    # `build` goes into a scratch dir, not this interpreter: installing it here changed the
+    # release gate's venv on one host, and the next gate refused the two hosts as different.
+    with tempfile.TemporaryDirectory() as tools:
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--target", tools,
+                        "build"], check=True, timeout=PIP_TIMEOUT_S)
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(
+            filter(None, [tools, os.environ.get("PYTHONPATH")]))}
+        subprocess.run([sys.executable, "-m", "build", "--quiet"], cwd=REPO_ROOT, env=env,
+                       check=True, timeout=BUILD_TIMEOUT_S)
     wheels = sorted(dist.glob("tt_bio-*.whl"))
     sdists = sorted(dist.glob("tt_bio-*.tar.gz"))
     if not wheels or not sdists:

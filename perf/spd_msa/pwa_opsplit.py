@@ -8,6 +8,7 @@ transposed formulation that skips most of the head regrouping.
   multiplies in that layout, and the output projection contracts the channel axis with transpose_a.
   Same products and sums, so graded against the same float64 reference as bench_msa_ops.py.
 
+* tchain: permfirst with each permute as a WH and an HC transpose.
 * permfirst: one tiled permute puts the channel axis outermost, [H*hd, rows, T]; (head, dim) regroups by views.
 
 usage: TT_VISIBLE_DEVICES=<chip> python pwa_opsplit.py OUT [ROWS=512] [TOKENS=736] [REPS=5] [ARMS=a,b,..]
@@ -118,6 +119,22 @@ def permfirst(s):
     s("o_proj", lambda x: ttnn.linear(x, Wo, **lin))
 
 
+def tchain(s):
+    """permfirst with each permute as two tiled transposes: [rows, T, C] -> WH -> [rows, C, T] -> HC -> [C, rows, T]
+    and back, the moves ttnn has dedicated tile kernels for."""
+    rows, T = ROWS, T_
+    s("v", lambda: ttnn.linear(mc, Wv, **lin))
+    s("v_tWH", lambda x: ttnn.transpose(ttnn.reshape(x, (1, rows, T, H * HD)), 2, 3))       # [1, rows, C, T]
+    s("v_tHC", lambda x: ttnn.transpose(x, 1, 2))                                           # [1, C, rows, T]
+    s("v_view", lambda x: ttnn.reshape(x, (H, HD * rows, T)))
+    s("head_mm_T", lambda x: ttnn.matmul(x, W, transpose_b=True, **lin))
+    s("o_tHC", lambda x: ttnn.transpose(ttnn.reshape(x, (1, H * HD, rows, T)), 1, 2))      # [1, rows, C, T]
+    s("o_tWH", lambda x: ttnn.reshape(ttnn.transpose(x, 2, 3), (rows, T, H * HD)))          # [rows, T, C]
+    s("g", lambda x: (x, ttnn.linear(mc, Wg, **lin)), keep=True)
+    s("gate_mul", lambda xg: ttnn.multiply_(xg[0], xg[1], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]))
+    s("o_proj", lambda x: ttnn.linear(x, Wo, **lin))
+
+
 def run(name, body):
     """Each rep runs the chain once with a sync after every step; per-step ms is the median over reps."""
     steps, total, out = {}, [], None
@@ -154,7 +171,8 @@ for name, body in ((a, globals()[a]) for a in ARMS):
         res[name] = run(name, body)
     except Exception as e:
         log(ev="fail", arm=name, err=str(e)[:400])
-for a in (a for a in res if a != "unpadded" and "unpadded" in res):
-    d = (res[a].double() - res["unpadded"].double()).abs()
-    log(ev="ab", arm=a, max_abs=float(d.max()), bitident=bool(torch.equal(res[a], res["unpadded"])))
+BASE = "permfirst" if "permfirst" in res else "unpadded"
+for a in (a for a in res if a != BASE and BASE in res):
+    d = (res[a].double() - res[BASE].double()).abs()
+    log(ev="ab", arm=a, base=BASE, max_abs=float(d.max()), bitident=bool(torch.equal(res[a], res[BASE])))
 log(ev="end")

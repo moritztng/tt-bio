@@ -1654,6 +1654,19 @@ def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     proc = subprocess.Popen(cmd, start_new_session=True, **popen_kw)
     try:
         rc = proc.wait(timeout=timeout)
+    except KeyboardInterrupt:
+        # Its own session also hides the fold from the SIGINT that stops this gate (a terminal,
+        # or `timeout -s INT` at gate_fanout's leg budget). Leaving it running orphaned a census
+        # fold on .107 chip 17 on 2026-10-09, holding the device after the chip's flock was
+        # released. Pass the SIGINT on so the fold closes the chip itself, then escalate.
+        import signal
+        try:
+            os.killpg(proc.pid, signal.SIGINT)
+            proc.wait(timeout=120)
+        except Exception:
+            pass
+        _kill_group(proc)
+        raise
     except subprocess.TimeoutExpired:
         _kill_group(proc)
         # The kill is only half the recovery. A killed fold leaves the card un-reinitialisable,
