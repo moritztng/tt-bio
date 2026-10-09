@@ -608,7 +608,8 @@ def bfp8_fidelity(ckc, a: ttnn.Tensor, b: ttnn.Tensor):
     HiFi2's two phases multiply srcA's high and low halves by srcB's high half, which already covers
     every mantissa bit a bfloat8_b value carries, so HiFi3/HiFi4 only add phases that multiply zeros:
     same bytes, fewer cycles (fast pair fc3, WH 8x9, AICLK 1000: 130.3 -> 118.1 us, digest identical at
-    HiFi4/3/2, perf/spd_swiglu/shard_bench.py --stages).
+    HiFi4/3/2, perf/spd_swiglu/shard_bench.py --stages). The fast Transition module, digest identical:
+    WH sharded 42.15 -> 41.12 ms, BH 19.37 -> 18.42 ms (perf/spd_swiglu/b8fid_check.py).
     """
     if (ckc is None or ckc.math_fidelity not in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)
             or a.dtype != ttnn.bfloat8_b or b.dtype != ttnn.bfloat8_b):
@@ -11321,9 +11322,12 @@ class Transition(Module):
             ttnn.deallocate(x_norm)
             x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
+            # Not on Wormhole: there this fc3 accumulates K blocks of 8 in an fp32 dest, and HiFi2 moves one
+            # element of 1.9M by 9.5e-7 (pair 736, b8fid_check --repeat 3, deterministic either way).
+            ckc = self.compute_kernel_config
             x_dram = _transition_linear(
                 "fc3", x, self.fc3_weight,
-                compute_kernel_config=bfp8_fidelity(self.compute_kernel_config, x, self.fc3_weight),
+                compute_kernel_config=ckc if is_wormhole() else bfp8_fidelity(ckc, x, self.fc3_weight),
                 dtype=dtype,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
