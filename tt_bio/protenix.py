@@ -1979,7 +1979,10 @@ class ConfidenceHead:
         z = ttnn.add(rc["z_base"], self._dev_lin(oh, "linear_no_bias_d.weight"))
         z = ttnn.add(z, self._dev_lin(d3, "linear_no_bias_d_wo_onehot.weight"))
         # ---- confidence Pairformer (device, z stays resident) ----
-        so, zo = bucketed_pairformer(self.pf, rc["s_t"], z, self.dev)        # (1,N,384),(1,N,N,c_z)
+        # The pairformer adds its residuals into s in place, so every sample gets its own copy of the
+        # cached s_t. Handed s_t itself, sample k started from sample k-1's output: pLDDT 0.768 on
+        # sample 0, then 0.746, 0.731, 0.722, 0.718 where the host path reads 0.767-0.768 (c730).
+        so, zo = bucketed_pairformer(self.pf, ttnn.clone(rc["s_t"]), z, self.dev)  # (1,N,384),(1,N,N,c_z)
         # ---- heads on device ----
         zof = ttnn.reshape(zo, (1, N, N, zo.shape[-1]))                      # c_z: 256 v2, 128 v1
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
