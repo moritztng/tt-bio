@@ -17,7 +17,8 @@ for arm, rs in runs.items():
         e = r0["exact"]
         same = all(r.get("exact") == e for r in rs)
         print(f"exact: max_rel {e['max_rel']:.3g} at {e['at']}, p99.9 {e['p999_rel']:.3g}, bf16 flips "
-              f"{e['bf16_differs']:.3g}, finite {e['finite']}, same every round {same}")
+              f"{e['bf16_differs']:.3g}, finite {e['finite']}, same every round {same}, digests {e.get('digest')} "
+              f"{e.get('digest_fp32_in')}")
     for name in r0.get("ops", {}):
         cells = []
         for kind in ("fused", "matmul", "unfused"):

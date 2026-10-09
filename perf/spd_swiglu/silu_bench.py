@@ -21,6 +21,7 @@ transition: the real Transition module on the whole pair tensor (row blocking in
   inside `levers("silu_f32")`, base arm without it.
 """
 import argparse
+import hashlib
 import json
 import os
 import statistics as st
@@ -133,8 +134,17 @@ if "exact" not in skip:
                         at=float(x64[ok][int(rel.argmax())]),
                         bf16_differs=float((bf16_round(got[ok]) != bf16_round(ref[ok])).double().mean()),
                         finite=bool(torch.isfinite(got).all()))
+    res["exact"]["digest"] = hashlib.sha256(got.to(torch.float32).numpy().tobytes()).hexdigest()[:16]
+    # fp32 dest values that are not bf16: fp32 x @ I. The product is not exact, but every arm gets the same
+    # dest bits, so equal digests across kernels mean equal silu bits on these inputs too.
+    g = torch.Generator().manual_seed(7)
+    X = 4 * torch.randn(1, 1, 32768, 32, generator=g)
+    xt32 = ttnn.from_torch(X, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+    o32 = ttnn.linear(xt32, it, activation="silu", compute_kernel_config=CKC, dtype=ttnn.float32,
+                      core_grid=T.CORE_GRID_MAIN)
+    res["exact"]["digest_fp32_in"] = hashlib.sha256(ttnn.to_torch(o32).to(torch.float32).numpy().tobytes()).hexdigest()[:16]
     print(json.dumps({"exact": res["exact"]}), flush=True)
-    for t in (xt, it, o):
+    for t in (xt, it, o, xt32, o32):
         ttnn.deallocate(t)
 
 
