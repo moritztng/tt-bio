@@ -91,7 +91,7 @@ def _packed_identity_scalar():
 
 
 def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None,
-         kv_buffer_factor=2, rows=None):
+         kv_buffer_factor=2, rows=None, streaming=False):
     """Everything the descriptor needs, derived exactly as the factory derives it.
 
     `split` overrides `(batch_parallel_factor, nh_parallel_factor, q_parallel_factor)`. The
@@ -144,7 +144,10 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
     qk_in0_ns, qk_in1_ns = Sq_chunk_t // qk_sb_h, Sk_chunk_t // qk_sb_w
     qk_num_blocks = DHt // qk_in0_block_w
     out_in0_block_w = Sk_chunk_t
-    out_sb_h, out_sb_w = largest_subblock(Sq_chunk_t, vDHt, dst_size)
+    # The streaming compute normalizes and drains two output rows at a time; the factory caps the out
+    # subblock height at 2 for it (:435). Uncapped, TA's
+    # 8x1 subblock was the suspect when the streaming arm came out finite but wrong (rel 1.3 vs f64).
+    out_sb_h, out_sb_w = largest_subblock(Sq_chunk_t, vDHt, dst_size, 2 if streaming else None)
     out_in0_ns, out_in1_ns = Sq_chunk_t // out_sb_h, vDHt // out_sb_w
     out_num_blocks = Sk_chunk_t // out_in0_block_w
 
@@ -617,7 +620,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if rows is not None:
         assert not (merged_out or qkv_fused or kv_window or fuse_qkv or gate or css or keypad), "plain reads only"
     p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
-             kv_buffer_factor, rows)
+             kv_buffer_factor, rows, streaming="STREAM_PMASK" in dict(defines_extra or {}))
     if css is not None:
         assert kv_window is None and qkv_fused is None and fuse_qkv is None and gate is None
         css_w = css_width(p["k_num_chunks"])
