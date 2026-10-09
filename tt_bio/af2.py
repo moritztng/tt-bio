@@ -200,12 +200,14 @@ def af2_pair_masks(mask_2d: torch.Tensor,
 
 
 def compute_kernel_config() -> ttnn.DeviceComputeKernelConfig:
-    """The repo's trunk kernel config: HiFi4 with an fp32 accumulator, per part."""
+    """The repo's trunk kernel config: HiFi4 (HiFi3 under `autograd.PRECISE_HIFI3`) with an fp32
+    accumulator, per part."""
+    from tt_bio.autograd import precise_fidelity
     device = get_device()
     cls = (ttnn.types.WormholeComputeKernelConfig
            if device.arch() == ttnn.Arch.WORMHOLE_B0
            else ttnn.types.BlackholeComputeKernelConfig)
-    return cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+    return cls(math_fidelity=precise_fidelity(), math_approx_mode=False,
                fp32_dest_acc_en=True, packer_l1_acc=True)
 
 
