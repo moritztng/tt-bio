@@ -17,6 +17,9 @@ export TT_METAL_CACHE=$B/cache-$CHIP TT_METAL_LOGS_PATH=$B/tt-logs
 export TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_DIR=$B/leases TT_BIO_LEASE_HOLDER=spd-census
 export TT_METAL_DEVICE_PROFILER=1 TT_METAL_PROFILER_MID_RUN_DUMP=1 TT_METAL_PROFILER_CPP_POST_PROCESS=1 \
        TT_METAL_PROFILER_DISABLE_DUMP_TO_FILES=1
+# Without a Tracy server attached, every device marker pushed to Tracy stays queued in this process: r4b grew to
+# 257 GB RSS in one c730 fold and was OOM-killed. census.py reads the analyses, not Tracy, so do not push.
+export TT_METAL_PROFILER_DISABLE_PUSH_TO_TRACY=1
 mkdir -p "$RUN" "$TT_BIO_LEASE_DIR" "$TT_METAL_CACHE"
 # The profiler keys device zones by a 16-bit hash of "name,file,line" and throws on a collision. Its zone log
 # lives in TT_METAL_HOME and keeps every tree's kernel paths, so after a few trees two of them collide (r4: tree2's

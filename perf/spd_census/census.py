@@ -21,7 +21,7 @@ reads them unchanged.
     python perf/spd_census/census.py --out r1/normal --chip 31 --arm exact --input c730
     python perf/spd_census/census.py --out r1/fast   --chip 31 --arm fast:fast --input c730
 """
-import argparse, glob, json, os, subprocess, sys, threading, time
+import argparse, glob, json, os, resource, subprocess, sys, threading, time
 from pathlib import Path
 
 ap = argparse.ArgumentParser()
@@ -321,7 +321,7 @@ for name, cyc, steps in FOLDS:
     log(ev="fold", fold=name, wall_s=t1 - t0, err=err, n_ops=ST["nops"], n_sigs=len(SIGS), n_progs=ST["nprog"],
         missing=ST["missing"], flush=FLUSH[0], n_flush=ST["batch"], cycles=CUR["cyc"] + 1, steps=CUR["step"] + 1,
         aiclk_n=len(clk), aiclk_median=clk[len(clk) // 2] if clk else None, aiclk_min=clk[0] if clk else None,
-        aiclk_max=clk[-1] if clk else None,
+        aiclk_max=clk[-1] if clk else None, maxrss_gb=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 1),
         metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "n_residues", "msa_depth") if k in metrics})
 log(ev="end")
 os._exit(0)
