@@ -42,8 +42,9 @@ def test_blackhole_grid_takes_eight_columns(monkeypatch):
     assert tt._transition_shard_grid(230, 32, 8) == (8, 10)
 
 
-def test_lever_is_graded_into_both_modes():
+def test_lever_is_named_and_in_no_mode():
+    # Withdrawn: its sharded configs write O(1) wrong values on Wormhole (perf/spd_swiglu/outlier_ab.py).
     assert "transition_shard" in tt.LEVERS
-    assert "transition_shard" not in tt.UNGRADED_LEVERS
-    assert "transition_shard" in tt.NORMAL_LEVERS & tt.FAST_LEVERS
+    assert "transition_shard" in tt.UNGRADED_LEVERS
+    assert not {"transition_shard"} & (tt.NORMAL_LEVERS | tt.FAST_LEVERS)
     assert "transition_shard" in tt.LATCH_STATS

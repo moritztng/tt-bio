@@ -513,7 +513,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "transition_bw", "transition_shard")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "transition_shard"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -538,8 +538,10 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # 0.326 A (floor 0.944 A), CA-lDDT +0.0013 [+0.0004, +0.0025], docking 34/44 both. c730 on a Galaxy chip
 # at AICLK 1000, warm A/B/A: normal 273.9 -> 270.0 s, fast 223.9 -> 216.3 s (spd-swiglu 2026-10-09).
 # It fires on the small (Wormhole) grids only until Blackhole has its own measurement.
-NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32",
-                           "transition_shard"})
+# WITHDRAWN from both modes: on Wormhole at the trunk's HiFi3 it writes 1-3 output pixels per call off by
+# ~4.0 against float64 (the HiFi4 + fp32-acc erratum class), where the interleaved path writes none
+# (perf/spd_swiglu/outlier_ab.py, 736 and 512 tokens, two seeds). The structure grades could not see it.
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
