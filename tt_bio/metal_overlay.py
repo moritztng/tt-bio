@@ -172,6 +172,11 @@ def _mirror(root: Path, dst: Path, rel: Path) -> None:
 
 def enable(names=("silu_approx",)) -> Path:
     """Point this process's kernel compiler at an overlay with ``names`` applied."""
+    have = os.environ.get("TT_BIO_METAL_OVERLAY")
+    if have is not None:
+        if have != ",".join(sorted(names)):
+            raise RuntimeError(f"metal overlay {have} already enabled in this process, cannot add {names}")
+        return Path(os.environ["TT_METAL_RUNTIME_ROOT"])
     out = build(names)
     os.environ["TT_METAL_RUNTIME_ROOT"] = str(out)
     os.environ["TT_METAL_HOME"] = str(out)
@@ -182,4 +187,5 @@ def enable(names=("silu_approx",)) -> Path:
     # overlay its own cache under the one the process would have used.
     base = os.environ.get("TT_METAL_CACHE") or str(Path.home() / ".cache")
     os.environ["TT_METAL_CACHE"] = str(Path(base) / f"overlay-{out.name}")
+    os.environ["TT_BIO_METAL_OVERLAY"] = ",".join(sorted(names))
     return out

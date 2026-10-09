@@ -435,6 +435,17 @@ def lever(name: str) -> bool:
 _SILU_CKCS = {}
 
 
+def _silu_f32_overlay():
+    """Put the silu_f32 overlay in place for a lever set chosen after import (a model built with
+    levers=...). Kernels compile against it from the first device open on, so after that it is
+    too late: the lever would set approx mode on the wheel's silu and change nothing."""
+    if _device is not None:
+        raise RuntimeError("silu_f32 lever on a device opened without the silu_f32 kernel overlay: "
+                           "set TT_BIO_LEVERS=silu_f32 (or build the model) before the first device open")
+    from . import metal_overlay as _metal_overlay
+    _metal_overlay.enable(("silu_f32",))
+
+
 def silu_ckc(ckc):
     """`ckc` for a matmul with a fused silu: math_approx_mode is the `silu_f32` lever.
 
@@ -444,6 +455,8 @@ def silu_ckc(ckc):
     config in place.
     """
     approx = lever("silu_f32")
+    if approx and os.environ.get("TT_BIO_METAL_OVERLAY") != "silu_f32":
+        _silu_f32_overlay()
     if ckc is None or ckc.math_approx_mode == approx:
         return ckc
     key = (type(ckc), ckc.math_fidelity, ckc.fp32_dest_acc_en, ckc.packer_l1_acc,

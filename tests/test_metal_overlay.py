@@ -81,6 +81,23 @@ def test_enable_gives_the_overlay_its_own_jit_cache(tmp_path, monkeypatch):
     monkeypatch.setenv("TT_METAL_HOME", str(root))
     monkeypatch.setenv("TT_METAL_CACHE", str(tmp_path / "jit"))
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("TT_BIO_METAL_OVERLAY", "")  # recorded, so the enable() below is undone
+    monkeypatch.delenv("TT_BIO_METAL_OVERLAY")
     out = MO.enable(("silu_f32",))
     assert os.environ["TT_METAL_CACHE"] == str(tmp_path / "jit" / f"overlay-{out.name}")
     assert os.environ["TT_METAL_RUNTIME_ROOT"] == str(out)
+
+
+def test_enable_is_idempotent_and_refuses_a_second_overlay(tmp_path, monkeypatch):
+    root = _wheel_root()
+    monkeypatch.setenv("TT_METAL_RUNTIME_ROOT", str(root))
+    monkeypatch.setenv("TT_METAL_HOME", str(root))
+    monkeypatch.setenv("TT_METAL_CACHE", str(tmp_path / "jit"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("TT_BIO_METAL_OVERLAY", "")  # recorded, so the enable() below is undone
+    monkeypatch.delenv("TT_BIO_METAL_OVERLAY")
+    out = MO.enable(("silu_f32",))
+    cache = os.environ["TT_METAL_CACHE"]
+    assert MO.enable(("silu_f32",)) == out and os.environ["TT_METAL_CACHE"] == cache
+    with pytest.raises(RuntimeError):
+        MO.enable(("silu_approx",))
