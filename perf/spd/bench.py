@@ -71,6 +71,13 @@ if a.recycles is None and a.model == "protenix-v2":
     a.recycles = 10
 
 
+def _latches():
+    """Cumulative tenstorrent.LATCH_STATS counters, so a fold shows which tuned paths served or were refused."""
+    tt = sys.modules.get("tt_bio.tenstorrent")
+    return {k: {f: v for f, v in r.items() if f != "why" and v} for k, r in getattr(tt, "LATCH_STATS", {}).items()
+            if any(v for f, v in r.items() if f != "why")}
+
+
 def parse_arm(spec):
     parts = spec.split(":")
     env, fast, lv = {}, False, None
@@ -418,6 +425,6 @@ for name, y in INPUTS:
             metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "n_tokens", "confidence_score")
                      if k in metrics},
             samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
-            struct_dir=str(sdir), **HEAD)
+            struct_dir=str(sdir), latches=_latches(), **HEAD)
 log(ev="end")
 os._exit(0)
