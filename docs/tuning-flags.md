@@ -600,9 +600,9 @@ reaching zero, and docking success is unchanged on Blackhole (32 of 44). The one
 does not reach zero, Blackhole interface RMSD, comes from a single complex whose reference fold lands
 in a different wrong pose; the previous default set scores the same there.
 
-**Speed: 1.94x on the fold**, 501.4 to 259.1 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
+**Speed: 1.99x on the fold**, 501.4 to 252.4 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
 10 recycles) on a Wormhole Galaxy chip at 1000 MHz, warm folds; 119.1 s on a Blackhole p150a at
-1350 MHz. `--fast` takes 208.8 s on Wormhole and about 100 s on Blackhole. These figures also contain
+1350 MHz. `--fast` takes 200.9 s on Wormhole and about 100 s on Blackhole. These figures also contain
 the lossless changes shipped alongside the set.
 
 ## `TT_BIO_LNBW_FUSED`
