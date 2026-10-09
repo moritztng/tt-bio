@@ -19,6 +19,8 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from . import page_copy as _page_copy
+from . import pair_add as _pair_add
+from . import pair_transpose_add as _pair_tr_add
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
 from .eltwise_fusion import scale_add
@@ -545,11 +547,20 @@ _FAST_MODE = False
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
+#   ln_f32          the pair layer norms (trimul in/out, triangle attention, pair bias) with fp32 dest
+#                   accumulation at HiFi3, i.e. normal mode's config, where acc_off would make them
+#                   bf16-DST: on WH at 736, 3.71 -> 2.83 ms per call and rel_rms to float64 0.0054 ->
+#                   0.0018 (the bf16 floor is 0.0017). Inert unless acc_off is on (perf/spd_pair/ops.py).
+#   triatt_tail     triangle attention's gate, out projection and residual add in one weights-resident
+#                   program (`triatt_qkv.gated_out_proj`), z read and written once: on WH at 736 the
+#                   tail goes 11.95 -> 5.22 ms per call. sigmoid(g) is no longer rounded to bf16 before
+#                   the multiply and the kernel runs HiFi3 with fp32 DST in both modes. At 64 channels
+#                   (the template pair) 2.29 -> 0.88 ms.
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32")
+          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
@@ -571,7 +582,11 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # silu_f32: Wormhole 11-set grade PASS, 44 paired folds, top pose median 0.308 A against the 0.60 A
 # bar; cdk2x2_512 CA-lDDT vs 1HCL +0.0001 / -0.0006 per domain inside the exact spread (spd-swiglu
 # 2026-10-09 05:05Z).
-NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+# triatt_tail: Wormhole 11-set grade on staging10 PASS in both modes, 44 paired folds each: normal top pose
+# median 0.255 A against the 0.60 A bar (A/A floor 0.803 A), docking 32 -> 33 of 44; fast (with ln_f32)
+# 0.281 A, CA-lDDT -0.0007 [-0.0024, +0.0006], docking 33 -> 32 of 44 (state/spd-pair.md, 2026-10-09).
+# ln_f32 is inert in normal mode (it only acts under acc_off).
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -910,6 +925,25 @@ def lpx_compute_kernel_config(base):
     cfg.dst_full_sync_en = base.dst_full_sync_en
     cfg.throttle_level = base.throttle_level
     return cfg
+
+
+_LN_CKCS = {}
+
+
+def ln_compute_kernel_config(ckc):
+    """`ckc` for a pair layer norm: under `ln_f32`, fp32 dest accumulation at HiFi3 where it was off.
+    The norm is faster that way, not only closer to float64; see LEVERS."""
+    if ckc is None or not lever("ln_f32") or ckc.fp32_dest_acc_en:
+        return ckc
+    key = (type(ckc), ckc.math_approx_mode, ckc.packer_l1_acc, ckc.dst_full_sync_en, ckc.throttle_level)
+    out = _LN_CKCS.get(key)
+    if out is None:
+        out = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ckc.math_approx_mode,
+                        fp32_dest_acc_en=True, packer_l1_acc=ckc.packer_l1_acc)
+        out.dst_full_sync_en = ckc.dst_full_sync_en
+        out.throttle_level = ckc.throttle_level
+        _LN_CKCS[key] = out
+    return out
 
 
 def trunk_compute_kernel_config(base):
@@ -7511,6 +7545,16 @@ _PAIR_INPLACE = env_flag("TT_BIO_PAIR_INPLACE", PAIR_INPLACE)
 PAIR_INPLACE_STATS = [0, 0]
 
 
+# The pair transition's residual, added block by block into z's rows instead of a concat of the
+# blocks and an add_ over the whole pair (`Transition._transition`, `tt_bio/pair_add.py`). Byte-identical
+# by construction and checked with torch.equal (perf/spd_pair/ops.py --groups trans).
+# `TT_BIO_TRANSITION_ADD_ROWS=0` restores the join.
+TRANSITION_ADD_ROWS = True
+_TRANSITION_ADD_ROWS = env_flag("TT_BIO_TRANSITION_ADD_ROWS", TRANSITION_ADD_ROWS)
+# (served, fell back to join + add_)
+TRANSITION_ADD_ROWS_STATS = [0, 0]
+
+
 def _pair_inplace(z: ttnn.Tensor, add_to_input: bool) -> bool:
     """Whether a row-blocked `z + update` should be written back into `z` block by block.
 
@@ -8573,7 +8617,7 @@ class TriangleMultiplication(Module):
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             _acc_append(blocks, _in_proj_matmul(
                 rows, w, self.compute_kernel_config, memory_config, bias), host)
@@ -8625,7 +8669,8 @@ class TriangleMultiplication(Module):
                     raw = x_in[:, s_off:s_off + R]
                     rows = ttnn.layer_norm(
                         raw, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
-                        compute_kernel_config=self.compute_kernel_config, memory_config=l1)
+                        compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                        memory_config=l1)
                     ttnn.deallocate(raw)
                 else:
                     rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
@@ -8721,7 +8766,7 @@ class TriangleMultiplication(Module):
             weight=self.in_norm_weight,
             bias=self.in_norm_bias,
             epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
+            compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
         )
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
@@ -9246,7 +9291,7 @@ class TriangleMultiplication(Module):
                 weight=self.out_norm_weight,
                 bias=self.out_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
         except RuntimeError as exc:
             if not _dram_oom(exc):
@@ -9335,7 +9380,7 @@ class TriangleMultiplication(Module):
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             g_block = ttnn.linear(
                 z_rows,
@@ -9358,7 +9403,7 @@ class TriangleMultiplication(Module):
                 weight=self.out_norm_weight,
                 bias=self.out_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             p_block = ttnn.linear(
                 x_rows,
@@ -9603,7 +9648,7 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
             blk = _pair_transpose(blk, mc)
             own = True
         ln = dict(weight=ln_weight, bias=ln_bias, epsilon=1e-5,
-                  compute_kernel_config=compute_kernel_config,
+                  compute_kernel_config=ln_compute_kernel_config(compute_kernel_config),
                   memory_config=ttnn.DRAM_MEMORY_CONFIG)
         try:
             zn = ttnn.layer_norm(blk, **ln)
@@ -9893,7 +9938,8 @@ class TriangleAttention(Module):
         # which never builds more than one block of them, and a size that fits keeps its single
         # pass byte for byte.
         return row_block_after_refusal(
-            _TRIATT_WHOLE_REFUSED, key, lambda: self._attend_pair(x, attn_mask, None), blocked,
+            _TRIATT_WHOLE_REFUSED, key, lambda: self._attend_pair(x, attn_mask, None, add_to_input),
+            blocked,
             rows=TRIANGLE_ATT_CHUNK_SIZE, tag="tri_att")
 
     def _attend_pair(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None,
@@ -9946,7 +9992,7 @@ class TriangleAttention(Module):
                     weight=self.layer_norm_weight,
                     bias=self.layer_norm_bias,
                     epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
+                    compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                 )
 
@@ -9976,7 +10022,7 @@ class TriangleAttention(Module):
                 weight=self.layer_norm_weight,
                 bias=self.layer_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
@@ -10104,8 +10150,20 @@ class TriangleAttention(Module):
             return o
 
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor,
-                             l1_dest: bool = False) -> ttnn.Tensor:
+                             l1_dest: bool = False, resid: ttnn.Tensor | None = None) -> ttnn.Tensor:
+            """The tail's update, or with `resid` (the pair it belongs to) `resid + update` written
+            into `resid` when the one-program tail takes it; the caller tells by identity."""
             head_major = len(g_in.shape) == 4
+            if head_major and not gate_fused and self.o_bias is None:
+                fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight, self.compute_kernel_config,
+                                                   resid=resid)
+                if fused is None and resid is not None:
+                    fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight,
+                                                       self.compute_kernel_config)
+                if fused is not None:
+                    ttnn.deallocate(o_in)
+                    ttnn.deallocate(g_in)
+                    return fused
             if not gate_fused:
                 o_in = ttnn.multiply_(
                     o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -10383,7 +10441,22 @@ class TriangleAttention(Module):
             if qkv is not None and not isinstance(qkv, tuple):  # the triple is freed inside attend
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
-            x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending)
+            x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending,
+                                 resid=x_in if add_to_input and not self.ending else None)
+            if x is x_in:
+                return x_in
+        if self.ending and add_to_input and _pair_tr_add.eligible(x, x_in):
+            # The update goes back to z's orientation and into z in one program (3P instead of the
+            # transpose's 2P and the caller's add_ 3P), the bytes pair_transpose + add_ wrote.
+            try:
+                _pair_tr_add.transpose_add(x, x_in)
+            except RuntimeError as exc:
+                if "circular buffers" not in str(exc):
+                    raise
+                _pair_tr_add.STATS[1] += 1
+            else:
+                ttnn.deallocate(x)
+                return x_in
         if self.ending:
             x = _pair_transpose(
                 x, _transpose_memory_config(x, self.transpose_l1_reserve))
@@ -10791,11 +10864,13 @@ class AttentionPairBias(Module):
                     z, in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
                                                weight=self.z_norm_weight,
                                                bias=self.z_norm_bias, epsilon=1e-5,
-                                               compute_kernel_config=self.compute_kernel_config)
+                                               compute_kernel_config=ln_compute_kernel_config(
+                                                   self.compute_kernel_config))
                                 if _PAIR_BIAS_L1_NORM else
                                 (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                                  epsilon=1e-5,
-                                                 compute_kernel_config=self.compute_kernel_config),
+                                                 compute_kernel_config=ln_compute_kernel_config(
+                                                     self.compute_kernel_config)),
                                  False))
                     zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
                                              l1_out=in_l1)
@@ -11066,6 +11141,12 @@ class Transition(Module):
             ttnn.deallocate(out)
         return masked
 
+    def _add_rows_ok(self, x, memory_config) -> bool:
+        return (_TRANSITION_ADD_ROWS and not ops.taping() and len(x.shape) == 4
+                and x.shape[1] <= SEQ_LEN_MORE_CHUNKING
+                and (memory_config is None or memory_config.buffer_type == ttnn.BufferType.DRAM)
+                and (self.dtype or _dtype()) == ttnn.bfloat16 and _pair_add.ok(x, x))
+
     def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
                     add_to_input: bool) -> ttnn.Tensor:
         """`memory_config` names where the assembled result lands; None keeps it in DRAM.
@@ -11078,7 +11159,8 @@ class Transition(Module):
         path each block adds its own rows, so the assembly can free `x` before it needs room
         for the result; elsewhere it is the caller's `ttnn.add_` done here.
         """
-        if add_to_input and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
+        add_rows = add_to_input and self._add_rows_ok(x, memory_config)
+        if add_to_input and not add_rows and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
             u = self(x, memory_config)
             x = ttnn.add_(x, u)
             ttnn.deallocate(u)
@@ -11421,8 +11503,34 @@ class Transition(Module):
                 return x
             return _acc_concat(parts, 1, host_acc, memory_config,
                                consume=x if add_to_input else None)
+        if add_rows and not w_chunked:
+            # `x + transition(x)` with each row block's update added straight into x's rows. The
+            # eager path below joins the blocks with a concat and the caller then runs add_ over
+            # the whole pair: 2P + 3P of traffic for 3P here. swiglu is row-local, so block I's
+            # update depends on x[I] alone and x[I] can take the sum once the block is done. Same
+            # heights, same blocks, and `pair_add` adds the way ttnn.add does: the same bytes.
+            for s in range(0, H, transition_h_chunk_size):
+                c = x if transition_h_chunk_size >= H else x[:, s:min(s + transition_h_chunk_size, H)]
+                y = swiglu(c)
+                if c is not x:
+                    ttnn.deallocate(c)
+                _pair_add.add_rows(x, y, s)
+                ttnn.deallocate(y)
+                PAIR_INPLACE_STATS[1] += 1
+            TRANSITION_ADD_ROWS_STATS[0] += 1
+            return x
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
+        if add_rows:
+            # w-chunked: no shipped shape lands here (see the W gate above); keep the old join + add_.
+            TRANSITION_ADD_ROWS_STATS[1] += 1
+            out = _concat_to([
+                ttnn.concat([swiglu(c[:, :, w:min(w + w_chunk, W), :]) for w in range(0, W, w_chunk)], dim=2)
+                for c in chunks
+            ], 1, None)
+            x = ttnn.add_(x, out)
+            ttnn.deallocate(out)
+            return x
         if not w_chunked:
             return _concat_to(
                 [swiglu(c) for c in chunks], 1, memory_config)
