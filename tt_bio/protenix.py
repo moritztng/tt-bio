@@ -2034,6 +2034,29 @@ class ConfidenceHead:
         exactly except the per-sample distance-embed + Pairformer + pae/pde/
         plddt heads run on device (bf16) and only the final logits are
         downloaded -- the (N,N,256) z never round-trips per sample."""
+        return self.confidence_device_samples(s_inputs, s_trunk, z_base_dev, [coords], feats)[0]
+
+    def confidence_device_samples(self, s_inputs, s_trunk, z_base_dev, coords, feats):
+        """`confidence_device` for each of `coords`, with each sample's host post-processing
+        (softmaxes, pTM/ipTM) run while the chip computes the next sample instead of between
+        them. Same values in the same order; only the host work moves."""
+        confs, prev = [], None
+        for c in coords:
+            logits = self._confidence_device_logits(s_inputs, s_trunk, z_base_dev, c, feats)
+            if prev is not None:
+                confs.append(self._postprocess(*prev, feats))
+            pae, pde, plddt = (torch.Tensor(ttnn.to_torch(t)).float() for t in logits)
+            for t in logits:
+                ttnn.deallocate(t)
+            N = pae.shape[-2]
+            prev = (pae.reshape(N, N, -1), pde.reshape(N, N, -1), plddt.reshape(plddt.shape[0], -1))
+        confs.append(self._postprocess(*prev, feats))
+        return confs
+
+    def _confidence_device_logits(self, s_inputs, s_trunk, z_base_dev, coords, feats):
+        """The device half of `confidence_device`: enqueued, not read. Returns the pae and pde
+        logits (1,N,N,64) and the plddt logits (N_atom,1,50) on the device, still in their
+        device shapes (a tiled reshape would move data the host reshape does not)."""
         import torch, ttnn
         # Tapped because the trunk and the diffusion stream are, and this was not: three AbAg-XM
         # targets fail ~1300 s in, long after the trunk, at refused sizes that match no trunk
@@ -2092,11 +2115,8 @@ class ConfidenceHead:
         aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
         plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
         dram_peak("confidence: heads done, before download")
-        # ---- download the small finals; post-process on host (small, exact) ----
-        pae_h = torch.Tensor(ttnn.to_torch(pae_logits)).float().reshape(N, N, -1)
-        pde_h = torch.Tensor(ttnn.to_torch(pde_logits)).float().reshape(N, N, -1)
-        plddt_h = torch.Tensor(ttnn.to_torch(plddt_logits)).float().reshape(a.shape[0], -1)  # (N_atom,50)
-        return self._postprocess(pae_h, pde_h, plddt_h, feats)
+        # ---- the small finals are downloaded and post-processed on host by the caller ----
+        return pae_logits, pde_logits, plddt_logits
 
     def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats):
         """Shared host-side post-processing: softmax over bins -> expected
@@ -2950,9 +2970,8 @@ class Protenix:
                 # was the bf16 distance cancellation fixed in confidence_device.
                 z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
                 try:
-                    confs = [self.confidence_head.confidence_device(
-                                s_inputs, s_trunk, z_base_dev, coords[k], feats)
-                             for k in range(n_sample)]
+                    confs = self.confidence_head.confidence_device_samples(
+                        s_inputs, s_trunk, z_base_dev, [coords[k] for k in range(n_sample)], feats)
                 finally:
                     self.confidence_head.drop_device_resident()
             else:
