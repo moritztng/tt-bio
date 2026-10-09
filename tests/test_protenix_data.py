@@ -221,3 +221,14 @@ def test_a_bond_constraint_onto_a_modified_residue_resolves_by_atom_name():
         build_complex_features([(_MSEQ, None, "protein")], chain_ids=["A"],
                                modifications=[_SEP],
                                bonds=[(("A", 13, "NOPE"), ("A", 40, "CA"))])
+
+
+def test_the_default_mol_dir_follows_the_weights_cache(monkeypatch, tmp_path):
+    """A gate host keeps its weights under $TT_BIO_CACHE with no ~/.boltz; the CCD library
+    was looked up only in ~/.boltz there, so four tests failed with "Invalid moldir"."""
+    from tt_bio.protenix_data import _default_mol_dir
+    from tt_bio import weights
+    mols = weights.ARTIFACTS["mols"].derived_dest(tmp_path)
+    mols.mkdir(parents=True)
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path))
+    assert _default_mol_dir() == str(mols)
