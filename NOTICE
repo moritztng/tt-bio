@@ -126,9 +126,21 @@ MIT-licensed and credited in the top-level LICENSE.
    Note:          only params_model_1_ptm.npz is extracted and kept; downloaded on first
                   use, not redistributed here
 
+11. OpenDDE — antibody-antigen and general co-folding (models opendde, opendde-abag). The model
+   is an independent ttnn reimplementation in tt_bio/opendde.py; tt_bio/opendde_data.py copies
+   the structural-token tables of opendde/data/tokenizer.py verbatim (opendde 1.0.3).
+   Constraint-guided sampling follows opendde/tfg (1.2.0); code derived from it keeps the
+   upstream copyright lines, including ByteDance's on engine.py, config.py and potentials.py.
+   Source:        github.com/aurekaresearch/OpenDDE
+   License:       Apache-2.0 — Copyright (c) 2026 Aureka AI Research; portions Copyright 2024
+                  ByteDance and/or its affiliates. Upstream ships no NOTICE file.
+   Modifications: translated to ttnn for Tenstorrent, inference only.
+   Weights:       opendde.pt and opendde_abag.pt from huggingface.co/aurekaresearch/OpenDDE
+                  (Apache-2.0), downloaded on first use, not redistributed here
+
 Not included
 
-11. BindCraft 2 — tt-bio contains none of its code and does not distribute or serve it.
+12. BindCraft 2 — tt-bio contains none of its code and does not distribute or serve it.
    tt_bio.bindcraft2 is an adapter that binds to a copy of BindCraft 2 you install
    yourself, and runs that copy's own design loop with tt-bio's AlphaFold 2 trunk.
    BindCraft 2 stays under its own licence; tt-bio grants no rights in it.
