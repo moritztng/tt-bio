@@ -32,7 +32,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gate_fanout import REPO, content_hash  # noqa: E402
 
-STAGING = re.compile(r"\(staging(\w+)\)")
+#: A staging merge names itself either way: "Merge wk/spd-int-next7 (staging7): ..." or
+#: "Merge staging11d (wk/spd-orch-s11d ...): ...".
+STAGING = re.compile(r"^Merge .*?\bstaging(\w+)\b")
 
 
 def git(*a, repo: Path = REPO) -> str:
