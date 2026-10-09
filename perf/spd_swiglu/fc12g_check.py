@@ -24,13 +24,14 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--mode", default="fast", choices=("normal", "fast"))
 ap.add_argument("--reps", type=int, default=20)
-ap.add_argument("--arms", default="base,fc12g_math,fc12g_pack")
+ap.add_argument("--arms", default="base,fc12g_math,fc12g_pack,fc12g_pack_alt")
 a = ap.parse_args()
 os.environ["TT_BIO_LEVERS"] = a.mode
 
 import torch  # noqa: E402
 import ttnn  # noqa: E402
 import tt_bio.tenstorrent as T  # noqa: E402
+from tt_bio import mm2d_generic as G  # noqa: E402
 from tt_bio.mm2d_generic import generic_matmul_2d  # noqa: E402
 
 dev = T.get_device()
@@ -102,14 +103,23 @@ def base():
     return h
 
 
-def fc12g(pack):
+out_alt = ttnn.allocate_tensor_on_device(ttnn.Shape([1, R, W, HID]), HDT, ttnn.TILE_LAYOUT, dev, mc)
+flip = [0]
+
+
+def fc12g(pack, alternate=False):
     def run():
-        return generic_matmul_2d(dev, x, w12, out_g, PC12, SILU_CKC, out_nzsb_w=1, compute_src=str(KERNEL),
+        o = out_g
+        if alternate:  # a new output buffer every call, as in the fold: the cached runtime args are rebound
+            flip[0] ^= 1
+            o = out_alt if flip[0] else out_g
+        return generic_matmul_2d(dev, x, w12, o, PC12, SILU_CKC, out_nzsb_w=1, compute_src=str(KERNEL),
                                  compute_defines={"FC12G_PACK_SILU": "1"} if pack else {}, gate_tiles=2 * pn)
     return run
 
 
-ARMS = {"base": (base, True), "fc12g_math": (fc12g(False), False), "fc12g_pack": (fc12g(True), False)}
+ARMS = {"base": (base, True), "fc12g_math": (fc12g(False), False), "fc12g_pack": (fc12g(True), False),
+        "fc12g_pack_alt": (fc12g(True, True), False)}
 arms = [s for s in a.arms.split(",") if s]
 res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH, "mode": a.mode,
        "b8": B8, "grid": [gx, gy], "pm": pm, "pn": pn, "fidelity": str(SILU_CKC.math_fidelity),
@@ -154,6 +164,33 @@ for n in live:
         best.append(((time.perf_counter() - t) * 1e6 / a.reps, (te - t) * 1e6 / a.reps))
     us, enq = min(best)
     res["arms"][n].update(us=round(us, 1), enqueue_us=round(enq, 1))
+# Host cost of the generic path's pieces, per call (no device work in any of them).
+if "fc12g_pack" in live:
+    defs = {"FC12G_PACK_SILU": "1"}
+    args = (x, w12, out_g, PC12, SILU_CKC, 1, str(KERNEL), defs, None, 2 * pn)
+    entry = G._CACHE[G._key(*args)]
+    host = {}
+    t = time.perf_counter()
+    for _ in range(200):
+        G._key(*args)
+    host["key_us"] = round((time.perf_counter() - t) * 1e6 / 200, 1)
+    t = time.perf_counter()
+    for i in range(100):
+        G.rebind(entry, x, w12, out_alt if i % 2 == 0 else out_g)
+    host["rebind_us"] = round((time.perf_counter() - t) * 1e6 / 100, 1)
+    t = time.perf_counter()
+    for _ in range(200):
+        (x.buffer_address(), w12.buffer_address(), out_g.buffer_address())
+    host["addr_us"] = round((time.perf_counter() - t) * 1e6 / 200, 1)
+    G.rebind(entry, x, w12, out_g)
+    ttnn.synchronize_device(dev)
+    t = time.perf_counter()
+    for _ in range(a.reps):
+        ttnn.generic_op([x, w12, out_g], entry["pd"])
+    host["generic_op_us"] = round((time.perf_counter() - t) * 1e6 / a.reps, 1)
+    ttnn.synchronize_device(dev)
+    res["host"] = host
+    print(json.dumps({"host": host}), flush=True)
 v = sorted(c for t_, c in clk if t_ >= t0)
 res["aiclk"] = dict(median=v[len(v) // 2], min=v[0]) if v else None
 print(json.dumps({n: {k: res["arms"][n].get(k) for k in ("us", "enqueue_us", "rel_rms")} for n in arms},
