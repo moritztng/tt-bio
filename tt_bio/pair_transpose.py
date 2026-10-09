@@ -24,8 +24,12 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "pair_transpose"
 IN_CB, OUT_CB = 0, 16
 _ELEM = {ttnn.bfloat16: 2, ttnn.float32: 4}
 
-#: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
-PAIR_TRANSPOSE_FUSED = env_flag("TT_BIO_PAIR_TRANSPOSE_FUSED", False)
+#: On by default: it moves the same elements, so it cannot change a fold, and it is faster wherever
+#: `shape_ok` admits it. Measured against the ROW_MAJOR round trip at Protenix-v2's [S, S, 256] bf16,
+#: torch.equal at every length (perf/spd_attn/opbench.py pair): Wormhole (Galaxy chip, 1000 MHz)
+#: 9.66 -> 4.05 ms at 736, 15.36 -> 6.37 at 928, 25.05 -> 10.41 at 1184, 2.4x each. A recording tape
+#: still declines it unless its kernel list names it (`eligible`). TT_BIO_PAIR_TRANSPOSE_FUSED=0 is the A/B.
+PAIR_TRANSPOSE_FUSED = env_flag("TT_BIO_PAIR_TRANSPOSE_FUSED", True)
 
 #: (calls served, calls declined), cumulative; sample at a round boundary.
 STATS = [0, 0]
