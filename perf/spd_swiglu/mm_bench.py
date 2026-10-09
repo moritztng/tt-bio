@@ -126,7 +126,7 @@ def subblock(h, w):
 
 def configs(mt, kt, nt, act):
     out = []
-    bws = [b for b in (1, 2, 3, 4, 6, 8) if kt % b == 0]
+    bws = [b for b in (1, 2, 3, 4, 6, 8, 12, 16, 24) if kt % b == 0]
     for gx in sorted({GX, 6, 4, 3, 2}):  # 6 and 3: c=384's 12 output tiles do not split over 8
         if nt % gx:
             continue
