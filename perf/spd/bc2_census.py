@@ -58,7 +58,9 @@ def git(*args):
         return ""
 
 
-SHA, DIRTY = git("rev-parse", "HEAD"), bool(git("status", "--porcelain", "--untracked-files=no"))
+# A tree rsynced to a remote box has no .git, so the launcher names the sha it copied.
+SHA = git("rev-parse", "HEAD") or os.environ.get("SPD_TREE_SHA", "")
+DIRTY = bool(git("status", "--porcelain", "--untracked-files=no"))
 ENV = {k: v for k, v in sorted(os.environ.items()) if k.startswith(("TT_BIO_", "PROTENIX_", "TT_METAL_"))}
 
 # AICLK of every node, from sysfs, every 0.5 s. A dead ARC answers 0xFFFFFFFF without raising, so
