@@ -1,0 +1,160 @@
+"""gate_fanout.py: leg split, result keys, reuse, scheduling and verdict, all card-free."""
+import importlib.util
+import json
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("gate_fanout", REPO / "scripts" / "gate_fanout.py")
+gf = importlib.util.module_from_spec(spec)
+sys.modules["gate_fanout"] = gf
+spec.loader.exec_module(gf)
+
+ROSTER = {"parity": ["esmc-300m", "boltzgen", "capacity"],
+          "rg": ["boltz2", "boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa",
+                 "l1-budget", "size-ladder"],
+          "ladder": ["boltz2", "rf3"], "capacity": ["boltz2"], "ux": ["boltz2"]}
+
+
+def _legs():
+    return gf.build_legs(ROSTER, ["tests/test_a.py", "tests/test_b.py", "tests/test_c.py"], 2)
+
+
+def test_every_arm_becomes_a_leg_and_duplicates_of_parity_are_dropped():
+    names = [lg.name for lg in _legs()]
+    assert "rg:boltz2" in names and "rg:l1-budget" in names
+    # covered by the parity gate's in-process call of the same release_gate runner
+    for arm in gf.PARITY_COVERS_RG:
+        assert f"rg:{arm}" not in names
+    assert "rg:size-ladder" not in names
+    assert {"ladder:boltz2", "ladder:rf3", "capacity:boltz2", "ux:boltz2", "perf"} <= set(names)
+    assert {"check", "packaging_smoke", "pytest_cpu"} <= set(names)
+
+
+def test_pytest_shards_cover_every_file_exactly_once():
+    shards = [lg for lg in _legs() if lg.family == "pytest_device"]
+    files = [a for lg in shards for a in lg.argv if a.startswith("tests/")]
+    assert sorted(files) == ["tests/test_a.py", "tests/test_b.py", "tests/test_c.py"]
+
+
+def test_only_perf_is_timed_and_card_free_legs_take_no_card():
+    legs = _legs()
+    assert [lg.name for lg in legs if lg.timed] == ["perf"]
+    assert {lg.name for lg in legs if not lg.card} == set(gf.CARD_FREE)
+
+
+def test_select_globs():
+    assert [lg.name for lg in gf.select(_legs(), ["rg:*"])] == ["rg:boltz2", "rg:l1-budget"]
+
+
+def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
+    def git(*a):
+        return subprocess.run(["git", "-C", str(tmp_path), *a], check=True,
+                              capture_output=True, text=True).stdout.strip()
+    git("init", "-q")
+    git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    (tmp_path / "a.py").write_text("x = 1\n")
+    (tmp_path / "README.md").write_text("one\n")
+    git("add", "."), git("commit", "-qm", "1")
+    c1 = gf.content_hash("HEAD", tmp_path)
+    (tmp_path / "README.md").write_text("two\n")
+    git("commit", "-qam", "2")
+    assert gf.content_hash("HEAD", tmp_path) == c1          # docs-only commit: same key
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "3")
+    assert gf.content_hash("HEAD", tmp_path) != c1          # code change: new key
+
+    leg = _legs()[3]
+    k = gf.leg_key(c1, "env", "p150a", leg)
+    assert k == gf.leg_key(c1, "env", "p150a", leg)
+    assert k != gf.leg_key(c1, "env2", "p150a", leg)
+    assert k != gf.leg_key(c1, "env", "tt-galaxy-wh-l", leg)
+    other = gf.Leg(leg.name, leg.argv + ["--seeds", "1"], leg.family)
+    assert k != gf.leg_key(c1, "env", "p150a", other)
+
+
+def test_env_hash_ignores_order_only():
+    a = {"python": "3.12.1", "dists": ["ttnn==0.68.0", "torch==2.13.0"]}
+    b = {"python": "3.12.1", "dists": ["ttnn==0.68.0", "torch==2.13.0"]}
+    c = {"python": "3.12.1", "dists": ["ttnn==0.67.4", "torch==2.13.0"]}
+    assert gf.env_hash(a) == gf.env_hash(b) != gf.env_hash(c)
+
+
+def test_parity_blocked_is_not_a_failure_but_a_scored_gap_is():
+    leg = next(lg for lg in _legs() if lg.family == "parity")
+    blocked = {"legs": [{"verdict": "BLOCKED-REF-REGEN-NEEDED"}]}
+    assert gf.classify(leg, 1, blocked) == "BLOCKED"
+    assert gf.classify(leg, 1, {"legs": [{"verdict": "GAP"}]}) == "FAIL"
+    assert gf.classify(leg, 0, {"legs": [{"verdict": "PASS"}]}) == "PASS"
+    assert gf.classify(leg, 1, None) == "FAIL"
+
+
+def _host(name, arch, tmp_path):
+    return gf.Host(name, {"arch": arch, "card_type": arch, "trees": str(tmp_path)}, "f" * 40)
+
+
+def test_scheduler_runs_every_leg_once_per_arch_and_timed_legs_alone(tmp_path):
+    bh, wh = _host("qb1", "bh", tmp_path), _host("g", "wh", tmp_path)
+    legs = [lg for lg in _legs() if lg.card]
+    todo = {"bh": list(legs), "wh": list(legs)}
+    live = {"bh": set(), "wh": set()}
+    mu = threading.Lock()
+    violations = []
+
+    def execute(host, card, leg):
+        with mu:
+            if leg.timed and live[host.arch]:
+                violations.append(("timed leg started beside", set(live[host.arch])))
+            if any(n == "perf" for n in live[host.arch]):
+                violations.append(("leg started beside timed", leg.name))
+            live[host.arch].add(leg.name)
+        time.sleep(0.01)
+        with mu:
+            live[host.arch].discard(leg.name)
+        return {"leg": leg.name, "arch": host.arch, "verdict": "PASS", "worker": f"{host.name}:{card}"}
+
+    workers = [(bh, 0), (bh, 1), (bh, 3), (wh, 5), (wh, 6)]
+    res = gf.Gate(todo, workers, {("qb1", 3), ("g", 6)}, execute, tmp_path).run()
+    assert not violations
+    got = sorted((r["leg"], r["arch"]) for r in res)
+    assert got == sorted((lg.name, a) for lg in legs for a in ("bh", "wh"))
+    perf = [r for r in res if r["leg"] == "perf"]
+    assert {r["worker"] for r in perf} == {"qb1:3", "g:6"}
+    assert (tmp_path / "results.jsonl").read_text().count("\n") == len(res)
+
+
+def test_verdict_counts_reused_and_blocked_as_pass_and_fails_on_any_fail(tmp_path):
+    rows = [{"leg": "rg:boltz2", "arch": "bh", "verdict": "PASS", "wall_s": 600, "worker": "qb1:0"},
+            {"leg": "rg:boltz2", "arch": "wh", "verdict": "REUSED", "evidence": "g:5 x"},
+            {"leg": "parity:x", "arch": "bh", "verdict": "BLOCKED", "wall_s": 1, "worker": "qb1:1"},
+            {"leg": "parity:x", "arch": "wh", "verdict": "PASS", "wall_s": 1, "worker": "g:6"},
+            {"leg": "check", "arch": "any", "verdict": "PASS", "wall_s": 9, "worker": "qb1:None"}]
+    assert gf.write_verdict(tmp_path, "a" * 40, ["bh", "wh"], rows)
+    md = (tmp_path / "VERDICT.md").read_text()
+    assert md.startswith("# Gate aaaaaaaaaaaa: PASS") and "REUSED (g:5 x)" in md
+    rows.append({"leg": "ux:boltz2", "arch": "wh", "verdict": "FAIL", "wall_s": 1, "worker": "g:5"})
+    assert not gf.write_verdict(tmp_path, "a" * 40, ["bh", "wh"], rows)
+    assert json.loads((tmp_path / "verdict.json").read_text())["pass"] is False
+
+
+def test_ledger_roundtrip(tmp_path):
+    led = gf.Ledger(tmp_path / "l")
+    assert led.get("k") is None
+    led.put("k", {"verdict": "PASS"})
+    assert led.get("k") == {"verdict": "PASS"}
+
+
+def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path):
+    h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "trees": "/t", "python": "/v/py",
+                        "lock": "/l/card{card}.lock", "env": {"ESM_ROOT": "/esm"},
+                        "pythonpath_extra": ["/bc2"]}, "a" * 40)
+    leg = next(lg for lg in _legs() if lg.family == "parity")
+    cmd = h.command(leg, 2, "/t/out/x")
+    assert "flock /l/card2.lock" in cmd and "TT_VISIBLE_DEVICES=2" in cmd
+    assert "PYTHONPATH=/t/aaaaaaaaaaaa:/bc2" in cmd and "ESM_ROOT=/esm" in cmd
+    assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd and "/v/py" in cmd
+    free = h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y")
+    assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
