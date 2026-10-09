@@ -2538,6 +2538,16 @@ def _read_modifications(sub: dict, key: str):
     return [dict(mod) for mod in mods]
 
 
+def _read_bio_constraint(path):
+    """The input's top-level ``constraint:`` block (OpenDDE 1.2.0 guided sampling), or None.
+    Its content is upstream's JSON ``constraint`` field unchanged; tt_bio.tfg.features
+    validates it."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return None
+    import yaml
+    return (yaml.safe_load(path.read_text()) or {}).get("constraint")
+
+
 def _read_bio_constraints(path):
     """Parse the `constraints:` block of a Protenix/bio input into covalent bonds.
 
@@ -3128,6 +3138,14 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
                    "Opt-in; reserves 0.2-0.3 GB of device memory.")
+@click.option("--use_tfg_guidance", is_flag=True,
+              help="opendde and opendde-abag. Guided sampling (OpenDDE 1.2.0): apply the input's "
+                   "`constraint:` block (contact pairs or an epitope) by moving the movable "
+                   "chains as a rigid body during diffusion, plus physics restraints on every "
+                   "step. See docs/constraint-guidance.md.")
+@click.option("--trunk_cache", type=click.Path(file_okay=False), default=None,
+              help="opendde and opendde-abag. Directory that keeps each fold's trunk output, so "
+                   "inputs that differ only in their `constraint:` compute the trunk once.")
 @click.option("--write_pae", is_flag=True,
               help="Write <name>_pae.npz per target: the full PAE matrix, PDE and contact "
                    "probabilities wherever the model's heads compute them, with a "
@@ -3196,7 +3214,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
-            write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
+            use_tfg_guidance, trunk_cache, write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, host_threads, fast, diffusion_precision, debug, log,
             report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
@@ -3353,7 +3371,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                                          "--write_pde": write_pde,
                                          "--write_embeddings": write_embeddings,
                                          "--max_msa_seqs": msa_cap is not None,
-                                         "--diffusion_precision": diffusion_precision is not None}):
+                                         "--diffusion_precision": diffusion_precision is not None,
+                                         "--use_tfg_guidance": use_tfg_guidance,
+                                         "--trunk_cache": trunk_cache is not None}):
             click.secho(note, fg="yellow")
         # ESMFold2's ESMC-6B language model is ~12.8 GB resident in normal precision
         # and does not fit a Wormhole chip's ~12 GB DRAM (OOM at every length). The
@@ -3438,6 +3458,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae, "contact_cutoff": contact_cutoff,
+            "use_tfg_guidance": use_tfg_guidance,
+            "trunk_cache": str(Path(trunk_cache).expanduser().resolve()) if trunk_cache else None,
             "checkpoint": str(Path(checkpoint).resolve()) if checkpoint else None,
             "heads": list(heads),
         }

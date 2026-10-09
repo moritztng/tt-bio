@@ -249,6 +249,9 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
     "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind",
                        "protenix-v1", "protenix-v2", "opendde", "opendde-abag", "rf3"),
     "--diffusion_precision": ("protenix-v1", "protenix-v2"),
+    # OpenDDE 1.2.0's constraint guidance and its trunk cache (tt_bio/tfg, tt_bio.cache).
+    "--use_tfg_guidance": ("opendde", "opendde-abag"),
+    "--trunk_cache": ("opendde", "opendde-abag"),
 }
 
 #: (flag, model) -> why that model does not read it, when the generic line is not the reason.

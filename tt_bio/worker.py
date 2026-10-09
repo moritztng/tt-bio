@@ -522,6 +522,28 @@ def _paired_a3ms(path, chains, msa_dir, cfg):
             for _c, s, sp, mt, _m in chains]
 
 
+def _tfg_guidance(path, cfg, feats, chains, bonds):
+    """The OpenDDE sampler guidance for one input, or None for a plain fold.
+
+    The input's ``constraint:`` is validated with upstream's rules whatever the flag says (an
+    epitope without --use_tfg_guidance is an error, contact pairs without it a warning, as
+    upstream). With the flag, the constraint and the physics-restraint geometry are resolved
+    onto this fold's atoms."""
+    from tt_bio.main import _read_bio_constraint
+    from tt_bio.tfg import features as F
+
+    constraint = F.validate_constraint(_read_bio_constraint(path), bool(cfg.get("use_tfg_guidance")))
+    if not cfg.get("use_tfg_guidance"):
+        return None
+    from tt_bio.tfg.guidance import Guidance
+
+    entities = F.entity_groups(path)
+    gfeats = dict(feats)
+    gfeats.update(F.constraint_features(constraint, feats, chains, entities))
+    gfeats.update(F.geometry_features(feats, chains, entities, bonds=bonds))
+    return Guidance(gfeats)
+
+
 def search_msas(path, chains, cfg, progress=None) -> None:
     """Search the unpaired a3m of every protein chain the input left to the search and the
     cache lacks, batched into one call, into ``cfg["msa_dir"]``. Touches no device.
@@ -1267,6 +1289,11 @@ class _WorkerState:
         # separate OpenDDE progress wiring, and no premature "diffusion" emit
         # that would skip the trunk phase on the live view.
         n_sample = int(cfg["diffusion_samples"])
+        guidance = _tfg_guidance(path, cfg, feats, chains, bonds)
+        trunk_cache = None
+        if cfg.get("trunk_cache"):
+            from tt_bio.cache import TrunkCache
+            trunk_cache = TrunkCache(cfg["trunk_cache"])
         # Integration-parity envelope: run the bf16 CPU reference fold under bf16
         # autocast (see _predict_protenix_one / _maybe_ref_bf16). nullcontext on
         # device and on the fp32 reference, so those paths are untouched.
@@ -1276,7 +1303,7 @@ class _WorkerState:
                 seed=cfg.get("seed") or 0, progress_fn=report_progress,
                 n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
                 return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"),
-                distogram=bool(cfg.get("write_pae")))
+                distogram=bool(cfg.get("write_pae")), guidance=guidance, trunk_cache=trunk_cache)
         confs = conf if isinstance(conf, list) else [conf]
 
         # Rank, write and emit through the Protenix-v2 builder: OpenDDE rides that trunk, sampler
