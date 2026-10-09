@@ -756,14 +756,19 @@ class AtomTransformer(_KeyedWeights, Module):
                               compute_kernel_config=self._sdpa_ckc)
         elif self._sdpa or self._sdpa32:
             from . import sdpa_generic as SG
+            kc = W
             if self._sdpa32:
                 g = self.device.compute_with_storage_grid_size()
                 grid, ckc = (g.x, g.y), _ATOM_SDPA32_CKC
+                # Wormhole: a W-key chunk accumulates W/32 PV tiles in the fp32 dest and writes an occasional
+                # wrong value (-4.8 for -0.02, perf/spd_wherr/sdpa_probe.py --window); one key tile per chunk does not.
+                if self.device.arch() == ttnn.Arch.WORMHOLE_B0:
+                    kc = 32
             else:
                 grid, ckc = tuple(_T.COMPUTE_GRID_MAIN), _ATOM_SDPA_CKC
             o = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H * nb, nq, dh]), Qs.dtype,
                                                ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
-            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, W, grid, ckc, dh ** -0.5, kv_window=kvw)
+            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, kc, grid, ckc, dh ** -0.5, kv_window=kvw)
         else:
             sc = batched_matmul(Qs, ttnn.permute(Ks, (0, 1, 3, 2)),
                                 compute_kernel_config=self.compute_kernel_config)

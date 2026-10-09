@@ -16,6 +16,7 @@ from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
 from . import pair_transpose as _pair_tr
 from . import triatt_sdpa as _triatt_sdpa
+from . import dest_guard as _dest_guard
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from . import page_copy as _page_copy
@@ -2373,10 +2374,14 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
     chunk = 256 if n % 256 == 0 else 128
     dev = q.device()
+    # On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
+    # occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
+    # Measured at (5, 16, 768, 64): 1.92 -> 2.50 ms a call, errors of 1.2-1.7 gone (perf/spd_wherr/sdpa_probe.py).
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 else chunk
     g = dev.compute_with_storage_grid_size()
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, q, k, v, mask, out, chunk, chunk, (g.x, g.y), _SDPA32_CKC, scale)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, (g.x, g.y), _SDPA32_CKC, scale)
     return out
 
 
@@ -7704,6 +7709,7 @@ def _open_and_init_device(trace_region_size):
     dev = _open_device_locked(device_id, kwargs)
     _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
     _trace_region_size = trace_region_size
+    _dest_guard.install(dev)      # Wormhole: fp32-accumulating matmuls at K block 1
     return dev
 
 
@@ -8517,6 +8523,7 @@ class TriangleMultiplication(Module):
         if _TRIMUL_INPROJ_ROWBLOCK:
             return no("inproj_rowblock_live")
         if (_TRIMUL_TAIL_F1 and self.p_out_bias is None and self.g_out_bias is None
+                and not _dest_guard.tail_exposed(self.compute_kernel_config)
                 and _trimul_tail.eligible(x_norm_in, x_norm_in, self.out_p_weight,
                                           self.g_out_weight) is None):
             return no("f1_tail_serves")
