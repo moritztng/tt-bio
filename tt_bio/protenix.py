@@ -461,10 +461,14 @@ class _KeyedWeights:
         A float32 tensor bound for bf16 is rounded by torch first: torch and ttnn round the same
         way, so the device tensor is identical, and ttnn tilizes bf16 4x faster than it converts
         and tilizes float32 (0.66 against 2.73 s for the 730-token MSA feature)."""
-        dtype = getattr(self, "dtype", ttnn.bfloat16)
-        if dtype == ttnn.bfloat16 and t.dtype == torch.float32:
+        return ttnn.from_torch(self._host_cast(t), layout=ttnn.TILE_LAYOUT, device=get_device(),
+                               dtype=getattr(self, "dtype", ttnn.bfloat16))
+
+    def _host_cast(self, t):
+        """The host half of `_up`: the torch rounding to bf16, on its own so the host lane can do it."""
+        if getattr(self, "dtype", ttnn.bfloat16) == ttnn.bfloat16 and t.dtype == torch.float32:
             t = t.to(torch.bfloat16)
-        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=dtype)
+        return t
 
     def _opm_from_host(self, opm, t, z):
         """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
@@ -2821,6 +2825,11 @@ class Protenix:
                 self.confidence_head.drop_device_resident()
         return self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords, feats)
 
+    def _trunk_host_inputs(self, feats, NT):
+        """relp and `Trunk.host_inputs`: the host-only part of the trunk's input, for the lane."""
+        relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
+        return relp, self.trunk.host_inputs(feats, relp, feats["token_bonds"], NT)
+
     def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None):
         """Trunk plus the t-independent diffusion conditioning for one target: everything
         fold() does before the sampler. Returns (cond, aux); aux carries what the confidence
@@ -2836,6 +2845,9 @@ class Protenix:
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
         mt = fi["mt"]; S = fi["S"]
         tt = self._tt
+        # The trunk's host-only inputs (relp, padding, template and MSA features) are built on the
+        # host lane while the chip runs the input embedder and the diffusion atom cache below.
+        trunk_host = hostlane.submit(self._trunk_host_inputs, feats, NT)
         # 1) s_inputs (input embedder atom encoder)
         Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
         dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
@@ -2856,11 +2868,11 @@ class Protenix:
         #    coordinate-sensitive diffusion. Trunk tolerates bf8; diffusion does not. The per-
         #    checkpoint bf8 numbers are in __init__ -- z_trunk is 0.99 at c_z 256 and 0.9892 at 128.)
         import tt_bio.tenstorrent as _TT
-        relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
+        relp, host = trunk_host.result()
         if self._fast:
             _TT.set_fast_mode(True)
         s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                      progress_fn=progress_fn, n_cycles=n_cycles)
+                                      progress_fn=progress_fn, n_cycles=n_cycles, host=host)
         if self._fast:
             _TT.set_fast_mode(False)
         s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
@@ -3307,15 +3319,14 @@ class Trunk(_KeyedWeights):
         _TRUNK_TAP_CALL += 1
         return z3
 
-    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None):
-        """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
-        tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
-        number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
-        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). Returns
-        (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
+    def host_inputs(self, feat, relp, token_bonds, n_real):
+        """Everything the trunk builds from its inputs on the host alone: the token-axis padding,
+        the template features, the MSA feature, each rounded to the dtype it is uploaded in. No
+        device call, so fold() runs it on the host lane while the chip computes the input
+        embedder; __call__ only uploads what this returns."""
         import torch
         import torch.nn.functional as F
-        N = n_real = s_inputs.shape[0]
+        N = n_real
         # Bucket the TOKEN axis. Everything below then runs at the padded N and the exit slices
         # back, so no site inside this method needs to know the real length -- only the three
         # reduce-over-tokens families need the masks: TriangleMultiplication (contracts a token
@@ -3324,11 +3335,10 @@ class Trunk(_KeyedWeights):
         # cannot reach a real pair through it, and the transitions/norms/linears are per-token.
         from .token_axis import pad_amount, token_pad_masks_torch
         pad = pad_amount(N, _token_pad_multiple()) if _token_bucket() else 0
-        pmask_tt = attn_tt = None
+        m1 = pm_pad = at_pad = None
         if pad:
             N = n_real + pad
             q = _pad_poison()
-            s_inputs = F.pad(s_inputs, (0, 0, 0, pad), value=q)
             relp = F.pad(relp, (0, 0, 0, pad, 0, pad), value=q)
             token_bonds = F.pad(token_bonds, (0, pad, 0, pad), value=q)
             feat = dict(feat)
@@ -3349,9 +3359,7 @@ class Trunk(_KeyedWeights):
                     feat[k] = F.pad(feat[k], (0, 0, 0, pad, 0, pad), value=q)
             # Outer-product pair mask and additive -1e9 attention mask, both from the shared
             # helper -- the reasons they are that shape and not simpler are recorded there.
-            m1, _pm, _at = token_pad_masks_torch(n_real, N)
-            pmask_tt, attn_tt = self._up(_pm), self._up(_at)
-        s_init, z_init = self.trunk_input(self._up(s_inputs), self._up(relp), self._up(token_bonds.unsqueeze(-1)))
+            m1, pm_pad, at_pad = token_pad_masks_torch(n_real, N)
         # template feature concat (per template). Offline (no-template) inference omits
         # template_* entirely -> nt=0, template embedder skipped (the reference's
         # use_template=False path carries all-zero template geometry, a negligible update).
@@ -3370,12 +3378,6 @@ class Trunk(_KeyedWeights):
             uv = feat["template_unit_vector"][t] * mc[..., None] * pm[..., None]
             bb = (feat["template_backbone_frame_mask"][t] * mc * pm).unsqueeze(-1)
             te_at.append(torch.cat([dg, pb, aai, aaj, uv, bb], -1))
-        # te_at is cycle-invariant: upload + project it once here instead of re-uploading
-        # ~57 MB x nt on every recycle cycle inside _template. Per-fold local on purpose:
-        # N varies between targets, so never cache this on self.
-        tpl_a = [self._lin(self._up(t.unsqueeze(0)), "template_embedder.linear_no_bias_a.weight")
-                 for t in te_at]
-        nse_d = self._noisy_structure_dist(feat, N)
         # msa feature
         # Built in bf16, the dtype it is uploaded in: the one-hot and has_deletion are exact and
         # torch rounds deletion_value as the fp32 upload did, so the device tensor is identical,
@@ -3384,6 +3386,36 @@ class Trunk(_KeyedWeights):
         msa = F.one_hot(feat["msa"].long(), 32).to(bf)
         ms = torch.cat([msa, feat["has_deletion"].to(bf).unsqueeze(-1),
                         feat["deletion_value"].float().to(bf).unsqueeze(-1)], -1).unsqueeze(0)
+        return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp),
+                    token_bonds=self._host_cast(token_bonds.unsqueeze(-1)),
+                    pm_pad=pm_pad, at_pad=at_pad, nt=nt,
+                    te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
+
+    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None):
+        """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
+        tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
+        number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
+        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). `host` is `host_inputs` of the
+        same feat, relp and token_bonds, already built (fold() builds it on the host lane while
+        the chip runs the input embedder); None builds it here. Returns
+        (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
+        import torch
+        import torch.nn.functional as F
+        n_real = s_inputs.shape[0]
+        if host is None:
+            host = self.host_inputs(feat, relp, token_bonds, n_real)
+        N, pad, feat, nt, ms = host["N"], host["pad"], host["feat"], host["nt"], host.pop("ms")
+        pmask_tt = attn_tt = None
+        if pad:
+            s_inputs = F.pad(s_inputs, (0, 0, 0, pad), value=_pad_poison())
+            pmask_tt, attn_tt = self._up(host["pm_pad"]), self._up(host["at_pad"])
+        s_init, z_init = self.trunk_input(self._up(s_inputs), self._up(host["relp"]), self._up(host["token_bonds"]))
+        # te_at is cycle-invariant: upload + project it once here instead of re-uploading
+        # ~57 MB x nt on every recycle cycle inside _template. Per-fold local on purpose:
+        # N varies between targets, so never cache this on self.
+        tpl_a = [self._lin(self._up(t), "template_embedder.linear_no_bias_a.weight")
+                 for t in host.pop("te_at")]
+        nse_d = self._noisy_structure_dist(feat, N)
         # The MSA representation is this trunk's DRAM limiter on a 12 GiB part: it scales as
         # depth * tokens, and a deep-MSA target OOMs right here. Tag the upload and the
         # projection SEPARATELY, with shape and dtype, because the two are the same number of
