@@ -746,6 +746,8 @@ class VinaStericPotential(Potential):
     candidate (upstream's dense path).
     """
 
+    SKIN = 2.0              # pair-list skin (A): rebuilt once an atom has moved by half of it
+
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.225, "core": "auto"}
         if default_params is not None:
@@ -878,7 +880,7 @@ class VinaStericPotential(Potential):
             members = [torch.nonzero(c_map == c).flatten() for c in range(n_chains)]
             st = self._sparse = dict(key=key, chain=c_map, r=r_atom, allowed=allowed, pos=pos, n_chains=n_chains,
                                      search=[(members[c], torch.cat(members[c + 1:])) for c in range(n_chains - 1)],
-                                     X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=1.0)
+                                     X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=self.SKIN)
         X = coords_b.detach()
         if st["X"] is None or float((X - st["X"]).norm(dim=-1).max()) >= 0.5 * st["skin"]:
             # search each chain only against the chains after it: no intra-chain or mirrored candidates

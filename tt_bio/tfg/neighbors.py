@@ -208,25 +208,28 @@ class BoundField:
         S, N, _ = fixed.shape
         self.v, self.delta, self.margin = v, 0.5 * v * 3**0.5, margin
         reach = SOFT * (ra_max + float(rb.max())) + self.delta + margin
-        self.lo = fixed.min(1).values - reach - v
-        self.dims = torch.ceil((fixed.max(1).values + reach + v - self.lo) / v).long().max(0).values + 1
-        dx, dy, dz = (int(t) for t in self.dims)
-        self.nvox = dx * dy * dz
         k = int(reach / v) + 2
         r = torch.arange(-k, k + 1)
         off = torch.stack(torch.meshgrid(r, r, r, indexing="ij"), -1).reshape(-1, 3)
         # an atom sits within delta of its voxel centre, so offsets beyond this ball reach no voxel in range
         off = off[off.float().norm(dim=-1) * v - self.delta < reach + SOFT * float(rb.max())]
-        soft = torch.full((S * self.nvox,), float("inf"))
-        hard = torch.full((S * self.nvox,), float("inf"))
-        for s in range(S):                                   # one sample at a time bounds the [N, O] temporaries
-            vox = torch.floor((fixed[s] - self.lo[s]) / v).long()[:, None] + off[None]
-            dist = (self.lo[s] + (vox.float() + 0.5) * v - fixed[s][:, None]).norm(dim=-1)
-            ok = ((vox >= 0) & (vox < self.dims)).all(-1) & (dist < reach + SOFT * rb[:, None])
-            flat = s * self.nvox + (vox[..., 0] * dy + vox[..., 1]) * dz + vox[..., 2]
-            soft.scatter_reduce_(0, flat[ok], (dist - SOFT * rb[:, None])[ok], "amin")
-            hard.scatter_reduce_(0, flat[ok], (dist - HARD * rb[:, None])[ok], "amin")
-        self.soft, self.hard = soft, hard
+        # k voxels of padding: every atom's offset ball lies inside the grid, so a neighbour is a fixed flat stride
+        self.lo = fixed.min(1).values - (k + 1) * v
+        self.dims = torch.floor((fixed.max(1).values - self.lo) / v).long().max(0).values + k + 2
+        dx, dy, dz = (int(t) for t in self.dims)
+        self.nvox = dx * dy * dz
+        vox = torch.floor((fixed - self.lo[:, None]) / v)
+        rel = self.lo[:, None] + (vox + 0.5) * v - fixed                    # atom -> its voxel centre, |rel| <= delta
+        base = (torch.arange(S)[:, None] * self.nvox + (vox[..., 0] * dy + vox[..., 1]) * dz + vox[..., 2]).long()
+        step = (off[:, 0] * dy + off[:, 1]) * dz + off[:, 2]
+        flat = (base.reshape(-1, 1) + step).reshape(-1)
+        # exact distance from each neighbouring voxel centre to the atom, from small relative vectors
+        dist = (rel.reshape(-1, 1, 3) + off.float() * v).norm(dim=-1)        # [S N, O]
+        rbs = rb.repeat(S)[:, None]
+        self.soft = torch.full((S * self.nvox,), float("inf")).scatter_reduce_(
+            0, flat, (dist - SOFT * rbs).reshape(-1), "amin")
+        self.hard = torch.full((S * self.nvox,), float("inf")).scatter_reduce_(
+            0, flat, (dist - HARD * rbs).reshape(-1), "amin")
 
     def classify(self, X, sample, ra):
         """X [n, 3] -> (far [n], severe [n]) bool."""

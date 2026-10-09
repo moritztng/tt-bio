@@ -49,9 +49,8 @@ SPINS = 24
 STANDOFFS = (2.0, 4.0, 6.0, 9.0, 12.0)
 # The anchor is the mean of this fraction of paratope atoms reaching furthest along the binding face.
 TIP_FRACTION = 0.1
-# Pair-list core batching: approach axes per clash call (24 spins x 5 standoffs each), poses per contact call.
+# Pair-list core batching: approach axes per scoring call (24 spins x 5 standoffs each).
 SEARCH_CHUNK_AXES = 2
-CONTACT_BATCH = 64
 PATCH_FRACTION = 0.10
 PATCH_MINIMUM = 100
 
@@ -139,6 +138,85 @@ def residue_distances(moving, fixed, epi_local, valid, para_local):
     dmin, arg = dist.reshape(s, n, -1).min(-1)
     width = para.shape[1]
     return dmin, arg // width, arg % width, fixed_epi
+
+
+class ResidueDistances:
+    """residue_distances(...)[0] for many rigid poses of the paratope, without the all-pairs cdist.
+
+    Paratope atoms are grouped into residues with bounding spheres fixed in the group's own frame (`body` [S, A, 3],
+    the unmoved paratope per sample). Each pose's frame comes from three anchor atoms, the epitope residues are
+    taken into it, and a residue pair whose spheres are further apart than a measured distance of that epitope
+    residue cannot hold its nearest pair. Only the remaining pairs are measured, in world coordinates with the same
+    norm as cdist, so the minima are bit-identical to residue_distances.
+    """
+
+    MARGIN = 1e-2                        # covers fp32 rounding of the poses and frames by orders of magnitude
+
+    def __init__(self, body, para_token, epi_slots, valid):
+        _, inverse, counts = torch.unique(para_token, return_inverse=True, return_counts=True)
+        order = torch.argsort(inverse, stable=True)
+        rank = torch.arange(order.numel()) - (torch.cumsum(counts, 0) - counts)[inverse[order]]
+        self.para = torch.full((counts.numel(), int(counts.max())), -1, dtype=torch.long)
+        self.para[inverse[order], rank] = order                # residue -> paratope slots, -1 padded
+        self.pmask = self.para >= 0
+        self.epi, self.valid = epi_slots, valid
+        self.centre, self.radius = self._spheres(body[:, self.para.clamp_min(0)], self.pmask)
+        # anchors: the atom furthest from the centroid, the one furthest from it, the one furthest off their line
+        rows = torch.arange(body.shape[0])
+        a0 = (body - body.mean(1, keepdim=True)).norm(dim=-1).argmax(1)
+        a1 = (body - body[rows, a0][:, None]).norm(dim=-1).argmax(1)
+        u = body[rows, a1] - body[rows, a0]
+        w = body - body[rows, a0][:, None]
+        a2 = torch.linalg.cross(w, u[:, None].expand_as(w), dim=-1).norm(dim=-1).argmax(1)
+        self.anchors = torch.stack([a0, a1, a2], 1)
+        self.body_frame = self._frame(body[rows[:, None], self.anchors])
+
+    @staticmethod
+    def _spheres(x, mask):
+        """x [..., R, w, 3], mask [R, w] -> centre [..., R, 3], radius [..., R]."""
+        m = mask[..., None].to(x.dtype)
+        centre = (x * m).sum(-2) / m.sum(-2).clamp_min(1)
+        radius = torch.where(mask, (x - centre[..., None, :]).norm(dim=-1), 0.0).amax(-1)
+        return centre, radius
+
+    @staticmethod
+    def _frame(p):
+        """Anchor atoms p [P, 3, 3] -> (origin [P, 3], orthonormal axes [P, 3, 3] as rows)."""
+        e1 = torch.nn.functional.normalize(p[:, 1] - p[:, 0], dim=-1)
+        e2 = p[:, 2] - p[:, 0]
+        e2 = torch.nn.functional.normalize(e2 - (e2 * e1).sum(-1, keepdim=True) * e1, dim=-1)
+        return p[:, 0], torch.stack([e1, e2, torch.linalg.cross(e1, e2, dim=-1)], 1)
+
+    def __call__(self, para, ref, rows):
+        """para [P, A, 3] posed paratope atoms of samples rows [P], ref [P, slots, 3] epitope atoms -> d [P, n]."""
+        P, n = para.shape[0], self.epi.shape[0]
+        er = ref[:, self.epi]                                                 # [P, n, m, 3]
+        cr, rr = self._spheres(er, self.valid)
+        o_w, f_w = self._frame(para[torch.arange(P)[:, None], self.anchors[rows]])
+        o_b, f_b = self.body_frame[0][rows], self.body_frame[1][rows]
+        rot = torch.einsum("pji,pjk->pik", f_b, f_w)                       # world -> group frame
+        body = torch.einsum("pij,pnmj->pnmi", rot, er - o_w[:, None, None]) + o_b[:, None, None]
+        bc = (body * self.valid[..., None]).sum(2) / self.valid.sum(1, keepdim=True).clamp_min(1)
+        centre, radius = self.centre[rows], self.radius[rows]
+        gap = (bc[:, :, None] - centre[:, None]).norm(dim=-1) - rr[..., None] - radius[:, None]   # [P, n, Q]
+
+        def measure(p, r, a, q):
+            """Smallest distance from epitope atoms (p, r, a) [T] or residues (p, r) (a None) to residues q."""
+            pq = para[p[:, None], self.para[q].clamp_min(0)]                # [T, w, 3]
+            e = er[p, r] if a is None else er[p, r, a][:, None]              # [T, m or 1, 3]
+            dist = (e[:, :, None] - pq[:, None]).norm(dim=-1)               # [T, m or 1, w]
+            ok = self.valid[r] if a is None else self.valid[r, a][:, None]
+            return dist.masked_fill(~(ok[:, :, None] & self.pmask[q][:, None]), float("inf")).amin((1, 2))
+
+        P_, R_ = torch.meshgrid(torch.arange(P), torch.arange(n), indexing="ij")
+        upper = measure(P_.reshape(-1), R_.reshape(-1), None, gap.argmin(-1).reshape(-1)).view(P, n) + self.MARGIN
+        # residue pairs that may hold the nearest pair, then the epitope atoms of those that may
+        p, r, q = torch.nonzero(gap <= upper[..., None], as_tuple=True)
+        near = (body[p, r] - centre[p, q][:, None]).norm(dim=-1) - radius[p, q][:, None] <= upper[p, r][:, None]
+        t, a = torch.nonzero(near & self.valid[r], as_tuple=True)
+        p, r, q = p[t], r[t], q[t]
+        d = torch.full((P * n,), float("inf"), dtype=para.dtype)
+        return d.scatter_reduce_(0, p * n + r, measure(p, r, a, q), "amin").view(P, n)
 
 
 def reached_count(d):
@@ -448,17 +526,15 @@ def search_epitope(coords, feats, core=None):
         n_epi, m_epi = epi_local.shape
         epi_atoms = fixed[:, epi_local.clamp_min(0).reshape(-1)]
         epi_slots = torch.arange(n_epi * m_epi, device=coords.device).reshape(n_epi, m_epi)
+        distances = ResidueDistances(moving[:, para_local], feats["atom_to_token_idx"][moving_ids[para_local]],
+                                     epi_slots, valid)
 
         def score_many(x, rows):
             """x [n, B, M, 3] poses of samples rows [n] -> (energy, severe) [n, B]."""
             n, b = x.shape[:2]
             flat = x.reshape(n * b, *x.shape[2:])
             ref = epi_atoms[rows].repeat_interleave(b, 0)
-            contact = torch.cat([
-                contact_terms(residue_distances(flat[i:i + CONTACT_BATCH], ref[i:i + CONTACT_BATCH],
-                                                epi_slots, valid, para_local)[0], k)[0]
-                for i in range(0, n * b, CONTACT_BATCH)
-            ]).view(n, b)
+            contact = contact_terms(distances(flat[:, para_local], ref, rows.repeat_interleave(b)), k)[0].view(n, b)
             clash_energy, bad = clash.score(x, rows)
             return contact + CLASH_WEIGHT_SEARCH * clash_energy, bad
 
