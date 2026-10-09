@@ -10,7 +10,7 @@ The one patch today, ``silu_f32``: ``calculate_silu`` drops the caller's ``APPRO
 (every sibling activation honours it) and on an fp32 dest runs the accurate exp and a two-step
 reciprocal, 92 SFPU instructions a row on Wormhole. The patch threads the flag through and, under
 approx mode only, runs ``calculate_silu_f32`` (kernels/silu_f32): 6e-6 of float64 on the fp32
-accumulator in 40 instructions. Sites with ``math_approx_mode=False`` compile exactly as before,
+accumulator in 32 instructions. Sites with ``math_approx_mode=False`` compile exactly as before,
 and tt-bio sets that flag on a fused silu from the ``silu_f32`` lever (``tenstorrent.silu_ckc``).
 
 ``enable()`` must run before the first device open. A patch whose anchor text is missing (a ttnn
@@ -44,7 +44,7 @@ _SILU_F32 = Path(__file__).resolve().parent / "kernels" / "silu_f32" / "ckernel_
 
 
 def _patch_silu_f32(src: str) -> str:
-    """Under math_approx_mode, silu runs calculate_silu_f32 (a few ulp of float32, 40 instructions a row)."""
+    """Under math_approx_mode, silu runs calculate_silu_f32 (a few ulp of float32, 32 instructions a row)."""
     src, n0 = re.subn(r'(#include "ckernel_sfpu_sigmoid.h"\n)', r'\1#include "ckernel_sfpu_silu_f32.h"\n', src)
     src, n1 = re.subn(
         r"template <bool is_fp32_dest_acc_en, int ITERATIONS>\s*\ninline void calculate_silu\(\) \{\n",

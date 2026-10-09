@@ -404,7 +404,7 @@ _FAST_MODE = False
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6.5e-6
-#                   of float64 at 40 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
+#                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
           "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8",
           "trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in", "atom_sdpa", "silu_f32")
