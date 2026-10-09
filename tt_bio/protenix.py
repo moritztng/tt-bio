@@ -2531,9 +2531,17 @@ class Protenix:
                                                dtype=self.diffusion.dtype)))
 
         def _relpe(rp):
-            out = ttnn.linear(T(rp), w_relpe,
+            # The one-hot is 0s and 1s, exact in bf16: uploaded as bf16 (half the bytes, tilized ~4x
+            # faster than fp32) and widened on the chip, it is the same device tensor T(rp) was.
+            x = ttnn.from_torch(rp.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=self.dev,
+                                dtype=ttnn.bfloat16)
+            if self.diffusion.dtype != ttnn.bfloat16:
+                xb, x = x, ttnn.typecast(x, self.diffusion.dtype)
+                ttnn.deallocate(xb)
+            out = ttnn.linear(x, w_relpe,
                               **paircond_mm_kw(self.compute_kernel_config,
                                                self.diffusion.dtype, _w_relpe.shape[0]))
+            ttnn.deallocate(x)
             _sync("relpe linear")
             return out
 
