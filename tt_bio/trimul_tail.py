@@ -42,6 +42,8 @@ PASSES = 2
 # SKIP_SIGMOID drops the gate so the multiply can be scored alone. Diagnostic only.
 ROUND = 2
 SKIP_SIGMOID = 0
+# TRIMUL_TAIL_ABL, the kernels' stage ablation (see the patch script's HEADER). Diagnostic only.
+ABL = 0
 
 # The epilogue (`TRIMUL_TAIL_EPI` in compute.cpp). 0 is the bit-exact production order above. 1
 # packs each GEMM pass straight out of DST into bf16 (sigmoid applied in DST on the gate pass) and
@@ -128,9 +130,24 @@ def _block_for(kt, nt):
     return TT._MM_BLOCK[(kt, nt)] if (kt, nt) in F1_BLOCK_KEYS else None
 
 
+# A/B only (spd-trimul): the tail's own (M, K, N, subblock_h, subblock_w) in place of `_MM_BLOCK`'s
+# for an allow-listed key. K must stay the whole contraction (one K block), so the order of the sum
+# and the numerics do not move; only how output tiles map to cores and how often a core reads each
+# activation tile. None is production's entry.
+BLOCK = None
+
+
+def set_block(b):
+    """A/B switch for the paired harness. Returns the previous value."""
+    global BLOCK
+    prev, BLOCK = BLOCK, (tuple(b) if b else None)
+    return prev
+
+
 def _block(w):
     """F1's block config for this weight, or None when its (kt, nt) key is not allow-listed."""
-    return _block_for(_tiles(w.shape[-2]), _tiles(w.shape[-1]))
+    b = _block_for(_tiles(w.shape[-2]), _tiles(w.shape[-1]))
+    return b if b is None or BLOCK is None else BLOCK
 
 STATS = [0, 0]          # served, declined
 OUT_L1_STATS = [0, 0]   # products packed straight into L1, products that went to DRAM
@@ -193,13 +210,14 @@ def _cb(idx, core_grid, tiles):
         format_descriptors=[fmt])
 
 
-def _build(device, xa, xb, wa, wb, out, grid, ckc, block, epi):
+def _build(device, xa, xb, wa, wb, outs, grid, ckc, block, epi, shared):
     defs = {"TRIMUL_TAIL_PASSES": PASSES, "TRIMUL_TAIL_ROUND": ROUND,
-            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID, "TRIMUL_TAIL_EPI": epi}
+            "TRIMUL_TAIL_SKIP_SIGMOID": SKIP_SIGMOID, "TRIMUL_TAIL_EPI": epi,
+            "TRIMUL_TAIL_SHARED_IN0": int(shared), "TRIMUL_TAIL_ABL": ABL}
     # EPI >= 1 applies the sigmoid to the DST a GEMM pass packs from, which is the finished sum
     # only when the contraction is one K block.
     assert epi == 0 or block[1] == _tiles(wa.shape[-2]), (epi, block, tuple(wa.shape))
-    entry = MG.build(device, xa, wa, [out], (block, grid), ckc,
+    entry = MG.build(device, xa, wa, list(outs), (block, grid), ckc,
                      defines=defs, kernel_dir=KERNEL_DIR)
 
     gx, gy = grid
@@ -276,8 +294,12 @@ def _alloc_out(shape, device, mem):
     return out, mem
 
 
-def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None):
+def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, split=1):
     """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope.
+
+    `xa is xb` (the trimul in-projection: p and g of one activation) reads each activation block
+    once for both passes. `split` > 1 writes the product as that many equal column chunks, separate
+    tensors, and returns them as a list (no residual then).
 
     With `resid` and EPI == 2 it computes `resid + p * sigmoid(g)` into `resid` itself and returns
     `resid` (the caller's in-place add is then already done: `_add_input` sees `u is x`). Any
@@ -303,28 +325,36 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None):
     device = xa.device()
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     mem = out_memory_config or ttnn.DRAM_MEMORY_CONFIG
+    nt = _tiles(wa.shape[-1])
+    if split > 1 and (nt % split or (nt // split) % _block(wa)[2]):
+        return _reject(f"split={split}", f"n_tiles={nt}")
+    shared = xa.buffer_address() == xb.buffer_address()
     want = _epi()
     epi = min(want, 1)
-    if want == 2 and resid is not None:
+    if want == 2 and resid is not None and split == 1:
         if _resid_ok(resid, xa, wa, mem):
             epi = 2
             RESID_STATS[0] += 1
         else:
             RESID_STATS[1] += 1
-    shape = ttnn.Shape([int(d) for d in xa.shape][:-1] + [int(wa.shape[-1])])
+    shape = ttnn.Shape([int(d) for d in xa.shape][:-1] + [int(wa.shape[-1]) // split])
     if epi == 2:
-        out = resid
+        outs = [resid]
     else:
-        out, mem = _alloc_out(shape, device, mem)
+        outs = []
+        for _ in range(split):
+            out, mem = _alloc_out(shape, device, mem)
+            outs.append(out)
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
-           epi, str(mem))
+           ABL, epi, str(mem), _block(wa), shared, split)
 
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, out, grid, ckc, _block(wa), epi)
+        entry = _CACHE[key] = _build(device, xa, xb, wa, wb, outs, grid, ckc, _block(wa), epi,
+                                     shared)
     else:
         # `MG.rebind` repacks the descriptor itself, so only bind B separately when it does not run.
-        addrs = (xa.buffer_address(), wa.buffer_address(), (out.buffer_address(),))
+        addrs = (xa.buffer_address(), wa.buffer_address(), tuple(o.buffer_address() for o in outs))
         b = (xb.buffer_address(), wb.buffer_address())
         stale_b = b != entry["b_addrs"]
         if stale_b:
@@ -334,6 +364,6 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None):
         elif stale_b:
             _repack(entry)
 
-    ttnn.generic_op([xa, wa, xb, wb, out], entry["pd"])
+    ttnn.generic_op([xa, wa, xb, wb, *outs], entry["pd"])
     STATS[0] += 1
-    return out
+    return outs if split > 1 else outs[0]

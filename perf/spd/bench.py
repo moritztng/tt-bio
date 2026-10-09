@@ -186,7 +186,6 @@ for n in OPENED:
             pass
 log(ev="device_open", s=t_open, nodes=OPENED, arch=ARCH, card=CARD)
 
-T.set_fast_mode(FAST)  # the worker does this in load_model; without it a fast arm folds exact
 t = time.monotonic()
 
 
@@ -251,8 +250,10 @@ for name, y in INPUTS:
         la0 = os.getloadavg(); t0 = time.monotonic()
         try:
             metrics, _best, _feats = state.predict_one(y, rcfg); err = None
-        except Exception:  # a crashing rep is a result, not the end of the run
-            import traceback; err = traceback.format_exc()[-3000:]; metrics = {}
+        except Exception as e:  # a crashing rep is a result, not the end of the run
+            import traceback  # python frames + the message head; a ttnn message ends in a long C++ backtrace
+            err = "".join(traceback.format_tb(e.__traceback__)[-12:]) + f"{type(e).__name__}: {str(e)[:600]}"
+            metrics = {}
         t1 = time.monotonic()
         c = LAST.get("coords")
         finite = bool(c is not None and torch.isfinite(c).all().item()

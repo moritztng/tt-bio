@@ -29,6 +29,19 @@
 #ifndef TRIMUL_TAIL_EPI
 #define TRIMUL_TAIL_EPI 0
 #endif
+// Both passes read the same activation (the in-projection's p and g of one x): pass 1 reuses pass
+// 0's in0 block, which compute pops only after pass 1, so each activation block is read and
+// forwarded down the in0 chain once instead of twice.
+#ifndef TRIMUL_TAIL_SHARED_IN0
+#define TRIMUL_TAIL_SHARED_IN0 0
+#endif
+// Diagnostic only, never set in production: a stage ablation that keeps every CB handshake and
+// the in0 chain but drops one stage's work, so a timing says which stage binds. Bit 1: the in0
+// injector skips its DRAM read. Bit 2: compute skips the matmul. Bit 4: the writer skips its
+// DRAM writes. Bit 8: the in1 sender skips its DRAM read. The output is garbage under any bit.
+#ifndef TRIMUL_TAIL_ABL
+#define TRIMUL_TAIL_ABL 0
+#endif
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -537,7 +550,7 @@ void kernel_main() {
                 cb_wait_front(in0_cb, in0_block_num_tiles);
                 cb_wait_front(in1_cb, in1_block_num_tiles);
 
-                matmul_blocks(
+                if (!(TRIMUL_TAIL_ABL & 2)) matmul_blocks(
                     in0_cb,
                     in1_cb,
                     mm_out_cb,
@@ -559,7 +572,7 @@ void kernel_main() {
                         reuse_in0_block = true;
                     }
                 }
-                if (!reuse_in0_block) {
+                if (!reuse_in0_block && !(TRIMUL_TAIL_SHARED_IN0 && pass == 0)) {
                     cb_pop_front(in0_cb, in0_block_num_tiles);
                 }
                 cb_pop_front(in1_cb, in1_block_num_tiles);

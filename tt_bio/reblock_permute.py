@@ -894,9 +894,10 @@ GATE_SKIP_SIGMOID = False
 # The lean gated compute (`lean` in compute_reblock_permute_gated.cpp): g and p are transposed on
 # the unpack, so a tile takes two pack round trips instead of three. 1 multiplies on the FPU from
 # DST, which truncates into the 16-bit DST (one bf16 ULP low on about a quarter of elements; WH
-# module rel_rms 0.0084 against 0.0081). 2 keeps the incumbent's SFPU multiply and is bit-exact.
-# OFF; spd-trimul A/B arms `glean` (1) and `gleanx` (2).
-GATE_LEAN = int(os.environ.get("TT_BIO_GATED_LEAN", "0"))
+# module rel_rms 0.0084 against 0.0081). 2 keeps the incumbent's SFPU multiply and is bit-exact
+# (torch.equal to 0 on WH and BH, both trimul variants), so it is the default. 0 is the incumbent
+# three-round-trip compute. spd-trimul A/B arms `glean` (1) and `noglean` (0).
+GATE_LEAN = int(os.environ.get("TT_BIO_GATED_LEAN", "2"))
 
 
 def set_gate_lean(mode) -> int:
@@ -907,9 +908,7 @@ def set_gate_lean(mode) -> int:
 
 
 def _gate_lean() -> int:
-    """GATE_LEAN, or 2 under Protenix's `trimul_glean` precision lever."""
-    from .tenstorrent import lever
-    return GATE_LEAN or (2 if lever("trimul_glean") else 0)
+    return GATE_LEAN
 
 
 @_ops.fused_kernel("reblock_permute_gated")

@@ -327,6 +327,11 @@ _TEMPLATE_ROWS_REFUSED = {}  # pair shape -> row block the template residual set
 # Not bit-exact: the softmax and attn@v reduce over 160 keys instead of 128.
 # `TT_BIO_ATOM_SUPERSET_WINDOW=0` restores the windowed path.
 _ATOM_SUPERSET = env_flag("TT_BIO_ATOM_SUPERSET_WINDOW", True)
+# The superset path's head split and merge in TILE layout: Q|K|V share one zero-led row frame and
+# one nlp_create_qkv_heads splits them, nlp_concat_heads merges the output. Same values in the
+# same places as the ROW_MAJOR pad/permute round trips it replaces (perf/spd_attn/atom_steps.py:
+# those were ~10 of the 18 ms fp32 module on a Wormhole chip). "0" restores the round trips.
+_ATOM_TILE_HEADS = env_flag("TT_BIO_ATOM_TILE_HEADS", True)
 ATOM_SUPERSET_STATS = [0, 0]  # (attention calls on the superset window, on the windowed path)
 
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
@@ -560,6 +565,8 @@ class AtomTransformer(_KeyedWeights, Module):
         self._softmax_ckc = softmax_ckc("protenix.atom_transformer")
         self._softmax_f64 = host_f64_softmax_site("protenix.atom_transformer")
         self._kv_widx = {}  # cached KV-window gather indices, keyed by NP
+        self._zeros = {}    # zero row blocks of the superset frame, keyed by shape and dtype
+        self._tile_heads = _ATOM_TILE_HEADS
         # atom_sdpa lever: the bf16 superset attention runs as one fused SDPA (bf16 mask, never bfp8: the
         # -1e9 entries would share a block exponent with the bias and flush it).
         self._sdpa = _T.lever("atom_sdpa") and dtype == ttnn.bfloat16 and _ATOM_SUPERSET
@@ -697,16 +704,27 @@ class AtomTransformer(_KeyedWeights, Module):
             x = ttnn.permute(ttnn.reshape(x, (M, rows, H, dh)), (0, 2, 1, 3))
             return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
 
+        def win(x):                                      # (M*H, nbk, nq, dh) -> (M*H, nb, W, dh)
+            return ttnn.concat([ttnn.slice(x, [0, j, 0, 0], [M * H, j + nb, nq, dh]) for j in range(S)], dim=2)
+
         def windows(x):
-            x = ttnn.reshape(heads(x, lead, nbk * nq), (M * H, nbk, nq, dh))
-            x = ttnn.concat([ttnn.slice(x, [0, j, 0, 0], [M * H, j + nb, nq, dh])
-                             for j in range(S)], dim=2)
-            return ttnn.reshape(x, (M, H * nb, W, dh))
+            return ttnn.reshape(win(ttnn.reshape(heads(x, lead, nbk * nq), (M * H, nbk, nq, dh))), (M, H * nb, W, dh))
 
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
-        Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
-        Ks = windows(self._lin(kv_norm, apb + "attention.linear_k.weight"))
-        Vs = windows(self._lin(kv_norm, apb + "attention.linear_v.weight"))
+        K = self._lin(kv_norm, apb + "attention.linear_k.weight")
+        V = self._lin(kv_norm, apb + "attention.linear_v.weight")
+        if self._tile_heads:
+            # Rows [lead, lead + NP) of the frame are Q's; key window i is frame tile rows i .. i+S-1.
+            x = ttnn.pad(ttnn.concat([Q, K, V], dim=-1), [[0, 0], [0, NP - N], [0, 0]], 0.0)
+            x = ttnn.concat([self._zero_rows(M, lead, x), x, self._zero_rows(M, nbk * nq - lead - NP, x)], dim=1)
+            q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+                ttnn.reshape(x, (M, 1, nbk * nq, 3 * H * dh)), num_heads=H, num_kv_heads=H,
+                transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)    # each (M, H, nbk*nq, dh)
+            Qs = ttnn.reshape(ttnn.slice(q, [0, 0, lead, 0], [M, H, lead + NP, dh]), (M, H * nb, nq, dh))
+            Ks, Vs = (ttnn.reshape(win(ttnn.reshape(t, (M * H, nbk, nq, dh))), (M, H * nb, W, dh)) for t in (k, v))
+        else:
+            Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
+            Ks, Vs = windows(K), windows(V)
         if self._sdpa:
             o = _T.fused_sdpa(Qs, Ks, Vs, attn_mask=zs, scale=dh ** -0.5,
                               program_config=_T._sdpa_program_config(nq, W),
@@ -718,11 +736,23 @@ class AtomTransformer(_KeyedWeights, Module):
             o = batched_matmul(site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                             host_f64=self._softmax_f64),
                                Vs, compute_kernel_config=self.compute_kernel_config)
+        ATOM_SUPERSET_STATS[0] += 1
+        if self._tile_heads:
+            o = ttnn.experimental.nlp_concat_heads(ttnn.reshape(o, (M, H, NP, dh)), memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            return ttnn.slice(ttnn.reshape(o, (M, NP, H * dh)), [0, 0, 0], [M, N, H * dh])
         o = ttnn.permute(ttnn.reshape(o, (M, H, NP, dh)), (0, 2, 1, 3))
         o = ttnn.reshape(o, (M, NP, H * dh))
         o = ttnn.slice(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), [0, 0, 0], [M, N, H * dh])
-        ATOM_SUPERSET_STATS[0] += 1
         return ttnn.to_layout(o, ttnn.TILE_LAYOUT)
+
+    def _zero_rows(self, M, rows, like):
+        """A cached (M, rows, C) zero tensor of `like`'s dtype and width, TILE layout."""
+        key = (M, rows, like.shape[-1], like.dtype)
+        z = self._zeros.get(key)
+        if z is None:
+            z = self._zeros[key] = ttnn.zeros((M, rows, like.shape[-1]), dtype=like.dtype,
+                                               layout=ttnn.TILE_LAYOUT, device=self.device)
+        return z
 
     def _pair_bias(self, p, apb):
         """Atom-pair attention bias: LayerNorm(p, weight only) -> linear_nobias_z -> permute

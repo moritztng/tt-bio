@@ -93,7 +93,31 @@ HEADER = """// SPDX-FileCopyrightText: (c) 2026 Tenstorrent USA, Inc.
 #ifndef TRIMUL_TAIL_EPI
 #define TRIMUL_TAIL_EPI 0
 #endif
+// Both passes read the same activation (the in-projection's p and g of one x): pass 1 reuses pass
+// 0's in0 block, which compute pops only after pass 1, so each activation block is read and
+// forwarded down the in0 chain once instead of twice.
+#ifndef TRIMUL_TAIL_SHARED_IN0
+#define TRIMUL_TAIL_SHARED_IN0 0
+#endif
+// Diagnostic only, never set in production: a stage ablation that keeps every CB handshake and
+// the in0 chain but drops one stage's work, so a timing says which stage binds. Bit 1: the in0
+// injector skips its DRAM read. Bit 2: compute skips the matmul. Bit 4: the writer skips its
+// DRAM writes. Bit 8: the in1 sender skips its DRAM read. The output is garbage under any bit.
+#ifndef TRIMUL_TAIL_ABL
+#define TRIMUL_TAIL_ABL 0
+#endif
 """
+
+SHARED_IN0_DM = (
+    "                if (reuse_block && pass == 0 && k_block_iter == 0) {",
+    "                if (TRIMUL_TAIL_SHARED_IN0 && pass == 1) {\n"
+    "                    continue;  // pass 0's block is still in c_0\n"
+    "                }\n"
+    "                if (reuse_block && pass == 0 && k_block_iter == 0) {")
+SHARED_IN0_COMPUTE = (
+    "                if (!reuse_in0_block) {\n                    cb_pop_front(in0_cb, in0_block_num_tiles);",
+    "                if (!reuse_in0_block && !(TRIMUL_TAIL_SHARED_IN0 && pass == 0)) {\n"
+    "                    cb_pop_front(in0_cb, in0_block_num_tiles);")
 
 K_LOOP_CLOSE = """                }
             }
@@ -103,6 +127,27 @@ K_LOOP_CLOSE_NEW = """                }
             }
             }
 #ifdef FUSE_BIAS"""
+
+
+# The granular writers own the output CB's wait/pop, so under bit 4 they are replaced by the same
+# per-row wait/pop with no NoC write; the deferred writers get a block the caller already waited on.
+ABL_DRAIN = ("if (TRIMUL_TAIL_ABL & 4) {\n"
+             "                            for (uint32_t m_id = 0; m_id < M_block_tiles; m_id++) {\n"
+             "                                cb_wait_front(cb_id_out, N_block_tiles);\n"
+             "                                cb_pop_front(cb_id_out, N_block_tiles);\n"
+             "                            }\n"
+             "                        } else ")
+
+
+def patch_abl_write(src: str) -> str:
+    for call in ("write_block_sync<", "write_block_sync_split<"):
+        src = sub(src, f"                            {call}",
+                  f"                            if (!(TRIMUL_TAIL_ABL & 4)) {call}", f"abl {call}")
+    src = sub(src, "                        write_block_sync_granular<",
+              "                        " + ABL_DRAIN + "write_block_sync_granular<", "abl granular")
+    src = sub(src, "                        write_block_sync_granular_split<",
+              "                        " + ABL_DRAIN + "write_block_sync_granular_split<", "abl granular split")
+    return src
 
 
 def patch_in0(src: str) -> str:
@@ -130,8 +175,12 @@ def patch_in0(src: str) -> str:
               """                    read_in0_block_sync<M_block_tiles, K_block_tiles>(
                         pass == 0 ? in0_reader : in0b_reader,""",
               "in0 read call")
+    src = sub(src, "                    read_in0_block_sync<M_block_tiles, K_block_tiles>(",
+              "                    if (!(TRIMUL_TAIL_ABL & 1)) read_in0_block_sync<M_block_tiles, K_block_tiles>(",
+              "abl in0 read")
     src = sub(src, K_LOOP_CLOSE, K_LOOP_CLOSE_NEW, "in0 k loop close")
-    return HEADER + patch_resid(src)
+    src = sub(src, *SHARED_IN0_DM, "in0 shared skip")
+    return HEADER + patch_resid(patch_abl_write(src))
 
 
 def patch_in1(src: str) -> str:
@@ -152,8 +201,11 @@ def patch_in1(src: str) -> str:
               """                    read_in1_block_sync<K_block_tiles, N_block_tiles>(
                         pass == 0 ? in1_reader : in1b_reader,""",
               "in1 read call")
+    src = sub(src, "                    read_in1_block_sync<K_block_tiles, N_block_tiles>(",
+              "                    if (!(TRIMUL_TAIL_ABL & 8)) read_in1_block_sync<K_block_tiles, N_block_tiles>(",
+              "abl in1 read")
     src = sub(src, K_LOOP_CLOSE, K_LOOP_CLOSE_NEW, "in1 k loop close")
-    return HEADER + patch_resid(src)
+    return HEADER + patch_resid(patch_abl_write(src))
 
 
 # The bf16 rounding the product goes through before the pack. Shared with
@@ -522,6 +574,9 @@ def patch_compute_epi(src: str) -> str:
               "#else\n"
               "            gate_block(p_cb, g_cb, sig_cb, out_cb, out_block_num_tiles);\n"
               "#endif\n", "epi gate call")
+    src = sub(src, *SHARED_IN0_COMPUTE, "shared in0 pop")
+    src = sub(src, "                matmul_blocks(\n                    in0_cb,",
+              "                if (!(TRIMUL_TAIL_ABL & 2)) matmul_blocks(\n                    in0_cb,", "abl matmul")
     return src
 
 
