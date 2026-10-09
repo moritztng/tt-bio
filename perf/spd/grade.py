@@ -107,6 +107,7 @@ def main():
             for line in f.read_text().splitlines():
                 r = json.loads(line)
                 if r.get("ev") == "rep" and r["input"] in SET and r["arm"] in (a.base, a.test):
+                    r["_dir"] = f.parent
                     reps.append(r)
     folds, failed = {}, []
     for r in reps:
@@ -114,6 +115,8 @@ def main():
         if r["err"] or not r["finite"] or not r.get("samples_conf"):
             failed.append(key); continue
         sd = Path(r["struct_dir"])
+        if not sd.exists():  # a run dir copied off the box it folded on
+            sd = r["_dir"] / sd.name
         cifs = [sd / (f"{r['input']}.cif" if k == 0 else f"{r['input']}_model_{k}.cif")
                 for k in range(len(r["samples_conf"]))]
         folds[key] = dict(cifs=cifs, conf=r["samples_conf"])
