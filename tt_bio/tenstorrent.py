@@ -2027,6 +2027,13 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # not describe any default. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step form back.
 # Read at CALL time, not import time, so an interleaved A/B can flip it.
 _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
+# Every diffusion sample of a fold sees the same noise level and the same trunk output, so the
+# token conditioning `s` and everything the DiT derives from it (the hoisted AdaLN and gate
+# projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
+# times all equal and one trunk row, the step runs them on ONE sample and the ops that meet the
+# per-sample `a` broadcast it: the same values, computed once instead of once per sample.
+# Boltz-2 c730, 5 samples, Wormhole: the hoisted projections alone are 7.5 s of the fold (census m9).
+_DIT_SHARED_COND = env_flag("TT_BIO_DIT_SHARED_COND", False)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -15086,6 +15093,9 @@ class DiffusionModule(TorchWrapper):
         atom_pad_cached = self._cache_get("atom_pad", 0)
         if atom_pad_cached:
             r = torch.nn.functional.pad(r, (0, 0, 0, atom_pad_cached))
+        if (_DIT_SHARED_COND and times.numel() > 1 and s_trunk.shape[0] == 1
+                and s_inputs.shape[0] == 1 and bool((times == times.reshape(-1)[0]).all())):
+            times = times[:1]
         out = self._run_diffusion_device(
             self._from_torch(r), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING)
         return self._to_torch(out)[:, :N, :]
