@@ -43,7 +43,8 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
-                          host_unpark, msa_embed, msa_update_chunks, pair_row_blocks,
+                          host_unpark, msa_embed, msa_embed_rows, msa_rows_host, msa_update_chunks,
+                          opm_depth_bucket, pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
@@ -2805,7 +2806,7 @@ class Protenix:
             return ([out[0]], [out[1]]) if return_confidence else [out]
         conds, auxs = [], []
         for feats in feats_list:
-            cond, aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
+            cond, aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
             conds.append(cond)
             auxs.append(aux)
         merged = merge_conds(self.diffusion, conds)
@@ -2843,7 +2844,7 @@ class Protenix:
         relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
         return relp, self.trunk.host_inputs(feats, relp, feats["token_bonds"], NT)
 
-    def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None):
+    def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None, seed=None):
         """Trunk plus the t-independent diffusion conditioning for one target: everything
         fold() does before the sampler. Returns (cond, aux); aux carries what the confidence
         head needs. fold() and fold_many() share this so a batched fold runs the same trunk
@@ -2884,8 +2885,15 @@ class Protenix:
         relp, host = trunk_host.result()
         if self._fast:
             _TT.set_fast_mode(True)
+        # Under the msa_sample lever every cycle reads its own random alignment rows, drawn from
+        # the fold seed as upstream's MSAModule draws them from its seeded global generator.
+        msa_sample = None
+        if _TT.lever("msa_sample"):
+            gen = torch.Generator()
+            msa_sample = (None, gen.manual_seed(seed) if seed is not None else gen)
         s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                      progress_fn=progress_fn, n_cycles=n_cycles, host=host)
+                                      progress_fn=progress_fn, n_cycles=n_cycles, host=host,
+                                      msa_sample=msa_sample)
         if self._fast:
             _TT.set_fast_mode(False)
         s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
@@ -2930,7 +2938,7 @@ class Protenix:
         if trace:
             import tt_bio.tenstorrent as _TTd
             _TTd.require_trace_region("fold(trace=True)")
-        cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
+        cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
         # The device confidence head's sample-invariant z_base is built on the host lane while the
@@ -3030,6 +3038,44 @@ class Protenix:
                                                                 list(coords), feats)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
+
+
+def msa_cycle_rows(msa, n_cycles, depth, generator):
+    """Per recycling cycle, the alignment rows OpenDDE's MSAModule reads (opendde
+    model/msa_sampling.py subsample_msa_feature_dict_valid_first): rows holding any non-gap token
+    in random order, then all-gap rows in random order, the first `depth` of them; one fresh draw
+    per cycle from `generator`. msa: [depth_total, tokens] token ids, real columns only. None
+    when the whole alignment fits, where a draw would only reorder rows the module sums over."""
+    import torch
+    if msa.shape[0] <= depth:
+        return None
+    valid = (msa != 31).any(-1)
+    v_idx, i_idx = valid.nonzero().squeeze(-1), (~valid).nonzero().squeeze(-1)
+    out = []
+    for _ in range(n_cycles):
+        pick = v_idx[torch.randperm(v_idx.numel(), generator=generator)][:depth]
+        if pick.numel() < depth:
+            extra = i_idx[torch.randperm(i_idx.numel(), generator=generator)][:depth - pick.numel()]
+            pick = torch.cat([pick, extra])
+        out.append(pick)
+    return out
+
+
+# Upstream Protenix's inference cap on the rows one cycle reads (configs_data.py msa.sample_cutoff.test).
+MSA_SAMPLE_CUTOFF = 16384
+
+
+def msa_cycle_rows_random(n_rows, n_cycles, generator, cutoff=MSA_SAMPLE_CUTOFF):
+    """Per recycling cycle, the alignment rows Protenix v2's MSAModule reads at inference
+    (protenix/model/utils.py sample_indices with strategy "random", lower bound 1): a depth k drawn
+    uniformly from 1..n_rows, then the first k of a random permutation, at most `cutoff`. Drawn in
+    upstream's order, randint then randperm, so the same CPU generator state gives the same rows."""
+    import torch
+    out = []
+    for _ in range(n_cycles):
+        k = int(torch.randint(1, n_rows + 1, (1,), generator=generator).item())
+        out.append(torch.randperm(n_rows, generator=generator)[:k][:cutoff])
+    return out
 
 
 def trunk_recycles(state_dict):
@@ -3244,7 +3290,10 @@ class Trunk(_KeyedWeights):
         ttnn.deallocate(cat)
         return out
 
-    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None):
+    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, depth_to=None):
+        """The MSA module's blocks on `z3`. `m_feat` is the pristine m: a device tensor, a host one,
+        or a list of device chunks this call owns (a cycle's sampled rows, `msa_embed_rows`); for
+        that list `depth_to` is the bucket OuterProductMean pads its contraction to."""
         def update_msa(m, z, pwa, transition):
             if pwa is None:
                 return m
@@ -3314,7 +3363,8 @@ class Trunk(_KeyedWeights):
                 # or its depth chunks; update_msa below streams from host.
                 z3 = self._opm_from_host(opm, m_feat, z3)
             else:
-                z3 = opm(m_feat, None, None, residual=z3)
+                n_msa = sum(c.shape[1] for c in m_feat) if depth_to else None
+                z3 = opm(m_feat, None, n_msa, residual=z3, depth_to=depth_to)
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
@@ -3404,11 +3454,16 @@ class Trunk(_KeyedWeights):
                     pm_pad=pm_pad, at_pad=at_pad, nt=nt,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
 
-    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None):
+    def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
+                 msa_sample=None):
         """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
         tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
         number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
-        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). `host` is `host_inputs` of the
+        10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). msa_sample=(depth, generator)
+        gives every cycle its own random alignment rows, as the reference MSAModules do: `depth`
+        rows valid-first for OpenDDE (msa_cycle_rows), or depth None for Protenix's uniformly
+        random depth (msa_cycle_rows_random); None feeds the whole alignment to every cycle.
+        `host` is `host_inputs` of the
         same feat, relp and token_bonds, already built (fold() builds it on the host lane while
         the chip runs the input embedder); None builds it here. Returns
         (s_trunk (N,384), z_trunk (1,N,N,256)) as ttnn tensors."""
@@ -3447,17 +3502,31 @@ class Trunk(_KeyedWeights):
         # m_feat stays on the chip (`_msa_keep_bytes`) unless a cycle is refused.
         s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
         m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
-        m_feat = msa_embed(ms, lambda x: ttnn.add(
-            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m), keep=_msa_keep_bytes(*m_key))
-        ttnn.deallocate(s_m)
-        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
+        m_proj = lambda x: ttnn.add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
+        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
+        rows = None
+        if msa_sample is not None:
+            depth, gen = msa_sample
+            msa = feat["msa"][:, :n_real]
+            rows = (msa_cycle_rows_random(msa.shape[0], n_cycles, gen) if depth is None
+                    else msa_cycle_rows(msa, n_cycles, depth, gen))
+        if rows is None:
+            m_feat = msa_embed(ms, m_proj, keep=_msa_keep_bytes(*m_key))
+            ttnn.deallocate(s_m)
+            dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
+        else:
+            # The embedding is per alignment row, so embedding a cycle's rows equals picking them
+            # out of the embedded whole; only the picked rows are built, in power-of-two chunks
+            # (msa_row_chunks), and the host lane cuts the next cycle's rows while this one runs.
+            m_feat = None
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], _msa_row_chunk_size())
+            next_rows = cut(0)
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
-        n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
 
-        def cycle(cyc, carry, m_feat):
+        def cycle(cyc, carry, m_feat, depth_to=None):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
             # it did inline; only a caller that kept its own copy holds it longer.
             z3, s = carry
@@ -3480,7 +3549,7 @@ class Trunk(_KeyedWeights):
             # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
             if nt > 0 and self.TPL:
                 z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
-            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
+            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, depth_to)
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
             s = ttnn.add(s_init, sc)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
@@ -3504,6 +3573,12 @@ class Trunk(_KeyedWeights):
             with ops.recycle_region(cyc, n_cycles - 1):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
+                if rows is not None:
+                    parts = next_rows.result()
+                    if cyc + 1 < n_cycles:
+                        next_rows = cut(cyc + 1)
+                    carry = cycle(cyc, carry, msa_embed_rows(parts, m_proj), opm_depth_bucket(len(rows[cyc])))
+                    continue
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
                     continue
@@ -3530,6 +3605,8 @@ class Trunk(_KeyedWeights):
                 gc.collect()
                 carry, inputs = cycle(cyc, inputs, m_feat), None
         z3, s = carry
+        if rows is not None:
+            ttnn.deallocate(s_m)
         for t in [z_init, *tpl_a]:
             if t.storage_type() == ttnn.StorageType.DEVICE:
                 ttnn.deallocate(t)

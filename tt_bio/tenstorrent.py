@@ -565,9 +565,12 @@ _FAST_MODE = False
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
-          "transition_shard")
+          "transition_shard", "msa_sample")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw"})
+# msa_sample: Protenix-v2 reads its own random alignment rows every recycling cycle, upstream v2.0.0's
+# inference rule (protenix.msa_cycle_rows_random), drawn from the fold seed. Not a precision lever: it
+# is faithfulness, and it changes which rows the MSA module reads, so it is graded like one.
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "msa_sample"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -6770,6 +6773,56 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
             return m
     dram_peak(f"trunk m embedded to the host in depth chunks [{tuple(m.shape)} torch]")
     return m
+
+
+def msa_row_chunks(n, cap=MSA_CHUNK_SIZE):
+    """`n` alignment rows as chunk sizes: whole `cap`-row chunks, then the binary digits of the
+    rest, largest first. A depth drawn afresh every recycling cycle then reaches each per-row op
+    in at most log2(cap) + 1 shapes, so nothing recompiles per cycle and no row is padded."""
+    sizes = [cap] * (n // cap)
+    r = n % cap
+    return sizes + [1 << b for b in reversed(range(r.bit_length())) if r >> b & 1]
+
+
+def msa_rows_host(feat, rows, cap=MSA_CHUNK_SIZE):
+    """The host feature [1, depth, tokens, c] of alignment rows `rows`, cut as `msa_row_chunks`."""
+    out, s = [], 0
+    for n in msa_row_chunks(len(rows), cap):
+        out.append(feat[:, rows[s:s + n]].contiguous())
+        s += n
+    return out
+
+
+def msa_embed_rows(parts, project):
+    """`project` of every host chunk `msa_rows_host` cut, as a list of chunks: the chunked `m` that
+    `msa_update_chunks` and `OuterProductMean` consume without ever joining it. Past
+    `MSA_HOST_OFFLOAD_MIN_BYTES` of `m` each chunk is parked on the host as soon as it is
+    projected, as `host_park` would park the whole list, so the chip never holds all of it."""
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+    rows = sum(p.shape[1] for p in parts)
+    out, park = [], False
+    for i, p in enumerate(parts):
+        x = ttnn.from_torch(p, layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+        mc = project(x)
+        ttnn.deallocate(x)
+        if i == 0:
+            park = rows * _padded_bytes(tuple(mc.shape)[2:], 2) > lim
+        if park:
+            h = ttnn.from_device(mc)
+            ttnn.deallocate(mc)
+            mc = h
+        out.append(mc)
+    return out
+
+
+def opm_depth_bucket(depth):
+    """The contraction depth OuterProductMean pads a `depth`-row MSA to when the depth changes every
+    cycle: four buckets per octave on whole 3-tile K blocks, so at most 25 % zero rows and about 30
+    distinct matmuls up to 16384 rows. The zero rows add nothing; the mean divides by `depth`."""
+    q = 32 * OPM_K_PAD_TILES
+    q *= 1 << max(0, (depth // q).bit_length() - 3)
+    return -(-depth // q) * q
 
 
 def _join_depth_chunks(chunks, group=8):
@@ -13744,8 +13797,12 @@ class OuterProductMean(Module):
         return ttnn.reshape(out, (1, *out.shape))
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None,
-                 n_msa: float | None = None, residual: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 n_msa: float | None = None, residual: ttnn.Tensor | None = None,
+                 depth_to: int | None = None) -> ttnn.Tensor:
         """The outer product mean of `x`, or `residual + it` when a residual [1, I, J, c_z] is given.
+
+        `depth_to` zero-pads a joined contraction to that many rows (`opm_depth_bucket`), so a
+        depth that changes every cycle reuses a few matmuls instead of compiling one per depth.
 
         With a residual each output row block is added to its own rows and a blocked join frees
         the old residual, so the pair update never holds the residual, a whole OPM output and the
@@ -13873,7 +13930,10 @@ class OuterProductMean(Module):
                     b_parts.append(bc)
                 depth = sum(p.shape[0] for p in a_parts)
                 dev = a_parts[0].device()
-                pad = 0 if small_depth(depth) or dev.arch() != ttnn.Arch.WORMHOLE_B0 else opm_kpad_rows(depth)
+                if depth_to:
+                    pad = depth_to - depth
+                else:
+                    pad = 0 if small_depth(depth) or dev.arch() != ttnn.Arch.WORMHOLE_B0 else opm_kpad_rows(depth)
                 if pad:
                     a_parts.append(zero_rows(a_parts[0], pad))
                     b_parts.append(zero_rows(b_parts[0], pad))
