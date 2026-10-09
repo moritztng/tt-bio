@@ -20,6 +20,9 @@ Legs (enumerated from the tree under test, so a new arm or model is picked up wi
   bc2:boundary       two BindCraft 2 trajectories from the installed wheel
   perf               perf_regression.py, TIMED (see below)
 plus three card-free legs run once on the first host: check, packaging_smoke, pytest_cpu.
+A ladder leg whose model's baseline has no row for a lever its fold resolves (owed_levers) is not
+folded: it reads OWED, failing the verdict, which names the `--record-lever` run that clears it.
+  record:<model>     release_gate.py --size-ladder-record-lever <FLAGS>  only with --record-lever
 
 TIMED legs measure speed, so they must not share a host with this gate's own load. They run only
 on a --timed card, after every correctness leg of that arch has been handed out, and while one runs
