@@ -159,7 +159,7 @@ class Recorder:
                 ttnn.synchronize_device(rec.device)
                 t1 = time.perf_counter()
                 rep = None
-                if name not in NO_REPLAY and not name.endswith("_"):
+                if rec.replay and name not in NO_REPLAY and not name.endswith("_"):
                     t2 = time.perf_counter()
                     for _ in range(rec.replay):
                         o = fn(*args, **kwargs)
