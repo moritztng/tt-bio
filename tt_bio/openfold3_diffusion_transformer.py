@@ -33,8 +33,9 @@ same math the trunk transition and the ``AtomTransformer`` conditioned transitio
 
 head_dim=48 is not tile-aligned, so the q/k/v projections are fused and padded to
 head_dim=64 (16 heads -> 1024/head-group, fused qkv -> 3072), then
-``nlp_create_qkv_heads`` splits the padded heads. Attention itself is MANUAL (matmul
-QK^T + scale + mask, fp32 numerically-stable softmax, matmul attn@V), NOT the fused
+``nlp_create_qkv_heads`` splits the padded heads and ``nlp_concat_heads`` joins them, pad lanes
+kept: the gate and output projection are re-laned to 1024 with zeros there. Attention itself is
+MANUAL (matmul QK^T + scale + mask, fp32 numerically-stable softmax, matmul attn@V), NOT the fused
 ``scaled_dot_product_attention``: the fused SDPA does its softmax in bf16, and its
 per-block error (~0.998) compounds to ~0.967 over the 24-block stack; a CPU bf16
 control with an fp32 softmax holds 0.99996 over the same stack, isolating the softmax
@@ -154,8 +155,11 @@ class _DiTBlock(Module):
         self.qkv_b = ttnn.from_torch(qkv_b, layout=ttnn.TILE_LAYOUT, device=self.device,
                                      dtype=self._act_dtype)
 
-        self.w_g = self._w_tt(apb + "mha.linear_g.weight")
-        self.w_o = self._w_tt(apb + "mha.linear_o.weight")
+        # The gate and the output projection on the padded head lanes, so the heads come back
+        # with one nlp_concat_heads (see `_pad_head_lanes`): v is zero in those lanes, so is o,
+        # and linear_o's matching rows are zero.
+        self.w_g = self._w_lanes(apb + "mha.linear_g.weight", -1)
+        self.w_o = self._w_lanes(apb + "mha.linear_o.weight", 0)
 
         ct = "conditioned_transition."
         self.adaln_t = AdaLN(False, remap_of3_adaln(_sub(self._w, ct + "layer_norm")),
@@ -174,6 +178,11 @@ class _DiTBlock(Module):
                                 layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self._act_dtype)
             self._wc[(key, transpose)] = v
         return v
+
+    def _w_lanes(self, key, axis):
+        w = _T._pad_head_lanes(self._w[key].t(), N_HEADS, HEAD_DIM, PADDED_HEAD_DIM, axis)
+        return ttnn.from_torch(w.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                               dtype=self._act_dtype)
 
     def _lin(self, x, w, bias=None, activation=None):
         return ops.linear(x, w, bias=bias, activation=activation,
@@ -263,11 +272,9 @@ class _DiTBlock(Module):
             qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
         ttnn.deallocate(qkv)
         o = (self._attend32 if self.sdpa32 else self._attend)(q, k, v, bias, cache)
-        # Slice padded head_dim 64->48, merge heads -> [1, N, 768].
-        o = o[:, :, :, :HEAD_DIM]
-        o = ttnn.permute(o, (0, 1, 3, 2))               # [1, 16, 48, N]
-        o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))  # [1, 768, N]
-        o = ttnn.permute(o, (0, 2, 1))                  # [1, N, 768]
+        S, n = o.shape[0], o.shape[2]
+        o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o),
+                         (S, n, N_HEADS * PADDED_HEAD_DIM))  # [S, N, 1024], pad lanes zero
         # Query gate (flat == per-head: g.view(N,H,d) * o(H,N,d) == flat multiply).
         g = lin(a_ln, self.w_g)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
