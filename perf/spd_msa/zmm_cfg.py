@@ -6,7 +6,7 @@ ms at 312 tiles, Wormhole HiFi3). This sweeps in0_block_w (divisors of Kt) again
 of per_core_M / per_core_N) for every plan `_matmul_cb_bytes` prices under the bank, and reports each one's
 time and its max difference from the auto call.
 
-usage: TT_VISIBLE_DEVICES=<chip> python zmm_cfg.py OUT [DEPTH=9947] [FID=hifi3] [REPS=3]
+usage: TT_VISIBLE_DEVICES=<chip> python zmm_cfg.py OUT [DEPTH=9947] [FID=hifi3] [REPS=3] [TOKENS=736] [ROWS=736,352]
 """
 import json, statistics, sys, time
 from pathlib import Path
@@ -15,6 +15,8 @@ OUT = Path(sys.argv[1]); OUT.mkdir(parents=True, exist_ok=True)
 DEPTH = int(sys.argv[2]) if len(sys.argv) > 2 else 9947
 FID = sys.argv[3] if len(sys.argv) > 3 else "hifi3"
 REPS = int(sys.argv[4]) if len(sys.argv) > 4 else 3
+TOK = int(sys.argv[5]) if len(sys.argv) > 5 else 736
+ROWS = [int(r) for r in (sys.argv[6] if len(sys.argv) > 6 else f"{TOK},352").split(",")]
 LOG = open(OUT / "zmm_cfg.jsonl", "a")
 
 
@@ -34,11 +36,11 @@ gx, gy = g.x, g.y
 ckc = ttnn.init_device_compute_kernel_config(
     dev.arch(), math_fidelity={"hifi4": ttnn.MathFidelity.HiFi4, "hifi3": ttnn.MathFidelity.HiFi3}[FID],
     math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
-N = 736 * 32
+N = TOK * 32
 K = DEPTH + T.opm_kpad_rows(DEPTH, gx) if hasattr(T, "opm_kpad_rows") else -(-DEPTH // (32 * gx)) * 32 * gx
 Kt, Nt = K // 32, N // 32
 budget = T._matmul_cb_budget()
-log(ev="start", depth=DEPTH, k=K, fid=FID, arch=str(dev.arch()), grid=[gx, gy], budget=budget)
+log(ev="start", tokens=TOK, rows=ROWS, depth=DEPTH, k=K, fid=FID, arch=str(dev.arch()), grid=[gx, gy], budget=budget)
 torch.manual_seed(0)
 a_h = torch.nn.functional.pad((torch.randn(N, DEPTH) / DEPTH ** 0.5), (0, K - DEPTH)).bfloat16()
 b_h = torch.nn.functional.pad(torch.randn(N, DEPTH), (0, K - DEPTH)).bfloat16()
@@ -58,7 +60,7 @@ def timed(am, **kw):
     return z, statistics.median(ts), max(ts) - min(ts)
 
 
-for m in (N, 11264):
+for m in [r * 32 for r in ROWS]:
     am = a if m == N else a[:m, :]
     Mt = m // 32
     z0, ms0, sp0 = timed(am)
