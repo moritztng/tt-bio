@@ -9,7 +9,8 @@ unconstrained fold is warm (the first one pays the program cache).
     python perf/tfg_kernel/split.py --panel P --target 1a14 --out RUN/1a14 --chip 3 --seeds 101,102
 
 --dump-x0 N saves the first N guided folds' per-step sampler inputs (x_noisy, denoiser x0, t_hat, sigma) and the
-guidance features to OUT/x0dump_<i>.pt, in the event format of tfg-upstream's fixtures, for host-side replay.
+guidance features to OUT/x0dump_<i>.pt, in the event format of tfg-upstream's fixtures, for host-side replay. --split-probe also times every denoise step as two calls (3 samples, then the rest),
+the denoiser cost of overlapping host guidance of one sample group with the device denoise of the other.
 """
 import json
 import runpy
@@ -26,6 +27,9 @@ if "--dump-x0" in sys.argv:
     i = sys.argv.index("--dump-x0")
     dump_left = int(sys.argv[i + 1])
     del sys.argv[i:i + 2]
+probe = "--split-probe" in sys.argv
+if probe:
+    sys.argv.remove("--split-probe")
 
 import torch  # noqa: E402
 
@@ -46,6 +50,23 @@ def timed(key, fn):
 
 
 protenix.denoise_in_chunks = timed("denoise", protenix.denoise_in_chunks)
+_chunks = protenix.denoise_in_chunks
+
+
+def probed(x, width, run, **kw):
+    """Also time the same step's denoise as two device calls (first 3 samples, then the rest), the
+    shape a host/device sample-split pipeline would run; the probe outputs are discarded."""
+    y = _chunks(x, width, run, **kw)
+    if x.shape[0] > 3:
+        for key, part in (("probe_head", x[:3]), ("probe_tail", x[3:])):
+            t = time.perf_counter()
+            run(part, part.shape[0])
+            acc[key] = acc.get(key, 0.0) + time.perf_counter() - t
+    return y
+
+
+if probe:
+    protenix.denoise_in_chunks = probed
 engine.TFGEngine.update = timed("engine_incl_early", engine.TFGEngine.update)
 guidance.Guidance._x0_hook = timed("early", guidance.Guidance._x0_hook)
 _edm = protenix.edm_sample
@@ -63,6 +84,8 @@ def edm_sample(*args, guidance=None, **kw):
                engine_s=round(acc.get("engine_incl_early", 0.0) - acc.get("early", 0.0), 2),
                early_s=round(acc.get("early", 0.0), 2),
                late_s=round(g - acc.get("engine_incl_early", 0.0), 2), t_unix=time.time())
+    if probe:
+        rec.update(probe_head_s=round(acc.get("probe_head", 0.0), 2), probe_tail_s=round(acc.get("probe_tail", 0.0), 2))
     with (out / "split.jsonl").open("a") as f:
         f.write(json.dumps(rec) + "\n")
     print("SPLIT " + json.dumps(rec), flush=True)
