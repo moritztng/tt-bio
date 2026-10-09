@@ -5,6 +5,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-09
+
+Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside seed-to-seed variation.
+
 ### Changed
 - **Protenix-v2 is 1.6x faster on Wormhole.** A warm 730-token fold (deep MSA, 5 samples, 10 recycles)
   takes 307 s on a Galaxy chip at 1000 MHz, against 501 s before. A graded set of cheaper numerics is on by
