@@ -3592,7 +3592,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard")}
+                               "transition_shard", "swiglu_fc12g")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -11208,7 +11208,10 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     try:
         if w12 is not None and gx == 8 and pn <= 4 and kt == bw:
             x1 = _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden)
+            _latch("swiglu_fc12g", "served")
         else:
+            if w12 is not None:
+                _latch("swiglu_fc12g", "declined")
             x1 = ttnn.linear(x, w1, program_config=cfg(bw, pn, ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)),
                              compute_kernel_config=silu_ckc, memory_config=mc, dtype=hidden)
             x2 = ttnn.linear(x, w2, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
