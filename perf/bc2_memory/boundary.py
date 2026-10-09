@@ -149,9 +149,26 @@ def main() -> int:
         def programs():
             return int(device.num_program_cache_entries())
 
+        def block_table():
+            try:
+                return [(int(b["size"]), b["allocated"] == "yes")
+                        for b in ttnn.get_memory_view(device, ttnn.BufferType.DRAM).block_table]
+            except TypeError:  # some ttnn builds cannot convert the table; read tt-metal's own dump
+                ttnn.dump_device_memory_state(device, "bc2_boundary_")
+                lines = (pathlib.Path(os.environ.get("TT_METAL_LOGS_PATH", ".")) / "generated" / "reports"
+                         / "bc2_boundary_detailed_memory_usage.csv").read_text().splitlines()
+                rows = lines[lines.index("Block table:", lines.index(",DRAM")) + 2:]
+                table = []
+                for line in rows:  # Block Address Size PrevID NextID Allocated
+                    f = line.split()
+                    if len(f) != 6 or not f[0].isdigit():
+                        break
+                    table.append((int(f[2]), f[5] == "yes"))
+                return table
+
         def blocks():
-            table = ttnn.get_memory_view(device, ttnn.BufferType.DRAM).block_table
-            live = [int(b["size"]) for b in table if b.get("allocated") == "yes"]
+            table = block_table()
+            live = [n for n, used in table if used]
             small = [n for n in live if n < 2 ** 20]   # per-bank sizes; a tensor here is >= 1 MiB/bank
             return {"blocks_live": len(live), "blocks_free": len(table) - len(live),
                     "small_live": len(small), "small_bytes_per_bank": sum(small)}
