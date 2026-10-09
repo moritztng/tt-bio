@@ -16,6 +16,7 @@ from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
 from . import pair_transpose as _pair_tr
 from . import triatt_sdpa as _triatt_sdpa
+from . import dest_guard as _dest_guard
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from . import page_copy as _page_copy
@@ -7686,6 +7687,7 @@ def _open_and_init_device(trace_region_size):
     dev = _open_device_locked(device_id, kwargs)
     _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
     _trace_region_size = trace_region_size
+    _dest_guard.install(dev)      # Wormhole: fp32-accumulating matmuls at K block 1
     return dev
 
 
@@ -8499,6 +8501,7 @@ class TriangleMultiplication(Module):
         if _TRIMUL_INPROJ_ROWBLOCK:
             return no("inproj_rowblock_live")
         if (_TRIMUL_TAIL_F1 and self.p_out_bias is None and self.g_out_bias is None
+                and not _dest_guard.exposed(self.compute_kernel_config)
                 and _trimul_tail.eligible(x_norm_in, x_norm_in, self.out_p_weight,
                                           self.g_out_weight) is None):
             return no("f1_tail_serves")

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import ttnn
 
+from . import dest_guard
+
 # tt_metal/hostdevcommon/api/hostdevcommon/common_values.hpp
 INVALID, VALID = 0, 1
 TILE_HW = 32
@@ -429,6 +431,7 @@ def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_
     """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config."""
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
+    cfg = (dest_guard.descriptor(cfg[0], ckc), cfg[1])   # K block 1 under fp32 dest acc on Wormhole
     key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode, n_widths)
     entry = _CACHE.get(key)
     if entry is None:
