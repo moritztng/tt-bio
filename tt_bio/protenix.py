@@ -592,6 +592,24 @@ class AtomTransformer(_KeyedWeights, Module):
             fp32_dest_acc_en=False, packer_l1_acc=False)
         self._sdpa32 = _ATOM_SDPA32 and dtype == ttnn.float32 and _ATOM_SUPERSET
         self._kvwin = _ATOM_KV_WINDOW
+        # atom_k1: the fp32 linears on k1_linear's program (one K tile per dest pass on Wormhole).
+        self._k1 = _T.lever("atom_k1") and dtype == ttnn.float32
+
+    def _lin(self, x, wkey, bkey=None, activation=None):
+        w = self._w_tt(wkey)
+        # One K tile leaves the program no K blocking to choose: those keep the shared path.
+        if not self._k1 or int(w.padded_shape[0]) <= 32:
+            return super()._lin(x, wkey, bkey, activation)
+        return _T.k1_linear(x, w, self._w_tt(bkey, False) if bkey else None, dtype=self.dtype,
+                            activation=activation, compute_kernel_config=self.compute_kernel_config)
+
+    def _lin_g(self, q_norm, apb):
+        """The attention gate's linear: no narrow-projection offer and the input's dtype, as before."""
+        key = apb + "attention.linear_g.weight"
+        if self._k1:
+            return self._lin(q_norm, key)
+        return ttnn.linear(q_norm, self._w_tt(key), compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)
 
     def _adaln_mod(self, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
@@ -833,8 +851,7 @@ class AtomTransformer(_KeyedWeights, Module):
         q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
         o = self._attention(q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
@@ -982,8 +999,7 @@ class AtomTransformer(_KeyedWeights, Module):
             o = self._attention_superset(q_norm, kv_norm, apb, N, NP, zs)
         else:
             o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
@@ -1252,6 +1268,8 @@ class DiffusionModule(_KeyedWeights):
         # dit_sdpa32: the fp32 DiT's attention as one SDPA program on a token axis padded by
         # sdpa32_rows; _token_dit_device pads and slices, finish_bias builds the padded mask.
         self._dit_sdpa32 = _T.lever("dit_sdpa32") and self._dit_dtype == ttnn.float32
+        # dit_mm16 (fp32 DiT) / dit_b8 (bf16 DiT): the DiT's linears at lower operand formats.
+        self._dit_lp = _T.dit_lowp(self._dit_dtype, self._dit_ckc)
         self._dit = []
         for b in range(self.DIT_BLOCKS):
             A = DT + f"blocks.{b}.attention_pair_bias."
@@ -1268,6 +1286,8 @@ class DiffusionModule(_KeyedWeights):
             # rather than the explicit matmul/softmax/matmul chain.
             self._dit[-1][1].token_dit = _T.lever("dit_sdpa") and self._dit_dtype == ttnn.bfloat16
             self._dit[-1][1].sdpa32 = self._dit_sdpa32
+            if self._dit_lp is not None:
+                self._dit[-1][1].enable_lowp(self._dit_lp)
 
 
     def _up_dit(self, t):
@@ -1283,6 +1303,16 @@ class DiffusionModule(_KeyedWeights):
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
                                 layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
             cache[(key, transpose)] = v
+        return v
+
+    def _w_tt_lp(self, key):
+        """A DiT weight, transposed and rounded via bf16 on the host to `_dit_lp.w`."""
+        cache = self.__dict__.setdefault("_wc_dit_lp", {})
+        v = cache.get(key)
+        if v is None:
+            v = ttnn.from_torch(self._w[key].t().contiguous().float().to(torch.bfloat16),
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_lp.w)
+            cache[key] = v
         return v
 
     def _ln_dit(self, x, wkey, bkey=None):
@@ -1692,8 +1722,15 @@ class DiffusionModule(_KeyedWeights):
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=_T.silu_ckc(ckc) if act == "silu" else ckc,
                                core_grid=CORE_GRID_MAIN)
+        lp = self._dit_lp
+        # dit_mm16 / dit_b8: each adaLN writes lp.act, read only by linears; the transition's two
+        # hidden linears write bf16, their product lp.mid into linear_nobias_b, which writes lp.out.
+        ln_dt = lp.act if lp else None
+
+        def linlp(x, wk, dtype, act=None):
+            return lp.linear(x, self._w_tt_lp(wk), dtype=dtype, activation=act)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
-            b = adaln_a(a_t, s_t)
+            b = adaln_a(a_t, s_t, dtype=ln_dt)
             bias_dev = _T.host_unpark(bias)
             attn = apb(b, bias_dev, bias_precomputed=True)
             if bias_dev is not bias:
@@ -1701,11 +1738,16 @@ class DiffusionModule(_KeyedWeights):
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
             ao = gated_add(a_t, attn, sg)
-            an2 = ctb_adaln(ao, s_t)
-            bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
-                               linb(an2, Cc + "linear_nobias_a2.weight"))
+            an2 = ctb_adaln(ao, s_t, dtype=ln_dt)
+            if lp:
+                bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
+                                   linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
+            else:
+                bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
+                                   linb(an2, Cc + "linear_nobias_a2.weight"))
             cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = gated_add(ao, linb(bb, Cc + "linear_nobias_b.weight"), cs)
+            a_t = gated_add(ao, linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp
+                            else linb(bb, Cc + "linear_nobias_b.weight"), cs)
         return a_t[:, :NT, :] if NP != NT else a_t
 
 

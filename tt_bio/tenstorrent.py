@@ -6,7 +6,7 @@ import contextlib
 import gc
 import torch, ttnn, atexit
 from torch import nn
-from typing import Callable, Mapping
+from typing import Callable, Mapping, NamedTuple
 from math import gcd, pi, prod
 from functools import lru_cache, partial
 from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
@@ -563,18 +563,30 @@ _FAST_MODE = False
 #                   no loss against float64 (`_TRANSITION_BW`); others keep ttnn's in0_block_w
 #   transition_shard the pair transition's swiglu on block-sharded intermediates, in row blocks that
 #                   fill the grid (`_transition_swiglu_sharded`); fc3's K block becomes the shard width
+#   dit_mm16        the fp32 token DiT's linears on bf16 operands with fp32 accumulation (`k1_linear`):
+#                   the adaLN outputs and the gated attention output are written bf16, the transition
+#                   hidden linears write bf16; q/k/v, the gate, the residual updates and the residual
+#                   stream itself stay fp32. Inert in bf16.
+#   dit_b8          fast mode's bf16 token DiT linears on bfp8 weights and bfp8 inputs at HiFi2 (`dit_lowp`):
+#                   the adaLN outputs, the gated attention output and the swiglu product are written bfp8;
+#                   q/k/v, the gate, the residual updates and the residual stream stay bf16. Inert in fp32.
+#   atom_k1         the fp32 diffusion atom transformer's linears on `k1_linear`'s program (Wormhole:
+#                   one K tile per dest pass), same formats. Inert in bf16 and on Blackhole.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
-          "transition_shard")
+          "transition_shard", "dit_mm16", "atom_k1", "dit_b8")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
 # the native pose and gin does not (every warm fold agrees), plus four 9W89 warm folds that move between
 # two wrong poses (state/spd-trimul.md, 2026-10-09). gin only fires above ~640 tokens, so the 11-set grade
 # (PASS) is 8/11 inert complexes and does not decide it.
+# dit_b8 is fast-only (inert in fp32). Fast grade (fast vs fast+dit_b8, same tree, Wormhole 11-set, 44 paired
+# folds) PASS: CA-lDDT -0.0122 [-0.0209, -0.0044] against the 0.03 bar, pLDDT -0.0021, docking 33 -> 33 of 44
+# (spd-difflin gf1, 2026-10-09). Saves 1.81 s of the Wormhole c730 sampler (34.95 -> 33.14 s, 1000 MHz).
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -603,8 +615,11 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
 # 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
 # -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+# atom_k1: bit-exact. The c730 sampler (5 samples x 200 steps, seeds 101-103) returns torch.equal
+# coordinates with and without it on Wormhole (.107, 1000 MHz) and on Blackhole (p150a, where it is
+# ttnn's own program), and saves 0.76 s of the Wormhole sampler (63.75 -> 62.99 s, spd-difflin ab2).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard"})
+                           "transition_shard", "atom_k1"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -2360,6 +2375,76 @@ _ZERO_MASKS = {}  # (id(device), Lq, Lk) -> (device, zero [1, 1, Lq, Lk]); clean
 # -1e4 / sqrt(head_dim), far below any score, and exp sends it to exactly 0.
 _SDPA32_PAD_MASK = -1e4
 _SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
+
+
+def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None):
+    """`x @ w (+ bias)` accumulated in fp32 dest and written at `dtype`, any operand formats.
+
+    The matmul of the `dit_mm16` and `atom_k1` levers. On Wormhole the program takes one K tile
+    per dest pass: fp32 dest accumulation of more than one K tile returns +-2 / +-4 on ~1e-7 of
+    the outputs there (state/spd-wherr.md), and in0_block_w 1 is the blocking with no wrong pixel
+    in any draw of the diffusion shapes (perf/spd_difflin/op_probe.py). It is also the faster
+    program for the atom transformer's narrow fp32 linears (529 -> 467 us at [5,5919,128] x
+    [128,128]). Blackhole takes ttnn's own program.
+    """
+    if activation == "silu":
+        compute_kernel_config = silu_ckc(compute_kernel_config)
+    pc = None
+    if is_wormhole():
+        shp = tuple(x.padded_shape)
+        g = x.device().compute_with_storage_grid_size()
+        pc = _k1_program(prod(shp[:-1]) // 32, shp[-1] // 32, int(w.padded_shape[-1]) // 32,
+                         g.x, g.y, activation)
+    if pc is None:
+        return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype,
+                           compute_kernel_config=compute_kernel_config, core_grid=CORE_GRID_MAIN)
+    return ttnn.linear(x, w, bias=bias, dtype=dtype, compute_kernel_config=compute_kernel_config,
+                       program_config=pc)
+
+
+class DitLowp(NamedTuple):
+    """Formats of the token DiT's linears under `dit_mm16` (fp32 DiT) or `dit_b8` (bf16 DiT)."""
+    w: object       # weights
+    act: object     # what each adaLN writes: the input of q/k/v, the gate and the swiglu
+    mid: object     # the gated attention output and the swiglu product
+    out: object     # q/k/v, the output projection and the transition output
+    ckc: object
+    k1: bool        # fp32 accumulation: k1_linear's program
+
+    def linear(self, x, w, bias=None, *, dtype, activation=None):
+        if self.k1:
+            return k1_linear(x, w, bias, compute_kernel_config=self.ckc, dtype=dtype, activation=activation)
+        return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype, core_grid=CORE_GRID_MAIN,
+                           compute_kernel_config=silu_ckc(self.ckc) if activation == "silu" else self.ckc)
+
+
+def dit_lowp(dit_dtype, ckc):
+    """The token DiT's low-precision linears for this DiT dtype under the active levers, or None.
+
+    `dit_mm16`: bf16 operands, fp32 accumulation (op probe, Wormhole: qkv 1180 -> 1175 us at K
+    block 1, the transition b 556 -> 464). `dit_b8`: bfp8 operands at HiFi2 without fp32
+    accumulation (qkv 609 -> 481 us, gate/out 180 -> 135, a1/a2 289 -> 230, b 273 -> 187)."""
+    if dit_dtype == ttnn.float32 and lever("dit_mm16"):
+        return DitLowp(ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, ckc, True)
+    if dit_dtype == ttnn.bfloat16 and lever("dit_b8"):
+        b8 = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2,
+                                              math_approx_mode=False, fp32_dest_acc_en=False,
+                                              packer_l1_acc=False)
+        return DitLowp(ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat16, b8, False)
+    return None
+
+
+@lru_cache(maxsize=None)
+def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation):
+    """2D multicast, in0_block_w 1, the widest subblock fp32 dest holds (h * w <= 4)."""
+    pm, pn = -(-mt // gy), -(-nt // gx)
+    h, w = max(((h, w) for h in range(1, min(pm, 4) + 1) for w in range(1, min(pn, 4) + 1)
+                if pm % h == 0 and pn % w == 0 and h * w <= 4), key=lambda s: (s[0] * s[1], s[1]))
+    act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if activation == "silu" else None
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=(gx, gy), in0_block_w=1, out_subblock_h=h, out_subblock_w=w,
+        out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+        fused_activation=act, fuse_batch=True)
 
 
 def sdpa32_rows(n: int) -> int:
@@ -10632,6 +10717,8 @@ class AttentionPairBias(Module):
         # Set by protenix's DiffusionModule under `dit_sdpa32`: the fp32 token DiT's attention
         # runs as `_sdpa32` on a padded token axis, and `finish_bias` makes its mask.
         self.sdpa32 = False
+        # A DitLowp and the qkv / gate / out weights at its format, set by `enable_lowp`.
+        self._lp = None
         if atom_level:
             self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
             self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
@@ -10698,6 +10785,18 @@ class AttentionPairBias(Module):
             )
         self.o_weight = self.torch_to_tt("proj_o.weight", transform=_relane(0),
                                           dtype=self.dtype)
+
+    def enable_lowp(self, lp: DitLowp):
+        """`dit_mm16` / `dit_b8` on this token-level instance: its three linears read an `lp.act`
+        input and `lp.w` weights (`DitLowp.linear`). q/k/v and the output projection are written
+        `lp.out` (the attention and the residual take them); the gate at the attention output's
+        format, and the gated attention output, which only the output projection reads, `lp.mid`. The bias stays bf16. Rounded on
+        the host from the device copies, once."""
+        assert not self.atom_level
+        up = lambda t, dt: ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dt,
+                                           layout=ttnn.TILE_LAYOUT, device=self.device)
+        self._lp = (lp, {k: up(getattr(self, k), ttnn.bfloat16 if k == "qkv_bias" else lp.w)
+                         for k in ("qkv_weight", "qkv_bias", "g_weight", "o_weight")})
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -10926,14 +11025,19 @@ class AttentionPairBias(Module):
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         self._load_kq_norm()
+        lp, lw = self._lp or (None, None)
+        if lp is not None and s.dtype != lp.act:
+            s = ttnn.typecast(s, lp.act)
         if not self.atom_level:
-            qkv = ttnn.linear(
+            qkv = (lp.linear(s, lw["qkv_weight"], lw["qkv_bias"], dtype=lp.out)
+                   if lp is not None else
+                   ttnn.linear(
                 s,
                 self.qkv_weight,
                 bias=self.qkv_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
-            )
+            ))
             if self.kq_norm:
                 qkv = self._apply_kq_norm(qkv)
             qkv = ttnn.unsqueeze(qkv, 1)
@@ -11134,6 +11238,17 @@ class AttentionPairBias(Module):
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
+        if lp is not None:
+            # The gate is written at o's format: a multiply whose b carries a fused sigmoid is wrong on
+            # mixed operand formats (Wormhole, fp32 o x bf16 g: rms 5.4e-2, max 3.1 against float64;
+            # same formats: 9e-4, bf16 rounding). perf/spd_difflin/k1_check.py --elementwise.
+            g = lp.linear(s, lw["g_weight"], dtype=o.dtype)
+            o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
+                              dtype=lp.mid)
+            ttnn.deallocate(g)
+            x = lp.linear(o, lw["o_weight"], dtype=lp.out)
+            ttnn.deallocate(o)
+            return x
         g = ttnn.linear(
             s,
             self.g_weight,
@@ -12951,7 +13066,9 @@ class AdaLN(Module):
                 self.weights["s_bias.weight"].t() * g)
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
-                 s_terms=None) -> ttnn.Tensor:
+                 s_terms=None, dtype=None) -> ttnn.Tensor:
+        """`dtype`: write the modulated output at this dtype (the norm and the modulation run at
+        the input's); the `dit_mm16` lever takes it bf16 for the linears that read it."""
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
@@ -12965,7 +13082,12 @@ class AdaLN(Module):
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
         a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a = ttnn.add_(a, s_bias)
+        if dtype is not None and dtype != a.dtype:
+            out = ttnn.add(a, s_bias, dtype=dtype)
+            ttnn.deallocate(a)
+            a = out
+        else:
+            a = ttnn.add_(a, s_bias)
         if own:                     # a cached pair belongs to the caller
             ttnn.deallocate(s_scale)
             ttnn.deallocate(s_bias)
