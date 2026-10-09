@@ -11,7 +11,8 @@ math_approx_mode=True, the switch both overlays key on; under base the flag is i
 
 exact: x @ I for every bfloat16 x in [-100, 100] (and its negation), fc1's fused silu written fp32.
   The product is exact, so the dest holds x and the output is the SFPU's silu of x, compared with
-  float64 silu(x): max/p99.9 relative error and the fraction whose bf16 rounding differs.
+  float64 silu(x): max/p99.9 relative error and the fraction whose bf16 rounding differs, both where
+  |silu(x)| > 1e-30 (below that the device flushes what float64 keeps).
 ops: fc1 + fused silu, fc1 without activation (the matmul alone: the roof this kernel can reach) and
   fc1 + standalone ttnn.silu (the held unfused form), at the fold's row-block shapes, L1 in and out,
   bf16 out, CORE_GRID_MAIN. Min and median over batches of 10 device-synchronised calls, AICLK of
@@ -118,7 +119,7 @@ if "exact" not in skip:
     rel = (got[ok] / ref[ok] - 1).abs()
     res["exact"] = dict(n=n, max_rel=float(rel.max()), p999_rel=float(torch.quantile(rel.float(), 0.999)),
                         at=float(x64[ok][int(rel.argmax())]),
-                        bf16_differs=float((bf16_round(got) != bf16_round(ref)).double().mean()),
+                        bf16_differs=float((bf16_round(got[ok]) != bf16_round(ref[ok])).double().mean()),
                         finite=bool(torch.isfinite(got).all()))
     print(json.dumps({"exact": res["exact"]}), flush=True)
     for t in (xt, it, o):
@@ -134,11 +135,10 @@ def timed(fn, batches):
     for _ in range(batches):
         sync()
         t = time.perf_counter()
-        outs = [fn() for _ in range(10)]
+        for _ in range(10):
+            ttnn.deallocate(fn())  # one live output: ten of them do not fit next to the matmul's CBs
         sync()
         ts.append((time.perf_counter() - t) / 10 * 1e6)
-        for x in outs:
-            ttnn.deallocate(x)
     return dict(us_min=round(min(ts), 2), us_med=round(st.median(ts), 2), clock=clock(t0, time.monotonic()))
 
 
