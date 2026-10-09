@@ -15,6 +15,7 @@ RUN = Path(sys.argv[1]); FOLD = sys.argv[2]; ROOF = json.load(open(sys.argv[3]))
 CF = int(sys.argv[4]); SF = int(sys.argv[5]); OUTP = Path(sys.argv[6])
 meta = next(e for e in map(json.loads, open(RUN / "census.jsonl")) if e.get("ev") == "fold" and e["fold"] == FOLD)
 C, S = meta["cycles"], meta["steps"]
+CF, SF = CF or C, SF or S   # 0 = the fold as profiled; a 0 left in weight() makes later cycles count negative
 MODEL = next((e.get("model") for e in map(json.loads, open(RUN / "census.jsonl")) if e.get("ev") == "build"), None)
 
 # ---------- signatures, calls, programs ----------
