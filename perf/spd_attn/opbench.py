@@ -9,7 +9,8 @@
 Accuracy: rel_rms of each arm against a float64 torch evaluation of the same operands.
 Timing: back-to-back slope (NCALL calls, one sync) x REPS, arms interleaved round-robin, AICLK sampled out of process.
   pair:   the ending-node pair transpose [S, S, 256] bf16 at each --ta-seq, today's route vs tt_bio.pair_transpose.
-usage: opbench.py OUT CHIP [ta|atom|pair|roof|all] [--pairs N]
+  pairbias: the pairformer pair bias LayerNorm(z) @ [256, 16], today (DRAM normed z) vs row chunks normed in L1.
+usage: opbench.py OUT CHIP [ta|atom|pair|narrow|pairbias|roof|all] [--pairs N]
 """
 import argparse, json, os, statistics, subprocess, sys, time, types
 from pathlib import Path
@@ -59,6 +60,7 @@ up = lambda t, dt: ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=
                                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
 rel = lambda o, r: float(((o.double() - r).pow(2).mean() / r.pow(2).mean()).sqrt())
 ARMS, REF, SEL, SAME = {}, {}, {}, {}  # SAME: arm -> the arm its output must equal bit for bit
+BYTES = {}   # arm -> DRAM bytes moved per call at one read + one write
 
 # ---- triangle attention
 def ta_site(S, full):
@@ -170,9 +172,96 @@ if a.which in ("atom", "all"):
     SAME["atom superset bf16 sdpa kvwin"] = "atom superset bf16 sdpa"
     SAME["atom superset fp32 sdpa32 kvwin"] = "atom superset fp32 sdpa32"
 
+# ---- narrow pair projections: pairformer pair bias [1,S,S,256] @ [256,16] and PWA's [1,S,S,256] @ [256,8],
+# DRAM in and out, at the production K block (1) and the whole contraction (16), against a float64 matmul.
+# WH .107 c29 (f95732a75): 736 4.34 / 4.33 / 4.42 ms (bw1 / bw16 / stock), ~72 GB/s: the K block is not the bound.
+if a.which in ("narrow", "all"):
+    for S in a.ta_seq:
+        for n_out in (16, 8):
+            site = f"narrow{S}x{n_out}"
+            torch.manual_seed(3)
+            hx, hw = torch.randn(1, S, S, 256), torch.randn(256, n_out) * 0.06
+            x, w = up(hx, ttnn.bfloat16), up(hw, ttnn.bfloat16)
+            REF[site] = ttnn.to_torch(x).double() @ ttnn.to_torch(w).double()
+            ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                                   fp32_dest_acc_en=True, packer_l1_acc=True)
+            def nar(bw, x=x, w=w, ckc=ckc):
+                T._NARROW_PROJ_BW = bw
+                try:
+                    return T._narrow_proj_linear(x, w, ckc, ttnn.bfloat16)
+                finally:
+                    T._NARROW_PROJ_BW = 1
+            ARMS[f"narrow {S}x{n_out} bw1"] = (site, lambda nar=nar: nar(1))
+            ARMS[f"narrow {S}x{n_out} bw16"] = (site, lambda nar=nar: nar(16))
+            ARMS[f"narrow {S}x{n_out} stock"] = (site, lambda x=x, w=w, ckc=ckc: ttnn.linear(
+                x, w, compute_kernel_config=ckc, core_grid=T.CORE_GRID_MAIN))
+            SAME[f"narrow {S}x{n_out} bw1"] = f"narrow {S}x{n_out} stock"
+            if S == a.ta_seq[0] and n_out == 16:
+                # what bounds it: fidelity (compute), the default program config, a 2D view
+                lofi = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.LoFi, math_approx_mode=False,
+                                                        fp32_dest_acc_en=False, packer_l1_acc=True)
+                def nar_ckc(bw, c, x=x, w=w):
+                    T._NARROW_PROJ_BW = bw
+                    try:
+                        return T._narrow_proj_linear(x, w, c, ttnn.bfloat16)
+                    finally:
+                        T._NARROW_PROJ_BW = 1
+                ARMS[f"narrow {S}x{n_out} bw1 lofi"] = (site, lambda: nar_ckc(1, lofi))
+                ARMS[f"narrow {S}x{n_out} bw16 lofi"] = (site, lambda: nar_ckc(16, lofi))
+                ARMS[f"narrow {S}x{n_out} default cfg"] = (site, lambda x=x, w=w, ckc=ckc: ttnn.linear(x, w, compute_kernel_config=ckc))
+                x2 = ttnn.reshape(x, (S * S, 256))
+                ARMS[f"narrow {S}x{n_out} 2d default"] = (site, lambda x2=x2, w=w, ckc=ckc, S=S, n_out=n_out: ttnn.reshape(
+                    ttnn.linear(x2, w, compute_kernel_config=ckc), (1, S, S, n_out)))
+                for t in ("bw1 lofi", "bw16 lofi", "default cfg", "2d default"):
+                    BYTES[f"narrow {S}x{n_out} {t}"] = S * S * 256 * 2 + S * S * 32 * 2
+            BYTES.update({f"narrow {S}x{n_out} {t}": S * S * 256 * 2 + S * S * 32 * 2 for t in ("bw1", "bw16", "stock")})
+
+# ---- pair bias: the pairformer's LayerNorm(z) -> [256, 16] projection. Today the norm writes the whole normed
+# pair to DRAM (at 736 it cannot sit in L1) and the narrow projection reads it back at ~72 GB/s. Chunked: row
+# blocks of z sliced into L1, normed in L1 and projected from L1, so z crosses DRAM once instead of three times.
+if a.which in ("pairbias", "all"):
+    for S in a.ta_seq:
+        site = f"pairbias{S}"
+        torch.manual_seed(4)
+        hz, hg, hb, hw = torch.randn(1, S, S, 256), 1 + 0.1 * torch.randn(256), 0.1 * torch.randn(256), torch.randn(256, 16) * 0.06
+        z, w = up(hz, ttnn.bfloat16), up(hw, ttnn.bfloat16)
+        g = ttnn.from_torch(hg.reshape(1, 256), dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        b = ttnn.from_torch(hb.reshape(1, 256), dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        zd = ttnn.to_torch(z).double()
+        REF[site] = torch.nn.functional.layer_norm(zd, (256,), ttnn.to_torch(g).double().reshape(256),
+                                                   ttnn.to_torch(b).double().reshape(256), 1e-5) @ ttnn.to_torch(w).double()
+        ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                               fp32_dest_acc_en=True, packer_l1_acc=True)
+
+        def today(z=z, w=w, g=g, b=b, ckc=ckc):
+            zn = ttnn.layer_norm(z, weight=g, bias=b, epsilon=1e-5, compute_kernel_config=ckc)
+            o = T._narrow_proj_linear(zn, w, ckc, ttnn.bfloat16)
+            ttnn.deallocate(zn)
+            return o
+
+        def chunked(rows, z=z, w=w, g=g, b=b, ckc=ckc, S=S):
+            outs = []
+            for r0 in range(0, S, rows):
+                r1 = min(S, r0 + rows)
+                zc = ttnn.slice(z, [0, r0, 0, 0], [1, r1, S, 256], memory_config=ttnn.L1_MEMORY_CONFIG)
+                zn = ttnn.layer_norm(zc, weight=g, bias=b, epsilon=1e-5, compute_kernel_config=ckc,
+                                     memory_config=ttnn.L1_MEMORY_CONFIG)
+                ttnn.deallocate(zc)
+                outs.append(ttnn.linear(zn, w, compute_kernel_config=ckc, core_grid=T.CORE_GRID_MAIN,
+                                        memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16))
+                ttnn.deallocate(zn)
+            o = ttnn.concat(outs, dim=1, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            for t in outs:
+                ttnn.deallocate(t)
+            return o
+        ARMS[f"pairbias {S} today"] = (site, today)
+        BYTES[f"pairbias {S} today"] = 3 * S * S * 256 * 2
+        for rows in (16, 32, 64, 128):
+            ARMS[f"pairbias {S} chunk{rows}"] = (site, lambda rows=rows, chunked=chunked: chunked(rows))
+            BYTES[f"pairbias {S} chunk{rows}"] = S * S * 256 * 2
+
 # ---- pair transpose: the ending-node triangle attention's dim0/dim1 swap of the [S, S, 256] pair, DRAM to DRAM,
 # today's route (ROW_MAJOR round trip) against tt_bio.pair_transpose (one tile read, L1 row shuffle, one tile write)
-BYTES = {}   # arm -> DRAM bytes moved per call at one read + one write
 if a.which in ("pair", "all"):
     from tt_bio import pair_transpose as PTR
     for S in a.ta_seq:

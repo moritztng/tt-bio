@@ -1,10 +1,10 @@
 """Transition (swiglu) silu placement: accuracy against a float64 reference and ms per module call.
 
-    TT_VISIBLE_DEVICES=N python perf/spd_overhead/swiglu_bench.py --out OUT.json [--silu-approx]
+    TT_VISIBLE_DEVICES=N python perf/spd_overhead/swiglu_bench.py --out OUT.json [--levers silu_f32]
 
 Arms: `fused` (silu in fc1's epilogue, shipped) and `unfused` (standalone silu on bf16 fc1, held off
-on accuracy). `--silu-approx` runs the whole process on the metal_overlay patch that lets the fused
-silu honour math_approx_mode; run once with and once without and compare `fused`. Each arm runs the
+on accuracy). `--levers` sets Protenix's lever set for every arm (`silu_f32` runs the fused silu on
+kernels/silu_f32); run once with and once without and compare `fused`. Each arm runs the
 real `Transition` module on the whole pair tensor, row chunking included, with Protenix's compute
 config, so the time is what a fold pays per call. Error is quoted against float64 math on the same
 bf16 inputs and weights.
@@ -21,17 +21,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--arms", default="fused,unfused")
-    ap.add_argument("--silu-approx", action="store_true")
+    ap.add_argument("--levers", default="")
     ap.add_argument("--shapes", default="736x256x1024,736x128x512")
     a = ap.parse_args()
 
-    if a.silu_approx:
-        os.environ["TT_BIO_SILU_APPROX"] = "1"
     import torch, ttnn
     import tt_bio.tenstorrent as T
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
     assert Path(T.__file__).resolve().is_relative_to(ROOT), T.__file__
+    T._LEVERS = T.parse_levers(a.levers)  # the whole run, as a fold holds it
     dev = T.get_device()
     arch = "wormhole" if T.is_wormhole() else "blackhole"
     ckc = (ttnn.types.BlackholeComputeKernelConfig if arch == "blackhole"
@@ -40,7 +39,7 @@ def main():
         fp32_dest_acc_en=True, packer_l1_acc=True)
     res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": arch,
            "grid": list(T.COMPUTE_GRID_MAIN),
-           "silu_approx": a.silu_approx, "runtime_root": os.environ.get("TT_METAL_RUNTIME_ROOT"), "loadavg": open("/proc/loadavg").read().split()[:3],
+           "levers": a.levers, "runtime_root": os.environ.get("TT_METAL_RUNTIME_ROOT"), "loadavg": open("/proc/loadavg").read().split()[:3],
            "rows": []}
 
     def sync():

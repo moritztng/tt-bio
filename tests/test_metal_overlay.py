@@ -5,9 +5,13 @@ import pytest
 
 from tt_bio import metal_overlay as MO
 
-SILU = """template <bool is_fp32_dest_acc_en, int ITERATIONS>
+SILU = """#include "ckernel_sfpu_sigmoid.h"
+template <bool is_fp32_dest_acc_en, int ITERATIONS>
 inline void calculate_silu() {
         sfpi::vFloat result = x * _sfpu_sigmoid_<is_fp32_dest_acc_en>(x);
+}
+template <bool APPROXIMATION_MODE>
+inline void silu_init() {
 }
 """
 LLK = "        ckernel::sfpu::calculate_silu<is_fp32_dest_acc_en, {it}>, dst_index, vector_mode);\n"
@@ -28,23 +32,38 @@ def _root(tmp_path):
 def test_overlay_patches_and_leaves_root_alone(tmp_path):
     root = _root(tmp_path)
     before = {p: p.read_text() for p in root.rglob("*") if p.is_file()}
-    out = MO.build(["silu_approx"], root=root, cache=tmp_path / "cache")
+    out = MO.build(["silu_f32"], root=root, cache=tmp_path / "cache")
     assert {p: p.read_text() for p in root.rglob("*") if p.is_file()} == before
     for arch, it in (("wormhole_b0", "8"), ("blackhole", "ITERATIONS")):
         d = out / MO._SFPU.format(arch=arch)
         assert not (d / "ckernel_sfpu_silu.h").is_symlink()
-        assert "_sfpu_sigmoid_<is_fp32_dest_acc_en && !APPROXIMATION_MODE>" in (d / "ckernel_sfpu_silu.h").read_text()
+        assert "calculate_silu_f32<is_fp32_dest_acc_en, ITERATIONS>();" in (d / "ckernel_sfpu_silu.h").read_text()
+        assert (d / "ckernel_sfpu_silu_f32.h").read_text() == MO._SILU_F32.read_text()
         assert f"calculate_silu<is_fp32_dest_acc_en, {it}, APPROXIMATE>" in (d / "llk_math_eltwise_unary_sfpu_silu.h").read_text()
         assert (d / "ckernel_sfpu_exp.h").is_symlink() and (d / "ckernel_sfpu_exp.h").read_text() == "exp\n"
     assert (out / "ttnn").is_symlink()
-    assert MO.build(["silu_approx"], root=root, cache=tmp_path / "cache") == out
+    assert MO.build(["silu_f32"], root=root, cache=tmp_path / "cache") == out
 
 
 def test_missing_anchor_raises(tmp_path):
     root = _root(tmp_path)
     (root / MO._SFPU.format(arch="blackhole") / "ckernel_sfpu_silu.h").write_text("changed upstream\n")
     with pytest.raises(RuntimeError):
-        MO.build(["silu_approx"], root=root, cache=tmp_path / "cache")
+        MO.build(["silu_f32"], root=root, cache=tmp_path / "cache")
+
+
+def test_patch_applies_to_the_installed_wheel(tmp_path):
+    """The anchors are checked against the headers ttnn actually ships, not a fixture of them."""
+    root = MO.runtime_root()
+    if root is None:
+        pytest.skip("ttnn not installed")
+    out = MO.build(["silu_f32", "bh_dram_read_split"], root=root, cache=tmp_path / "cache")
+    for arch in MO.ARCHES:
+        d = out / MO._SFPU.format(arch=arch)
+        assert "APPROXIMATE>" in (d / "llk_math_eltwise_unary_sfpu_silu.h").read_text()
+        silu = (d / "ckernel_sfpu_silu.h").read_text()
+        assert '#include "ckernel_sfpu_silu_f32.h"' in silu and "silu_f32_init();" in silu
+        assert (d / "ckernel_sfpu_silu_f32.h").read_text() == MO._SILU_F32.read_text()
 
 
 def _dataflow_root(tmp_path):
@@ -82,7 +101,10 @@ def _clean_env(monkeypatch, tmp_path, stock):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
     for v in ("TT_METAL_RUNTIME_ROOT", "TT_METAL_HOME", "TT_METAL_CACHE", "TT_BIO_BH_DRAM_READ_SPLIT",
               "TT_BIO_METAL_OVERLAY", "TT_BIO_METAL_OVERLAY_STOCK", "TT_BIO_METAL_OVERLAY_CACHE"):
-        monkeypatch.delenv(v, raising=False)
+        # setenv first so monkeypatch records the variable: enable() writes os.environ directly, and a
+        # variable monkeypatch never touched would leak the fake overlay root into every later test.
+        monkeypatch.setenv(v, "")
+        monkeypatch.delenv(v)
 
 
 @pytest.mark.parametrize("bh,off,user_root", [(False, False, False), (True, True, False), (True, False, True)])
@@ -115,8 +137,8 @@ def test_a_second_enable_adds_to_the_overlay(monkeypatch, tmp_path):
     _clean_env(monkeypatch, tmp_path, stock)
     monkeypatch.setenv("TT_METAL_CACHE", str(tmp_path / "jc"))
     first = MO.enable(("bh_dram_read_split",))
-    both = MO.enable(("silu_approx",))
-    assert both != first and os.environ["TT_BIO_METAL_OVERLAY"] == "bh_dram_read_split,silu_approx"
+    both = MO.enable(("silu_f32",))
+    assert both != first and os.environ["TT_BIO_METAL_OVERLAY"] == "bh_dram_read_split,silu_f32"
     assert "BH_DRAM_READ_MAX_PACKET_SIZE" in (both / MO.DATAFLOW_API).read_text()
-    assert "APPROXIMATION_MODE" in (both / MO._SFPU.format(arch="blackhole") / "ckernel_sfpu_silu.h").read_text()
+    assert "calculate_silu_f32" in (both / MO._SFPU.format(arch="blackhole") / "ckernel_sfpu_silu.h").read_text()
     assert os.environ["TT_METAL_CACHE"] == str(tmp_path / "jc" / both.name)

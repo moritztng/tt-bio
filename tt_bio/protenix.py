@@ -306,9 +306,9 @@ def _msa_keep_bytes(tokens, m_bytes):
     process: then the shared host offload size, the streamed path. Held on the chip, `m` is read
     in place; streamed, every recycling cycle moves it across PCIe seven times up and three times
     down with the chip idle (130 s of a 624 s fold at 730 tokens against 9947 rows on a Wormhole
-    chip). `msa_embed` only ever holds a whole `m` whose feature fit one upload, so this is at
-    most ~2 GiB, and a cycle DRAM refuses is re-run streamed (`Trunk.__call__`), so no size that
-    folds streamed can fail resident. `TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES` still overrides both."""
+    chip). `msa_embed` holds at most `MSA_JOIN_MAX_BYTES` (2 GiB) of `m` on the chip, and a cycle
+    DRAM refuses is re-run streamed (`Trunk.__call__`), so no size that folds streamed can fail
+    resident. `TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES` still overrides both."""
     if any(tokens >= n and m_bytes >= b for n, b in _MSA_RESIDENT_REFUSED):
         return None
     return m_bytes
@@ -333,9 +333,10 @@ _ATOM_SUPERSET = env_flag("TT_BIO_ATOM_SUPERSET_WINDOW", True)
 # those were ~10 of the 18 ms fp32 module on a Wormhole chip). "0" restores the round trips.
 _ATOM_TILE_HEADS = env_flag("TT_BIO_ATOM_TILE_HEADS", True)
 # The fp32 superset attention as ONE SDPA program (sdpa_generic with fp32 q, k, v, mask and output,
-# spd-diffusion's dit_sdpa32 recipe) in place of matmul + scale_add + softmax + matmul. Off until
-# graded; inert in bf16, where atom_sdpa covers the same site.
-_ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", False)
+# spd-diffusion's dit_sdpa32 recipe) in place of matmul + scale_add + softmax + matmul. Closer to a
+# float64 reference than the four ops (rel rms 0.0217 vs 0.0265); graded on the 11-set x 4 seeds,
+# same-seed top-pose deviation median 0.047 A (WH). Inert in bf16, where atom_sdpa covers the same site.
+_ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", True)
 # Under atom_sdpa or atom_sdpa32 with TILE heads, the reader takes K and V straight from the head frame as
 # sliding windows (sdpa_generic `kv_window`) instead of the 5 slices + concat that copy every frame row 5
 # times, and Q from its frame rows the same way. Bit-exact: same tiles, same program. In bf16 it is the wheel's own fused SDPA at atom_sdpa's
@@ -1680,7 +1681,8 @@ class DiffusionModule(_KeyedWeights):
 
         def linb(x, wk, bk=None, act=None):
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
-                               compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+                               compute_kernel_config=_T.silu_ckc(ckc) if act == "silu" else ckc,
+                               core_grid=CORE_GRID_MAIN)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t)
             bias_dev = _T.host_unpark(bias)

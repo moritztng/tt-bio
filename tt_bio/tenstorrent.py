@@ -453,12 +453,6 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
 # neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
-# Silu on a matmul's fp32 accumulator honours math_approx_mode (exp_21f and one Newton step instead
-# of the accurate exp and two), through a private overlay of ttnn's kernel headers: metal_overlay.py.
-# Must be set before the first device open. Measuring (perf/spd_overhead/swiglu_bench.py).
-if env_flag("TT_BIO_SILU_APPROX", False):
-    from . import metal_overlay as _metal_overlay
-    _metal_overlay.enable(("silu_approx",))
 _FAST_MODE = False
 # Protenix's lower-precision levers, one named switch each (op evidence: perf/lpx_*; fold grades:
 # state/spd). A precision mode is a set of these names. `--fast` runs FAST_LEVERS; normal mode runs
@@ -489,9 +483,11 @@ _FAST_MODE = False
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
+#   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
+#                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trunk_hifi3", "dit_sdpa32")
+          "trunk_hifi3", "dit_sdpa32", "silu_f32")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in"})
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
@@ -504,12 +500,61 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # dit_sdpa32: alone it moves pLDDT by -0.0001 (CI excludes 0) with the structure null (top pose 0.220 A
 # vs the 0.60 A bar); the base softmax loses 0.3-1.3 % row mass in float64 and the lever 4-6x less
 # (spd-diffusion g2). In normal mode for the staging6 stack grade, which decides it.
-NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32"})
+# silu_f32: Wormhole 11-set grade PASS, 44 paired folds, top pose median 0.308 A against the 0.60 A
+# bar; cdk2x2_512 CA-lDDT vs 1HCL +0.0001 / -0.0006 per domain inside the exact spread (spd-swiglu
+# 2026-10-09 05:05Z).
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
 _LEVERS = frozenset()
+# silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
+# in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
+# silu in tt-bio takes its math_approx_mode from the lever (`silu_ckc`), so with the lever off the
+# patched process computes what the wheel computes.
+if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT_BIO_LEVERS", ""):
+    from . import metal_overlay as _metal_overlay
+    _metal_overlay.enable(("silu_f32",))
 
 
 def lever(name: str) -> bool:
     return name in _LEVERS
+
+
+_SILU_CKCS = {}
+
+
+def _silu_f32_overlay():
+    """Put the silu_f32 overlay in place for a lever set chosen after import (a model built with
+    levers=...). Kernels compile against it from the first device open on, so after that it is
+    too late: the lever would set approx mode on the wheel's silu and change nothing."""
+    if _device is not None:
+        raise RuntimeError("silu_f32 lever on a device opened without the silu_f32 kernel overlay: "
+                           "set TT_BIO_LEVERS=silu_f32 (or build the model) before the first device open")
+    from . import metal_overlay as _metal_overlay
+    _metal_overlay.enable(("silu_f32",))
+
+
+def silu_ckc(ckc):
+    """`ckc` for a matmul with a fused silu: math_approx_mode is the `silu_f32` lever.
+
+    The wheel's silu ignores math_approx_mode (both inits load the same constants), so setting it
+    from the lever changes nothing unless the silu_f32 overlay is in place; with it, approx mode is
+    what selects calculate_silu_f32. Keyed on the fields, not the object: trunk A/Bs edit a shared
+    config in place.
+    """
+    approx = lever("silu_f32")
+    if approx and "silu_f32" not in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(","):
+        _silu_f32_overlay()
+    if ckc is None or ckc.math_approx_mode == approx:
+        return ckc
+    key = (type(ckc), ckc.math_fidelity, ckc.fp32_dest_acc_en, ckc.packer_l1_acc,
+           ckc.dst_full_sync_en, ckc.throttle_level, approx)
+    out = _SILU_CKCS.get(key)
+    if out is None:
+        out = type(ckc)(math_fidelity=ckc.math_fidelity, math_approx_mode=approx,
+                        fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
+        out.dst_full_sync_en = ckc.dst_full_sync_en
+        out.throttle_level = ckc.throttle_level
+        _SILU_CKCS[key] = out
+    return out
 
 
 def parse_levers(spec) -> frozenset:
@@ -6449,6 +6494,10 @@ def pair_row_blocks(fn, tensors, rows, consume=None):
 # part. Protenix, OpenDDE and OpenFold3 all read it; the env override is the acceptance test
 # (0 sends a small target down the streamed path to compare it with the same target held whole).
 MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
+# The largest `m` msa_embed joins on the chip from depth chunks. 2 GiB is what a whole upload
+# could already leave resident (OpenDDE's c_m=128 doubles a 1 GiB feature); past it the trunk's
+# set-up allocations before the first recycling cycle, which no refusal path covers, are untested.
+MSA_JOIN_MAX_BYTES = 2 << 30
 
 
 def msa_host_offload(m, keep=None):
@@ -6558,10 +6607,11 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     `project` maps a device slice of it to `m` rows (the embedder's linear plus the broadcast
     single-representation term). A device feature, or a host one whose bf16 upload fits under
     the offload size, is uploaded and projected whole. Past it, the feature goes up one depth
-    chunk at a time and each projected chunk comes straight back to the host: at 1536 tokens
-    against 8192 alignment rows the whole upload is a 3221225472 B buffer a Wormhole chip
-    refused, and the whole `m` would only be offloaded to the host afterwards anyway. Every op
-    in the projection is per alignment row, so the chunks hold the rows the whole pass does."""
+    chunk at a time: at 1536 tokens against 8192 alignment rows the whole upload is a
+    3221225472 B buffer a Wormhole chip refused. The projected chunks are joined on the chip when
+    `keep` (capped at `MSA_JOIN_MAX_BYTES`) holds the whole `m`, else each comes straight back to
+    the host. Every op in the projection is per alignment row, so the chunks hold the rows the
+    whole pass does."""
     up = lambda t: ttnn.from_torch((t if t.dtype == torch.bfloat16 else t.float()).contiguous(),
                                    layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
@@ -6573,18 +6623,70 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
         m = project(x)
         ttnn.deallocate(x)
         return msa_host_offload(m, keep)
-    m = None
+    # A whole `m` that `msa_host_offload` would keep stays on the chip: the projected chunks are
+    # joined there instead of each making a trip to the host. At 678 tokens against 13,602 rows
+    # the 1.14 GiB feature missed the one-upload size, so the trunk streamed an `m` it had room
+    # for, every cycle, and the fold took 659 s on a Wormhole chip where a 9,947-row one takes 384.
+    hold_lim = int(v) if v else (MSA_HOST_OFFLOAD_MIN_BYTES if keep is None else min(keep, MSA_JOIN_MAX_BYTES))
+    m, held = None, []
     for s in range(0, D, rows):
         x = up(feat[:, s:s + rows])
         mc = project(x)
         ttnn.deallocate(x)
+        if s == 0 and mc.dtype == ttnn.bfloat16 and D * N * mc.shape[-1] * 2 <= hold_lim:
+            held = [mc]
+            continue
+        if held:
+            held.append(mc)
+            continue
         h = ttnn.to_torch(mc)
         ttnn.deallocate(mc)
         if m is None:
             m = torch.empty((1, D, N, h.shape[-1]), dtype=h.dtype)
         m[:, s:s + rows] = h
+    if held:
+        m = _join_depth_chunks(held)
+        if not torch.is_tensor(m):
+            return m
     dram_peak(f"trunk m embedded to the host in depth chunks [{tuple(m.shape)} torch]")
     return m
+
+
+def _join_depth_chunks(chunks, group=8):
+    """`chunks` [1, rows, N, c] joined along depth on the chip, `group` at a time so no concat
+    takes 27 inputs, each group freed once joined, so the peak is one `m` plus one group. When
+    DRAM refuses a join, what is in hand goes to the host and the result is the streamed `m`, a
+    host tensor. Either way the rows are the chunks' bytes: the concat only places them."""
+    level = list(chunks)
+    while len(level) > 1:
+        nxt = []
+        for i in range(0, len(level), group):
+            part = level[i:i + group]
+            joined = _concat_or_refused(part)
+            if joined is None:
+                rest = nxt + level[i:]
+                h = torch.cat([ttnn.to_torch(c) for c in rest], dim=1)
+                for c in rest:
+                    ttnn.deallocate(c)
+                return h
+            if joined is not part[0]:
+                for c in part:
+                    ttnn.deallocate(c)
+            nxt.append(joined)
+        level = nxt
+    return level[0]
+
+
+def _concat_or_refused(part):
+    from .size_limits import is_alloc_refusal
+    if len(part) == 1:
+        return part[0]
+    try:
+        return ttnn.concat(part, dim=1)
+    except RuntimeError as exc:
+        if not is_alloc_refusal(exc):
+            raise
+        return None
 
 
 def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE, park=False):
@@ -10914,7 +11016,7 @@ class Transition(Module):
                 x_norm,
                 self.fc1_weight,
                 activation=None if _UNFUSED_SILU else "silu",
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=silu_ckc(self.compute_kernel_config),
                 memory_config=_tape_mc,
                 dtype=hidden,
                 core_grid=CORE_GRID_MAIN,
@@ -11802,7 +11904,7 @@ class Fp32Transition(Module):
         )
         x1 = ttnn.linear(
             xn, self.fc1_weight, activation="silu",
-            compute_kernel_config=ckc, dtype=fp32,
+            compute_kernel_config=silu_ckc(ckc), dtype=fp32,
         )
         x2 = ttnn.linear(xn, self.fc2_weight, compute_kernel_config=ckc, dtype=fp32)
         ttnn.deallocate(xn)
