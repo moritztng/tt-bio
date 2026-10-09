@@ -44,11 +44,14 @@ import torch.nn.functional as F
 import ttnn
 
 from .tenstorrent import Pairformer, accurate_softmax_site, triatt_sdpa_hifi_site
+from .protenix import PaeBins
 from .openfold3_weights import remap_pairformer_stack
 
 # aux_heads.pairformer_embedding distance bins (config.model_config).
 _MIN_BIN, _MAX_BIN, _NO_BIN, _INF = 3.25, 50.75, 39, 1e8
 _MAX_ATOMS_PER_TOKEN = 23
+# PAE / PDE bin centres: 64 bins on 0-32 A.
+_PAE_CENTERS = (torch.arange(64, dtype=torch.float32) + 0.5) * 0.5
 # Confidence pairformer dims (config.model_config.heads.pairformer_embedding.pairformer
 # + attn_pair_bias: c_s=384, c_z=128, c_s_input=449, 16 attn-pair-bias heads, head_dim 24).
 _C_S, _C_Z, _C_S_INPUT = 384, 128, 449
@@ -439,7 +442,7 @@ class OF3ConfidenceHead:
     def forward(self, si_input, si_trunk, zij_trunk, repr_x_pred,
                 max_atom_per_token_mask, use_zij_trunk_embedding=True,
                 s_path=None, dtype=None, token_mask=None, single_mask=None, shared=None,
-                return_pair=False):
+                return_pair=False, pae_counts=None):
         """Confidence forward -> dict of head logits (host fp32) + the confidence
         Pairformer (si_conf, zij_conf).
 
@@ -458,6 +461,10 @@ class OF3ConfidenceHead:
             shared: a dict the caller keeps across the samples of one fold (same trunk
                 inputs); the sample-independent z-embedding and distogram are computed into
                 it once. None computes them for this call alone.
+            pae_counts: the TM normalisation counts (``protenix.PaeBins.counts``). Given, the
+                PAE and PDE heads come back reduced instead of as logits: ``pae_bins`` (a
+                ``PaeBins``) and ``pde`` [N_tok, N_tok], and in fp32 inference the softmax and
+                the reductions run on device, so the two [N_tok, N_tok, 64] logits never cross.
 
         Returns:
             plddt_logits:                [N_atom, 50]
@@ -552,12 +559,26 @@ class OF3ConfidenceHead:
             shared["distogram"] = dlog + dlog.transpose(-2, -3)
         distogram_logits = shared["distogram"]
 
+        reduced = {}
         if device_pair:
             z32 = ttnn.typecast(z_d, ttnn.float32)
-            pae_logits, plog = (
-                torch.Tensor(ttnn.to_torch(self._lin(self._ln(z32, h, fp32=True), h + ".linear.weight")))
-                .float().reshape(N, N, -1) for h in ("pae", "pde"))
+            pae_d, plog_d = (self._lin(self._ln(z32, h, fp32=True), h + ".linear.weight")
+                             for h in ("pae", "pde"))
             ttnn.deallocate(z32)
+            if pae_counts is not None:
+                pde_d = ttnn.add(plog_d, ttnn.permute(plog_d, (0, 2, 1, 3)))
+                reduced = {
+                    "pae_bins": PaeBins.on_device(pae_d, pae_counts, _PAE_CENTERS,
+                                                  self.compute_kernel_config),
+                    "pde": PaeBins.on_device(pde_d, [], _PAE_CENTERS,
+                                             self.compute_kernel_config).pae()}
+                ttnn.deallocate(pde_d)
+                pae_logits = plog = None
+            else:
+                pae_logits, plog = (torch.Tensor(ttnn.to_torch(x)).float().reshape(N, N, -1)
+                                    for x in (pae_d, plog_d))
+            ttnn.deallocate(pae_d)
+            ttnn.deallocate(plog_d)
             zij_conf = (torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
                         if return_pair else None)
             ttnn.deallocate(z_d)
@@ -569,7 +590,11 @@ class OF3ConfidenceHead:
             plog = F.linear(
                 F.layer_norm(zij_conf, (_C_Z,)) * self._g("pde.layer_norm.weight") + self._bias("pde.layer_norm.bias"),
                 self._g("pde.linear.weight"))
-        pde_logits = plog + plog.transpose(-2, -3)
+        pde_logits = None if plog is None else plog + plog.transpose(-2, -3)
+        if pae_counts is not None and not reduced:
+            reduced = {"pae_bins": PaeBins(_PAE_CENTERS.to(pae_logits.dtype),
+                                           probs=torch.softmax(pae_logits, -1)),
+                       "pde": torch.softmax(pde_logits, -1) @ _PAE_CENTERS.to(pde_logits.dtype)}
 
         plddt_logits = self._atom_head(s_single, "plddt", max_atom_per_token_mask, 50)
         exp_resolved_logits = self._atom_head(s_single, "experimentally_resolved",
@@ -583,6 +608,7 @@ class OF3ConfidenceHead:
             "distogram_logits": distogram_logits,
             "si_conf": s_single,
             "zij_conf": zij_conf,
+            **reduced,
         }
 
     def _atom_head(self, s_single, name, max_atom_per_token_mask, c_out):

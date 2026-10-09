@@ -291,15 +291,16 @@ class OpenFold3(Module):
                 atom_mask=aux["repr_batch"]["atom_mask"])
         else:
             representative = sample[aux["representative_atom_indices"].long()]
+        from .protenix import ConfidenceHead, PaeBins
         out = self.confidence_head.forward(
             si_input=si_input.float(), si_trunk=si_trunk.float(),
             zij_trunk=zij_trunk.float(), repr_x_pred=representative.float(),
             max_atom_per_token_mask=aux["max_atom_per_token_mask"].float(),
             use_zij_trunk_embedding=True, shared=shared,
+            pae_counts=PaeBins.counts(aux.get("asym_id"), si_trunk.shape[0]),
         )
         bins = (torch.arange(50, dtype=torch.float32) + 0.5) / 50
         plddt_atom = (torch.softmax(out["plddt_logits"].float(), -1) * bins).sum(-1)
-        from .protenix import ConfidenceHead
         # pTM and ipTM are a max over ALIGNMENT FRAMES, not over tokens, and a token that
         # has no frame can win that max and set the score a user's structure is ranked by.
         # Upstream builds the mask from the predicted coordinates and zeroes the row
@@ -316,11 +317,11 @@ class OpenFold3(Module):
                 batch=aux["frame_batch"], x=sample.float(),
                 atom_mask=aux["frame_batch"]["atom_mask"].float())
             has_frame = has_frame.bool()
-        # One softmax over the [N, N, 64] PAE bins serves pTM/ipTM, the chain reductions and
-        # the PAE matrix; on the host at 730 tokens each one costs ~0.2 s per sample.
-        pae_probs = torch.softmax(out["pae_logits"].float(), -1)
-        ptm, iptm = ConfidenceHead._ptm_iptm(
-            out["pae_logits"], aux.get("asym_id"), has_frame=has_frame, probs=pae_probs)
+        # pTM/ipTM, the chain reductions and the PAE matrix all read the PAE bins through
+        # `pae_bins`, which the head reduced on device: the [N, N, 64] logits never cross.
+        pae_bins = out["pae_bins"]
+        ptm, iptm = ConfidenceHead._ptm_iptm(None, aux.get("asym_id"), has_frame=has_frame,
+                                             bins=pae_bins)
         disorder = _disorder_score(aux["atom_array"], sample) if aux.get("atom_array") is not None else 0.0
         has_clash = 0.0
         if all(k in aux for k in ("asym_id", "atom_to_token_index", "atom_mask", "polymer_mask")):
@@ -332,17 +333,16 @@ class OpenFold3(Module):
             disorder=disorder, has_clash=has_clash)
         # Full matrices as upstream's aggregate_confidence_ranking computes them: the expectation
         # over 64 bins on 0-32 Å. The distogram is the trunk's, the same for every sample.
-        centers = (torch.arange(64, dtype=torch.float32) + 0.5) * 0.5
         return {
             # chain_ptm, chain_iptm and pair_chains_iptm, the same reduction Protenix and
             # OpenDDE report, over this head's logits and frame mask.
-            **ConfidenceHead._chain_confidence(out["pae_logits"], aux.get("asym_id"),
-                                               has_frame=has_frame, probs=pae_probs),
+            **ConfidenceHead._chain_confidence(None, aux.get("asym_id"), has_frame=has_frame,
+                                               bins=pae_bins),
             "plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom,
             "ptm": ptm, "iptm": iptm, "disorder": disorder,
             "has_clash": has_clash, "ranking_score": ranking_score,
-            "pae": (pae_probs * centers).sum(-1),
-            "pde": (torch.softmax(out["pde_logits"].float(), -1) * centers).sum(-1),
+            "pae": pae_bins.pae(),
+            "pde": out["pde"],
             "distogram": out["distogram_logits"],
         }
 

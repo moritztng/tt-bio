@@ -1895,6 +1895,75 @@ class DiffusionModule(_KeyedWeights):
         return self._lin(qn, DE + "linear_no_bias_out.weight")
 
 
+def tm_per_bin(n, centers):
+    """AlphaFold's TM term per PAE bin centre at normalisation count ``n`` (floored at 19)."""
+    d0 = 1.24 * (max(int(n), 19) - 15) ** (1.0 / 3.0) - 1.8
+    return 1.0 / (1.0 + (centers / d0) ** 2)
+
+
+class PaeBins:
+    """What every PAE-derived confidence key reads from a [N, N, nb] bin distribution.
+
+    pTM, ipTM and the chain keys only ever take ``probs @ tm_per_bin(n)`` at a handful of
+    normalisation counts ``n``, and the PAE matrix is ``probs @ centers``. So the [N, N, nb]
+    probabilities never need to leave the chip: :meth:`on_device` takes the softmax there and
+    reduces every column the keys will ask for in one matmul, pulling [N, N, 1 + k] instead of
+    [N, N, nb] logits. Built from host ``probs`` it computes each column on first use, which is
+    the arithmetic the functions did inline before.
+    """
+
+    def __init__(self, centers, probs=None, pae=None, etm=None):
+        self.centers, self.probs = centers, probs
+        self._pae, self._etm = pae, dict(etm or {})
+        self.n_tok = (probs if probs is not None else pae).shape[0]
+
+    @staticmethod
+    def counts(asym_id, n_tok):
+        """Every TM normalisation count pTM, ipTM and the chain keys read for this chain layout."""
+        out = {max(int(n_tok), 19)}
+        if asym_id is not None and asym_id.numel() == n_tok:
+            a = asym_id.long().reshape(-1)
+            sizes = [int((a == c).sum()) for c in torch.unique(a)]
+            if len(sizes) > 1:
+                out |= {max(x, 19) for x in sizes}
+                out |= {max(x + y, 19) for i, x in enumerate(sizes) for y in sizes[i + 1:]}
+        return sorted(out)
+
+    @classmethod
+    def on_device(cls, logits_d, counts, centers, compute_kernel_config):
+        """Softmax the [1, N, N, nb] fp32 ``logits_d`` and reduce it on device to the PAE
+        expectation and E[TM] at each of ``counts``; ``counts`` should come from :meth:`counts`."""
+        N = int(logits_d.shape[-2])
+        probs = ttnn.softmax(logits_d, dim=-1, compute_kernel_config=compute_kernel_config,
+                             numeric_stable=True)
+        cols = torch.stack([centers] + [tm_per_bin(n, centers) for n in counts], 1)
+        w = ttnn.from_torch(cols.float(), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                            device=logits_d.device())
+        r = ttnn.matmul(probs, w, compute_kernel_config=compute_kernel_config)
+        ttnn.deallocate(probs)
+        ttnn.deallocate(w)
+        host = torch.Tensor(ttnn.to_torch(r)).float().reshape(N, N, -1)
+        ttnn.deallocate(r)
+        return cls(centers, pae=host[..., 0],
+                   etm={n: host[..., 1 + i] for i, n in enumerate(counts)})
+
+    def etm(self, n):
+        """E[TM] per token pair at normalisation count ``n``, [N, N]."""
+        n = max(int(n), 19)
+        if n not in self._etm:
+            if self.probs is None:
+                raise KeyError(f"E[TM] at count {n} was not reduced on device; "
+                               f"build the PaeBins with PaeBins.counts()")
+            self._etm[n] = self.probs @ tm_per_bin(n, self.centers)
+        return self._etm[n]
+
+    def pae(self):
+        """The expected aligned error per token pair, [N, N]."""
+        if self._pae is None:
+            self._pae = self.probs @ self.centers
+        return self._pae
+
+
 class ConfidenceHead:
     """Protenix-v2 ConfidenceHead -> per-atom pLDDT (and pae/pde logits).
 
@@ -2230,7 +2299,7 @@ class ConfidenceHead:
         return out
 
     @staticmethod
-    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None, probs=None):
+    def _ptm_iptm(pae_logits, asym_id, max_a: float = 32.0, has_frame=None, probs=None, bins=None):
         """Predicted TM-score (pTM) and interface pTM (ipTM) from the PAE bin logits,
         the standard AlphaFold formula. pTM = max over alignment frame i of the mean
         predicted TM to all tokens j; ipTM restricts j to *other* chains (via asym_id).
@@ -2255,18 +2324,15 @@ class ConfidenceHead:
         eight frameless tokens in that same complex the mask is worth 3.853e-03 on pTM and
         reorders the samples.
 
-        ``probs`` is ``softmax(pae_logits)`` when the caller already has it.
+        ``probs`` is ``softmax(pae_logits)`` when the caller already has it; ``bins`` a
+        :class:`PaeBins` already reduced (``pae_logits`` is then not read).
         """
-        import torch
-
-        N, _, nb = pae_logits.shape
-        centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-        if probs is None:
-            probs = torch.softmax(pae_logits.float(), -1)                   # (N,N,nb)
-        n = max(N, 19)
-        d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
-        tm_per_bin = 1.0 / (1.0 + (centers / d0) ** 2)                      # (nb,)
-        e_tm = probs @ tm_per_bin                                           # (N,N) E[TM] per pair
+        if bins is None:
+            nb = pae_logits.shape[-1]
+            bins = PaeBins((torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb),
+                           probs=torch.softmax(pae_logits.float(), -1) if probs is None else probs)
+        N = bins.n_tok
+        e_tm = bins.etm(N)                                                  # (N,N) E[TM] per pair
         frame = (None if has_frame is None else
                  has_frame.reshape(-1).bool().to(e_tm.device))
         if frame is not None and frame.numel() != N:
@@ -2300,7 +2366,7 @@ class ConfidenceHead:
 
     @staticmethod
     def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0, centers=None, has_frame=None,
-                          probs=None):
+                          probs=None, bins=None):
         """The chain-level confidence keys, protenix's `calculate_chain_based_ptm`.
 
         `chain_ptm[c]` is pTM computed inside chain c alone, so its TM normalisation uses that
@@ -2328,36 +2394,30 @@ class ConfidenceHead:
         the frame mask their global pTM/ipTM take the max over: a token without an alignment
         frame (an atomized ligand atom that fails the angle test) cannot win a row max here
         either. None means every token has a frame, which holds for standard residues.
-        ``probs`` is ``softmax(pae_logits)`` when the caller already has it.
+        ``probs`` is ``softmax(pae_logits)`` when the caller already has it; ``bins`` a
+        :class:`PaeBins` already reduced (``pae_logits`` and ``centers`` are then not read).
         """
-        import torch
-
         if asym_id is None:
             return {}
         a = asym_id.long().reshape(-1)
         ids = [int(x) for x in torch.unique(a)]
-        if a.numel() != pae_logits.shape[0] or len(ids) < 2:
+        if a.numel() != (bins.n_tok if bins is not None else pae_logits.shape[0]) or len(ids) < 2:
             return {}
-        nb = pae_logits.shape[-1]
-        if centers is None:
-            centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
-        if probs is None:
-            probs = torch.softmax(pae_logits.float(), -1)
+        if bins is None:
+            nb = pae_logits.shape[-1]
+            if centers is None:
+                centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
+            bins = PaeBins(centers, probs=torch.softmax(pae_logits.float(), -1) if probs is None
+                           else probs)
         frame = (torch.ones(a.numel(), dtype=torch.bool) if has_frame is None
                  else has_frame.bool().reshape(-1))
 
         # E[TM] depends on a subset only through its token count (the TM normalisation), so the
         # bins are reduced once per distinct count over the whole (N,N), and each subset slices
         # the (N,N) result: nb times less to copy than slicing the probabilities.
-        e_tm = {}
-
         def pair_tm(mask):
             """E[TM] per token pair, restricted to `mask` and normalised on its own count."""
-            n = max(int(mask.sum()), 19)
-            if n not in e_tm:
-                d0 = 1.24 * (n - 15) ** (1.0 / 3.0) - 1.8
-                e_tm[n] = probs @ (1.0 / (1.0 + (centers / d0) ** 2))
-            return e_tm[n][mask][:, mask]
+            return bins.etm(int(mask.sum()))[mask][:, mask]
 
         def row_max(row, mask):
             # Zeroing a frameless row is upstream's form; E[TM] >= 0, so it cannot win.
