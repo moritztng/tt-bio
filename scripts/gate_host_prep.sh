@@ -8,7 +8,10 @@
 #   <root>/dist-<sha12>/tt_bio-*.whl
 #   <root>/venv-<sha12>      the wheel [tenstorrent,test] on $GATE_PYTHON (default python3)
 #   <root>/venv312-<sha12>   the same on Python 3.12, plus BindCraft 2 from $BC2 if set (pytest and
-#                            the BindCraft 2 leg need it; BindCraft 2 requires Python >= 3.12)
+#                            the BindCraft 2 leg need it; BindCraft 2 requires Python >= 3.12). It
+#                            goes in as a second install: its jax needs numpy >= 2 while ttnn pins
+#                            numpy < 2, so one resolve is unsatisfiable. That is the user's order too
+#                            (pip install tt-bio, then BindCraft 2).
 # and, once per host, <root>/dockq-venv (DockQ 2.1.3, the opendde-abag scorer). DockQ ships no
 # wheel; on a host without a C compiler put a prebuilt one at <root>/prereq/DockQ-*.whl.
 # Needs uv (https://docs.astral.sh/uv/). Safe to re-run: finished steps are skipped.
@@ -21,12 +24,13 @@ D=$ROOT/dist-$S
 [ -f "$D/done" ] || { rm -rf "$D"; "$UV" build -q --wheel -o "$D"; touch "$D/done"; }
 WHL=$(ls "$D"/tt_bio-*.whl)
 
-venv() {  # venv <dir> <python> [extra packages...]
-    local v=$1 py=$2; shift 2
+venv() {  # venv <dir> <python> [package installed after the wheel]
+    local v=$1 py=$2
     [ -f "$v/done" ] && return
     rm -rf "$v"
     "$UV" venv -q -p "$py" "$v"
-    "$UV" pip install -q -p "$v/bin/python" "$WHL[tenstorrent,test]" "$@"
+    "$UV" pip install -q -p "$v/bin/python" "$WHL[tenstorrent,test]"
+    [ -z "${3:-}" ] || "$UV" pip install -q -p "$v/bin/python" "$3"
     touch "$v/done"
 }
 venv "$ROOT/venv-$S" "${GATE_PYTHON:-python3}"
@@ -38,5 +42,5 @@ if [ ! -x "$ROOT/dockq-venv/bin/python" ]; then
 fi
 for v in "$ROOT/venv-$S" "$ROOT/venv312-$S"; do
     "$v/bin/python" -c 'import importlib.metadata as m, sys; print(sys.argv[1], "python", sys.version.split()[0],
-        *(f"{d} {m.version(d)}" for d in ("tt-bio", "ttnn", "torch")))' "$v"
+        *(f"{d} {m.version(d)}" for d in ("tt-bio", "ttnn", "torch", "numpy")))' "$v"
 done
