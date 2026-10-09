@@ -148,6 +148,9 @@ _OPM_PROJ_BATCH = env_flag("TT_BIO_OPM_PROJ_BATCH", True)
 # mean still divides by the real depth, so only the accumulation order moves. The rows ride in the
 # join's concat, so the chunk-list path pays nothing for them. A shallow MSA would pay more for
 # the zeros than the blocking returns, so the pad stays under an eighth of the depth.
+# Wormhole only. Blackhole (p150a, grid 11 wide) is the other way round: Kt one short of a multiple
+# of 11 runs at ~137 TFLOP/s and the multiple itself at ~75 (311 -> 319 tiles: ~81 -> 151.8 ms at
+# 23552 rows, perf/spd_msa/zmm_kpad3.py), so padding there would halve the contraction.
 _OPM_KPAD = env_flag("TT_BIO_OPM_KPAD", True)
 
 
@@ -175,7 +178,8 @@ def opm_flat_b(b):
     return ttnn.to_layout(b, ttnn.TILE_LAYOUT)
 
 
-# The OPM contraction's own program config (`opm_contract_config`). 0 leaves it to ttnn's auto config.
+# The OPM contraction's own program config (`opm_contract_config`), Wormhole only (measured there).
+# 0 leaves it to ttnn's auto config.
 _OPM_CFG = env_flag("TT_BIO_OPM_CFG", True)
 
 
@@ -13291,8 +13295,9 @@ class OuterProductMean(Module):
                     a_parts.append(ac)
                     b_parts.append(bc)
                 depth = sum(p.shape[0] for p in a_parts)
-                pad = 0 if small_depth(depth) else opm_kpad_rows(
-                    depth, a_parts[0].device().compute_with_storage_grid_size().x)
+                dev = a_parts[0].device()
+                pad = 0 if small_depth(depth) or dev.arch() != ttnn.Arch.WORMHOLE_B0 else opm_kpad_rows(
+                    depth, dev.compute_with_storage_grid_size().x)
                 if pad:
                     a_parts.append(zero_rows(a_parts[0], pad))
                     b_parts.append(zero_rows(b_parts[0], pad))
@@ -13438,9 +13443,9 @@ class OuterProductMean(Module):
             if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
                 if z_dtype is not None:
                     x, y = ttnn.typecast(x, ttnn.bfloat16), ttnn.typecast(y, ttnn.bfloat16)
-                cfg = opm_contract_config(x.padded_shape[0] // 32, y.padded_shape[0] // 32,
-                                          x.padded_shape[1] // 32,
-                                          x.device().compute_with_storage_grid_size())
+                cfg = None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
+                    x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
+                    x.device().compute_with_storage_grid_size())
                 out = ttnn.matmul(x, y, transpose_b=True, program_config=cfg,
                                   compute_kernel_config=self.compute_kernel_config)
                 if z_dtype is not None:
