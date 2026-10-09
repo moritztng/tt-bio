@@ -569,7 +569,8 @@ _FAST_MODE = False
 #                   stream itself stay fp32. Inert in bf16.
 #   dit_b8          fast mode's bf16 token DiT linears on bfp8 weights and bfp8 inputs at HiFi2 (`dit_lowp`):
 #                   the adaLN outputs, the gated attention output and the swiglu product are written bfp8;
-#                   q/k/v, the gate, the residual updates and the residual stream stay bf16. Inert in fp32.
+#                   q/k/v, the gate, the residual updates and the residual stream stay bf16. On an fp32 DiT
+#                   (OpenFold3) the same operands accumulate in fp32 (`k1_linear`) and the stream stays fp32.
 #   atom_k1         the fp32 diffusion atom transformer's linears on `k1_linear`'s program (Wormhole:
 #                   one K tile per dest pass), same formats. Inert in bf16 and on Blackhole.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -584,7 +585,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16"})
 # the native pose and gin does not (every warm fold agrees), plus four 9W89 warm folds that move between
 # two wrong poses (state/spd-trimul.md, 2026-10-09). gin only fires above ~640 tokens, so the 11-set grade
 # (PASS) is 8/11 inert complexes and does not decide it.
-# dit_b8 is fast-only (inert in fp32). Fast grade (fast vs fast+dit_b8, same tree, Wormhole 11-set, 44 paired
+# dit_b8 is fast-only. Protenix-v2 fast grade (fast vs fast+dit_b8, same tree, Wormhole 11-set, 44 paired
 # folds) PASS: CA-lDDT -0.0122 [-0.0209, -0.0044] against the 0.03 bar, pLDDT -0.0021, docking 33 -> 33 of 44
 # (spd-difflin gf1, 2026-10-09). Saves 1.81 s of the Wormhole c730 sampler (34.95 -> 33.14 s, 1000 MHz).
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
@@ -2437,7 +2438,7 @@ def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None)
 
 
 class DitLowp(NamedTuple):
-    """Formats of the token DiT's linears under `dit_mm16` (fp32 DiT) or `dit_b8` (bf16 DiT)."""
+    """Formats of the token DiT's linears under `dit_mm16` (fp32 DiT) or `dit_b8` (either)."""
     w: object       # weights
     act: object     # what each adaLN writes: the input of q/k/v, the gate and the swiglu
     mid: object     # the gated attention output and the swiglu product
@@ -2460,11 +2461,13 @@ def dit_lowp(dit_dtype, ckc):
     accumulation (qkv 609 -> 481 us, gate/out 180 -> 135, a1/a2 289 -> 230, b 273 -> 187)."""
     if dit_dtype == ttnn.float32 and lever("dit_mm16"):
         return DitLowp(ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, ckc, True)
-    if dit_dtype == ttnn.bfloat16 and lever("dit_b8"):
+    if dit_dtype in (ttnn.bfloat16, ttnn.float32) and lever("dit_b8"):
+        # An fp32 DiT (OpenFold3's) keeps fp32 accumulation, so its stream updates stay fp32.
+        f32 = dit_dtype == ttnn.float32
         b8 = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2,
-                                              math_approx_mode=False, fp32_dest_acc_en=False,
+                                              math_approx_mode=False, fp32_dest_acc_en=f32,
                                               packer_l1_acc=False)
-        return DitLowp(ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat16, b8, False)
+        return DitLowp(ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat8_b, dit_dtype, b8, f32)
     return None
 
 

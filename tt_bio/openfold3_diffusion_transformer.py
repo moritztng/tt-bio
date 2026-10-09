@@ -170,6 +170,14 @@ class _DiTBlock(Module):
         self.w_lg = self._w_tt(ct + "linear_g.weight")
         self.b_lg = self._w_tt(ct + "linear_g.bias", False)
 
+        # dit_mm16 / dit_b8 (Protenix-v2's levers, `dit_lowp`): the block's linears off the
+        # adaLN outputs at lower operand formats. The s-path linears keep the stream's format.
+        self.lp = _T.dit_lowp(self._act_dtype, compute_kernel_config)
+        if self.lp:
+            for k in ("qkv_w", "w_g", "w_o", "w_la", "w_lb", "w_lout"):
+                setattr(self, k, self._round(getattr(self, k), self.lp.w))
+            self.qkv_b = self._round(self.qkv_b, ttnn.bfloat16)
+
     def _w_tt(self, key, transpose=True):
         v = self._wc.get((key, transpose))
         if v is None:
@@ -184,10 +192,21 @@ class _DiTBlock(Module):
         return ttnn.from_torch(w.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
                                dtype=self._act_dtype)
 
+    def _round(self, t, dtype):
+        """A device weight rounded via bf16 on the host to `dtype`, once."""
+        return ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dtype,
+                               layout=ttnn.TILE_LAYOUT, device=self.device)
+
     def _lin(self, x, w, bias=None, activation=None):
         return ops.linear(x, w, bias=bias, activation=activation,
                           compute_kernel_config=self.compute_kernel_config,
                           core_grid=CORE_GRID_MAIN)
+
+    def _lin_lp(self, x, w, dtype, bias=None, activation=None):
+        """A linear off an adaLN output: written at `dtype` under `self.lp`, else the shared path."""
+        if self.lp is None:
+            return self._lin(x, w, bias, activation)
+        return self.lp.linear(x, w, bias, dtype=dtype, activation=activation)
 
     def _z_bias(self, z):
         """linear_z(LN_z(z)), per pair position."""
@@ -254,9 +273,13 @@ class _DiTBlock(Module):
         return o
 
     def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
-        lin = self._lin
+        lin, lp = self._lin, self.lp
+        # Under lp each adaLN writes lp.act, read only by linears; the transition's hidden linears
+        # write bf16, their product lp.mid, and every linear into the stream writes lp.out.
+        act, out_dt = (lp.act, lp.out) if lp else (None, None)
+        mid = {"dtype": lp.mid} if lp else {}
         # AdaLN-conditioned a.
-        a_ln = self.adaln_a(a, s)
+        a_ln = self.adaln_a(a, s, dtype=act)
 
         if self.sdpa32:
             bias = _cached(cache, (id(self), "pair_bias32"),
@@ -266,7 +289,7 @@ class _DiTBlock(Module):
                            lambda: self._pair_bias(z, mask_bias))
 
         # Fused padded qkv -> heads.
-        qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)   # [1, N, 3072]
+        qkv = self._lin_lp(a_ln, self.qkv_w, out_dt, bias=self.qkv_b)   # [1, N, 3072]
         qkv = ttnn.unsqueeze(qkv, 1)
         q, k, v = ttnn.experimental.nlp_create_qkv_heads(
             qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
@@ -276,10 +299,12 @@ class _DiTBlock(Module):
         o = ttnn.reshape(ttnn.experimental.nlp_concat_heads(o),
                          (S, n, N_HEADS * PADDED_HEAD_DIM))  # [S, N, 1024], pad lanes zero
         # Query gate (flat == per-head: g.view(N,H,d) * o(H,N,d) == flat multiply).
-        g = lin(a_ln, self.w_g)
-        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        # The gate at o's format: a multiply whose b carries a fused sigmoid is wrong on mixed
+        # operand formats (Protenix-v2's dit_mm16 grade, perf/spd_difflin/k1_check.py).
+        g = self._lin_lp(a_ln, self.w_g, o.dtype)
+        o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], **mid)
         ttnn.deallocate(g)
-        o = lin(o, self.w_o)                            # [1, N, 768]
+        o = self._lin_lp(o, self.w_o, out_dt)           # [1, N, 768]
         # APB output gate from s.
         og = lin(s, self.w_ada_out, bias=self.b_ada_out)
         o = ttnn.multiply(o, og, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -288,13 +313,13 @@ class _DiTBlock(Module):
         ttnn.deallocate(o)
 
         # Conditioned SwiGLU transition.
-        a_t = self.adaln_t(a, s)
-        b1 = lin(a_t, self.w_la, activation="silu")
-        b2 = lin(a_t, self.w_lb)
+        a_t = self.adaln_t(a, s, dtype=act)
+        b1 = self._lin_lp(a_t, self.w_la, ttnn.bfloat16, activation="silu")
+        b2 = self._lin_lp(a_t, self.w_lb, ttnn.bfloat16)
         ttnn.deallocate(a_t)
-        bb = ttnn.multiply(b1, b2)
+        bb = ttnn.multiply(b1, b2, **mid)
         ttnn.deallocate(b1); ttnn.deallocate(b2)
-        out = lin(bb, self.w_lout)
+        out = self._lin_lp(bb, self.w_lout, out_dt)
         ttnn.deallocate(bb)
         lg = lin(s, self.w_lg, bias=self.b_lg)
         out = ttnn.multiply(out, lg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])

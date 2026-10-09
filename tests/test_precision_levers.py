@@ -65,6 +65,10 @@ def test_dit_lowp_formats_follow_the_dit_dtype_and_the_levers():
     assert (mm16.w, mm16.act, mm16.out, mm16.k1, mm16.ckc) == (ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, True, ckc)
     assert (b8.w, b8.act, b8.mid, b8.out, b8.k1) == (ttnn.bfloat8_b,) * 3 + (ttnn.bfloat16, False)
     assert not b8.ckc.fp32_dest_acc_en
+    with T.levers("dit_b8"):
+        f32 = T.dit_lowp(ttnn.float32, ckc)
+    assert (f32.w, f32.act, f32.mid, f32.out, f32.k1) == (ttnn.bfloat8_b,) * 3 + (ttnn.float32, True)
+    assert f32.ckc.fp32_dest_acc_en
     with T.levers("dit_mm16"):
         assert T.dit_lowp(ttnn.bfloat16, ckc) is None
     assert T.dit_lowp(ttnn.float32, ckc) is None
