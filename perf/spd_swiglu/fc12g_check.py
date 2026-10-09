@@ -7,7 +7,8 @@ h = silu(x @ w1) * (x @ w2) on the pair Transition shape (x [1, 9, 736, 256], 8x
   fc12g_math  one 2D-mcast matmul over [w1_j | w2_j] with tt_bio/kernels/fc12g/compute_fc12g.cpp, silu on MATH
   fc12g_pack  the same with the silu on the PACK thread (FC12G_PACK_SILU)
 Accuracy: rel rms and max |err| of h against float64 on the device's own operand values (x, w1, w2 read back), so
-only the arithmetic differs. Time: 3 warm calls, then reps alternating the arms, synchronize_device around each.
+only the arithmetic differs. Time: pipelined, reps calls back to back and one sync, best of 3 rounds;
+enqueue_us is the host's cost per call.
 """
 from tt_bio.main import ensure_p300_mesh_descriptor; ensure_p300_mesh_descriptor()  # noqa: E702,I001
 
@@ -133,25 +134,29 @@ for name in arms:
     print(json.dumps({name: row}), flush=True)
 
 live = [n for n in arms if "err" not in res["arms"][n]]
-ts = {n: [] for n in live}
-for i in range(3 + a.reps):
-    for n in live:
-        fn, owns = ARMS[n]
-        ttnn.synchronize_device(dev)
-        t = time.perf_counter()
+t0 = time.monotonic()
+for n in live:
+    fn, owns = ARMS[n]
+    for i in range(3):
         o = fn()
-        ttnn.synchronize_device(dev)
-        if i >= 3:
-            ts[n].append((time.perf_counter() - t) * 1e6)
         if owns:
             ttnn.deallocate(o)
-    if i == 2:
-        t0 = time.monotonic()
+    best = []
+    for _ in range(3):  # pipelined: reps calls back to back, one sync; best of 3 rounds
+        ttnn.synchronize_device(dev)
+        t = time.perf_counter()
+        for _ in range(a.reps):
+            o = fn()
+            if owns:
+                ttnn.deallocate(o)
+        te = time.perf_counter()
+        ttnn.synchronize_device(dev)
+        best.append(((time.perf_counter() - t) * 1e6 / a.reps, (te - t) * 1e6 / a.reps))
+    us, enq = min(best)
+    res["arms"][n].update(us=round(us, 1), enqueue_us=round(enq, 1))
 v = sorted(c for t_, c in clk if t_ >= t0)
 res["aiclk"] = dict(median=v[len(v) // 2], min=v[0]) if v else None
-for n in live:
-    res["arms"][n].update(us_min=round(min(ts[n]), 1), us_med=round(st.median(ts[n]), 1))
-print(json.dumps({n: {k: res["arms"][n].get(k) for k in ("us_min", "us_med", "rel_rms")} for n in arms},
+print(json.dumps({n: {k: res["arms"][n].get(k) for k in ("us", "enqueue_us", "rel_rms")} for n in arms},
                  ), json.dumps(res["aiclk"]), flush=True)
 a.out.parent.mkdir(parents=True, exist_ok=True)
 a.out.write_text(json.dumps(res, indent=1))
