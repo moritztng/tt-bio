@@ -209,7 +209,7 @@ if a.which in ("narrow", "all"):
                 ARMS[f"narrow {S}x{n_out} bw16 lofi"] = (site, lambda: nar_ckc(16, lofi))
                 ARMS[f"narrow {S}x{n_out} default cfg"] = (site, lambda x=x, w=w, ckc=ckc: ttnn.linear(x, w, compute_kernel_config=ckc))
                 x2 = ttnn.reshape(x, (S * S, 256))
-                ARMS[f"narrow {S}x{n_out} 2d default"] = (site, lambda x2=x2, w=w, ckc=ckc: ttnn.reshape(
+                ARMS[f"narrow {S}x{n_out} 2d default"] = (site, lambda x2=x2, w=w, ckc=ckc, S=S, n_out=n_out: ttnn.reshape(
                     ttnn.linear(x2, w, compute_kernel_config=ckc), (1, S, S, n_out)))
                 for t in ("bw1 lofi", "bw16 lofi", "default cfg", "2d default"):
                     BYTES[f"narrow {S}x{n_out} {t}"] = S * S * 256 * 2 + S * S * 32 * 2
