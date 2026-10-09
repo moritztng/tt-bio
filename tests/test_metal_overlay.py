@@ -82,7 +82,10 @@ def _clean_env(monkeypatch, tmp_path, stock):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
     for v in ("TT_METAL_RUNTIME_ROOT", "TT_METAL_HOME", "TT_METAL_CACHE", "TT_BIO_BH_DRAM_READ_SPLIT",
               "TT_BIO_METAL_OVERLAY", "TT_BIO_METAL_OVERLAY_STOCK", "TT_BIO_METAL_OVERLAY_CACHE"):
-        monkeypatch.delenv(v, raising=False)
+        # setenv first so monkeypatch records the variable: enable() writes os.environ directly, and a
+        # variable monkeypatch never touched would leak the fake overlay root into every later test.
+        monkeypatch.setenv(v, "")
+        monkeypatch.delenv(v)
 
 
 @pytest.mark.parametrize("bh,off,user_root", [(False, False, False), (True, True, False), (True, False, True)])
