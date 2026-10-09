@@ -7,7 +7,7 @@
 # Expects the tree at <root>/trees/<sha12> (gate_fanout.py creates it). Writes, once per commit:
 #   <root>/dist-<sha12>/tt_bio-*.whl
 #   <root>/venv-<sha12>      the wheel [tenstorrent,test] on $GATE_PYTHON (default python3)
-#   <root>/venv312-<sha12>   the same on Python 3.12, plus BindCraft 2 from $BC2 if set (pytest and
+#   <root>/venv312-<sha12>   the same on Python 3.12, plus BindCraft 2 from the checkout $BC2 if set (pytest and
 #                            the BindCraft 2 leg need it; BindCraft 2 requires Python >= 3.12). It
 #                            goes in as a second install: its jax needs numpy >= 2 while ttnn pins
 #                            numpy < 2, so one resolve is unsatisfiable. That is the user's order too
@@ -28,9 +28,10 @@ venv() {  # venv <dir> <python> [package installed after the wheel]
     local v=$1 py=$2
     [ -f "$v/done" ] && return
     rm -rf "$v"
-    "$UV" venv -q -p "$py" "$v"
+    "$UV" venv -q --seed -p "$py" "$v"   # --seed: pip, as in a user's venv (packaging_smoke uses it)
     "$UV" pip install -q -p "$v/bin/python" "$WHL[tenstorrent,test]"
-    [ -z "${3:-}" ] || "$UV" pip install -q -p "$v/bin/python" "$3"
+    # Editable, as BindCraft 2's own install.sh does: its settings/ sit beside the package, not in it.
+    [ -z "${3:-}" ] || "$UV" pip install -q -p "$v/bin/python" -e "$3"
     touch "$v/done"
 }
 venv "$ROOT/venv-$S" "${GATE_PYTHON:-python3}"
