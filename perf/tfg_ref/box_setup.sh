@@ -6,7 +6,8 @@ export OPENDDE_ROOT_DIR=/root/opendde_data
 cd /root
 [ -d OpenDDE ] || git clone -q --branch v1.2.0 --depth 1 https://github.com/aurekaresearch/OpenDDE.git
 cd OpenDDE
-pip install -q -e .
+# The [gpu] extra is upstream's documented GPU install: cuEquivariance triangle kernels (auto picks them) and Triton.
+pip install -q -e ".[gpu]"
 # DockQ's pins clash with upstream's, so scoring gets its own venv.
 [ -x /root/dq/bin/python ] || { python3 -m venv /root/dq && /root/dq/bin/pip install -q 'DockQ==2.1.3' gemmi numpy; }
 bash scripts/download_opendde_data.sh --root "$OPENDDE_ROOT_DIR" --skip-search-database --model-name opendde_v1 --checkpoint opendde_abag.pt
