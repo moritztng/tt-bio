@@ -571,14 +571,16 @@ _FAST_MODE = False
 #                   the adaLN outputs, the gated attention output and the swiglu product are written bfp8;
 #                   q/k/v, the gate, the residual updates and the residual stream stay bf16. On an fp32 DiT
 #                   (OpenFold3) the same operands accumulate in fp32 (`k1_linear`) and the stream stays fp32.
+#   dit_qkv16       with dit_mm16 and dit_sdpa32, the fp32 token DiT's q/k/v written bf16: the head split
+#                   and `_sdpa32` read them at bf16, the mask and the attention output stay fp32
 #   atom_k1         the fp32 diffusion atom transformer's linears on `k1_linear`'s program (Wormhole:
 #                   one K tile per dest pass), same formats. Inert in bf16 and on Blackhole.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
-          "transition_shard", "dit_mm16", "atom_k1", "dit_b8")
+          "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16", "dit_qkv16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2455,9 +2457,10 @@ class DitLowp(NamedTuple):
     w: object       # weights
     act: object     # what each adaLN writes: the input of q/k/v, the gate and the swiglu
     mid: object     # the gated attention output and the swiglu product
-    out: object     # q/k/v, the output projection and the transition output
+    out: object     # the output projection and the transition output
     ckc: object
     k1: bool        # fp32 accumulation: k1_linear's program
+    qkv: object     # q/k/v when the attention is `_sdpa32` (else `out`)
 
     def linear(self, x, w, bias=None, *, dtype, activation=None):
         if self.k1:
@@ -2473,14 +2476,15 @@ def dit_lowp(dit_dtype, ckc):
     block 1, the transition b 556 -> 464). `dit_b8`: bfp8 operands at HiFi2 without fp32
     accumulation (qkv 609 -> 481 us, gate/out 180 -> 135, a1/a2 289 -> 230, b 273 -> 187)."""
     if dit_dtype == ttnn.float32 and lever("dit_mm16"):
-        return DitLowp(ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, ckc, True)
+        return DitLowp(ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, ckc, True,
+                       ttnn.bfloat16 if lever("dit_qkv16") else ttnn.float32)
     if dit_dtype in (ttnn.bfloat16, ttnn.float32) and lever("dit_b8"):
         # An fp32 DiT (OpenFold3's) keeps fp32 accumulation, so its stream updates stay fp32.
         f32 = dit_dtype == ttnn.float32
         b8 = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2,
                                               math_approx_mode=False, fp32_dest_acc_en=f32,
                                               packer_l1_acc=False)
-        return DitLowp(ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat8_b, dit_dtype, b8, f32)
+        return DitLowp(ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat8_b, dit_dtype, b8, f32, dit_dtype)
     return None
 
 
@@ -10872,10 +10876,10 @@ class AttentionPairBias(Module):
 
     def enable_lowp(self, lp: DitLowp):
         """`dit_mm16` / `dit_b8` on this token-level instance: its three linears read an `lp.act`
-        input and `lp.w` weights (`DitLowp.linear`). q/k/v and the output projection are written
-        `lp.out` (the attention and the residual take them); the gate at the attention output's
-        format, and the gated attention output, which only the output projection reads, `lp.mid`. The bias stays bf16. Rounded on
-        the host from the device copies, once."""
+        input and `lp.w` weights (`DitLowp.linear`). The output projection is written `lp.out` (the
+        residual takes it) and q/k/v `lp.qkv` under `_sdpa32`, `lp.out` otherwise; the gate at the
+        attention output's format, and the gated attention output, which only the output projection
+        reads, `lp.mid`. The bias stays bf16. Rounded on the host from the device copies, once."""
         assert not self.atom_level
         up = lambda t, dt: ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dt,
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
@@ -11113,7 +11117,8 @@ class AttentionPairBias(Module):
         if lp is not None and s.dtype != lp.act:
             s = ttnn.typecast(s, lp.act)
         if not self.atom_level:
-            qkv = (lp.linear(s, lw["qkv_weight"], lw["qkv_bias"], dtype=lp.out)
+            qkv = (lp.linear(s, lw["qkv_weight"], lw["qkv_bias"],
+                             dtype=lp.qkv if self.sdpa32 and not self.kq_norm else lp.out)
                    if lp is not None else
                    ttnn.linear(
                 s,
