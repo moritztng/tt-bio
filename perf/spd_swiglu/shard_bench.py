@@ -34,6 +34,8 @@ ap.add_argument("--mode", default="normal", choices=("normal", "fast"))
 ap.add_argument("--batches", type=int, default=7)
 ap.add_argument("--W", type=int, default=736)
 ap.add_argument("--rows", default="pair:5,9;msa:16,8")
+ap.add_argument("--stages", action="store_true",
+                help="instead of the arms: each stage of the fold's sharded body alone, plus fc1+fc2 as one matmul")
 a = ap.parse_args()
 os.environ["TT_BIO_LEVERS"] = a.mode
 
@@ -187,6 +189,49 @@ def shard_arms(mt, kt, nt, ct):
     return list(dict(out).items())
 
 
+LIVE = []  # a shape's stage operands, freed with its input
+
+
+def stage_arms(x, w1, w2, w3, w12):
+    """Each stage of the fold's sharded body timed alone on pre-built operands, and `fc12`: fc1 and fc2 as ONE
+    matmul over column-interleaved weights (core column j gets fc1's and fc2's j-th blocks), no activation. fc12
+    against fc1_nosilu + fc2 is what a kernel reading in0 once can save; fc1 against fc1_nosilu is the silu."""
+    xs = [int(d) for d in x.padded_shape]
+    mt, kt = xs[1] * xs[2] // 32, xs[-1] // 32
+    nt, ct = int(w1.shape[-1]) // 32, int(w3.shape[-1]) // 32
+    grid = T._transition_shard_grid(mt, nt, ct)
+    if grid is None:
+        return []
+    gx, gy = grid
+    pm, pn = mt // gy, nt // gx
+    mc, mc2 = block_sharded(gx, gy, pm, pn), block_sharded(gx, gy, pm, 2 * pn)
+    bw = max(b for b in (8, 4, 2, 1) if kt % b == 0)
+    bw3 = 1 if CKC.fp32_dest_acc_en else pn
+    xn = ttnn.to_memory_config(x, ttnn.L1_MEMORY_CONFIG)
+    fc1 = lambda: ttnn.linear(xn, w1, program_config=cfg2d(gx, gy, pm, pn, bw, SILU), compute_kernel_config=SILU_CKC,
+                              memory_config=mc, dtype=HDT)
+    fc1n = lambda: ttnn.linear(xn, w1, program_config=cfg2d(gx, gy, pm, pn, bw), compute_kernel_config=CKC,
+                               memory_config=mc, dtype=HDT)
+    fc2 = lambda: ttnn.linear(xn, w2, program_config=cfg2d(gx, gy, pm, pn, bw), compute_kernel_config=CKC,
+                              memory_config=mc, dtype=HDT)
+    fc12 = lambda: ttnn.linear(xn, w12, program_config=cfg2d(gx, gy, pm, 2 * pn, bw), compute_kernel_config=CKC,
+                               memory_config=mc2, dtype=HDT)
+    x1, x2 = fc1(), fc2()
+    mul = lambda: ttnn.multiply(x1, x2, memory_config=mc)
+    h = mul()
+    LIVE.extend((xn, x1, x2, h, w12))
+    fc3 = lambda: ttnn.linear(h, w3, program_config=cfg2d(gx, gy, pm, ct // gx, bw3), compute_kernel_config=CKC,
+                              dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    return [(f"stage:{n}:g{gx}x{gy}", f) for n, f in
+            (("fc1", fc1), ("fc1_nosilu", fc1n), ("fc2", fc2), ("fc12", fc12), ("mul", mul), ("fc3", fc3))]
+
+
+def interleave_cols(w1h, w2h, gx):
+    """[C, 2*HID] whose j-th of gx column blocks is fc1's j-th block then fc2's."""
+    b = w1h.shape[1] // gx
+    return torch.cat([torch.cat([w1h[:, j * b:(j + 1) * b], w2h[:, j * b:(j + 1) * b]], 1) for j in range(gx)], 1)
+
+
 res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH, "nodes": OPENED,
        "grid": [GX, GY], "mode": a.mode, "fidelity": str(CKC.math_fidelity), "b8": B8, "shapes": {}}
 g = torch.Generator().manual_seed(0)
@@ -205,16 +250,23 @@ for spec in a.rows.split(";"):
         ref = (torch.nn.functional.silu(X @ W1) * (X @ W2)) @ W3
         mt = R * a.W // 32
         arms = [("cur", lambda: body_cur(x, w1, w2, w3, False)), ("bw", lambda: body_cur(x, w1, w2, w3, True))]
-        arms += [(n, (lambda p=p: body_shard(x, w1, w2, w3, *p))) for n, p in shard_arms(mt, C // 32, HID // 32,
-                                                                                            C // 32)]
+        if a.stages:
+            w12 = ttnn.from_torch(interleave_cols(w1h, w2h, min(GX, 8)), dtype=WDT, layout=ttnn.TILE_LAYOUT,
+                                  device=dev)
+            arms = arms[:1] + stage_arms(x, w1, w2, w3, w12)
+        else:
+            arms += [(n, (lambda p=p: body_shard(x, w1, w2, w3, *p)))
+                     for n, p in shard_arms(mt, C // 32, HID // 32, C // 32)]
         rows_out = {}
         for arm, fn in arms:
             try:
                 o = fn()
-                got = ttnn.to_torch(o).double().view(-1, C)
+                row = {}
+                if not arm.startswith("stage:"):  # a stage's output is not the body's
+                    got = ttnn.to_torch(o).double().view(-1, C)
+                    row = dict(rel_rms=float((got - ref).norm() / ref.norm()),
+                               digest=hashlib.sha256(got.float().numpy().tobytes()).hexdigest()[:16])
                 ttnn.deallocate(o)
-                row = dict(rel_rms=float((got - ref).norm() / ref.norm()),
-                           digest=hashlib.sha256(got.float().numpy().tobytes()).hexdigest()[:16])
                 row.update(timed(fn, a.batches))
                 row["us_per_row"] = round(row["us_min"] / R, 3)
             except Exception as e:  # noqa: BLE001  an arm that does not fit L1 or is rejected is a result too
@@ -222,7 +274,9 @@ for spec in a.rows.split(";"):
             rows_out[arm] = row
             print(json.dumps({f"{name}.r{R}": {arm: row}}), flush=True)
         res["shapes"][f"{name}.r{R}"] = dict(rows=R, W=a.W, mt=mt, arms=rows_out)
-        ttnn.deallocate(x)
+        for t in [x] + LIVE:
+            ttnn.deallocate(t)
+        LIVE.clear()
     for t in (w1, w2, w3):
         ttnn.deallocate(t)
 
