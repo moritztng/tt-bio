@@ -50,6 +50,21 @@ def test_wormhole_declines_the_chunked_form_until_it_is_graded_there():
     assert T.serving_plan(512, 4, 512, 32, (8, 8), wormhole=False)["Qt"] == 4
 
 
+def test_the_wormhole_chunk_flag_opens_exactly_the_declined_calls(monkeypatch):
+    """`TT_BIO_TRIATT_BW_WH_CHUNKED` is the switch the Wormhole grade runs behind.
+
+    It may only change the answer where the whole-query form does not fit: below that the plan is
+    already served and must stay the unchunked one.
+    """
+    monkeypatch.setattr(T, "WH_CHUNKED", True)
+    for n in range(288, 1025, 32):
+        p = T.serving_plan(n, 4, n, 32, (8, 8), wormhole=True)
+        assert p is not None and T.fits_l1(p, True), n
+        assert p["Nt"] % p["Qt"] == 0, n
+    assert T.serving_plan(64, 4, 288, 32, GRID, wormhole=True)["Qt"] == 9  # still whole-query
+    assert T.serving_plan(512, 4, 512, 32, (8, 8), wormhole=True)["Qt"] == 4
+
+
 def test_bias_and_dbias_shrink_with_the_chunk():
     p = T.plan(64, 4, 768, 32, GRID, q_chunk_tiles=2)
     sizes = {idx: n * page for idx, n, page, _f in T.cb_table(p)}

@@ -105,6 +105,15 @@ def cb_budget(wormhole=None) -> int:
 
 FUSED = env_flag("TT_BIO_TRIATT_BW_FUSED", False)
 
+# Let the query-chunked plan serve on Wormhole too. The whole-query form fits only up to 288
+# tokens, so without this `serving_plan` declines every call above it on a Wormhole chip and the
+# round falls back to the chunked recompute: measured on a BindCraft 2 ladder, 432 of 432 backward
+# calls served at 224 tokens and 0 of 432 at 480, 512 and 576 (out/ladder/qkvfix-t, .107 chip 23).
+# Blackhole takes the same chunk and serves. The chunk fits Wormhole's own CB budget at every
+# bucket to 1024; what is missing is a float64 grade of the loop on a Wormhole chip, which is what
+# this flag exists to run. Default off until that grade lands.
+WH_CHUNKED = env_flag("TT_BIO_TRIATT_BW_WH_CHUNKED", False)
+
 # Write dq, dk and dv straight into one [B, 1, N, 3*H*d] gradient when q, k and v are the three
 # slots of one `nlp_create_qkv_heads` (the triangle attentions' own split). The tape otherwise
 # merges each head set (`nlp_concat_heads`, 0.12 ms) and joins the three (0.34 ms) after this
@@ -203,7 +212,7 @@ def serving_plan(B, H, N, d, grid, wormhole=None, **kw):
     p = plan(B, H, N, d, grid, **kw)
     if fits_l1(p, wormhole):
         return p
-    if wormhole:
+    if wormhole and not WH_CHUNKED:
         return None   # the chunked form is ungraded on Wormhole (module docstring)
     return largest_fitting_q_chunk(B, H, N, d, grid, wormhole, **kw)
 
