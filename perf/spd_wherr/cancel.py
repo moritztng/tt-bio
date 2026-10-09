@@ -2,13 +2,12 @@
 
     TT_VISIBLE_DEVICES=<chip> python perf/spd_wherr/cancel.py --out cancel.json [--rows 65536]
 
-Every row of a [rows, 64] @ [64, 32] matmul is one case. K tile 0 holds s (row r: a[r, 0] = s, w[0] = 1), K tile 1
-holds -s + d (a[r, 32] = -s, a[r, 33] = d, w[32] = w[33] = 1), so the exact result is d and the device must add
-tile 1's sum onto tile 0's in dest. s is a random bf16 N(0, 1) value, d = s * 2^-j with a random sign and j drawn
-from 1..24, so j is the depth of the cancellation in bits. The output is compared exactly (it is d, a bf16).
-Run per fidelity at K block 2 (both tiles in one dest pass) and K block 1 (packer_l1_acc adds them), fp32 dest acc.
-Prints the wrong-row fraction per j: if the in-dest add mis-normalises on deep cancellation, it rises with j at
-K block 2 and stays 0 at K block 1.
+Every row of a [rows, 64] @ [64, 32] matmul is one case: K tile 0 sums s + e0 (a[r, 0], a[r, 1]), K tile 1 sums
+-s + e1 (a[r, 32], a[r, 33]), w = 1 at those four positions. s is bf16 N(0, 1), e0 and e1 are s * 2^-j * N(0, 1)
+in bf16, so the exact result e0 + e1 is ~2^-j smaller than either tile's partial sum: j is the depth of the
+cancellation the dest add has to survive. A row is WRONG when the error exceeds |s| / 2: no rounding of these
+operands can do that, the erratum (about -2^k) does. Run per fidelity at K block 2 (tile 1 is added onto tile 0
+in dest) and K block 1 (packer_l1_acc adds them), fp32 dest acc on.
 """
 import argparse, json
 from pathlib import Path
@@ -31,13 +30,13 @@ def main():
     R = a.rows
     s = torch.randn(R).bfloat16()
     j = torch.randint(1, 25, (R,))
-    sign = torch.where(torch.rand(R) < 0.5, -1.0, 1.0)
-    d = (s.float() * torch.exp2(-j.float()) * sign).bfloat16()
+    scale = s.float() * torch.exp2(-j.float())
+    e0, e1 = (scale * torch.randn(R)).bfloat16(), (scale * torch.randn(R)).bfloat16()
     A = torch.zeros(R, 64, dtype=torch.bfloat16)
-    A[:, 0], A[:, 32], A[:, 33] = s, -s, d
+    A[:, 0], A[:, 1], A[:, 32], A[:, 33] = s, e0, -s, e1
     W = torch.zeros(64, 32, dtype=torch.bfloat16)
-    W[0, 0] = W[32, 0] = W[33, 0] = 1
-    ref = d.double()
+    W[0, 0] = W[1, 0] = W[32, 0] = W[33, 0] = 1
+    ref = e0.double() + e1.double()
     dev = ttnn.open_device(device_id=0)
     g = dev.compute_with_storage_grid_size()
     res = {"arch": str(dev.arch()), "rows": R, "cells": []}
@@ -54,9 +53,9 @@ def main():
                 y = ttnn.experimental.minimal_matmul(input_tensor=ta, weight_tensor=tw, compute_kernel_config=ck,
                                                      dtype=ttnn.bfloat16, config=cfg)
                 Y = ttnn.to_torch(y).double()[:, 0]; ttnn.deallocate(y)
-                bad = (Y - ref).abs() > ref.abs() * 2.0 ** -6 + 1e-30
+                bad = (Y - ref).abs() > s.double().abs() / 2
                 by_j = {int(k): [int(bad[j == k].sum()), int((j == k).sum())] for k in range(1, 25)}
-                ex = [[float(s[i]), float(d[i]), float(Y[i])] for i in bad.nonzero().flatten()[:6].tolist()]
+                ex = [[float(s[i]), float(ref[i]), float(Y[i])] for i in bad.nonzero().flatten()[:6].tolist()]
                 cell = dict(fid=fid, k_block=kb, wrong=int(bad.sum()), by_j=by_j, examples=ex)
                 res["cells"].append(cell)
                 print(f"{fid:5s} K{kb}: wrong {cell['wrong']:6d}/{R}  " +
