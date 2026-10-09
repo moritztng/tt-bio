@@ -1887,7 +1887,6 @@ class ConfidenceHead:
         self._w = dict(conf_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
-        self._device_default = softmax_scope == "protenix"
         nb = 1 + max(int(re.search(r"pairformer_stack\.blocks\.(\d+)\.", k).group(1))
                      for k in self._w if k.startswith("pairformer_stack.blocks."))
         comb = {}
@@ -1989,15 +1988,14 @@ class ConfidenceHead:
     # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
     # run on device, and only the small final logits (pae/pde (N,N,64), plddt
     # (N_atom,50)) are downloaded. Feature-detected + gated behind
-    # TT_PROTENIX_CONF_DEVICE. On by default for Protenix-v2, where it passed the
-    # normal-mode grade (11 complexes x 4 seeds on Wormhole, pLDDT within 0.003 per
-    # complex); OpenDDE shares this class and keeps it opt-in until graded itself.
+    # TT_PROTENIX_CONF_DEVICE, on by default: it passed the normal-mode grade on
+    # Wormhole (11 complexes x 4 seeds) for Protenix-v2 (pLDDT within 0.003 per
+    # complex) and for OpenDDE (coordinates unchanged, CA-lDDT +0.0009).
     # ---------------------------------------------------------------------------
     def device_confidence_enabled(self):
-        """True if TT_PROTENIX_CONF_DEVICE (default: on for Protenix-v2, off for
-        OpenDDE) asks for it AND the installed ttnn exposes every op the device
-        path needs. Otherwise confidence() runs its host heads."""
-        if not env_flag("TT_PROTENIX_CONF_DEVICE", self._device_default):
+        """True if TT_PROTENIX_CONF_DEVICE (default on) asks for it AND the installed
+        ttnn exposes every op the device path needs. Otherwise confidence() runs its host heads."""
+        if not env_flag("TT_PROTENIX_CONF_DEVICE", True):
             return False
         import ttnn
         need = ("clamp", "ge", "lt", "sqrt", "embedding", "layer_norm", "linear",
