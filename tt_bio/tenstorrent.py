@@ -1531,6 +1531,19 @@ def pad_dim(x: ttnn.Tensor, dtype, n: int, n_pad: int, *, dims: int = 1) -> ttnn
                 spec[-1 - d] = (0, n_pad - n)
             y = ttnn.pad(y, spec, 0.0)
         return y if y.dtype == dtype else ttnn.typecast(y, dtype)
+    if dims == 1:
+        # The same zeros on device, row major so nothing of the last tile's padding is kept:
+        # the host route cost one untilize + fp32 widen + re-tilize on one host thread per
+        # call, 27 ms at OpenFold3's [5, 5917, 128] atoms and three calls a diffusion step.
+        # The square pair (`dims == 2`) is padded once a fold and keeps the host route, which
+        # holds no second copy of it on device.
+        y = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+        if y.dtype != ttnn.float32 and dtype == ttnn.float32:
+            y = ttnn.typecast(y, ttnn.float32)
+        spec = [(0, 0)] * len(y.shape)
+        spec[-2] = (0, n_pad - n)
+        y = ttnn.to_layout(ttnn.pad(y, spec, 0.0), ttnn.TILE_LAYOUT)
+        return y if y.dtype == dtype else ttnn.typecast(y, dtype)
     th = ttnn.to_torch(x).float()
     if n_pad > n:
         th = torch.nn.functional.pad(th, (0, 0) + (0, n_pad - n) * dims)
