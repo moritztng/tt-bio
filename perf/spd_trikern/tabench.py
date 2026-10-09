@@ -3,6 +3,7 @@
 Arms are kernel configurations of `tt_bio.triatt_sdpa.sdpa` at one (q_chunk, k_chunk) pair, by default the pair the
 shipped ladder picks (`T._tri_att_sdpa_at` is timed too, as the control that the pair is the fold's).
   ablate:X[+Y]   instrument: TT_BIO_TRIATT_ABLATE stages removed (EXP, ROWSUM, MAX, PRELOAD, PV); wrong on purpose
+  shiftabl:X[+Y] the exp_shift lever with shift stages removed (SHIFTK, SHIFTQ, SHIFTC, SHIFTSUB); wrong on purpose
   lever:NAME     a candidate (rowsum_mm, mask_l1acc, exp_epi, exp_shift, ckc=LoFi/1/0), graded by rel_rms against float64 beside the shipped arm's
 Timing: NCALL back-to-back calls per sample, one sync, arms interleaved round-robin with direction flipped every rep,
 AICLK sampled out of process during every sample. Output: OUT/bench.jsonl.
@@ -95,6 +96,8 @@ for S in a.seq:
             ARMS[f"{S} {name} q{qc} k{kc}"] = (S, arm(ablate=name[7:].split("+")))
         elif name.startswith("lever:"):
             ARMS[f"{S} {name} q{qc} k{kc}"] = (S, arm(lever=name[6:]))
+        elif name.startswith("shiftabl:"):  # EXP_SHIFT with parts of the shift removed (instrument)
+            ARMS[f"{S} {name} q{qc} k{kc}"] = (S, arm(ablate=name[9:].split("+"), lever="exp_shift"))
 
 live = {}
 for name, (S, call) in ARMS.items():

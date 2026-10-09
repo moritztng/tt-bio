@@ -1418,11 +1418,14 @@ void exp_shift_compute(uint32_t cb_q_in, uint32_t cb_k_in, uint32_t c_cb) {
     tile_regs_acquire();
     copy_tile(cb_k_in, 0, 0);
     abs_tile(0);
+#ifndef ABLATE_SHIFTK
+    // INSTRUMENT (TT_BIO_TRIATT_ABLATE=SHIFTK): only the first k tile, wrong on purpose.
     for (uint32_t t = 1; t < Sk_chunk_t; ++t) {
         copy_tile(cb_k_in, t, 1);
         abs_tile(1);
         binary_max_tile(0, 1, 0);
     }
+#endif
     tile_regs_commit();
     tile_regs_wait();
     pack_tile(0, cb_t);
@@ -1450,6 +1453,8 @@ void exp_shift_compute(uint32_t cb_q_in, uint32_t cb_k_in, uint32_t c_cb) {
     copy_tile_to_dst_init_short(cb_q_in);
     abs_tile_init();
     cb_reserve_back(cb_absq, Sq_chunk_t);
+#ifndef ABLATE_SHIFTQ
+    // INSTRUMENT (TT_BIO_TRIATT_ABLATE=SHIFTQ): |Q| pushed unwritten.
     for (uint32_t r = 0; r < Sq_chunk_t; ++r) {
         tile_regs_acquire();
         copy_tile(cb_q_in, r, 0);
@@ -1459,6 +1464,7 @@ void exp_shift_compute(uint32_t cb_q_in, uint32_t cb_k_in, uint32_t c_cb) {
         pack_tile(0, cb_absq);
         tile_regs_release();
     }
+#endif
     cb_push_back(cb_absq, Sq_chunk_t);
     // c = rowmax + |Q| @ T^T: column 0 of the product is sum_d |q_d| max_k |k_d|, the only column
     // the bcast-cols preload reads.
@@ -1466,6 +1472,8 @@ void exp_shift_compute(uint32_t cb_q_in, uint32_t cb_k_in, uint32_t c_cb) {
     cb_wait_front(cb_t, 1);
     pack_reconfig_data_format(c_cb);
     cb_reserve_back(c_cb, Sq_chunk_t);
+#ifndef ABLATE_SHIFTC
+    // INSTRUMENT (TT_BIO_TRIATT_ABLATE=SHIFTC): c pushed unwritten.
     for (uint32_t r = 0; r < Sq_chunk_t; ++r) {
         tile_regs_acquire();
         reconfig_data_format_srca(cb_rowmax);
@@ -1479,6 +1487,7 @@ void exp_shift_compute(uint32_t cb_q_in, uint32_t cb_k_in, uint32_t c_cb) {
         pack_tile(0, c_cb);
         tile_regs_release();
     }
+#endif
     cb_push_back(c_cb, Sq_chunk_t);
     cb_pop_front(cb_absq, Sq_chunk_t);
     cb_pop_front(cb_t, 1);
@@ -1584,7 +1593,8 @@ ALWI void matmul_blocks(
                 uint32_t d = 0;
                 const uint32_t m0 = mask_base + in0_subblock * in0_subblock_all_cols_num_tiles +
                                     in1_subblock * subblock_w;
-#ifdef EXP_SHIFT
+#if defined(EXP_SHIFT) && !defined(ABLATE_SHIFTSUB)
+                // INSTRUMENT (TT_BIO_TRIATT_ABLATE=SHIFTSUB): the plain mask copy instead of mask - c.
                 if constexpr (exp_epi_t) {
                     // mask - c in DST, the same one unpack per tile as the plain copy.
                     reconfig_data_format(mask_cb, mask_cb, in0_cb, exp_shift_cb);
