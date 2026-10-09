@@ -1,6 +1,6 @@
 """Measured Wormhole roofs on one chip: device kernel time from the profiler, warm, 5 reps, median.
 
-matmul N^3 (DRAM interleaved, default program config) for bf16 / bfp8_b / bfp4_b x LoFi / HiFi2 / HiFi4,
+matmul N^3 (DRAM interleaved, default program config) for bf16 / bfp8_b / bfp4_b x LoFi / HiFi2 / HiFi3 / HiFi4,
 fp32 dest acc off and on; DRAM bandwidth from ttnn.add (3 streams) and ttnn.clone (2) on large bf16 tensors.
 usage: roofline_wh.py OUT.json
 """
@@ -24,7 +24,8 @@ def drain():
 def med(v): v = sorted(v); return v[len(v) // 2]
 res = {"grid": str(d.compute_with_storage_grid_size()), "aiclk_before": aiclk(), "matmul": [], "bw": []}
 drain()
-FID = {"LoFi": ttnn.MathFidelity.LoFi, "HiFi2": ttnn.MathFidelity.HiFi2, "HiFi4": ttnn.MathFidelity.HiFi4}
+FID = {"LoFi": ttnn.MathFidelity.LoFi, "HiFi2": ttnn.MathFidelity.HiFi2, "HiFi3": ttnn.MathFidelity.HiFi3,
+       "HiFi4": ttnn.MathFidelity.HiFi4}
 DT = {"bf16": ttnn.bfloat16, "bfp8": ttnn.bfloat8_b, "bfp4": ttnn.bfloat4_b}
 for N in (2048, 4096, 6144):
     x = torch.randn(N, N)
