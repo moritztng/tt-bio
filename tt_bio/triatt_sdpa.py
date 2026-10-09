@@ -97,6 +97,9 @@ MASK_L1ACC = env_flag("TT_BIO_TRIATT_MASK_L1ACC", False)
 # no max subtraction, so it is only correct while scale * (qk + bias) stays below ~88. Off; "1"
 # turns it on (being measured, not shipped).
 EXP_EPILOGUE = env_flag("TT_BIO_TRIATT_EXP_EPILOGUE", False)
+# ...shifted per row by c = max_k bias + sum_d |q_d| max_k |k_d| (`EXP_SHIFT`), an upper bound on every
+# score of the row, so exp never sees a positive input. This is the correct form of EXP_EPILOGUE.
+EXP_SHIFT = env_flag("TT_BIO_TRIATT_EXP_SHIFT", False)
 
 
 def _mask_defines(k_num_chunks: int, l1acc: bool = False, rowsum: bool = False) -> dict:
@@ -105,8 +108,10 @@ def _mask_defines(k_num_chunks: int, l1acc: bool = False, rowsum: bool = False) 
         d["QK_MASK_PRELOAD"] = 1
         if MASK_L1ACC and l1acc:
             d["MASK_L1ACC"] = 1
-        elif EXP_EPILOGUE and k_num_chunks == 1 and not rowsum:
+        elif (EXP_EPILOGUE or EXP_SHIFT) and k_num_chunks == 1 and not rowsum:
             d["EXP_EPILOGUE"] = 1
+            if EXP_SHIFT:
+                d["EXP_SHIFT"] = 1
     return d
 
 

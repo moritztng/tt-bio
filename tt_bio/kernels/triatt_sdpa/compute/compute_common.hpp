@@ -1384,6 +1384,105 @@ constexpr uint32_t MASK_SEED_CB = tt::CBIndex::c_13;
 constexpr uint32_t MASK_FREE_CB = tt::CBIndex::c_14;
 #endif
 
+#ifdef EXP_SHIFT
+// EXP_SHIFT: the per-row shift c for EXP_EPILOGUE, so exp only ever sees scale * (qk + mask - c) <= 0.
+// c = max_k mask[r, k] + sum_d |q[r, d]| * max_k |k[k, d]| bounds every score of row r from above
+// (Hoelder per dimension). Every CB here is one the single-k-chunk path leaves idle: the mask row max
+// lives in cb_sum_A for the whole kernel, |Q| passes through cb_exp_max_diff, the column-max tile T
+// (row 0 = max_k |k_d|) through cb_max_B, and c lands in the max CB the loop pops at the q chunk's end.
+inline bool g_shift_rowmax_ready = false;
+
+template <uint32_t Sq_chunk_t, uint32_t Sk_chunk_t>
+void exp_shift_compute(uint32_t cb_q_in, uint32_t cb_k_in, uint32_t c_cb) {
+    constexpr uint32_t cb_mask = tt::CBIndex::c_3, cb_scaler = tt::CBIndex::c_5;
+    constexpr uint32_t cb_rowmax = tt::CBIndex::c_29, cb_t = tt::CBIndex::c_28, cb_absq = tt::CBIndex::c_31;
+    if (!g_shift_rowmax_ready) {
+        // The persistent mask is the same for every batch row this core runs: once.
+        reconfig_data_format(cb_mask, cb_scaler);
+        pack_reconfig_data_format(cb_rowmax);
+        reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_mask, cb_scaler, Sq_chunk_t, Sk_chunk_t>(
+            cb_rowmax, cb_rowmax, false);
+        cb_wait_front(cb_rowmax, Sq_chunk_t);
+        g_shift_rowmax_ready = true;
+    }
+    // A[r, d] = max over the k tiles of |k|, elementwise in DST.
+    cb_wait_front(cb_k_in, Sk_chunk_t);
+    reconfig_data_format_srca(cb_k_in);
+    pack_reconfig_data_format(cb_t);
+    copy_tile_to_dst_init_short(cb_k_in);
+    abs_tile_init();
+    binary_max_tile_init();
+    cb_reserve_back(cb_t, 1);
+    tile_regs_acquire();
+    copy_tile(cb_k_in, 0, 0);
+    abs_tile(0);
+    for (uint32_t t = 1; t < Sk_chunk_t; ++t) {
+        copy_tile(cb_k_in, t, 1);
+        abs_tile(1);
+        binary_max_tile(0, 1, 0);
+    }
+    tile_regs_commit();
+    tile_regs_wait();
+    pack_tile(0, cb_t);
+    tile_regs_release();
+    cb_push_back(cb_t, 1);
+    // T[0, d] = max_r A[r, d].
+    cb_wait_front(cb_t, 1);
+    cb_wait_front(cb_scaler, 1);
+    reconfig_data_format(cb_t, cb_scaler);
+    reduce_init<PoolType::MAX, ReduceDim::REDUCE_COL>(cb_t, cb_scaler, cb_t);
+    tile_regs_acquire();
+    reduce_tile<PoolType::MAX, ReduceDim::REDUCE_COL>(cb_t, cb_scaler, 0, 0, 0);
+    reduce_uninit();
+    tile_regs_commit();
+    cb_pop_front(cb_t, 1);
+    cb_reserve_back(cb_t, 1);
+    tile_regs_wait();
+    pack_tile(0, cb_t);
+    tile_regs_release();
+    cb_push_back(cb_t, 1);
+    // |Q|.
+    cb_wait_front(cb_q_in, Sq_chunk_t);
+    reconfig_data_format_srca(cb_q_in);
+    pack_reconfig_data_format(cb_absq);
+    copy_tile_to_dst_init_short(cb_q_in);
+    abs_tile_init();
+    cb_reserve_back(cb_absq, Sq_chunk_t);
+    for (uint32_t r = 0; r < Sq_chunk_t; ++r) {
+        tile_regs_acquire();
+        copy_tile(cb_q_in, r, 0);
+        abs_tile(0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(0, cb_absq);
+        tile_regs_release();
+    }
+    cb_push_back(cb_absq, Sq_chunk_t);
+    // c = rowmax + |Q| @ T^T: column 0 of the product is sum_d |q_d| max_k |k_d|, the only column
+    // the bcast-cols preload reads.
+    cb_wait_front(cb_absq, Sq_chunk_t);
+    cb_wait_front(cb_t, 1);
+    pack_reconfig_data_format(c_cb);
+    cb_reserve_back(c_cb, Sq_chunk_t);
+    for (uint32_t r = 0; r < Sq_chunk_t; ++r) {
+        tile_regs_acquire();
+        reconfig_data_format_srca(cb_rowmax);
+        copy_tile_to_dst_init_short(cb_rowmax);
+        copy_tile(cb_rowmax, r, 0);
+        reconfig_data_format(cb_t, cb_absq);
+        mm_init_short(cb_absq, cb_t, 1 /*transpose*/);
+        matmul_tiles(cb_absq, cb_t, r, 0, 0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(0, c_cb);
+        tile_regs_release();
+    }
+    cb_push_back(c_cb, Sq_chunk_t);
+    cb_pop_front(cb_absq, Sq_chunk_t);
+    cb_pop_front(cb_t, 1);
+}
+#endif
+
 /**
  * out_cb = in0_cb @ in1_cb
  *
@@ -1396,6 +1495,9 @@ constexpr uint32_t MASK_FREE_CB = tt::CBIndex::c_14;
  */
 #if defined(EXP_EPILOGUE) && !(defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD) && PERSISTENT_MASK == 1)
 #error "EXP_EPILOGUE needs the preloaded persistent mask and a single k chunk"
+#endif
+#if defined(EXP_SHIFT) && !defined(EXP_EPILOGUE)
+#error "EXP_SHIFT is EXP_EPILOGUE's shift"
 #endif
 template <uint32_t exp_scale_fp32 = 0>
 ALWI void matmul_blocks(
@@ -1417,11 +1519,13 @@ ALWI void matmul_blocks(
     const uint32_t& zero_cb = 0,
     const bool& preload_mask = false,
     const uint32_t& mask_base = 0,
-    const uint32_t& exp_sum_cb = 0) {
+    const uint32_t& exp_sum_cb = 0,
+    const uint32_t& exp_shift_cb = 0) {
     // precondition: in0_cb has M*K produced
     // precondition: in1_cb has K*N produced
     // postcondition: in0_cb is full, in1_cb is empty
     // postcondition: out_cb has M*N produced
+    constexpr bool exp_epi_t = exp_scale_fp32 != 0;
 
     mm_block_init_short(
         in0_cb, in1_cb, transpose /*transpose*/, subblock_w /*ct_dim*/, subblock_h /*rt_dim*/, in0_block_w /*kt_dim*/);
@@ -1453,7 +1557,6 @@ ALWI void matmul_blocks(
     }
 #endif
 #ifdef EXP_EPILOGUE
-    constexpr bool exp_epi_t = exp_scale_fp32 != 0;
     const bool exp_epi = exp_epi_t && preload_mask;
     if (exp_epi) {
         cb_reserve_back(exp_sum_cb, M);
@@ -1479,6 +1582,19 @@ ALWI void matmul_blocks(
                 uint32_t d = 0;
                 const uint32_t m0 = mask_base + in0_subblock * in0_subblock_all_cols_num_tiles +
                                     in1_subblock * subblock_w;
+#ifdef EXP_SHIFT
+                if constexpr (exp_epi_t) {
+                    // mask - c in DST, the same one unpack per tile as the plain copy.
+                    reconfig_data_format(mask_cb, mask_cb, in0_cb, exp_shift_cb);
+                    sub_bcast_cols_init_short(mask_cb, exp_shift_cb);
+                    for (uint32_t r = 0; r < subblock_h; r++) {
+                        for (uint32_t c = 0; c < subblock_w; c++) {
+                            sub_tiles_bcast_cols(mask_cb, exp_shift_cb, m0 + r * N + c, in0_subblock * subblock_h + r, d++);
+                        }
+                    }
+                    reconfig_data_format(mask_cb, mask_cb, exp_shift_cb, in0_cb);
+                } else
+#endif
 #ifndef ABLATE_PRELOAD
                 for (uint32_t r = 0; r < subblock_h; r++) {
                     for (uint32_t c = 0; c < subblock_w; c++) {
@@ -1517,10 +1633,19 @@ ALWI void matmul_blocks(
                 if (exp_epi) {
                     // The clamped fast exp: its input is unshifted, and the unclamped one saturates
                     // at exp(0.72) (valid range [-88, 0.72]). Clamped, it covers [-88.5, ~89].
+#ifdef EXP_SHIFT
+                    // Shifted, the input is <= 0 (up to rounding, well inside the 0.72 the stock
+                    // exp tolerates): the stock unclamped exp, its garbage below -88 ReLU'd away.
+                    exp_tile_init<true, true, exp_scale_fp32, InputClamping::None>();
+                    for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                        exp_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                    }
+#else
                     exp_tile_init<true, true, exp_scale_fp32, InputClamping::ClampToNegative>();
                     for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
                         exp_tile<true, true, false, false, InputClamping::ClampToNegative>(i);
                     }
+#endif
                     // The next subblock's mask preload re-inits the matmul.
                 }
             }
@@ -2133,6 +2258,14 @@ void sdpa_inner_loop(
             cb_push_back(cb_qk_im, qk_chunk_tiles);
             if (false)
 #endif
+#ifdef EXP_SHIFT
+            static_assert(DHt == 1, "EXP_SHIFT reads q and k as one tile column (head_dim 32)");
+            if (qk_mask_preload) {
+                exp_shift_compute<Sq_chunk_t, Sk_chunk_t>(cb_q_in, cb_k_in, alias_cur_max);
+                reconfig_data_format(cb_k_in, cb_q_in);
+                pack_reconfig_data_format(cb_qk_im);
+            }
+#endif
             matmul_blocks<
 #ifdef EXP_EPILOGUE
                 scale_fp32
@@ -2160,7 +2293,8 @@ void sdpa_inner_loop(
                 k_chunk * qk_chunk_tiles
 #ifdef EXP_EPILOGUE
                 ,
-                alias_cur_sum
+                alias_cur_sum,
+                alias_cur_max
 #endif
 #endif
             );
@@ -2273,8 +2407,10 @@ void sdpa_inner_loop(
             // P and its row sums came out of the QK^T matmul; one k chunk, so no running max to
             // rescale by. The max CB is pushed unwritten to keep every circular buffer's flow.
             if (qk_mask_preload) {
+#ifndef EXP_SHIFT
                 cb_reserve_back(alias_cur_max, Sq_chunk_t);
                 cb_push_back(alias_cur_max, Sq_chunk_t);
+#endif
             } else
 #endif
             {
