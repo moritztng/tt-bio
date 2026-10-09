@@ -269,10 +269,29 @@ class Host:
         return subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60",
                                self.cfg["ssh"], cmd], text=True, **kw)
 
-    def prepare(self) -> None:
+    def pins(self) -> dict:
+        """This host's resolved packages per venv, minus tt-bio and BindCraft 2 (installed from
+        the wheel and a checkout), as constraints for the other hosts."""
+        out = {}
+        for v in (f"venv-{self.sha[:12]}", f"venv312-{self.sha[:12]}"):
+            r = self.ssh(f"uv=$(command -v uv || echo ~/.local/bin/uv); $uv pip freeze -p {self.root}/{v}/bin/python",
+                         capture_output=True, timeout=300)
+            if r.returncode:
+                raise SystemExit(f"{self.name}: cannot freeze {v}: {r.stderr.strip()[-300:]}")
+            out[v.split("-")[0]] = "".join(
+                ln for ln in r.stdout.splitlines(True)
+                if not ln.startswith("-e") and " @ " not in ln
+                and not re.match(r"(tt[-_]bio|bindcraft)\b", ln, re.I))
+        return out
+
+    def prepare(self, pins: dict | None = None) -> None:
         """A tree of its own at exactly `sha` (never a shared checkout moved under someone), with
-        the parity fixtures restored, and the interpreters built from that commit's wheel."""
+        the parity fixtures restored, and the interpreters built from that commit's wheel, held
+        to `pins` (another host's resolution) when given."""
         r, t = self.root, self.tree
+        for v, text in (pins or {}).items():
+            self.ssh(f"mkdir -p {r}/pins-{self.sha[:12]} && cat > {r}/pins-{self.sha[:12]}/{v}-{self.sha[:12]}.txt",
+                     input=text, check=True, timeout=120)
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in self.cfg.get("prep_env", {}).items())
         cmd = (f"set -e; if [ ! -d {t} ]; then git -C {r}/repo fetch -q origin; "
                f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; "
@@ -637,8 +656,12 @@ def main() -> int:
         if not any(h.arch == a for h, c in workers if (h.name, c) in timed):
             print(f"note: no --timed card for {a}; its timed legs will not run", file=sys.stderr)
 
+    # The first host resolves the packages; every other host installs exactly that resolution.
+    lead, *rest = hosts.values()
+    lead.prepare()
+    pins = lead.pins()
     with ThreadPoolExecutor() as ex:          # a failure re-raises here
-        list(ex.map(Host.prepare, hosts.values()))
+        list(ex.map(lambda h: h.prepare(pins), rest))
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
     roster = first[archs[0]].run_py(ENUMERATE)
     legs = select(build_legs(roster, test_files(sha), args.shards),
