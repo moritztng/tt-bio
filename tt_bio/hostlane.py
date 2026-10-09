@@ -11,14 +11,15 @@ constructor) does not, so uploads stay on the main thread.
 One worker, so jobs run in submission order. Set TT_BIO_HOST_LANE=0 to run every job inline
 at submit time, which is the same arithmetic in the old order.
 """
-import os
 from concurrent.futures import Future, ThreadPoolExecutor
+
+from .envflags import env_flag
 
 _POOL = None
 
 
 def enabled():
-    return os.environ.get("TT_BIO_HOST_LANE", "1") != "0"
+    return env_flag("TT_BIO_HOST_LANE", True)
 
 
 def submit(fn, *args, **kwargs):

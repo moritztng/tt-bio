@@ -7038,7 +7038,7 @@ _TORCH_DT = {ttnn.float32: torch.float32, ttnn.bfloat16: torch.bfloat16}
 
 def _device_tilize(nbytes):
     return (DEVICE_TILIZE_MIN <= nbytes <= DEVICE_TILIZE_MAX
-            and os.environ.get("TT_BIO_DEVICE_TILIZE", "1") != "0")
+            and env_flag("TT_BIO_DEVICE_TILIZE", True))
 
 
 def upload(t, dtype=ttnn.bfloat16, device=None):
