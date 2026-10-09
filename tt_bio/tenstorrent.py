@@ -732,11 +732,11 @@ def levers(names):
         _LEVERS = prev
 
 
-def mode_levers(spec=None) -> frozenset:
+def mode_levers(spec=None, fast=FAST_LEVERS) -> frozenset:
     """The lever set a model builds under when its caller names none: `TT_BIO_LEVERS` (the bench
-    harness's switch), else FAST_LEVERS under `--fast` and NORMAL_LEVERS otherwise."""
+    harness's switch), else the model's `fast` set under `--fast` and NORMAL_LEVERS otherwise."""
     if spec is None:
-        spec = os.environ.get("TT_BIO_LEVERS") or (FAST_LEVERS if _FAST_MODE else NORMAL_LEVERS)
+        spec = os.environ.get("TT_BIO_LEVERS") or (fast if _FAST_MODE else NORMAL_LEVERS)
     return parse_levers(spec)
 
 
