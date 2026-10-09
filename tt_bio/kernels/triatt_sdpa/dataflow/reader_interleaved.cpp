@@ -351,6 +351,19 @@ void kernel_main() {
     }
 #endif
 
+#ifdef MASK_L1ACC
+    // The QK^T packer accumulates onto cb_qk_im (kernels/triatt_sdpa compute MASK_L1ACC), so this
+    // reader copies each k chunk's persistent mask block into it, over the NOC from this core's own
+    // L1. cb_qk_im holds exactly one chunk and every compute stage pushes whole chunks through it,
+    // so its write slot is always the CB base.
+    constexpr uint32_t cb_qk_im_l1 = tt::CBIndex::c_24;
+    constexpr uint32_t cb_mask_seed = tt::CBIndex::c_13;
+    constexpr uint32_t cb_mask_free = tt::CBIndex::c_14;
+    const uint32_t qk_im_base = get_write_ptr(cb_qk_im_l1);
+    const uint32_t mask_l1_base = get_write_ptr(cb_mask_in);
+    bool mask_seeded = false;
+#endif
+
 #ifdef PERSISTENT_MASK
     // K2: the mask depends only on (head, q_chunk, k_chunk), and this core owns exactly one of
     // each, so read all PERSISTENT_MASK k-chunk blocks once here and never refill. Blocks are laid
@@ -826,6 +839,22 @@ void kernel_main() {
                                 noc_semaphore_set_remote(valid_semaphore_addr, receiver_semaphore_noc_addr);
                             }
                         }
+#ifdef MASK_L1ACC
+                        // After K and V, so their prefetch is not held behind the previous chunk's
+                        // PV matmul. The first seed of the program has nothing to wait for.
+                        if (mask_seeded) {
+                            cb_wait_front(cb_mask_free, 1);
+                            cb_pop_front(cb_mask_free, 1);
+                        }
+                        mask_seeded = true;
+                        cb_reserve_back(cb_mask_seed, 1);
+                        noc_async_read(
+                            get_noc_addr(mask_l1_base + k_chunk * mask_chunk_tiles * mask_tile_bytes),
+                            qk_im_base,
+                            mask_chunk_tiles * mask_tile_bytes);
+                        noc_async_read_barrier();
+                        cb_push_back(cb_mask_seed, 1);
+#endif
                     }
                 }
             }

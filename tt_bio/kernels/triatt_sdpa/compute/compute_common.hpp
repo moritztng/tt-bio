@@ -1378,6 +1378,12 @@ ALWI void project_into(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32
 }
 #endif
 
+#ifdef MASK_L1ACC
+// reader -> compute: "cb_qk_im holds the next mask block"; compute -> reader: "P is consumed".
+constexpr uint32_t MASK_SEED_CB = tt::CBIndex::c_13;
+constexpr uint32_t MASK_FREE_CB = tt::CBIndex::c_14;
+#endif
+
 /**
  * out_cb = in0_cb @ in1_cb
  */
@@ -1425,6 +1431,13 @@ ALWI void matmul_blocks(
         // The persistent mask block for this k chunk is tiles [mask_base, mask_base + M*N), laid
         // out like the output; it is never popped.
         cb_wait_front(mask_cb, mask_base + output_num_tiles);
+#ifdef MASK_L1ACC
+        // The reader has NOC-copied that block into out_cb's slots (it signals on MASK_SEED_CB),
+        // so the packer adds the scores onto it in L1 and no mask tile passes through the
+        // unpacker or DST.
+        cb_wait_front(MASK_SEED_CB, 1);
+        PACK((llk_pack_reconfig_l1_acc(1)));
+#endif
     }
 #endif
 
@@ -1434,7 +1447,7 @@ ALWI void matmul_blocks(
         for (uint32_t in1_subblock = 0; in1_subblock < in1_num_subblocks; ++in1_subblock) {
             tile_regs_acquire();
 
-#ifdef QK_MASK_PRELOAD
+#if defined(QK_MASK_PRELOAD) && !defined(MASK_L1ACC)
             if (preload_mask) {
                 // Seed DST with the mask so the matmul accumulates QK^T onto it: the scores are
                 // packed once with the bias already in, and the separate add pass goes away.
@@ -1496,6 +1509,12 @@ ALWI void matmul_blocks(
         cb_push_back(out_cb, in0_subblock_all_cols_num_tiles);
     }
     cb_pop_front(in1_cb, K * N);
+#if defined(QK_MASK_PRELOAD) && defined(MASK_L1ACC)
+    if (preload_mask) {
+        PACK((llk_pack_reconfig_l1_acc(0)));
+        cb_pop_front(MASK_SEED_CB, 1);
+    }
+#endif
 }
 
 template <uint32_t M>
@@ -2226,6 +2245,14 @@ void sdpa_inner_loop(
                 false /*transpose*/);
 
             cb_pop_front(cb_qk_im, qk_chunk_tiles);
+#if defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD) && defined(MASK_L1ACC)
+            // The packer reaches this push only after the PV matmul's last pack, so every P tile
+            // has been unpacked: the reader may now overwrite cb_qk_im with the next mask block.
+            if (qk_mask_preload) {
+                cb_reserve_back(MASK_FREE_CB, 1);
+                cb_push_back(MASK_FREE_CB, 1);
+            }
+#endif
             reconfig_data_format(alias_prev_max, alias_cur_max);
 
             /* OUT_ACC += OUT_IM */

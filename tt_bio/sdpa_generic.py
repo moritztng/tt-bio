@@ -447,6 +447,15 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
             (gate_t.padded_shape, (p["B"], p["NQH"], p["Sq"], p["DH"]))
         extra_cbs = list(extra_cbs) + gate_cbs(p, gate_buffer_factor, gate_t.dtype)
 
+    if (defines_extra or {}).get("MASK_L1ACC"):
+        # The reader NOC-copies each persistent mask block into cb_qk_im and the QK^T packer
+        # accumulates onto it (kernels/triatt_sdpa MASK_L1ACC): same tile size on both sides, a
+        # whole-chunk score CB, and two one-page handshake CBs.
+        assert fuse_qkv is None and gate is None and kv_window is None, "mask_l1acc: stock path only"
+        assert mask.dtype == ttnn.bfloat16 and im_dtype in (None, ttnn.bfloat16), (mask.dtype, im_dtype)
+        assert mask_cb_tiles == p["k_num_chunks"] * p["qk_tiles"], (mask_cb_tiles, p["qk_tiles"])
+        extra_cbs = list(extra_cbs) + [(13, 2, 2048, ttnn.bfloat16), (14, 2, 2048, ttnn.bfloat16)]
+
     cbs = [ttnn.CBDescriptor(
         total_size=n_tiles * page, core_ranges=core_grid,
         format_descriptors=[ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt,
