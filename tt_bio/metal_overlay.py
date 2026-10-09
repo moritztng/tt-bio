@@ -57,7 +57,46 @@ def _patch_silu_llk(src: str) -> str:
     return src
 
 
+_SILU_F32 = Path(__file__).resolve().parent / "kernels" / "silu_f32" / "ckernel_sfpu_silu_f32.h"
+
+
+def _patch_silu_f32(src: str) -> str:
+    """Under math_approx_mode, silu runs calculate_silu_f32 (a few ulp of float32, 40 instructions a row)."""
+    src, n0 = re.subn(r'(#include "ckernel_sfpu_sigmoid.h"\n)', r'\1#include "ckernel_sfpu_silu_f32.h"\n', src)
+    src, n1 = re.subn(
+        r"template <bool is_fp32_dest_acc_en, int ITERATIONS>\s*\ninline void calculate_silu\(\) \{\n",
+        "template <bool is_fp32_dest_acc_en, int ITERATIONS, bool APPROXIMATION_MODE = false>\n"
+        "inline void calculate_silu() {\n"
+        "    if constexpr (APPROXIMATION_MODE) {\n"
+        "        calculate_silu_f32<is_fp32_dest_acc_en, ITERATIONS>();\n"
+        "        return;\n"
+        "    }\n",
+        src,
+    )
+    src, n2 = re.subn(
+        r"(template <bool APPROXIMATION_MODE>\s*\ninline void silu_init\(\) \{\n)",
+        r"\1    if constexpr (APPROXIMATION_MODE) {\n        silu_f32_init();\n        return;\n    }\n",
+        src,
+    )
+    if (n0, n1, n2) != (1, 1, 1):
+        raise RuntimeError(f"silu_f32: ckernel_sfpu_silu.h anchors matched {n0}, {n1}, {n2} times")
+    return src
+
+
+def _add_silu_f32(src: str | None) -> str:
+    return _SILU_F32.read_text()
+
+
 PATCHES = {
+    "silu_f32": {
+        f"{_SFPU.format(arch=arch)}/{name}": fn
+        for arch in ARCHES
+        for name, fn in (
+            ("ckernel_sfpu_silu.h", _patch_silu_f32),
+            ("llk_math_eltwise_unary_sfpu_silu.h", _patch_silu_llk),
+            ("ckernel_sfpu_silu_f32.h", _add_silu_f32),
+        )
+    },
     "silu_approx": {
         f"{_SFPU.format(arch=arch)}/{name}": fn
         for arch in ARCHES
@@ -85,7 +124,10 @@ def build(names, root: Path | None = None, cache: Path | None = None) -> Path:
     files: dict[str, str] = {}
     for name in sorted(names):
         for rel, fn in PATCHES[name].items():
-            src = (root / rel).read_text() if rel not in files else files[rel]
+            if rel in files:
+                src = files[rel]
+            else:
+                src = (root / rel).read_text() if (root / rel).exists() else None
             files[rel] = fn(src)
     key = hashlib.sha256(str(root).encode())
     for rel in sorted(files):
@@ -125,7 +167,7 @@ def _mirror(root: Path, dst: Path, rel: Path) -> None:
         if not link.exists() and not link.is_symlink():
             link.symlink_to(entry)
     # The file itself must be a real file: writing through a link would edit the wheel.
-    (here_dst / rel.name).unlink()
+    (here_dst / rel.name).unlink(missing_ok=True)
 
 
 def enable(names=("silu_approx",)) -> Path:

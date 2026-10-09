@@ -43,3 +43,30 @@ def test_missing_anchor_raises(tmp_path):
     (root / MO._SFPU.format(arch="blackhole") / "ckernel_sfpu_silu.h").write_text("changed upstream\n")
     with pytest.raises(RuntimeError):
         MO.build(["silu_approx"], root=root, cache=tmp_path / "cache")
+
+
+def _wheel_root():
+    import importlib.util
+    spec = importlib.util.find_spec("ttnn")
+    if spec is None or spec.origin is None:
+        pytest.skip("ttnn not installed")
+    from pathlib import Path
+    return Path(spec.origin).resolve().parent
+
+
+@pytest.mark.parametrize("name", ["silu_approx", "silu_f32"])
+def test_patches_apply_to_the_installed_wheel(tmp_path, name):
+    """The anchors are checked against the headers ttnn actually ships, not a fixture of them."""
+    out = MO.build([name], root=_wheel_root(), cache=tmp_path / "cache")
+    for arch in MO.ARCHES:
+        d = out / MO._SFPU.format(arch=arch)
+        assert "APPROXIMATE>" in (d / "llk_math_eltwise_unary_sfpu_silu.h").read_text()
+        if name == "silu_f32":
+            silu = (d / "ckernel_sfpu_silu.h").read_text()
+            assert '#include "ckernel_sfpu_silu_f32.h"' in silu and "silu_f32_init();" in silu
+            assert (d / "ckernel_sfpu_silu_f32.h").read_text() == MO._SILU_F32.read_text()
+
+
+def test_silu_f32_and_silu_approx_are_exclusive(tmp_path):
+    with pytest.raises(RuntimeError):
+        MO.build(["silu_approx", "silu_f32"], root=_wheel_root(), cache=tmp_path / "cache")

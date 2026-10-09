@@ -409,18 +409,53 @@ _FAST_MODE = False
 #   trimul_glean    the gated channel move's lean two-stage compute (reblock_permute.GATE_LEAN 2)
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
+#   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6.5e-6
+#                   of float64 at 40 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
           "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8",
-          "trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in", "atom_sdpa")
+          "trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in", "atom_sdpa", "silu_f32")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in"})
+UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in", "silu_f32"})
 FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"} - UNGRADED_LEVERS
 NORMAL_LEVERS = frozenset()
 _LEVERS = frozenset()
+# silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
+# in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
+# silu in tt-bio takes its math_approx_mode from the lever (`silu_ckc`), so with the lever off the
+# patched process computes what the wheel computes.
+if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT_BIO_LEVERS", ""):
+    from . import metal_overlay as _metal_overlay
+    _metal_overlay.enable(("silu_f32",))
 
 
 def lever(name: str) -> bool:
     return name in _LEVERS
+
+
+_SILU_CKCS = {}
+
+
+def silu_ckc(ckc):
+    """`ckc` for a matmul with a fused silu: math_approx_mode is the `silu_f32` lever.
+
+    The wheel's silu ignores math_approx_mode (both inits load the same constants), so setting it
+    from the lever changes nothing unless the silu_f32 overlay is in place; with it, approx mode is
+    what selects calculate_silu_f32. Keyed on the fields, not the object: trunk A/Bs edit a shared
+    config in place.
+    """
+    approx = lever("silu_f32")
+    if ckc is None or ckc.math_approx_mode == approx:
+        return ckc
+    key = (type(ckc), ckc.math_fidelity, ckc.fp32_dest_acc_en, ckc.packer_l1_acc,
+           ckc.dst_full_sync_en, ckc.throttle_level, approx)
+    out = _SILU_CKCS.get(key)
+    if out is None:
+        out = type(ckc)(math_fidelity=ckc.math_fidelity, math_approx_mode=approx,
+                        fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
+        out.dst_full_sync_en = ckc.dst_full_sync_en
+        out.throttle_level = ckc.throttle_level
+        _SILU_CKCS[key] = out
+    return out
 
 
 def parse_levers(spec) -> frozenset:
@@ -10687,7 +10722,7 @@ class Transition(Module):
                 x_norm,
                 self.fc1_weight,
                 activation=None if _UNFUSED_SILU else "silu",
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=silu_ckc(self.compute_kernel_config),
                 memory_config=_tape_mc,
                 dtype=hidden,
                 core_grid=CORE_GRID_MAIN,
@@ -11575,7 +11610,7 @@ class Fp32Transition(Module):
         )
         x1 = ttnn.linear(
             xn, self.fc1_weight, activation="silu",
-            compute_kernel_config=ckc, dtype=fp32,
+            compute_kernel_config=silu_ckc(ckc), dtype=fp32,
         )
         x2 = ttnn.linear(xn, self.fc2_weight, compute_kernel_config=ckc, dtype=fp32)
         ttnn.deallocate(xn)
