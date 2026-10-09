@@ -2393,8 +2393,12 @@ def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None)
     if is_wormhole():
         shp = tuple(x.padded_shape)
         g = x.device().compute_with_storage_grid_size()
+        tiles = (_TILE_BYTES[x.dtype], _TILE_BYTES[w.dtype],
+                 # fp32 dest: a non-fp32 output gets its own fp32 interm CB beside the out CB
+                 _TILE_BYTES[dtype] + (0 if dtype == ttnn.float32 else 4096),
+                 _TILE_BYTES[bias.dtype] if bias is not None else 0)
         pc = _k1_program(prod(shp[:-1]) // 32, shp[-1] // 32, int(w.padded_shape[-1]) // 32,
-                         g.x, g.y, activation)
+                         g.x, g.y, activation, tiles)
     if pc is None:
         return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype,
                            compute_kernel_config=compute_kernel_config, core_grid=CORE_GRID_MAIN)
@@ -2434,16 +2438,28 @@ def dit_lowp(dit_dtype, ckc):
     return None
 
 
+_TILE_BYTES = {ttnn.float32: 4096, ttnn.bfloat16: 2048, ttnn.bfloat8_b: 1088, ttnn.bfloat4_b: 576}
+_K1_CB_BUDGET = 1_400_000  # Wormhole's static CB region is 1_499_136 B per core
+
+
 @lru_cache(maxsize=None)
-def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation):
-    """2D multicast, in0_block_w 1, the widest subblock fp32 dest holds (h * w <= 4)."""
+def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation, tiles):
+    """2D multicast, in0_block_w 1, the widest subblock fp32 dest holds (h * w <= 4).
+
+    The whole per-core M is one block when its CBs fit; past that (the atom transformer at 1024
+    tokens wanted 1.90 MB) M is cut into the largest blocks that do. Every output tile still
+    sums its K tiles in the same order, so the cut changes no bit. `tiles` is the bytes of an
+    in0, in1, out (+ interm) and bias tile."""
     pm, pn = -(-mt // gy), -(-nt // gx)
     h, w = max(((h, w) for h in range(1, min(pm, 4) + 1) for w in range(1, min(pn, 4) + 1)
                 if pm % h == 0 and pn % w == 0 and h * w <= 4), key=lambda s: (s[0] * s[1], s[1]))
+    t0, t1, tout, tb = tiles
+    oh = max((d for d in range(h, pm + 1, h) if pm % d == 0
+              and d * (2 * t0 + pn * tout) + pn * (2 * t1 + tb) <= _K1_CB_BUDGET), default=h)
     act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if activation == "silu" else None
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy), in0_block_w=1, out_subblock_h=h, out_subblock_w=w,
-        out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+        out_block_h=oh, out_block_w=pn, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
         fused_activation=act, fuse_batch=True)
 
 
