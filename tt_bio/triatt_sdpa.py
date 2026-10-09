@@ -79,9 +79,20 @@ _ENABLED = os.environ.get(
 QK_MASK_PRELOAD = env_flag("TT_BIO_TRIATT_QK_MASK_PRELOAD", True)
 
 
-def _mask_defines(k_num_chunks: int) -> dict:
+# Run the persistent-mask call on the wheel's streaming softmax (`sdpa_standard_v2`: one pass over
+# the score block with the max reduce started early, the softmax applied in place and the output
+# normalised as it drains) instead of the standard four-pass compute. The wheel only takes that
+# path without a mask; STREAM_PMASK seeds DST with the persistent mask ahead of Q@K^T there, as
+# QK_MASK_PRELOAD does on the standard path. Needs fp32 dest off and no gate epilogue.
+# Off until measured.
+STREAM = env_flag("TT_BIO_TRIATT_STREAM", False)
+
+
+def _mask_defines(k_num_chunks: int, stream: bool = False) -> dict:
     d = {"PERSISTENT_MASK": k_num_chunks}
-    if QK_MASK_PRELOAD:
+    if stream:
+        d["STREAM_PMASK"] = 1
+    elif QK_MASK_PRELOAD:
         d["QK_MASK_PRELOAD"] = 1
     return d
 
@@ -479,7 +490,8 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
                 kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
-                defines_extra={**_mask_defines(p["k_num_chunks"]),
+                defines_extra={**_mask_defines(p["k_num_chunks"],
+                                               STREAM and gate_arg is None and not ckc[2]),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
         ttnn.deallocate(out)

@@ -516,7 +516,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         _f32_bits(p["scale"]),
         0,                                   # sliding_window_size
         0,                                   # use_attention_sink
-        0,                                   # use_streaming_compute
+        # tt-bio's STREAM_PMASK kernels run the streaming compute with a persistent mask; the
+        # writer keeps its non-lightweight args, since the reader fronts cb_mask_in.
+        int("STREAM_PMASK" in dict(defines_extra or {})),
         p["valid_Skt"],
         int(_uniform_dataformat(q, k, v, out, mask)),
     ] + acc(out)
