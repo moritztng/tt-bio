@@ -94,6 +94,20 @@ def ta_site(S, full):
     cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
     pairs = TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)
     log(ev="ta_pairs", seq=S, cores=cores, pairs=pairs[:a.pairs])
+    if a.which == "tastream":
+        # Ceiling for a streaming-softmax TA kernel: the wheel's own SDPA with NO mask, where the streaming
+        # v2 compute is eligible (fp32 dest off), against the same call forced onto the standard compute
+        # (fp32 dest on). No mask, so no accuracy check; only the time means anything.
+        grid = ttnn.CoreCoord(*T.COMPUTE_GRID_MAIN)
+        for fp32 in (False, True):
+            ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
+                                                   fp32_dest_acc_en=fp32, packer_l1_acc=False)
+            for qc, kc in ((256, 256), (256, 512), (128, 256), (128, 512), (64, 256), (256, 768)):
+                pc = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=grid, q_chunk_size=qc, k_chunk_size=kc,
+                                            exp_approx_mode=True)
+                ARMS[f"ta{S} nomask {'standard' if fp32 else 'streaming'} q{qc} k{kc}"] = (f"ta{S}nomask", lambda pc=pc, ckc=ckc: ttnn.transformer.scaled_dot_product_attention(
+                    q, k, v, is_causal=False, scale=sc, program_config=pc, compute_kernel_config=ckc))
+        return
     if not full:
         return
     for qc, kc in pairs[:a.pairs]:
@@ -104,9 +118,9 @@ def ta_site(S, full):
             ARMS[f"ta{S} q{qc} k{kc}"] = (site, arm(pair(qc, kc)))
 
 
-if a.which in ("ta", "all"):
+if a.which in ("ta", "all", "tastream"):
     for S in a.ta_seq:
-        ta_site(S, S == 736)
+        ta_site(S, S == 736 and a.which != "tastream")
 
 # ---- atom attention module
 if a.which in ("atom", "all"):
@@ -296,7 +310,7 @@ if a.which in ("roof", "all"):
         ARMS[f"roof PV [64,736,736]x[736,32] {fid}"] = ("roof", lambda p_=p_, v_=v_, ck=ck: ttnn.matmul(p_, v_, compute_kernel_config=ck))
         FLOPS[f"roof QK^T [64,736,32]x[32,736] {fid}"] = FLOPS[f"roof PV [64,736,736]x[736,32] {fid}"] = 2 * 64 * 736 * 736 * 32
 for S in a.ta_seq:   # QK^T and PV of the whole triangle-attention call
-    FLOPS.update({n: 4 * S * 8 * S * S * 32 for n, (site, _) in ARMS.items() if site == f"ta{S}"})
+    FLOPS.update({n: 4 * S * 8 * S * S * 32 for n, (site, _) in ARMS.items() if site in (f"ta{S}", f"ta{S}nomask")})
 FLOPS.update({n: 4 * 5 * 4 * 5920 * 160 * 32 for n, (site, _) in ARMS.items() if site == "atom"})
 
 live, outs = {}, {}
