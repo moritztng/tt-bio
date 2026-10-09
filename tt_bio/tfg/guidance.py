@@ -40,7 +40,9 @@ class Guidance:
     to the sampler's coordinates.
     """
 
-    def __init__(self, feats, *, schedule: RigidSchedule = RigidSchedule(), config=None):
+    def __init__(self, feats, *, schedule: RigidSchedule = RigidSchedule(), config=None, workers=1):
+        self.workers = workers             # >1: sample groups guided in that many one-thread children (samples.py)
+        self._pool = None
         cfg = dict(default_guidance_config() if config is None else config)
         cfg["enable"] = True
         self.cfg = parse_tfg_config(cfg)
@@ -67,7 +69,13 @@ class Guidance:
             probe = torch.empty(1, feats["atom_to_token_idx"].shape[-1], 3)
             (epitope.groups if epitope.active(feats) else rigid.contact_groups)(probe, feats)
         self.engine = TFGEngine(self.cfg)
+        if workers > 1:
+            from .samples import SampleWorkers
+            self._pool = SampleWorkers(feats, schedule, config, workers)
         self.seconds = 0.0                 # host time spent in step() since the last fold's first step
+
+    def __del__(self):
+        self.close()
 
     def _x0_hook(self, x0, step_i):
         return epitope.guide_x0(x0, self.feats, step_i, self.schedule)
@@ -78,11 +86,18 @@ class Guidance:
         t0 = time.perf_counter()
         if step == 0:
             self.seconds = 0.0
-        x = self._step(x_noisy, x0, t_hat=t_hat, sigma_t=sigma_t, eta=eta, step=step, n_step=n_step)
+        kw = dict(t_hat=t_hat, sigma_t=sigma_t, eta=eta, step=step, n_step=n_step)
+        x = self._pool.step(x_noisy, x0, **kw) if self._pool else self._step(x_noisy, x0, **kw)
         self.seconds += time.perf_counter() - t0
         if step == n_step - 1:
             log.info("TFG guidance: %.1f s host time over %d steps", self.seconds, n_step)
         return x
+
+    def close(self):
+        """Stop the sample workers, if any."""
+        if self._pool is not None:
+            self._pool.close()
+            self._pool = None
 
     def _step(self, x_noisy, x0, *, t_hat, sigma_t, eta, step, n_step):
         x = self.engine.update(
