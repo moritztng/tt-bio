@@ -19,7 +19,7 @@ At K block 1 dest holds one K tile at a time and the packer adds the partial sum
   to step aside.
 
 `TT_BIO_DEST_GUARD=0` turns it off, for A/B only; a comma list of classes (pc, auto, mmm, gen, tail)
-guards only those, to attribute its cost. Blackhole and bf16-dest calls are untouched.
+(or joined by +) guards only those, to attribute its cost. Blackhole and bf16-dest calls are untouched.
 """
 import functools
 import os
@@ -29,7 +29,7 @@ import ttnn
 _CLASSES = ("pc", "auto", "mmm", "gen", "tail")
 _ENV = os.environ.get("TT_BIO_DEST_GUARD", "1")
 ENABLED = _ENV != "0"
-GUARDED = frozenset(_CLASSES if _ENV in ("0", "1") else _ENV.split(","))
+GUARDED = frozenset(_CLASSES if _ENV in ("0", "1") else _ENV.replace("+", ",").split(","))
 _ON = [False]                 # set by install() on a Wormhole device
 STATS = {"rewritten": 0, "kept": 0, "refused": 0}
 _REFUSED: dict = {}           # (op, shapes, config) -> the last refusal's error
