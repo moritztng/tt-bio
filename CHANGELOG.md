@@ -40,6 +40,9 @@ Protenix-v2 is 1.6x faster on Wormhole and OpenDDE 1.3x, with structures inside 
   levers, and it is far below what a structure grade can see. Reproducer: a [23552, 9984] x [23552, 9984]^T
   product with `torch.manual_seed(2000)` gets elements (6828, 8513) and (23180, 5313) wrong by 2.0 on every
   run and chip.
+- On Blackhole, Protenix-v2 `--fast` can return non-finite coordinates for most samples of one complex
+  (9W89) when it folds after other large complexes in the same process; the same complex folded alone is
+  finite. Normal mode is not affected. A fix is in progress.
 
 ## [0.13.1] - 2026-10-08
 
