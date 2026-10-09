@@ -76,6 +76,14 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     (tmp_path / "a.py").write_text("x = 2\n")
     git("commit", "-qam", "6")
     assert gf.content_hash("HEAD", tmp_path) != c1          # code change: new key
+    c6 = gf.content_hash("HEAD", tmp_path)
+    (tmp_path / "perf").mkdir()
+    (tmp_path / "perf" / "gate.txt").write_text("RECORDED-AT: abcdef1 scripts/x.py\n1.0 s\n")
+    git("add", "."), git("commit", "-qm", "7")
+    assert gf.content_hash("HEAD", tmp_path) == c6          # a re-recorded measurement: same key
+    (tmp_path / "perf" / "data.txt").write_text("fixture\n")
+    git("add", "."), git("commit", "-qm", "8")
+    assert gf.content_hash("HEAD", tmp_path) != c6          # any other perf/ file: new key
 
     leg = _legs()[3]
     k = gf.leg_key(c1, "env", "p150a", leg)

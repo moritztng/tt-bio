@@ -96,6 +96,7 @@ LOG_CAP = 20 << 20
 POOL = "pool"            # --workers host:pool, a slot in the host's chip pool
 POOL_CARD = "@@CARD@@"   # stands for $CHIP in a pool job, filled in when the pool starts it
 POOL_POLL_S = 30
+QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
@@ -131,14 +132,21 @@ def content_hash(sha: str, repo: Path = REPO) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
-    alone must not throw away evidence gathered on the identical code the line before."""
-    def git(*a):
-        return subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True,
-                              text=True).stdout
+    alone must not throw away evidence gathered on the identical code the line before. Recorded
+    measurements (perf/**.txt carrying a `RECORDED-AT:` line, tests/test_recorded_claims.py) are
+    left out for the same reason: the release commit re-records them, and they are numbers about
+    the code, not code. The one test that reads them is in pytest_cpu, which is never reused."""
+    def git(*a, ok=(0,)):
+        p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
+        if p.returncode not in ok:
+            raise subprocess.CalledProcessError(p.returncode, a, p.stdout, p.stderr)
+        return p.stdout
+    recorded = {ln.split(":", 1)[1] for ln in git("grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt",
+                                                  ok=(0, 1)).splitlines()}
     rows = []
     for ln in git("ls-tree", "-r", "--full-tree", sha).splitlines():
         path = ln.split("\t", 1)[-1]
-        if path.endswith(".md"):
+        if path.endswith(".md") or path in recorded:
             continue
         if path == "pyproject.toml":
             body = "".join(x for x in git("show", f"{sha}:pyproject.toml").splitlines(True)
@@ -492,12 +500,14 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
         return 1
     f.write(f"# queued {host.name}:{job}\n")
     f.flush()
+    QUEUED[job] = host
     while True:
         time.sleep(POOL_POLL_S)
         r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
         if r.returncode == 0 and r.stdout.strip():
             rc = int(r.stdout.strip())
             break
+    QUEUED.pop(job, None)
     r = host.ssh(f"L={q(rdir)}/leg.log; head -c {LOG_CAP} $L; [ $(stat -c%s $L) -le {LOG_CAP} ] || "
                  f"{{ echo; echo '# ... log capped at {LOG_CAP} bytes; last 400 lines:'; tail -n 400 $L; }}",
                  capture_output=True, timeout=300)
@@ -640,7 +650,9 @@ def main() -> int:
             k = leg_key(content, envs[f"{a} {first[a].python(lg.family)}"],
                         ctype[a] if lg.card else "cpu", first[a].leg(lg))
             keys[(lg.name, slot)] = k
-            hit = None if args.no_reuse else ledger.get(k)
+            # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
+            # measurements the key leaves out.
+            hit = None if args.no_reuse or not lg.card else ledger.get(k)
             if hit and hit.get("verdict") in OK:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "REUSED", "key": k,
                                 "evidence": f"{hit['worker']} {hit['ended']} {hit['sha'][:9]} {hit['log']}",
@@ -669,7 +681,14 @@ def main() -> int:
     execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}")
     # Card-free legs run one at a time on the first host, as a worker without a card, so they
     # also stand aside while a timed leg holds that host quiet.
-    results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out).run()
+    try:
+        results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out).run()
+    except KeyboardInterrupt:
+        # A stopped runner takes back what it queued; a job the pool already started has left
+        # the queue and finishes on its own.
+        for job, host in list(QUEUED.items()):
+            host.ssh(f"rm -f {shlex.quote(job)}", timeout=120)
+        raise
     ok = write_verdict(args.out, sha, archs, results)
     print(f"GATE {'PASS' if ok else 'FAIL'}: {args.out / 'VERDICT.md'}")
     return 0 if ok else 1
