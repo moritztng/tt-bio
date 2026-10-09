@@ -43,6 +43,12 @@ installs exactly that set, and the runner refuses to start if two hosts of one a
 differ (a PyPI release between two preps once gave .107 and .114 different pandas and omegaconf). Run it detached; re-running the same command resumes, because every passed
 leg is in the ledger.
 
+A leg whose ssh connection drops (exit 255 with ssh's own error) is run again once the host
+answers; it is never recorded as a failure. A capacity leg passes when every cell it fails is a
+size-guard refusal that `docs/capacity_gate_baseline.json` records for that card type
+(OpenDDE on Blackhole is capped at 1024 tokens, so its 1536 cell is refused every run); any
+other failing cell fails the leg.
+
 **Reuse, never redo.** Each leg result is keyed by the content of every tracked file except
 Markdown and pyproject's version line, the interpreter's installed packages, the card type, and
 the leg's exact command. A leg whose key already passed is not run again and the verdict names
@@ -179,7 +185,8 @@ A release never waits on our own experiments. Gate legs queue at prio 0 in a Gal
 of every grading job, and on a card shared through its `flock` (qb1, qb2) the host sets
 `"first": true`: each leg then waits through `scripts/flock_first.sh`, which pauses the other
 waiters on that card (never the job holding it) and resumes them a few minutes after the gate's
-last leg there. A leg still waits for the job already running on its card.
+last leg there. Another gate's wait is never paused, so two gates on one card queue in order.
+A leg still waits for the job already running on its card.
 
 On an SPD pool Galaxy (`.114`, `.107`) use the same `gate_host_prep.sh` venvs as any other host,
 under a root of your own (`~/spd/<row>`), and give the legs a private lease dir, `XDG_CACHE_HOME`,
