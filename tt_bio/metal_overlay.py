@@ -14,6 +14,11 @@ bytes moved are the same, so results are bit-identical. Wormhole hosts are left 
 
 Runs once at ``import tt_bio``, before anything imports ttnn. ``TT_BIO_BH_DRAM_READ_SPLIT=0`` turns it off; a
 ``TT_METAL_RUNTIME_ROOT`` the user set is respected.
+
+The same root carries one more fix, for Ethernet dispatch on Blackhole (``TT_BIO_BH_ETH_DISPATCH``): the shipped
+``blackhole_140_arch_eth_dispatch.yaml`` names Ethernet cores (0, 0)..(0, 13) as dispatch candidates, and tt-metal
+skips only the ones with an active link, so a part with two Ethernet cores harvested (p150a: 12 logical) fails to
+open with "No core coordinate found at location: (0, 12, ETH, LOGICAL)". The mirrored descriptor lists 12.
 """
 import hashlib
 import importlib.util
@@ -51,6 +56,8 @@ SPLIT = """#ifdef ARCH_BLACKHOLE
 """
 
 HEADER = Path("tt_metal/hw/inc/api/dataflow/dataflow_api.h")
+ETH_DESCRIPTOR = Path("tt_metal/core_descriptors/blackhole_140_arch_eth_dispatch.yaml")
+ETH_CORES_PAST_12 = ", [0, 12], [0, 13]]"
 
 
 def blackhole_host() -> bool:
@@ -82,14 +89,20 @@ def patched_header(text: str) -> str | None:
     return text.replace(ANCHOR, SPLIT + ANCHOR)
 
 
-def _mirror(src: Path, dst: Path, keep: Path):
-    """Symlink every entry of ``src`` into ``dst`` except the one on the path to ``keep``, which is recursed into."""
+def patched_eth_descriptor(text: str) -> str | None:
+    """The ETH-dispatch descriptor with dispatch candidates (0, 0)..(0, 11) only, or None when the list moved."""
+    return text.replace(ETH_CORES_PAST_12, "]") if ETH_CORES_PAST_12 in text else None
+
+
+def _mirror(src: Path, dst: Path, keep: set[Path]):
+    """Symlink every entry of ``src`` into ``dst``, except the files in ``keep`` (left for the caller to write) and
+    the directories on their paths, which are recursed into."""
     dst.mkdir()
-    head = keep.parts[0]
     for entry in src.iterdir():
-        if entry.name == head and len(keep.parts) > 1:
-            _mirror(entry, dst / head, Path(*keep.parts[1:]))
-        elif entry.name != head:
+        below = {Path(*k.parts[1:]) for k in keep if k.parts[0] == entry.name and len(k.parts) > 1}
+        if below:
+            _mirror(entry, dst / entry.name, below)
+        elif Path(entry.name) not in keep:
             (dst / entry.name).symlink_to(entry)
 
 
@@ -97,14 +110,20 @@ def build_root(stock: Path, cache_home: Path) -> Path | None:
     patched = patched_header((stock / HEADER).read_text())
     if patched is None:
         return None
-    tag = hashlib.sha256((str(stock) + patched).encode()).hexdigest()[:12]
+    files = {HEADER: patched}
+    if (stock / ETH_DESCRIPTOR).is_file():
+        descriptor = patched_eth_descriptor((stock / ETH_DESCRIPTOR).read_text())
+        if descriptor is not None:
+            files[ETH_DESCRIPTOR] = descriptor
+    tag = hashlib.sha256((str(stock) + "".join(files.values())).encode()).hexdigest()[:12]
     root = cache_home / f"bh-dram-split-{tag}"
     if (root / HEADER).is_file():
         return root
     tmp = cache_home / f".bh-dram-split-{tag}.{os.getpid()}"
     cache_home.mkdir(parents=True, exist_ok=True)
-    _mirror(stock, tmp, HEADER)
-    (tmp / HEADER).write_text(patched)
+    _mirror(stock, tmp, set(files))
+    for path, text in files.items():
+        (tmp / path).write_text(text)
     try:
         tmp.rename(root)
     except OSError:  # another process won the race; its root is identical

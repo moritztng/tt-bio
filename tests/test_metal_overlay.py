@@ -12,6 +12,10 @@ def _fake_root(tmp_path):
     hdr.parent.mkdir(parents=True)
     hdr.write_text("// head\n" + mo.ANCHOR + "\n    }\n")
     (hdr.parent / "sibling.h").write_text("sibling")
+    desc = root / mo.ETH_DESCRIPTOR
+    desc.parent.mkdir(parents=True)
+    desc.write_text("dispatch_cores:\n  [[0, 0], [0, 1], [0, 11]" + mo.ETH_CORES_PAST_12 + "\n")
+    (desc.parent / "wormhole_b0_80_arch.yaml").write_text("wh")
     (root / "tt_metal" / "other").mkdir()
     (root / "runtime").mkdir()
     return root
@@ -35,6 +39,16 @@ def test_root_mirrors_installed_tree(tmp_path):
     assert (root / "runtime").is_symlink() and (root / "tt_metal" / "other").is_symlink()
     assert "BH_DRAM" not in (stock / mo.HEADER).read_text()   # the installed header is untouched
     assert mo.build_root(stock, tmp_path / "cache") == root    # reused, not rebuilt
+
+
+def test_eth_descriptor_lists_twelve_dispatch_cores(tmp_path):
+    stock = _fake_root(tmp_path)
+    root = mo.build_root(stock, tmp_path / "cache")
+    desc = (root / mo.ETH_DESCRIPTOR).read_text()
+    assert "[0, 11]]" in desc and "[0, 12]" not in desc and not (root / mo.ETH_DESCRIPTOR).is_symlink()
+    assert (root / mo.ETH_DESCRIPTOR).parent.joinpath("wormhole_b0_80_arch.yaml").is_symlink()
+    assert "[0, 13]" in (stock / mo.ETH_DESCRIPTOR).read_text()   # the installed descriptor is untouched
+    assert mo.patched_eth_descriptor(desc) is None
 
 
 @pytest.mark.parametrize("bh,off,user_root", [(False, False, False), (True, True, False), (True, False, True)])

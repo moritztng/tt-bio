@@ -457,7 +457,8 @@ def levers(names):
 # Blackhole dispatch on Ethernet cores instead of a Tensix column (spd-bh, measuring, default off).
 # Stock p150a firmware reports 12 Tensix columns (120 of the die's 140 cores); Tensix dispatch takes
 # one, so tt-bio computes on 11x10. Ethernet dispatch leaves all 12: 120 cores, +9.1 %. tt-metal
-# ships the descriptor (core_descriptors/blackhole_140_arch_eth_dispatch.yaml, 2xharvested: 12x10).
+# ships the descriptor (core_descriptors/blackhole_140_arch_eth_dispatch.yaml, 2xharvested: 12x10); it opens
+# from tt_bio.metal_overlay's copy, which lists the 12 Ethernet cores a p150a has instead of 14.
 # Single-chip boards only: a p300c's two chips are linked over Ethernet on the board.
 _BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", False)
 _LPX_TRIATT_CHUNKS = (192, 384)
