@@ -190,6 +190,7 @@ def shard_arms(mt, kt, nt, ct):
 
 
 LIVE = []  # a shape's stage operands, freed with its input
+STAGE_REF = {}  # op -> output of its first stage arm
 
 
 def stage_arms(x, w1, w2, w3, w12):
@@ -216,29 +217,47 @@ def stage_arms(x, w1, w2, w3, w12):
                               memory_config=mc, dtype=HDT)
     fc12 = lambda: ttnn.linear(xn, w12, program_config=cfg2d(gx, gy, pm, 2 * pn, bw), compute_kernel_config=CKC,
                                memory_config=mc2, dtype=HDT)
-    x1, x2 = fc1(), fc2()
-    mul = lambda: ttnn.multiply(x1, x2, memory_config=mc)
-    h = mul()
-    LIVE.extend((x1, x2, h, w12))
+    # The multiply's operands and fc3's input are made after every fc1/fc2 arm has run: live in L1 beside them,
+    # they would clash with fc1's statically allocated circular buffers under fp32 acc.
+    live = {}
+
+    def mul():
+        if not live:
+            live.update(x1=fc1(), x2=fc2())
+            LIVE.extend(live.values())
+        return ttnn.multiply(live["x1"], live["x2"], memory_config=mc)
+
+    def h():
+        if "h" not in live:
+            mul()  # operands
+            live["h"] = mul()
+            LIVE.append(live["h"])
+        return live["h"]
+
+    LIVE.append(w12)
 
     def fc3(kb, ckc=CKC):
-        return lambda: ttnn.linear(h, w3, program_config=cfg2d(gx, gy, pm, ct // gx, kb), compute_kernel_config=ckc,
+        return lambda: ttnn.linear(h(), w3, program_config=cfg2d(gx, gy, pm, ct // gx, kb), compute_kernel_config=ckc,
                                    dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
-    def fc3_il():  # the product back to interleaved L1, fc3 on ttnn's own config (the fold's old path)
-        hi = ttnn.sharded_to_interleaved(h, ttnn.L1_MEMORY_CONFIG)
-        out = ttnn.linear(hi, w3, core_grid=T.CORE_GRID_MAIN, compute_kernel_config=CKC, dtype=ttnn.bfloat16,
-                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(hi)
-        return out
+    def at(fid):
+        return CKC_CLS(math_fidelity=fid, math_approx_mode=CKC.math_approx_mode,
+                       fp32_dest_acc_en=CKC.fp32_dest_acc_en, packer_l1_acc=CKC.packer_l1_acc)
 
-    # fc3 at the shipped K block, at the full shard width (the WH fp32-acc erratum config, timing only), and both
-    # at HiFi2: whether a lower fidelity buys back the K block 1 cost is the question.
-    hifi2 = CKC_CLS(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=CKC.math_approx_mode,
-                    fp32_dest_acc_en=CKC.fp32_dest_acc_en, packer_l1_acc=CKC.packer_l1_acc)
-    arms = [("fc1", fc1), ("fc1_nosilu", fc1n), ("fc2", fc2), ("fc12", fc12), ("mul", mul), ("fc3", fc3(bw3)),
-            (f"fc3_kb{pn}", fc3(pn)), ("fc3_kb2", fc3(2)), ("fc3_hifi2", fc3(bw3, hifi2)),
-            (f"fc3_hifi2_kb{pn}", fc3(pn, hifi2)), ("fc3_il", fc3_il)]
+    def mm(w, n, ckc, act=None):
+        return lambda: ttnn.linear(xn, w, program_config=cfg2d(gx, gy, pm, n, bw, act), compute_kernel_config=ckc,
+                                   memory_config=mc if n == pn else mc2, dtype=HDT)
+
+    # Each matmul at the mode's fidelity, then lower: a variant whose digest equals the first arm of its op is
+    # free (bfp8 operands carry fewer mantissa bits than HiFi4 multiplies). fc3 also at the full shard width,
+    # which under fp32 acc is the WH erratum config (timing only).
+    fids = [(str(f).rsplit(".", 1)[-1].lower(), f)
+            for f in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi2, ttnn.MathFidelity.LoFi)]
+    arms = [("fc1", fc1), ("fc1_nosilu", fc1n), ("fc2", fc2), ("fc12", fc12)]
+    arms += [(f"fc1_{f}", mm(w1, pn, T.silu_ckc(at(fid)), SILU)) for f, fid in fids]
+    arms += [(f"fc2_{f}", mm(w2, pn, at(fid))) for f, fid in fids]
+    arms += [("mul", mul), ("fc3", fc3(bw3)), (f"fc3_kb{pn}", fc3(pn))]
+    arms += [(f"fc3_{f}", fc3(bw3, at(fid))) for f, fid in fids]
     return [(f"stage:{n}:g{gx}x{gy}", f) for n, f in arms]
 
 
@@ -278,7 +297,13 @@ for spec in a.rows.split(";"):
             try:
                 o = fn()
                 row = {}
-                if not arm.startswith("stage:"):  # a stage's output is not the body's
+                if arm.startswith("stage:"):  # a stage's output is not the body's: digest it against its op's first arm
+                    got = ttnn.to_torch(o).double()
+                    op = arm.split(":")[1].split("_")[0]
+                    base = STAGE_REF.setdefault(op, got)
+                    row = dict(digest=hashlib.sha256(got.float().numpy().tobytes()).hexdigest()[:16],
+                               rel_vs_first=float((got - base).norm() / base.norm()) if got.shape == base.shape else None)
+                else:
                     got = ttnn.to_torch(o).double().view(-1, C)
                     row = dict(rel_rms=float((got - ref).norm() / ref.norm()),
                                digest=hashlib.sha256(got.float().numpy().tobytes()).hexdigest()[:16])
@@ -293,6 +318,7 @@ for spec in a.rows.split(";"):
         for t in [x] + LIVE:
             ttnn.deallocate(t)
         LIVE.clear()
+        STAGE_REF.clear()
     for t in (w1, w2, w3):
         ttnn.deallocate(t)
 
