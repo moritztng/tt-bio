@@ -28,7 +28,8 @@ def host(x, dtype, n, n_pad):
 # (shape, n_pad, input dtype, output dtype, memory): atoms ql at 5917 -> 5920, tokens 730 -> 736
 CASES = [((5, 5917, 128), 5920, F32, F32, None), ((5, 5917, 128), 5920, BF16, F32, None),
          ((1, 730, 768), 736, F32, F32, None), ((1, 730, 384), 736, BF16, F32, None),
-         ((5, 730, 768), 736, F32, F32, None), ((1, 730, 768), 736, F32, F32, L1)]
+         ((5, 730, 768), 736, F32, F32, None), ((5, 5917, 128), 5920, BF16, BF16, None),
+         ((1, 730, 768), 736, F32, F32, L1)]
 torch.manual_seed(0)
 for shape, n_pad, din, dout, mem in CASES:
     n = shape[-2]
