@@ -31,7 +31,7 @@ import math
 import torch
 
 from tt_bio.tfg import rigid as rc
-from tt_bio.tfg.neighbors import SparseClash
+from tt_bio.tfg.neighbors import SparseClash, square_length
 from tt_bio.tfg.rigid import RigidSchedule, rdkit_vdws
 
 logger = logging.getLogger(__name__)
@@ -200,17 +200,17 @@ class ResidueDistances:
         body = torch.einsum("pij,pnmj->pnmi", rot, er - o_w[:, None, None]) + o_b[:, None, None]
         bc = (body * self.valid[..., None]).sum(2) / self.valid.sum(1, keepdim=True).clamp_min(1)
         centre, radius = self.centre[rows], self.radius[rows]
-        gap = (bc[:, :, None] - centre[:, None]).norm(dim=-1) - rr[..., None] - radius[:, None]   # [P, n, Q]
+        gap = square_length(bc[:, :, None] - centre[:, None]).sqrt() - rr[..., None] - radius[:, None]   # [P, n, Q]
 
         # a measured distance per epitope residue: to the paratope residue whose sphere is nearest
         q0 = gap.argmin(-1)                                                   # [P, n]
         pq = para[torch.arange(P)[:, None, None], self.para[q0].clamp_min(0)]  # [P, n, w, 3]
-        dist = (er[:, :, :, None] - pq[:, :, None]).norm(dim=-1)            # [P, n, m, w]
+        sq = square_length(er[:, :, :, None] - pq[:, :, None])               # [P, n, m, w]
         ok = self.valid[None, :, :, None] & self.pmask[q0][:, :, None]
-        upper = dist.masked_fill(~ok, float("inf")).amin((2, 3)) + self.MARGIN
+        upper = sq.masked_fill(~ok, float("inf")).amin((2, 3)).sqrt() + self.MARGIN
         # residue pairs that may hold the nearest pair, then the epitope atoms of those that may
         p, r, q = torch.nonzero(gap <= upper[..., None], as_tuple=True)
-        near = (body[p, r] - centre[p, q][:, None]).norm(dim=-1) - radius[p, q][:, None] <= upper[p, r][:, None]
+        near = square_length(body[p, r] - centre[p, q][:, None]).sqrt() - radius[p, q][:, None] <= upper[p, r][:, None]
         t, a = torch.nonzero(near & self.valid[r], as_tuple=True)
         p, r, q = p[t], r[t], q[t]
         pq = para[p[:, None], self.para[q].clamp_min(0)]                    # [T, w, 3]

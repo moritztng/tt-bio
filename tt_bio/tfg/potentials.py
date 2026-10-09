@@ -882,7 +882,7 @@ class VinaStericPotential(Potential):
     def _active_sparse(self, coords_b, feats, buf):
         """The same active pairs from a cell-list pair list (tt_bio.tfg.neighbors): only pairs within the largest
         active cutoff plus a skin are listed, and the list is reused while no atom has moved by half the skin."""
-        from .neighbors import pairs_within
+        from .neighbors import pairs_within, square_length
 
         key = (self._cache_key_from_feats(feats), tuple(coords_b.shape), buf)
         st = getattr(self, "_sparse", None)
@@ -908,7 +908,8 @@ class VinaStericPotential(Potential):
                                      search=[(members[c], torch.cat(members[c + 1:])) for c in range(n_chains - 1)],
                                      X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=self.SKIN)
         X = coords_b.detach()
-        if st["X"] is None or float((X - st["X"]).norm(dim=-1).max()) >= 0.5 * st["skin"]:
+        # rebuild once an atom may have moved by half the skin (1e-3 A short of it, so rounding cannot matter)
+        if st["X"] is None or float(square_length(X - st["X"]).max()) >= (0.5 * st["skin"] - 1e-3) ** 2:
             # search each chain only against the chains after it: no intra-chain or mirrored candidates
             parts = []
             for a, b in st["search"]:

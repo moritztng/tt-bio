@@ -87,6 +87,12 @@ def pairs_within(Q, P, r):
     return s[keep], i[keep], j[keep]
 
 
+def square_length(v):
+    """|v|^2 over the last axis as two adds of three products: about twice as fast as norm() on a size-3 axis. For
+    bounds and thresholds (rounding differs from norm/cdist), not for values that must match them bitwise."""
+    return (v[..., 0] * v[..., 0] + v[..., 1] * v[..., 1]) + v[..., 2] * v[..., 2]
+
+
 def cdist_norm(diff):
     """|diff| in torch.cdist's (donot_use_mm) order: squares rounded separately, summed (x + z) + y."""
     sq = diff * diff
