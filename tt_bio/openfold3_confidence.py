@@ -331,7 +331,9 @@ class OF3ConfidenceHead:
         bf16 the host copy came from), the two ``si_input`` projections are computed on the host in
         fp32 and go up once per fold, and the distance term is the linear_distance weight row of
         each pair's bin, looked up on device. Per sample only the bin indices cross, 4 B a pair
-        where the host path uploaded the whole 128-channel pair."""
+        where the host path uploaded the whole 128-channel pair. ``ttnn.embedding`` only takes a
+        bf16 table, so the fp32 table goes up as a bf16 head and the bf16 of its remainder, looked
+        up separately and summed in fp32: 16 mantissa bits, well under the final bf16 rounding."""
         f32 = ttnn.float32
         N = int(si_input.shape[0])
         if "z_ij_d" not in shared:
@@ -339,25 +341,32 @@ class OF3ConfidenceHead:
             pe = "pairformer_embedding."
             li = F.linear(si_input, self._g(pe + "linear_i.weight"))
             lj = F.linear(si_input, self._g(pe + "linear_j.weight"))
-            table = torch.cat([self._g(pe + "linear_distance.weight").t(),
-                               torch.zeros(1, _C_Z, dtype=self._dtype)])         # row no_bin = no bin
+            table = torch.cat([self._g(pe + "linear_distance.weight").t().float(),
+                               torch.zeros(1, _C_Z)])                             # row no_bin = no bin
+            hi = table.to(torch.bfloat16)
+            lo = (table - hi.float()).to(torch.bfloat16)
+            bf = lambda x: ttnn.from_torch(x.contiguous(), dtype=ttnn.bfloat16, device=self.dev,
+                                           layout=ttnn.ROW_MAJOR_LAYOUT)
             shared["z_ij_d"] = (up(li.reshape(1, N, 1, _C_Z), layout=ttnn.TILE_LAYOUT),
                                 up(lj.reshape(1, 1, N, _C_Z), layout=ttnn.TILE_LAYOUT),
-                                up(table, layout=ttnn.ROW_MAJOR_LAYOUT))
-        li_d, lj_d, table_d = shared["z_ij_d"]
+                                (bf(hi), bf(lo)))
+        li_d, lj_d, tables_d = shared["z_ij_d"]
         z = ttnn.typecast(shared["zij_trunk_d"], f32)
         if not use_zij_trunk_embedding:
             z = ttnn.multiply_(z, 0.0)
         z = ttnn.add_(ttnn.add_(z, li_d), lj_d)
         k = self._distance_bins(repr_x_pred).reshape(1, N * N).to(torch.int32)
         k_d = ttnn.from_torch(k, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev)
-        e = ttnn.embedding(k_d, table_d, layout=ttnn.ROW_MAJOR_LAYOUT,
-                           memory_config=ttnn.DRAM_MEMORY_CONFIG)                 # [1, N*N, c_z]
+        for table_d in tables_d:
+            e = ttnn.embedding(k_d, table_d, layout=ttnn.ROW_MAJOR_LAYOUT,
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG)             # [1, N*N, c_z]
+            et = ttnn.to_layout(ttnn.reshape(e, (1, N, N, _C_Z)), ttnn.TILE_LAYOUT)
+            ttnn.deallocate(e)
+            e32 = ttnn.typecast(et, f32)
+            ttnn.deallocate(et)
+            z = ttnn.add_(z, e32)
+            ttnn.deallocate(e32)
         ttnn.deallocate(k_d)
-        et = ttnn.to_layout(ttnn.reshape(e, (1, N, N, _C_Z)), ttnn.TILE_LAYOUT)
-        ttnn.deallocate(e)
-        z = ttnn.add_(z, et)
-        ttnn.deallocate(et)
         zb = ttnn.typecast(z, ttnn.bfloat16)
         ttnn.deallocate(z)
         return zb
