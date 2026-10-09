@@ -265,8 +265,11 @@ def _repack(entry):
 # in L1 and streams only its own activation rows, so no core forwards anything to another. The
 # stage ablation found the 2D program's in0 multicast chain and CB handshakes binding (~2.8 ms of
 # a 3.4 ms GEMM pass at 736 with every stage's work removed). Same epilogue as EPI 1 / 2, op for
-# op, so the output is the same bits. bf16, one K block, DRAM output, no split.
-RES = env_flag("TT_BIO_TRIMUL_TAIL_RES", False)
+# op, so the output is the same bits (torch.equal at 128 and 736, EPI 1 and 2, shared and unshared
+# in0). At 736 on WH it takes the EPI 2 tail from 8.66 to 6.72 ms; what is left is the bf16 SFPU
+# sigmoid (~2.0 ms) and the GEMM math (~1.8 ms) serialized on the math thread, over a 3.7 ms data
+# floor (perf/spd_trimul/tail_res.py --abl). bf16, one K block, DRAM output, no split.
+RES = env_flag("TT_BIO_TRIMUL_TAIL_RES", True)
 RES_ABL = 0          # the resident compute's stage ablation (see its compute.cpp). Diagnostic only.
 RES_STATS = [0, 0]   # served by the resident program, declined to the 2D one
 
