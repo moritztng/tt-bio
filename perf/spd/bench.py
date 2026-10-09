@@ -16,7 +16,7 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
 the `L=` lever set. bindcraft2 is a design loop, not a fold: see "BindCraft 2" below.
 
 ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
-before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix under that precision-lever set
+before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix-v2 or OpenFold3 under that precision-lever set
 (tenstorrent.LEVERS, e.g. `L=fast-lofi`, `L=normal+opm_b8`), otherwise the mode's own set. Nothing here edits the model: an arm is only switches the engine already has.
 `L=` is refused for every other model: none of them reads tenstorrent.LEVERS, so the arm would be a no-op.
 
@@ -93,9 +93,12 @@ def parse_arm(spec):
 
 ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
 PV2 = a.model == "protenix-v2"
-if LEVER_SPEC is not None and not PV2:
-    sys.exit(f"L= arms build Protenix-v2 only; {a.model} reads no tenstorrent.LEVERS, so `{a.arm}` would fold "
-             f"its default. Use K=V switches for {a.model}.")
+if LEVER_SPEC is not None and a.model == "openfold3":
+    # OpenFold3 builds under `tenstorrent.mode_levers()`, which reads the set from TT_BIO_LEVERS.
+    ARM_ENV["TT_BIO_LEVERS"] = LEVER_SPEC
+elif LEVER_SPEC is not None and not PV2:
+    sys.exit(f"L= arms build Protenix-v2 and OpenFold3 only; {a.model} reads no tenstorrent.LEVERS, so "
+             f"`{a.arm}` would fold its default. Use K=V switches for {a.model}.")
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)
 LOG = open(a.out / "bench.jsonl", "a")
