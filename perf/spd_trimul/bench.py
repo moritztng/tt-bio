@@ -43,6 +43,8 @@ ap.add_argument("--resid", action="store_true",
                      "times the residual add too (the epi2 lever folds it into the tail)")
 ap.add_argument("--fast", action="store_true",
                 help="build and run the module as Protenix's --fast trunk does: FAST_LEVERS active, fast mode off")
+ap.add_argument("--normal", action="store_true",
+                help="build and run under Protenix's normal-mode NORMAL_LEVERS (trimul_ibw, trimul_tail, trunk_hifi3, ...)")
 ap.add_argument("--legacy-fast", action="store_true",
                 help="the older bfp8-trunk --fast (fast mode on, no levers), which OpenDDE still runs")
 A = ap.parse_args()
@@ -227,6 +229,8 @@ else:
 # with fast mode off (`Protenix._build`, legacy_fast=False), so --fast is the levers alone.
 if A.fast:
     T.levers("fast").__enter__()
+if A.normal:
+    T.levers(T.NORMAL_LEVERS).__enter__()
 if A.legacy_fast:
     T.set_fast_mode(True)
 from tt_bio.af2 import compute_kernel_config
