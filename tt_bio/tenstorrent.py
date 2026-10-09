@@ -503,11 +503,17 @@ _FAST_MODE = False
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
+#   ln_f32          the pair layer norms (trimul in/out, triangle attention, pair bias) with fp32 dest
+#                   accumulation at HiFi3, i.e. normal mode's config, where acc_off would make them
+#                   bf16-DST: on WH at 736, 3.71 -> 2.83 ms per call and rel_rms to float64 0.0054 ->
+#                   0.0018 (the bf16 floor is 0.0017). Inert unless acc_off is on (perf/spd_pair/ops.py).
+#   triatt_tail     triangle attention's gate, out projection and residual add in one weights-resident
+#                   program (`triatt_qkv.gated_out_proj`); sigmoid(g) is no longer rounded to bf16
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32")
+          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
@@ -868,6 +874,25 @@ def lpx_compute_kernel_config(base):
     cfg.dst_full_sync_en = base.dst_full_sync_en
     cfg.throttle_level = base.throttle_level
     return cfg
+
+
+_LN_CKCS = {}
+
+
+def ln_compute_kernel_config(ckc):
+    """`ckc` for a pair layer norm: under `ln_f32`, fp32 dest accumulation at HiFi3 where it was off.
+    The norm is faster that way, not only closer to float64; see LEVERS."""
+    if ckc is None or not lever("ln_f32") or ckc.fp32_dest_acc_en:
+        return ckc
+    key = (type(ckc), ckc.math_approx_mode, ckc.packer_l1_acc, ckc.dst_full_sync_en, ckc.throttle_level)
+    out = _LN_CKCS.get(key)
+    if out is None:
+        out = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ckc.math_approx_mode,
+                        fp32_dest_acc_en=True, packer_l1_acc=ckc.packer_l1_acc)
+        out.dst_full_sync_en = ckc.dst_full_sync_en
+        out.throttle_level = ckc.throttle_level
+        _LN_CKCS[key] = out
+    return out
 
 
 def trunk_compute_kernel_config(base):
@@ -8531,7 +8556,7 @@ class TriangleMultiplication(Module):
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             _acc_append(blocks, _in_proj_matmul(
                 rows, w, self.compute_kernel_config, memory_config, bias), host)
@@ -8583,7 +8608,8 @@ class TriangleMultiplication(Module):
                     raw = x_in[:, s_off:s_off + R]
                     rows = ttnn.layer_norm(
                         raw, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
-                        compute_kernel_config=self.compute_kernel_config, memory_config=l1)
+                        compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                        memory_config=l1)
                     ttnn.deallocate(raw)
                 else:
                     rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
@@ -8679,7 +8705,7 @@ class TriangleMultiplication(Module):
             weight=self.in_norm_weight,
             bias=self.in_norm_bias,
             epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
+            compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
         )
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
@@ -9204,7 +9230,7 @@ class TriangleMultiplication(Module):
                 weight=self.out_norm_weight,
                 bias=self.out_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
         except RuntimeError as exc:
             if not _dram_oom(exc):
@@ -9293,7 +9319,7 @@ class TriangleMultiplication(Module):
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             g_block = ttnn.linear(
                 z_rows,
@@ -9316,7 +9342,7 @@ class TriangleMultiplication(Module):
                 weight=self.out_norm_weight,
                 bias=self.out_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
             p_block = ttnn.linear(
                 x_rows,
@@ -9561,7 +9587,7 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
             blk = _pair_transpose(blk, mc)
             own = True
         ln = dict(weight=ln_weight, bias=ln_bias, epsilon=1e-5,
-                  compute_kernel_config=compute_kernel_config,
+                  compute_kernel_config=ln_compute_kernel_config(compute_kernel_config),
                   memory_config=ttnn.DRAM_MEMORY_CONFIG)
         try:
             zn = ttnn.layer_norm(blk, **ln)
@@ -9851,7 +9877,8 @@ class TriangleAttention(Module):
         # which never builds more than one block of them, and a size that fits keeps its single
         # pass byte for byte.
         return row_block_after_refusal(
-            _TRIATT_WHOLE_REFUSED, key, lambda: self._attend_pair(x, attn_mask, None), blocked,
+            _TRIATT_WHOLE_REFUSED, key, lambda: self._attend_pair(x, attn_mask, None, add_to_input),
+            blocked,
             rows=TRIANGLE_ATT_CHUNK_SIZE, tag="tri_att")
 
     def _attend_pair(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None,
@@ -9904,7 +9931,7 @@ class TriangleAttention(Module):
                     weight=self.layer_norm_weight,
                     bias=self.layer_norm_bias,
                     epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
+                    compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
                     memory_config=ttnn.DRAM_MEMORY_CONFIG,
                 )
 
@@ -9934,7 +9961,7 @@ class TriangleAttention(Module):
                 weight=self.layer_norm_weight,
                 bias=self.layer_norm_bias,
                 epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
             pre_qkv, pre_g, triangle_bias = self._fused_qkvgb(x)
@@ -10062,8 +10089,20 @@ class TriangleAttention(Module):
             return o
 
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor,
-                             l1_dest: bool = False) -> ttnn.Tensor:
+                             l1_dest: bool = False, resid: ttnn.Tensor | None = None) -> ttnn.Tensor:
+            """The tail's update, or with `resid` (the pair it belongs to) `resid + update` written
+            into `resid` when the one-program tail takes it; the caller tells by identity."""
             head_major = len(g_in.shape) == 4
+            if head_major and not gate_fused and self.o_bias is None:
+                fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight, self.compute_kernel_config,
+                                                   resid=resid)
+                if fused is None and resid is not None:
+                    fused = _triatt_qkv.gated_out_proj(o_in, g_in, self.o_weight,
+                                                       self.compute_kernel_config)
+                if fused is not None:
+                    ttnn.deallocate(o_in)
+                    ttnn.deallocate(g_in)
+                    return fused
             if not gate_fused:
                 o_in = ttnn.multiply_(
                     o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
@@ -10341,7 +10380,10 @@ class TriangleAttention(Module):
             if qkv is not None and not isinstance(qkv, tuple):  # the triple is freed inside attend
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
-            x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending)
+            x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending,
+                                 resid=x_in if add_to_input and not self.ending else None)
+            if x is x_in:
+                return x_in
         if self.ending:
             x = _pair_transpose(
                 x, _transpose_memory_config(x, self.transpose_l1_reserve))
@@ -10749,11 +10791,13 @@ class AttentionPairBias(Module):
                     z, in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
                                                weight=self.z_norm_weight,
                                                bias=self.z_norm_bias, epsilon=1e-5,
-                                               compute_kernel_config=self.compute_kernel_config)
+                                               compute_kernel_config=ln_compute_kernel_config(
+                                                   self.compute_kernel_config))
                                 if _PAIR_BIAS_L1_NORM else
                                 (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
                                                  epsilon=1e-5,
-                                                 compute_kernel_config=self.compute_kernel_config),
+                                                 compute_kernel_config=ln_compute_kernel_config(
+                                                     self.compute_kernel_config)),
                                  False))
                     zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
                                              l1_out=in_l1)
