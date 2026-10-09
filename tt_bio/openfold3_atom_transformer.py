@@ -31,7 +31,7 @@ from . import tenstorrent as _T
 from . import ops
 from .tenstorrent import (Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul,
                           host_f64_softmax_site, site_softmax, softmax_ckc)
-from .eltwise_fusion import scale_add, mask_add
+from .eltwise_fusion import scale_add, mask_add, _taping
 
 
 def remap_of3_adaln(sd: dict) -> dict:
@@ -93,6 +93,12 @@ class OF3AtomTransformer(Module):
         self.adaln_t = [
             AdaLN(False, remap_of3_adaln(_sub(self._w, f"blocks.{b}.conditioned_transition.layer_norm.")),
                   compute_kernel_config) for b in range(3)]
+        # The fp32 windowed attention as one SDPA program over a superset key window, Protenix's
+        # atom_sdpa32 recipe and the same switch (TT_BIO_ATOM_SDPA32). See `_superset`.
+        from .protenix import _ATOM_SDPA32, _ATOM_SDPA32_CKC
+        self._sdpa32 = _ATOM_SDPA32 and self._act_dtype == ttnn.float32
+        self._sdpa32_ckc = _ATOM_SDPA32_CKC
+        self._zeros: dict = {}
 
     #: Key fragments of the three AdaLNs per block, which upload their own weights.
     _ADALN = (".layer_norm_a_q.", ".layer_norm_a_k.", ".conditioned_transition.layer_norm.")
@@ -186,6 +192,95 @@ class OF3AtomTransformer(Module):
                       self.adaln_t[b].s_terms(s)) for b in range(3)]
         return z_bias, s_q, s_k, ada_raw, cg_raw, ada_s
 
+    def _transition(self, x, s, b, ada_s, cg_raw, atom_mask_col):
+        """AdaLN-conditioned SwiGLU transition with the sigmoid(linear_g(s)) zero gate, residual."""
+        ct = f"blocks.{b}.conditioned_transition."
+        an = self.adaln_t[b](x, s, s_terms=ada_s[b][2] if ada_s else None)
+        b1 = self._lin(an, ct + "swiglu.linear_a.weight", activation="silu")
+        b2 = self._lin(an, ct + "swiglu.linear_b.weight")
+        ttnn.deallocate(an)
+        bb = ttnn.multiply(b1, b2)
+        ttnn.deallocate(b1); ttnn.deallocate(b2)
+        out = self._lin(bb, ct + "linear_out.weight")
+        ttnn.deallocate(bb)
+        out = ttnn.multiply(out, cg_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        x = mask_add(x, out, atom_mask_col)
+        ttnn.deallocate(out)
+        return x
+
+    #: Superset key window: block i reads frame rows [32 i, 32 i + SUP_W), i.e. atoms
+    #: [32 i - SUP_LEAD, 32 i - SUP_LEAD + SUP_W). OF3 centres a 128-key window on the block and
+    #: SHIFTS it back inside [0, NP) at both ends (Protenix pads instead), so the superset is
+    #: 7 tiles, not Protenix's 5: three tiles each side of the block holds every shifted window.
+    SUP_LEAD = 96
+    SUP_W = 224      # = 2 * SUP_LEAD + N_QUERY: the frame carries SUP_LEAD zero rows on each end
+
+    def _superset(self, z_bias, mask_bias, key_block_idxs_tt, s, nb):
+        """Per block ``(bias, q_terms, k_terms)`` for the superset attention, or ``()`` when a
+        key window is not a contiguous run of atoms inside the superset (then the gathered path
+        runs). Built once per rollout on the host from the device bias: the bias of key ``j`` of
+        block ``i`` moves to superset column ``ws_i - (32 i - SUP_LEAD) + j``, every other column
+        is -1e9, and the whole is pre-multiplied by sqrt(dh) because the SDPA kernel scales the
+        mask with the scores. The AdaLN conditioning terms are taken on the per-atom ``s``: the
+        query and key rows are now per atom, not per window copy."""
+        nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
+        idx = ttnn.to_torch(key_block_idxs_tt).reshape(nb, nk).long()
+        ws = idx[:, 0]
+        off = ws - (torch.arange(nb) * nq - self.SUP_LEAD)
+        if (not torch.equal(idx, ws[:, None] + torch.arange(nk))
+                or int(off.min()) < 0 or int(off.max()) > self.SUP_W - nk):
+            return ()
+        col = (off[:, None] + torch.arange(nk))[:, None, None, :].expand(nb, H, nq, nk)
+        mb = ttnn.to_torch(mask_bias).float().reshape(nb, 1, nq, nk)
+        out = []
+        for b in range(3):
+            zb = ttnn.to_torch(z_bias[b]).float().reshape(nb, H, nq, nk) + mb
+            full = torch.full((nb, H, nq, self.SUP_W), -1e9).scatter_(-1, col, zb)
+            full = full.clamp(min=-1e4) * dh ** 0.5
+            bias = ttnn.from_torch(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, self.SUP_W)
+                                   .contiguous(), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                                   device=self.device)
+            terms = ((self.adaln_q[b].s_terms(s), self.adaln_k[b].s_terms(s))
+                     if _T.ADALN_S_HOIST else ((), ()))   # () not None: the cache free walks it
+            out.append((bias, *terms))
+        return out
+
+    def _attend_superset(self, a_qn, a_kn, apb, sup_b, NP, nb):
+        """softmax(q k^T * scale + bias) v over the superset window, one SDPA program.
+
+        Q, K and V are per atom ``[S, NP, 128]``; one zero-led frame carries all three, split by
+        ``nlp_create_qkv_heads``, and the kernel reads block i's queries and its key window
+        straight from the frame (``kv_window``), so no window is ever materialised."""
+        from . import sdpa_generic as SG
+        nq, H, dh, L, W = self.N_QUERY, self.N_HEADS, self.HEAD_DIM, self.SUP_LEAD, self.SUP_W
+        S = a_qn.shape[0]
+        Q = self._lin(a_qn, apb + "mha.linear_q.weight", apb + "mha.linear_q.bias")
+        K = self._lin(a_kn, apb + "mha.linear_k.weight")
+        V = self._lin(a_kn, apb + "mha.linear_v.weight")
+        x = ttnn.concat([Q, K, V], dim=-1)
+        ttnn.deallocate(Q); ttnn.deallocate(K); ttnn.deallocate(V)
+        # Zero rows on both ends (ttnn.pad cannot pad the front of a tiled tensor).
+        zero = self._zeros.get((S, x.dtype))
+        if zero is None:
+            zero = self._zeros[(S, x.dtype)] = ttnn.zeros((S, L, 3 * H * dh), dtype=x.dtype,
+                                                          layout=ttnn.TILE_LAYOUT, device=self.device)
+        x2 = ttnn.concat([zero, x, zero], dim=1)                     # [S, NP + 2 L, 384]
+        ttnn.deallocate(x)
+        x, F = x2, NP + 2 * L
+        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+            ttnn.reshape(x, (S, 1, F, 3 * H * dh)), num_heads=H, num_kv_heads=H,
+            transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # each [S, H, F, dh]
+        ttnn.deallocate(x)
+        o = ttnn.allocate_tensor_on_device(ttnn.Shape([S, H * nb, nq, dh]), q.dtype,
+                                           ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
+        g = self.device.compute_with_storage_grid_size()
+        SG.sdpa(self.device, q, k, v, sup_b, o, nq, W, (g.x, g.y), self._sdpa32_ckc, dh ** -0.5,
+                kv_window=(nb, W, L, nq))
+        ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
+        o = ttnn.experimental.nlp_concat_heads(ttnn.reshape(o, (S, H, NP, dh)),
+                                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        return ttnn.reshape(o, (S, NP, H * dh))
+
     def __call__(self, a, s, z, atom_mask_col, key_block_idxs_tt, valid_mask,
                  mask_bias, n_atom, NP, nb, cache=None):
         """a: [S, NP, 128] device, S noised samples at once (padded to a multiple of N_QUERY;
@@ -207,13 +302,33 @@ class OF3AtomTransformer(Module):
             lambda: self._invariants(s, z, key_block_idxs_tt, valid_mask, nb))
 
         S = a.shape[0]
-        kidx = key_block_idxs_tt if S == 1 else _cached(
+        # The superset bias is built on the host, so a taped (training) forward keeps the
+        # gathered path, whose pair bias stays on the tape.
+        sup = (_cached(cache, (id(self), "superset"),
+                       lambda: self._superset(z_bias, mask_bias, key_block_idxs_tt, s, nb))
+               if self._sdpa32 and not _taping() else ())
+        kidx = key_block_idxs_tt if S == 1 or sup else _cached(
             cache, (id(self), "key_idx", S),
             lambda: sample_offset_index(key_block_idxs_tt, S, NP))
         x = a
         for b in range(3):
             P = f"blocks.{b}."
             apb = P + "attention_pair_bias."
+            if sup:
+                bias, q_terms, k_terms = sup[b]
+                a_qn = self.adaln_q[b](x, s, s_terms=q_terms or None)
+                a_kn = self.adaln_k[b](x, s, s_terms=k_terms or None)
+                o = self._attend_superset(a_qn, a_kn, apb, bias, NP, nb)
+                ttnn.deallocate(a_kn)
+                o = ttnn.multiply(o, self._lin(a_qn, apb + "mha.linear_g.weight"),
+                                  input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+                ttnn.deallocate(a_qn)
+                o = self._lin(o, apb + "mha.linear_o.weight")
+                o = ttnn.multiply(o, ada_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+                x = ttnn.add(x, o)
+                ttnn.deallocate(o)
+                x = self._transition(x, s, b, ada_s, cg_raw, atom_mask_col)
+                continue
             x_q = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
             x_q = ttnn.reshape(x_q, (S, nb, nq, 128))
             x_q = ttnn.to_layout(x_q, ttnn.TILE_LAYOUT)
@@ -251,20 +366,13 @@ class OF3AtomTransformer(Module):
             x = ttnn.add(x, o)
             ttnn.deallocate(o)
 
-            ct = P + "conditioned_transition."
-            an = self.adaln_t[b](x, s, s_terms=ada_s[b][2] if ada_s else None)
-            b1 = self._lin(an, ct + "swiglu.linear_a.weight", activation="silu")
-            b2 = self._lin(an, ct + "swiglu.linear_b.weight")
-            bb = ttnn.multiply(b1, b2)
-            ttnn.deallocate(b1); ttnn.deallocate(b2)
-            out = self._lin(bb, ct + "linear_out.weight")
-            ttnn.deallocate(bb)
-            out = ttnn.multiply(out, cg_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-            x = mask_add(x, out, atom_mask_col)
-            ttnn.deallocate(out); ttnn.deallocate(a_qn); ttnn.deallocate(a_kn)
+            ttnn.deallocate(a_qn); ttnn.deallocate(a_kn)
+            x = self._transition(x, s, b, ada_s, cg_raw, atom_mask_col)
 
         if cache is None:
             # Uncached path owns the group; the cached one is freed by the sampler.
+            from .openfold3_sample_diffusion import _free_cached
+            _free_cached(sup)
             for t in (*z_bias, s_q, s_k, *ada_raw, *cg_raw,
                       *(v for g in ada_s for pair in g for v in pair)):
                 ttnn.deallocate(t)
