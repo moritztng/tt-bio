@@ -875,13 +875,21 @@ class VinaStericPotential(Potential):
             rank = torch.empty_like(order)
             rank[order] = torch.arange(order.numel(), device=order.device)
             pos = rank - (torch.cumsum(cnt, 0) - cnt)[c_map]
+            members = [torch.nonzero(c_map == c).flatten() for c in range(n_chains)]
             st = self._sparse = dict(key=key, chain=c_map, r=r_atom, allowed=allowed, pos=pos, n_chains=n_chains,
+                                     search=[(members[c], torch.cat(members[c + 1:])) for c in range(n_chains - 1)],
                                      X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=1.0)
         X = coords_b.detach()
         if st["X"] is None or float((X - st["X"]).norm(dim=-1).max()) >= 0.5 * st["skin"]:
-            s, i, j = pairs_within(X, X, st["cut"] + st["skin"])
+            # search each chain only against the chains after it: no intra-chain or mirrored candidates
+            parts = []
+            for a, b in st["search"]:
+                if a.numel() and b.numel():
+                    s, i, j = pairs_within(X[:, a], X[:, b], st["cut"] + st["skin"])
+                    parts.append((s, a[i], b[j]))
+            s, i, j = (torch.cat(t) for t in zip(*parts)) if parts else (st["pos"][:0],) * 3
             ci, cj = st["chain"][i], st["chain"][j]
-            keep = (ci < cj) & st["allowed"][ci, cj]
+            keep = st["allowed"][ci, cj]
             s, i, j, ci, cj = s[keep], i[keep], j[keep], ci[keep], cj[keep]
             n, nc, pos = X.shape[1], st["n_chains"], st["pos"]
             rank = (((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j]
