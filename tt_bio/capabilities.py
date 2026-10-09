@@ -270,6 +270,10 @@ FLAG_WHY: dict[tuple[str, str], str] = {
                                  "depth to cap",
     **{("--diffusion_precision", m): "only Protenix's diffusion precision is selectable per run"
        for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2")},
+    **{("--use_tfg_guidance", m): "constraint guidance is wired into OpenDDE's sampler only"
+       for m in CAPABILITY if m not in ("opendde", "opendde-abag")},
+    **{("--trunk_cache", m): "the trunk cache is wired into OpenDDE only"
+       for m in CAPABILITY if m not in ("opendde", "opendde-abag")},
 }
 
 
