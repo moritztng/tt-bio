@@ -512,14 +512,15 @@ _FAST_MODE = False
 #   triatt_tail     triangle attention's gate, out projection and residual add in one weights-resident
 #                   program (`triatt_qkv.gated_out_proj`), z read and written once: on WH at 736 the
 #                   tail goes 11.95 -> 5.22 ms per call. sigmoid(g) is no longer rounded to bf16 before
-#                   the multiply and the kernel runs HiFi3 with fp32 DST in both modes.
+#                   the multiply and the kernel runs HiFi3 with fp32 DST in both modes. At 64 channels
+#                   (the template pair) 2.29 -> 0.88 ms.
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "ln_f32", "triatt_tail"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -539,7 +540,11 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # silu_f32: Wormhole 11-set grade PASS, 44 paired folds, top pose median 0.308 A against the 0.60 A
 # bar; cdk2x2_512 CA-lDDT vs 1HCL +0.0001 / -0.0006 per domain inside the exact spread (spd-swiglu
 # 2026-10-09 05:05Z).
-NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+# triatt_tail: Wormhole 11-set grade on staging10 PASS in both modes, 44 paired folds each: normal top pose
+# median 0.255 A against the 0.60 A bar (A/A floor 0.803 A), docking 32 -> 33 of 44; fast (with ln_f32)
+# 0.281 A, CA-lDDT -0.0007 [-0.0024, +0.0006], docking 33 -> 32 of 44 (state/spd-pair.md, 2026-10-09).
+# ln_f32 is inert in normal mode (it only acts under acc_off).
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
