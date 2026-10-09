@@ -1312,6 +1312,26 @@ def _weight_vjp(a, b, g, cfg):
                               b.value.shape))
 
 
+class _QKVSink:
+    """Where `triatt_bw` sends the packed q/k/v cotangent of one `triatt_qkv_heads` call.
+
+    Module-level on purpose. Defined inside the entry, a fresh class per call, it was a
+    reference cycle (a class always is: it sits in its own `__mro__`), so refcounting never
+    freed it and the `x` its method closed over stayed on the card until the cyclic collector
+    happened to run. At 480 tokens on Wormhole that held three extra pair tensors per Evoformer
+    block, 177 MB a block and ~3 GB over the backward, which is what ran a 12 GiB chip out of
+    memory (`perf/spd/bc2_blockmem.py`, `state/spd-bc2.md`). The collector never saw it in a
+    probe either: ttnn tensors are not GC-tracked, so they do not appear in `gc.garbage`.
+    """
+    __slots__ = ("x", "w", "shape", "cfg")
+
+    def __init__(self, x, w, shape, cfg):
+        self.x, self.w, self.shape, self.cfg = x, w, shape, cfg
+
+    def add_grad(self, G):
+        _weight_vjp(self.x, self.w, ttnn.reshape(G, self.shape), self.cfg)
+
+
 @_kernel("triatt_qkv_heads")
 def _k_triatt_qkv_heads(shipped, args, kwargs):
     """`triatt_qkv.qkv_heads`: the qkv projection written head-major, so the taped recompute
@@ -1328,12 +1348,7 @@ def _k_triatt_qkv_heads(shipped, args, kwargs):
         return None
     B, H, L, dh = (int(d) for d in outs[0].shape)
     width, K = H * dh, int(w.value.shape[0])
-
-    class _Sink:
-        def add_grad(self, G):
-            _weight_vjp(x, w, ttnn.reshape(G, [B, L, 3 * width]), cfg)
-
-    sink = _Sink()
+    sink = _QKVSink(x, w, [B, L, 3 * width], cfg)
 
     def slot(s):
         def make():
