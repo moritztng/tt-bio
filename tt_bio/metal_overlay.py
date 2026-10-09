@@ -13,12 +13,12 @@ same way (tenstorrent/tt-metal#59622, issue #52270) and the ttnn wheels tt-bio r
 Every Protenix-v2 hang diagnosed on p150a/p300c had its signature. Same bytes, so bit-identical.
 ``TT_BIO_BH_DRAM_READ_SPLIT=0`` turns it off; a ``TT_METAL_RUNTIME_ROOT`` the user set is respected.
 
-``silu_approx`` (measuring only, ``TT_BIO_SILU_APPROX``): ``calculate_silu`` drops the caller's ``APPROXIMATION_MODE``
-(every sibling activation honours it), so a matmul with ``fp32_dest_acc_en=True`` and
-``math_approx_mode=True`` -- every Protenix Transition fc1 -- runs the accurate exp and a two-step
-reciprocal on each element. The patch threads the flag through: under approx mode silu takes
-exp_21f (about 1 ulp of bfloat16) and one Newton step, still on the fp32 accumulator, so the input
-is never rounded. Sites with ``math_approx_mode=False`` compile exactly as before.
+``silu_f32`` (Protenix's ``silu_f32`` lever, see tenstorrent.silu_ckc): ``calculate_silu`` drops the
+caller's ``APPROXIMATION_MODE`` (every sibling activation honours it) and on an fp32 dest runs the
+accurate exp and a two-step reciprocal, 92 SFPU instructions a row on Wormhole. The patch threads the
+flag through and, under approx mode only, runs ``calculate_silu_f32`` (kernels/silu_f32): 6e-6 of
+float64 on the fp32 accumulator in 32 instructions. Sites with ``math_approx_mode=False`` compile
+exactly as before.
 
 ``enable()`` must run before the first device open; a second call adds its names to the overlay
 already enabled. Each overlay gets its own JIT cache: tt-metal keys a compiled kernel on its defines
@@ -40,23 +40,6 @@ ARCHES = ("wormhole_b0", "blackhole")
 _SFPU = "tt_metal/hw/ckernels/{arch}/metal/llk_api/llk_sfpu"
 
 
-def _patch_silu_kernel(src: str) -> str:
-    src, n1 = re.subn(
-        r"template <bool is_fp32_dest_acc_en, int ITERATIONS>\s*\ninline void calculate_silu\(\)",
-        "template <bool is_fp32_dest_acc_en, int ITERATIONS, bool APPROXIMATION_MODE = false>\n"
-        "inline void calculate_silu()",
-        src,
-    )
-    src, n2 = re.subn(
-        r"x \* _sfpu_sigmoid_<is_fp32_dest_acc_en>\(x\)",
-        "x * _sfpu_sigmoid_<is_fp32_dest_acc_en && !APPROXIMATION_MODE>(x)",
-        src,
-    )
-    if (n1, n2) != (1, 1):
-        raise RuntimeError(f"silu_approx: ckernel_sfpu_silu.h anchors matched {n1}, {n2} times")
-    return src
-
-
 def _patch_silu_llk(src: str) -> str:
     src, n = re.subn(
         r"calculate_silu<is_fp32_dest_acc_en, (8|ITERATIONS)>",
@@ -64,8 +47,38 @@ def _patch_silu_llk(src: str) -> str:
         src,
     )
     if n != 1:
-        raise RuntimeError(f"silu_approx: llk_math_eltwise_unary_sfpu_silu.h anchor matched {n} times")
+        raise RuntimeError(f"silu_f32: llk_math_eltwise_unary_sfpu_silu.h anchor matched {n} times")
     return src
+
+
+_SILU_F32 = Path(__file__).resolve().parent / "kernels" / "silu_f32" / "ckernel_sfpu_silu_f32.h"
+
+
+def _patch_silu_f32(src: str) -> str:
+    """Under math_approx_mode, silu runs calculate_silu_f32 (a few ulp of float32, 32 instructions a row)."""
+    src, n0 = re.subn(r'(#include "ckernel_sfpu_sigmoid.h"\n)', r'\1#include "ckernel_sfpu_silu_f32.h"\n', src)
+    src, n1 = re.subn(
+        r"template <bool is_fp32_dest_acc_en, int ITERATIONS>\s*\ninline void calculate_silu\(\) \{\n",
+        "template <bool is_fp32_dest_acc_en, int ITERATIONS, bool APPROXIMATION_MODE = false>\n"
+        "inline void calculate_silu() {\n"
+        "    if constexpr (APPROXIMATION_MODE) {\n"
+        "        calculate_silu_f32<is_fp32_dest_acc_en, ITERATIONS>();\n"
+        "        return;\n"
+        "    }\n",
+        src,
+    )
+    src, n2 = re.subn(
+        r"(template <bool APPROXIMATION_MODE>\s*\ninline void silu_init\(\) \{\n)",
+        r"\1    if constexpr (APPROXIMATION_MODE) {\n        silu_f32_init();\n        return;\n    }\n",
+        src,
+    )
+    if (n0, n1, n2) != (1, 1, 1):
+        raise RuntimeError(f"silu_f32: ckernel_sfpu_silu.h anchors matched {n0}, {n1}, {n2} times")
+    return src
+
+
+def _add_silu_f32(src: str | None) -> str:
+    return _SILU_F32.read_text()
 
 
 DATAFLOW_API = "tt_metal/hw/inc/api/dataflow/dataflow_api.h"
@@ -105,12 +118,13 @@ def _patch_dram_read_split(src: str) -> str:
 
 PATCHES = {
     "bh_dram_read_split": {DATAFLOW_API: _patch_dram_read_split},
-    "silu_approx": {
+    "silu_f32": {
         f"{_SFPU.format(arch=arch)}/{name}": fn
         for arch in ARCHES
         for name, fn in (
-            ("ckernel_sfpu_silu.h", _patch_silu_kernel),
+            ("ckernel_sfpu_silu.h", _patch_silu_f32),
             ("llk_math_eltwise_unary_sfpu_silu.h", _patch_silu_llk),
+            ("ckernel_sfpu_silu_f32.h", _add_silu_f32),
         )
     },
 }
@@ -135,7 +149,10 @@ def build(names, root: Path | None = None, cache: Path | None = None) -> Path:
     files: dict[str, str] = {}
     for name in sorted(names):
         for rel, fn in PATCHES[name].items():
-            src = (root / rel).read_text() if rel not in files else files[rel]
+            if rel in files:
+                src = files[rel]
+            else:
+                src = (root / rel).read_text() if (root / rel).exists() else None
             files[rel] = fn(src)
     key = hashlib.sha256(str(root).encode())
     for rel in sorted(files):
@@ -176,7 +193,7 @@ def _mirror(root: Path, dst: Path, rel: Path) -> None:
         if not link.exists() and not link.is_symlink():
             link.symlink_to(entry)
     # The file itself must be a real file: writing through a link would edit the wheel.
-    (here_dst / rel.name).unlink()
+    (here_dst / rel.name).unlink(missing_ok=True)
 
 
 def enable(names) -> Path:
