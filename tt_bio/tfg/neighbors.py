@@ -200,8 +200,8 @@ class SevereSet:
 
 
 class BoundField:
-    """Voxel bounds on min_j (|x - b_j| - f rb_j), f = 0.85 and 0.75, per sample. For a point x in a voxel with centre c
-    and half diagonal delta, |x - b| lies within |c - b| +- delta, so the voxel value proves that x overlaps nothing
+    """Voxel bounds on min_j (|x - b_j| - f rb_j), per sample: a lower bound for f = 0.85, an upper bound for f = 0.75.
+    For a point x in a voxel with centre c and half diagonal delta, |x - b| lies within |c - b| +- delta, so the voxel value proves that x overlaps nothing
     (soft bound - delta >= 0.85 ra) or that x has a severe pair (hard bound + delta < 0.75 ra). 1e-3 A margin."""
 
     def __init__(self, fixed, rb, ra_max, v=1.5, margin=1e-3):
@@ -223,13 +223,16 @@ class BoundField:
         base = (torch.arange(S)[:, None] * self.nvox + (vox[..., 0] * dy + vox[..., 1]) * dz + vox[..., 2]).long()
         step = (off[:, 0] * dy + off[:, 1]) * dz + off[:, 2]
         flat = (base.reshape(-1, 1) + step).reshape(-1)
-        # exact distance from each neighbouring voxel centre to the atom, from small relative vectors
-        dist = (rel.reshape(-1, 1, 3) + off.float() * v).norm(dim=-1)        # [S N, O]
-        rbs = rb.repeat(S)[:, None]
+        # distance from each neighbouring voxel centre to the atom, |rel + o|^2 = |rel|^2 + 2 rel.o + |o|^2 from small
+        # relative vectors (fp32 error ~1e-6 A, far inside the margin)
+        o = off.float() * v
+        rel = rel.reshape(-1, 3)
+        dist = torch.addmm(rel.square().sum(-1, keepdim=True) + o.square().sum(-1), rel, 2 * o.T).clamp_min_(0).sqrt_()
         self.soft = torch.full((S * self.nvox,), float("inf")).scatter_reduce_(
-            0, flat, (dist - SOFT * rbs).reshape(-1), "amin")
-        self.hard = torch.full((S * self.nvox,), float("inf")).scatter_reduce_(
-            0, flat, (dist - HARD * rbs).reshape(-1), "amin")
+            0, flat, dist.sub_(SOFT * rb.repeat(S)[:, None]).reshape(-1), "amin")
+        # the atom attaining the soft bound has |c - b| - 0.75 rb = soft + 0.1 rb <= soft + 0.1 max(rb): an upper bound
+        # on the hard field, which is all the severe proof needs
+        self.hard = self.soft + (SOFT - HARD) * float(rb.max())
 
     def classify(self, X, sample, ra):
         """X [n, 3] -> (far [n], severe [n]) bool."""
