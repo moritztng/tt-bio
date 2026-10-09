@@ -2,11 +2,11 @@
 
     TT_VISIBLE_DEVICES=N python perf/spd_swiglu/silu_bench.py --arm {base,f32} --out OUT.json
 
-The arm decides which ttnn kernel headers the process compiles against, so it is one per process:
-  base  the wheel as shipped (its fp32-dest silu ignores math_approx_mode)
-  f32   metal_overlay silu_f32 (calculate_silu_f32 under approx; the silu_f32 lever)
+One arm per process, as a fold sets the lever once:
+  base  the wheel's silu: math_approx_mode=False, which the silu_f32 overlay leaves as shipped
+  f32   the silu_f32 lever: math_approx_mode=True, which the overlay turns into calculate_silu_f32
 Every matmul here runs Protenix's transition config (HiFi4, fp32 dest, packer L1 acc) with
-math_approx_mode=True, the switch the overlay keys on; under base the flag is inert.
+math_approx_mode taken from the arm, as tenstorrent.silu_ckc does.
 
 exact: x @ I for every bfloat16 x in [-100, 100] (and its negation), fc1's fused silu written fp32.
   The product is exact, so the dest holds x and the output is the SFPU's silu of x, compared with
@@ -87,7 +87,7 @@ def clock(t0, t1):
 
 
 CKC_CLS = ttnn.WormholeComputeKernelConfig if ARCH == "wormhole" else ttnn.types.BlackholeComputeKernelConfig
-CKC = CKC_CLS(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=True, fp32_dest_acc_en=True,
+CKC = CKC_CLS(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=a.arm == "f32", fp32_dest_acc_en=True,
               packer_l1_acc=True)
 L1 = ttnn.L1_MEMORY_CONFIG
 res = {"arm": a.arm, "host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH,
