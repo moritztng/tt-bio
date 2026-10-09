@@ -74,6 +74,7 @@ EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
           "pytest_cpu": 1800, "bc2": 1200}
 TIMED = {"perf"}
+LOG_CAP = 20 << 20
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
@@ -243,9 +244,12 @@ class Host:
         cmd = (f"set -e; if [ ! -d {t} ]; then git -C {r}/repo fetch -q origin; "
                f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; "
                f"cd {t}; bash scripts/fetch_parity_fixtures.sh >/dev/null; fi; "
-               f"test \"$(git -C {t} rev-parse HEAD)\" = {self.sha}; "
-               f"cd {t} && env {envs} bash scripts/gate_host_prep.sh {r} {self.sha}")
-        p = self.ssh(cmd, capture_output=True, timeout=3600)
+               f"test \"$(git -C {t} rev-parse HEAD)\" = {self.sha}")
+        p = self.ssh(cmd, capture_output=True, timeout=1800)
+        if not p.returncode:
+            # The runner's own copy of the recipe: the commit under test may predate it.
+            p = self.ssh(f"cd {t} && env {envs} bash -s -- {r} {self.sha}", capture_output=True,
+                         timeout=3600, input=(REPO / "scripts" / "gate_host_prep.sh").read_text())
         if p.returncode:
             raise SystemExit(f"{self.name}: cannot prepare {t} at {self.sha}: "
                              f"{(p.stderr or p.stdout).strip()[-600:]}")
@@ -445,10 +449,19 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                                  if host.cfg.get("ssh") not in (None, "", "localhost") else
                                  ["bash", "-c", host.command(leg, card, rdir)],
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            # The runner's host keeps every leg's log; cap each at LOG_CAP bytes (head kept, last
+            # lines kept in memory) so one chatty leg cannot fill its disk.
+            written, tail = 0, []
             for line in p.stdout:
                 if line.startswith("##LEG-START ") and start is None:
                     start = float(line.split()[1])
-                f.write(line)
+                if written < LOG_CAP:
+                    f.write(line)
+                    written += len(line)
+                else:
+                    tail = (tail + [line])[-400:]
+            if tail:
+                f.write(f"\n# ... log capped at {LOG_CAP} bytes; last {len(tail)} lines:\n" + "".join(tail))
             rc = p.wait()
         report = None
         if leg.workdir:
