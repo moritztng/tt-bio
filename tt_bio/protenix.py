@@ -333,9 +333,10 @@ _ATOM_SUPERSET = env_flag("TT_BIO_ATOM_SUPERSET_WINDOW", True)
 # those were ~10 of the 18 ms fp32 module on a Wormhole chip). "0" restores the round trips.
 _ATOM_TILE_HEADS = env_flag("TT_BIO_ATOM_TILE_HEADS", True)
 # The fp32 superset attention as ONE SDPA program (sdpa_generic with fp32 q, k, v, mask and output,
-# spd-diffusion's dit_sdpa32 recipe) in place of matmul + scale_add + softmax + matmul. Off until
-# graded; inert in bf16, where atom_sdpa covers the same site.
-_ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", False)
+# spd-diffusion's dit_sdpa32 recipe) in place of matmul + scale_add + softmax + matmul. Closer to a
+# float64 reference than the four ops (rel rms 0.0217 vs 0.0265); graded on the 11-set x 4 seeds,
+# same-seed top-pose deviation median 0.047 A (WH). Inert in bf16, where atom_sdpa covers the same site.
+_ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", True)
 # Under atom_sdpa or atom_sdpa32 with TILE heads, the reader takes K and V straight from the head frame as
 # sliding windows (sdpa_generic `kv_window`) instead of the 5 slices + concat that copy every frame row 5
 # times, and Q from its frame rows the same way. Bit-exact: same tiles, same program. In bf16 it is the wheel's own fused SDPA at atom_sdpa's
