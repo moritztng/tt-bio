@@ -291,6 +291,14 @@ def test_flock_first_never_stops_another_gates_wait(tmp_path):
     assert not Path(f"{lock}.gate-stopped").exists() or Path(f"{lock}.gate-stopped").read_text() == ""
     assert holder.wait(10) == 0 and gate.wait(10) == 0 and other.wait(20) == 0
 
+def test_flock_first_frees_the_card_when_its_leg_ends(tmp_path):
+    """The grace keeps paused waiters paused; it must not keep the card locked."""
+    lock = tmp_path / "card.lock"
+    lock.touch()
+    assert subprocess.run(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "true"],
+                          env={"FLOCK_FIRST_GRACE": "5", "PATH": "/usr/bin:/bin"}).returncode == 0
+    assert subprocess.run(["flock", "-n", str(lock), "true"]).returncode == 0
+
 def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
     h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r", "perf_against": "v0.13.1",
                         "lock": "/l/card{card}.lock"}, "a" * 40)

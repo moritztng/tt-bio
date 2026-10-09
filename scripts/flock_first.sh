@@ -31,7 +31,7 @@ reap() {
         exec 9>>"$2"
         flock -n 9 || exit 0          # a gate leg holds the card again; its own reaper continues them
         [ -s "$3" ] && xargs -r kill -CONT < "$3" 2>/dev/null
-        : > "$3"' reap "$grace" "$lock" "$reg" </dev/null >/dev/null 2>&1 &
+        : > "$3"' reap "$grace" "$lock" "$reg" </dev/null >/dev/null 2>&1 9>&- &   # 9>&-: or the reaper holds the card through the grace
 }
 
 exec 9>>"$lock"
