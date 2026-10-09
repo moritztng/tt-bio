@@ -101,7 +101,28 @@ class Audit:
                 self.emit(op=op, site=key_site, a=list(A.shape), b=list(B.shape), cfg=extra, skipped=f"activation {act}")
                 return
             R = f(R)
-        Y2 = Y2.reshape(R.shape)
+        self.score(op, key_site, list(A.shape), list(B.shape), extra, R, Y2.reshape(R.shape), frac, t0)
+
+    def check_sdpa(self, L):
+        """sdpa_generic.sdpa: softmax((q k^T + mask) * scale) v, plain calls only (no window, fusion or own kernels)."""
+        kw = L.get("kw") or {}
+        if any(kw.get(k) for k in ("kv_window", "fuse_qkv", "split", "kernel_dir", "defines_extra", "gate")):
+            return
+        q, k, v, m, out = (L[n] for n in ("q", "k", "v", "mask", "out"))
+        ck = L.get("ckc")
+        extra = {"pc": {"q_chunk": L.get("q_chunk_size"), "k_chunk": L.get("k_chunk_size")},
+                 "ckc": [str(c) for c in ck] if ck is not None else "default", "dtype": str(out.dtype),
+                 "a_dtype": str(q.dtype), "b_dtype": str(k.dtype), "core_grid": str(L.get("grid"))}
+        key = ("sdpa_generic", site(), tuple(q.shape), tuple(k.shape), json.dumps(extra, sort_keys=True))
+        self.seen[key] += 1
+        if self.seen[key] > self.per_site:
+            return
+        t0 = time.time()
+        Q, K, V, M, Y = (ttnn.to_torch(t).double() for t in (q, k, v, m, out))
+        R = torch.softmax((Q @ K.transpose(-1, -2) + M) * float(L["scale"]), dim=-1) @ V
+        self.score("sdpa_generic", key[1], list(Q.shape), list(V.shape), extra, R, Y.reshape(R.shape), 1.0, t0)
+
+    def score(self, op, key_site, sa, sb, extra, R, Y2, frac, t0):
         err = (Y2 - R).abs()
         fin = torch.isfinite(Y2)
         rms_ref = R.pow(2).mean().sqrt().item() or 1e-30
@@ -113,7 +134,7 @@ class Audit:
         if nb:
             v, i = err[bad].topk(min(3, nb))
             worst = [[round(float(R[bad][j]), 5), round(float(Y2[bad][j]), 5)] for j in i.tolist()]
-        self.emit(op=op, site=key_site, call=self.seen[key], a=list(A.shape), b=list(B.shape), cfg=extra,
+        self.emit(op=op, site=key_site, a=sa, b=sb, cfg=extra,
                   checked_el=int(R.numel()), frac=round(frac, 5), wrong=nb, nonfinite=int((~fin).sum()),
                   max_err=round(float(err[fin].max()) if fin.any() else float("nan"), 5),
                   max_err_rel=round(float(err[fin].max()) / rms_ref if fin.any() else float("nan"), 5),
@@ -149,9 +170,19 @@ class Audit:
         gen = ttnn.generic_op
 
         def g(*args, **kw):
-            if not self.tracing:
-                self.generic[site()] += 1
-            return gen(*args, **kw)
+            if self.tracing:
+                return gen(*args, **kw)
+            self.generic[site()] += 1
+            f = sys._getframe(1)
+            while f is not None and not (f.f_code.co_name == "sdpa" and f.f_code.co_filename.endswith("sdpa_generic.py")):
+                f = f.f_back
+            r = gen(*args, **kw)
+            if f is not None:
+                try:
+                    self.check_sdpa(dict(f.f_locals))
+                except Exception as e:
+                    self.emit(op="sdpa_generic", site=site(), error=f"{type(e).__name__}: {str(e)[:300]}")
+            return r
         ttnn.generic_op = g
         btc, etc = ttnn.begin_trace_capture, ttnn.end_trace_capture
 
