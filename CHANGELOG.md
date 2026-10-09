@@ -6,11 +6,26 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
-
+- **Protenix-v2 is 1.6x faster on Wormhole.** A warm 730-token fold (deep MSA, 5 samples, 10 recycles)
+  takes 307 s on a Galaxy chip at 1000 MHz, against 501 s before. A graded set of cheaper numerics is on by
+  default; structures stay inside seed-to-seed variation on Wormhole and Blackhole (11 complexes x 4
+  seeds, median top-pose deviation 0.38 / 0.32 A against a 0.8 A re-seed). `TT_BIO_LEVERS=none` restores
+  the reference numerics. `--fast` now runs a larger graded set: 246 s on the same fold on Wormhole.
+  [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
+- Blackhole kernels split DRAM reads larger than 2 KiB, the tt-metal#59622 workaround for a NoC hang
+  (`TT_BIO_BH_DRAM_READ_SPLIT`, same bytes).
+- Protenix-v2 runs its confidence head on the card by default (`TT_PROTENIX_CONF_DEVICE`, `0` turns it
+  off). A warm 730-token fold on Wormhole drops from 384 to 368 s; coordinates are unchanged and
+  pLDDT, pTM and ipTM match the host heads to 2e-4. OpenDDE keeps the host heads unless asked.
 - **`--diffusion_precision bf16` documentation corrected.** Graded on eleven complexes, bf16 matches
   fp32 on nine, but on two where fp32 misses the interface it picks a different binding mode, once
   right and once a confidently wrong fold that ranks first. The default stays fp32.
   [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+
+### Fixed
+- The device confidence path read pair distances from a bf16 expansion that put a 3.8 A neighbour
+  anywhere from 0 to 5 A, started every sample's pairformer from the previous sample's output, and
+  left the fold's resident tensors on the card for the next fold.
 
 ## [0.13.1] - 2026-10-08
 

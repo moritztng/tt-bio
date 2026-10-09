@@ -18,6 +18,30 @@
 #ifndef TRIMUL_TAIL_SKIP_SIGMOID
 #define TRIMUL_TAIL_SKIP_SIGMOID 0
 #endif
+// The epilogue. 0 is production's order, bit-exact: fp32 accumulator -> bf16 copy per pass, a
+// sigmoid copy, the SFPU multiply and the integer rounding. 1 packs each pass straight out of DST
+// into its bf16 CB (the sigmoid applied in DST on the gate pass) and gates with the FPU multiply:
+// four unpack/pack round trips and two SFPU ops fewer per output tile, at one bf16 ULP on ties.
+// 1 needs exactly one K block, which `trimul_tail.eligible` already requires. 2 is 1 plus the
+// residual: the output tensor IS the pair being updated, the non-writer DM kernel reads each
+// block's z tiles through the output accessor before the writer overwrites them, and the compute
+// adds them to the gated product in DST, so the trailing `add_` (2P read, 1P write) is gone.
+#ifndef TRIMUL_TAIL_EPI
+#define TRIMUL_TAIL_EPI 0
+#endif
+// Both passes read the same activation (the in-projection's p and g of one x): pass 1 reuses pass
+// 0's in0 block, which compute pops only after pass 1, so each activation block is read and
+// forwarded down the in0 chain once instead of twice.
+#ifndef TRIMUL_TAIL_SHARED_IN0
+#define TRIMUL_TAIL_SHARED_IN0 0
+#endif
+// Diagnostic only, never set in production: a stage ablation that keeps every CB handshake and
+// the in0 chain but drops one stage's work, so a timing says which stage binds. Bit 1: the in0
+// injector skips its DRAM read. Bit 2: compute skips the matmul. Bit 4: the writer skips its
+// DRAM writes. Bit 8: the in1 sender skips its DRAM read. The output is garbage under any bit.
+#ifndef TRIMUL_TAIL_ABL
+#define TRIMUL_TAIL_ABL 0
+#endif
 // SPDX-FileCopyrightText: © 2025 Tenstorrent AI ULC
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -123,6 +147,39 @@ void gate_block(
         pack_tile(0, out_cb);
         tile_regs_release();
         cb_pop_front(sig_cb, 1);
+    }
+    cb_push_back(out_cb, block_num_tiles);
+}
+
+// out = p * sig, the FPU multiply over one output block, four tiles per DST acquire (the fp32
+// half-sync capacity). Used by TRIMUL_TAIL_EPI >= 1 only.
+// With RESID (TRIMUL_TAIL_EPI == 2) it adds the residual block in resid_cb in DST: out = z + p * sig.
+template <bool RESID>
+void gate_block_fpu(
+    uint32_t p_cb, uint32_t sig_cb, uint32_t resid_cb, uint32_t out_cb, uint32_t block_num_tiles) {
+    reconfig_data_format(p_cb, sig_cb);
+    pack_reconfig_data_format(out_cb);
+    for (uint32_t t0 = 0; t0 < block_num_tiles; t0 += 4) {
+        const uint32_t n = (block_num_tiles - t0) < 4 ? (block_num_tiles - t0) : 4;
+        tile_regs_acquire();
+        mul_tiles_init(p_cb, sig_cb);
+        for (uint32_t i = 0; i < n; i++) {
+            mul_tiles(p_cb, sig_cb, t0 + i, t0 + i, i);
+        }
+        if constexpr (RESID) {
+            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                resid_cb);
+            for (uint32_t i = 0; i < n; i++) {
+                binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
+                    resid_cb, t0 + i, i);
+            }
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t i = 0; i < n; i++) {
+            pack_tile(i, out_cb);
+        }
+        tile_regs_release();
     }
     cb_push_back(out_cb, block_num_tiles);
 }
@@ -346,7 +403,8 @@ void matmul_blocks(
     const uint32_t full_N_block_tiles,
     const uint32_t K_block_tiles,
     const uint32_t subblock_h,
-    const uint32_t subblock_w) {
+    const uint32_t subblock_w,
+    const bool tail_sigmoid = false) {
     uint32_t in0_index_offset = 0;
 
     for (uint32_t M_start = 0; M_start < M_block_tiles; M_start += subblock_h) {
@@ -371,6 +429,11 @@ void matmul_blocks(
                     K_block_tiles);
                 in0_index++;
                 in1_index += full_N_block_tiles;
+            }
+            if (tail_sigmoid) {
+                for (uint32_t i = 0; i < subblock_h * subblock_w; i++) {
+                    sigmoid_bf16_tile(i);
+                }
             }
             tile_regs_commit();
 
@@ -467,6 +530,11 @@ void kernel_main() {
 
             for (uint32_t pass = 0; pass < TRIMUL_TAIL_PASSES; pass++) {
             const uint32_t pass_cb = (pass == 0) ? p_cb : g_cb;
+#if TRIMUL_TAIL_EPI >= 1
+            const uint32_t mm_out_cb = pass_cb;
+#else
+            const uint32_t mm_out_cb = intermediate_cb;
+#endif
             mm_block_init_short(
                 in0_cb,
                 in1_cb,
@@ -475,23 +543,24 @@ void kernel_main() {
                 current_subblock_h /*rt_dim*/,
                 K_block_tiles /*kt_dim*/);
             reconfig_data_format(in1_cb, in0_cb);
-            pack_reconfig_data_format(intermediate_cb);
+            pack_reconfig_data_format(mm_out_cb);
             // Accumulation buffer
-            cb_reserve_back(intermediate_cb, out_block_num_tiles);
+            cb_reserve_back(mm_out_cb, out_block_num_tiles);
             for (uint32_t k_block = 0; k_block < K_num_blocks; k_block++) {
                 cb_wait_front(in0_cb, in0_block_num_tiles);
                 cb_wait_front(in1_cb, in1_block_num_tiles);
 
-                matmul_blocks(
+                if (!(TRIMUL_TAIL_ABL & 2)) matmul_blocks(
                     in0_cb,
                     in1_cb,
-                    intermediate_cb,
+                    mm_out_cb,
                     current_M_block_tiles,
                     current_N_block_tiles,
                     N_block_tiles,
                     K_block_tiles,
                     current_subblock_h,
-                    current_subblock_w);
+                    current_subblock_w,
+                    TRIMUL_TAIL_EPI >= 1 && pass == 1);
 
                 if (k_block == K_num_blocks - 1) {
                     /**
@@ -503,7 +572,7 @@ void kernel_main() {
                         reuse_in0_block = true;
                     }
                 }
-                if (!reuse_in0_block) {
+                if (!reuse_in0_block && !(TRIMUL_TAIL_SHARED_IN0 && pass == 0)) {
                     cb_pop_front(in0_cb, in0_block_num_tiles);
                 }
                 cb_pop_front(in1_cb, in1_block_num_tiles);
@@ -513,21 +582,31 @@ void kernel_main() {
                 }
             }
 
-            cb_push_back(intermediate_cb, out_block_num_tiles);
+            cb_push_back(mm_out_cb, out_block_num_tiles);
             PACK((llk_pack_reconfig_l1_acc(0)));
 
+#if TRIMUL_TAIL_EPI == 0
             // The fp32 accumulator -> bf16, through the wheel's own copy_block: this is the
             // identical pack that writes p_out and g_out to DRAM in production.
             cb_reserve_back(pass_cb, out_block_num_tiles);
             cb_wait_front(intermediate_cb, out_block_num_tiles);
             copy_block(intermediate_cb, pass_cb, M_block_tiles, N_block_tiles);
             cb_pop_front(intermediate_cb, out_block_num_tiles);
+#endif
             }  // pass
 
             cb_reserve_back(out_cb, out_block_num_tiles);
             cb_wait_front(p_cb, out_block_num_tiles);
             cb_wait_front(g_cb, out_block_num_tiles);
+#if TRIMUL_TAIL_EPI == 1
+            gate_block_fpu<false>(p_cb, g_cb, g_cb, out_cb, out_block_num_tiles);
+#elif TRIMUL_TAIL_EPI == 2
+            cb_wait_front(tt::CBIndex::c_7, out_block_num_tiles);
+            gate_block_fpu<true>(p_cb, g_cb, tt::CBIndex::c_7, out_cb, out_block_num_tiles);
+            cb_pop_front(tt::CBIndex::c_7, out_block_num_tiles);
+#else
             gate_block(p_cb, g_cb, sig_cb, out_cb, out_block_num_tiles);
+#endif
             cb_pop_front(p_cb, out_block_num_tiles);
             cb_pop_front(g_cb, out_block_num_tiles);
         }

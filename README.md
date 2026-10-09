@@ -297,7 +297,9 @@ ESMFold2 needs no MSA and uses one when a source is given.
 
 `--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close; the Boltz-2 measurement is in [`docs/boltz2-fast-parity.md`](docs/boltz2-fast-parity.md).
 
-For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. On Wormhole `--fast` does not speed Protenix up. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+
+Protenix-v2 folds a 730-token complex (deep MSA, 5 samples, 10 recycles) in about 307 s on one Wormhole chip, 1.6x faster than before, with structures inside seed-to-seed variation on Wormhole and Blackhole; [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers) has the grade and the switch back to the reference numerics. With `--fast` the same fold takes about 246 s on Wormhole, for a CA-lDDT drop of 0.004 and docking success 2 points lower on 11 complexes; `--fast` is not yet graded on Blackhole.
 
 ### Many Inputs and Cards
 
@@ -951,7 +953,7 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_TRIMUL_MM_TRANSPOSE` | on | The matmul takes a triangle multiplication's operand transpose. Bit for bit; `--fast` keeps the separate op. |
 | `TT_BIO_TRIMUL_TAIL_F1` | on | Output projection, gate projection and gate multiply as one kernel. Bit for bit. |
 | `TT_BIO_TRIMUL_TAIL_F1_L1_OUT` | on | Lands that fused tail's product in L1. Bit for bit. |
-| `TT_PROTENIX_CONF_DEVICE` | off | Protenix-v2 and OpenDDE: runs the confidence head on the card. Off because pLDDT is precision-sensitive here; coordinates are unaffected. |
+| `TT_PROTENIX_CONF_DEVICE` | on for Protenix-v2, off for OpenDDE | Runs the confidence head on the card; a 730-token Protenix-v2 fold is about 4 % faster. Coordinates are unchanged and confidence scores match the host path to 1e-4. Set `0` to run the heads on the host. |
 
 What each one is worth in seconds, at what clock, and how it was measured: [`docs/tuning-flags.md`](docs/tuning-flags.md).
 

@@ -70,6 +70,22 @@ TRIATT_PERSISTENT_MASK = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_PERSISTENT_MASK", "1" if TRIATT_PERSISTENT_MASK else "0") == "1"
 
+# Add the persistent mask by seeding DST with it ahead of the QK^T matmul, instead of a separate
+# add pass over the score block (one of the four whole-block packs per k chunk; ABLATE_MASKADD
+# priced that pass at 1.17 ms of a 6.55 ms op). MEASURED at [736, 8, 736, 32] bf16 on one
+# Wormhole Galaxy chip at 1000 MHz (perf/spd_attn/opbench.py, .107 chip 8): q256 k384 20.01 ->
+# 17.39 ms, q256 k768 17.39 -> 15.79 ms; rel_rms against float64 0.02667 -> 0.02672 and
+# 0.02724 -> 0.02721. "0" turns it off.
+QK_MASK_PRELOAD = env_flag("TT_BIO_TRIATT_QK_MASK_PRELOAD", True)
+
+
+def _mask_defines(k_num_chunks: int) -> dict:
+    d = {"PERSISTENT_MASK": k_num_chunks}
+    if QK_MASK_PRELOAD:
+        d["QK_MASK_PRELOAD"] = 1
+    return d
+
+
 # The q-split above, ON by default up to _Q_SPLIT_MAX_S padded tokens. Verified at 768 aa with the
 # _PM_OVER_L1 fix in place: -17.670 s (6.4 %) on the fold, byte-identical CIF and plDDT, 7x the
 # 2.543 s A/A floor (perf/sizes/qsplitfix_768.json, qb1 card 2, benchlock). Raised to 1024 on the
@@ -225,8 +241,26 @@ def per_core_cost(p, q_chunk: int, seq: int) -> int:
             + p["batch_per_core"] * 2 * seq)
 
 
+# Chunk widths, in tiles, that `fused_pairs(padded=True)` offers. A padded chunk is free to be any
+# width, and the cost model alone would take the widest k (one chunk, no rescale), but a prime tile
+# count leaves the matmul and reduce stages one tile wide. MEASURED at 736 tokens (23 tiles), 8
+# heads, bf16, mask-reuse kernel, one Wormhole chip at 1000 MHz (state/lpx-sdpa.md, reuse1): q192
+# against k256 / k384 / k736 = 24.81 / 22.17 / 24.54 ms, and q96 k384 / k736 = 27.69 / 28.19.
+# The whole row is offered as one k chunk at an EVEN tile count instead (`_one_k_chunk`): 24 tiles
+# at 736 keeps 2-wide subblocks, and q256 k768 measured 17.39 ms against q256 k384's 20.01 ms on
+# the same chip (perf/spd_attn/opbench.py), the rescale gone and only one padded tile computed.
+_PADDED_CHUNK_TILES = (16, 12, 8, 6, 4)
+
+
+def _one_k_chunk(seq: int) -> int:
+    """The whole padded row as one k chunk, rounded up to an even tile count."""
+    t = -(-seq // SG.TILE)
+    return (t + t % 2) * SG.TILE
+
+
 @lru_cache(maxsize=None)
-def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None) -> tuple:
+def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
+                padded: bool = False) -> tuple:
     """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first.
 
     Its two constraints pull in opposite directions, and neither is on the stock op's ladder:
@@ -251,10 +285,17 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
 
     Empty when nothing fits, which is the answer at 1184, 1312, 1856 and every other padded
     length whose only 32-aligned divisors are 32 and itself.
+
+    `padded=True` answers for exactly those lengths: pairs that leave a padded tail, for
+    `sdpa(..., padded_mask=True)`, whose persistent-mask reader fills the tail tiles with -inf as
+    the per-chunk read does. Priced on the padded extents the kernel actually runs, and drawn from
+    `_PADDED_CHUNK_TILES` rather than every multiple of 32.
     """
     out = []
-    for kc in SG.chunk_divisors(seq):
-        for qc in SG.chunk_divisors(seq):
+    chunks = (tuple(t * SG.TILE for t in _PADDED_CHUNK_TILES if t * SG.TILE < seq) if padded
+              else SG.chunk_divisors(seq))
+    for kc in (chunks + (_one_k_chunk(seq),) if padded else chunks):
+        for qc in chunks:
             q_pf = q_parallel_factor(seq, heads, qc, cores, cap=0)
             # `plan` reads the grid only as a core count here, and its split assert is against
             # that count -- so the grid has to carry the caller's `cores`, not the module default.
@@ -263,7 +304,7 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             # the fold rather than falling through to the stock ladder.
             p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, grid=(cores, 1), split=(
                 max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
-            if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
+            if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"] != padded:
                 continue
             pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
             # Every operand CB at the dtype the call will carry, not just the mask.
@@ -274,7 +315,7 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             dts = {} if mask_dtype is None else {
                 f"{o}_dtype": mask_dtype for o in ("q", "k", "v", "mask", "out")}
             if SG.cb_fits_l1(p, mask_cb_tiles=pers, **dts):
-                out.append((per_core_cost(p, qc, seq), qc, kc))
+                out.append((per_core_cost(p, qc, p["k_num_chunks"] * kc), qc, kc))
     return tuple((qc, kc) for _c, qc, kc in sorted(out))
 
 
@@ -326,7 +367,7 @@ def _reject(reason, shape):
 
 
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
-         q_split_cap: int = -1, gate=None):
+         q_split_cap: int = -1, gate=None, padded_mask: bool = False):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
 
     `q_split_cap=0` lifts `_Q_SPLIT_MAX_S` for this call. Only `_tri_att_sdpa_at`'s above-cap
@@ -335,6 +376,10 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     `gate` folds triangle attention's `o * sigmoid(g)` into the pack stage. It is all or nothing:
     given a gate this returns a GATED output or `None`, never an ungated one, so a caller that
     reads `None` still owes the multiply.
+
+    `padded_mask` admits a q or k chunk that does not divide the sequence: the persistent-mask
+    reader fills the padded tiles with -inf exactly as the per-chunk read does. Taken from
+    `fused_pairs(..., padded=True)` at lengths with no dividing pair, and by the LPX prototype.
     """
     from . import ops
     if ops.taping():
@@ -397,7 +442,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
     # everything the hoisted fill assumes
     if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
-            and not p["use_padded_mask"] and p["NKH"] == H and p["NVH"] == H):
+            and (padded_mask or not p["use_padded_mask"]) and p["NKH"] == H and p["NVH"] == H):
         ttnn.deallocate(out)
         return _reject("fill_preconditions", shape)
 
@@ -434,7 +479,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
                 kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
-                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"],
+                defines_extra={**_mask_defines(p["k_num_chunks"]),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
         ttnn.deallocate(out)
@@ -550,7 +595,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
         SG.sdpa(dev, out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent, kv_buffer_factor=kvbf,
                 fuse_qkv=(x, w, xbf),
-                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
+                defines_extra=_mask_defines(p["k_num_chunks"]))
     except Exception as exc:  # noqa: BLE001
         ttnn.deallocate(out)
         if "circular buffers" not in str(exc):
