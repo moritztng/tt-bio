@@ -142,24 +142,31 @@ _OPM_PROJ_BATCH = env_flag("TT_BIO_OPM_PROJ_BATCH", True)
 # The OPM contraction z = a b^T runs over the MSA depth. ttnn's auto config for it (every operand in
 # DRAM) blocks K one tile at a time unless the grid's width divides the K tile count, and at 9947
 # rows K is 311 tiles, a prime: 294 ms on Wormhole at 736 tokens (HiFi3). `opm_contract_config`
-# runs it as 3-tile K blocks instead, which needs the tile count to be a multiple of 3, so the depth
-# gets up to 95 zero rows. Zero rows add exact zeros to every dot product and the mean still divides
-# by the real depth, so only the accumulation order moves. The rows ride in the join's concat, so
-# the chunk-list path pays nothing for them. A shallow MSA keeps its depth (pad under an eighth).
+# runs it as 6-tile K blocks instead (3 at an odd tile count), which needs the tile count to be a
+# multiple of 3, so the depth gets up to 95 zero rows. Zero rows add exact zeros to every dot
+# product and the mean still divides by the real depth, so only the accumulation order moves. The
+# rows ride in the join's concat, so the chunk-list path pays nothing for them. A shallow MSA keeps
+# its depth (pad under an eighth).
 # Wormhole only, like the plan. TT_BIO_OPM_KPAD=0 turns the pad off.
 _OPM_KPAD = env_flag("TT_BIO_OPM_KPAD", True)
 # K tiles one block of the OPM contraction sums in the destination register before it is packed.
 # Wormhole at HiFi3 with fp32 accumulation and packer L1 accumulation (the model's config) puts
-# single output elements off by exactly 1, 2 or 4 once that is 4 or more: zero wrong elements at
-# 1-3 tiles, 1-3 per draw at 4-12, ~300 at HiFi4 (perf/spd_msa/zmm_ibw.py, zmm_full.py). ttnn's own
-# padded plan (Kt / grid_x, 17-54 tiles) hit it at 6 of 38 shapes. 3 is also the fastest clean width:
-# 205 ms at 736 tokens against 294 for the auto plan, and 2 tiles loses to auto at 1024 tokens.
-OPM_K_BLOCK = 3
+# single output elements off by exactly 1, 2 or 4 whenever that is more than one tile, at a rate
+# that grows with the width (perf/spd_msa/zmm_full.py, every element of 8-10 whole contractions per
+# arm): per output element 0.7e-9 at 2 tiles, 1.3e-9 at 3, 4e-9 at 6, and 7.9e-9 for ttnn's own plan
+# on the padded depth, which is what main runs at every depth whose K tiles the grid width divides.
+# One-tile blocks were clean but are slower than ttnn's plan. 6 is the widest block the circular
+# buffers take and stays under ttnn's own rate: 179 ms at 736 tokens against 294 for the auto plan
+# on the unpadded depth (3 tiles: 212). perf/spd_msa/erratum_repro.py reproduces it with ttnn's plan.
+OPM_K_BLOCK = 6
+# The pad rounds the depth to this many tiles: a multiple of 3 admits 3-tile blocks and, when the
+# count is even (9947 -> 312, 13602 -> 426 tiles), 6-tile ones, for at most 95 zero rows.
+OPM_K_PAD_TILES = 3
 
 
 def opm_kpad_rows(depth: int) -> int:
-    """Zero rows that round the OPM contraction depth up to a whole number of K blocks, or 0."""
-    rows = -depth % (32 * OPM_K_BLOCK)
+    """Zero rows that round the OPM contraction depth up to a whole number of 3-tile K blocks, or 0."""
+    rows = -depth % (32 * OPM_K_PAD_TILES)
     return rows if _OPM_KPAD and rows * 8 <= depth else 0
 
 OPM_PROJ_BLOCK_ROWS = 16384

@@ -12,7 +12,7 @@ N, C_M, C, C_Z = 64, 64, 32, 128
 @pytest.mark.parametrize("depth,rows", [(9947, 37), (9984, 0), (12830, 34), (4097, 31), (5889, 63), (13602, 30)])
 def test_pad_rows(depth, rows):
     assert T.opm_kpad_rows(depth) == rows
-    assert (depth + rows) % (32 * T.OPM_K_BLOCK) == 0
+    assert (depth + rows) % (32 * T.OPM_K_PAD_TILES) == 0
 
 
 @pytest.mark.parametrize("depth", [80, 300])
@@ -85,8 +85,8 @@ def test_contract_config_picks_the_measured_plan(tokens, kt, pcm, obw):
     assert cfg.out_subblock_h * cfg.out_subblock_w == 4
 
 
-def test_contract_config_never_blocks_k_wider_than_the_clean_width():
-    """4+ K tiles per block put single elements off by 1/2/4 on Wormhole (see OPM_K_BLOCK)."""
+def test_contract_config_never_blocks_k_wider_than_the_bound():
+    """Wider K blocks put more single elements off by 1/2/4 on Wormhole (see OPM_K_BLOCK)."""
     for kt in range(2, 700):
         cfg = T.opm_contract_config(736, 736, kt, _Grid)
         assert cfg is None or 1 < cfg.in0_block_w <= T.OPM_K_BLOCK, kt
