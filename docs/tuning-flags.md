@@ -549,7 +549,7 @@ Each was graded on its own and then all together, and only the combination that 
 picks a set by hand (the names are listed in `tt_bio/tenstorrent.py`).
 
 **Accuracy: moves, inside the seed-to-seed spread.** On 11 post-cutoff complexes x 4 seeds the
-same-seed top-pose deviation from the reference path has a median of 0.29 A on Wormhole and 0.32 A on
+same-seed top-pose deviation from the reference path has a median of 0.29 A on Wormhole and 0.37 A on
 Blackhole, against a 0.60 A bar and a 0.8 A median between two seeds of the reference path itself.
 Every paired metric (DockQ, CA-lDDT, TM, pLDDT, ipTM) has a confidence interval reaching zero, and
 docking success is unchanged.
