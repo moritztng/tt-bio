@@ -195,6 +195,24 @@ if a.which in ("narrow", "all"):
             ARMS[f"narrow {S}x{n_out} stock"] = (site, lambda x=x, w=w, ckc=ckc: ttnn.linear(
                 x, w, compute_kernel_config=ckc, core_grid=T.CORE_GRID_MAIN))
             SAME[f"narrow {S}x{n_out} bw1"] = f"narrow {S}x{n_out} stock"
+            if S == a.ta_seq[0] and n_out == 16:
+                # what bounds it: fidelity (compute), the default program config, a 2D view
+                lofi = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.LoFi, math_approx_mode=False,
+                                                        fp32_dest_acc_en=False, packer_l1_acc=True)
+                def nar_ckc(bw, c, x=x, w=w):
+                    T._NARROW_PROJ_BW = bw
+                    try:
+                        return T._narrow_proj_linear(x, w, c, ttnn.bfloat16)
+                    finally:
+                        T._NARROW_PROJ_BW = 1
+                ARMS[f"narrow {S}x{n_out} bw1 lofi"] = (site, lambda: nar_ckc(1, lofi))
+                ARMS[f"narrow {S}x{n_out} bw16 lofi"] = (site, lambda: nar_ckc(16, lofi))
+                ARMS[f"narrow {S}x{n_out} default cfg"] = (site, lambda x=x, w=w, ckc=ckc: ttnn.linear(x, w, compute_kernel_config=ckc))
+                x2 = ttnn.reshape(x, (S * S, 256))
+                ARMS[f"narrow {S}x{n_out} 2d default"] = (site, lambda x2=x2, w=w, ckc=ckc: ttnn.reshape(
+                    ttnn.linear(x2, w, compute_kernel_config=ckc), (1, S, S, n_out)))
+                for t in ("bw1 lofi", "bw16 lofi", "default cfg", "2d default"):
+                    BYTES[f"narrow {S}x{n_out} {t}"] = S * S * 256 * 2 + S * S * 32 * 2
             BYTES.update({f"narrow {S}x{n_out} {t}": S * S * 256 * 2 + S * S * 32 * 2 for t in ("bw1", "bw16", "stock")})
 
 # ---- pair transpose: the ending-node triangle attention's dim0/dim1 swap of the [S, S, 256] pair, DRAM to DRAM,
