@@ -2,7 +2,7 @@
 
 Schema cases mirror upstream tests/test_input_validation.py and the checks in
 json_to_feature.py. Resolution runs on upstream's examples/tfg/1a14 inputs translated to tt-bio
-YAML. The upstream comparison tests need an OpenDDE v1.2.0 checkout (OPENDDE_SRC, default
+YAML. The upstream comparison tests need an OpenDDE v1.2.0 checkout (TFG_UPSTREAM, default
 /tmp/tfgsrc/up) and its CCD cache; they skip otherwise.
 """
 import copy
@@ -345,7 +345,7 @@ def test_geometry_features_protein_only(ab_1a14):
 
 # ------------------------------------------------------------------------- against upstream
 
-UPSTREAM = Path(os.environ.get("OPENDDE_SRC", "/tmp/tfgsrc/up"))
+UPSTREAM = Path(os.environ.get("TFG_UPSTREAM", "/tmp/tfgsrc/up"))
 
 
 @pytest.fixture(scope="module")
