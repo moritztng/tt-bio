@@ -413,9 +413,10 @@ class OF3DiffusionModule(Module):
 
         * The atom encoder and decoder stack the samples on the leading dim of the evolving
           atom rep only. ``plm``, the masks and every per-block invariant stay ``[1, ...]``
-          and broadcast, so nothing the size of the pair is replicated. At 730 tokens the
-          two atom transformers were 2000 calls and 59 s of a 219 s fold one sample at a
-          time; their per-call cost is dispatch, not math, so S samples cost about one.
+          and broadcast, so nothing the size of the pair is replicated. This is one call per
+          step instead of S, but not faster: at 730 tokens on Wormhole the same-chip A/B read
+          235.05 s per sample against 235.14 s batched, because the atom transformers are
+          device-bound and their cost scales with S.
         * The 24-block DiT is 3-D and 4-D throughout, so a leading sample dim is a taller
           matmul. Its per-block pair bias is a pure function of ``zij``, stays
           ``[1, 16, N, N]`` in ``cache`` and broadcasts in the QK-scale add, the same call
