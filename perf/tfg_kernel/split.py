@@ -7,6 +7,9 @@ denoise (the device denoiser incl. its host<->device copies), and the guidance h
 unconstrained fold is warm (the first one pays the program cache).
 
     python perf/tfg_kernel/split.py --panel P --target 1a14 --out RUN/1a14 --chip 3 --seeds 101,102
+
+--dump-x0 N saves the first N guided folds' per-step sampler inputs (x_noisy, denoiser x0, t_hat, sigma) and the
+guidance features to OUT/x0dump_<i>.pt, in the event format of tfg-upstream's fixtures, for host-side replay.
 """
 import json
 import runpy
@@ -18,6 +21,11 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 out = Path(sys.argv[sys.argv.index("--out") + 1]).expanduser().resolve()
 out.mkdir(parents=True, exist_ok=True)
+dump_left = 0
+if "--dump-x0" in sys.argv:
+    i = sys.argv.index("--dump-x0")
+    dump_left = int(sys.argv[i + 1])
+    del sys.argv[i:i + 2]
 
 import torch  # noqa: E402
 
@@ -40,7 +48,6 @@ def timed(key, fn):
 protenix.denoise_in_chunks = timed("denoise", protenix.denoise_in_chunks)
 engine.TFGEngine.update = timed("engine_incl_early", engine.TFGEngine.update)
 guidance.Guidance._x0_hook = timed("early", guidance.Guidance._x0_hook)
-guidance.Guidance.step = timed("guidance", guidance.Guidance.step)
 _edm = protenix.edm_sample
 
 
@@ -63,5 +70,31 @@ def edm_sample(*args, guidance=None, **kw):
 
 
 protenix.edm_sample = edm_sample
+events = []
+_step = guidance.Guidance.step
+
+
+def step(self, x_noisy, x0, *, t_hat, sigma_t, eta, step, n_step):
+    if dump_left > 0:
+        events.append(("engine_step", step, dict(x_in=x_noisy.clone(), t_hat=torch.as_tensor(t_hat).clone(),
+                                                 c_tau=torch.as_tensor(sigma_t).clone())))
+        events.append(("project", step, dict(x0_denoised=x0.clone())))
+    return _step(self, x_noisy, x0, t_hat=t_hat, sigma_t=sigma_t, eta=eta, step=step, n_step=n_step)
+
+
+def dumped(fn):
+    def run(*args, guidance=None, **kw):
+        global dump_left
+        x = fn(*args, guidance=guidance, **kw)
+        if guidance is not None and dump_left > 0:
+            dump_left -= 1
+            torch.save(dict(feats=guidance.feats, events=list(events)), out / f"x0dump_{dump_left}.pt")
+        events.clear()
+        return x
+    return run
+
+
+guidance.Guidance.step = timed("guidance", step)
+protenix.edm_sample = dumped(edm_sample)
 sys.argv[0] = str(REPO / "perf/tfg_acc/run.py")
 runpy.run_path(sys.argv[0], run_name="__main__")
