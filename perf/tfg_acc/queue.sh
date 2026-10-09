@@ -22,7 +22,9 @@ flock -w 600 9 || { echo "\$(date -u +%FT%TZ) flock busy chip \$CHIP" >> $R/runs
 echo "\$(date -u +%FT%TZ) start chip \$CHIP tree $TREE" >> $R/runs/$SET/$T/run.log
 timeout -s TERM 43260 timeout -s INT 43200 nice -n 10 python perf/tfg_acc/run.py --panel $R/data/$SET \\
   --target $T --out $R/runs/$SET/$T --chip \$CHIP --share 32 ${EXTRA:-} >> $R/runs/$SET/$T/run.log 2>&1
-echo "\$(date -u +%FT%TZ) end rc=\$?" >> $R/runs/$SET/$T/run.log
+rc=\$?
+echo "\$(date -u +%FT%TZ) end rc=\$rc" >> $R/runs/$SET/$T/run.log
+exit \$rc
 EOF
   echo "queued $job"
 done

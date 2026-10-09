@@ -11,7 +11,8 @@ Output, in the layout perf/tfg_ref/score.py reads (so TT and GPU are scored by o
     OUT/<cond>/seed_<s>/<tid>_<cond>/seed_<s>/predictions/<tid>_<cond>_sample_<r>.cif
     OUT/<cond>/seed_<s>/<tid>_<cond>/seed_<s>/predictions/<tid>_<cond>_summary_confidence_sample_<r>.json
 r is tt-bio's confidence rank (0 = best); the JSON carries ranking_score. OUT/runs.jsonl gets one record per
-fold (wall time, chip, AICLK during the fold, sha). A finished (cond, seed) is skipped on rerun.
+fold (wall time, chip, AICLK during the fold, sha). A finished (cond, seed) is skipped on rerun; the exit code is
+the number of failed folds, so a pool log never shows a failed target as green.
 
     python perf/tfg_acc/run.py --panel ~/tfg-ref/panel --target 1bzq --out RUN/1bzq --chip 3
 """
@@ -207,6 +208,7 @@ def aiclk(t0, t1, nodes):
     return dict(median=v[len(v) // 2], min=v[0], max=v[-1], n=len(v)) if v else None
 
 
+failed = 0
 sha = subprocess.run(["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
 if not sha and (REPO / "SHA").exists():
     sha = (REPO / "SHA").read_text().strip()
@@ -232,6 +234,7 @@ for seed in SEEDS:
         except Exception as e:  # one failed fold must not lose the target's other folds
             import traceback
             log(ev="fail", target=a.target, cond=cond, seed=seed, err=traceback.format_exc()[-3000:])
+            failed += 1
             continue
         t1 = time.monotonic()
         runs = metrics.get("all_runs") or [{"rank": 0, **metrics}]
@@ -246,5 +249,5 @@ for seed in SEEDS:
         log(ev="fold", target=a.target, cond=cond, seed=seed, wall_s=round(t1 - t0, 1), tokens=metrics.get("n_tokens"),
             aiclk=aiclk(t0, t1, opened_nodes()), sha=sha, chip=a.chip,
             scores=[round(r["confidence_score"], 4) for r in runs])
-log(ev="end", target=a.target)
-os._exit(0)
+log(ev="end", target=a.target, failed=failed)
+os._exit(min(failed, 100))
