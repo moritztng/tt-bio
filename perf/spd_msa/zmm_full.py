@@ -8,7 +8,8 @@ ttnn's auto plan on that padded K (what any depth whose K tiles the grid width d
 and the plan at each width with packer_l1_acc OFF and an fp32 output (partials spill in fp32; `_nf`).
 Kernel config as the model otherwise: HiFi3, fp32 dest acc, packer_l1_acc on.
 
-usage: TT_VISIBLE_DEVICES=<chip> python zmm_full.py OUT TOKENS DEPTH [SEEDS=2] [IBWS=1,2,3,4]
+usage: TT_VISIBLE_DEVICES=<chip> python zmm_full.py OUT TOKENS DEPTH [SEEDS=2] [IBWS=1,2,3,4] [SEED0=0] [ARMS]
+(ARMS: comma list of arm names to keep, default all; SEED0 offsets the operand seeds for fresh draws)
 (the _nf arms' ms include no typecast back to bf16)
 """
 import json, sys, time
@@ -18,6 +19,8 @@ OUT = Path(sys.argv[1]); OUT.mkdir(parents=True, exist_ok=True)
 TOK, DEPTH = int(sys.argv[2]), int(sys.argv[3])
 SEEDS = int(sys.argv[4]) if len(sys.argv) > 4 else 2
 IBWS = [int(x) for x in (sys.argv[5] if len(sys.argv) > 5 else "1,2,3,4").split(",")]
+SEED0 = int(sys.argv[6]) if len(sys.argv) > 6 else 0
+KEEP = set(sys.argv[7].split(",")) if len(sys.argv) > 7 else None
 LOG = open(OUT / "zmm_full.jsonl", "a")
 
 
@@ -50,8 +53,9 @@ ws = [w for w in IBWS if (k // 32) % w == 0]
 arms = ([("auto_unpad", DEPTH, None, True, None), ("auto_pad", k, None, True, None)]
         + [(f"ibw{w}", k, plan(w), True, None) for w in ws]
         + [(f"ibw{w}_nf", k, plan(w), False, ttnn.float32) for w in ws])
+arms = [a for a in arms if KEEP is None or a[0] in KEEP]
 log(ev="start", tokens=TOK, depth=DEPTH, k=k, arms=[a[0] for a in arms], seeds=SEEDS, elements=N * N)
-for seed in range(SEEDS):
+for seed in range(SEED0, SEED0 + SEEDS):
     torch.manual_seed(2000 + seed)
     a_h = (torch.randn(N, k) / DEPTH ** 0.5).bfloat16(); a_h[:, DEPTH:] = 0
     b_h = torch.randn(N, k).bfloat16(); b_h[:, DEPTH:] = 0
