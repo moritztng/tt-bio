@@ -10,7 +10,9 @@ The one patch today, ``silu_f32``: ``calculate_silu`` drops the caller's ``APPRO
 (every sibling activation honours it) and on an fp32 dest runs the accurate exp and a two-step
 reciprocal, 92 SFPU instructions a row on Wormhole. The patch threads the flag through and, under
 approx mode only, runs ``calculate_silu_f32`` (kernels/silu_f32): 6e-6 of float64 on the fp32
-accumulator in 32 instructions. Sites with ``math_approx_mode=False`` compile exactly as before,
+accumulator in 32 instructions. In the matmul without bias that silu also moves from the MATH thread
+to the PACK thread, so it overlaps the next subblock's matmul (what tenstorrent/tt-metal#43067 does
+upstream). Sites with ``math_approx_mode=False`` compute exactly as before,
 and tt-bio sets that flag on a fused silu from the ``silu_f32`` lever (``tenstorrent.silu_ckc``).
 
 ``enable()`` must run before the first device open. A patch whose anchor text is missing (a ttnn
@@ -70,6 +72,101 @@ def _add_silu_f32(src: str | None) -> str:
     return _SILU_F32.read_text()
 
 
+BMM = "ttnn/cpp/ttnn/operations/matmul/device/kernels/compute/bmm_large_block_zm_fused_bias_activation.cpp"
+_BMM_DECL = r"""
+// tt-bio silu_f32: a fused silu under math_approx_mode runs on the PACK thread, so the SFPU works on one dest half
+// while the FPU fills the other (tenstorrent/tt-metal#43067 does the same for every activation). The pack thread
+// cannot see APPROX, so MATH sends it through the thread mailbox once. Without bias only; everything else as shipped.
+#if defined(SFPU_OP_INIT_ACTIVATION) && !defined(FUSE_BIAS)
+#define TB_STR2(...) #__VA_ARGS__
+#define TB_STR(...) TB_STR2(__VA_ARGS__)
+constexpr bool tb_streq(const char* a, const char* b) { return *a == *b && (*a == 0 || tb_streq(a + 1, b + 1)); }
+constexpr bool TB_SILU = tb_streq(TB_STR(SFPU_OP_FUNC_ACTIVATION), "silu_tile(i);");
+#if defined(TRISC_MATH)
+inline bool tb_silu_on_pack() {
+    if constexpr (TB_SILU) {
+        ckernel::mailbox_write(ckernel::ThreadId::PackThreadId, APPROX);
+    }
+    return TB_SILU && APPROX;
+}
+#elif defined(TRISC_PACK)
+#include "llk_math_eltwise_unary_sfpu_silu.h"
+inline bool tb_silu_on_pack() {
+    if constexpr (TB_SILU) {
+        return ckernel::mailbox_read(ckernel::ThreadId::MathThreadId) != 0;
+    }
+    return false;
+}
+#else
+inline bool tb_silu_on_pack() { return false; }
+#endif
+#endif
+"""
+_BMM_INIT = """#ifdef SFPU_OP_INIT_ACTIVATION
+    SFPU_OP_INIT_ACTIVATION
+#endif
+"""
+_BMM_INIT_NEW = """#ifdef SFPU_OP_INIT_ACTIVATION
+#ifndef FUSE_BIAS
+    const bool tb_pack_silu = tb_silu_on_pack();
+    if (tb_pack_silu) {
+        PACK((llk_math_eltwise_unary_sfpu_silu_init<true>()));
+    } else
+#endif
+    {
+        SFPU_OP_INIT_ACTIVATION
+    }
+#endif
+"""
+_BMM_LAST = """#if not defined FUSE_BIAS and defined SFPU_OP_INIT_ACTIVATION
+                                for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                                    SFPU_OP_FUNC_ACTIVATION
+                                }
+#endif
+                                tile_regs_commit();
+                                // Pack out to output buffer
+                                mm_out_cb.reserve_back(out_subblock_num_tiles);
+                                tile_regs_wait();
+"""
+_BMM_LAST_NEW = """#if not defined FUSE_BIAS and defined SFPU_OP_INIT_ACTIVATION
+                                if (!tb_pack_silu) {
+                                    for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                                        SFPU_OP_FUNC_ACTIVATION
+                                    }
+                                }
+#endif
+                                tile_regs_commit();
+                                // Pack out to output buffer
+                                mm_out_cb.reserve_back(out_subblock_num_tiles);
+#if not defined FUSE_BIAS and defined SFPU_OP_INIT_ACTIVATION
+                                if (tb_pack_silu) {
+                                    // tile_regs_wait() that also holds the SETC16 until MATH is done with this half
+                                    PACK(TTI_SEMWAIT(
+                                        p_stall::STALL_TDMA | p_stall::STALL_CFG,
+                                        semaphore::t6_sem(semaphore::MATH_PACK),
+                                        p_stall::STALL_ON_ZERO));
+                                    PACK(TT_SETC16(
+                                        DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+                                    for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                                        PACK((llk_math_eltwise_unary_sfpu_silu<true, DST_ACCUM_MODE>(i)));
+                                    }
+                                    PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+                                } else
+#endif
+                                {
+                                    tile_regs_wait();
+                                }
+"""
+_BMM_INC = '#include "api/compute/eltwise_unary/sfpu_split_includes.h"\n'
+
+
+def _patch_bmm_silu_pack(src: str) -> str:
+    if "tb_silu_on_pack" in src or [src.count(a) for a in (_BMM_INC, _BMM_INIT, _BMM_LAST)] != [1, 1, 1]:
+        raise RuntimeError("silu_f32: bmm_large_block_zm_fused_bias_activation.cpp anchors moved or already patched")
+    return (src.replace(_BMM_INC, _BMM_INC + _BMM_DECL).replace(_BMM_INIT, _BMM_INIT_NEW)
+            .replace(_BMM_LAST, _BMM_LAST_NEW))
+
+
 PATCHES = {
     "silu_f32": {
         f"{_SFPU.format(arch=arch)}/{name}": fn
@@ -79,7 +176,8 @@ PATCHES = {
             ("llk_math_eltwise_unary_sfpu_silu.h", _patch_silu_llk),
             ("ckernel_sfpu_silu_f32.h", _add_silu_f32),
         )
-    },
+    }
+    | {BMM: _patch_bmm_silu_pack},
 }
 
 
