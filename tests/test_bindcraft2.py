@@ -416,10 +416,13 @@ def test_fast_round_keeps_blackhole_only_levers_off_on_wormhole(monkeypatch):
         for _m, _o, attr, _e, value in bindcraft2._FAST_ROUND:
             if attr in bindcraft2._BLACKHOLE_ONLY:
                 assert armed[attr] == before[attr]
+            elif attr in bindcraft2._WORMHOLE_VALUES:
+                assert armed[attr] == bindcraft2._WORMHOLE_VALUES[attr]
             else:
                 assert armed[attr] == value
     assert _fast_round_now() == before
-    assert bindcraft2._BLACKHOLE_ONLY <= {a for _m, _o, a, _e, _v in bindcraft2._FAST_ROUND}
+    assert (bindcraft2._BLACKHOLE_ONLY | set(bindcraft2._WORMHOLE_VALUES)
+            <= {a for _m, _o, a, _e, _v in bindcraft2._FAST_ROUND})
 
 
 def test_exact_false_arms_the_measured_round_and_puts_it_back(monkeypatch):
