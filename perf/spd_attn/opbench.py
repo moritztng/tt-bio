@@ -8,7 +8,8 @@
           bf16 explicit, bf16 fused SDPA).
 Accuracy: rel_rms of each arm against a float64 torch evaluation of the same operands.
 Timing: back-to-back slope (NCALL calls, one sync) x REPS, arms interleaved round-robin, AICLK sampled out of process.
-usage: opbench.py OUT CHIP [ta|atom|roof|all] [--pairs N]
+  pair:   the ending-node pair transpose [S, S, 256] bf16 at each --ta-seq, today's route vs tt_bio.pair_transpose.
+usage: opbench.py OUT CHIP [ta|atom|pair|roof|all] [--pairs N]
 """
 import argparse, json, os, statistics, subprocess, sys, time, types
 from pathlib import Path
@@ -16,6 +17,7 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("out"); ap.add_argument("chip", type=int); ap.add_argument("which", nargs="?", default="all")
 ap.add_argument("--pairs", type=int, default=6); ap.add_argument("--ta-seq", type=int, nargs="+", default=[736, 928, 1184]); ap.add_argument("--reps", type=int, default=10)
+ap.add_argument("--split", type=int, nargs="*", default=[8, 16, 24], help="pair: reader-share arms of the split kernel")
 a = ap.parse_args()
 OUT = Path(a.out).resolve(); OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "bench.jsonl", "a")
@@ -149,9 +151,9 @@ if a.which in ("atom", "all"):
         x = up(torch.zeros(M, N, H * dh), dt)
         return lambda: n._attention_m(x, x, None, "attention.", N, NP, M, pad, z_pre=z)
 
-    def superset(dt, sdpa, tile_heads=True):
+    def superset(dt, sdpa, tile_heads=True, sdpa32=False, kvwin=False):
         n = ns(dt, sdpa)
-        n._zeros, n._tile_heads = {}, tile_heads
+        n._zeros, n._tile_heads, n._sdpa32, n._kvwin = {}, tile_heads, sdpa32, kvwin
         zs = n._superset_bias(up(hz, dt), mask, nb)
         x = up(torch.zeros(M, N, H * dh), dt)
         return lambda: n._attention_superset(x, x, "attention.", N, NP, zs)
@@ -162,6 +164,33 @@ if a.which in ("atom", "all"):
         ARMS[f"atom superset {tag} RM heads"] = ("atom", superset(dt, sdpa, False))
         ARMS[f"atom superset {tag}"] = ("atom", superset(dt, sdpa, True))
         SAME[f"atom superset {tag}"] = f"atom superset {tag} RM heads"
+    ARMS["atom superset fp32 sdpa32"] = ("atom", superset(ttnn.float32, False, True, True))
+    ARMS["atom superset fp32 sdpa32 kvwin"] = ("atom", superset(ttnn.float32, False, True, True, True))
+    ARMS["atom superset bf16 sdpa kvwin"] = ("atom", superset(ttnn.bfloat16, True, True, False, True))
+    SAME["atom superset bf16 sdpa kvwin"] = "atom superset bf16 sdpa"
+    SAME["atom superset fp32 sdpa32 kvwin"] = "atom superset fp32 sdpa32"
+
+# ---- pair transpose: the ending-node triangle attention's dim0/dim1 swap of the [S, S, 256] pair, DRAM to DRAM,
+# today's route (ROW_MAJOR round trip) against tt_bio.pair_transpose (one tile read, L1 row shuffle, one tile write)
+BYTES = {}   # arm -> DRAM bytes moved per call at one read + one write
+if a.which in ("pair", "all"):
+    from tt_bio import pair_transpose as PTR
+    for S in a.ta_seq:
+        x = up(torch.randn(S, S, 256), ttnn.bfloat16)
+        def pt(fused, split=0, x=x):
+            PTR.PAIR_TRANSPOSE_FUSED, PTR.PAIR_TRANSPOSE_SPLIT = fused, split
+            try:
+                return T._pair_transpose(x, ttnn.DRAM_MEMORY_CONFIG)
+            finally:
+                PTR.PAIR_TRANSPOSE_FUSED, PTR.PAIR_TRANSPOSE_SPLIT = False, 0
+        ARMS[f"pair transpose {S} today"] = (f"pair{S}", lambda pt=pt: pt(False))
+        ARMS[f"pair transpose {S} fused"] = (f"pair{S}", lambda pt=pt: pt(True))
+        for qr in a.split:
+            ARMS[f"pair transpose {S} fused split{qr}"] = (f"pair{S}", lambda pt=pt, qr=qr: pt(True, qr))
+        for n in [n for n, (site, _) in ARMS.items() if site == f"pair{S}"]:
+            BYTES[n] = 2 * S * S * 256 * 2
+            if n != f"pair transpose {S} today":
+                SAME[n] = f"pair transpose {S} today"
 
 # ---- roof: what this chip's matmul reaches, for placing the arms above on the roofline (FLOPS: arm -> flop/call)
 FLOPS = {}
@@ -188,10 +217,13 @@ for name, (site, call) in ARMS.items():
         o = call()
         if o is None:
             log(ev="declined", arm=name); continue
-        o = outs[name] = ttnn.to_torch(o).double()
+        o = ttnn.to_torch(o)
+        o = outs[name] = o if site.startswith("pair") else o.double()   # pair: compared in bf16, GBs as float64
         if name in SAME and SAME[name] in outs:
             log(ev="equal", arm=name, to=SAME[name], torch_equal=bool(torch.equal(o, outs[SAME[name]])),
-                max_abs=float((o - outs[SAME[name]]).abs().max()))
+                max_abs=float((o.float() - outs[SAME[name]].float()).abs().max()))
+            if site.startswith("pair"):
+                del outs[name]
         if site not in REF:
             log(ev="check", arm=name, finite=bool(torch.isfinite(o).all())); live[name] = call; continue
         o = (o[SEL[site]] if site in SEL else o).reshape(REF[site].shape)
@@ -220,7 +252,7 @@ for rep in range(a.reps):
 for arm, ts in samples.items():
     c = sorted(clk[arm]); med = statistics.median(ts)
     log(ev="arm", arm=arm, site=ARMS[arm][0], ms=med, ms_min=min(ts), ms_max=max(ts),
-        tflops=FLOPS[arm] / med / 1e9 if arm in FLOPS else None,
+        tflops=FLOPS[arm] / med / 1e9 if arm in FLOPS else None, gbs=BYTES[arm] / med / 1e6 if arm in BYTES else None,
         spread_pct=(max(ts) - min(ts)) / med * 100, reps=a.reps, ncall=ncall[arm],
         aiclk=dict(n=len(c), med=c[len(c) // 2] if c else None, min=c[0] if c else None, max=c[-1] if c else None))
 log(ev="end")
