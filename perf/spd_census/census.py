@@ -15,11 +15,14 @@ device-idle gaps between consecutive programs inside a flush batch are real gaps
 top-level ttnn call fall in the id holes and are recorded as "<unhooked>" at the next call's site.
 
 Each fold in --folds (name:cycles:steps) is profiled the same way; a short one first makes the measured fold warm.
+A "-" keeps the model's own value. --model picks the model as bench.py does: Protenix-v2 is built by hand (levers),
+opendde, openfold3 and boltz2 through Worker.load_model with the engine's own recycles and steps.
 Outputs in OUT as lpx-census (census.jsonl, sig_<f>.jsonl, ops_<f>.jsonl, progs_<f>.jsonl); perf/spd_census/analyze.py
 reads them unchanged.
 
     python perf/spd_census/census.py --out r1/normal --chip 31 --arm exact --input c730
     python perf/spd_census/census.py --out r1/fast   --chip 31 --arm fast:fast --input c730
+    python perf/spd_census/census.py --out m9/of3    --chip 7  --model openfold3 --input c730
 """
 import argparse, glob, json, os, resource, subprocess, sys, threading, time
 from pathlib import Path
@@ -29,7 +32,9 @@ ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--chip", required=True, type=int, help="UMD index handed to TT_VISIBLE_DEVICES")
 ap.add_argument("--arm", default="exact", help="bench.py arm grammar: NAME[:K=V,...][:L=<set>][:fast]")
 ap.add_argument("--input", default="c730")
-ap.add_argument("--folds", default="warm:1:2,full:10:200")
+ap.add_argument("--model", default="protenix-v2", choices=("protenix-v2", "opendde", "openfold3", "boltz2"))
+ap.add_argument("--folds", default=None, help="name:cycles:steps,...; default warm:1:2,full:10:200 for Protenix-v2, "
+                "warm:1:2,full:-:- otherwise")
 ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
 ap.add_argument("--share", type=int, default=None, help="host thread share; default one share per TT chip")
 ap.add_argument("--samples", type=int, default=5)
@@ -38,7 +43,10 @@ a = ap.parse_args()
 
 os.environ.setdefault("TT_METAL_PROFILER_PROGRAM_SUPPORT_COUNT", "5000")
 OUT = a.out; CHIP = a.chip
-FOLDS = [(f.split(":")[0], int(f.split(":")[1]), int(f.split(":")[2])) for f in a.folds.split(",")]
+PV2 = a.model == "protenix-v2"
+a.folds = a.folds or ("warm:1:2,full:10:200" if PV2 else "warm:1:2,full:-:-")
+FOLDS = [(n, None if c == "-" else int(c), None if s == "-" else int(s))
+         for n, c, s in (f.split(":") for f in a.folds.split(","))]
 FLUSH = [1000]
 OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "census.jsonl", "a")
@@ -88,8 +96,8 @@ class _Stop(Exception): pass
 def _grab(*args, **kw):
     captured["payload"] = args[1] if isinstance(args[0], str) else args[0]; raise _Stop
 M._dispatch_run = _grab; M._dispatch_to_controller = _grab
-argv = ["predict", str(YAML), "--model", "protenix-v2", "--diffusion_samples", str(a.samples),
-        "--recycling_steps", "10", "--accelerator", "tenstorrent", "--output_format", "cif",
+argv = ["predict", str(YAML), "--model", a.model, "--diffusion_samples", str(a.samples),
+        *(["--recycling_steps", "10"] if PV2 else []), "--accelerator", "tenstorrent", "--output_format", "cif",
         "--msa_dir", str(a.data / "msa"), "--msa_cache_only", "--out_dir", str(OUT / "cli")]
 if FAST:
     argv.append("--fast")
@@ -286,18 +294,24 @@ def lever_set(spec):
         out = out - T.parse_levers(name) if sign == "-" else out | T.parse_levers(name)
     return sorted(out)
 LEVER_SET = None if LEVER_SPEC is None else lever_set(LEVER_SPEC)
-T.set_fast_mode(FAST)  # what Worker.load_model does; without it a fast arm folds exact
-state.model = P.Protenix.load_from_checkpoint(
-    cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))
+if LEVER_SET is not None and not PV2:
+    sys.exit(f"L= arms build Protenix-v2 only; {a.model} reads no tenstorrent.LEVERS")
+if PV2:
+    T.set_fast_mode(FAST)  # what Worker.load_model does; without it a fast arm folds exact
+    state.model = P.Protenix.load_from_checkpoint(
+        cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))
+    state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
+else:  # JapanFold's own load, as bench.py
+    state.load_model(dict(cfg0, fast=FAST))
 state.bind_run("spd-census", dict(cfg0, fast=FAST))
-state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
 m = state.model
-log(ev="build", fast=T._FAST_MODE, levers=sorted(getattr(m, "_levers", ())),
+log(ev="build", model=a.model, fast=getattr(m, "_fast", T._FAST_MODE), levers=sorted(getattr(m, "_levers", ())),
     torch_threads=torch.get_num_threads(), affinity=len(os.sched_getaffinity(0)))
 drain()
 
 for name, cyc, steps in FOLDS:
-    rcfg = dict(cfg0, seed=a.seed, recycling_steps=cyc, sampling_steps=steps, fast=FAST)
+    rcfg = dict(cfg0, seed=a.seed, fast=FAST)
+    rcfg.update({k: v for k, v in (("recycling_steps", cyc), ("sampling_steps", steps)) if v is not None})
     sdir = OUT / f"struct_{name}"; sdir.mkdir(exist_ok=True); rcfg["struct_dir"] = str(sdir)
     CUR.update(cyc=-1, step=-1)
     for kk in ("sig", "ops", "progs"):

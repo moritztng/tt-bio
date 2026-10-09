@@ -15,6 +15,7 @@ RUN = Path(sys.argv[1]); FOLD = sys.argv[2]; ROOF = json.load(open(sys.argv[3]))
 CF = int(sys.argv[4]); SF = int(sys.argv[5]); OUTP = Path(sys.argv[6])
 meta = next(e for e in map(json.loads, open(RUN / "census.jsonl")) if e.get("ev") == "fold" and e["fold"] == FOLD)
 C, S = meta["cycles"], meta["steps"]
+MODEL = next((e.get("model") for e in map(json.loads, open(RUN / "census.jsonl")) if e.get("ev") == "build"), None)
 
 # ---------- signatures, calls, programs ----------
 sigs = {}
@@ -246,7 +247,7 @@ for r in rows:
                      bound=r["bound"]))
     acc_ += r["kw"] / total
     if acc_ >= 0.85 and len(spec) >= 10: break
-json.dump(dict(version=2, note="Protenix-v2 c730, 5 samples, 10 cycles, 200 steps; one chip; device kernel time from the tt-metal device profiler, programs joined "
+json.dump(dict(version=2, note=f"{MODEL or 'protenix-v2'}, 5 samples, {CF or 'default'} cycles, {SF or 'default'} steps; one chip; device kernel time from the tt-metal device profiler, programs joined "
                "to ttnn calls by runtime id; signature = op + call site + region + arg shapes/dtypes/configs",
                peaks=out["peaks"], peak_bw_gbs=BW, aiclk=out["aiclk"], device_kernel_s=total / 1e9,
                coverage=acc_, n_ops=len(spec), ops=spec), open(f"{OUTP}_ops.json", "w"), indent=1, default=str)
