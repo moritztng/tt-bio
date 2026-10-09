@@ -8615,6 +8615,7 @@ class TriangleMultiplication(Module):
     def _transform_chunk_gated(
         self, gp: ttnn.Tensor, gate: tuple[int, int, int], permute_dims: tuple[int, ...],
         memory_config: ttnn.MemoryConfig, realloc: bool, defer_transpose: bool = False,
+        mask: ttnn.Tensor | None = None,
     ) -> ttnn.Tensor:
         """`_transform_chunk` when the gate rides along inside the channel move.
 
@@ -8632,7 +8633,7 @@ class TriangleMultiplication(Module):
             ops.append((ttnn.transpose, -2, -1))
         if realloc:
             ops.append((ttnn.reallocate,))
-        chunk = _reblock.reblock_permute_gated(gp, *gate, memory_config=memory_config)
+        chunk = _reblock.reblock_permute_gated(gp, *gate, memory_config=memory_config, mask=mask)
         old = chunk
         for op, *args in ops:
             chunk = op(chunk, *args, memory_config=memory_config)
@@ -9070,12 +9071,17 @@ class TriangleMultiplication(Module):
                             ttnn.deallocate(gp_in_fused)
                             gp_in_fused = _b
                         if gated:
+                            # spd-trikern-mm: the pair mask rides in `a`'s move where it can
+                            # (`_reblock.mask_fold_ok`), in the untransposed m[x, y] the move reads.
+                            m_fold = (mask_moved(False) if mask_moved_ok
+                                      and _reblock.mask_fold_ok(mask_moved(False), H) else None)
                             a_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
                                 (gp_off("p_a", slice_c), gp_off("g_a", slice_c), slice_c),
                                 perm_a, memory_config,
-                                n_pairs // group > 1, defer_transpose=defer,
+                                n_pairs // group > 1, defer_transpose=defer, mask=m_fold,
                             )
+                            a_masked = m_fold is not None
                             b_chunk = self._transform_chunk_gated(
                                 gp_in_fused,
                                 (gp_off("p_b", slice_c), gp_off("g_b", slice_c), slice_c),

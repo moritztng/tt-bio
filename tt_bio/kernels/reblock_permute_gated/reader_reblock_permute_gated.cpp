@@ -26,6 +26,11 @@
 // device-wedge cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
 
+// GATED_MASK (spd-trikern-mm): the pair mask m[x, y] rides in the move. Per input tile (x, y-tile jt)
+// the reader also pushes one mask tile to c_6 whose row 0 is m[x, jt*32 + 0..31], cut out of the one
+// mask tile (x-tile, jt) it read into the c_5 scratch per group, exactly as trimul_gin_moved does. The
+// compute kernel multiplies it, row-broadcast, into the transposed sigmoid.
+
 void kernel_main() {
     // The two slice offsets join the source address in the common args: they are the only values
     // that differ between the `a` and the `b` call at a fixed shape, so keeping them here lets one
@@ -67,6 +72,13 @@ void kernel_main() {
 
     constexpr auto src_args = TensorAccessorArgs<0>();
     const auto s = TensorAccessor(src_args, src_addr);
+#ifdef GATED_MASK
+    constexpr auto m_args = TensorAccessorArgs<src_args.next_compile_time_args_offset()>();
+    const auto mk = TensorAccessor(m_args, get_common_arg_val<uint32_t>(4));
+    constexpr uint32_t cb_mscratch = 5;  // c_5, one mask tile
+    constexpr uint32_t cb_m = 6;         // c_6, row-broadcast mask tiles
+    const uint32_t mtb = get_tile_size(cb_m);
+#endif
 
     constexpr uint32_t onetile = 1;
     const uint32_t row_stride = Nt * Ctw;
@@ -88,6 +100,27 @@ void kernel_main() {
         const uint32_t first_page = (row_base * Nt + jt) * Ctw;
         const uint32_t pad_page = jt * Ctw;  // row 0 of this tile column; always valid
 
+#ifdef GATED_MASK
+        // The mask tile of this group's (absolute) x-tile and y-tile. Padding rows past D1 take
+        // whatever the padded mask tile holds: the writer zeroes those rows anyway.
+        const uint32_t m_scratch = get_write_ptr(cb_mscratch);
+        noc_async_read_page((it + it_off) * Nt + jt, mk, m_scratch);
+        noc_async_read_barrier();
+        auto push_mask_row = [&](uint32_t il) {
+            cb_reserve_back(cb_m, onetile);
+            volatile tt_l1_ptr uint32_t* src = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(m_scratch);
+            volatile tt_l1_ptr uint32_t* dst = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(cb_m));
+            // Row il of a bf16 tile: 16 elements in face (il / 16) * 2, 16 in the face after it,
+            // row il % 16 of each; the destination's row 0 is the first row of faces 0 and 1.
+            const uint32_t s0 = (((il >> 4) * 2) * 256 + (il & 15) * 16) / 2;
+            for (uint32_t k = 0; k < 8; ++k) {
+                dst[k] = src[s0 + k];
+                dst[128 + k] = src[s0 + 128 + k];
+            }
+            cb_push_back(cb_m, onetile);
+        };
+        (void)mtb;
+#endif
         {
             uint32_t p_page = first_page + p_off + ct;
             uint32_t g_page = first_page + g_off + ct;
@@ -99,6 +132,9 @@ void kernel_main() {
                 noc_async_read_barrier();
                 cb_push_back(cb_p, onetile);
                 cb_push_back(cb_g, onetile);
+#ifdef GATED_MASK
+                push_mask_row(il);
+#endif
                 p_page += row_stride;
                 g_page += row_stride;
             }
@@ -112,6 +148,9 @@ void kernel_main() {
                 noc_async_read_barrier();
                 cb_push_back(cb_p, onetile);
                 cb_push_back(cb_g, onetile);
+#ifdef GATED_MASK
+                push_mask_row(il);
+#endif
             }
         }
 

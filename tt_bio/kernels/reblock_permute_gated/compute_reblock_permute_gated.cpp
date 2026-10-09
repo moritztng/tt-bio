@@ -32,6 +32,7 @@
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/transpose_wh.h"
 #include "api/compute/reconfig_data_format.h"
+#include "api/compute/bcast.h"
 
 void kernel_main() {
     constexpr uint32_t p_cb = get_compile_time_arg_val(0);    // c_0,  value slice
@@ -74,6 +75,10 @@ void kernel_main() {
     // slots and `mul_binary_tile` rounds as before. Every value the incumbent computes is computed
     // here on the transposed tile, so it is bit-exact, and it still drops the mul_cb round trip.
     constexpr uint32_t lean = get_compile_time_arg_val(8);
+#ifdef GATED_MASK
+    static_assert(lean != 0, "GATED_MASK rides the lean (transposed-sigmoid) stage only");
+    constexpr uint32_t m_cb = 6;  // c_6, row-broadcast mask tiles from the reader
+#endif
 
     binary_op_init_common(p_cb, sig_cb, mul_cb);
 
@@ -95,6 +100,21 @@ void kernel_main() {
                     sigmoid_tile(j);
                 }
             }
+#ifdef GATED_MASK
+            // spd-trikern-mm: the pair mask, sig^T[c, y] *= m[x, y], row-broadcast from c_6 (the reader
+            // puts m[x, jt*32 + 0..31] in row 0). m is 0 or 1 and sig > 0, so round(p * (sig * m)) is
+            // round(p * sig) * m to the bit, signed zeros included: the separate multiply_ it replaces
+            // computed the right-hand side. SFPU multiply on the 16-bit DST, as the gate's own.
+            cb_wait_front(m_cb, n);
+            unary_bcast_init<BroadcastType::ROW>(m_cb, sig_cb);
+            for (uint32_t j = 0; j < n; ++j) {
+                unary_bcast<BroadcastType::ROW>(m_cb, j, n + j);
+            }
+            mul_binary_tile_init();
+            for (uint32_t j = 0; j < n; ++j) {
+                mul_binary_tile(j, n + j, j);
+            }
+#endif
             tile_regs_commit();
             tile_regs_wait();
             for (uint32_t j = 0; j < n; ++j) {
@@ -102,6 +122,9 @@ void kernel_main() {
             }
             tile_regs_release();
             cb_pop_front(g_cb, n);
+#ifdef GATED_MASK
+            cb_pop_front(m_cb, n);
+#endif
             cb_push_back(sig_cb, n);
 
             cb_wait_front(p_cb, n);
