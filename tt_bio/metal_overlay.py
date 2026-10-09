@@ -6,12 +6,12 @@ that mirrors the installed package lets tt-bio change what a kernel function doe
 ``site-packages`` or rebuilding ``_ttnn.so``. Only the directories on the way to a patched file are
 real; every sibling is a symlink back into the wheel, so the overlay is a few hundred inodes.
 
-The one patch today, ``silu_approx``: ``calculate_silu`` drops the caller's ``APPROXIMATION_MODE``
-(every sibling activation honours it), so a matmul with ``fp32_dest_acc_en=True`` and
-``math_approx_mode=True`` -- every Protenix Transition fc1 -- runs the accurate exp and a two-step
-reciprocal on each element. The patch threads the flag through: under approx mode silu takes
-exp_21f (about 1 ulp of bfloat16) and one Newton step, still on the fp32 accumulator, so the input
-is never rounded. Sites with ``math_approx_mode=False`` compile exactly as before.
+The one patch today, ``silu_f32``: ``calculate_silu`` drops the caller's ``APPROXIMATION_MODE``
+(every sibling activation honours it) and on an fp32 dest runs the accurate exp and a two-step
+reciprocal, 92 SFPU instructions a row on Wormhole. The patch threads the flag through and, under
+approx mode only, runs ``calculate_silu_f32`` (kernels/silu_f32): 6e-6 of float64 on the fp32
+accumulator in 40 instructions. Sites with ``math_approx_mode=False`` compile exactly as before,
+and tt-bio sets that flag on a fused silu from the ``silu_f32`` lever (``tenstorrent.silu_ckc``).
 
 ``enable()`` must run before the first device open. A patch whose anchor text is missing (a ttnn
 version that changed the header) raises rather than serving the unpatched kernel under a patched
@@ -29,23 +29,6 @@ ARCHES = ("wormhole_b0", "blackhole")
 _SFPU = "tt_metal/hw/ckernels/{arch}/metal/llk_api/llk_sfpu"
 
 
-def _patch_silu_kernel(src: str) -> str:
-    src, n1 = re.subn(
-        r"template <bool is_fp32_dest_acc_en, int ITERATIONS>\s*\ninline void calculate_silu\(\)",
-        "template <bool is_fp32_dest_acc_en, int ITERATIONS, bool APPROXIMATION_MODE = false>\n"
-        "inline void calculate_silu()",
-        src,
-    )
-    src, n2 = re.subn(
-        r"x \* _sfpu_sigmoid_<is_fp32_dest_acc_en>\(x\)",
-        "x * _sfpu_sigmoid_<is_fp32_dest_acc_en && !APPROXIMATION_MODE>(x)",
-        src,
-    )
-    if (n1, n2) != (1, 1):
-        raise RuntimeError(f"silu_approx: ckernel_sfpu_silu.h anchors matched {n1}, {n2} times")
-    return src
-
-
 def _patch_silu_llk(src: str) -> str:
     src, n = re.subn(
         r"calculate_silu<is_fp32_dest_acc_en, (8|ITERATIONS)>",
@@ -53,7 +36,7 @@ def _patch_silu_llk(src: str) -> str:
         src,
     )
     if n != 1:
-        raise RuntimeError(f"silu_approx: llk_math_eltwise_unary_sfpu_silu.h anchor matched {n} times")
+        raise RuntimeError(f"silu_f32: llk_math_eltwise_unary_sfpu_silu.h anchor matched {n} times")
     return src
 
 
@@ -95,14 +78,6 @@ PATCHES = {
             ("ckernel_sfpu_silu.h", _patch_silu_f32),
             ("llk_math_eltwise_unary_sfpu_silu.h", _patch_silu_llk),
             ("ckernel_sfpu_silu_f32.h", _add_silu_f32),
-        )
-    },
-    "silu_approx": {
-        f"{_SFPU.format(arch=arch)}/{name}": fn
-        for arch in ARCHES
-        for name, fn in (
-            ("ckernel_sfpu_silu.h", _patch_silu_kernel),
-            ("llk_math_eltwise_unary_sfpu_silu.h", _patch_silu_llk),
         )
     },
 }
@@ -170,7 +145,7 @@ def _mirror(root: Path, dst: Path, rel: Path) -> None:
     (here_dst / rel.name).unlink(missing_ok=True)
 
 
-def enable(names=("silu_approx",)) -> Path:
+def enable(names=("silu_f32",)) -> Path:
     """Point this process's kernel compiler at an overlay with ``names`` applied."""
     have = os.environ.get("TT_BIO_METAL_OVERLAY")
     if have is not None:
@@ -183,7 +158,7 @@ def enable(names=("silu_approx",)) -> Path:
     # tt-metal keys a compiled kernel on its defines and compile args, not on the headers it
     # included or the root it came from, so in a shared JIT cache an overlay binary and the
     # wheel's binary for the same op and config are one entry: whichever process compiled first
-    # serves both (measured on .114: base, C8 and silu_f32 arms bit-identical). Give each
+    # serves both (measured on .114: wheel and overlay arms bit-identical). Give each
     # overlay its own cache under the one the process would have used.
     base = os.environ.get("TT_METAL_CACHE") or str(Path.home() / ".cache")
     os.environ["TT_METAL_CACHE"] = str(Path(base) / f"overlay-{out.name}")

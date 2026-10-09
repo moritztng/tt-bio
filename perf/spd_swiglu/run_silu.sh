@@ -1,5 +1,5 @@
 #!/bin/bash
-# silu_bench.py arms on one chip under its flock, each arm its own process, ROUNDS rounds alternating base c8 f32.
+# silu_bench.py arms on one chip under its flock, each arm its own process, ROUNDS rounds alternating base f32.
 #   perf/spd_swiglu/run_silu.sh CHIP OUT [ROUNDS] [silu_bench.py args...]
 # Same environment as perf/spd/run_chip.sh: ~/japanfold/env.sh if present, private lease dir, LOCK/WAIT/PY overrides.
 # The overlay arms JIT the whole kernel set once per runtime root (~2 min warm cache after); the first round pays it.
@@ -16,7 +16,7 @@ say "chip $CHIP waiting for flock"
 flock -w "${WAIT:-600}" 9 || { say "flock busy, stopping"; exit 3; }
 say "start chip $CHIP head $(git rev-parse --short HEAD) rounds $ROUNDS"
 for r in $(seq 1 "$ROUNDS"); do
-  for arm in base c8 f32; do
+  for arm in base f32; do
     # One JIT cache per arm: tt-metal does not key binaries on header contents (metal_overlay.enable).
     TT_METAL_CACHE=$HOME/spd/$ROW/jit/$arm timeout -s TERM 1500 timeout -s INT 1380 "${PY:-python}" perf/spd_swiglu/silu_bench.py --arm $arm \
       --out "$OUT/$arm.r$r.json" "$@" > "$OUT/$arm.r$r.log" 2>&1

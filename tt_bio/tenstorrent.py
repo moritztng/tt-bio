@@ -379,12 +379,6 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
 # neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
-# Silu on a matmul's fp32 accumulator honours math_approx_mode (exp_21f and one Newton step instead
-# of the accurate exp and two), through a private overlay of ttnn's kernel headers: metal_overlay.py.
-# Must be set before the first device open. Measuring (perf/spd_overhead/swiglu_bench.py).
-if env_flag("TT_BIO_SILU_APPROX", False):
-    from . import metal_overlay as _metal_overlay
-    _metal_overlay.enable(("silu_approx",))
 _FAST_MODE = False
 # Protenix's lower-precision levers, one named switch each (op evidence: perf/lpx_*; fold grades:
 # state/spd). A precision mode is a set of these names. `--fast` runs FAST_LEVERS; normal mode runs
@@ -415,9 +409,9 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_r
           "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8",
           "trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in", "atom_sdpa", "silu_f32")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in", "silu_f32"})
+UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in"})
 FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"} - UNGRADED_LEVERS
-NORMAL_LEVERS = frozenset()
+NORMAL_LEVERS = frozenset({"silu_f32"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused

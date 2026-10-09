@@ -1,13 +1,12 @@
 """Fused silu on one chip: exactness against float64 and us per fc1 call, for one kernel arm per process.
 
-    TT_VISIBLE_DEVICES=N python perf/spd_swiglu/silu_bench.py --arm {base,c8,f32} --out OUT.json
+    TT_VISIBLE_DEVICES=N python perf/spd_swiglu/silu_bench.py --arm {base,f32} --out OUT.json
 
 The arm decides which ttnn kernel headers the process compiles against, so it is one per process:
   base  the wheel as shipped (its fp32-dest silu ignores math_approx_mode)
-  c8    metal_overlay silu_approx (spd-overhead C8: exp_21f and one Newton step under approx)
   f32   metal_overlay silu_f32 (calculate_silu_f32 under approx; the silu_f32 lever)
 Every matmul here runs Protenix's transition config (HiFi4, fp32 dest, packer L1 acc) with
-math_approx_mode=True, the switch both overlays key on; under base the flag is inert.
+math_approx_mode=True, the switch the overlay keys on; under base the flag is inert.
 
 exact: x @ I for every bfloat16 x in [-100, 100] (and its negation), fc1's fused silu written fp32.
   The product is exact, so the dest holds x and the output is the SFPU's silu of x, compared with
@@ -34,14 +33,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--arm", choices=("base", "c8", "f32"), required=True)
+ap.add_argument("--arm", choices=("base", "f32"), required=True)
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--batches", type=int, default=7)
 ap.add_argument("--skip", default="", help="comma list of sections to skip: exact,ops,transition")
 a = ap.parse_args()
-if a.arm == "c8":
-    os.environ["TT_BIO_SILU_APPROX"] = "1"
-elif a.arm == "f32":
+if a.arm == "f32":
     os.environ["TT_BIO_LEVERS"] = "silu_f32"
 
 import torch  # noqa: E402
@@ -189,7 +186,7 @@ if "ops" not in skip:
         ttnn.deallocate(x)
         ttnn.deallocate(w)
 
-if "transition" not in skip and a.arm != "c8":
+if "transition" not in skip:
     res["transition"] = {}
     for S, C, HID in ((736, 256, 1024),):
         g = torch.Generator().manual_seed(1)
