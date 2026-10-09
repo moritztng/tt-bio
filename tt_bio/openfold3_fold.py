@@ -316,8 +316,11 @@ class OpenFold3(Module):
                 batch=aux["frame_batch"], x=sample.float(),
                 atom_mask=aux["frame_batch"]["atom_mask"].float())
             has_frame = has_frame.bool()
+        # One softmax over the [N, N, 64] PAE bins serves pTM/ipTM, the chain reductions and
+        # the PAE matrix; on the host at 730 tokens each one costs ~0.2 s per sample.
+        pae_probs = torch.softmax(out["pae_logits"].float(), -1)
         ptm, iptm = ConfidenceHead._ptm_iptm(
-            out["pae_logits"], aux.get("asym_id"), has_frame=has_frame)
+            out["pae_logits"], aux.get("asym_id"), has_frame=has_frame, probs=pae_probs)
         disorder = _disorder_score(aux["atom_array"], sample) if aux.get("atom_array") is not None else 0.0
         has_clash = 0.0
         if all(k in aux for k in ("asym_id", "atom_to_token_index", "atom_mask", "polymer_mask")):
@@ -334,11 +337,11 @@ class OpenFold3(Module):
             # chain_ptm, chain_iptm and pair_chains_iptm, the same reduction Protenix and
             # OpenDDE report, over this head's logits and frame mask.
             **ConfidenceHead._chain_confidence(out["pae_logits"], aux.get("asym_id"),
-                                               has_frame=has_frame),
+                                               has_frame=has_frame, probs=pae_probs),
             "plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom,
             "ptm": ptm, "iptm": iptm, "disorder": disorder,
             "has_clash": has_clash, "ranking_score": ranking_score,
-            "pae": (torch.softmax(out["pae_logits"].float(), -1) * centers).sum(-1),
+            "pae": (pae_probs * centers).sum(-1),
             "pde": (torch.softmax(out["pde_logits"].float(), -1) * centers).sum(-1),
             "distogram": out["distogram_logits"],
         }
