@@ -58,7 +58,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#tt_bio_pair_transpose_fused) | on | pair tensors, forward and backward | identical |
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
-| [`TT_BIO_PWA_FULL_HEADS_FUSED`](#msa-module-flags) | on | Boltz-2 (32-wide heads) | identical |
+| [`TT_BIO_PWA_FULL_HEADS_FUSED`](#tt_bio_pwa_full_heads_fused) | on | Boltz-2 (32-wide heads) | identical |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
 | [`TT_BIO_SDPA_ADD_GRANULARITY`](#tt_bio_sdpa_add_granularity) | auto | | identical at every value |
@@ -793,7 +793,11 @@ Wormhole gains more because its MSA module is a larger share of the fold. Boltz-
 build the same pair-weighted averaging and outer product mean and reach these flags; their structures
 move by the same kind of rounding but have not been graded separately here.
 
-`TT_BIO_PWA_FULL_HEADS_FUSED` (default on) is the 32-wide-head case, Boltz-2's 8 heads of 32. There is
+## `TT_BIO_PWA_FULL_HEADS_FUSED`
+
+Default: on. Boltz-2.
+
+The 32-wide-head case of the pair-weighted averaging above, Boltz-2's 8 heads of 32. There is
 no padding to drop, so the fused path moves the same bytes with a tile transpose where the unpadded
 path pays two general permutes. Its row blocks sit on whole tiles. Bit for bit; together with
 `TT_BIO_DIT_SHARED_COND` the Boltz-2 730-token fold goes from 158.0 to 146.0 s on a Wormhole Galaxy

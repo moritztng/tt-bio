@@ -66,21 +66,12 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 
 
 def _under_levers(method):
-    """Run a device-building or folding entry point under the model's `_levers`, with the
-    process-wide `--fast` paths off (the mode is carried by the lever set instead)."""
+    """`tenstorrent.under_lever_scope`, looked up at call time so importing Boltz-2 does not import ttnn."""
     import functools
 
     @functools.wraps(method)
     def run(self, *a, **kw):
-        if not getattr(self, "use_tenstorrent", False):
-            return method(self, *a, **kw)
-        fast = tenstorrent._FAST_MODE
-        tenstorrent.set_fast_mode(False)
-        try:
-            with tenstorrent.levers(self._levers):
-                return method(self, *a, **kw)
-        finally:
-            tenstorrent.set_fast_mode(fast)
+        return tenstorrent.under_lever_scope(method)(self, *a, **kw)
     return run
 
 

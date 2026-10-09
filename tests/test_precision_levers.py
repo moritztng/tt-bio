@@ -13,6 +13,19 @@ def test_fast_set_never_holds_the_grid_dependent_lever_or_an_ungraded_one():
     assert T.NORMAL_LEVERS <= T.FAST_LEVERS
 
 
+def test_a_model_names_its_own_fast_set_and_the_harness_switch_still_wins(monkeypatch):
+    from tt_bio import openfold3_fold
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert T.model_levers() == T.FAST_LEVERS
+    assert T.model_levers(fast=openfold3_fold.FAST_LEVERS) == T.NORMAL_LEVERS
+    monkeypatch.setenv("TT_BIO_LEVERS", "fast")
+    assert T.model_levers(fast=openfold3_fold.FAST_LEVERS) == T.FAST_LEVERS
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    monkeypatch.delenv("TT_BIO_LEVERS")
+    assert T.model_levers(fast=openfold3_fold.FAST_LEVERS) == T.NORMAL_LEVERS
+
+
 def test_parse_expands_modes_and_rejects_unknown_names():
     assert T.parse_levers("fast") == T.FAST_LEVERS
     assert T.parse_levers("normal,opm_b8") == T.NORMAL_LEVERS | {"opm_b8"}
@@ -52,6 +65,13 @@ def test_dit_lowp_formats_follow_the_dit_dtype_and_the_levers():
     assert (mm16.w, mm16.act, mm16.out, mm16.k1, mm16.ckc) == (ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, True, ckc)
     assert (b8.w, b8.act, b8.mid, b8.out, b8.k1) == (ttnn.bfloat8_b,) * 3 + (ttnn.bfloat16, False)
     assert not b8.ckc.fp32_dest_acc_en
+    with T.levers("dit_b8"):
+        f32 = T.dit_lowp(ttnn.float32, ckc)
+    assert (f32.w, f32.act, f32.mid, f32.out, f32.k1, f32.qkv) == (ttnn.bfloat8_b,) * 3 + (ttnn.float32, True, ttnn.float32)
+    assert f32.ckc.fp32_dest_acc_en
+    assert (mm16.qkv, b8.qkv) == (ttnn.float32, ttnn.bfloat16)
+    with T.levers("dit_mm16+dit_qkv16"):
+        assert T.dit_lowp(ttnn.float32, ckc).qkv == ttnn.bfloat16
     with T.levers("dit_mm16"):
         assert T.dit_lowp(ttnn.bfloat16, ckc) is None
     assert T.dit_lowp(ttnn.float32, ckc) is None
@@ -81,7 +101,7 @@ def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast, want)
 def test_fold_runs_under_the_models_levers_and_restores():
     import tt_bio.boltz2 as B
 
-    for wrap in (T.under_levers, B._under_levers):
+    for wrap in (T.under_levers, T.under_lever_scope, B._under_levers):
         class M:
             _levers = frozenset({"acc_off"})
             use_tenstorrent = True

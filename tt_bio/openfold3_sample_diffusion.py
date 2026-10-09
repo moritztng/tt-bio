@@ -43,6 +43,7 @@ from .tenstorrent import _dtype, dram_peak, pad_dim
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
+from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 
 
 def _free_cached(obj):
@@ -122,9 +123,22 @@ class OF3SampleDiffusion:
                  token_mask_pad_tt, tok_mask_col_pad_tt,
                  n_atom, NP, nb, n_token, n_tok_pad,
                  noise_schedule, rots_list, trans_list, noise_list, t_list, c_tau_list,
-                 step_scale, progress_fn=None):
+                 step_scale, progress_fn=None, max_parallel_samples=None):
         """Run the rollout. Per-step host artefacts (rots/trans/noise/t/c_tau) are
-        python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device."""
+        python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device.
+
+        ``xl_init_dev`` may instead be a list, one start per sample, with ``rots_list``,
+        ``trans_list`` and ``noise_list`` lists of per-sample lists; the return is then a list
+        in the same order. The samples step together: a step's conditioning depends on ``t``
+        alone, so it is built once for all of them, and the samples go through the diffusion
+        module ``max_parallel_samples`` at a time, one token-DiT call per chunk
+        (``denoise_in_chunks``, which narrows the chunk if DRAM refuses it). Each sample keeps
+        its own draws, so the arithmetic of a sample does not depend on the chunk width."""
+        many = isinstance(xl_init_dev, (list, tuple))
+        if not many:
+            xl_init_dev, rots_list, trans_list, noise_list = (
+                [xl_init_dev], [rots_list], [trans_list], [noise_list])
+        S = len(xl_init_dev)
         pair_inputs = (zij_trunk_dev, relpos_dev)
         if self._act_dtype != ttnn.bfloat16:
             _c = self.to_act_dtype
@@ -140,7 +154,8 @@ class OF3SampleDiffusion:
             npe_zij_mask = _c(npe_zij_mask)
 
         atom_mask_host = ttnn.to_torch(atom_mask_col_na_dev).float().reshape(n_atom)  # [n_atom]
-        xl_host = ttnn.to_torch(xl_init_dev).float().reshape(n_atom, 3)               # [n_atom, 3]
+        xl_host = torch.stack([ttnn.to_torch(x).float().reshape(n_atom, 3)
+                               for x in xl_init_dev])                            # [S, n_atom, 3]
 
         # Loop invariants. Only the single conditioning branch and the atom-level legs see
         # the noise level; the pair branch, its fp32 cast, and every value downstream that
@@ -159,44 +174,55 @@ class OF3SampleDiffusion:
             ttnn.deallocate(zij_dev)
         inv_cache: dict = {}
         dram_peak("of3 sampler: conditioning pair built")
+        width = resolve_sample_chunk_width(S, max_parallel_samples)
 
         for tau in range(len(t_list)):
             if progress_fn:
                 progress_fn("diffusion", step=tau, total=len(t_list))
-            rots = rots_list[tau].float()                # [3, 3]
-            trans = trans_list[tau].float()              # [3]
-            # centre_random_augmentation (host): centre -> rotate -> translate -> mask.
-            mean_xl = (xl_host * atom_mask_host[:, None]).sum(0) / atom_mask_host.sum().clamp_min(1.0)
-            xl_aug = (xl_host - mean_xl) @ rots.t() + trans
-            xl_aug = xl_aug * atom_mask_host[:, None]
-            # noise add (host).
-            noise = noise_list[tau].float()
             t = float(t_list[tau])
-            xl_noisy = xl_aug + noise
-            # per-step conditioning: host n_emb(t) -> device single branch -> si.
-            # (the pair branch and zij_pad are loop-invariant and were hoisted above.)
+            # centre_random_augmentation + noise add (host), each sample with its own draws.
+            xl_noisy = torch.empty_like(xl_host)
+            for k in range(S):
+                rots = rots_list[k][tau].float()             # [3, 3]
+                trans = trans_list[k][tau].float()           # [3]
+                x = xl_host[k]
+                mean_xl = (x * atom_mask_host[:, None]).sum(0) / atom_mask_host.sum().clamp_min(1.0)
+                xl_aug = (x - mean_xl) @ rots.t() + trans
+                xl_aug = xl_aug * atom_mask_host[:, None]
+                xl_noisy[k] = xl_aug + noise_list[k][tau].float()
+            # per-step conditioning: host n_emb(t) -> device single branch -> si, one for every
+            # sample (the pair branch and zij_pad are loop-invariant and were hoisted above).
             n_emb = fourier_noise_emb(t, self.sigma_data, self.fourier_w, self.fourier_b)
             si_dev = self.dc.single(si_trunk_dev, si_input_dev,
                                     self._to_dev(n_emb.reshape(1, 1, 256)), tok_mask_dev)
             si_pad = pad_dim(si_dev, self._act_dtype, n_token, n_tok_pad)
             if si_pad is not si_dev:
                 ttnn.deallocate(si_dev)
-            # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device).
-            rl_noisy = xl_noisy * atom_mask_host[:, None] / math.sqrt(t * t + self.sigma_data ** 2)
-            rl_noisy_dev = self._to_dev(self._pad_atoms_host(rl_noisy, n_atom, NP))
-            xl_noisy_masked = xl_noisy * atom_mask_host[:, None]
-            xl_noisy_dev = self._to_dev(xl_noisy_masked.unsqueeze(0))  # [1, n_atom, 3]
-            xl_denoised_dev = self.dm(
-                si_trunk_dev, si_pad, zij_pad, cl0_dev, plm0_dev, rl_noisy_dev, xl_noisy_dev,
-                atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
-                npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
-                enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
-                token_mask_pad_tt, tok_mask_col_pad_tt,
-                n_atom, NP, nb, n_token, n_tok_pad, t, self.sigma_data, cache=inv_cache)
-            xl_denoised = ttnn.to_torch(xl_denoised_dev).float().reshape(n_atom, 3)
+
+            def denoise(chunk, _w, t=t, si_pad=si_pad):
+                # rl_noisy = xl_noisy * atom_mask / sqrt(t^2 + sigma_data^2) (host -> device).
+                devs = [(self._to_dev(self._pad_atoms_host(
+                            x * atom_mask_host[:, None] / math.sqrt(t * t + self.sigma_data ** 2),
+                            n_atom, NP)),
+                         self._to_dev((x * atom_mask_host[:, None]).unsqueeze(0)))  # [1, n_atom, 3]
+                        for x in chunk]
+                outs = self.dm(
+                    si_trunk_dev, None, zij_pad, cl0_dev, plm0_dev, None, None,
+                    atom_mask_col_dev, atom_mask_col_na_dev, atom_to_token_idx_tt,
+                    npe_flat_idx_tt, npe_zij_mask, enc_key_block_idxs_tt, enc_valid_mask,
+                    enc_mask_bias, enc_pair_mask, atom_to_token_mean_tt,
+                    token_mask_pad_tt, tok_mask_col_pad_tt,
+                    n_atom, NP, nb, n_token, n_tok_pad, t, self.sigma_data, cache=inv_cache,
+                    samples=[(si_pad, rl, xl, t) for rl, xl in devs])
+                res = torch.stack([ttnn.to_torch(o).float().reshape(n_atom, 3) for o in outs])
+                for o in outs:
+                    ttnn.deallocate(o)
+                for rl, xl in devs:
+                    ttnn.deallocate(rl); ttnn.deallocate(xl)
+                return res
+
+            xl_denoised, width = denoise_in_chunks(xl_noisy, width, denoise, tag="of3 diffusion")
             ttnn.deallocate(si_pad)
-            ttnn.deallocate(rl_noisy_dev); ttnn.deallocate(xl_noisy_dev)
-            ttnn.deallocate(xl_denoised_dev)
             # EDM step (host).
             delta = (xl_noisy - xl_denoised) / t
             dt = float(c_tau_list[tau]) - t
@@ -204,7 +230,8 @@ class OF3SampleDiffusion:
 
         ttnn.deallocate(zij_pad)
         _free_cached(inv_cache.values())
-        return self._to_dev(xl_host.unsqueeze(0))
+        out = [self._to_dev(x.unsqueeze(0)) for x in xl_host]
+        return out if many else out[0]
 
     @staticmethod
     def _pad_atoms_host(x, n_atom, NP):

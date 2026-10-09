@@ -187,9 +187,8 @@ class OF3Trunk(Module):
             # the same way, 0.50319 -> 0.56667. Without the reduction order the same route
             # fails at 1.61x the floor median, which is why the two are coupled.
             #
-            # The other three sites stay OFF: each helps on its own but the three together
-            # land further from the experimental structure than the trunk alone, so this is
-            # approved as one site and not as a set.
+            # The template site stays OFF: alone it moves the c730 ipTM from 0.67 to 0.48 (spd-of3
+            # ab11t). The confidence site ships ON (openfold3_confidence.py); see there.
             tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.trunk", True))
         self.template = TemplateEmbedder(
             _sub(state_dict, "template_embedder"), compute_kernel_config,
