@@ -32,6 +32,13 @@ def wrong(R, Y):
     return int(bad.sum()), int(big.sum()), float(err.max()), rms, worst
 
 
+def bad_idx(R, Y):
+    err = (Y - R).abs()
+    ulp = torch.exp2(torch.floor(torch.log2(R.abs().clamp_min(1e-30))) - 7)
+    bad = (err > 8 * ulp) & (err > 16 * err.pow(2).mean().sqrt())
+    return set(bad.flatten().nonzero().flatten().tolist())
+
+
 def mm_config(variant, grid):
     """`mmK<k>`: ttnn.experimental.minimal_matmul with protenix's triangle-attention blocks (M 4, N 1, subblock 4x1)
     and K block k; `mmdef` the op's own default (config=None, K block 8)."""
@@ -67,6 +74,8 @@ def main():
     ap.add_argument("--batch", type=int, default=5, help="leading dim of the auto3d variant's input, as the fold passes it")
     ap.add_argument("--draws", type=int, default=8)
     ap.add_argument("--seed0", type=int, default=0)
+    ap.add_argument("--repeat", type=int, default=0,
+                    help="rerun draw 0 this many times on the same input: are the wrong pixels the same ones each time")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     torch.set_num_threads(6)
@@ -118,6 +127,13 @@ def main():
                         ts = round(statistics.median(ts) * 1e6, 1)
                     cell = dict(draw=d, fid=fid, v=v, wrong=nb, big=nbig, max_err=round(mx, 4), rms_err=round(rms, 6),
                                 worst=worst, us=ts)
+                    if d == 0 and a.repeat:
+                        sets = [bad_idx(R, Y)]
+                        for _ in range(a.repeat):
+                            y = run(); sets.append(bad_idx(R, ttnn.to_torch(y).double().reshape(a.m, a.n))); ttnn.deallocate(y)
+                        union = set().union(*sets)
+                        cell["repeat"] = dict(counts=[len(x) for x in sets], union=len(union),
+                                              every_run=len(set.intersection(*sets)))
                     res["cells"].append(cell); print(json.dumps(cell), flush=True)
             ttnn.deallocate(ta); ttnn.deallocate(tw)
             if ta3 is not None:
