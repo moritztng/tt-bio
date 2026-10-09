@@ -77,20 +77,21 @@ def ta_site(S, full):
     q16, k16, v16 = (ttnn.to_torch(t)[SEL[site]].double() for t in (q, k, v))
     REF[site] = torch.softmax((q16 @ k16.transpose(-1, -2) + ttnn.to_torch(b).double()) * sc, -1) @ v16
 
-    def arm(fn, padded=True, preload=True):
+    def arm(fn, padded=True, preload=True, stream=False):
         def call():
-            prev = T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD
-            T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD = padded, preload
+            prev = T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD, TS.STREAM
+            T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD, TS.STREAM = padded, preload, stream
             try:
                 return fn()
             finally:
-                T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD = prev
+                T._SDPA_FUSED_PADDED, TS.QK_MASK_PRELOAD, TS.STREAM = prev
         return call
     ladder = lambda: T._tri_att_sdpa_at(q, k, v, b, sc)
     pair = lambda qc, kc: lambda: TS.sdpa(q, k, v, b, sc, qc, kc, q_split_cap=0, padded_mask=True)
     ARMS[f"ta{S} stock (padded off)"] = (site, arm(ladder, padded=False))
     ARMS[f"ta{S} ladder, no preload"] = (site, arm(ladder, preload=False))
     ARMS[f"ta{S} ladder (shipped)"] = (site, arm(ladder))
+    ARMS[f"ta{S} ladder stream"] = (site, arm(ladder, stream=True))
     cores = T.COMPUTE_GRID_MAIN[0] * T.COMPUTE_GRID_MAIN[1]
     pairs = TS.fused_pairs(S, H, D, cores, ttnn.bfloat16, padded=True)
     log(ev="ta_pairs", seq=S, cores=cores, pairs=pairs[:a.pairs])

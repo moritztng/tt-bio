@@ -72,6 +72,8 @@ struct RingAccumulatorState {
 
 // Sentinel for "no CB" — beyond the valid 0-31 range.
 constexpr uint32_t INVALID_CB = 32;
+// tt-bio: "no persistent mask" for the STREAM_PMASK tile-index arguments (any tile index is valid).
+constexpr uint32_t NO_PMASK = 0xFFFFFFFFu;
 
 /**
  * Blocked subblock matmul with absolute offset packing.
@@ -90,8 +92,32 @@ SDPA_NOINLINE void blocked_matmul_and_pack(
     uint32_t subblock_h,
     uint32_t inner_dim,
     uint32_t matmul_stride,
-    bool trigger_reduce = false) {
+    bool trigger_reduce = false,
+    uint32_t pmask_cb = 0,
+    uint32_t pmask_index = NO_PMASK,
+    uint32_t pmask_row_tiles = 0) {
     tile_regs_acquire();
+#ifdef STREAM_PMASK
+    if (pmask_index != NO_PMASK) {
+        // tt-bio: seed DST with the persistent mask so Q@KT accumulates onto it and the scores
+        // are packed once with the bias in, as matmul_blocks' QK_MASK_PRELOAD does on the
+        // standard path. pmask_index is this subblock's top-left tile in the fronted mask.
+        reconfig_data_format_srca(in1_cb, pmask_cb);
+        copy_tile_to_dst_init_short(pmask_cb);
+        uint32_t d = 0;
+        for (uint32_t r = 0; r < subblock_h; r++) {
+            for (uint32_t c = 0; c < subblock_w; c++) {
+                copy_tile(pmask_cb, pmask_index + r * pmask_row_tiles + c, d++);
+            }
+        }
+        reconfig_data_format_srca(pmask_cb, in1_cb);
+#ifdef ARCH_BLACKHOLE
+        mm_no_mop_reinit_short(in0_cb, in1_cb, transpose, subblock_w, subblock_h, inner_dim);
+#else
+        mm_block_init_short(in0_cb, in1_cb, transpose, subblock_w, subblock_h, inner_dim);
+#endif
+    }
+#endif
     uint32_t dst_index = 0;
     uint32_t in0_index = in0_index_start;
     uint32_t in1_index = in1_index_start;
@@ -680,7 +706,8 @@ static void sdpa_inner_loop_step(
     const bool reduce_trigger = false,
     const uint32_t actual_sbw = qkt_subblock_w,
     const uint32_t save_out_cb = INVALID_CB,
-    const uint32_t save_max_cb = INVALID_CB) {
+    const uint32_t save_max_cb = INVALID_CB,
+    const uint32_t pmask_base = NO_PMASK) {
     // Callers guarantee active_Sk is evenly divisible by actual_sbw (via largest_factor_le).
     const uint32_t kt_num_full_subblocks = active_Sk / actual_sbw;
     // TODO: pick up the size of dest from dest_helper once it is merged to main.
@@ -784,7 +811,12 @@ static void sdpa_inner_loop_step(
                     qkt_subblock_h,
                     in0_block_w,
                     in0_block_w,
-                    kt_trigger_reduce);
+                    kt_trigger_reduce,
+                    cb_mask_in,
+                    pmask_base == NO_PMASK
+                        ? NO_PMASK
+                        : pmask_base + q_subblock * qkt_subblock_h * Sk_chunk_t + kt_subblock * actual_sbw,
+                    Sk_chunk_t);
                 kt_index_offset += actual_sbw;
             }
         }
@@ -1216,6 +1248,12 @@ void sdpa_standard_v2(
     }
 
     constexpr uint32_t last_chunk_Sk = Sk_chunk_t - padded_k_tiles_inner;
+#ifdef STREAM_PMASK
+    // tt-bio: the reader fronts the head's whole mask once (PERSISTENT_MASK), k-chunk-major blocks of
+    // Sq_chunk_t x Sk_chunk_t tiles, never popped. Pad columns are -inf in it, and the narrowed
+    // last chunk never reads them.
+    cb_wait_front(cb_mask_in, k_num_chunks * Sq_chunk_t * Sk_chunk_t);
+#endif
 
     for (uint32_t q = 0; q < q_chunks_per_core; q++) {
         AccumulatorHalf prev = {cb_sum_A, cb_max_A, cb_out_im_A};
@@ -1243,7 +1281,8 @@ void sdpa_standard_v2(
                              bool is_first,
                              uint32_t active_Sk,
                              bool reduce_trigger,
-                             uint32_t sbw) {
+                             uint32_t sbw,
+                             uint32_t pmask_base) {
             sdpa_inner_loop_step<
                 decltype(profiling_tag)::value,
                 Sq_chunk_t,
@@ -1279,7 +1318,10 @@ void sdpa_standard_v2(
                 0,      // lw_partial_tile_idx
                 active_Sk,
                 reduce_trigger,
-                sbw);
+                sbw,
+                INVALID_CB,
+                INVALID_CB,
+                pmask_base);
         };
 
         for (uint32_t k_chunk = 0; k_chunk < k_num_chunks; k_chunk++) {
@@ -1295,7 +1337,13 @@ void sdpa_standard_v2(
                 is_first,
                 chunk_active_Sk,
                 chunk_reduce_trigger,
-                is_padded ? padded_sbw : full_sbw);
+                is_padded ? padded_sbw : full_sbw,
+#ifdef STREAM_PMASK
+                k_chunk * Sq_chunk_t * Sk_chunk_t
+#else
+                NO_PMASK
+#endif
+            );
 
             // Post-iteration cleanup
             // prev.out and cb_exp_max_diff are already popped row-by-row inside salad_correct_row.
