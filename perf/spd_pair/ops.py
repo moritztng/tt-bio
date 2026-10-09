@@ -14,6 +14,9 @@ Groups (--groups):
         pair_transpose_add.transpose_add(u, z); torch.equal checked
   pln   tt_bio.pair_ln (own kernel, bf16 or bfp8 out, --pln-arms own_<fidelity>_<b16|b8>) against
         ttnn.layer_norm at normal and fast mode's configs, all scored against float64
+  lnmm  layer norm + the projection that consumes it (--lnmm-n output widths): ttnn.layer_norm (bf16) or
+        pair_ln HiFi3 bf16 / bfp8 into one ttnn.linear (bfp8 weights, HiFi2, fixed across arms); also the
+        linear alone on a bf16 vs bfp8 input. Scored against float64 LN(x) @ W
 
 usage: ops.py OUT [--n 736] [--cz 256] [--groups ln,tail,add] [--reps 5] [--calls 8] [--chip C]
 """
@@ -32,6 +35,7 @@ ap.add_argument("--trans-h", default="5,32")
 ap.add_argument("--ln-arms", default="fast_today,normal_today,hifi4_f32,hifi2_f32,lofi_f32,hifi3_b16,hifi2_b16,lofi_b16")
 ap.add_argument("--pln-arms", default="normal_today,fast_today,own_HiFi4_b16,own_HiFi3_b16,own_HiFi2_b16,own_HiFi3_b8")
 ap.add_argument("--tail-arms", default="base,fused")
+ap.add_argument("--lnmm-n", default="256,1024")
 ap.add_argument("--tail-variants", default="",
                 help="extra fused arms, name=SIGPOLY/RNE/fidelity/f32 separated by commas, e.g. poly=1/3/HiFi3/1")
 ap.add_argument("--reps", type=int, default=5)
@@ -203,6 +207,47 @@ if "pln" in groups:
         arms[a] = (fn, score)
     run_arms("pln", arms, A.calls)
     for t in (x, gw, bw):
+        ttnn.deallocate(t)
+
+if "lnmm" in groups:
+    import tt_bio.pair_ln as PLN
+    gamma = (1 + 0.3 * torch.randn(C)).bfloat16(); beta = (0.2 * torch.randn(C)).bfloat16()
+    x = ttnn.from_torch(z_host, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    gw = ttnn.from_torch(gamma.reshape(1, C), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    bw = ttnn.from_torch(beta.reshape(1, C), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    xd = z_host.double()
+    m = xd.mean(-1, keepdim=True); v = xd.var(-1, unbiased=False, keepdim=True)
+    lnref = (xd - m) / torch.sqrt(v + 1e-5) * gamma.double() + beta.double()
+    lk, mk = ckc("HiFi3", True), ckc("HiFi2", False)
+    xn16 = ttnn.layer_norm(x, weight=gw, bias=bw, epsilon=1e-5, compute_kernel_config=lk)
+    xn8 = PLN.layer_norm(x, gw, bw, 1e-5, ttnn.bfloat8_b, ttnn.MathFidelity.HiFi3)
+    for n_out in [int(v) for v in A.lnmm_n.split(",")]:
+        W = (torch.randn(C, n_out) / C ** 0.5).bfloat16()
+        w = ttnn.from_torch(W, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat8_b)
+        Wq = ttnn.to_torch(w).double()                 # the weights the device multiplies by
+        ref = lnref @ Wq
+        lin = lambda t: ttnn.linear(t, w, dtype=ttnn.bfloat16, compute_kernel_config=mk,
+                                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+        def chain(norm):
+            def fn():
+                t = norm(); o = lin(t); ttnn.deallocate(t); return o
+            return fn
+        norms = {"ttnn_b16": lambda: ttnn.layer_norm(x, weight=gw, bias=bw, epsilon=1e-5, compute_kernel_config=lk),
+                 "own_b16": lambda: PLN.layer_norm(x, gw, bw, 1e-5, ttnn.bfloat16, ttnn.MathFidelity.HiFi3),
+                 "own_b8": lambda: PLN.layer_norm(x, gw, bw, 1e-5, ttnn.bfloat8_b, ttnn.MathFidelity.HiFi3)}
+        arms = {}
+        for a, norm in norms.items():
+            fn = chain(norm)
+
+            def score(fn=fn):
+                o = fn(); r = rel(ttnn.to_torch(o).float(), ref); ttnn.deallocate(o); return r
+            arms[f"{a}_n{n_out}"] = (fn, score)
+        arms[f"mm_in16_n{n_out}"] = (lambda: lin(xn16), None)
+        arms[f"mm_in8_n{n_out}"] = (lambda: lin(xn8), None)
+        run_arms("lnmm", arms, A.calls)
+        ttnn.deallocate(w)
+    for t in (x, gw, bw, xn16, xn8):
         ttnn.deallocate(t)
 
 if "add" in groups:
