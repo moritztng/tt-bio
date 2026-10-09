@@ -1,6 +1,8 @@
 """release_next.py: the release train's decision, on a throwaway repo."""
 import importlib.util
 import json
+import os
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +36,14 @@ def test_nothing_when_main_only_moved_docs_and_version(tmp_path):
     assert d["do"] == "NOTHING" and d["last_release"] == "v0.1.0"
 
 
+def _plan(gates, name, sha, repo, **kw):
+    (gates / name).mkdir(parents=True)
+    (gates / name / "plan.json").write_text(json.dumps(
+        {"sha": sha, "content": rn.content_hash(sha, repo), "pid": os.getpid(),
+         "host": socket.gethostname(), **kw}))
+    return gates / name
+
+
 def test_gate_the_newest_staging_and_never_restart_a_running_gate(tmp_path):
     git = _repo(tmp_path)
     for n in (8, 10):
@@ -45,21 +55,37 @@ def test_gate_the_newest_staging_and_never_restart_a_running_gate(tmp_path):
     s8 = git("rev-parse", "main^")
     head = git("rev-parse", "main")
     gates = tmp_path / "gates"
-    (gates / "g8").mkdir(parents=True)
-    (gates / "g8" / "plan.json").write_text(json.dumps({"sha": s8}))
+    _plan(gates, "g8", s8, tmp_path)
     d = rn.decide(tmp_path, gates, "main")
     assert d["stagings_since"] == ["8", "10"]
     assert d["do"] == "GATE" and d["sha"] == head
     assert "finish the running gate on " + s8[:9] in d["why"]
 
-    (gates / "cpu10").mkdir()
-    (gates / "cpu10" / "plan.json").write_text(json.dumps({"sha": head, "partial": True}))
+    _plan(gates, "cpu10", head, tmp_path, partial=True)
     (gates / "cpu10" / "verdict.json").write_text(json.dumps({"pass": True}))
     assert rn.decide(tmp_path, gates, "main")["do"] == "GATE"     # a --legs run is no verdict
-    (gates / "g10").mkdir()
-    (gates / "g10" / "plan.json").write_text(json.dumps({"sha": head}))
+    _plan(gates, "g10", head, tmp_path)
     assert rn.decide(tmp_path, gates, "main")["do"] == "WAIT"
     (gates / "g10" / "verdict.json").write_text(json.dumps({"pass": False}))
     assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
     (gates / "g10" / "verdict.json").write_text(json.dumps({"pass": True}))
     assert rn.decide(tmp_path, gates, "main")["do"] == "CUT"
+
+
+def test_a_docs_commit_rides_its_parents_gate_and_a_dead_run_is_none(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "lever")
+    code = git("rev-parse", "main")
+    (tmp_path / "docs.md").write_text("docs\n")
+    git("add", "."), git("commit", "-qm", "docs")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "g", code, tmp_path)
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "WAIT" and "finish" not in d["why"]
+    plan = json.loads((g / "plan.json").read_text())
+    plan["pid"] = 2 ** 22 + 1                                       # above pid_max: never alive
+    (g / "plan.json").write_text(json.dumps(plan))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "GATE"
+    _plan(gates, "wh", code, tmp_path, partial=True)
+    assert "partial runs on " + code[:9] in rn.decide(tmp_path, gates, "main")["why"]

@@ -67,8 +67,10 @@ import dataclasses
 import fnmatch
 import hashlib
 import json
+import os
 import re
 import shlex
+import socket
 import subprocess
 import sys
 import threading
@@ -712,7 +714,9 @@ def main() -> int:
             "env_probe": probes, "run": {a: [lg.name for lg in q] for a, q in todo.items()},
             "reused": [r["leg"] + "@" + r["arch"] for r in results],
             # A dry run, or one limited by --legs or --arch, is not a release verdict.
-            "partial": bool(args.legs or args.arch or args.dry_run)}
+            "partial": bool(args.legs or args.arch or args.dry_run),
+            # release_next.py tells a live run from one that was stopped before its verdict.
+            "pid": os.getpid(), "host": socket.gethostname()}
     (args.out / "plan.json").write_text(json.dumps(plan, indent=1))
     print(f"gate {sha[:12]}: {sum(len(q) for q in todo.values())} legs to run, "
           f"{len(results)} reused, archs {archs}, {len(workers)} cards")

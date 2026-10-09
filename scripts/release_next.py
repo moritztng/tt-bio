@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -53,10 +55,13 @@ def stagings(since: str, head: str, repo: Path = REPO) -> list[str]:
     return [m.group(1) for s in subj for m in [STAGING.search(s)] if m]
 
 
-def gate_state(gates: Path | None, sha: str) -> tuple[str, Path | None]:
-    """('none'|'running'|'pass'|'fail', dir) of the newest full gate_fanout run on `sha` under
-    `gates`. A run limited to some legs (plan.json `partial`) fills the ledger but is no verdict."""
-    runs = [p.parent for p, plan in _plans(gates) if plan.get("sha") == sha]
+def gate_state(gates: Path | None, content: str) -> tuple[str, Path | None]:
+    """('none'|'running'|'pass'|'fail', dir) of the newest full gate_fanout run on code with this
+    content key, so a docs-only commit on top of a gated one needs no gate of its own. A run
+    limited to some legs (plan.json `partial`) fills the ledger but is no verdict, and a run
+    stopped before its verdict is no run."""
+    runs = [p.parent for p, plan in _plans(gates) if plan.get("content") == content]
+    runs = [d for d in runs if (d / "verdict.json").exists() or _alive(json.loads((d / "plan.json").read_text()))]
     if not runs:
         return "none", None
     d = max(runs, key=lambda p: (p / "plan.json").stat().st_mtime)
@@ -66,7 +71,21 @@ def gate_state(gates: Path | None, sha: str) -> tuple[str, Path | None]:
     return ("pass" if json.loads(v.read_text()).get("pass") else "fail"), d
 
 
-def _plans(gates: Path | None) -> list:
+def _alive(plan: dict) -> bool:
+    """The run's runner is still up. A plan from another host is taken as live."""
+    pid = plan.get("pid")
+    if not pid or plan.get("host") != socket.gethostname():
+        return bool(pid)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    return True
+
+
+def _plans(gates: Path | None, partial: bool = False) -> list:
     if gates is None or not gates.is_dir():
         return []
     out = []
@@ -75,13 +94,14 @@ def _plans(gates: Path | None) -> list:
             plan = json.loads(p.read_text())
         except ValueError:
             continue
-        if not plan.get("partial"):
+        if bool(plan.get("partial")) == partial:
             out.append((p, plan))
     return out
 
 
-def running_gates(gates: Path | None) -> list[str]:
-    return sorted(plan["sha"] for p, plan in _plans(gates) if not (p.parent / "verdict.json").exists())
+def running_gates(gates: Path | None, partial: bool = False) -> list[str]:
+    return sorted({plan["sha"] for p, plan in _plans(gates, partial)
+                   if not (p.parent / "verdict.json").exists() and _alive(plan)})
 
 
 def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main") -> dict:
@@ -91,15 +111,17 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
            "stagings_since": stagings(tsha, head, repo), "running": running_gates(gates)}
     if tsha and content_hash(head, repo) == content_hash(tsha, repo):
         return {**out, "do": "NOTHING", "sha": tsha, "why": f"main's code is {tag}'s"}
-    state, d = gate_state(gates, head)
+    state, d = gate_state(gates, content_hash(head, repo))
     why = {"none": "no gate has run on main's head",
            "running": f"gate running in {d}",
            "fail": f"gate failed: {d}/VERDICT.md",
            "pass": f"gate passed on every arch: {d}/VERDICT.md"}[state]
     do = {"none": "GATE", "running": "WAIT", "fail": "FIX", "pass": "CUT"}[state]
-    older = [s for s in out["running"] if s != head]
+    older = [s for s in out["running"] if d is None or s != json.loads((d / "plan.json").read_text())["sha"]]
     if older:
         why += f"; finish the running gate on {', '.join(s[:9] for s in older)}, do not restart it"
+    if part := running_gates(gates, partial=True):
+        why += f"; partial runs on {', '.join(s[:9] for s in part)} fill the ledger the gate reuses"
     return {**out, "do": do, "sha": head, "why": why}
 
 
