@@ -18,6 +18,7 @@ import torch
 import ttnn
 
 from .protenix import _KeyedWeights, _under_levers
+from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
 from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device
@@ -484,31 +485,19 @@ class OpenDDE:
             return (*result, attn_bias)
         return result
 
-    def _residue_trunk(self, feats, fi, n_cycles, seed, progress_fn):
-        """Input embedder + trunk on the residue axis (identical to Protenix.fold steps 1-3).
-        Returns host (s_inputs, s_trunk, z_trunk, c_l, p_lm) and frees the device copies."""
+    def _residue_trunk(self, feats, n_cycles, seed, progress_fn):
+        """Protenix's trunk stage on the residue axis (input embedder, atom cache, trunk). Returns
+        fi and host (s_inputs, s_trunk, z_trunk, c_l, p_lm), and frees the device copies."""
         P = self._protenix
-        tt = P._tt
-        N, NT, nb, nq, nk, mt, S = (fi[k] for k in ("N", "NT", "nb", "nq", "nk", "mt", "S"))
-        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
-        dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
-        s_inputs_tt = P.input_aae(
-            tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]), tt(feats["ref_mask"].reshape(N, 1)),
-            tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt, tt(Mmat),
-            tt(feats["restype"]), tt(feats["profile"]), tt(dm))
-        s_inputs = P._to_host(s_inputs_tt)[:NT]
-        mt_dev = tt(mt.reshape(-1, 1).float())
-        c_l = P._to_host(P.diff_feat.c_l(tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]),
-                                         tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
-        p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
-        relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
         # Each recycling cycle reads its own MSA_DEPTH random alignment rows, drawn from the seed
         # as upstream's MSAModule does.
         gen = torch.Generator()
         gen.seed() if seed is None else gen.manual_seed(seed)
-        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                  n_cycles=n_cycles, progress_fn=progress_fn,
-                                  msa_sample=(MSA_DEPTH, gen))
+        st = P._trunk_stage(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed,
+                            msa_sample=(MSA_DEPTH, gen))
+        fi, s_inputs, c_l, p_lm = st["fi"], st["s_inputs"], st["c_l"], st["p_lm"]
+        s_trunk_tt, z_tt = st["s_trunk_tt"], st["z_tt"]
+        NT = fi["NT"]
         s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
         # The z_trunk host copy stays bf16 when `_SEAM_BF16` is on. Its two consumers both
         # accept it: the expander re-uploads it as bf16 (`ttnn.from_torch(..., dtype=bfloat16)`,
@@ -520,9 +509,9 @@ class OpenDDE:
         # above. Free them before the expander allocates the structural-scale pair
         # tensor (~1.9x the residue axis): on 12 GiB Wormhole parts their holes are
         # what the refiner's full-size concats squeeze into.
-        for _t in (s_inputs_tt, s_trunk_tt, z_tt, mt_dev):
+        for _t in (s_trunk_tt, z_tt):
             ttnn.deallocate(_t)
-        return s_inputs, s_trunk, z_trunk, c_l, p_lm
+        return fi, s_inputs, s_trunk, z_trunk, c_l, p_lm
 
     @_under_levers
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
@@ -577,24 +566,24 @@ class OpenDDE:
         ifd = build_structural_token_features(feats)
         Ns = ifd["parent_residue_idx"].shape[0]
 
-        fi = P._atom_feat_inputs(feats)
-        N, nb, nq, nk, mt = fi["N"], fi["nb"], fi["nq"], fi["nk"], fi["mt"]
-
-        # 1) input embedder + trunk, residue axis (identical to Protenix.fold steps 1-3)
+        # 1) input embedder + trunk, residue axis (Protenix.fold's own first stage)
         key = hit = None
         if trunk_cache is not None:
             import tt_bio.tenstorrent as _TTm
             key = trunk_cache.key(feats, "opendde", n_cycles, seed, self._weights_tag, _TTm._FAST_MODE)
             hit = trunk_cache.load(key)
-            if hit is not None:
-                s_inputs, s_trunk, z_trunk, c_l, p_lm = (
-                    hit[k] for k in ("s_inputs", "s_trunk", "z_trunk", "c_l", "p_lm"))
         if hit is None:
-            s_inputs, s_trunk, z_trunk, c_l, p_lm = self._residue_trunk(
-                feats, fi, n_cycles, seed, progress_fn)
+            fi, s_inputs, s_trunk, z_trunk, c_l, p_lm = self._residue_trunk(feats, n_cycles, seed, progress_fn)
             if key is not None:
                 trunk_cache.save(key, dict(s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk,
                                            c_l=c_l, p_lm=p_lm))
+        else:
+            fi = P._atom_feat_inputs(feats)
+            s_inputs, s_trunk, z_trunk, c_l, p_lm = (
+                hit[k] for k in ("s_inputs", "s_trunk", "z_trunk", "c_l", "p_lm"))
+        N, NT, nb, nq, nk, mt = (fi[k] for k in ("N", "NT", "nb", "nq", "nk", "mt"))
+        z_base = (P._confidence_start(s_inputs, hostlane.done(z_trunk), NT)
+                  if return_confidence else None)
 
         # 2) the novel seam: residue -> structural-token axis
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
@@ -656,7 +645,7 @@ class OpenDDE:
             # Residue-axis confidence (select_pair_output_branch(pair_output_space="residue")):
             # s_inputs/s_trunk/z_trunk are the step-1 pre-expansion tensors, `feats` the
             # original residue-level dict -- identical call shape to Protenix.fold's.
-            confs = P.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk, list(coords), feats)
+            confs = P._confidences(s_inputs, s_trunk, hostlane.done(z_trunk), z_base, list(coords), feats)
             if distogram:
                 # Upstream's DistogramHead on the same residue-axis trunk pair
                 # (compute_distogram_contact_probs reads select_pair_output_branch's pair_z):
