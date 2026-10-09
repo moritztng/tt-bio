@@ -25,11 +25,15 @@ from tt_bio.tenstorrent import get_device  # noqa: E402
 ap = argparse.ArgumentParser()
 ap.add_argument("--tokens", type=int, nargs="+", default=[128, 224])
 ap.add_argument("--bias", action="store_true", help="also score a bias riding in the matmul")
+ap.add_argument("--repeat", type=int, default=3, help="runs per arm; a spike that moves between runs is not arithmetic")
+ap.add_argument("--no-l1acc", action="store_true", help="packer_l1_acc off in the trunk config")
 ap.add_argument("--out", required=True)
 a = ap.parse_args()
 
 dev = get_device()
 ckc = af2.compute_kernel_config()
+if a.no_l1acc:
+    ckc.packer_l1_acc = False
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev,
                                dtype=ttnn.bfloat16)
 rows = []
@@ -47,22 +51,29 @@ for n in a.tokens:
             got = {}
             for arm in ("ttnn", "pair_mm"):
                 pair_mm.PAIR_MM_FUSED = arm == "pair_mm"
-                before = pair_mm.STATS[0]
-                if tb:
-                    out = (pair_mm.matmul(xt, wt, None, ckc, transpose_b=True) if arm == "pair_mm"
-                           else ttnn.matmul(xt, wt, transpose_b=True, compute_kernel_config=ckc))
-                else:
-                    out = ops.linear(xt, wt, bt, compute_kernel_config=ckc)
-                served = pair_mm.STATS[0] - before
-                if out is None:
+                runs = []
+                for _ in range(a.repeat):
+                    before = pair_mm.STATS[0]
+                    if tb:
+                        out = (pair_mm.matmul(xt, wt, None, ckc, transpose_b=True) if arm == "pair_mm"
+                               else ttnn.matmul(xt, wt, transpose_b=True, compute_kernel_config=ckc))
+                    else:
+                        out = ops.linear(xt, wt, bt, compute_kernel_config=ckc)
+                    served = pair_mm.STATS[0] - before
+                    if out is None:
+                        break
+                    runs.append(ttnn.to_torch(out).double().reshape(ref.shape))
+                if not runs:
                     got[arm] = {"served": 0}
                     continue
-                y = ttnn.to_torch(out).double().reshape(ref.shape)
-                err = y - ref
+                err = torch.stack(runs) - ref
+                bad = err.abs() > 0.25          # 15x the worst rounding error seen; only corruption crosses it
                 got[arm] = {"served": served,
-                            "rel_l2": float(err.norm() / ref.norm()),
-                            "max_abs": float(err.abs().max()),
-                            "mean_err": float(err.mean())}
+                            "rel_l2": [float(e.norm() / ref.norm()) for e in err],
+                            "max_abs": [float(e.abs().max()) for e in err],
+                            "n_bad": [int(b.sum()) for b in bad],
+                            "repeats_identical": all(torch.equal(r, runs[0]) for r in runs),
+                            "bad_at": [[int(i) for i in idx] for idx in bad[0].nonzero()[:4]]}
             row = {"tokens": n, "K": K, "N": N, "transpose_b": tb, "bias": b is not None, **got}
             print(json.dumps(row), flush=True)
             rows.append(row)
