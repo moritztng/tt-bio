@@ -310,6 +310,18 @@ def skew_matrix(w, like):
     return skew
 
 
+def small_rotation(w):
+    """exp of the cross-product matrix of w [B, 3] for |w| <= 0.1 (Rodrigues; sin/cos series in float64, exact to far
+    below fp32 there). Only + and * per row, so a row's matrix does not depend on the rows beside it. torch's batched
+    matrix_exp picks its scaling across the batch, which made one sample's guidance depend on the others."""
+    v = w.double()
+    t = v.square().sum(-1)[:, None, None]                                          # theta^2
+    a = 1 - t / 6 * (1 - t / 20 * (1 - t / 42 * (1 - t / 72)))                     # sin(theta) / theta
+    b = 0.5 * (1 - t / 12 * (1 - t / 30 * (1 - t / 56 * (1 - t / 90))))           # (1 - cos(theta)) / theta^2
+    eye = torch.eye(3, dtype=v.dtype)
+    return ((1 - t * b) * eye + a * skew_matrix(v, eye.expand(len(v), 3, 3)) + b * v[:, :, None] * v[:, None, :]).to(w.dtype)
+
+
 def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash, needed=None):
     """Shared force/torque descent with backtracking, used by the contact and epitope refinements.
 
@@ -324,6 +336,12 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash, ne
     samples = moving.shape[0]
     n_moving = moving.shape[1]
     device = moving.device
+    # The fast cores turn by small_rotation (|rotation| <= 0.03 below), so each sample's descent is independent of the
+    # batch; the dense core keeps upstream's matrix_exp op for op.
+    def turn(w):
+        if clash.batched:
+            return small_rotation(w)
+        return torch.linalg.matrix_exp(skew_matrix(w, identity.expand(len(w), 3, 3)))
     accepted_count = torch.zeros(samples, device=device, dtype=torch.long)
     identity = torch.eye(3, device=device).expand(samples, 3, 3)
     for _ in range(iterations):
@@ -347,14 +365,14 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash, ne
 
         def propose(backtrack):
             scale = 0.5**backtrack
-            matrix = torch.linalg.matrix_exp(skew_matrix(rotation * scale, identity))
+            matrix = turn(rotation * scale)
             return torch.bmm(centered, matrix.transpose(1, 2)) + center + translation[:, None] * scale
 
         def propose_many(backtracks):
-            """propose(b) for several b at once [S, B, M, 3]: one batched matrix_exp and bmm."""
+            """propose(b) for several b at once [S, B, M, 3]: one batched turn and bmm."""
             scales = [0.5**b for b in backtracks]
             w = torch.cat([rotation * scale for scale in scales])
-            matrix = torch.linalg.matrix_exp(skew_matrix(w, identity.repeat(len(scales), 1, 1)))
+            matrix = turn(w)
             turned = torch.bmm(centered.repeat(len(scales), 1, 1), matrix.transpose(1, 2))
             shift = torch.cat([translation[:, None] * scale for scale in scales])
             return (turned + center.repeat(len(scales), 1, 1) + shift).view(len(scales), samples, n_moving, 3).transpose(0, 1)
@@ -363,7 +381,7 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash, ne
             """propose_many for the atoms `rows` only; every other atom is NaN (never read)."""
             scales = [0.5**b for b in backtracks]
             w = torch.cat([rotation * scale for scale in scales])
-            matrix = torch.linalg.matrix_exp(skew_matrix(w, identity.repeat(len(scales), 1, 1)))
+            matrix = turn(w)
             turned = torch.bmm(centered[:, rows].repeat(len(scales), 1, 1), matrix.transpose(1, 2))
             shift = torch.cat([translation[:, None] * scale for scale in scales])
             out = torch.full((samples, len(scales), n_moving, 3), float("nan"), dtype=moving.dtype)
