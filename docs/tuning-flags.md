@@ -41,11 +41,13 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_MM_LAYOUT`](#tt_bio_mm_layout) | off | training | moves |
 | [`TT_BIO_MSA_LADDER`](#tt_bio_msa_ladder) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
 | [`TT_BIO_NOGRAD_INFERENCE`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_OPM_JOIN_PARTS`, `TT_BIO_OPM_PROJ_BATCH`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | join moves, inside the bar; projection batch identical |
 | [`TT_BIO_OPM_LEGACY_LAYOUT`](#tt_bio_opm_legacy_layout) | off | | moves, inside the seed spread |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
 | [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
 | [`TT_BIO_RESIDUAL_L1`](#tt_bio_residual_l1) | on | | identical |
@@ -575,6 +577,46 @@ this flag is worth more on the reference fixture than on a deep-MSA target.
 
 Boltz-2's MSA module and trunk read the ladder, and BoltzGen reaches it through the trunk it shares.
 Protenix-v2, OpenFold3 and RF3 have their own MSA modules and do not read it.
+
+## MSA module flags
+
+`TT_BIO_OPM_JOIN_PARTS`, `TT_BIO_OPM_PROJ_BATCH`, `TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`. Default: on.
+
+These four make the MSA module do the same arithmetic in fewer, larger device calls.
+
+* `TT_BIO_OPM_JOIN_PARTS`: when the MSA arrives in depth chunks, the outer product mean used to
+  contract each chunk separately and add the partial pair tensors in bf16. It now joins the chunks'
+  projections and runs one contraction over the full depth, accumulated in fp32. If the joined
+  projections do not fit in device memory it falls back to the per-chunk sum.
+* `TT_BIO_OPM_PROJ_BATCH`: the outer product mean's output projection runs as a batch of row blocks
+  instead of one matmul with several hundred thousand rows. Same bytes out.
+* `TT_BIO_PWA_FUSED_HEADS`: pair-weighted averaging projects, averages and gates all heads at once
+  and sums the heads inside the output projection, instead of looping over heads and adding their
+  outputs in bf16.
+* `TT_BIO_PWA_UNPADDED`: the fused heads without padding each head to a full 32-wide tile, which
+  matters for narrow heads (Protenix-v2 uses 8 heads of width 8).
+
+**Accuracy: moves, inside the normal-mode bar.** The join and the fused heads round the sums
+differently (once in fp32 rather than repeatedly in bf16), so the structure is not byte-identical.
+The projection batch alone is byte-identical. Graded on Protenix-v2 on a Wormhole Galaxy chip
+against the exact build: 11 complexes with deposited structures, 4 seeds each, 43 of 43 folds
+finite. Median top-pose deviation from the exact build 0.209 A, against a 0.60 A bar and 0.81 A
+between two exact runs at different seeds. DockQ, lDDT, TM-score, pLDDT and ipTM differences all
+have confidence intervals covering zero; 32 of 43 folds dock in each build. One complex (9W89)
+lands in either of two binding poses that are both wrong (DockQ under 0.07); over eight seeds the
+exact build picks the far one 2 times and the flagged build 4 times (Fisher p = 0.61), which is
+what moves its ligand RMSD.
+
+**Speed, Protenix-v2, 730 tokens, MSA depth 9,947, warm folds:**
+
+| | flags off | flags on | |
+|---|---|---|---|
+| Wormhole Galaxy chip, 1000 MHz | 506.91 s | 462.31 s | 1.096x |
+| Blackhole p150a, 1350 MHz | 242.92 s | 231.19 s | 1.051x |
+
+Wormhole gains more because its MSA module is a larger share of the fold. Boltz-2 and OpenFold3
+build the same pair-weighted averaging and outer product mean and reach these flags; their structures
+move by the same kind of rounding but have not been graded separately here.
 
 ## `TT_BIO_OPM_LEGACY_LAYOUT`
 
