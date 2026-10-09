@@ -134,9 +134,14 @@ def _generic_sdpa_runners():
 
 def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
     # sdpa_generic runs the same wheel kernels through ttnn.generic_op, a second way to the op.
-    # tenstorrent.py imports it only to price L1; triatt_sdpa is the one runner, and both of its
-    # entries decline a None bias.
-    assert _generic_sdpa_runners() == ["tt_bio/triatt_sdpa.py"]
+    # tenstorrent.py imports it only to price L1. triatt_sdpa runs it, and both of its entries
+    # decline a None bias. protenix runs it at one site, atom_sdpa32, whose mask is the superset
+    # bias `zs` that `_superset_bias` always builds.
+    assert _generic_sdpa_runners() == ["tt_bio/protenix.py", "tt_bio/triatt_sdpa.py"]
+    calls = [n for n in ast.walk(ast.parse((PKG / "protenix.py").read_text()))
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "sdpa"
+             and isinstance(n.func.value, ast.Name) and n.func.value.id == "SG"]
+    assert len(calls) == 1 and isinstance(calls[0].args[4], ast.Name) and calls[0].args[4].id == "zs"
     pytest.importorskip("ttnn")
     tri = pytest.importorskip("tt_bio.triatt_sdpa")
     monkeypatch.setattr(tri, "_ENABLED", True)  # else both entries decline everything
