@@ -199,6 +199,42 @@ class _ShapeOnly:
         self.dtype = dtype if dtype is not None else ttnn.bfloat16
 
 
+_KV_WINDOW_ORIG = (
+    "const uint32_t k_start_tile_id = k_tile_shape.id_of(nb, k_head, kv_row_start_tile, 0);",
+    "const uint32_t v_start_tile_id = v_tile_shape.id_of(nb, v_head, kv_row_start_tile, 0);")
+
+
+def kv_window_kernel_dir() -> Path:
+    """The wheel's own SDPA reader with K and V read as sliding windows of a frame (`kv_window`).
+
+    Generated from the running wheel's source, so it follows the wheel instead of pinning a copy:
+    the two lines that place a K/V chunk get an `#ifdef KV_WINDOW_NB` twin, nothing else changes,
+    and a wheel whose reader no longer has those lines fails here, not on the device. Head `n` of
+    the virtual K is frame head `n / KV_WINDOW_NB`, starting `n % KV_WINDOW_NB` tile rows down."""
+    src = (_kdir() / "dataflow/reader_interleaved.cpp").read_text()
+    common = (_kdir() / "dataflow/dataflow_common.hpp").read_text()
+    for line in _KV_WINDOW_ORIG:
+        assert src.count(line) == 1, ("kv_window: the wheel's SDPA reader changed", line)
+    win = ("#ifdef KV_WINDOW_NB\n"
+           "                        const uint32_t k_start_tile_id = ((nb * KV_WINDOW_NKH + k_head / KV_WINDOW_NB) *\n"
+           "                            KV_WINDOW_FRAME_T + k_head % KV_WINDOW_NB + kv_row_start_tile) * DHt;\n"
+           "                        const uint32_t v_start_tile_id = ((nb * KV_WINDOW_NKH + v_head / KV_WINDOW_NB) *\n"
+           "                            KV_WINDOW_FRAME_T + v_head % KV_WINDOW_NB + kv_row_start_tile) * DHt;\n"
+           "#else\n")
+    src = src.replace(_KV_WINDOW_ORIG[0], win + _KV_WINDOW_ORIG[0], 1)
+    src = src.replace(_KV_WINDOW_ORIG[1], _KV_WINDOW_ORIG[1] + "\n#endif", 1)
+    import hashlib
+    d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "sdpa_kv_window"
+         / hashlib.sha1((src + common).encode()).hexdigest()[:12])
+    if not (d / "dataflow/reader_interleaved.cpp").exists():
+        (d / "dataflow").mkdir(parents=True, exist_ok=True)
+        (d / "dataflow/dataflow_common.hpp").write_text(common)
+        tmp = d / f"dataflow/.reader.{os.getpid()}"
+        tmp.write_text(src)
+        tmp.replace(d / "dataflow/reader_interleaved.cpp")
+    return d
+
+
 def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
                    dtype=None):
     """`plan` for a square triangle-attention call at `seq` padded tokens, without a device."""
@@ -322,7 +358,7 @@ def note_l1_refusal(message: str) -> None:
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
-          out_im_dtype=None):
+          out_im_dtype=None, kv_window=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
@@ -339,7 +375,19 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     never touches their addresses. The whole K = Ct contraction is one block, which is the order
     `_MM_BLOCK[(4, 12)]` already gives the standalone projection at this site.
     """
-    p = plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
+    kp, vp = k, v
+    if kv_window is not None:
+        # `kv_window` is `(nb, W)`: k and v are FRAMES [B, NKH, F, DH], and the attention runs as if
+        # K/V were [B, NKH * nb, W, DH] with head h * nb + i = frame head h, rows i*32 .. i*32 + W.
+        # The windows overlap, so building them would copy every frame row W/32 times; the reader
+        # reads them in place instead (`kv_window_kernel_dir`).
+        nbw, W = kv_window
+        B_, NKH_, F_, DH_ = (int(d) for d in k.padded_shape)
+        assert int(q.padded_shape[1]) == NKH_ * nbw and F_ % TILE == 0 and W % TILE == 0, (q.shape, k.shape, kv_window)
+        assert (nbw - 1) * TILE + W <= F_, ("kv_window runs off the frame", k.shape, kv_window)
+        kp, vp = _ShapeOnly([B_, NKH_ * nbw, W, DH_], k.dtype), _ShapeOnly([B_, NKH_ * nbw, W, DH_], v.dtype)
+        kernel_dir = kernel_dir or kv_window_kernel_dir()
+    p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
              kv_buffer_factor)
     gx, gy, num_cores = p["gx"], p["gy"], p["num_cores"]
     core_grid = ttnn.CoreRangeSet(
@@ -482,6 +530,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # The block row-max LLK streams the score tiles at bf16's tile stride (its own header says
         # the operand must be bfloat16_b), so a narrower score CB takes the per-tile reduce.
         defines["QK_TILEWISE_MAX"] = "1"
+    if kv_window is not None:
+        defines.update(KV_WINDOW_NB=str(kv_window[0]), KV_WINDOW_NKH=str(int(k.padded_shape[1])),
+                       KV_WINDOW_FRAME_T=str(int(k.padded_shape[2]) // TILE))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
@@ -588,7 +639,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # `build` was given -- so without it here an A/B that flips the env gets the FIRST arm's
            # compiled program back for both legs and reads a 1.000x that means nothing.
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
-           str(kw.get("im_dtype")), str(kw.get("out_im_dtype")))
+           str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), kw.get("kv_window"))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,

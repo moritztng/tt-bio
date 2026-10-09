@@ -336,6 +336,9 @@ _ATOM_TILE_HEADS = env_flag("TT_BIO_ATOM_TILE_HEADS", True)
 # spd-diffusion's dit_sdpa32 recipe) in place of matmul + scale_add + softmax + matmul. Off until
 # graded; inert in bf16, where atom_sdpa covers the same site.
 _ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", False)
+# Under atom_sdpa32 with TILE heads, the reader takes K and V straight from the head frame as sliding
+# windows (sdpa_generic `kv_window`) instead of the 5 slices + concat that copy every frame row 5 times.
+_ATOM_SDPA32_KVWIN = env_flag("TT_BIO_ATOM_SDPA32_KVWIN", True)
 _ATOM_SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)   # fidelity, approx exp, fp32 dest, dst full sync
 ATOM_SUPERSET_STATS = [0, 0]  # (attention calls on the superset window, on the windowed path)
 
@@ -566,6 +569,7 @@ class AtomTransformer(_KeyedWeights, Module):
             math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
             fp32_dest_acc_en=False, packer_l1_acc=False)
         self._sdpa32 = _ATOM_SDPA32 and dtype == ttnn.float32 and _ATOM_SUPERSET
+        self._kvwin = _ATOM_SDPA32_KVWIN
 
     def _adaln(self, a, s, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
@@ -688,7 +692,10 @@ class AtomTransformer(_KeyedWeights, Module):
                 ttnn.reshape(x, (M, 1, nbk * nq, 3 * H * dh)), num_heads=H, num_kv_heads=H,
                 transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)    # each (M, H, nbk*nq, dh)
             Qs = ttnn.reshape(ttnn.slice(q, [0, 0, lead, 0], [M, H, lead + NP, dh]), (M, H * nb, nq, dh))
-            Ks, Vs = (ttnn.reshape(win(ttnn.reshape(t, (M * H, nbk, nq, dh))), (M, H * nb, W, dh)) for t in (k, v))
+            if self._sdpa32 and self._kvwin:
+                Ks, Vs = k, v                            # frames, read as windows by the kernel
+            else:
+                Ks, Vs = (ttnn.reshape(win(ttnn.reshape(t, (M * H, nbk, nq, dh))), (M, H * nb, W, dh)) for t in (k, v))
         else:
             Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
             Ks, Vs = windows(K), windows(V)
@@ -701,7 +708,8 @@ class AtomTransformer(_KeyedWeights, Module):
             g = self.device.compute_with_storage_grid_size()
             o = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H * nb, nq, dh]), ttnn.float32,
                                                ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
-            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, W, (g.x, g.y), _ATOM_SDPA32_CKC, dh ** -0.5)
+            kvw = (nb, W) if self._tile_heads and self._kvwin else None
+            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, W, (g.x, g.y), _ATOM_SDPA32_CKC, dh ** -0.5, kv_window=kvw)
         else:
             sc = batched_matmul(Qs, ttnn.permute(Ks, (0, 1, 3, 2)),
                                 compute_kernel_config=self.compute_kernel_config)
