@@ -31,23 +31,23 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DEVICE_TILIZE`](#tt_bio_device_tilize) | on | Protenix-v2, OpenDDE, PXDesign | identical |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
-| [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_FUSE_BIAS_STACKS`](#tt_bio_fuse_bias_stacks) | on | Boltz-2 | moves, inside the 298-residue bar |
 | [`TT_BIO_FUSE_MASK_ADD`](#tt_bio_fuse_mask_add) | on | | identical |
 | [`TT_BIO_FUSE_NORM_RESIDUAL`](#tt_bio_fuse_norm_residual) | on | | identical |
 | [`TT_BIO_FUSE_SCALE_ADD`](#tt_bio_fuse_scale_add) | on | fp32 operands | identical |
-| [`TT_BIO_GATED_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_GATED_GRAD_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_GATE_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_GATED_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
+| [`TT_BIO_GATED_GRAD_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
+| [`TT_BIO_GATE_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_GATE_GRANULARITY`](#tt_bio_gate_granularity) | 2 | | identical at every value |
 | [`TT_BIO_HOST_LANE`](#tt_bio_host_lane) | on | Protenix-v2 | identical |
 | [`TT_BIO_HOST_LEVERS`](#tt_bio_host_levers) | on | Boltz-2 | switches two other flags together |
-| [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_LEVERS`](#tt_bio_levers) | Protenix-v2's graded set | Protenix-v2 | moves, inside the seed-to-seed spread |
-| [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2 | gradients only |
 | [`TT_BIO_MM_LAYOUT`](#tt_bio_mm_layout) | off | training | moves |
 | [`TT_BIO_MSA_LADDER`](#tt_bio_msa_ladder) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
-| [`TT_BIO_NOGRAD_INFERENCE`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_NOGRAD_INFERENCE`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_OPM_JOIN_PARTS`, `TT_BIO_OPM_PROJ_BATCH`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | join moves, inside the bar; projection batch identical |
 | [`TT_BIO_OPM_LEGACY_LAYOUT`](#tt_bio_opm_legacy_layout) | off | | moves, inside the seed spread |
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
@@ -68,9 +68,9 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TOKEN_BUCKET`](#tt_bio_token_bucket) | on | | switches every model's token bucket |
 | [`TT_BIO_TRANSITION_L1_ROWS`](#tt_bio_transition_l1_rows) | on | Blackhole | identical on the measured shapes |
 | [`TT_BIO_TRIATT_B8`](#tt_bio_triatt_b8) | off | | moves, and depends on the core grid |
-| [`TT_BIO_TRIATT_BW_EXP_21F`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_TRIATT_BW_EXP_21F`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused) | on in a BindCraft 2 round, off elsewhere | BindCraft 2 | gradients only |
-| [`TT_BIO_TRIATT_BW_QKV_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_TRIATT_BW_QKV_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
 | [`TT_BIO_TRIATT_DIVIDING_K`](#tt_bio_triatt_dividing_k) | on | OpenFold3 at 832 tokens | moves, inside the bar |
 | [`TT_BIO_TRIATT_FUSED_QKVG`](#tt_bio_triatt_fused_qkvg) | on | | identical |
 | [`TT_BIO_TRIATT_FUSED_QKVGB`](#tt_bio_triatt_fused_qkvgb) | on | | identical |
@@ -96,13 +96,15 @@ workers are not flags of ours; they are covered at the end, under
 
 ## BindCraft 2 round kernels
 
-Default: on inside a BindCraft 2 round on Blackhole, off elsewhere.
+Default: on inside a BindCraft 2 round, off elsewhere. `TT_BIO_PAIR_MM` and
+`TT_BIO_AF2_G_BIAS_IN_MATMUL` are on in the round on Blackhole only.
 
 Kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. Each is armed by
 `bindcraft2.predictor(exact=False)` through `fast_round`, alongside
 [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) and [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused).
-Outside a BindCraft 2 round every one keeps the composed path, and so do the first eleven on
-Wormhole, where they have not been graded. Setting a flag to `0` turns that kernel off even inside
+Outside a BindCraft 2 round every one keeps the composed path. On Wormhole `TT_BIO_PAIR_MM` and
+`TT_BIO_AF2_G_BIAS_IN_MATMUL` keep it too: on three input seeds of the float64 gradient grade they
+read worse than the composed path on one seed and better on two, which does not settle them. Setting a flag to `0` turns that kernel off even inside
 the round; `bindcraft2.predictor(fast=False)` turns all of them off together.
 
 | flag | what it replaces |
@@ -126,6 +128,12 @@ block 0's MSA gradient) against a bf16 floor of 0.034 to 0.074; four move nothin
 and the kernels that replace eltwise chains are closer to float64 than the chains they replace
 (the fused gate gradient reads 1.66e-3 against 2.2e-3 to 4.2e-3). With a float32 cotangent the
 composed gate gradient came back bfloat16 at 0.117 rel L2; the fused one keeps float32.
+
+On Wormhole the set was graded as a stack, with the fused layer-norm backward, on the whole
+4 + 48 block design gradient against float64 (`perf/spd/bc2_stack_grade.py`, 128 tokens). Over
+three input seeds dL/dlogits reads 0.167, 0.350 and 0.943 rel L2 with them on, 0.174, 0.346 and
+0.940 with them off, and the forward loss is identical. The seeds move the grade far more than the
+kernels do.
 
 **Speed.** On a BindCraft 2 round at 288 tokens, three trajectories on one p300c chip, the eleven
 together take the round from 5.70 to 4.50 s (1.27x; arm means of three, 5.48-5.81 against 4.40-4.64), arms alternated in one
@@ -626,8 +634,9 @@ gradient kernels its round is measured with. The gradient is closer to float64 t
 path's: dx rel L2 1.81e-3 against 3.84e-3 on the same bf16 operands, and nearer float64 on every
 block of the teacher-forced float64 VJP (`perf/bcx_afgrad/vjp_n288_bcp_lnbw_{off,on}.json`). A
 float32 cotangent declines, because there the composed path is exact float32 (1.5e-4) and the
-kernel's FPU stages read TF32 (1.3e-3). On Wormhole it declines (reason `arch`): it was graded
-and device-tested on Blackhole only. `TT_BIO_LNBW_FUSED=0` is the way back. At the BindCraft 2
+kernel's FPU stages read TF32 (1.3e-3). On Wormhole it was graded with the round kernels, as a
+stack (see [BindCraft 2 round kernels](#bindcraft-2-round-kernels)), and passes its device test on a
+Galaxy chip. `TT_BIO_LNBW_FUSED=0` is the way back. At the BindCraft 2
 round it is worth 5.969 to 5.186 s on a qb2 p300c chip (1.151x, six arms alternated, AICLK 1350).
 
 ## `TT_BIO_MM_LAYOUT`
