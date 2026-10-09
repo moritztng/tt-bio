@@ -6279,6 +6279,10 @@ def pair_row_blocks(fn, tensors, rows, consume=None):
 # part. Protenix, OpenDDE and OpenFold3 all read it; the env override is the acceptance test
 # (0 sends a small target down the streamed path to compare it with the same target held whole).
 MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
+# The largest `m` msa_embed joins on the chip from depth chunks. 2 GiB is what a whole upload
+# could already leave resident (OpenDDE's c_m=128 doubles a 1 GiB feature); past it the trunk's
+# set-up allocations before the first recycling cycle, which no refusal path covers, are untested.
+MSA_JOIN_MAX_BYTES = 2 << 30
 
 
 def msa_host_offload(m, keep=None):
@@ -6388,10 +6392,11 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     `project` maps a device slice of it to `m` rows (the embedder's linear plus the broadcast
     single-representation term). A device feature, or a host one whose bf16 upload fits under
     the offload size, is uploaded and projected whole. Past it, the feature goes up one depth
-    chunk at a time and each projected chunk comes straight back to the host: at 1536 tokens
-    against 8192 alignment rows the whole upload is a 3221225472 B buffer a Wormhole chip
-    refused, and the whole `m` would only be offloaded to the host afterwards anyway. Every op
-    in the projection is per alignment row, so the chunks hold the rows the whole pass does."""
+    chunk at a time: at 1536 tokens against 8192 alignment rows the whole upload is a
+    3221225472 B buffer a Wormhole chip refused. The projected chunks are joined on the chip when
+    `keep` (capped at `MSA_JOIN_MAX_BYTES`) holds the whole `m`, else each comes straight back to
+    the host. Every op in the projection is per alignment row, so the chunks hold the rows the
+    whole pass does."""
     up = lambda t: ttnn.from_torch((t if t.dtype == torch.bfloat16 else t.float()).contiguous(),
                                    layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
@@ -6403,18 +6408,70 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
         m = project(x)
         ttnn.deallocate(x)
         return msa_host_offload(m, keep)
-    m = None
+    # A whole `m` that `msa_host_offload` would keep stays on the chip: the projected chunks are
+    # joined there instead of each making a trip to the host. At 678 tokens against 13,602 rows
+    # the 1.14 GiB feature missed the one-upload size, so the trunk streamed an `m` it had room
+    # for, every cycle, and the fold took 659 s on a Wormhole chip where a 9,947-row one takes 384.
+    hold_lim = int(v) if v else (MSA_HOST_OFFLOAD_MIN_BYTES if keep is None else min(keep, MSA_JOIN_MAX_BYTES))
+    m, held = None, []
     for s in range(0, D, rows):
         x = up(feat[:, s:s + rows])
         mc = project(x)
         ttnn.deallocate(x)
+        if s == 0 and mc.dtype == ttnn.bfloat16 and D * N * mc.shape[-1] * 2 <= hold_lim:
+            held = [mc]
+            continue
+        if held:
+            held.append(mc)
+            continue
         h = ttnn.to_torch(mc)
         ttnn.deallocate(mc)
         if m is None:
             m = torch.empty((1, D, N, h.shape[-1]), dtype=h.dtype)
         m[:, s:s + rows] = h
+    if held:
+        m = _join_depth_chunks(held)
+        if not torch.is_tensor(m):
+            return m
     dram_peak(f"trunk m embedded to the host in depth chunks [{tuple(m.shape)} torch]")
     return m
+
+
+def _join_depth_chunks(chunks, group=8):
+    """`chunks` [1, rows, N, c] joined along depth on the chip, `group` at a time so no concat
+    takes 27 inputs, each group freed once joined, so the peak is one `m` plus one group. When
+    DRAM refuses a join, what is in hand goes to the host and the result is the streamed `m`, a
+    host tensor. Either way the rows are the chunks' bytes: the concat only places them."""
+    level = list(chunks)
+    while len(level) > 1:
+        nxt = []
+        for i in range(0, len(level), group):
+            part = level[i:i + group]
+            joined = _concat_or_refused(part)
+            if joined is None:
+                rest = nxt + level[i:]
+                h = torch.cat([ttnn.to_torch(c) for c in rest], dim=1)
+                for c in rest:
+                    ttnn.deallocate(c)
+                return h
+            if joined is not part[0]:
+                for c in part:
+                    ttnn.deallocate(c)
+            nxt.append(joined)
+        level = nxt
+    return level[0]
+
+
+def _concat_or_refused(part):
+    from .size_limits import is_alloc_refusal
+    if len(part) == 1:
+        return part[0]
+    try:
+        return ttnn.concat(part, dim=1)
+    except RuntimeError as exc:
+        if not is_alloc_refusal(exc):
+            raise
+        return None
 
 
 def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE, park=False):

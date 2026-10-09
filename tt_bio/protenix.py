@@ -306,9 +306,9 @@ def _msa_keep_bytes(tokens, m_bytes):
     process: then the shared host offload size, the streamed path. Held on the chip, `m` is read
     in place; streamed, every recycling cycle moves it across PCIe seven times up and three times
     down with the chip idle (130 s of a 624 s fold at 730 tokens against 9947 rows on a Wormhole
-    chip). `msa_embed` only ever holds a whole `m` whose feature fit one upload, so this is at
-    most ~2 GiB, and a cycle DRAM refuses is re-run streamed (`Trunk.__call__`), so no size that
-    folds streamed can fail resident. `TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES` still overrides both."""
+    chip). `msa_embed` holds at most `MSA_JOIN_MAX_BYTES` (2 GiB) of `m` on the chip, and a cycle
+    DRAM refuses is re-run streamed (`Trunk.__call__`), so no size that folds streamed can fail
+    resident. `TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES` still overrides both."""
     if any(tokens >= n and m_bytes >= b for n, b in _MSA_RESIDENT_REFUSED):
         return None
     return m_bytes
