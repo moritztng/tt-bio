@@ -5,6 +5,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+
+- **`--diffusion_precision bf16` documentation corrected.** Graded on eleven complexes, bf16 matches
+  fp32 on nine, but on two where fp32 misses the interface it picks a different binding mode, once
+  right and once a confidently wrong fold that ranks first. The default stays fp32.
+  [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+
 ## [0.13.1] - 2026-10-08
 
 Fixes for the BindCraft 2 issues reported against 0.12.0. A campaign on a Tenstorrent card scores its

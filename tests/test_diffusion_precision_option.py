@@ -3,7 +3,8 @@ the models that do not read it. Host only: the dispatch and the model build are 
 device open raises instead of opening a chip.
 
 The option exists because bf16 diffusion is the one Protenix-v2 precision lever that buys time on
-Wormhole inside seed noise (perf/pfm_ttfast, docs/protenix-diffusion-precision.md). It ships off:
+Wormhole. It ships off because it can pick a different binding mode where fp32 is uncertain
+(docs/protenix-diffusion-precision.md):
 unset, every config keeps the fp32 build and the reload hash it had before the option existed.
 """
 from __future__ import annotations

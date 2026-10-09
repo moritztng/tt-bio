@@ -1,9 +1,10 @@
 # Protenix diffusion precision
 
 `tt-bio predict --model protenix-v2 --diffusion_precision bf16` runs the diffusion module in bf16
-instead of fp32. On a Wormhole chip it saves about 9 % of a fold, and the structures it produces stay
-well inside the variation you already get from changing the seed. The default stays fp32, which
-matches the reference implementation.
+instead of fp32. On a Wormhole chip it saves about 9 % of a fold. On most complexes the structures
+match fp32 far more closely than two fp32 seeds match each other, but on complexes where the model is
+unsure of the binding mode, bf16 can land a different one, and that one can rank first. The default
+stays fp32, which matches the reference implementation.
 
 ## Speed
 
@@ -46,5 +47,33 @@ Confidence is unchanged: mean pTM 0.7058 against 0.7055, ipTM 0.9232 against 0.9
 four seeds. The same is not true of trunk precision settings, which is why none of them is offered:
 `TT_BIO_TRUNK_MATH_FIDELITY=hifi2` moves pTM by +0.031 (about thirty times the seed spread) and buys
 no time on Wormhole, and `--fast` is 2.6 % slower than the default on Wormhole at this size.
+
+## Accuracy on eleven complexes
+
+The table above is one complex. A second grade folded eleven two-chain complexes released after the
+model's training cutoff (515 to 791 tokens), three fp32 seeds and two bf16 seeds, five samples each,
+Wormhole at 1000 MHz. Deviation here is RMSD per chain over residues the fp32 model is confident about
+(pLDDT 70 or higher), worst chain, bf16 sample against the fp32 sample of the same seed.
+
+On nine of the eleven, bf16 is a rounding of fp32: median deviation 0.11 to 0.24 A, against 0.34 to
+1.29 A between two fp32 seeds. The top-ranked structure scores the same against the deposited
+structure (DockQ and TM-score within 0.03).
+
+On the other two, fp32 does not find the deposited interface at any seed (DockQ 0.01), and bf16 picks
+a different binding mode:
+
+| Complex | Seed | fp32 top-ranked (DockQ / TM) | bf16 top-ranked (DockQ / TM) |
+|---|---|---|---|
+| 9W8A | 101 | 0.01 / 0.83 | 0.88 / 0.99 |
+| 9W8A | 102 | 0.01 / 0.83 | 0.00 / 0.82 |
+| 9W89 | 101 | 0.01 / 0.83 | 0.06 / 0.10 |
+| 9W89 | 102 | 0.01 / 0.84 | 0.06 / 0.86 |
+| 9W89 | 103 | 0.01 / 0.83 | 0.05 / 0.86 |
+
+At 9W8A seed 101 bf16 finds the deposited interface. At 9W89 seed 101 four of five bf16 samples fold
+the first chain about 41 A away from fp32, wrong against the deposited structure (TM 0.10), and they
+carry a higher ranking score (0.71 to 0.76) than the one sample that folded correctly (0.49). fp32
+folded that chain correctly in all fifteen of its samples. A precision setting that can hand you a
+confidently wrong top structure is why bf16 is not the default.
 
 The raw measurements and the scripts are in `perf/pfm_ttfast/`.

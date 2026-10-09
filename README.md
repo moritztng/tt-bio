@@ -297,7 +297,7 @@ ESMFold2 needs no MSA and uses one when a source is given.
 
 `--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close; the Boltz-2 measurement is in [`docs/boltz2-fast-parity.md`](docs/boltz2-fast-parity.md).
 
-For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole with structures inside seed-to-seed variation and unchanged confidence scores. On Wormhole `--fast` does not speed Protenix up. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
+For Protenix, `--diffusion_precision bf16` is the faster setting to reach for: about 9 % per fold on Wormhole. On most complexes the structures match fp32 closely, but where the binding mode is uncertain it can rank a different one first. On Wormhole `--fast` does not speed Protenix up. See [`docs/protenix-diffusion-precision.md`](docs/protenix-diffusion-precision.md).
 
 ### Many Inputs and Cards
 
@@ -864,7 +864,7 @@ Model-specific options are labelled below.
 | `--device_ids`, `--devices` | all | Comma-separated TT device IDs (e.g. `0,2`); `--devices` is the shorter alias (matches `tt-bio embed`) |
 | `--host_threads` | all cores | Total CPU threads this process may use, split across its cards. Set it when you run several single-card predicts side by side on one host: each one otherwise sizes its thread pools to every core and they fight for the CPU. Use cores ÷ concurrent predicts. At two threads per card or fewer the pools also stop spinning through device syncs ([Tuning flags](docs/tuning-flags.md)) |
 | `--fast` | `False` | Makes some operations use a lower-precision numeric format that runs faster; accuracy is typically very close |
-| `--diffusion_precision` | `fp32` | **(Protenix)** `bf16` runs the diffusion module in bf16: about 9 % faster per fold on Wormhole, structures stay inside seed-to-seed variation ([measurement](docs/protenix-diffusion-precision.md)) |
+| `--diffusion_precision` | `fp32` | **(Protenix)** `bf16` runs the diffusion module in bf16: about 9 % faster per fold on Wormhole; it can pick a different binding mode where fp32 is uncertain ([measurement](docs/protenix-diffusion-precision.md)) |
 | `--report-energy` | `False` | **(Boltz-2)** Enables optional energy profiling for one TT device (requires `tt-mgmt` add-on); writes `power_profile.csv` and `power_profile.png` |
 | `--energy-metric` | `both` | **(Boltz-2)** Choose power channel(s): `tdp`, `input`, or `both` |
 | `--energy-sample-hz` | `20.0` | **(Boltz-2)** Sampling rate in Hz for both `power_w` and `input_power_w` channels |
