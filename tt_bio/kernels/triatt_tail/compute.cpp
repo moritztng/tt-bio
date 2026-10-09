@@ -8,7 +8,9 @@
 // bf16 (c_4) for the matmul, which takes the whole K in one block, Nt in DW-wide strips. With RESID
 // the projection is packed to bf16 (c_5) and z added on the FPU, the order production's add_ uses.
 // RNE bit 0 rounds the gated product to nearest-even before its pack (the pack truncates), bit 1
-// the output.
+// the output. KB1 takes K one tile per DST pass and sums the passes in the packer (fp32 L1
+// accumulate into c_6), the order ttnn's matmul uses at in0_block_w 1: on Wormhole, fp32 DST
+// accumulation across a multi-tile K block writes rare elements off by exactly 1, 2 or 4.
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
@@ -28,6 +30,7 @@ void kernel_main() {
     constexpr uint32_t SIGPOLY = get_compile_time_arg_val(3);
     constexpr uint32_t RNE = get_compile_time_arg_val(4);
     constexpr uint32_t DW = get_compile_time_arg_val(5);
+    constexpr uint32_t KB1 = get_compile_time_arg_val(6);
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -36,10 +39,12 @@ void kernel_main() {
     constexpr uint32_t z_cb = tt::CBIndex::c_3;
     constexpr uint32_t x_cb = tt::CBIndex::c_4;
     constexpr uint32_t u_cb = tt::CBIndex::c_5;
+    constexpr uint32_t acc_cb = tt::CBIndex::c_6;
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
-    constexpr uint32_t mm_cb = RESID ? u_cb : out_cb;
+    constexpr uint32_t mm_cb = KB1 ? acc_cb : RESID ? u_cb : out_cb;
+    constexpr uint32_t sum_cb = KB1 ? acc_cb : u_cb;   // the update the residual add reads
 
-    mm_init(x_cb, w_cb, mm_cb);
+    mm_init(x_cb, w_cb, KB1 ? x_cb : mm_cb);
     sigmoid_tile_init();
     cb_wait_front(w_cb, Kt * Nt);
 
@@ -48,6 +53,10 @@ void kernel_main() {
         cb_wait_front(g_cb, Kt);
         cb_wait_front(o_cb, Kt);
         cb_reserve_back(x_cb, Kt);
+        if constexpr (KB1) {
+            reconfig_data_format(g_cb, o_cb);
+            pack_reconfig_data_format(x_cb);
+        }
         for (uint32_t k0 = 0; k0 < Kt; k0 += DW) {
             tile_regs_acquire();
             copy_tile_to_dst_init_short(g_cb);
@@ -76,6 +85,22 @@ void kernel_main() {
         cb_wait_front(x_cb, Kt);
         cb_reserve_back(mm_cb, Nt);
         mm_block_init_short(x_cb, w_cb, false, DW, 1, Kt);
+        if constexpr (KB1) {
+            pack_reconfig_data_format(acc_cb);
+            for (uint32_t n0 = 0; n0 < Nt; n0 += DW) {
+                for (uint32_t k = 0; k < Kt; ++k) {
+                    tile_regs_acquire();
+                    matmul_block(x_cb, w_cb, k, k * Nt + n0, 0, false, DW, 1, Kt);
+                    tile_regs_commit();
+                    tile_regs_wait();
+                    pack_reconfig_l1_acc(k > 0);
+                    for (uint32_t i = 0; i < DW; ++i) pack_tile<true>(i, acc_cb, n0 + i);
+                    tile_regs_release();
+                }
+            }
+            pack_reconfig_l1_acc(0);
+            pack_reconfig_data_format(out_cb);
+        } else
         for (uint32_t n0 = 0; n0 < Nt; n0 += DW) {
             tile_regs_acquire();
             for (uint32_t k = 0; k < Kt; ++k) matmul_block(x_cb, w_cb, k, k * Nt + n0, 0, false, DW, 1, Kt);
@@ -90,14 +115,13 @@ void kernel_main() {
         cb_push_back(mm_cb, Nt);
         cb_pop_front(x_cb, Kt);
 
-        if constexpr (RESID) {
-            cb_wait_front(u_cb, Nt);
-            cb_wait_front(z_cb, Nt);
+        if constexpr (KB1 && !RESID) {   // the fp32 sum to the bf16 output
+            cb_wait_front(acc_cb, Nt);
             cb_reserve_back(out_cb, Nt);
-            add_tiles_init(z_cb, u_cb);
+            copy_tile_to_dst_init_short_with_dt(x_cb, acc_cb);
             for (uint32_t n0 = 0; n0 < Nt; n0 += DW) {
                 tile_regs_acquire();
-                for (uint32_t i = 0; i < DW; ++i) add_tiles(z_cb, u_cb, n0 + i, n0 + i, i);
+                for (uint32_t i = 0; i < DW; ++i) copy_tile(acc_cb, n0 + i, i);
                 if constexpr (RNE & 2) {
                     for (uint32_t i = 0; i < DW; ++i) round_bf16_rne_tile(i);
                 }
@@ -107,7 +131,28 @@ void kernel_main() {
                 tile_regs_release();
             }
             cb_push_back(out_cb, Nt);
-            cb_pop_front(u_cb, Nt);
+            cb_pop_front(acc_cb, Nt);
+        }
+
+        if constexpr (RESID) {
+            cb_wait_front(sum_cb, Nt);
+            cb_wait_front(z_cb, Nt);
+            cb_reserve_back(out_cb, Nt);
+            if constexpr (KB1) reconfig_data_format(z_cb, acc_cb);
+            add_tiles_init(z_cb, sum_cb);
+            for (uint32_t n0 = 0; n0 < Nt; n0 += DW) {
+                tile_regs_acquire();
+                for (uint32_t i = 0; i < DW; ++i) add_tiles(z_cb, sum_cb, n0 + i, n0 + i, i);
+                if constexpr (RNE & 2) {
+                    for (uint32_t i = 0; i < DW; ++i) round_bf16_rne_tile(i);
+                }
+                tile_regs_commit();
+                tile_regs_wait();
+                for (uint32_t i = 0; i < DW; ++i) pack_tile(i, out_cb);
+                tile_regs_release();
+            }
+            cb_push_back(out_cb, Nt);
+            cb_pop_front(sum_cb, Nt);
             cb_pop_front(z_cb, Nt);
         }
     }
