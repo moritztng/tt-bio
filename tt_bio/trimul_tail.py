@@ -297,8 +297,9 @@ def set_mask_fold(on: bool) -> bool:
 # The gates' sigmoid as a degree-8 polynomial in gin_moved and the resident tail
 # (kernels/trimul_gin_moved/sigmoid_poly.hpp), max |error| 3e-4 against exp + reciprocal's bf16 rounding.
 SIGPOLY = env_flag("TT_BIO_TRIMUL_SIGPOLY", False)
-# Round DST to bf16 nearest-even before the packs of those two kernels (the pack truncates toward zero):
-# bit 0 the output, bit 1 the p and g intermediates (sigmoid_poly.hpp, `_round_bf16_rne_`).
+# Round DST to bf16 nearest-even in those two kernels: bit 0 before the output pack, bit 1 before the p/g
+# packs, bit 2 (resident tail, EPI 2) the product before the residual add, whose move into srcA truncates.
+# Bits 0 and 1 measured null on the outputs (gm8): the packs round already.
 RNE = int(os.environ.get("TT_BIO_TRIMUL_RNE", "0"))
 RES_ABL = 0          # the resident compute's stage ablation (see its compute.cpp). Diagnostic only.
 RES_STATS = [0, 0]   # served by the resident program, declined to the 2D one

@@ -36,7 +36,8 @@ void kernel_main() {
     constexpr uint32_t ABL = get_compile_time_arg_val(6);
     constexpr uint32_t MASK = get_compile_time_arg_val(7);
     constexpr uint32_t SIGPOLY = get_compile_time_arg_val(8);   // 1: sigmoid_poly.hpp's polynomial
-    // Round to nearest even before a pack (the pack truncates): bit 0 the output, bit 1 p and g.
+    // Round DST to bf16 nearest-even: bit 0 before the output pack, bit 1 before the p/g packs,
+    // bit 2 the product before the residual add.
     constexpr uint32_t RNE = get_compile_time_arg_val(9);
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
 
@@ -112,6 +113,11 @@ void kernel_main() {
             for (uint32_t i = 0; i < 4; ++i) mul_tiles(p_cb, g_cb, t0 + i, t0 + i, i);
             }
             if constexpr (RESID && !(ABL & 4)) {
+                // The add moves the fp32 product into srcA in z's bf16 format, which truncates it:
+                // round it to nearest even in DST first (bit 2).
+                if constexpr (RNE & 4) {
+                    for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
+                }
                 binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
                     z_cb);
                 for (uint32_t i = 0; i < 4; ++i)
