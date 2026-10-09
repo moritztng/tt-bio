@@ -313,7 +313,7 @@ else:  # JapanFold's own load, as bench.py
     state.load_model(dict(cfg0, fast=FAST))
 state.bind_run("spd-census", dict(cfg0, fast=FAST))
 m = state.model
-log(ev="build", model=a.model, fast=getattr(m, "_fast", T._FAST_MODE), levers=sorted(getattr(m, "_levers", ())),
+log(ev="build", model=a.model, fast=T._FAST_MODE if PV2 else getattr(m, "_fast", T._FAST_MODE), levers=sorted(getattr(m, "_levers", ())),
     torch_threads=torch.get_num_threads(), affinity=len(os.sched_getaffinity(0)))
 drain()
 
