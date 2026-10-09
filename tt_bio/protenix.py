@@ -2056,7 +2056,6 @@ class ConfidenceHead:
         soon as it has them, and their untilize and post-processing (softmaxes, pTM/ipTM) run on
         the host lane while the chip computes the next sample instead of between them. Same values
         in the same order; only the host work moves."""
-        from . import hostlane
         confs = []
         for c in coords:
             logits = self._confidence_device_logits(s_inputs, s_trunk, z_base_dev, c, feats)
@@ -2878,7 +2877,7 @@ class Protenix:
         # Raw trunk z, for the confidence head only. Read now, while z_tt exists, but untilized on
         # the host lane: the chip goes straight on to the pair conditioning. aux carries a Future.
         C_Z = self.trunk.C_Z
-        z_trunk = hostlane.to_torch(z_tt, lambda z: z.float().reshape(NT, NT, C_Z))
+        z_trunk = hostlane.to_torch(ttnn.from_device(z_tt), lambda z: z.float().reshape(NT, NT, C_Z))
         # diffusion pair conditioning (once, t-independent): conditioned pair_z
         pair_z = self._diffusion_pair_cond(z_tt, relp).reshape(NT, NT, self.trunk.C_Z)
         # diffusion p_lm cache also carries the (conditioned) pair-z broadcast to atom pairs
