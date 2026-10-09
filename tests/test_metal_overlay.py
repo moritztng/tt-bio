@@ -27,7 +27,7 @@ def _root(tmp_path):
         (d / "ckernel_sfpu_exp.h").write_text("exp\n")
     bmm = root / MO.BMM
     bmm.parent.mkdir(parents=True)
-    bmm.write_text(MO._BMM_INC + "main {\n" + MO._BMM_INIT + "loop {\n" + MO._BMM_LAST + "}\n}\n")
+    bmm.write_text(MO._BMM_INC + "main {\n" + MO._BMM_INIT + "loop {\n" + MO._BMM_LAST + MO._BMM_PACK + "}\n}\n")
     return root
 
 
