@@ -27,9 +27,11 @@ no other leg of this gate starts on that host (running ones finish first). Every
 depend on what the next card is doing, which is why they can run side by side.
 
 REUSE. Every leg result is keyed by
-    sha256(content of every tracked file except *.md and pyproject's version line,
-           interpreter's installed distributions
-           except tt-bio, card type, leg name, leg argv)
+    sha256(content of every tracked file except *.md, pyproject's version line, recorded
+           measurements and gate baselines, interpreter's installed distributions except
+           tt-bio, card type, leg name, leg argv, and the baseline files the leg compares
+           against: docs/size_ladder_baseline* for ladder legs, docs/perf_baselines.json for
+           perf, docs/capacity_gate_baseline.json for capacity)
 and written to --ledger. A leg whose key already holds a PASS is not run again; the verdict names
 the evidence it reused (its log, host, card, date). So a crossmodel or suite run done through this
 runner during grading counts toward the release on the same code, and a docs-only commit on top of
@@ -132,14 +134,39 @@ def sha256(*parts) -> str:
 # ---------------------------------------------------------------------------------------------
 # keys
 # ---------------------------------------------------------------------------------------------
-def content_hash(sha: str, repo: Path = REPO) -> str:
+# The baselines a leg family compares against. They are measurements of the code, re-recorded
+# when a lever lands, so they leave the content key and enter only their own family's leg key:
+# re-recording the size ladder reruns the ladder legs, not the other 230.
+BASELINES = {"ladder": ("docs/size_ladder_baseline.json", "docs/size_ladder_baseline.d/"),
+             "perf": ("docs/perf_baselines.json",),
+             "capacity": ("docs/capacity_gate_baseline.json",)}
+_BASELINE_PATHS = tuple(p for ps in BASELINES.values() for p in ps)
+
+
+def _ls_tree(sha: str, repo: Path) -> list[str]:
+    return subprocess.run(["git", "-C", str(repo), "ls-tree", "-r", "--full-tree", sha], check=True,
+                          capture_output=True, text=True).stdout.splitlines()
+
+
+def baseline_hash(sha: str, family: str, repo: Path = REPO) -> str:
+    """Blob ids of the baseline files `family` compares against at `sha` ('' for none)."""
+    ps = BASELINES.get(family)
+    if not ps:
+        return ""
+    rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1].startswith(ps)]
+    return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
     pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
     alone must not throw away evidence gathered on the identical code the line before. Recorded
     measurements (perf/**.txt carrying a `RECORDED-AT:` line, tests/test_recorded_claims.py) are
     left out for the same reason: the release commit re-records them, and they are numbers about
-    the code, not code. The one test that reads them is in pytest_cpu, which is never reused."""
+    the code, not code. The one test that reads them is in pytest_cpu, which is never reused.
+    Gate baselines (BASELINES) are left out too and keyed per leg family instead;
+    `baselines=True` keeps them, the key every ledger row before 2026-10-09 15Z was written under."""
     def git(*a, ok=(0,)):
         p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
         if p.returncode not in ok:
@@ -148,9 +175,9 @@ def content_hash(sha: str, repo: Path = REPO) -> str:
     recorded = {ln.split(":", 1)[1] for ln in git("grep", "-l", "^RECORDED-AT:", sha, "--", "perf/*.txt",
                                                   ok=(0, 1)).splitlines()}
     rows = []
-    for ln in git("ls-tree", "-r", "--full-tree", sha).splitlines():
+    for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
-        if path.endswith(".md") or path in recorded:
+        if path.endswith(".md") or path in recorded or (not baselines and path.startswith(_BASELINE_PATHS)):
             continue
         if path == "pyproject.toml":
             body = "".join(x for x in git("show", f"{sha}:pyproject.toml").splitlines(True)
@@ -164,8 +191,8 @@ def env_hash(probe: dict) -> str:
     return sha256(probe["python"], probe["dists"])
 
 
-def leg_key(content: str, env: str, card_type: str, leg: "Leg") -> str:
-    return sha256(content, env, card_type, leg.name, leg.argv)
+def leg_key(content: str, env: str, card_type: str, leg: "Leg", baseline: str = "") -> str:
+    return sha256(content, env, card_type, leg.name, leg.argv, *([baseline] if baseline else []))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -668,7 +695,7 @@ def main() -> int:
     roster = first[archs[0]].run_py(ENUMERATE)
     legs = select(build_legs(roster, test_files(sha), args.shards),
                   [p for p in args.legs.split(",") if p])
-    content = content_hash(sha)
+    content, legacy = content_hash(sha), content_hash(sha, baselines=True)
     probes = {}
     for a in archs:
         for py in {first[a].python(lg.family) for lg in legs}:
@@ -693,11 +720,15 @@ def main() -> int:
         for a in (archs if lg.card else [archs[0]]):
             slot = a if lg.card else "any"
             k = leg_key(content, envs[f"{a} {first[a].python(lg.family)}"],
-                        ctype[a] if lg.card else "cpu", first[a].leg(lg))
+                        ctype[a] if lg.card else "cpu", first[a].leg(lg), baseline_hash(sha, lg.family))
             keys[(lg.name, slot)] = k
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
             # measurements the key leaves out.
-            hit = None if args.no_reuse or not lg.card else ledger.get(k)
+            # A row under the old key (baselines inside the content hash) proved the same code
+            # against the same baselines, so it is as good as a row under the new one.
+            old = leg_key(legacy, envs[f"{a} {first[a].python(lg.family)}"],
+                          ctype[a] if lg.card else "cpu", first[a].leg(lg))
+            hit = None if args.no_reuse or not lg.card else (ledger.get(k) or ledger.get(old))
             if hit and hit.get("verdict") in OK:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "REUSED", "key": k,
                                 "evidence": f"{hit['worker']} {hit['ended']} {hit['sha'][:9]} {hit['log']}",
