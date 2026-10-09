@@ -1,6 +1,7 @@
 """Build the SPD speed inputs into one data dir (default ~/spd-data) and print its manifest.
 
     python perf/spd/make_inputs.py [--data ~/spd-data]
+    python perf/spd/make_inputs.py --boltz2-csv     # only the Boltz-2 CSVs, on a box that already has the data
 
 Needs, already in <data>:
   msa/                      tt-bio MSA cache of complex730 (the .107 pfm-ttfast cache: 5,969 paired + 1,911 + 3,978
@@ -18,6 +19,12 @@ Writes <data>/inputs/<name>.yaml and merges every cache into <data>/msa:
   <PDB> x 11    the accuracy set (perf/pfm_accuracy/set.tsv): post-cutoff two-chain complexes with deposited
                 structures, copied from --acc (pfm-accuracy's data dir: inputs/, msa/cache/, ref/) with their
                 references into <data>/ref
+
+Boltz-2 reads a complex's paired MSA as one `{seq_hash}.csv` per chain in its paired dir, not the a3m pair the
+other models read. For every input that pairs, the CSVs are written from the same paired and unpaired a3m with
+the engine's own writer (`main.write_boltz_csvs`, what an online search writes), so all four fold models see one
+alignment. Without them a cache-only Boltz-2 run silently folds unpaired. Every input is foldable by Protenix-v2,
+OpenDDE, OpenFold3 and Boltz-2 (protein chains only); BindCraft 2 brings its own target.
 """
 import argparse, hashlib, re, shutil
 from pathlib import Path
@@ -29,6 +36,7 @@ from tt_bio.cache import paired_msa_dir, seq_hash
 ap = argparse.ArgumentParser()
 ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
 ap.add_argument("--acc", type=Path, default=Path("~/pfm-accuracy-data").expanduser())
+ap.add_argument("--boltz2-csv", action="store_true", help="only write the Boltz-2 CSVs for the inputs already here")
 a = ap.parse_args()
 D = a.data
 MSA = D / "msa"
@@ -77,6 +85,21 @@ def homomer(name, n, copies):
                f"complex730 chain A 1-{n} x {copies}; identical chains do not pair")
 
 
+def boltz2_csvs():
+    from tt_bio.main import write_boltz_csvs
+    for f in sorted((D / "inputs").glob("*.yaml")):
+        seqs = [s["protein"]["sequence"] for s in yaml.safe_load(f.read_text())["sequences"]]
+        p = paired_msa_dir(MSA, seqs)
+        if p is None or not p.exists():
+            continue
+        hs = {seq_hash(s) for s in seqs}
+        write_boltz_csvs(p, {h: (p / f"{h}.a3m").read_text() for h in hs if (p / f"{h}.a3m").exists()},
+                         {h: (MSA / f"{h}.a3m").read_text() for h in hs})
+
+
+if a.boltz2_csv:
+    boltz2_csvs()
+    raise SystemExit(0)
 write_yaml("c730", [("A", A), ("B", B)], "complex730 (UniRef50_A0A2C9LWN7 crops 1-580 + 581-730), 730 tokens")
 crop_complex("l256", 206, 50)
 crop_complex("l512", 410, 102)
@@ -99,7 +122,9 @@ if (a.acc / "msa" / "cache").exists():
 else:
     print(f"skip accuracy set: no {a.acc}/msa/cache")
 
-# Manifest: what every box must hold, byte for byte.
+boltz2_csvs()
+
+# Manifest: what every box must hold, byte for byte (the a3m; the Boltz-2 CSVs derive from them).
 for f in sorted((D / "inputs").glob("*.yaml")):
     seqs = [s["protein"]["sequence"] for s in yaml.safe_load(f.read_text())["sequences"]]
     files = [MSA / f"{seq_hash(s)}.a3m" for s in set(seqs)]
