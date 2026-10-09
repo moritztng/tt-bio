@@ -1,7 +1,8 @@
 """Owner tables for state/spd/CENSUS.md from analyze.py's <prefix>_rows.json + <prefix>_summary.json.
 
-Every op signature gets the SPD row that owns its cost (state/spd/PLAN.md "Order of attack"; one op, one row, the
-row listed higher in PLAN wins), or NOBODY. Device idle gaps belong to spd-overhead (host idle, dispatch).
+Every op signature gets the SPD row that owns its cost (state/spd/PLAN.md "Rows"), or NOBODY. spd-overhead concluded
+06:35Z: its swiglu went to spd-swiglu, its idle tail and layout ops to spd-hostlap. spd-pair takes the pair traffic
+around the triangle ops (layer norms, residual adds, permutes, concats) from the subsystem rows. Idle gaps are spd-hostlap's.
 
 usage: owners.py LABEL PREFIX UNPROFILED_WALL_S|- [TARGET_S|-] [ROW]   (prints markdown; - = none)
 ROW gives every op to one row: another model's census, where that model's SPD row owns the whole fold.
@@ -15,8 +16,14 @@ rows = json.load(open(f"{PREFIX}_rows.json")); summ = json.load(open(f"{PREFIX}_
 ATTN_OPS = re.compile(r"scaled_dot_product_attention|softmax|sdpa")
 
 
+PAIR_OPS = re.compile(r"^(layer_norm|add_?|permute|concat)$")
+PAIR_CLS = ("triangle multiplication", "triangle attention", "pairformer attention", "transitions")
+
+
 def owner(r):
     cls, ph, op, reg = r["cls"], r["phase"], r["op"].split(".")[-1], r["reg"].split("/")
+    if ph not in ("confidence", "trunk: MSA module") and any(k in cls for k in PAIR_CLS) and PAIR_OPS.match(op) and "swiglu" not in r["site"]:
+        return "spd-pair"
     if "triangle multiplication" in cls:
         return "spd-trimul"
     if "outer product mean" in cls or "pair-weighted" in cls or ph == "trunk: MSA module":
@@ -29,11 +36,11 @@ def owner(r):
     if ph == "confidence":
         return "spd-attn" if ATTN_OPS.search(op) or "apb" in reg else "NOBODY"
     if "typecast/layout" in cls or "unhooked" in cls:
-        return "spd-overhead"
+        return "spd-hostlap"
     if ph == "diffusion" or "dit" in reg or "sampler" in reg:
         return "spd-diffusion"
     if "transitions" in cls:
-        return "spd-overhead"          # PLAN 3 + from-orchestrator: spd-overhead keeps the swiglu (5-row chunks)
+        return "spd-swiglu"
     return "NOBODY"
 
 
@@ -56,7 +63,7 @@ for r in rows:
 print("| owner | device s | idle gap before its ops, s | share of fold % |\n|---|---|---|---|")
 for o, (s, g) in sorted(by_owner.items(), key=lambda x: -sum(x[1])):
     print(f"| {o} | {s:.1f} | {g:.1f} | {(s + g) / recon * 100:.1f} |")
-print(f"\nIdle gaps total {gap:.1f} s, all spd-overhead's by PLAN (host idle, dispatch); the column above says which "
+print(f"\nIdle gaps total {gap:.1f} s, all spd-hostlap's by PLAN (host idle, dispatch); the column above says which "
       f"lever row's ops they sit in front of.\n")
 print("| phase | device s | share % |\n|---|---|---|")
 for p, v in summ["phases"].items():
@@ -81,7 +88,7 @@ for r in rows:
         key = (r["phase"], r["cls"]); nob[key][0] += r["s"]; nob[key][1] += r["gap_s"]
         if nob[key][2] is None or r["s"] > nob[key][2]["s"]:
             nob[key][2] = r
-print("\nNOBODY (unowned device cost by phase x class; idle gaps are spd-overhead's and not listed):\n")
+print("\nNOBODY (unowned device cost by phase x class; idle gaps are spd-hostlap's and not listed):\n")
 print("| phase | class | device s | idle before s | biggest op |\n|---|---|---|---|---|")
 for (p, c), (s, g, top) in sorted(nob.items(), key=lambda x: -x[1][0]):
     if s >= 0.5:
