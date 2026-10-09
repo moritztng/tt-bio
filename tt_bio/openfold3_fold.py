@@ -483,8 +483,10 @@ class OpenFold3(Module):
                                  shared)
                 for sample in samples
             ]
-            for t in shared.get("z_ij_d", ()):
-                ttnn.deallocate(t)
+            if "z_ij_d" in shared:
+                li_d, lj_d, tables_d = shared["z_ij_d"]
+                for t in (li_d, lj_d, *tables_d):
+                    ttnn.deallocate(t)
             best_index = max(range(len(samples)), key=lambda i: confidence[i]["ranking_score"])
             dram_peak(f"confidence done [samples={len(samples)}]")
         else:
