@@ -414,8 +414,8 @@ _FAST_MODE = False
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 #   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
-#   trimul_gin      the trimul in-projection, both gates and the pair mask in one weights-resident
-#                   kernel, then plain channel moves (`_TRIMUL_GATED_INPROJ`)
+#   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
+#                   weights-resident kernel (`_TRIMUL_GATED_INPROJ`, `trimul_tail.gin_moved`)
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).

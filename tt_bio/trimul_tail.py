@@ -525,7 +525,10 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
 # transposed, W^T @ X^T per row tile, so each product tile is [channel x y] and the writer gathers
 # the moved [B, C, S, S] tiles straight out of L1: the moves' DRAM round trip is gone and their
 # gather runs on the writer, which has slack under the resident kernel's compute bound.
-GIN_MOVE = env_flag("TT_BIO_TRIMUL_GIN_MOVE", False)
+# Default on wherever trimul_gin runs: at 736 on WH (HiFi3, 1000 MHz) it is 7.33 ms against the 10.43 ms
+# of the resident split plus its two moves, rel_rms to float64 unchanged (perf/spd_trimul/gin_move.py,
+# BOARD 2026-10-09 04:55Z). TT_BIO_TRIMUL_GIN_MOVE=0 takes the split route back.
+GIN_MOVE = env_flag("TT_BIO_TRIMUL_GIN_MOVE", True)
 GIN_MOVE_STATS = [0, 0]   # served, declined
 
 
