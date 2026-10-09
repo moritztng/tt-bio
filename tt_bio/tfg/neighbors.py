@@ -204,7 +204,7 @@ class BoundField:
     and half diagonal delta, |x - b| lies within |c - b| +- delta, so the voxel value proves that x overlaps nothing
     (soft bound - delta >= 0.85 ra) or that x has a severe pair (hard bound + delta < 0.75 ra). 1e-3 A margin."""
 
-    def __init__(self, fixed, rb, ra_max, v=0.75, margin=1e-3):
+    def __init__(self, fixed, rb, ra_max, v=1.5, margin=1e-3):
         S, N, _ = fixed.shape
         self.v, self.delta, self.margin = v, 0.5 * v * 3**0.5, margin
         reach = SOFT * (ra_max + float(rb.max())) + self.delta + margin
@@ -215,6 +215,8 @@ class BoundField:
         k = int(reach / v) + 2
         r = torch.arange(-k, k + 1)
         off = torch.stack(torch.meshgrid(r, r, r, indexing="ij"), -1).reshape(-1, 3)
+        # an atom sits within delta of its voxel centre, so offsets beyond this ball reach no voxel in range
+        off = off[off.float().norm(dim=-1) * v - self.delta < reach + SOFT * float(rb.max())]
         soft = torch.full((S * self.nvox,), float("inf"))
         hard = torch.full((S * self.nvox,), float("inf"))
         for s in range(S):                                   # one sample at a time bounds the [N, O] temporaries
