@@ -103,3 +103,13 @@ def test_trimul_levers_reach_their_kernels_only_inside_the_set():
         assert (T._trimul_ibw_full(), TTL._epi(), RB._gate_lean()) == (True, 2, 2)
         assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 23
     assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 1
+
+
+def test_b8_program_takes_1d_for_the_narrow_atom_linears_and_2d_otherwise():
+    ttnn = T.ttnn
+    narrow = T._b8_program(925, 4, 4, 8, 9, None)        # [5, 5919, 128] x [128, 128] on Wormhole's grid
+    assert isinstance(narrow, ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig)
+    assert (narrow.in0_block_w, narrow.per_core_M, narrow.out_subblock_w) == (2, 13, 4)
+    for kt, nt in ((4, 8), (8, 4)):                        # a1/a2 and b
+        wide = T._b8_program(925, kt, nt, 8, 9, "silu")
+        assert isinstance(wide, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig) and wide.in0_block_w == 2

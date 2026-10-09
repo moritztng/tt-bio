@@ -576,12 +576,15 @@ _FAST_MODE = False
 #   atom_mm16       the fp32 atom transformer's linears on bf16 operands with fp32 accumulation (`k1_linear`):
 #                   the adaLN outputs, q/k/v, the gate and the swiglu hidden are written bf16, the output
 #                   projections, the residual stream and the superset bias stay fp32. Inert in bf16.
+#   atom_b8         fast mode's bf16 atom transformer linears on bfp8 weights at HiFi2 (`b8_linear`): the kv and
+#                   transition adaLN outputs and the swiglu product are written bfp8; q_norm, q/k/v, the gate,
+#                   the outputs and the residual stream stay bf16. Inert in fp32.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8", "transition_b8",
           "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in", "trimul_gin", "trunk_hifi3",
           "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
-          "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16")
+          "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "atom_b8")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16", "dit_qkv16", "atom_mm16"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16", "dit_qkv16", "atom_mm16", "atom_b8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2414,16 +2417,53 @@ def dit_lowp(dit_dtype, ckc):
 
 
 @lru_cache(maxsize=None)
-def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation):
-    """2D multicast, in0_block_w 1, the widest subblock fp32 dest holds (h * w <= 4)."""
+def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation, ibw: int = 1):
+    """2D multicast, in0_block_w `ibw`, the widest subblock fp32 dest holds (h * w <= 4)."""
     pm, pn = -(-mt // gy), -(-nt // gx)
     h, w = max(((h, w) for h in range(1, min(pm, 4) + 1) for w in range(1, min(pn, 4) + 1)
                 if pm % h == 0 and pn % w == 0 and h * w <= 4), key=lambda s: (s[0] * s[1], s[1]))
     act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if activation == "silu" else None
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-        compute_with_storage_grid_size=(gx, gy), in0_block_w=1, out_subblock_h=h, out_subblock_w=w,
+        compute_with_storage_grid_size=(gx, gy), in0_block_w=ibw, out_subblock_h=h, out_subblock_w=w,
         out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
         fused_activation=act, fuse_batch=True)
+
+
+_B8_CKC = None
+
+
+def b8_linear(x, w, bias=None, *, dtype, activation=None):
+    """`x @ w (+ bias)` on bfp8 weights at HiFi2 without fp32 accumulation, in0_block_w 2, written at `dtype`.
+
+    The matmul of `atom_b8`. Op probe, Wormhole, [5,5919,128] x [128,128]: bf16 HiFi4 on ttnn's program
+    266.6 us; bfp8 operands 183.8 us (1D, every core takes rows, the 4-tile weight whole) or 198.1 (2D);
+    [.., 128] x [128, 256] 415.7 -> 290.8 (2D); [.., 256] x [256, 128] 365.6 -> 250.1 (2D). A narrow N
+    takes the 1D program. Without fp32 dest the K blocking is free of Wormhole's accumulation erratum."""
+    global _B8_CKC
+    if _B8_CKC is None:
+        _B8_CKC = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=False,
+                                                   fp32_dest_acc_en=False, packer_l1_acc=False)
+    ckc = silu_ckc(_B8_CKC) if activation == "silu" else _B8_CKC
+    shp = tuple(x.padded_shape)
+    mt, kt, nt = prod(shp[:-1]) // 32, shp[-1] // 32, int(w.padded_shape[-1]) // 32
+    if kt % 2:
+        return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype, compute_kernel_config=ckc,
+                           core_grid=CORE_GRID_MAIN)
+    g = x.device().compute_with_storage_grid_size()
+    pc = _b8_program(mt, kt, nt, g.x, g.y, activation)
+    return ttnn.linear(x, w, bias=bias, dtype=dtype, compute_kernel_config=ckc, program_config=pc)
+
+
+@lru_cache(maxsize=None)
+def _b8_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation):
+    if nt > 4 or kt > 4:
+        return _k1_program(mt, kt, nt, gx, gy, activation, ibw=2)
+    act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if activation == "silu" else None
+    pm = -(-mt // (gx * gy))
+    return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+        compute_with_storage_grid_size=(gx, gy), in0_block_w=2, out_subblock_h=1, out_subblock_w=nt,
+        out_block_h=pm, out_block_w=nt, per_core_M=pm, per_core_N=nt, fuse_batch=True,
+        fused_activation=act, mcast_in0=False)
 
 
 def sdpa32_rows(n: int) -> int:

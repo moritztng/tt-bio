@@ -573,7 +573,8 @@ class AtomTransformer(_KeyedWeights, Module):
     N_KEYS = 128
     PAD_LEFT = 48  # (n_keys - n_queries) // 2
 
-    def __init__(self, n_blocks, state_dict, compute_kernel_config, dtype=ttnn.bfloat16):
+    def __init__(self, n_blocks, state_dict, compute_kernel_config, dtype=ttnn.bfloat16, diffusion=False):
+        """`diffusion`: the denoiser's encoder/decoder instance, which the atom_b8 lever reaches."""
         super().__init__(state_dict, compute_kernel_config)
         self.dtype = dtype
         self.n_blocks = n_blocks
@@ -598,23 +599,34 @@ class AtomTransformer(_KeyedWeights, Module):
         # adaLN outputs, q/k/v, the gate and the swiglu hidden are written bf16; the two output projections,
         # the residual stream and the superset bias stay fp32.
         self._mm16 = _T.lever("atom_mm16") and self._sdpa32 and self._tile_heads
+        # atom_b8: fast mode's bf16 superset attention's linears on bfp8 weights at HiFi2 (`b8_linear`). The kv
+        # and transition adaLN outputs and the swiglu product are written bfp8; q_norm (the kv adaLN reads it),
+        # q/k/v, the gate, both outputs and the residual stream stay bf16.
+        self._b8 = (_T.lever("atom_b8") and diffusion and dtype == ttnn.bfloat16 and _ATOM_SUPERSET
+                    and self._tile_heads)
 
-    def _w16(self, key, transpose=True):
-        cache = self.__dict__.setdefault("_wc16", {})
-        v = cache.get((key, transpose))
+    def _wfmt(self, key, dtype, transpose=True):
+        cache = self.__dict__.setdefault("_wcf", {})
+        v = cache.get((key, dtype, transpose))
         if v is None:
             w = self._w[key]
-            v = cache[(key, transpose)] = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                                          layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                                          dtype=ttnn.bfloat16)
+            v = cache[(key, dtype, transpose)] = ttnn.from_torch(w.t().contiguous() if transpose else w,
+                                                                 layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                                                 dtype=dtype)
         return v
 
-    def _lin(self, x, wkey, bkey=None, activation=None, dtype=None):
-        """`dtype`: what an `atom_mm16` linear (a bf16 `x`) writes, bf16 unless given."""
-        if self._mm16 and x.dtype == ttnn.bfloat16:
-            return _T.k1_linear(x, self._w16(wkey), self._w16(bkey, False) if bkey else None,
+    def _lin(self, x, wkey, bkey=None, activation=None, dtype=None, lowp=True):
+        """`dtype`: what an `atom_mm16` (bf16 `x`) or `atom_b8` linear writes, bf16 unless given. `lowp=False`
+        keeps a once-per-fold linear at the stack's own formats."""
+        if self._mm16 and lowp and x.dtype == ttnn.bfloat16:
+            return _T.k1_linear(x, self._wfmt(wkey, ttnn.bfloat16),
+                                self._wfmt(bkey, ttnn.bfloat16, False) if bkey else None,
                                 dtype=dtype or ttnn.bfloat16, activation=activation,
                                 compute_kernel_config=self.compute_kernel_config)
+        if self._b8 and lowp:
+            return _T.b8_linear(x, self._wfmt(wkey, ttnn.bfloat8_b),
+                                self._wfmt(bkey, ttnn.bfloat16, False) if bkey else None,
+                                dtype=dtype or ttnn.bfloat16, activation=activation)
         w = self._w_tt(wkey)
         # One K tile leaves the program no K blocking to choose: those keep the shared path.
         if not self._k1 or int(w.padded_shape[0]) <= 32:
@@ -625,7 +637,7 @@ class AtomTransformer(_KeyedWeights, Module):
     def _lin_g(self, q_norm, apb):
         """The attention gate's linear: no narrow-projection offer and the input's dtype, as before."""
         key = apb + "attention.linear_g.weight"
-        if self._k1 or self._mm16:
+        if self._k1 or self._mm16 or self._b8:
             return self._lin(q_norm, key)
         return ttnn.linear(q_norm, self._w_tt(key), compute_kernel_config=self.compute_kernel_config,
                            core_grid=CORE_GRID_MAIN)
@@ -668,8 +680,8 @@ class AtomTransformer(_KeyedWeights, Module):
                 "a": self._adaln_mod(apb + "layernorm_a.").s_terms(s),
                 "kv": self._adaln_mod(apb + "layernorm_kv.").s_terms(s),
                 "ctb": self._adaln_mod(ctb + "adaln.").s_terms(s),
-                "gate": self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias"),
-                "cg": self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias"),
+                "gate": self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias", lowp=False),
+                "cg": self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias", lowp=False),
             })
         return terms
 
@@ -832,7 +844,7 @@ class AtomTransformer(_KeyedWeights, Module):
         sampling steps, so this is precomputed once per fold (see _precompute_biases)."""
         z = ttnn.layer_norm(p, weight=self._w_tt(apb + "layernorm_z.weight", False), epsilon=1e-5,
                             compute_kernel_config=self.compute_kernel_config)
-        z = self._lin(z, apb + "linear_nobias_z.weight")          # (nb,nq,nk,H)
+        z = self._lin(z, apb + "linear_nobias_z.weight", lowp=False)   # (nb,nq,nk,H)
         return ttnn.permute(z, (0, 3, 1, 2))                       # (nb,H,nq,nk)
 
     def _attention(self, q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=None):
@@ -1008,10 +1020,11 @@ class AtomTransformer(_KeyedWeights, Module):
         apb, ctb = self._prefixes(b)
         t = terms or {}
         # atom_mm16: the kv adaLN reads the fp32 q_norm and writes bf16; q/g read one bf16 copy of it.
-        lo = ttnn.bfloat16 if self._mm16 and zs is not None else None
+        # atom_b8: the kv and transition adaLNs write bfp8, q/g read the bf16 q_norm.
+        lo = (ttnn.bfloat16 if self._mm16 else ttnn.bfloat8_b if self._b8 else None) if zs is not None else None
         q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"), dtype=lo)
-        if lo is not None:
+        if self._mm16 and lo is not None:
             q_norm = ttnn.typecast(q_norm, lo)
         if zs is not None:
             o = self._attention_superset(q_norm, kv_norm, apb, N, NP, zs)
@@ -1026,7 +1039,7 @@ class AtomTransformer(_KeyedWeights, Module):
         an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"), dtype=lo)
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
-        out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight", dtype=self.dtype)
+        out = self._lin(ttnn.multiply(b1, b2, dtype=lo), ctb + "linear_nobias_b.weight", dtype=self.dtype)
         cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
         out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         return ttnn.add(out, a1)
@@ -1254,11 +1267,11 @@ class DiffusionModule(_KeyedWeights):
         self.atxE = AtomTransformer(nbE, {k[len("atom_attention_encoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
                                         if k.startswith("atom_attention_encoder.atom_transformer.")},
-                                    compute_kernel_config, dtype=self.dtype)
+                                    compute_kernel_config, dtype=self.dtype, diffusion=True)
         self.atxD = AtomTransformer(nbD, {k[len("atom_attention_decoder.atom_transformer."):]: v
                                         for k, v in self._w.items()
                                         if k.startswith("atom_attention_decoder.atom_transformer.")},
-                                    compute_kernel_config, dtype=self.dtype)
+                                    compute_kernel_config, dtype=self.dtype, diffusion=True)
         self._wc = {}  # device-weight cache (upload once; reused across all sampling steps)
         from .tenstorrent import AdaLN, AttentionPairBias, Transition
         C = "diffusion_conditioning."
