@@ -77,6 +77,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import socket
 import subprocess
 import sys
@@ -197,6 +198,10 @@ def baseline_hash(sha: str, family: str, repo: Path = REPO) -> str:
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
 
 
+RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py",
+                "tests/test_gate_fanout.py", "tests/test_release_next.py")
+
+
 def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
     """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
 
@@ -206,7 +211,9 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
     left out for the same reason: the release commit re-records them, and they are numbers about
     the code, not code. The one test that reads them is in pytest_cpu, which is never reused.
     Gate baselines (BASELINES) are left out too and keyed per leg family instead;
-    `baselines=True` keeps them, the key every ledger row before 2026-10-09 15Z was written under."""
+    `baselines=True` keeps them, the key every ledger row before 2026-10-09 15Z was written under.
+    So is this runner (RUNNER_FILES): it decides where a leg runs, not what the leg computes, and
+    a fix to it must not throw away a gate's worth of evidence."""
     def git(*a, ok=(0,)):
         p = subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True)
         if p.returncode not in ok:
@@ -217,7 +224,8 @@ def content_hash(sha: str, repo: Path = REPO, baselines: bool = False) -> str:
     rows = []
     for ln in _ls_tree(sha, repo):
         path = ln.split("\t", 1)[-1]
-        if path.endswith(".md") or path in recorded or (not baselines and path.startswith(_BASELINE_PATHS)):
+        if (path.endswith(".md") or path in recorded or path in RUNNER_FILES
+                or (not baselines and path.startswith(_BASELINE_PATHS))):
             continue
         if path == "pyproject.toml":
             body = "".join(x for x in git("show", f"{sha}:pyproject.toml").splitlines(True)
@@ -866,6 +874,12 @@ def main() -> int:
     execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}")
     # Card-free legs run one at a time on the first host, as a worker without a card, so they
     # also stand aside while a timed leg holds that host quiet.
+    # Started in the background by a non-interactive shell, SIGINT arrives ignored and the
+    # cleanup below never ran; SIGTERM never reached it at all. Both stop the runner the same way.
+    def _stop(*_):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGINT, _stop)
+    signal.signal(signal.SIGTERM, _stop)
     try:
         results += Gate(todo, workers + [(first[archs[0]], None)], timed, execute, args.out).run()
     except KeyboardInterrupt:
