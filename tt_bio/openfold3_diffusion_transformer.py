@@ -288,8 +288,9 @@ class _DiTBlock(Module):
             bias = _cached(cache, (id(self), "pair_bias"),
                            lambda: self._pair_bias(z, mask_bias))
 
-        # Fused padded qkv -> heads.
-        qkv = self._lin_lp(a_ln, self.qkv_w, out_dt, bias=self.qkv_b)   # [1, N, 3072]
+        # Fused padded qkv -> heads; `_sdpa32` reads them at lp.qkv (dit_qkv16: bf16), output fp32.
+        qkv = self._lin_lp(a_ln, self.qkv_w, lp.qkv if lp and self.sdpa32 else out_dt,
+                           bias=self.qkv_b)                              # [1, N, 3072]
         qkv = ttnn.unsqueeze(qkv, 1)
         q, k, v = ttnn.experimental.nlp_create_qkv_heads(
             qkv, num_heads=N_HEADS, num_kv_heads=N_HEADS, transpose_k_heads=False)
