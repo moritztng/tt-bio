@@ -92,7 +92,6 @@ ref = torch.nn.functional.silu(xd @ w1d) * (xd @ w2d)
 assert pn == 4, pn  # fc12g's subblock is one fc half: 1 x pn tiles, which must fit an fp32 dest half
 
 PC1, PC2, PC12 = cfg(pn, pn, ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)), cfg(pn, pn), cfg(2 * pn, pn)
-out_g = ttnn.allocate_tensor_on_device(ttnn.Shape([1, R, W, HID]), HDT, ttnn.TILE_LAYOUT, dev, mc)
 
 
 def base():
@@ -110,12 +109,22 @@ def defines(pack, math_silu=0):
     return d
 
 
-out_alt = ttnn.allocate_tensor_on_device(ttnn.Shape([1, R, W, HID]), HDT, ttnn.TILE_LAYOUT, dev, mc)
+# fc12g's outputs are allocated on its first call, after base has run: in normal mode two live [23 x 4] shards
+# beside x leave no room for stock fc1's fp32 c_5 (L1 clash).
+outs = []
 flip = [0]
+
+
+def out_pair():
+    if not outs:
+        outs.extend(ttnn.allocate_tensor_on_device(ttnn.Shape([1, R, W, HID]), HDT, ttnn.TILE_LAYOUT, dev, mc)
+                    for _ in range(2))
+    return outs
 
 
 def fc12g(pack, alternate=False, math_silu=0):
     def run():
+        out_g, out_alt = out_pair()
         o = out_g
         if alternate:  # a new output buffer every call, as in the fold: the cached runtime args are rebound
             flip[0] ^= 1
@@ -174,6 +183,7 @@ for n in live:
     res["arms"][n].update(us=round(us, 1), enqueue_us=round(enq, 1))
 # Host cost of the generic path's pieces, per call (no device work in any of them).
 if "fc12g_pack" in live:
+    out_g, out_alt = out_pair()
     args = (x, w12, out_g, PC12, SILU_CKC, 1, str(KERNEL), defines(True), None, 2 * pn)
     entry = G._CACHE[G._key(*args)]
     host = {}
