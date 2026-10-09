@@ -172,6 +172,48 @@ def opm_kpad_rows(depth: int) -> int:
 OPM_PROJ_BLOCK_ROWS = 16384
 
 
+def permute_120(x):
+    """`ttnn.permute(x, (1, 2, 0))` of a tiled 3D tensor, which it consumes.
+
+    When the two axes that move into the tile are whole tiles, the same move runs as an HC then a WH
+    tile transpose, which ttnn has dedicated kernels for: PWA's head output [64, 512, 736] takes 1.53
+    ms that way against 4.44 ms on Blackhole (2.42 -> 2.32 ms on Wormhole), same bytes
+    (perf/spd_msa/pwa_opsplit.py). `x` is freed before the second transpose, so the peak is two
+    copies, as with the permute. OPM's a [9947, 736, 32]: 43.7 -> 14.3 ms on Blackhole, 23.2 -> 19.8
+    ms on Wormhole (perf/spd_msa/opm_abperm.py). The axis entering the tile may be ragged; the one
+    leaving it must be whole tiles."""
+    A, B, C = x.shape
+    if B % 32:
+        y = ttnn.permute(x, (1, 2, 0))
+        ttnn.deallocate(x)
+        return y
+    t = ttnn.transpose(ttnn.reshape(x, (1, A, B, C)), 1, 2)     # [1, B, A, C]
+    ttnn.deallocate(x)
+    y = ttnn.transpose(t, 2, 3)                                  # [1, B, C, A]
+    ttnn.deallocate(t)
+    return ttnn.reshape(y, (B, C, A))
+
+
+def permute_210(x):
+    """`ttnn.permute(x, (2, 1, 0))` of a tiled 3D tensor, which it consumes.
+
+    On Blackhole as WH, HC, WH tile transposes: OPM's b [9947, 736, 32] 34.6 -> 16.8 ms. On Wormhole
+    that chain is slower than the permute (24.3 -> 28.4 ms at depth 9984), so it keeps the permute
+    (perf/spd_msa/opm_abperm.py). Same bytes either way."""
+    A, B, C = x.shape
+    if B % 32 or C % 32 or x.device().arch() != ttnn.Arch.BLACKHOLE:
+        y = ttnn.permute(x, (2, 1, 0))
+        ttnn.deallocate(x)
+        return y
+    t = ttnn.transpose(ttnn.reshape(x, (1, A, B, C)), 2, 3)     # [1, A, C, B]
+    ttnn.deallocate(x)
+    u = ttnn.transpose(t, 1, 2)                                  # [1, C, A, B]
+    ttnn.deallocate(t)
+    y = ttnn.transpose(u, 2, 3)                                  # [1, C, B, A]
+    ttnn.deallocate(u)
+    return ttnn.reshape(y, (C, B, A))
+
+
 def opm_flat_b(b):
     """The OPM's b operand (D, J, S) as (D*J, S) for the depth contraction.
 
@@ -13052,19 +13094,7 @@ class PairWeightedAveraging(Module):
         o = ttnn.matmul(vh, w, transpose_b=True, **lin)          # [H, hd*rows, T]
         ttnn.deallocate(vh)
         ttnn.deallocate(w)
-        if rows % 32:
-            o = ttnn.reshape(o, (H * hd, rows, T))
-            ot = ttnn.permute(o, (1, 2, 0))                      # [rows, T, H*hd]
-            ttnn.deallocate(o)
-        else:
-            # The same move as permute (1, 2, 0), as the two tile transposes ttnn has kernels for:
-            # 2.9x faster on Blackhole (4.44 -> 1.53 ms at 512 x 736), 1.05x on Wormhole, same bytes.
-            o = ttnn.reshape(o, (1, H * hd, rows, T))
-            ot = ttnn.transpose(o, 1, 2)                         # [1, rows, H*hd, T]
-            ttnn.deallocate(o)
-            o = ttnn.transpose(ot, 2, 3)                         # [1, rows, T, H*hd]
-            ttnn.deallocate(ot)
-            ot = ttnn.reshape(o, (rows, T, H * hd))
+        ot = permute_120(ttnn.reshape(o, (H * hd, rows, T)))     # [rows, T, H*hd]
         g = ttnn.linear(mc, self.g_weight, **lin)
         ot = ttnn.multiply_(ot, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(g)
@@ -13425,10 +13455,8 @@ class OuterProductMean(Module):
                 Sc, I, C = ac.shape
                 _, J, D = bc.shape
                 S += Sc
-                acp = ttnn.permute(ac, (1, 2, 0))           # (I, C, Sc)
-                ttnn.deallocate(ac)
-                bcp = ttnn.permute(bc, (2, 1, 0))           # (D, J, Sc)
-                ttnn.deallocate(bc)
+                acp = permute_120(ac)                       # (I, C, Sc)
+                bcp = permute_210(bc)                       # (D, J, Sc)
                 bcp = opm_flat_b(bcp)                       # (D*J, Sc)
                 parts.append((acp, bcp, Sc))
             return parts, S, I, C, D, J
@@ -13494,8 +13522,8 @@ class OuterProductMean(Module):
                     return a, b, None
                 S, I, C = a.shape
                 _, J, D = b.shape
-                a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
-                b = opm_flat_b(ttnn.permute(b, (2, 1, 0)))
+                a = permute_120(a)  # (I, C, S)
+                b = opm_flat_b(permute_210(b))
                 if I > SEQ_LEN_MORE_CHUNKING:
                     # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
                     a = ttnn.reallocate(a)
