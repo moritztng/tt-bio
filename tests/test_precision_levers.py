@@ -101,3 +101,10 @@ def test_trimul_levers_reach_their_kernels_only_inside_the_set():
         assert (T._trimul_ibw_full(), TTL._epi(), RB._gate_lean()) == (True, 2, 2)
         assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 23
     assert T._trimul_in0_block_w(23, T._trimul_ibw_full()) == 1
+
+
+def test_boltz2_mode_sets_name_only_known_levers():
+    import tt_bio.boltz2 as B
+
+    for s in (B.LEVERS_NORMAL, B.LEVERS_FAST):
+        assert s <= set(T.LEVERS) and not s & T.UNGRADED_LEVERS

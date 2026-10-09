@@ -50,9 +50,12 @@ tenstorrent = _LazyTenstorrent()
 
 
 # Boltz-2's precision levers (tenstorrent.LEVERS) per mode: the shared kernels' switches, graded on
-# this model's own accuracy set before a name goes in. Empty until spd-boltz2's grade; a harness
-# grades a candidate through the serving path with TT_BIO_LEVERS.
-LEVERS_NORMAL = frozenset()
+# this model's own accuracy set before a name goes in, so a lever graded only on another model never
+# reaches it. A harness grades a candidate through the serving path with TT_BIO_LEVERS.
+# Normal: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median 0.895 A against the
+# A/A seed floor 1.784 A, every paired CI covers 0 or sits on the better side, docking 24/44 both;
+# c730 157.98 -> 147.17 s (spd-boltz2 g1/s1, 2026-10-09).
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
 LEVERS_FAST = frozenset()
 
 

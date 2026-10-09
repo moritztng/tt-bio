@@ -898,8 +898,8 @@ _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 # At head_dim 32 there is no padding to drop: the fused path's layout carries the same bytes and
 # moves them with a tile transpose and an outer-axis tile permute, where `_heads_unpadded` pays two
 # general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
-# path when this is on.
-_PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", False)
+# path: c730 on Wormhole 157.95 -> 152.61 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
+_PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
@@ -2037,8 +2037,8 @@ _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
 # projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
 # times all equal and one trunk row, the step runs them on ONE sample and the ops that meet the
 # per-sample `a` broadcast it: the same values, computed once instead of once per sample.
-# Boltz-2 c730, 5 samples, Wormhole: the hoisted projections alone are 7.5 s of the fold (census m9).
-_DIT_SHARED_COND = env_flag("TT_BIO_DIT_SHARED_COND", False)
+# Boltz-2 c730, 5 samples, Wormhole: 157.95 -> 152.07 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
+_DIT_SHARED_COND = env_flag("TT_BIO_DIT_SHARED_COND", True)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
