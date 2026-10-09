@@ -114,6 +114,7 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     git("add", "."), git("commit", "-qm", "8")
     assert gf.content_hash("HEAD", tmp_path) != c6          # any other perf/ file: new key
     c8, l8 = gf.content_hash("HEAD", tmp_path), gf.baseline_hash("HEAD", "ladder", tmp_path)
+    b8, o8 = (gf.baseline_hash("HEAD", "ladder", tmp_path, model=m) for m in ("boltz2", "other"))
     p8 = gf.baseline_hash("HEAD", "perf", tmp_path)
     (tmp_path / "docs" / "size_ladder_baseline.d").mkdir(parents=True)
     (tmp_path / "docs" / "size_ladder_baseline.d" / "boltz2.json").write_text("{}\n")
@@ -121,6 +122,8 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     assert gf.content_hash("HEAD", tmp_path) == c8          # a re-recorded baseline: same code key,
     assert gf.baseline_hash("HEAD", "ladder", tmp_path) != l8  # a new key for the ladder legs only
     assert gf.baseline_hash("HEAD", "perf", tmp_path) == p8
+    assert gf.baseline_hash("HEAD", "ladder", tmp_path, model="boltz2") != b8   # that model's leg reruns,
+    assert gf.baseline_hash("HEAD", "ladder", tmp_path, model="other") == o8    # another model's does not
     assert gf.content_hash("HEAD", tmp_path, baselines=True) != c8
     (tmp_path / "scripts").mkdir()
     (tmp_path / "scripts" / "gate_fanout.py").write_text("# runner fix\n")

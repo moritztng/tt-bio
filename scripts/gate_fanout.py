@@ -177,7 +177,8 @@ def sha256(*parts) -> str:
 # ---------------------------------------------------------------------------------------------
 # The baselines a leg family compares against. They are measurements of the code, re-recorded
 # when a lever lands, so they leave the content key and enter only their own family's leg key:
-# re-recording the size ladder reruns the ladder legs, not the other 230.
+# re-recording the size ladder reruns the ladder legs, not the other 230, and splicing one
+# model's fragment reruns that model's ladder leg only.
 BASELINES = {"ladder": ("docs/size_ladder_baseline.json", "docs/size_ladder_baseline.d/"),
              "perf": ("docs/perf_baselines.json",),
              "capacity": ("docs/capacity_gate_baseline.json",)}
@@ -189,12 +190,18 @@ def _ls_tree(sha: str, repo: Path) -> list[str]:
                           capture_output=True, text=True).stdout.splitlines()
 
 
-def baseline_hash(sha: str, family: str, repo: Path = REPO) -> str:
-    """Blob ids of the baseline files `family` compares against at `sha` ('' for none)."""
+def baseline_hash(sha: str, family: str, repo: Path = REPO, model: str = "") -> str:
+    """Blob ids of the baseline files `family` compares against at `sha` ('' for none).
+
+    A ladder leg for `model` reads the monolith plus that model's own fragment, so splicing one
+    model's rows reruns that model's ladder leg only."""
     ps = BASELINES.get(family)
     if not ps:
         return ""
-    rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1].startswith(ps)]
+    if family == "ladder" and model:
+        ps = (ps[0], f"{ps[1]}{model}.json")
+    rows = [ln for ln in _ls_tree(sha, repo) if ln.split("\t", 1)[-1] in ps or (
+        not model and ln.split("\t", 1)[-1].startswith(ps))]
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
 
 
@@ -827,7 +834,8 @@ def main() -> int:
         for a in (archs if lg.card else [archs[0]]):
             slot = a if lg.card else "any"
             k = leg_key(content, envs[f"{a} {first[a].python(lg.family)}"],
-                        ctype[a] if lg.card else "cpu", first[a].leg(lg), baseline_hash(sha, lg.family))
+                        ctype[a] if lg.card else "cpu", first[a].leg(lg),
+                        baseline_hash(sha, lg.family, model=lg.name.split(":", 1)[1] if lg.family == "ladder" else ""))
             keys[(lg.name, slot)] = k
             # Card-free legs always run: they are cheap, and pytest_cpu checks the recorded
             # measurements the key leaves out.
