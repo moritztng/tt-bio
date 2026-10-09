@@ -7377,6 +7377,15 @@ def pwa_depth_block(depth: int, tokens: int, c_m: int, budget: int | None = None
     return min(depth, rows)
 
 
+def pwa_fused_row_block(tokens: int, n_heads: int) -> int:
+    """MSA rows per block of PWA's fused head path: two [rows, tokens, heads*32] intermediates,
+    each under PWA_DEPTH_BUDGET_BYTES, and whole tiles of rows. Whole tiles keep the two reshapes
+    in `_heads_unpadded` views; at 736 tokens the unrounded 712 rows made them copies, 12.7 ms
+    each per block on Wormhole (Boltz-2 c730, 13312 rows: 7.3 s of device time and 8 s of host
+    stall per fold, census m9). Rows are independent, so the block never changes a value."""
+    return max(32, PWA_DEPTH_BUDGET_BYTES // (tokens * n_heads * 32 * 2) // 32 * 32)
+
+
 def concat_host_bytes() -> int:
     """Pair-tensor byte size above which a chunked path assembles its blocks on the host.
 
@@ -13192,8 +13201,8 @@ class PairWeightedAveraging(Module):
         PWA_UNPADDED_STATS[1] += 1
         # The fused path holds two [rows, tokens, heads*32] intermediates where the loop held one
         # [rows, tokens, 32] per head, so a tall input runs in row blocks that keep each under
-        # the per-buffer budget the depth blocking already uses (512 rows at 730 tokens).
-        blk = max(32, PWA_DEPTH_BUDGET_BYTES // (T * H * S * 2))
+        # the per-buffer budget the depth blocking already uses (see `pwa_fused_row_block`).
+        blk = pwa_fused_row_block(T, H)
         if rows > blk:
             parts = [self._heads_fused(mc[r:min(r + blk, rows)], ws, packed)
                      for r in range(0, rows, blk)]
