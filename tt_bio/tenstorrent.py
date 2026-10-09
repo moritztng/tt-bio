@@ -13849,7 +13849,8 @@ class OuterProductMean(Module):
                     ttnn.deallocate(zp)
             return z
 
-        # A whole call's z between its contraction and its first relayout copy. See `outer_product_mean`.
+        # A whole call that has freed its operands, as [tensor, stage] for the furthest stage it
+        # reached. See `finish`.
         whole_z = []
 
         def release_operands():
@@ -13858,68 +13859,96 @@ class OuterProductMean(Module):
             ttnn.deallocate(b)
             a = b = None
 
-        def outer_product_mean(i0, i1, z=None):
-            """Token rows [i0, i1) of the output; `z` is their contraction when the caller already has it."""
+        def rows_at(t, stage, i0, i1):
+            """Token rows [i0, i1) of `t` at `stage`. Stages 0 and 1 hold them flattened with C."""
+            return t[i0 * C:i1 * C, :] if stage < 2 else t[i0:i1]
+
+        def finish(z, i0, i1, stage=0, keep=False):
+            """Token rows [i0, i1) of the output from `z`, their contraction carried as far as `stage`.
+
+            0 is z as contracted, (rows*C, D*J) tiled; 1 its row-major copy; 2 that as (rows, C*D, J)
+            tiled; 3 its permute (rows, J, C*D), already scaled; 4 the projection (rows, J, c_z) before
+            the residual. Each step allocates the next tensor before freeing the last, and every one
+            of them keeps the token rows leading. With `keep`, the whole call whose operands are gone
+            records the latest in `whole_z`, so a refusal at any step leaves `run` a tensor to finish
+            in row blocks from, instead of a contraction it can no longer redo.
+            """
             rows = i1 - i0
-            if z is None:
-                z = z_rows(i0, i1)
-                if rows == I and depth_parts is None:
-                    # The whole contraction is the operands' last use, so they go before the relayout
-                    # asks for a second z-sized buffer. Holding `b` there is what got that copy refused
-                    # on Wormhole at 736 tokens x 9947 (92,450,816 B per bank against a largest free
-                    # block of 92,450,432), 6 calls in 40, each paying the contraction twice; and the
-                    # memo then row-blocked every later call. If the copy is still refused, `run`
-                    # relayouts this z in row blocks: it cannot contract again.
-                    release_operands()
-                    whole_z.append(z)
-            zt = z
-            z = ttnn.to_layout(zt, ttnn.ROW_MAJOR_LAYOUT)
-            if whole_z and whole_z[0] is zt:
-                whole_z.clear()
-            ttnn.deallocate(zt)
-            z = ttnn.reshape(z, (rows, C * D, J))
-            z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
-            z = ttnn.permute(z, (0, 2, 1))
-            if legacy:
-                z = ttnn.multiply_(z, scale)
-            else:
-                # Merge the token-row batch into M. `proj_o` is (rows, J, C*D) x (C*D, c_z): N is
-                # four tiles wide, so issued against the row batch the matmul re-reads a K of 32
-                # tiles for every 32x32 it writes and lands at 58.7 GB/s, 13 % of the 442.9 GB/s
-                # roof and 5.2 % of this part's 127.86 TFLOP/s -- neither bound, just badly
-                # blocked. One 2D matmul over the whole (rows*J) reads each operand once. The
-                # reshape is a leading-dim merge with the last dim unchanged and the second-to-last
-                # a multiple of 32, i.e. ttnn's own zero-cost view (0.0333 ms measured), and it is
-                # value-exact against a float64 reference.
-                nb = opm_proj_blocks(rows, J)
-                z = ttnn.reshape(z, (rows * J, C * D) if nb == 1 else (nb, rows * J // nb, C * D))
-            o_bias = self.o_bias
-            if self.scale_bias:
-                o_bias = ttnn.multiply(self.o_bias, scale)
-            out = ttnn.linear(
-                z,
-                self.o_weight,
-                bias=o_bias,
-                compute_kernel_config=self.compute_kernel_config,
-                # The flattened form has to be left to pick its own program config. Pinning the
-                # core grid here is what makes the 2D form no faster than the batched one: with
-                # the grid pinned it reads 9.8592 ms against the batched 9.4773, and without it
-                # 3.3877 ms, on the same shapes in the same interleaved pass. Both forms derive
-                # their grid from the live device, so neither is more card-dependent than the
-                # other. perf/c14_opm_layout/ladder_qb1c2.json.
-                **({"core_grid": CORE_GRID_MAIN} if legacy else {}),
-            )
-            if self.scale_bias:
-                ttnn.deallocate(o_bias)
-            ttnn.deallocate(z)
-            if not legacy:
-                out = ttnn.reshape(out, (rows, J, out.shape[-1]))
+
+            def advance(new, free=None):
+                nonlocal z, stage
+                if keep:
+                    whole_z[:] = [new, stage + 1]
+                ttnn.deallocate(z if free is None else free)
+                z, stage = new, stage + 1
+
+            if stage == 0:
+                advance(ttnn.to_layout(z, ttnn.ROW_MAJOR_LAYOUT))
+            if stage == 1:
+                advance(ttnn.to_layout(ttnn.reshape(z, (rows, C * D, J)), ttnn.TILE_LAYOUT))
+            if stage == 2:
+                zp = ttnn.permute(z, (0, 2, 1))
+                if legacy:
+                    zp = ttnn.multiply_(zp, scale)
+                advance(zp)
+            if stage == 3:
+                if legacy:
+                    zz = z
+                else:
+                    # Merge the token-row batch into M. `proj_o` is (rows, J, C*D) x (C*D, c_z): N is
+                    # four tiles wide, so issued against the row batch the matmul re-reads a K of 32
+                    # tiles for every 32x32 it writes and lands at 58.7 GB/s, 13 % of the 442.9 GB/s
+                    # roof and 5.2 % of this part's 127.86 TFLOP/s -- neither bound, just badly
+                    # blocked. One 2D matmul over the whole (rows*J) reads each operand once. The
+                    # reshape is a leading-dim merge with the last dim unchanged and the second-to-last
+                    # a multiple of 32, i.e. ttnn's own zero-cost view (0.0333 ms measured), and it is
+                    # value-exact against a float64 reference.
+                    nb = opm_proj_blocks(rows, J)
+                    zz = ttnn.reshape(z, (rows * J, C * D) if nb == 1 else (nb, rows * J // nb, C * D))
+                o_bias = self.o_bias
+                if self.scale_bias:
+                    o_bias = ttnn.multiply(self.o_bias, scale)
+                out = ttnn.linear(
+                    zz,
+                    self.o_weight,
+                    bias=o_bias,
+                    compute_kernel_config=self.compute_kernel_config,
+                    # The flattened form has to be left to pick its own program config. Pinning the
+                    # core grid here is what makes the 2D form no faster than the batched one: with
+                    # the grid pinned it reads 9.8592 ms against the batched 9.4773, and without it
+                    # 3.3877 ms, on the same shapes in the same interleaved pass. Both forms derive
+                    # their grid from the live device, so neither is more card-dependent than the
+                    # other. perf/c14_opm_layout/ladder_qb1c2.json.
+                    **({"core_grid": CORE_GRID_MAIN} if legacy else {}),
+                )
+                if self.scale_bias:
+                    ttnn.deallocate(o_bias)
+                if not legacy:
+                    out = ttnn.reshape(out, (rows, J, out.shape[-1]))
+                # `zz` is a view of z, so freeing it frees z.
+                advance(out, free=zz)
             if residual is not None:
                 r = ttnn.reshape(residual, tuple(residual.shape)[1:])
-                out_r = ttnn.add(r if rows == I else r[i0:i1], out)
-                ttnn.deallocate(out)
-                out = out_r
-            return out
+                out = ttnn.add(r if rows == I else r[i0:i1], z)
+                ttnn.deallocate(z)
+                z = out
+            if keep:
+                whole_z.clear()
+            return z
+
+        def outer_product_mean(i0, i1):
+            """Token rows [i0, i1) of the output."""
+            z = z_rows(i0, i1)
+            if i1 - i0 < I or depth_parts is not None:
+                return finish(z, i0, i1)
+            # The whole contraction is the operands' last use, so they go before the relayout asks
+            # for a second z-sized buffer. Holding `b` there is what got that copy refused on
+            # Wormhole at 736 tokens x 9947 (92,450,816 B per bank against a largest free block of
+            # 92,450,432), 6 calls in 40, each paying the contraction twice; and the memo then
+            # row-blocked every later call. A refusal from here on is finished from `whole_z`.
+            release_operands()
+            whole_z[:] = [z, 0]
+            return finish(z, 0, I, keep=True)
 
         per_row = C * D * J * 2
         # Token count only. A byte arm that also row-blocked from 887 tokens up, to bound the
@@ -13944,15 +13973,15 @@ class OuterProductMean(Module):
 
         def run(rows_blk):
             if whole_z:
-                # A whole call's first relayout copy was refused after its operands were freed.
-                # Relayout the same z in row blocks: the rows of z are the token rows, so this is
-                # the blocked path's data, contracted once.
+                # A whole call was refused after its operands were freed. Finish it in row blocks
+                # from the furthest stage it reached: the leading axis there is the token rows, so
+                # this is the blocked path's data, contracted once.
                 OPM_ROW_STATS["blocked"] += 1
-                zw, parts = whole_z[0], []
+                (zw, stage), parts = whole_z, []
                 try:
                     for i in range(0, I, rows_blk):
                         e = min(i + rows_blk, I)
-                        parts.append(outer_product_mean(i, e, zw[i * C:e * C, :]))
+                        parts.append(finish(rows_at(zw, stage, i, e), i, e, stage))
                 except BaseException:
                     for p in parts:
                         ttnn.deallocate(p)
