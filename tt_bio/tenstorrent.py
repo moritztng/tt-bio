@@ -11179,7 +11179,7 @@ _MASK_TRANS_ONES = env_flag("TT_BIO_MASK_TRANS_ONES", False)
 MASK_TRANS_STATS = {"stacks": 0, "blocks": 0, "ones": 0, "declined_rank": 0, "declined_off": 0}
 
 
-# transition_bw: (op, K tiles, N tiles, bfp8 weights) -> (1D?, in0_block_w). ttnn.linear(core_grid=)
+# transition_bw: (op, K tiles, N tiles, bfp8 weights) -> (1D?, in0_block_w[, 2D grid columns]). ttnn.linear(core_grid=)
 # takes in0_block_w = 1 (fc3, MSA fc1/fc2) or 4 (pair fc1/fc2), so the K loop pays the in1
 # multicast, a dest clear and a packer_l1_acc pass per tile of K. Measured on a Wormhole Galaxy
 # chip, AICLK 1000, Protenix's transition config, c730 row blocks (perf/spd_swiglu/mm_bench.py,
@@ -11207,8 +11207,9 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
     ent = _TRANSITION_BW.get((op, kt, nt, b8))
     if ent is None:
         return None
-    one_d, bw = ent
+    one_d, bw, *cols = ent
     gx, gy = COMPUTE_GRID_MAIN
+    gx = min(gx, *cols) if cols else gx
     act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None
     if one_d:
         pm = -(-mt // (gx * gy))
