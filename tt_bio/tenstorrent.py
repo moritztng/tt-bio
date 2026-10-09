@@ -517,7 +517,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "transition_bw", "transition_shard",
           "swiglu_fc12g")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "swiglu_fc12g"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -548,6 +548,10 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
 # 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
 # -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+# swiglu_fc12g is fast-only and, inside transition_shard, Wormhole-only. Fast vs fast, 11-set, 44 paired
+# folds: PASS, CA-lDDT +0.0018 [-0.0004, +0.0055], top pose median 0.570 A (floor 0.909 A), docking
+# 32 -> 35/44; c730 warm A/B/A at AICLK 1000: 218.2 -> 213.5 -> 218.1 s. Normal is held out: against
+# float64 its rel rms is 0.0041 vs 0.0029 for the three-op swiglu, at either multiply fidelity.
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32",
                            "transition_shard"})
 _LEVERS = frozenset()

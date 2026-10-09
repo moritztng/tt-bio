@@ -60,6 +60,6 @@ def test_fc12_interleave_gives_each_core_column_its_fc1_then_fc2_block():
         assert torch.equal(w12[:, 4 * j + 2:4 * j + 4], w2[:, 2 * j:2 * j + 2])
 
 
-def test_fc12g_is_named_but_in_no_mode():
-    assert "swiglu_fc12g" in tt.LEVERS and "swiglu_fc12g" in tt.UNGRADED_LEVERS
-    assert "swiglu_fc12g" not in tt.FAST_LEVERS | tt.NORMAL_LEVERS
+def test_fc12g_is_fast_only():
+    assert "swiglu_fc12g" in tt.FAST_LEVERS and "silu_f32" in tt.FAST_LEVERS
+    assert "swiglu_fc12g" not in tt.NORMAL_LEVERS | tt.UNGRADED_LEVERS
