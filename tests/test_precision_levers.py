@@ -45,6 +45,18 @@ def test_triatt_formats_follow_the_levers():
     assert not T._triatt_bias_b8()
 
 
+def test_dit_lowp_formats_follow_the_dit_dtype_and_the_levers():
+    ttnn, ckc = T.ttnn, object()
+    with T.levers("dit_mm16+dit_b8"):
+        mm16, b8 = T.dit_lowp(ttnn.float32, ckc), T.dit_lowp(ttnn.bfloat16, ckc)
+    assert (mm16.w, mm16.act, mm16.out, mm16.k1, mm16.ckc) == (ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, True, ckc)
+    assert (b8.w, b8.act, b8.mid, b8.out, b8.k1) == (ttnn.bfloat8_b,) * 3 + (ttnn.bfloat16, False)
+    assert not b8.ckc.fp32_dest_acc_en
+    with T.levers("dit_mm16"):
+        assert T.dit_lowp(ttnn.bfloat16, ckc) is None
+    assert T.dit_lowp(ttnn.float32, ckc) is None
+
+
 @pytest.mark.parametrize("fast,want", [(False, T.NORMAL_LEVERS), (True, T.FAST_LEVERS)])
 def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast, want):
     import torch
