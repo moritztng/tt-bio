@@ -2,8 +2,9 @@
 
 Port of OpenDDE v1.2.0 `opendde/tfg/potentials.py` (Apache-2.0, Copyright (c) 2026 Aureka AI
 Research, Copyright 2024 ByteDance and/or its affiliates), modified: the Triton fast path of
-VinaStericPotential (OPENDDE_VINA_FAST) is dropped and only its dense path is kept. Arithmetic is
-op-for-op upstream's.
+VinaStericPotential (OPENDDE_VINA_FAST) is replaced by an exact cell-list path (param core="auto";
+"off" is upstream's dense path, "check" runs both and logs the difference). Arithmetic is op-for-op
+upstream's.
 
 Conventions: `coords` is `[..., N, 3]`; `energy` returns `coords.shape[:-2]`; `energy_and_grad`
 returns `(energy, dE/dcoords)`; `project` returns an additive `delta_x` shaped like `coords`.
@@ -316,6 +317,19 @@ def _zeros_energy_and_grad(coords):
 
 def _zeros(coords, need_grad):
     return _zeros_energy_and_grad(coords) if need_grad else _zeros_energy(coords)
+
+
+def _log_parity(name, ref, fast, need_grad):
+    """core="check": log how far the accelerated path is from the dense one."""
+    import logging
+
+    e_r, e_f = (ref[0], fast[0]) if need_grad else (ref, fast)
+    msg = "%s core parity energy_rel=%.2e" % (
+        name, float(((e_f - e_r).abs() / e_r.abs().clamp_min(1e-12)).max()))
+    if need_grad:
+        msg += " grad_maxabs=%.2e grad_scale=%.2e" % (
+            float((fast[1] - ref[1]).abs().max()), float(ref[1].abs().max()))
+    logging.getLogger(__name__).info(msg)
 
 
 def _sum_energy(e):
@@ -728,11 +742,12 @@ class VinaStericPotential(Potential):
 
     Candidates are all atom pairs across chains with more than one atom, excluding chain pairs
     joined by an `interchain_bond_index` bond; r_eq = r_vdw(i) + r_vdw(j). Only pairs with
-    `dist < r_eq * (1 - buffer)` contribute. Dense path only (upstream's Triton kernel is not ported).
+    `dist < r_eq * (1 - buffer)` contribute. core="auto" finds them on a cell list, core="off" scans every
+    candidate (upstream's dense path).
     """
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
-        defaults = {"buffer": 0.225}
+        defaults = {"buffer": 0.225, "core": "auto"}
         if default_params is not None:
             defaults.update(default_params)
         super().__init__(defaults)
@@ -826,27 +841,79 @@ class VinaStericPotential(Potential):
         r_eq = r_atom[sel_idx[0]] + r_atom[sel_idx[1]]
         return _cache_and_return((sel_idx, r_eq))
 
-    def _eval(self, coords, feats, params, need_grad: bool):
+    def _active_dense(self, coords_b, feats, buf):
+        """Active pairs (b, i, j, r_eq, d) from every inter-chain candidate (upstream's dense pass 1)."""
         idx, eq = self._get_collision_candidates(feats)
         if idx.numel() == 0:
-            return _zeros(coords, need_grad)
+            return None
+        value0, _ = _distance_value_and_grad(coords_b, idx, False)
+        active = value0 < (eq.to(value0.dtype) * (1.0 - buf)).unsqueeze(0)
+        b_idx, m_idx = active.nonzero(as_tuple=True)
+        return b_idx, idx[0][m_idx], idx[1][m_idx], eq[m_idx], value0[b_idx, m_idx]
+
+    def _active_sparse(self, coords_b, feats, buf):
+        """The same active pairs from a cell-list pair list (tt_bio.tfg.neighbors): only pairs within the largest
+        active cutoff plus a skin are listed, and the list is reused while no atom has moved by half the skin."""
+        from .neighbors import pairs_within
+
+        key = (self._cache_key_from_feats(feats), tuple(coords_b.shape), buf)
+        st = getattr(self, "_sparse", None)
+        if st is None or st["key"] != key:
+            c_map = feats["asym_id"][..., feats["atom_to_token_idx"]].to(coords_b.device).long()
+            n_chains = int(c_map.max()) + 1
+            r_atom = _get_vdw_radii_128(coords_b.device)[feats["ref_element"].argmax(dim=-1)]
+            allowed = ~torch.eye(n_chains, dtype=torch.bool, device=coords_b.device)
+            b_idx = feats.get("interchain_bond_index")
+            if b_idx is not None and b_idx.numel() > 0:
+                allowed[c_map[b_idx[0]], c_map[b_idx[1]]] = False
+                allowed[c_map[b_idx[1]], c_map[b_idx[0]]] = False
+            cnt = torch.bincount(c_map, minlength=n_chains)
+            allowed &= (cnt[:, None] > 1) & (cnt[None, :] > 1)
+            # position of each atom inside its chain in the dense candidate order (same argsort as
+            # _get_collision_candidates), so active pairs can be put in the dense order: equal sums, equal bits
+            order = torch.argsort(c_map)
+            rank = torch.empty_like(order)
+            rank[order] = torch.arange(order.numel(), device=order.device)
+            pos = rank - (torch.cumsum(cnt, 0) - cnt)[c_map]
+            st = self._sparse = dict(key=key, chain=c_map, r=r_atom, allowed=allowed, pos=pos, n_chains=n_chains,
+                                     X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=1.0)
+        X = coords_b.detach()
+        if st["X"] is None or float((X - st["X"]).norm(dim=-1).max()) >= 0.5 * st["skin"]:
+            s, i, j = pairs_within(X, X, st["cut"] + st["skin"])
+            ci, cj = st["chain"][i], st["chain"][j]
+            keep = (ci < cj) & st["allowed"][ci, cj]
+            s, i, j, ci, cj = s[keep], i[keep], j[keep], ci[keep], cj[keep]
+            n, nc, pos = X.shape[1], st["n_chains"], st["pos"]
+            rank = (((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j]
+            o = torch.argsort(rank)
+            st["pairs"], st["X"] = (s[o], i[o], j[o]), X.clone()
+        s, i, j = st["pairs"]
+        v = torch.linalg.norm(coords_b[s, i] - coords_b[s, j], dim=-1).clamp_min(1e-8)
+        eq = st["r"][i] + st["r"][j]
+        act = v < eq * (1.0 - buf)
+        return s[act], i[act], j[act], eq[act], v[act]
+
+    def _eval(self, coords, feats, params, need_grad: bool):
         buf = float(params["buffer"])
+        core = params.get("core", "auto")
+        if core not in ("auto", "off", "check"):
+            raise ValueError("VinaStericPotential core must be auto, off or check")
         device, dtype = coords.device, coords.dtype
         batch_shape = coords.shape[:-2]
         n_atom = int(coords.shape[-2])
         b = math.prod(batch_shape) if len(batch_shape) > 0 else 1
         coords_b = coords.reshape(b, n_atom, 3)
-        # Pass 1: distances of all candidates -> active mask.
-        value0, _ = _distance_value_and_grad(coords_b, idx, False)
-        thr = eq.to(value0.dtype) * (1.0 - buf)
-        active = value0 < thr.unsqueeze(0)
-        b_idx, m_idx = active.nonzero(as_tuple=True)
-        if b_idx.numel() == 0:
+        if core == "check":
+            ref = self._eval(coords, feats, {**params, "core": "off"}, need_grad)
+            fast = self._eval(coords, feats, {**params, "core": "auto"}, need_grad)
+            _log_parity("VinaSteric", ref, fast, need_grad)
+            return ref
+        act = (self._active_dense if core == "off" else self._active_sparse)(coords_b, feats, buf)
+        if act is None or act[0].numel() == 0:
             return _zeros(coords, need_grad)
-        i_atom = idx[0].index_select(0, m_idx)
-        j_atom = idx[1].index_select(0, m_idx)
-        eq_a = eq.index_select(0, m_idx).to(dtype)
-        v = value0[b_idx, m_idx].to(dtype)
+        b_idx, i_atom, j_atom, eq_a, v = act
+        eq_a = eq_a.to(dtype)
+        v = v.to(dtype)
         dist_diff = v - eq_a
         norm_d = dist_diff / 0.5
         g1 = -0.0356 * torch.exp(-(norm_d**2))
