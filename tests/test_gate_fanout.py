@@ -48,6 +48,20 @@ def test_only_perf_is_timed_and_card_free_legs_take_no_card():
 
 def test_select_globs():
     assert [lg.name for lg in gf.select(_legs(), ["rg:*"])] == ["rg:boltz2", "rg:l1-budget"]
+    names = [lg.name for lg in gf.select(_legs(), ["!ladder:*", "!rg:l1-*"])]
+    assert "rg:boltz2" in names and "perf" in names
+    assert not [n for n in names if n.startswith("ladder:") or n == "rg:l1-budget"]
+
+
+def test_record_lever_legs_splice_into_a_copy_and_are_only_built_on_request():
+    assert not [lg for lg in _legs() if lg.family == "record"]
+    legs = [lg for lg in gf.build_legs(ROSTER, [], 1, "SDPA_FUSED_PADDED") if lg.family == "record"]
+    assert [lg.name for lg in legs] == ["record:boltz2", "record:rf3"]
+    h = gf.Host("h", {"arch": "wh", "card_type": "w", "lock": "/l{card}", "root": "/r"}, "a" * 40)
+    cmd = h.command(legs[0], 3, "/o")
+    assert "cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d /o/ && " in cmd
+    assert "--size-ladder-baseline /o/size_ladder_baseline.json" in cmd
+    assert "--size-ladder-record-lever SDPA_FUSED_PADDED" in cmd
 
 
 def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):

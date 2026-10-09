@@ -87,12 +87,12 @@ REPO = Path(__file__).resolve().parents[1]
 # Per-leg budgets (s). A budget is a hang guard, not an expected time.
 BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux": 3600,
           "pytest_device": 7200, "perf": 7200, "check": 900, "packaging_smoke": 1800,
-          "pytest_cpu": 5400, "bc2": 3600}
+          "pytest_cpu": 5400, "bc2": 3600, "record": 14400}
 # Expected wall (s) per family when the ledger has no history for a leg, from the 0.13.1 and
 # 0.14.0 chains. Legs start longest first so the gate ends close to its longest leg.
 EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
           "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
-          "pytest_cpu": 1800, "bc2": 1200}
+          "pytest_cpu": 1800, "bc2": 1200, "record": 2700}
 TIMED = {"perf"}
 #: Results that do not fail the gate. REUSED is a ledger hit of one of the others.
 OK = ("PASS", "REUSED", "BLOCKED", "SEEDED")
@@ -207,13 +207,14 @@ class Leg:
     card: bool = True     # opens a card
     workdir: bool = False  # argv takes the leg's own out dir as "{OUT}"
     tree_on_path: bool = True  # False: import tt_bio from the installed wheel, not the tree
+    setup: str = ""        # shell run in the tree before argv, with the same {OUT} substitution
 
     @property
     def budget(self) -> int:
         return BUDGET[self.family]
 
 
-def build_legs(roster: dict, test_files: list, shards: int) -> list:
+def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = "") -> list:
     legs = [Leg("check", ["PY", "scripts/full_parity_gate.py", "--check", "--workdir", "{OUT}",
                          "--workers", "localhost:0"], "check",
                 card=False),
@@ -253,6 +254,15 @@ def build_legs(roster: dict, test_files: list, shards: int) -> list:
                                      "runpy.run_path('perf/bc2_memory/boundary.py', run_name='__main__')"],
                     "bc2", tree_on_path=False))
     legs.append(Leg("perf", ["PY", "scripts/perf_regression.py"], "perf", timed=True))
+    # --record-lever: add census levers to each ladder model's baseline (one fold per rung, refused
+    # unless every other lever still matches), on a copy in the leg's out dir so the tree the
+    # ladder legs read stays the commit's. The runner fetches each fragment to <out>/recorded/.
+    for m in roster["ladder"] if record_lever else ():
+        legs.append(Leg(f"record:{m}", ["PY", "scripts/release_gate.py", "--model", "size-ladder",
+                                        "--size-ladder-models", m, "--size-ladder-record-lever",
+                                        record_lever, "--size-ladder-baseline",
+                                        "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
+                        setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/"))
     return legs
 
 
@@ -263,9 +273,11 @@ def test_files(sha: str, repo: Path = REPO) -> list:
 
 
 def select(legs: list, patterns: list) -> list:
-    if not patterns:
-        return legs
-    return [lg for lg in legs if any(fnmatch.fnmatch(lg.name, p) for p in patterns)]
+    """Legs matching any pattern (all when there is none) and no `!pattern`."""
+    take = [p for p in patterns if not p.startswith("!")]
+    drop = [p[1:] for p in patterns if p.startswith("!")]
+    return [lg for lg in legs if (not take or any(fnmatch.fnmatch(lg.name, p) for p in take))
+            and not any(fnmatch.fnmatch(lg.name, p) for p in drop)]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -379,7 +391,8 @@ class Host:
         run = f"env {envs} bash -c {shlex.quote(body)}"
         if card is not None:
             run = f"flock {shlex.quote(c['lock'].format(card=card))} {run}"
-        return f"mkdir -p {shlex.quote(out)} && cd {self.tree} && {run}"
+        setup = f"{fill(leg.setup)} && " if leg.setup else ""
+        return f"mkdir -p {shlex.quote(out)} && cd {self.tree} && {setup}{run}"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -628,6 +641,17 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if r.returncode == 0:
                 dst.write_text(r.stdout)
                 seeded = str(dst)
+        if verdict == "PASS" and leg.family == "record":
+            m = leg.name.split(":", 1)[1]
+            dst = out / "recorded" / host.cfg["card_type"] / f"{m}.json"
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            r = host.ssh(f"cat {shlex.quote(f'{rdir}/size_ladder_baseline.d/{m}.json')}",
+                         capture_output=True, timeout=120)
+            if r.returncode == 0:
+                dst.write_text(r.stdout)
+                seeded = str(dst)
+            else:
+                verdict = "FAIL"
         end = time.time()
         res = {"leg": leg.name, "arch": host.arch if leg.card else "any", "verdict": verdict,
                "rc": rc, "worker": f"{host.name}:{card}", "card_type": host.cfg["card_type"],
@@ -660,7 +684,11 @@ def main() -> int:
     ap.add_argument("--hosts", required=True, type=Path, help="hosts.json (see module docstring)")
     ap.add_argument("--workers", required=True, help="host:card[,host:card...] granted to this gate")
     ap.add_argument("--timed", default="", help="host:card per arch that runs the timed legs")
-    ap.add_argument("--legs", default="", help="comma-separated globs, e.g. 'rg:*,parity:boltz2-*'")
+    ap.add_argument("--legs", default="", help="comma-separated globs, e.g. 'rg:*,parity:boltz2-*'; "
+                                               "'!ladder:*' leaves legs out")
+    ap.add_argument("--record-lever", default="", metavar="FLAG[,FLAG...]",
+                    help="add record:<model> legs that splice these census levers into each ladder "
+                         "model's size-ladder baseline per card type; fragments land in <out>/recorded/")
     ap.add_argument("--arch", default="", help="limit to these archs (default: every arch in --workers)")
     ap.add_argument("--shards", type=int, default=4, help="pytest_device shards")
     ap.add_argument("--out", required=True, type=Path)
@@ -693,7 +721,7 @@ def main() -> int:
         list(ex.map(lambda h: h.prepare(pins), rest))
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
     roster = first[archs[0]].run_py(ENUMERATE)
-    legs = select(build_legs(roster, test_files(sha), args.shards),
+    legs = select(build_legs(roster, test_files(sha), args.shards, args.record_lever),
                   [p for p in args.legs.split(",") if p])
     content, legacy = content_hash(sha), content_hash(sha, baselines=True)
     probes = {}
@@ -728,7 +756,8 @@ def main() -> int:
             # against the same baselines, so it is as good as a row under the new one.
             old = leg_key(legacy, envs[f"{a} {first[a].python(lg.family)}"],
                           ctype[a] if lg.card else "cpu", first[a].leg(lg))
-            hit = None if args.no_reuse or not lg.card else (ledger.get(k) or ledger.get(old))
+            hit = (None if args.no_reuse or not lg.card or lg.family == "record"
+                   else ledger.get(k) or ledger.get(old))
             if hit and hit.get("verdict") in OK:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "REUSED", "key": k,
                                 "evidence": f"{hit['worker']} {hit['ended']} {hit['sha'][:9]} {hit['log']}",
@@ -745,7 +774,7 @@ def main() -> int:
             "env_probe": probes, "run": {a: [lg.name for lg in q] for a, q in todo.items()},
             "reused": [r["leg"] + "@" + r["arch"] for r in results],
             # A dry run, or one limited by --legs or --arch, is not a release verdict.
-            "partial": bool(args.legs or args.arch or args.dry_run),
+            "partial": bool(args.legs or args.arch or args.dry_run or args.record_lever),
             # release_next.py tells a live run from one that was stopped before its verdict.
             "pid": os.getpid(), "host": socket.gethostname()}
     (args.out / "plan.json").write_text(json.dumps(plan, indent=1))
