@@ -103,6 +103,9 @@ class OF3AtomTransformer(Module):
         self._sdpa32_ckc = (_ATOM_SDPA_CKC if _T.lever("atom_sdpa") and self._act_dtype == ttnn.bfloat16
                             else _ATOM_SDPA32_CKC)
         self._zeros: dict = {}
+        # atom_k1 (Protenix's lever, same switch): the fp32 linears on k1_linear's program, one K
+        # tile per dest pass on Wormhole, same formats.
+        self._k1 = _T.lever("atom_k1") and self._act_dtype == ttnn.float32
 
     #: Key fragments of the three AdaLNs per block, which upload their own weights.
     _ADALN = (".layer_norm_a_q.", ".layer_norm_a_k.", ".conditioned_transition.layer_norm.")
@@ -131,9 +134,15 @@ class OF3AtomTransformer(Module):
         return v
 
     def _lin(self, x, wkey, bkey=None, activation=None):
-        return ops.linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
-                          activation=activation, compute_kernel_config=self.compute_kernel_config,
-                          core_grid=CORE_GRID_MAIN)
+        w = self._w_tt(wkey)
+        bias = self._w_tt(bkey, False) if bkey else None
+        # One K tile leaves the program no K blocking to choose: those keep the shared path, and a
+        # tape takes ops.linear.
+        if self._k1 and int(w.padded_shape[0]) > 32 and not _taping():
+            return _T.k1_linear(x, w, bias, dtype=x.dtype, activation=activation,
+                                compute_kernel_config=self.compute_kernel_config)
+        return ops.linear(x, w, bias=bias, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
 
     def _heads(self, x, n_blk, n_seq):
         # x: [S, n_blk, n_seq, 128] -> [S, n_blk, H, n_seq, dh]
