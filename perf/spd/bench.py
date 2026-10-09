@@ -234,7 +234,8 @@ if a.model == "bindcraft2":
     weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
                                             ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
     try:
-        with bc2.campaign_predictor():
+        # the card's trunk pool reads the same AF2 params the campaign does, not tt-bio's weights cache
+        with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
             bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
     except Exception:
         if traj:
