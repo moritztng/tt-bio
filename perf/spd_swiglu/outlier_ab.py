@@ -38,6 +38,8 @@ T._LEVERS = T.parse_levers("normal")
 HIFI4 = CKC_CLS(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=True, fp32_dest_acc_en=True,
                 packer_l1_acc=True)
 CKCS = {"trunk": T.trunk_compute_kernel_config(HIFI4), "hifi4": HIFI4}
+with T.levers("fast"):  # the trunk config fast mode builds: its fidelity and acc levers on the same base
+    CKCS["fast"] = T.trunk_compute_kernel_config(HIFI4)
 C, HID = 256, 1024
 F = torch.nn.functional
 bf = lambda t: t.to(torch.bfloat16).to(torch.float64)  # noqa: E731
@@ -60,7 +62,8 @@ for seed in (int(s) for s in a.seeds.split(",")):
         z = ttnn.from_torch(zt.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
         for ck_name, ckc in CKCS.items():
             tr = T.Transition({k: v.float() for k, v in sd.items()}, ckc)
-            for arm, levers in (("interleaved", "normal-transition_shard"), ("shard", "normal+transition_shard")):
+            mode = "fast" if ck_name == "fast" else "normal"
+            for arm, levers in (("interleaved", f"{mode}-transition_shard"), ("shard", f"{mode}+transition_shard")):
                 T.TRANSITION_H_CHUNK_SHAPES.clear()
                 with T.levers(levers):
                     o = tr(z)

@@ -11137,7 +11137,12 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype):
         h = ttnn.multiply_(x1, x2)
         ttnn.deallocate(x2)
         x2 = None
-        out = ttnn.linear(h, w3, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=dtype,
+        # K block 1 under fp32 dest acc: a K block of several tiles accumulates in dest, which is where
+        # the Wormhole HiFi3/HiFi4 + fp32-acc erratum writes its ~4.0 errors (fc3 at the shard width:
+        # 2 pixels per 736-token call at HiFi3). One tile per block accumulates through the packer
+        # instead and is clean at every fidelity (perf/spd_swiglu/outlier_stage.py).
+        bw3 = 1 if ckc.fp32_dest_acc_en else pn
+        out = ttnn.linear(h, w3, program_config=cfg(bw3, ct // gx), compute_kernel_config=ckc, dtype=dtype,
                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: ttnn's path from then on
         for t in (x1, x2):
