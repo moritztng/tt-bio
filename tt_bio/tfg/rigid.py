@@ -384,7 +384,7 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
             )
             next_coords[accept] = proposal[accept]
             found |= accept
-            if found.all():
+            if (found | satisfied).all():          # later proposals can accept nothing more
                 break
         if not found.any():
             break
