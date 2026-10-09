@@ -22,6 +22,7 @@ binaries in a DRAM buffer of its own, which no Python object holds and the censu
 from __future__ import annotations
 
 import argparse
+import collections
 import gc
 import json
 import os
@@ -73,6 +74,64 @@ def _settings(args):
     if best is None:
         raise SystemExit(f"no binder length puts {path} on {args.tokens} tokens")
     return (*best, [args.tokens])
+
+
+def _cycles(garbage, ttnn, paths=4):
+    """What the cyclic collector freed: a type histogram, and the shortest reference loop
+    through a few of the objects that hold device memory, named attribute by attribute."""
+    ids = {id(o): o for o in garbage}
+    hist = collections.Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in garbage)
+
+    def edge(a, b):
+        if isinstance(a, dict):
+            for k, v in a.items():
+                if v is b:
+                    return f"[{k!r}]"[:60]
+        for k in getattr(type(a), "__slots__", ()) or ():
+            if getattr(a, k, None) is b:
+                return f".{k}"
+        if getattr(a, "__dict__", None) is b:
+            return ".__dict__"
+        if isinstance(a, (list, tuple)):
+            return "[i]"
+        if type(a).__name__ == "cell":
+            return ".cell_contents"
+        if type(a).__name__ == "function":
+            if a.__closure__ is b:
+                return f"<{a.__qualname__}>.__closure__{a.__code__.co_freevars}"
+            return f"<{a.__qualname__}>->"
+        return "->"
+
+    def loop(start):
+        prev, frontier = {id(start): None}, [start]
+        while frontier:
+            nxt = []
+            for o in frontier:
+                for r in gc.get_referents(o):
+                    if r is start:
+                        chain, cur = [start], o
+                        while cur is not start:
+                            chain.append(cur)
+                            cur = prev[id(cur)]
+                        chain.append(start)
+                        chain = chain[::-1][:-1] + [start]
+                        return " ".join(f"{type(a).__qualname__}{edge(a, b)}" for a, b in
+                                        zip(chain, chain[1:]))
+                    if id(r) in ids and id(r) not in prev:
+                        prev[id(r)] = o
+                        nxt.append(r)
+            frontier = nxt
+        return None
+
+    loops = collections.Counter()
+    wanted = [o for o in garbage if type(o).__name__ in ("Tensor", "ReluTransition", "_Node")]
+    for o in wanted[:40] + garbage[:20]:
+        text = loop(o)
+        if text:
+            loops[text] += 1
+    tt = sum(1 for o in garbage if isinstance(o, ttnn.Tensor))
+    return {"objects": len(garbage), "ttnn_tensors": tt, "types": hist.most_common(30),
+            "loops": loops.most_common(paths)}
 
 
 def main() -> int:
@@ -214,7 +273,18 @@ def main() -> int:
             campaign.run_trajectory = real
         probe("end", count[0])
         held = census.dram(device)["held"]
+        gc.set_debug(gc.DEBUG_SAVEALL)   # keep the collected cycles to name what forms them
+        t0 = time.time()
         gc.collect()
+        gc_seconds = time.time() - t0
+        gc.set_debug(0)
+        out["cycles"] = _cycles(gc.garbage, ttnn)
+        gc.garbage.clear()
+        gc.collect()
+        t0 = time.time()
+        gc.collect()
+        out["gc_seconds"] = {"collecting": round(gc_seconds, 3), "idle": round(time.time() - t0, 3),
+                             "objects": len(gc.get_objects())}
         after_gc = census.dram(device)["held"]
         forget()
         after_forget = census.dram(device)["held"]
