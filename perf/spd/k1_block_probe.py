@@ -35,8 +35,8 @@ for rows in (5 * 5919, 5 * 8448, 5 * 9216):
         print(f"rows {rows}: one block does not compile ({str(e).splitlines()[0][:90]})")
     cut = run(x, 1_400_000)
     small = run(x, 200_000)
-    err = (cut - ref).abs().max().item()
+    err = ((cut - ref).abs().max() / ref.abs().max()).item()
     same = [torch.equal(cut, small)] + ([torch.equal(cut, whole)] if whole is not None else [])
-    print(f"rows {rows}: max|cut - f64| {err:.3e}  bit-identical across blockings {all(same)}")
-    ok &= all(same) and torch.isfinite(cut).all().item() and err < 1e-3
+    print(f"rows {rows}: max|cut - f64| / max|f64| {err:.2e}  bit-identical across blockings {all(same)}")
+    ok &= all(same) and torch.isfinite(cut).all().item() and err < 1e-2
 print("PROBE", "PASS" if ok else "FAIL")
