@@ -5701,14 +5701,23 @@ def set_trimul_ibw_full(on: bool) -> bool:
 # limit at lower fidelity is the unpack of both operands per tile-matmul that a 1x1 subblock forces.
 # A dimension that does not divide the per-core block falls back to 1. Not bit-exact only if the
 # factory reorders K, which it does not: the subblock tiles the OUTPUT.
-_TRIMUL_SUBBLOCK = tuple(int(v) for v in os.environ.get("TT_BIO_TRIMUL_SUBBLOCK", "1x1").split("x"))
+# Default (None) is 1x3 on Wormhole and 1x1 on Blackhole (spd-trikern, c730 trimul module,
+# bit-exact both: WH 1000 MHz -2.3 %, BH p150a 1350 MHz +0.4 %).
+_TRIMUL_SUBBLOCK = (tuple(int(v) for v in os.environ["TT_BIO_TRIMUL_SUBBLOCK"].split("x"))
+                    if "TT_BIO_TRIMUL_SUBBLOCK" in os.environ else None)
 
 
 def set_trimul_subblock(sub: tuple) -> tuple:
     """A/B switch for the harness. Returns the previous value."""
     global _TRIMUL_SUBBLOCK
-    prev, _TRIMUL_SUBBLOCK = _TRIMUL_SUBBLOCK, tuple(sub)
+    prev, _TRIMUL_SUBBLOCK = _TRIMUL_SUBBLOCK, None if sub is None else tuple(sub)
     return prev
+
+
+def _trimul_subblock() -> tuple:
+    if _TRIMUL_SUBBLOCK is not None:
+        return _TRIMUL_SUBBLOCK
+    return (1, 3) if is_wormhole() else (1, 1)
 
 
 def _trimul_ibw_full() -> bool:
@@ -8971,7 +8980,7 @@ class TriangleMultiplication(Module):
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
-        program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _TRIMUL_SUBBLOCK)
+        program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
@@ -9338,7 +9347,7 @@ class TriangleMultiplication(Module):
                     # The full-K block is the newest L1 claimant in this call: give it up first.
                     _TRIMUL_IBW_FULL_REFUSED.add(seq_len_tiles)
                     _triangle_mul_program_config.cache_clear()
-                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _TRIMUL_SUBBLOCK)
+                    program_config = _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(), _trimul_subblock())
                 if (not oom and not mask_clash and not ibw_clash
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
