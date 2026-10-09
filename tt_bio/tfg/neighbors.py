@@ -54,9 +54,34 @@ class Grid:
 
 
 def pairs_within(Q, P, r):
-    """Every (s, i, j) with |Q[s, i] - P[s, j]| < r; Q [S, M, 3], P [S, N, 3]."""
+    """Every (s, i, j) with |Q[s, i] - P[s, j]| < r; Q [S, M, 3], P [S, N, 3]. Query points are binned into the same
+    cells as P, so the 27-cell lookup runs once per occupied query cell and expands into its atom pairs."""
     S, M, _ = Q.shape
-    q, j = Grid(P, r).query(Q.reshape(-1, 3), torch.arange(S).repeat_interleave(M))
+    g = Grid(P, r)
+    dy, dz = int(g.dims[1]), int(g.dims[2])
+    # query cells on the grid grown by one cell per side; points beyond it have no neighbour cell
+    c = torch.floor((Q - g.lo[:, None]) / g.h).long().reshape(-1, 3) + 1
+    ex, ey, ez = (int(v) + 2 for v in g.dims)
+    inside = torch.nonzero(((c >= 0) & (c < g.dims + 2)).all(-1)).squeeze(1)
+    c = c[inside]
+    key = (inside // M) * (ex * ey * ez) + (c[:, 0] * ey + c[:, 1]) * ez + c[:, 2]
+    o = torch.argsort(key, stable=True)
+    qo = inside[o]
+    cells, qcnt = torch.unique_consecutive(key[o], return_counts=True)
+    qstart = torch.cumsum(qcnt, 0) - qcnt
+    rem = cells % (ex * ey * ez)
+    nb = torch.stack([rem // (ey * ez), (rem // ez) % ey, rem % ez], -1)[:, None] - 1 + _OFF27[None]
+    ok = ((nb >= 0) & (nb < g.dims)).all(-1)
+    cid = torch.where(ok, (cells // (ex * ey * ez))[:, None] * g.ncell + (nb[..., 0] * dy + nb[..., 1]) * dz + nb[..., 2], 0)
+    npc = torch.where(ok, g.cnt[cid], 0).reshape(-1)
+    nq = qcnt.repeat_interleave(27)
+    blk = nq * npc
+    live = blk > 0
+    blk, npc = blk[live], npc[live]
+    idx = torch.arange(int(blk.sum())) - (torch.cumsum(blk, 0) - blk).repeat_interleave(blk)
+    npr = npc.repeat_interleave(blk)
+    q = qo[qstart.repeat_interleave(27)[live].repeat_interleave(blk) + idx // npr]
+    j = g.order[g.start[cid.reshape(-1)[live]].repeat_interleave(blk) + idx % npr] % g.N
     s, i = q // M, q % M
     keep = (Q[s, i] - P[s, j]).square().sum(-1) < r * r
     return s[keep], i[keep], j[keep]

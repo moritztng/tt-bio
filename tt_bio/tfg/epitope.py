@@ -187,8 +187,10 @@ class ResidueDistances:
         e2 = torch.nn.functional.normalize(e2 - (e2 * e1).sum(-1, keepdim=True) * e1, dim=-1)
         return p[:, 0], torch.stack([e1, e2, torch.linalg.cross(e1, e2, dim=-1)], 1)
 
-    def __call__(self, para, ref, rows):
-        """para [P, A, 3] posed paratope atoms of samples rows [P], ref [P, slots, 3] epitope atoms -> d [P, n]."""
+    def __call__(self, para, ref, rows, slots=False):
+        """para [P, A, 3] posed paratope atoms of samples rows [P], ref [P, slots, 3] epitope atoms -> d [P, n], and
+        with `slots` the nearest pair's epitope slot and paratope slot [P, n] (ties: the first in residue_distances'
+        flattened (slot, paratope) order, as its min returns)."""
         P, n = para.shape[0], self.epi.shape[0]
         er = ref[:, self.epi]                                                 # [P, n, m, 3]
         cr, rr = self._spheres(er, self.valid)
@@ -200,23 +202,31 @@ class ResidueDistances:
         centre, radius = self.centre[rows], self.radius[rows]
         gap = (bc[:, :, None] - centre[:, None]).norm(dim=-1) - rr[..., None] - radius[:, None]   # [P, n, Q]
 
-        def measure(p, r, a, q):
-            """Smallest distance from epitope atoms (p, r, a) [T] or residues (p, r) (a None) to residues q."""
-            pq = para[p[:, None], self.para[q].clamp_min(0)]                # [T, w, 3]
-            e = er[p, r] if a is None else er[p, r, a][:, None]              # [T, m or 1, 3]
-            dist = (e[:, :, None] - pq[:, None]).norm(dim=-1)               # [T, m or 1, w]
-            ok = self.valid[r] if a is None else self.valid[r, a][:, None]
-            return dist.masked_fill(~(ok[:, :, None] & self.pmask[q][:, None]), float("inf")).amin((1, 2))
-
-        P_, R_ = torch.meshgrid(torch.arange(P), torch.arange(n), indexing="ij")
-        upper = measure(P_.reshape(-1), R_.reshape(-1), None, gap.argmin(-1).reshape(-1)).view(P, n) + self.MARGIN
+        # a measured distance per epitope residue: to the paratope residue whose sphere is nearest
+        q0 = gap.argmin(-1)                                                   # [P, n]
+        pq = para[torch.arange(P)[:, None, None], self.para[q0].clamp_min(0)]  # [P, n, w, 3]
+        dist = (er[:, :, :, None] - pq[:, :, None]).norm(dim=-1)            # [P, n, m, w]
+        ok = self.valid[None, :, :, None] & self.pmask[q0][:, :, None]
+        upper = dist.masked_fill(~ok, float("inf")).amin((2, 3)) + self.MARGIN
         # residue pairs that may hold the nearest pair, then the epitope atoms of those that may
         p, r, q = torch.nonzero(gap <= upper[..., None], as_tuple=True)
         near = (body[p, r] - centre[p, q][:, None]).norm(dim=-1) - radius[p, q][:, None] <= upper[p, r][:, None]
         t, a = torch.nonzero(near & self.valid[r], as_tuple=True)
         p, r, q = p[t], r[t], q[t]
-        d = torch.full((P * n,), float("inf"), dtype=para.dtype)
-        return d.scatter_reduce_(0, p * n + r, measure(p, r, a, q), "amin").view(P, n)
+        pq = para[p[:, None], self.para[q].clamp_min(0)]                    # [T, w, 3]
+        dist = (er[p, r, a][:, None] - pq).norm(dim=-1).masked_fill(~self.pmask[q], float("inf"))   # [T, w]
+        best = dist.amin(1)
+        pr = p * n + r
+        d = torch.full((P * n,), float("inf"), dtype=para.dtype).scatter_reduce_(0, pr, best, "amin")
+        if not slots:
+            return d.view(P, n)
+        A = para.shape[1]
+        big = torch.iinfo(torch.long).max
+        first = torch.where(dist == best[:, None], self.para[q], big).amin(1)
+        tie = best == d[pr]
+        flat = torch.full((P * n,), big).scatter_reduce_(0, pr[tie], a[tie] * A + first[tie], "amin")
+        flat = torch.where(torch.isinf(d), 0, flat)
+        return d.view(P, n), (flat // A).view(P, n), (flat % A).view(P, n)
 
 
 def reached_count(d):
@@ -232,14 +242,20 @@ def contact_terms(d, k):
     return 0.5 * violation.square().sum(-1), violation, idx
 
 
-def contact_energy_and_gradient(x, fixed, epi_local, valid, para_local, k):
+def contact_energy_and_gradient(x, fixed, epi_local, valid, para_local, k, distances=None):
     """Contact energy [S], its gradient on the moving atoms [S, M, 3] and residue distances [S, n].
 
     Each counted residue pulls its nearest paratope atom along the pair with force relu(d - TARGET);
-    residues sharing a paratope atom add up.
+    residues sharing a paratope atom add up. `distances` (a ResidueDistances over these samples' paratope) gives
+    the same residue distances and nearest pairs without the all-pairs cdist.
     """
     samples, n_moving = x.shape[0], x.shape[1]
-    d, a_slot, p_slot, fixed_epi = residue_distances(x, fixed, epi_local, valid, para_local)
+    if distances is None:
+        d, a_slot, p_slot, fixed_epi = residue_distances(x, fixed, epi_local, valid, para_local)
+    else:
+        fixed_epi = fixed[:, epi_local.clamp_min(0).reshape(-1)]
+        d, a_slot, p_slot = distances(x[:, para_local], fixed_epi, torch.arange(samples), slots=True)
+        fixed_epi = fixed_epi.view(samples, *epi_local.shape, 3)
     energy, violation, top = contact_terms(d, k)
     rows = torch.arange(samples, device=x.device)[:, None].expand(-1, k)
     fa = fixed_epi[rows, top, a_slot.gather(1, top)]
@@ -290,9 +306,13 @@ def refine_epitope(coords, feats, iterations=40, core=None):
     fixed = coords[:, fixed_ids].float()
     moving = coords[:, moving_ids].float().clone()
     clash = rc.clash_core(core, fixed, *_atom_radii(coords, feats, moving_ids, fixed_ids))
+    distances = None if core == "off" else ResidueDistances(
+        moving[:, para_local], feats["atom_to_token_idx"][moving_ids[para_local]],
+        torch.arange(epi_local.numel()).view(epi_local.shape), valid)
 
     def evaluate(x, gradient=False, terms=None):
-        contact_energy, contact_grad, d = contact_energy_and_gradient(x, fixed, epi_local, valid, para_local, k)
+        contact_energy, contact_grad, d = contact_energy_and_gradient(
+            x, fixed, epi_local, valid, para_local, k, distances)
         clash_energy, severe, depth, clash_grad = terms or clash.terms(x, want_gradient=gradient)
         energy = contact_energy + 0.5 * CLASH_WEIGHT_REFINE * clash_energy
         if not gradient:
