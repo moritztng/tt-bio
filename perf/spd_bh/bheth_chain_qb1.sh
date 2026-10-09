@@ -1,5 +1,5 @@
 #!/bin/bash
-# spd-bheth on qb1: wait for the ttnn 0.68.0+bh.eth1 wheel, build a private venv, check it on the CPU, then queue on one
+# spd-bheth on qb1: wait for the ttnn 0.68.0+bh.eth2 wheel, build a private venv, check it on the CPU, then queue on one
 # p150a card by its flock and run: dispatch probe (bare ttnn, Tensix then ETH; tt-bio's own open), then
 # c730 Tensix vs ETH dispatch in normal and fast mode, 1 cold + 3 warm each.
 #   [QB1_CARD=N] chain_qb1.sh ENGINE_SHA
@@ -10,14 +10,19 @@ say(){ echo "$(date -u +%FT%TZ) $*" | tee -a $R/queue.log; }
 node_of(){ case $1 in 0) echo 1;; 1) echo 2;; 2) echo 3;; 3) echo 0;; esac; }   # qb1 logical -> /dev/tenstorrent node
 
 while pgrep -f "^/bin/bash [^ ]*build_wheel.sh $B/w1" >/dev/null; do sleep 120; done   # anchored: a shell quoting this command must not match
-W=$(ls $B/w1/dist/ttnn-0.68.0+bh.eth1-*.whl 2>/dev/null | head -1)
+W=$(ls $B/w1/dist/ttnn-0.68.0+bh.eth2-*.whl 2>/dev/null | head -1)
 [ -n "$W" ] || { say "no wheel (see $B/build.log)"; exit 1; }
 say "wheel $(basename $W) sha256 $(sha256sum $W | cut -c1-16)"
 
-if [ ! -x $B/venv/bin/python ]; then
-  cp -a ~/tt-bio-dev/env $B/venv && $B/venv/bin/python -m pip install -q --no-deps --force-reinstall "$W" || { say "venv failed"; exit 1; }
-fi
+[ -x $B/venv/bin/python ] || cp -a ~/tt-bio-dev/env $B/venv || { say "venv failed"; exit 1; }
 PY=$B/venv/bin/python
+if [ "$($PY -c 'import importlib.metadata as m; print(m.version("ttnn"))')" != 0.68.0+bh.eth2 ]; then
+  $PY -m pip install -q --no-deps --force-reinstall "$W" || { say "wheel install failed"; exit 1; }
+  # tt-bio's runtime-root overlays of the old wheel carry its JIT cache; drop them so nothing links against it.
+  for o in ~/.cache/tt_bio/metal_overlay/*/; do
+    case "$(readlink $o/build)" in $B/venv/*) rm -rf "$o";; esac
+  done
+fi
 [ -d $B/tree ] || git clone -q /home/ttuser/.coworker/wt/spd-bheth $B/tree
 git -C $B/tree fetch -q origin && git -C $B/tree checkout -q $SHA || { say "no engine $SHA"; exit 1; }
 cd $B/tree; export PYTHONPATH=$PWD TT_BIO_LEASE_HOLDER=spd-bheth

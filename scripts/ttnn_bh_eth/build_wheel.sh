@@ -18,7 +18,7 @@ WORK=$(mkdir -p "$1" && cd "$1" && pwd); PY=${2:-cp310}
 HERE=$(cd "$(dirname "$0")" && pwd)
 PATCH=$HERE/tt-metal-v0.68.0-bh-eth-dispatch.patch
 TAG=v0.68.0; SHA=1452925b033c6608726b731a81500bd3e19f7894
-VERSION=0.68.0+bh.eth1        # PEP 440 local label: satisfies ttnn==0.68.0
+VERSION=0.68.0+bh.eth2        # PEP 440 local label: satisfies ttnn==0.68.0
 IMAGE=ttnn-manylinux:$TAG
 BASE=quay.io/pypa/manylinux_2_34_x86_64:2026.04.08-5
 VAULT_REPOS="RUN sed -i 's#https://repo.almalinux.org/almalinux/\$releasever/#https://vault.almalinux.org/9.7/#' /etc/yum.repos.d/almalinux-*.repo"
