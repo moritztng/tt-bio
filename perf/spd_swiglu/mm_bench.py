@@ -106,9 +106,11 @@ with T.levers("silu_f32" if a.silu_f32 else ""):
     SILU_CKC = T.silu_ckc(CKC)  # what the fused silu site runs: approx mode from the lever
 DT = ttnn.bfloat8_b if a.b8 else ttnn.bfloat16
 GX, GY = T.COMPUTE_GRID_MAIN
-# Row blocks of the fold (spd-census WH h=5 pair / 16 MSA; BH h=11 / 32): rows x c x hidden.
-SHAPES = {"wormhole": {"pair": (5 * 736, 256, 1024), "msa": (16 * 736, 128, 512)},
-          "blackhole": {"pair": (11 * 736, 256, 1024), "msa": (32 * 736, 128, 512)}}[ARCH]
+# Row blocks of the fold (spd-census WH h=5 pair / 16 MSA; BH h=11 / 32): rows x c x hidden. pair384 is OpenDDE's
+# c_z=384 pair transition (cs1 census, WH h=4 at W=736).
+SHAPES = {"wormhole": {"pair": (5 * 736, 256, 1024), "msa": (16 * 736, 128, 512), "pair384": (4 * 736, 384, 1536)},
+          "blackhole": {"pair": (11 * 736, 256, 1024), "msa": (32 * 736, 128, 512),
+                        "pair384": (4 * 736, 384, 1536)}}[ARCH]
 SILU = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU)
 
 
@@ -124,8 +126,8 @@ def subblock(h, w):
 
 def configs(mt, kt, nt, act):
     out = []
-    bws = [b for b in (1, 2, 4, 8) if kt % b == 0]
-    for gx in sorted({GX, 4, 2}):
+    bws = [b for b in (1, 2, 3, 4, 6, 8) if kt % b == 0]
+    for gx in sorted({GX, 6, 4, 3, 2}):  # 6 and 3: c=384's 12 output tiles do not split over 8
         if nt % gx:
             continue
         pn = nt // gx
