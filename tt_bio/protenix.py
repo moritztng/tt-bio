@@ -3537,7 +3537,7 @@ def step_scale_schedule(step_scale, n_step):
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
                member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None):
+               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None, guidance=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -3565,6 +3565,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     draw but is statistically equivalent; the fold lands in the same basin within the
     seed-to-seed noise floor (PCC parity, the established diffusion-leg bar). This matches
     boltz2.AtomDiffusion.sample, which also uses one stream for its multiplicity batch.
+
+    guidance (tt_bio.tfg.Guidance) replaces the Euler update of each step with its own
+    ``step``, which may correct the denoised estimate and the sampled state (OpenDDE's
+    constraint guidance). None leaves every step exactly as it was.
 
     step_scale (eta) is a float by default; PXDesign passes upstream's schedule dict
     ({"type": "piecewise_65", "min": 1.0, "max": 2.5}) -- see step_scale_schedule.
@@ -3637,6 +3641,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # A multi-target batch concatenates its conditioning per member, so a chunk would slice
     # the coordinate stream but not the conditioning: it runs whole or not at all.
     narrowest = M if "_members" in cond else 1
+    if guidance is not None and "_members" in cond:
+        raise ValueError("guidance belongs to one target; fold guided targets one at a time")
     for k in range(n_step):
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
@@ -3665,8 +3671,12 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
             narrowest=narrowest, tag="protenix diffusion")
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
-        d = (x_noisy - denoised) / t_hat
-        x = x_noisy + etas[k] * (sigma_t - t_hat) * d
+        if guidance is None:
+            d = (x_noisy - denoised) / t_hat
+            x = x_noisy + etas[k] * (sigma_t - t_hat) * d
+        else:
+            x = guidance.step(x_noisy, denoised, t_hat=t_hat, sigma_t=sigma_t, eta=etas[k],
+                              step=k, n_step=n_step)
         trunk_tap_host(f"edm_x[step{k}]", x)
         if dump_fn is not None:                      # per-step coords (noise -> structure)
             for _m in range(M):

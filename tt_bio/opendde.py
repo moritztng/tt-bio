@@ -388,6 +388,10 @@ class OpenDDE:
         C = OPENDDE_CONFIG
         routed = route_opendde_weights(state_dict)
         self._shared = routed["shared"]         # Protenix-v2-family graph (for step-2 trunk/diffusion)
+        # Content fingerprint of the checkpoint (opendde vs opendde_abag), for the trunk cache key.
+        import hashlib
+        self._weights_tag = hashlib.sha256(
+            self._shared["distogram_head.linear.weight"].float().numpy().tobytes()).hexdigest()[:16]
         # Shared Protenix-v2-family stack (input embedder, trunk, diffusion, confidence),
         # built at OpenDDE's c_z=384.
         # Reused verbatim -- no duplicated orchestration class. diffusion_fp32=False pins
@@ -464,9 +468,44 @@ class OpenDDE:
             return (*result, attn_bias)
         return result
 
+    def _residue_trunk(self, feats, fi, n_cycles, progress_fn):
+        """Input embedder + trunk on the residue axis (identical to Protenix.fold steps 1-3).
+        Returns host (s_inputs, s_trunk, z_trunk, c_l, p_lm) and frees the device copies."""
+        P = self._protenix
+        tt = P._tt
+        N, NT, nb, nq, nk, mt, S = (fi[k] for k in ("N", "NT", "nb", "nq", "nk", "mt", "S"))
+        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
+        dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
+        s_inputs_tt = P.input_aae(
+            tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]), tt(feats["ref_mask"].reshape(N, 1)),
+            tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt, tt(Mmat),
+            tt(feats["restype"]), tt(feats["profile"]), tt(dm))
+        s_inputs = P._to_host(s_inputs_tt)[:NT]
+        mt_dev = tt(mt.reshape(-1, 1).float())
+        c_l = P._to_host(P.diff_feat.c_l(tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]),
+                                         tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
+        p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
+        relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
+        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
+                                  n_cycles=n_cycles, progress_fn=progress_fn)
+        s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
+        # The z_trunk host copy stays bf16 when `_SEAM_BF16` is on. Its two consumers both
+        # accept it: the expander re-uploads it as bf16 (`ttnn.from_torch(..., dtype=bfloat16)`,
+        # a no-op cast), and the confidence head only ever adds it to fp32 tensors, where torch
+        # promotes bf16 -> fp32 exactly. Deletes 402 MB of host fp32 writes per fold.
+        z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z), fp32=not _SEAM_BF16)
+        # The residue-axis device tensors are never read from device again -- the
+        # expander, diffusion conditioning and confidence all consume the host copies
+        # above. Free them before the expander allocates the structural-scale pair
+        # tensor (~1.9x the residue axis): on 12 GiB Wormhole parts their holes are
+        # what the refiner's full-size concats squeeze into.
+        for _t in (s_inputs_tt, s_trunk_tt, z_tt, mt_dev):
+            ttnn.deallocate(_t)
+        return s_inputs, s_trunk, z_trunk, c_l, p_lm
+
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
              return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
-             max_parallel_samples=None, distogram=False):
+             max_parallel_samples=None, distogram=False, guidance=None, trunk_cache=None):
         """End-to-end residue-to-structure co-fold. feats: a tt_bio.protenix_data-style
         residue-token feature dict (as tt_bio.protenix.Protenix.fold consumes -- e.g.
         tt_bio.protenix_data.build_complex_features for a single protein chain).
@@ -497,6 +536,11 @@ class OpenDDE:
         coords (n_sample, N_atom, 3) host tensor; if
         return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
         list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
+
+        guidance (tt_bio.tfg.Guidance) applies constraint guidance inside the sampler
+        (OpenDDE 1.2.0's ``--use_tfg_guidance``); None samples exactly as before.
+        trunk_cache (tt_bio.cache.TrunkCache) reuses the residue trunk of an earlier fold of
+        the same features, so constraint variants of one input pay for one trunk.
         """
         import torch
         from .opendde_data import build_structural_token_features
@@ -506,42 +550,27 @@ class OpenDDE:
             import tt_bio.tenstorrent as _TTd
             _TTd.require_trace_region("fold(trace=True)")
         P = self._protenix
-        tt = P._tt
         ifd = build_structural_token_features(feats)
         Ns = ifd["parent_residue_idx"].shape[0]
 
         fi = P._atom_feat_inputs(feats)
-        N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
-        mt, S = fi["mt"], fi["S"]
-        Mmat = (S.t() / (S.t().sum(-1, keepdim=True) + 1e-6))
-        dm = feats["deletion_mean"]; dm = dm.reshape(-1, 1) if dm.dim() == 1 else dm
+        N, nb, nq, nk, mt = fi["N"], fi["nb"], fi["nq"], fi["nk"], fi["mt"]
 
         # 1) input embedder + trunk, residue axis (identical to Protenix.fold steps 1-3)
-        s_inputs_tt = P.input_aae(
-            tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]), tt(feats["ref_mask"].reshape(N, 1)),
-            tt(fi["f_in"]), tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt, tt(Mmat),
-            tt(feats["restype"]), tt(feats["profile"]), tt(dm))
-        s_inputs = P._to_host(s_inputs_tt)[:NT]
-        mt_dev = tt(mt.reshape(-1, 1).float())
-        c_l = P._to_host(P.diff_feat.c_l(tt(feats["ref_pos"]), tt(fi["ref_charge_asinh"]),
-                                         tt(feats["ref_mask"].reshape(N, 1)), tt(fi["f_in"])), (N, 128))
-        p_lm = P._to_host(P.diff_feat.p_lm(tt(fi["d"]), tt(fi["v"]), tt(fi["invd"]), mt_dev), (nb, nq, nk, 16))
-        relp = feats["relp"] if "relp" in feats else P._generate_relp(feats)
-        s_trunk_tt, z_tt = P.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                  n_cycles=n_cycles, progress_fn=progress_fn)
-        s_trunk = P._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
-        # The z_trunk host copy stays bf16 when `_SEAM_BF16` is on. Its two consumers both
-        # accept it: the expander re-uploads it as bf16 (`ttnn.from_torch(..., dtype=bfloat16)`,
-        # a no-op cast), and the confidence head only ever adds it to fp32 tensors, where torch
-        # promotes bf16 -> fp32 exactly. Deletes 402 MB of host fp32 writes per fold.
-        z_trunk = P._to_host(z_tt, (NT, NT, P.trunk.C_Z), fp32=not _SEAM_BF16)
-        # The residue-axis device tensors are never read from device again -- the
-        # expander, diffusion conditioning and confidence all consume the host copies
-        # above. Free them before the expander allocates the structural-scale pair
-        # tensor (~1.9x the residue axis): on 12 GiB Wormhole parts their holes are
-        # what the refiner's full-size concats squeeze into.
-        for _t in (s_inputs_tt, s_trunk_tt, z_tt, mt_dev):
-            ttnn.deallocate(_t)
+        key = hit = None
+        if trunk_cache is not None:
+            import tt_bio.tenstorrent as _TTm
+            key = trunk_cache.key(feats, "opendde", n_cycles, self._weights_tag, _TTm._FAST_MODE)
+            hit = trunk_cache.load(key)
+            if hit is not None:
+                s_inputs, s_trunk, z_trunk, c_l, p_lm = (
+                    hit[k] for k in ("s_inputs", "s_trunk", "z_trunk", "c_l", "p_lm"))
+        if hit is None:
+            s_inputs, s_trunk, z_trunk, c_l, p_lm = self._residue_trunk(
+                feats, fi, n_cycles, progress_fn)
+            if key is not None:
+                trunk_cache.save(key, dict(s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk,
+                                           c_l=c_l, p_lm=p_lm))
 
         # 2) the novel seam: residue -> structural-token axis
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
@@ -582,14 +611,15 @@ class OpenDDE:
             _df = (lambda step, x: dump_fn(step, step, x)) if dump_fn is not None else None
             coords = edm_sample(P.diffusion, cond, N, n_step=n_step, multiplicity=n_sample,
                                  max_parallel_samples=_mps, seed=seed, trace=trace,
-                                 progress_fn=progress_fn, dump_fn=_df)
+                                 progress_fn=progress_fn, dump_fn=_df, guidance=guidance)
         else:
             coords = []
             for k in range(n_sample):
                 sd_seed = None if seed is None else seed + k
                 _df = (lambda step, x, _k=k: dump_fn(_k, step, x)) if dump_fn is not None else None
                 coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                         trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
+                                         trace=trace, progress_fn=progress_fn, dump_fn=_df,
+                                         guidance=guidance)[0])
             coords = torch.stack(coords, 0)
         # The conditioning is sampler-only state (dit_z alone is ~1.1 GiB at Ns=2113, and the
         # per-block DiT biases and the atom-pair track sit beside it); the residue-axis
