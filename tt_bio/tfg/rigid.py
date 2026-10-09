@@ -586,18 +586,19 @@ def search_rigid_contact(coords, feats, core=None):
             P = len(chunk) * len(turns) * R
             x = torch.empty(T, P, t_fitted.shape[1], 3, dtype=t_fitted.dtype)
             contact = torch.empty(T, P, t_contacts.shape[1], 3, dtype=t_contacts.dtype)
+            x6 = x.view(T, len(chunk), len(turns), R, -1, 3)
+            contact6 = contact.view(T, len(chunk), len(turns), R, -1, 3)
+            radii = torch.tensor(radii_out, dtype=t_tc.dtype)[None, :, None, None]
             for a, normal in enumerate(chunk):
                 normal = normal[todo]
                 w = torch.cat([normal * turn for turn in turns])                          # [turns * T, 3]
                 rotation = torch.linalg.matrix_exp(skew_matrix(w, t_fit.repeat(len(turns), 1, 1))).transpose(1, 2)
                 rotated = torch.bmm(t_fitted.repeat(len(turns), 1, 1), rotation).view(len(turns), T, -1, 3)
                 rot_contacts = torch.bmm(t_contacts.repeat(len(turns), 1, 1), rotation).view(len(turns), T, -1, 3)
-                for b in range(len(turns)):
-                    for c, radius in enumerate(radii_out):
-                        shift = t_tc + radius * normal[:, None]
-                        k = (a * len(turns) + b) * R + c
-                        torch.add(rotated[b], shift, out=x[:, k])
-                        torch.add(rot_contacts[b], shift, out=contact[:, k])
+                # every (turn, radius) at once: shift [T, R, 1, 3] = tc + radius * normal, elementwise as before
+                shift = t_tc[:, None] + radii * normal[:, None, None]
+                torch.add(rotated.transpose(0, 1)[:, :, None], shift[:, None], out=x6[:, a])
+                torch.add(rot_contacts.transpose(0, 1)[:, :, None], shift[:, None], out=contact6[:, a])
             return x, contact
 
         for start in range(0, len(normals), SEARCH_CHUNK_NORMALS):
