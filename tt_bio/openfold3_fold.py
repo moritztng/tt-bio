@@ -475,12 +475,16 @@ class OpenFold3(Module):
                 progress_fn("confidence", step=0, total=0)
             si_trunk = torch.Tensor(ttnn.to_torch(si_trunk_d)).float().reshape(n_token, -1)
             zij_trunk = torch.Tensor(ttnn.to_torch(zij_trunk_d)).float().reshape(n_token, n_token, -1)
-            shared = {}                           # trunk terms, computed with the first sample
+            # Trunk terms, computed with the first sample; the device trunk pair lets the head
+            # build each sample's pair embedding on device (OF3ConfidenceHead._z_embed_device).
+            shared = {"zij_trunk_d": zij_trunk_d}
             confidence = [
                 self._confidence(sample, s_input, si_trunk, zij_trunk, confidence_aux_host,
                                  shared)
                 for sample in samples
             ]
+            for t in shared.get("z_ij_d", ()):
+                ttnn.deallocate(t)
             best_index = max(range(len(samples)), key=lambda i: confidence[i]["ranking_score"])
             dram_peak(f"confidence done [samples={len(samples)}]")
         else:
