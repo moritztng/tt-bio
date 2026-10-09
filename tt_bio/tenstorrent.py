@@ -508,14 +508,16 @@ _FAST_MODE = False
 #                   bf16-DST: on WH at 736, 3.71 -> 2.83 ms per call and rel_rms to float64 0.0054 ->
 #                   0.0018 (the bf16 floor is 0.0017). Inert unless acc_off is on (perf/spd_pair/ops.py).
 #   triatt_tail     triangle attention's gate, out projection and residual add in one weights-resident
-#                   program (`triatt_qkv.gated_out_proj`); sigmoid(g) is no longer rounded to bf16
+#                   program (`triatt_qkv.gated_out_proj`), z read and written once: on WH at 736 the
+#                   tail goes 11.95 -> 5.22 ms per call. sigmoid(g) is no longer rounded to bf16 before
+#                   the multiply and the kernel runs HiFi3 with fp32 DST in both modes.
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "ln_f32", "triatt_tail"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
