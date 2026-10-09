@@ -139,7 +139,91 @@ OPM_JOIN_PARTS_STATS = [0, 0]
 # the identical bytes (torch.equal against the 2D call, perf/spd_msa/sweep_opm_out.py). Splits of
 # 2 or 4 stay slow, 8 and up are fast, so the block is sized to ~16k rows.
 _OPM_PROJ_BATCH = env_flag("TT_BIO_OPM_PROJ_BATCH", True)
+# The OPM contraction z = a b^T runs over the MSA depth. ttnn's auto config for it (every operand in
+# DRAM) blocks K one tile at a time unless the grid's width divides the K tile count, and at 9947
+# rows K is 311 tiles, a prime: 294 ms on Wormhole at 736 tokens (HiFi3). `opm_contract_config`
+# runs it as 6-tile K blocks instead (3 at an odd tile count), which needs the tile count to be a
+# multiple of 3, so the depth gets up to 95 zero rows. Zero rows add exact zeros to every dot
+# product and the mean still divides by the real depth, so only the accumulation order moves. The
+# rows ride in the join's concat, so the chunk-list path pays nothing for them. A shallow MSA keeps
+# its depth (pad under an eighth).
+# Wormhole only, like the plan. TT_BIO_OPM_KPAD=0 turns the pad off.
+_OPM_KPAD = env_flag("TT_BIO_OPM_KPAD", True)
+# K tiles one block of the OPM contraction sums in the destination register before it is packed.
+# Wormhole at HiFi3 with fp32 accumulation and packer L1 accumulation (the model's config) puts
+# single output elements off by exactly 1, 2 or 4 whenever that is more than one tile, at a rate
+# that grows with the width (perf/spd_msa/zmm_full.py, every element of 8-10 whole contractions per
+# arm): per output element 0.7e-9 at 2 tiles, 1.3e-9 at 3, 4e-9 at 6, and 7.9e-9 for ttnn's own plan
+# on the padded depth, which is what main runs at every depth whose K tiles the grid width divides.
+# One-tile blocks were clean but are slower than ttnn's plan. 6 is the widest block the circular
+# buffers take and stays under ttnn's own rate: 179 ms at 736 tokens against 294 for the auto plan
+# on the unpadded depth (3 tiles: 212). perf/spd_msa/erratum_repro.py reproduces it with ttnn's plan.
+OPM_K_BLOCK = 6
+# The pad rounds the depth to this many tiles: a multiple of 3 admits 3-tile blocks and, when the
+# count is even (9947 -> 312, 13602 -> 426 tiles), 6-tile ones, for at most 95 zero rows.
+OPM_K_PAD_TILES = 3
+
+
+def opm_kpad_rows(depth: int) -> int:
+    """Zero rows that round the OPM contraction depth up to a whole number of 3-tile K blocks, or 0."""
+    rows = -depth % (32 * OPM_K_PAD_TILES)
+    return rows if _OPM_KPAD and rows * 8 <= depth else 0
+
 OPM_PROJ_BLOCK_ROWS = 16384
+
+
+def opm_flat_b(b):
+    """The OPM's b operand (D, J, S) as (D*J, S) for the depth contraction.
+
+    Merging the two leading dims of a tiled tensor is a view when J is a whole number of tiles,
+    which bucketed token counts always are. The row-major round trip it replaces is only needed
+    otherwise, and it was not cheap: untilizing (32, 736, 9984) took 111 ms on Wormhole against
+    6 ms at depth 9947, which is what ate OPM_KPAD's matmul gain in the fold
+    (perf/spd_msa/opm_infold.py --ops). Same bytes either way: neither path rounds."""
+    S = b.shape[-1]
+    if b.shape[-2] % 32 == 0:
+        return ttnn.reshape(b, (-1, S))
+    b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
+    b = ttnn.reshape(b, (-1, S))
+    return ttnn.to_layout(b, ttnn.TILE_LAYOUT)
+
+
+# The OPM contraction's own program config (`opm_contract_config`), Wormhole only (measured there).
+# 0 leaves it to ttnn's auto config.
+_OPM_CFG = env_flag("TT_BIO_OPM_CFG", True)
+
+
+def opm_contract_config(m_tiles: int, n_tiles: int, k_tiles: int, grid):
+    """A 2D-multicast plan for the OPM contraction [M, K] x [N, K]^T, or None for ttnn's own.
+
+    ttnn's auto config sets per_core_M = ceil(Mt / grid_y), and the output block height has to
+    divide it. At 736 tokens that is 82 = 2 x 41, so the auto plan runs 2-tile-high blocks; at 512
+    it is 57 = 3 x 19. Rounding per_core_M up to a multiple of 4 covers the same rows with the same
+    grid (the last row of cores gets fewer of them) and admits a 4-high block. in0_block_w is the
+    largest divisor of the K tiles up to OPM_K_BLOCK (see there for why not more); the block width
+    the widest in1 block the circular buffers then fit. One-tile K blocks are slower than ttnn's own
+    plan, so a K that only admits those gets None. Wormhole, depth 9947 padded to 312 tiles, HiFi3
+    (perf/spd_msa/zmm_ibw.py): 205 vs 294 ms at 736 tokens, 503 vs 554 at 1024 (depth 13602).
+    Same products summed in a different K order, so not bit-identical."""
+    if not _OPM_CFG or ttnn is not _SHIPPED_TTNN:
+        return None
+    gx, gy = grid.x, grid.y
+    pcm = -(-m_tiles // gy)
+    pcm += -pcm % 4
+    pcn = -(-n_tiles // gx)
+    budget = _matmul_cb_budget()
+    divs = lambda n, top: [d for d in range(1, min(n, top) + 1) if n % d == 0]
+    fits = [(w * k, k, w) for w in divs(pcn, pcn) for k in divs(k_tiles, OPM_K_BLOCK) if k > 1
+            if _matmul_cb_bytes(k, 4, w, 2) <= budget]
+    if pcm < 8 or not fits:
+        return None
+    _, ibw, obw = max(fits)
+    sw = 4 if obw % 4 == 0 else 2 if obw % 2 == 0 else 1
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=(gx, gy), in0_block_w=ibw, out_subblock_h=4 // sw,
+        out_subblock_w=sw, out_block_h=4, out_block_w=obw, per_core_M=pcm, per_core_N=pcn,
+        transpose_mcast=False, fused_activation=None, fuse_batch=False)
+
 
 
 def opm_proj_blocks(rows: int, J: int) -> int:
@@ -349,6 +433,12 @@ _BH_TRANSITION_CHUNK_ELEMS = 3145728
 # Raising this bound needs a per-core budget measured AT that channel and a core count the matmul
 # actually uses, not an extrapolation of this one.
 _BH_TRANSITION_L1_ROWS_MAX_C = 128
+# The same bound when fc1/fc2 write the hidden activations in bfp8 (the `transition_b8` lever, fast
+# mode). Measured on a p150a, real module, empty L1 (perf/spd_bh/transition_h.py): at c=256 and
+# 736 tokens bfp8 hidden runs h=32 clean where the byte budget below says 28, while bf16 hidden
+# clashes at h=20 against a budget of 16. Normal mode keeps 128: its c=256 raise is worth 3.7 %
+# of the module at 736 tokens, nothing at 1024, and moves the digest.
+_BH_TRANSITION_L1_ROWS_MAX_C_B8 = 256
 TRANSITION_L1_CHUNK_BYTES_PER_CORE = _BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE
 # Screen hook for the Blackhole raise, same pattern as every other lever here: the shipped
 # default has to stay A/B-able on one build without editing a derivation. On by default.
@@ -408,6 +498,8 @@ _FAST_MODE = False
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 #   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
+#   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
+#                   weights-resident kernel (`_TRIMUL_GATED_INPROJ`, `trimul_tail.gin_moved`)
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
@@ -415,9 +507,15 @@ _FAST_MODE = False
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trunk_hifi3", "dit_sdpa32", "silu_f32")
+          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in"})
+# trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
+# PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
+# (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
+# the native pose and gin does not (every warm fold agrees), plus four 9W89 warm folds that move between
+# two wrong poses (state/spd-trimul.md, 2026-10-09). gin only fires above ~640 tokens, so the 11-set grade
+# (PASS) is 8/11 inert complexes and does not decide it.
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -8205,19 +8303,22 @@ class TriangleMultiplication(Module):
         self._gp_cache[key] = chunks
         return chunks
 
-    def _gp_in_gated(self, C: int, group: int) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
+    def _gp_in_gated(self, C: int, group: int,
+                     transposed: bool = False) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
         """Per channel chunk, the in-projection's `([p_a | p_b], [g_a | g_b])` weights.
 
         The columns of `_gp_in_chunks`, regrouped so one `trimul_tail` call computes
         `a = p_a * sigmoid(g_a)` and `b` alike as the two halves of its split output.
+        `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`.
         """
-        key = (C, group, gp_roles())
+        key = (C, group, gp_roles(), transposed)
         cached = self._gp_gated_cache.get(key)
         if cached is None:
             sc = C * group
             col = lambda t, r: t[:, gp_off(r, sc):gp_off(r, sc) + sc]  # noqa: E731
             dev = lambda t: ttnn.from_torch(  # noqa: E731
-                t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+                (t.t() if transposed else t).contiguous(), layout=ttnn.TILE_LAYOUT,
+                device=self.device, dtype=ttnn.bfloat16)
             cached = [
                 (dev(torch.cat([col(t, "p_a"), col(t, "p_b")], dim=-1)),
                  dev(torch.cat([col(t, "g_a"), col(t, "g_b")], dim=-1)))
@@ -8700,6 +8801,7 @@ class TriangleMultiplication(Module):
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
                     a_chunk = b_chunk = None
+                    a_masked = False
                     # Set only where the chunk really was left in the move's own (0,3,1,2)
                     # layout. All three channel-move branches can leave it there now; the census
                     # below records which one each call took.
@@ -8720,7 +8822,8 @@ class TriangleMultiplication(Module):
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
-                    if (a_chunk is None and _TRIMUL_GATED_INPROJ and bias_i is None
+                    if (a_chunk is None and (_TRIMUL_GATED_INPROJ or lever("trimul_gin"))
+                            and bias_i is None
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
                             and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
@@ -8731,17 +8834,39 @@ class TriangleMultiplication(Module):
                         # x, each activation block read once for both passes, a and b written as
                         # two tensors. Only the plain channel moves are left.
                         wa, wb = self._gp_in_gated(chunk_size, group)[i]
-                        ab = _trimul_tail.fused_tail(
-                            x_norm_in, x_norm_in, wa, wb,
-                            _mm_generic.ckc_args(self.compute_kernel_config),
-                            tuple(COMPUTE_GRID_MAIN), split=2)
-                        branch = "gated-inproj-declined"
+                        ckc = _mm_generic.ckc_args(self.compute_kernel_config)
+                        if _trimul_tail.GIN_MOVE and defer:
+                            # The channel moves fused in as well (both chunks leave as (0,3,1,2)
+                            # moves once the matmul takes the inner swap).
+                            wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
+                            fold = mask is not None and _trimul_tail.gin_moved_ok(x_norm_in, wpT, mask)
+                            ab = _trimul_tail.gin_moved(x_norm_in, wpT, wgT, ckc,
+                                                        tuple(COMPUTE_GRID_MAIN),
+                                                        mask=mask if fold else None)
+                            if ab is not None:
+                                a_chunk, b_chunk = ab
+                                a_masked = fold
+                                branch = "gated-inproj-moved"
+                                defer_a = perm_a == (0, 3, 2, 1)
+                                defer_b = perm_b == (0, 3, 2, 1)
+                        # The pair mask rides in the same kernel where it can (`a` only, row-wise
+                        # m[x, y] before the move, which is what the moved multiply below applies).
+                        fold = mask is not None and _trimul_tail.mask_ok(mask, x_norm_in, wa)
+                        ab = None if a_chunk is not None else _trimul_tail.fused_tail(
+                            x_norm_in, x_norm_in, wa, wb, ckc,
+                            tuple(COMPUTE_GRID_MAIN), split=2, mask=mask if fold else None)
+                        if a_chunk is None:
+                            branch = "gated-inproj-declined"
                         if ab is not None:
+                            a_masked = fold
+                            # No reallocate: freeing ab[0] leaves a hole under a_chunk, so it would
+                            # copy the whole chunk (1.3 ms at 736 on WH). The chunks end up above
+                            # the freed projection either way, as on the gated-move route.
                             a_chunk = self._transform_chunk(
-                                ab[0], perm_a, memory_config, realloc=n_pairs // group > 1,
+                                ab[0], perm_a, memory_config, realloc=False,
                                 defer_transpose=defer)
                             b_chunk = self._transform_chunk(
-                                ab[1], perm_b, memory_config, realloc=n_pairs // group > 1,
+                                ab[1], perm_b, memory_config, realloc=False,
                                 defer_transpose=defer)
                             branch = "gated-inproj"
                             if defer:
@@ -8857,7 +8982,7 @@ class TriangleMultiplication(Module):
                             if defer:
                                 defer_a = perm_a == (0, 3, 2, 1)
                                 defer_b = perm_b == (0, 3, 2, 1)
-                    if mask_moved_ok:
+                    if mask_moved_ok and not a_masked:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`
                         # into a fresh tensor and deallocate -- same bytes, one more allocation.
@@ -10983,7 +11108,14 @@ class Transition(Module):
             return swiglu(x)
 
         H, W = x.shape[1], x.shape[2]
-        transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_FAST if _FAST_MODE else TRANSITION_H_CHUNK_SIZE
+        # bfp8 hidden (`transition_b8`) at c <= 128 starts from the fast base too, so on a small grid
+        # the bfp8-priced L1 cap below sets the height: 28 rows for the c=128 MSA transition at 736
+        # tokens instead of 16. Row height does not change a row-local swiglu's result (torch.equal
+        # at h=16..48); WH module 26.14 -> 23.69 ms at h=24 (perf/spd_bh/transition_h.py, .107).
+        # Blackhole is unchanged: its L1 raise always lands above this base. c=256 is left alone,
+        # its pair transition is non-monotonic in the height on WH (h=14 slower than h=5).
+        _fast_rows = _FAST_MODE or (self._hidden_b8 and x.shape[-1] <= 128)
+        transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_FAST if _fast_rows else TRANSITION_H_CHUNK_SIZE
         if not _FAST_MODE and W <= TRANSITION_H_CHUNK_BIG_MAX_W and x.shape[-1] <= 256:
             transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_BIG
         # Per-chunk swiglu L1 use ~ h_chunk * W * channel. The chunk size is tuned for the
@@ -11047,11 +11179,14 @@ class Transition(Module):
         _tile = lambda v: -(-int(v) // 32) * 32
         _hid = int(self.fc1_weight.shape[-1])
         _gx, _gy = COMPUTE_GRID_MAIN
+        # Bytes per hidden element: x_1 and x_2 are bfp8 under `transition_b8` (a 32x32 tile is
+        # 1024 mantissa bytes + 64 exponent bytes), bf16 otherwise. x_norm is always bf16.
+        _hb = 1088 / 1024 if self._hidden_b8 else 2
+        _row_bytes = 2 * _tile(x.shape[-1]) + 2 * _hb * _tile(_hid)
 
         def _l1_rows_at(w):
             """Row height the per-core L1 budget alone allows at swiglu width `w`."""
-            return (TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
-                    / (2 * _tile(w) * (_tile(x.shape[-1]) + 2 * _tile(_hid))))
+            return TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy / (_tile(w) * _row_bytes)
 
         def _rows_at(w):
             """Row height EVERY budget allows at swiglu width `w`, BEFORE the floor at 1."""
@@ -11114,7 +11249,8 @@ class Transition(Module):
             # undo that measured raise.
             transition_h_chunk_size = min(transition_h_chunk_size,
                                           max(1, int(_l1_rows_at(w_eff))))
-        elif _TRANSITION_L1_ROWS and _c <= _BH_TRANSITION_L1_ROWS_MAX_C:
+        elif _TRANSITION_L1_ROWS and _c <= (_BH_TRANSITION_L1_ROWS_MAX_C_B8 if self._hidden_b8
+                                             else _BH_TRANSITION_L1_ROWS_MAX_C):
             # Blackhole: the same per-core budget, read the other way round. On a small grid the
             # measured L1 ceiling always sits BELOW the tuned base, so it only ever shrinks; on
             # Blackhole it sits well above it (48 rows against a shipped 16 at 512 aa), and the
@@ -11131,7 +11267,9 @@ class Transition(Module):
             transition_h_chunk_size = max(
                 transition_h_chunk_size,
                 max(1, int(min(_l1_rows_at(w_eff),
-                               _BH_TRANSITION_CHUNK_ELEMS / (w_eff * _c)))))
+                               # the element cap is the byte budget at bf16 hidden = 4c, i.e.
+                               # 18c bytes per row element; bfp8 hidden needs (2 + 8 * 1.0625)c
+                               _BH_TRANSITION_CHUNK_ELEMS * 18 / (w_eff * _c * (2 + 8 * _hb))))))
         # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
         # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
         # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation
@@ -11159,7 +11297,7 @@ class Transition(Module):
             # a barrier per call costs the pipelining the whole file is built on.
             if _trace == "sync":
                 ttnn.synchronize_device(x.device())
-            _pc = 2 * transition_h_chunk_size * _tile(w_eff) * (_tile(_c) + 2 * _tile(_hid))
+            _pc = int(transition_h_chunk_size * _tile(w_eff) * _row_bytes)
             print(f"[transition-h] t={time.time():.3f} z={H}x{W}x{_c} hid={_hid} w_eff={w_eff} "
                   f"chunked={int(w_chunked)} h={transition_h_chunk_size} base={_base_h} "
                   f"l1_rows={_l1_rows_at(w_eff):.2f} "
@@ -13281,9 +13419,7 @@ class OuterProductMean(Module):
                 ttnn.deallocate(ac)
                 bcp = ttnn.permute(bc, (2, 1, 0))           # (D, J, Sc)
                 ttnn.deallocate(bc)
-                bcp = ttnn.to_layout(bcp, ttnn.ROW_MAJOR_LAYOUT)
-                bcp = ttnn.reshape(bcp, (-1, Sc))           # (D*J, Sc)
-                bcp = ttnn.to_layout(bcp, ttnn.TILE_LAYOUT)
+                bcp = opm_flat_b(bcp)                       # (D*J, Sc)
                 parts.append((acp, bcp, Sc))
             return parts, S, I, C, D, J
 
@@ -13293,6 +13429,14 @@ class OuterProductMean(Module):
             for s in range(0, x.shape[0], MSA_CHUNK_SIZE):
                 e = min(s + MSA_CHUNK_SIZE, x.shape[0])
                 yield x[s:e], None if msa_mask is None else msa_mask[s:e]
+
+        def small_depth(depth):
+            return _OPM_SMALL_DEPTH and depth <= OPM_SMALL_DEPTH_MAX
+
+        def zero_rows(t, n):
+            """`n` zero rows shaped like the depth rows of projection `t` (depth outermost)."""
+            return ttnn.zeros((n, *tuple(t.shape)[1:]), dtype=t.dtype, layout=ttnn.TILE_LAYOUT,
+                              device=t.device())
 
         def contiguous_ab(chunks=None):
             """`a` and `b` built whole and laid out for `z_rows`. `chunks` (an iterator of
@@ -13312,12 +13456,21 @@ class OuterProductMean(Module):
             a_parts, b_parts, a, b = [], [], None, None
             try:
                 if chunks is None and x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
-                    a, b = project_ab(x, msa_mask)
+                    pairs = [project_ab(x, msa_mask)]
                 else:
-                    for c, maskc in chunks or depth_slices():
-                        ac, bc = project_ab(c, maskc)
-                        a_parts.append(ac)
-                        b_parts.append(bc)
+                    pairs = (project_ab(c, maskc) for c, maskc in chunks or depth_slices())
+                for ac, bc in pairs:
+                    a_parts.append(ac)
+                    b_parts.append(bc)
+                depth = sum(p.shape[0] for p in a_parts)
+                dev = a_parts[0].device()
+                pad = 0 if small_depth(depth) or dev.arch() != ttnn.Arch.WORMHOLE_B0 else opm_kpad_rows(depth)
+                if pad:
+                    a_parts.append(zero_rows(a_parts[0], pad))
+                    b_parts.append(zero_rows(b_parts[0], pad))
+                if len(a_parts) == 1:
+                    (a,), (b,), a_parts, b_parts = a_parts, b_parts, [], []
+                else:
                     # Free per side: only the SECOND concat has room to gain from it.
                     a = ttnn.concat(a_parts, dim=0)
                     for p in a_parts:
@@ -13327,15 +13480,12 @@ class OuterProductMean(Module):
                     for p in b_parts:
                         ttnn.deallocate(p)
                     b_parts = []
-                if _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+                if small_depth(a.shape[0]):
                     return a, b, None
                 S, I, C = a.shape
                 _, J, D = b.shape
                 a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
-                b = ttnn.permute(b, (2, 1, 0))
-                b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
-                b = ttnn.reshape(b, (-1, S))
-                b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
+                b = opm_flat_b(ttnn.permute(b, (2, 1, 0)))
                 if I > SEQ_LEN_MORE_CHUNKING:
                     # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
                     a = ttnn.reallocate(a)
@@ -13421,7 +13571,9 @@ class OuterProductMean(Module):
         # `n_msa` is a float so a caller can divide by something other than the row count. AF2
         # wants `eps + norm`, which at an all-ones bfloat16 mask rounds back to the depth, so it
         # passes None; the float is what its A/B arm uses.
-        scale = 1 / (n_msa if n_msa is not None else S)
+        # S counts the zero rows `opm_kpad_rows` appended; the mean is over the real depth.
+        depth = x.shape[0] if x_chunks is None else sum(c.shape[1] for c in x_chunks)
+        scale = 1 / (n_msa if n_msa is not None else depth)
         legacy = _opm_legacy_layout()
         # The scale is linear, so it folds into the SMALLEST tensor in the chain, which is the rule
         # `_small_depth` already states and this path used to break: it multiplied z, the LARGEST
@@ -13458,7 +13610,10 @@ class OuterProductMean(Module):
             if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
                 if z_dtype is not None:
                     x, y = ttnn.typecast(x, ttnn.bfloat16), ttnn.typecast(y, ttnn.bfloat16)
-                out = ttnn.matmul(x, y, transpose_b=True,
+                cfg = None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
+                    x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
+                    x.device().compute_with_storage_grid_size())
+                out = ttnn.matmul(x, y, transpose_b=True, program_config=cfg,
                                   compute_kernel_config=self.compute_kernel_config)
                 if z_dtype is not None:
                     ttnn.deallocate(x)

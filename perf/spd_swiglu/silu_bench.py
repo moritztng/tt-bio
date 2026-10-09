@@ -5,8 +5,8 @@
 One arm per process, as a fold sets the lever once:
   base  the wheel's silu: math_approx_mode=False, which the silu_f32 overlay leaves as shipped
   f32   the silu_f32 lever: math_approx_mode=True, which the overlay turns into calculate_silu_f32
-Every matmul here runs Protenix's transition config (HiFi4, fp32 dest, packer L1 acc) with
-math_approx_mode taken from the arm, as tenstorrent.silu_ckc does.
+Every matmul here runs Protenix's transition config (HiFi4, fp32 dest, packer L1 acc, approx mode);
+a fused silu takes its approx mode from the arm through tenstorrent.silu_ckc, as in a fold.
 
 exact: x @ I for every bfloat16 x in [-100, 100] (and its negation), fc1's fused silu written fp32.
   The product is exact, so the dest holds x and the output is the SFPU's silu of x, compared with
@@ -87,8 +87,10 @@ def clock(t0, t1):
 
 
 CKC_CLS = ttnn.WormholeComputeKernelConfig if ARCH == "wormhole" else ttnn.types.BlackholeComputeKernelConfig
-CKC = CKC_CLS(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=a.arm == "f32", fp32_dest_acc_en=True,
+CKC = CKC_CLS(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=True, fp32_dest_acc_en=True,
               packer_l1_acc=True)
+with T.levers("silu_f32" if a.arm == "f32" else ""):
+    SILU_CKC = T.silu_ckc(CKC)  # what a fused silu site runs: approx mode from the lever
 L1 = ttnn.L1_MEMORY_CONFIG
 res = {"arm": a.arm, "host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH,
        "nodes": OPENED, "grid": list(T.COMPUTE_GRID_MAIN), "runtime_root": os.environ.get("TT_METAL_RUNTIME_ROOT"),
@@ -120,7 +122,7 @@ if "exact" not in skip:
     it = ttnn.from_torch(torch.eye(32).view(1, 1, 32, 32), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
     # core_grid matters: without it ttnn.linear runs the activation as a separate unary op (approx off,
     # so the wheel's silu whatever the overlay), which is what run 1 measured in every arm.
-    o = ttnn.linear(xt, it, activation="silu", compute_kernel_config=CKC, dtype=ttnn.float32,
+    o = ttnn.linear(xt, it, activation="silu", compute_kernel_config=SILU_CKC, dtype=ttnn.float32,
                     core_grid=T.CORE_GRID_MAIN)
     got = ttnn.to_torch(o).view(-1)[:n].to(torch.float64)
     x64 = xs.to(torch.float64)
@@ -137,7 +139,7 @@ if "exact" not in skip:
     g = torch.Generator().manual_seed(7)
     X = 4 * torch.randn(1, 1, 32768, 32, generator=g)
     xt32 = ttnn.from_torch(X, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-    o32 = ttnn.linear(xt32, it, activation="silu", compute_kernel_config=CKC, dtype=ttnn.float32,
+    o32 = ttnn.linear(xt32, it, activation="silu", compute_kernel_config=SILU_CKC, dtype=ttnn.float32,
                       core_grid=T.CORE_GRID_MAIN)
     res["exact"]["digest_fp32_in"] = hashlib.sha256(ttnn.to_torch(o32).to(torch.float32).numpy().tobytes()).hexdigest()[:16]
     print(json.dumps({"exact": res["exact"]}), flush=True)
@@ -172,7 +174,7 @@ if "ops" not in skip:
                             device=dev, memory_config=L1)
         w = ttnn.from_torch(torch.randn(K, N, generator=g) / K ** 0.5, dtype=ttnn.bfloat16,
                             layout=ttnn.TILE_LAYOUT, device=dev)
-        lin = lambda act=None: ttnn.linear(x, w, activation=act, compute_kernel_config=CKC, memory_config=L1,
+        lin = lambda act=None: ttnn.linear(x, w, activation=act, compute_kernel_config=SILU_CKC if act else CKC, memory_config=L1,
                                            dtype=ttnn.bfloat16, core_grid=T.CORE_GRID_MAIN)
 
         def unfused():

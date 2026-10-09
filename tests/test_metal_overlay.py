@@ -25,7 +25,9 @@ def _root(tmp_path):
         (d / "ckernel_sfpu_silu.h").write_text(SILU)
         (d / "llk_math_eltwise_unary_sfpu_silu.h").write_text(LLK.format(it=it))
         (d / "ckernel_sfpu_exp.h").write_text("exp\n")
-    (root / "ttnn" / "cpp").mkdir(parents=True)
+    bmm = root / MO.BMM
+    bmm.parent.mkdir(parents=True)
+    bmm.write_text(MO._BMM_INC + "main {\n" + MO._BMM_INIT + "loop {\n" + MO._BMM_LAST + "}\n}\n")
     return root
 
 
@@ -41,7 +43,8 @@ def test_overlay_patches_and_leaves_root_alone(tmp_path):
         assert (d / "ckernel_sfpu_silu_f32.h").read_text() == MO._SILU_F32.read_text()
         assert f"calculate_silu<is_fp32_dest_acc_en, {it}, APPROXIMATE>" in (d / "llk_math_eltwise_unary_sfpu_silu.h").read_text()
         assert (d / "ckernel_sfpu_exp.h").is_symlink() and (d / "ckernel_sfpu_exp.h").read_text() == "exp\n"
-    assert (out / "ttnn").is_symlink()
+    bmm = (out / MO.BMM).read_text()
+    assert bmm.count("tb_silu_on_pack") == 4 and "if (tb_pack_silu)" in bmm
     assert MO.build(["silu_f32"], root=root, cache=tmp_path / "cache") == out
 
 
@@ -64,6 +67,7 @@ def test_patch_applies_to_the_installed_wheel(tmp_path):
         silu = (d / "ckernel_sfpu_silu.h").read_text()
         assert '#include "ckernel_sfpu_silu_f32.h"' in silu and "silu_f32_init();" in silu
         assert (d / "ckernel_sfpu_silu_f32.h").read_text() == MO._SILU_F32.read_text()
+    assert "PACK((llk_math_eltwise_unary_sfpu_silu<true, DST_ACCUM_MODE>(i)));" in (out / MO.BMM).read_text()
 
 
 def _dataflow_root(tmp_path):
