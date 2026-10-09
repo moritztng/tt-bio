@@ -6,7 +6,8 @@
 # The tag's Dockerfile builds FROM a floating manylinux image and installs clang from live AlmaLinux repos, so built
 # today it gets a newer gcc (OpenMPI 5.0.7 no longer compiles) and clang 21. This script pins both to what the
 # release wheel was built with (its .comment: clang 20.1.8-3.el9, GCC 14.2.1-12): the last manylinux_2_34 image
-# before the tag (2026.04.08-5, AlmaLinux 9.7) and dnf on the AlmaLinux 9.7 vault.
+# before the tag (2026.04.08-5, AlmaLinux 9.7) and dnf on the AlmaLinux 9.7 vault. That image ships autoconf 2.73,
+# which compiles OpenMPI as C23 where its part_persist.h does not build, so OpenMPI is configured without C23.
 #
 #   scripts/ttnn_bh_eth/build_wheel.sh WORKDIR [PYTHON_TAG]     # PYTHON_TAG defaults to cp310
 #
@@ -39,8 +40,10 @@ else
 fi
 
 sed "s#^FROM quay.io/pypa/manylinux_2_34_x86_64\$#FROM $BASE#" dockerfile/Dockerfile.manylinux |
-    awk -v pin="$VAULT_REPOS" '/^RUN dnf remove -y epel-release/ { print pin } { print }' > "$WORK/Dockerfile.manylinux"
+    awk -v pin="$VAULT_REPOS" '/^RUN dnf remove -y epel-release/ { print pin } { print }' |
+    sed "s#^    ./configure \\\\\$#    ./configure ac_cv_prog_cc_c23=no \\\\#" > "$WORK/Dockerfile.manylinux"
 grep -q "^FROM $BASE\$" "$WORK/Dockerfile.manylinux" && grep -q "vault.almalinux.org/9.7" "$WORK/Dockerfile.manylinux"
+grep -q "configure ac_cv_prog_cc_c23=no" "$WORK/Dockerfile.manylinux"
 docker build -f "$WORK/Dockerfile.manylinux" -t "$IMAGE" .
 TOOLS=$(docker run --rm "$IMAGE" bash -c 'clang --version | head -1; gcc --version | head -1')
 echo "$TOOLS"
