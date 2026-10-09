@@ -28,6 +28,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_BH_DRAM_READ_SPLIT`](#tt_bio_bh_dram_read_split) | on | Blackhole | identical |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
+| [`TT_BIO_DEVICE_TILIZE`](#tt_bio_device_tilize) | on | Protenix-v2, OpenDDE, PXDesign | identical |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
@@ -39,6 +40,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_GATED_GRAD_PACKED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_GATE_BW_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_GATE_GRANULARITY`](#tt_bio_gate_granularity) | 2 | | identical at every value |
+| [`TT_BIO_HOST_LANE`](#tt_bio_host_lane) | on | Protenix-v2 | identical |
 | [`TT_BIO_HOST_LEVERS`](#tt_bio_host_levers) | on | Boltz-2 | switches two other flags together |
 | [`TT_BIO_LEAD_SUM_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
 | [`TT_BIO_LEVERS`](#tt_bio_levers) | Protenix-v2's graded set | Protenix-v2 | moves, inside the seed-to-seed spread |
@@ -373,6 +375,20 @@ work is a larger fraction of it.
 Setting either to `0` restores the host path for that half. No other model reaches the Boltz-2
 confidence head.
 
+## `TT_BIO_DEVICE_TILIZE`
+
+Default: on. Protenix-v2, and OpenDDE and PXDesign through the modules they share with it.
+
+A tensor between 4 MiB and 1 GiB that goes to or comes from the chip once per fold (the template
+and MSA features, the trunk pair, the confidence head's logits) is converted between row-major and
+tile layout on the chip instead of on the host. ttnn's host conversion is single-threaded and
+holds Python's GIL, so the chip used to sit idle through it. The conversion is a permutation either
+way, so the output is identical byte for byte. The chip briefly holds a second copy of the tensor,
+which is why larger tensors keep the host path.
+
+Measured together with `TT_BIO_HOST_LANE`; see that section for the numbers.
+`TT_BIO_DEVICE_TILIZE=0` converts every tensor on the host.
+
 ## `TT_BIO_DEVICE_ZINIT`
 
 Default: on, Boltz-2 only.
@@ -527,6 +543,32 @@ architecture the published cell is measured on, so 2 is the setting that wins on
 without losing much on the other. Worth 0.014 s on a 512 aa Blackhole fold, under the fold's own A/A
 floor. It ships because it is free and bit-exact, not because the fold moves. Capped at 4: above
 that the kernel's multiply stage would need more DST slots than a 16-bit DST has to give it.
+
+## `TT_BIO_HOST_LANE`
+
+Default: on, Protenix-v2.
+
+Moves the host work the chip used to wait for onto one background thread, so the main thread keeps
+the chip fed: the trunk's host-only inputs (padding, template and MSA features, masks) are built
+while the chip runs the input embedder, the pair tensor the confidence head starts from is built
+during the diffusion, and each confidence sample's post-processing (expected PAE and PDE, pLDDT,
+pTM and ipTM) runs while the chip computes the next sample. The arithmetic and its order do not
+change, so the output is identical.
+
+**Speed, with `TT_BIO_DEVICE_TILIZE`:** a 730-token complex, warm folds, base and stack interleaved
+on one chip.
+
+| | normal | `--fast` |
+|---|---|---|
+| Wormhole, AICLK 1000 MHz | 274.5 s to 271.5 s (6 pairs) | 226.1 s to 220.0 s (4 pairs) |
+| Blackhole p150a, AICLK 1350 MHz | 135.2 s to 131.5 s (4 pairs) | 113.9 s to 110.5 s (4 pairs) |
+
+Outputs were compared fold by fold against the same tree with both flags off: eleven inputs at four
+seeds on Wormhole and twelve inputs on Blackhole. Every completed fold wrote the same structure. JapanFold serves one diffusion sample, which keeps the
+one-off savings (trunk inputs, confidence entry) and loses most of the per-sample overlap, so a
+served fold gains a little less than the table.
+
+`TT_BIO_HOST_LANE=0` runs every job inline, where it used to run.
 
 ## `TT_BIO_HOST_LEVERS`
 

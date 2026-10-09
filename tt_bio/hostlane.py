@@ -37,6 +37,14 @@ def submit(fn, *args, **kwargs):
     return _POOL.submit(fn, *args, **kwargs)
 
 
+def read(t):
+    """``ttnn.from_device(t)`` without the GIL. Both are ``Tensor::cpu``, but the ``ttnn.from_device``
+    binding keeps the GIL while it waits for the chip to reach the read, and a confidence sample's
+    read waits the sample's whole device time. Through it the lane ran none of its post-processing
+    until the last sample was read (measured: 4.4 s of lane work queued at the end of a c730 fold)."""
+    return t.cpu()
+
+
 def to_torch(host, then=None):
     """Untilize a tensor already read off the chip (`ttnn.from_device`) on the lane, followed by
     ``then`` if given. The device read stays with the caller, ordered on the command queue; this is
