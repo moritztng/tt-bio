@@ -895,6 +895,11 @@ PWA_FUSED_STATS = [0, 0]                # [fused, per-head loop]
 # Which path runs must not depend on the rows of a block, or a chunked MSA update stops being a
 # partition of the whole one (tests/test_msa_update_chunks.py).
 _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
+# At head_dim 32 there is no padding to drop: the fused path's layout carries the same bytes and
+# moves them with a tile transpose and an outer-axis tile permute, where `_heads_unpadded` pays two
+# general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
+# path when this is on.
+_PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", False)
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
@@ -13218,6 +13223,7 @@ class PairWeightedAveraging(Module):
         rows, T = int(mc.shape[0]), int(mc.shape[1])
         hd = self.head_dim
         if (_PWA_UNPADDED and (H * hd) % 32 == 0 and T % 32 == 0
+                and not (_PWA_FULL_HEADS_FUSED and hd == S)
                 and rows * T * H * hd * 2 <= PWA_DEPTH_BUDGET_BYTES):
             PWA_UNPADDED_STATS[0] += 1
             return self._heads_unpadded(mc, ws)
