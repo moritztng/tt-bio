@@ -19,9 +19,15 @@ moves; every test delta is read against it.
 PAIRED: test(s) - base(s), same seed; averaged per complex over seeds, then a percentile bootstrap over complexes
 (20,000 resamples) for the 95 % interval. Same-seed pose deviation test vs base is quoted in A beside the floor.
 
+Inputs outside the 11-set (size ladder, c730, PopVax: no deposited structure) get a NO-TRUTH table: the test's top
+pose against the base's at the same seed (CA RMSD, CA-lDDT with the base as reference, pLDDT delta) beside the same
+numbers for base seed pairs. So a speed run's own folds grade the lever at 256-1536 tokens; it does not enter the verdict.
+
 Verdict, from state/spd/CHARTER.md:
   normal  every fold finite and present; DockQ, CA-lDDT, TM, pLDDT, ipTM intervals reach 0 or lie on the better
-          side, LRMSD's likewise (lower is better); median same-seed pose deviation <= max(0.60 A kill bar,
+          side, LRMSD's likewise (lower is better); pLDDT and ipTM may sit below 0 by at most CONF_TOL
+          (orchestrator 2026-10-09: 44 near-deterministic pairs resolve a 1e-4 shift, which is no accuracy loss);
+          median same-seed pose deviation <= max(0.60 A kill bar,
           this arch's A/A seed floor median) (orchestrator 2026-10-08: on the 11-set a re-seed moves the top pose
           0.82 A, so the bar as written would fail a re-seed)
   fast    every fold finite; mean paired CA-lDDT and pLDDT drop each <= 0.03; no complex loses > 0.05 pLDDT
@@ -33,6 +39,7 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import gemmi
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
@@ -41,6 +48,7 @@ from score import ca, chains, kabsch, score  # noqa: E402
 
 SET = {l.split("\t")[0]: l.split("\t")[1:3] for l in (HERE.parent / "pfm_accuracy" / "set.tsv").read_text().splitlines()[1:]}
 KILL_BAR = 0.60
+CONF_TOL = 0.005  # normal: tolerated mean pLDDT / ipTM drop (fast bar is 0.03)
 SUCCESS = 0.23
 
 
@@ -82,11 +90,47 @@ def score_one(job):
     return cif, {k: float(v) for k, v in s.items()}
 
 
+def all_ca(cif):
+    """(chain, label_seq) -> CA position over every polymer chain; the no-truth inputs have more than two."""
+    st = gemmi.read_structure(str(cif))
+    st.setup_entities()
+    return {(ch.name, r.label_seq): np.array(r["CA"][0].pos.tolist()) for ch in st[0] for r in ch.get_polymer()
+            if r.label_seq is not None and r.find_atom("CA", "*")}
+
+
+def self_pair(x, y):
+    """Top pose x against top pose y: CA RMSD after a fit, and CA-lDDT of x with y as the reference."""
+    k = sorted(set(x) & set(y))
+    P, Q = np.array([x[i] for i in k]), np.array([y[i] for i in k])
+    return rmsd(P, Q), lddt_ca(P, Q)
+
+
 def boot(vals, n=20000, seed=0):
     v = np.asarray(vals, float)
     rng = np.random.default_rng(seed)
     m = v[rng.integers(0, len(v), (n, len(v)))].mean(1)
     return float(v.mean()), float(np.percentile(m, 2.5)), float(np.percentile(m, 97.5))
+
+
+def no_truth(free, failed, a):
+    """Inputs without a deposited structure (the size ladder, c730, PopVax): the test arm's top pose against the
+    base's at the same seed, beside what a re-seed of the base moves. Informational; the verdict is the 11-set's."""
+    top = {k: (all_ca(f["cifs"][0]), statistics.mean(c["plddt"] for c in f["conf"])) for k, f in free.items()}
+    out = [f"## No ground truth: {a.test} vs {a.base} top pose, same seed (A/A = {a.base} across seeds)\n",
+           "| arch | input | A/A pairs | A/A CA RMSD med (A) | A/A CA-lDDT med | paired | CA RMSD med / max (A) | "
+           "CA-lDDT med / min | pLDDT delta mean | failed |", "|---|---|---|---|---|---|---|---|---|---|"]
+    for arch, inp in sorted({(k[0], k[2]) for k in top}):
+        B = {k[3]: v for k, v in top.items() if k[0] == arch and k[2] == inp and k[1] == a.base}
+        T = {k[3]: v for k, v in top.items() if k[0] == arch and k[2] == inp and k[1] == a.test}
+        aa = [self_pair(B[s1][0], B[s2][0]) for s1, s2 in itertools.combinations(sorted(B), 2)]
+        pr = [self_pair(T[s][0], B[s][0]) for s in sorted(set(B) & set(T))]
+        dp = [T[s][1] - B[s][1] for s in sorted(set(B) & set(T))]
+        nf = sum(1 for k in failed if k[0] == arch and k[2] == inp)
+        f = lambda v, i, g: f"{g([x[i] for x in v]):.3f}" if v else "-"
+        out.append(f"| {arch} | {inp} | {len(aa)} | {f(aa, 0, statistics.median)} | {f(aa, 1, statistics.median)} | "
+                   f"{len(pr)} | {f(pr, 0, statistics.median)} / {f(pr, 0, max)} | {f(pr, 1, statistics.median)} / "
+                   f"{f(pr, 1, min)} | {f'{statistics.mean(dp):+.4f}' if dp else '-'} | {nf} |")
+    return "\n".join(out) + "\n"
 
 
 def main():
@@ -106,17 +150,18 @@ def main():
         for f in [d] if d.is_file() else d.rglob("bench.jsonl"):
             for line in f.read_text().splitlines():
                 r = json.loads(line)
-                if r.get("ev") == "rep" and r["input"] in SET and r["arm"] in (a.base, a.test):
-                    reps.append(r)
-    folds, failed = {}, []
+                if r.get("ev") == "rep" and r["arm"] in (a.base, a.test):
+                    reps.append(dict(r, _dir=f.parent))
+    folds, free, failed, free_failed = {}, {}, [], []
     for r in reps:
         key = (r["arch"], r["arm"], r["input"], r["seed"])
         if r["err"] or not r["finite"] or not r.get("samples_conf"):
-            failed.append(key); continue
+            (failed if r["input"] in SET else free_failed).append(key); continue
         sd = Path(r["struct_dir"])
+        sd = sd if sd.exists() else r["_dir"] / sd.name  # a run copied off its box
         cifs = [sd / (f"{r['input']}.cif" if k == 0 else f"{r['input']}_model_{k}.cif")
                 for k in range(len(r["samples_conf"]))]
-        folds[key] = dict(cifs=cifs, conf=r["samples_conf"])
+        (folds if r["input"] in SET else free)[key] = dict(cifs=cifs, conf=r["samples_conf"])
 
     # Score every sample once; cache next to the data so a re-grade costs nothing.
     cache_f = a.data / "grade_cache.json"
@@ -212,7 +257,7 @@ def main():
             why.append(f"{sum(k[0] == arch for k in failed)} failed/non-finite folds" if any(k[0] == arch for k in failed) else "")
         elif a.mode == "normal":
             for m, (mu, lo, hi) in res.items():
-                bad = lo > 0 if m in LOWER_BETTER else hi < 0
+                bad = lo > 0 if m in LOWER_BETTER else hi < (-CONF_TOL if m in ("plddt", "iptm") else 0)
                 if bad:
                     why.append(f"{m} worse, CI [{lo:+.4f}, {hi:+.4f}] excludes 0")
             bar = max(KILL_BAR, statistics.median(pose_floor)) if pose_floor else KILL_BAR
@@ -234,6 +279,8 @@ def main():
         why = [w for w in why if w]
         verdicts[arch] = v
         P(f"### VERDICT {arch}: {v}" + (": " + "; ".join(why) if why else "") + "\n")
+    if free or free_failed:
+        out.append(no_truth(free, free_failed, a))
     out.append("SUMMARY: " + ", ".join(f"{arch} {v}" for arch, v in verdicts.items()))
     text = "\n".join(out)
     print(text)

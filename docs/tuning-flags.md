@@ -80,7 +80,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIMUL_TAIL_F1`](#tt_bio_trimul_tail_f1) | on | | identical |
 | [`TT_BIO_TRIMUL_TAIL_F1_L1_OUT`](#tt_bio_trimul_tail_f1_l1_out) | on | | identical |
 | [`TT_BIO_UNFUSED_SILU`](#tt_bio_unfused_silu) | off | | moves, and costs Protenix-v2 accuracy |
-| [`TT_PROTENIX_CONF_DEVICE`](#tt_protenix_conf_device) | off | Protenix-v2, OpenDDE | coordinates identical, pLDDT moves |
+| [`TT_PROTENIX_CONF_DEVICE`](#tt_protenix_conf_device) | on (Protenix-v2), off (OpenDDE) | Protenix-v2, OpenDDE | coordinates identical, confidence within 1e-4 |
 
 A blank scope means the flag names no model: it applies wherever a model reaches the code it
 changes, and its section says which ones do. The OpenMP thread settings tt-bio fills in for per-card
@@ -1694,11 +1694,11 @@ neither reads this flag.
 
 ## `TT_PROTENIX_CONF_DEVICE`
 
-Default: off, Protenix-v2 and OpenDDE.
+Default: on for Protenix-v2, off for OpenDDE. `TT_PROTENIX_CONF_DEVICE=0` turns it off, `1` turns it on for OpenDDE.
 
 The sample-invariant pair base is built once on device and only the pae/pde/pLDDT logits come back, so per sample the host uploads coordinates rather than a pair tensor. On a many-sample run that is most of the confidence head's host time.
 
-**Off by default because pLDDT is the precision-sensitive output here.** The host path already sits at PCC ~0.93 against the reference and the device einsum runs bf16, so this is a lever that spends accuracy on the one number least able to give it. The coordinates do not change either way, so turn it on when confidence time matters and the confidence scores do not.
+It matches the host path: on a 730-token Protenix-v2 fold on Wormhole every sample's pLDDT agrees to 1e-4 and pTM and ipTM to 2e-4, and a warm fold is 16 s shorter (368 against 384 s at 1000 MHz). On the 11-complex benchmark set at four seeds each, per-complex pLDDT moves by at most 0.003 and docking success is unchanged (33 of 44 both ways). Coordinates do not change either way. OpenDDE shares the code but has not been graded with it, so it stays opt-in there.
 
 It feature-detects the ops it needs and stays off on a ttnn that lacks one, so setting it on an older runtime is a no-op rather than a crash.
 

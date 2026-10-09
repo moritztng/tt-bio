@@ -1,4 +1,4 @@
-"""SPD speed harness: warm Protenix-v2 fold time on ONE chip, the serving path, AICLK sampled during the fold.
+"""SPD speed harness: warm fold time on ONE chip, the serving path, AICLK sampled during the fold.
 
 One process = one arm (a flag set) on one chip, over a list of inputs. Arms run in separate processes so no
 arm can be handed another arm's compiled program or module-level state. Per input: one cold rep (first of
@@ -7,10 +7,18 @@ shape, compile) then N warm reps, each on its own seed. Every rep appends one JS
     python perf/spd/bench.py --out RUN/exact --chip 3 --arm exact --inputs c730,l512 --warm 3
     python perf/spd/bench.py --out RUN/lpx   --chip 3 --arm lpx:TT_BIO_LPX=1 --inputs c730
     python perf/spd/bench.py --out RUN/fast  --chip 3 --arm fast:fast --inputs c730
+    python perf/spd/bench.py --out RUN/of3   --chip 3 --model openfold3 --inputs c730
+    python perf/spd/bench.py --out RUN/bc2   --chip 3 --model bindcraft2 --warm 2
+
+--model: protenix-v2 (default), opendde, openfold3 or boltz2 fold through `Worker.load_model` and
+`predict_one`, the code a JapanFold worker runs, and time the model's own fold call (`fold`; Boltz-2's
+`predict_step`). Protenix-v2 alone is built by hand, as before, because it is the one model that reads
+the `L=` lever set. bindcraft2 is a design loop, not a fold: see "BindCraft 2" below.
 
 ARM grammar: NAME[:K=V[,K=V...]][:L=<set>[+lever|-lever...]][:fast]. K=V are environment variables set
 before tt_bio is imported; `fast` passes --fast; `L=` builds Protenix under that precision-lever set
 (tenstorrent.LEVERS, e.g. `L=fast-lofi`, `L=normal+opm_b8`), otherwise the mode's own set. Nothing here edits the model: an arm is only switches the engine already has.
+`L=` is refused for every other model: none of them reads tenstorrent.LEVERS, so the arm would be a no-op.
 
 Inputs live in --data (default ~/spd-data, built by perf/spd/make_inputs.py): <data>/inputs/<name>.yaml with
 the MSA cache at <data>/msa, read cache-only, so every box folds the same alignment without a search.
@@ -21,6 +29,19 @@ wall_s (predict_one end to end), per-sample confidences by rank (samples_conf) w
 struct_dir (<input>.cif is rank 0, <input>_model_<k>.cif rank k; grade.py scores these), aiclk median/min/max/n per opened node sampled every 0.5 s DURING the rep,
 loadavg, finite (coords and confidences), plddt/ptm/iptm, coords digest. Coordinates of every sample are kept
 as coords_<input>_s<seed>.pt so summarize.py can quote an arm's structural deviation in Angstrom.
+Records of a non-Protenix model also carry `model`; a Protenix-v2 record is unchanged.
+
+BindCraft 2 (--model bindcraft2): one rep = one design trajectory, the unit a JapanFold campaign is
+billed and capped in. It runs BindCraft 2's own campaign on its shipped PD-L1 example (examples/pdl1.json,
+settings unedited) the way japanfold.bc2run does: `campaign_predictor` on this chip, validation on BindCraft
+2's host JAX, one trajectory per card, `max_trajectories` = 1 + --warm. The campaign seed is --seed.
+Trajectory 1 compiles (`cold`), the rest are `warm`. Per trajectory: design_s is BindCraft 2's
+`run_trajectory` call (the gradient design on the card, every stage), validate_s is MPNN redesign + validation
+of its sequences (host JAX, so device levers barely move it), traj_s both together; the speed number is
+design_s. Design metrics are the trajectory's row in the project's trajectory CSV plus the accepted count.
+A trajectory BindCraft 2 stops early (`terminated` names the stage) is shorter by design: compare completed
+trajectories with completed ones.
+--inputs names the binder length (default 80, `--inputs 80`); --data is unused.
 """
 import argparse, gc, glob, hashlib, json, os, socket, subprocess, sys, threading, time
 from pathlib import Path
@@ -28,6 +49,8 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True, type=Path)
 ap.add_argument("--chip", required=True, type=int, help="UMD index handed to TT_VISIBLE_DEVICES")
+ap.add_argument("--model", default="protenix-v2",
+                choices=("protenix-v2", "opendde", "openfold3", "boltz2", "bindcraft2"))
 ap.add_argument("--arm", default="exact")
 ap.add_argument("--inputs", default="c730")
 ap.add_argument("--warm", type=int, default=3)
@@ -37,10 +60,15 @@ ap.add_argument("--share", type=int, default=None,
                 help="host thread share (runtime.host_thread_cap_env). Default: one share per TT chip on the host, "
                      "the way serving runs a worker per chip, so concurrent rows on one box do not contend. 0 = all")
 ap.add_argument("--samples", type=int, default=5)
-ap.add_argument("--recycles", type=int, default=10)
+ap.add_argument("--recycles", type=int, default=None,
+                help="Protenix-v2: 10. Other models: the engine's own default unless given")
+ap.add_argument("--bc2", type=Path, default=Path("~/bcx_shipped/bc2").expanduser(),
+                help="BindCraft 2 checkout (examples/pdl1.json); bindcraft itself must be importable")
 ap.add_argument("--no-coords", action="store_true")
-ap.add_argument("--dry", action="store_true", help="build the config and worker, log them, stop before device open")
+ap.add_argument("--dry", action="store_true", help="build the run config, log it, stop before weights and device")
 a = ap.parse_args()
+if a.recycles is None and a.model == "protenix-v2":
+    a.recycles = 10
 
 
 def parse_arm(spec):
@@ -57,6 +85,10 @@ def parse_arm(spec):
 
 
 ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
+PV2 = a.model == "protenix-v2"
+if LEVER_SPEC is not None and not PV2:
+    sys.exit(f"L= arms build Protenix-v2 only; {a.model} reads no tenstorrent.LEVERS, so `{a.arm}` would fold "
+             f"its default. Use K=V switches for {a.model}.")
 os.environ.update(ARM_ENV)
 a.out.mkdir(parents=True, exist_ok=True)
 LOG = open(a.out / "bench.jsonl", "a")
@@ -106,6 +138,115 @@ def _sampler():
 
 threading.Thread(target=_sampler, daemon=True).start()
 
+
+
+def clock(t0, t1, nodes):
+    win = [r for ts, r in samples if t0 <= ts <= t1]
+    out = {}
+    for n in nodes:
+        v = sorted(r[n] for r in win if n in r)
+        if v:
+            out[n] = dict(median=v[len(v) // 2], min=v[0], max=v[-1], n=len(v))
+    return out
+
+
+def worker_env():
+    """What a serving worker sets before it opens its chip: TT_VISIBLE_DEVICES, the lease, host threads."""
+    from tt_bio import worker as W
+    from tt_bio.host_controller import worker_payload
+    winfo = worker_payload(runtime.build_local_workers("tenstorrent", [object()], [a.chip])[0])
+    W._apply_tt_environment(winfo); W._bind_host_threads()
+    return winfo
+
+
+def opened_nodes():
+    def target(fd):
+        try:  # the runtime's threads open and close fds while we list them
+            return os.readlink(f"/proc/self/fd/{fd}")
+        except OSError:
+            return ""
+    return sorted({int(t.rsplit("/", 1)[1]) for t in map(target, os.listdir("/proc/self/fd"))
+                   if t.startswith("/dev/tenstorrent/")})
+
+
+if a.model == "bindcraft2":
+    import contextlib, csv, traceback
+    winfo = worker_env()
+    sys.path.insert(0, str(a.bc2))
+    import bindcraft.campaign as campaign  # noqa: E402
+    from bindcraft.campaign_output import TRAJECTORY_STAGE, accepted_table, stage_table  # noqa: E402
+    from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
+    from bindcraft.preflight import cleaned_campaign_settings  # noqa: E402
+    import tt_bio  # noqa: E402
+    from tt_bio import bindcraft2 as bc2  # noqa: E402
+    blen = int(a.inputs) if a.inputs.isdigit() else 80
+    project = a.out / f"campaign_s{a.seed}"
+    example = a.bc2 / "examples" / "pdl1.json"
+    settings = cleaned_campaign_settings(read_settings(str(example), parse_setting_overrides(
+        [f"campaign_seed={a.seed}", f"max_trajectories={1 + a.warm}", f"project_folder={project}",
+         f"binder_lengths=[{blen}]"])))
+    HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), model=a.model, arm=ARM,
+                arm_env=ARM_ENV, fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), share=a.share,
+                chip=a.chip, env=ENV, example=str(example), binder_length=blen, campaign_seed=a.seed)
+    log(ev="start", argv=sys.argv, worker=winfo, TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
+        settings={k: v for k, v in settings.items() if k != "targets"}, **HEAD)
+    if a.dry:
+        os._exit(0)
+    traj, opened = [], []  # traj: one dict per trajectory (n, t0, design_s, validate_s, err)
+    real_design, real_validate = campaign.run_trajectory, campaign.redesign_and_validate_binders
+
+    def emit(i, t_end):
+        tr = traj[i]
+        rows = []
+        with contextlib.suppress(OSError):
+            rows = list(csv.DictReader(open(stage_table(str(project), TRAJECTORY_STAGE))))
+        row = next((r for r in rows if r.get("trajectory") == str(tr["n"])), {})
+        acc = 0
+        with contextlib.suppress(OSError):
+            acc = sum(1 for _ in csv.DictReader(open(accepted_table(str(project)))))
+        nodes = opened_nodes() or opened
+        log(ev="rep", input=f"pdl1_b{blen}", seed=a.seed, trajectory=tr["n"], kind="cold" if i == 0 else "warm",
+            design_s=tr.get("design_s"), validate_s=tr.get("validate_s"), traj_s=t_end - tr["t0"],
+            fold_s=tr.get("design_s"), aiclk=clock(tr["t0"], tr["t0"] + (tr.get("design_s") or 0), nodes),
+            aiclk_traj=clock(tr["t0"], t_end, nodes), nodes=nodes, terminated=row.get("terminated") or None,
+            finite=bool(row) and tr.get("err") is None, accepted_total=acc, csv_row=row,
+            err=tr.get("err"), **HEAD)
+
+    def design(*args, **kw):
+        if traj:
+            emit(len(traj) - 1, time.monotonic())
+        traj.append(dict(n=len(traj) + 1, t0=time.monotonic()))
+        t0 = time.monotonic()
+        try:
+            return real_design(*args, **kw)
+        finally:
+            traj[-1]["design_s"] = time.monotonic() - t0
+            opened[:] = opened_nodes() or opened
+
+    def validate(*args, **kw):
+        t0 = time.monotonic()
+        try:
+            return real_validate(*args, **kw)
+        finally:
+            traj[-1]["validate_s"] = time.monotonic() - t0
+
+    campaign.run_trajectory, campaign.redesign_and_validate_binders = design, validate
+    weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
+                                            ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
+    try:
+        # the card's trunk pool reads the same AF2 params the campaign does, not tt-bio's weights cache
+        with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
+            bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
+    except Exception:
+        if traj:
+            traj[-1]["err"] = traceback.format_exc()[-3000:]
+        else:
+            log(ev="crash", err=traceback.format_exc()[-3000:], **HEAD)
+    if traj:
+        emit(len(traj) - 1, time.monotonic())
+    log(ev="end")
+    os._exit(0)
+
 INPUTS = []
 for name in a.inputs.split(","):
     y = a.data / "inputs" / f"{name}.yaml"
@@ -129,8 +270,9 @@ def _grab(*args, **kw):
 
 
 M._dispatch_run = _grab; M._dispatch_to_controller = _grab
-argv = ["predict", str(INPUTS[0][1]), "--model", "protenix-v2", "--diffusion_samples", str(a.samples),
-        "--recycling_steps", str(a.recycles), "--accelerator", "tenstorrent", "--output_format", "cif",
+argv = ["predict", str(INPUTS[0][1]), "--model", a.model, "--diffusion_samples", str(a.samples),
+        *(["--recycling_steps", str(a.recycles)] if a.recycles is not None else []),
+        "--accelerator", "tenstorrent", "--output_format", "cif",
         "--msa_dir", str(a.data / "msa"), "--msa_cache_only", "--out_dir", str(a.out / "cli")]
 if FAST:
     argv.append("--fast")
@@ -139,12 +281,12 @@ try:
 except _Stop:
     pass
 cfg0 = dict(captured["payload"]["config"])
+if a.dry:  # the run config the CLI built, before any weights or device
+    log(ev="dry", model=a.model, cli=argv, cfg={k: v for k, v in cfg0.items() if "key" not in k and "pass" not in k})
+    os._exit(0)
 
 from tt_bio import worker as W  # noqa: E402
-from tt_bio.host_controller import worker_payload  # noqa: E402
-slot = runtime.build_local_workers("tenstorrent", [object()], [a.chip])[0]
-winfo = worker_payload(slot)
-W._apply_tt_environment(winfo); W._bind_host_threads()
+winfo = worker_env()
 W._ensure_local_artifacts(cfg0)
 import torch  # noqa: E402
 import ttnn  # noqa: E402
@@ -154,25 +296,16 @@ import tt_bio.protenix as P  # noqa: E402
 
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), arm=ARM, arm_env=ARM_ENV,
             fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), share=a.share, chip=a.chip, env=ENV, samples=a.samples, recycles=a.recycles)
+if not PV2:  # a Protenix-v2 record stays byte for byte what it was
+    HEAD["model"] = a.model
 log(ev="start", argv=sys.argv, cli=argv, worker=winfo, TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
     torch_threads=torch.get_num_threads(), affinity=len(os.sched_getaffinity(0)), **HEAD)
 
-if a.dry:
-    log(ev="dry", cfg={k: v for k, v in cfg0.items() if "key" not in k and "pass" not in k})
-    os._exit(0)
 state = W._WorkerState("tenstorrent")
 t = time.monotonic(); dev = T.get_device(); t_open = time.monotonic() - t
 
 
-def _fd_target(fd):
-    try:  # the runtime's threads open and close fds while we list them
-        return os.readlink(f"/proc/self/fd/{fd}")
-    except OSError:
-        return ""
-
-
-OPENED = sorted({int(t.rsplit("/", 1)[1]) for t in map(_fd_target, os.listdir("/proc/self/fd"))
-                 if t.startswith("/dev/tenstorrent/")})
+OPENED = opened_nodes()
 try:
     ARCH = str(dev.arch()).split(".")[-1].lower()
 except Exception as e:
@@ -186,7 +319,6 @@ for n in OPENED:
             pass
 log(ev="device_open", s=t_open, nodes=OPENED, arch=ARCH, card=CARD)
 
-T.set_fast_mode(FAST)  # the worker does this in load_model; without it a fast arm folds exact
 t = time.monotonic()
 
 
@@ -201,45 +333,61 @@ def lever_set(spec):
 
 
 LEVER_SET = None if LEVER_SPEC is None else lever_set(LEVER_SPEC)
-# What `Worker.load_model` does before it builds. Without it `load_from_checkpoint` reads fast mode
-# as off, takes NORMAL_LEVERS, and a `:fast` arm folds exact (same digest as `exact` at seed 101).
-T.set_fast_mode(FAST)
-# levers only when asked, so the same harness still runs a tree that predates them (main before SPD)
-state.model = P.Protenix.load_from_checkpoint(
-    cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))
-state.bind_run("spd", dict(cfg0, fast=FAST))
-state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
+if PV2:
+    # What `Worker.load_model` does before it builds. Without it `load_from_checkpoint` reads fast mode
+    # as off, takes NORMAL_LEVERS, and a `:fast` arm folds exact (same digest as `exact` at seed 101).
+    T.set_fast_mode(FAST)
+    # levers only when asked, so the same harness still runs a tree that predates them (main before SPD)
+    state.model = P.Protenix.load_from_checkpoint(
+        cfg0["protenix_ckpt"], **({} if LEVER_SET is None else dict(levers=LEVER_SET)))
+    state.bind_run("spd", dict(cfg0, fast=FAST))
+    state.model_id = cfg0["model"]; state.config_hash = W.run_config_hash(cfg0)
+else:  # JapanFold's own load: fast mode, checkpoint and config exactly as a worker builds them
+    state.load_model(dict(cfg0, fast=FAST))
+    state.bind_run("spd", dict(cfg0, fast=FAST))
 m = state.model
-log(ev="build", s=time.monotonic() - t, fast=T._FAST_MODE, levers=sorted(getattr(m, "_levers", ())))
+# a Protenix-family model built by the worker keeps its own fast flag and resets the global one
+BUILT_FAST = T._FAST_MODE if PV2 else getattr(m, "_fast", T._FAST_MODE)
+log(ev="build", s=time.monotonic() - t, fast=BUILT_FAST, levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
-orig = m.fold
+FOLD_CALL = "predict_step" if a.model == "boltz2" else "fold"
+orig = getattr(m, FOLD_CALL)
+CONF = {"plddt": "plddt", "ptm": "ptm", "iptm": "iptm"}
+
+
+def unpack(r):
+    """(coords, per-sample confidences) from whatever the model's fold call returns: Protenix-v2 and
+    OpenDDE a (coords, conf) tuple, OpenFold3 a FoldResult, Boltz-2 its prediction dict."""
+    if isinstance(r, dict):  # Boltz-2: per-sample tensors; complex_plddt is the scalar pLDDT
+        if r.get("exception") or r.get("coords") is None:
+            return None, None
+        n = r["coords"].shape[0]
+        keys = {"plddt": "complex_plddt", "ptm": "ptm", "iptm": "iptm"}
+        return r["coords"], [{k: float(r[v][i]) for k, v in keys.items() if v in r} for i in range(n)]
+    if hasattr(r, "samples"):  # OpenFold3
+        return torch.stack(list(r.samples)), [{k: float(c[k]) for k in CONF if k in c} for c in r.confidence]
+    coords, conf = r if isinstance(r, tuple) else (r, None)
+    if conf is not None:
+        conf = [{k: float(v) for k, v in c.items() if k in CONF} for c in (conf if isinstance(conf, list) else [conf])]
+    return coords, conf
 
 
 def fold(*args, **kw):
     t0 = time.monotonic(); r = orig(*args, **kw); LAST["fold_s"] = time.monotonic() - t0
-    coords, conf = r if isinstance(r, tuple) else (r, None)
-    LAST["coords"] = coords.detach().float().cpu().clone()
+    coords, conf = unpack(r)
+    if coords is not None:
+        LAST["coords"] = coords.detach().float().cpu().clone()
     if conf is not None:
-        LAST["conf"] = [{k: float(v) for k, v in c.items() if k in ("plddt", "ptm", "iptm")}
-                        for c in (conf if isinstance(conf, list) else [conf])]
+        LAST["conf"] = conf
     feats = args[0] if args else kw.get("feats")
-    LAST["feats"] = {k: v.detach().cpu().clone() for k, v in feats.items()
-                     if k in ("asym_id", "atom_to_token_idx", "atom_to_token", "atom_mask", "ref_mask",
-                              "token_index", "residue_index", "is_protein") and hasattr(v, "detach")}
+    if isinstance(feats, dict):
+        LAST["feats"] = {k: v.detach().cpu().clone() for k, v in feats.items()
+                         if k in ("asym_id", "atom_to_token_idx", "atom_to_token", "atom_mask", "ref_mask",
+                                  "token_index", "residue_index", "is_protein") and hasattr(v, "detach")}
     return r
 
 
-m.fold = fold
-
-
-def clock(t0, t1):
-    win = [r for ts, r in samples if t0 <= ts <= t1]
-    out = {}
-    for n in OPENED:
-        v = sorted(r[n] for r in win if n in r)
-        if v:
-            out[n] = dict(median=v[len(v) // 2], min=v[0], max=v[-1], n=len(v))
-    return out
+setattr(m, FOLD_CALL, fold)
 
 
 for name, y in INPUTS:
@@ -251,8 +399,10 @@ for name, y in INPUTS:
         la0 = os.getloadavg(); t0 = time.monotonic()
         try:
             metrics, _best, _feats = state.predict_one(y, rcfg); err = None
-        except Exception:  # a crashing rep is a result, not the end of the run
-            import traceback; err = traceback.format_exc()[-3000:]; metrics = {}
+        except Exception as e:  # a crashing rep is a result, not the end of the run
+            import traceback  # python frames + the message head; a ttnn message ends in a long C++ backtrace
+            err = "".join(traceback.format_tb(e.__traceback__)[-12:]) + f"{type(e).__name__}: {str(e)[:600]}"
+            metrics = {}
         t1 = time.monotonic()
         c = LAST.get("coords")
         finite = bool(c is not None and torch.isfinite(c).all().item()
@@ -263,7 +413,7 @@ for name, y in INPUTS:
                        a.out / f"coords_{name}_s{sd}.pt")
         tokens = metrics.get("n_tokens") or metrics.get("n_residues")
         log(ev="rep", input=name, tokens=tokens, seed=sd, kind=kind, fold_s=LAST.get("fold_s"), wall_s=t1 - t0,
-            aiclk=clock(t0, t1), arch=ARCH, nodes=OPENED, finite=finite, digest=digest, err=err,
+            aiclk=clock(t0, t1, OPENED), arch=ARCH, nodes=OPENED, finite=finite, digest=digest, err=err,
             loadavg=[round(la0[0], 2), round(os.getloadavg()[0], 2)], conf=LAST.get("conf"),
             metrics={k: metrics.get(k) for k in ("plddt", "ptm", "iptm", "msa_depth", "n_tokens", "confidence_score")
                      if k in metrics},

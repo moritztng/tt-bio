@@ -478,8 +478,9 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
     is 3.2 GiB for OpenDDE's refiner at 1088 residues (2113 structural tokens x 384 channels), and
     the refiner was refused on a 12 GiB Wormhole part with it live. At 1536 residues the pad
     itself is refused (6.95 GB beside its input), so the pad and the slice back fall to the host
-    through `replace_after_refusal`. `s` is left alone: the
-    confidence head passes a cached single representation it reuses per sample.
+    through `replace_after_refusal`. `s` is not copied: the
+    pairformer adds into it in place, so a caller that reuses its `s` (the confidence head, once
+    per sample) passes a copy.
     """
     import ttnn
     import torch.nn.functional as F

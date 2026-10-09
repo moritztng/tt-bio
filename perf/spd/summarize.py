@@ -22,22 +22,34 @@ ap.add_argument("records", nargs="+", type=Path)
 ap.add_argument("--base")
 ap.add_argument("--row", default="?")
 ap.add_argument("--mode", default="normal", choices=["normal", "fast"])
+ap.add_argument("--data", type=Path, default=Path.home() / "spd-data", help="for MANIFEST.tsv token counts")
 a = ap.parse_args()
+# Boltz-2's metrics carry no token count; the input's manifest line does.
+MANIFEST = {}
+if (a.data / "MANIFEST.tsv").exists():
+    for line in (a.data / "MANIFEST.tsv").read_text().splitlines():
+        name, *kv = line.split("\t")
+        MANIFEST[name] = dict(x.split("=", 1) for x in kv if "=" in x).get("tokens")
 
 reps = []
 for f in a.records:
-    built_fast = None
+    built_fast, model = None, "protenix-v2"
     for line in f.read_text().splitlines():
         r = json.loads(line)
+        if r.get("ev") == "start":
+            model = r.get("model") or model
         if r.get("ev") == "build":
-            built_fast = r.get("fast")
+            # A Protenix-family model built through the worker captures fast mode and resets the global,
+            # so the build record reads False on a real fast build (bench.py records the model's own flag
+            # from 2026-10-09 on). Only Protenix-v2 builds by hand and can fold exact under `:fast`.
+            built_fast = r.get("fast") or model not in ("protenix-v2",)
         if r.get("ev") == "rep":
-            r["_dir"], r["_built_fast"] = f.parent, built_fast
+            r["_dir"], r["_built_fast"], r["_model"] = f.parent, built_fast, model
             reps.append(r)
 
 groups = defaultdict(list)
 for r in reps:
-    groups[(r["arch"], r["host"], r["chip"], r["arm"], r["input"])].append(r)
+    groups[(r["_model"], r["arch"], r["host"], r["chip"], r["arm"], r["input"])].append(r)
 
 
 def clk(rs):
@@ -69,7 +81,7 @@ def rmsd_vs(r, base):
 
 out = []
 for key in sorted(groups):
-    arch, host, chip, arm, inp = key
+    model, arch, host, chip, arm, inp = key
     rs = groups[key]
     warm = [r for r in rs if r["kind"] == "warm" and r["finite"] and not r["err"] and r["fold_s"]]
     bad = [r for r in rs if not r["finite"] or r["err"]]
@@ -91,7 +103,7 @@ for key in sorted(groups):
         flag.append("VOID")
     x, dev = "", ""
     if a.base and arm != a.base:
-        b = groups.get((arch, host, chip, a.base, inp))
+        b = groups.get((model, arch, host, chip, a.base, inp))
         bw = [r for r in b or [] if r["kind"] == "warm" and r["finite"] and not r["err"] and r["fold_s"]]
         if bw:
             x = f"{statistics.mean(r['fold_s'] for r in bw) / mean:.3f}x vs {a.base}"
@@ -102,7 +114,8 @@ for key in sorted(groups):
                 dev = f"max dev {max(ds):.3f} A over {len(ds)} seeds ({dg} bit-identical)"
     sha = (warm[0]["sha"] or "?")[:9] + ("+dirty" if warm[0]["dirty"] else "")
     out.append(" | ".join([
-        "", a.row, "protenix-v2", arch, f"{host}/c{chip}", a.mode, inp, f"{warm[0].get('tokens')}", arm, sha,
+        "", a.row, warm[0]["_model"], arch, f"{host}/c{chip}", a.mode, inp, f"{warm[0].get('tokens') or MANIFEST.get(inp)}",
+        arm, sha,
         f"{mean:.2f} s (n={len(t)}, spread {spread:.2f}{', cold ' + format(cold[0], '.1f') if cold else ''})",
         f"{med}/{lo} MHz{' ' + ','.join(sorted(set(flag))) if flag else ''}", x or "-", dev or "-",
         f"{len(bad)} failed" if bad else "finite", str(warm[0]["_dir"]), ""]).strip())

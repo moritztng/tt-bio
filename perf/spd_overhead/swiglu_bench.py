@@ -1,11 +1,13 @@
 """Transition (swiglu) silu placement: accuracy against a float64 reference and ms per module call.
 
-    TT_VISIBLE_DEVICES=N python perf/spd_overhead/swiglu_bench.py --out OUT.json
+    TT_VISIBLE_DEVICES=N python perf/spd_overhead/swiglu_bench.py --out OUT.json [--silu-approx]
 
-Arms are `tenstorrent.TRANSITION_SILU` values plus the shipped-off `unfused` form. Each arm runs the
-real `Transition` module on the whole pair tensor, row chunking included, so the time is what a fold
-pays per call. Error is quoted against float64 math on the same bf16 inputs and weights, beside the
-fused arm's own error: an arm is no worse when its error is not above fused's.
+Arms: `fused` (silu in fc1's epilogue, shipped) and `unfused` (standalone silu on bf16 fc1, held off
+on accuracy). `--silu-approx` runs the whole process on the metal_overlay patch that lets the fused
+silu honour math_approx_mode; run once with and once without and compare `fused`. Each arm runs the
+real `Transition` module on the whole pair tensor, row chunking included, with Protenix's compute
+config, so the time is what a fold pays per call. Error is quoted against float64 math on the same
+bf16 inputs and weights.
 """
 import argparse, json, os, statistics as st, sys, time
 from pathlib import Path
@@ -18,10 +20,13 @@ WARM, REPS = 2, 5
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--arms", default="fused,f32act,f32silu,unfused")
+    ap.add_argument("--arms", default="fused,unfused")
+    ap.add_argument("--silu-approx", action="store_true")
     ap.add_argument("--shapes", default="736x256x1024,736x128x512")
     a = ap.parse_args()
 
+    if a.silu_approx:
+        os.environ["TT_BIO_SILU_APPROX"] = "1"
     import torch, ttnn
     import tt_bio.tenstorrent as T
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -31,10 +36,11 @@ def main():
     arch = "wormhole" if T.is_wormhole() else "blackhole"
     ckc = (ttnn.types.BlackholeComputeKernelConfig if arch == "blackhole"
            else ttnn.WormholeComputeKernelConfig)(
-        math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+        math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=True,
         fp32_dest_acc_en=True, packer_l1_acc=True)
     res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": arch,
-           "grid": list(T.COMPUTE_GRID_MAIN), "loadavg": open("/proc/loadavg").read().split()[:3],
+           "grid": list(T.COMPUTE_GRID_MAIN),
+           "silu_approx": a.silu_approx, "runtime_root": os.environ.get("TT_METAL_RUNTIME_ROOT"), "loadavg": open("/proc/loadavg").read().split()[:3],
            "rows": []}
 
     def sync():
@@ -56,7 +62,6 @@ def main():
         z = ttnn.from_torch(zt.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
         for arm in a.arms.split(","):
             T._UNFUSED_SILU = arm == "unfused"
-            T.TRANSITION_SILU = "fused" if arm == "unfused" else arm
             row = {"shape": shp, "arm": arm}
             try:
                 o = tr(z)
@@ -66,6 +71,15 @@ def main():
                 row["rel_rms"] = float(d.norm() / ref.norm())
                 row["max_abs"] = float(d.abs().max())
                 row["mean_abs"] = float(d.abs().mean())
+                i = int(d.abs().argmax())
+                row["argmax"] = [int(v) for v in torch.unravel_index(torch.tensor(i), d.shape)]
+                row["at"] = [float(out.flatten()[i]), float(ref.flatten()[i])]
+                # The same call again, warm: a cold-only error is a different bug from a steady one.
+                o = tr(z)
+                d2 = ttnn.to_torch(o).to(torch.float64) - ref
+                ttnn.deallocate(o)
+                row["max_abs_warm"] = float(d2.abs().max())
+                row["n_over_0.1"] = [int((d.abs() > 0.1).sum()), int((d2.abs() > 0.1).sum())]
                 for _ in range(WARM):
                     ttnn.deallocate(tr(z))
                 sync()
@@ -83,7 +97,7 @@ def main():
             print(json.dumps(row), flush=True)
             res["rows"].append(row)
         ttnn.deallocate(z)
-    T._UNFUSED_SILU, T.TRANSITION_SILU = False, "fused"
+    T._UNFUSED_SILU = False
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res, indent=1))
 

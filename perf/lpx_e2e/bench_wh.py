@@ -153,7 +153,7 @@ def build(arm):
     for k in ARM_ENV:
         os.environ.pop(k, None)
     os.environ.update(s.get("env", {}))
-    T._TRUNK_MATH_FIDELITY = s.get("fid", "hifi4")
+    T._TRUNK_MATH_FIDELITY = s.get("fid", "")
     lpx = bool(s.get("lpx", False))
     T.LPX = lpx                     # read live by every LPX site, at build and at call time
     T._TRIATT_B8 = lpx

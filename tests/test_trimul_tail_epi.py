@@ -61,9 +61,14 @@ def test_epi_matches_production_and_float64(n, monkeypatch):
     assert y is z_d and TTL.RESID_STATS[0] == taken + 1
     y2 = ttnn.to_torch(y).float()
     want = z + outs[1]
-    # one bf16 rounding of the sum, plus the product's own rounding that EPI 2 skips
-    tol = 2.0 ** -7 * (z.abs() + outs[1].abs()) + 1e-6
+    # Not one rounding of the sum: on WH the fused add lands up to ~2.5 bf16 ULP of |z| + |p| from
+    # z + EPI 1 (0.035 at |z + p| = 3.4, n=64), and 6 % farther from float64 than production's
+    # order + a host add (rel RMS 2.39e-3 vs 2.25e-3). Bound both with margin.
+    tol = 2.0 ** -6 * (z.abs() + outs[1].abs()) + 1e-6
     assert ((y2 - want).abs() <= tol).all(), (y2 - want).abs().max().item()
+    full = z.to(d) + ref
+    host = (z + outs[0]).to(torch.bfloat16).to(d)
+    assert _rel_rms(y2.to(d), full) <= 1.10 * _rel_rms(host, full), (_rel_rms(y2.to(d), full), _rel_rms(host, full))
     assert _rel_rms((y2 - z).to(d), ref) <= 1.05 * e0 + 2e-3
 
     # without a residual EPI 2 runs as 1

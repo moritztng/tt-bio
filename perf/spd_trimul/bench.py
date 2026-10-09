@@ -35,6 +35,9 @@ ap.add_argument("--chip", type=int, default=None)
 ap.add_argument("--weights", default=None, help="torch .pt with one trimul's state dict (real weights)")
 ap.add_argument("--variants", default="start,end")
 ap.add_argument("--opsplit", action="store_true", help="also log a synced per-op wall split per arm")
+ap.add_argument("--devprof", action="store_true",
+                help="with --opsplit: read the device profiler after every op and log its kernel, FW and per-RISC "
+                     "durations (needs a Tracy build and TT_METAL_DEVICE_PROFILER=1, e.g. .107 ~/lpx/census/env.sh)")
 ap.add_argument("--resid", action="store_true",
                 help="call the way the Pairformer does, add_to_input=True: z += update in place, so every arm\n"
                      "times the residual add too (the epi2 lever folds it into the tail)")
@@ -108,8 +111,16 @@ LEVERS = {
     "epi2": [(TTL.set_epi, 2)],
     "glean": [(RB.set_gate_lean, 1)],
     "gleanx": [(RB.set_gate_lean, 2)],
+    "noglean": [(RB.set_gate_lean, 0)],
     "sb13": [(T.set_trimul_subblock, (1, 3))],
     "sb31": [(T.set_trimul_subblock, (3, 1))],
+    # the tail's GEMM block (M, K, N, sh, sw); production is (4, 8, 1, 4, 1)
+    "tb81": [(TTL.set_block, (8, 8, 1, 4, 1))],
+    "tb82": [(TTL.set_block, (8, 8, 2, 2, 2))],
+    "tb84": [(TTL.set_block, (8, 8, 4, 1, 4))],
+    "tb88": [(TTL.set_block, (8, 8, 8, 1, 4))],
+    "tb48": [(TTL.set_block, (4, 8, 8, 1, 4))],
+    "gin": [(T.set_trimul_gated_inproj, True)],
 }
 
 
@@ -137,8 +148,26 @@ def restore(prev):
 # ---------------- per-op split: every device-op entry point synced and wall-timed ----------------
 import contextlib
 OPS = []
+PROF = []                                              # --devprof: per OPS entry, its programs
 _WRAP = ["matmul", "layer_norm", "concat", "multiply_", "multiply", "add_", "add", "typecast", "generic_op",
          "permute", "transpose", "reallocate", "clone", "to_memory_config", "unsqueeze"]
+
+
+_PROF_KEYS = (("k", "DEVICE KERNEL DURATION [ns]"), ("fw", "DEVICE FW DURATION [ns]"),
+              ("br", "DEVICE BRISC KERNEL DURATION [ns]"), ("nc", "DEVICE NCRISC KERNEL DURATION [ns]"),
+              ("t0", "DEVICE TRISC0 KERNEL DURATION [ns]"), ("t1", "DEVICE TRISC1 KERNEL DURATION [ns]"),
+              ("t2", "DEVICE TRISC2 KERNEL DURATION [ns]"))
+
+
+def prof_drain():
+    """The programs the device ran since the last drain: per program, cores and durations in us."""
+    ttnn.ReadDeviceProfiler(dev)
+    out = []
+    for progs in ttnn.get_latest_programs_perf_data().values():
+        for p in progs:
+            r = p.program_analyses_results
+            out.append(dict(cores=p.core_count, **{s: round(r[k].duration / 1e3, 2) for s, k in _PROF_KEYS if k in r}))
+    return out
 
 
 @contextlib.contextmanager
@@ -152,10 +181,14 @@ def op_timer():
             depth[0] += 1
             try:
                 ttnn.synchronize_device(dev)
+                if A.devprof:
+                    prof_drain()
                 t0 = time.perf_counter()
                 r = fn(*a, **k)
                 ttnn.synchronize_device(dev)
                 OPS.append((f"{name}@{sys._getframe(1).f_code.co_name}", 1e3 * (time.perf_counter() - t0)))
+                if A.devprof:
+                    PROF.append(prof_drain())
                 return r
             finally:
                 depth[0] -= 1
@@ -306,12 +339,13 @@ for var in A.variants.split(","):
             prev = apply(arm_setters(arm))
             try:
                 for rep in range(3):
-                    OPS.clear()
+                    OPS.clear(); PROF.clear()
                     with op_timer():
                         call(mod)
                     if rep == 2:
                         log(ev="opsplit", variant=var, arm=arm, total_ms=round(sum(t for _, t in OPS), 3),
-                            ops=[[n, round(t, 3)] for n, t in OPS])
+                            ops=[[n, round(t, 3)] for n, t in OPS],
+                            **({"prof": [[n, p] for (n, _), p in zip(OPS, PROF)]} if A.devprof else {}))
             finally:
                 restore(prev)
     times = {a: [] for a in arms}

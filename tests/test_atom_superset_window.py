@@ -21,9 +21,9 @@ from tt_bio import protenix as PX                                           # no
 H, DH, NQ, NK, PAD_LEFT = 4, 32, 32, 128, 48
 
 
-def _at(sdpa=False):
+def _at(sdpa=False, sdpa32=False):
     at = types.SimpleNamespace(N_HEADS=H, HEAD_DIM=DH, N_QUERIES=NQ, N_KEYS=NK, PAD_LEFT=PAD_LEFT,
-                               _sdpa=sdpa, device=None)
+                               _sdpa=sdpa, _sdpa32=sdpa32, device=None)
     at._superset = lambda: PX.AtomTransformer._superset(at)
     return at
 
@@ -105,6 +105,17 @@ def test_the_sdpa_bias_is_prescaled_and_clamped(host_ttnn):
     nb = 2
     z = torch.randn(nb, H, NQ, NK)
     zs = PX.AtomTransformer._superset_bias(_at(sdpa=True), z, torch.ones(nb, NQ, NK), nb)
+    zs = zs.reshape(H, nb, NQ, 160)
+    assert torch.allclose(zs[..., 16:144], z.permute(1, 0, 2, 3) * DH ** 0.5)
+    assert (zs[..., :16] == -1e4 * DH ** 0.5).all()
+
+
+def test_the_sdpa32_bias_is_prescaled_and_keeps_its_dtype(host_ttnn):
+    """atom_sdpa32 runs the same kernel at fp32: the bias is prescaled like atom_sdpa's but not narrowed."""
+    nb = 2
+    z = torch.randn(nb, H, NQ, NK)
+    zs = PX.AtomTransformer._superset_bias(_at(sdpa32=True), z, torch.ones(nb, NQ, NK), nb)
+    assert zs.dtype == torch.float32
     zs = zs.reshape(H, nb, NQ, 160)
     assert torch.allclose(zs[..., 16:144], z.permute(1, 0, 2, 3) * DH ** 0.5)
     assert (zs[..., :16] == -1e4 * DH ** 0.5).all()

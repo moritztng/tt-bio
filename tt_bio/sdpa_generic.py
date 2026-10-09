@@ -199,6 +199,50 @@ class _ShapeOnly:
         self.dtype = dtype if dtype is not None else ttnn.bfloat16
 
 
+_KV_WINDOW_ORIG = (
+    "const uint32_t k_start_tile_id = k_tile_shape.id_of(nb, k_head, kv_row_start_tile, 0);",
+    "const uint32_t v_start_tile_id = v_tile_shape.id_of(nb, v_head, kv_row_start_tile, 0);")
+_Q_WINDOW_ORIG = "uint32_t q_read_tile_id = q_tile_shape.id_of(nb, nq, read_offset + q_row_start_tile, 0);"
+
+
+def kv_window_kernel_dir() -> Path:
+    """The wheel's own SDPA reader with K and V read as sliding windows of a frame (`kv_window`).
+
+    Generated from the running wheel's source, so it follows the wheel instead of pinning a copy:
+    the two lines that place a K/V chunk get an `#ifdef KV_WINDOW_NB` twin, nothing else changes,
+    and a wheel whose reader no longer has those lines fails here, not on the device. Head `n` of
+    the virtual K is frame head `n / KV_WINDOW_NB`, starting `n % KV_WINDOW_NB` tile rows down. With
+    `KV_WINDOW_Q_LEAD_T` the query is a frame too: head `n` starts `KV_WINDOW_Q_LEAD_T` tile rows
+    further down, one window of Sq rows per head."""
+    src = (_kdir() / "dataflow/reader_interleaved.cpp").read_text()
+    common = (_kdir() / "dataflow/dataflow_common.hpp").read_text()
+    for line in _KV_WINDOW_ORIG + (_Q_WINDOW_ORIG,):
+        assert src.count(line) == 1, ("kv_window: the wheel's SDPA reader changed", line)
+    win = ("#ifdef KV_WINDOW_NB\n"
+           "                        const uint32_t k_start_tile_id = ((nb * KV_WINDOW_NKH + k_head / KV_WINDOW_NB) *\n"
+           "                            KV_WINDOW_FRAME_T + k_head % KV_WINDOW_NB + kv_row_start_tile) * DHt;\n"
+           "                        const uint32_t v_start_tile_id = ((nb * KV_WINDOW_NKH + v_head / KV_WINDOW_NB) *\n"
+           "                            KV_WINDOW_FRAME_T + v_head % KV_WINDOW_NB + kv_row_start_tile) * DHt;\n"
+           "#else\n")
+    src = src.replace(_KV_WINDOW_ORIG[0], win + _KV_WINDOW_ORIG[0], 1)
+    src = src.replace(_KV_WINDOW_ORIG[1], _KV_WINDOW_ORIG[1] + "\n#endif", 1)
+    src = src.replace(_Q_WINDOW_ORIG, (
+        "#ifdef KV_WINDOW_Q_LEAD_T\n"
+        "                    uint32_t q_read_tile_id = ((nb * KV_WINDOW_NKH + nq / KV_WINDOW_NB) * KV_WINDOW_FRAME_T +\n"
+        "                        KV_WINDOW_Q_LEAD_T + nq % KV_WINDOW_NB + read_offset + q_row_start_tile) * DHt;\n"
+        "#else\n") + _Q_WINDOW_ORIG + "\n#endif", 1)
+    import hashlib
+    d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "sdpa_kv_window"
+         / hashlib.sha1((src + common).encode()).hexdigest()[:12])
+    if not (d / "dataflow/reader_interleaved.cpp").exists():
+        (d / "dataflow").mkdir(parents=True, exist_ok=True)
+        (d / "dataflow/dataflow_common.hpp").write_text(common)
+        tmp = d / f"dataflow/.reader.{os.getpid()}"
+        tmp.write_text(src)
+        tmp.replace(d / "dataflow/reader_interleaved.cpp")
+    return d
+
+
 def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
                    dtype=None):
     """`plan` for a square triangle-attention call at `seq` padded tokens, without a device."""
@@ -217,7 +261,7 @@ def chunk_divisors(seq, tile=TILE):
 
 
 def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=None,
-             extra_cbs=(), im_dtype=None, out_im_dtype=None):
+             extra_cbs=(), im_dtype=None, out_im_dtype=None, stats_dtype=None):
     """(buffer index, tiles, page bytes, data format) for every CB the factory creates, :405-414.
 
     `mask_cb_tiles` overrides `cb_mask_in`: K2 fronts the whole head's mask grid
@@ -228,11 +272,15 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
     `im_dtype` sets the score CB (`cb_qk_im`, the Sq_chunk x Sk_chunk tile block) and
     `out_im_dtype` the two output accumulators. The factory pins both to bf16 (:651-653); `None`
     keeps that. The standard compute path reconfigures unpack/pack formats at every stage boundary,
-    so a narrower intermediate is a page-size change, not a kernel change. The row statistics and
-    the scalar tiles stay bf16 either way.
+    so a narrower intermediate is a page-size change, not a kernel change. `stats_dtype` sets the
+    five row-statistics CBs (running max, running sum and their previous values), which an fp32
+    attention needs: a bf16 running sum keeps 8 bits of the softmax denominator. The scalar tiles
+    stay bf16, they hold exact constants.
     """
-    im_df = stats_df = scalar_df = ttnn.bfloat16      # :651-653, always bf16
-    im_ts = stats_ts = scalar_ts = 2048
+    im_df = scalar_df = ttnn.bfloat16                 # :651-653, always bf16
+    im_ts = scalar_ts = 2048
+    stats_df = stats_dtype or ttnn.bfloat16
+    stats_ts = tile_bytes(stats_df)
     qk_df = im_dtype or im_df
     oim_df = out_im_dtype or im_df
     nmask = p["mask_tiles"] if mask_cb_tiles is None else mask_cb_tiles
@@ -258,11 +306,11 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
 
 def cb_bytes(p, q_dtype=ttnn.bfloat16, k_dtype=ttnn.bfloat16, v_dtype=ttnn.bfloat16,
              mask_dtype=ttnn.bfloat16, out_dtype=ttnn.bfloat16, mask_cb_tiles=None,
-             extra_cbs=(), im_dtype=None, out_im_dtype=None) -> int:
+             extra_cbs=(), im_dtype=None, out_im_dtype=None, stats_dtype=None) -> int:
     """L1 the static circular buffers hold, per core."""
     return sum(n * page for _i, n, page, _f in cb_table(
         p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles, extra_cbs,
-        im_dtype, out_im_dtype))
+        im_dtype, out_im_dtype, stats_dtype))
 
 
 def cb_fits_l1(p, **kw) -> bool:
@@ -322,13 +370,8 @@ def note_l1_refusal(message: str) -> None:
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
-          out_im_dtype=None, kv_chain=False):
+          out_im_dtype=None, stats_dtype=None, kv_window=None):
     """The ProgramDescriptor for the fold's SDPA call.
-
-    `kv_chain` forwards K and V along the q-chunk cores of each head instead of every core
-    reading them from DRAM: the core owning q chunk 0 reads, then hands each chunk core to core
-    (unicast, the reader's existing chain protocol, `KV_CHAIN_ALL_BATCHES` so it runs on every
-    batch row). Needs one head and one q chunk per core and q_pf > 1; otherwise a no-op.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
@@ -344,8 +387,30 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     never touches their addresses. The whole K = Ct contraction is one block, which is the order
     `_MM_BLOCK[(4, 12)]` already gives the standalone projection at this site.
     """
-    p = plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
+    kp, vp = k, v
+    if kv_window is not None:
+        # `kv_window` is `(nb, W)`: k and v are FRAMES [B, NKH, F, DH], and the attention runs as if
+        # K/V were [B, NKH * nb, W, DH] with head h * nb + i = frame head h, rows i*32 .. i*32 + W.
+        # The windows overlap, so building them would copy every frame row W/32 times; the reader
+        # reads them in place instead (`kv_window_kernel_dir`).
+        # `(nb, W, q_lead, Sq)` makes q a frame of the same shape too: head h * nb + i is frame rows
+        # q_lead + i*32 .. q_lead + i*32 + Sq.
+        nbw, W = kv_window[:2]
+        B_, NKH_, F_, DH_ = (int(d) for d in k.padded_shape)
+        assert F_ % TILE == 0 and W % TILE == 0 and (nbw - 1) * TILE + W <= F_, (k.shape, kv_window)
+        kp, vp = _ShapeOnly([B_, NKH_ * nbw, W, DH_], k.dtype), _ShapeOnly([B_, NKH_ * nbw, W, DH_], v.dtype)
+        if len(kv_window) == 4:
+            ql, Sq_ = kv_window[2:]
+            assert list(q.padded_shape) == list(k.padded_shape) and ql % TILE == 0 and Sq_ % TILE == 0
+            assert ql + (nbw - 1) * TILE + Sq_ <= F_, ("q window runs off the frame", q.shape, kv_window)
+            q_frame, q = q, _ShapeOnly([B_, NKH_ * nbw, Sq_, DH_], q.dtype)
+        else:
+            assert int(q.padded_shape[1]) == NKH_ * nbw, (q.shape, k.shape, kv_window)
+        kernel_dir = kernel_dir or kv_window_kernel_dir()
+    p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
              kv_buffer_factor)
+    if kv_window is not None and len(kv_window) == 4:
+        q = q_frame
     gx, gy, num_cores = p["gx"], p["gy"], p["num_cores"]
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -385,7 +450,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
                                                     page_size=page)])
         for idx, n_tiles, page, fmt in cb_table(
             p, q.dtype, k.dtype, v.dtype, mask.dtype, out.dtype, mask_cb_tiles, extra_cbs,
-            im_dtype, out_im_dtype)]
+            im_dtype, out_im_dtype, stats_dtype)]
 
     # Three semaphores, created for every non-causal call (:539), ids 0..2 in creation order.
     semaphores = [
@@ -487,6 +552,11 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # The block row-max LLK streams the score tiles at bf16's tile stride (its own header says
         # the operand must be bfloat16_b), so a narrower score CB takes the per-tile reduce.
         defines["QK_TILEWISE_MAX"] = "1"
+    if kv_window is not None:
+        defines.update(KV_WINDOW_NB=str(kv_window[0]), KV_WINDOW_NKH=str(int(k.padded_shape[1])),
+                       KV_WINDOW_FRAME_T=str(int(k.padded_shape[2]) // TILE))
+        if len(kv_window) == 4:
+            defines["KV_WINDOW_Q_LEAD_T"] = str(kv_window[2] // TILE)
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
@@ -509,26 +579,6 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if gate is not None:
         g_a = gate[0].buffer_address()
 
-    chain = kv_chain and p["q_pf"] > 1 and p["q_per_core"] == 1 and p["nh_per_core"] == 1
-    if chain:
-        defines["KV_CHAIN_ALL_BATCHES"] = "1"
-        dlist = sorted(defines.items())
-
-    def phys(i):
-        c = device.worker_core_from_logical_core(ttnn.CoreCoord(i % gx, i // gx))
-        return [c.x, c.y]
-
-    def chain_args(i, ln, lq, lqe):
-        """The 14 chain runtime args (reader_interleaved.cpp): participant, injector, sink, batch,
-        head, two host-only slots, prev x/y, next x/y, next core's q chunks, mcast dests, wait."""
-        qi = i % p["q_pf"]
-        if not chain or lq >= lqe:
-            return [0] * 14
-        last = qi == p["q_pf"] - 1 or (qi + 1) * p["q_per_core"] >= p["q_num_chunks"]
-        prev = phys(i - 1) if qi > 0 else [0, 0]
-        nxt = phys(i + 1) if not last else [0, 0]
-        return [1, int(qi == 0), int(last), 0, ln, 0, 0] + prev + nxt + [0 if last else 1, 0, 0]
-
     rr, wr, cr = [], [], []
     for i in range(num_cores):
         core = ttnn.CoreCoord(i % gx, i // gx)
@@ -540,7 +590,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         lqe = min(lq + p["q_per_core"], p["q_num_chunks"])
         # num_phases=1, chunked_q_chunk_offset=0, read/write_offset=0 (:807-809)
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
-                   + chain_args(i, ln, lq, lqe)        # chain metadata, all no-chain unless kv_chain
+                   + [0] * 14                          # chain metadata, all no-chain (0/0 chains)
                    + ([] if fuse_qkv is None else [x_a, w_a])
                    + ([] if gate is None else [g_a])))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
@@ -613,7 +663,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # `build` was given -- so without it here an A/B that flips the env gets the FIRST arm's
            # compiled program back for both legs and reads a 1.000x that means nothing.
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
-           str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), bool(kw.get("kv_chain")))
+           str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
+           kw.get("kv_window"))
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid,
