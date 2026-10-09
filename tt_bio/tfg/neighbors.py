@@ -197,17 +197,16 @@ class SparseClash:
             self._field = BoundField(self.fixed, self.rb, float(self.ra.max()))
         n, B, M, _ = X.shape
         pts = X.reshape(-1, 3)
-        item = torch.arange(n * B).repeat_interleave(M)
-        sample = samples.repeat_interleave(B * M)
-        ra = self.ra.repeat(n * B)
-        far, sev_p = self._field.classify(pts, sample, ra)
-        sev = torch.zeros(n * B, dtype=torch.long).index_add_(0, item, sev_p.long()) > 0
-        live = torch.nonzero(~far & ~sev[item]).squeeze(1)
-        q, j = self._grid.query(pts[live], sample[live])
+        far, sev_p = self._field.classify_rows(X.reshape(n, B * M, 3), samples, self.ra.repeat(B))
+        sev = sev_p.view(n * B, M).any(-1)
+        live = torch.nonzero(~far.view(n * B, M) & ~sev[:, None]).squeeze(1)
+        live = live[:, 0] * M + live[:, 1]
+        q, j = self._grid.query(pts[live], samples[live // (B * M)])
         q = live[q]
-        d = cdist_norm(pts[q] - self.fixed[sample[q], j]).clamp_min(1e-6)
-        rs = ra[q] + self.rb[j]
-        it = item[q]
+        sample = samples[q // (B * M)]
+        d = cdist_norm(pts[q] - self.fixed[sample, j]).clamp_min(1e-6)
+        rs = self.ra[q % M] + self.rb[j]
+        it = q // M
         energy = torch.zeros(n * B, dtype=X.dtype).index_add_(0, it, torch.relu(SOFT * rs - d).square())
         sev |= torch.zeros(n * B, dtype=torch.long).index_add_(0, it, (d < HARD * rs).long()) > 0
         return energy.view(n, B), sev.view(n, B)
@@ -272,6 +271,20 @@ class BoundField:
         # the atom attaining the soft bound has |c - b| - 0.75 rb = soft + 0.1 rb <= soft + 0.1 max(rb): an upper bound
         # on the hard field, which is all the severe proof needs
         self.lift = (SOFT - HARD) * float(rb.max())
+
+    def classify_rows(self, X, samples, ra):
+        """classify for rows of points that each belong to one sample: X [n, K, 3], samples [n], ra [K] -> (far, severe)
+        [n * K]. Same flags; the cell index stays in fp32 (integral, below 2^24 per sample) until one long()."""
+        if self.nvox >= 2**24:
+            return self.classify(X.reshape(-1, 3), samples.repeat_interleave(X.shape[1]), ra.repeat(X.shape[0]))
+        c = torch.floor((X - self.lo[samples][:, None]) / self.v)
+        inb = (c.amin(-1) >= 0) & (c - self.dims.to(X.dtype)).amax(-1).lt(0)
+        dy, dz = float(self.dims[1]), float(self.dims[2])
+        flat = ((c[..., 0] * dy + c[..., 1]) * dz + c[..., 2]).long() + (samples * self.nvox)[:, None]
+        soft = torch.where(inb, self.soft[torch.where(inb, flat, 0)], float("inf"))
+        far = soft - self.delta >= SOFT * ra + self.margin
+        severe = (soft + self.lift) + self.delta < HARD * ra - self.margin
+        return far.reshape(-1), severe.reshape(-1)
 
     def classify(self, X, sample, ra):
         """X [n, 3] -> (far [n], severe [n]) bool."""
