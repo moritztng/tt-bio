@@ -133,7 +133,7 @@ def main():
                             y = run(); sets.append(bad_idx(R, ttnn.to_torch(y).double().reshape(a.m, a.n))); ttnn.deallocate(y)
                         union = set().union(*sets)
                         cell["repeat"] = dict(counts=[len(x) for x in sets], union=len(union),
-                                              every_run=len(set.intersection(*sets)))
+                                              every_run=len(set.intersection(*sets)), first=sorted(sets[0])[:200])
                     res["cells"].append(cell); print(json.dumps(cell), flush=True)
             ttnn.deallocate(ta); ttnn.deallocate(tw)
             if ta3 is not None:
