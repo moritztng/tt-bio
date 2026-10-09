@@ -8,7 +8,9 @@ transposed formulation that skips most of the head regrouping.
   multiplies in that layout, and the output projection contracts the channel axis with transpose_a.
   Same products and sums, so graded against the same float64 reference as bench_msa_ops.py.
 
-usage: TT_VISIBLE_DEVICES=<chip> python pwa_opsplit.py OUT [ROWS=512] [TOKENS=736] [REPS=5]
+* permfirst: one tiled permute puts the channel axis outermost, [H*hd, rows, T]; (head, dim) regroups by views.
+
+usage: TT_VISIBLE_DEVICES=<chip> python pwa_opsplit.py OUT [ROWS=512] [TOKENS=736] [REPS=5] [ARMS=a,b,..]
 """
 import json, statistics, sys, time
 from pathlib import Path
@@ -101,6 +103,21 @@ def tposed(s):
     s("view", lambda x: ttnn.reshape(x, (rows, T, C_M)))
 
 
+def permfirst(s):
+    """Channel axis moved outermost by one tiled permute; splitting it into (head, dim) and merging dim into the
+    row axis leaves the last two dims' tiles untouched (rows % 32 == 0), so the regrouping is a view."""
+    rows, T = ROWS, T_
+    s("v", lambda: ttnn.linear(mc, Wv, **lin))
+    s("v_perm201", lambda x: ttnn.permute(x, (2, 0, 1)))                 # [H*HD, rows, T]
+    s("v_view", lambda x: ttnn.reshape(x, (H, HD * rows, T)))
+    s("head_mm_T", lambda x: ttnn.matmul(x, W, transpose_b=True, **lin))  # [H, HD*rows, T]
+    s("o_view", lambda x: ttnn.reshape(x, (H * HD, rows, T)))
+    s("o_perm120", lambda x: ttnn.permute(x, (1, 2, 0)))                 # [rows, T, H*HD]
+    s("g", lambda x: (x, ttnn.linear(mc, Wg, **lin)), keep=True)
+    s("gate_mul", lambda xg: ttnn.multiply_(xg[0], xg[1], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]))
+    s("o_proj", lambda x: ttnn.linear(x, Wo, **lin))
+
+
 def run(name, body):
     """Each rep runs the chain once with a sync after every step; per-step ms is the median over reps."""
     steps, total, out = {}, [], None
@@ -131,12 +148,13 @@ def run(name, body):
 
 
 res = {}
-for name, body in (("unpadded", unpadded), ("tposed", tposed)):
+ARMS = sys.argv[5].split(",") if len(sys.argv) > 5 else ["unpadded", "tposed", "permfirst"]
+for name, body in ((a, globals()[a]) for a in ARMS):
     try:
         res[name] = run(name, body)
     except Exception as e:
         log(ev="fail", arm=name, err=str(e)[:400])
-if len(res) == 2:
-    d = (res["tposed"].double() - res["unpadded"].double()).abs()
-    log(ev="ab", max_abs=float(d.max()), bitident=bool(torch.equal(res["tposed"], res["unpadded"])))
+for a in (a for a in res if a != "unpadded" and "unpadded" in res):
+    d = (res[a].double() - res["unpadded"].double()).abs()
+    log(ev="ab", arm=a, max_abs=float(d.max()), bitident=bool(torch.equal(res[a], res["unpadded"])))
 log(ev="end")
