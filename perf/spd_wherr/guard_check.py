@@ -58,11 +58,11 @@ def main():
             run = lambda: ttnn.experimental.minimal_matmul(input_tensor=ta, weight_tensor=tw, compute_kernel_config=ck,
                                                            dtype=ttnn.bfloat16, config=cfg)
         else:
-            mt, nt = m // 32, n // 32
+            pm, pn = -(-(m // 32) // g.y), -(-(n // 32) // g.x)
             pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
                 compute_with_storage_grid_size=(g.x, g.y), in0_block_w=4, out_subblock_h=1,
-                out_subblock_w=max(s for s in (1, 2, 3, 4) if (nt // g.x) % s == 0),
-                out_block_h=mt // g.y, out_block_w=nt // g.x, per_core_M=mt // g.y, per_core_N=nt // g.x,
+                out_subblock_w=max(s for s in (1, 2, 3, 4) if pn % s == 0),
+                out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn,
                 transpose_mcast=False, fused_activation=None, fuse_batch=True)
             run = lambda: ttnn.matmul(ta, tw, compute_kernel_config=ck, dtype=ttnn.bfloat16, program_config=pc)
         for guard in (True, False):
