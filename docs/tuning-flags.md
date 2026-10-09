@@ -543,20 +543,21 @@ Default: the graded set for the run's mode. Protenix-v2 only.
 Protenix-v2 runs a few of its kernels with cheaper numerics than its reference path: the triangle
 multiplication's contraction in one block with its residual folded into the epilogue, the trunk's
 matmuls at HiFi3 instead of HiFi4, the diffusion transformer's fp32 attention as one fused kernel, and
-the transitions' SiLU as a shorter fp32 kernel accurate to a few float32 ulp, fused into the matmul.
+the transitions' SiLU as a shorter fp32 kernel accurate to a few float32 ulp, fused into the matmul, and
+on Wormhole the MSA outer product mean's contraction in K blocks of up to 6 tiles.
 Each was graded on its own and then all together, and only the combination that passed is on.
 `--fast` uses a larger set. `TT_BIO_LEVERS=none` runs the reference numerics; a comma list of names
 picks a set by hand (the names are listed in `tt_bio/tenstorrent.py`).
 
-**Accuracy: moves, inside the seed-to-seed spread.** On 11 post-cutoff complexes x 4 seeds the
-same-seed top-pose deviation from the reference path has a median of 0.29 A on Wormhole and 0.37 A on
-Blackhole, against a 0.60 A bar and a 0.8 A median between two seeds of the reference path itself.
-Every paired metric (DockQ, CA-lDDT, TM, pLDDT, ipTM) has a confidence interval reaching zero, and
-docking success is unchanged.
+**Accuracy: moves, inside the seed-to-seed spread.** On 11 post-cutoff complexes the same-seed top-pose
+deviation from the reference path has a median of 0.34 A on Wormhole (8 seeds, 88 pairs) and 0.37 A on
+Blackhole (4 seeds), against a 0.60 A bar and a 0.8 A median between two seeds of the reference path
+itself. Every paired metric (DockQ, CA-lDDT, TM, pLDDT, ipTM) has a confidence interval reaching zero,
+and docking success is 65 of 88 against 66 on Wormhole and unchanged on Blackhole.
 
-**Speed: 1.78x on the fold**, 501.4 to 281.8 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
-10 recycles) on a Wormhole Galaxy chip at 1000 MHz, warm folds. That figure also contains the
-lossless changes shipped alongside the set.
+**Speed: 1.87x on the fold**, 501.4 to 267.6 s on the Protenix-v2 730-token fold (deep MSA, 5 samples,
+10 recycles) on a Wormhole Galaxy chip at 1000 MHz, warm folds; 131.4 s on a Blackhole p150a at
+1350 MHz. That figure also contains the lossless changes shipped alongside the set.
 
 ## `TT_BIO_LNBW_FUSED`
 

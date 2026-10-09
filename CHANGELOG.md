@@ -6,11 +6,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
-- **Protenix-v2 is 1.8x faster on Wormhole.** A warm 730-token fold (deep MSA, 5 samples, 10 recycles)
-  takes 282 s on a Galaxy chip at 1000 MHz, against 501 s before. A graded set of cheaper numerics is on by
-  default; structures stay inside seed-to-seed variation on Wormhole and Blackhole (11 complexes x 4
-  seeds, median top-pose deviation 0.29 / 0.37 A against a 0.8 A re-seed). `TT_BIO_LEVERS=none` restores
-  the reference numerics. `--fast` now runs a larger graded set: 238 s on the same fold on Wormhole.
+- **Protenix-v2 is 1.9x faster on Wormhole.** A warm 730-token fold (deep MSA, 5 samples, 10 recycles)
+  takes 268 s on a Galaxy chip at 1000 MHz, against 501 s before, and 131 s on a Blackhole p150a at
+  1350 MHz. A graded set of cheaper numerics is on by default; structures stay inside seed-to-seed
+  variation on Wormhole and Blackhole (11 complexes, median top-pose deviation 0.34 A over 8 seeds on
+  Wormhole and 0.37 A over 4 on Blackhole, against a 0.8 A re-seed). `TT_BIO_LEVERS=none` restores the
+  reference numerics. `--fast` runs a larger graded set: 226 s on Wormhole, 109 s on Blackhole.
   [`docs/tuning-flags.md`](docs/tuning-flags.md#tt_bio_levers).
 - Blackhole kernels split DRAM reads larger than 2 KiB, the tt-metal#59622 workaround for a NoC hang
   (`TT_BIO_BH_DRAM_READ_SPLIT`, same bytes).
