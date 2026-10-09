@@ -38,6 +38,7 @@ up = lambda t: ttnn.from_torch(t.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.
 dx, dwp, dwg, dwpT, dwgT = up(x), up(wp), up(wg), up(wp.t()), up(wg.t())
 dm = None if m is None else up(m)
 TT.GIN_MOVE = True
+TT.set_epi(1)   # production's trimul_tail lever: the resident split route
 print(json.dumps({"n": n, "c": C, "grid": grid, "ckc": [str(c) for c in ckc],
                   "ok": TT.gin_moved_ok(dx, dwpT, dm), "mask": dm is not None}), flush=True)
 
@@ -96,4 +97,14 @@ if len(out) == 2:
     d = [float((a.float() - b.float()).abs().max()) for a, b in zip(out["today"], out["moved"])]
     ne = [int((a != b).sum()) for a, b in zip(out["today"], out["moved"])]
     print(json.dumps({"max_abs_today_vs_moved": d, "differing": ne, "of": out["today"][0].numel()}))
+# Worst elements of each route against float64: an index bug shows up as a large error at few places.
+for name, host in out.items():
+    for which, (hh, r) in enumerate(zip(host, ref)):
+        e = (hh.double() - r).abs()
+        top = torch.topk(e.flatten(), 5)
+        idx = [list(map(int, torch.unravel_index(i, e.shape))) for i in top.indices]
+        print(json.dumps({"route": name, "out": "ab"[which], "max_err": round(float(top.values[0]), 4),
+                          "n_err_gt_0.1": int((e > 0.1).sum()),
+                          "worst": [[i, round(float(hh.flatten()[j]), 4), round(float(r.flatten()[j]), 4)]
+                                    for i, j in zip(idx, top.indices)]}))
 print(json.dumps({"stats": {"move": TT.GIN_MOVE_STATS, "res": TT.RES_STATS, "rejects": {f"{k[0]}:{k[1]}": v for k, v in TT.REJECTS.items()}}}))
