@@ -52,6 +52,10 @@ def test_gate_the_newest_staging_and_never_restart_a_running_gate(tmp_path):
     assert d["do"] == "GATE" and d["sha"] == head
     assert "finish the running gate on " + s8[:9] in d["why"]
 
+    (gates / "cpu10").mkdir()
+    (gates / "cpu10" / "plan.json").write_text(json.dumps({"sha": head, "partial": True}))
+    (gates / "cpu10" / "verdict.json").write_text(json.dumps({"pass": True}))
+    assert rn.decide(tmp_path, gates, "main")["do"] == "GATE"     # a --legs run is no verdict
     (gates / "g10").mkdir()
     (gates / "g10" / "plan.json").write_text(json.dumps({"sha": head}))
     assert rn.decide(tmp_path, gates, "main")["do"] == "WAIT"

@@ -54,16 +54,9 @@ def stagings(since: str, head: str, repo: Path = REPO) -> list[str]:
 
 
 def gate_state(gates: Path | None, sha: str) -> tuple[str, Path | None]:
-    """('none'|'running'|'pass'|'fail', dir) of the newest gate_fanout run on `sha` under `gates`."""
-    if gates is None or not gates.is_dir():
-        return "none", None
-    runs = []
-    for plan in gates.glob("*/plan.json"):
-        try:
-            if json.loads(plan.read_text()).get("sha") == sha:
-                runs.append(plan.parent)
-        except ValueError:
-            continue
+    """('none'|'running'|'pass'|'fail', dir) of the newest full gate_fanout run on `sha` under
+    `gates`. A run limited to some legs (plan.json `partial`) fills the ledger but is no verdict."""
+    runs = [p.parent for p, plan in _plans(gates) if plan.get("sha") == sha]
     if not runs:
         return "none", None
     d = max(runs, key=lambda p: (p / "plan.json").stat().st_mtime)
@@ -73,11 +66,22 @@ def gate_state(gates: Path | None, sha: str) -> tuple[str, Path | None]:
     return ("pass" if json.loads(v.read_text()).get("pass") else "fail"), d
 
 
-def running_gates(gates: Path | None) -> list[str]:
+def _plans(gates: Path | None) -> list:
     if gates is None or not gates.is_dir():
         return []
-    return sorted(json.loads(p.read_text())["sha"] for p in gates.glob("*/plan.json")
-                  if not (p.parent / "verdict.json").exists())
+    out = []
+    for p in gates.glob("*/plan.json"):
+        try:
+            plan = json.loads(p.read_text())
+        except ValueError:
+            continue
+        if not plan.get("partial"):
+            out.append((p, plan))
+    return out
+
+
+def running_gates(gates: Path | None) -> list[str]:
+    return sorted(plan["sha"] for p, plan in _plans(gates) if not (p.parent / "verdict.json").exists())
 
 
 def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main") -> dict:
