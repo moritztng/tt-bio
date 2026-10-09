@@ -11117,6 +11117,9 @@ def _transition_linear(op: str, x: ttnn.Tensor, w: ttnn.Tensor, silu: bool = Fal
 # gy / gcd(W tiles, gy). The MSA transition's 128-channel output splits over 4 columns at most,
 # and on 4x8 it is slower than interleaved (39.1 against 27.4 us a row), so it keeps its path.
 _TRANSITION_SHARD_PM = 23  # row tiles per core measured to fit next to the sharded hidden pair
+# Blackhole with bfp8 hidden (fast): the shard grid stops at 8 of 11 columns, which loses in normal mode
+# (+7.5 % a row) but wins under fast's LoFi, where the body is NoC-bound (-4.4 % at 10 rows, p150a op bench).
+_TRANSITION_SHARD_BH_B8 = False
 _TRANSITION_SHARD_REFUSED: set = set()
 
 
@@ -11572,7 +11575,7 @@ class Transition(Module):
         # the size, i.e. LESS element-work, and still takes more than twice the wall clock. Forcing
         # the height is what separates "h=2 is a bad height here" from "the size is the problem",
         # and it must not require editing a derivation to find out. Unset in production.
-        if (lever("transition_shard") and _IS_SMALL_GRID
+        if (lever("transition_shard") and (_IS_SMALL_GRID or (_TRANSITION_SHARD_BH_B8 and self._hidden_b8))
                 and not (ops.taping() or _UNFUSED_SILU or w_chunked)):
             shard_rows = _transition_shard_rows(W, _c, _hid)
             if shard_rows:

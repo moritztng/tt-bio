@@ -2,7 +2,8 @@
 
     TT_VISIBLE_DEVICES=N PYTHONPATH=. python perf/spd_swiglu/fc12g_module.py --out OUT.json --mode fast|normal
 
-Pair Transition [1, S, S, 256] -> 1024 -> 256 through the sharded path (transition_shard). The float64 reference
+Pair Transition [1, S, S, 256] -> 1024 -> 256 through the sharded path (transition_shard). On Blackhole the
+shard path only runs with --bh-shard (fast mode), which adds a sharded arm without fc12g. The float64 reference
 uses the device's own weight values (read back), so a difference is arithmetic. Times are pipelined: reps calls,
 one sync. AICLK sampled during the timing.
 """
@@ -20,6 +21,8 @@ ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--mode", default="fast", choices=("normal", "fast"))
 ap.add_argument("--S", type=int, default=736)
 ap.add_argument("--reps", type=int, default=5)
+ap.add_argument("--bh-shard", action="store_true",
+                help="Blackhole: arms base, shard (_TRANSITION_SHARD_BH_B8) and shard+fc12g")
 a = ap.parse_args()
 os.environ["TT_BIO_LEVERS"] = a.mode
 
@@ -72,7 +75,11 @@ del ln
 res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH, "mode": a.mode,
        "S": a.S, "arms": {}}
 outs = {}
-for arm, lv in (("base", a.mode), ("fc12g", f"{a.mode}+swiglu_fc12g")):
+ARMS = [("base", a.mode, False), ("fc12g", f"{a.mode}+swiglu_fc12g", a.bh_shard)]
+if a.bh_shard:
+    ARMS.insert(1, ("shard", a.mode, True))
+for arm, lv, bh in ARMS:
+    T._TRANSITION_SHARD_BH_B8 = bh
     row = res["arms"][arm] = {}
     T.LATCH_STATS["transition_shard"].update(served=0, refused=0)
     with T.levers(lv):
@@ -98,6 +105,9 @@ for arm, lv in (("base", a.mode), ("fc12g", f"{a.mode}+swiglu_fc12g")):
     print(json.dumps({arm: row}), flush=True)
 d = (outs["fc12g"] - outs["base"]).abs()
 res["fc12g_vs_base"] = dict(max=float(d.max()), n_diff=int((d > 0).sum()))
+if a.bh_shard:
+    d = (outs["shard"] - outs["base"]).abs()
+    res["shard_vs_base"] = dict(max=float(d.max()), n_diff=int((d > 0).sum()))
 print(json.dumps(res["fc12g_vs_base"]), flush=True)
 a.out.parent.mkdir(parents=True, exist_ok=True)
 a.out.write_text(json.dumps(res, indent=1))
