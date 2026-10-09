@@ -5,6 +5,7 @@ From a panel target's 5-contact request this writes, next to it, four contact in
     <tid>_wrong1.json  one of the four antigen residues replaced by one >= 12 A from the true epitope
     <tid>_wrong2.json  two of the four replaced the same way
     <tid>_shift.json   all four antigen residues replaced by a neighbour whose CA is 4-6 A from the original CA
+The target's own inputs are copied beside them, so the scorer still checks the true contact and pocket requests.
 The true epitope is every antigen residue with a heavy atom within 4.5 A of an antibody heavy atom in the native
 (the report's pocket rule). "12 A from the epitope" is CA to the nearest epitope CA. The antibody side of each pair
 is kept. Choices are seeded by the target id, so a rerun writes the same inputs. A target without enough
@@ -86,7 +87,7 @@ def main():
         d.mkdir(parents=True, exist_ok=True)
         if not (d / "msa").exists():
             shutil.copytree(panel / tid / "msa", d / "msa", ignore=shutil.ignore_patterns("*.tar.gz", "*.sh", "*.json"))
-        for f in ("meta.json", "native.cif", f"{tid}_unconstrained.json"):
+        for f in ("meta.json", "native.cif", *(f"{tid}_{c}.json" for c in ("unconstrained", "contact", "pocket"))):
             shutil.copyfile(panel / tid / f, d / f)
         for cond, ps in variants.items():
             j = copy.deepcopy(job)
