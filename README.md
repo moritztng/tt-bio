@@ -156,7 +156,7 @@ tt-bio predict examples/prot.yaml --model protenix-v1   # upstream's v0.5.0 base
 tt-bio predict examples/prot.fasta --model openfold3    # MSA on by default
 tt-bio predict examples/affinity.yaml --model openbind  # protein + ligand co-fold
 tt-bio predict examples/9dsg_abag.yaml --model opendde-abag   # antibody-antigen co-fold, MSA on by default
-tt-bio predict examples/opendde_tfg_1a14_contact.yaml --model opendde-abag --use_tfg_guidance   # known contacts guide the pose
+tt-bio predict examples/tfg/1a14_contact.yaml --model opendde-abag --use_tfg_guidance   # known contacts guide the pose
 tt-bio predict examples/prot.yaml --model rf3            # MSA on by default; weights fetch from the IPD
 tt-bio predict examples/prot.yaml --model rf3 \
     --partial_t 150 --partial_structure start.cif       # refine start.cif instead of folding from scratch

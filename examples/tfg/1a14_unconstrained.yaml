@@ -1,24 +1,14 @@
-# OpenDDE 1.2.0 constraint-guided example 1a14 (four epitope residues),
-# translated from upstream examples/tfg/1a14. Entity 1 = H, 2 = L, 3 = N (the antigen).
-# tt-bio predict examples/opendde_tfg_1a14_pocket.yaml --model opendde-abag --use_tfg_guidance
+# OpenDDE 1.2.0 example 1a14 (Fv), unconstrained: upstream examples/tfg/1a14/1a14_unconstrained.json.
+# Entity n is the n-th entry of `sequences`; copy k is the k-th id in its list.
+# tt-bio predict examples/tfg/1a14_unconstrained.yaml --model opendde-abag
 version: 1
 sequences:
-  - protein:
+  - protein:    # entity 1
       id: H
       sequence: QVQLQQSGAELVKPGASVRMSCKASGYTFTNYNMYWVKQSPGQGLEWIGIFYPGNGDTSYNQKFKDKATLTADKSSNTAYMQLSSLTSEDSAVYYCARSGGSYRYDGGFDYWGQGTTVTV
-  - protein:
+  - protein:    # entity 2
       id: L
       sequence: DIELTQTTSSLSASLGDRVTISCRASQDISNYLNWYQQNPDGTVKLLIYYTSNLHSEVPSRFSGSGSGTDYSLTISNLEQEDIATYFCQQDFTLPFTFGGGTAA
-  - protein:
+  - protein:    # entity 3
       id: N
       sequence: RDFNNLTKGLCTINSWHIYGKDNAVRIGEDSDVLVTREPYVSCDPDECRFYALSQGTTIRGKHSNGTIHDRSQYRALISWPLSSPPTVYNSRVECIGWSSTSCHDGKTRMSICISGPNNNASAVIWYNRRPVTEINTWARNILRTQESECVCHNGVCPVVFTDGSATGPAETRIYYFKEGKILKWEPLAGTAKHIEECSCYGERAEITCTCRDNWQGSNRPVIRIDPVAMTHTSQYICSPVLTDNPRPNDPTVGKCNDPYPGNNNNGVKGFSYLDGVNTWLGRTISIASRSGYEMLKVPNALTDDKSKPTQGQTIVLNTDWSGYSGSFMDYWAEGECYRACFYVELIRGRPKEDKVWWTSNSIVSMCSSTEFLGQWDWPDGAKIEYFL
-constraint:
-  movable_chains: [H, L]
-  epitope:
-    residues:
-      - {entity: 3, copy: 1, position: 248, residue: P}
-      - {entity: 3, copy: 1, position: 249, residue: N}
-      - {entity: 3, copy: 1, position: 318, residue: N}
-      - {entity: 3, copy: 1, position: 321, residue: W}
-    paratope: all
-    min_fraction: 0.5

@@ -1,6 +1,6 @@
 """Integrated parity and CPU cost of tt_bio.tfg.guidance.Guidance on the 1a14 examples.
 
-Builds the fold's features from examples/opendde_tfg_1a14_{contact,pocket}.yaml the way the worker
+Builds the fold's features from examples/tfg/1a14_{contact,pocket}.yaml the way the worker
 does (single-sequence specs; the MSA does not enter the guidance features), runs Guidance.step at a
 handful of sampler steps on a synthetic structure, and runs the same step through upstream v1.2.0
 (TFGEngine.step with the denoiser stubbed to return the same x0, then the late rigid pass in
@@ -26,7 +26,7 @@ def feats_for(kind):
     from tt_bio.worker import _tfg_guidance
 
     from pathlib import Path
-    path = Path(f"examples/opendde_tfg_1a14_{kind}.yaml")
+    path = Path(f"examples/tfg/1a14_{kind}.yaml")
     chains = _read_bio_chains(path)
     bonds = _read_bio_bonds(path, chains)
     feats = build_complex_features([(s, None, mt) for _c, s, _sp, mt, _m in chains],

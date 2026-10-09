@@ -6,8 +6,24 @@ prediction agrees. The weights and the trunk are untouched. tt-bio runs the same
 `--model opendde` and `--model opendde-abag`.
 
 ```bash
-tt-bio predict examples/opendde_tfg_1a14_contact.yaml --model opendde-abag --use_tfg_guidance
+tt-bio predict examples/tfg/1a14_contact.yaml --model opendde-abag --use_tfg_guidance
 ```
+
+## Examples
+
+`examples/tfg/` holds upstream's four worked cases, complexes the unguided prediction gets
+wrong, each as `<pdb>_unconstrained.yaml`, `<pdb>_contact.yaml` (four residue pairs) and
+`<pdb>_pocket.yaml` (four epitope residues). The constraints are read off the deposited
+structure, so they are correct; your own come from experiments.
+
+| PDB | Antibody (movable) | Antigen |
+|---|---|---|
+| 1a14 | Fv: H, L | N |
+| 9lh2 | VHH: C (copy 1 of C, D) | A, B |
+| 9sat | Fab: A, B | C |
+| 9xqn | Fab: B, C | A |
+
+9lh2 and 9sat carry N-linked glycans upstream; the examples leave them out.
 
 ## The `constraint:` block
 
