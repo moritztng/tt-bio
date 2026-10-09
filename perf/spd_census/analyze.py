@@ -31,6 +31,19 @@ P = np.array([[x if x is not None else -1 for x in json.loads(l)] for l in open(
 # rid, batch, cores, k, fw, t0, t1, t2, br, nc, start, end
 RID, BAT, CORES, K, FW, T0, T1, T2, BR, NC, ST, EN = range(12)
 P[:, RID] = np.floor(P[:, RID] / 1024)   # runtime id = device op id << 10
+# A start timestamp read with a stale high word sits 2**32 ticks early, and every duration that starts from it is
+# 2**32 ticks long (r13 normal: one swiglu fc3 read 4,295,192 us = 2**32 ns + 225 us, +4.3 s on the fold). Take the
+# wrap back out of the start and of those durations.
+WRAP = 2.0 ** 32
+wrap = np.floor((P[:, EN] - P[:, ST]) / WRAP)
+if (wrap > 0).any():
+    sp = P[:, EN] - P[:, ST]; good = (wrap == 0) & (sp > 0) & (P[:, K] > 0)
+    wrap_ns = WRAP * float(np.median(P[good, K] / sp[good]))
+    for i in np.flatnonzero(wrap > 0):
+        P[i, ST] += wrap[i] * WRAP
+        for c in (K, FW, T0, T1, T2, BR, NC):
+            if P[i, c] >= wrap_ns * 0.999: P[i, c] -= wrap[i] * wrap_ns
+    print(f"timestamp wraps folded out: {int((wrap > 0).sum())} programs")
 idx = np.searchsorted(calls[:, 1], P[:, RID], side="right") - 1
 ok = (idx >= 0) & (P[:, RID] < calls[np.clip(idx, 0, None), 2])
 print(f"programs {len(P)}, attributed {ok.sum()}, unattributed {(~ok).sum()} "
