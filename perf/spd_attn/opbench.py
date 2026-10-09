@@ -166,6 +166,8 @@ if a.which in ("atom", "all"):
         SAME[f"atom superset {tag}"] = f"atom superset {tag} RM heads"
     ARMS["atom superset fp32 sdpa32"] = ("atom", superset(ttnn.float32, False, True, True))
     ARMS["atom superset fp32 sdpa32 kvwin"] = ("atom", superset(ttnn.float32, False, True, True, True))
+    ARMS["atom superset bf16 sdpa kvwin"] = ("atom", superset(ttnn.bfloat16, True, True, False, True))
+    SAME["atom superset bf16 sdpa kvwin"] = "atom superset bf16 sdpa"
     SAME["atom superset fp32 sdpa32 kvwin"] = "atom superset fp32 sdpa32"
 
 # ---- pair transpose: the ending-node triangle attention's dim0/dim1 swap of the [S, S, 256] pair, DRAM to DRAM,

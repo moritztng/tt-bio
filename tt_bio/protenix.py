@@ -336,10 +336,13 @@ _ATOM_TILE_HEADS = env_flag("TT_BIO_ATOM_TILE_HEADS", True)
 # spd-diffusion's dit_sdpa32 recipe) in place of matmul + scale_add + softmax + matmul. Off until
 # graded; inert in bf16, where atom_sdpa covers the same site.
 _ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", False)
-# Under atom_sdpa32 with TILE heads, the reader takes K and V straight from the head frame as sliding
-# windows (sdpa_generic `kv_window`) instead of the 5 slices + concat that copy every frame row 5 times.
-_ATOM_SDPA32_KVWIN = env_flag("TT_BIO_ATOM_SDPA32_KVWIN", True)
+# Under atom_sdpa or atom_sdpa32 with TILE heads, the reader takes K and V straight from the head frame as
+# sliding windows (sdpa_generic `kv_window`) instead of the 5 slices + concat that copy every frame row 5
+# times. Bit-exact: same tiles, same program. In bf16 it is the wheel's own fused SDPA at atom_sdpa's
+# config (q 32, k 160, the main grid, `_ATOM_SDPA_CKC`), driven through generic_op.
+_ATOM_KV_WINDOW = env_flag("TT_BIO_ATOM_KV_WINDOW", True)
 _ATOM_SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)   # fidelity, approx exp, fp32 dest, dst full sync
+_ATOM_SDPA_CKC = (ttnn.MathFidelity.HiFi2, True, False, False)     # atom_sdpa's `_sdpa_ckc` as that tuple
 ATOM_SUPERSET_STATS = [0, 0]  # (attention calls on the superset window, on the windowed path)
 
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
@@ -569,7 +572,7 @@ class AtomTransformer(_KeyedWeights, Module):
             math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
             fp32_dest_acc_en=False, packer_l1_acc=False)
         self._sdpa32 = _ATOM_SDPA32 and dtype == ttnn.float32 and _ATOM_SUPERSET
-        self._kvwin = _ATOM_SDPA32_KVWIN
+        self._kvwin = _ATOM_KV_WINDOW
 
     def _adaln(self, a, s, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
@@ -692,24 +695,28 @@ class AtomTransformer(_KeyedWeights, Module):
                 ttnn.reshape(x, (M, 1, nbk * nq, 3 * H * dh)), num_heads=H, num_kv_heads=H,
                 transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)    # each (M, H, nbk*nq, dh)
             Qs = ttnn.reshape(ttnn.slice(q, [0, 0, lead, 0], [M, H, lead + NP, dh]), (M, H * nb, nq, dh))
-            if self._sdpa32 and self._kvwin:
+            if (self._sdpa or self._sdpa32) and self._kvwin:
                 Ks, Vs = k, v                            # frames, read as windows by the kernel
             else:
                 Ks, Vs = (ttnn.reshape(win(ttnn.reshape(t, (M * H, nbk, nq, dh))), (M, H * nb, W, dh)) for t in (k, v))
         else:
             Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
             Ks, Vs = windows(K), windows(V)
-        if self._sdpa:
+        kvw = (nb, W) if self._tile_heads and self._kvwin else None
+        if self._sdpa and kvw is None:
             o = _T.fused_sdpa(Qs, Ks, Vs, attn_mask=zs, scale=dh ** -0.5,
                               program_config=_T._sdpa_program_config(nq, W),
                               compute_kernel_config=self._sdpa_ckc)
-        elif self._sdpa32:
+        elif self._sdpa or self._sdpa32:
             from . import sdpa_generic as SG
-            g = self.device.compute_with_storage_grid_size()
-            o = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H * nb, nq, dh]), ttnn.float32,
+            if self._sdpa32:
+                g = self.device.compute_with_storage_grid_size()
+                grid, ckc = (g.x, g.y), _ATOM_SDPA32_CKC
+            else:
+                grid, ckc = tuple(_T.COMPUTE_GRID_MAIN), _ATOM_SDPA_CKC
+            o = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H * nb, nq, dh]), Qs.dtype,
                                                ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
-            kvw = (nb, W) if self._tile_heads and self._kvwin else None
-            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, W, (g.x, g.y), _ATOM_SDPA32_CKC, dh ** -0.5, kv_window=kvw)
+            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, W, grid, ckc, dh ** -0.5, kv_window=kvw)
         else:
             sc = batched_matmul(Qs, ttnn.permute(Ks, (0, 1, 3, 2)),
                                 compute_kernel_config=self.compute_kernel_config)
