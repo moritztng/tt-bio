@@ -157,6 +157,23 @@ def opm_kpad_rows(depth: int, grid_x: int) -> int:
 OPM_PROJ_BLOCK_ROWS = 16384
 
 
+def opm_flat_b(b):
+    """The OPM's b operand (D, J, S) as (D*J, S) for the depth contraction.
+
+    Merging the two leading dims of a tiled tensor is a view when J is a whole number of tiles,
+    which bucketed token counts always are. The row-major round trip it replaces is only needed
+    otherwise, and it was not cheap: untilizing (32, 736, 9984) took 111 ms on Wormhole against
+    6 ms at depth 9947, which is what ate OPM_KPAD's matmul gain in the fold
+    (perf/spd_msa/opm_infold.py --ops). Same bytes either way: neither path rounds."""
+    S = b.shape[-1]
+    if b.shape[-2] % 32 == 0:
+        return ttnn.reshape(b, (-1, S))
+    b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
+    b = ttnn.reshape(b, (-1, S))
+    return ttnn.to_layout(b, ttnn.TILE_LAYOUT)
+
+
+
 def opm_proj_blocks(rows: int, J: int) -> int:
     """How many row blocks the (rows*J, C*D) projection input is viewed as: the fewest whole
     token-row groups whose blocks hold at most OPM_PROJ_BLOCK_ROWS rows. 1 means one 2D call."""
@@ -13053,9 +13070,7 @@ class OuterProductMean(Module):
                 ttnn.deallocate(ac)
                 bcp = ttnn.permute(bc, (2, 1, 0))           # (D, J, Sc)
                 ttnn.deallocate(bc)
-                bcp = ttnn.to_layout(bcp, ttnn.ROW_MAJOR_LAYOUT)
-                bcp = ttnn.reshape(bcp, (-1, Sc))           # (D*J, Sc)
-                bcp = ttnn.to_layout(bcp, ttnn.TILE_LAYOUT)
+                bcp = opm_flat_b(bcp)                       # (D*J, Sc)
                 parts.append((acp, bcp, Sc))
             return parts, S, I, C, D, J
 
@@ -13121,10 +13136,7 @@ class OuterProductMean(Module):
                 S, I, C = a.shape
                 _, J, D = b.shape
                 a = ttnn.permute(a, (1, 2, 0))  # (I, C, S)
-                b = ttnn.permute(b, (2, 1, 0))
-                b = ttnn.to_layout(b, ttnn.ROW_MAJOR_LAYOUT)
-                b = ttnn.reshape(b, (-1, S))
-                b = ttnn.to_layout(b, ttnn.TILE_LAYOUT)
+                b = opm_flat_b(ttnn.permute(b, (2, 1, 0)))
                 if I > SEQ_LEN_MORE_CHUNKING:
                     # Compact large tensors before OPM matmuls to reduce DRAM fragmentation.
                     a = ttnn.reallocate(a)
