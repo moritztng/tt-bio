@@ -55,6 +55,11 @@ void kernel_main() {
     constexpr uint32_t out_cb_id = get_named_compile_time_arg_val("cb_out");
     constexpr uint32_t gate_cb_id = get_named_compile_time_arg_val("cb_intermed0");
     constexpr uint32_t n = out_subblock_num_tiles;
+#ifdef FC12G_MUL_HIFI4
+    constexpr auto mul_fidelity = MathFidelity::HiFi4;
+#else
+    constexpr auto mul_fidelity = static_cast<MathFidelity>(MATH_FIDELITY);
+#endif
 
     experimental::CircularBuffer in0_cb(in0_cb_id);
     experimental::CircularBuffer in1_cb(in1_cb_id);
@@ -113,10 +118,17 @@ void kernel_main() {
              k++, in0_i++, in1_i += in1_block_w) {
             matmul_block(in0_cb_id, in1_cb_id, in0_i, in1_i, 0, false, out_subblock_w, out_subblock_h, in0_block_w);
         }
-        binary_dest_reuse_tiles_init<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(gate_cb_id);
+        // binary_dest_reuse_tiles_init/_tiles<ELWMUL, DEST_TO_SRCB>, with the multiply's fidelity a choice
+        // (FC12G_MUL_FIDELITY) rather than the matmul's.
+        UNPACK((llk_unpack_A_init<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+            false, false, gate_cb_id)));
+        MATH((llk_math_eltwise_binary_init<ELWMUL, NONE, mul_fidelity, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+            false)));
         gate_cb.wait_front(n);
         for (uint32_t i = 0; i < n; i++) {
-            binary_dest_reuse_tiles<ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(gate_cb_id, i, i);
+            UNPACK((llk_unpack_A<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(gate_cb_id, i)));
+            MATH((llk_math_eltwise_binary<ELWMUL, NONE, DST_ACCUM_MODE, mul_fidelity,
+                                          EltwiseBinaryReuseDestType::DEST_TO_SRCB>(gate_cb_id, gate_cb_id, i, true)));
         }
         gate_cb.pop_front(n);
         mm_block_init_short_with_dt(

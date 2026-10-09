@@ -24,7 +24,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--mode", default="fast", choices=("normal", "fast"))
 ap.add_argument("--reps", type=int, default=20)
-ap.add_argument("--arms", default="base,fc12g_pack,fc12g_pack_alt,fc12g_lever,fc12g_math")
+ap.add_argument("--arms", default="base,fc12g_pack,fc12g_mulhifi4,fc12g_lever")
 a = ap.parse_args()
 os.environ["TT_BIO_LEVERS"] = a.mode
 
@@ -138,7 +138,11 @@ ARMS = {"base": (base, True), "fc12g_math": (fc12g(False), False), "fc12g_pack":
         "fc12g_pack_alt": (fc12g(True, True), False),
         **{f"fc12g_split{k}": (fc12g(True, False, k), False) for k in (1, 2, 3)},
         # the lever's own call: a fresh output tensor every call and the caller's short cache key
-        "fc12g_lever": (lambda: T._fc12g(x, w12, mc, pm, pn, bw, gx, gy, SILU_CKC, HDT), True)}
+        "fc12g_lever": (lambda: T._fc12g(x, w12, mc, pm, pn, bw, gx, gy, SILU_CKC, HDT), True),
+        "fc12g_mulhifi4": (lambda: generic_matmul_2d(dev, x, w12, out_pair()[0], PC12, SILU_CKC, out_nzsb_w=1,
+                                                     compute_src=str(KERNEL), gate_tiles=2 * pn,
+                                                     compute_defines={**defines(True), "FC12G_MUL_HIFI4": "1"}),
+                           False)}
 arms = [s for s in a.arms.split(",") if s]
 res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH, "mode": a.mode,
        "b8": B8, "grid": [gx, gy], "pm": pm, "pn": pn, "fidelity": str(SILU_CKC.math_fidelity),
