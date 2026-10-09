@@ -17,6 +17,7 @@ Legs (enumerated from the tree under test, so a new arm or model is picked up wi
   capacity:<model>   capacity_gate.py --models <model>
   ux:<model>         ux_regression.py --model <model>
   pytest_device:i/K  pytest over every K-th test file, starting at i
+  bc2:boundary       two BindCraft 2 trajectories from the installed wheel
   perf               perf_regression.py, TIMED (see below)
 plus three card-free legs run once on the first host: check, packaging_smoke, pytest_cpu.
 
@@ -39,7 +40,11 @@ hosts.json names, per host, how to reach it and what to run with (no host facts 
              "repo": "/home/ttuser/tt-bio", "trees": "/home/ttuser/scratch/gate-trees",
              "python": "/home/ttuser/scratch/relvenv/bin/python3",
              "lock": "/home/ttuser/spd_qb1_card{card}.lock",
-             "env": {"ESM_ROOT": "/home/ttuser/esm"}, "pythonpath_extra": []}}
+             "python_for": {"pytest_device": ".../bc2venv/bin/python3", "pytest_cpu": "...",
+                            "bc2": "..."},
+             "env": {"ESM_ROOT": "/home/ttuser/esm", "AF2_PARAMS_DIR": "..."},
+             "pythonpath_extra": ["/home/ttuser/bcx_e2e/bc2"]}}
+Every `env` value is exported to the leg and also fills `{NAME}` in a leg's argv.
 """
 from __future__ import annotations
 
@@ -61,7 +66,12 @@ REPO = Path(__file__).resolve().parents[1]
 # Per-leg budgets (s). A budget is a hang guard, not an expected time.
 BUDGET = {"parity": 14400, "rg": 7200, "ladder": 14400, "capacity": 14400, "ux": 3600,
           "pytest_device": 7200, "perf": 7200, "check": 900, "packaging_smoke": 1800,
-          "pytest_cpu": 5400}
+          "pytest_cpu": 5400, "bc2": 3600}
+# Expected wall (s) per family when the ledger has no history for a leg, from the 0.13.1 and
+# 0.14.0 chains. Legs start longest first so the gate ends close to its longest leg.
+EXPECT = {"parity": 900, "rg": 900, "ladder": 5400, "capacity": 1800, "ux": 300,
+          "pytest_device": 3000, "perf": 3600, "check": 60, "packaging_smoke": 600,
+          "pytest_cpu": 1800, "bc2": 1200}
 TIMED = {"perf"}
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
@@ -120,6 +130,7 @@ class Leg:
     timed: bool = False
     card: bool = True     # opens a card
     workdir: bool = False  # argv takes the leg's own out dir as "{OUT}"
+    tree_on_path: bool = True  # False: import tt_bio from the installed wheel, not the tree
 
     @property
     def budget(self) -> int:
@@ -155,6 +166,14 @@ def build_legs(roster: dict, test_files: list, shards: int) -> list:
             legs.append(Leg(f"pytest_device:{i}/{shards}",
                             ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short", *part],
                             "pytest_device"))
+    # The wheel itself on a card: two short BindCraft 2 trajectories with tt_bio imported from the
+    # installed wheel and BindCraft 2 on the path, so a file the wheel drops fails here.
+    legs.append(Leg("bc2:boundary", ["PY", "-c", "from tt_bio.main import ensure_p300_mesh_descriptor; "
+                                     "ensure_p300_mesh_descriptor(); import runpy, sys; sys.argv = "
+                                     "['boundary.py', '--params', '{AF2_PARAMS_DIR}', '--trajectories', '2', "
+                                     "'--out', '{OUT}/bc2.json', '--project', '{OUT}/project']; "
+                                     "runpy.run_path('perf/bc2_memory/boundary.py', run_name='__main__')"],
+                    "bc2", tree_on_path=False))
     legs.append(Leg("perf", ["PY", "scripts/perf_regression.py"], "perf", timed=True))
     return legs
 
@@ -209,9 +228,14 @@ class Host:
         if r.returncode:
             raise SystemExit(f"{self.name}: cannot prepare {t} at {self.sha}: {r.stderr.strip()[-400:]}")
 
-    def run_py(self, code: str) -> dict:
+    def python(self, family: str) -> str:
+        """The interpreter a leg family runs under: `python`, unless `python_for` names another
+        (pytest needs the venv that also carries BindCraft 2's dependencies)."""
+        return self.cfg.get("python_for", {}).get(family, self.cfg["python"])
+
+    def run_py(self, code: str, python: str | None = None) -> dict:
         cmd = (f"cd {self.tree} && TT_VISIBLE_DEVICES= PYTHONPATH={self.tree}:{self.tree}/scripts "
-               f"timeout 300 {self.cfg['python']} -c {shlex.quote(code)}")
+               f"timeout 300 {python or self.cfg['python']} -c {shlex.quote(code)}")
         r = self.ssh(cmd, capture_output=True, timeout=400)
         if r.returncode:
             raise SystemExit(f"{self.name}: probe failed: {r.stderr.strip()[-400:]}")
@@ -219,11 +243,17 @@ class Host:
 
     def command(self, leg: Leg, card, out: str) -> str:
         c = self.cfg
-        pp = ":".join([self.tree, *c.get("pythonpath_extra", [])])
+        pp = ":".join([self.tree] * leg.tree_on_path + c.get("pythonpath_extra", []))
         env = {"PYTHONPATH": pp, "TT_VISIBLE_DEVICES": "" if card is None else str(card),
                **c.get("env", {})}
-        argv = [c["python"] if a == "PY" else a.replace("{CARD}", str(card)).replace("{OUT}", out)
-                for a in leg.argv]
+        subst = {"{CARD}": str(card), "{OUT}": out,
+                 **{f"{{{k}}}": v for k, v in c.get("env", {}).items()}}
+
+        def fill(a: str) -> str:
+            for k, v in subst.items():
+                a = a.replace(k, v)
+            return a
+        argv = [self.python(leg.family) if a == "PY" else fill(a) for a in leg.argv]
         body = (f"echo \"##LEG-START $(date +%s)\"; exec timeout -s INT {leg.budget} nice -n 10 "
                 + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
@@ -255,6 +285,18 @@ class Ledger:
     def get(self, key: str) -> dict | None:
         p = self.path / f"{key}.json"
         return json.loads(p.read_text()) if p.exists() else None
+
+    def history(self) -> dict:
+        """leg name -> the latest wall clock any run of it took, for ordering only."""
+        seen = {}
+        for p in self.path.glob("*.json"):
+            try:
+                r = json.loads(p.read_text())
+            except ValueError:
+                continue
+            if r.get("wall_s") and r.get("ended", "") >= seen.get(r["leg"], ("", 0))[0]:
+                seen[r["leg"]] = (r["ended"], r["wall_s"])
+        return {k: v[1] for k, v in seen.items()}
 
     def put(self, key: str, rec: dict) -> None:
         p = self.path / f"{key}.json"
@@ -451,8 +493,11 @@ def main() -> int:
     legs = select(build_legs(roster, test_files(sha), args.shards),
                   [p for p in args.legs.split(",") if p])
     content = content_hash(sha)
-    probes = {a: first[a].run_py(ENV_PROBE) for a in archs}
-    envs = {a: env_hash(p) for a, p in probes.items()}
+    probes = {}
+    for a in archs:
+        for py in {first[a].python(lg.family) for lg in legs}:
+            probes[f"{a} {py}"] = first[a].run_py(ENV_PROBE, py)
+    envs = {k: env_hash(p) for k, p in probes.items()}
     ctype = {a: first[a].cfg["card_type"] for a in archs}
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -461,7 +506,8 @@ def main() -> int:
     for lg in legs:
         for a in (archs if lg.card else [archs[0]]):
             slot = a if lg.card else "any"
-            k = leg_key(content, envs[a], ctype[a] if lg.card else "cpu", lg)
+            k = leg_key(content, envs[f"{a} {first[a].python(lg.family)}"],
+                        ctype[a] if lg.card else "cpu", lg)
             keys[(lg.name, slot)] = k
             hit = None if args.no_reuse else ledger.get(k)
             if hit and hit.get("verdict") in ("PASS", "BLOCKED"):
@@ -472,6 +518,9 @@ def main() -> int:
                 todo[a].append(lg)
             else:
                 todo.setdefault("any", []).append(lg)
+    hist = ledger.history()
+    for q in todo.values():
+        q.sort(key=lambda lg: -hist.get(lg.name, EXPECT[lg.family]))
     plan = {"sha": sha, "content": content, "envs": envs, "card_types": ctype, "archs": archs,
             "workers": [f"{h.name}:{c}" for h, c in workers], "timed": sorted(map(list, timed)),
             "env_probe": probes, "run": {a: [lg.name for lg in q] for a, q in todo.items()},

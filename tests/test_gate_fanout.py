@@ -140,11 +140,18 @@ def test_verdict_counts_reused_and_blocked_as_pass_and_fails_on_any_fail(tmp_pat
     assert json.loads((tmp_path / "verdict.json").read_text())["pass"] is False
 
 
-def test_ledger_roundtrip(tmp_path):
+def test_ledger_roundtrip_and_history_takes_the_latest_wall(tmp_path):
     led = gf.Ledger(tmp_path / "l")
     assert led.get("k") is None
-    led.put("k", {"verdict": "PASS"})
-    assert led.get("k") == {"verdict": "PASS"}
+    led.put("k", {"verdict": "PASS", "leg": "ux:boltz2", "wall_s": 100, "ended": "2026-10-09T01:00:00Z"})
+    led.put("j", {"verdict": "PASS", "leg": "ux:boltz2", "wall_s": 300, "ended": "2026-10-09T02:00:00Z"})
+    assert led.get("k")["wall_s"] == 100
+    assert led.history() == {"ux:boltz2": 300}
+
+
+def test_every_family_has_a_budget_and_an_expectation():
+    for lg in _legs():
+        assert lg.budget > 0 and lg.family in gf.EXPECT
 
 
 def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path):
