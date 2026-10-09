@@ -9,9 +9,11 @@ DRAM read + mcast of every batch's in1 sits fully exposed between two compute ph
 The patch defers each block's output writes until after the NEXT block's in1 phase (one block of lookahead), and
 waits for writes to have left L1 (`async_writes_flushed`) instead of their completion before freeing an output
 subblock; the kernel's final `async_write_barrier` stays. Same tiles, same addresses, same order per block: the
-output bytes cannot change. Deadlock-free for any CB depth: block t's in1 phase needs an in1 slot, which compute
-frees after finishing block t-1 or earlier, whose output space was freed by writes of block t-2 or earlier, all of
-which the writer issued in an earlier iteration. Not applied with fused all-gather / reduce-scatter or sparsity
+output bytes cannot change. Only with ONE K block per output block (`num_blocks_inner_dim == 1`), and there
+deadlock-free for any CB depth: block t's in1 phase needs one in1 slot, which compute frees after finishing block
+t-1 or earlier, whose output space was freed by writes of block t-2 or earlier, all of which the writer issued in
+an earlier iteration. With more K blocks it can hang: K step k >= 2 of block t needs compute to have consumed step
+k-2, and compute's partials share the (single-buffered) output CB that the deferred block t-1 still holds. Not applied with fused all-gather / reduce-scatter or sparsity
 (they synchronise per batch on completed writes): those keep the stock order through `if constexpr`.
 
 Both stock files are matched by sha256, so a ttnn whose kernels differ gets no patch (and `build` raises).
@@ -76,7 +78,7 @@ def patch_sender(src):
     body = writer[len("#ifndef OUT_SHARDED\n"):writer.rstrip().rindex("#endif")]
     decl = ("#ifndef OUT_SHARDED\n"
             "    // tt-bio mm_pipe: a block's output is written after the next block's in1 transfer (see overlay).\n"
-            "    constexpr bool TB_PIPE = !fuse_op_all_gather && !fuse_op_reduce_scatter && batchB == 0;\n"
+            "    constexpr bool TB_PIPE = !fuse_op_all_gather && !fuse_op_reduce_scatter && batchB == 0 && num_blocks_inner_dim == 1;\n"
             + _lambda(body, "uint32_t bh, uint32_t bw, uint32_t out_tensor_current_w_dim_block_tile_id")
             + "    bool tb_pending = false;\n    uint32_t tb_p_bh = 0, tb_p_bw = 0, tb_p_tile = 0;\n#endif\n")
     loop = "    for (uint32_t b = 0; b < batch; ++b) {\n        uint32_t in1_batch_tile_id = in1_tensor_start_tile_id;\n"
@@ -97,7 +99,7 @@ def patch_receiver(src):
     body = writer[len("#ifndef OUT_SHARDED\n"):writer.rstrip().rindex("#endif")]
     decl = ("#ifndef OUT_SHARDED\n"
             "    // tt-bio mm_pipe: a block's output is written after the next block's in1 transfer (see overlay).\n"
-            "    constexpr bool TB_PIPE = !fuse_op_reduce_scatter;\n"
+            "    constexpr bool TB_PIPE = !fuse_op_reduce_scatter && num_blocks_inner_dim == 1;\n"
             + _lambda(body, "uint32_t bh, uint32_t bw, uint32_t out_tensor_current_w_dim_block_tile_id")
             + "    bool tb_pending = false;\n    uint32_t tb_p_bh = 0, tb_p_bw = 0, tb_p_tile = 0;\n#endif\n")
     loop = "    for (uint32_t b = 0; b < batch; ++b) {\n"
