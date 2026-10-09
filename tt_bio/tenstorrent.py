@@ -137,6 +137,20 @@ OPM_JOIN_PARTS_STATS = [0, 0]
 # the identical bytes (torch.equal against the 2D call, perf/spd_msa/sweep_opm_out.py). Splits of
 # 2 or 4 stay slow, 8 and up are fast, so the block is sized to ~16k rows.
 _OPM_PROJ_BATCH = env_flag("TT_BIO_OPM_PROJ_BATCH", True)
+# The OPM contraction z = a b^T runs over the MSA depth, and the matmul's auto config can only step
+# K by a divisor of its tile count. At 9947 rows K is 311 tiles, a prime, so every core walks K one
+# tile at a time: 288 ms for the whole-row call on Wormhole (HiFi3) against 237 ms with 37 zero rows
+# appended (312 tiles), and 157 vs 102 ms for a row-blocked call (perf/spd_msa/zmm_kpad*.py). Zero
+# rows add exact zeros to every dot product and the mean still divides by the real depth, so the
+# result moves only by the accumulation order. The rows ride along in the join's concat, so the
+# chunk-list path pays nothing for them. 0 or 1 turns it off.
+_OPM_KPAD_TILES = env_int("TT_BIO_OPM_KPAD_TILES", 2)
+
+
+def opm_kpad_rows(depth: int) -> int:
+    """Zero rows that round the OPM contraction depth up to a multiple of `_OPM_KPAD_TILES` tiles."""
+    return -depth % (32 * _OPM_KPAD_TILES) if _OPM_KPAD_TILES > 1 else 0
+
 OPM_PROJ_BLOCK_ROWS = 16384
 
 
@@ -13049,6 +13063,14 @@ class OuterProductMean(Module):
                 e = min(s + MSA_CHUNK_SIZE, x.shape[0])
                 yield x[s:e], None if msa_mask is None else msa_mask[s:e]
 
+        def small_depth(depth):
+            return _OPM_SMALL_DEPTH and depth <= OPM_SMALL_DEPTH_MAX
+
+        def zero_rows(t, n):
+            """`n` zero rows shaped like the depth rows of projection `t` (depth outermost)."""
+            return ttnn.zeros((n, *tuple(t.shape)[1:]), dtype=t.dtype, layout=ttnn.TILE_LAYOUT,
+                              device=t.device())
+
         def contiguous_ab(chunks=None):
             """`a` and `b` built whole and laid out for `z_rows`. `chunks` (an iterator of
             (chunk, mask) pairs) projects those instead of `x`.
@@ -13067,12 +13089,20 @@ class OuterProductMean(Module):
             a_parts, b_parts, a, b = [], [], None, None
             try:
                 if chunks is None and x.shape[0] * x.shape[1] * x.shape[2] * 2 <= OPM_ROW_CHUNK_BUDGET_BYTES:
-                    a, b = project_ab(x, msa_mask)
+                    pairs = [project_ab(x, msa_mask)]
                 else:
-                    for c, maskc in chunks or depth_slices():
-                        ac, bc = project_ab(c, maskc)
-                        a_parts.append(ac)
-                        b_parts.append(bc)
+                    pairs = (project_ab(c, maskc) for c, maskc in chunks or depth_slices())
+                for ac, bc in pairs:
+                    a_parts.append(ac)
+                    b_parts.append(bc)
+                depth = sum(p.shape[0] for p in a_parts)
+                pad = 0 if small_depth(depth) else opm_kpad_rows(depth)
+                if pad:
+                    a_parts.append(zero_rows(a_parts[0], pad))
+                    b_parts.append(zero_rows(b_parts[0], pad))
+                if len(a_parts) == 1:
+                    (a,), (b,), a_parts, b_parts = a_parts, b_parts, [], []
+                else:
                     # Free per side: only the SECOND concat has room to gain from it.
                     a = ttnn.concat(a_parts, dim=0)
                     for p in a_parts:
@@ -13082,7 +13112,7 @@ class OuterProductMean(Module):
                     for p in b_parts:
                         ttnn.deallocate(p)
                     b_parts = []
-                if _OPM_SMALL_DEPTH and a.shape[0] <= OPM_SMALL_DEPTH_MAX:
+                if small_depth(a.shape[0]):
                     return a, b, None
                 S, I, C = a.shape
                 _, J, D = b.shape
@@ -13176,7 +13206,9 @@ class OuterProductMean(Module):
         # `n_msa` is a float so a caller can divide by something other than the row count. AF2
         # wants `eps + norm`, which at an all-ones bfloat16 mask rounds back to the depth, so it
         # passes None; the float is what its A/B arm uses.
-        scale = 1 / (n_msa if n_msa is not None else S)
+        # S counts the zero rows `opm_kpad_rows` appended; the mean is over the real depth.
+        depth = x.shape[0] if x_chunks is None else sum(c.shape[1] for c in x_chunks)
+        scale = 1 / (n_msa if n_msa is not None else depth)
         legacy = _opm_legacy_layout()
         # The scale is linear, so it folds into the SMALLEST tensor in the chain, which is the rule
         # `_small_depth` already states and this path used to break: it multiplied z, the LARGEST
