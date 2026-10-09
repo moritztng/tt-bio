@@ -18,6 +18,13 @@ export TT_VISIBLE_DEVICES=$CHIP TT_BIO_LEASE_DIR=$B/leases TT_BIO_LEASE_HOLDER=s
 export TT_METAL_DEVICE_PROFILER=1 TT_METAL_PROFILER_MID_RUN_DUMP=1 TT_METAL_PROFILER_CPP_POST_PROCESS=1 \
        TT_METAL_PROFILER_DISABLE_DUMP_TO_FILES=1
 mkdir -p "$RUN" "$TT_BIO_LEASE_DIR" "$TT_METAL_CACHE"
+# The profiler keys device zones by a 16-bit hash of "name,file,line" and throws on a collision. Its zone log
+# lives in TT_METAL_HOME and keeps every tree's kernel paths, so after a few trees two of them collide (r4: tree2's
+# and tree4f's triatt compute_streaming.hpp). Keep only this tree's entries: another tree's kernels never run here.
+for zl in "$TT_METAL_HOME"/generated/profiler/.logs/{,new_}zone_src_locations.log; do
+  [ -f "$zl" ] && awk -v other="$B/tree" -v keep="$TREE/" 'index($0, other) && !index($0, keep) {next} 1' "$zl" > "$zl.tmp" &&
+    mv "$zl.tmp" "$zl"
+done
 say(){ echo "$(date -u +%FT%TZ) $*" >> "$RUN/run.log"; }
 exec 9> "$LOCK"
 say "waiting for flock $LOCK"; flock -w ${WAIT:-1800} 9 || { say "flock busy"; exit 3; }

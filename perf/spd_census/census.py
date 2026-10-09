@@ -310,7 +310,11 @@ for name, cyc, steps in FOLDS:
     except Exception:
         import traceback; err = traceback.format_exc()[-3000:]; metrics = {}
     t1 = time.monotonic()
-    ST["on"] = False; drain()
+    ST["on"] = False
+    try:
+        drain()
+    except Exception:  # keep the fold's own error: a failing profiler read must not hide it
+        import traceback; err = (err or "") + "\ndrain: " + traceback.format_exc()[-1500:]
     clk = sorted(r[NODE] for s_, r in samples[n0:] if t0 <= s_ <= t1)
     for kk in F:
         F[kk].close(); F[kk] = None
