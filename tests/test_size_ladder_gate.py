@@ -1611,3 +1611,18 @@ def test_the_committed_levers_are_read_from_git_head(rg):
     assert "1536" in lv
     assert rg._size_ladder_committed_levers(rg.SIZE_LADDER_BASELINE, "no-such-card",
                                             "boltz2") == {}
+
+
+def test_a_rung_recorded_slower_than_the_flat_timeout_gets_its_own_budget(rg, monkeypatch):
+    """opendde/1536 on a Wormhole Galaxy is recorded at 3992 s; a flat 1800 s fold timeout made
+    that rung time out on every pass, so the timeout scales with the rung's recorded runtime."""
+    monkeypatch.setattr(rg, "SIZE_LADDER_FOLD_TIMEOUTS", {})
+    t = rg._size_ladder_fold_timeouts("opendde", {"256": 56.3, "1536": 3992.0, "2048": None})
+    assert t == {256: rg.FOLD_TIMEOUT_S, 1536: 3 * 3992}
+    assert rg.SIZE_LADDER_FOLD_TIMEOUTS[("opendde", 1536)] == 3 * 3992
+    monkeypatch.setattr(rg, "_size_ladder_measure_model", lambda *a, **k: {"error": "x"})
+    base = _baseline()
+    base["runtime_s"]["768"] = 1000.0
+    rg._size_ladder_check_model("boltz2", RUNGS, base, pathlib.Path("/tmp"))
+    assert rg.SIZE_LADDER_FOLD_TIMEOUTS[("boltz2", 768)] == 3000
+    assert rg.SIZE_LADDER_FOLD_TIMEOUTS[("boltz2", 256)] == rg.FOLD_TIMEOUT_S
