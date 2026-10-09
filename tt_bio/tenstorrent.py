@@ -6892,15 +6892,15 @@ DEVICE_TILIZE_MAX = 1 << 30
 _TORCH_DT = {ttnn.float32: torch.float32, ttnn.bfloat16: torch.bfloat16}
 
 
-def _device_tilize(nbytes, dtype):
-    return (dtype in _TORCH_DT and DEVICE_TILIZE_MIN <= nbytes <= DEVICE_TILIZE_MAX
+def _device_tilize(nbytes):
+    return (DEVICE_TILIZE_MIN <= nbytes <= DEVICE_TILIZE_MAX
             and os.environ.get("TT_BIO_DEVICE_TILIZE", "1") != "0")
 
 
 def upload(t, dtype=ttnn.bfloat16, device=None):
     """`ttnn.from_torch(t, TILE_LAYOUT, device, dtype)`, tilized on the chip when that pays."""
     device = device or get_device()
-    if not _device_tilize(t.numel() * _TORCH_DT.get(dtype, torch.float32).itemsize, dtype):
+    if dtype not in _TORCH_DT or not _device_tilize(t.numel() * _TORCH_DT[dtype].itemsize):
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=dtype)
     rm = ttnn.from_torch(t.to(_TORCH_DT[dtype]).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
                          device=device, dtype=dtype)
@@ -6911,7 +6911,8 @@ def upload(t, dtype=ttnn.bfloat16, device=None):
 
 def download(t):
     """`ttnn.to_torch(t)` of a TILE device tensor, untilized on the chip when that pays."""
-    if t.layout != ttnn.TILE_LAYOUT or not _device_tilize(t.volume() * t.element_size(), t.dtype):
+    if t.layout != ttnn.TILE_LAYOUT or t.dtype not in _TORCH_DT or \
+            not _device_tilize(t.volume() * _TORCH_DT[t.dtype].itemsize):
         return ttnn.to_torch(t)
     rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT)
     h = ttnn.to_torch(rm)
