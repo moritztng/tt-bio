@@ -266,6 +266,19 @@ def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
     assert "--against" not in h.leg(next(lg for lg in _legs() if lg.family == "parity")).argv
 
 
+def test_a_dropped_ssh_handshake_is_retried_not_recorded(monkeypatch):
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        err = "kex_exchange_identification: Connection closed by remote host" if len(calls) < 3 else ""
+        return subprocess.CompletedProcess(argv, 255 if err else 0, "ok", err)
+    monkeypatch.setattr(gf.subprocess, "run", run)
+    monkeypatch.setattr(gf.time, "sleep", lambda s: None)
+    h = gf.Host("g108", {"ssh": "10.0.0.8", "arch": "wh", "card_type": "x", "root": "/r"}, "a" * 40)
+    assert h.ssh("true", capture_output=True).returncode == 0 and len(calls) == 3
+
+
 def test_every_family_has_a_budget_and_an_expectation():
     for lg in _legs():
         assert lg.budget > 0 and lg.family in gf.EXPECT

@@ -474,8 +474,19 @@ class Host:
     def ssh(self, cmd: str, **kw) -> subprocess.CompletedProcess:
         if self.cfg.get("ssh") in (None, "", "localhost"):
             return subprocess.run(["bash", "-c", cmd], text=True, **kw)
-        return subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60",
-                               self.cfg["ssh"], cmd], text=True, **kw)
+        # Twenty workers connecting at once can pass a Galaxy's sshd MaxStartups, which drops the
+        # handshake ("kex_exchange_identification: Connection closed"). The command never ran, so
+        # that is retried, never recorded as the leg's result.
+        check = kw.pop("check", False)
+        for wait in (5, 15, 45, None):
+            r = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=60",
+                                self.cfg["ssh"], cmd], text=True, **kw)
+            if wait is None or r.returncode != 255 or "kex_exchange_identification" not in (r.stderr or ""):
+                break
+            time.sleep(wait)
+        if check and r.returncode:
+            raise subprocess.CalledProcessError(r.returncode, r.args, r.stdout, r.stderr)
+        return r
 
     def pins(self) -> dict:
         """This host's resolved packages per venv, minus tt-bio and BindCraft 2 (installed from
