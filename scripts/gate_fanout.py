@@ -66,6 +66,7 @@ import subprocess
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -559,8 +560,8 @@ def main() -> int:
         if not any(h.arch == a for h, c in workers if (h.name, c) in timed):
             print(f"note: no --timed card for {a}; its timed legs will not run", file=sys.stderr)
 
-    for h in hosts.values():
-        h.prepare()
+    with ThreadPoolExecutor() as ex:          # a failure re-raises here
+        list(ex.map(Host.prepare, hosts.values()))
     first = {a: next(h for h in hosts.values() if h.arch == a) for a in archs}
     roster = first[archs[0]].run_py(ENUMERATE)
     legs = select(build_legs(roster, test_files(sha), args.shards),
