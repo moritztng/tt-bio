@@ -97,6 +97,21 @@ def head2d():
 
 arm("head2d", head2d)
 arm("head2d_auto", lambda: ttnn.concat([ttnn.matmul(a, b, compute_kernel_config=ckc) for a, b in zip(vhs, wts)], dim=0))
+# K padded to whole even tiles: 736 = 23 tiles is prime, so in0_block_w can only be 1 or 23. Zero K rows/cols add
+# exact zeros. `kpad` takes vh already padded (the model would pad mc's tokens before the v projection, which has
+# no bias); `kpad_n` pads N as well.
+KP = int(sys.argv[6]) if len(sys.argv) > 6 else 768
+vhp = ttnn.pad(vh, [(0, 0), (0, 0), (0, KP - TOK)], 0.0)
+wtp = ttnn.pad(wt, [(0, 0), (0, KP - TOK), (0, 0)], 0.0)
+arm("kpad", lambda: ttnn.matmul(vhp, wtp, **lin))
+arm("kpad_auto", lambda: ttnn.matmul(vhp, wtp, compute_kernel_config=ckc))
+wtpn = ttnn.pad(wt, [(0, 0), (0, KP - TOK), (0, KP - TOK)], 0.0)
+_, ms, sp = timed(lambda: ttnn.matmul(vhp, wtpn, **lin))
+log(ev="arm", arm="kpad_n", ms=ms, spread=sp, tf=flops / ms / 1e9)
+_, ms, sp = timed(lambda: ttnn.pad(vh, [(0, 0), (0, 0), (0, KP - TOK)], 0.0))
+log(ev="arm", arm="pad_vh_only", ms=ms, spread=sp)
+log(ev="end")
+sys.exit(0)
 Mt, Nt, Kt = ROWS, -(-TOK // 32), -(-TOK // 32)
 for pcn in (Nt,):
     for pcm in (2, 4, 8, 16):

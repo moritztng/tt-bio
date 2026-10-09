@@ -582,6 +582,13 @@ median between two seeds of the reference path, every paired confidence interval
 docking success is 24 of 44 on both. On the 730-token fold at 1000 MHz it takes 158.0 to 147.2 s.
 A lever graded only on Protenix-v2 does not reach Boltz-2.
 
+Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off
+for Boltz-2 because it was slower than normal mode (159.7 s against 135.5 s on the 730-token fold). The
+fast set folds the same input in 123.4 s, and 168.3 s instead of 181.6 s at 1024 tokens (Wormhole,
+1000 MHz). Graded against normal mode on the same 11 complexes and 4 seeds: CA-lDDT +0.0018, pLDDT
+-0.0002, DockQ -0.004 with its interval reaching zero, docking success 24 of 44 in both modes, and a
+median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds of normal mode.
+
 ## `TT_BIO_LNBW_FUSED`
 
 Default: off, training only.
