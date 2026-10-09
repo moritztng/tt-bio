@@ -180,11 +180,33 @@ def profiled(fn):
         pr.dump_stats(str(a.out / "profile.pstats"))
 cls = bc2.design_model_class()
 real_grads = cls.sequence_gradients
-state = dict(n=0, uninstrumented=[], instrumented=None, cl=None)
+state = dict(n=0, uninstrumented=[], instrumented=None, cl=None, loads=0)
+
+# A trunk loads on the first gradient call that samples its checkpoint (~13 s on a Wormhole Galaxy
+# host: npz read, remap, upload), then stays resident. Five design models means five such calls
+# per process at random iterations, so every iteration records how many it paid, and the host
+# load beside it: on this workload the host is half the iteration and a loaded box doubles it.
+real_trunk_init = bc2._Trunk.__init__
+
+
+def trunk_init(self, *args, **kwargs):
+    state["loads"] += 1
+    return real_trunk_init(self, *args, **kwargs)
+
+
+bc2._Trunk.__init__ = trunk_init
+
+
+def loadavg():
+    try:
+        return float(Path("/proc/loadavg").read_text().split()[0])
+    except OSError:
+        return None
 
 
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
+    loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         t0 = time.monotonic()
         try:
@@ -193,7 +215,9 @@ def sequence_gradients(self, *args, **kwargs):
             return real_grads(self, *args, **kwargs)
         finally:
             state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0,
-                                                profiled=state["n"] == a.profile))
+                                                profiled=state["n"] == a.profile,
+                                                trunk_loads=state["loads"] - loads0,
+                                                load1=load1, ncpu=os.cpu_count()))
     rec.install()
     if a.wrap == "all":
         wrap_everything()
@@ -205,6 +229,8 @@ def sequence_gradients(self, *args, **kwargs):
         t1 = time.monotonic()
         rec.active = False
         state["instrumented"] = t1 - t0
+        state["instrumented_loads"] = state["loads"] - loads0
+        state["instrumented_load1"] = load1
         state["cl"] = clock(t0, t1)
         write()
         os._exit(0)
@@ -229,6 +255,7 @@ def write():
     rows.sort(key=lambda r: -r["synced_s"])
     total = sum(r["synced_s"] for r in rows)
     doc = dict(**HEAD, iteration_s=state["instrumented"], uninstrumented=state["uninstrumented"],
+               iteration_trunk_loads=state.get("instrumented_loads"), iteration_load1=state.get("instrumented_load1"),
                aiclk=state["cl"], synced_total_s=total, ops=rows, calls=len(rec.rec))
     (a.out / "census.json").write_text(json.dumps(doc, indent=1))
 
