@@ -563,14 +563,14 @@ _FAST_MODE = False
 #   transition_shard the pair transition's swiglu on block-sharded intermediates, in row blocks that
 #                   fill the grid (`_transition_swiglu_sharded`); fc3's K block becomes the shard width
 #   dit_mm16        the fp32 token DiT's linears on bf16 operands with fp32 accumulation (`k1_linear`):
-#                   the adaLN outputs and the gated attention output are written bf16, the gate and
-#                   transition hidden linears write bf16; q/k/v, the residual updates and the residual
+#                   the adaLN outputs and the gated attention output are written bf16, the transition
+#                   hidden linears write bf16; q/k/v, the gate, the residual updates and the residual
 #                   stream itself stay fp32. Inert in bf16.
 #   atom_k1         the fp32 diffusion atom transformer's linears on `k1_linear`'s program (Wormhole:
 #                   one K tile per dest pass), same formats. Inert in bf16 and on Blackhole.
 #   dit_b8          fast mode's bf16 token DiT linears on bfp8 weights and bfp8 inputs at HiFi2 (`dit_lowp`):
 #                   the adaLN outputs, the gated attention output and the swiglu product are written bfp8;
-#                   q/k/v, the residual updates and the residual stream stay bf16. Inert in fp32.
+#                   q/k/v, the gate, the residual updates and the residual stream stay bf16. Inert in fp32.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8", "transition_b8",
           "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in", "trimul_gin", "trunk_hifi3",
           "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
@@ -10762,8 +10762,8 @@ class AttentionPairBias(Module):
     def enable_lowp(self, lp: DitLowp):
         """`dit_mm16` / `dit_b8` on this token-level instance: its three linears read an `lp.act`
         input and `lp.w` weights (`DitLowp.linear`). q/k/v and the output projection are written
-        `lp.out` (the attention and the residual take them); the gate and the gated attention
-        output, which only the output projection reads, `lp.mid`. The bias stays bf16. Rounded on
+        `lp.out` (the attention and the residual take them); the gate at the attention output's
+        format, and the gated attention output, which only the output projection reads, `lp.mid`. The bias stays bf16. Rounded on
         the host from the device copies, once."""
         assert not self.atom_level
         up = lambda t, dt: ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dt,
@@ -11212,7 +11212,10 @@ class AttentionPairBias(Module):
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
         if lp is not None:
-            g = lp.linear(s, lw["g_weight"], dtype=lp.mid)
+            # The gate is written at o's format: a multiply whose b carries a fused sigmoid is wrong on
+            # mixed operand formats (Wormhole, fp32 o x bf16 g: rms 5.4e-2, max 3.1 against float64;
+            # same formats: 9e-4, bf16 rounding). perf/spd_difflin/k1_check.py --elementwise.
+            g = lp.linear(s, lw["g_weight"], dtype=o.dtype)
             o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
                               dtype=lp.mid)
             ttnn.deallocate(g)
