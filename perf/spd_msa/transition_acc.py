@@ -9,7 +9,8 @@ normal-mode lever for the MSA track alone.
 
 usage: TT_VISIBLE_DEVICES=<chip> python transition_acc.py OUT [ROWS=16] [REPS=10] [CFG,CFG,...]
 The `_unfused` configs issue silu as its own op on fc1's output (TT_BIO_UNFUSED_SILU's form). The `_f32silu` configs
-keep fc1's output in fp32 and run silu as its own op on it, then the gate multiply writes bf16; `_f32gate` folds the
+keep fc1's output in fp32 and run silu as its own op on it, then the gate multiply writes bf16 (`_f32both`: fc2's
+output in fp32 too, so the multiply sees one dtype); `_f32gate` folds the
 silu into the multiply as an input activation on the fp32 operand. Both evaluate silu on fp32 values, as the fused
 form does on its accumulator, and round once.
 """
@@ -38,7 +39,7 @@ F = ttnn.MathFidelity
 CONFIGS = [("hifi4_acc", F.HiFi4, True), ("hifi4_noacc", F.HiFi4, False), ("hifi2_acc", F.HiFi2, True),
            ("hifi2_noacc", F.HiFi2, False), ("lofi_noacc", F.LoFi, False), ("hifi4_acc_unfused", F.HiFi4, True),
            ("hifi4_noacc_unfused", F.HiFi4, False), ("hifi4_acc_f32silu", F.HiFi4, True),
-           ("hifi4_acc_f32gate", F.HiFi4, True)]
+           ("hifi4_acc_f32gate", F.HiFi4, True), ("hifi4_acc_f32both", F.HiFi4, True)]
 T_, C, H = 736, 128, 512
 
 torch.manual_seed(0)
@@ -63,17 +64,18 @@ L1 = ttnn.L1_MEMORY_CONFIG
 
 def swiglu(k, mode=""):
     xn = ttnn.layer_norm(x, weight=lw, bias=lb, epsilon=1e-5, compute_kernel_config=k, memory_config=L1)
-    f32 = mode in ("f32silu", "f32gate")
+    f32 = mode in ("f32silu", "f32gate", "f32both")
     x1 = ttnn.linear(xn, w1, activation="silu" if mode == "" else None, compute_kernel_config=k, memory_config=L1,
                      dtype=ttnn.float32 if f32 else ttnn.bfloat16, core_grid=T.CORE_GRID_MAIN)
-    if mode in ("unfused", "f32silu"):
+    if mode in ("unfused", "f32silu", "f32both"):
         x1 = ttnn.silu(x1, memory_config=L1, output_tensor=x1)
-    x2 = ttnn.linear(xn, w2, compute_kernel_config=k, memory_config=L1, dtype=ttnn.bfloat16,
+    x2 = ttnn.linear(xn, w2, compute_kernel_config=k, memory_config=L1,
+                     dtype=ttnn.float32 if mode == "f32both" else ttnn.bfloat16,
                      core_grid=T.CORE_GRID_MAIN)
     ttnn.deallocate(xn)
     if f32:
-        act = [ttnn.UnaryOpType.SILU] if mode == "f32gate" else None
-        h = ttnn.multiply(x2, x1, input_tensor_b_activations=act, dtype=ttnn.bfloat16, memory_config=L1)
+        act = dict(input_tensor_b_activations=[ttnn.UnaryOpType.SILU]) if mode == "f32gate" else {}
+        h = ttnn.multiply(x2, x1, dtype=ttnn.bfloat16, memory_config=L1, **act)
         ttnn.deallocate(x1)
     else:
         h = ttnn.multiply_(x1, x2)
@@ -99,7 +101,7 @@ fused = None
 for name, fid, acc in CONFIGS:
     if ONLY and name not in ONLY:
         continue
-    uf = next((m for m in ("unfused", "f32silu", "f32gate") if name.endswith("_" + m)), "")
+    uf = next((m for m in ("unfused", "f32silu", "f32gate", "f32both") if name.endswith("_" + m)), "")
     k = ttnn.WormholeComputeKernelConfig(math_fidelity=fid, math_approx_mode=False, fp32_dest_acc_en=acc,
                                          packer_l1_acc=True)
     try:
