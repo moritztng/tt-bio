@@ -258,6 +258,14 @@ def test_flock_first_runs_ahead_of_a_waiter_and_continues_it_after_the_grace(tmp
     assert Path(f"{lock}.gate-stopped").read_text() == ""
 
 
+def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
+    h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r", "perf_against": "v0.13.1",
+                        "lock": "/l/card{card}.lock"}, "a" * 40)
+    perf = next(lg for lg in _legs() if lg.family == "perf")
+    assert h.leg(perf).argv[-2:] == ["--against", "/r/trees/v0.13.1"]
+    assert "--against" not in h.leg(next(lg for lg in _legs() if lg.family == "parity")).argv
+
+
 def test_every_family_has_a_budget_and_an_expectation():
     for lg in _legs():
         assert lg.budget > 0 and lg.family in gf.EXPECT

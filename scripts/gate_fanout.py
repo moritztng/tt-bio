@@ -67,6 +67,11 @@ it names (0, ahead of every grading job), and a flock host shared with other row
 `"first": true`: each leg then takes its card through scripts/flock_first.sh, which stops the
 other waiters on that card's lock (never the holder) until the gate is done with the card.
 
+PERF A/B. Committed perf cells age: a cell recorded in August on another software stack fails a
+release that changed nothing. `"perf_against": "<tag>"` on a host checks the timed leg out at the
+last release (root/trees/<tag>) and runs perf_regression.py --against it: the release's own
+numbers are measured on the same card in the same session, then the commit is gated on them.
+
 SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
 failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
 "<why>"]}`: the leg then reports SEEDED, not PASS (there was nothing to regress against), and the
@@ -500,6 +505,10 @@ class Host:
                f"git -C {r}/repo worktree add -q --detach {t} {self.sha}; "
                f"cd {t}; bash scripts/fetch_parity_fixtures.sh >/dev/null; fi; "
                f"test \"$(git -C {t} rev-parse HEAD)\" = {self.sha}")
+        if self.cfg.get("perf_against"):
+            ref, a = shlex.quote(self.cfg["perf_against"]), self.against
+            cmd += (f"; [ -d {a} ] || {{ git -C {r}/repo fetch -q --tags origin; "
+                    f"git -C {r}/repo worktree add -q --detach {a} {ref}; }}")
         p = self.ssh(cmd, capture_output=True, timeout=1800)
         if not p.returncode:
             # The runner's own copy of the recipe: the commit under test may predate it.
@@ -520,8 +529,14 @@ class Host:
 
     def leg(self, leg: Leg) -> Leg:
         """`leg` with this host's extra flags for its family (hosts.json `args`)."""
-        extra = self.cfg.get("args", {}).get(leg.family, [])
+        extra = list(self.cfg.get("args", {}).get(leg.family, []))
+        if leg.family == "perf" and self.cfg.get("perf_against"):
+            extra += ["--against", self.against]
         return dataclasses.replace(leg, argv=leg.argv + extra) if extra else leg
+
+    @property
+    def against(self) -> str:
+        return f"{self.root}/trees/{self.cfg['perf_against']}"
 
     def seeding(self, leg: Leg) -> bool:
         return "--update-baseline" in self.cfg.get("args", {}).get(leg.family, [])
