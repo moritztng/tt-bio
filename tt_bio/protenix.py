@@ -338,7 +338,7 @@ _ATOM_TILE_HEADS = env_flag("TT_BIO_ATOM_TILE_HEADS", True)
 _ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", False)
 # Under atom_sdpa or atom_sdpa32 with TILE heads, the reader takes K and V straight from the head frame as
 # sliding windows (sdpa_generic `kv_window`) instead of the 5 slices + concat that copy every frame row 5
-# times. Bit-exact: same tiles, same program. In bf16 it is the wheel's own fused SDPA at atom_sdpa's
+# times, and Q from its frame rows the same way. Bit-exact: same tiles, same program. In bf16 it is the wheel's own fused SDPA at atom_sdpa's
 # config (q 32, k 160, the main grid, `_ATOM_SDPA_CKC`), driven through generic_op.
 _ATOM_KV_WINDOW = env_flag("TT_BIO_ATOM_KV_WINDOW", True)
 _ATOM_SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)   # fidelity, approx exp, fp32 dest, dst full sync
@@ -694,15 +694,15 @@ class AtomTransformer(_KeyedWeights, Module):
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 ttnn.reshape(x, (M, 1, nbk * nq, 3 * H * dh)), num_heads=H, num_kv_heads=H,
                 transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)    # each (M, H, nbk*nq, dh)
-            Qs = ttnn.reshape(ttnn.slice(q, [0, 0, lead, 0], [M, H, lead + NP, dh]), (M, H * nb, nq, dh))
             if (self._sdpa or self._sdpa32) and self._kvwin:
-                Ks, Vs = k, v                            # frames, read as windows by the kernel
+                Qs, Ks, Vs = q, k, v                     # frames, read as windows by the kernel
             else:
+                Qs = ttnn.reshape(ttnn.slice(q, [0, 0, lead, 0], [M, H, lead + NP, dh]), (M, H * nb, nq, dh))
                 Ks, Vs = (ttnn.reshape(win(ttnn.reshape(t, (M * H, nbk, nq, dh))), (M, H * nb, W, dh)) for t in (k, v))
         else:
             Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
             Ks, Vs = windows(K), windows(V)
-        kvw = (nb, W) if self._tile_heads and self._kvwin else None
+        kvw = (nb, W, lead, nq) if self._tile_heads and self._kvwin and (self._sdpa or self._sdpa32) else None
         if self._sdpa and kvw is None:
             o = _T.fused_sdpa(Qs, Ks, Vs, attn_mask=zs, scale=dh ** -0.5,
                               program_config=_T._sdpa_program_config(nq, W),

@@ -1,9 +1,11 @@
 """sdpa_generic's `kv_window`: the reader takes K/V as sliding windows of a frame.
 
 Opens no device. Checks that the generated reader is the running wheel's reader with only the
-two K/V placement lines twinned under `KV_WINDOW_NB`, and that the twin's tile arithmetic picks
+K/V and Q placement lines twinned under `KV_WINDOW_NB`, and that the twin's tile arithmetic picks
 the same frame tiles `AtomTransformer._attention_superset` copies with its slice + concat.
 """
+import re
+
 import pytest
 import torch
 
@@ -17,9 +19,11 @@ def test_the_generated_reader_only_twins_the_two_placement_lines(tmp_path, monke
     d = SG.kv_window_kernel_dir()
     gen = (d / "dataflow/reader_interleaved.cpp").read_text()
     stock = (SG._kdir() / "dataflow/reader_interleaved.cpp").read_text()
-    a = gen.index("#ifdef KV_WINDOW_NB")
-    b = gen.index("#else\n", a)
-    assert gen[:a] + gen[b + len("#else\n"):].replace("\n#endif", "", 1) == stock
+    assert gen.count("#ifdef KV_WINDOW_") == 2
+    gen = re.sub(r"#ifdef KV_WINDOW_\w+\n.*?#else\n", "", gen, flags=re.S)
+    for line in SG._KV_WINDOW_ORIG[1:] + (SG._Q_WINDOW_ORIG,):
+        gen = gen.replace(line + "\n#endif", line, 1)
+    assert gen == stock
     assert (d / "dataflow/dataflow_common.hpp").exists()
     assert SG.kv_window_kernel_dir() == d                                   # cached, same hash
 

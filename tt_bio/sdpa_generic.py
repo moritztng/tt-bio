@@ -202,6 +202,7 @@ class _ShapeOnly:
 _KV_WINDOW_ORIG = (
     "const uint32_t k_start_tile_id = k_tile_shape.id_of(nb, k_head, kv_row_start_tile, 0);",
     "const uint32_t v_start_tile_id = v_tile_shape.id_of(nb, v_head, kv_row_start_tile, 0);")
+_Q_WINDOW_ORIG = "uint32_t q_read_tile_id = q_tile_shape.id_of(nb, nq, read_offset + q_row_start_tile, 0);"
 
 
 def kv_window_kernel_dir() -> Path:
@@ -210,10 +211,12 @@ def kv_window_kernel_dir() -> Path:
     Generated from the running wheel's source, so it follows the wheel instead of pinning a copy:
     the two lines that place a K/V chunk get an `#ifdef KV_WINDOW_NB` twin, nothing else changes,
     and a wheel whose reader no longer has those lines fails here, not on the device. Head `n` of
-    the virtual K is frame head `n / KV_WINDOW_NB`, starting `n % KV_WINDOW_NB` tile rows down."""
+    the virtual K is frame head `n / KV_WINDOW_NB`, starting `n % KV_WINDOW_NB` tile rows down. With
+    `KV_WINDOW_Q_LEAD_T` the query is a frame too: head `n` starts `KV_WINDOW_Q_LEAD_T` tile rows
+    further down, one window of Sq rows per head."""
     src = (_kdir() / "dataflow/reader_interleaved.cpp").read_text()
     common = (_kdir() / "dataflow/dataflow_common.hpp").read_text()
-    for line in _KV_WINDOW_ORIG:
+    for line in _KV_WINDOW_ORIG + (_Q_WINDOW_ORIG,):
         assert src.count(line) == 1, ("kv_window: the wheel's SDPA reader changed", line)
     win = ("#ifdef KV_WINDOW_NB\n"
            "                        const uint32_t k_start_tile_id = ((nb * KV_WINDOW_NKH + k_head / KV_WINDOW_NB) *\n"
@@ -223,6 +226,11 @@ def kv_window_kernel_dir() -> Path:
            "#else\n")
     src = src.replace(_KV_WINDOW_ORIG[0], win + _KV_WINDOW_ORIG[0], 1)
     src = src.replace(_KV_WINDOW_ORIG[1], _KV_WINDOW_ORIG[1] + "\n#endif", 1)
+    src = src.replace(_Q_WINDOW_ORIG, (
+        "#ifdef KV_WINDOW_Q_LEAD_T\n"
+        "                    uint32_t q_read_tile_id = ((nb * KV_WINDOW_NKH + nq / KV_WINDOW_NB) * KV_WINDOW_FRAME_T +\n"
+        "                        KV_WINDOW_Q_LEAD_T + nq % KV_WINDOW_NB + read_offset + q_row_start_tile) * DHt;\n"
+        "#else\n") + _Q_WINDOW_ORIG + "\n#endif", 1)
     import hashlib
     d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "sdpa_kv_window"
          / hashlib.sha1((src + common).encode()).hexdigest()[:12])
@@ -381,14 +389,24 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # K/V were [B, NKH * nb, W, DH] with head h * nb + i = frame head h, rows i*32 .. i*32 + W.
         # The windows overlap, so building them would copy every frame row W/32 times; the reader
         # reads them in place instead (`kv_window_kernel_dir`).
-        nbw, W = kv_window
+        # `(nb, W, q_lead, Sq)` makes q a frame of the same shape too: head h * nb + i is frame rows
+        # q_lead + i*32 .. q_lead + i*32 + Sq.
+        nbw, W = kv_window[:2]
         B_, NKH_, F_, DH_ = (int(d) for d in k.padded_shape)
-        assert int(q.padded_shape[1]) == NKH_ * nbw and F_ % TILE == 0 and W % TILE == 0, (q.shape, k.shape, kv_window)
-        assert (nbw - 1) * TILE + W <= F_, ("kv_window runs off the frame", k.shape, kv_window)
+        assert F_ % TILE == 0 and W % TILE == 0 and (nbw - 1) * TILE + W <= F_, (k.shape, kv_window)
         kp, vp = _ShapeOnly([B_, NKH_ * nbw, W, DH_], k.dtype), _ShapeOnly([B_, NKH_ * nbw, W, DH_], v.dtype)
+        if len(kv_window) == 4:
+            ql, Sq_ = kv_window[2:]
+            assert list(q.padded_shape) == list(k.padded_shape) and ql % TILE == 0 and Sq_ % TILE == 0
+            assert ql + (nbw - 1) * TILE + Sq_ <= F_, ("q window runs off the frame", q.shape, kv_window)
+            q_frame, q = q, _ShapeOnly([B_, NKH_ * nbw, Sq_, DH_], q.dtype)
+        else:
+            assert int(q.padded_shape[1]) == NKH_ * nbw, (q.shape, k.shape, kv_window)
         kernel_dir = kernel_dir or kv_window_kernel_dir()
     p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
              kv_buffer_factor)
+    if kv_window is not None and len(kv_window) == 4:
+        q = q_frame
     gx, gy, num_cores = p["gx"], p["gy"], p["num_cores"]
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -533,6 +551,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if kv_window is not None:
         defines.update(KV_WINDOW_NB=str(kv_window[0]), KV_WINDOW_NKH=str(int(k.padded_shape[1])),
                        KV_WINDOW_FRAME_T=str(int(k.padded_shape[2]) // TILE))
+        if len(kv_window) == 4:
+            defines["KV_WINDOW_Q_LEAD_T"] = str(kv_window[2] // TILE)
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
