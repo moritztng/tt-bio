@@ -14,7 +14,8 @@
 #                            (pip install tt-bio, then BindCraft 2).
 # and, once per host, <root>/dockq-venv (DockQ 2.1.3, the opendde-abag scorer). DockQ ships no
 # wheel; on a host without a C compiler put a prebuilt one at <root>/prereq/DockQ-*.whl.
-# Needs uv (https://docs.astral.sh/uv/). Safe to re-run: finished steps are skipped.
+# Hosts of one arch must hold the same interpreters: pin GATE_PYTHON312 (e.g. 3.12.15) where uv would
+# otherwise pick whichever 3.12 each host has. Needs uv (https://docs.astral.sh/uv/). Safe to re-run: finished steps are skipped.
 set -euo pipefail
 ROOT=${1:?root}; SHA=${2:?sha}; S=${SHA:0:12}; T=$ROOT/trees/$S
 UV=${UV:-$(command -v uv || echo ~/.local/bin/uv)}
@@ -35,7 +36,7 @@ venv() {  # venv <dir> <python> [package installed after the wheel]
     touch "$v/done"
 }
 venv "$ROOT/venv-$S" "${GATE_PYTHON:-python3}"
-venv "$ROOT/venv312-$S" 3.12 ${BC2:+"$BC2"}
+venv "$ROOT/venv312-$S" "${GATE_PYTHON312:-3.12}" ${BC2:+"$BC2"}
 if [ ! -x "$ROOT/dockq-venv/bin/python" ]; then
     DQ=$(ls "$ROOT"/prereq/DockQ-*.whl 2>/dev/null | head -1 || true)
     "$UV" venv -q -p 3.12 "$ROOT/dockq-venv"
