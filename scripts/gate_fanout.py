@@ -62,6 +62,11 @@ chips, starting each job as `CHIP=<id> bash <job>`) names it, `"pool": {"queue":
 four times = at most four legs queued or running there). Each leg becomes one job file; the pool
 picks the chip, the leg still takes that chip's flock, and the runner waits for the job's exit code.
 
+FIRST. A release never waits on our own experiments. A pool host queues its legs at the prio
+it names (0, ahead of every grading job), and a flock host shared with other rows sets
+`"first": true`: each leg then takes its card through scripts/flock_first.sh, which stops the
+other waiters on that card's lock (never the holder) until the gate is done with the card.
+
 SEEDING. perf_regression.py fails NO BASELINE on a card type with no baseline. That stays a
 failure. A host seeding one names it explicitly, `"args": {"perf": ["--update-baseline", "--note",
 "<why>"]}`: the leg then reports SEEDED, not PASS (there was nothing to regress against), and the
@@ -550,7 +555,8 @@ class Host:
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         run = f"env {envs} bash -c {shlex.quote(body)}"
         if card is not None:
-            run = f"flock {shlex.quote(c['lock'].format(card=card))} {run}"
+            lock = "bash scripts/flock_first.sh" if c.get("first") else "flock"
+            run = f"{lock} {shlex.quote(c['lock'].format(card=card))} {run}"
         setup = f"{fill(leg.setup)} && " if leg.setup else ""
         return f"mkdir -p {shlex.quote(out)} && cd {self.tree} && {setup}{run}"
 

@@ -175,11 +175,17 @@ you publish.
 
 ### The gate interpreter on the WH Galaxy
 
+A release never waits on our own experiments. Gate legs queue at prio 0 in a Galaxy pool, ahead
+of every grading job, and on a card shared through its `flock` (qb1, qb2) the host sets
+`"first": true`: each leg then waits through `scripts/flock_first.sh`, which pauses the other
+waiters on that card (never the job holding it) and resumes them a few minutes after the gate's
+last leg there. A leg still waits for the job already running on its card.
+
 On an SPD pool Galaxy (`.114`, `.107`) use the same `gate_host_prep.sh` venvs as any other host,
 under a root of your own (`~/spd/<row>`), and give the legs a private lease dir, `XDG_CACHE_HOME`,
 `TT_METAL_CACHE` and `MPLCONFIGDIR` so nothing collides with the JapanFold agent's. The pool's chip
 ids are UMD ids and its locks are `~/spd/locks/chip<N>.lock`. Grant the gate pool slots rather
-than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 5, "row": "<row>"}` in hosts.json,
+than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 0, "row": "<row>"}` in hosts.json,
 `--workers g114:pool,g114:pool,g114:pool,g114:pool` keeps at most four legs queued or running
 there, each as one job file the pool starts on an idle healthy chip. Stopping the runner (SIGINT)
 takes back the jobs that have not started.

@@ -233,6 +233,31 @@ def test_ledger_roundtrip_and_history_takes_the_latest_wall(tmp_path):
     assert led.history() == {"ux:boltz2": 300}
 
 
+def test_a_first_host_takes_its_card_through_flock_first():
+    h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r", "first": True,
+                        "lock": "/l/card{card}.lock"}, "a" * 40)
+    leg = next(lg for lg in _legs() if lg.family == "parity")
+    assert "bash scripts/flock_first.sh /l/card3.lock env " in h.command(leg, 3, "/t/out/x")
+
+
+def test_flock_first_runs_ahead_of_a_waiter_and_continues_it_after_the_grace(tmp_path):
+    """A holder, then a foreign waiter, then the gate leg: the gate leg runs second, the waiter
+    is stopped meanwhile and continued once the grace passes with the card free."""
+    lock, order = tmp_path / "card.lock", tmp_path / "order"
+    lock.touch()
+    holder = subprocess.Popen(["flock", str(lock), "sleep", "3"])
+    time.sleep(0.3)
+    foreign = subprocess.Popen(["flock", str(lock), "sh", "-c", f"echo foreign >> {order}"])
+    time.sleep(0.3)
+    gate = subprocess.Popen(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock),
+                             "sh", "-c", f"echo gate >> {order}"], env={"FLOCK_FIRST_GRACE": "1", "PATH": "/usr/bin:/bin"})
+    time.sleep(1.5)
+    assert Path(f"{lock}.gate-stopped").read_text().split() == [str(foreign.pid)]
+    assert gate.wait(10) == 0 and holder.wait(10) == 0 and foreign.wait(15) == 0
+    assert order.read_text().split() == ["gate", "foreign"]
+    assert Path(f"{lock}.gate-stopped").read_text() == ""
+
+
 def test_every_family_has_a_budget_and_an_expectation():
     for lg in _legs():
         assert lg.budget > 0 and lg.family in gf.EXPECT
