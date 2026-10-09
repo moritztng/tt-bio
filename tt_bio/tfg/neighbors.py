@@ -169,7 +169,9 @@ class SparseClash:
         rs = (self.ra[i] + self.rb[j])[:, None]
         overlap = torch.relu(SOFT * rs - d)
         energy = torch.zeros(S, K, dtype=X.dtype).index_add_(0, s, overlap.square())
-        depth = torch.zeros(S, K, dtype=X.dtype).index_reduce_(0, s, torch.relu(HARD * rs - d), "amax")
+        hard = torch.relu(HARD * rs - d)
+        # a max is order-free: scatter_reduce gives index_reduce's values, several times faster on CPU
+        depth = torch.zeros(S, K, dtype=X.dtype).scatter_reduce_(0, s[:, None].expand_as(hard), hard, "amax")
         sev = d < HARD * rs                                                 # [P, K]
         p_idx, k_idx = torch.nonzero(sev, as_tuple=True)
         keys = (s[p_idx] * M + i[p_idx]) * self.N + j[p_idx]
