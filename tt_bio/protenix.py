@@ -1609,7 +1609,8 @@ class DiffusionModule(_KeyedWeights):
 
         def linb(x, wk, bk=None, act=None):
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
-                               compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+                               compute_kernel_config=_T.silu_ckc(ckc) if act == "silu" else ckc,
+                               core_grid=CORE_GRID_MAIN)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t)
             bias_dev = _T.host_unpark(bias)

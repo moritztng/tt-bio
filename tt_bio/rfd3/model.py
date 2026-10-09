@@ -28,7 +28,7 @@ from .. import rfd3_bias, softmax_generic
 from ..envflags import env_flag
 from . import block_sparse as _BS
 from .tiles import TILE, align_tile, pad_axis
-from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul,
+from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
                            _dram_oom)
 
@@ -1070,7 +1070,7 @@ class Transition(Module):
                 fc1_mem = None
         if fc1_mem is None:
             a = ttnn.linear(xn, self.fc1_w, activation="silu",
-                             compute_kernel_config=self.compute_kernel_config,
+                             compute_kernel_config=silu_ckc(self.compute_kernel_config),
                              dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
         else:
             a = _tuned_linear(xn, self.fc1_w, ckc=self.compute_kernel_config, dtype=self.dtype,
@@ -2285,7 +2285,7 @@ class RFD3AtomBlock(Module):
             q_compute, c, self.t_ln_s, self.t_gain_w, self.t_gain_b, self.t_bias_w
         )
         left = ttnn.linear(
-            norm, self.t_fc1, activation="silu", compute_kernel_config=ckc,
+            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
             dtype=dt, core_grid=BATCH_INVARIANT_GRID,
         )
         right = _tuned_linear(
