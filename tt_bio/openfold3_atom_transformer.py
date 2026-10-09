@@ -24,6 +24,7 @@ with ``a != s``. See ``scripts/of3_atom_transformer_golden.py`` for the golden a
 """
 from __future__ import annotations
 
+import torch
 import ttnn
 
 from . import tenstorrent as _T
@@ -48,6 +49,18 @@ def remap_of3_adaln(sd: dict) -> dict:
         "s_scale.bias": sd["linear_g.bias"],
         "s_bias.weight": sd["linear_s.weight"],
     }
+
+
+def sample_offset_index(idx_tt, S: int, stride: int):
+    """A gather index ``[1, n]`` -> ``[1, S*n]`` addressing a table of S stacked copies.
+
+    The atom-level gathers read rows of a 2-D table; S samples stacked on the leading dim
+    flatten to a table S times as tall, so copy k of the index is shifted by ``k * stride``
+    rows. Built once per rollout from the device index (a few hundred KB), never per step."""
+    idx = ttnn.to_torch(idx_tt).to(torch.int64)
+    out = torch.cat([idx + k * stride for k in range(S)], dim=-1).to(torch.int32)
+    return ttnn.from_torch(out, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT,
+                           device=idx_tt.device())
 
 
 def _sub(sd: dict, prefix: str) -> dict:
@@ -113,23 +126,25 @@ class OF3AtomTransformer(Module):
                           core_grid=CORE_GRID_MAIN)
 
     def _heads(self, x, n_blk, n_seq):
-        # x: [1, n_blk, n_seq, 128] -> [1, n_blk, H, n_seq, dh]
+        # x: [S, n_blk, n_seq, 128] -> [S, n_blk, H, n_seq, dh]
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
-        x = ttnn.reshape(x, (1, n_blk, n_seq, self.N_HEADS, self.HEAD_DIM))
+        x = ttnn.reshape(x, (x.shape[0], n_blk, n_seq, self.N_HEADS, self.HEAD_DIM))
         x = ttnn.permute(x, (0, 1, 3, 2, 4))
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
 
     def _gather_keys(self, x, key_block_idxs_tt, valid_mask, nb):
-        # x: [1, NP, 128] -> [1, nb, N_KEY, 128] via fixed host gather indices.
+        # x: [S, NP, 128] -> [S, nb, N_KEY, 128] via fixed host gather indices, which carry
+        # the sample offsets when S > 1 (see `sample_offset_index`).
+        S = x.shape[0]
         src = x
         if self._act_dtype != ttnn.bfloat16:
             src = ttnn.typecast(x, ttnn.bfloat16)
-        x2d = ttnn.reshape(ttnn.to_layout(src, ttnn.ROW_MAJOR_LAYOUT), (x.shape[1], 128))
+        x2d = ttnn.reshape(ttnn.to_layout(src, ttnn.ROW_MAJOR_LAYOUT), (S * x.shape[1], 128))
         if src is not x:
             ttnn.deallocate(src)
         xk = ttnn.embedding(key_block_idxs_tt, x2d, layout=ttnn.ROW_MAJOR_LAYOUT,
                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        xk = ttnn.reshape(xk, (1, nb, self.N_KEY, 128))
+        xk = ttnn.reshape(xk, (S, nb, self.N_KEY, 128))
         xk = ttnn.to_layout(xk, ttnn.TILE_LAYOUT)
         if self._act_dtype != ttnn.bfloat16:
             xk = ttnn.typecast(xk, self._act_dtype)
@@ -173,11 +188,17 @@ class OF3AtomTransformer(Module):
 
     def __call__(self, a, s, z, atom_mask_col, key_block_idxs_tt, valid_mask,
                  mask_bias, n_atom, NP, nb, cache=None):
-        """a, s: [1, NP, 128] device (padded to a multiple of N_QUERY; a_init = cl when
-        rl=None); z: [1, nb, N_QUERY, N_KEY, 16] device (blocked pair = plm);
+        """a: [S, NP, 128] device, S noised samples at once (padded to a multiple of N_QUERY;
+        a_init = cl when rl=None); s: [1, NP, 128]; z: [1, nb, N_QUERY, N_KEY, 16] device
+        (blocked pair = plm);
         atom_mask_col: [1, NP, 1] device; key_block_idxs_tt: [1, nb*N_KEY] uint32 device;
         valid_mask: [1, nb, N_KEY, 1] device; mask_bias: [1, nb, 1, N_QUERY, N_KEY] device.
-        Returns [1, n_atom, 128]."""
+        Returns [S, n_atom, 128].
+
+        Every sample shares s, z and the masks, so the sample axis is the leading dim of the
+        evolving ``a`` only: the per-block invariants stay ``[1, ...]`` and broadcast, and the
+        key gather reads a sample-offset copy of the index (``sample_offset_index``). At S=1
+        this runs exactly the single-sample ops."""
         scale = self.HEAD_DIM ** -0.5
         nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
 
@@ -185,14 +206,18 @@ class OF3AtomTransformer(Module):
             cache, (id(self), "block_invariants"),
             lambda: self._invariants(s, z, key_block_idxs_tt, valid_mask, nb))
 
+        S = a.shape[0]
+        kidx = key_block_idxs_tt if S == 1 else _cached(
+            cache, (id(self), "key_idx", S),
+            lambda: sample_offset_index(key_block_idxs_tt, S, NP))
         x = a
         for b in range(3):
             P = f"blocks.{b}."
             apb = P + "attention_pair_bias."
             x_q = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
-            x_q = ttnn.reshape(x_q, (1, nb, nq, 128))
+            x_q = ttnn.reshape(x_q, (S, nb, nq, 128))
             x_q = ttnn.to_layout(x_q, ttnn.TILE_LAYOUT)
-            x_k = self._gather_keys(x, key_block_idxs_tt, valid_mask, nb)
+            x_k = self._gather_keys(x, kidx, valid_mask, nb)
 
             a_qn = self.adaln_q[b](x_q, s_q, s_terms=ada_s[b][0] if ada_s else None)
             a_kn = self.adaln_k[b](x_k, s_k, s_terms=ada_s[b][1] if ada_s else None)
@@ -213,14 +238,14 @@ class OF3AtomTransformer(Module):
             o = ttnn.to_layout(o, ttnn.TILE_LAYOUT)
             g_raw = self._lin(a_qn, apb + "mha.linear_g.weight")
             g_raw = ttnn.to_layout(g_raw, ttnn.ROW_MAJOR_LAYOUT)
-            g_raw = ttnn.reshape(g_raw, (1, nb, nq, H, dh))
+            g_raw = ttnn.reshape(g_raw, (S, nb, nq, H, dh))
             g_raw = ttnn.to_layout(g_raw, ttnn.TILE_LAYOUT)
             o = ttnn.multiply(o, g_raw, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             o = ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT)
-            o = ttnn.reshape(o, (1, nb, nq, 128))
+            o = ttnn.reshape(o, (S, nb, nq, 128))
             o = ttnn.to_layout(o, ttnn.TILE_LAYOUT)
             o = self._lin(o, apb + "mha.linear_o.weight")
-            o = ttnn.reshape(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), (1, NP, 128))
+            o = ttnn.reshape(ttnn.to_layout(o, ttnn.ROW_MAJOR_LAYOUT), (S, NP, 128))
             o = ttnn.to_layout(o, ttnn.TILE_LAYOUT)
             o = ttnn.multiply(o, ada_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             x = ttnn.add(x, o)
@@ -243,7 +268,9 @@ class OF3AtomTransformer(Module):
             for t in (*z_bias, s_q, s_k, *ada_raw, *cg_raw,
                       *(v for g in ada_s for pair in g for v in pair)):
                 ttnn.deallocate(t)
+            if kidx is not key_block_idxs_tt:
+                ttnn.deallocate(kidx)
 
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
-        x = ttnn.slice(x, [0, 0, 0], [1, n_atom, 128])
+        x = ttnn.slice(x, [0, 0, 0], [S, n_atom, 128])
         return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
