@@ -11155,10 +11155,14 @@ def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden):
         compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
         out_subblock_w=pn, out_block_h=pm, out_block_w=2 * pn, per_core_M=pm, per_core_N=2 * pn,
         transpose_mcast=False, fused_activation=None, fuse_batch=True)
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape(list(x.shape)[:-1] + [gx * pn * 32]), hidden,
-                                         ttnn.TILE_LAYOUT, x.device(), mc)
+    shape = list(x.shape)
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape[:-1] + [gx * pn * 32]), hidden, ttnn.TILE_LAYOUT,
+                                         x.device(), mc)
+    # Everything the descriptor depends on that the arguments below do not already fix.
+    key = ("fc12g", tuple(shape), x.dtype, x.memory_config().buffer_type, w12.dtype, hidden, pm, pn, sh, bw, gx,
+           gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc)
     return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=1, compute_src=_FC12G_SRC,
-                             compute_defines={"FC12G_PACK_SILU": "1"}, gate_tiles=2 * sh * pn)
+                             compute_defines={"FC12G_PACK_SILU": "1"}, gate_tiles=2 * sh * pn, key=key)
 
 
 def _fc12_interleave(w1: torch.Tensor, w2: torch.Tensor, gx: int) -> torch.Tensor:

@@ -627,7 +627,7 @@ def _key(in0, in1, out, pc, ckc, out_nzsb_w, compute_src, compute_defines, compu
 
 
 def generic_matmul_2d(device, in0, in1, out, program_config, compute_kernel_config, *, out_nzsb_w=None,
-                      compute_src=None, compute_defines=(), compute_ct_override=None, gate_tiles=None):
+                      compute_src=None, compute_defines=(), compute_ct_override=None, gate_tiles=None, key=None):
     """``ttnn.linear(in0, in1, program_config=..., compute_kernel_config=..., memory_config=out's,
     dtype=out's)`` written into the pre-allocated block-sharded ``out``, through ``generic_op``.
 
@@ -637,9 +637,12 @@ def generic_matmul_2d(device, in0, in1, out, program_config, compute_kernel_conf
     absolute or relative to the matmul kernels dir), ``compute_defines`` (merged over the factory's) and
     ``compute_ct_override`` (a full list, or {index: value}) swap K6 for a patched kernel. ``gate_tiles`` makes
     c_5 a separate buffer of that many tiles in the output's format, for a K6 that stages a gate there.
+    ``key``, when given, replaces the descriptor cache key: the caller vouches that it determines every
+    argument above (the full key costs ~45 us of host per call, mostly ``str(memory_config())``).
     """
-    key = _key(in0, in1, out, program_config, compute_kernel_config, out_nzsb_w, compute_src, compute_defines,
-               compute_ct_override, gate_tiles)
+    if key is None:
+        key = _key(in0, in1, out, program_config, compute_kernel_config, out_nzsb_w, compute_src, compute_defines,
+                   compute_ct_override, gate_tiles)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = build(device, in0, in1, out, program_config, compute_kernel_config, out_nzsb_w,
@@ -660,17 +663,25 @@ def rebind(entry, in0, in1, out):
     ``out`` it was pinned to so that pointer cannot dangle under it.
     """
     in0_addr, in1_addr, out_addr = in0.buffer_address(), in1.buffer_address(), out.buffer_address()
-    rt = entry["rt"]
-    for _, a in rt["k0"]:
-        a[RT_IN0_SENDER_ADDR] = in0_addr
-    for _, a in rt["k1"]:
-        a[RT_IN1_SENDER_ADDR] = in1_addr
-        a[RT_IN1_SENDER_OUT] = out_addr
-    for name in ("k2", "k4"):
-        for _, a in rt[name]:
-            a[RT_IN1_RECV_OUT] = out_addr
+    old0, old1, old_out = entry["addrs"]
+    rt, changed = entry["rt"], set()
+    # Only the kernels whose words moved are re-sent: assigning runtime_args converts every core's list.
+    if in0_addr != old0:
+        for _, a in rt["k0"]:
+            a[RT_IN0_SENDER_ADDR] = in0_addr
+        changed.add("k0")
+    if in1_addr != old1 or out_addr != old_out:
+        for _, a in rt["k1"]:
+            a[RT_IN1_SENDER_ADDR] = in1_addr
+            a[RT_IN1_SENDER_OUT] = out_addr
+        changed.add("k1")
+    if out_addr != old_out:
+        for name in ("k2", "k4"):
+            for _, a in rt[name]:
+                a[RT_IN1_RECV_OUT] = out_addr
+        changed.update(("k2", "k4"))
     for kd, name in zip(entry["kernels"], entry["knames"]):
-        if name in ("k0", "k1", "k2", "k4"):
+        if name in changed:
             kd.runtime_args = rt[name]
     if out is not entry["out"]:
         cb = ttnn.cb_descriptor_from_sharded_tensor(4, out, total_size=entry["out_cb_size"],

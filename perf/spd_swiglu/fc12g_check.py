@@ -24,7 +24,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--mode", default="fast", choices=("normal", "fast"))
 ap.add_argument("--reps", type=int, default=20)
-ap.add_argument("--arms", default="base,fc12g_math,fc12g_pack,fc12g_pack_alt,fc12g_split1,fc12g_split2,fc12g_split3")
+ap.add_argument("--arms", default="base,fc12g_pack,fc12g_pack_alt,fc12g_lever,fc12g_math")
 a = ap.parse_args()
 os.environ["TT_BIO_LEVERS"] = a.mode
 
@@ -136,7 +136,9 @@ def fc12g(pack, alternate=False, math_silu=0):
 
 ARMS = {"base": (base, True), "fc12g_math": (fc12g(False), False), "fc12g_pack": (fc12g(True), False),
         "fc12g_pack_alt": (fc12g(True, True), False),
-        **{f"fc12g_split{k}": (fc12g(True, False, k), False) for k in (1, 2, 3)}}
+        **{f"fc12g_split{k}": (fc12g(True, False, k), False) for k in (1, 2, 3)},
+        # the lever's own call: a fresh output tensor every call and the caller's short cache key
+        "fc12g_lever": (lambda: T._fc12g(x, w12, mc, pm, pn, bw, gx, gy, SILU_CKC, HDT), True)}
 arms = [s for s in a.arms.split(",") if s]
 res = {"host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH, "mode": a.mode,
        "b8": B8, "grid": [gx, gy], "pm": pm, "pn": pn, "fidelity": str(SILU_CKC.math_fidelity),
