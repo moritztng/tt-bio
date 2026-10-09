@@ -275,6 +275,20 @@ MASK_FOLD = env_flag("TT_BIO_TRIMUL_MASK_FOLD", True)
 MASK_STATS = [0]     # calls that folded the mask
 
 
+if env_flag("TT_BIO_TRIMUL_STATS", False):
+    # One stderr line at exit: which trimul routes a whole run took (fold-level proof a lever fired).
+    import atexit, json, sys
+
+    def _print_stats():
+        from . import tenstorrent as _T
+        print("TRIMUL_STATS " + json.dumps({
+            "tail": STATS, "res": RES_STATS, "mask_fold": MASK_STATS, "resid": RESID_STATS,
+            "rejects": {f"{k[0]}:{k[1]}": v for k, v in REJECTS.items()},
+            "routes": {f"{k[0]}/{k[1]}": v for k, v in _T.TRIMUL_MM_TRANSPOSE_STATS.items()}}),
+            file=sys.stderr, flush=True)
+    atexit.register(_print_stats)
+
+
 def set_mask_fold(on: bool) -> bool:
     """A/B switch for the paired harness. Returns the previous state."""
     global MASK_FOLD
