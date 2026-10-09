@@ -58,18 +58,18 @@ tests, data, fixtures, packages or card type is a new key and runs fresh. `--leg
 `!glob` to leave legs out.
 
 **Baselines a new lever owes.** A census lever that lands without a size-ladder row fails every
-ladder leg at every rung, which the gate only learns after folding the whole ladder.
-`tests/test_size_ladder_baseline_levers.py` reads the same fact from the baseline in under a
-second, so run the CPU suite before a gate. When it is red, record the missing levers on every
-card type, one fold per rung, refused unless every other lever still matches:
+ladder leg at every rung. The runner reads that from the baseline when it plans, so such a leg
+reports OWED without folding (`--dry-run` shows it). Record the missing levers on every card
+type, one fold per rung, refused unless every other lever still matches:
 
 ```bash
 python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
     --record-lever SDPA_FUSED_PADDED --out ~/gates/record-<sha9>
 ```
 
-The fragments land in `<out>/recorded/<card_type>/<model>.json`; copy them over
-`docs/size_ladder_baseline.d/` in the release commit. The ladder legs then rerun against them and
+The fragments land in `<out>/recorded/<card_type>/<model>.json`; splice them into the release
+commit with `python3 scripts/splice_ladder_fragments.py <out>/recorded`, which takes only the
+recorded card type's entry (a plain copy would undo any other card type's re-record since). The ladder legs then rerun against them and
 every other leg is reused. A model whose splice is refused (something besides the new lever
 moved, e.g. a guard's decline reason) needs a full re-record of its own fragment: add
 `--record-full <model>` and that model's record leg re-records every rung instead.

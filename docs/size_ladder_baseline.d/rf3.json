@@ -354,6 +354,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             },
             "1536": {
@@ -671,6 +679,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             },
             "1024": {
@@ -988,6 +1004,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             },
             "256": {
@@ -1313,6 +1337,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             },
             "768": {
@@ -1408,7 +1440,7 @@
                 "frac": 0.9632352941176471,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:768x768x64": 40
+                  "l1_dest_is_faster:768x768x64": 20
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -1630,6 +1662,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             },
             "512": {
@@ -1941,6 +1981,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             },
             "896": {
@@ -2258,6 +2306,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             },
             "1088": {
@@ -2572,6 +2628,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             },
             "640": {
@@ -2887,6 +2951,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "TODO: say why this is legitimate at this size"
               }
             }
           },
@@ -3255,6 +3327,9 @@
             "1024->1088": 4.26,
             "1088->1280": 1.867,
             "1280->1536": 2.272
+          },
+          "levers_added": {
+            "SDPA_FUSED_PADDED": "2026-10-09 UF-EV-A8-GWH02 b9f4b601a"
           }
         }
       },

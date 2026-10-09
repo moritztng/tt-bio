@@ -336,3 +336,20 @@ def test_only_a_ladder_leg_owes_levers_and_a_bare_leg_name_does_not_crash_the_pl
     assert gf.owed_by(roster, "w", gf.Leg("perf", ["PY"], "perf")) == []
     assert gf.owed_by(roster, "w", gf.Leg("check", ["PY"], "check")) == []
     assert gf.owed_by({}, "w", gf.Leg("ladder:m", ["PY"], "ladder")) == []
+
+
+def test_splice_takes_only_the_fragments_card_type(tmp_path):
+    spec = importlib.util.spec_from_file_location(
+        "splice", Path(__file__).resolve().parent.parent / "scripts" / "splice_ladder_fragments.py")
+    sp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sp)
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / "m.json").write_text(json.dumps({"rungs": [1, 2, 3], "cards": {"wh": {"v": 1}, "bh": {"v": 2}}}))
+    frag = tmp_path / "rec" / "wh"
+    frag.mkdir(parents=True)
+    (frag / "m.json").write_text(json.dumps({"rungs": [1], "cards": {"wh": {"v": 9}, "bh": {"v": 0}}}))
+    assert sp.splice([tmp_path / "rec"], base) == [("m", "wh")]
+    got = json.loads((base / "m.json").read_text())
+    assert got == {"rungs": [1, 2, 3], "cards": {"wh": {"v": 9}, "bh": {"v": 2}}}
+    assert sp.splice([tmp_path / "rec"], base) == []          # idempotent

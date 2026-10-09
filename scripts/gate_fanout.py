@@ -198,7 +198,7 @@ def baseline_hash(sha: str, family: str, repo: Path = REPO) -> str:
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
 
 
-RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py",
+RUNNER_FILES = ("scripts/gate_fanout.py", "scripts/release_next.py", "scripts/splice_ladder_fragments.py",
                 "tests/test_gate_fanout.py", "tests/test_release_next.py")
 
 
