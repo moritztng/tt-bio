@@ -332,6 +332,11 @@ _ATOM_SUPERSET = env_flag("TT_BIO_ATOM_SUPERSET_WINDOW", True)
 # same places as the ROW_MAJOR pad/permute round trips it replaces (perf/spd_attn/atom_steps.py:
 # those were ~10 of the 18 ms fp32 module on a Wormhole chip). "0" restores the round trips.
 _ATOM_TILE_HEADS = env_flag("TT_BIO_ATOM_TILE_HEADS", True)
+# The fp32 superset attention as ONE SDPA program (sdpa_generic with fp32 q, k, v, mask and output,
+# spd-diffusion's dit_sdpa32 recipe) in place of matmul + scale_add + softmax + matmul. Off until
+# graded; inert in bf16, where atom_sdpa covers the same site.
+_ATOM_SDPA32 = env_flag("TT_BIO_ATOM_SDPA32", False)
+_ATOM_SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)   # fidelity, approx exp, fp32 dest, dst full sync
 ATOM_SUPERSET_STATS = [0, 0]  # (attention calls on the superset window, on the windowed path)
 
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
@@ -560,6 +565,7 @@ class AtomTransformer(_KeyedWeights, Module):
         self._sdpa_ckc = ttnn.WormholeComputeKernelConfig(
             math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
             fp32_dest_acc_en=False, packer_l1_acc=False)
+        self._sdpa32 = _ATOM_SDPA32 and dtype == ttnn.float32 and _ATOM_SUPERSET
 
     def _adaln(self, a, s, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
@@ -645,6 +651,8 @@ class AtomTransformer(_KeyedWeights, Module):
         dtype = z.dtype
         if self._sdpa:
             zz, dtype = zz.clamp(min=-1e4) * self.HEAD_DIM ** 0.5, ttnn.bfloat16
+        elif self._sdpa32:
+            zz = zz.clamp(min=-1e4) * self.HEAD_DIM ** 0.5
         return ttnn.from_torch(zz.reshape(B, H * nb, nq, W).contiguous(), dtype=dtype,
                                layout=ttnn.TILE_LAYOUT, device=self.device)
 
@@ -688,6 +696,12 @@ class AtomTransformer(_KeyedWeights, Module):
             o = _T.fused_sdpa(Qs, Ks, Vs, attn_mask=zs, scale=dh ** -0.5,
                               program_config=_T._sdpa_program_config(nq, W),
                               compute_kernel_config=self._sdpa_ckc)
+        elif self._sdpa32:
+            from . import sdpa_generic as SG
+            g = self.device.compute_with_storage_grid_size()
+            o = ttnn.allocate_tensor_on_device(ttnn.Shape([M, H * nb, nq, dh]), ttnn.float32,
+                                               ttnn.TILE_LAYOUT, self.device, ttnn.DRAM_MEMORY_CONFIG)
+            SG.sdpa(self.device, Qs, Ks, Vs, zs, o, nq, W, (g.x, g.y), _ATOM_SDPA32_CKC, dh ** -0.5)
         else:
             sc = batched_matmul(Qs, ttnn.permute(Ks, (0, 1, 3, 2)),
                                 compute_kernel_config=self.compute_kernel_config)

@@ -151,9 +151,9 @@ if a.which in ("atom", "all"):
         x = up(torch.zeros(M, N, H * dh), dt)
         return lambda: n._attention_m(x, x, None, "attention.", N, NP, M, pad, z_pre=z)
 
-    def superset(dt, sdpa, tile_heads=True):
+    def superset(dt, sdpa, tile_heads=True, sdpa32=False):
         n = ns(dt, sdpa)
-        n._zeros, n._tile_heads = {}, tile_heads
+        n._zeros, n._tile_heads, n._sdpa32 = {}, tile_heads, sdpa32
         zs = n._superset_bias(up(hz, dt), mask, nb)
         x = up(torch.zeros(M, N, H * dh), dt)
         return lambda: n._attention_superset(x, x, "attention.", N, NP, zs)
@@ -164,6 +164,7 @@ if a.which in ("atom", "all"):
         ARMS[f"atom superset {tag} RM heads"] = ("atom", superset(dt, sdpa, False))
         ARMS[f"atom superset {tag}"] = ("atom", superset(dt, sdpa, True))
         SAME[f"atom superset {tag}"] = f"atom superset {tag} RM heads"
+    ARMS["atom superset fp32 sdpa32"] = ("atom", superset(ttnn.float32, False, True, True))
 
 # ---- pair transpose: the ending-node triangle attention's dim0/dim1 swap of the [S, S, 256] pair, DRAM to DRAM,
 # today's route (ROW_MAJOR round trip) against tt_bio.pair_transpose (one tile read, L1 row shuffle, one tile write)
