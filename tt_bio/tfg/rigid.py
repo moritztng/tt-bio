@@ -347,6 +347,15 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
             matrix = torch.linalg.matrix_exp(skew_matrix(rotation * scale, identity))
             return torch.bmm(centered, matrix.transpose(1, 2)) + center + translation[:, None] * scale
 
+        def propose_many(backtracks):
+            """propose(b) for several b at once [S, B, M, 3]: one batched matrix_exp and bmm."""
+            scales = [0.5**b for b in backtracks]
+            w = torch.cat([rotation * scale for scale in scales])
+            matrix = torch.linalg.matrix_exp(skew_matrix(w, identity.repeat(len(scales), 1, 1)))
+            turned = torch.bmm(centered.repeat(len(scales), 1, 1), matrix.transpose(1, 2))
+            shift = torch.cat([translation[:, None] * scale for scale in scales])
+            return (turned + center.repeat(len(scales), 1, 1) + shift).view(len(scales), samples, n_moving, 3).transpose(0, 1)
+
         found = torch.zeros(samples, device=device, dtype=torch.bool)
         next_coords = moving.clone()
         later = None
@@ -354,7 +363,7 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
             if clash.batched and backtrack >= 1:
                 if later is None:
                     # The first proposal usually decides; the other nine go through the clash core together.
-                    proposals = torch.stack([propose(b) for b in range(1, 10)], 1)
+                    proposals = propose_many(range(1, 10))
                     later = proposals, clash.terms(proposals)
                 proposals, (e, sev, dep, _) = later
                 j = backtrack - 1
