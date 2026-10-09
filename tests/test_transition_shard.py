@@ -42,8 +42,8 @@ def test_blackhole_grid_takes_eight_columns(monkeypatch):
     assert tt._transition_shard_grid(230, 32, 8) == (8, 10)
 
 
-def test_lever_is_named_and_in_no_mode_yet():
+def test_lever_is_graded_into_both_modes():
     assert "transition_shard" in tt.LEVERS
-    assert "transition_shard" in tt.UNGRADED_LEVERS
-    assert "transition_shard" not in tt.NORMAL_LEVERS | tt.FAST_LEVERS
+    assert "transition_shard" not in tt.UNGRADED_LEVERS
+    assert "transition_shard" in tt.NORMAL_LEVERS & tt.FAST_LEVERS
     assert "transition_shard" in tt.LATCH_STATS
