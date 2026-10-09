@@ -236,23 +236,13 @@ class _DiTBlock(Module):
         return m
 
     def _attend32(self, q, k, v, mask, cache):
-        """softmax(q k^T * scale + bias) v as one `_sdpa32` program on the padded token axis."""
-        n = int(q.shape[2])
-        pad = int(mask.shape[-1]) - n
-        if pad:
-            qkv = [ttnn.pad(x, [(0, 0), (0, 0), (0, pad), (0, 0)], value=0.0) for x in (q, k, v)]
-            for x in (q, k, v):
-                ttnn.deallocate(x)
-            q, k, v = qkv
+        """softmax(q k^T * scale + bias) v as one `_sdpa32` program; the stack padded the token
+        axis to `sdpa32_rows`."""
         o = _T._sdpa32(q, k, v, mask, HEAD_DIM ** -0.5)
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         if cache is None:
             ttnn.deallocate(mask)
-        if not pad:
-            return o
-        sl = o[:, :, :n, :]
-        ttnn.deallocate(o)
-        return sl
+        return o
 
     def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None):
         lin = self._lin
@@ -389,10 +379,22 @@ class OF3DiffusionTransformer(Module):
         mb = mb_t.reshape(1, 1, 1, padded_N)
         mask_bias = ttnn.from_torch(mb, layout=ttnn.TILE_LAYOUT, device=self.device,
                                     dtype=self._act_dtype)
+        # dit_sdpa32 runs at sdpa32_rows. The stream is padded to it here, once a call, not q, k
+        # and v in every block: rows are independent everywhere but the attention, and its mask
+        # (`_sdpa32_mask`, built from the padded_N bias) hides the new keys. The same padding
+        # Protenix's token DiT does.
+        rows = _T.sdpa32_rows(padded_N) if self.blocks[0].sdpa32 else padded_N
+        if rows != padded_N:
+            a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
+                        for x in (a_d, s_d))
+            tmc_p = torch.zeros(1, rows, 1, dtype=torch.float32)
+            tmc_p[0, :N, 0] = tok
+            tmc_d = ttnn.from_torch(tmc_p, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                    dtype=self._act_dtype)
         x = a_d
         for blk in self.blocks:
             x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache)
-        if padded_N == N:
+        if rows == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
         x = ttnn.slice(x, [0, 0, 0], [S, N, C_A])
