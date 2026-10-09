@@ -43,3 +43,10 @@ def to_torch(host, then=None):
     the host half of ``ttnn.to_torch``. Returns a Future of ``then(torch tensor)``."""
     import torch
     return submit(lambda: (then or (lambda x: x))(torch.Tensor(host.to_torch())))
+
+
+def done(value):
+    """A Future already holding ``value``, for a caller whose result is on the host already."""
+    fut = Future()
+    fut.set_result(value)
+    return fut
