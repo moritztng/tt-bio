@@ -345,7 +345,9 @@ else:  # JapanFold's own load: fast mode, checkpoint and config exactly as a wor
     state.load_model(dict(cfg0, fast=FAST))
     state.bind_run("spd", dict(cfg0, fast=FAST))
 m = state.model
-log(ev="build", s=time.monotonic() - t, fast=T._FAST_MODE, levers=sorted(getattr(m, "_levers", ())))
+# a Protenix-family model built by the worker keeps its own fast flag and resets the global one
+BUILT_FAST = T._FAST_MODE if PV2 else getattr(m, "_fast", T._FAST_MODE)
+log(ev="build", s=time.monotonic() - t, fast=BUILT_FAST, levers=sorted(getattr(m, "_levers", ())))
 LAST = {}
 FOLD_CALL = "predict_step" if a.model == "boltz2" else "fold"
 orig = getattr(m, FOLD_CALL)
