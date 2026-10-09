@@ -126,7 +126,10 @@ class TemplatePairStack(Module):
                             scale_pair_bias=False, fp32_softmax=True,
                             transpose_bias=transpose_bias,
                             accurate_softmax=accurate_softmax_site("openfold3.template"),
-                            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.template"))
+                            # Default ON with the msa and confidence sites: Wormhole 11-set grade
+                            # PASS with all three (spd-of3 g14, 44 paired folds, DockQ +0.036,
+                            # docking 21 -> 23 of 44); -16.4 s of a 168 s c730 fold (ab14).
+                            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.template", True))
             for b in remap["blocks"]
         ]
         self.ln_w = self.torch_to_tt("template_pair_stack.layer_norm.weight")
