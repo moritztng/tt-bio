@@ -8,7 +8,8 @@
           bf16 explicit, bf16 fused SDPA).
 Accuracy: rel_rms of each arm against a float64 torch evaluation of the same operands.
 Timing: back-to-back slope (NCALL calls, one sync) x REPS, arms interleaved round-robin, AICLK sampled out of process.
-usage: opbench.py OUT CHIP [ta|atom|roof|all] [--pairs N]
+  pair:   the ending-node pair transpose [S, S, 256] bf16 at each --ta-seq, today's route vs tt_bio.pair_transpose.
+usage: opbench.py OUT CHIP [ta|atom|pair|roof|all] [--pairs N]
 """
 import argparse, json, os, statistics, subprocess, sys, time, types
 from pathlib import Path
@@ -163,6 +164,24 @@ if a.which in ("atom", "all"):
         ARMS[f"atom superset {tag}"] = ("atom", superset(dt, sdpa, True))
         SAME[f"atom superset {tag}"] = f"atom superset {tag} RM heads"
 
+# ---- pair transpose: the ending-node triangle attention's dim0/dim1 swap of the [S, S, 256] pair, DRAM to DRAM,
+# today's route (ROW_MAJOR round trip) against tt_bio.pair_transpose (one tile read, L1 row shuffle, one tile write)
+BYTES = {}   # arm -> DRAM bytes moved per call at one read + one write
+if a.which in ("pair", "all"):
+    from tt_bio import pair_transpose as PTR
+    for S in a.ta_seq:
+        x = up(torch.randn(S, S, 256), ttnn.bfloat16)
+        def pt(fused, x=x):
+            PTR.PAIR_TRANSPOSE_FUSED = fused
+            try:
+                return T._pair_transpose(x, ttnn.DRAM_MEMORY_CONFIG)
+            finally:
+                PTR.PAIR_TRANSPOSE_FUSED = False
+        ARMS[f"pair transpose {S} today"] = (f"pair{S}", lambda pt=pt: pt(False))
+        ARMS[f"pair transpose {S} fused"] = (f"pair{S}", lambda pt=pt: pt(True))
+        SAME[f"pair transpose {S} fused"] = f"pair transpose {S} today"
+        BYTES[f"pair transpose {S} today"] = BYTES[f"pair transpose {S} fused"] = 2 * S * S * 256 * 2
+
 # ---- roof: what this chip's matmul reaches, for placing the arms above on the roofline (FLOPS: arm -> flop/call)
 FLOPS = {}
 if a.which in ("roof", "all"):
@@ -188,10 +207,13 @@ for name, (site, call) in ARMS.items():
         o = call()
         if o is None:
             log(ev="declined", arm=name); continue
-        o = outs[name] = ttnn.to_torch(o).double()
+        o = ttnn.to_torch(o)
+        o = outs[name] = o if site.startswith("pair") else o.double()   # pair: compared in bf16, GBs as float64
         if name in SAME and SAME[name] in outs:
             log(ev="equal", arm=name, to=SAME[name], torch_equal=bool(torch.equal(o, outs[SAME[name]])),
-                max_abs=float((o - outs[SAME[name]]).abs().max()))
+                max_abs=float((o.float() - outs[SAME[name]].float()).abs().max()))
+            if site.startswith("pair"):
+                del outs[name], outs[SAME[name]]
         if site not in REF:
             log(ev="check", arm=name, finite=bool(torch.isfinite(o).all())); live[name] = call; continue
         o = (o[SEL[site]] if site in SEL else o).reshape(REF[site].shape)
@@ -220,7 +242,7 @@ for rep in range(a.reps):
 for arm, ts in samples.items():
     c = sorted(clk[arm]); med = statistics.median(ts)
     log(ev="arm", arm=arm, site=ARMS[arm][0], ms=med, ms_min=min(ts), ms_max=max(ts),
-        tflops=FLOPS[arm] / med / 1e9 if arm in FLOPS else None,
+        tflops=FLOPS[arm] / med / 1e9 if arm in FLOPS else None, gbs=BYTES[arm] / med / 1e6 if arm in BYTES else None,
         spread_pct=(max(ts) - min(ts)) / med * 100, reps=a.reps, ncall=ncall[arm],
         aiclk=dict(n=len(c), med=c[len(c) // 2] if c else None, min=c[0] if c else None, max=c[-1] if c else None))
 log(ev="end")

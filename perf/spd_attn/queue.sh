@@ -2,6 +2,7 @@
 # spd-attn jobs on one chip under its SPD flock, run from this checkout. usage:
 #   queue.sh OUT CHIP LOCK PY op            op bench (perf/spd_attn/opbench.py all), ~10 min
 #   queue.sh OUT CHIP LOCK PY atom          op bench, atom attention arms only (opbench.py atom), ~3 min
+#   queue.sh OUT CHIP LOCK PY pair          op bench, pair transpose arms only (opbench.py pair), ~3 min
 #   queue.sh OUT CHIP LOCK PY steps         atom attention step timings, fp32 then bf16 (atom_steps.py), ~5 min
 #   queue.sh OUT CHIP LOCK PY fold          c730 fold, arms off (both levers off) and attn (branch default), 1 cold + 3 warm
 #   queue.sh OUT CHIP LOCK PY grade         arm attn on INPUTS=<complexes>, seeds 101-104, for grade.py against spd-bench's floor
@@ -16,8 +17,8 @@ say "waiting for $LOCK; head $(git rev-parse --short HEAD)"
 exec 9>"$LOCK"
 flock -w ${LOCKWAIT:-10800} 9 || { say "flock timeout"; exit 3; }
 say "flock held, load $(cut -d' ' -f1-3 /proc/loadavg)"
-if [ "$JOB" = op ] || [ "$JOB" = atom ] || [ "$JOB" = roof ]; then
-    WHICH=all; [ "$JOB" = atom ] || [ "$JOB" = roof ] && WHICH=$JOB
+if [ "$JOB" = op ] || [ "$JOB" = atom ] || [ "$JOB" = roof ] || [ "$JOB" = pair ]; then
+    WHICH=all; [ "$JOB" = op ] || WHICH=$JOB
     timeout -s INT 2400 $PY perf/spd_attn/opbench.py "$OUT/op" "$CHIP" $WHICH > "$OUT/op.log" 2>&1
     say "op rc=$?"
 elif [ "$JOB" = steps ]; then
