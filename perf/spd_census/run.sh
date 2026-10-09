@@ -4,7 +4,7 @@
 # Layout under $B (default ~/spd/spd-census): tt-metal (Tracy build, v0.68.0 = the serving wheel; one build serves
 # Wormhole and Blackhole), tree (tt-bio checkout; TREE overrides it), syslib (libhwloc.so.15 where the box lacks it).
 # Box differences come from the environment: ENVSH (sourced first; the Galaxies' ~/japanfold/env.sh), PY (python with
-# the serving deps), LOCK (the chip's flock file). An arm named "roof" runs roofline_wh.py instead of a fold.
+# the serving deps), LOCK (the chip's flock file), MODEL (census.py --model; Protenix-v2 when unset). An arm named "roof" runs roofline_wh.py instead of a fold.
 set -u
 CHIP=$1; RUN=$2; ARMS=$3; INPUT=${4:-c730}
 B=${B:-$HOME/spd/spd-census}; ENVSH=${ENVSH:-$HOME/japanfold/env.sh}; PY=${PY:-python}
@@ -46,7 +46,7 @@ for na in $ARMS; do
       export XDG_CACHE_HOME=$RUN/xdg$try
       rm -rf "$TT_METAL_PROFILER_DIR" "$TT_METAL_CACHE" "$RUN"/xdg*; mkdir -p "$TT_METAL_CACHE"
       timeout -s TERM 11100 timeout -s INT 10800 $PY perf/spd_census/census.py --out "$RUN/$N" \
-          --chip $CHIP --arm "$A" --input $INPUT > "$RUN/$N.log" 2>&1
+          --chip $CHIP --arm "$A" --input $INPUT ${MODEL:+--model $MODEL} > "$RUN/$N.log" 2>&1
       rc=$?
       grep -q "hashes are colliding" "$RUN/$N.log" || break
       say "arm $N try $try: profiler zone-hash collision, rerunning with the overlay elsewhere"
