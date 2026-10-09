@@ -73,3 +73,42 @@ def test_flat_b_is_the_row_major_reshape(j, s):
     out = T.opm_flat_b(t)
     assert tuple(out.shape) == (32 * j, s) and out.layout == ttnn.TILE_LAYOUT
     assert torch.equal(ttnn.to_torch(out), b.reshape(32 * j, s))
+
+
+class _Grid:
+    x, y = 8, 9
+
+
+@pytest.mark.parametrize("tokens,kt,pcm,ibw,obw", [(736, 312, 84, 6, 23), (512, 312, 60, 8, 16),
+                                                  (1024, 312, 116, 8, 16)])
+def test_contract_config_picks_the_measured_plan(tokens, kt, pcm, ibw, obw):
+    cfg = T.opm_contract_config(tokens, tokens, kt, _Grid)
+    assert (cfg.per_core_M, cfg.in0_block_w, cfg.out_block_h, cfg.out_block_w) == (pcm, ibw, 4, obw)
+    assert cfg.out_subblock_h * cfg.out_subblock_w == 4
+
+
+def test_contract_config_small_or_off(monkeypatch):
+    assert T.opm_contract_config(32, 32, 312, _Grid) is None
+    monkeypatch.setattr(T, "_OPM_CFG", False)
+    assert T.opm_contract_config(736, 736, 312, _Grid) is None
+
+
+@pytest.mark.device
+@pytest.mark.parametrize("m,n,k", [(3072, 2048, 1024), (2944, 2944, 768)])
+def test_contract_config_is_as_close_to_float64(m, n, k):
+    """The rounded-up per_core_M leaves the last core row partly empty; every row still lands."""
+    dev = T.get_device()
+    torch.manual_seed(0)
+    a, b = torch.randn(m, k).bfloat16(), torch.randn(n, k).bfloat16()
+    ref = a.double() @ b.double().T
+    ft = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
+                                                 fp32_dest_acc_en=True, packer_l1_acc=True)
+    cfg = T.opm_contract_config(m // 32, n // 32, k // 32, dev.compute_with_storage_grid_size())
+    assert cfg is not None
+    err = {}
+    for name, pc in (("auto", None), ("cfg", cfg)):
+        out = ttnn.to_torch(ttnn.matmul(ft(a), ft(b), transpose_b=True, program_config=pc,
+                                        compute_kernel_config=ckc)).double()
+        err[name] = float((out - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt())
+    assert err["cfg"] < 1.1 * err["auto"] + 1e-4, err

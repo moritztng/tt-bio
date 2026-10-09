@@ -175,6 +175,40 @@ def opm_flat_b(b):
     return ttnn.to_layout(b, ttnn.TILE_LAYOUT)
 
 
+# The OPM contraction's own program config (`opm_contract_config`). 0 leaves it to ttnn's auto config.
+_OPM_CFG = env_flag("TT_BIO_OPM_CFG", True)
+
+
+def opm_contract_config(m_tiles: int, n_tiles: int, k_tiles: int, grid):
+    """A 2D-multicast plan for the OPM contraction [M, K] x [N, K]^T, or None for ttnn's own.
+
+    ttnn's auto config sets per_core_M = ceil(Mt / grid_y), and the output block height has to
+    divide it. At 736 tokens that is 82 = 2 x 41, so the auto plan runs 2-tile-high blocks; at 512
+    it is 57 = 3 x 19. Rounding per_core_M up to a multiple of 4 covers the same rows with the same
+    grid (the last row of cores gets fewer of them) and admits a 4-high block. The block width and
+    in0_block_w then take the largest in1 block the circular buffers fit, in0_block_w at most 8.
+    Wormhole, K 312 tiles, HiFi3 (perf/spd_msa/zmm_pcm.py): 177 vs 241 ms at 736 tokens, 79 vs 106 at
+    512, 316 vs 424 at 1024. Same products summed in a different K order, so not bit-identical."""
+    if not _OPM_CFG or ttnn is not _SHIPPED_TTNN:
+        return None
+    gx, gy = grid.x, grid.y
+    pcm = -(-m_tiles // gy)
+    pcm += -pcm % 4
+    pcn = -(-n_tiles // gx)
+    budget = _matmul_cb_budget()
+    divs = lambda n, top: [d for d in range(1, min(n, top) + 1) if n % d == 0]
+    fits = [(w * k, k, w) for w in divs(pcn, pcn) for k in divs(k_tiles, 8)
+            if _matmul_cb_bytes(k, 4, w, 2) <= budget]
+    if pcm < 8 or not fits or max(fits)[1] < 4:
+        return None
+    _, ibw, obw = max(fits)
+    sw = 4 if obw % 4 == 0 else 2 if obw % 2 == 0 else 1
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=(gx, gy), in0_block_w=ibw, out_subblock_h=4 // sw,
+        out_subblock_w=sw, out_block_h=4, out_block_w=obw, per_core_M=pcm, per_core_N=pcn,
+        transpose_mcast=False, fused_activation=None, fuse_batch=False)
+
+
 
 def opm_proj_blocks(rows: int, J: int) -> int:
     """How many row blocks the (rows*J, C*D) projection input is viewed as: the fewest whole
@@ -13404,7 +13438,10 @@ class OuterProductMean(Module):
             if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
                 if z_dtype is not None:
                     x, y = ttnn.typecast(x, ttnn.bfloat16), ttnn.typecast(y, ttnn.bfloat16)
-                out = ttnn.matmul(x, y, transpose_b=True,
+                cfg = opm_contract_config(x.padded_shape[0] // 32, y.padded_shape[0] // 32,
+                                          x.padded_shape[1] // 32,
+                                          x.device().compute_with_storage_grid_size())
+                out = ttnn.matmul(x, y, transpose_b=True, program_config=cfg,
                                   compute_kernel_config=self.compute_kernel_config)
                 if z_dtype is not None:
                     ttnn.deallocate(x)
