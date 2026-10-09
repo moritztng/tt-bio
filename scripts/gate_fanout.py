@@ -115,6 +115,13 @@ PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # arm as well folds the same thing twice.
 PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa"}
 
+def owed_by(roster: dict, card_type: str, lg) -> list[str]:
+    """Levers a ladder leg's baseline lacks on this card type; every other leg owes none."""
+    if lg.family != "ladder":
+        return []
+    return roster.get("owed", {}).get(card_type, {}).get(lg.name.split(":", 1)[1], [])
+
+
 def owed_levers(docs, levers, models) -> dict:
     """{card_type: {model: [flag, ...]}}: census levers a ladder model's fold will resolve that its
     size-ladder baseline has no row for, so its ladder leg fails "new lever not in the baseline" at
@@ -822,8 +829,8 @@ def main() -> int:
                           ctype[a] if lg.card else "cpu", first[a].leg(lg))
             hit = (None if args.no_reuse or not lg.card or lg.family == "record"
                    else ledger.get(k) or ledger.get(old))
-            owes = roster.get("owed", {}).get(ctype[a], {}).get(lg.name.split(":", 1)[1], [])
-            if lg.family == "ladder" and owes:
+            owes = owed_by(roster, ctype[a], lg)
+            if owes:
                 results.append({"leg": lg.name, "arch": slot, "verdict": "OWED", "owed": owes,
                                 "card_type": ctype[a]})
             elif hit and hit.get("verdict") in OK:

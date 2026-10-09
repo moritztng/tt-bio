@@ -323,3 +323,12 @@ def test_an_owed_ladder_leg_fails_the_verdict_and_names_the_record_command(tmp_p
     assert not gf.write_verdict(tmp_path, "a" * 40, ["wh"], results)
     text = (tmp_path / "VERDICT.md").read_text()
     assert "| ladder:m | OWED B |" in text and "--record-lever B" in text
+
+
+def test_only_a_ladder_leg_owes_levers_and_a_bare_leg_name_does_not_crash_the_plan():
+    roster = {"owed": {"w": {"m": ["B"]}}}
+    assert gf.owed_by(roster, "w", gf.Leg("ladder:m", ["PY"], "ladder")) == ["B"]
+    assert gf.owed_by(roster, "w", gf.Leg("ladder:n", ["PY"], "ladder")) == []
+    assert gf.owed_by(roster, "w", gf.Leg("perf", ["PY"], "perf")) == []
+    assert gf.owed_by(roster, "w", gf.Leg("check", ["PY"], "check")) == []
+    assert gf.owed_by({}, "w", gf.Leg("ladder:m", ["PY"], "ladder")) == []
