@@ -12,6 +12,9 @@ A row is marked CLOCK when its AICLK is not trustworthy: any sample below 95 % o
 median under 1200 MHz. Such a number is an artifact, not a regression. LOAD: the host's 1-minute load average
 exceeded its CPU count during a warm rep, so the host part of the fold was contended. VOID: a fast arm whose
 engine built exact (bench.py before 530a4520 never turned fast mode on); never post it as a fast number.
+
+BindCraft 2's time is seconds per design iteration (design_s over the rows of the trajectory's losses CSV, one
+row per AF2 forward + backward): trajectories stop at different stages, so a whole trajectory is not a unit.
 """
 import argparse, json, statistics
 from collections import defaultdict
@@ -31,6 +34,20 @@ if (a.data / "MANIFEST.tsv").exists():
         name, *kv = line.split("\t")
         MANIFEST[name] = dict(x.split("=", 1) for x in kv if "=" in x).get("tokens")
 
+
+
+def bc2_per_iter(r):
+    """Turn a BindCraft 2 trajectory record into seconds per design iteration."""
+    d = (r.get("csv_row") or {}).get("design")
+    if not r.get("iters") and d:
+        f = r["_dir"] / f"campaign_s{r['seed']}" / "1_Trajectories" / d / f"{d}_losses.csv"
+        r["iters"] = len(f.read_text().splitlines()) - 1 if f.exists() else None
+    r["fold_s"] = r["design_s"] / r["iters"] if r.get("iters") and r.get("design_s") else None
+    r.setdefault("arch", "blackhole" if r["host"].startswith("tt-quietbox") else "wormhole_b0")
+    r.setdefault("loadavg", [0])
+    r.setdefault("digest", None)
+
+
 reps = []
 for f in a.records:
     built_fast, model = None, "protenix-v2"
@@ -45,6 +62,8 @@ for f in a.records:
             built_fast = r.get("fast") or model not in ("protenix-v2",)
         if r.get("ev") == "rep":
             r["_dir"], r["_built_fast"], r["_model"] = f.parent, built_fast, model
+            if model == "bindcraft2":
+                bc2_per_iter(r)
             reps.append(r)
 
 groups = defaultdict(list)

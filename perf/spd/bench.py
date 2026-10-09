@@ -38,7 +38,8 @@ settings unedited) the way japanfold.bc2run does: `campaign_predictor` on this c
 Trajectory 1 compiles (`cold`), the rest are `warm`. Per trajectory: design_s is BindCraft 2's
 `run_trajectory` call (the gradient design on the card, every stage), validate_s is MPNN redesign + validation
 of its sequences (host JAX, so device levers barely move it), traj_s both together; the speed number is
-design_s. Design metrics are the trajectory's row in the project's trajectory CSV plus the accepted count.
+design_s, and `iters` counts its design iterations (summarize.py reports design_s / iters, since
+trajectories stop at different stages). Design metrics are the trajectory's row in the project's trajectory CSV plus the accepted count.
 A trajectory BindCraft 2 stops early (`terminated` names the stage) is shorter by design: compare completed
 trajectories with completed ones.
 --inputs names the binder length (default 80, `--inputs 80`); --data is unused.
@@ -205,11 +206,13 @@ if a.model == "bindcraft2":
         with contextlib.suppress(OSError):
             acc = sum(1 for _ in csv.DictReader(open(accepted_table(str(project)))))
         nodes = opened_nodes() or opened
+        losses = project / "1_Trajectories" / row.get("design", "-") / f"{row.get('design')}_losses.csv"
+        iters = len(losses.read_text().splitlines()) - 1 if losses.exists() else None
         log(ev="rep", input=f"pdl1_b{blen}", seed=a.seed, trajectory=tr["n"], kind="cold" if i == 0 else "warm",
             design_s=tr.get("design_s"), validate_s=tr.get("validate_s"), traj_s=t_end - tr["t0"],
             fold_s=tr.get("design_s"), aiclk=clock(tr["t0"], tr["t0"] + (tr.get("design_s") or 0), nodes),
             aiclk_traj=clock(tr["t0"], t_end, nodes), nodes=nodes, terminated=row.get("terminated") or None,
-            finite=bool(row) and tr.get("err") is None, accepted_total=acc, csv_row=row,
+            finite=bool(row) and tr.get("err") is None, iters=iters, accepted_total=acc, csv_row=row,
             err=tr.get("err"), **HEAD)
 
     def design(*args, **kw):
