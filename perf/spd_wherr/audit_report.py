@@ -27,7 +27,10 @@ def main():
             if "skipped" in r:
                 skipped.append(r); continue
             pc, ck = r["cfg"]["pc"], r["cfg"]["ckc"]
-            kb = "auto" if pc == "auto" else pc.get("in0_block_w") or pc.get("K_block_size") or "?"
+            kb = "auto" if pc == "auto" else pc.get("in0_block_w") or pc.get("K_block_size") or (
+                f"q{pc['q_chunk']}k{pc['k_chunk']}" if "q_chunk" in pc else "?")
+            if isinstance(ck, list):  # sdpa_generic: (fidelity, approx, fp32 dest acc, packer l1 acc)
+                ck = dict(math_fidelity=ck[0], fp32_dest_acc_en=ck[2])
             fid = ck.get("math_fidelity", "default").replace("MathFidelity.", "") if isinstance(ck, dict) else ck
             acc = ck.get("fp32_dest_acc_en", "?") if isinstance(ck, dict) else "?"
             key = (r["op"], r["site"], str(r["a"]), str(r["b"]), str(kb), fid, acc, r["cfg"]["dtype"])

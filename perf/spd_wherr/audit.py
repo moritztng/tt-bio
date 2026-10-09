@@ -101,6 +101,9 @@ class Audit:
                 self.emit(op=op, site=key_site, a=list(A.shape), b=list(B.shape), cfg=extra, skipped=f"activation {act}")
                 return
             R = f(R)
+        if not R.abs().max() > 0:  # all-zero operands (recycle 0, masked rows) check nothing: keep the site's quota
+            self.seen[key] -= 1
+            return
         self.score(op, key_site, list(A.shape), list(B.shape), extra, R, Y2.reshape(R.shape), frac, t0)
 
     def check_sdpa(self, L):
