@@ -63,8 +63,18 @@ def test_key_moves_with_code_env_card_and_argv_not_with_markdown(tmp_path):
     (tmp_path / "README.md").write_text("two\n")
     git("commit", "-qam", "2")
     assert gf.content_hash("HEAD", tmp_path) == c1          # docs-only commit: same key
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "t"\nversion = "0.1.0"\n')
+    git("add", "."), git("commit", "-qm", "3")
+    c3 = gf.content_hash("HEAD", tmp_path)
+    assert c3 != c1
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "t"\nversion = "0.2.0"\n')
+    git("commit", "-qam", "4")
+    assert gf.content_hash("HEAD", tmp_path) == c3          # release version bump: same key
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "t"\nversion = "0.2.0"\ndeps = 1\n')
+    git("commit", "-qam", "5")
+    assert gf.content_hash("HEAD", tmp_path) != c3          # any other pyproject change: new key
     (tmp_path / "a.py").write_text("x = 2\n")
-    git("commit", "-qam", "3")
+    git("commit", "-qam", "6")
     assert gf.content_hash("HEAD", tmp_path) != c1          # code change: new key
 
     leg = _legs()[3]

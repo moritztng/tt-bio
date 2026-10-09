@@ -27,7 +27,8 @@ no other leg of this gate starts on that host (running ones finish first). Every
 depend on what the next card is doing, which is why they can run side by side.
 
 REUSE. Every leg result is keyed by
-    sha256(content of every tracked file except *.md, interpreter's installed distributions
+    sha256(content of every tracked file except *.md and pyproject's version line,
+           interpreter's installed distributions
            except tt-bio, card type, leg name, leg argv)
 and written to --ledger. A leg whose key already holds a PASS is not run again; the verdict names
 the evidence it reused (its log, host, card, date). So a crossmodel or suite run done through this
@@ -104,10 +105,23 @@ def sha256(*parts) -> str:
 # keys
 # ---------------------------------------------------------------------------------------------
 def content_hash(sha: str, repo: Path = REPO) -> str:
-    """Hash of every tracked file at `sha` except Markdown, from git's own blob ids."""
-    out = subprocess.run(["git", "-C", str(repo), "ls-tree", "-r", "--full-tree", sha],
-                         check=True, capture_output=True, text=True).stdout
-    rows = [ln for ln in out.splitlines() if not ln.split("\t", 1)[-1].endswith(".md")]
+    """Hash of every tracked file at `sha` except Markdown, from git's own blob ids.
+
+    pyproject.toml is hashed without its `version =` line: the release commit bumps it, and that
+    alone must not throw away evidence gathered on the identical code the line before."""
+    def git(*a):
+        return subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True,
+                              text=True).stdout
+    rows = []
+    for ln in git("ls-tree", "-r", "--full-tree", sha).splitlines():
+        path = ln.split("\t", 1)[-1]
+        if path.endswith(".md"):
+            continue
+        if path == "pyproject.toml":
+            body = "".join(x for x in git("show", f"{sha}:pyproject.toml").splitlines(True)
+                           if not x.startswith("version ="))
+            ln = f"pyproject.toml {hashlib.sha256(body.encode()).hexdigest()}"
+        rows.append(ln)
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
 
 
