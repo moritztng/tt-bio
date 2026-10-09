@@ -175,4 +175,11 @@ def enable(names=("silu_approx",)) -> Path:
     out = build(names)
     os.environ["TT_METAL_RUNTIME_ROOT"] = str(out)
     os.environ["TT_METAL_HOME"] = str(out)
+    # tt-metal keys a compiled kernel on its defines and compile args, not on the headers it
+    # included or the root it came from, so in a shared JIT cache an overlay binary and the
+    # wheel's binary for the same op and config are one entry: whichever process compiled first
+    # serves both (measured on .114: base, C8 and silu_f32 arms bit-identical). Give each
+    # overlay its own cache under the one the process would have used.
+    base = os.environ.get("TT_METAL_CACHE") or str(Path.home() / ".cache")
+    os.environ["TT_METAL_CACHE"] = str(Path(base) / f"overlay-{out.name}")
     return out

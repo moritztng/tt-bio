@@ -1,4 +1,6 @@
 """metal_overlay builds a patched view of a runtime root without writing into it."""
+import os
+
 import pytest
 
 from tt_bio import metal_overlay as MO
@@ -70,3 +72,15 @@ def test_patches_apply_to_the_installed_wheel(tmp_path, name):
 def test_silu_f32_and_silu_approx_are_exclusive(tmp_path):
     with pytest.raises(RuntimeError):
         MO.build(["silu_approx", "silu_f32"], root=_wheel_root(), cache=tmp_path / "cache")
+
+
+def test_enable_gives_the_overlay_its_own_jit_cache(tmp_path, monkeypatch):
+    """A shared JIT cache would serve the wheel's binary to the overlay (or the reverse)."""
+    root = _wheel_root()
+    monkeypatch.setenv("TT_METAL_RUNTIME_ROOT", str(root))
+    monkeypatch.setenv("TT_METAL_HOME", str(root))
+    monkeypatch.setenv("TT_METAL_CACHE", str(tmp_path / "jit"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    out = MO.enable(("silu_f32",))
+    assert os.environ["TT_METAL_CACHE"] == str(tmp_path / "jit" / f"overlay-{out.name}")
+    assert os.environ["TT_METAL_RUNTIME_ROOT"] == str(out)

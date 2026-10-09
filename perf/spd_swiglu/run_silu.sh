@@ -17,7 +17,8 @@ flock -w "${WAIT:-600}" 9 || { say "flock busy, stopping"; exit 3; }
 say "start chip $CHIP head $(git rev-parse --short HEAD) rounds $ROUNDS"
 for r in $(seq 1 "$ROUNDS"); do
   for arm in base c8 f32; do
-    timeout -s TERM 1500 timeout -s INT 1380 "${PY:-python}" perf/spd_swiglu/silu_bench.py --arm $arm \
+    # One JIT cache per arm: tt-metal does not key binaries on header contents (metal_overlay.enable).
+    TT_METAL_CACHE=$HOME/spd/$ROW/jit/$arm timeout -s TERM 1500 timeout -s INT 1380 "${PY:-python}" perf/spd_swiglu/silu_bench.py --arm $arm \
       --out "$OUT/$arm.r$r.json" "$@" > "$OUT/$arm.r$r.log" 2>&1
     say "round $r arm $arm rc=$?"
   done

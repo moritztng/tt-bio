@@ -49,6 +49,8 @@ import tt_bio.tenstorrent as T  # noqa: E402
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
 
 ensure_p300_mesh_descriptor()
+print(json.dumps({"runtime_root": os.environ.get("TT_METAL_RUNTIME_ROOT"), "jit_cache": os.environ.get("TT_METAL_CACHE")}),
+      flush=True)
 assert Path(T.__file__).resolve().is_relative_to(ROOT), T.__file__
 dev = T.get_device()
 ARCH = "wormhole" if T.is_wormhole() else "blackhole"
@@ -86,6 +88,7 @@ CKC = CKC_CLS(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=True, fp32
 L1 = ttnn.L1_MEMORY_CONFIG
 res = {"arm": a.arm, "host": os.uname().nodename, "chip": os.environ.get("TT_VISIBLE_DEVICES"), "arch": ARCH,
        "nodes": OPENED, "grid": list(T.COMPUTE_GRID_MAIN), "runtime_root": os.environ.get("TT_METAL_RUNTIME_ROOT"),
+       "jit_cache": os.environ.get("TT_METAL_CACHE"),
        "loadavg0": os.getloadavg()}
 skip = set(filter(None, a.skip.split(",")))
 
