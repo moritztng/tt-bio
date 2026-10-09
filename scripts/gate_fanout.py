@@ -639,6 +639,16 @@ def main() -> int:
         for py in {first[a].python(lg.family) for lg in legs}:
             probes[f"{a} {py}"] = first[a].run_py(ENV_PROBE, py)
     envs = {k: env_hash(p) for k, p in probes.items()}
+    # A leg's key carries its arch's environment, read on the first host of that arch; every
+    # other host of the arch must hold the same one, or a result would be filed under a key that
+    # does not describe where it ran.
+    for h in hosts.values():
+        if h.arch in archs and h is not first[h.arch]:
+            pairs = {(h.python(lg.family), first[h.arch].python(lg.family), lg.family) for lg in legs}
+            for py, ref, fam in {(py, ref): (py, ref, fam) for py, ref, fam in pairs}.values():
+                if env_hash(h.run_py(ENV_PROBE, py)) != envs[f"{h.arch} {ref}"]:
+                    raise SystemExit(f"{h.name} and {first[h.arch].name} hold different packages for "
+                                     f"{fam} legs; prepare both from the same commit")
     ctype = {a: first[a].cfg["card_type"] for a in archs}
 
     args.out.mkdir(parents=True, exist_ok=True)
