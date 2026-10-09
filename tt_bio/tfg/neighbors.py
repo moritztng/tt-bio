@@ -257,7 +257,7 @@ class BoundField:
             0, flat, dist.sub_(SOFT * rb.repeat(S)[:, None]).reshape(-1), "amin")
         # the atom attaining the soft bound has |c - b| - 0.75 rb = soft + 0.1 rb <= soft + 0.1 max(rb): an upper bound
         # on the hard field, which is all the severe proof needs
-        self.hard = self.soft + (SOFT - HARD) * float(rb.max())
+        self.lift = (SOFT - HARD) * float(rb.max())
 
     def classify(self, X, sample, ra):
         """X [n, 3] -> (far [n], severe [n]) bool."""
@@ -265,7 +265,5 @@ class BoundField:
         inb = ((c >= 0) & (c < self.dims)).all(-1)
         dy, dz = int(self.dims[1]), int(self.dims[2])
         flat = torch.where(inb, sample * self.nvox + (c[:, 0] * dy + c[:, 1]) * dz + c[:, 2], 0)
-        inf = torch.full_like(ra, float("inf"))
-        soft = torch.where(inb, self.soft[flat], inf)
-        hard = torch.where(inb, self.hard[flat], inf)
-        return soft - self.delta >= SOFT * ra + self.margin, hard + self.delta < HARD * ra - self.margin
+        soft = torch.where(inb, self.soft[flat], float("inf"))
+        return soft - self.delta >= SOFT * ra + self.margin, (soft + self.lift) + self.delta < HARD * ra - self.margin

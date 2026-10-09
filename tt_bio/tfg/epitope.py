@@ -214,7 +214,9 @@ class ResidueDistances:
         t, a = torch.nonzero(near & self.valid[r], as_tuple=True)
         p, r, q = p[t], r[t], q[t]
         pq = para[p[:, None], self.para[q].clamp_min(0)]                    # [T, w, 3]
-        dist = (er[p, r, a][:, None] - pq).norm(dim=-1).masked_fill(~self.pmask[q], float("inf"))   # [T, w]
+        # batched cdist: each element is computed from its own two rows exactly as residue_distances' cdist is
+        dist = torch.cdist(er[p, r, a][:, None], pq, compute_mode="donot_use_mm_for_euclid_dist")[:, 0]
+        dist = dist.masked_fill(~self.pmask[q], float("inf"))               # [T, w]
         best = dist.amin(1)
         pr = p * n + r
         d = torch.full((P * n,), float("inf"), dtype=para.dtype).scatter_reduce_(0, pr, best, "amin")
