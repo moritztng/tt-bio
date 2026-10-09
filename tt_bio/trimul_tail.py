@@ -270,6 +270,39 @@ def _repack(entry):
 # sigmoid (~2.0 ms) and the GEMM math (~1.8 ms) serialized on the math thread, over a 3.7 ms data
 # floor (perf/spd_trimul/tail_res.py --abl). bf16, one K block, DRAM output, no split.
 RES = env_flag("TT_BIO_TRIMUL_TAIL_RES", True)
+# The gated in-projection's pair mask folded into the resident epilogue (`mask_ok`).
+MASK_FOLD = env_flag("TT_BIO_TRIMUL_MASK_FOLD", True)
+MASK_STATS = [0]     # calls that folded the mask
+
+
+if env_flag("TT_BIO_TRIMUL_STATS", False):
+    # One stderr line at exit: which trimul routes a whole run took (fold-level proof a lever fired).
+    import atexit, json, sys
+
+    def _print_stats():
+        from . import tenstorrent as _T
+        print("TRIMUL_STATS " + json.dumps({
+            "tail": STATS, "res": RES_STATS, "mask_fold": MASK_STATS, "resid": RESID_STATS,
+            "rejects": {f"{k[0]}:{k[1]}": v for k, v in REJECTS.items()},
+            "routes": {f"{k[0]}/{k[1]}": v for k, v in _T.TRIMUL_MM_TRANSPOSE_STATS.items()}}),
+            file=sys.stderr, flush=True)
+    atexit.register(_print_stats)
+
+
+def set_mask_fold(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global MASK_FOLD
+    prev, MASK_FOLD = MASK_FOLD, bool(on)
+    return prev
+# The gates' sigmoid as a degree-8 polynomial in gin_moved and the resident tail
+# (kernels/trimul_gin_moved/sigmoid_poly.hpp), max |error| 3e-4 against exp + reciprocal's bf16 rounding.
+SIGPOLY = env_flag("TT_BIO_TRIMUL_SIGPOLY", False)
+# Round DST to bf16 nearest-even in those two kernels: bit 0 before the output pack, bit 1 before the p/g
+# packs, bit 2 (resident tail, EPI 2) the product before the residual add, whose move into srcA truncates.
+# Bits 0 and 1 measured null on the outputs (gm8): the packs round already. Bit 2 brings EPI 2 to one rounding
+# (tests/test_trimul_tail_epi.py's bound holds, rel_rms 0.00240 -> 0.00224) for +5 % tail time (gm9/gm10), so it
+# stays off: the fold grades pass without it.
+RNE = int(os.environ.get("TT_BIO_TRIMUL_RNE", "0"))
 RES_ABL = 0          # the resident compute's stage ablation (see its compute.cpp). Diagnostic only.
 RES_STATS = [0, 0]   # served by the resident program, declined to the 2D one
 
@@ -282,13 +315,27 @@ def set_res(on: bool) -> bool:
 
 
 def _res_ok(xa, wa, epi, split, mem):
-    return (RES and epi >= 1 and split == 1 and mem == ttnn.DRAM_MEMORY_CONFIG
+    return (RES and epi >= 1 and split in (1, 2) and mem == ttnn.DRAM_MEMORY_CONFIG
             and xa.dtype == ttnn.bfloat16 and wa.dtype == ttnn.bfloat16
             and xa.memory_config() == ttnn.DRAM_MEMORY_CONFIG
             and wa.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
 
 
-def _build_res(xa, xb, wa, wb, out, grid, ckc, block, epi, shared):
+def mask_ok(mask, xa, wa):
+    """Whether `fused_tail(..., split=2, mask=mask)` can fold the pair mask into the resident
+    epilogue: a bf16 tiled DRAM [B, S, S] mask, S a whole number of tiles, and the activation
+    [B, S, S, K] so its flattened rows are the mask's (b, x, y)."""
+    if not (RES and MASK_FOLD) or mask is None or len(mask.shape) != 3:
+        return False
+    B, S, S2 = (int(d) for d in mask.shape)
+    return (S == S2 and S % TILE == 0 and tuple(int(d) for d in mask.padded_shape) == (B, S, S)
+            and mask.dtype == ttnn.bfloat16 and mask.layout == ttnn.TILE_LAYOUT
+            and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+            and [int(d) for d in xa.shape][:-1] in ([B, S, S], [1, B, S, S])
+            and _tiles(wa.shape[-1]) % 8 == 0)
+
+
+def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared, mask=None):
     Mb = block[0]
     sbw = block[4]
     kt, nt = _tiles(wa.shape[-2]), _tiles(wa.shape[-1])
@@ -312,22 +359,25 @@ def _build_res(xa, xb, wa, wb, out, grid, ckc, block, epi, shared):
         b0 += n
     assert b0 == nb, (b0, nb)
     resid = int(epi == 2)
+    S_t = int(mask.shape[-1]) // TILE if mask is not None else 0
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     d = KERNEL_DIR.parent / "trimul_tail_res"
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, int(shared), resid] + acc(xa) + acc(wa) + acc(xb)
-        + acc(wb) + acc(out),
-        runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
+        + acc(wb) + acc(outs[0]) + [int(mask is not None), S_t] + acc(mask if mask is not None else xa),
+        runtime_args=rd, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[nt, Mb] + acc(out),
-        runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
+        compile_time_args=[nt, Mb, len(outs)] + acc(outs[0]) + acc(outs[-1]),
+        runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, Mb, sbw, int(shared), resid, RES_ABL], runtime_args=cp,
+        compile_time_args=[kt, nt, Mb, sbw, int(shared), resid, RES_ABL, int(mask is not None),
+                           int(SIGPOLY), RNE],
+        runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
@@ -336,16 +386,19 @@ def _build_res(xa, xb, wa, wb, out, grid, ckc, block, epi, shared):
            _cb(2, core_grid, 2 * blk), _cb(4, core_grid, blk), _cb(5, core_grid, blk)]
     if resid:
         cbs.append(_cb(7, core_grid, 2 * blk))
+    if mask is not None:
+        cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 2 * Mb)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def _run_res(entry, xa, xb, wa, wb, out):
+def _run_res(entry, xa, xb, wa, wb, outs, mask=None):
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [xa.buffer_address(), wa.buffer_address(), xb.buffer_address(),
-                                  wb.buffer_address(), out.buffer_address()]
-    writer.common_runtime_args = [out.buffer_address()]
+                                  wb.buffer_address(), outs[0].buffer_address(),
+                                  (mask if mask is not None else xa).buffer_address()]
+    writer.common_runtime_args = [outs[0].buffer_address(), outs[-1].buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([xa, wa, xb, wb, out], pd)
+    ttnn.generic_op([xa, wa, xb, wb, *outs] + ([mask] if mask is not None else []), pd)
 
 
 _CACHE: dict = {}
@@ -381,12 +434,14 @@ def _alloc_out(shape, device, mem):
     return out, mem
 
 
-def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, split=1):
+def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, split=1, mask=None):
     """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope.
 
     `xa is xb` (the trimul in-projection: p and g of one activation) reads each activation block
     once for both passes. `split` > 1 writes the product as that many equal column chunks, separate
-    tensors, and returns them as a list (no residual then).
+    tensors, and returns them as a list (no residual then). With `split=2` and `mask` (only where
+    `mask_ok`) the first chunk comes out multiplied by the pair mask; None if the resident program
+    does not serve the call, so a mask is never silently dropped.
 
     With `resid` and EPI == 2 it computes `resid + p * sigmoid(g)` into `resid` itself and returns
     `resid` (the caller's in-place add is then already done: `_add_input` sees `u is x`). Any
@@ -434,16 +489,22 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
             outs.append(out)
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
            ABL, epi, str(mem), _block(wa), shared, split)
+    if mask is not None and not (split == 2 and mask_ok(mask, xa, wa)
+                                 and _res_ok(xa, wa, epi, split, mem) and not ABL):
+        for o in outs:
+            ttnn.deallocate(o)
+        return _reject("mask", "x".join(str(int(d)) for d in mask.padded_shape))
     if _res_ok(xa, wa, epi, split, mem) and not ABL:
-        key = ("res", RES_ABL) + key
+        key = ("res", RES_ABL, SIGPOLY, RNE, None if mask is None else str(mask.padded_shape)) + key
         entry = _CACHE.get(key)
         if entry is None:
-            entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs[0], grid, ckc, _block(wa), epi,
-                                             shared)
-        _run_res(entry, xa, xb, wa, wb, outs[0])
+            entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs, grid, ckc, _block(wa), epi,
+                                             shared, mask)
+        _run_res(entry, xa, xb, wa, wb, outs, mask)
+        MASK_STATS[0] += mask is not None
         STATS[0] += 1
         RES_STATS[0] += 1
-        return outs[0]
+        return outs if split > 1 else outs[0]
     if RES:
         RES_STATS[1] += 1
 
@@ -466,3 +527,122 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
     ttnn.generic_op([xa, wa, xb, wb, *outs], entry["pd"])
     STATS[0] += 1
     return outs if split > 1 else outs[0]
+
+
+# The gated in-projection with its channel move fused in (`kernels/trimul_gin_moved`). The
+# resident program above writes a and b as [B, S, S, C] and two plain moves then bring C to the
+# batch axis (2.0 ms each at 736 on WH, gather-transaction bound). Here the projection is computed
+# transposed, W^T @ X^T per row tile, so each product tile is [channel x y] and the writer gathers
+# the moved [B, C, S, S] tiles straight out of L1: the moves' DRAM round trip is gone and their
+# gather runs on the writer, which has slack under the resident kernel's compute bound.
+# Default on wherever trimul_gin runs: at 736 on WH (HiFi3, 1000 MHz) it is 7.33 ms against the 10.43 ms
+# of the resident split plus its two moves, rel_rms to float64 unchanged (perf/spd_trimul/gin_move.py,
+# BOARD 2026-10-09 04:55Z). TT_BIO_TRIMUL_GIN_MOVE=0 takes the split route back.
+GIN_MOVE = env_flag("TT_BIO_TRIMUL_GIN_MOVE", True)
+GIN_MOVE_STATS = [0, 0]   # served, declined
+GIN_MOVE_ABL = 0          # the three kernels' stage ablation bits (see each .cpp). Diagnostic only.
+GIN_MOVE_NB = int(os.environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))   # writer tiles per read barrier
+
+
+def _gin_move_tiles(kt, ct2, mask):
+    return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB + (33 if mask else 0)
+
+
+def gin_moved_ok(x, wpT, mask=None):
+    """Whether `gin_moved` serves this call: bf16 tiled interleaved DRAM pair tensor [B?, S, S, K]
+    with S a whole number of tiles, transposed weights [2C, K] with C a whole number of tiles, the
+    mask (if any) as `mask_ok` wants it, and the program's circular buffers inside L1."""
+    shp = [int(d) for d in x.shape]
+    if not (GIN_MOVE and len(shp) in (3, 4) and shp[-2] == shp[-3] and shp[-2] % TILE == 0
+            and x.dtype == ttnn.bfloat16 and wpT.dtype == ttnn.bfloat16
+            and x.layout == ttnn.TILE_LAYOUT
+            and x.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+            and wpT.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+            and int(wpT.shape[-1]) == shp[-1] and shp[-1] % TILE == 0
+            and int(wpT.shape[-2]) % (2 * TILE) == 0):
+        return False
+    if mask is not None:
+        S = shp[-2]
+        B = shp[0] if len(shp) == 4 else 1
+        if not (tuple(int(d) for d in mask.padded_shape) == (B, S, S) and mask.dtype == ttnn.bfloat16
+                and mask.layout == ttnn.TILE_LAYOUT and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG):
+            return False
+    from .tenstorrent import _l1_bank_bytes
+    tiles = _gin_move_tiles(shp[-1] // TILE, int(wpT.shape[-2]) // TILE, mask is not None)
+    return tiles * MG.tile_bytes(ttnn.bfloat16) <= 0.85 * _l1_bank_bytes()
+
+
+def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask):
+    shp = [int(d) for d in x.shape]
+    B = shp[0] if len(shp) == 4 else 1
+    St, kt, ct2 = shp[-2] // TILE, shp[-1] // TILE, int(wpT.shape[-2]) // TILE
+    nu = B * St * St
+    gx, gy = grid
+    ncores = gx * gy
+    core_grid = ttnn.CoreRangeSet(
+        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+    rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    u0 = 0
+    for c in range(ncores):
+        n = nu // ncores + (c < nu % ncores)
+        x_, y_ = c % gx, c // gx
+        rd[x_][y_] = [u0, n]
+        wr[x_][y_] = [u0, n]
+        cp[x_][y_] = [n]
+        u0 += n
+    acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+    src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    d = KERNEL_DIR.parent / "trimul_gin_moved"
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, ct2, St, int(mask is not None), GIN_MOVE_ABL] + acc(x) + acc(wpT) + acc(wgT)
+        + acc(mask if mask is not None else x),
+        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB] + acc(outs[0]) + acc(outs[1]),
+        runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
+    fid, approx, fp32, full = ckc
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, ct2, 4, int(mask is not None), GIN_MOVE_ABL, int(SIGPOLY), RNE],
+        runtime_args=cp,
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
+            dst_full_sync_en=full))
+    cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
+           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
+    if mask is not None:
+        cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
+    return {"kernels": [reader, writer, compute], "cbs": cbs}
+
+
+def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
+    """`a, b` of the gated in-projection, already channel-moved: [B, C, S, S] each, for
+    `[a | b] = (x @ Wp) * sigmoid(x @ Wg)` with `wpT`, `wgT` the transposed [2C, K] weights, and
+    `a` times the pair mask when `mask` is given. None where `gin_moved_ok` declines."""
+    from . import ops
+    if ops.taping() or not gin_moved_ok(x, wpT, mask):
+        GIN_MOVE_STATS[1] += 1
+        return None
+    shp = [int(d) for d in x.shape]
+    B = shp[0] if len(shp) == 4 else 1
+    S, C = shp[-2], int(wpT.shape[-2]) // 2
+    device = x.device()
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, C, S, S]), ttnn.bfloat16,
+                                           ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+            for _ in range(2)]
+    key = ("gin_move", str(x.padded_shape), str(wpT.padded_shape), tuple(grid),
+           tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, SIGPOLY, RNE)
+    entry = _CACHE.get(key)
+    if entry is None:
+        entry = _CACHE[key] = _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask)
+    reader, writer, _ = entry["kernels"]
+    reader.common_runtime_args = [x.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
+                                  (mask if mask is not None else x).buffer_address()]
+    writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
+    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+    ttnn.generic_op([x, wpT, wgT, *outs] + ([mask] if mask is not None else []), pd)
+    GIN_MOVE_STATS[0] += 1
+    MASK_STATS[0] += mask is not None
+    return outs

@@ -45,6 +45,9 @@ box has the memory for, and prints the count it chose with the reason. That is w
 completed trajectory and 1.22x on a round. [Several trajectories on one
 card](#several-trajectories-on-one-card) below is how to read that line and how to turn it off.
 
+It returns the number of trajectories the campaign has spent, not a status. A campaign that fails
+raises, so a runner that passes the return value to `sys.exit` exits non-zero on success.
+
 `card` has to be set before ttnn is imported, because that is when ttnn reads the pin. Leave it
 out to accept whatever `TT_VISIBLE_DEVICES` already says; pass it and `bindcraft2` raises rather
 than silently running on the wrong chip.
