@@ -18,6 +18,8 @@ stop_waiters() {
     # Blocked waiters are the "->" lines; field 6 is the pid, field 7 MAJ:MIN:INODE.
     for p in $(awk -v ino="$ino" '$2 == "->" { split($7, d, ":"); if (d[3] == ino) print $6 }' /proc/locks); do
         [ "$(ps -o ppid= -p "$p" | tr -d ' ')" = "$$" ] && continue    # our own flock -w
+        # Another gate's wait: two gates stopping each other's waiters deadlock (10-09, qb1).
+        [ "$(ps -o args= -p "$p" | cut -d' ' -f1)" = gate_fanout-wait ] && continue
         grep -qx "$p" "$reg" 2>/dev/null && continue
         kill -STOP "$p" 2>/dev/null && echo "$p" >> "$reg"
     done

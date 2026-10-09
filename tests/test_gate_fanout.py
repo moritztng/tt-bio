@@ -277,6 +277,20 @@ def test_flock_first_runs_ahead_of_a_waiter_and_continues_it_after_the_grace(tmp
     assert Path(f"{lock}.gate-stopped").read_text() == ""
 
 
+def test_flock_first_never_stops_another_gates_wait(tmp_path):
+    """Two gates on one card stopping each other's waits would both stay frozen."""
+    lock = tmp_path / "card.lock"
+    lock.touch()
+    holder = subprocess.Popen(["flock", str(lock), "sleep", "3"])
+    time.sleep(0.3)
+    other = subprocess.Popen(["bash", "-c", f'exec -a gate_fanout-wait flock -w 20 {lock} true'])
+    time.sleep(0.3)
+    gate = subprocess.Popen(["bash", str(REPO / "scripts" / "flock_first.sh"), str(lock), "true"],
+                            env={"FLOCK_FIRST_GRACE": "1", "PATH": "/usr/bin:/bin"})
+    time.sleep(1.5)
+    assert not Path(f"{lock}.gate-stopped").exists() or Path(f"{lock}.gate-stopped").read_text() == ""
+    assert holder.wait(10) == 0 and gate.wait(10) == 0 and other.wait(20) == 0
+
 def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
     h = gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r", "perf_against": "v0.13.1",
                         "lock": "/l/card{card}.lock"}, "a" * 40)
