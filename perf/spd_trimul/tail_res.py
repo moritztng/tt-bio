@@ -15,6 +15,7 @@ ap.add_argument("--n", type=int, default=736)
 ap.add_argument("--calls", type=int, default=20)
 ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--epi", default="1,2")
+ap.add_argument("--split", type=int, default=1, help="1: also check split=2 (gated in-projection), 0: skip")
 ap.add_argument("--abl", default="", help="time only: resident stage ablations, e.g. 1,2,4,7")
 A = ap.parse_args()
 
@@ -92,6 +93,40 @@ for epi in (int(e) for e in A.epi.split(",")):
                 if False in ms_of and True in ms_of:
                     rec["speedup"] = round(ms_of[False] / ms_of[True], 3)
             print(json.dumps(rec), flush=True)
+TT.set_res(False)
+# split=2 is the gated in-projection: p and g of one activation, a | b written as two tensors.
+TT.set_epi(1)
+got, ms_of = {}, {}
+for res in ((False, True) if A.split else ()):
+    TT.set_res(res)
+    rec = {"epi": 1, "shared": True, "split": 2, "res": res}
+    try:
+        f = lambda: TT.fused_tail(d["xa"], d["xa"], d["wa"], d["wb"], ckc, grid, split=2)
+        ys = f(); ttnn.synchronize_device(dev)
+        got[res] = torch.cat([ttnn.to_torch(y) for y in ys], -1).reshape(h["z"].shape)
+        for y in ys:
+            ttnn.deallocate(y)
+        rec["res_served"] = TT.RES_STATS[0]
+        ms = []
+        for _ in range(A.reps):
+            t0 = time.perf_counter()
+            outs = [f() for _ in range(A.calls)]
+            ttnn.synchronize_device(dev)
+            ms.append((time.perf_counter() - t0) * 1e3 / A.calls)
+            for o in outs:
+                for y in o:
+                    ttnn.deallocate(y)
+        rec["ms"] = ms_of[res] = round(min(ms), 4)
+        rec["spread_ms"] = round(max(ms) - min(ms), 4)
+        r = ref64(True, False)
+        rec["rel_rms_f64"] = float(((got[res].double() - r).pow(2).mean().sqrt() / r.pow(2).mean().sqrt()))
+    except Exception as e:                                                    # noqa: BLE001
+        rec["err"] = str(e).splitlines()[0][:300]
+    if res and False in got and True in got:
+        rec["equal"] = bool(torch.equal(got[False], got[True]))
+        if False in ms_of and True in ms_of:
+            rec["speedup"] = round(ms_of[False] / ms_of[True], 3)
+    print(json.dumps(rec), flush=True)
 TT.set_res(False)
 TT.set_epi(2)
 for abl in [int(a) for a in A.abl.split(",") if a]:

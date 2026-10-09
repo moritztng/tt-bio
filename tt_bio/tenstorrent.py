@@ -8628,11 +8628,14 @@ class TriangleMultiplication(Module):
                             tuple(COMPUTE_GRID_MAIN), split=2)
                         branch = "gated-inproj-declined"
                         if ab is not None:
+                            # No reallocate: freeing ab[0] leaves a hole under a_chunk, so it would
+                            # copy the whole chunk (1.3 ms at 736 on WH). The chunks end up above
+                            # the freed projection either way, as on the gated-move route.
                             a_chunk = self._transform_chunk(
-                                ab[0], perm_a, memory_config, realloc=n_pairs // group > 1,
+                                ab[0], perm_a, memory_config, realloc=False,
                                 defer_transpose=defer)
                             b_chunk = self._transform_chunk(
-                                ab[1], perm_b, memory_config, realloc=n_pairs // group > 1,
+                                ab[1], perm_b, memory_config, realloc=False,
                                 defer_transpose=defer)
                             branch = "gated-inproj"
                             if defer:

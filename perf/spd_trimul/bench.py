@@ -121,6 +121,7 @@ LEVERS = {
     "tb88": [(TTL.set_block, (8, 8, 8, 1, 4))],
     "tb48": [(TTL.set_block, (4, 8, 8, 1, 4))],
     "gin": [(T.set_trimul_gated_inproj, True)],
+    "nores": [(TTL.set_res, False)],
 }
 
 

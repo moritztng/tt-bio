@@ -282,13 +282,13 @@ def set_res(on: bool) -> bool:
 
 
 def _res_ok(xa, wa, epi, split, mem):
-    return (RES and epi >= 1 and split == 1 and mem == ttnn.DRAM_MEMORY_CONFIG
+    return (RES and epi >= 1 and split in (1, 2) and mem == ttnn.DRAM_MEMORY_CONFIG
             and xa.dtype == ttnn.bfloat16 and wa.dtype == ttnn.bfloat16
             and xa.memory_config() == ttnn.DRAM_MEMORY_CONFIG
             and wa.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
 
 
-def _build_res(xa, xb, wa, wb, out, grid, ckc, block, epi, shared):
+def _build_res(xa, xb, wa, wb, outs, grid, ckc, block, epi, shared):
     Mb = block[0]
     sbw = block[4]
     kt, nt = _tiles(wa.shape[-2]), _tiles(wa.shape[-1])
@@ -318,12 +318,12 @@ def _build_res(xa, xb, wa, wb, out, grid, ckc, block, epi, shared):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, int(shared), resid] + acc(xa) + acc(wa) + acc(xb)
-        + acc(wb) + acc(out),
+        + acc(wb) + acc(outs[0]),
         runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[nt, Mb] + acc(out),
-        runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
+        compile_time_args=[nt, Mb, len(outs)] + acc(outs[0]) + acc(outs[-1]),
+        runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -339,13 +339,13 @@ def _build_res(xa, xb, wa, wb, out, grid, ckc, block, epi, shared):
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def _run_res(entry, xa, xb, wa, wb, out):
+def _run_res(entry, xa, xb, wa, wb, outs):
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [xa.buffer_address(), wa.buffer_address(), xb.buffer_address(),
-                                  wb.buffer_address(), out.buffer_address()]
-    writer.common_runtime_args = [out.buffer_address()]
+                                  wb.buffer_address(), outs[0].buffer_address()]
+    writer.common_runtime_args = [outs[0].buffer_address(), outs[-1].buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-    ttnn.generic_op([xa, wa, xb, wb, out], pd)
+    ttnn.generic_op([xa, wa, xb, wb, *outs], pd)
 
 
 _CACHE: dict = {}
@@ -438,12 +438,12 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
         key = ("res", RES_ABL) + key
         entry = _CACHE.get(key)
         if entry is None:
-            entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs[0], grid, ckc, _block(wa), epi,
+            entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs, grid, ckc, _block(wa), epi,
                                              shared)
-        _run_res(entry, xa, xb, wa, wb, outs[0])
+        _run_res(entry, xa, xb, wa, wb, outs)
         STATS[0] += 1
         RES_STATS[0] += 1
-        return outs[0]
+        return outs if split > 1 else outs[0]
     if RES:
         RES_STATS[1] += 1
 
