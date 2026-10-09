@@ -12,9 +12,12 @@ Host-only: reads docs/size_ladder_baseline* and scripts/lever_census.py.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import pathlib
 import sys
+
+import pytest
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
@@ -34,9 +37,11 @@ def _entries(docs: pathlib.Path) -> dict:
     return out
 
 
-def missing_levers(docs: pathlib.Path) -> list[str]:
+def missing_levers(docs: pathlib.Path, models=None) -> list[str]:
     owed = []
     for (card, model), e in sorted(_entries(docs).items()):
+        if models is not None and model not in models:
+            continue                        # exempt from the ladder: its entry is never checked
         for rung, rows in sorted((e.get("levers") or {}).items()):
             imported = {MODULE.get(f) for f, r in rows.items() if r.get("resolved") != "not-imported"}
             new = sorted(f for f, mod in MODULE.items() if f not in rows and mod in imported)
@@ -47,7 +52,11 @@ def missing_levers(docs: pathlib.Path) -> list[str]:
 
 
 def test_every_lever_an_imported_module_registers_is_in_the_baseline():
-    owed = missing_levers(REPO / "docs")
+    pytest.importorskip("torch")                # release_gate imports it at module level
+    spec = importlib.util.spec_from_file_location("release_gate", REPO / "scripts" / "release_gate.py")
+    rg = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rg)
+    owed = missing_levers(REPO / "docs", set(rg.SIZE_LADDER_MODELS))
     assert not owed, (
         "the size ladder will fail 'new lever not in the baseline' for:\n  " + "\n  ".join(owed)
         + "\nrecord them on each card: scripts/release_gate.py --model size-ladder "
