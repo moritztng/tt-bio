@@ -34,6 +34,7 @@ import torch
 import ttnn
 
 from . import protenix_weights as PW
+from . import hostlane
 from .envflags import env_flag
 from .size_limits import is_alloc_refusal
 from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
@@ -2021,10 +2022,21 @@ class ConfidenceHead:
         it on device regresses the pairformer input at small N), then upload as
         bf16 ONCE. Returned as a resident (1,N,N,256) device tensor; reuse across
         samples so the (N,N,256) upload is paid once per fold, not per sample."""
-        import torch.nn.functional as F, ttnn
+        return self.z_base_upload(self.z_base_host(s_inputs, z_trunk))
+
+    def z_base_host(self, s_inputs, z_trunk):
+        """The host half of `z_base_device`: z_base summed in fp32, then rounded to the bf16 it is
+        uploaded in. torch rounds as ttnn's upload does, so the device tensor is the same, and ttnn
+        tilizes bf16 several times faster than it converts fp32. fold() runs this on the host lane
+        during the diffusion, so the chip no longer waits for it when the confidence head starts."""
+        import torch, torch.nn.functional as F
         z_base = (z_trunk + F.linear(s_inputs, self._g("linear_no_bias_s1.weight")).unsqueeze(1)
-                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0)).unsqueeze(0).contiguous()
-        return ttnn.from_torch(z_base.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
+                  + F.linear(s_inputs, self._g("linear_no_bias_s2.weight")).unsqueeze(0)).unsqueeze(0)
+        return z_base.float().to(torch.bfloat16).contiguous()
+
+    def z_base_upload(self, z_base):
+        import ttnn
+        return ttnn.from_torch(z_base, layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
 
     def confidence_device(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """Device-resident confidence forward. z_base_dev is the RESIDENT bf16
@@ -2037,21 +2049,26 @@ class ConfidenceHead:
         return self.confidence_device_samples(s_inputs, s_trunk, z_base_dev, [coords], feats)[0]
 
     def confidence_device_samples(self, s_inputs, s_trunk, z_base_dev, coords, feats):
-        """`confidence_device` for each of `coords`, with each sample's host post-processing
-        (softmaxes, pTM/ipTM) run while the chip computes the next sample instead of between
-        them. Same values in the same order; only the host work moves."""
-        confs, prev = [], None
+        """`confidence_device` for each of `coords`. Each sample's logits are read off the chip as
+        soon as it has them, and their untilize and post-processing (softmaxes, pTM/ipTM) run on
+        the host lane while the chip computes the next sample instead of between them. Same values
+        in the same order; only the host work moves."""
+        from . import hostlane
+        confs = []
         for c in coords:
             logits = self._confidence_device_logits(s_inputs, s_trunk, z_base_dev, c, feats)
-            if prev is not None:
-                confs.append(self._postprocess(*prev, feats))
-            pae, pde, plddt = (torch.Tensor(ttnn.to_torch(t)).float() for t in logits)
+            reads = [ttnn.from_device(t) for t in logits]
             for t in logits:
                 ttnn.deallocate(t)
-            N = pae.shape[-2]
-            prev = (pae.reshape(N, N, -1), pde.reshape(N, N, -1), plddt.reshape(plddt.shape[0], -1))
-        confs.append(self._postprocess(*prev, feats))
-        return confs
+            confs.append(hostlane.submit(self._postprocess_read, reads, feats))
+        return [f.result() for f in confs]
+
+    def _postprocess_read(self, reads, feats):
+        """`_postprocess` of one sample's logits as `from_device` returned them."""
+        pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
+        N = pae.shape[-2]
+        return self._postprocess(pae.reshape(N, N, -1), pde.reshape(N, N, -1),
+                                 plddt.reshape(plddt.shape[0], -1), feats)
 
     def _confidence_device_logits(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """The device half of `confidence_device`: enqueued, not read. Returns the pae and pde
@@ -2795,7 +2812,7 @@ class Protenix:
     def _confidence_for(self, aux, feats, coords):
         """Confidence head for one prediction's coords (N,3). Same device/host split and the
         same NT>=128 gate fold() uses, and like fold() it frees the resident tensors after."""
-        s_inputs, s_trunk, z_trunk = aux["s_inputs"], aux["s_trunk"], aux["z_trunk"]
+        s_inputs, s_trunk, z_trunk = aux["s_inputs"], aux["s_trunk"], aux["z_trunk"].result()
         if self.confidence_head.device_confidence_enabled() and aux["NT"] >= 128:
             z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
             try:
@@ -2847,7 +2864,10 @@ class Protenix:
         if self._fast:
             _TT.set_fast_mode(False)
         s_trunk = self._to_host(s_trunk_tt, (NT, s_trunk_tt.shape[-1]))
-        z_trunk = self._to_host(z_tt, (NT, NT, self.trunk.C_Z))   # raw trunk z (for confidence)
+        # Raw trunk z, for the confidence head only. Read now, while z_tt exists, but untilized on
+        # the host lane: the chip goes straight on to the pair conditioning. aux carries a Future.
+        C_Z = self.trunk.C_Z
+        z_trunk = hostlane.to_torch(z_tt, lambda z: z.float().reshape(NT, NT, C_Z))
         # diffusion pair conditioning (once, t-independent): conditioned pair_z
         pair_z = self._diffusion_pair_cond(z_tt, relp).reshape(NT, NT, self.trunk.C_Z)
         # diffusion p_lm cache also carries the (conditioned) pair-z broadcast to atom pairs
@@ -2888,6 +2908,12 @@ class Protenix:
         cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
+        # The device confidence head's sample-invariant z_base is built on the host lane while the
+        # diffusion runs; the chip used to wait for it, and for z_trunk's untilize, at its entry.
+        conf_dev = (return_confidence and self.confidence_head.device_confidence_enabled()
+                    and NT >= 128)
+        if conf_dev:
+            z_base = hostlane.submit(lambda: self.confidence_head.z_base_host(s_inputs, z_trunk.result()))
         import os as _os, time as _time
         if _os.environ.get("TT_PROTENIX_DBG_COND"):
             self._dbg_cond = cond
@@ -2960,7 +2986,7 @@ class Protenix:
             # on device across samples -- pass the raw trunk z device tensor
             # straight in, skipping the (N,N,256) host round-trip the host-heads
             # path takes. Falls back to the host-heads path otherwise.
-            if self.confidence_head.device_confidence_enabled() and NT >= 128:
+            if conf_dev:
                 # z_base (z_trunk + s1 + s2) is sample-invariant: build it ONCE in
                 # fp32 on host and upload as a resident bf16 device tensor, then
                 # run the per-sample distance-embed + Pairformer + heads on device
@@ -2968,14 +2994,14 @@ class Protenix:
                 # NT>=128, where the host path's round trip starts to cost (it is
                 # ~23 ms at NT=38). The small-N divergence once blamed for the gate
                 # was the bf16 distance cancellation fixed in confidence_device.
-                z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
+                z_base_dev = self.confidence_head.z_base_upload(z_base.result())
                 try:
                     confs = self.confidence_head.confidence_device_samples(
                         s_inputs, s_trunk, z_base_dev, [coords[k] for k in range(n_sample)], feats)
                 finally:
                     self.confidence_head.drop_device_resident()
             else:
-                confs = self.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk,
+                confs = self.confidence_head.confidence_samples(s_inputs, s_trunk, z_trunk.result(),
                                                                 list(coords), feats)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
