@@ -66,8 +66,10 @@ def test_gate_the_newest_staging_and_never_restart_a_running_gate(tmp_path):
     assert rn.decide(tmp_path, gates, "main")["do"] == "GATE"     # a --legs run is no verdict
     _plan(gates, "g10", head, tmp_path)
     assert rn.decide(tmp_path, gates, "main")["do"] == "WAIT"
-    (gates / "g10" / "verdict.json").write_text(json.dumps({"pass": False}))
-    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    (gates / "g10" / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "ladder:m", "verdict": "OWED", "owed": ["SDPA_FUSED_PADDED"]}]}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "FIX" and "record SDPA_FUSED_PADDED first" in d["why"]
     (gates / "g10" / "verdict.json").write_text(json.dumps({"pass": True}))
     assert rn.decide(tmp_path, gates, "main")["do"] == "CUT"
 

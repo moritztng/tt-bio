@@ -117,6 +117,10 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
            "fail": f"gate failed: {d}/VERDICT.md",
            "pass": f"gate passed on every arch: {d}/VERDICT.md"}[state]
     do = {"none": "GATE", "running": "WAIT", "fail": "FIX", "pass": "CUT"}[state]
+    if state == "fail":
+        res = json.loads((d / "verdict.json").read_text()).get("results", [])
+        if owed := sorted({f for r in res if r.get("verdict") == "OWED" for f in r.get("owed", [])}):
+            why += f"; record {','.join(owed)} first (gate_fanout.py --legs 'record:*' --record-lever)"
     older = [s for s in out["running"] if d is None or s != json.loads((d / "plan.json").read_text())["sha"]]
     if older:
         why += f"; finish the running gate on {', '.join(s[:9] for s in older)}, do not restart it"
