@@ -43,7 +43,7 @@ A trajectory BindCraft 2 stops early (`terminated` names the stage) is shorter b
 trajectories with completed ones.
 --inputs names the binder length (default 80, `--inputs 80`); --data is unused.
 """
-import argparse, gc, glob, hashlib, json, os, socket, subprocess, sys, threading, time
+import argparse, gc, glob, hashlib, json, os, re, socket, subprocess, sys, threading, time
 from pathlib import Path
 
 ap = argparse.ArgumentParser()
@@ -80,7 +80,8 @@ def parse_arm(spec):
         elif p.startswith("L="):
             lv = p[2:]
         elif p:
-            env.update(kv.split("=", 1) for kv in p.split(","))
+            # A comma starts a new pair only before NAME=, so a value can list several sites.
+            env.update(kv.split("=", 1) for kv in re.split(r",(?=[A-Za-z_][A-Za-z0-9_]*=)", p))
     return parts[0], env, fast, lv
 
 
