@@ -2660,7 +2660,9 @@ class Protenix:
         with `pz` still allocated, when DRAM refuses one of the two full-size norms.
 
         Same math as the host path, in the diffusion's dtype (fp32 by default) on the device's
-        layer norm and matmul, so not bit-exact against torch."""
+        layer norm and matmul. Those take fp32 operands at reduced mantissa: ~3e-3 of the largest
+        value from float64 against ~2e-7 on the host (tests/test_pair_cond_device_terms_hw.py),
+        the precision of every other on-device fp32 diffusion op."""
         D = self.diffusion
         E = "atom_attention_encoder."
         held = []
