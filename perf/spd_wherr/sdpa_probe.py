@@ -4,7 +4,9 @@
     ... --window 128 --heads 720 --dim 32 --chunks 32x128,32x32     # the atom superset's windowed attention
 
 `--window W` probes the atom attention's shape instead: per head a 32-row query block against a W-key window, no
-padding (protenix.py `_attention_superset`, which passes the whole window as the k chunk).
+padding (protenix.py `_attention_superset`, which passes the whole window as the k chunk). With `--kvwin` K and V
+go in as frames read through sdpa_generic's `kv_window` reader, as the fold runs it (`--heads` is then the frame
+head count, times nb = (F - W) / 32 + 1 windows).
 
 Inside the kernel the score matmul accumulates head_dim / 32 tiles in dest and the PV matmul k_chunk / 32 tiles,
 both under fp32 dest acc, which is the Wormhole erratum's exposure. A smaller k chunk shortens the PV run (32 is one
@@ -47,6 +49,7 @@ def main():
     ap.add_argument("--chunks", default="256x256,256x128,256x64,256x32,128x32")
     ap.add_argument("--draws", type=int, default=4)
     ap.add_argument("--window", type=int, default=0, help="atom form: 32 queries against a W-key window per head")
+    ap.add_argument("--kvwin", type=int, default=0, help="with --window: nb windows per frame head, through kv_window")
     a = ap.parse_args()
     torch.set_num_threads(6)
     dev = T.get_device()
@@ -61,22 +64,30 @@ def main():
 
     for d in range(a.draws):
         gen = torch.Generator().manual_seed(d)
-        q = torch.randn(a.m, a.heads, nq, a.dim, generator=gen) * a.ls
-        k, v = (torch.randn(a.m, a.heads, nk, a.dim, generator=gen) * a.ls for _ in range(2))
-        bias = torch.randn(1, a.heads, nq, nk, generator=gen) * 3
+        hv = a.heads * (a.kvwin or 1)
+        q = torch.randn(a.m, hv, nq, a.dim, generator=gen) * a.ls
+        if a.kvwin:
+            fr = [torch.randn(a.m, a.heads, (a.kvwin - 1) * 32 + nk, a.dim, generator=gen) * a.ls for _ in range(2)]
+            k, v = (torch.stack([f[:, :, i * 32:i * 32 + nk] for i in range(a.kvwin)], 2).reshape(a.m, hv, nk, a.dim)
+                    for f in fr)
+        else:
+            k, v = (torch.randn(a.m, hv, nk, a.dim, generator=gen) * a.ls for _ in range(2))
+        bias = torch.randn(1, hv, nq, nk, generator=gen) * 3
         R = torch.softmax(torch.einsum("mhid,mhjd->mhij", q.double(), k.double()) * s + bias.double(), -1) @ v.double()
         pad = lambda t, n: torch.nn.functional.pad(t, (0, 0, 0, n - t.shape[2]))
-        mask = torch.full((1, a.heads, pq, pk), -1e4); mask[:, :, :, :nk] = 0; mask[:, :, :nq, :nk] = bias / s
-        tq, tk, tv, tm = up(pad(q, pq)), up(pad(k, pk)), up(pad(v, pk)), up(mask)
+        mask = torch.full((1, hv, pq, pk), -1e4); mask[:, :, :, :nk] = 0; mask[:, :, :nq, :nk] = bias / s
+        tq, tm = up(pad(q, pq)), up(mask)
+        tk, tv = (up(f) for f in fr) if a.kvwin else (up(pad(k, pk)), up(pad(v, pk)))
+        kw = dict(kv_window=(a.kvwin, nk)) if a.kvwin else {}
         for c in a.chunks.split(","):
             qc, kc = map(int, c.split("x"))
             if pq % qc or pk % kc:
                 continue
 
             def run():
-                out = ttnn.allocate_tensor_on_device(ttnn.Shape([a.m, a.heads, pq, a.dim]), ttnn.float32,
+                out = ttnn.allocate_tensor_on_device(ttnn.Shape([a.m, hv, pq, a.dim]), ttnn.float32,
                                                      ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-                return SG.sdpa(dev, tq, tk, tv, tm, out, qc, kc, grid, T._SDPA32_CKC, s)
+                return SG.sdpa(dev, tq, tk, tv, tm, out, qc, kc, grid, T._SDPA32_CKC, s, **kw)
             try:
                 y = run()
             except Exception as e:
@@ -91,7 +102,7 @@ def main():
                     ttnn.synchronize_device(dev); t0 = time.perf_counter(); y = run(); ttnn.synchronize_device(dev)
                     ts.append(time.perf_counter() - t0); ttnn.deallocate(y)
                 us = round(statistics.median(ts) * 1e6, 1)
-            cell = dict(draw=d, chunk=c, nt=a.nt, window=a.window, heads=a.heads, dim=a.dim, wrong=nb, big=nbig, max_err=round(mx, 5),
+            cell = dict(draw=d, chunk=c, nt=a.nt, window=a.window, kvwin=a.kvwin, heads=a.heads, dim=a.dim, wrong=nb, big=nbig, max_err=round(mx, 5),
                         rms_err=round(rms, 7), worst=worst, us=us, arch=str(dev.arch()))
             log.write(json.dumps(cell) + "\n"); log.flush(); print(json.dumps(cell), flush=True)
         for t in (tq, tk, tv, tm):
