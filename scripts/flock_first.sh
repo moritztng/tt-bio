@@ -33,6 +33,8 @@ reap() {
 }
 
 exec 9>>"$lock"
-until flock -n 9; do stop_waiters; flock -w 2 9 && break; done
+# The wait is named gate_fanout-wait so a host-wide release-priority watcher (qb1's relprio.sh
+# matches "gate_fanout") never stops the gate's own waiter.
+until flock -n 9; do stop_waiters; ( exec -a gate_fanout-wait flock -w 2 9 ) && break; done
 trap reap EXIT
 "$@" 9>&-
