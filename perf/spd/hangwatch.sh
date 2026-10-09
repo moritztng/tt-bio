@@ -42,6 +42,8 @@ last=$(size) t_last=$(date +%s)
 while kill -0 $pid 2>/dev/null; do
   sleep 20
   s=$(size)
+  # A dispatch timeout (DIAG=1) already triaged the chip and the next fold would only wait out another one.
+  if [ -s "$OUT/triage.txt" ]; then say "dispatch timeout: stopping the arm"; kill -INT $pid; wait $pid; break; fi
   if [ "$s" != "$last" ]; then last=$s t_last=$(date +%s); continue; fi
   idle=$(( $(date +%s) - t_last ))
   [ $idle -lt "$STALL" ] && continue

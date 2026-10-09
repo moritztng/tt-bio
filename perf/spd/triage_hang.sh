@@ -7,7 +7,6 @@ TRIAGE_PY=${TRIAGE_PY:-$HOME/spd/spd-fasthang/xv/bin/python}
 out=${FH_OUT:-/tmp}/triage.txt
 {
   echo "$(date -u +%FT%TZ) dispatch timeout, chip ${TT_VISIBLE_DEVICES:-?}"
-  cd "$TRIAGE_HOME" && timeout 900 "$TRIAGE_PY" tools/tt-triage.py --disable-progress --disable-colors -vv \
-    --inspector-rpc-port="${TT_METAL_INSPECTOR_RPC_SERVER_ADDRESS##*:}"
+  cd "$TRIAGE_HOME" && timeout 900 "$TRIAGE_PY" tools/tt-triage.py --disable-progress --disable-colors -vv
   echo "rc=$?"
 } >> "$out" 2>&1
