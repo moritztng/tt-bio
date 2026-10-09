@@ -80,7 +80,7 @@ def main():
             A = torch.randn(a.m, a.k).bfloat16(); W = (torch.randn(a.k, a.n) / a.k ** 0.5).bfloat16()
             R = A.double() @ W.double()
             ta = ttnn.from_torch(A, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
-            ta3 = ttnn.reshape(ta, (a.batch, a.m // a.batch, a.k))
+            ta3 = ttnn.reshape(ta, (a.batch, a.m // a.batch, a.k)) if a.m % (32 * a.batch) == 0 else None
             tw = ttnn.from_torch(W, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
             for fid in a.fid.split(","):
                 ck = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=getattr(ttnn.MathFidelity, fid),
@@ -88,7 +88,7 @@ def main():
                                                             packer_l1_acc=True)
                 for v in a.variants.split(","):
                     pc = program(v, mt, kt, nt, grid)
-                    if pc == "skip":
+                    if pc == "skip" or (v == "auto3d" and ta3 is None):
                         continue
                     kw = dict(compute_kernel_config=ck, dtype=ttnn.bfloat16)
                     if pc is None:
@@ -120,6 +120,8 @@ def main():
                                 worst=worst, us=ts)
                     res["cells"].append(cell); print(json.dumps(cell), flush=True)
             ttnn.deallocate(ta); ttnn.deallocate(tw)
+            if ta3 is not None:
+                ttnn.deallocate(ta3)
     finally:
         ttnn.close_device(dev)
         tot = {}
