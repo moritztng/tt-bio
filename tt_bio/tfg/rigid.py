@@ -540,24 +540,33 @@ def search_rigid_contact(coords, feats, core=None):
         # poses are placed for the unsatisfied samples only (per-sample ops: same values)
         t_fit, t_fitted, t_contacts, t_tc = fit[todo], fitted[todo], fitted_contacts[todo], tc[todo]
 
-        def candidates(normal):
-            normal = normal[todo]
-            for turn in turns:
-                rotation = torch.linalg.matrix_exp(skew_matrix(normal * turn, t_fit))
-                rotated = torch.bmm(t_fitted, rotation.transpose(1, 2))
-                rot_contacts = torch.bmm(t_contacts, rotation.transpose(1, 2))
-                for radius in radii_out:
-                    shift = t_tc + radius * normal[:, None]
-                    yield rotated + shift, rot_contacts + shift
+        def place(chunk):
+            """Poses of a chunk of normals in upstream's (normal, turn, radius) order: x [T, P, M, 3], contacts [T, P, C, 3].
+            The turns of a normal share one batched matrix_exp and bmm (per-matrix values unchanged)."""
+            T, R = len(todo), len(radii_out)
+            P = len(chunk) * len(turns) * R
+            x = torch.empty(T, P, t_fitted.shape[1], 3, dtype=t_fitted.dtype)
+            contact = torch.empty(T, P, t_contacts.shape[1], 3, dtype=t_contacts.dtype)
+            for a, normal in enumerate(chunk):
+                normal = normal[todo]
+                w = torch.cat([normal * turn for turn in turns])                          # [turns * T, 3]
+                rotation = torch.linalg.matrix_exp(skew_matrix(w, t_fit.repeat(len(turns), 1, 1))).transpose(1, 2)
+                rotated = torch.bmm(t_fitted.repeat(len(turns), 1, 1), rotation).view(len(turns), T, -1, 3)
+                rot_contacts = torch.bmm(t_contacts.repeat(len(turns), 1, 1), rotation).view(len(turns), T, -1, 3)
+                for b in range(len(turns)):
+                    for c, radius in enumerate(radii_out):
+                        shift = t_tc + radius * normal[:, None]
+                        k = (a * len(turns) + b) * R + c
+                        torch.add(rotated[b], shift, out=x[:, k])
+                        torch.add(rot_contacts[b], shift, out=contact[:, k])
+            return x, contact
 
         for start in range(0, len(normals), SEARCH_CHUNK_NORMALS):
             chunk = normals[start:start + SEARCH_CHUNK_NORMALS]
             tested += len(chunk) * len(turns) * len(radii_out)
             if todo.numel() == 0:
                 continue
-            placed = [c for normal in chunk for c in candidates(normal)]
-            x = torch.stack([p for p, _ in placed], 1)
-            contact = torch.stack([c for _, c in placed], 1)
+            x, contact = place(chunk)
             clash_energy, bad = clash.score(x, todo)
             energy = 0.5 * score_contact(contact).square().sum(-1) + 10 * clash_energy
             index, taken = _take_first_best(energy, bad, todo, best_energy, feasible, improving, accepted)
