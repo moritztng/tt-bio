@@ -1386,7 +1386,18 @@ constexpr uint32_t MASK_FREE_CB = tt::CBIndex::c_14;
 
 /**
  * out_cb = in0_cb @ in1_cb
+ *
+ * EXP_EPILOGUE (single k chunk with the mask preloaded only): with exp_scale_fp32 != 0 the scores
+ * never leave DST unexponentiated. exp(scale * (qk + mask)) runs on DST right after the matmul,
+ * P is packed once, and each P tile is packed a second time with L1 accumulation into
+ * exp_sum_cb's row tile, so the row-max pass and the sub+exp pass over the score block are gone.
+ * There is no max subtraction: the caller guarantees scale * (qk + mask) stays below the exp
+ * window (the fast exp's int overflow at ~88), and softmax is shift-invariant.
  */
+#if defined(EXP_EPILOGUE) && !(defined(PERSISTENT_MASK) && defined(QK_MASK_PRELOAD) && PERSISTENT_MASK == 1)
+#error "EXP_EPILOGUE needs the preloaded persistent mask and a single k chunk"
+#endif
+template <uint32_t exp_scale_fp32 = 0>
 ALWI void matmul_blocks(
     const uint32_t& in0_cb,
     const uint32_t& in1_cb,
@@ -1405,7 +1416,8 @@ ALWI void matmul_blocks(
     const uint32_t& mask_cb = 0,
     const uint32_t& zero_cb = 0,
     const bool& preload_mask = false,
-    const uint32_t& mask_base = 0) {
+    const uint32_t& mask_base = 0,
+    const uint32_t& exp_sum_cb = 0) {
     // precondition: in0_cb has M*K produced
     // precondition: in1_cb has K*N produced
     // postcondition: in0_cb is full, in1_cb is empty
@@ -1438,6 +1450,16 @@ ALWI void matmul_blocks(
         cb_wait_front(MASK_SEED_CB, 1);
         PACK((llk_pack_reconfig_l1_acc(1)));
 #endif
+    }
+#endif
+#ifdef EXP_EPILOGUE
+    constexpr bool exp_epi_t = exp_scale_fp32 != 0;
+    const bool exp_epi = exp_epi_t && preload_mask;
+    if (exp_epi) {
+        cb_reserve_back(exp_sum_cb, M);
+        // The fast exp is wrong (negative) below ~-88, which is every masked key; ReLU zeroes it,
+        // as in sub_exp_block_bcast_cols_inplace.
+        PACK((llk_pack_relu_config(ReluType::ZERO_RELU)));
     }
 #endif
 
@@ -1491,6 +1513,17 @@ ALWI void matmul_blocks(
                     add_tiles(zero_cb, mask_cb, 0, i, i);
                 }
             }
+#ifdef EXP_EPILOGUE
+            if constexpr (exp_epi_t) {
+                if (exp_epi) {
+                    exp_tile_init<true, true, exp_scale_fp32, InputClamping::None>();
+                    for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                        exp_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                    }
+                    // The next subblock's mask preload re-inits the matmul.
+                }
+            }
+#endif
             tile_regs_commit();
             tile_regs_wait();
             uint32_t dst_idx = 0;
@@ -1502,6 +1535,26 @@ ALWI void matmul_blocks(
                     dst_idx++;
                 }
             }
+#ifdef EXP_EPILOGUE
+            if constexpr (exp_epi_t) {
+                if (exp_epi) {
+                    // Row sums: every P tile of row r accumulates into exp_sum_cb tile r in L1; the
+                    // first tile of a row (in1 subblock 0, column 0) overwrites.
+                    pack_reconfig_data_format(out_cb, exp_sum_cb);
+                    dst_idx = 0;
+                    for (uint32_t r = 0; r < subblock_h; r++) {
+                        const uint32_t row = in0_subblock * subblock_h + r;
+                        for (uint32_t c = 0; c < subblock_w; c++) {
+                            PACK((llk_pack_reconfig_l1_acc(in1_subblock > 0 || c > 0)));
+                            pack_tile<true>(dst_idx, exp_sum_cb, row);
+                            dst_idx++;
+                        }
+                    }
+                    PACK((llk_pack_reconfig_l1_acc(0)));
+                    pack_reconfig_data_format(exp_sum_cb, out_cb);
+                }
+            }
+#endif
             tile_regs_release();
             in1_index_offset += subblock_w;
         }
@@ -1515,6 +1568,12 @@ ALWI void matmul_blocks(
     if (preload_mask) {
         PACK((llk_pack_reconfig_l1_acc(0)));
         cb_pop_front(MASK_SEED_CB, 1);
+    }
+#endif
+#ifdef EXP_EPILOGUE
+    if (exp_epi) {
+        PACK((llk_pack_relu_config(ReluType::NO_RELU)));
+        cb_push_back(exp_sum_cb, M);
     }
 #endif
 }
@@ -2073,7 +2132,11 @@ void sdpa_inner_loop(
             cb_push_back(cb_qk_im, qk_chunk_tiles);
             if (false)
 #endif
-            matmul_blocks(
+            matmul_blocks<
+#ifdef EXP_EPILOGUE
+                scale_fp32
+#endif
+                >(
                 cb_q_in,
                 cb_k_in,
                 cb_qk_im,
@@ -2094,6 +2157,10 @@ void sdpa_inner_loop(
                 0,
                 qk_mask_preload,
                 k_chunk * qk_chunk_tiles
+#ifdef EXP_EPILOGUE
+                ,
+                alias_cur_sum
+#endif
 #endif
             );
 
@@ -2201,6 +2268,15 @@ void sdpa_inner_loop(
             // statistics are bf16, so a narrower score CB needs the packer moved before the max
             // lands in them (a no-op when both are bf16, the stock table).
             pack_reconfig_data_format(cb_qk_im, alias_cur_max);
+#ifdef EXP_EPILOGUE
+            // P and its row sums came out of the QK^T matmul; one k chunk, so no running max to
+            // rescale by. The max CB is pushed unwritten to keep every circular buffer's flow.
+            if (qk_mask_preload) {
+                cb_reserve_back(alias_cur_max, Sq_chunk_t);
+                cb_push_back(alias_cur_max, Sq_chunk_t);
+            } else
+#endif
+            {
 #if defined(ABLATE_MAX)
             // INSTRUMENT (TT_BIO_TRIATT_ABLATE=MAX): the row-max pass removed, the max CB pushed
             // unwritten. Wrong by construction; only the time means anything.
@@ -2226,6 +2302,7 @@ void sdpa_inner_loop(
              */
             sub_exp_block_bcast_cols_inplace<cb_qk_im, Sq_chunk_t, scale_fp32, true, ROWSUM_COLS == 0>(
                 alias_cur_max, alias_cur_sum, Sk_chunk_t);
+            }
 
             // Reconfigure unpackers: srcA (context 0) = cb_v_in, srcB (context 1) = cb_qk_im (operands are swapped in matmul)
             reconfig_data_format(cb_v_in, cb_qk_im);

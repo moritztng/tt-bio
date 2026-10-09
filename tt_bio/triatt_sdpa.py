@@ -92,12 +92,21 @@ ROWSUM_MM = env_flag("TT_BIO_TRIATT_ROWSUM_MM", False)
 MASK_L1ACC = env_flag("TT_BIO_TRIATT_MASK_L1ACC", False)
 
 
-def _mask_defines(k_num_chunks: int, l1acc: bool = False) -> dict:
+# exp on DST right after QK^T (`EXP_EPILOGUE` in kernels/triatt_sdpa): P and its row sums leave the
+# matmul, so the row-max and sub+exp passes over the score block go away. One k chunk only, and
+# no max subtraction, so it is only correct while scale * (qk + bias) stays below ~88. Off; "1"
+# turns it on (being measured, not shipped).
+EXP_EPILOGUE = env_flag("TT_BIO_TRIATT_EXP_EPILOGUE", False)
+
+
+def _mask_defines(k_num_chunks: int, l1acc: bool = False, rowsum: bool = False) -> dict:
     d = {"PERSISTENT_MASK": k_num_chunks}
     if QK_MASK_PRELOAD:
         d["QK_MASK_PRELOAD"] = 1
         if MASK_L1ACC and l1acc:
             d["MASK_L1ACC"] = 1
+        elif EXP_EPILOGUE and k_num_chunks == 1 and not rowsum:
+            d["EXP_EPILOGUE"] = 1
     return d
 
 
@@ -531,7 +540,8 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
                 kv_buffer_factor=kv_buffer_factor, gate=gate_arg, rowsum_mm=rowsum,
-                defines_extra={**_mask_defines(p["k_num_chunks"], l1acc=gate_arg is None),
+                defines_extra={**_mask_defines(p["k_num_chunks"], l1acc=gate_arg is None,
+                                               rowsum=rowsum),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
         ttnn.deallocate(out)
