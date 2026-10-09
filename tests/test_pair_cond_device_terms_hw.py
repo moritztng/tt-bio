@@ -1,11 +1,7 @@
 """Protenix `_pair_cond_device_terms` against float64: the DiT's LN(pair_z) and the atom
 encoder's W_z(LN_z(pair_z)) made on the device from the device pair, next to the host fp32 path
-they replace. Both are measured against the same float64 reference. The device path is NOT
-at host fp32 precision: the FPU takes fp32 operands at reduced mantissa, so its layer norm and
-matmul land ~3e-3 of the largest value off (measured on WH, nt 128: LN 3.1e-3, W_z term
-2.5e-3, against 1.6e-7 / 3.9e-7 on the host). That is the precision every on-device fp32
-diffusion op already has; the bound below catches a wrong transform, and the fold grade decides
-whether the imprecision is acceptable. Random weights: the test is about the device ops."""
+they replace. Both are measured against the same float64 reference; the device path must stay
+within fp32 noise of it. Random weights: the test is about the device ops, not the checkpoint."""
 import types
 
 import pytest
@@ -57,5 +53,5 @@ def test_pair_cond_device_terms_match_float64(nt):
     errs = {"dit_z device": _err(dit_z, dit_ref), "dit_z host": _err(dit_host, dit_ref),
             "ztok device": _err(ztok, ztok_ref), "ztok host": _err(ztok_host, ztok_ref)}
     print(f"nt={nt} " + "  ".join(f"{k}: abs {a:.3e} rel {r:.3e}" for k, (a, r) in errs.items()))
-    assert errs["dit_z device"][1] < 1e-2
-    assert errs["ztok device"][1] < 1e-2
+    assert errs["dit_z device"][1] < 1e-4
+    assert errs["ztok device"][1] < 1e-4
