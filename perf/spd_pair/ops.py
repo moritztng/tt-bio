@@ -188,8 +188,10 @@ if "tail" in groups:
 
     upd = proj()
 
+    zacc = ttnn.clone(zd)
+
     def addz():
-        ttnn.add_(zd, upd)
+        ttnn.add_(zacc, upd)       # its own accumulator: zd stays z for the scored arms
         return None
 
     def base_once():
@@ -201,15 +203,35 @@ if "tail" in groups:
         o = base_once(); r = rel(ttnn.to_torch(o).float().reshape(1, N, N, C), ref); ttnn.deallocate(o); return r
     arms = {"mul": (mul, None), "out_proj": (proj, None), "add_": (addz, None), "clone": (lambda: ttnn.clone(zd), None),
             "base_seq": (base_once, score_base)}
-    if "fused" in A.tail_arms.split(",") and hasattr(TQ, "out_proj_fused"):
+    if "fused" in A.tail_arms.split(","):
+        TQ.set_tail("1")
+        ref_nores = (gated @ w_host.double()).reshape(N, N, C)
+
         def fused():
             zz = ttnn.clone(zd)
-            TQ.out_proj_fused(od, gd, wd, k, zz)
+            r = TQ.gated_out_proj(od, gd, wd, k, resid=zz)
+            assert r is zz, "gated_out_proj declined the residual call"
             return zz
+
+        def fused_nores():
+            r = TQ.gated_out_proj(od, gd, wd, k)
+            assert r is not None, "gated_out_proj declined"
+            return r
 
         def score_fused():
             o = fused(); r = rel(ttnn.to_torch(o).float().reshape(1, N, N, C), ref); ttnn.deallocate(o); return r
+
+        def score_nores():
+            o = fused_nores(); r = rel(ttnn.to_torch(o).float().reshape(N, N, C), ref_nores); ttnn.deallocate(o)
+            return r
+
+        def score_base_nores():
+            g = mul(); u = TQ.out_proj(g, wd, k, ttnn.bfloat16); ttnn.deallocate(g)
+            r = rel(ttnn.to_torch(u).float().reshape(N, N, C), ref_nores); ttnn.deallocate(u); return r
         arms["fused_seq"] = (fused, score_fused)
+        arms["fused_nores"] = (fused_nores, score_nores)
+        arms["base_nores"] = (lambda: (lambda g: (TQ.out_proj(g, wd, k, ttnn.bfloat16), ttnn.deallocate(g))[0])(mul()),
+                              score_base_nores)
     run_arms("tail", arms, A.calls)
 
 log(ev="done")

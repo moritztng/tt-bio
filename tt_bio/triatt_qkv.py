@@ -348,6 +348,134 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
     return out
 
 
+# --- the whole tail in one program: gate, `out` projection and residual -----------------------------
+#
+# Production runs the tail as three DRAM round trips: multiply_(o, g, SIGMOID on b) reads 2P and writes
+# P, `out_proj` above reads P and writes P, and the layer's add_ reads 2P and writes P (P = one bf16
+# pair tensor, 277 MB at 736 tokens). Measured on WH at 736: 4.99 + 3.38 + 3.40 = 11.77 ms per call.
+# `gated_out_proj` reads o, g and z once and writes z once (4P), with Wo resident in L1: one output row
+# tile per unit, the gate applied in DST, the whole K in one block, the residual added on the FPU.
+# Numerics move at the bf16-ULP level: sigmoid(g) is never rounded to bf16 before the multiply.
+TAIL_SIGPOLY = int(os.environ.get("TT_BIO_TRIATT_TAIL_SIGPOLY", "0"))
+TAIL_RNE = int(os.environ.get("TT_BIO_TRIATT_TAIL_RNE", "3"))
+TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
+TAIL_STATS = [0, 0]   # served, declined
+_TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
+_TAIL_CACHE: dict = {}
+
+
+def tail_on() -> bool:
+    if TAIL_FORCE is not None:
+        return TAIL_FORCE == "1"
+    from .tenstorrent import lever
+    return lever("triatt_tail")
+
+
+def set_tail(v):
+    """A/B switch for the harness: "1", "0" or None (follow the lever). Returns the previous value."""
+    global TAIL_FORCE
+    prev, TAIL_FORCE = TAIL_FORCE, v
+    return prev
+
+
+def _dram_tile_bf16(t):
+    return (t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT
+            and t.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
+
+
+def _tail_ok(o, g, w, resid):
+    po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
+    if not (len(po) == 4 and po == pg and po[-1] == TILE and _dram_tile_bf16(o) and _dram_tile_bf16(g)
+            and _dram_tile_bf16(w) and len(w.shape) == 2 and int(w.shape[-2]) == po[1] * TILE
+            and int(w.shape[-1]) % TILE == 0):
+        return False
+    if resid is not None:
+        pz = [int(d) for d in resid.padded_shape]
+        if not (_dram_tile_bf16(resid) and pz[-3:] == [po[0], po[2], int(w.shape[-1])]
+                and all(d == 1 for d in pz[:-3])):
+            return False
+    from .tenstorrent import _l1_bank_bytes
+    kt, nt = po[1], int(w.shape[-1]) // TILE
+    tiles = kt * nt + 5 * kt + 5 * nt
+    return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.6 * _l1_bank_bytes()
+
+
+def _tail_cb(idx, core_grid, tiles):
+    fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=ttnn.bfloat16,
+                                  page_size=G.tile_bytes(ttnn.bfloat16))
+    return ttnn.CBDescriptor(total_size=tiles * G.tile_bytes(ttnn.bfloat16), core_ranges=core_grid,
+                             format_descriptors=[fmt])
+
+
+def _build_tail(o, g, w, out, z, ckc, grid, resid):
+    B, kt, St = int(o.padded_shape[0]), int(o.padded_shape[1]), int(o.padded_shape[2]) // TILE
+    nt = int(w.shape[-1]) // TILE
+    nu = B * St
+    gx, gy = grid
+    ncores = gx * gy
+    core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+    rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    u0 = 0
+    for c in range(ncores):
+        n = nu // ncores + (c < nu % ncores)
+        x_, y_ = c % gx, c // gx
+        rd[x_][y_] = [u0, n]
+        wr[x_][y_] = [u0, n]
+        cp[x_][y_] = [n]
+        u0 += n
+    acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+    src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, nt, St, int(resid)] + acc(o) + acc(g) + acc(w) + acc(z),
+        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(_TAIL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[nt] + acc(out), runtime_args=wr, common_runtime_args=[0],
+        config=ttnn.WriterConfigDescriptor())
+    fid, approx, fp32, full = G.ckc_args(ckc)
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, 4], runtime_args=cp,
+        config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
+                                            fp32_dest_acc_en=fp32, dst_full_sync_en=full))
+    cbs = [_tail_cb(0, core_grid, kt * nt), _tail_cb(1, core_grid, 2 * kt), _tail_cb(2, core_grid, 2 * kt),
+           _tail_cb(4, core_grid, kt), _tail_cb(16, core_grid, 2 * nt)]
+    if resid:
+        cbs += [_tail_cb(3, core_grid, 2 * nt), _tail_cb(5, core_grid, nt)]
+    return {"kernels": [reader, writer, compute], "cbs": cbs}
+
+
+def gated_out_proj(o, g, w, ckc, resid=None):
+    """`(o * sigmoid(g)) @ w` from head-major o, g `[B, H, S, 32]`, as `[B, S, N]`; with `resid`
+    (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid` in place and
+    `resid` is returned. None where it declines; the caller then runs the three ops."""
+    if _taping() or not tail_on() or not _tail_ok(o, g, w, resid):
+        TAIL_STATS[1] += 1
+        return None
+    from .tenstorrent import COMPUTE_GRID_MAIN
+    B, S = int(o.shape[0]), int(o.shape[2])
+    if resid is None:
+        out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, S, int(w.shape[-1])]), ttnn.bfloat16,
+                                             ttnn.TILE_LAYOUT, o.device(), ttnn.DRAM_MEMORY_CONFIG)
+    else:
+        out = resid
+    grid = tuple(COMPUTE_GRID_MAIN)
+    key = (str(o.padded_shape), str(w.padded_shape), str(out.padded_shape), grid, G.ckc_args(ckc),
+           resid is not None, TAIL_SIGPOLY, TAIL_RNE)
+    entry = _TAIL_CACHE.get(key)
+    if entry is None:
+        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None)
+    reader, writer, _ = entry["kernels"]
+    reader.common_runtime_args = [o.buffer_address(), g.buffer_address(), w.buffer_address(),
+                                  out.buffer_address()]
+    writer.common_runtime_args = [out.buffer_address()]
+    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+    ttnn.generic_op([o, g, w, out], pd)
+    TAIL_STATS[0] += 1
+    return out
+
+
 # --- R1b: the pair-bias projection rides the qkv+gate pass, so `x_norm` is read ONCE -------------
 #
 # `qkvg_heads` above deleted one of the tri-attention's three reads of its own normed pair tensor.
