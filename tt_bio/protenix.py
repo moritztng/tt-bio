@@ -1263,8 +1263,8 @@ class DiffusionModule(_KeyedWeights):
         # dit_sdpa32: the fp32 DiT's attention as one SDPA program on a token axis padded by
         # sdpa32_rows; _token_dit_device pads and slices, finish_bias builds the padded mask.
         self._dit_sdpa32 = _T.lever("dit_sdpa32") and self._dit_dtype == ttnn.float32
-        # dit_mm16: the fp32 DiT's linears on bf16 operands, fp32 accumulation (_T.k1_linear).
-        self._dit_mm16 = _T.lever("dit_mm16") and self._dit_dtype == ttnn.float32
+        # dit_mm16 (fp32 DiT) / dit_b8 (bf16 DiT): the DiT's linears at lower operand formats.
+        self._dit_lp = _T.dit_lowp(self._dit_dtype, self._dit_ckc)
         self._dit = []
         for b in range(self.DIT_BLOCKS):
             A = DT + f"blocks.{b}.attention_pair_bias."
@@ -1281,8 +1281,8 @@ class DiffusionModule(_KeyedWeights):
             # rather than the explicit matmul/softmax/matmul chain.
             self._dit[-1][1].token_dit = _T.lever("dit_sdpa") and self._dit_dtype == ttnn.bfloat16
             self._dit[-1][1].sdpa32 = self._dit_sdpa32
-            if self._dit_mm16:
-                self._dit[-1][1].enable_mm16()
+            if self._dit_lp is not None:
+                self._dit[-1][1].enable_lowp(self._dit_lp)
 
 
     def _up_dit(self, t):
@@ -1300,13 +1300,13 @@ class DiffusionModule(_KeyedWeights):
             cache[(key, transpose)] = v
         return v
 
-    def _w_tt16(self, key):
-        """A DiT weight, transposed and rounded to bf16 on the host (the `dit_mm16` lever)."""
-        cache = self.__dict__.setdefault("_wc_dit16", {})
+    def _w_tt_lp(self, key):
+        """A DiT weight, transposed and rounded via bf16 on the host to `_dit_lp.w`."""
+        cache = self.__dict__.setdefault("_wc_dit_lp", {})
         v = cache.get(key)
         if v is None:
             v = ttnn.from_torch(self._w[key].t().contiguous().float().to(torch.bfloat16),
-                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_lp.w)
             cache[key] = v
         return v
 
@@ -1717,14 +1717,13 @@ class DiffusionModule(_KeyedWeights):
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=_T.silu_ckc(ckc) if act == "silu" else ckc,
                                core_grid=CORE_GRID_MAIN)
-        mm16 = self._dit_mm16
-        # dit_mm16: each adaLN writes bf16, read only by linears; the transition's two hidden
-        # linears and their product stay bf16 into linear_nobias_b, which writes the fp32 update.
-        ln_dt = ttnn.bfloat16 if mm16 else None
+        lp = self._dit_lp
+        # dit_mm16 / dit_b8: each adaLN writes lp.act, read only by linears; the transition's two
+        # hidden linears write bf16, their product lp.mid into linear_nobias_b, which writes lp.out.
+        ln_dt = lp.act if lp else None
 
-        def lin16(x, wk, dtype, act=None):
-            return _T.k1_linear(x, self._w_tt16(wk), dtype=dtype, activation=act,
-                                  compute_kernel_config=ckc)
+        def linlp(x, wk, dtype, act=None):
+            return lp.linear(x, self._w_tt_lp(wk), dtype=dtype, activation=act)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t, dtype=ln_dt)
             bias_dev = _T.host_unpark(bias)
@@ -1735,14 +1734,14 @@ class DiffusionModule(_KeyedWeights):
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
             ao = gated_add(a_t, attn, sg)
             an2 = ctb_adaln(ao, s_t, dtype=ln_dt)
-            if mm16:
-                bb = ttnn.multiply(lin16(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
-                                   lin16(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16))
+            if lp:
+                bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
+                                   linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
             else:
                 bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
                                    linb(an2, Cc + "linear_nobias_a2.weight"))
             cs = ttnn.sigmoid(linb(s_t, Cc + "linear_s.weight", Cc + "linear_s.bias"))
-            a_t = gated_add(ao, lin16(bb, Cc + "linear_nobias_b.weight", ttnn.float32) if mm16
+            a_t = gated_add(ao, linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp
                             else linb(bb, Cc + "linear_nobias_b.weight"), cs)
         return a_t[:, :NT, :] if NP != NT else a_t
 

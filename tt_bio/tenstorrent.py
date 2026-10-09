@@ -6,7 +6,7 @@ import contextlib
 import gc
 import torch, ttnn, atexit
 from torch import nn
-from typing import Callable, Mapping
+from typing import Callable, Mapping, NamedTuple
 from math import gcd, pi, prod
 from functools import lru_cache, partial
 from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
@@ -562,19 +562,21 @@ _FAST_MODE = False
 #                   no loss against float64 (`_TRANSITION_BW`); others keep ttnn's in0_block_w
 #   transition_shard the pair transition's swiglu on block-sharded intermediates, in row blocks that
 #                   fill the grid (`_transition_swiglu_sharded`); fc3's K block becomes the shard width
-#   dit_mm16        the fp32 token DiT's linears on bf16 operands with fp32 accumulation (`mm16_linear`):
+#   dit_mm16        the fp32 token DiT's linears on bf16 operands with fp32 accumulation (`k1_linear`):
 #                   the adaLN outputs and the gated attention output are written bf16, the gate and
 #                   transition hidden linears write bf16; q/k/v, the residual updates and the residual
 #                   stream itself stay fp32. Inert in bf16.
-#   dit_mm16        the fp32 token DiT's linears on bf16 operands with fp32 accumulation (`k1_linear`):
 #   atom_k1         the fp32 diffusion atom transformer's linears on `k1_linear`'s program (Wormhole:
 #                   one K tile per dest pass), same formats. Inert in bf16 and on Blackhole.
+#   dit_b8          fast mode's bf16 token DiT linears on bfp8 weights and bfp8 inputs at HiFi2 (`dit_lowp`):
+#                   the adaLN outputs, the gated attention output and the swiglu product are written bfp8;
+#                   q/k/v, the residual updates and the residual stream stay bf16. Inert in fp32.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8", "transition_b8",
           "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in", "trimul_gin", "trunk_hifi3",
           "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
-          "atom_k1")
+          "atom_k1", "dit_b8")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16", "atom_k1"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16", "atom_k1", "dit_b8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2364,6 +2366,38 @@ def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None)
                            compute_kernel_config=compute_kernel_config, core_grid=CORE_GRID_MAIN)
     return ttnn.linear(x, w, bias=bias, dtype=dtype, compute_kernel_config=compute_kernel_config,
                        program_config=pc)
+
+
+class DitLowp(NamedTuple):
+    """Formats of the token DiT's linears under `dit_mm16` (fp32 DiT) or `dit_b8` (bf16 DiT)."""
+    w: object       # weights
+    act: object     # what each adaLN writes: the input of q/k/v, the gate and the swiglu
+    mid: object     # the gated attention output and the swiglu product
+    out: object     # q/k/v, the output projection and the transition output
+    ckc: object
+    k1: bool        # fp32 accumulation: k1_linear's program
+
+    def linear(self, x, w, bias=None, *, dtype, activation=None):
+        if self.k1:
+            return k1_linear(x, w, bias, compute_kernel_config=self.ckc, dtype=dtype, activation=activation)
+        return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype, core_grid=CORE_GRID_MAIN,
+                           compute_kernel_config=silu_ckc(self.ckc) if activation == "silu" else self.ckc)
+
+
+def dit_lowp(dit_dtype, ckc):
+    """The token DiT's low-precision linears for this DiT dtype under the active levers, or None.
+
+    `dit_mm16`: bf16 operands, fp32 accumulation (op probe, Wormhole: qkv 1180 -> 1175 us at K
+    block 1, the transition b 556 -> 464). `dit_b8`: bfp8 operands at HiFi2 without fp32
+    accumulation (qkv 609 -> 481 us, gate/out 180 -> 135, a1/a2 289 -> 230, b 273 -> 187)."""
+    if dit_dtype == ttnn.float32 and lever("dit_mm16"):
+        return DitLowp(ttnn.bfloat16, ttnn.bfloat16, ttnn.bfloat16, ttnn.float32, ckc, True)
+    if dit_dtype == ttnn.bfloat16 and lever("dit_b8"):
+        b8 = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2,
+                                              math_approx_mode=False, fp32_dest_acc_en=False,
+                                              packer_l1_acc=False)
+        return DitLowp(ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat8_b, ttnn.bfloat16, b8, False)
+    return None
 
 
 @lru_cache(maxsize=None)
@@ -10656,8 +10690,8 @@ class AttentionPairBias(Module):
         # Set by protenix's DiffusionModule under `dit_sdpa32`: the fp32 token DiT's attention
         # runs as `_sdpa32` on a padded token axis, and `finish_bias` makes its mask.
         self.sdpa32 = False
-        # bf16 copies of the qkv / gate / out weights, set by `enable_mm16` (the `dit_mm16` lever).
-        self._mm16 = None
+        # A DitLowp and the qkv / gate / out weights at its format, set by `enable_lowp`.
+        self._lp = None
         if atom_level:
             self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
             self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
@@ -10725,16 +10759,17 @@ class AttentionPairBias(Module):
         self.o_weight = self.torch_to_tt("proj_o.weight", transform=_relane(0),
                                           dtype=self.dtype)
 
-    def enable_mm16(self):
-        """The `dit_mm16` lever on this token-level instance: its three linears read a bf16 input
-        and bf16 weights and accumulate in fp32 (`k1_linear`). q/k/v and the output projection
-        are still written fp32 (the attention and the residual take them); the gate is written
-        bf16 and the gated attention output, which only the output projection reads, too.
-        Rounded on the host from the device copies, once."""
+    def enable_lowp(self, lp: DitLowp):
+        """`dit_mm16` / `dit_b8` on this token-level instance: its three linears read an `lp.act`
+        input and `lp.w` weights (`DitLowp.linear`). q/k/v and the output projection are written
+        `lp.out` (the attention and the residual take them); the gate and the gated attention
+        output, which only the output projection reads, `lp.mid`. The bias stays bf16. Rounded on
+        the host from the device copies, once."""
         assert not self.atom_level
-        up = lambda t: ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=ttnn.bfloat16,
-                                       layout=ttnn.TILE_LAYOUT, device=self.device)
-        self._mm16 = {k: up(getattr(self, k)) for k in ("qkv_weight", "qkv_bias", "g_weight", "o_weight")}
+        up = lambda t, dt: ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=dt,
+                                           layout=ttnn.TILE_LAYOUT, device=self.device)
+        self._lp = (lp, {k: up(getattr(self, k), ttnn.bfloat16 if k == "qkv_bias" else lp.w)
+                         for k in ("qkv_weight", "qkv_bias", "g_weight", "o_weight")})
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -10963,13 +10998,12 @@ class AttentionPairBias(Module):
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         self._load_kq_norm()
-        mm16 = self._mm16
-        if mm16 is not None and s.dtype != ttnn.bfloat16:
-            s = ttnn.typecast(s, ttnn.bfloat16)
+        lp, lw = self._lp or (None, None)
+        if lp is not None and s.dtype != lp.act:
+            s = ttnn.typecast(s, lp.act)
         if not self.atom_level:
-            qkv = (k1_linear(s, mm16["qkv_weight"], mm16["qkv_bias"], dtype=ttnn.float32,
-                               compute_kernel_config=self.compute_kernel_config)
-                   if mm16 is not None else
+            qkv = (lp.linear(s, lw["qkv_weight"], lw["qkv_bias"], dtype=lp.out)
+                   if lp is not None else
                    ttnn.linear(
                 s,
                 self.qkv_weight,
@@ -11177,14 +11211,12 @@ class AttentionPairBias(Module):
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
-        if mm16 is not None:
-            g = k1_linear(s, mm16["g_weight"], dtype=ttnn.bfloat16,
-                            compute_kernel_config=self.compute_kernel_config)
+        if lp is not None:
+            g = lp.linear(s, lw["g_weight"], dtype=lp.mid)
             o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
-                              dtype=ttnn.bfloat16)
+                              dtype=lp.mid)
             ttnn.deallocate(g)
-            x = k1_linear(o, mm16["o_weight"], dtype=ttnn.float32,
-                            compute_kernel_config=self.compute_kernel_config)
+            x = lp.linear(o, lw["o_weight"], dtype=lp.out)
             ttnn.deallocate(o)
             return x
         g = ttnn.linear(
