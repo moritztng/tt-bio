@@ -117,6 +117,8 @@ _OPM_DRAM_ROW_CAP: dict[tuple[int, int, int, int], int] = {}
 # shape goes straight to the un-joined depth parts instead of re-paying a projection pass to
 # collect the same refusal.
 _OPM_JOIN_REFUSED: dict[tuple[int, ...], bool] = {}
+# opm_b8 contraction shapes (a block, b) whose bfp8 program L1 refused; they contract in bf16.
+_OPM_B8_REFUSED: dict[tuple[tuple[int, ...], tuple[int, ...]], bool] = {}
 # Depth-part shapes (S, I, C, D, J) whose projection join DRAM refused; see `_OPM_JOIN_PARTS`.
 _OPM_PARTS_JOIN_REFUSED: dict[tuple[int, ...], bool] = {}
 # A chunk-list MSA (the trunk's chunked update hands OPM its depth chunks) used to be contracted
@@ -392,7 +394,10 @@ _FAST_MODE = False
 # build and fold with `levers(...)`, so a model built later in the same process never sees it.
 # Levels are read at build time (weights, kernel configs) AND at run time (dtypes, kernel picks),
 # which is why the set must be the same for both.
-#   lofi            every Protenix stage's matmuls at LoFi (`lpx_compute_kernel_config`)
+#   lofi            every Protenix stage's matmuls at LoFi (`lpx_compute_kernel_config`). Out of the
+#                   fast set: alone on Wormhole it costs 0.265 CA-lDDT against the deposited
+#                   structures and moves the top pose 3.96 A (s1 screen, 6 complexes, seed 101),
+#                   for ~5 s at c730 (state/spd-fast.md).
 #   acc_off         ... with fp32 dest accumulation off
 #   diffusion_bf16  the diffusion stack in bf16 instead of fp32 (what `--diffusion_precision bf16` does)
 #   dit_sdpa        the bf16 token DiT's attention on the fused SDPA, not matmul/softmax/matmul
@@ -411,7 +416,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in"})
-FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
+FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
 # better side (state/spd/BOARD.md, spd-trimul 2026-10-08 22:40Z).
@@ -13271,6 +13276,29 @@ class OuterProductMean(Module):
             else:
                 depth_parts = [(b8(acp), b8(bcp), Sc) for acp, bcp, Sc in depth_parts]
 
+        def contract(x, y):
+            if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
+                if z_dtype is not None:
+                    x, y = ttnn.typecast(x, ttnn.bfloat16), ttnn.typecast(y, ttnn.bfloat16)
+                out = ttnn.matmul(x, y, transpose_b=True,
+                                  compute_kernel_config=self.compute_kernel_config)
+                if z_dtype is not None:
+                    ttnn.deallocate(x)
+                    ttnn.deallocate(y)
+                return out
+            try:
+                return ttnn.matmul(x, y, transpose_b=True, dtype=z_dtype,
+                                   compute_kernel_config=self.compute_kernel_config)
+            except RuntimeError as exc:
+                # With bfp8 operands and an fp32 accumulator ttnn's default program for a deep
+                # depth chunk asks for more CBs than L1 holds (1593376 B > 1499136 B on Wormhole,
+                # 9DBP / 9W89 / 9W8A), where the same shape in bf16 fits. That shape contracts in
+                # bf16, the exact path, from here on in this process.
+                if not report_l1_refusal("opm_b8", exc):
+                    raise
+                _OPM_B8_REFUSED[(tuple(x.shape), tuple(y.shape))] = True
+                return contract(x, y)
+
         def z_rows(i0, i1):
             """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
 
@@ -13287,15 +13315,13 @@ class OuterProductMean(Module):
 
             if depth_parts is None:
                 a_flat = ttnn.reshape(rows_of(a), (rows * C, S))
-                z = ttnn.matmul(a_flat, b, transpose_b=True, dtype=z_dtype,
-                                compute_kernel_config=self.compute_kernel_config)
+                z = contract(a_flat, b)
                 ttnn.deallocate(a_flat)
                 return z
             z = None
             for acp, bcp, Sc in depth_parts:
                 a_flat = ttnn.reshape(rows_of(acp), (rows * C, Sc))
-                zp = ttnn.matmul(a_flat, bcp, transpose_b=True, dtype=z_dtype,
-                                 compute_kernel_config=self.compute_kernel_config)
+                zp = contract(a_flat, bcp)
                 ttnn.deallocate(a_flat)
                 if z is None:
                     z = zp
