@@ -139,9 +139,8 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
     qk_in0_ns, qk_in1_ns = Sq_chunk_t // qk_sb_h, Sk_chunk_t // qk_sb_w
     qk_num_blocks = DHt // qk_in0_block_w
     out_in0_block_w = Sk_chunk_t
-    # The streaming compute normalizes and drains two output rows at a time; the factory caps the out
-    # subblock height at 2 for it (:435). Uncapped, TA's
-    # 8x1 subblock was the suspect when the streaming arm came out finite but wrong (rel 1.3 vs f64).
+    # The factory caps the out subblock height at 2 under the streaming compute (:435). TA's uncapped
+    # 8x1 subblock is the suspect for the streaming arm coming out finite but wrong (rel 1.3 vs f64).
     out_sb_h, out_sb_w = largest_subblock(Sq_chunk_t, vDHt, dst_size, 2 if streaming else None)
     out_in0_ns, out_in1_ns = Sq_chunk_t // out_sb_h, vDHt // out_sb_w
     out_num_blocks = Sk_chunk_t // out_in0_block_w
