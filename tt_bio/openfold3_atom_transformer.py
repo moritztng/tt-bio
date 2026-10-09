@@ -212,36 +212,38 @@ class OF3AtomTransformer(Module):
         ttnn.deallocate(out)
         return x
 
-    #: Superset key window: block i reads frame rows [32 i, 32 i + SUP_W), i.e. atoms
-    #: [32 i - SUP_LEAD, 32 i - SUP_LEAD + SUP_W). OF3 centres a 128-key window on the block and
-    #: SHIFTS it back inside [0, NP) at both ends (Protenix pads instead), so the superset is
-    #: 7 tiles, not Protenix's 5: three tiles each side of the block holds every shifted window.
-    SUP_LEAD = 96
-    SUP_W = 224      # = 2 * SUP_LEAD + N_QUERY: the frame carries SUP_LEAD zero rows on each end
+    #: Superset key window: block i reads frame rows [32 i, 32 i + W), i.e. atoms
+    #: [32 i - lead, 32 i - lead + W), with W = lead + N_KEY. OF3 centres a 128-key window on the
+    #: block and SHIFTS it back inside the real atoms at both ends (Protenix pads instead), so the
+    #: last block's window ends at atom n_atom - 1: lead is 3 tiles when n_atom is a multiple of 32
+    #: and 4 otherwise (`_superset` sizes it), and the frame carries lead zero rows in front and
+    #: W - lead - N_QUERY behind. `_attend_superset` reads W off the bias.
 
     def _superset(self, z_bias, mask_bias, key_block_idxs_tt, s, nb):
         """Per block ``(bias, q_terms, k_terms)`` for the superset attention, or ``()`` when a
         key window is not a contiguous run of atoms inside the superset (then the gathered path
         runs). Built once per rollout on the host from the device bias: the bias of key ``j`` of
-        block ``i`` moves to superset column ``ws_i - (32 i - SUP_LEAD) + j``, every other column
+        block ``i`` moves to superset column ``ws_i - (32 i - lead) + j``, every other column
         is -1e9, and the whole is pre-multiplied by sqrt(dh) because the SDPA kernel scales the
         mask with the scores. The AdaLN conditioning terms are taken on the per-atom ``s``: the
         query and key rows are now per atom, not per window copy."""
         nq, nk, H, dh = self.N_QUERY, self.N_KEY, self.N_HEADS, self.HEAD_DIM
         idx = ttnn.to_torch(key_block_idxs_tt).reshape(nb, nk).long()
         ws = idx[:, 0]
-        off = ws - (torch.arange(nb) * nq - self.SUP_LEAD)
-        if (not torch.equal(idx, ws[:, None] + torch.arange(nk))
-                or int(off.min()) < 0 or int(off.max()) > self.SUP_W - nk):
+        off = ws - torch.arange(nb) * nq                 # window start relative to the block
+        if not torch.equal(idx, ws[:, None] + torch.arange(nk)) or int(off.max()) > 0:
             return ()
+        lead = -(int(off.min()) // nq) * nq              # whole tiles holding the furthest start
+        W = lead + nk
+        off = off + lead
         col = (off[:, None] + torch.arange(nk))[:, None, None, :].expand(nb, H, nq, nk)
         mb = ttnn.to_torch(mask_bias).float().reshape(nb, 1, nq, nk)
         out = []
         for b in range(3):
             zb = ttnn.to_torch(z_bias[b]).float().reshape(nb, H, nq, nk) + mb
-            full = torch.full((nb, H, nq, self.SUP_W), -1e9).scatter_(-1, col, zb)
+            full = torch.full((nb, H, nq, W), -1e9).scatter_(-1, col, zb)
             full = full.clamp(min=-1e4) * dh ** 0.5
-            bias = ttnn.from_torch(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, self.SUP_W)
+            bias = ttnn.from_torch(full.permute(1, 0, 2, 3).reshape(1, H * nb, nq, W)
                                    .contiguous(), dtype=self._act_dtype, layout=ttnn.TILE_LAYOUT,
                                    device=self.device)
             terms = ((self.adaln_q[b].s_terms(s), self.adaln_k[b].s_terms(s))
@@ -256,21 +258,26 @@ class OF3AtomTransformer(Module):
         ``nlp_create_qkv_heads``, and the kernel reads block i's queries and its key window
         straight from the frame (``kv_window``), so no window is ever materialised."""
         from . import sdpa_generic as SG
-        nq, H, dh, L, W = self.N_QUERY, self.N_HEADS, self.HEAD_DIM, self.SUP_LEAD, self.SUP_W
+        nq, H, dh = self.N_QUERY, self.N_HEADS, self.HEAD_DIM
+        W = int(sup_b.shape[-1]); L = W - self.N_KEY
         S = a_qn.shape[0]
         Q = self._lin(a_qn, apb + "mha.linear_q.weight", apb + "mha.linear_q.bias")
         K = self._lin(a_kn, apb + "mha.linear_k.weight")
         V = self._lin(a_kn, apb + "mha.linear_v.weight")
         x = ttnn.concat([Q, K, V], dim=-1)
         ttnn.deallocate(Q); ttnn.deallocate(K); ttnn.deallocate(V)
-        # Zero rows on both ends (ttnn.pad cannot pad the front of a tiled tensor).
-        zero = self._zeros.get((S, x.dtype))
-        if zero is None:
-            zero = self._zeros[(S, x.dtype)] = ttnn.zeros((S, L, 3 * H * dh), dtype=x.dtype,
-                                                          layout=ttnn.TILE_LAYOUT, device=self.device)
-        x2 = ttnn.concat([zero, x, zero], dim=1)                     # [S, NP + 2 L, 384]
+        # Zero rows on both ends (ttnn.pad cannot pad the front of a tiled tensor): L in front,
+        # W - L - nq behind, so block i's window [32 i, 32 i + W) stays inside the frame.
+        def zero(rows):
+            z = self._zeros.get((S, x.dtype, rows))
+            if z is None:
+                z = self._zeros[(S, x.dtype, rows)] = ttnn.zeros(
+                    (S, rows, 3 * H * dh), dtype=x.dtype, layout=ttnn.TILE_LAYOUT, device=self.device)
+            return z
+        T = W - L - nq
+        x2 = ttnn.concat([zero(L), x, zero(T)], dim=1)               # [S, L + NP + T, 384]
         ttnn.deallocate(x)
-        x, F = x2, NP + 2 * L
+        x, F = x2, L + NP + T
         q, k, v = ttnn.experimental.nlp_create_qkv_heads(
             ttnn.reshape(x, (S, 1, F, 3 * H * dh)), num_heads=H, num_kv_heads=H,
             transpose_k_heads=False, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # each [S, H, F, dh]
