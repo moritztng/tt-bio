@@ -8,6 +8,7 @@ import torch
 
 from tests.test_tfg_rigid import contact_feats, make_case
 from tt_bio.tfg import epitope, rigid
+from tt_bio.tfg.engine import default_guidance_config
 from tt_bio.tfg.guidance import Guidance
 from tt_bio.tfg.rigid import RigidSchedule
 
@@ -59,3 +60,21 @@ def test_late_pass_follows_upstream_schedule(monkeypatch):
     assert seen[199] == ["search", ("refine", 120)]
     assert seen[192] == [("refine", 40)]
     assert min(seen) == 190
+
+
+def test_sample_workers_equal_batched():
+    """Guidance is separable over samples, so sample groups in child processes give the batched rows exactly."""
+    coords, feats = make_case(3)
+    feats = dict(contact_feats(feats), interchain_bond_index=torch.zeros((2, 0), dtype=torch.long))
+    config = default_guidance_config()               # the terms this small case has features for
+    config["terms"] = {k: v for k, v in config["terms"].items()
+                       if k in ("VinaStericPotential", "UserDistanceRestraintPotential")}
+    torch.manual_seed(0)
+    x0 = coords + 0.3 * torch.randn_like(coords)
+    batched, split = Guidance(feats, config=config), Guidance(feats, config=config, workers=2)
+    try:
+        for k in (0, 100, 190, 199):           # engine only, early rigid pass, late search + refine, last refine
+            kw = dict(t_hat=1.0, sigma_t=0.5, eta=1.5, step=k, n_step=200)
+            assert torch.equal(split.step(coords, x0, **kw), batched.step(coords, x0, **kw))
+    finally:
+        split.close()

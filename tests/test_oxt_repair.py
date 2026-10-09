@@ -212,7 +212,7 @@ def test_written_file_carries_the_rebuilt_oxt(tmp_path, fmt):
 
 
 def _upstream():
-    src = os.environ.get("OPENDDE_SRC", "/tmp/tfgsrc/up")
+    src = os.environ.get("TFG_UPSTREAM", "/tmp/tfgsrc/up")
     if not os.path.isdir(os.path.join(src, "opendde")):
         pytest.skip("OpenDDE source not available")
     sys.path.insert(0, src)

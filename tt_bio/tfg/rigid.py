@@ -33,7 +33,7 @@ from typing import Optional
 
 import torch
 
-from tt_bio.tfg.neighbors import SparseClash
+from tt_bio.tfg.neighbors import SparseClash, square_length
 
 # Identical to upstream opendde.data.constants.rdkit_vdws (118 entries, H..Og, index 0 = H).
 from tt_bio.data.const import vdw_radii as rdkit_vdws
@@ -310,17 +310,38 @@ def skew_matrix(w, like):
     return skew
 
 
-def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
+def small_rotation(w):
+    """exp of the cross-product matrix of w [B, 3] for |w| <= 0.1 (Rodrigues; sin/cos series in float64, exact to far
+    below fp32 there). Only + and * per row, so a row's matrix does not depend on the rows beside it. torch's batched
+    matrix_exp picks its scaling across the batch, which made one sample's guidance depend on the others."""
+    v = w.double()
+    t = v.square().sum(-1)[:, None, None]                                          # theta^2
+    a = 1 - t / 6 * (1 - t / 20 * (1 - t / 42 * (1 - t / 72)))                     # sin(theta) / theta
+    b = 0.5 * (1 - t / 12 * (1 - t / 30 * (1 - t / 56 * (1 - t / 90))))           # (1 - cos(theta)) / theta^2
+    eye = torch.eye(3, dtype=v.dtype)
+    return ((1 - t * b) * eye + a * skew_matrix(v, eye.expand(len(v), 3, 3)) + b * v[:, :, None] * v[:, None, :]).to(w.dtype)
+
+
+def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash, needed=None):
     """Shared force/torque descent with backtracking, used by the contact and epitope refinements.
 
     ``evaluate(x, gradient, terms=None)`` returns (energy, severe, depth, aux[, grad]); ``terms`` hands it
     clash terms already computed for x. ``satisfied_fn(aux)`` marks samples that are left alone. ``n_terms``
     is the number of contact terms (C pairs or K residues); ``clash`` is the backend (clash_core).
+    ``needed`` (moving-atom indices) are the atoms evaluate reads besides the clash pairs: given it, the batched
+    backtracking proposals are placed for those atoms and the pair list's atoms only, whenever a bound on the
+    rigid move proves the pair list valid for all of them (same values: a bmm row does not depend on the others).
     Returns (moving, accepted step count per sample).
     """
     samples = moving.shape[0]
     n_moving = moving.shape[1]
     device = moving.device
+    # The fast cores turn by small_rotation (|rotation| <= 0.03 below), so each sample's descent is independent of the
+    # batch; the dense core keeps upstream's matrix_exp op for op.
+    def turn(w):
+        if clash.batched:
+            return small_rotation(w)
+        return torch.linalg.matrix_exp(skew_matrix(w, identity.expand(len(w), 3, 3)))
     accepted_count = torch.zeros(samples, device=device, dtype=torch.long)
     identity = torch.eye(3, device=device).expand(samples, 3, 3)
     for _ in range(iterations):
@@ -344,18 +365,60 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
 
         def propose(backtrack):
             scale = 0.5**backtrack
-            matrix = torch.linalg.matrix_exp(skew_matrix(rotation * scale, identity))
+            matrix = turn(rotation * scale)
             return torch.bmm(centered, matrix.transpose(1, 2)) + center + translation[:, None] * scale
+
+        def propose_many(backtracks):
+            """propose(b) for several b at once [S, B, M, 3]: one batched turn and bmm."""
+            scales = [0.5**b for b in backtracks]
+            w = torch.cat([rotation * scale for scale in scales])
+            matrix = turn(w)
+            turned = torch.bmm(centered.repeat(len(scales), 1, 1), matrix.transpose(1, 2))
+            shift = torch.cat([translation[:, None] * scale for scale in scales])
+            return (turned + center.repeat(len(scales), 1, 1) + shift).view(len(scales), samples, n_moving, 3).transpose(0, 1)
+
+        def propose_rows(backtracks, rows):
+            """propose_many for the atoms `rows` only; every other atom is NaN (never read)."""
+            scales = [0.5**b for b in backtracks]
+            w = torch.cat([rotation * scale for scale in scales])
+            matrix = turn(w)
+            turned = torch.bmm(centered[:, rows].repeat(len(scales), 1, 1), matrix.transpose(1, 2))
+            shift = torch.cat([translation[:, None] * scale for scale in scales])
+            out = torch.full((samples, len(scales), n_moving, 3), float("nan"), dtype=moving.dtype)
+            out[:, :, rows] = (turned + center.repeat(len(scales), 1, 1) + shift).view(
+                len(scales), samples, len(rows), 3).transpose(0, 1)
+            return out
+
+        def sparse_rows():
+            """Atoms the later proposals need, or None. Every later proposal moves an atom by at most
+            0.5 (|w| r_max + |t|) from `moving`, which is d0 from the list's build pose: if that stays a margin inside
+            the skin, the pair list's own check would pass too, so it is skipped and only listed atoms are read."""
+            pairs = getattr(clash, "list", None)
+            if needed is None or pairs is None or pairs.Q is None or pairs.Q.shape != moving.shape:
+                return None
+            d0 = float(square_length(moving - pairs.Q).max()) ** 0.5
+            r_max = float(square_length(centered).max()) ** 0.5
+            move = 0.5 * (float(torch.linalg.vector_norm(rotation, dim=-1).max()) * r_max
+                          + float(torch.linalg.vector_norm(translation, dim=-1).max()))
+            if not d0 + 1.01 * move + 1e-3 < pairs.skin - 2e-3:          # NaN falls back too
+                return None
+            return torch.unique(torch.cat([pairs.i, needed]))
 
         found = torch.zeros(samples, device=device, dtype=torch.bool)
         next_coords = moving.clone()
         later = None
+        rows = None
         for backtrack in range(10):
             if clash.batched and backtrack >= 1:
                 if later is None:
                     # The first proposal usually decides; the other nine go through the clash core together.
-                    proposals = torch.stack([propose(b) for b in range(1, 10)], 1)
-                    later = proposals, clash.terms(proposals)
+                    rows = sparse_rows()
+                    if rows is None:
+                        proposals = propose_many(range(1, 10))
+                        later = proposals, clash.terms(proposals)
+                    else:
+                        proposals = propose_rows(range(1, 10), rows)
+                        later = proposals, clash.terms(proposals, trusted=True)
                 proposals, (e, sev, dep, _) = later
                 j = backtrack - 1
                 proposal = proposals[:, j]
@@ -373,9 +436,12 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
                 & (new_depth <= depth + 1e-6)
                 & (new_energy < energy - 1e-7)
             )
-            next_coords[accept] = proposal[accept]
+            if accept.any():
+                if rows is not None and backtrack >= 1:
+                    proposal = propose_many([backtrack])[:, 0]          # the full pose, same values as its rows
+                next_coords[accept] = proposal[accept]
             found |= accept
-            if found.all():
+            if (found | satisfied).all():          # later proposals can accept nothing more
                 break
         if not found.any():
             break
@@ -433,7 +499,7 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
         return ((pair_d >= lower - 1e-6) & (pair_d <= upper + 1e-6)).all(-1)
 
     first_energy, first_severe, _, first_d = evaluate(moving)
-    moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash)
+    moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash, ri.unique())
     final_energy, final_severe, _, final_d = evaluate(moving)
     intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):
@@ -528,22 +594,37 @@ def search_rigid_contact(coords, feats, core=None):
     radii_out = [5.5, 7.5, 10.0, 15.0, 20.0]
     todo = torch.nonzero(~satisfied).squeeze(1)
     if core != "off":
-        def candidates(normal):
-            for turn in turns:
-                rotation = torch.linalg.matrix_exp(skew_matrix(normal * turn, fit))
-                rotated = torch.bmm(fitted, rotation.transpose(1, 2))
-                rot_contacts = torch.bmm(fitted_contacts, rotation.transpose(1, 2))
-                for radius in radii_out:
-                    shift = tc + radius * normal[:, None]
-                    yield rotated + shift, rot_contacts + shift
+        # poses are placed for the unsatisfied samples only (per-sample ops: same values)
+        t_fit, t_fitted, t_contacts, t_tc = fit[todo], fitted[todo], fitted_contacts[todo], tc[todo]
+
+        def place(chunk):
+            """Poses of a chunk of normals in upstream's (normal, turn, radius) order: x [T, P, M, 3], contacts [T, P, C, 3].
+            The turns of a normal share one batched matrix_exp and bmm (per-matrix values unchanged)."""
+            T, R = len(todo), len(radii_out)
+            P = len(chunk) * len(turns) * R
+            x = torch.empty(T, P, t_fitted.shape[1], 3, dtype=t_fitted.dtype)
+            contact = torch.empty(T, P, t_contacts.shape[1], 3, dtype=t_contacts.dtype)
+            x6 = x.view(T, len(chunk), len(turns), R, -1, 3)
+            contact6 = contact.view(T, len(chunk), len(turns), R, -1, 3)
+            radii = torch.tensor(radii_out, dtype=t_tc.dtype)[None, :, None, None]
+            for a, normal in enumerate(chunk):
+                normal = normal[todo]
+                w = torch.cat([normal * turn for turn in turns])                          # [turns * T, 3]
+                rotation = torch.linalg.matrix_exp(skew_matrix(w, t_fit.repeat(len(turns), 1, 1))).transpose(1, 2)
+                rotated = torch.bmm(t_fitted.repeat(len(turns), 1, 1), rotation).view(len(turns), T, -1, 3)
+                rot_contacts = torch.bmm(t_contacts.repeat(len(turns), 1, 1), rotation).view(len(turns), T, -1, 3)
+                # every (turn, radius) at once: shift [T, R, 1, 3] = tc + radius * normal, elementwise as before
+                shift = t_tc[:, None] + radii * normal[:, None, None]
+                torch.add(rotated.transpose(0, 1)[:, :, None], shift[:, None], out=x6[:, a])
+                torch.add(rot_contacts.transpose(0, 1)[:, :, None], shift[:, None], out=contact6[:, a])
+            return x, contact
 
         for start in range(0, len(normals), SEARCH_CHUNK_NORMALS):
-            placed = [c for normal in normals[start:start + SEARCH_CHUNK_NORMALS] for c in candidates(normal)]
-            tested += len(placed)
+            chunk = normals[start:start + SEARCH_CHUNK_NORMALS]
+            tested += len(chunk) * len(turns) * len(radii_out)
             if todo.numel() == 0:
                 continue
-            x = torch.stack([p for p, _ in placed], 1)[todo]
-            contact = torch.stack([c for _, c in placed], 1)[todo]
+            x, contact = place(chunk)
             clash_energy, bad = clash.score(x, todo)
             energy = 0.5 * score_contact(contact).square().sum(-1) + 10 * clash_energy
             index, taken = _take_first_best(energy, bad, todo, best_energy, feasible, improving, accepted)

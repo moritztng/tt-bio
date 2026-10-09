@@ -53,13 +53,52 @@ class Grid:
         return q, self.order[st.repeat_interleave(n) + within] % self.N
 
 
-def pairs_within(Q, P, r):
-    """Every (s, i, j) with |Q[s, i] - P[s, j]| < r; Q [S, M, 3], P [S, N, 3]."""
+def pairs_within(Q, P, r, query_order=False):
+    """Every (s, i, j) with |Q[s, i] - P[s, j]| < r; Q [S, M, 3], P [S, N, 3]. Query points are binned into the same
+    cells as P, so the 27-cell lookup runs once per occupied query cell and expands into its atom pairs.
+    `query_order` lists the pairs per query point (s, i), then in grid order of j (cell, then index): the order a
+    27-cell lookup per point gives, which the rigid clash sums keep so their fp32 sums do not move."""
     S, M, _ = Q.shape
-    q, j = Grid(P, r).query(Q.reshape(-1, 3), torch.arange(S).repeat_interleave(M))
+    g = Grid(P, r)
+    dy, dz = int(g.dims[1]), int(g.dims[2])
+    # query cells on the grid grown by one cell per side; points beyond it have no neighbour cell
+    c = torch.floor((Q - g.lo[:, None]) / g.h).long().reshape(-1, 3) + 1
+    ex, ey, ez = (int(v) + 2 for v in g.dims)
+    inside = torch.nonzero(((c >= 0) & (c < g.dims + 2)).all(-1)).squeeze(1)
+    c = c[inside]
+    key = (inside // M) * (ex * ey * ez) + (c[:, 0] * ey + c[:, 1]) * ez + c[:, 2]
+    o = torch.argsort(key, stable=True)
+    qo = inside[o]
+    cells, qcnt = torch.unique_consecutive(key[o], return_counts=True)
+    qstart = torch.cumsum(qcnt, 0) - qcnt
+    rem = cells % (ex * ey * ez)
+    nb = torch.stack([rem // (ey * ez), (rem // ez) % ey, rem % ez], -1)[:, None] - 1 + _OFF27[None]
+    ok = ((nb >= 0) & (nb < g.dims)).all(-1)
+    cid = torch.where(ok, (cells // (ex * ey * ez))[:, None] * g.ncell + (nb[..., 0] * dy + nb[..., 1]) * dz + nb[..., 2], 0)
+    npc = torch.where(ok, g.cnt[cid], 0).reshape(-1)
+    nq = qcnt.repeat_interleave(27)
+    blk = nq * npc
+    live = blk > 0
+    blk, npc = blk[live], npc[live]
+    idx = torch.arange(int(blk.sum())) - (torch.cumsum(blk, 0) - blk).repeat_interleave(blk)
+    npr = npc.repeat_interleave(blk)
+    q = qo[qstart.repeat_interleave(27)[live].repeat_interleave(blk) + idx // npr]
+    jpos = g.start[cid.reshape(-1)[live]].repeat_interleave(blk) + idx % npr
+    j = g.order[jpos] % g.N
     s, i = q // M, q % M
     keep = (Q[s, i] - P[s, j]).square().sum(-1) < r * r
-    return s[keep], i[keep], j[keep]
+    if not query_order:
+        return s[keep], i[keep], j[keep]
+    q, jpos = q[keep], jpos[keep]
+    o = torch.argsort(q * g.order.numel() + jpos)
+    q = q[o]
+    return q // M, q % M, g.order[jpos[o]] % g.N
+
+
+def square_length(v):
+    """|v|^2 over the last axis as two adds of three products: about twice as fast as norm() on a size-3 axis. For
+    bounds and thresholds (rounding differs from norm/cdist), not for values that must match them bitwise."""
+    return (v[..., 0] * v[..., 0] + v[..., 1] * v[..., 1]) + v[..., 2] * v[..., 2]
 
 
 def cdist_norm(diff):
@@ -79,12 +118,14 @@ class PairList:
         if self.Q is None:
             return False
         ref = self.Q if Q.dim() == self.Q.dim() else self.Q[:, None]
-        return float((Q - ref).norm(dim=-1).max()) < self.skin
+        # squared, 1e-3 A short of the skin: rounding can only cause an early rebuild, and the list is a superset
+        # either way (pairs come in per-query order, so which build made it does not change any sum)
+        return float(square_length(Q - ref).max()) < (self.skin - 1e-3) ** 2
 
     def build(self, Q, reach=0.0):
         """Build at Q [S, M, 3] with a skin that also covers moves of up to `reach` from Q."""
         self.skin = max(self.skin0, 1.25 * float(reach) + 0.1)
-        self.s, self.i, self.j = pairs_within(Q, self.P, self.cut + self.skin)
+        self.s, self.i, self.j = pairs_within(Q, self.P, self.cut + self.skin, query_order=True)
         self.Q = Q.clone()
         return self
 
@@ -112,13 +153,15 @@ class SparseClash:
         if all(self.list.valid(p) for p in poses):
             return
         ref = poses[0] if poses[0].dim() == 3 else poses[0][:, 0]
-        reach = max(float((p - (ref if p.dim() == 3 else ref[:, None])).norm(dim=-1).max()) for p in poses)
+        reach = max(float(square_length(p - (ref if p.dim() == 3 else ref[:, None])).max()) for p in poses) ** 0.5
         self.list.build(ref, reach)
 
-    def terms(self, x, want_gradient=False):
+    def terms(self, x, want_gradient=False, trusted=False):
+        """`trusted`: the caller has proven the pair list valid for x (x may hold NaN for atoms the list never reads)."""
         single = x.dim() == 3
         X = x[:, None] if single else x
-        self.ensure(X)
+        if not trusted:
+            self.ensure(X)
         S, K, M, _ = X.shape
         s, i, j = self.list.s, self.list.i, self.list.j
         diff = X[s, :, i] - self.fixed[s, j][:, None]                     # [P, K, 3]
@@ -126,7 +169,9 @@ class SparseClash:
         rs = (self.ra[i] + self.rb[j])[:, None]
         overlap = torch.relu(SOFT * rs - d)
         energy = torch.zeros(S, K, dtype=X.dtype).index_add_(0, s, overlap.square())
-        depth = torch.zeros(S, K, dtype=X.dtype).index_reduce_(0, s, torch.relu(HARD * rs - d), "amax")
+        hard = torch.relu(HARD * rs - d)
+        # a max is order-free: scatter_reduce gives index_reduce's values, several times faster on CPU
+        depth = torch.zeros(S, K, dtype=X.dtype).scatter_reduce_(0, s[:, None].expand_as(hard), hard, "amax")
         sev = d < HARD * rs                                                 # [P, K]
         p_idx, k_idx = torch.nonzero(sev, as_tuple=True)
         keys = (s[p_idx] * M + i[p_idx]) * self.N + j[p_idx]
@@ -158,17 +203,16 @@ class SparseClash:
             self._field = BoundField(self.fixed, self.rb, float(self.ra.max()))
         n, B, M, _ = X.shape
         pts = X.reshape(-1, 3)
-        item = torch.arange(n * B).repeat_interleave(M)
-        sample = samples.repeat_interleave(B * M)
-        ra = self.ra.repeat(n * B)
-        far, sev_p = self._field.classify(pts, sample, ra)
-        sev = torch.zeros(n * B, dtype=torch.long).index_add_(0, item, sev_p.long()) > 0
-        live = torch.nonzero(~far & ~sev[item]).squeeze(1)
-        q, j = self._grid.query(pts[live], sample[live])
+        far, sev_p = self._field.classify_rows(X.reshape(n, B * M, 3), samples, self.ra.repeat(B))
+        sev = sev_p.view(n * B, M).any(-1)
+        live = torch.nonzero(~far.view(n * B, M) & ~sev[:, None]).squeeze(1)
+        live = live[:, 0] * M + live[:, 1]
+        q, j = self._grid.query(pts[live], samples[live // (B * M)])
         q = live[q]
-        d = cdist_norm(pts[q] - self.fixed[sample[q], j]).clamp_min(1e-6)
-        rs = ra[q] + self.rb[j]
-        it = item[q]
+        sample = samples[q // (B * M)]
+        d = cdist_norm(pts[q] - self.fixed[sample, j]).clamp_min(1e-6)
+        rs = self.ra[q % M] + self.rb[j]
+        it = q // M
         energy = torch.zeros(n * B, dtype=X.dtype).index_add_(0, it, torch.relu(SOFT * rs - d).square())
         sev |= torch.zeros(n * B, dtype=torch.long).index_add_(0, it, (d < HARD * rs).long()) > 0
         return energy.view(n, B), sev.view(n, B)
@@ -200,31 +244,59 @@ class SevereSet:
 
 
 class BoundField:
-    """Voxel bounds on min_j (|x - b_j| - f rb_j), f = 0.85 and 0.75, per sample. For a point x in a voxel with centre c
-    and half diagonal delta, |x - b| lies within |c - b| +- delta, so the voxel value proves that x overlaps nothing
+    """Voxel bounds on min_j (|x - b_j| - f rb_j), per sample: a lower bound for f = 0.85, an upper bound for f = 0.75.
+    For a point x in a voxel with centre c and half diagonal delta, |x - b| lies within |c - b| +- delta, so the voxel value proves that x overlaps nothing
     (soft bound - delta >= 0.85 ra) or that x has a severe pair (hard bound + delta < 0.75 ra). 1e-3 A margin."""
 
-    def __init__(self, fixed, rb, ra_max, v=0.75, margin=1e-3):
+    def __init__(self, fixed, rb, ra_max, v=1.5, margin=1e-3):
         S, N, _ = fixed.shape
         self.v, self.delta, self.margin = v, 0.5 * v * 3**0.5, margin
         reach = SOFT * (ra_max + float(rb.max())) + self.delta + margin
-        self.lo = fixed.min(1).values - reach - v
-        self.dims = torch.ceil((fixed.max(1).values + reach + v - self.lo) / v).long().max(0).values + 1
-        dx, dy, dz = (int(t) for t in self.dims)
-        self.nvox = dx * dy * dz
         k = int(reach / v) + 2
         r = torch.arange(-k, k + 1)
         off = torch.stack(torch.meshgrid(r, r, r, indexing="ij"), -1).reshape(-1, 3)
-        soft = torch.full((S * self.nvox,), float("inf"))
-        hard = torch.full((S * self.nvox,), float("inf"))
-        for s in range(S):                                   # one sample at a time bounds the [N, O] temporaries
-            vox = torch.floor((fixed[s] - self.lo[s]) / v).long()[:, None] + off[None]
-            dist = (self.lo[s] + (vox.float() + 0.5) * v - fixed[s][:, None]).norm(dim=-1)
-            ok = ((vox >= 0) & (vox < self.dims)).all(-1) & (dist < reach + SOFT * rb[:, None])
-            flat = s * self.nvox + (vox[..., 0] * dy + vox[..., 1]) * dz + vox[..., 2]
-            soft.scatter_reduce_(0, flat[ok], (dist - SOFT * rb[:, None])[ok], "amin")
-            hard.scatter_reduce_(0, flat[ok], (dist - HARD * rb[:, None])[ok], "amin")
-        self.soft, self.hard = soft, hard
+        # an atom sits within delta of its voxel centre, so offsets beyond this ball reach no voxel in range
+        off = off[off.float().norm(dim=-1) * v - self.delta < reach + SOFT * float(rb.max())]
+        # k voxels of padding: every atom's offset ball lies inside the grid, so a neighbour is a fixed flat stride
+        self.lo = fixed.min(1).values - (k + 1) * v
+        self.dims = torch.floor((fixed.max(1).values - self.lo) / v).long().max(0).values + k + 2
+        dx, dy, dz = (int(t) for t in self.dims)
+        self.nvox = dx * dy * dz
+        vox = torch.floor((fixed - self.lo[:, None]) / v)
+        rel = self.lo[:, None] + (vox + 0.5) * v - fixed                    # atom -> its voxel centre, |rel| <= delta
+        base = (torch.arange(S)[:, None] * self.nvox + (vox[..., 0] * dy + vox[..., 1]) * dz + vox[..., 2]).long()
+        step = (off[:, 0] * dy + off[:, 1]) * dz + off[:, 2]
+        flat = (base.reshape(-1, 1) + step).reshape(-1)
+        # distance from each neighbouring voxel centre to the atom, |rel + o|^2 = |rel|^2 + 2 rel.o + |o|^2 from small
+        # relative vectors (fp32 error ~1e-6 A, far inside the margin)
+        o = off.float() * v
+        rel = rel.reshape(-1, 3)
+        dist = torch.addmm(rel.square().sum(-1, keepdim=True) + o.square().sum(-1), rel, 2 * o.T).clamp_min_(0).sqrt_()
+        self.soft = torch.full((S * self.nvox,), float("inf")).scatter_reduce_(
+            0, flat, dist.sub_(SOFT * rb.repeat(S)[:, None]).reshape(-1), "amin")
+        # the atom attaining the soft bound has |c - b| - 0.75 rb = soft + 0.1 rb <= soft + 0.1 max(rb): an upper bound
+        # on the hard field, which is all the severe proof needs
+        self.lift = (SOFT - HARD) * float(rb.max())
+
+    def classify_rows(self, X, samples, ra):
+        """classify for rows of points that each belong to one sample: X [n, K, 3], samples [n], ra [K] -> (far, severe)
+        [n * K]. Same flags; the cell index stays in fp32 (integral, below 2^24 per sample) until one long()."""
+        if self.nvox >= 2**24:
+            return self.classify(X.reshape(-1, 3), samples.repeat_interleave(X.shape[1]), ra.repeat(X.shape[0]))
+        # a point off the grid is clamped onto its outermost voxel layer, which no atom's offset ball reaches (atoms
+        # sit k + 1 voxels in, offsets reach k): inf there, as classify gives off the grid. x / v as x * (1 / v), and
+        # the thresholds with delta folded in, move a bound by ~1e-6 A at most, far inside the 1e-3 A margin.
+        c = (X - self.lo[samples][:, None]).mul_(1.0 / self.v).floor_().clamp_(min=0)
+        for a in range(3):
+            c[..., a].clamp_(max=float(self.dims[a] - 1))
+        dy, dz = float(self.dims[1]), float(self.dims[2])
+        # integral fp32 values below 2^24: the dot product is exact
+        flat = torch.mv(c.view(-1, 3), torch.tensor([dy * dz, dz, 1.0], dtype=X.dtype)).view(c.shape[:2]).long()
+        flat += (samples * self.nvox)[:, None]
+        soft = self.soft[flat]
+        far = soft >= (SOFT * ra + self.margin) + self.delta
+        severe = soft < (HARD * ra - self.margin) - (self.lift + self.delta)
+        return far.reshape(-1), severe.reshape(-1)
 
     def classify(self, X, sample, ra):
         """X [n, 3] -> (far [n], severe [n]) bool."""
@@ -232,7 +304,5 @@ class BoundField:
         inb = ((c >= 0) & (c < self.dims)).all(-1)
         dy, dz = int(self.dims[1]), int(self.dims[2])
         flat = torch.where(inb, sample * self.nvox + (c[:, 0] * dy + c[:, 1]) * dz + c[:, 2], 0)
-        inf = torch.full_like(ra, float("inf"))
-        soft = torch.where(inb, self.soft[flat], inf)
-        hard = torch.where(inb, self.hard[flat], inf)
-        return soft - self.delta >= SOFT * ra + self.margin, hard + self.delta < HARD * ra - self.margin
+        soft = torch.where(inb, self.soft[flat], float("inf"))
+        return soft - self.delta >= SOFT * ra + self.margin, (soft + self.lift) + self.delta < HARD * ra - self.margin

@@ -876,14 +876,17 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
 
 
 def _default_mol_dir() -> str:
-    """Location of the CCD `mols` directory when the caller passes none (the OpenDDE worker
-    and tests from a checkout): the weights cache ($TT_BIO_CACHE / $BOLTZ_CACHE / ~/.boltz),
-    then the older ~/.cache/tt_bio."""
-    from tt_bio.weights import cache_root
-    for p in (cache_root() / "mols", Path("~/.cache/tt_bio/mols").expanduser()):
-        if p.exists():
-            return str(p)
-    return str(cache_root() / "mols")
+    """Best-effort location of the bundled CCD `mols` directory (CLI/worker pass mol_dir
+    explicitly; this only backstops tests run from a checkout)."""
+    import os
+    from tt_bio import weights
+    if (hit := weights.cached_path("mols")) is not None:
+        return str(hit)
+    for p in ("~/.boltz/mols", "~/.cache/tt_bio/mols"):
+        ep = os.path.expanduser(p)
+        if os.path.exists(ep):
+            return ep
+    return os.path.expanduser("~/.boltz/mols")
 
 
 def _smiles_to_mol(smiles: str):

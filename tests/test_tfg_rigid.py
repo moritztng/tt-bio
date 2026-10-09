@@ -39,12 +39,17 @@ def _upstream():
 
 
 @pytest.fixture
-def upstream(monkeypatch):
+def dense_core(monkeypatch):
+    """Op-for-op parity with upstream is a property of the dense core."""
     for name in list(os.environ):
         if name.startswith("OPENDDE_RIGID"):
             monkeypatch.delenv(name)
     monkeypatch.setenv("OPENDDE_RIGID_CORE", "off")
-    monkeypatch.setattr(rc, "DEFAULT_CORE", "off")  # op-for-op parity is a property of the dense core
+    monkeypatch.setattr(rc, "DEFAULT_CORE", "off")
+
+
+@pytest.fixture
+def upstream(dense_core):
     return _upstream()
 
 
@@ -356,7 +361,7 @@ def _fixture_cases(data):
 @pytest.mark.skipif(not FIXTURE.is_file(), reason="fixture missing")
 @pytest.mark.parametrize("names", [CONTACT_OUTPUTS, EPITOPE_OUTPUTS], ids=["contact", "epitope"])
 @pytest.mark.parametrize("n_chains", [2, 3])
-def test_fixture_parity(n_chains, names):
+def test_fixture_parity(dense_core, n_chains, names):
     coords, feats, expected = _fixture_cases(torch.load(FIXTURE, weights_only=True))[n_chains]
     ours = _run_all(rc, ep, coords, feats, names)
     report = {}

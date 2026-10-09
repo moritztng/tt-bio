@@ -157,6 +157,12 @@ class Term:
     def active(self, step_i: int) -> bool:
         return self.interval > 0 and (step_i % self.interval == 0)
 
+    def inert(self, feats) -> bool:
+        """True when the potential has nothing to act on in `feats` (exact zeros everywhere); cached per feats."""
+        if getattr(self, "_inert_for", None) is not feats:
+            self._inert_for, self._inert = feats, self._potential.inert(feats)
+        return self._inert
+
     def _params_at(self, t: float) -> dict[str, Any]:
         return {k: v(t) if isinstance(v, Schedule) else v for k, v in self.param_templates.items()}
 
@@ -330,7 +336,7 @@ class TFGEngine:
         energy = torch.zeros(coords.shape[:-2], device=coords.device, dtype=coords.dtype)
         grad = torch.zeros_like(coords)
         for term in self.cfg.terms:
-            if not term.active(step_i):
+            if not term.active(step_i) or term.inert(feats):      # an inert term adds exact zeros
                 continue
             e, g = term.energy_and_grad(coords, feats, t)
             energy = energy + e
@@ -373,7 +379,7 @@ class TFGEngine:
         ]
         for _ in range(cfg.projection_outer_steps):
             for term in sorted_terms:
-                if (not term.active(step_i)) or (not term.enable_projection):
+                if (not term.active(step_i)) or (not term.enable_projection) or term.inert(feats):
                     continue
                 for _ in range(cfg.projection_inner_steps):
                     d = term.project(coords + delta, feats, t)

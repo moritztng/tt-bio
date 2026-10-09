@@ -41,7 +41,17 @@ def register(cls):
 
 
 class Potential:
-    """Base potential: subclasses implement `_eval` and optionally `_project`."""
+    """Base potential: subclasses implement `_eval` and optionally `_project`.
+
+    INDEX names the feature listing the atoms a term acts on; a term whose INDEX is empty returns exact zeros
+    (energy, gradient and projection), which `inert` reports so a caller can skip it.
+    """
+
+    INDEX: Optional[str] = None
+
+    def inert(self, feats) -> bool:
+        idx = feats.get(self.INDEX) if self.INDEX else None
+        return idx is not None and idx.numel() == 0
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         self._default_params = default_params
@@ -342,6 +352,8 @@ def _sum_energy(e):
 class InterchainBondPotential(Potential):
     """Linear upper bound `buffer` (default 2.0) on `interchain_bond_index [2, M]` distances."""
 
+    INDEX = "interchain_bond_index"
+
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 2.0}
         if default_params is not None:
@@ -367,6 +379,8 @@ class UserDistanceRestraintPotential(Potential):
 
     feats: `user_distance_restraint_index [2, M]`, `user_distance_restraint_{lower,upper}_bound [M]` (A).
     """
+
+    INDEX = "user_distance_restraint_index"
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults: dict[str, Any] = {}
@@ -415,6 +429,8 @@ class PairwiseDistancePotential(Potential):
     Clash pairs (neither bond nor angle) get upper = inf and lower >= 0.35 + 0.5 (r_i + r_j);
     bond pairs get upper <= that same VDW limit.
     """
+
+    INDEX = "pairwise_distance_index"
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"bond_buffer": 0.05, "angle_buffer": 0.05, "clash_buffer": 0.05}
@@ -533,6 +549,8 @@ class StereoBondPotential(Potential):
     `stereo_bond_orientation > 0.5` wants |phi| >= pi - buffer (trans), else |phi| <= buffer.
     """
 
+    INDEX = "stereo_bond_index"
+
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.52360}
         if default_params is not None:
@@ -564,6 +582,8 @@ class ChiralAtomPotential(Potential):
     `_project` repairs violated centres with the linearised solver and, with `scale_x` (default),
     rescales the touched atoms of each chain so their per-chain radius of gyration is unchanged.
     """
+
+    INDEX = "chiral_index"
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.34906, "scale_x": True}
@@ -637,6 +657,8 @@ class PlanarImproperPotential(Potential):
     `planar_improper_is_carbonyl` is read only for its shape and dtype (k = ones_like).
     """
 
+    INDEX = "planar_improper_index"
+
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.1309}
         if default_params is not None:
@@ -660,6 +682,8 @@ class PlanarImproperPotential(Potential):
 @register
 class LinearBondPotential(Potential):
     """Triple-bond linearity: angle of `linear_triple_bond_index [3, M]` >= pi - buffer (linear penalty)."""
+
+    INDEX = "linear_triple_bond_index"
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.08726646259}
@@ -689,6 +713,8 @@ class ExperimentalTorsionPotential(Potential):
     feats: `experimental_torsion_index [4, M]`, `experimental_torsion_{force_constant,sign} [M, 6]`.
     cos(n phi) is expanded as Chebyshev polynomials of cos(phi).
     """
+
+    INDEX = "experimental_torsion_index"
 
     def _eval(self, coords, feats, params, need_grad: bool):
         idx = feats["experimental_torsion_index"]
@@ -745,6 +771,8 @@ class VinaStericPotential(Potential):
     `dist < r_eq * (1 - buffer)` contribute. core="auto" finds them on a cell list, core="off" scans every
     candidate (upstream's dense path).
     """
+
+    SKIN = 2.0              # pair-list skin (A): rebuilt once an atom has moved by half of it
 
     def __init__(self, default_params: Optional[dict[str, Any]] = None):
         defaults = {"buffer": 0.225, "core": "auto"}
@@ -854,7 +882,7 @@ class VinaStericPotential(Potential):
     def _active_sparse(self, coords_b, feats, buf):
         """The same active pairs from a cell-list pair list (tt_bio.tfg.neighbors): only pairs within the largest
         active cutoff plus a skin are listed, and the list is reused while no atom has moved by half the skin."""
-        from .neighbors import pairs_within
+        from .neighbors import pairs_within, square_length
 
         key = (self._cache_key_from_feats(feats), tuple(coords_b.shape), buf)
         st = getattr(self, "_sparse", None)
@@ -875,13 +903,22 @@ class VinaStericPotential(Potential):
             rank = torch.empty_like(order)
             rank[order] = torch.arange(order.numel(), device=order.device)
             pos = rank - (torch.cumsum(cnt, 0) - cnt)[c_map]
+            members = [torch.nonzero(c_map == c).flatten() for c in range(n_chains)]
             st = self._sparse = dict(key=key, chain=c_map, r=r_atom, allowed=allowed, pos=pos, n_chains=n_chains,
-                                     X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=1.0)
+                                     search=[(members[c], torch.cat(members[c + 1:])) for c in range(n_chains - 1)],
+                                     X=None, cut=float(2 * r_atom.max() * (1.0 - buf)), skin=self.SKIN)
         X = coords_b.detach()
-        if st["X"] is None or float((X - st["X"]).norm(dim=-1).max()) >= 0.5 * st["skin"]:
-            s, i, j = pairs_within(X, X, st["cut"] + st["skin"])
+        # rebuild once an atom may have moved by half the skin (1e-3 A short of it, so rounding cannot matter)
+        if st["X"] is None or float(square_length(X - st["X"]).max()) >= (0.5 * st["skin"] - 1e-3) ** 2:
+            # search each chain only against the chains after it: no intra-chain or mirrored candidates
+            parts = []
+            for a, b in st["search"]:
+                if a.numel() and b.numel():
+                    s, i, j = pairs_within(X[:, a], X[:, b], st["cut"] + st["skin"])
+                    parts.append((s, a[i], b[j]))
+            s, i, j = (torch.cat(t) for t in zip(*parts)) if parts else (st["pos"][:0],) * 3
             ci, cj = st["chain"][i], st["chain"][j]
-            keep = (ci < cj) & st["allowed"][ci, cj]
+            keep = st["allowed"][ci, cj]
             s, i, j, ci, cj = s[keep], i[keep], j[keep], ci[keep], cj[keep]
             n, nc, pos = X.shape[1], st["n_chains"], st["pos"]
             rank = (((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j]
