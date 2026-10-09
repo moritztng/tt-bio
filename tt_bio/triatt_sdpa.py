@@ -191,6 +191,39 @@ if _ABLATE:
                   "WRONG VALUES on purpose. Never set this outside a perf instrument.",
                   stacklevel=2)
 
+# INSTRUMENT, never a shipped knob. `TT_BIO_TRIATT_GAPCAP=<file>` appends, for every 40th call, how
+# far a per-row bound on the softmax shift sits above the row's true max (perf/spd_trikern): in the
+# kernel's units s = q.k + bias, m = max_k s, c = max_k bias + |q| * max_k |k|, gap = scale * (c - m).
+# A DST-resident softmax that shifts by c instead of computing m needs every gap inside exp's window.
+_GAPCAP = os.environ.get("TT_BIO_TRIATT_GAPCAP", "")
+_GAPCAP_N = [0]
+
+
+def _gapcap(q, k, bias, scale, every=40, rows=12):
+    import json
+    import torch
+    _GAPCAP_N[0] += 1
+    if _GAPCAP_N[0] % every != 1:
+        return
+    B = int(q.shape[0])
+    idx = list(range(0, B, max(1, B // rows)))[:rows]
+    qt = ttnn.to_torch(q).float()[idx]
+    kt = ttnn.to_torch(k).float()[idx]
+    bt = ttnn.to_torch(bias).float()[0]
+    s = torch.einsum("bhqd,bhkd->bhqk", qt, kt) + bt
+    m = s.amax(-1)
+    c = bt.amax(-1) + qt.norm(dim=-1) * kt.norm(dim=-1).amax(-1, keepdim=True)
+    gap = (scale * (c - m)).flatten()
+    gap = gap[torch.isfinite(gap)]
+    q_ = torch.quantile(gap, torch.tensor([0.5, 0.99, 1.0]))
+    rec = dict(call=_GAPCAP_N[0], shape=[int(d) for d in q.shape], scale=float(scale),
+               gap_p50=float(q_[0]), gap_p99=float(q_[1]), gap_max=float(q_[2]),
+               m_scaled_max=float((scale * m).max()), m_scaled_min=float((scale * m).min()),
+               bias_absmax=float(bt[torch.isfinite(bt)].abs().max()))
+    with open(_GAPCAP, "a") as f:
+        f.write(json.dumps(rec) + "\n")
+
+
 _FIDELITY = {"LoFi": ttnn.MathFidelity.LoFi, "HiFi2": ttnn.MathFidelity.HiFi2,
              "HiFi4": ttnn.MathFidelity.HiFi4}
 
@@ -402,6 +435,8 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
 
     if not _ENABLED or bias is None:
         return None
+    if _GAPCAP:
+        _gapcap(q, k, bias, scale)
     if gate is not None and not _GATE_EPILOGUE:
         return _gate_reject("off", [int(d) for d in q.shape])
     shape = [int(d) for d in q.shape]
