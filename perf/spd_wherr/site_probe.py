@@ -5,7 +5,8 @@
 
 a is N(0, 1) (a layer-norm output), w is N(0, 1/k) (an initialised projection), both rounded to bf16, so every
 output is ~N(0, 1). `auto` is how tt-bio calls it (ttnn.linear with core_grid = the full grid, ttnn picks the
-program); `auto3d` the same with the input as [batch, m/batch, k], the shape the fold passes; `kbN` is a 2D multicast program with in0_block_w = N (`kbfull` = all of K) on the same grid. fp32 dest
+program); `mmdef` / `mmK<k>` ttnn.experimental.minimal_matmul at its default / at K block k;
+`auto3d` the same with the input as [batch, m/batch, k], the shape the fold passes; `kbN` is a 2D multicast program with in0_block_w = N (`kbfull` = all of K) on the same grid. fp32 dest
 acc and packer L1 acc on, bf16 output, as the trunk and diffusion run in normal mode. A pixel is wrong under the
 same rule as perf/spd_wherr/audit.py: error above 8 bf16 ulps of the float64 value and above 16x the call's rms
 error. The time per call (median of 5 after a warm call) rides along, so the cost of a clean config is known.
@@ -31,8 +32,17 @@ def wrong(R, Y):
     return int(bad.sum()), int(big.sum()), float(err.max()), rms, worst
 
 
+def mm_config(variant, grid):
+    """`mmK<k>`: ttnn.experimental.minimal_matmul with protenix's triangle-attention blocks (M 4, N 1, subblock 4x1)
+    and K block k; `mmdef` the op's own default (config=None, K block 8)."""
+    if variant == "mmdef":
+        return None
+    return ttnn.MinimalMatmulConfig(M_block_size=4, K_block_size=int(variant[3:]), N_block_size=1, subblock_h=4,
+                                    subblock_w=1, compute_with_storage_grid_size=ttnn.CoreCoord(*grid))
+
+
 def program(variant, mt, kt, nt, grid):
-    if variant.startswith("auto"):
+    if variant.startswith("auto") or variant.startswith("mm"):
         return None
     w = kt if variant == "kbfull" else int(variant[2:])
     if kt % w:
@@ -86,7 +96,13 @@ def main():
                     else:
                         kw["program_config"] = pc
                     x = ta3 if v == "auto3d" else ta
-                    run = lambda: ttnn.linear(x, tw, **kw)
+                    if v.startswith("mm"):
+                        if v != "mmdef" and kt % int(v[3:]):
+                            continue
+                        mkw = dict(compute_kernel_config=ck, dtype=ttnn.bfloat16, config=mm_config(v, grid))
+                        run = lambda: ttnn.experimental.minimal_matmul(input_tensor=ta, weight_tensor=tw, **mkw)
+                    else:
+                        run = lambda: ttnn.linear(x, tw, **kw)
                     try:
                         y = run()
                     except Exception as e:
