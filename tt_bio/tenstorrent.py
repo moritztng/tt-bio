@@ -2138,7 +2138,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     chunk = 256 if n % 256 == 0 else 128
     dev = q.device()
     g = dev.compute_with_storage_grid_size()
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(d) for d in q.shape]), ttnn.float32,
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([*(int(d) for d in q.shape[:3]), int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, q, k, v, mask, out, chunk, chunk, (g.x, g.y), _SDPA32_CKC, scale)
     return out
