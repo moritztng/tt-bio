@@ -183,6 +183,7 @@ def main():
                 for pl, pc in programs(mt, kt, nt, grid, False, (2, 4, 8)):
                     arms.append((f"wbf16_HiFi4_{pl}", "bf16", "bf16", "bf16", "HiFi4", pc))
                     arms.append((f"wb8_HiFi2_{pl}", "bf16", "b8", "bf16", "HiFi2", pc))
+                    arms.append((f"a8wb8_HiFi2_{pl}", "b8", "b8", "bf16", "HiFi2", pc))
             DT = dict(f32=ttnn.float32, bf16=ttnn.bfloat16, b8=ttnn.bfloat8_b)
             res = {}
             for d in range(a.draws):
