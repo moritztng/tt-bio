@@ -379,11 +379,12 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
 # neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
-# Where Transition's silu runs while the fp32 accumulator still holds fc1: "fused" (the matmul's
-# packer, shipped), "f32act" (fc1 written fp32, silu applied as the multiply's input activation)
-# or "f32silu" (fc1 fp32, standalone silu, then the multiply). The last two keep silu off a bf16
-# rounding of fc1, which is what the unfused form gets wrong. Measuring (perf/spd_overhead).
-TRANSITION_SILU = os.environ.get("TT_BIO_TRANSITION_SILU", "fused")
+# Silu on a matmul's fp32 accumulator honours math_approx_mode (exp_21f and one Newton step instead
+# of the accurate exp and two), through a private overlay of ttnn's kernel headers: metal_overlay.py.
+# Must be set before the first device open. Measuring (perf/spd_overhead/swiglu_bench.py).
+if env_flag("TT_BIO_SILU_APPROX", False):
+    from . import metal_overlay as _metal_overlay
+    _metal_overlay.enable(("silu_approx",))
 _FAST_MODE = False
 # Protenix's lower-precision levers, one named switch each (op evidence: perf/lpx_*; fold grades:
 # state/spd). A precision mode is a set of these names. `--fast` runs FAST_LEVERS; normal mode runs
@@ -395,25 +396,22 @@ _FAST_MODE = False
 #   acc_off         ... with fp32 dest accumulation off
 #   diffusion_bf16  the diffusion stack in bf16 instead of fp32 (what `--diffusion_precision bf16` does)
 #   dit_sdpa        the bf16 token DiT's attention on the fused SDPA, not matmul/softmax/matmul
-#   apb_sdpa        pair-bias attention on the fused SDPA instead of the explicit fp32-softmax chain
-#   triatt_reuse    triangle attention on the mask-reuse fused kernel at (q192, k384)
-#   triatt_bias_b8  triangle attention's bias in bfp8
+#   triatt_bias_b8  triangle attention's bias in bfp8. Out of the fast set: it moves the structure
+#                   and bought no time at c730 on Wormhole (state/spd-fast.md, LOO 21:20Z).
 #   triatt_b8       triangle attention's interior in bfp8. Same input on two core grids gives two
 #                   structures (825f18772, release gate leg `l1-budget`): card dependence is a hard
 #                   stop, so it is in no mode until the region is grid-invariant.
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+#   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
-#   trimul_glean    the gated channel move's lean two-stage compute (reblock_permute.GATE_LEAN 2)
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
-#   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
-LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "apb_sdpa", "triatt_reuse",
-          "triatt_bias_b8", "triatt_b8", "transition_b8", "opm_b8",
-          "trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in", "atom_sdpa")
+LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+          "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_glean", "trimul_b8in"})
-FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8"} - UNGRADED_LEVERS
+UNGRADED_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trimul_b8in"})
+FAST_LEVERS = frozenset(LEVERS) - {"triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 NORMAL_LEVERS = frozenset()
 _LEVERS = frozenset()
 
@@ -454,7 +452,12 @@ def levers(names):
         _LEVERS = prev
 
 
-_LPX_TRIATT_CHUNKS = (192, 384)
+# Blackhole dispatch on Ethernet cores instead of a Tensix column (spd-bh, measuring, default off).
+# Stock p150a firmware reports 12 Tensix columns (120 of the die's 140 cores); Tensix dispatch takes
+# one, so tt-bio computes on 11x10. Ethernet dispatch leaves all 12: 120 cores, +9.1 %. tt-metal
+# ships the descriptor (core_descriptors/blackhole_140_arch_eth_dispatch.yaml, 2xharvested: 12x10).
+# Single-chip boards only: a p300c's two chips are linked over Ethernet on the board.
+_BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", False)
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
@@ -2446,16 +2449,6 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     still owes `o * sigmoid(gate)`.
     """
     q_len, k_len = q.shape[2], k.shape[2]
-    if lever("triatt_reuse") and q_len == k_len:
-        # The mask-reuse pair lpx-sdpa measured fastest at 736 (q192 k384, LoFi): a narrow q
-        # chunk that need not divide the sequence, so every core reads its mask block once.
-        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, _LPX_TRIATT_CHUNKS[0], _LPX_TRIATT_CHUNKS[1],
-                              ckc_default=((ttnn.MathFidelity.LoFi, True, False, False)
-                                           if lever("lofi") else None),
-                              q_split_cap=0, gate=gate, padded_mask=True)
-        if o is not None:
-            _sdpa_pick(q_len, k_len, *_LPX_TRIATT_CHUNKS, "fused")
-            return o
     served = _tri_att_fused_large_s(q, k, v, bias, scale, ckc, gate)
     if served is not None:
         o, q_chunk, k_chunk = served
@@ -6069,6 +6062,8 @@ def _configure_active_compute_grid(device: ttnn.Device) -> None:
             gx = COMPUTE_GRID_X_13
         elif ax < COMPUTE_GRID_X_11 or ay < COMPUTE_GRID_Y:
             gx, gy = ax, ay
+        else:
+            gx = ax   # 12 on a two-column-harvested part whose dispatch is not on a Tensix column
     except Exception:
         pass
     # TT_BIO_FORCE_GRID="x,y" (default off): pin the main grid, e.g. 11,10 on a 13x10
@@ -7253,7 +7248,7 @@ def _open_and_init_device(trace_region_size):
     # hang). So decide up front from the physical chip count and open cleanly
     # once. Default (Tensix) dispatch yields an 8x7 grid that
     # _configure_active_compute_grid picks up and tunes for.
-    eth_dispatch = is_wormhole() and num_chips() <= 1
+    eth_dispatch = (is_wormhole() and num_chips() <= 1) or (_BH_ETH_DISPATCH and not is_wormhole())
     kwargs = (
         {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
         if eth_dispatch else {}
@@ -10173,7 +10168,7 @@ class AttentionPairBias(Module):
         v: ttnn.Tensor,
         bias: ttnn.Tensor,
     ) -> ttnn.Tensor:
-        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32 and not lever("apb_sdpa"):
+        if (_FP32_SOFTMAX or self.fp32_softmax) and self.dtype != ttnn.float32:
             # Gate on: fp32 softmax reduction, bf16 operands/storage (reference recipe).
             #
             # Do not reroute this to the fused SDPA to skip the re-materialisation traffic. It is
@@ -10422,10 +10417,10 @@ class AttentionPairBias(Module):
                     z = ttnn.multiply(z, self.head_dim ** -0.5)
                 if seq_mask is not None:
                     z = ttnn.add_(z, seq_mask)
-                kt = ttnn.permute(k, (0, 1, 3, 2))
-                sc = batched_matmul(q, kt,
-                                    compute_kernel_config=self.compute_kernel_config)
-                ttnn.deallocate(kt)
+                # k^T is read inside the matmul: torch.equal to permute + matmul on WH at
+                # (5,16,730,48), and the permute was 161 us of each 3.06 ms q@k^T.
+                sc = ttnn.matmul(q, k, transpose_b=True, core_grid=CORE_GRID_MAIN,
+                                 compute_kernel_config=self.compute_kernel_config)
                 sc = scale_add(sc, self.head_dim ** -0.5, z)
                 attn = site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
                                     host_f64=self._softmax_f64)
@@ -10682,17 +10677,16 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=_tape_mc,
             )
-            mode = "unfused" if _UNFUSED_SILU else TRANSITION_SILU
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
-                activation="silu" if mode == "fused" else None,
+                activation=None if _UNFUSED_SILU else "silu",
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=_tape_mc,
-                dtype=ttnn.float32 if mode in ("f32act", "f32silu") else hidden,
+                dtype=hidden,
                 core_grid=CORE_GRID_MAIN,
             )
-            if mode in ("unfused", "f32silu"):
+            if _UNFUSED_SILU:
                 x_1 = ttnn.silu(x_1, memory_config=_tape_mc, output_tensor=x_1)
             x_2 = ttnn.linear(
                 x_norm,
@@ -10703,15 +10697,7 @@ class Transition(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(x_norm)
-            if mode == "f32act":
-                x = ttnn.multiply(x_1, x_2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU],
-                                  dtype=hidden, memory_config=_tape_mc)
-                ttnn.deallocate(x_1)
-            elif mode == "f32silu":
-                x = ttnn.multiply(x_1, x_2, dtype=hidden, memory_config=_tape_mc)
-                ttnn.deallocate(x_1)
-            else:
-                x = ttnn.multiply_(x_1, x_2)
+            x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
             x_dram = ttnn.linear(
                 x,
@@ -13194,10 +13180,15 @@ class OuterProductMean(Module):
             else:
                 depth_parts = [(ttnn.multiply_(acp, scale), bcp, Sc)
                                for acp, bcp, Sc in depth_parts]
+        # bfp8 operands would make the matmul emit bfp8 too, and z's row-major relayout below then
+        # untilizes bfp8: at 256 tokens that program's CBs overflow L1 (1709344 B), and it quantizes
+        # z, which nothing asked for. So z stays bf16 whatever the operands are.
+        z_dtype = None
         if lever("opm_b8"):
             # The z_rows contraction is the OPM's cost and reads both operands once per row
             # block; one cast each here, after the row-major relayout bfp8 cannot do, feeds every
             # block in bfp8.
+            z_dtype = ttnn.bfloat16
             def b8(t):
                 o = ttnn.typecast(t, ttnn.bfloat8_b)
                 ttnn.deallocate(t)
@@ -13223,14 +13214,14 @@ class OuterProductMean(Module):
 
             if depth_parts is None:
                 a_flat = ttnn.reshape(rows_of(a), (rows * C, S))
-                z = ttnn.matmul(a_flat, b, transpose_b=True,
+                z = ttnn.matmul(a_flat, b, transpose_b=True, dtype=z_dtype,
                                 compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(a_flat)
                 return z
             z = None
             for acp, bcp, Sc in depth_parts:
                 a_flat = ttnn.reshape(rows_of(acp), (rows * C, Sc))
-                zp = ttnn.matmul(a_flat, bcp, transpose_b=True,
+                zp = ttnn.matmul(a_flat, bcp, transpose_b=True, dtype=z_dtype,
                                  compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(a_flat)
                 if z is None:

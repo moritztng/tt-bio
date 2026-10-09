@@ -52,6 +52,9 @@ ALLOWED = {
     "train/openfold3.py",
     # A kernel-source patcher, not a model path.
     "kernels/trimul_tail/patch_trimul_tail.py",
+    # `metal_overlay.runtime_root` imports ttnn only to find the wheel's install directory, whose
+    # kernel headers it copies and patches. No device work.
+    "metal_overlay.py",
     # `bindcraft2.py` defers the import because `pin_card()` has to set TT_VISIBLE_DEVICES
     # BEFORE ttnn is first imported, and it raises if ttnn is already loaded. A module-scope
     # import would put ttnn in sys.modules the moment a user writes `from tt_bio import

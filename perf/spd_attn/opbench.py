@@ -8,7 +8,7 @@
           bf16 explicit, bf16 fused SDPA).
 Accuracy: rel_rms of each arm against a float64 torch evaluation of the same operands.
 Timing: back-to-back slope (NCALL calls, one sync) x REPS, arms interleaved round-robin, AICLK sampled out of process.
-usage: opbench.py OUT CHIP [ta|atom|all|chain] [--pairs N]   (chain: the K/V forwarding arms alone, 736)
+usage: opbench.py OUT CHIP [ta|atom|roof|all] [--pairs N]
 """
 import argparse, json, os, statistics, subprocess, sys, time, types
 from pathlib import Path
@@ -56,7 +56,7 @@ log(ev="nodes_open", nodes=NODES, arch=str(dev.arch()), grid=list(T.COMPUTE_GRID
 up = lambda t, dt: ttnn.from_torch(t, dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev,
                                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
 rel = lambda o, r: float(((o.double() - r).pow(2).mean() / r.pow(2).mean()).sqrt())
-ARMS, REF, SEL = {}, {}, {}
+ARMS, REF, SEL, SAME = {}, {}, {}, {}  # SAME: arm -> the arm its output must equal bit for bit
 
 # ---- triangle attention
 def ta_site(S, full):
@@ -99,39 +99,10 @@ def ta_site(S, full):
         if (qc, kc) not in pairs[:a.pairs]:
             ARMS[f"ta{S} q{qc} k{kc}"] = (site, arm(pair(qc, kc)))
 
-    def chained(fn):
-        def call():
-            prev, TS.KV_CHAIN = TS.KV_CHAIN, True
-            try:
-                return fn()
-            finally:
-                TS.KV_CHAIN = prev
-        return call
-    if a.which == "chain":
-        # Its own job: a chain bug deadlocks the cores and wedges the chip, so it never rides `all`.
-        ARMS.clear()
-        ARMS[f"ta{S} ladder (shipped)"] = (site, arm(ladder))
-        ARMS[f"ta{S} q256 k768 + kv chain"] = (site, arm(chained(pair(256, 768))))
-        ARMS[f"ta{S} ladder + kv chain"] = (site, arm(chained(ladder)))
-        return
-
-    # INSTRUMENT: only q chunk 0's core reads K/V (TT_BIO_TRIATT_ABLATE=KVREAD); prices a forwarding chain.
-    def ablate(fn, what):
-        def call():
-            prev, TS._ABLATE = TS._ABLATE, (what,)
-            try:
-                return fn()
-            finally:
-                TS._ABLATE = prev
-        return call
-    ARMS[f"ta{S} q256 k768 ABLATE_KVREAD (instrument, wrong values)"] = (site, arm(ablate(pair(256, 768), "KVREAD")))
-
 
 if a.which in ("ta", "all"):
     for S in a.ta_seq:
         ta_site(S, S == 736)
-if a.which == "chain":
-    ta_site(736, True)
 
 # ---- atom attention module
 if a.which in ("atom", "all"):
@@ -165,7 +136,7 @@ if a.which in ("atom", "all"):
         n._sdpa_ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=True,
                                                        fp32_dest_acc_en=False, packer_l1_acc=False)
         for f in ("_kv_window_idx", "_windows_kv", "_windows_q_m", "_windows_kv_m", "_attention_m", "_superset",
-                  "_superset_bias", "_attention_superset", "_make_pad_bias"):
+                  "_superset_bias", "_attention_superset", "_make_pad_bias", "_zero_rows"):
             setattr(n, f, types.MethodType(getattr(AT, f), n))
         n._lin = lambda x, w, b_=None: t[w.split(".")[-2][-1]]   # linear_q/k/v -> the prepared operand
         return n
@@ -178,24 +149,51 @@ if a.which in ("atom", "all"):
         x = up(torch.zeros(M, N, H * dh), dt)
         return lambda: n._attention_m(x, x, None, "attention.", N, NP, M, pad, z_pre=z)
 
-    def superset(dt, sdpa):
+    def superset(dt, sdpa, tile_heads=True):
         n = ns(dt, sdpa)
+        n._zeros, n._tile_heads = {}, tile_heads
         zs = n._superset_bias(up(hz, dt), mask, nb)
         x = up(torch.zeros(M, N, H * dh), dt)
         return lambda: n._attention_superset(x, x, "attention.", N, NP, zs)
     ARMS["atom windowed fp32 (normal today)"] = ("atom", windowed(ttnn.float32))
-    ARMS["atom superset fp32"] = ("atom", superset(ttnn.float32, False))
     ARMS["atom windowed bf16 (lpx today)"] = ("atom", windowed(ttnn.bfloat16))
-    ARMS["atom superset bf16 explicit"] = ("atom", superset(ttnn.bfloat16, False))
-    ARMS["atom superset bf16 sdpa"] = ("atom", superset(ttnn.bfloat16, True))
+    for dt, sdpa, tag in ((ttnn.float32, False, "fp32"), (ttnn.bfloat16, False, "bf16 explicit"),
+                          (ttnn.bfloat16, True, "bf16 sdpa")):
+        ARMS[f"atom superset {tag} RM heads"] = ("atom", superset(dt, sdpa, False))
+        ARMS[f"atom superset {tag}"] = ("atom", superset(dt, sdpa, True))
+        SAME[f"atom superset {tag}"] = f"atom superset {tag} RM heads"
 
-live = {}
+# ---- roof: what this chip's matmul reaches, for placing the arms above on the roofline (FLOPS: arm -> flop/call)
+FLOPS = {}
+if a.which in ("roof", "all"):
+    for fid in ("LoFi", "HiFi2", "HiFi4"):
+        ck = ttnn.WormholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=True,
+                                              fp32_dest_acc_en=False, packer_l1_acc=True)
+        A_, B_ = up(torch.randn(4096, 4096), ttnn.bfloat16), up(torch.randn(4096, 4096), ttnn.bfloat16)
+        ARMS[f"roof matmul 4096^3 bf16 {fid}"] = ("roof", lambda A_=A_, B_=B_, ck=ck: ttnn.matmul(A_, B_, compute_kernel_config=ck))
+        FLOPS[f"roof matmul 4096^3 bf16 {fid}"] = 2 * 4096 ** 3
+        # Triangle attention's QK^T and PV at 736 tokens, 64 of its 5,888 (row, head) batches: inner dims 32 and 736.
+        q_, kt_ = up(torch.randn(64, 736, 32), ttnn.bfloat16), up(torch.randn(64, 32, 736), ttnn.bfloat16)
+        p_, v_ = up(torch.randn(64, 736, 736), ttnn.bfloat16), up(torch.randn(64, 736, 32), ttnn.bfloat16)
+        ARMS[f"roof QK^T [64,736,32]x[32,736] {fid}"] = ("roof", lambda q_=q_, kt_=kt_, ck=ck: ttnn.matmul(q_, kt_, compute_kernel_config=ck))
+        ARMS[f"roof PV [64,736,736]x[736,32] {fid}"] = ("roof", lambda p_=p_, v_=v_, ck=ck: ttnn.matmul(p_, v_, compute_kernel_config=ck))
+        FLOPS[f"roof QK^T [64,736,32]x[32,736] {fid}"] = FLOPS[f"roof PV [64,736,736]x[736,32] {fid}"] = 2 * 64 * 736 * 736 * 32
+for S in a.ta_seq:   # QK^T and PV of the whole triangle-attention call
+    FLOPS.update({n: 4 * S * 8 * S * S * 32 for n, (site, _) in ARMS.items() if site == f"ta{S}"})
+FLOPS.update({n: 4 * 5 * 4 * 5920 * 160 * 32 for n, (site, _) in ARMS.items() if site == "atom"})
+
+live, outs = {}, {}
 for name, (site, call) in ARMS.items():
     try:
         o = call()
         if o is None:
             log(ev="declined", arm=name); continue
-        o = ttnn.to_torch(o).double()
+        o = outs[name] = ttnn.to_torch(o).double()
+        if name in SAME and SAME[name] in outs:
+            log(ev="equal", arm=name, to=SAME[name], torch_equal=bool(torch.equal(o, outs[SAME[name]])),
+                max_abs=float((o - outs[SAME[name]]).abs().max()))
+        if site not in REF:
+            log(ev="check", arm=name, finite=bool(torch.isfinite(o).all())); live[name] = call; continue
         o = (o[SEL[site]] if site in SEL else o).reshape(REF[site].shape)
         log(ev="check", arm=name, finite=bool(torch.isfinite(o).all()), rel_rms_vs_f64=rel(o, REF[site]),
             picks={f"{kk}": vv for kk, vv in T.SDPA_CHUNK_PICKS.items()} if site.startswith("ta") else None)
@@ -222,6 +220,7 @@ for rep in range(a.reps):
 for arm, ts in samples.items():
     c = sorted(clk[arm]); med = statistics.median(ts)
     log(ev="arm", arm=arm, site=ARMS[arm][0], ms=med, ms_min=min(ts), ms_max=max(ts),
+        tflops=FLOPS[arm] / med / 1e9 if arm in FLOPS else None,
         spread_pct=(max(ts) - min(ts)) / med * 100, reps=a.reps, ncall=ncall[arm],
         aiclk=dict(n=len(c), med=c[len(c) // 2] if c else None, min=c[0] if c else None, max=c[-1] if c else None))
 log(ev="end")
