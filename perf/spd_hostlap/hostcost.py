@@ -1,15 +1,20 @@
 """Host-only cost of the one-off host stalls in a Protenix-v2 c730 fold, at the serving thread share.
 
-No device is opened: every piece is the torch work plus ttnn's host-side tensor build (tilize) that the
-fold does before the chip gets the tensor. Shapes are c730's (736 padded tokens, 9,947 MSA rows, 4
+Every piece is the torch work plus ttnn's host-side tensor build (tilize) that the fold does before the
+chip gets the tensor. Run it pinned to one chip you hold (TT_VISIBLE_DEVICES): ttnn's host tensor
+constructor initialises the metal context, and without a pin that opens every chip on the box. Shapes are c730's (736 padded tokens, 9,947 MSA rows, 4
 templates, 5,919 atoms). Also checks how much of each piece a second Python thread can overlap with a
 main thread that is blocked in a GIL-releasing call (what a host lane would see during a device read).
 
-    OMP_NUM_THREADS=2 python perf/spd_hostlap/hostcost.py
+    TT_VISIBLE_DEVICES=<chip> OMP_NUM_THREADS=2 python perf/spd_hostlap/hostcost.py
 """
 import os, threading, time
+if not os.environ.get("TT_VISIBLE_DEVICES"):
+    raise SystemExit("pin one chip with TT_VISIBLE_DEVICES first")
 import torch, torch.nn.functional as F
 import ttnn
+from tt_bio.tenstorrent import get_device
+get_device()
 
 torch.manual_seed(0)
 N, D, NT_TPL, NA, CZ = 736, 9947, 4, 5919, 256
