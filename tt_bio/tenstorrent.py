@@ -11311,9 +11311,10 @@ class Transition(Module):
         # the bfp8-priced L1 cap below sets the height: 28 rows for the c=128 MSA transition at 736
         # tokens instead of 16. Row height does not change a row-local swiglu's result (torch.equal
         # at h=16..48); WH module 26.14 -> 23.69 ms at h=24 (perf/spd_bh/transition_h.py, .107).
-        # Blackhole is unchanged: its L1 raise always lands above this base. c=256 is left alone,
-        # its pair transition is non-monotonic in the height on WH (h=14 slower than h=5).
-        _fast_rows = _FAST_MODE or (self._hidden_b8 and x.shape[-1] <= 128)
+        # Small grid only: on Blackhole this base would sit above the measured c=128 height at
+        # 1024 tokens (24). c=256 is left alone, its pair transition is non-monotonic in the height
+        # on WH (h=14 slower than h=5).
+        _fast_rows = _FAST_MODE or (self._hidden_b8 and x.shape[-1] <= 128 and _IS_SMALL_GRID)
         transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_FAST if _fast_rows else TRANSITION_H_CHUNK_SIZE
         if not _FAST_MODE and W <= TRANSITION_H_CHUNK_BIG_MAX_W and x.shape[-1] <= 256:
             transition_h_chunk_size = TRANSITION_H_CHUNK_SIZE_BIG
@@ -11463,12 +11464,22 @@ class Transition(Module):
             # W=512/768/1024, and worth nothing at and above 1536 tokens where the base already
             # sits at the cap. A forced constant cannot do this: 768 aa refuses h=48 and 1024 aa
             # refuses h=28, so every flat value in {24,28,32,40,48} dies on some rung.
+            #
+            # bfp8 hidden is priced at its own width only above c=128, where it was measured (h=32
+            # clean at c=256, 736 tokens). At c <= 128 the byte ratio would raise the pair height
+            # 1.7x past the measured bf16 heights, and that is not safe: Boltz-2 fast at 704 tokens
+            # (9TH6) ran h=59 and threw the static-CB clash at fc2 on every seed, while the bf16
+            # height there runs clean. At a bf16-confirmed height bfp8 hidden needs no more L1 in
+            # any buffer or circular buffer than bf16, so it keeps that height.
+            _hb_raise = _hb if _c > _BH_TRANSITION_L1_ROWS_MAX_C else 2
+            _l1_rows = (TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy
+                        / (_tile(w_eff) * (2 * _tile(_c) + 2 * _hb_raise * _tile(_hid))))
             transition_h_chunk_size = max(
                 transition_h_chunk_size,
-                max(1, int(min(_l1_rows_at(w_eff),
+                max(1, int(min(_l1_rows,
                                # the element cap is the byte budget at bf16 hidden = 4c, i.e.
                                # 18c bytes per row element; bfp8 hidden needs (2 + 8 * 1.0625)c
-                               _BH_TRANSITION_CHUNK_ELEMS * 18 / (w_eff * _c * (2 + 8 * _hb))))))
+                               _BH_TRANSITION_CHUNK_ELEMS * 18 / (w_eff * _c * (2 + 8 * _hb_raise))))))
         # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
         # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
         # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation
