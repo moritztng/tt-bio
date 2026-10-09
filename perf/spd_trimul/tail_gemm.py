@@ -20,6 +20,8 @@ ap.add_argument("--cz", type=int, default=256)
 ap.add_argument("--calls", type=int, default=20)
 ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--fid", action="store_true", help="only production's block, at every fidelity / acc setting")
+ap.add_argument("--b1d", action="store_true",
+                help="only production's block and the 1D program over a batched view [B, N*N/B, c_z]")
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -67,13 +69,30 @@ if A.fid:
                                                  fp32_dest_acc_en=acc, packer_l1_acc=True)
             ARMS[f"{fid}_acc{int(acc)}"] = mm(4, 8, 1, 4, 1, ckc=k)
             ARMS[f"{fid}_acc{int(acc)}_m8"] = mm(8, 8, 1, 4, 1, ckc=k)
-for M in (() if A.fid else (1, 2, 4, 8)):
+if A.b1d:
+    # The unbatched 1D plan wants the whole per-core output in one CB (15.7 MB, tg1). A batched
+    # view keeps the same rows and the same single K block, and per_core_M becomes per batch.
+    for B in (23, 46, 92, 184):
+        mb = mt // B
+        xb = ttnn.reshape(xd, (B, mb * 32, A.cz))
+        for sh, sw in ((1, 8), (2, 4), (1, 4)):
+            pcm = -(-mb // (gx * gy))
+            if pcm % sh:
+                continue
+            pc = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy), in0_block_w=kt,
+                out_subblock_h=sh, out_subblock_w=sw, per_core_M=pcm, per_core_N=nt,
+                fuse_batch=False, fused_activation=None, mcast_in0=False)
+            ARMS[f"mm1d_b{B}_{sh}x{sw}"] = (lambda xb=xb, pc=pc: ttnn.reshape(ttnn.matmul(
+                xb, wd, program_config=pc, compute_kernel_config=ckc,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16), (1, A.n * A.n, A.cz)))
+for M in (() if A.fid or A.b1d else (1, 2, 4, 8)):
     for N in (2, 4, 8):
         for sh, sw in ((1, 4), (2, 2), (4, 1), (1, 2), (2, 1), (1, 1)):
             if M % sh or N % sw or mt % M:
                 continue
             ARMS[f"mm_{M}_8_{N}_{sh}_{sw}"] = mm(M, 8, N, sh, sw)
-for sh, sw in (() if A.fid else ((1, 4), (2, 2), (4, 1))):
+for sh, sw in (() if A.fid or A.b1d else ((1, 4), (2, 2), (4, 1))):
     ARMS[f"mm1d_{sh}x{sw}"] = mm1d(sh, sw)
 
 R64 = (x.double() @ w.double()).reshape(1, A.n * A.n, A.cz)
