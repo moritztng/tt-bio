@@ -558,11 +558,15 @@ _FAST_MODE = False
 #                   (the template pair) 2.29 -> 0.88 ms.
 #   silu_f32        every silu fused into a matmul (the swiglu fc1) runs calculate_silu_f32: 6e-6
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
+#   dit_mm16        the fp32 token DiT's linears on bf16 operands with fp32 accumulation (`mm16_linear`):
+#                   the adaLN outputs and the gated attention output are written bf16, the gate and
+#                   transition hidden linears write bf16; q/k/v, the residual updates and the residual
+#                   stream itself stay fp32. Inert in bf16.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail")
+          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "dit_mm16")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_mm16"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2315,6 +2319,42 @@ _ZERO_MASKS = {}  # (id(device), Lq, Lk) -> (device, zero [1, 1, Lq, Lk]); clean
 # -1e4 / sqrt(head_dim), far below any score, and exp sends it to exactly 0.
 _SDPA32_PAD_MASK = -1e4
 _SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
+
+
+def mm16_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None):
+    """`x @ w (+ bias)` for bf16 `x` and `w`, accumulated in fp32 dest and written at `dtype`.
+
+    The `dit_mm16` lever's matmul. On Wormhole the program takes one K tile per dest pass: fp32
+    dest accumulation of more than one K tile returns +-2 / +-4 on ~1e-7 of the outputs there
+    (state/spd-wherr.md), and in0_block_w 1 is the blocking with no wrong pixel in any draw of the
+    diffusion shapes (perf/spd_difflin/op_probe.py). Blackhole takes ttnn's own program.
+    """
+    if activation == "silu":
+        compute_kernel_config = silu_ckc(compute_kernel_config)
+    pc = None
+    if is_wormhole():
+        shp = tuple(x.padded_shape)
+        g = x.device().compute_with_storage_grid_size()
+        pc = _k1_program(prod(shp[:-1]) // 32, shp[-1] // 32, int(w.padded_shape[-1]) // 32,
+                         g.x, g.y, activation)
+    if pc is None:
+        return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype,
+                           compute_kernel_config=compute_kernel_config, core_grid=CORE_GRID_MAIN)
+    return ttnn.linear(x, w, bias=bias, dtype=dtype, compute_kernel_config=compute_kernel_config,
+                       program_config=pc)
+
+
+@lru_cache(maxsize=None)
+def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation):
+    """2D multicast, in0_block_w 1, the widest subblock fp32 dest holds (h * w <= 4)."""
+    pm, pn = -(-mt // gy), -(-nt // gx)
+    h, w = max(((h, w) for h in range(1, min(pm, 4) + 1) for w in range(1, min(pn, 4) + 1)
+                if pm % h == 0 and pn % w == 0 and h * w <= 4), key=lambda s: (s[0] * s[1], s[1]))
+    act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if activation == "silu" else None
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=(gx, gy), in0_block_w=1, out_subblock_h=h, out_subblock_w=w,
+        out_block_h=pm, out_block_w=pn, per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+        fused_activation=act, fuse_batch=True)
 
 
 def sdpa32_rows(n: int) -> int:
@@ -10580,6 +10620,8 @@ class AttentionPairBias(Module):
         # Set by protenix's DiffusionModule under `dit_sdpa32`: the fp32 token DiT's attention
         # runs as `_sdpa32` on a padded token axis, and `finish_bias` makes its mask.
         self.sdpa32 = False
+        # bf16 copies of the qkv / gate / out weights, set by `enable_mm16` (the `dit_mm16` lever).
+        self._mm16 = None
         if atom_level:
             self.q_weight = self.torch_to_tt("proj_q.weight", dtype=self.dtype)
             self.q_bias = self.torch_to_tt("proj_q.bias", dtype=self.dtype)
@@ -10646,6 +10688,17 @@ class AttentionPairBias(Module):
             )
         self.o_weight = self.torch_to_tt("proj_o.weight", transform=_relane(0),
                                           dtype=self.dtype)
+
+    def enable_mm16(self):
+        """The `dit_mm16` lever on this token-level instance: its three linears read a bf16 input
+        and bf16 weights and accumulate in fp32 (`mm16_linear`). q/k/v and the output projection
+        are still written fp32 (the attention and the residual take them); the gate is written
+        bf16 and the gated attention output, which only the output projection reads, too.
+        Rounded on the host from the device copies, once."""
+        assert not self.atom_level
+        up = lambda t: ttnn.from_torch(ttnn.to_torch(t).float().to(torch.bfloat16), dtype=ttnn.bfloat16,
+                                       layout=ttnn.TILE_LAYOUT, device=self.device)
+        self._mm16 = {k: up(getattr(self, k)) for k in ("qkv_weight", "qkv_bias", "g_weight", "o_weight")}
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -10874,14 +10927,20 @@ class AttentionPairBias(Module):
         bias_precomputed: bool = False,
     ) -> ttnn.Tensor:
         self._load_kq_norm()
+        mm16 = self._mm16
+        if mm16 is not None and s.dtype != ttnn.bfloat16:
+            s = ttnn.typecast(s, ttnn.bfloat16)
         if not self.atom_level:
-            qkv = ttnn.linear(
+            qkv = (mm16_linear(s, mm16["qkv_weight"], mm16["qkv_bias"], dtype=ttnn.float32,
+                               compute_kernel_config=self.compute_kernel_config)
+                   if mm16 is not None else
+                   ttnn.linear(
                 s,
                 self.qkv_weight,
                 bias=self.qkv_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
-            )
+            ))
             if self.kq_norm:
                 qkv = self._apply_kq_norm(qkv)
             qkv = ttnn.unsqueeze(qkv, 1)
@@ -11082,6 +11141,16 @@ class AttentionPairBias(Module):
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
+        if mm16 is not None:
+            g = mm16_linear(s, mm16["g_weight"], dtype=ttnn.bfloat16,
+                            compute_kernel_config=self.compute_kernel_config)
+            o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
+                              dtype=ttnn.bfloat16)
+            ttnn.deallocate(g)
+            x = mm16_linear(o, mm16["o_weight"], dtype=ttnn.float32,
+                            compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(o)
+            return x
         g = ttnn.linear(
             s,
             self.g_weight,
@@ -12702,7 +12771,9 @@ class AdaLN(Module):
                 self.weights["s_bias.weight"].t() * g)
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
-                 s_terms=None) -> ttnn.Tensor:
+                 s_terms=None, dtype=None) -> ttnn.Tensor:
+        """`dtype`: write the modulated output at this dtype (the norm and the modulation run at
+        the input's); the `dit_mm16` lever takes it bf16 for the linears that read it."""
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
@@ -12716,7 +12787,12 @@ class AdaLN(Module):
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
         a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a = ttnn.add_(a, s_bias)
+        if dtype is not None and dtype != a.dtype:
+            out = ttnn.add(a, s_bias, dtype=dtype)
+            ttnn.deallocate(a)
+            a = out
+        else:
+            a = ttnn.add_(a, s_bias)
         if own:                     # a cached pair belongs to the caller
             ttnn.deallocate(s_scale)
             ttnn.deallocate(s_bias)
