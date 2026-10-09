@@ -368,8 +368,11 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
 TAIL_SIGPOLY = int(os.environ.get("TT_BIO_TRIATT_TAIL_SIGPOLY", "1"))
 TAIL_RNE = int(os.environ.get("TT_BIO_TRIATT_TAIL_RNE", "0"))
 # K one tile per DST pass, summed by the packer in fp32 (compute.cpp KB1): the Wormhole fp32-DST erratum
-# lives in accumulation across a multi-tile K block (BOARD 2026-10-09 12:08Z, spd-swiglu).
-TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "0"))
+# lives in accumulation across a multi-tile K block (BOARD 2026-10-09 12:08Z, spd-swiglu). Counted vs
+# float64 on WH, S 384/512/736 x 4 seeds, 974 M elements per arm (perf/spd_pair/tail_outliers.py): the
+# whole-K block had 1 element off by 2.0 (S 736, seed 2), KB1 none (max 0.020), and KB1 is faster at
+# 512 and 736 (2.85 vs 3.74 ms, 5.61 vs 6.45 ms).
+TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
@@ -408,7 +411,7 @@ def _tail_ok(o, g, w, resid):
             return False
     from .tenstorrent import _l1_bank_bytes
     kt, nt = po[1], int(w.shape[-1]) // TILE
-    tiles = kt * nt + 5 * kt + 7 * nt
+    tiles = kt * nt + 5 * kt + (8 if TAIL_KB1 else 7) * nt   # KB1's fp32 partials take two bf16 tiles' room
     return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.6 * _l1_bank_bytes()
 
 
