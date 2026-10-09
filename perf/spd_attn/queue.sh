@@ -19,7 +19,7 @@ flock -w ${LOCKWAIT:-10800} 9 || { say "flock timeout"; exit 3; }
 say "flock held, load $(cut -d' ' -f1-3 /proc/loadavg)"
 if [ "$JOB" = op ] || [ "$JOB" = atom ] || [ "$JOB" = roof ] || [ "$JOB" = pair ]; then
     WHICH=all; [ "$JOB" = op ] || WHICH=$JOB
-    timeout -s INT 2400 $PY perf/spd_attn/opbench.py "$OUT/op" "$CHIP" $WHICH > "$OUT/op.log" 2>&1
+    timeout -s TERM 2520 timeout -s INT 2400 $PY perf/spd_attn/opbench.py "$OUT/op" "$CHIP" $WHICH > "$OUT/op.log" 2>&1
     say "op rc=$?"
 elif [ "$JOB" = steps ]; then
     for dt in fp32 bf16; do
@@ -27,14 +27,14 @@ elif [ "$JOB" = steps ]; then
         say "steps $dt rc=$?"
     done
 elif [ "$JOB" = grade ]; then
-    timeout -s INT 14400 $PY perf/spd/bench.py --out "$OUT/attn" --chip "$CHIP" --arm attn --inputs "$INPUTS" --seed 101 --warm 3 \
+    timeout -s TERM 14520 timeout -s INT 14400 $PY perf/spd/bench.py --out "$OUT/attn" --chip "$CHIP" --arm attn --inputs "$INPUTS" --seed 101 --warm 3 \
         ${DATA:+--data "$DATA"} ${SHARE:+--share "$SHARE"} > "$OUT/attn.log" 2>&1
     say "grade rc=$?"
 else
     OFF=TT_BIO_SDPA_FUSED_PADDED=0,TT_BIO_ATOM_SUPERSET_WINDOW=0
     for arm in ${ARMS:-"off:$OFF" attn "off2:$OFF"}; do
         name=${arm%%:*}
-        timeout -s INT 5400 $PY perf/spd/bench.py --out "$OUT/$name" --chip "$CHIP" --arm "$arm" --inputs c730 --warm 3 ${DATA:+--data "$DATA"} ${SHARE:+--share "$SHARE"} \
+        timeout -s TERM 5520 timeout -s INT 5400 $PY perf/spd/bench.py --out "$OUT/$name" --chip "$CHIP" --arm "$arm" --inputs c730 --warm 3 ${DATA:+--data "$DATA"} ${SHARE:+--share "$SHARE"} \
             > "$OUT/$name.log" 2>&1
         say "$name rc=$?"
     done
