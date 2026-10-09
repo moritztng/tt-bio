@@ -35,7 +35,7 @@ g = dev.compute_with_storage_grid_size()
 gx, gy = g.x, g.y
 ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
                                              math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
-K = DEPTH + T.opm_kpad_rows(DEPTH, gx)
+K = DEPTH + T.opm_kpad_rows(DEPTH)
 Kt = K // 32
 budget = T._matmul_cb_budget()
 divs = lambda n: [d for d in range(1, n + 1) if n % d == 0]

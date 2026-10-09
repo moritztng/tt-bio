@@ -37,7 +37,7 @@ F = ttnn.MathFidelity
 ckc = lambda fid: ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=fid, math_approx_mode=False,
                                                          fp32_dest_acc_en=True, packer_l1_acc=True)
 N = TOK * 32
-k = DEPTH + T.opm_kpad_rows(DEPTH, grid.x)
+k = DEPTH + T.opm_kpad_rows(DEPTH)
 kt = k // 32
 base = T.opm_contract_config(N // 32, N // 32, kt, grid)
 assert base is not None, "opm_contract_config refused this shape"

@@ -37,7 +37,7 @@ ckc = ttnn.init_device_compute_kernel_config(
     dev.arch(), math_fidelity={"hifi4": ttnn.MathFidelity.HiFi4, "hifi3": ttnn.MathFidelity.HiFi3}[FID],
     math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
 N = TOK * 32
-K = DEPTH + T.opm_kpad_rows(DEPTH, gx) if hasattr(T, "opm_kpad_rows") else -(-DEPTH // (32 * gx)) * 32 * gx
+K = DEPTH + T.opm_kpad_rows(DEPTH) if hasattr(T, "opm_kpad_rows") else -(-DEPTH // (32 * gx)) * 32 * gx
 Kt, Nt = K // 32, N // 32
 budget = T._matmul_cb_budget()
 log(ev="start", tokens=TOK, rows=ROWS, depth=DEPTH, k=K, fid=FID, arch=str(dev.arch()), grid=[gx, gy], budget=budget)

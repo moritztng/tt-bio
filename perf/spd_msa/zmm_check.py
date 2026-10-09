@@ -50,7 +50,7 @@ for case in CASES:
         ttnn.synchronize_device(dev)
         for t in (z, *u):
             ttnn.deallocate(t)
-    k = depth + T.opm_kpad_rows(depth, grid.x)
+    k = depth + T.opm_kpad_rows(depth)
     torch.manual_seed(0)
     a_h = (torch.randn(N, k) / k ** 0.5).bfloat16()
     b_h = torch.randn(N, k).bfloat16()

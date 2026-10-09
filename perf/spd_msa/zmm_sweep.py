@@ -37,7 +37,7 @@ log(ev="start", toks=TOKS, depths=DEPTHS, arch=str(dev.arch()), grid=[grid.x, gr
 for tok in TOKS:
     for depth in DEPTHS:
         N = tok * 32
-        kp = depth + T.opm_kpad_rows(depth, grid.x)
+        kp = depth + T.opm_kpad_rows(depth)
         torch.manual_seed(depth * 7 + tok)
         a_h = (torch.randn(N, kp) / depth ** 0.5).bfloat16(); a_h[:, depth:] = 0
         b_h = torch.randn(N, kp).bfloat16(); b_h[:, depth:] = 0

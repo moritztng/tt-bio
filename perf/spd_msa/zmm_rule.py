@@ -49,7 +49,7 @@ def timed(a, b, cfg):
 for depth in DEPTHS:
     for tok in TOKS:
         N = tok * 32
-        for k in sorted({depth, depth + T.opm_kpad_rows(depth, grid.x)}):
+        for k in sorted({depth, depth + T.opm_kpad_rows(depth)}):
             torch.manual_seed(0)
             a = ttnn.from_torch((torch.randn(N, k) / k ** 0.5).bfloat16(), layout=ttnn.TILE_LAYOUT, device=dev,
                                 dtype=ttnn.bfloat16)

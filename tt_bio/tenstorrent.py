@@ -139,24 +139,27 @@ OPM_JOIN_PARTS_STATS = [0, 0]
 # the identical bytes (torch.equal against the 2D call, perf/spd_msa/sweep_opm_out.py). Splits of
 # 2 or 4 stay slow, 8 and up are fast, so the block is sized to ~16k rows.
 _OPM_PROJ_BATCH = env_flag("TT_BIO_OPM_PROJ_BATCH", True)
-# The OPM contraction z = a b^T runs over the MSA depth. With every operand in DRAM, ttnn's auto
-# config blocks K as Kt / grid_x when the core grid's width divides the K tile count, and one tile
-# at a time otherwise (matmul_program_config.cpp, `all_dram_interleaved`). At 9947 rows K is 311
-# tiles, a prime: 288 ms for the whole-row call on Wormhole (HiFi3, grid 8 wide) against 237 ms with
-# 37 zero rows appended (312 tiles), and 157 vs 102 ms for a row-blocked call; 1.2-1.6x at depths
-# 4097-13602 (perf/spd_msa/zmm_kpad*.py). Zero rows add exact zeros to every dot product and the
-# mean still divides by the real depth, so only the accumulation order moves. The rows ride in the
-# join's concat, so the chunk-list path pays nothing for them. A shallow MSA would pay more for
-# the zeros than the blocking returns, so the pad stays under an eighth of the depth.
-# Wormhole only. Blackhole (p150a, grid 11 wide) is the other way round: Kt one short of a multiple
-# of 11 runs at ~137 TFLOP/s and the multiple itself at ~75 (311 -> 319 tiles: ~81 -> 151.8 ms at
-# 23552 rows, perf/spd_msa/zmm_kpad3.py), so padding there would halve the contraction.
+# The OPM contraction z = a b^T runs over the MSA depth. ttnn's auto config for it (every operand in
+# DRAM) blocks K one tile at a time unless the grid's width divides the K tile count, and at 9947
+# rows K is 311 tiles, a prime: 294 ms on Wormhole at 736 tokens (HiFi3). `opm_contract_config`
+# runs it as 3-tile K blocks instead, which needs the tile count to be a multiple of 3, so the depth
+# gets up to 95 zero rows. Zero rows add exact zeros to every dot product and the mean still divides
+# by the real depth, so only the accumulation order moves. The rows ride in the join's concat, so
+# the chunk-list path pays nothing for them. A shallow MSA keeps its depth (pad under an eighth).
+# Wormhole only, like the plan. TT_BIO_OPM_KPAD=0 turns the pad off.
 _OPM_KPAD = env_flag("TT_BIO_OPM_KPAD", True)
+# K tiles one block of the OPM contraction sums in the destination register before it is packed.
+# Wormhole at HiFi3 with fp32 accumulation and packer L1 accumulation (the model's config) puts
+# single output elements off by exactly 1, 2 or 4 once that is 4 or more: zero wrong elements at
+# 1-3 tiles, 1-3 per draw at 4-12, ~300 at HiFi4 (perf/spd_msa/zmm_ibw.py, zmm_full.py). ttnn's own
+# padded plan (Kt / grid_x, 17-54 tiles) hit it at 6 of 38 shapes. 3 is also the fastest clean width:
+# 205 ms at 736 tokens against 294 for the auto plan, and 2 tiles loses to auto at 1024 tokens.
+OPM_K_BLOCK = 3
 
 
-def opm_kpad_rows(depth: int, grid_x: int) -> int:
-    """Zero rows that round the OPM contraction depth up to a multiple of `grid_x` tiles, or 0."""
-    rows = -depth % (32 * grid_x)
+def opm_kpad_rows(depth: int) -> int:
+    """Zero rows that round the OPM contraction depth up to a whole number of K blocks, or 0."""
+    rows = -depth % (32 * OPM_K_BLOCK)
     return rows if _OPM_KPAD and rows * 8 <= depth else 0
 
 OPM_PROJ_BLOCK_ROWS = 16384
@@ -189,10 +192,12 @@ def opm_contract_config(m_tiles: int, n_tiles: int, k_tiles: int, grid):
     ttnn's auto config sets per_core_M = ceil(Mt / grid_y), and the output block height has to
     divide it. At 736 tokens that is 82 = 2 x 41, so the auto plan runs 2-tile-high blocks; at 512
     it is 57 = 3 x 19. Rounding per_core_M up to a multiple of 4 covers the same rows with the same
-    grid (the last row of cores gets fewer of them) and admits a 4-high block. The block width and
-    in0_block_w then take the largest in1 block the circular buffers fit, in0_block_w at most 8.
-    Wormhole, K 312 tiles, HiFi3 (perf/spd_msa/zmm_pcm.py): 177 vs 241 ms at 736 tokens, 79 vs 106 at
-    512, 316 vs 424 at 1024. Same products summed in a different K order, so not bit-identical."""
+    grid (the last row of cores gets fewer of them) and admits a 4-high block. in0_block_w is the
+    largest divisor of the K tiles up to OPM_K_BLOCK (see there for why not more); the block width
+    the widest in1 block the circular buffers then fit. One-tile K blocks are slower than ttnn's own
+    plan, so a K that only admits those gets None. Wormhole, depth 9947 padded to 312 tiles, HiFi3
+    (perf/spd_msa/zmm_ibw.py): 205 vs 294 ms at 736 tokens, 503 vs 554 at 1024 (depth 13602).
+    Same products summed in a different K order, so not bit-identical."""
     if not _OPM_CFG or ttnn is not _SHIPPED_TTNN:
         return None
     gx, gy = grid.x, grid.y
@@ -201,9 +206,9 @@ def opm_contract_config(m_tiles: int, n_tiles: int, k_tiles: int, grid):
     pcn = -(-n_tiles // gx)
     budget = _matmul_cb_budget()
     divs = lambda n, top: [d for d in range(1, min(n, top) + 1) if n % d == 0]
-    fits = [(w * k, k, w) for w in divs(pcn, pcn) for k in divs(k_tiles, 8)
+    fits = [(w * k, k, w) for w in divs(pcn, pcn) for k in divs(k_tiles, OPM_K_BLOCK) if k > 1
             if _matmul_cb_bytes(k, 4, w, 2) <= budget]
-    if pcm < 8 or not fits or max(fits)[1] < 4:
+    if pcm < 8 or not fits:
         return None
     _, ibw, obw = max(fits)
     sw = 4 if obw % 4 == 0 else 2 if obw % 2 == 0 else 1
@@ -13417,8 +13422,7 @@ class OuterProductMean(Module):
                     b_parts.append(bc)
                 depth = sum(p.shape[0] for p in a_parts)
                 dev = a_parts[0].device()
-                pad = 0 if small_depth(depth) or dev.arch() != ttnn.Arch.WORMHOLE_B0 else opm_kpad_rows(
-                    depth, dev.compute_with_storage_grid_size().x)
+                pad = 0 if small_depth(depth) or dev.arch() != ttnn.Arch.WORMHOLE_B0 else opm_kpad_rows(depth)
                 if pad:
                     a_parts.append(zero_rows(a_parts[0], pad))
                     b_parts.append(zero_rows(b_parts[0], pad))

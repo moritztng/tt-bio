@@ -9,21 +9,20 @@ from tt_bio import tenstorrent as T
 N, C_M, C, C_Z = 64, 64, 32, 128
 
 
-@pytest.mark.parametrize("depth,grid_x,rows", [(9947, 8, 37), (9984, 8, 0), (12830, 8, 226), (4097, 8, 255),
-                                               (9947, 13, 37), (5889, 13, 351)])
-def test_pad_rows(depth, grid_x, rows):
-    assert T.opm_kpad_rows(depth, grid_x) == rows
-    assert (depth + rows) % (32 * grid_x) == 0
+@pytest.mark.parametrize("depth,rows", [(9947, 37), (9984, 0), (12830, 34), (4097, 31), (5889, 63), (13602, 30)])
+def test_pad_rows(depth, rows):
+    assert T.opm_kpad_rows(depth) == rows
+    assert (depth + rows) % (32 * T.OPM_K_BLOCK) == 0
 
 
-@pytest.mark.parametrize("depth,grid_x", [(80, 8), (1100, 8), (1100, 13)])
-def test_shallow_is_not_padded(depth, grid_x):
-    assert T.opm_kpad_rows(depth, grid_x) == 0
+@pytest.mark.parametrize("depth", [80, 300])
+def test_shallow_is_not_padded(depth):
+    assert T.opm_kpad_rows(depth) == 0
 
 
 def test_off(monkeypatch):
     monkeypatch.setattr(T, "_OPM_KPAD", False)
-    assert T.opm_kpad_rows(9947, 8) == 0
+    assert T.opm_kpad_rows(9947) == 0
 
 
 def _ref(sd, mh):
@@ -79,27 +78,34 @@ class _Grid:
     x, y = 8, 9
 
 
-@pytest.mark.parametrize("tokens,kt,pcm,ibw,obw", [(736, 312, 84, 6, 23), (512, 312, 60, 8, 16),
-                                                  (1024, 312, 116, 8, 16)])
-def test_contract_config_picks_the_measured_plan(tokens, kt, pcm, ibw, obw):
+@pytest.mark.parametrize("tokens,kt,pcm,obw", [(736, 312, 84, 23), (512, 312, 60, 16), (1024, 432, 116, 16)])
+def test_contract_config_picks_the_measured_plan(tokens, kt, pcm, obw):
     cfg = T.opm_contract_config(tokens, tokens, kt, _Grid)
-    assert (cfg.per_core_M, cfg.in0_block_w, cfg.out_block_h, cfg.out_block_w) == (pcm, ibw, 4, obw)
+    assert (cfg.per_core_M, cfg.in0_block_w, cfg.out_block_h, cfg.out_block_w) == (pcm, T.OPM_K_BLOCK, 4, obw)
     assert cfg.out_subblock_h * cfg.out_subblock_w == 4
 
 
-def test_contract_config_small_or_off(monkeypatch):
+def test_contract_config_never_blocks_k_wider_than_the_clean_width():
+    """4+ K tiles per block put single elements off by 1/2/4 on Wormhole (see OPM_K_BLOCK)."""
+    for kt in range(2, 700):
+        cfg = T.opm_contract_config(736, 736, kt, _Grid)
+        assert cfg is None or 1 < cfg.in0_block_w <= T.OPM_K_BLOCK, kt
+
+
+def test_contract_config_small_prime_or_off(monkeypatch):
     assert T.opm_contract_config(32, 32, 312, _Grid) is None
+    assert T.opm_contract_config(736, 736, 311, _Grid) is None   # one-tile blocks: ttnn's plan is faster
     monkeypatch.setattr(T, "_OPM_CFG", False)
     assert T.opm_contract_config(736, 736, 312, _Grid) is None
 
 
 @pytest.mark.device
-@pytest.mark.parametrize("m,n,k", [(3072, 2048, 1024), (2944, 2944, 768)])
+@pytest.mark.parametrize("m,n,k", [(3072, 2048, 1056), (2944, 2944, 768)])
 def test_contract_config_is_as_close_to_float64(m, n, k):
     """The rounded-up per_core_M leaves the last core row partly empty; every row still lands."""
     dev = T.get_device()
     torch.manual_seed(0)
-    a, b = torch.randn(m, k).bfloat16(), torch.randn(n, k).bfloat16()
+    a, b = (torch.randn(m, k) / k ** 0.5).bfloat16(), torch.randn(n, k).bfloat16()
     ref = a.double() @ b.double().T
     ft = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi3,
@@ -111,4 +117,5 @@ def test_contract_config_is_as_close_to_float64(m, n, k):
         out = ttnn.to_torch(ttnn.matmul(ft(a), ft(b), transpose_b=True, program_config=pc,
                                         compute_kernel_config=ckc)).double()
         err[name] = float((out - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt())
+        assert (out - ref).abs().max() < 0.25, name   # outputs ~N(0,1): no element off by a whole unit
     assert err["cfg"] < 1.1 * err["auto"] + 1e-4, err
