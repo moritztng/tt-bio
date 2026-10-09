@@ -9,7 +9,8 @@
 Accuracy: rel_rms of each arm against a float64 torch evaluation of the same operands.
 Timing: back-to-back slope (NCALL calls, one sync) x REPS, arms interleaved round-robin, AICLK sampled out of process.
   pair:   the ending-node pair transpose [S, S, 256] bf16 at each --ta-seq, today's route vs tt_bio.pair_transpose.
-usage: opbench.py OUT CHIP [ta|atom|pair|roof|all] [--pairs N]
+  pairbias: the pairformer pair bias LayerNorm(z) @ [256, 16], today (DRAM normed z) vs row chunks normed in L1.
+usage: opbench.py OUT CHIP [ta|atom|pair|narrow|pairbias|roof|all] [--pairs N]
 """
 import argparse, json, os, statistics, subprocess, sys, time, types
 from pathlib import Path
@@ -214,6 +215,50 @@ if a.which in ("narrow", "all"):
                 for t in ("bw1 lofi", "bw16 lofi", "default cfg", "2d default"):
                     BYTES[f"narrow {S}x{n_out} {t}"] = S * S * 256 * 2 + S * S * 32 * 2
             BYTES.update({f"narrow {S}x{n_out} {t}": S * S * 256 * 2 + S * S * 32 * 2 for t in ("bw1", "bw16", "stock")})
+
+# ---- pair bias: the pairformer's LayerNorm(z) -> [256, 16] projection. Today the norm writes the whole normed
+# pair to DRAM (at 736 it cannot sit in L1) and the narrow projection reads it back at ~72 GB/s. Chunked: row
+# blocks of z sliced into L1, normed in L1 and projected from L1, so z crosses DRAM once instead of three times.
+if a.which in ("pairbias", "all"):
+    for S in a.ta_seq:
+        site = f"pairbias{S}"
+        torch.manual_seed(4)
+        hz, hg, hb, hw = torch.randn(1, S, S, 256), 1 + 0.1 * torch.randn(256), 0.1 * torch.randn(256), torch.randn(256, 16) * 0.06
+        z, w = up(hz, ttnn.bfloat16), up(hw, ttnn.bfloat16)
+        g = ttnn.from_torch(hg.reshape(1, 256), dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        b = ttnn.from_torch(hb.reshape(1, 256), dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        zd = ttnn.to_torch(z).double()
+        REF[site] = torch.nn.functional.layer_norm(zd, (256,), ttnn.to_torch(g).double().reshape(256),
+                                                   ttnn.to_torch(b).double().reshape(256), 1e-5) @ ttnn.to_torch(w).double()
+        ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                               fp32_dest_acc_en=True, packer_l1_acc=True)
+
+        def today(z=z, w=w, g=g, b=b, ckc=ckc):
+            zn = ttnn.layer_norm(z, weight=g, bias=b, epsilon=1e-5, compute_kernel_config=ckc)
+            o = T._narrow_proj_linear(zn, w, ckc, ttnn.bfloat16)
+            ttnn.deallocate(zn)
+            return o
+
+        def chunked(rows, z=z, w=w, g=g, b=b, ckc=ckc, S=S):
+            outs = []
+            for r0 in range(0, S, rows):
+                r1 = min(S, r0 + rows)
+                zc = ttnn.slice(z, [0, r0, 0, 0], [1, r1, S, 256], memory_config=ttnn.L1_MEMORY_CONFIG)
+                zn = ttnn.layer_norm(zc, weight=g, bias=b, epsilon=1e-5, compute_kernel_config=ckc,
+                                     memory_config=ttnn.L1_MEMORY_CONFIG)
+                ttnn.deallocate(zc)
+                outs.append(ttnn.linear(zn, w, compute_kernel_config=ckc, core_grid=T.CORE_GRID_MAIN,
+                                        memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16))
+                ttnn.deallocate(zn)
+            o = ttnn.concat(outs, dim=1, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            for t in outs:
+                ttnn.deallocate(t)
+            return o
+        ARMS[f"pairbias {S} today"] = (site, today)
+        BYTES[f"pairbias {S} today"] = 3 * S * S * 256 * 2
+        for rows in (16, 32, 64, 128):
+            ARMS[f"pairbias {S} chunk{rows}"] = (site, lambda rows=rows, chunked=chunked: chunked(rows))
+            BYTES[f"pairbias {S} chunk{rows}"] = S * S * 256 * 2
 
 # ---- pair transpose: the ending-node triangle attention's dim0/dim1 swap of the [S, S, 256] pair, DRAM to DRAM,
 # today's route (ROW_MAJOR round trip) against tt_bio.pair_transpose (one tile read, L1 row shuffle, one tile write)
