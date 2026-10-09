@@ -679,8 +679,13 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # transition_bw and transition_shard are fast-only. Wormhole fast vs staging21 fast, 185 paired folds: PASS (DockQ
 # +0.009, docking 143 -> 146). Normal vs staging21 normal, 161 paired folds: FAIL on pose-flip tails (lrmsd +2.60 A
 # [+0.21, +6.44], same-seed top pose median 0.081 A, max 40 A). c730 speed is flat either way (spd-orchestrator g22x).
+# dit_sdpa: fires only where the token DiT runs bf16, which in normal mode is OpenDDE (Protenix-v2's
+# DiT is fp32 there, so it takes dit_sdpa32 and this one is inert). OpenDDE Wormhole 11-set grade
+# PASS, 44 paired folds against the normal set: top pose median 0.299 A (A/A seed floor 1.027 A),
+# every CI covers 0 or sits on the better side, ipTM -0.0010 inside CONF_TOL, docking 24/44 both;
+# 1.10x at 256 tokens, 1.16x at 730, 1.19x at 1024 end to end (state/spd-opendde.md g1, sp1).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
+                           "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
