@@ -407,8 +407,11 @@ class Host:
     def command(self, leg: Leg, card, out: str) -> str:
         c = self.cfg
         pp = ":".join([self.tree] * leg.tree_on_path + c.get("pythonpath_extra", []))
+        # Every leg folds in one shared tree per host, so release_gate's size-ladder scratch must be
+        # the leg's own: the first ladder or record leg to finish rmtrees the shared default under
+        # the others, and a fold whose census dumps vanished reads every lever "not-imported".
         env = {"PYTHONPATH": pp, "TT_VISIBLE_DEVICES": "" if card is None else str(card),
-               **c.get("env", {})}
+               "RELEASE_GATE_SIZE_WORKDIR": f"{out}/sizegate-work", **c.get("env", {})}
         subst = {"{CARD}": str(card), "{OUT}": out,
                  **{f"{{{k}}}": v for k, v in c.get("env", {}).items()}}
 

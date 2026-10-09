@@ -204,6 +204,7 @@ def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path
     assert "flock /l/card2.lock" in cmd and "TT_VISIBLE_DEVICES=2" in cmd
     assert "PYTHONPATH=/r/trees/aaaaaaaaaaaa:/bc2" in cmd and "ESM_ROOT=/esm" in cmd
     assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd
+    assert "RELEASE_GATE_SIZE_WORKDIR=/t/out/x/sizegate-work" in cmd
     assert "/r/venv-aaaaaaaaaaaa/bin/python scripts/full_parity_gate.py" in cmd
     free = h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y")
     assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
