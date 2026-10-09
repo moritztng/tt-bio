@@ -3,12 +3,14 @@
 Every op signature gets the SPD row that owns its cost (state/spd/PLAN.md "Order of attack"; one op, one row, the
 row listed higher in PLAN wins), or NOBODY. Device idle gaps belong to spd-overhead (host idle, dispatch).
 
-usage: owners.py LABEL PREFIX UNPROFILED_WALL_S|- [TARGET_S]   (prints markdown; - = no unprofiled wall)
+usage: owners.py LABEL PREFIX UNPROFILED_WALL_S|- [TARGET_S|-] [ROW]   (prints markdown; - = none)
+ROW gives every op to one row: another model's census, where that model's SPD row owns the whole fold.
 """
 import collections, json, re, sys
 
 LABEL, PREFIX, WALL = sys.argv[1], sys.argv[2], sys.argv[3]
-TARGET = float(sys.argv[4]) if len(sys.argv) > 4 else None
+TARGET = float(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] != "-" else None
+ROW = sys.argv[5] if len(sys.argv) > 5 else None
 rows = json.load(open(f"{PREFIX}_rows.json")); summ = json.load(open(f"{PREFIX}_summary.json"))
 ATTN_OPS = re.compile(r"scaled_dot_product_attention|softmax|sdpa")
 
@@ -36,7 +38,7 @@ def owner(r):
 
 
 for r in rows:
-    r["owner"] = owner(r)
+    r["owner"] = ROW or owner(r)
 dev, gap = summ["device_kernel_s"], summ["device_idle_gap_s"]
 recon = dev + gap
 # scale so device + idle sums to the unprofiled wall: the profiler adds a little per-program time
@@ -59,6 +61,13 @@ print(f"\nIdle gaps total {gap:.1f} s, all spd-overhead's by PLAN (host idle, di
 print("| phase | device s | share % |\n|---|---|---|")
 for p, v in summ["phases"].items():
     print(f"| {p} | {v['s']:.1f} | {v['share'] * 100:.1f} |")
+by_cls = collections.defaultdict(float)
+for r in rows:
+    by_cls[r["cls"]] += r["s"]
+print("\n| class | device s | share % |\n|---|---|---|")
+for c, v in sorted(by_cls.items(), key=lambda x: -x[1]):
+    if v >= 0.5:
+        print(f"| {c} | {v:.1f} | {v / recon * 100:.1f} |")
 print("\n| # | owner | share % | s | op | class | call site | shapes | calls | us/call | roof frac | bound | idle before s |")
 print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 for i, r in enumerate(sorted(rows, key=lambda r: -r["s"])[:30], 1):
