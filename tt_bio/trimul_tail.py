@@ -261,6 +261,93 @@ def _repack(entry):
         kernels=entry["kernels"], semaphores=entry["semaphores"], cbs=entry["cbs"])
 
 
+# The weights-resident program (`kernels/trimul_tail_res`): every core keeps both [K, N] weights
+# in L1 and streams only its own activation rows, so no core forwards anything to another. The
+# stage ablation found the 2D program's in0 multicast chain and CB handshakes binding (~2.8 ms of
+# a 3.4 ms GEMM pass at 736 with every stage's work removed). Same epilogue as EPI 1 / 2, op for
+# op, so the output is the same bits (torch.equal at 128 and 736, EPI 1 and 2, shared and unshared
+# in0). At 736 on WH it takes the EPI 2 tail from 8.66 to 6.72 ms; what is left is the bf16 SFPU
+# sigmoid (~2.0 ms) and the GEMM math (~1.8 ms) serialized on the math thread, over a 3.7 ms data
+# floor (perf/spd_trimul/tail_res.py --abl). bf16, one K block, DRAM output, no split.
+RES = env_flag("TT_BIO_TRIMUL_TAIL_RES", True)
+RES_ABL = 0          # the resident compute's stage ablation (see its compute.cpp). Diagnostic only.
+RES_STATS = [0, 0]   # served by the resident program, declined to the 2D one
+
+
+def set_res(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global RES
+    prev, RES = RES, bool(on)
+    return prev
+
+
+def _res_ok(xa, wa, epi, split, mem):
+    return (RES and epi >= 1 and split == 1 and mem == ttnn.DRAM_MEMORY_CONFIG
+            and xa.dtype == ttnn.bfloat16 and wa.dtype == ttnn.bfloat16
+            and xa.memory_config() == ttnn.DRAM_MEMORY_CONFIG
+            and wa.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
+
+
+def _build_res(xa, xb, wa, wb, out, grid, ckc, block, epi, shared):
+    Mb = block[0]
+    sbw = block[4]
+    kt, nt = _tiles(wa.shape[-2]), _tiles(wa.shape[-1])
+    mt = 1
+    for d in [int(d) for d in xa.padded_shape][:-1]:
+        mt *= d
+    mt //= TILE
+    nb = mt // Mb
+    gx, gy = grid
+    ncores = gx * gy
+    core_grid = ttnn.CoreRangeSet(
+        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+    rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    b0 = 0
+    for c in range(ncores):
+        n = nb // ncores + (c < nb % ncores)
+        x, y = c % gx, c // gx
+        rd[x][y] = [b0 * Mb, n]
+        wr[x][y] = [b0 * Mb, n]
+        cp[x][y] = [n]
+        b0 += n
+    assert b0 == nb, (b0, nb)
+    resid = int(epi == 2)
+    acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+    src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+    d = KERNEL_DIR.parent / "trimul_tail_res"
+    reader = ttnn.KernelDescriptor(
+        kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, nt, Mb, int(shared), resid] + acc(xa) + acc(wa) + acc(xb)
+        + acc(wb) + acc(out),
+        runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
+    writer = ttnn.KernelDescriptor(
+        kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[nt, Mb] + acc(out),
+        runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
+    fid, approx, fp32, full = ckc
+    compute = ttnn.KernelDescriptor(
+        kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
+        compile_time_args=[kt, nt, Mb, sbw, int(shared), resid, RES_ABL], runtime_args=cp,
+        config=ttnn.ComputeConfigDescriptor(
+            math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
+            dst_full_sync_en=full))
+    blk = Mb * nt
+    cbs = [_cb(0, core_grid, 2 * Mb * kt), _cb(1, core_grid, 2 * kt * nt),
+           _cb(2, core_grid, 2 * blk), _cb(4, core_grid, blk), _cb(5, core_grid, blk)]
+    if resid:
+        cbs.append(_cb(7, core_grid, 2 * blk))
+    return {"kernels": [reader, writer, compute], "cbs": cbs}
+
+
+def _run_res(entry, xa, xb, wa, wb, out):
+    reader, writer, _ = entry["kernels"]
+    reader.common_runtime_args = [xa.buffer_address(), wa.buffer_address(), xb.buffer_address(),
+                                  wb.buffer_address(), out.buffer_address()]
+    writer.common_runtime_args = [out.buffer_address()]
+    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+    ttnn.generic_op([xa, wa, xb, wb, out], pd)
+
+
 _CACHE: dict = {}
 
 
@@ -347,6 +434,18 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None, resid=None, sp
             outs.append(out)
     key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
            ABL, epi, str(mem), _block(wa), shared, split)
+    if _res_ok(xa, wa, epi, split, mem) and not ABL:
+        key = ("res", RES_ABL) + key
+        entry = _CACHE.get(key)
+        if entry is None:
+            entry = _CACHE[key] = _build_res(xa, xb, wa, wb, outs[0], grid, ckc, _block(wa), epi,
+                                             shared)
+        _run_res(entry, xa, xb, wa, wb, outs[0])
+        STATS[0] += 1
+        RES_STATS[0] += 1
+        return outs[0]
+    if RES:
+        RES_STATS[1] += 1
 
     entry = _CACHE.get(key)
     if entry is None:
