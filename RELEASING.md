@@ -1,7 +1,80 @@
 # Releasing TT-Bio
 
 A release is cut only from the exact commit that passes the host suite and every
-on-device gate below. Run device checks serially on an otherwise idle card.
+on-device gate below, on both Blackhole and Wormhole (JapanFold serves on Wormhole).
+Correctness checks are independent folds and run side by side, one per card, on as many
+cards as you have; only the timed checks (`perf_regression.py`) need a card on an otherwise
+quiet host. `scripts/gate_fanout.py` does both for you, see [Run the gate](#run-the-gate).
+
+## What ships
+
+Always the newest code on `main`. A staging lands on `main` only after its Wormhole and
+Blackhole grades pass, so `main`'s head is the newest graded staging, and a release that gates
+an older commit ships numbers that are already stale. `scripts/release_next.py` answers what to
+do next from `main`, the last tag and the gate runs:
+
+```bash
+python3 scripts/release_next.py --gates ~/gates   # GATE <sha> | WAIT | FIX | CUT | NOTHING
+```
+
+If a newer staging lands while a gate runs, finish that gate (do not restart it), release it if
+it passes, and start the next gate on the new head right away.
+
+## Run the gate
+
+`scripts/gate_fanout.py` runs every gate below as independent legs (each parity leg, each
+`release_gate.py` arm, the size ladder and capacity gate per model, UX per model, pytest in
+shards, the BindCraft 2 wheel check, plus the card-free legs) once per architecture, on any free
+card of that architecture, each under the card's own `flock`, longest legs first. It writes one
+`VERDICT.md` with a row per leg and a column per architecture.
+
+```bash
+PYTHONPATH="$PWD" python3 scripts/gate_fanout.py --sha <commit> --hosts hosts.json \
+    --workers qb1:0,qb1:1,qb1:2,qb1:3,g114:4,g114:5,g114:6,g114:7 \
+    --timed qb1:3,g114:7 --out ~/gates/gate-<sha9>
+```
+
+`hosts.json` says, per host, how to reach it, its architecture and card type, the interpreter
+(the wheel's venv, see below), the card lock path and the environment the legs need
+(`ESM_ROOT`, `AF2IG_PARAMS`, `OF3_CKPT`, `OPENDDE_DOCKQ_PYTHON`, ...); the module docstring has
+the format. The runner builds its own tree at exactly `<commit>` on every host and never moves
+a shared checkout. The first host in `--workers` resolves the packages from PyPI; every other host
+installs exactly that set, and the runner refuses to start if two hosts of one architecture still
+differ (a PyPI release between two preps once gave .107 and .114 different pandas and omegaconf). Run it detached; re-running the same command resumes, because every passed
+leg is in the ledger.
+
+**Reuse, never redo.** Each leg result is keyed by the content of every tracked file except
+Markdown and pyproject's version line, the interpreter's installed packages, the card type, and
+the leg's exact command. A leg whose key already passed is not run again and the verdict names
+the run it reused. Recorded measurements (`perf/**.txt` files with a `RECORDED-AT:` line) are
+not part of the key either, so re-recording them in the release commit reuses everything; the
+card-free legs always run, and `pytest_cpu` is where a stale recording fails. The gate baselines
+(`docs/size_ladder_baseline*`, `docs/perf_baselines.json`, `docs/capacity_gate_baseline.json`)
+key only the legs that compare against them, so re-recording the size ladder reruns the ladder
+legs and nothing else. So a docs-only commit, or the release commit's version bump and
+re-recordings, costs nothing, and a grade-time crossmodel or suite run done through
+`gate_fanout.py --legs 'rg:*'` on the same wheel venv counts for the release. Any change to code,
+tests, data, fixtures, packages or card type is a new key and runs fresh. `--legs` also takes
+`!glob` to leave legs out.
+
+**Baselines a new lever owes.** A census lever that lands without a size-ladder row fails every
+ladder leg at every rung, which the gate only learns after folding the whole ladder.
+`tests/test_size_ladder_baseline_levers.py` reads the same fact from the baseline in under a
+second, so run the CPU suite before a gate. When it is red, record the missing levers on every
+card type, one fold per rung, refused unless every other lever still matches:
+
+```bash
+python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
+    --record-lever SDPA_FUSED_PADDED --out ~/gates/record-<sha9>
+```
+
+The fragments land in `<out>/recorded/<card_type>/<model>.json`; copy them over
+`docs/size_ladder_baseline.d/` in the release commit. The ladder legs then rerun against them and
+every other leg is reused.
+
+**Duplicates.** The parity gate runs `release_gate.py`'s boltzgen, opendde-abag, capacity,
+nesso1 and rf3-1024aa arms in-process with the same arguments and adds a drift check, so the
+runner does not run those five arms a second time.
 
 ## Prerequisites
 
@@ -36,13 +109,20 @@ python3 -c "import importlib.metadata as m; print(m.version('ttnn'))"   # must e
 
 The surest way is to build the release artifacts first and run every gate from the
 venv you installed the wheel into, with `PYTHONPATH="$PWD"` so the tree under test
-stays the repository:
+stays the repository. `scripts/gate_host_prep.sh <root> <sha>` does exactly that on a gate host
+(`gate_fanout.py` runs it for you): it builds the commit's wheel with plain PyPI (no extra index,
+so torch is the build a user gets), installs it with `[tenstorrent,test]` into
+`<root>/venv-<sha12>`, and builds `<root>/venv312-<sha12>` on Python 3.12 with BindCraft 2
+installed after the wheel, which pytest and the BindCraft 2 leg need. By hand:
 
 ```bash
 python3 -m build && python3 -m venv ~/scratch/relvenv
 ~/scratch/relvenv/bin/pip install "$(echo dist/tt_bio-*.whl)[tenstorrent,test]"
 PYTHONPATH="$PWD" ~/scratch/relvenv/bin/python3 scripts/full_parity_gate.py ...
 ```
+
+BindCraft 2 goes in as a second install because one resolve of both is unsatisfiable: its jax
+needs numpy >= 2 and ttnn pins numpy < 2. That is also the order a user installs them in.
 
 Keep that venv off `/tmp`. A gate chain runs for hours and a box can reboot under it:
 on 2026-09-17 qb2 rebooted mid-gate, `/tmp` went with it, and the next three arms
@@ -78,8 +158,11 @@ exit 255 in 0 s while the in-process legs passed. The preflight catches it, but 
 excluded, and a `tt-smi -r` on any card takes its whole board pair down rather than that chip, so
 pass `--no-card-reset` to the capacity gate when anything else could land on the pair.
 
-Run the arms **serially**. The parity, capacity and size-ladder arms all take cards, and the perf
-arm is timed: an arm of your own gate running beside it is a co-tenant like any other.
+The perf arm is timed: an arm of your own gate running beside it is a co-tenant like any other, so
+run it with nothing else of the gate on the host (`gate_fanout.py` does this for `--timed` cards).
+The parity, capacity and size-ladder arms are correctness checks and may run on sibling cards. The
+size ladder's exponent is a runtime ratio between rungs folded on one card, with a tolerance of at
+least 0.50, and 0.13.1 already ran two ladder cards beside three other arms on qb1.
 
 The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
 so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
@@ -87,6 +170,23 @@ governor has not ramped; sample the clock DURING a fold, not before, and record 
 you publish.
 
 ### The gate interpreter on the WH Galaxy
+
+On an SPD pool Galaxy (`.114`, `.107`) use the same `gate_host_prep.sh` venvs as any other host,
+under a root of your own (`~/spd/<row>`), and give the legs a private lease dir, `XDG_CACHE_HOME`,
+`TT_METAL_CACHE` and `MPLCONFIGDIR` so nothing collides with the JapanFold agent's. The pool's chip
+ids are UMD ids and its locks are `~/spd/locks/chip<N>.lock`. Grant the gate pool slots rather
+than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 5, "row": "<row>"}` in hosts.json,
+`--workers g114:pool,g114:pool,g114:pool,g114:pool` keeps at most four legs queued or running
+there, each as one job file the pool starts on an idle healthy chip. Stopping the runner (SIGINT)
+takes back the jobs that have not started.
+The host has no C compiler, so put a DockQ wheel built elsewhere at `<root>/prereq/`.
+
+Wormhole has size-ladder baselines but no `perf_baselines.json` cell. The first Wormhole gate seeds
+one (`"args": {"perf": ["--update-baseline", "--note", ...]}` in hosts.json; the leg reads SEEDED,
+and `perf_regression.py` still refuses to seed from a contended host). Commit the seeded file and
+remove the `args` entry; every later Wormhole gate is then a regression check.
+
+The older recipe below is for GWH02, the production Galaxy, and is kept for it.
 
 `japanfold-ssh` (GWH02) has exactly one tt-bio env, `/home/cust-team/mthuening/tt-bio/env`, and
 that env serves JapanFold. It stays on the versions prod ships, so it fails the preflight above

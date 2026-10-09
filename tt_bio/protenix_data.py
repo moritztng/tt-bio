@@ -857,6 +857,9 @@ def _default_mol_dir() -> str:
     """Best-effort location of the bundled CCD `mols` directory (CLI/worker pass mol_dir
     explicitly; this only backstops tests run from a checkout)."""
     import os
+    from tt_bio import weights
+    if (hit := weights.cached_path("mols")) is not None:
+        return str(hit)
     for p in ("~/.boltz/mols", "~/.cache/tt_bio/mols"):
         ep = os.path.expanduser(p)
         if os.path.exists(ep):
