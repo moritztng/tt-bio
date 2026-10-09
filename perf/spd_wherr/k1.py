@@ -49,15 +49,16 @@ def clone(pc, **over):
 
 def auto2d(a, b):
     """2D multicast at in0_block_w 1, out block bounded so the fp32 partials fit L1."""
-    if len(b.shape) > 2 and any(int(d) != 1 for d in b.shape[:-2]):
+    ash, bsh = [int(d) for d in a.shape], [int(d) for d in b.shape]   # ttnn.Shape does not slice
+    if len(bsh) > 2 and any(d != 1 for d in bsh[:-2]):
         return None
     if a.is_sharded():
         return None
     g = a.device().compute_with_storage_grid_size(); gx, gy = g.x, g.y
     m = 1
-    for d in a.shape[:-1]:
-        m *= int(d)
-    mt, nt = -(-m // 32), -(-int(b.shape[-1]) // 32)
+    for d in ash[:-1]:
+        m *= d
+    mt, nt = -(-m // 32), -(-bsh[-1] // 32)
     pm, pn = -(-mt // gy), -(-nt // gx)
     sw = max(s for s in range(1, min(4, pn) + 1) if pn % s == 0)
     sh = max(h for h in range(1, max(1, 4 // sw) + 1) if pm % h == 0)
@@ -85,6 +86,13 @@ class K1:
 
     def wrap(self, op, fn, getab):
         def w(*args, **kw):
+            try:
+                return inner(*args, **kw)
+            except Exception as e:  # the instrument must never kill the fold
+                self.refused.setdefault("instrument " + stack().split(" < ")[0], f"{type(e).__name__}: {e}"[:300])
+                return fn(*args, **kw)
+
+        def inner(*args, **kw):
             ck = kw.get("compute_kernel_config")
             if not fp32acc(ck):
                 return fn(*args, **kw)
