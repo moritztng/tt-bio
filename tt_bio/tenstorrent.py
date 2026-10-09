@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import contextlib
+import functools
 import gc
 import torch, ttnn, atexit
 from torch import nn
@@ -670,6 +671,21 @@ def levers(names):
         yield
     finally:
         _LEVERS = prev
+
+
+def model_levers(normal, fast) -> frozenset:
+    """The lever set a model builds and folds under: TT_BIO_LEVERS when a harness grades a set
+    through the serving path (no user sets it), else the model's graded set for the current mode."""
+    return parse_levers(os.environ.get("TT_BIO_LEVERS") or (fast if _FAST_MODE else normal))
+
+
+def under_levers(method):
+    """Run a model entry point under the model's own `_levers` (see `model_levers`)."""
+    @functools.wraps(method)
+    def run(self, *a, **kw):
+        with levers(getattr(self, "_levers", ())):
+            return method(self, *a, **kw)
+    return run
 
 
 # Blackhole dispatch on Ethernet cores instead of a Tensix column (spd-bh, measuring, default off).

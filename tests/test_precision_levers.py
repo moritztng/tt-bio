@@ -67,16 +67,29 @@ def test_checkpoint_entry_takes_the_modes_set(monkeypatch, tmp_path, fast, want)
 
 
 def test_fold_runs_under_the_models_levers_and_restores():
-    import tt_bio.protenix as P
+    import tt_bio.boltz2 as B
 
-    class M:
-        _levers = frozenset({"acc_off"})
+    for wrap in (T.under_levers, B._under_levers):
+        class M:
+            _levers = frozenset({"acc_off"})
 
-        @P._under_levers
-        def fold(self):
-            return T.lever("acc_off")
+            @wrap
+            def fold(self):
+                return T.lever("acc_off")
 
-    assert M().fold() is True and not T.lever("acc_off")
+        assert M().fold() is True and not T.lever("acc_off")
+
+
+def test_model_levers_take_the_mode_set_unless_a_harness_names_one(monkeypatch):
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "_FAST_MODE", False)
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == {"silu_f32"}
+    monkeypatch.setattr(T, "_FAST_MODE", True)
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == {"opm_b8"}
+    monkeypatch.setenv("TT_BIO_LEVERS", "none")
+    assert T.model_levers({"silu_f32"}, {"opm_b8"}) == frozenset()
+    monkeypatch.setenv("TT_BIO_LEVERS", "normal-trimul_ibw")
+    assert T.model_levers((), ()) == T.NORMAL_LEVERS - {"trimul_ibw"}
 
 
 def test_trimul_levers_reach_their_kernels_only_inside_the_set():

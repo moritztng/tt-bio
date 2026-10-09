@@ -49,6 +49,27 @@ class _LazyTenstorrent:
 tenstorrent = _LazyTenstorrent()
 
 
+# Boltz-2's precision levers (tenstorrent.LEVERS) per mode: the shared kernels' switches, graded on
+# this model's own accuracy set before a name goes in. Empty until spd-boltz2's grade; a harness
+# grades a candidate through the serving path with TT_BIO_LEVERS.
+LEVERS_NORMAL = frozenset()
+LEVERS_FAST = frozenset()
+
+
+def _under_levers(method):
+    """Run a device-building or folding entry point under the model's `_levers`."""
+    import functools
+
+    @functools.wraps(method)
+    def run(self, *a, **kw):
+        lv = getattr(self, "_levers", None)
+        if not lv:
+            return method(self, *a, **kw)
+        with tenstorrent.levers(lv):
+            return method(self, *a, **kw)
+    return run
+
+
 def _dram_peak(tag):
     """tenstorrent.dram_peak without importing ttnn when the census is off (CPU/GPU hosts)."""
     if os.environ.get("TT_BIO_DRAM_PEAK"):
@@ -5330,6 +5351,8 @@ class Boltz2(nn.Module):
         diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
+        self._levers = (tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_FAST)
+                        if use_tenstorrent else frozenset())
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
         if diffusion_trace:
@@ -5526,6 +5549,14 @@ class Boltz2(nn.Module):
             if use_tenstorrent
             else PairformerModule_(token_s, token_z, **pairformer_args)
         )
+        if use_tenstorrent:
+            # The trunk's own matmul fidelity (the `trunk_hifi3` lever), as Protenix-v2's trunk
+            # takes it. Without the lever or TT_BIO_TRUNK_MATH_FIDELITY it is HiFi4, as before.
+            with tenstorrent.levers(self._levers):
+                for trunk in (self.msa_module,) + (
+                        () if self.affinity_trunk_fp32 else (self.pairformer_module,)):
+                    trunk.compute_kernel_config = tenstorrent.trunk_compute_kernel_config(
+                        trunk.compute_kernel_config)
         if compile_pairformer:
             self.is_pairformer_compiled = True
             self.pairformer_module = torch.compile(
@@ -5732,6 +5763,12 @@ class Boltz2(nn.Module):
             self._tt_cond = cond
         return cond
 
+    @_under_levers
+    def load_state_dict(self, *a, **kw):
+        # The device modules are built here (TorchWrapper._load_from_state_dict).
+        return super().load_state_dict(*a, **kw)
+
+    @_under_levers
     def forward(
         self,
         feats: dict[str, Tensor],
