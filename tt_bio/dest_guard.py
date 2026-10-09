@@ -18,14 +18,18 @@ At K block 1 dest holds one K tile at a time and the packer adds the partial sum
   kernel (`mm_generic`), and `exposed()` tells kernels that keep all of K in dest (the trimul tail)
   to step aside.
 
-`TT_BIO_DEST_GUARD=0` turns it off, for A/B only. Blackhole and bf16-dest calls are untouched.
+`TT_BIO_DEST_GUARD=0` turns it off, for A/B only; a comma list of classes (pc, auto, mmm, gen, tail)
+guards only those, to attribute its cost. Blackhole and bf16-dest calls are untouched.
 """
 import functools
 import os
 
 import ttnn
 
-ENABLED = os.environ.get("TT_BIO_DEST_GUARD", "1") != "0"
+_CLASSES = ("pc", "auto", "mmm", "gen", "tail")
+_ENV = os.environ.get("TT_BIO_DEST_GUARD", "1")
+ENABLED = _ENV != "0"
+GUARDED = frozenset(_CLASSES if _ENV in ("0", "1") else _ENV.split(","))
 _ON = [False]                 # set by install() on a Wormhole device
 STATS = {"rewritten": 0, "kept": 0, "refused": 0}
 _REFUSED: dict = {}           # (op, shapes, config) -> the last refusal's error
@@ -46,14 +50,19 @@ def exposed(ckc) -> bool:
     return _ON[0] and ckc is not None and bool(getattr(ckc, "fp32_dest_acc_en", False))
 
 
-def exposed_args(ckc_args) -> bool:
+def tail_exposed(ckc) -> bool:
+    """`exposed`, for a kernel that keeps all of K in dest and steps aside (the trimul tail)."""
+    return exposed(ckc) and "tail" in GUARDED
+
+
+def exposed_args(ckc_args, cls="tail") -> bool:
     """`exposed` for `mm_generic.ckc_args`'s (fidelity, approx, fp32_dest_acc_en, dst_full_sync)."""
-    return _ON[0] and bool(ckc_args[2])
+    return _ON[0] and cls in GUARDED and bool(ckc_args[2])
 
 
 def descriptor(blk, ckc_args):
     """A generic minimal_matmul block (M, K, N, subblock_h, subblock_w) at K 1 when exposed."""
-    if blk is None or not exposed_args(ckc_args) or blk[1] == 1:
+    if blk is None or not exposed_args(ckc_args, "gen") or blk[1] == 1:
         return blk
     return (blk[0], 1) + tuple(blk[2:])
 
@@ -105,6 +114,8 @@ def _rewrite(op, a, b, kw):
     kw2 = dict(kw)
     kw2["compute_kernel_config"] = _l1acc(kw["compute_kernel_config"])
     if op == "minimal_matmul":
+        if "mmm" not in GUARDED:
+            return []
         c = kw.get("config")
         if c is None:
             g = a.device().compute_with_storage_grid_size()
@@ -119,10 +130,14 @@ def _rewrite(op, a, b, kw):
         return [kw2]
     pc = kw.get("program_config")
     if pc is not None:
+        if "pc" not in GUARDED:
+            return []
         if getattr(pc, "in0_block_w", 1) > 1:
             kw2["program_config"] = type(pc)(**{f: getattr(pc, f) for f in _PC_FIELDS if hasattr(pc, f)}
                                              | {"in0_block_w": 1})
         return [kw2]
+    if "auto" not in GUARDED:
+        return []
     kw2.pop("core_grid", None)
     out = []
     for cap in _AUTO_CAPS:

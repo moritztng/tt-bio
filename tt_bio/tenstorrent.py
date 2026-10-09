@@ -8501,7 +8501,7 @@ class TriangleMultiplication(Module):
         if _TRIMUL_INPROJ_ROWBLOCK:
             return no("inproj_rowblock_live")
         if (_TRIMUL_TAIL_F1 and self.p_out_bias is None and self.g_out_bias is None
-                and not _dest_guard.exposed(self.compute_kernel_config)
+                and not _dest_guard.tail_exposed(self.compute_kernel_config)
                 and _trimul_tail.eligible(x_norm_in, x_norm_in, self.out_p_weight,
                                           self.g_out_weight) is None):
             return no("f1_tail_serves")
