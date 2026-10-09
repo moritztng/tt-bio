@@ -299,7 +299,9 @@ def set_mask_fold(on: bool) -> bool:
 SIGPOLY = env_flag("TT_BIO_TRIMUL_SIGPOLY", False)
 # Round DST to bf16 nearest-even in those two kernels: bit 0 before the output pack, bit 1 before the p/g
 # packs, bit 2 (resident tail, EPI 2) the product before the residual add, whose move into srcA truncates.
-# Bits 0 and 1 measured null on the outputs (gm8): the packs round already.
+# Bits 0 and 1 measured null on the outputs (gm8): the packs round already. Bit 2 brings EPI 2 to one rounding
+# (tests/test_trimul_tail_epi.py's bound holds, rel_rms 0.00240 -> 0.00224) for +5 % tail time (gm9/gm10), so it
+# stays off: the fold grades pass without it.
 RNE = int(os.environ.get("TT_BIO_TRIMUL_RNE", "0"))
 RES_ABL = 0          # the resident compute's stage ablation (see its compute.cpp). Diagnostic only.
 RES_STATS = [0, 0]   # served by the resident program, declined to the 2D one
