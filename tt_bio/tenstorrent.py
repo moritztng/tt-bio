@@ -602,8 +602,13 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
 # 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
 # -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+# dit_sdpa: fires only where the token DiT runs bf16, which in normal mode is OpenDDE (Protenix-v2's
+# DiT is fp32 there, so it takes dit_sdpa32 and this one is inert). OpenDDE Wormhole 11-set grade
+# PASS, 44 paired folds against the normal set: top pose median 0.299 A (A/A seed floor 1.027 A),
+# every CI covers 0 or sits on the better side, ipTM -0.0010 inside CONF_TOL, docking 24/44 both;
+# 1.10x at 256 tokens, 1.16x at 730, 1.19x at 1024 end to end (state/spd-opendde.md g1, sp1).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard"})
+                           "transition_shard", "dit_sdpa"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
