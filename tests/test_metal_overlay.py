@@ -146,3 +146,25 @@ def test_a_second_enable_adds_to_the_overlay(monkeypatch, tmp_path):
     assert "BH_DRAM_READ_MAX_PACKET_SIZE" in (both / MO.DATAFLOW_API).read_text()
     assert "calculate_silu_f32" in (both / MO._SFPU.format(arch="blackhole") / "ckernel_sfpu_silu.h").read_text()
     assert os.environ["TT_METAL_CACHE"] == str(tmp_path / "jc" / both.name)
+
+
+@pytest.mark.parametrize("define,want", [
+    ("#define MEM_IERISC_FIRMWARE_SIZE MEM_ERISC_FIRMWARE_SIZE", False),   # stock 0.68.0
+    ("#define MEM_IERISC_FIRMWARE_SIZE (24 * 1024)", False),
+    ("#define MEM_IERISC_FIRMWARE_SIZE (40 * 1024)", True),               # scripts/ttnn_bh_eth
+    (None, False),                                                       # no Blackhole headers at all
+])
+def test_bh_eth_dispatch_supported(tmp_path, define, want):
+    if define is not None:
+        hdr = tmp_path / MO.BH_MEM_MAP
+        hdr.parent.mkdir(parents=True)
+        hdr.write_text(f"#define MEM_IERISC_FIRMWARE_BASE MEM_IERISC_L1_INLINE_END\n{define}\n")
+    assert MO.bh_eth_dispatch_supported(tmp_path) is want
+
+
+def test_bh_eth_dispatch_reads_the_users_runtime_root(tmp_path, monkeypatch):
+    hdr = tmp_path / MO.BH_MEM_MAP
+    hdr.parent.mkdir(parents=True)
+    hdr.write_text("#define MEM_IERISC_FIRMWARE_SIZE (40 * 1024)\n")
+    monkeypatch.setenv("TT_METAL_RUNTIME_ROOT", str(tmp_path))
+    assert MO.bh_eth_dispatch_supported()

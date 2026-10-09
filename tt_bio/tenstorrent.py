@@ -672,12 +672,12 @@ def levers(names):
         _LEVERS = prev
 
 
-# Blackhole dispatch on Ethernet cores instead of a Tensix column (spd-bh, measuring, default off).
-# Stock p150a firmware reports 12 Tensix columns (120 of the die's 140 cores); Tensix dispatch takes
-# one, so tt-bio computes on 11x10. Ethernet dispatch leaves all 12: 120 cores, +9.1 %. tt-metal
-# ships the descriptor (core_descriptors/blackhole_140_arch_eth_dispatch.yaml, 2xharvested: 12x10).
-# Single-chip boards only: a p300c's two chips are linked over Ethernet on the board.
-_BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", False)
+# Blackhole dispatch on Ethernet cores instead of a Tensix column. Stock p150a firmware reports 12 Tensix
+# columns; Tensix dispatch takes one, so tt-bio computes on 11x10. Ethernet dispatch leaves all 12: 120 cores,
+# +9.1 %. It needs a ttnn built with scripts/ttnn_bh_eth (stock 0.68.0 cannot fit the dispatch kernels on an
+# Ethernet core), so it is on only where metal_overlay.bh_eth_dispatch_supported() finds one.
+# TT_BIO_BH_ETH_DISPATCH=0 keeps Tensix dispatch.
+_BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", True)
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
@@ -7652,6 +7652,12 @@ def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
         acc.append(t)
 
 
+def bh_eth_dispatch() -> bool:
+    """Whether a Blackhole chip opens with Ethernet dispatch (the 12x10 grid) in this process."""
+    from .metal_overlay import bh_eth_dispatch_supported
+    return _BH_ETH_DISPATCH and bh_eth_dispatch_supported()
+
+
 def _open_and_init_device(trace_region_size):
     """Open + configure TT device 0 (the physical card is already leased by the caller)."""
     global _trace_region_size
@@ -7676,7 +7682,7 @@ def _open_and_init_device(trace_region_size):
     # hang). So decide up front from the physical chip count and open cleanly
     # once. Default (Tensix) dispatch yields an 8x7 grid that
     # _configure_active_compute_grid picks up and tunes for.
-    eth_dispatch = (is_wormhole() and num_chips() <= 1) or (_BH_ETH_DISPATCH and not is_wormhole())
+    eth_dispatch = num_chips() <= 1 if is_wormhole() else bh_eth_dispatch()
     kwargs = (
         {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
         if eth_dispatch else {}
