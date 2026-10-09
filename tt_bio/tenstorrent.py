@@ -566,11 +566,15 @@ _FAST_MODE = False
 #                   the adaLN outputs and the gated attention output are written bf16, the gate and
 #                   transition hidden linears write bf16; q/k/v, the residual updates and the residual
 #                   stream itself stay fp32. Inert in bf16.
+#   dit_mm16        the fp32 token DiT's linears on bf16 operands with fp32 accumulation (`k1_linear`):
+#   atom_k1         the fp32 diffusion atom transformer's linears on `k1_linear`'s program (Wormhole:
+#                   one K tile per dest pass), same formats. Inert in bf16 and on Blackhole.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8", "transition_b8",
           "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in", "trimul_gin", "trunk_hifi3",
-          "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16")
+          "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
+          "atom_k1")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "dit_mm16", "atom_k1"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2337,13 +2341,15 @@ _SDPA32_PAD_MASK = -1e4
 _SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
-def mm16_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None):
-    """`x @ w (+ bias)` for bf16 `x` and `w`, accumulated in fp32 dest and written at `dtype`.
+def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None):
+    """`x @ w (+ bias)` accumulated in fp32 dest and written at `dtype`, any operand formats.
 
-    The `dit_mm16` lever's matmul. On Wormhole the program takes one K tile per dest pass: fp32
-    dest accumulation of more than one K tile returns +-2 / +-4 on ~1e-7 of the outputs there
-    (state/spd-wherr.md), and in0_block_w 1 is the blocking with no wrong pixel in any draw of the
-    diffusion shapes (perf/spd_difflin/op_probe.py). Blackhole takes ttnn's own program.
+    The matmul of the `dit_mm16` and `atom_k1` levers. On Wormhole the program takes one K tile
+    per dest pass: fp32 dest accumulation of more than one K tile returns +-2 / +-4 on ~1e-7 of
+    the outputs there (state/spd-wherr.md), and in0_block_w 1 is the blocking with no wrong pixel
+    in any draw of the diffusion shapes (perf/spd_difflin/op_probe.py). It is also the faster
+    program for the atom transformer's narrow fp32 linears (529 -> 467 us at [5,5919,128] x
+    [128,128]). Blackhole takes ttnn's own program.
     """
     if activation == "silu":
         compute_kernel_config = silu_ckc(compute_kernel_config)
@@ -10721,7 +10727,7 @@ class AttentionPairBias(Module):
 
     def enable_mm16(self):
         """The `dit_mm16` lever on this token-level instance: its three linears read a bf16 input
-        and bf16 weights and accumulate in fp32 (`mm16_linear`). q/k/v and the output projection
+        and bf16 weights and accumulate in fp32 (`k1_linear`). q/k/v and the output projection
         are still written fp32 (the attention and the residual take them); the gate is written
         bf16 and the gated attention output, which only the output projection reads, too.
         Rounded on the host from the device copies, once."""
@@ -10961,7 +10967,7 @@ class AttentionPairBias(Module):
         if mm16 is not None and s.dtype != ttnn.bfloat16:
             s = ttnn.typecast(s, ttnn.bfloat16)
         if not self.atom_level:
-            qkv = (mm16_linear(s, mm16["qkv_weight"], mm16["qkv_bias"], dtype=ttnn.float32,
+            qkv = (k1_linear(s, mm16["qkv_weight"], mm16["qkv_bias"], dtype=ttnn.float32,
                                compute_kernel_config=self.compute_kernel_config)
                    if mm16 is not None else
                    ttnn.linear(
@@ -11172,12 +11178,12 @@ class AttentionPairBias(Module):
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
         if mm16 is not None:
-            g = mm16_linear(s, mm16["g_weight"], dtype=ttnn.bfloat16,
+            g = k1_linear(s, mm16["g_weight"], dtype=ttnn.bfloat16,
                             compute_kernel_config=self.compute_kernel_config)
             o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
                               dtype=ttnn.bfloat16)
             ttnn.deallocate(g)
-            x = mm16_linear(o, mm16["o_weight"], dtype=ttnn.float32,
+            x = k1_linear(o, mm16["o_weight"], dtype=ttnn.float32,
                             compute_kernel_config=self.compute_kernel_config)
             ttnn.deallocate(o)
             return x

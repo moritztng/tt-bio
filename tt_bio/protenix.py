@@ -592,6 +592,24 @@ class AtomTransformer(_KeyedWeights, Module):
             fp32_dest_acc_en=False, packer_l1_acc=False)
         self._sdpa32 = _ATOM_SDPA32 and dtype == ttnn.float32 and _ATOM_SUPERSET
         self._kvwin = _ATOM_KV_WINDOW
+        # atom_k1: the fp32 linears on k1_linear's program (one K tile per dest pass on Wormhole).
+        self._k1 = _T.lever("atom_k1") and dtype == ttnn.float32
+
+    def _lin(self, x, wkey, bkey=None, activation=None):
+        w = self._w_tt(wkey)
+        # One K tile leaves the program no K blocking to choose: those keep the shared path.
+        if not self._k1 or int(w.padded_shape[0]) <= 32:
+            return super()._lin(x, wkey, bkey, activation)
+        return _T.k1_linear(x, w, self._w_tt(bkey, False) if bkey else None, dtype=self.dtype,
+                            activation=activation, compute_kernel_config=self.compute_kernel_config)
+
+    def _lin_g(self, q_norm, apb):
+        """The attention gate's linear: no narrow-projection offer and the input's dtype, as before."""
+        key = apb + "attention.linear_g.weight"
+        if self._k1:
+            return self._lin(q_norm, key)
+        return ttnn.linear(q_norm, self._w_tt(key), compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)
 
     def _adaln_mod(self, pre):
         # Cache the AdaLN module per prefix: constructing it re-uploads its 4 weights
@@ -828,8 +846,7 @@ class AtomTransformer(_KeyedWeights, Module):
         q_norm = self._adaln(a, s, apb + "layernorm_a.", t.get("a"))
         kv_norm = self._adaln(q_norm, s, apb + "layernorm_kv.", t.get("kv"))
         o = self._attention(q_norm, kv_norm, p, apb, N, NP, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
@@ -977,8 +994,7 @@ class AtomTransformer(_KeyedWeights, Module):
             o = self._attention_superset(q_norm, kv_norm, apb, N, NP, zs)
         else:
             o = self._attention_m(q_norm, kv_norm, p, apb, N, NP, M, pad_bias, z_pre=z_pre)
-        g = ttnn.linear(q_norm, self._w_tt(apb + "attention.linear_g.weight"),
-                        compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        g = self._lin_g(q_norm, apb)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
@@ -1247,7 +1263,7 @@ class DiffusionModule(_KeyedWeights):
         # dit_sdpa32: the fp32 DiT's attention as one SDPA program on a token axis padded by
         # sdpa32_rows; _token_dit_device pads and slices, finish_bias builds the padded mask.
         self._dit_sdpa32 = _T.lever("dit_sdpa32") and self._dit_dtype == ttnn.float32
-        # dit_mm16: the fp32 DiT's linears on bf16 operands, fp32 accumulation (_T.mm16_linear).
+        # dit_mm16: the fp32 DiT's linears on bf16 operands, fp32 accumulation (_T.k1_linear).
         self._dit_mm16 = _T.lever("dit_mm16") and self._dit_dtype == ttnn.float32
         self._dit = []
         for b in range(self.DIT_BLOCKS):
@@ -1707,7 +1723,7 @@ class DiffusionModule(_KeyedWeights):
         ln_dt = ttnn.bfloat16 if mm16 else None
 
         def lin16(x, wk, dtype, act=None):
-            return _T.mm16_linear(x, self._w_tt16(wk), dtype=dtype, activation=act,
+            return _T.k1_linear(x, self._w_tt16(wk), dtype=dtype, activation=act,
                                   compute_kernel_config=ckc)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t, dtype=ln_dt)
