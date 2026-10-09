@@ -121,6 +121,8 @@ LEVERS = {
     "tb88": [(TTL.set_block, (8, 8, 8, 1, 4))],
     "tb48": [(TTL.set_block, (4, 8, 8, 1, 4))],
     "gin": [(T.set_trimul_gated_inproj, True)],
+    "nores": [(TTL.set_res, False)],
+    "nomf": [(TTL.set_mask_fold, False)],
 }
 
 
@@ -306,7 +308,7 @@ for var in A.variants.split(","):
         prev = apply(arm_setters(arm))
         try:
             back0 = list(RB.STATS_BACK)
-            tail0, resid0 = list(TTL.STATS), list(TTL.RESID_STATS)
+            tail0, resid0, mf0 = list(TTL.STATS), list(TTL.RESID_STATS), TTL.MASK_STATS[0]
             fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32), T._trimul_ibw_full(), T._TRIMUL_SUBBLOCK).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
@@ -321,6 +323,8 @@ for var in A.variants.split(","):
             fired["gate_lean"] = RB.GATE_LEAN
             fired["subblock"] = T._TRIMUL_SUBBLOCK
             fired["tail_resid"] = [a - b for a, b in zip(TTL.RESID_STATS, resid0)]
+            fired["tail_res"] = list(TTL.RES_STATS)
+            fired["mask_fold"] = TTL.MASK_STATS[0] - mf0
         finally:
             restore(prev)
         outs[arm] = yt

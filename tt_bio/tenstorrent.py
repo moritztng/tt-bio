@@ -408,6 +408,8 @@ _FAST_MODE = False
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 #   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
+#   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
+#                   weights-resident kernel (`_TRIMUL_GATED_INPROJ`, `trimul_tail.gin_moved`)
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
@@ -415,9 +417,15 @@ _FAST_MODE = False
 #                   of float64 at 32 SFPU instructions a row against the wheel's 92 (kernels/silu_f32)
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trunk_hifi3", "dit_sdpa32", "silu_f32")
+          "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in"})
+# trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
+# PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
+# (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
+# the native pose and gin does not (every warm fold agrees), plus four 9W89 warm folds that move between
+# two wrong poses (state/spd-trimul.md, 2026-10-09). gin only fires above ~640 tokens, so the 11-set grade
+# (PASS) is 8/11 inert complexes and does not decide it.
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -8205,19 +8213,22 @@ class TriangleMultiplication(Module):
         self._gp_cache[key] = chunks
         return chunks
 
-    def _gp_in_gated(self, C: int, group: int) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
+    def _gp_in_gated(self, C: int, group: int,
+                     transposed: bool = False) -> list[tuple[ttnn.Tensor, ttnn.Tensor]]:
         """Per channel chunk, the in-projection's `([p_a | p_b], [g_a | g_b])` weights.
 
         The columns of `_gp_in_chunks`, regrouped so one `trimul_tail` call computes
         `a = p_a * sigmoid(g_a)` and `b` alike as the two halves of its split output.
+        `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`.
         """
-        key = (C, group, gp_roles())
+        key = (C, group, gp_roles(), transposed)
         cached = self._gp_gated_cache.get(key)
         if cached is None:
             sc = C * group
             col = lambda t, r: t[:, gp_off(r, sc):gp_off(r, sc) + sc]  # noqa: E731
             dev = lambda t: ttnn.from_torch(  # noqa: E731
-                t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+                (t.t() if transposed else t).contiguous(), layout=ttnn.TILE_LAYOUT,
+                device=self.device, dtype=ttnn.bfloat16)
             cached = [
                 (dev(torch.cat([col(t, "p_a"), col(t, "p_b")], dim=-1)),
                  dev(torch.cat([col(t, "g_a"), col(t, "g_b")], dim=-1)))
@@ -8700,6 +8711,7 @@ class TriangleMultiplication(Module):
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
                     a_chunk = b_chunk = None
+                    a_masked = False
                     # Set only where the chunk really was left in the move's own (0,3,1,2)
                     # layout. All three channel-move branches can leave it there now; the census
                     # below records which one each call took.
@@ -8720,7 +8732,8 @@ class TriangleMultiplication(Module):
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
-                    if (a_chunk is None and _TRIMUL_GATED_INPROJ and bias_i is None
+                    if (a_chunk is None and (_TRIMUL_GATED_INPROJ or lever("trimul_gin"))
+                            and bias_i is None
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
                             and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
@@ -8731,17 +8744,39 @@ class TriangleMultiplication(Module):
                         # x, each activation block read once for both passes, a and b written as
                         # two tensors. Only the plain channel moves are left.
                         wa, wb = self._gp_in_gated(chunk_size, group)[i]
-                        ab = _trimul_tail.fused_tail(
-                            x_norm_in, x_norm_in, wa, wb,
-                            _mm_generic.ckc_args(self.compute_kernel_config),
-                            tuple(COMPUTE_GRID_MAIN), split=2)
-                        branch = "gated-inproj-declined"
+                        ckc = _mm_generic.ckc_args(self.compute_kernel_config)
+                        if _trimul_tail.GIN_MOVE and defer:
+                            # The channel moves fused in as well (both chunks leave as (0,3,1,2)
+                            # moves once the matmul takes the inner swap).
+                            wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
+                            fold = mask is not None and _trimul_tail.gin_moved_ok(x_norm_in, wpT, mask)
+                            ab = _trimul_tail.gin_moved(x_norm_in, wpT, wgT, ckc,
+                                                        tuple(COMPUTE_GRID_MAIN),
+                                                        mask=mask if fold else None)
+                            if ab is not None:
+                                a_chunk, b_chunk = ab
+                                a_masked = fold
+                                branch = "gated-inproj-moved"
+                                defer_a = perm_a == (0, 3, 2, 1)
+                                defer_b = perm_b == (0, 3, 2, 1)
+                        # The pair mask rides in the same kernel where it can (`a` only, row-wise
+                        # m[x, y] before the move, which is what the moved multiply below applies).
+                        fold = mask is not None and _trimul_tail.mask_ok(mask, x_norm_in, wa)
+                        ab = None if a_chunk is not None else _trimul_tail.fused_tail(
+                            x_norm_in, x_norm_in, wa, wb, ckc,
+                            tuple(COMPUTE_GRID_MAIN), split=2, mask=mask if fold else None)
+                        if a_chunk is None:
+                            branch = "gated-inproj-declined"
                         if ab is not None:
+                            a_masked = fold
+                            # No reallocate: freeing ab[0] leaves a hole under a_chunk, so it would
+                            # copy the whole chunk (1.3 ms at 736 on WH). The chunks end up above
+                            # the freed projection either way, as on the gated-move route.
                             a_chunk = self._transform_chunk(
-                                ab[0], perm_a, memory_config, realloc=n_pairs // group > 1,
+                                ab[0], perm_a, memory_config, realloc=False,
                                 defer_transpose=defer)
                             b_chunk = self._transform_chunk(
-                                ab[1], perm_b, memory_config, realloc=n_pairs // group > 1,
+                                ab[1], perm_b, memory_config, realloc=False,
                                 defer_transpose=defer)
                             branch = "gated-inproj"
                             if defer:
@@ -8857,7 +8892,7 @@ class TriangleMultiplication(Module):
                             if defer:
                                 defer_a = perm_a == (0, 3, 2, 1)
                                 defer_b = perm_b == (0, 3, 2, 1)
-                    if mask_moved_ok:
+                    if mask_moved_ok and not a_masked:
                         # Broadcast over the channel batch axis: [1,C,S,S] * [1,1,S,S]. If ttnn
                         # declines the in-place form for a broadcast operand, take `ttnn.multiply`
                         # into a fresh tensor and deallocate -- same bytes, one more allocation.
