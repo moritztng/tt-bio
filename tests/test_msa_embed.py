@@ -13,6 +13,10 @@ from tt_bio import tenstorrent as T
 
 pytestmark = pytest.mark.device
 
+TT_OOM = ("Out of Memory: Not enough space to allocate 4831838208 B DRAM buffer across 8 banks, "
+          "where each bank needs to store 603979776 B, but bank size is 4278190016 B (allocated: "
+          "3579670528 B, free: 698519488 B, largest free block: 504088512 B)")
+
 
 @pytest.fixture
 def dev():
@@ -71,3 +75,37 @@ def test_keep_holds_m_on_the_chip_and_the_env_override_still_wins(dev, monkeypat
     assert torch.equal(ttnn.to_torch(kept), parked)
     monkeypatch.setenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", "0")
     assert torch.is_tensor(T.msa_embed(up(), project, keep=m_bytes))
+
+
+def test_chunks_join_on_the_chip_when_keep_holds_m(dev, monkeypatch):
+    """Past the one-upload size but inside `keep`, `m` is joined on the chip, not streamed:
+    the chunk path's rows, on the device. 80 rows in 8-row chunks is 10 chunks, two join levels."""
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 80, n, c)
+    monkeypatch.delenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", raising=False)
+    monkeypatch.setattr(T, "MSA_HOST_OFFLOAD_MIN_BYTES", 0)
+    streamed = T.msa_embed(feat, project, 8)
+    assert torch.is_tensor(streamed)
+    kept = T.msa_embed(feat, project, 8, keep=80 * n * 64 * 2)
+    assert not torch.is_tensor(kept) and tuple(kept.shape) == (1, 80, n, 64)
+    assert torch.equal(ttnn.to_torch(kept), streamed)
+
+
+def test_a_refused_join_streams_the_same_rows(dev, monkeypatch):
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 80, n, c)
+    monkeypatch.delenv("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES", raising=False)
+    monkeypatch.setattr(T, "MSA_HOST_OFFLOAD_MIN_BYTES", 0)
+    streamed = T.msa_embed(feat, project, 8)
+    concat, calls = ttnn.concat, []
+
+    def refuse_second_level(parts, dim):
+        calls.append(len(parts))
+        if len(calls) > 2:      # level one is two groups (8 + 2), the join of those is refused
+            raise RuntimeError(TT_OOM)
+        return concat(parts, dim=dim)
+
+    monkeypatch.setattr(ttnn, "concat", refuse_second_level)
+    out = T.msa_embed(feat, project, 8, keep=80 * n * 64 * 2)
+    assert calls == [8, 2, 2]
+    assert torch.is_tensor(out) and torch.equal(out, streamed)
