@@ -202,7 +202,8 @@ if _ABLATE:
 
 # INSTRUMENT, never a shipped knob. `TT_BIO_TRIATT_GAPCAP=<file>` appends, for every 40th call, how
 # far a per-row bound on the softmax shift sits above the row's true max (perf/spd_trikern): in the
-# kernel's units s = q.k + bias, m = max_k s, c = max_k bias + |q| * max_k |k|, gap = scale * (c - m).
+# kernel's units s = q.k + bias, m = max_k s, c = max_k bias + |q| * max_k |k|, gap = scale * (c - m);
+# gaph is the same for the per-dimension Hoelder bound.
 # A DST-resident softmax that shifts by c instead of computing m needs every gap inside exp's window.
 _GAPCAP = os.environ.get("TT_BIO_TRIATT_GAPCAP", "")
 _GAPCAP_N = [0]
@@ -222,11 +223,17 @@ def _gapcap(q, k, bias, scale, every=40, rows=12):
     s = torch.einsum("bhqd,bhkd->bhqk", qt, kt) + bt
     m = s.amax(-1)
     c = bt.amax(-1) + qt.norm(dim=-1) * kt.norm(dim=-1).amax(-1, keepdim=True)
+    # Hoelder per dimension: c_h = max_k bias + sum_d |q_d| * max_k |k_d|, one small matmul in-kernel
+    ch = bt.amax(-1) + (qt.abs() * kt.abs().amax(-2, keepdim=True)).sum(-1)
     gap = (scale * (c - m)).flatten()
     gap = gap[torch.isfinite(gap)]
+    gh = (scale * (ch - m)).flatten()
+    gh = gh[torch.isfinite(gh)]
     q_ = torch.quantile(gap, torch.tensor([0.5, 0.99, 1.0]))
+    qh = torch.quantile(gh, torch.tensor([0.5, 0.99, 1.0]))
     rec = dict(call=_GAPCAP_N[0], shape=[int(d) for d in q.shape], scale=float(scale),
                gap_p50=float(q_[0]), gap_p99=float(q_[1]), gap_max=float(q_[2]),
+               gaph_p50=float(qh[0]), gaph_p99=float(qh[1]), gaph_max=float(qh[2]),
                m_scaled_max=float((scale * m).max()), m_scaled_min=float((scale * m).min()),
                bias_absmax=float(bt[torch.isfinite(bt)].abs().max()))
     with open(_GAPCAP, "a") as f:
