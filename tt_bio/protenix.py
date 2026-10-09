@@ -2701,13 +2701,15 @@ class Protenix:
         return out, confs
 
     def _confidence_for(self, aux, feats, coords):
-        """Confidence head for one prediction's coords (N,3). Same device/host split fold()
-        uses: the device path needs NT>=128, below which bf16 distance-embed rounding moves
-        the pLDDT head."""
+        """Confidence head for one prediction's coords (N,3). Same device/host split and the
+        same NT>=128 gate fold() uses, and like fold() it frees the resident tensors after."""
         s_inputs, s_trunk, z_trunk = aux["s_inputs"], aux["s_trunk"], aux["z_trunk"]
         if self.confidence_head.device_confidence_enabled() and aux["NT"] >= 128:
             z_base_dev = self.confidence_head.z_base_device(s_inputs, s_trunk, z_trunk)
-            return self.confidence_head.confidence_device(s_inputs, s_trunk, z_base_dev, coords, feats)
+            try:
+                return self.confidence_head.confidence_device(s_inputs, s_trunk, z_base_dev, coords, feats)
+            finally:
+                self.confidence_head.drop_device_resident()
         return self.confidence_head.confidence(s_inputs, s_trunk, z_trunk, coords, feats)
 
     def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None):
