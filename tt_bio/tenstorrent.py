@@ -414,14 +414,16 @@ _FAST_MODE = False
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 #   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
+#   trimul_gin      the trimul in-projection, both gates and the pair mask in one weights-resident
+#                   kernel, then plain channel moves (`_TRIMUL_GATED_INPROJ`)
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
-          "trunk_hifi3", "dit_sdpa32")
+          "trimul_gin", "trunk_hifi3", "dit_sdpa32")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "trimul_gin"})
 FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGRADED_LEVERS
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -8612,7 +8614,8 @@ class TriangleMultiplication(Module):
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
-                    if (a_chunk is None and _TRIMUL_GATED_INPROJ and bias_i is None
+                    if (a_chunk is None and (_TRIMUL_GATED_INPROJ or lever("trimul_gin"))
+                            and bias_i is None
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
                             and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
