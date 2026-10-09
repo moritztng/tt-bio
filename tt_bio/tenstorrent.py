@@ -11190,13 +11190,19 @@ MASK_TRANS_STATS = {"stacks": 0, "blocks": 0, "ones": 0, "declined_rank": 0, "de
 #         MSA  fc1 (silu) 150.2 -> 115.6    fc2  75.0 ->  44.6    fc3 116.1 -> 101.9 (1D)
 # bf16 pair fc3 is absent on purpose: in0_block_w 4 and 8 put rel_rms at 4.6e-3 / 2.6e-3 against
 # 1.74e-3 (the K partials round once per block), and so does MSA fc2 at 4 (2.35e-3), so it takes 2.
-# The 2D entries need N to split evenly over the grid's x, which holds on the Wormhole 8x9 grid; a
-# shape that does not fit keeps ttnn's pick.
+# OpenDDE's c=384 pair transition (rows 4 x 736, .114 mm2, same instrument): fc3's 12 output tiles
+# do not split over 8 columns, so it names a 6-column grid.
+#   bf16  fc1 (silu) 131.3 -> 107.9    fc2  90.7 ->  82.9    fc3 135.2 -> 122.9, rel_rms 2.45e-3 -> 1.72e-3
+#   bfp8  fc3 111.8 -> 107.2 (fc1/fc2 within 2 %: kept on ttnn's pick)
+# The 2D entries need N to split evenly over the grid's x (the entry's column count, else the
+# Wormhole 8x9 grid's); a shape that does not fit keeps ttnn's pick.
 _TRANSITION_BW = {
     ("fc1", 8, 32, False): (False, 8), ("fc2", 8, 32, False): (False, 8),
     ("fc1", 4, 16, False): (False, 4), ("fc2", 4, 16, False): (False, 2), ("fc3", 16, 4, False): (True, 2),
     ("fc1", 8, 32, True): (False, 8), ("fc2", 8, 32, True): (False, 8), ("fc3", 32, 8, True): (False, 8),
     ("fc1", 4, 16, True): (False, 4), ("fc2", 4, 16, True): (False, 4), ("fc3", 16, 4, True): (True, 2),
+    ("fc1", 12, 48, False): (False, 12), ("fc2", 12, 48, False): (False, 12), ("fc3", 48, 12, False): (False, 16, 6),
+    ("fc3", 48, 12, True): (False, 6, 6),
 }
 # Shape classes the device refused (a circular-buffer clash beside live L1): ttnn's pick from then on.
 _TRANSITION_BW_REFUSED: set = set()
