@@ -586,13 +586,19 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16",
           "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "atom_b8", "adaln_mod")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "atom_b8", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
 # the native pose and gin does not (every warm fold agrees), plus four 9W89 warm folds that move between
 # two wrong poses (state/spd-trimul.md, 2026-10-09). gin only fires above ~640 tokens, so the 11-set grade
 # (PASS) is 8/11 inert complexes and does not decide it.
+# atom_b8 is fast-only (inert in fp32). Fast grade (fast vs fast+atom_b8, same tree, Wormhole 11-set, 44 paired
+# folds) PASS: CA-lDDT -0.0008 [-0.0017, -0.0002] against the 0.03 bar, top pose median 0.185 A, docking 32 -> 32
+# of 44 (spd-difflin gf2, 2026-10-09). Saves 0.74 s of the Wormhole c730 fast sampler (32.15 -> 31.41 s, 1000 MHz).
+# atom_mm16 stays out of normal mode: the stack dit_mm16+dit_qkv16+atom_mm16 against normal (Wormhole 11-set,
+# 44 paired) moves CA-lDDT by -0.0010 [-0.0022, -0.0001], a CI that excludes 0 (spd-difflin g4); dit_mm16+dit_qkv16
+# alone pass (g3). The structure is not the problem (top pose median 0.145 A); the lDDT shift is.
 # dit_b8 is fast-only (inert in fp32). Fast grade (fast vs fast+dit_b8, same tree, Wormhole 11-set, 44 paired
 # folds) PASS: CA-lDDT -0.0122 [-0.0209, -0.0044] against the 0.03 bar, pLDDT -0.0021, docking 33 -> 33 of 44
 # (spd-difflin gf1, 2026-10-09). Saves 1.81 s of the Wormhole c730 sampler (34.95 -> 33.14 s, 1000 MHz).
