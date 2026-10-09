@@ -172,7 +172,8 @@ if a.which in ("atom", "all"):
     SAME["atom superset fp32 sdpa32 kvwin"] = "atom superset fp32 sdpa32"
 
 # ---- narrow pair projections: pairformer pair bias [1,S,S,256] @ [256,16] and PWA's [1,S,S,256] @ [256,8],
-# DRAM in and out, at the production K block (1) and the narrow_bw lever's (16), against a float64 matmul
+# DRAM in and out, at the production K block (1) and the whole contraction (16), against a float64 matmul.
+# WH .107 c29 (f95732a75): 736 4.34 / 4.33 / 4.42 ms (bw1 / bw16 / stock), ~72 GB/s: the K block is not the bound.
 if a.which in ("narrow", "all"):
     for S in a.ta_seq:
         for n_out in (16, 8):
