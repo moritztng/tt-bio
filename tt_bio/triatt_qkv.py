@@ -481,9 +481,51 @@ def gated_out_proj(o, g, w, ckc, resid=None):
                                   out.buffer_address()]
     writer.common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+    ref = _tail_check_ref(o, g, w, resid)
     ttnn.generic_op([o, g, w, out], pd)
+    if ref is not None:
+        _tail_check_log(ref, out, o, g)
     GOP_STATS[0] += 1
     return out
+
+
+# Diagnostic: TT_BIO_TRIATT_TAIL_CHECK=N compares the first N calls against float64 on the host and
+# appends one JSON line per call to TT_BIO_TRIATT_TAIL_CHECK_LOG.
+_CHECK_N = int(os.environ.get("TT_BIO_TRIATT_TAIL_CHECK", "0"))
+_CHECK = [0]
+
+
+def _tail_check_ref(o, g, w, resid):
+    if _CHECK[0] >= _CHECK_N:
+        return None
+    _CHECK[0] += 1
+    import torch
+    O, Gt, W = (ttnn.to_torch(t).double() for t in (o, g, w))
+    B, H, S, D = O.shape
+    x = (O * torch.sigmoid(Gt)).permute(0, 2, 1, 3).reshape(B, S, H * D)
+    u = x @ W
+    if resid is not None:
+        u = ttnn.to_torch(resid).double().reshape(u.shape) + u
+    return u
+
+
+def _tail_check_log(ref, out, o, g):
+    import json, torch
+    got = ttnn.to_torch(out).double().reshape(ref.shape)
+    err = got - ref
+    bad = int((~torch.isfinite(got)).sum())
+    err = torch.nan_to_num(err)
+    rel = float(err.norm() / ref.norm().clamp_min(1e-30))
+    i = int(err.abs().argmax())
+    G_ = ttnn.to_torch(g).float()
+    O_ = ttnn.to_torch(o).float()
+    rec = dict(call=_CHECK[0], shape=list(ref.shape), rel=rel, max_abs=float(err.abs().max()),
+               at=list(map(int, torch.unravel_index(torch.tensor(i), ref.shape))),
+               ref_at=float(ref.flatten()[i]), got_at=float(got.flatten()[i]), nonfinite=bad,
+               g_min=float(G_.min()), g_max=float(G_.max()), o_absmax=float(O_.abs().max()),
+               ref_absmax=float(ref.abs().max()))
+    with open(os.environ.get("TT_BIO_TRIATT_TAIL_CHECK_LOG", "/tmp/triatt_tail_check.jsonl"), "a") as f:
+        f.write(json.dumps(rec) + "\n")
 
 
 # --- R1b: the pair-bias projection rides the qkv+gate pass, so `x_norm` is read ONCE -------------
