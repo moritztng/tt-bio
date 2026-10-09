@@ -658,6 +658,33 @@ def silu_ckc(ckc):
     return out
 
 
+_B8_CKCS: dict = {}
+
+
+def bfp8_fidelity(ckc, a: ttnn.Tensor, b: ttnn.Tensor):
+    """`ckc` at HiFi2 for a matmul whose two operands are both bfloat8_b, else `ckc`.
+
+    HiFi2's two phases multiply srcA's high and low halves by srcB's high half, which already covers
+    every mantissa bit a bfloat8_b value carries, so HiFi3/HiFi4 only add phases that multiply zeros:
+    same bytes, fewer cycles (fast pair fc3, WH 8x9, AICLK 1000: 130.3 -> 118.1 us, digest identical at
+    HiFi4/3/2, perf/spd_swiglu/shard_bench.py --stages). The fast Transition module, digest identical:
+    WH sharded 42.15 -> 41.12 ms, BH 19.37 -> 18.42 ms (perf/spd_swiglu/b8fid_check.py).
+    """
+    if (ckc is None or ckc.math_fidelity not in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)
+            or a.dtype != ttnn.bfloat8_b or b.dtype != ttnn.bfloat8_b):
+        return ckc
+    key = (type(ckc), ckc.math_approx_mode, ckc.fp32_dest_acc_en, ckc.packer_l1_acc,
+           ckc.dst_full_sync_en, ckc.throttle_level)
+    out = _B8_CKCS.get(key)
+    if out is None:
+        out = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ckc.math_approx_mode,
+                        fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
+        out.dst_full_sync_en = ckc.dst_full_sync_en
+        out.throttle_level = ckc.throttle_level
+        _B8_CKCS[key] = out
+    return out
+
+
 def parse_levers(spec) -> frozenset:
     """A lever set from names (iterable or comma string); `fast`/`normal` expand to the mode sets.
     A string may add or drop names after its first term: `fast-lofi`, `normal+opm_b8`."""
@@ -11309,8 +11336,8 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype):
         # 2 pixels per 736-token call at HiFi3). One tile per block accumulates through the packer
         # instead and is clean at every fidelity (perf/spd_swiglu/outlier_stage.py).
         bw3 = 1 if ckc.fp32_dest_acc_en else pn
-        out = ttnn.linear(h, w3, program_config=cfg(bw3, ct // gx), compute_kernel_config=ckc, dtype=dtype,
-                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        out = ttnn.linear(h, w3, program_config=cfg(bw3, ct // gx), compute_kernel_config=bfp8_fidelity(ckc, h, w3),
+                          dtype=dtype, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: ttnn's path from then on
         for t in (x1, x2):
             if t is not None:
@@ -11465,9 +11492,12 @@ class Transition(Module):
             ttnn.deallocate(x_norm)
             x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
+            # Not on Wormhole: there this fc3 accumulates K blocks of 8 in an fp32 dest, and HiFi2 moves one
+            # element of 1.9M by 9.5e-7 (pair 736, b8fid_check --repeat 3, deterministic either way).
+            ckc = self.compute_kernel_config
             x_dram = _transition_linear(
                 "fc3", x, self.fc3_weight,
-                compute_kernel_config=self.compute_kernel_config,
+                compute_kernel_config=ckc if is_wormhole() else bfp8_fidelity(ckc, x, self.fc3_weight),
                 dtype=dtype,
                 memory_config=ttnn.DRAM_MEMORY_CONFIG,
             )
