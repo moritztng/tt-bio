@@ -7,6 +7,7 @@ Per arm: scale = <o, o64> / <o64, o64> - 1 over all outputs (a row-sum error in 
 mean signed error, mean |err|, max |err|, and the spread of the per-row scale. Arms:
   shipped  matmul / scale_add / softmax / matmul, fp32, HiFi4 (what normal mode runs without the lever)
   s32      `_sdpa32` as dit_sdpa32 ships it
+  shipped_stable  the same with softmax(numeric_stable=True)
   s32one   `_sdpa32` with v padded 48 -> 64 by ones and the output divided by its column 48: the kernel's own
            normaliser cancels, and numerator and denominator see the same bf16 probabilities and rescales
 """
@@ -87,12 +88,26 @@ o64 = torch.softmax(torch.einsum("mhid,mhjd->mhij", q_h.double(), k_h.double()) 
 q, k, v, bias = up(q_h), up(k_h), up(v_h), up(bias_h)
 
 
-def shipped():
+def probs(stable=False):
     sc = ttnn.matmul(q, k, transpose_b=True, core_grid=T.CORE_GRID_MAIN, compute_kernel_config=ckc)
     b = scale_add(sc, s, bias); ttnn.deallocate(sc)
-    p = ttnn.softmax(b, dim=-1, compute_kernel_config=ckc); ttnn.deallocate(b)
+    p = ttnn.softmax(b, dim=-1, compute_kernel_config=ckc, numeric_stable=stable); ttnn.deallocate(b)
+    return p
+
+
+def shipped(stable=False):
+    p = probs(stable)
     o = T.batched_matmul(p, v, compute_kernel_config=ckc); ttnn.deallocate(p)
     return o
+
+
+p64 = torch.softmax(torch.einsum("mhid,mhjd->mhij", q_h.double(), k_h.double()) * s + bias_h.double(), -1)
+for stable in (False, True):
+    ph = host(probs(stable))[..., :NT, :NT]
+    rs = ph.sum(-1) - 1
+    log(op=f"softmax_stable{int(stable)}", rowsum_err_mean=float(rs.mean()), rowsum_err_absmax=float(rs.abs().max()),
+        p_scale=float((ph * p64).sum() / (p64 * p64).sum() - 1), p_max_abs=float((ph - p64).abs().max()))
+    del ph
 
 
 def padrows(t):
@@ -108,16 +123,18 @@ def s32():
     return T._sdpa32(qp, kp, vp, mask, s)
 
 
+v1h = torch.ones(M, H, NP, TP); v1h[..., :D] = 0; v1h[:, :, :NT, :D] = v_h
+v1 = up(v1h)  # production would emit the ones column from the v projection (zero weights, bias 1)
+
+
 def s32one():
-    v1 = ttnn.pad(vp, [(0, 0), (0, 0), (0, 0), (0, TP - D)], value=1.0)
     o = T._sdpa32(qp, kp, v1, mask, s)
-    ttnn.deallocate(v1)
     r = ttnn.divide(o[:, :, :, :D], o[:, :, :, D:D + 1])
     ttnn.deallocate(o)
     return r
 
 
-for name, fn in (("shipped", shipped), ("s32", s32), ("s32one", s32one)):
+for name, fn in (("shipped", shipped), ("shipped_stable", lambda: shipped(True)), ("s32", s32), ("s32one", s32one)):
     try:
         a = fn(); ttnn.synchronize_device(dev); ah = host(a); ttnn.deallocate(a)
         b = fn(); ttnn.synchronize_device(dev); bh = host(b); ttnn.deallocate(b)
