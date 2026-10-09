@@ -91,13 +91,20 @@ def test_the_loose_budget_admitted_a_plan_the_allocator_refuses():
 WH_BANK = 1395424       # Wormhole, what the L1 allocator reports per bank (j10glx02)
 
 
-@pytest.mark.parametrize("grid, bank, first", [((8, 9), WH_BANK, 80), ((11, 10), BANK, 100)])
+def _trimul_cb(cfg):
+    """The trimul plan's bytes, including the tile-transpose CB `transpose_a` adds (= in0's CB)."""
+    return T._matmul_cb_bytes(cfg.in0_block_w, cfg.per_core_M, cfg.per_core_N, BF16,
+                              extra_tiles=2 * cfg.in0_block_w * cfg.per_core_M)
+
+
+@pytest.mark.parametrize("grid, bank, first", [((8, 9), WH_BANK, 70), ((11, 10), BANK, 80)])
 def test_trimul_block_narrows_only_where_the_band_overflows(monkeypatch, grid, bank, first):
     """The triangle product's K block is the band's until the shared pricer refuses it.
 
     Nesso-1 at 2560 aa + a 20-token ligand (Kt = 81 on Wormhole) threw a static CB clash at
     the band's in0_block_w = 9. Below the first overflowing Kt the config must be the band's,
-    byte for byte, because a different block is a different accumulation order.
+    byte for byte, because a different block is a different accumulation order. The first
+    overflow counts the transpose CB (Kt 80 / 100 without it).
     """
     monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", grid)
     monkeypatch.setattr(T, "_matmul_cb_budget", lambda: bank)
@@ -107,8 +114,28 @@ def test_trimul_block_narrows_only_where_the_band_overflows(monkeypatch, grid, b
             assert T._triangle_mul_program_config(kt).in0_block_w == T._trimul_in0_block_w(kt), kt
         cfg = T._triangle_mul_program_config(first)
         assert cfg.in0_block_w < T._trimul_in0_block_w(first)
-        assert T._matmul_cb_bytes(cfg.in0_block_w, cfg.per_core_M, cfg.per_core_N, BF16) <= bank
+        assert _trimul_cb(cfg) <= bank
         if grid == (8, 9):
             assert T._triangle_mul_program_config(81).in0_block_w == 3
+    finally:
+        T._triangle_mul_program_config.cache_clear()
+
+
+@pytest.mark.parametrize("grid, bank", [((8, 9), WH_BANK), ((11, 10), BANK)])
+def test_trimul_full_k_plan_fits_at_every_ladder_size(monkeypatch, grid, bank):
+    """`trimul_ibw` takes all of K where it fits and narrows where it does not, 256-2048 tokens.
+
+    Unpriced, the transpose CB let 1024 tokens on Wormhole ask 1774880 B of a 1499136 B L1 at
+    program creation, every rep (spd-orchestrator ladder, 2026-10-08).
+    """
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", grid)
+    monkeypatch.setattr(T, "_matmul_cb_budget", lambda: bank)
+    T._triangle_mul_program_config.cache_clear()
+    try:
+        for kt in range(8, 65):
+            cfg = T._triangle_mul_program_config(kt, True)
+            assert _trimul_cb(cfg) <= bank, kt
+        assert T._triangle_mul_program_config(23, True).in0_block_w == 23      # 736: unchanged
+        assert T._triangle_mul_program_config(32, True).in0_block_w == 16      # 1024: narrowed
     finally:
         T._triangle_mul_program_config.cache_clear()
