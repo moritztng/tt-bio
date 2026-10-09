@@ -2060,14 +2060,14 @@ class ConfidenceHead:
         confs = []
         for c in coords:
             logits = self._confidence_device_logits(s_inputs, s_trunk, z_base_dev, c, feats)
-            reads = [ttnn.from_device(t) for t in logits]
+            reads = [hostlane.read(t) for t in logits]
             for t in logits:
                 ttnn.deallocate(t)
             confs.append(hostlane.submit(self._postprocess_read, reads, feats))
         return [f.result() for f in confs]
 
     def _postprocess_read(self, reads, feats):
-        """`_postprocess` of one sample's logits as `from_device` returned them."""
+        """`_postprocess` of one sample's logits as `hostlane.read` returned them."""
         pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
         N = pae.shape[-2]
         return self._postprocess(pae.reshape(N, N, -1), pde.reshape(N, N, -1),
