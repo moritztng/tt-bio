@@ -31,6 +31,8 @@ ap.add_argument("--n", type=int, default=128)
 ap.add_argument("--params", default=A.DEFAULT_PARAMS)
 ap.add_argument("--threads", type=int, default=8)
 a = ap.parse_args()
+# One directory per arm, so arms can run side by side on one tree without renaming each other's output.
+A.OUT = A.OUT / f"spd_bc2_{a.arm}"
 
 # afgrad's own main() sets this; cmd_stack does not, and an unthrottled float64 graph took 13 cores of
 # a shared Galaxy host whose other rows' folds are host-sensitive.
