@@ -71,7 +71,12 @@ class _Probe:
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache():
+def _clean_cache(monkeypatch):
+    # The window under test is where neither row tile applies. Wormhole's small-grid tiles would
+    # chunk these shapes first (and hand the fake tensor to ttnn.chunk), so pin both to "off".
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(tenstorrent, "pair_row_tile", lambda L: 0)
+    monkeypatch.setattr(tenstorrent, "SMALL_GRID_SEQ_TILE", 0)
     E._UNBLOCKED_REFUSED.clear()
     E.WINDOW_FALLBACK_STATS[:] = [0, 0]
     yield

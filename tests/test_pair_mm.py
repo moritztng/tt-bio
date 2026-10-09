@@ -81,9 +81,11 @@ def test_transposed_weight_is_cached_per_object(monkeypatch):
 
 
 def test_armed_by_fast_round():
-    from tt_bio import bindcraft2
+    """Blackhole arms it; Wormhole keeps it off (`bindcraft2._BLACKHOLE_ONLY`, graded on BH only)."""
+    from tt_bio import bindcraft2, tenstorrent
+    armed_here = not tenstorrent.is_wormhole()
     with bindcraft2.fast_round() as armed:
-        assert armed["PAIR_MM_FUSED"] is True and pair_mm.PAIR_MM_FUSED is True
+        assert armed["PAIR_MM_FUSED"] is armed_here and pair_mm.PAIR_MM_FUSED is armed_here
     assert pair_mm.PAIR_MM_FUSED is False
     assert ops._pair_mm is pair_mm
 
