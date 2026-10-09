@@ -528,22 +528,27 @@ def search_rigid_contact(coords, feats, core=None):
     radii_out = [5.5, 7.5, 10.0, 15.0, 20.0]
     todo = torch.nonzero(~satisfied).squeeze(1)
     if core != "off":
+        # poses are placed for the unsatisfied samples only (per-sample ops: same values)
+        t_fit, t_fitted, t_contacts, t_tc = fit[todo], fitted[todo], fitted_contacts[todo], tc[todo]
+
         def candidates(normal):
+            normal = normal[todo]
             for turn in turns:
-                rotation = torch.linalg.matrix_exp(skew_matrix(normal * turn, fit))
-                rotated = torch.bmm(fitted, rotation.transpose(1, 2))
-                rot_contacts = torch.bmm(fitted_contacts, rotation.transpose(1, 2))
+                rotation = torch.linalg.matrix_exp(skew_matrix(normal * turn, t_fit))
+                rotated = torch.bmm(t_fitted, rotation.transpose(1, 2))
+                rot_contacts = torch.bmm(t_contacts, rotation.transpose(1, 2))
                 for radius in radii_out:
-                    shift = tc + radius * normal[:, None]
+                    shift = t_tc + radius * normal[:, None]
                     yield rotated + shift, rot_contacts + shift
 
         for start in range(0, len(normals), SEARCH_CHUNK_NORMALS):
-            placed = [c for normal in normals[start:start + SEARCH_CHUNK_NORMALS] for c in candidates(normal)]
-            tested += len(placed)
+            chunk = normals[start:start + SEARCH_CHUNK_NORMALS]
+            tested += len(chunk) * len(turns) * len(radii_out)
             if todo.numel() == 0:
                 continue
-            x = torch.stack([p for p, _ in placed], 1)[todo]
-            contact = torch.stack([c for _, c in placed], 1)[todo]
+            placed = [c for normal in chunk for c in candidates(normal)]
+            x = torch.stack([p for p, _ in placed], 1)
+            contact = torch.stack([c for _, c in placed], 1)
             clash_energy, bad = clash.score(x, todo)
             energy = 0.5 * score_contact(contact).square().sum(-1) + 10 * clash_energy
             index, taken = _take_first_best(energy, bad, todo, best_energy, feasible, improving, accepted)

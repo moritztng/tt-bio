@@ -467,17 +467,24 @@ def search_epitope(coords, feats, core=None):
         best_energy = torch.where(cur_bad, torch.full_like(cur_energy, float("inf")), cur_energy)
         todo = torch.nonzero(~entry_ok).squeeze(1)
 
+        # poses are placed for the unsatisfied samples only (per-sample ops: same values)
+        t_face, t_moving, t_tip, t_centroid = face[todo], moving[todo], tip[todo], centroid[todo]
+
         def placements(u):
-            align = rotation_aligning(face, -u)
-            aligned = torch.bmm(moving - tip[:, None], align.transpose(1, 2))
+            u = u[todo]
+            align = rotation_aligning(t_face, -u)
+            aligned = torch.bmm(t_moving - t_tip[:, None], align.transpose(1, 2))
             for i in range(SPINS):
                 rotated = torch.bmm(aligned, rotation_about(u, 2.0 * math.pi * i / SPINS).transpose(1, 2))
                 for radius in STANDOFFS:
-                    yield rotated + (centroid + radius * u)[:, None]
+                    yield rotated + (t_centroid + radius * u)[:, None]
 
         for start in range(0, len(axes), SEARCH_CHUNK_AXES):
-            x = torch.stack([p for u in axes[start:start + SEARCH_CHUNK_AXES] for p in placements(u)], 1)[todo]
-            tested += x.shape[1]
+            chunk = axes[start:start + SEARCH_CHUNK_AXES]
+            tested += len(chunk) * SPINS * len(STANDOFFS)
+            if todo.numel() == 0:
+                continue
+            x = torch.stack([p for u in chunk for p in placements(u)], 1)
             energy, bad = score_many(x, todo)
             index, taken = rc._take_first_best(energy, bad, todo, best_energy, feasible, improving, accepted)
             pick = torch.nonzero(taken).squeeze(1)
