@@ -538,11 +538,14 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # 0.326 A (floor 0.944 A), CA-lDDT +0.0013 [+0.0004, +0.0025], docking 34/44 both. c730 on a Galaxy chip
 # at AICLK 1000, warm A/B/A: normal 273.9 -> 270.0 s, fast 223.9 -> 216.3 s (spd-swiglu 2026-10-09).
 # It fires on the small (Wormhole) grids only until Blackhole has its own measurement.
-# Out of normal mode until re-graded: graded with fc3 at the shard-width K block, which at the trunk's
-# HiFi3 wrote 1-3 output pixels per call ~4.0 off float64 (fp32-acc erratum; perf/spd_swiglu/outlier_ab.py).
-# fc3 now takes K block 1 under fp32 acc: 0 such pixels over 4 seeds x 512/736 tokens. Fast mode runs acc
-# off, so its configuration is the graded one, unchanged and free of O(1) errors on the same check.
-NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32"})
+# The first normal grade had fc3 at the shard-width K block, which at the trunk's HiFi3 wrote 1-3 output
+# pixels per call ~4.0 off float64 (fp32-acc erratum; perf/spd_swiglu/outlier_ab.py). Under fp32 acc fc3
+# now takes K block 1: 0 such pixels over 4 seeds x 512/736 tokens. Re-graded vs staging10 (44 paired
+# folds): PASS, top pose median 0.156 A (floor 0.803 A), CA-lDDT +0.0004 [-0.0013, +0.0024], docking
+# 32 -> 33/44; cdk2x2_512 vs 1HCL +0.004 / +0.006 CA-lDDT per domain; c730 warm A/B/A 270.5 -> 267.1
+# -> 274.0 s. Fast runs acc off, so its configuration is the one graded there.
+NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32",
+                           "transition_shard"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused

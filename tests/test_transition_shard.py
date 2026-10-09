@@ -42,10 +42,9 @@ def test_blackhole_grid_takes_eight_columns(monkeypatch):
     assert tt._transition_shard_grid(230, 32, 8) == (8, 10)
 
 
-def test_lever_is_fast_only_until_regraded():
-    # fc3's K block changed under fp32 acc (normal), so only fast mode keeps its grade.
+def test_lever_is_in_both_modes():
     assert "transition_shard" in tt.LEVERS
     assert "transition_shard" not in tt.UNGRADED_LEVERS
     assert "transition_shard" in tt.FAST_LEVERS
-    assert "transition_shard" not in tt.NORMAL_LEVERS
+    assert "transition_shard" in tt.NORMAL_LEVERS
     assert "transition_shard" in tt.LATCH_STATS
