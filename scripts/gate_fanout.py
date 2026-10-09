@@ -698,7 +698,8 @@ def main() -> int:
             print(f"  {a}: " + " ".join(lg.name for lg in q))
         return 0
 
-    execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}")
+    # Per run, so a job a stopped run left in a pool can never share a directory with a new one.
+    execute = make_executor(sha, args.out, ledger, keys, f"out-{sha[:12]}/{args.out.name}")
     # Card-free legs run one at a time on the first host, as a worker without a card, so they
     # also stand aside while a timed leg holds that host quiet.
     try:
