@@ -1389,13 +1389,15 @@ constexpr uint32_t MASK_FREE_CB = tt::CBIndex::c_14;
 // c = max_k mask[r, k] + sum_d |q[r, d]| * max_k |k[k, d]| bounds every score of row r from above
 // (Hoelder per dimension). Every CB here is one the single-k-chunk path leaves idle: the mask row max
 // lives in cb_sum_A for the whole kernel, |Q| passes through cb_exp_max_diff, the column-max tile T
-// (row 0 = max_k |k_d|) through cb_max_B, and c lands in the max CB the loop pops at the q chunk's end.
+// (row 0 = max_k |k_d|) through cb_max_A, and c lands in the max CB the loop pops at the q chunk's end.
 inline bool g_shift_rowmax_ready = false;
 
 template <uint32_t Sq_chunk_t, uint32_t Sk_chunk_t>
 void exp_shift_compute(uint32_t cb_q_in, uint32_t cb_k_in, uint32_t c_cb) {
     constexpr uint32_t cb_mask = tt::CBIndex::c_3, cb_scaler = tt::CBIndex::c_5;
-    constexpr uint32_t cb_rowmax = tt::CBIndex::c_29, cb_t = tt::CBIndex::c_28, cb_absq = tt::CBIndex::c_31;
+    // c_28 (cb_max_B) is NOT free: it is alias_cur_max, where c lands. c_27 (cb_max_A) is the previous max,
+    // read only when a second k chunk exists.
+    constexpr uint32_t cb_rowmax = tt::CBIndex::c_29, cb_t = tt::CBIndex::c_27, cb_absq = tt::CBIndex::c_31;
     if (!g_shift_rowmax_ready) {
         // The persistent mask is the same for every batch row this core runs: once.
         reconfig_data_format(cb_mask, cb_scaler);
