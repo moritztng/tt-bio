@@ -24,6 +24,7 @@ ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--S", type=int, default=736)
 ap.add_argument("--msa", type=int, default=16)
 ap.add_argument("--reps", type=int, default=5)
+ap.add_argument("--repeat", type=int, default=1, help="outputs per arm: >1 tells a fidelity change from a racy kernel")
 a = ap.parse_args()
 os.environ["TT_BIO_LEVERS"] = "fast"
 
@@ -75,9 +76,23 @@ for name, C, HID, rows in (("pair", 256, 1024, a.S), ("msa", 128, 512, a.msa)):
         for when, fn in (("before", lambda ckc, *_: ckc), ("after", REAL)):
             T.bfp8_fidelity = fn
             with T.levers(lv):
-                o = tr(x)
-                row[f"digest_{when}"] = hashlib.sha256(ttnn.to_torch(o).float().numpy().tobytes()).hexdigest()[:16]
-                ttnn.deallocate(o)
+                outs = []
+                for _ in range(a.repeat):
+                    o = tr(x)
+                    outs.append(ttnn.to_torch(o).float())
+                    ttnn.deallocate(o)
+                digests = [hashlib.sha256(t.numpy().tobytes()).hexdigest()[:16] for t in outs]
+                row[f"digest_{when}"] = digests[0]
+                if a.repeat > 1:
+                    row[f"digests_{when}"] = digests
+                    row[f"ndiff_{when}"] = [int((t != outs[0]).sum()) for t in outs[1:]]
+                if when == "before":
+                    first = outs[0]
+                else:
+                    d = (outs[0] - first).abs()
+                    row["ndiff_after_vs_before"] = int((d > 0).sum())
+                    row["maxdiff_after_vs_before"] = float(d.max())
+                del outs
                 ts = []
                 t0 = time.monotonic()
                 for _ in range(a.reps):
