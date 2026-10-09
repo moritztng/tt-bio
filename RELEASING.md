@@ -38,7 +38,9 @@ PYTHONPATH="$PWD" python3 scripts/gate_fanout.py --sha <commit> --hosts hosts.js
 (the wheel's venv, see below), the card lock path and the environment the legs need
 (`ESM_ROOT`, `AF2IG_PARAMS`, `OF3_CKPT`, `OPENDDE_DOCKQ_PYTHON`, ...); the module docstring has
 the format. The runner builds its own tree at exactly `<commit>` on every host and never moves
-a shared checkout. Run it detached; re-running the same command resumes, because every passed
+a shared checkout. The first host in `--workers` resolves the packages from PyPI; every other host
+installs exactly that set, and the runner refuses to start if two hosts of one architecture still
+differ (a PyPI release between two preps once gave .107 and .114 different pandas and omegaconf). Run it detached; re-running the same command resumes, because every passed
 leg is in the ledger.
 
 **Reuse, never redo.** Each leg result is keyed by the content of every tracked file except
