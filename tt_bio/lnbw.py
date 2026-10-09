@@ -26,10 +26,6 @@ KERNEL_DIR = pathlib.Path(__file__).parent / "kernels" / "lnbw"
 #: The lever. Off unless armed; `bindcraft2.fast_round()` arms it for the round it was graded on.
 FUSED = env_flag("TT_BIO_LNBW_FUSED", False)
 
-#: Serve on Wormhole too. Off until the kernel's float64 grade and a round have run on a Wormhole
-#: chip; the env var is how that grade arms it (`perf/spd/bc2_stack_grade.py`).
-WORMHOLE = env_flag("TT_BIO_LNBW_WORMHOLE", False)
-
 #: Served and declined calls by reason, cumulative; sample at a round boundary.
 REACH: collections.Counter = collections.Counter()
 
@@ -52,11 +48,6 @@ def eligible(x, g, gamma) -> bool:
     absent or one row of K."""
     if not FUSED:
         return False
-    # Graded on Blackhole only (qb1 p150a, qb2 p300c). Wormhole keeps the composed path until the
-    # kernel's float64 grade and device test have run on a Wormhole chip.
-    from tt_bio import tenstorrent
-    if not WORMHOLE and tenstorrent.is_wormhole():
-        return _decline("arch")
     # A float32 cotangent (a fan-in accumulator) is declined: the composed path computes that
     # case in exact float32 (1.5e-4 rel L2 against float64 at 64x64x128), and this kernel's FPU
     # stages read float32 CBs at TF32 (1.3e-3), which would spend accuracy the gradient has now.

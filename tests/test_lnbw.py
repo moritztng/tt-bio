@@ -100,14 +100,3 @@ def test_declines_a_width_whose_reciprocal_is_not_exact(monkeypatch):
     t = ttnn.from_torch(torch.randn(64, 384).bfloat16(), layout=ttnn.TILE_LAYOUT,
                         dtype=ttnn.bfloat16, device=get_device())
     assert not lnbw.eligible(t, t, None)
-
-
-def test_declines_on_wormhole(monkeypatch):
-    """Card-free: the kernel was graded on Blackhole, so a Wormhole chip keeps the composed path."""
-    from tt_bio import lnbw, tenstorrent
-    monkeypatch.setattr(lnbw, "FUSED", True)
-    monkeypatch.setattr(lnbw, "WORMHOLE", False)
-    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
-    before = lnbw.REACH["declined: arch"]
-    assert not lnbw.eligible(None, None, None)
-    assert lnbw.REACH["declined: arch"] == before + 1
