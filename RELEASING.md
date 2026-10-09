@@ -48,11 +48,29 @@ Markdown and pyproject's version line, the interpreter's installed packages, the
 the leg's exact command. A leg whose key already passed is not run again and the verdict names
 the run it reused. Recorded measurements (`perf/**.txt` files with a `RECORDED-AT:` line) are
 not part of the key either, so re-recording them in the release commit reuses everything; the
-card-free legs always run, and `pytest_cpu` is where a stale recording fails. So a docs-only
-commit, or the release commit's version bump and re-recordings, costs nothing,
-and a grade-time crossmodel or suite run done through `gate_fanout.py --legs 'rg:*'` on the same
-wheel venv counts for the release. Any change to code, tests, data, fixtures, packages or card
-type is a new key and runs fresh.
+card-free legs always run, and `pytest_cpu` is where a stale recording fails. The gate baselines
+(`docs/size_ladder_baseline*`, `docs/perf_baselines.json`, `docs/capacity_gate_baseline.json`)
+key only the legs that compare against them, so re-recording the size ladder reruns the ladder
+legs and nothing else. So a docs-only commit, or the release commit's version bump and
+re-recordings, costs nothing, and a grade-time crossmodel or suite run done through
+`gate_fanout.py --legs 'rg:*'` on the same wheel venv counts for the release. Any change to code,
+tests, data, fixtures, packages or card type is a new key and runs fresh. `--legs` also takes
+`!glob` to leave legs out.
+
+**Baselines a new lever owes.** A census lever that lands without a size-ladder row fails every
+ladder leg at every rung, which the gate only learns after folding the whole ladder.
+`tests/test_size_ladder_baseline_levers.py` reads the same fact from the baseline in under a
+second, so run the CPU suite before a gate. When it is red, record the missing levers on every
+card type, one fold per rung, refused unless every other lever still matches:
+
+```bash
+python3 scripts/gate_fanout.py --sha <commit> ... --legs 'record:*' \
+    --record-lever SDPA_FUSED_PADDED --out ~/gates/record-<sha9>
+```
+
+The fragments land in `<out>/recorded/<card_type>/<model>.json`; copy them over
+`docs/size_ladder_baseline.d/` in the release commit. The ladder legs then rerun against them and
+every other leg is reused.
 
 **Duplicates.** The parity gate runs `release_gate.py`'s boltzgen, opendde-abag, capacity,
 nesso1 and rf3-1024aa arms in-process with the same arguments and adds a drift check, so the
