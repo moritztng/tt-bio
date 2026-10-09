@@ -183,7 +183,8 @@ class Leg:
 
 
 def build_legs(roster: dict, test_files: list, shards: int) -> list:
-    legs = [Leg("check", ["PY", "scripts/full_parity_gate.py", "--check", "--workdir", "{OUT}"], "check",
+    legs = [Leg("check", ["PY", "scripts/full_parity_gate.py", "--check", "--workdir", "{OUT}",
+                         "--workers", "localhost:0"], "check",
                 card=False),
             Leg("packaging_smoke", ["PY", "scripts/packaging_smoke.py"], "packaging_smoke", card=False),
             Leg("pytest_cpu", ["PY", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--tb=short"],
