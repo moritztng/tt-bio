@@ -8817,14 +8817,27 @@ class TriangleMultiplication(Module):
         # Gated on the tensor's OWN bytes, not on SEQ_LEN_MORE_CHUNKING: the row-blocked path costs
         # 43 % per call, and only a tensor too big to allocate is worth paying that for. See the
         # constant.
+        #
+        # Under the gate the whole-tensor norm is tried and a refusal falls to the row blocks: the
+        # byte line cannot see fragmentation. OpenDDE's refiner at 1024 residues is bucketed to 2048
+        # structural tokens, exactly 3 GiB, and DRAM refused it with 8 GB free but a largest free
+        # block 3 MB per bank short of the request.
         row_norm = prod(shp) * (2 if x.dtype == ttnn.bfloat16 else 4) > TRIMUL_IN_NORM_ROWBLOCK_BYTES
-        x_norm_in = None if row_norm else ttnn.layer_norm(
-            x,
-            weight=self.in_norm_weight,
-            bias=self.in_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
-        )
+        x_norm_in = None
+        if not row_norm:
+            from tt_bio.size_limits import is_alloc_refusal
+            try:
+                x_norm_in = ttnn.layer_norm(
+                    x,
+                    weight=self.in_norm_weight,
+                    bias=self.in_norm_bias,
+                    epsilon=1e-5,
+                    compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                )
+            except RuntimeError as exc:
+                if not is_alloc_refusal(exc):
+                    raise
+                row_norm = True
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
         memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
