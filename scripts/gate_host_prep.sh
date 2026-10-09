@@ -34,7 +34,8 @@ venv() {  # venv <dir> <python> [package installed after the wheel]
     if [ -f "$pins" ]; then
         # Another host's exact resolution of this commit (gate_fanout.py writes it), so a PyPI
         # release between two hosts' preps cannot give them different packages.
-        "$UV" pip install -q -p "$v/bin/python" -r "$pins"
+        # --no-deps: the set is final, and BindCraft 2's numpy 2 already overrides ttnn's pin in it.
+        "$UV" pip install -q -p "$v/bin/python" --no-deps -r "$pins"
         "$UV" pip install -q -p "$v/bin/python" --no-deps "$WHL"
         [ -z "${3:-}" ] || "$UV" pip install -q -p "$v/bin/python" --no-deps -e "$3"
     else
