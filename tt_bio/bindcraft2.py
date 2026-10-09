@@ -2183,14 +2183,6 @@ _FAST_ROUND = (
 #: env var still wins.
 _BLACKHOLE_ONLY = frozenset({"PAIR_MM_FUSED", "tri_att_g_in_matmul"})
 
-#: Rows that take a different value on Wormhole. The fused pair transpose under the tape holds
-#: ~3 GiB more through the Evoformer backward at 480 tokens (hIL2R + 64, `--memory fast`):
-#: 0.33 GiB free and an OOM on a 12 GiB Wormhole chip with it, 3.38 GiB free without, where the
-#: Wormhole base round has 2.70 (`perf/spd/bc2_ptleak.py`, `state/spd-bc2.md`). The retention
-#: moves with Python's cyclic collector, so it is not yet root-caused; Blackhole's 32 GiB
-#: absorbs it. A named env var still wins.
-_WORMHOLE_VALUES = {"PAIR_TRANSPOSE_FUSED": False}
-
 
 @contextlib.contextmanager
 def fast_round():
@@ -2215,8 +2207,6 @@ def fast_round():
             saved.append((target, attr, getattr(target, attr)))
             if wormhole and attr in _BLACKHOLE_ONLY:
                 value = getattr(target, attr)
-            elif wormhole and attr in _WORMHOLE_VALUES:
-                value = _WORMHOLE_VALUES[attr]
             setattr(target, attr, env_flag(env, value) if env else value)
         yield {attr: getattr(t, attr) for t, attr, _ in saved}
     finally:

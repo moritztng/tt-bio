@@ -104,7 +104,7 @@ Kernels that delete DRAM round trips from the AlphaFold 2 Evoformer's gradient. 
 [`TT_BIO_LNBW_FUSED`](#tt_bio_lnbw_fused) and [`TT_BIO_TRIATT_BW_FUSED`](#tt_bio_triatt_bw_fused).
 Outside a BindCraft 2 round every one keeps the composed path. On Wormhole `TT_BIO_PAIR_MM` and
 `TT_BIO_AF2_G_BIAS_IN_MATMUL` keep it too: on three input seeds of the float64 gradient grade they
-read worse than the composed path on one seed and better on two, which does not settle them. The round also turns `TT_BIO_PAIR_TRANSPOSE_FUSED` off on Wormhole: under the gradient tape it holds about 3 GiB more at 480 tokens, enough to run a 12 GiB chip out of memory. Setting a flag to `0` turns that kernel off even inside
+read worse than the composed path on one seed and better on two, which does not settle them. Setting a flag to `0` turns that kernel off even inside
 the round; `bindcraft2.predictor(fast=False)` turns all of them off together.
 
 | flag | what it replaces |
