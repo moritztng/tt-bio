@@ -21,9 +21,14 @@ upstream's ``--use_tfg_guidance true`` does to an unconstrained input.
 """
 from __future__ import annotations
 
+import logging
+import time
+
 from . import epitope, rigid
 from .engine import TFGEngine, default_guidance_config, parse_tfg_config
 from .rigid import RigidSchedule
+
+log = logging.getLogger(__name__)
 
 
 class Guidance:
@@ -62,6 +67,7 @@ class Guidance:
             probe = torch.empty(1, feats["atom_to_token_idx"].shape[-1], 3)
             (epitope.groups if epitope.active(feats) else rigid.contact_groups)(probe, feats)
         self.engine = TFGEngine(self.cfg)
+        self.seconds = 0.0                 # host time spent in step() since the last fold's first step
 
     def _x0_hook(self, x0, step_i):
         return epitope.guide_x0(x0, self.feats, step_i, self.schedule)
@@ -69,6 +75,16 @@ class Guidance:
     def step(self, x_noisy, x0, *, t_hat, sigma_t, eta, step, n_step):
         """One sampler step from x_noisy at t_hat to the next state at sigma_t, given the
         denoiser's x0. Shapes [M, N_atom, 3], fp32 host tensors."""
+        t0 = time.perf_counter()
+        if step == 0:
+            self.seconds = 0.0
+        x = self._step(x_noisy, x0, t_hat=t_hat, sigma_t=sigma_t, eta=eta, step=step, n_step=n_step)
+        self.seconds += time.perf_counter() - t0
+        if step == n_step - 1:
+            log.info("TFG guidance: %.1f s host time over %d steps", self.seconds, n_step)
+        return x
+
+    def _step(self, x_noisy, x0, *, t_hat, sigma_t, eta, step, n_step):
         x = self.engine.update(
             x_noisy, x0, t_hat=t_hat, c_tau=sigma_t, step_scale_eta=eta, step_i=step,
             num_diffusion_steps=n_step, feats=self.feats, x0_hook=self._x0_hook)
