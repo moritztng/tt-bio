@@ -1764,6 +1764,7 @@ class ConfidenceHead:
         self._w = dict(conf_state_dict)
         self.dev = device
         self.compute_kernel_config = compute_kernel_config
+        self._device_default = softmax_scope == "protenix"
         nb = 1 + max(int(re.search(r"pairformer_stack\.blocks\.(\d+)\.", k).group(1))
                      for k in self._w if k.startswith("pairformer_stack.blocks."))
         comb = {}
@@ -1865,16 +1866,15 @@ class ConfidenceHead:
     # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
     # run on device, and only the small final logits (pae/pde (N,N,64), plddt
     # (N_atom,50)) are downloaded. Feature-detected + gated behind
-    # TT_PROTENIX_CONF_DEVICE=1; off by default until PCC is verified (plddt is
-    # precision-sensitive: the host path is already PCC ~0.93 vs the reference,
-    # and moving the einsum to bf16 can regress it -- see the parity harness).
+    # TT_PROTENIX_CONF_DEVICE. On by default for Protenix-v2, where it passed the
+    # normal-mode grade (11 complexes x 4 seeds on Wormhole, pLDDT within 0.003 per
+    # complex); OpenDDE shares this class and keeps it opt-in until graded itself.
     # ---------------------------------------------------------------------------
-    @staticmethod
-    def device_confidence_enabled():
-        """True only if the user opted in (TT_PROTENIX_CONF_DEVICE=1) AND the
-        installed ttnn exposes every op the device path needs. Off otherwise
-        (the host-heads path in confidence() is the default)."""
-        if not env_flag("TT_PROTENIX_CONF_DEVICE", False):
+    def device_confidence_enabled(self):
+        """True if TT_PROTENIX_CONF_DEVICE (default: on for Protenix-v2, off for
+        OpenDDE) asks for it AND the installed ttnn exposes every op the device
+        path needs. Otherwise confidence() runs its host heads."""
+        if not env_flag("TT_PROTENIX_CONF_DEVICE", self._device_default):
             return False
         import ttnn
         need = ("clamp", "ge", "lt", "sqrt", "embedding", "layer_norm", "linear",
@@ -2864,7 +2864,7 @@ class Protenix:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
-            # Device-resident path (opt-in, TT_PROTENIX_CONF_DEVICE=1): keep z_base
+            # Device-resident path (TT_PROTENIX_CONF_DEVICE, see above): keep z_base
             # on device across samples -- pass the raw trunk z device tensor
             # straight in, skipping the (N,N,256) host round-trip the host-heads
             # path takes. Falls back to the host-heads path otherwise.

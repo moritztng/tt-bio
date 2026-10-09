@@ -951,7 +951,7 @@ moves a structure, next to the seed-to-seed spread.
 | `TT_BIO_TRIMUL_MM_TRANSPOSE` | on | The matmul takes a triangle multiplication's operand transpose. Bit for bit; `--fast` keeps the separate op. |
 | `TT_BIO_TRIMUL_TAIL_F1` | on | Output projection, gate projection and gate multiply as one kernel. Bit for bit. |
 | `TT_BIO_TRIMUL_TAIL_F1_L1_OUT` | on | Lands that fused tail's product in L1. Bit for bit. |
-| `TT_PROTENIX_CONF_DEVICE` | off | Protenix-v2 and OpenDDE: runs the confidence head on the card; a 730-token Protenix-v2 fold is about 6 % faster. Coordinates are unchanged and confidence scores match the default to 1e-4; off until it clears the full accuracy grade. |
+| `TT_PROTENIX_CONF_DEVICE` | on for Protenix-v2, off for OpenDDE | Runs the confidence head on the card; a 730-token Protenix-v2 fold is about 4 % faster. Coordinates are unchanged and confidence scores match the host path to 1e-4. Set `0` to run the heads on the host. |
 
 What each one is worth in seconds, at what clock, and how it was measured: [`docs/tuning-flags.md`](docs/tuning-flags.md).
 
