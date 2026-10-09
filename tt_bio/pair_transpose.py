@@ -5,9 +5,11 @@ ttnn runs it as untilize, row permute, tilize through ROW_MAJOR (`tenstorrent._p
 writes are row-granular scatter into DRAM (19 % of the copy roof). Tiling covers the last two axes,
 so swapping the untiled S1 with the tile-row axis S2 moves single rows between tiles; done in L1
 instead, the DRAM side is one read and one write of whole tiles. A unit is the 32 x 32 tile block
-(It, Jt) of one channel tile: the reader brings the 32 input tiles of row-block It, the writer
-gathers row q of each into output tile q with local NoC reads and writes the 32 out. No compute
-kernel; bit-exact by construction. The work split is rne_add's.
+(It, Jt) of one channel tile: the reader brings the 32 input tiles of row-block It, row q of each is
+gathered into output tile q with local NoC reads, and the writer writes the 32 out. In the split
+kernels (the default, `PAIR_TRANSPOSE_SPLIT`) the reader gathers the first QR output tiles while the
+next unit's reads land and the writer the rest; the plain pair leaves the whole gather to the writer.
+No compute kernel; bit-exact by construction. The work split is rne_add's.
 """
 
 from __future__ import annotations
@@ -28,13 +30,17 @@ _ELEM = {ttnn.bfloat16: 2, ttnn.float32: 4}
 #: On by default: it moves the same elements, so it cannot change a fold, and it is faster wherever
 #: `shape_ok` admits it. Measured against the ROW_MAJOR round trip at Protenix-v2's [S, S, 256] bf16,
 #: torch.equal at every length (perf/spd_attn/opbench.py pair): Wormhole (Galaxy chip, 1000 MHz)
-#: 9.66 -> 4.05 ms at 736, 15.36 -> 6.37 at 928, 25.05 -> 10.41 at 1184, 2.4x each. A recording tape
+#: 9.66 -> 3.16 ms at 736, 15.36 -> 4.94 at 928, 25.04 -> 8.09 at 1184 with the split kernels, ~3.1x. A recording tape
 #: still declines it unless its kernel list names it (`eligible`). TT_BIO_PAIR_TRANSPOSE_FUSED=0 is the A/B.
 PAIR_TRANSPOSE_FUSED = env_flag("TT_BIO_PAIR_TRANSPOSE_FUSED", True)
 
-#: Output tiles per unit the READER shuffles (split kernels), 0 for the plain pair where the writer does
-#: all 32. The plain writer shuffles and then writes, serially, while its reader idles between tile reads.
-PAIR_TRANSPOSE_SPLIT = int(os.environ.get("TT_BIO_PAIR_TRANSPOSE_SPLIT", "0"))
+#: Output tiles per unit the READER shuffles (split kernels); 0 is the plain pair, where the writer
+#: shuffles all 32 and then writes them while its reader idles between tile reads. The split reader
+#: prefetches the next unit and shuffles its share meanwhile. Wormhole at [736, 736, 256] bf16, every
+#: arm torch.equal: plain 4.05 ms, QR 2/4/6/8/10/12/16/24 3.66/3.64/3.30/3.16/3.17/3.58/3.78/4.17 ms;
+#: at 1184 plain 10.38, QR 8 8.09 ms (175 GB/s, 0.71 of the DRAM roof). The reader's DRAM reads share
+#: its NoC with its shuffle, so past ~10 tiles it becomes the slow side.
+PAIR_TRANSPOSE_SPLIT = int(os.environ.get("TT_BIO_PAIR_TRANSPOSE_SPLIT", "8"))
 
 #: (calls served, calls declined), cumulative; sample at a round boundary.
 STATS = [0, 0]
