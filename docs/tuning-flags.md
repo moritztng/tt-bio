@@ -21,7 +21,10 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
-| [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves |
+| [`TT_BIO_ATOM_KV_WINDOW`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
+| [`TT_BIO_ATOM_SDPA32`](#tt_bio_atom_sdpa32) | on | fp32 atom attention (normal mode) | moves, closer to float64 |
+| [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves, inside the bar |
+| [`TT_BIO_ATOM_TILE_HEADS`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
@@ -46,7 +49,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_PAIR_FFN_L1_FC1`](#tt_bio_pair_ffn_l1_fc1) | on | ESMFold2 | identical |
 | [`TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`](#tt_bio_pair_inplace-tt_bio_trimul_inproj_rowblock_norm) | on | large pair tensors | identical |
 | [`TT_BIO_PAIR_MM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
-| [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2, Blackhole | gradients only |
+| [`TT_BIO_PAIR_TRANSPOSE_FUSED`](#tt_bio_pair_transpose_fused) | on | pair tensors, forward and backward | identical |
 | [`TT_BIO_PWA_FUSED_HEADS`, `TT_BIO_PWA_UNPADDED`](#msa-module-flags) | on | MSA models; graded on Protenix-v2 | moves, inside the bar |
 | [`TT_BIO_PWA_BATCH_HEAD_WEIGHTS`](#tt_bio_pwa_batch_head_weights) | on | | identical |
 | [`TT_BIO_REBLOCK_PERMUTE_GATED`](#tt_bio_reblock_permute_gated) | on | | identical |
@@ -67,7 +70,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_TRIATT_DIVIDING_K`](#tt_bio_triatt_dividing_k) | on | OpenFold3 at 832 tokens | moves, inside the bar |
 | [`TT_BIO_TRIATT_FUSED_QKVG`](#tt_bio_triatt_fused_qkvg) | on | | identical |
 | [`TT_BIO_TRIATT_FUSED_QKVGB`](#tt_bio_triatt_fused_qkvgb) | on | | identical |
-| [`TT_BIO_TRIATT_QK_MASK_PRELOAD`](#tt_bio_triatt_qk_mask_preload) | off | fused triangle attention | moves |
+| [`TT_BIO_TRIATT_QK_MASK_PRELOAD`](#tt_bio_triatt_qk_mask_preload) | on | fused triangle attention | moves, inside the bar |
 | [`TT_BIO_TRIMUL_FUSED_GOUT`](#tt_bio_trimul_fused_gout) | on | | identical |
 | [`TT_BIO_TRIATT_GATE_EPILOGUE`](#tt_bio_triatt_gate_epilogue) | off | | identical |
 | [`TT_BIO_TRIATT_HIFI_PAD_UP`](#tt_bio_triatt_hifi_pad_up) | on | BindCraft 2, and OpenFold3 at 544 and 608 tokens | moves, far inside the bar |
@@ -205,8 +208,45 @@ attention is the same function. The windows become five aligned slices and one c
 **Accuracy: the same attention up to rounding.** In float64 the superset output matches the
 128-key window to 1e-12 at 33 to 5,919 atoms and one to five samples
 (`tests/test_atom_superset_window.py`). On the device the softmax and attn@v reduce over 160 keys
-instead of 128, so the result is not bit-exact. The fold-level grade and speed are in progress.
+instead of 128, so the result is not bit-exact. It was graded together with
+`TT_BIO_ATOM_TILE_HEADS` and the triangle-attention flags `TT_BIO_SDPA_FUSED_PADDED` and
+`TT_BIO_TRIATT_QK_MASK_PRELOAD` on Protenix-v2, 11 complexes x 4 seeds: the same-seed top-pose deviation
+has a median of 0.31 A on Wormhole and 0.10 A on Blackhole against the 0.60 A bar, while re-running
+with another seed moves it 0.8 A. Docking success and every confidence score are unchanged within
+their confidence intervals.
+
+**Speed** of that set on the Protenix-v2 730-token fold: 505.85 to 454.98 s on a Wormhole Galaxy
+chip at 1000 MHz (1.11x), 247.98 to 213.89 s on a Blackhole p150a at 1350 MHz (1.16x). The atom
+attention module alone goes from 29.1 to 9.9 ms per call on Wormhole and 15.4 to 4.7 ms on Blackhole.
 `TT_BIO_ATOM_SUPERSET_WINDOW=0` restores the windowed path.
+
+## `TT_BIO_ATOM_TILE_HEADS`, `TT_BIO_ATOM_KV_WINDOW`
+
+Default: on. Both write the identical structure.
+
+`TT_BIO_ATOM_TILE_HEADS` splits the superset path's query, key and value heads and merges the
+output without leaving tile layout, instead of a row-major pad and permute each way.
+`TT_BIO_ATOM_KV_WINDOW` acts when the atom attention runs as one fused kernel (`TT_BIO_ATOM_SDPA32`
+in normal mode, `atom_sdpa` under `--fast`): the kernel reads each block's keys, values and queries
+straight from the head tensor as sliding windows, so the five slices and the concat are gone.
+On a Wormhole chip it halves the fused call: 6.28 to 3.03 ms in fp32 and 3.08 to 1.46 ms in bf16.
+
+## `TT_BIO_ATOM_SDPA32`
+
+Default: on.
+
+Normal mode runs the atom attention in fp32 as four device calls: scores, scale plus bias, softmax,
+and the weighted sum of values. This flag runs all four as one fused fp32 attention kernel, the same
+recipe the diffusion transformer uses. It is inert in bf16, where `--fast` already fuses this site.
+
+**Accuracy: moves, closer to float64.** Against a float64 evaluation of the same operands the fused
+kernel reads rel_rms 0.0217, the four calls 0.0265. On Protenix-v2, 11 complexes x 4 seeds on
+Wormhole, the same-seed top-pose deviation has a median of 0.05 A against the 0.60 A bar and every
+paired metric's confidence interval covers zero.
+
+**Speed: 1.03x on the fold**, 450.58 to 436.39 s on the Protenix-v2 730-token fold on a Wormhole
+Galaxy chip at 1000 MHz (n=3 each, same chip). The atom attention call goes from 9.93 to 3.03 ms
+with `TT_BIO_ATOM_KV_WINDOW`. `TT_BIO_ATOM_SDPA32=0` restores the four calls.
 
 ## `TT_BIO_DEVICE_CONDITIONING`
 
@@ -772,6 +812,18 @@ past about 2500 tokens: Nesso-1 affinity at 3072 tokens runs the same speed with
 and at 3584 tokens it takes 741 s instead of 5166 s, with the same affinity. `0` on either flag
 restores the host join for that part.
 
+## `TT_BIO_PAIR_TRANSPOSE_FUSED`
+
+Default: on. Writes the identical structure.
+
+Swapping the i and j axes of a pair tensor, which the ending-node triangle ops do, went through a
+row-major round trip. This flag does it as one move kernel. On Protenix-v2's [736, 736, 256] bf16
+pair it takes 9.66 to 3.16 ms on a Wormhole chip at 1000 MHz and 5.16 to 1.82 ms on a Blackhole
+p150a at 1350 MHz, and saves 7.7 s on the 730-token fold on Wormhole (458.21 to 450.52 s, same
+chip, same digests). `TT_BIO_PAIR_TRANSPOSE_SPLIT` sets how many output tiles per unit the reader
+rearranges (default 8, the fastest on both architectures; 0 is the unsplit kernel).
+`TT_BIO_PAIR_TRANSPOSE_FUSED=0` restores the round trip.
+
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS`
 
 Default: on.
@@ -965,11 +1017,14 @@ This flag offers that pair once per call, right before the first stock rung, so 
 served fused today never reaches it.
 
 **Speed: 2.16x on the attention op** at Protenix-v2's 730-token call on a Wormhole chip at
-1000 MHz, 41.72 to 19.36 ms, measured per op. The fold-level number is in progress.
+1000 MHz, 41.72 to 19.36 ms, measured per op. With the mask preload and one even key chunk the call
+takes 15.45 ms on Wormhole and 6.91 ms on Blackhole (stock 21.42 ms). The fold-level number is under
+`TT_BIO_ATOM_SUPERSET_WINDOW`, which was measured and graded together with this flag.
 
 **Accuracy: not bit-exact**, because the chunking sets the online-softmax order. Against an fp32
 evaluation of the same bf16 operands the padded pair reads rel_rms 0.0226 against the stock op's
-0.0223. The fold-level grade is in progress. `TT_BIO_SDPA_FUSED_PADDED=0` restores the stock rungs.
+0.0223. The fold-level grade is under `TT_BIO_ATOM_SUPERSET_WINDOW` (passed on both
+architectures). `TT_BIO_SDPA_FUSED_PADDED=0` restores the stock rungs.
 
 ## `TT_BIO_SDPA_GRID_Q_CHUNK`
 
@@ -1306,7 +1361,7 @@ a performance case. It declines nothing at the sizes that matter: 560 fused call
 
 ## `TT_BIO_TRIATT_QK_MASK_PRELOAD`
 
-Default: off, until it is measured on a device.
+Default: on.
 
 The fused triangle-attention kernel adds the pair bias to the scores in a separate pass over the
 score block, after the QK^T matmul has written it. With this flag the kernel copies the bias tiles
@@ -1314,7 +1369,11 @@ into the destination registers first and lets the matmul accumulate onto them, s
 written once with the bias already in. That pass cost 1.17 ms of a 6.55 ms op in an ablation. Only
 the persistent-mask kernel uses it, and only where the add would run on every key chunk.
 
-**Accuracy: not bit-exact.** The score plus bias is rounded once instead of twice.
+**Accuracy: not bit-exact.** The score plus bias is rounded once instead of twice. Graded on the
+fold together with the other attention flags, see `TT_BIO_ATOM_SUPERSET_WINDOW`.
+
+**Speed:** 8-11 % on the triangle-attention op on Wormhole at every length measured (736 tokens:
+17.17 to 15.85 ms at 1000 MHz); nothing measurable on Blackhole (6.85 vs 6.83 ms).
 
 ## `TT_BIO_TRIMUL_FUSED_GOUT`
 
