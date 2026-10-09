@@ -2708,7 +2708,10 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
 
     `chain_ids` is the reader's chain list, one id per asym_id in order. Without it the chains
     are written A, B, C..., so a ligand submitted as L came back as B and any script selecting
-    a chain by the id it submitted read the wrong one."""
+    a chain by the id it submitted read the wrong one.
+
+    A protein chain's terminal OXT that fails OpenDDE's geometry gates is rebuilt from the
+    CCD ideal carboxylate before writing (tt_bio.oxt), on a copy of `coords`."""
     import biotite.structure as struc
     import biotite.structure.io.pdbx as _pdbx
     import numpy as np
@@ -2750,6 +2753,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
         arr.element[i] = z2sym.get(int(znum[i]), "C")
         arr.hetero[i] = is_lig_tok[t] or mod is not None
     outpath = Path(outpath)
+    # an OXT the diffusion left on O/C or detached is rebuilt from the CCD geometry
+    # (OpenDDE 6685cef); arr.coord is already a copy, the caller's coords are untouched
+    from tt_bio.oxt import repair_terminal_oxt_from_feats
+    arr.coord, _ = repair_terminal_oxt_from_feats(arr.coord, feats, arr.atom_name, arr.res_name,
+                                                  where=outpath)
     if output_format == "pdb":
         write_atom_array(arr, outpath)
     else:
