@@ -10,6 +10,7 @@ Run it pinned, which the session guard in `conftest.py` enforces:
     TT_VISIBLE_DEVICES=2 PYTHONPATH=/path/to/BindCraft2 python3 -m pytest \\
         tests/test_bindcraft2_hw.py -s
 """
+import gc
 import os
 import pathlib
 import subprocess
@@ -264,7 +265,11 @@ def test_switching_checkpoints_hands_the_last_one_back(capsys):
     different design model, and every reload used to leave the evicted checkpoint's pair weights
     on card, so held DRAM climbed round after round until the allocator refused. Alternating two
     checkpoints does the same at the cost of a few rounds: once both have been loaded once,
-    every further round is identical work and the card must hold the same bytes after it."""
+    every further round is identical work and the card must hold the same bytes after it.
+
+    The rounds run with the cycle collector off: an evicted trunk must be freed by its last
+    reference going away, not by whenever CPython's collector next runs, which is what a long
+    campaign sees between collections."""
     import ttnn
     from bindcraft.af2 import MULTIMER_POOL
 
@@ -286,9 +291,14 @@ def test_switching_checkpoints_hands_the_last_one_back(capsys):
     with bindcraft2.predictor(trunk="device", checkpoints=params, resident=1) as build:
         model = build(presets=names, models=names, data_dir=str(params), max_cache_size=1,
                       num_recycle=1, length_bucket_size=32)
-        for i in range(6):
-            model.sequence_gradients(protein_states, losses, model=names[i % 2])
-            readings.append(held())
+        gc.collect()
+        gc.disable()
+        try:
+            for i in range(6):
+                model.sequence_gradients(protein_states, losses, model=names[i % 2])
+                readings.append(held())
+        finally:
+            gc.enable()
         loads = dict(build.pool.selections)
     # Without the lever there is nothing for the fix to release and this would pass for nothing.
     assert pair_mm.STATS[0] > served, "pair_mm served no call, so this measured nothing"

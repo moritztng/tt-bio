@@ -40,6 +40,7 @@ all-ones mask still takes the None path, so every fold PXDesign runs today is un
 from __future__ import annotations
 
 import collections
+import functools
 import hashlib
 
 import torch
@@ -118,6 +119,20 @@ SUBSTITUTION_CLASSES = {
 }
 SUBSTITUTION_CLASSES["all"] = tuple(
     name for names in list(SUBSTITUTION_CLASSES.values()) for name in names)
+
+
+def _to_card(t: torch.Tensor, device) -> ttnn.Tensor:
+    return ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                           device=device, dtype=ttnn.bfloat16)
+
+
+def _to_host(t: ttnn.Tensor, dtype: torch.dtype, shape: tuple | None = None) -> torch.Tensor:
+    """Back to host torch, leading ones squeezed down to `shape`'s rank (to rank 3 without one)."""
+    x = torch.Tensor(ttnn.to_torch(t))
+    while x.dim() > (3 if shape is None else len(shape)) and x.shape[0] == 1:
+        x = x.squeeze(0)
+    assert shape is None or tuple(x.shape) == tuple(shape), f"device gave {tuple(x.shape)}, want {shape}"
+    return x.to(dtype)
 
 
 def _host_twins(block, msa_mask: torch.Tensor, pair_mask: torch.Tensor) -> dict:
@@ -468,18 +483,23 @@ class AF2DeviceTemplatePairStack:
     `AF2PairBlock` with `evoformer_order=False` -- the template runs the attentions before the
     multiplications -- at the template's own widths. It takes the same `mask_2d` the trunk does,
     through the same `af2_pair_masks`; the template's pair stack is the same four ops.
+
+    It holds the device and the dtype, not the model's own `_up`/`_down`: a bound method here
+    closes a reference loop through the model (model -> stack -> method -> model), and a trunk
+    in a loop is freed only when the cyclic collector next runs, with all its device weights.
+    BindCraft 2 evicts trunks a hundred times a trajectory, so they piled up on the card.
     """
 
-    def __init__(self, blocks: list, up, down):
-        self.blocks, self._up, self._down = blocks, up, down
+    def __init__(self, blocks: list, device, dtype: torch.dtype):
+        self.blocks, self.device, self.dtype = blocks, device, dtype
 
     def __call__(self, act: torch.Tensor, mask_2d: torch.Tensor) -> torch.Tensor:
         masks = af2_pair_masks(mask_2d)
         shape = tuple(act.shape)
-        z = self._up(act)
+        z = _to_card(act, self.device)
         for block in self.blocks:
             z = block(z, *masks)
-        out = self._down(z, shape)
+        out = _to_host(z, self.dtype, shape)
         ttnn.deallocate(z)
         return out
 
@@ -1072,7 +1092,7 @@ class AF2DeviceModel(AF2Model):
                              fused_hifi=self._fused_hifi("template"))
                 for i in range(len(self.template.pair_stack))]
             self._template_stack = AF2DeviceTemplatePairStack(
-                self.device_template, self._up, self._down)
+                self.device_template, self._device, self.trunk_dtype)
             self.set_template_host(self.template_host)
         self.device_single = AF2SingleActivations(scoped("single_activations."), ckc)
         zero = torch.zeros((), dtype=self.trunk_dtype)
@@ -1084,15 +1104,10 @@ class AF2DeviceModel(AF2Model):
     # ------------------------------------------------------------------ the boundary
 
     def _up(self, t: torch.Tensor) -> ttnn.Tensor:
-        return ttnn.from_torch(t.unsqueeze(0).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
-                               device=self._device, dtype=ttnn.bfloat16)
+        return _to_card(t, self._device)
 
     def _down(self, t: ttnn.Tensor, shape: tuple) -> torch.Tensor:
-        x = torch.Tensor(ttnn.to_torch(t))
-        while x.dim() > len(shape) and x.shape[0] == 1:
-            x = x.squeeze(0)
-        assert tuple(x.shape) == tuple(shape), f"device gave {tuple(x.shape)}, want {shape}"
-        return x.to(self.trunk_dtype)
+        return _to_host(t, self.trunk_dtype, shape)
 
     @property
     def _device_blocks(self) -> list:
@@ -1170,13 +1185,6 @@ class AF2DeviceModel(AF2Model):
         for block in self.device_extra_msa + self.device_evoformer:
             block.skip = self.skip
 
-    def _down_unshaped(self, t: ttnn.Tensor) -> torch.Tensor:
-        """`_down` for the substitution bridge, which knows the op but not the rank."""
-        x = torch.Tensor(ttnn.to_torch(t))
-        while x.dim() > 3 and x.shape[0] == 1:
-            x = x.squeeze(0)
-        return x.to(self.trunk_dtype)
-
     def _install_substitution(self, msa_mask: torch.Tensor, pair_mask: torch.Tensor) -> None:
         """Point every Evoformer block's substituted ops at their host-torch twins.
 
@@ -1186,7 +1194,9 @@ class AF2DeviceModel(AF2Model):
         """
         for block, host in zip(self.device_evoformer, self.evoformer):
             block.substitute = self.substitute
-            block.host_ops = (self._down_unshaped, self._up,
+            # Not bound methods: those would loop the blocks back to the model.
+            block.host_ops = (functools.partial(_to_host, dtype=self.trunk_dtype),
+                              functools.partial(_to_card, device=self._device),
                               _host_twins(host, msa_mask, pair_mask))
 
     def _tap(self, tag: str, **payload) -> None:
