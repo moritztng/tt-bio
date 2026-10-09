@@ -18,7 +18,7 @@ ap.add_argument("--reps", type=int, default=3)
 ap.add_argument("--nomask", action="store_true")
 ap.add_argument("--abl", default="", help="time only, moved route: stage ablation bits, e.g. 1,2,4,8,16")
 ap.add_argument("--nb", default="", help="time only, moved route: writer tiles per read barrier, e.g. 1,4,8")
-ap.add_argument("--sigpoly", action="store_true", help="add a 'moved_poly' route: the polynomial sigmoid")
+ap.add_argument("--sigpoly", action="store_true", help="add 'moved_poly' and 'today_poly' routes: the polynomial sigmoid")
 ap.add_argument("--only-timing", action="store_true", help="skip the two-route check, run only --abl/--nb")
 A = ap.parse_args()
 
@@ -104,14 +104,23 @@ if A.only_timing:
 
 out = {}
 def moved_poly():
-    TT.GIN_SIGPOLY = True
+    TT.SIGPOLY = True
     try:
         return moved()
     finally:
-        TT.GIN_SIGPOLY = False
+        TT.SIGPOLY = False
 
 
-routes = (("today", today), ("moved", moved)) + ((("moved_poly", moved_poly),) if A.sigpoly else ())
+def today_poly():
+    TT.SIGPOLY = True
+    try:
+        return today()
+    finally:
+        TT.SIGPOLY = False
+
+
+routes = (("today", today), ("moved", moved)) + (
+    (("moved_poly", moved_poly), ("today_poly", today_poly)) if A.sigpoly else ())
 for name, f in routes:
     rec = {"route": name}
     try:

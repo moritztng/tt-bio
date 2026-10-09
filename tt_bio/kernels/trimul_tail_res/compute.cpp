@@ -18,6 +18,7 @@
 #include "api/compute/eltwise_unary/sfpu_split_includes.h"
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_binary_sfpu.h"
+#include "../trimul_gin_moved/sigmoid_poly.hpp"
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -34,6 +35,7 @@ void kernel_main() {
     // bit 2 no matmul, bit 4 no gate math (the out block is still packed).
     constexpr uint32_t ABL = get_compile_time_arg_val(6);
     constexpr uint32_t MASK = get_compile_time_arg_val(7);
+    constexpr uint32_t SIGPOLY = get_compile_time_arg_val(8);   // 1: sigmoid_poly.hpp's polynomial
     const uint32_t nblocks = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t in0_cb = tt::CBIndex::c_0;
@@ -68,7 +70,10 @@ void kernel_main() {
                         i1 += Nt;
                     }
                     if (pass == 1 && !(ABL & 1)) {
-                        for (uint32_t i = 0; i < SBW; ++i) sigmoid_bf16_tile(i);
+                        for (uint32_t i = 0; i < SBW; ++i) {
+                            if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                            else sigmoid_bf16_tile(i);
+                        }
                     }
                     tile_regs_commit();
                     tile_regs_wait();
