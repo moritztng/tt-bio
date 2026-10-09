@@ -33,7 +33,7 @@ from typing import Optional
 
 import torch
 
-from tt_bio.tfg.neighbors import SparseClash
+from tt_bio.tfg.neighbors import SparseClash, square_length
 
 # Identical to upstream opendde.data.constants.rdkit_vdws (118 entries, H..Og, index 0 = H).
 from tt_bio.data.const import vdw_radii as rdkit_vdws
@@ -310,12 +310,15 @@ def skew_matrix(w, like):
     return skew
 
 
-def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
+def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash, needed=None):
     """Shared force/torque descent with backtracking, used by the contact and epitope refinements.
 
     ``evaluate(x, gradient, terms=None)`` returns (energy, severe, depth, aux[, grad]); ``terms`` hands it
     clash terms already computed for x. ``satisfied_fn(aux)`` marks samples that are left alone. ``n_terms``
     is the number of contact terms (C pairs or K residues); ``clash`` is the backend (clash_core).
+    ``needed`` (moving-atom indices) are the atoms evaluate reads besides the clash pairs: given it, the batched
+    backtracking proposals are placed for those atoms and the pair list's atoms only, whenever a bound on the
+    rigid move proves the pair list valid for all of them (same values: a bmm row does not depend on the others).
     Returns (moving, accepted step count per sample).
     """
     samples = moving.shape[0]
@@ -356,15 +359,48 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
             shift = torch.cat([translation[:, None] * scale for scale in scales])
             return (turned + center.repeat(len(scales), 1, 1) + shift).view(len(scales), samples, n_moving, 3).transpose(0, 1)
 
+        def propose_rows(backtracks, rows):
+            """propose_many for the atoms `rows` only; every other atom is NaN (never read)."""
+            scales = [0.5**b for b in backtracks]
+            w = torch.cat([rotation * scale for scale in scales])
+            matrix = torch.linalg.matrix_exp(skew_matrix(w, identity.repeat(len(scales), 1, 1)))
+            turned = torch.bmm(centered[:, rows].repeat(len(scales), 1, 1), matrix.transpose(1, 2))
+            shift = torch.cat([translation[:, None] * scale for scale in scales])
+            out = torch.full((samples, len(scales), n_moving, 3), float("nan"), dtype=moving.dtype)
+            out[:, :, rows] = (turned + center.repeat(len(scales), 1, 1) + shift).view(
+                len(scales), samples, len(rows), 3).transpose(0, 1)
+            return out
+
+        def sparse_rows():
+            """Atoms the later proposals need, or None. Every later proposal moves an atom by at most
+            0.5 (|w| r_max + |t|) from `moving`, which is d0 from the list's build pose: if that stays a margin inside
+            the skin, the pair list's own check would pass too, so it is skipped and only listed atoms are read."""
+            pairs = getattr(clash, "list", None)
+            if needed is None or pairs is None or pairs.Q is None or pairs.Q.shape != moving.shape:
+                return None
+            d0 = float(square_length(moving - pairs.Q).max()) ** 0.5
+            r_max = float(square_length(centered).max()) ** 0.5
+            move = 0.5 * (float(torch.linalg.vector_norm(rotation, dim=-1).max()) * r_max
+                          + float(torch.linalg.vector_norm(translation, dim=-1).max()))
+            if not d0 + 1.01 * move + 1e-3 < pairs.skin - 2e-3:          # NaN falls back too
+                return None
+            return torch.unique(torch.cat([pairs.i, needed]))
+
         found = torch.zeros(samples, device=device, dtype=torch.bool)
         next_coords = moving.clone()
         later = None
+        rows = None
         for backtrack in range(10):
             if clash.batched and backtrack >= 1:
                 if later is None:
                     # The first proposal usually decides; the other nine go through the clash core together.
-                    proposals = propose_many(range(1, 10))
-                    later = proposals, clash.terms(proposals)
+                    rows = sparse_rows()
+                    if rows is None:
+                        proposals = propose_many(range(1, 10))
+                        later = proposals, clash.terms(proposals)
+                    else:
+                        proposals = propose_rows(range(1, 10), rows)
+                        later = proposals, clash.terms(proposals, trusted=True)
                 proposals, (e, sev, dep, _) = later
                 j = backtrack - 1
                 proposal = proposals[:, j]
@@ -382,7 +418,10 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
                 & (new_depth <= depth + 1e-6)
                 & (new_energy < energy - 1e-7)
             )
-            next_coords[accept] = proposal[accept]
+            if accept.any():
+                if rows is not None and backtrack >= 1:
+                    proposal = propose_many([backtrack])[:, 0]          # the full pose, same values as its rows
+                next_coords[accept] = proposal[accept]
             found |= accept
             if (found | satisfied).all():          # later proposals can accept nothing more
                 break
@@ -442,7 +481,7 @@ def refine_rigid_contact(coords, feats, iterations=40, core=None):
         return ((pair_d >= lower - 1e-6) & (pair_d <= upper + 1e-6)).all(-1)
 
     first_energy, first_severe, _, first_d = evaluate(moving)
-    moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash)
+    moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash, ri.unique())
     final_energy, final_severe, _, final_d = evaluate(moving)
     intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):

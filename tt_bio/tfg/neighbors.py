@@ -156,10 +156,12 @@ class SparseClash:
         reach = max(float(square_length(p - (ref if p.dim() == 3 else ref[:, None])).max()) for p in poses) ** 0.5
         self.list.build(ref, reach)
 
-    def terms(self, x, want_gradient=False):
+    def terms(self, x, want_gradient=False, trusted=False):
+        """`trusted`: the caller has proven the pair list valid for x (x may hold NaN for atoms the list never reads)."""
         single = x.dim() == 3
         X = x[:, None] if single else x
-        self.ensure(X)
+        if not trusted:
+            self.ensure(X)
         S, K, M, _ = X.shape
         s, i, j = self.list.s, self.list.i, self.list.j
         diff = X[s, :, i] - self.fixed[s, j][:, None]                     # [P, K, 3]

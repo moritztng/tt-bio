@@ -327,7 +327,7 @@ def refine_epitope(coords, feats, iterations=40, core=None):
     first_energy, first_severe, _, first_d = evaluate(moving)
     entry_ok = reached_count(first_d) >= k
     entry = moving.clone()
-    moving, accepted = rc.rigid_descent(moving, evaluate, satisfied, k, iterations, clash)
+    moving, accepted = rc.rigid_descent(moving, evaluate, satisfied, k, iterations, clash, para_local)
     final_energy, final_severe, _, final_d = evaluate(moving)
     intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):
