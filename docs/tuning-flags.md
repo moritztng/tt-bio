@@ -26,6 +26,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_ATOM_SUPERSET_WINDOW`](#tt_bio_atom_superset_window) | on | Protenix-v2, OpenDDE, PXDesign | moves, inside the bar |
 | [`TT_BIO_ATOM_TILE_HEADS`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
 | [`TT_BIO_BH_DRAM_READ_SPLIT`](#tt_bio_bh_dram_read_split) | on | Blackhole | identical |
+| [`TT_BIO_BH_ETH_DISPATCH`](#tt_bio_bh_eth_dispatch) | on where the installed ttnn supports it | Blackhole | identical |
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2 | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
@@ -264,6 +265,28 @@ headers with that one function patched, so the installed package is never edited
 
 `TT_BIO_BH_DRAM_READ_SPLIT=0` compiles against the stock headers. A `TT_METAL_RUNTIME_ROOT` you set
 yourself is respected and the patch is not applied.
+
+## `TT_BIO_BH_ETH_DISPATCH`
+
+Default: on when the installed ttnn supports it, Blackhole only. Stock ttnn does not, so after a plain
+`pip install` this flag does nothing.
+
+A Blackhole chip normally gives one column of Tensix cores to the command queue, so tt-bio computes on
+11x10 cores. With Ethernet dispatch the command queue runs on idle Ethernet cores and tt-bio gets all
+12 columns, 120 cores (+9.1 %). Stock ttnn 0.68.0 cannot fit the dispatch kernels in an Ethernet core's
+firmware region. A ttnn built with [`scripts/ttnn_bh_eth/build_wheel.sh`](../scripts/ttnn_bh_eth/build_wheel.sh)
+can: it builds tt-metal v0.68.0 with one patch, using the release wheel's toolchain, and labels the
+wheel `0.68.0+bh.eth2`, which tt-bio's `ttnn==0.68.0` pin accepts. At startup tt-bio reads the
+installed ttnn's Ethernet-kernel limit and uses Ethernet dispatch only when it is large enough.
+
+**Accuracy: identical.** Protenix-v2 at 730 tokens writes the same structure byte for byte with either
+dispatch, in normal and fast mode, on 4 seeds each.
+
+**Speed: 1.036x normal, 1.045x fast** on the Protenix-v2 730-token fold on a Blackhole p150a at
+1350 MHz: 130.46 to 125.89 s normal, 109.68 to 104.96 s fast (n=3 warm each, same chip). Wormhole is
+unaffected: a single Wormhole chip already dispatches on Ethernet.
+
+`TT_BIO_BH_ETH_DISPATCH=0` keeps Tensix dispatch.
 
 ## `TT_BIO_DEVICE_CONDITIONING`
 
