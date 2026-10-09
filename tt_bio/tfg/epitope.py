@@ -31,6 +31,7 @@ import math
 import torch
 
 from tt_bio.tfg import rigid as rc
+from tt_bio.tfg.neighbors import SparseClash
 from tt_bio.tfg.rigid import RigidSchedule, rdkit_vdws
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,9 @@ SPINS = 24
 STANDOFFS = (2.0, 4.0, 6.0, 9.0, 12.0)
 # The anchor is the mean of this fraction of paratope atoms reaching furthest along the binding face.
 TIP_FRACTION = 0.1
+# Pair-list core batching: approach axes per clash call (24 spins x 5 standoffs each), poses per contact call.
+SEARCH_CHUNK_AXES = 2
+CONTACT_BATCH = 64
 PATCH_FRACTION = 0.10
 PATCH_MINIMUM = 100
 
@@ -180,17 +184,26 @@ def status(entry_ok, final_ok, moved):
     return out
 
 
-def _radii(coords, feats, moving_ids, fixed_ids):
+def _atom_radii(coords, feats, moving_ids, fixed_ids):
+    """vdW radii of the moving and the fixed atoms."""
     table = torch.as_tensor(rdkit_vdws, device=coords.device, dtype=torch.float32)
     element = feats["ref_element"].argmax(-1)
     if (element == 0).any():
         raise ValueError("epitope guidance expects heavy-atom input; an atom with element index 0 was found.")
-    return table[element[moving_ids]][:, None] + table[element[fixed_ids]][None, :]
+    return table[element[moving_ids]], table[element[fixed_ids]]
+
+
+def _radii(coords, feats, moving_ids, fixed_ids):
+    ra, rb = _atom_radii(coords, feats, moving_ids, fixed_ids)
+    return ra[:, None] + rb[None, :]
 
 
 @torch.no_grad()
-def refine_epitope(coords, feats, iterations=40):
+def refine_epitope(coords, feats, iterations=40, core=None):
     """Rigid refinement of the movable group towards the epitope request. coords [S, N_atom, 3] float32."""
+    core = rc.resolve_core(core)
+    if core == "check":
+        return rc.checked(refine_epitope, coords, feats, iterations=iterations)
     if coords.ndim != 3:
         raise ValueError("epitope guidance requires [sample, atom, xyz].")
     _guard(coords)
@@ -198,13 +211,11 @@ def refine_epitope(coords, feats, iterations=40):
     original_dtype = coords.dtype
     fixed = coords[:, fixed_ids].float()
     moving = coords[:, moving_ids].float().clone()
-    rsum = _radii(coords, feats, moving_ids, fixed_ids)
+    clash = rc.clash_core(core, fixed, *_atom_radii(coords, feats, moving_ids, fixed_ids))
 
-    def evaluate(x, gradient=False):
+    def evaluate(x, gradient=False, terms=None):
         contact_energy, contact_grad, d = contact_energy_and_gradient(x, fixed, epi_local, valid, para_local, k)
-        clash_energy, severe, depth, clash_grad = rc.clash_terms(
-            x, fixed, rsum, OVERLAP_FRACTION, want_gradient=gradient
-        )
+        clash_energy, severe, depth, clash_grad = terms or clash.terms(x, want_gradient=gradient)
         energy = contact_energy + 0.5 * CLASH_WEIGHT_REFINE * clash_energy
         if not gradient:
             return energy, severe, depth, d
@@ -216,13 +227,9 @@ def refine_epitope(coords, feats, iterations=40):
     first_energy, first_severe, _, first_d = evaluate(moving)
     entry_ok = reached_count(first_d) >= k
     entry = moving.clone()
-    moving, accepted = rc.rigid_descent(moving, evaluate, satisfied, k, iterations, fixed, rsum)
+    moving, accepted = rc.rigid_descent(moving, evaluate, satisfied, k, iterations, clash)
     final_energy, final_severe, _, final_d = evaluate(moving)
-    intact = (
-        rc.no_new_severe(first_severe, final_severe)
-        if first_severe.dtype == torch.bool
-        else rc.severe_transition(entry, moving, fixed, rsum)
-    )
+    intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):
         raise RuntimeError("Epitope guidance introduced a severe interchain clash.")
     result = coords.clone()
@@ -388,20 +395,24 @@ def interface_patch(moving, fixed, fraction=PATCH_FRACTION, minimum=PATCH_MINIMU
 
 
 @torch.no_grad()
-def search_epitope(coords, feats):
+def search_epitope(coords, feats, core=None):
     """Coarse pose search from the epitope geometry alone.
 
     Each candidate turns the binding face (group centre to paratope centre) towards the epitope
     along an approach axis, spins it SPINS times about the axis and places the paratope tip at each
     of STANDOFFS from the epitope centroid. Candidates with a severe clash are dropped; the best
     remaining one replaces the pose only if its energy is lower. Satisfied samples are unchanged.
+    With the pair-list core (rigid module docstring) the candidates are scored in batches of axes.
     """
+    core = rc.resolve_core(core)
+    if core == "check":
+        return rc.checked(search_epitope, coords, feats)
     _guard(coords)
     fixed_ids, moving_ids, epi_local, valid, para_local, k = groups(coords, feats)
     fixed = coords[:, fixed_ids].float()
     moving = coords[:, moving_ids].float()
     samples = coords.shape[0]
-    rsum = _radii(coords, feats, moving_ids, fixed_ids)
+    ra, rb = _atom_radii(coords, feats, moving_ids, fixed_ids)
     asym = feats["asym_id"][feats["atom_to_token_idx"]].to(coords.device)
     fixed_chain = asym[fixed_ids]
     d0, _, _, fixed_epi = residue_distances(moving, fixed, epi_local, valid, para_local)
@@ -426,17 +437,60 @@ def search_epitope(coords, feats):
     tip = torch.gather(para_pos, 1, tip_idx[..., None].expand(-1, -1, 3)).mean(1)
     axes, note = approach_axes(fixed, fixed_chain, epi_local, valid, centroid)
 
-    def score(x):
-        return candidate_energy(x, fixed, rsum, epi_local, valid, para_local, k)
-
     best = moving.clone()
-    cur_energy, cur_bad = score(moving)
-    best_energy = torch.where(cur_bad, torch.full_like(cur_energy, float("inf")), cur_energy)
     tested = 0
     feasible = torch.zeros(samples, device=coords.device, dtype=torch.long)
     improving = torch.zeros(samples, device=coords.device, dtype=torch.long)
     accepted = torch.zeros(samples, device=coords.device, dtype=torch.long)
-    for u in axes:
+    if core != "off":
+        clash = SparseClash(fixed, ra, rb)
+        # The contact term only reads the epitope atoms: hand it those, so a batch of poses can share them.
+        n_epi, m_epi = epi_local.shape
+        epi_atoms = fixed[:, epi_local.clamp_min(0).reshape(-1)]
+        epi_slots = torch.arange(n_epi * m_epi, device=coords.device).reshape(n_epi, m_epi)
+
+        def score_many(x, rows):
+            """x [n, B, M, 3] poses of samples rows [n] -> (energy, severe) [n, B]."""
+            n, b = x.shape[:2]
+            flat = x.reshape(n * b, *x.shape[2:])
+            ref = epi_atoms[rows].repeat_interleave(b, 0)
+            contact = torch.cat([
+                contact_terms(residue_distances(flat[i:i + CONTACT_BATCH], ref[i:i + CONTACT_BATCH],
+                                                epi_slots, valid, para_local)[0], k)[0]
+                for i in range(0, n * b, CONTACT_BATCH)
+            ]).view(n, b)
+            clash_energy, bad = clash.score(x, rows)
+            return contact + CLASH_WEIGHT_SEARCH * clash_energy, bad
+
+        cur_energy, cur_bad = score_many(moving[:, None], torch.arange(samples, device=coords.device))
+        cur_energy, cur_bad = cur_energy[:, 0], cur_bad[:, 0]
+        best_energy = torch.where(cur_bad, torch.full_like(cur_energy, float("inf")), cur_energy)
+        todo = torch.nonzero(~entry_ok).squeeze(1)
+
+        def placements(u):
+            align = rotation_aligning(face, -u)
+            aligned = torch.bmm(moving - tip[:, None], align.transpose(1, 2))
+            for i in range(SPINS):
+                rotated = torch.bmm(aligned, rotation_about(u, 2.0 * math.pi * i / SPINS).transpose(1, 2))
+                for radius in STANDOFFS:
+                    yield rotated + (centroid + radius * u)[:, None]
+
+        for start in range(0, len(axes), SEARCH_CHUNK_AXES):
+            x = torch.stack([p for u in axes[start:start + SEARCH_CHUNK_AXES] for p in placements(u)], 1)[todo]
+            tested += x.shape[1]
+            energy, bad = score_many(x, todo)
+            index, taken = rc._take_first_best(energy, bad, todo, best_energy, feasible, improving, accepted)
+            pick = torch.nonzero(taken).squeeze(1)
+            best[todo[pick]] = x[pick, index[pick]]
+    else:
+        rsum = ra[:, None] + rb[None, :]
+        cur_energy, cur_bad = candidate_energy(moving, fixed, rsum, epi_local, valid, para_local, k)
+        best_energy = torch.where(cur_bad, torch.full_like(cur_energy, float("inf")), cur_energy)
+
+    def score(x):
+        return candidate_energy(x, fixed, rsum, epi_local, valid, para_local, k)
+
+    for u in axes if core == "off" else []:
         align = rotation_aligning(face, -u)
         aligned = torch.bmm(moving - tip[:, None], align.transpose(1, 2))
         for i in range(SPINS):
@@ -478,15 +532,15 @@ def search_epitope(coords, feats):
 
 
 @torch.no_grad()
-def guide_x0_contact(x0, feats, step_i):
+def guide_x0_contact(x0, feats, step_i, core=None):
     """Contact request on x0 [S, N_atom, 3]: refine, coarse search for samples still off, refine again."""
     orig_dtype = x0.dtype
     y = x0.float()
     if y.ndim != 3:
         raise ValueError("contact x0 guidance expects [sample, atom, xyz]")
-    y = rc.refine_rigid_contact(y, feats, iterations=40)
-    y = rc.search_rigid_contact(y, feats)
-    y = rc.refine_rigid_contact(y, feats, iterations=40)
+    y = rc.refine_rigid_contact(y, feats, iterations=40, core=core)
+    y = rc.search_rigid_contact(y, feats, core=core)
+    y = rc.refine_rigid_contact(y, feats, iterations=40, core=core)
     logger.info("RIGID_CONTACT x0 hook step=%d", step_i)
     return y.to(orig_dtype)
 
@@ -505,7 +559,7 @@ def guide_x0(x0, feats, step_i, schedule: RigidSchedule = RigidSchedule(), tfg_e
         and feats.get("user_distance_restraint_index") is not None
         and feats["user_distance_restraint_index"].numel() > 0
     ):
-        return guide_x0_contact(x0, feats, step_i)
+        return guide_x0_contact(x0, feats, step_i, schedule.core)
     if mode != "on" or not (active(feats) and rc.x0_step_active(step_i, schedule)):
         return x0
     orig_dtype = x0.dtype
@@ -513,8 +567,8 @@ def guide_x0(x0, feats, step_i, schedule: RigidSchedule = RigidSchedule(), tfg_e
     if len(y.shape[:-3]) != 0:
         raise ValueError("guide_x0 expects coordinates without extra batch dimensions")
     # Smallest move first; only samples still missing the request get the coarse re-placement.
-    y = refine_epitope(y, feats, iterations=40)
-    y = search_epitope(y, feats)
-    y = refine_epitope(y, feats, iterations=40)
+    y = refine_epitope(y, feats, iterations=40, core=schedule.core)
+    y = search_epitope(y, feats, core=schedule.core)
+    y = refine_epitope(y, feats, iterations=40, core=schedule.core)
     logger.info("EPITOPE_GUIDANCE x0 hook step=%d", step_i)
     return y.to(orig_dtype)

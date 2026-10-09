@@ -44,6 +44,7 @@ def upstream(monkeypatch):
         if name.startswith("OPENDDE_RIGID"):
             monkeypatch.delenv(name)
     monkeypatch.setenv("OPENDDE_RIGID_CORE", "off")
+    monkeypatch.setattr(rc, "DEFAULT_CORE", "off")  # op-for-op parity is a property of the dense core
     return _upstream()
 
 
@@ -380,3 +381,57 @@ def write_fixture():
 
 if __name__ == "__main__":
     write_fixture()
+
+
+def _run_core(coords, feats, core):
+    cf = contact_feats(feats)
+    sched = RigidSchedule(core=core)
+    return {
+        "refine_contact": rc.refine_rigid_contact(coords, cf, core=core),
+        "search_contact": rc.search_rigid_contact(coords, cf, core=core),
+        "guide_x0_contact": ep.guide_x0(coords, cf, 100, sched),
+        "refine_epitope": ep.refine_epitope(coords, feats, core=core),
+        "search_epitope": ep.search_epitope(coords, feats, core=core),
+        "search_epitope_whole": ep.search_epitope(coords, whole_ab_feats(feats), core=core),
+        "guide_x0_epitope": ep.guide_x0(coords, feats, 103, sched),
+    }
+
+
+@pytest.mark.parametrize("n_chains", [2, 3])
+def test_pair_list_core_matches_dense(cases, n_chains):
+    """The pair-list core takes the same decisions as the dense core: same poses up to fp32 summation order."""
+    coords, feats = cases[n_chains]
+    dense = _run_core(coords, feats, "off")
+    fast = _run_core(coords, feats, "auto")
+    for name in dense:
+        diff = (dense[name] - fast[name]).abs().max().item()
+        assert diff < 1e-3, "%s: max abs diff %.3e A" % (name, diff)
+    _check_behaviour(coords, fast)
+
+
+def test_pair_list_descent_batches_backtracking(cases):
+    """Batched backtracking accepts the same step counts as the sequential dense loop."""
+    coords, feats = cases[3]
+    cf = contact_feats(feats)
+    fi, mi, fix_atoms, mov_atoms = rc.contact_groups(coords, cf)
+    r = torch.as_tensor(rc.rdkit_vdws)[cf["ref_element"].argmax(-1)]
+    counts = {}
+    for core in ("off", "auto"):
+        fixed, moving = coords[:, fi].float(), coords[:, mi].float()
+        clash = rc.clash_core(core, fixed, r[mi], r[fi])
+
+        def evaluate(x, gradient=False, terms=None):
+            e, sev, dep, g = terms or clash.terms(x, want_gradient=gradient)
+            return (e, sev, dep, None) if not gradient else (e, sev, dep, None, g)
+
+        _, counts[core] = rc.rigid_descent(moving, evaluate, lambda _: torch.zeros(len(coords), dtype=torch.bool),
+                                           1, 10, clash)
+    assert torch.equal(counts["off"], counts["auto"])
+
+
+def test_check_core_returns_dense(cases):
+    coords, feats = cases[2]
+    cf = contact_feats(feats)
+    assert torch.equal(rc.refine_rigid_contact(coords, cf, core="check"), rc.refine_rigid_contact(coords, cf, core="off"))
+    with pytest.raises(ValueError):
+        RigidSchedule(core="fast")

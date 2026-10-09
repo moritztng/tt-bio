@@ -44,9 +44,9 @@ def test_late_pass_follows_upstream_schedule(monkeypatch):
     g = Guidance(contact_feats(feats))
     calls = []
     monkeypatch.setattr(g.engine, "update", lambda x_noisy, x0, **kw: x_noisy)
-    monkeypatch.setattr(rigid, "search_rigid_contact", lambda x, f: calls.append("search") or x)
+    monkeypatch.setattr(rigid, "search_rigid_contact", lambda x, f, core=None: calls.append("search") or x)
     monkeypatch.setattr(rigid, "refine_rigid_contact",
-                        lambda x, f, iterations: calls.append(("refine", iterations)) or x)
+                        lambda x, f, iterations, core=None: calls.append(("refine", iterations)) or x)
     seen = {}
     for k in range(200):
         calls.clear()

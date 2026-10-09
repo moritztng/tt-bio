@@ -97,6 +97,8 @@ class SparseClash:
     (s * M * N + i * N + j) so two poses can be compared whatever list they were evaluated on.
     """
 
+    batched = True                     # rigid_descent may hand terms() several poses per sample at once
+
     def __init__(self, fixed, ra, rb):
         self.fixed, self.ra, self.rb = fixed, ra, rb
         S, self.N, _ = fixed.shape
@@ -138,6 +140,14 @@ class SparseClash:
         if single:
             return energy[:, 0], severe.item(0), depth[:, 0], None if grad is None else grad[:, 0]
         return energy, severe, depth, grad
+
+    def no_new(self, previous_x, previous, x, current):
+        """True per sample when the pose x has no severe pair that previous_x lacked."""
+        return ~current.new_since(previous)
+
+    @staticmethod
+    def count(severe):
+        return severe.count()
 
     def score(self, X, samples):
         """Coarse-search clash of many placements: X [n, B, M, 3] for the samples `samples` [n] -> energy [n, B]

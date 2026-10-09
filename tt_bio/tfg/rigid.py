@@ -4,8 +4,15 @@ Every update is a proper rigid transformation of the moving chain group; no cont
 moves on its own. A backtracking gate refuses a step that adds a severe interchain overlap
 or deepens an existing one, and a sample whose contacts all lie inside their windows is not
 touched. Constants, step sizes, candidate poses, acceptance rules and op order are upstream's.
-The Triton core (rigid_core, contact_core) is not ported; this is upstream's
-``OPENDDE_RIGID_CORE=off`` path, which is also what upstream runs on CPU.
+
+Two clash cores, chosen by ``core`` (upstream's OPENDDE_RIGID_CORE):
+  "off"    upstream's dense path (every moving-fixed pair), op for op; what upstream runs on CPU.
+  "auto"   the exact pair-list core of tt_bio.tfg.neighbors (the role of upstream's Triton cell lists): the same
+           pairs, so the same energies up to fp32 summation order and the same severe sets. Refinement scores
+           the nine shorter backtracking proposals in one call; the coarse searches score every candidate in
+           batches and keep the first lowest feasible one below the entry energy, which is the pose the
+           sequential strict-improvement loop keeps. Samples that already meet the request are not scored.
+  "check"  both; logs the largest coordinate difference and returns the dense result.
 
 The ``OPENDDE_RIGID_*`` environment knobs are replaced by :class:`RigidSchedule`.
 
@@ -26,6 +33,8 @@ from typing import Optional
 
 import torch
 
+from tt_bio.tfg.neighbors import SparseClash
+
 # Identical to upstream opendde.data.constants.rdkit_vdws (118 entries, H..Og, index 0 = H).
 from tt_bio.data.const import vdw_radii as rdkit_vdws
 
@@ -37,6 +46,9 @@ EXACT_CLASH_BUDGET = 200_000_000
 DEFAULT_LATE_START = 190
 
 _MODES = ("auto", "off", "control", "on")
+CORES = ("auto", "off", "check")
+# Core used when a caller passes core=None (tests pin "off" for op-for-op parity with upstream).
+DEFAULT_CORE = "auto"
 
 
 @dataclass(frozen=True)
@@ -51,6 +63,7 @@ class RigidSchedule:
     start     OPENDDE_RIGID_START: first late-pass step. None is upstream's default, step 190, or the
               last step when the run has fewer than 191 steps. An explicit value must lie inside the run.
     every     OPENDDE_RIGID_EVERY: late-pass refinement stride.
+    core      OPENDDE_RIGID_CORE: "auto", "off" or "check" (module docstring); None is DEFAULT_CORE.
     """
 
     mode: str = "auto"
@@ -60,14 +73,37 @@ class RigidSchedule:
     late: bool = True
     start: Optional[int] = None
     every: int = 2
+    core: Optional[str] = None
 
     def __post_init__(self):
         if self.mode not in _MODES:
             raise ValueError("Invalid rigid contact mode %r" % (self.mode,))
+        if self.core is not None:
+            resolve_core(self.core)
         if self.x0_start is not None and (
             self.x0_start < 0 or self.x0_every < 1 or self.x0_last < self.x0_start
         ):
             raise ValueError("Invalid x0_start / x0_every / x0_last")
+
+
+def resolve_core(core):
+    core = DEFAULT_CORE if core is None else core
+    if core not in CORES:
+        raise ValueError("Invalid rigid core %r" % (core,))
+    return core
+
+
+def checked(fn, coords, *args, **kwargs):
+    """core="check": run both cores, log how far apart their results are, return the dense one."""
+    dense = fn(coords, *args, core="off", **kwargs)
+    fast = fn(coords, *args, core="auto", **kwargs)
+    logger.info(
+        "RIGID_CORE check %s: max |dense - auto| = %.3e A per sample %s",
+        fn.__name__,
+        (dense - fast).abs().max().item(),
+        (dense - fast).abs().flatten(1).amax(1).tolist(),
+    )
+    return dense
 
 
 def x0_schedule(schedule: RigidSchedule):
@@ -217,6 +253,54 @@ def no_new_severe(previous, current):
     return (current <= previous).all(-1)
 
 
+class DenseClash:
+    """Upstream's clash test over every moving-fixed pair (clash_terms, no_new_severe / severe_transition)."""
+
+    batched = False
+
+    def __init__(self, fixed, ra, rb):
+        self.fixed = fixed
+        self.rsum = ra[:, None] + rb[None, :]
+
+    def terms(self, x, want_gradient=False):
+        return clash_terms(x, self.fixed, self.rsum, SOFT_OVERLAP, want_gradient=want_gradient)
+
+    def no_new(self, previous_x, previous, x, current):
+        if previous.dtype == torch.bool:
+            return no_new_severe(previous, current)
+        return severe_transition(previous_x, x, self.fixed, self.rsum)
+
+    @staticmethod
+    def count(summary):
+        return severe_count(summary)
+
+
+def clash_core(core, fixed, ra, rb):
+    """The clash backend for core "off" (DenseClash) or "auto" (neighbors.SparseClash)."""
+    return DenseClash(fixed, ra, rb) if core == "off" else SparseClash(fixed, ra, rb)
+
+
+# Normals per batch of the pair-list coarse search (12 turns x 5 radii candidates each).
+SEARCH_CHUNK_NORMALS = 5
+
+
+def _take_first_best(energy, bad, rows, best_energy, feasible, improving, accepted):
+    """Batched form of the sequential search rule for candidates [n, B] of samples ``rows``: a candidate is
+    taken when feasible and strictly below the best so far, so the last one taken is the first lowest feasible
+    candidate below the entry best. Updates best_energy and the counters in place; returns (index [n],
+    taken [n]). ``improving`` counts feasible candidates only (a culled severe candidate has no full energy)."""
+    masked = torch.where(bad, torch.full_like(energy, float("inf")), energy)
+    running = torch.cat([best_energy[rows, None], masked], 1).cummin(1).values[:, :-1]
+    better = masked < running
+    feasible.index_add_(0, rows, (~bad).sum(-1))
+    improving.index_add_(0, rows, better.sum(-1))
+    accepted.index_add_(0, rows, better.sum(-1))
+    low, index = masked.min(-1)
+    taken = low < best_energy[rows]
+    best_energy[rows] = torch.where(taken, low, best_energy[rows])
+    return index, taken
+
+
 def skew_matrix(w, like):
     """Cross-product matrices [S, 3, 3] of w [S, 3], built in the dtype of ``like``."""
     skew = torch.zeros_like(like)
@@ -226,11 +310,12 @@ def skew_matrix(w, like):
     return skew
 
 
-def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, fixed, rsum):
+def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, clash):
     """Shared force/torque descent with backtracking, used by the contact and epitope refinements.
 
-    ``evaluate(x, gradient)`` returns (energy, severe, depth, aux[, grad]); ``satisfied_fn(aux)`` marks
-    samples that are left alone. ``n_terms`` is the number of contact terms (C pairs or K residues).
+    ``evaluate(x, gradient, terms=None)`` returns (energy, severe, depth, aux[, grad]); ``terms`` hands it
+    clash terms already computed for x. ``satisfied_fn(aux)`` marks samples that are left alone. ``n_terms``
+    is the number of contact terms (C pairs or K residues); ``clash`` is the backend (clash_core).
     Returns (moving, accepted step count per sample).
     """
     samples = moving.shape[0]
@@ -256,19 +341,31 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, fixed, rs
             * torch.linalg.solve(inertia + 1e-3 * identity, torque[..., None]).squeeze(-1)
         )
         rotation *= 0.03 / torch.linalg.vector_norm(rotation, dim=-1, keepdim=True).clamp_min(0.03)
-        found = torch.zeros(samples, device=device, dtype=torch.bool)
-        next_coords = moving.clone()
-        for backtrack in range(10):
+
+        def propose(backtrack):
             scale = 0.5**backtrack
             matrix = torch.linalg.matrix_exp(skew_matrix(rotation * scale, identity))
-            proposal = (
-                torch.bmm(centered, matrix.transpose(1, 2)) + center + translation[:, None] * scale
-            )
-            new_energy, new_severe, new_depth, _ = evaluate(proposal)
-            if severe.dtype == torch.bool:
-                no_new_clash = no_new_severe(severe, new_severe)
+            return torch.bmm(centered, matrix.transpose(1, 2)) + center + translation[:, None] * scale
+
+        found = torch.zeros(samples, device=device, dtype=torch.bool)
+        next_coords = moving.clone()
+        later = None
+        for backtrack in range(10):
+            if clash.batched and backtrack >= 1:
+                if later is None:
+                    # The first proposal usually decides; the other nine go through the clash core together.
+                    proposals = torch.stack([propose(b) for b in range(1, 10)], 1)
+                    later = proposals, clash.terms(proposals)
+                proposals, (e, sev, dep, _) = later
+                j = backtrack - 1
+                proposal = proposals[:, j]
+                new_energy, new_severe, new_depth, _ = evaluate(
+                    proposal, terms=(e[:, j], sev.item(j), dep[:, j], None)
+                )
             else:
-                no_new_clash = severe_transition(moving, proposal, fixed, rsum)
+                proposal = propose(backtrack)
+                new_energy, new_severe, new_depth, _ = evaluate(proposal)
+            no_new_clash = clash.no_new(moving, severe, proposal, new_severe)
             accept = (
                 (~found)
                 & (~satisfied)
@@ -288,8 +385,11 @@ def rigid_descent(moving, evaluate, satisfied_fn, n_terms, iterations, fixed, rs
 
 
 @torch.no_grad()
-def refine_rigid_contact(coords, feats, iterations=40):
+def refine_rigid_contact(coords, feats, iterations=40, core=None):
     """Rigid refinement of the moving group towards the contact windows. coords [S, N_atom, 3]."""
+    core = resolve_core(core)
+    if core == "check":
+        return checked(refine_rigid_contact, coords, feats, iterations=iterations)
     if coords.ndim != 3:
         raise ValueError("Rigid contact requires [sample, atom, xyz].")
     idx = feats["user_distance_restraint_index"]
@@ -309,18 +409,16 @@ def refine_rigid_contact(coords, feats, iterations=40):
     atomic_number_index = feats["ref_element"].argmax(-1)
     if (atomic_number_index == 0).any():
         raise ValueError("Rigid contact expects heavy-atom protein input; hydrogen found.")
-    rsum = radii[atomic_number_index[moving_ids]][:, None] + radii[atomic_number_index[fixed_ids]][None, :]
+    clash = clash_core(core, fixed, radii[atomic_number_index[moving_ids]], radii[atomic_number_index[fixed_ids]])
     lower = feats["user_distance_restraint_lower_bound"].float()
     upper = feats["user_distance_restraint_upper_bound"].float()
     entry = moving.clone()
 
-    def evaluate(x, gradient=False):
+    def evaluate(x, gradient=False, terms=None):
         pair_vec = x[:, ri] - fixed[:, li]
         pair_d = torch.linalg.vector_norm(pair_vec, dim=-1).clamp_min(1e-6)
         violation = torch.relu(pair_d - upper) - torch.relu(lower - pair_d)
-        clash_energy, severe, severe_depth, clash_grad = clash_terms(
-            x, fixed, rsum, SOFT_OVERLAP, want_gradient=gradient
-        )
+        clash_energy, severe, severe_depth, clash_grad = terms or clash.terms(x, want_gradient=gradient)
         energy = 0.5 * (violation.square().sum(-1) + 20.0 * clash_energy)
         if not gradient:
             return energy, severe, severe_depth, pair_d
@@ -335,15 +433,9 @@ def refine_rigid_contact(coords, feats, iterations=40):
         return ((pair_d >= lower - 1e-6) & (pair_d <= upper + 1e-6)).all(-1)
 
     first_energy, first_severe, _, first_d = evaluate(moving)
-    moving, accepted_count = rigid_descent(
-        moving, evaluate, satisfied, idx.shape[1], iterations, fixed, rsum
-    )
+    moving, accepted_count = rigid_descent(moving, evaluate, satisfied, idx.shape[1], iterations, clash)
     final_energy, final_severe, _, final_d = evaluate(moving)
-    intact = (
-        no_new_severe(first_severe, final_severe)
-        if first_severe.dtype == torch.bool
-        else severe_transition(entry, moving, fixed, rsum)
-    )
+    intact = clash.no_new(entry, first_severe, moving, final_severe)
     if not bool(intact.all()):
         raise RuntimeError("Rigid contact introduced a severe interchain clash.")
     result = coords.clone()
@@ -355,21 +447,24 @@ def refine_rigid_contact(coords, feats, iterations=40):
             final_energy.tolist(),
             first_d.mean(-1).tolist(),
             final_d.mean(-1).tolist(),
-            severe_count(first_severe).tolist(),
-            severe_count(final_severe).tolist(),
+            clash.count(first_severe).tolist(),
+            clash.count(final_severe).tolist(),
             accepted_count.tolist(),
         )
     return result
 
 
 @torch.no_grad()
-def search_rigid_contact(coords, feats):
+def search_rigid_contact(coords, feats, core=None):
     """Deterministic coarse pose search over 25 axes x 12 turns x 5 radii around the contact site.
 
     The moving group is first Kabsch-fitted onto the contact pairs, then rotated and shifted out
     along each axis. Candidates with a severe interchain overlap are rejected; the lowest-energy
     remaining pose replaces the input only if its energy is lower. Satisfied samples are unchanged.
     """
+    core = resolve_core(core)
+    if core == "check":
+        return checked(search_rigid_contact, coords, feats)
     fi, mi, fix_atoms, mov_atoms = contact_groups(coords, feats)
     fixed = coords[:, fi].float()
     moving = coords[:, mi].float()
@@ -391,6 +486,11 @@ def search_rigid_contact(coords, feats):
     lower = feats["user_distance_restraint_lower_bound"]
     upper = feats["user_distance_restraint_upper_bound"]
 
+    def score_contact(contact):
+        tgt = target if contact.dim() == 3 else target[todo, None]
+        distance = torch.linalg.vector_norm(contact - tgt, dim=-1)
+        return torch.relu(distance - upper) + torch.relu(lower - distance)
+
     def score(x, contact):
         distance = torch.linalg.vector_norm(contact - target, dim=-1)
         error = torch.relu(distance - upper) + torch.relu(lower - distance)
@@ -400,7 +500,13 @@ def search_rigid_contact(coords, feats):
         return energy, severe
 
     best = moving.clone()
-    best_energy, bad = score(moving, source)
+    if core == "off":
+        best_energy, bad = score(moving, source)
+    else:
+        clash = SparseClash(fixed, r[mi], r[fi])
+        clash_energy, bad = clash.score(moving[:, None], torch.arange(len(coords), device=coords.device))
+        best_energy = 0.5 * score_contact(source).square().sum(-1) + 10 * clash_energy[:, 0]
+        bad = bad[:, 0]
     best_energy = torch.where(bad, torch.full_like(best_energy, float("inf")), best_energy)
     entry_distance = torch.linalg.vector_norm(coords[:, mov_atoms].float() - target, dim=-1)
     satisfied = ((entry_distance >= lower - 1e-6) & (entry_distance <= upper + 1e-6)).all(-1)
@@ -418,12 +524,37 @@ def search_rigid_contact(coords, feats):
     feasible = torch.zeros(len(coords), device=coords.device, dtype=torch.long)
     improving = torch.zeros(len(coords), device=coords.device, dtype=torch.long)
     tested = 0
-    for normal in normals:
-        for turn in [i * math.pi / 6 for i in range(12)]:
+    turns = [i * math.pi / 6 for i in range(12)]
+    radii_out = [5.5, 7.5, 10.0, 15.0, 20.0]
+    todo = torch.nonzero(~satisfied).squeeze(1)
+    if core != "off":
+        def candidates(normal):
+            for turn in turns:
+                rotation = torch.linalg.matrix_exp(skew_matrix(normal * turn, fit))
+                rotated = torch.bmm(fitted, rotation.transpose(1, 2))
+                rot_contacts = torch.bmm(fitted_contacts, rotation.transpose(1, 2))
+                for radius in radii_out:
+                    shift = tc + radius * normal[:, None]
+                    yield rotated + shift, rot_contacts + shift
+
+        for start in range(0, len(normals), SEARCH_CHUNK_NORMALS):
+            placed = [c for normal in normals[start:start + SEARCH_CHUNK_NORMALS] for c in candidates(normal)]
+            tested += len(placed)
+            if todo.numel() == 0:
+                continue
+            x = torch.stack([p for p, _ in placed], 1)[todo]
+            contact = torch.stack([c for _, c in placed], 1)[todo]
+            clash_energy, bad = clash.score(x, todo)
+            energy = 0.5 * score_contact(contact).square().sum(-1) + 10 * clash_energy
+            index, taken = _take_first_best(energy, bad, todo, best_energy, feasible, improving, accepted)
+            pick = torch.nonzero(taken).squeeze(1)
+            best[todo[pick]] = x[pick, index[pick]]
+    for normal in normals if core == "off" else []:
+        for turn in turns:
             rotation = torch.linalg.matrix_exp(skew_matrix(normal * turn, fit))
             rotated = torch.bmm(fitted, rotation.transpose(1, 2))
             rot_contacts = torch.bmm(fitted_contacts, rotation.transpose(1, 2))
-            for radius in [5.5, 7.5, 10.0, 15.0, 20.0]:
+            for radius in radii_out:
                 shift = tc + radius * normal[:, None]
                 proposed = rotated + shift
                 proposed_contacts = rot_contacts + shift

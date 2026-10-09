@@ -77,9 +77,10 @@ class Guidance:
         coarse, refine = rigid.intervention_schedule(n_step, self.schedule)
         pocket = epitope.active(self.feats)
         if step in coarse:
-            x = (epitope.search_epitope if pocket else rigid.search_rigid_contact)(x, self.feats)
+            x = (epitope.search_epitope if pocket else rigid.search_rigid_contact)(
+                x, self.feats, core=self.schedule.core)
         if step in refine:
             iterations = 120 if step == n_step - 1 else 40
             x = (epitope.refine_epitope if pocket else rigid.refine_rigid_contact)(
-                x, self.feats, iterations=iterations)
+                x, self.feats, iterations=iterations, core=self.schedule.core)
         return x
