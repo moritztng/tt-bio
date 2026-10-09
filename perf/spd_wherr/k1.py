@@ -82,7 +82,10 @@ class K1:
                                               "refused": self.refused}, indent=1) + "\n")
 
     def count(self, what, op, st, a, b):
-        self.stats[f"{what} {op} {list(a.shape)}x{list(b.shape)} {st.split(' < ')[0]}"] += 1
+        key = f"{what} {op} {list(a.shape)}x{list(b.shape)} {st.split(' < ')[0]}"
+        self.stats[key] += 1
+        if self.stats[key] == 1:   # bench.py leaves through os._exit, so write as sites appear
+            self.dump()
 
     def wrap(self, op, fn, getab):
         def w(*args, **kw):
