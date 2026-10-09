@@ -47,6 +47,11 @@ ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--at", type=int, default=4,
                 help="instrument this sequence_gradients call (1-based); earlier ones warm and compile")
 ap.add_argument("--replay", type=int, default=0, help="extra back-to-back replays per call (0 = off)")
+ap.add_argument("--wrap", choices=("census", "all"), default="all",
+                help="census: census.py's op list only; all: every public ttnn callable, including "
+                     "ttnn.experimental, ttnn.transformer and the host<->device transfers")
+ap.add_argument("--profile", type=int, default=3,
+                help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 
@@ -124,10 +129,55 @@ settings = cleaned_campaign_settings(read_settings(str(example), parse_setting_o
 
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), host=socket.gethostname(),
             chip=os.environ.get("TT_VISIBLE_DEVICES"), env=ENV, binder_length=a.binder,
-            campaign_seed=a.seed, at=a.at, replay=a.replay, argv=sys.argv, nodes=NODES)
+            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, argv=sys.argv,
+            nodes=NODES)
 
 rec = LazyRecorder(__import__("ttnn"), None, a.replay)
 rec.rec = []
+
+# Ops outside census.py's list (the fused SDPA, ttnn.experimental kernels, to_torch/from_torch) are
+# dispatched async; their device time lands inside the NEXT wrapped call's leading sync, before its
+# clock starts, so a census that does not wrap them cannot see them at all. The first WH census
+# (wrap=census) accounted for 5.0 s of a 12.5 s iteration; this is how the rest gets a name.
+SKIP = ("_", "get_", "set_", "open_", "close_", "enable", "disable", "is_", "synchronize", "Read",
+        "Dump", "manage", "register", "dump", "load_", "create_", "query", "device", "num_", "list_")
+
+
+def wrap_everything():
+    import ttnn
+    done = set()
+    for mod_name in ("", "experimental", "transformer"):
+        mod = getattr(ttnn, mod_name) if mod_name else ttnn
+        for n in dir(mod):
+            fn = getattr(mod, n, None)
+            if (not callable(fn) or isinstance(fn, type) or n.startswith(SKIP)
+                    or getattr(fn, "__module__", "") in ("typing", "builtins") or id(fn) in done):
+                continue
+            label = f"{mod_name}.{n}" if mod_name else n
+            if not mod_name and n in rec.orig:
+                continue
+            done.add(id(fn))
+            rec.orig[label] = fn
+            setattr(mod, n, rec._wrap(label, fn))
+
+
+def profiled(fn):
+    import cProfile
+    import io
+    import pstats
+    pr = cProfile.Profile()
+    t0 = time.monotonic()
+    pr.enable()
+    try:
+        return fn()
+    finally:
+        pr.disable()
+        wall = time.monotonic() - t0
+        for key in ("tottime", "cumulative"):
+            buf = io.StringIO()
+            pstats.Stats(pr, stream=buf).sort_stats(key).print_stats(60)
+            (a.out / f"profile_{key}.txt").write_text(f"iteration {state['n']} wall {wall:.3f} s\n" + buf.getvalue())
+        pr.dump_stats(str(a.out / "profile.pstats"))
 cls = bc2.design_model_class()
 real_grads = cls.sequence_gradients
 state = dict(n=0, uninstrumented=[], instrumented=None, cl=None)
@@ -138,10 +188,15 @@ def sequence_gradients(self, *args, **kwargs):
     if state["n"] != a.at:
         t0 = time.monotonic()
         try:
+            if state["n"] == a.profile:
+                return profiled(lambda: real_grads(self, *args, **kwargs))
             return real_grads(self, *args, **kwargs)
         finally:
-            state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0))
+            state["uninstrumented"].append(dict(n=state["n"], s=time.monotonic() - t0,
+                                                profiled=state["n"] == a.profile))
     rec.install()
+    if a.wrap == "all":
+        wrap_everything()
     rec.active = True
     t0 = time.monotonic()
     try:
@@ -192,7 +247,7 @@ def write():
         by[r["cls"]] += r["synced_s"]
     print("\nby class: " + ", ".join(f"{k} {v:.3f}s ({v / total * 100:.1f}%)"
                                      for k, v in sorted(by.items(), key=lambda kv: -kv[1])))
-    print(f"wrote {a.out / 'census.json'}")
+    print(f"wrote {a.out / 'census.json'}", flush=True)
 
 
 cls.sequence_gradients = sequence_gradients
