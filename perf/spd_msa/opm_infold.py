@@ -67,11 +67,13 @@ def patch(T):
         t0 = time.perf_counter()
         rec = []
         if ops:
-            T.ttnn = Timed(ttnn, dev, rec)
+            # The OPM plan gate reads `ttnn is _SHIPPED_TTNN`, so the wrapper must stand in for both or
+            # every --ops call silently times ttnn's auto plan instead of the shipped one.
+            T.ttnn = T._SHIPPED_TTNN = Timed(ttnn, dev, rec)
         try:
             r = orig(self, *args, **kw)
         finally:
-            T.ttnn = ttnn
+            T.ttnn = T._SHIPPED_TTNN = ttnn
         ttnn.synchronize_device(dev)
         ms = (time.perf_counter() - t0) * 1e3
         LOG.write(json.dumps({"k": k[0], "flag": flag, "on": on, "ms": ms, "ops": rec, "t_unix": time.time()}) + "\n")
