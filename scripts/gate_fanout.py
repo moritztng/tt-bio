@@ -143,6 +143,14 @@ CONTENDED_RETRY_S, CONTENDED_TRIES = 300, 3
 #: resets, every chip before it hands it out: g108 chip 0 did this on ladder:boltz2 on 2026-10-10 and
 #: probed OK minutes later. Run such a pool leg once more; a second stop is the leg's result.
 CARD_STUCK = re.compile(r"a fold timed out and its card could not be reset")
+#: A Galaxy lent out of the pool (spd/galaxy/lend_cfd.sh writes the window's start epoch here and
+#: PAUSEs the pool through it). pool.sh starts no job whose cap reaches the window, so a leg queued
+#: there waits out the whole lend: capacity:opendde of gate cb55af219 sat on .114 for hours on
+#: 2026-10-10 while .107 and .108 had chips. Such a host takes no leg the lend would hold, and a leg it
+#: queued before the lend was booked is taken back and handed to another worker.
+LEND_AT = "~/spd/galaxy/LEND-AT"
+LEND_READ_S = 300
+WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
 PY312 = {"pytest_device", "pytest_cpu", "bc2"}
@@ -511,6 +519,24 @@ class Host:
     running: int = 0
     timed_running: bool = False
     outputs: set = field(default_factory=set)
+    lend: tuple = (float("-inf"), None, False)   # (read at, LEND-AT epoch, pool PAUSEd)
+
+    def read_lend(self) -> None:
+        """Refresh `lend` from the host's pool at most every LEND_READ_S."""
+        if "pool" not in self.cfg or time.time() - self.lend[0] < LEND_READ_S:
+            return
+        pause = shlex.quote(str(Path(self.cfg["pool"]["queue"]).parent / "PAUSE"))
+        r = self.ssh(f"cat {LEND_AT} 2>/dev/null; echo; test -e {pause} && echo PAUSE",
+                     capture_output=True, timeout=120)
+        if r.returncode in (0, 1):
+            words = r.stdout.split()
+            at = next((int(w) for w in words if w.isdigit()), None)
+            self.lend = (time.time(), at, "PAUSE" in words)
+
+    def lent(self, budget: int) -> bool:
+        """True while this host's pool would not start a job capped at `budget` s (from `lend`)."""
+        _, at, paused = self.lend
+        return paused or (at is not None and time.time() + budget >= at)
 
     @property
     def key_card_type(self) -> str:
@@ -855,6 +881,7 @@ class Gate:
         """The next leg this card may run, or None. A leg whose output dir is in use on the host
         stays queued (see `out_group`); `_blocked` tells the caller to wait for it."""
         is_timed = (host.name, card) in self.timed
+        host.read_lend()
         with self.mu:
             q = self.todo.get(self._queue(host, card), [])
             # Correctness legs first, timed legs last: by then the host's other cards have run out
@@ -862,9 +889,16 @@ class Gate:
             for timed in (False, True):
                 for i, lg in enumerate(q):
                     if lg.timed == timed and (is_timed or not timed) \
-                            and out_group(lg.name) not in host.outputs:
+                            and out_group(lg.name) not in host.outputs and not host.lent(lg.budget):
                         return q.pop(i)
         return None
+
+    def _lent_out(self, host: Host, card) -> bool:
+        """True when a leg this card could take is held back only by its host's lend."""
+        is_timed = (host.name, card) in self.timed
+        with self.mu:
+            return any((is_timed or not lg.timed) and host.lent(lg.budget)
+                       for lg in self.todo.get(self._queue(host, card), []))
 
     def _blocked(self, host: Host, card) -> bool:
         with self.mu:
@@ -945,6 +979,9 @@ class Gate:
                 # a leg another runner held comes back
                 if self._wait_held(queue):
                     continue
+                if self._lent_out(host, card):
+                    time.sleep(POOL_POLL_S)     # another host may take it first; else the lend ends
+                    continue
                 return
             try:
                 res = self.execute(host, card, leg)
@@ -957,6 +994,10 @@ class Gate:
                     host.lock.notify_all()
                 if self.ledger is not None and leg.card:
                     self.ledger.release(self.keys[(leg.name, queue)])
+            if res is None:
+                with self.mu:
+                    self.todo.setdefault(queue, []).insert(0, leg)
+                continue
             self._record(res)
 
     def run(self) -> list:
@@ -996,6 +1037,13 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     QUEUED[job] = host
     while True:
         time.sleep(POOL_POLL_S)
+        host.read_lend()
+        if host.lent(leg.budget) and host.ssh(f"mv {q(job)} {q(job)}.lent", capture_output=True,
+                                              timeout=120).returncode == 0:
+            # the pool had not started it (it moves a job out of the queue when it does)
+            QUEUED.pop(job, None)
+            f.write(f"# taken back: {host.name}'s pool is lent or paused past this leg's cap\n")
+            return WITHDRAWN
         try:
             r = host.ssh(f"cat {q(rdir)}/rc", capture_output=True, timeout=120)
         except subprocess.TimeoutExpired:
@@ -1072,6 +1120,8 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
                 f.flush()
                 rc = run(host, card, leg, rdir, f)
+            if rc == WITHDRAWN:
+                return None     # the worker puts it back on the queue for another host
             text = log.read_text(errors="replace")
             # The gate scripts refuse to start on an overloaded host (gate_guard's load ceiling).
             # That is not a verdict: wait for the load to drop and start the leg again.

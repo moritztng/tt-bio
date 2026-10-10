@@ -726,3 +726,55 @@ def test_a_host_keyed_as_another_card_type_keeps_its_own_for_the_record():
     h = gf.Host("qb2", {"arch": "bh", "card_type": "p300c", "key_card_type": "p150a", "root": "/r"}, "f" * 40)
     assert (h.cfg["card_type"], h.key_card_type) == ("p300c", "p150a")
     assert gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r"}, "f" * 40).key_card_type == "p150a"
+
+
+def _pool_host(name, tmp_path, lend_at=None, paused=False):
+    h = gf.Host(name, {"arch": "wh", "card_type": "wh", "root": str(tmp_path),
+                       "pool": {"queue": str(tmp_path / name / "queue")}}, "f" * 40)
+    h.lend = (time.time(), lend_at, paused)      # fresh, so no ssh
+    return h
+
+
+def test_a_lent_pool_takes_no_leg_the_lend_would_hold_and_another_host_runs_it(tmp_path):
+    lent = _pool_host("g114", tmp_path, lend_at=int(time.time()) + 3600)
+    free = _pool_host("g107", tmp_path)
+    short, long_ = gf.Leg("check", [], "check", card=True), gf.Leg("capacity:opendde", [], "capacity")
+    assert short.budget < 3600 < long_.budget
+
+    def execute(h, card, leg):
+        return {"leg": leg.name, "arch": h.arch, "verdict": "PASS", "worker": h.name}
+
+    res = gf.Gate({"wh": [long_, short]}, [(lent, gf.POOL), (free, gf.POOL)], set(), execute, tmp_path).run()
+    assert {r["leg"]: r["worker"] for r in res}["capacity:opendde"] == "g107"
+    assert len(res) == 2
+    assert _pool_host("p", tmp_path, paused=True).lent(1) and not free.lent(10 ** 6)
+
+
+def test_a_leg_queued_before_the_lend_was_booked_is_taken_back(tmp_path, monkeypatch):
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.01)
+    monkeypatch.setattr(gf, "LEND_READ_S", 0)
+    lend = tmp_path / "LEND-AT"
+    monkeypatch.setattr(gf, "LEND_AT", str(lend))
+    queue = tmp_path / "queue"
+    queue.mkdir()
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, "b" * 40)
+    leg = gf.Leg("capacity:opendde", ["PY", "-c", "pass"], "capacity")
+    lend.write_text(str(int(time.time()) + 600))
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "capacity_opendde"), f)
+    assert rc == gf.WITHDRAWN
+    assert [p.name for p in queue.iterdir()] == ["0-gate-run1-capacity_opendde.sh.lent"]
+
+    lend.unlink()                # the lend ended
+    tries = []
+
+    def execute(host, card, lg):
+        tries.append(host.name)
+        if len(tries) == 1:
+            return None          # what execute returns for a withdrawn leg
+        return {"leg": lg.name, "arch": host.arch, "verdict": "PASS", "worker": host.name}
+
+    res = gf.Gate({"wh": [leg]}, [(_pool_host("a", tmp_path), gf.POOL)], set(), execute, tmp_path).run()
+    assert len(tries) == 2 and len(res) == 1

@@ -236,7 +236,9 @@ ids are UMD ids and its locks are `~/spd/locks/chip<N>.lock`. Grant the gate poo
 than chips: with `"pool": {"queue": "~/spd/pool/queue", "prio": 0, "row": "<row>"}` in hosts.json,
 `--workers g114:pool,g114:pool,g114:pool,g114:pool` keeps at most four legs queued or running
 there, each as one job file the pool starts on an idle healthy chip. Stopping the runner (SIGINT)
-takes back the jobs that have not started.
+takes back the jobs that have not started. A Galaxy booked out of the pool (`~/spd/galaxy/LEND-AT`)
+or with its pool paused takes no leg whose budget runs into the lend, and a leg it queued before the
+lend was booked is taken back and run by another worker, so grant slots on more than one Galaxy.
 The host has no C compiler, so put a DockQ wheel built elsewhere at `<root>/prereq/`.
 The Galaxies have no route to `api.colabfold.com`, so every MSA-search leg there (the rg folds,
 parity opendde-abag) dies on its first request. Copy a `msa/` directory from a fresh search on a
