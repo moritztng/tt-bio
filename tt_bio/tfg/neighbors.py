@@ -196,6 +196,59 @@ def interchain_pairs(X, chain, allowed, r):
     return out[:, 0], out[:, 1], out[:, 2]
 
 
+@numba.njit(cache=True, nogil=True)
+def _steric_descend(sub, li, lj, eq, lim, ref, rest, limit, w, step, steps, check_first):
+    """VinaStericPotential.descend's inner steps on the pair-list atoms sub [A, 3] (fp32, updated in place):
+    sub -= step * w * dE/dsub while the list stays valid. Returns (steps done, 0 all done | 1 list invalid | 2 no
+    active pair). The pair terms and the two scatter passes follow the torch loop's order; norm and exp round
+    differently (<= 1 ulp)."""
+    A, P = sub.shape[0], li.shape[0]
+    g = np.empty((A, 3), np.float32)
+    gi = np.empty((P, 3), np.float32)
+    act = np.empty(P, np.bool_)
+    f = np.float32
+    for it in range(steps):
+        if it > 0 or check_first:
+            m = rest
+            for a in range(A):
+                d0, d1, d2 = sub[a, 0] - ref[a, 0], sub[a, 1] - ref[a, 1], sub[a, 2] - ref[a, 2]
+                m = max(m, (d0 * d0 + d1 * d1) + d2 * d2)
+            if m >= limit:
+                return it, 1
+        g[:] = 0
+        n = 0
+        for p in range(P):
+            i, j = li[p], lj[p]
+            r0, r1, r2 = sub[i, 0] - sub[j, 0], sub[i, 1] - sub[j, 1], sub[i, 2] - sub[j, 2]
+            v = max(np.sqrt((r0 * r0 + r1 * r1) + r2 * r2), f(1e-8))
+            act[p] = v < lim[p]
+            if not act[p]:
+                continue
+            n += 1
+            dd = v - eq[p]
+            nd = dd / f(0.5)
+            g1 = f(-0.0356) * np.exp(-(nd * nd))
+            t = (dd - f(3.0)) / f(2.0)
+            g2 = f(-0.00516) * np.exp(-(t * t))
+            c = (f(-2.0) * g1 * nd * f(2.0) + f(-0.5) * g2 * (dd - f(3.0))) + f(0.840) * (f(2.0) * dd if dd < 0 else f(0.0))
+            gi[p, 0], gi[p, 1], gi[p, 2] = c * (r0 / v), c * (r1 / v), c * (r2 / v)
+            g[i, 0] += gi[p, 0]
+            g[i, 1] += gi[p, 1]
+            g[i, 2] += gi[p, 2]
+        if n == 0:
+            return it, 2
+        for p in range(P):
+            if act[p]:
+                j = lj[p]
+                g[j, 0] -= gi[p, 0]
+                g[j, 1] -= gi[p, 1]
+                g[j, 2] -= gi[p, 2]
+        for a in range(A):
+            for k in range(3):
+                sub[a, k] = sub[a, k] + (-(g[a, k] * w)) * step
+    return steps, 0
+
+
 def square_length(v):
     """|v|^2 over the last axis as two adds of three products: about twice as fast as norm() on a size-3 axis. For
     bounds and thresholds (rounding differs from norm/cdist), not for values that must match them bitwise."""

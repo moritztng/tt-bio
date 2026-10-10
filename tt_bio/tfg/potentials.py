@@ -13,6 +13,7 @@ returns `(energy, dE/dcoords)`; `project` returns an additive `delta_x` shaped l
 import math
 from typing import Any, Optional
 
+import numpy as np
 import torch
 
 from tt_bio.data.const import vdw_radii as rdkit_vdws  # element-for-element opendde rdkit_vdws
@@ -989,9 +990,9 @@ class VinaStericPotential(Potential):
         so the steps run on those atoms alone and are written back once."""
         params = self._resolve_params(params)
         buf = float(params["buffer"])
-        if params.get("core", "auto") != "auto":
+        if params.get("core", "auto") != "auto" or coords.dtype != torch.float32 or coords.device.type != "cpu":
             return None                         # the engine runs its generic loop
-        from .neighbors import square_length
+        from .neighbors import _steric_descend, square_length
         shape = coords.shape
         n_atom = int(shape[-2])
         coords_b = coords.reshape(-1, n_atom, 3)
@@ -1008,23 +1009,12 @@ class VinaStericPotential(Potential):
             rest[atoms] = 0.0
             rest = float(rest.max())
             ref_sub, limit = ref[atoms], (0.5 * st["skin"] - 1e-3) ** 2
-            stop = False
-            while done < steps:
-                if done and max(rest, float(square_length(sub - ref_sub).max())) >= limit:
-                    break                       # the list is no longer valid: rebuild at the current pose
-                r = sub[li] - sub[lj]
-                v = torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
-                a = torch.nonzero(v < lim).squeeze(1)
-                if a.numel() == 0:
-                    stop = True
-                    break
-                v = v[a]
-                gi = self._pair_gradient(*self._pair_terms(v, eq[a]), r[a], v)
-                g = torch.zeros_like(sub)
-                g.scatter_add_(0, li[a].unsqueeze(-1).expand(-1, 3), gi)
-                g.scatter_add_(0, lj[a].unsqueeze(-1).expand(-1, 3), -gi)
-                sub = sub + (-(g * weight)) * step_size
-                done += 1
+            sub = sub.contiguous()
+            ran, status = _steric_descend(sub.numpy(), li.numpy(), lj.numpy(), eq.contiguous().numpy(),
+                                          lim.contiguous().numpy(), ref_sub.contiguous().numpy(), rest, limit,
+                                          np.float32(weight), np.float32(step_size), steps - done, done > 0)
+            done += ran
+            stop = status == 2
             flat = flat.clone()
             flat[atoms] = sub
             coords_b = flat.reshape(coords_b.shape)

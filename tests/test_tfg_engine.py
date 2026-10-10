@@ -351,7 +351,8 @@ def test_vina_single_chain_is_zero():
 
 
 def test_vina_descend_equals_the_generic_loop():
-    """The steric term's own inner loop (used when it is the only acting term) gives the generic loop's values."""
+    """The steric term's own compiled inner loop (used when it is the only acting term) gives the generic loop's values
+    up to norm/exp rounding."""
     feats, _, x0 = make_inputs()
     x0 = x0 * 0.35                                   # packed tight, so pairs clash and the pair list is rebuilt
     vina = tt_pot.VinaStericPotential()
@@ -364,7 +365,7 @@ def test_vina_descend_equals_the_generic_loop():
             break
         x = x + grad * mu
     assert not torch.equal(x, x0)
-    assert torch.equal(tt_pot.VinaStericPotential().descend(x0, feats, None, w, mu, steps), x)
+    torch.testing.assert_close(tt_pot.VinaStericPotential().descend(x0, feats, None, w, mu, steps), x, rtol=0, atol=1e-5)
 
 
 def test_validate_features_names_missing_keys():
