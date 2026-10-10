@@ -883,7 +883,7 @@ class _Trunk:
                 m, z = block(m, z, msa_mask, *pair_masks, drop=d)
         return m, z
 
-    def extra_msa(self, z, pair_masks, recompute: bool, offload: bool = False):
+    def extra_msa(self, z, pair_masks, recompute: bool, offload: bool = False, drop=None):
         """The extra-MSA stack's four pair blocks, `pair -> pair`, left on card throughout.
 
         `AF2DeviceModel.extra_msa_stack` is this same loop with the dead MSA track written for
@@ -906,15 +906,18 @@ class _Trunk:
             return model._up(model.opm_constant[index].reshape(1, 1, -1))
 
         for index, block in enumerate(model.device_extra_msa):
+            d = None if drop is None else drop[index]
             if recompute:
                 z = self.ag.checkpoint(
-                    lambda t, blk=block, i=index: blk(blk._residual(t, const(i)), *pair_masks), z,
+                    lambda t, blk=block, i=index, d=d: blk(blk._residual(t, const(i)),
+                                                           *pair_masks, drop=d), z,
                     offload=offload)
             else:
-                z = block(block._residual(z, const(index)), *pair_masks)
+                z = block(block._residual(z, const(index)), *pair_masks, drop=d)
         return z
 
-    def template_stack(self, z, pair_masks, recompute: bool, offload: bool = False):
+    def template_stack(self, z, pair_masks, recompute: bool, offload: bool = False,
+                       drop=None):
         """The template embedder's two c=64 pair blocks, `act -> act`, left on card throughout.
 
         `AF2DeviceModel`'s fold path runs these same blocks through
@@ -922,12 +925,13 @@ class _Trunk:
         which is what a gradient round needs. No `opm_constant`: the template stack has no MSA
         track for an outer product mean to collapse, unlike `extra_msa` above.
         """
-        for block in self.model.device_template:
+        for i, block in enumerate(self.model.device_template):
+            d = None if drop is None else drop[i]
             if recompute:
-                z = self.ag.checkpoint(lambda t, blk=block: blk(t, *pair_masks), z,
+                z = self.ag.checkpoint(lambda t, blk=block, d=d: blk(t, *pair_masks, drop=d), z,
                                        offload=offload)
             else:
-                z = block(z, *pair_masks)
+                z = block(z, *pair_masks, drop=d)
         return z
 
     def seed(self, t: torch.Tensor, like):
@@ -1591,18 +1595,20 @@ class ExtraMsaOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np):
+    def _primal(self, slot, pair_np, extra_mask_np, pair_mask_np, pair_keep=None, scales=None):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
         with _refusal_names_the_size("forward", n, z.shape[0], stack="extra-MSA stack"), \
                 duotraj.card(slot, "extra_msa._primal"):
             trunk = self._trunk(slot)
             zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask),
-                                 recompute=False)
+                                 recompute=False,
+                                 drop=upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep,
+                                                     scales, z.shape[0]))
             trunk.sync()
             self.calls["primal"] += 1
             return trunk.down(zo, tuple(z.shape))[:n, :n].numpy()
 
-    def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np):
+    def _taped(self, slot, pair_np, extra_mask_np, pair_mask_np, pair_keep=None, scales=None):
         z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
         with _refusal_names_the_size("forward", n, z.shape[0], self.memory,
                                      stack="extra-MSA stack"), \
@@ -1611,16 +1617,17 @@ class ExtraMsaOnDevice:
             mode = self.memory.mode(trunk, z.shape[0])
             offload = trunk.arm(mode)
             zl = trunk.leaf(z)
+            drop = upload_dropout(trunk, DROPOUT_DRAWS[1:], pair_keep, scales, z.shape[0])
             with trunk.taped.tape():
                 zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
-                                     recompute=self.recompute, offload=offload)
+                                     recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
             self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n,
-                                      "mode": mode}, slot)
+                                      "mode": mode, "drop": drop}, slot)
             self.calls["taped"] += 1
             return (trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
@@ -1658,29 +1665,30 @@ class ExtraMsaOnDevice:
         def f32(pair):
             return jax.ShapeDtypeStruct(pair.shape, jnp.float32)
 
-        def args(pair, extra_mask, pair_mask):
+        def args(pair, extra_mask, pair_mask, pair_keep, scales):
             return (pair.astype(jnp.float32), extra_mask.astype(jnp.float32),
-                    pair_mask.astype(jnp.float32))
+                    pair_mask.astype(jnp.float32), pair_keep, scales)
 
         @jax.custom_vjp
-        def stack(pair, extra_mask, pair_mask):
+        def stack(pair, extra_mask, pair_mask, pair_keep, scales):
             z = jax.pure_callback(functools.partial(self._primal, slot), f32(pair),
-                                  *args(pair, extra_mask, pair_mask))
+                                  *args(pair, extra_mask, pair_mask, pair_keep, scales))
             return z.astype(pair.dtype)
 
-        def fwd(pair, extra_mask, pair_mask):
+        def fwd(pair, extra_mask, pair_mask, pair_keep, scales):
             z, token = jax.pure_callback(
                 functools.partial(self._taped, slot),
                 (f32(pair), jax.ShapeDtypeStruct((), jnp.int32)),
-                *args(pair, extra_mask, pair_mask))
-            return z.astype(pair.dtype), (token, extra_mask, pair_mask)
+                *args(pair, extra_mask, pair_mask, pair_keep, scales))
+            return z.astype(pair.dtype), (token, extra_mask, pair_mask, pair_keep, scales)
 
         def bwd(res, g_pair):
-            token, extra_mask, pair_mask = res
+            token, extra_mask, pair_mask, pair_keep, scales = res
             gz = jax.pure_callback(functools.partial(self._backward, slot), f32(g_pair), token,
                                    g_pair.astype(jnp.float32))
             return (gz.astype(g_pair.dtype), jnp.zeros_like(extra_mask),
-                    jnp.zeros_like(pair_mask))
+                    jnp.zeros_like(pair_mask), _zero_cotangent(pair_keep),
+                    _zero_cotangent(scales))
 
         stack.defvjp(fwd, bwd)
         return stack
@@ -1755,18 +1763,20 @@ class TemplateOnDevice:
 
     # ------------------------------------------------------------------ forward and backward
 
-    def _primal(self, slot, act_np, pair_mask_np):
+    def _primal(self, slot, act_np, pair_mask_np, pair_keep=None, scales=None):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
         with _refusal_names_the_size("forward", n, act.shape[0], stack="template stack"), \
                 duotraj.card(slot, "template._primal"):
             trunk = self._trunk(slot)
             out = trunk.template_stack(trunk.up(act), self._pair_masks(trunk, pair_mask),
-                                       recompute=False)
+                                       recompute=False,
+                                       drop=upload_dropout(trunk, TEMPLATE_DROPOUT_DRAWS,
+                                                           pair_keep, scales, act.shape[0]))
             trunk.sync()
             self.calls["primal"] += 1
             return trunk.down(out, tuple(act.shape))[:n, :n].numpy()
 
-    def _taped(self, slot, act_np, pair_mask_np):
+    def _taped(self, slot, act_np, pair_mask_np, pair_keep=None, scales=None):
         act, pair_mask, n = self._inputs(act_np, pair_mask_np)
         with _refusal_names_the_size("forward", n, act.shape[0], self.memory,
                                      stack="template stack"), \
@@ -1775,16 +1785,17 @@ class TemplateOnDevice:
             mode = self.memory.mode(trunk, act.shape[0])
             offload = trunk.arm(mode)
             leaf = trunk.leaf(act)
+            drop = upload_dropout(trunk, TEMPLATE_DROPOUT_DRAWS, pair_keep, scales, act.shape[0])
             with trunk.taped.tape():
                 out = trunk.template_stack(leaf, self._pair_masks(trunk, pair_mask),
-                                           recompute=self.recompute, offload=offload)
+                                           recompute=self.recompute, offload=offload, drop=drop)
             trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
             self._tapes.sweep(slot)
             trunk.ag.release_pins()
             token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape),
-                                      "n": n, "mode": mode}, slot)
+                                      "n": n, "mode": mode, "drop": drop}, slot)
             self.calls["taped"] += 1
             return (trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(),
                     np.int32(token))
@@ -1823,27 +1834,28 @@ class TemplateOnDevice:
         def f32(act):
             return jax.ShapeDtypeStruct(act.shape, jnp.float32)
 
-        def args(act, pair_mask):
-            return act.astype(jnp.float32), pair_mask.astype(jnp.float32)
+        def args(act, pair_mask, pair_keep, scales):
+            return act.astype(jnp.float32), pair_mask.astype(jnp.float32), pair_keep, scales
 
         @jax.custom_vjp
-        def stack(act, pair_mask):
+        def stack(act, pair_mask, pair_keep, scales):
             out = jax.pure_callback(functools.partial(self._primal, slot), f32(act),
-                                    *args(act, pair_mask))
+                                    *args(act, pair_mask, pair_keep, scales))
             return out.astype(act.dtype)
 
-        def fwd(act, pair_mask):
+        def fwd(act, pair_mask, pair_keep, scales):
             out, token = jax.pure_callback(
                 functools.partial(self._taped, slot),
                 (f32(act), jax.ShapeDtypeStruct((), jnp.int32)),
-                *args(act, pair_mask))
-            return out.astype(act.dtype), (token, pair_mask)
+                *args(act, pair_mask, pair_keep, scales))
+            return out.astype(act.dtype), (token, pair_mask, pair_keep, scales)
 
         def bwd(res, g_act):
-            token, pair_mask = res
+            token, pair_mask, pair_keep, scales = res
             g = jax.pure_callback(functools.partial(self._backward, slot), f32(g_act), token,
                                   g_act.astype(jnp.float32))
-            return g.astype(g_act.dtype), jnp.zeros_like(pair_mask)
+            return (g.astype(g_act.dtype), jnp.zeros_like(pair_mask),
+                    _zero_cotangent(pair_keep), _zero_cotangent(scales))
 
         stack.defvjp(fwd, bwd)
         return stack
@@ -1924,10 +1936,19 @@ def template_on_device(tmpl: "TemplateOnDevice | None",
                         "padding_mask_2d is not reachable from the template stack's closure; "
                         "the splice point in SingleTemplateEmbedding.__call__ moved")
                 tmpl.seen["blocks_swapped"] = int(num_block)
+                use_dropout = _free_variable(fn, "use_dropout", lambda v: v is not None)
+                if use_dropout is None:
+                    raise ValueError(
+                        "use_dropout is not reachable from the template stack's closure; the "
+                        "splice point in SingleTemplateEmbedding.__call__ moved")
 
                 def run(carry):
+                    from bindcraft.af.alphafold.model import prng
                     act, key = carry
-                    return device_stack(act, mask), key
+                    _, pair_keep, scales, key_out = stack_dropout_masks(
+                        key.get(), int(num_block), TEMPLATE_KEY_FAN, TEMPLATE_DROPOUT_DRAWS,
+                        act.shape, use_dropout)
+                    return device_stack(act, mask, pair_keep, scales), prng.SafeKey(key_out)
 
                 return run
 
@@ -2071,15 +2092,25 @@ def evoformer_on_device(evo: EvoformerOnDevice,
                 "extra-MSA and pair masks to fold a padded complex and guessing one is worse "
                 "than stopping.")
         extra_msa.swapped.append(num_layers)
+        use_dropout = find_use_dropout(fn)
+        if use_dropout is None:
+            raise RuntimeError(
+                "batch['use_dropout'] not found in the extra-MSA stack's closure. The stack draws "
+                "AlphaFold 2's dropout from the key the host stack carries, and folding without "
+                "it would design against a different regulariser than BindCraft 2 asked for.")
 
         def extra_on_device(x):
+            from bindcraft.af.alphafold.model import prng
             activations, safe_key = x
-            pair = extra_stack(activations["pair"], masks["msa"], masks["pair"])
-            # The scan splits the key once per block and carries the first half on, so what
-            # follows the stack sees the key it would have seen.
-            for _ in range(num_layers):
-                safe_key, _unused = safe_key.split()
-            return {**activations, "pair": pair}, safe_key
+            # The same iteration as the Evoformer's, so the same schedule; only the pair track
+            # runs on card, so only the pair track's draws are taken. `key_out` is what the
+            # scan carries out, which is what follows the stack sees on host.
+            _, pair_keep, scales, key_out = stack_dropout_masks(
+                safe_key.get(), num_layers, EVOFORMER_KEY_FAN, DROPOUT_DRAWS[1:],
+                activations["pair"].shape, use_dropout)
+            pair = extra_stack(activations["pair"], masks["msa"], masks["pair"], pair_keep,
+                               scales)
+            return {**activations, "pair": pair}, prng.SafeKey(key_out)
         return extra_on_device
 
     def factory(num_layers, *args, **kwargs):

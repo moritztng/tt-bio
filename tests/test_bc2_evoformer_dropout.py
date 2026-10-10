@@ -133,3 +133,33 @@ def test_a_drawn_mask_drops_at_the_configured_rate():
     assert abs(float(np.asarray(msa_keep).mean()) - 0.85) < 0.01
     for i in range(len(bindcraft2.DROPOUT_PAIR_OPS)):
         assert abs(float(np.asarray(pair_keep[:, i]).mean()) - 0.75) < 0.01
+
+
+@pytest.mark.parametrize("use_dropout", [True, False])
+def test_the_template_stacks_masks_are_the_hosts_own(use_dropout):
+    """multimer_v3's template pair stack: per-block split, then twenty ways, multiplications first.
+
+    That stack is on card too, so it owed the same draws. Graded the same way, against
+    `dropout_wrapper` fed the keys `template_iteration_fn` and `TemplateEmbeddingIteration` hand out
+    (`modules_multimer.py:650` and `:706`).
+    """
+    import jax.numpy as jnp
+
+    key, c_t = jax.random.PRNGKey(13), 6
+    _, pair_keep, scales, key_out = bindcraft2.stack_dropout_masks(
+        key, BLOCKS, bindcraft2.TEMPLATE_KEY_FAN, bindcraft2.TEMPLATE_DROPOUT_DRAWS,
+        (N, N, c_t), use_dropout)
+
+    act = jnp.zeros((N, N, c_t))
+    safe_key = prng.SafeKey(key)
+    for b in range(BLOCKS):
+        safe_key, sub = safe_key.split()
+        _unused, *sub_keys = sub.split(20)
+        for i, (op, idx, rate, axis) in enumerate(bindcraft2.TEMPLATE_DROPOUT_DRAWS):
+            theirs = np.asarray(modules.dropout_wrapper(
+                _Op(rate, "per_row" if axis == 0 else "per_column"), act, None,
+                safe_key=sub_keys[idx], global_config=None, use_dropout=jnp.asarray(use_dropout)))
+            expect = theirs[0] if axis == 0 else theirs[:, 0]
+            mine = np.asarray(pair_keep[b, i]) * float(scales[i])
+            np.testing.assert_allclose(mine, expect, rtol=0, atol=0, err_msg=f"block {b}, {op}")
+    np.testing.assert_array_equal(np.asarray(key_out), np.asarray(safe_key._key))

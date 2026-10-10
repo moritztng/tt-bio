@@ -59,11 +59,15 @@ def _evo():
 
 
 def _extra_msa_stack_fn():
-    """AlphaFold 2's extra-MSA per-block closure, as `find_extra_msa_masks` expects to find it."""
+    """AlphaFold 2's extra-MSA per-block closure, as `find_extra_msa_masks` expects to find it.
+
+    It reads `batch["use_dropout"]` as the real one does, which is where the splice takes it from.
+    """
     extra_masks = {"msa": "MSA", "pair": "PAIR"}
+    batch = {"use_dropout": True}
 
     def extra_msa_stack_fn(x):
-        return extra_masks
+        return extra_masks, batch["use_dropout"]
 
     return extra_msa_stack_fn
 
@@ -124,9 +128,10 @@ def test_the_evoformer_still_stands_down_on_a_host_fold():
 def _template_iteration_fn():
     import numpy as np
     padding_mask_2d = np.zeros((8, 8), dtype=np.float32)
+    use_dropout = True
 
     def template_iteration_fn(carry):
-        return padding_mask_2d
+        return padding_mask_2d, use_dropout
 
     return template_iteration_fn
 
