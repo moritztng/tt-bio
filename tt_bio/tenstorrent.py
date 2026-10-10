@@ -5961,9 +5961,11 @@ def _l1_out_narrow(key) -> None:
 #     298   0.4016 -> 0.3154 ms   320   0.4132 -> 0.3312   384   0.5888 -> 0.4589
 #     512   0.9949 -> 0.7844      576   1.2548 -> 0.9889   640   1.5561 -> 1.2052
 # The L1-output leg still wins where it applies (298: 0.2838), so this sits BELOW it and above
-# the DRAM linear. Scoped to a single-block contraction (kt == 8) because that is the class where
-# the identical accumulation order was verified.
+# the DRAM linear. Scoped to the single-block contractions where the identical accumulation order
+# was verified: kt == 8 above, and kt == 12 (OpenDDE's c_z=384 trimul output projections,
+# [1,736,736,384] x [384,384], `torch.equal` against the shipped call, perf/wh-opendde/oproj384.py).
 PAIR_PROJ_MINIMAL_MATMUL = True
+_PAIR_PROJ_MM_KT = frozenset({8, 12})
 _PAIR_PROJ_MM = os.environ.get(
     "TT_BIO_PAIR_PROJ_MM", "1" if PAIR_PROJ_MINIMAL_MATMUL else "0") == "1"
 
@@ -6006,7 +6008,7 @@ def _pair_proj_minimal_matmul(x, w, ckc, dtype, bias=None):
     """`minimal_matmul` for a pair projection whose contraction fits one K block, else None."""
     if not _PAIR_PROJ_MM or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
         return None
-    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) != 8:
+    if len(w.shape) != 2 or -(-int(w.shape[-2]) // 32) not in _PAIR_PROJ_MM_KT:
         return None
     cfg = _qkv_mm_config(x, w)
     if cfg is None:
