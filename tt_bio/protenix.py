@@ -1931,19 +1931,43 @@ class PaeBins:
 
     @classmethod
     def on_device(cls, logits_d, counts, centers, compute_kernel_config):
-        """Softmax the [1, N, N, nb] fp32 ``logits_d`` and reduce it on device to the PAE
-        expectation and E[TM] at each of ``counts``; ``counts`` should come from :meth:`counts`."""
+        """Reduce the [1, N, N, nb] fp32 ``logits_d`` on device to the PAE expectation and E[TM]
+        at each of ``counts``; ``counts`` should come from :meth:`counts`.
+
+        Two device steps lose precision a pTM can see, so neither runs here. The fused
+        ``ttnn.softmax`` returns fp32 rows summing to ~0.98, which read pTM 0.002-0.004 low on
+        every OpenFold3 sample (ab26); instead the device takes ``exp(x - max)`` only and the row
+        sum rides along as a column of ones, divided out on the host. And the FPU reads fp32
+        operands at about tf32, so both sides are split into a bf16 head and a tail and three
+        products are summed (head x head, tail x head, head x tail; tail x tail is below fp32).
+        """
+        from .tenstorrent import _accurate_softmax
         N = int(logits_d.shape[-2])
-        probs = ttnn.softmax(logits_d, dim=-1, compute_kernel_config=compute_kernel_config,
-                             numeric_stable=True)
-        cols = torch.stack([centers] + [tm_per_bin(n, centers) for n in counts], 1)
-        w = ttnn.from_torch(cols.float(), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
-                            device=logits_d.device())
-        r = ttnn.matmul(probs, w, compute_kernel_config=compute_kernel_config)
-        ttnn.deallocate(probs)
-        ttnn.deallocate(w)
-        host = torch.Tensor(ttnn.to_torch(r)).float().reshape(N, N, -1)
+        cfg = compute_kernel_config
+        e = _accurate_softmax(logits_d, cfg, normalise=False)
+        e16 = ttnn.typecast(e, ttnn.bfloat16)
+        eh = ttnn.typecast(e16, ttnn.float32)
+        ttnn.deallocate(e16)
+        el = ttnn.subtract(e, eh)
+        ttnn.deallocate(e)
+        cols = torch.stack([torch.ones_like(centers), centers]
+                           + [tm_per_bin(n, centers) for n in counts], 1).float()
+        wh = cols.bfloat16().float()
+        dev = logits_d.device()
+        up = lambda w: ttnn.from_torch(w, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+        w_h, w_l = up(wh), up(cols - wh)
+        r = ttnn.matmul(eh, w_h, compute_kernel_config=cfg)
+        for a, w in ((el, w_h), (eh, w_l)):
+            t = ttnn.matmul(a, w, compute_kernel_config=cfg)
+            q = ttnn.add(r, t)
+            ttnn.deallocate(r)
+            ttnn.deallocate(t)
+            r = q
+        for t in (eh, el, w_h, w_l):
+            ttnn.deallocate(t)
+        host = torch.Tensor(ttnn.to_torch(r)).double().reshape(N, N, -1)
         ttnn.deallocate(r)
+        host = (host[..., 1:] / host[..., :1]).float()
         return cls(centers, pae=host[..., 0],
                    etm={n: host[..., 1 + i] for i, n in enumerate(counts)})
 

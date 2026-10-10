@@ -4948,8 +4948,11 @@ def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
     return _site_flag("TT_BIO_SDPA_RAGGED_PAD_AB", token, default)
 
 
-def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
+def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True, normalise: bool = True):
     """A row softmax built from individual ttnn ops, for logits the fused kernel loses.
+
+    ``normalise=False`` stops at ``exp(x - max)`` in fp32 and leaves the row sum to the caller,
+    for a reduction that can take the sum as one more matmul column (PaeBins.on_device).
 
     `ttnn.softmax` normalises with a denominator that does not match its own numerators:
     on [1,16,512,512] fp32 it returns rows summing to 0.9769 (min 0.9613) and rel_rms
@@ -5004,6 +5007,8 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
         ttnn.deallocate(d)
         d = dc
     ttnn.exp(d, output_tensor=d)
+    if not normalise:
+        return d
     s = ttnn.sum(d, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config)
     p = ttnn.divide(d, s)
     ttnn.deallocate(d)

@@ -566,19 +566,23 @@ class OF3ConfidenceHead:
                              for h in ("pae", "pde"))
             ttnn.deallocate(z32)
             if pae_counts is not None:
-                pde_d = ttnn.add(plog_d, ttnn.permute(plog_d, (0, 2, 1, 3)))
-                reduced = {
-                    "pae_bins": PaeBins.on_device(pae_d, pae_counts, _PAE_CENTERS,
-                                                  self.compute_kernel_config),
-                    "pde": PaeBins.on_device(pde_d, [], _PAE_CENTERS,
-                                             self.compute_kernel_config).pae()}
+                # One [N, N, 64] logit tensor alive at a time: the reduction holds three more.
+                bins = PaeBins.on_device(pae_d, pae_counts, _PAE_CENTERS, self.compute_kernel_config)
+                ttnn.deallocate(pae_d)
+                plog_t = ttnn.permute(plog_d, (0, 2, 1, 3))
+                pde_d = ttnn.add(plog_d, plog_t)
+                for t in (plog_d, plog_t):
+                    ttnn.deallocate(t)
+                reduced = {"pae_bins": bins,
+                           "pde": PaeBins.on_device(pde_d, [], _PAE_CENTERS,
+                                                    self.compute_kernel_config).pae()}
                 ttnn.deallocate(pde_d)
                 pae_logits = plog = None
             else:
                 pae_logits, plog = (torch.Tensor(ttnn.to_torch(x)).float().reshape(N, N, -1)
                                     for x in (pae_d, plog_d))
-            ttnn.deallocate(pae_d)
-            ttnn.deallocate(plog_d)
+                ttnn.deallocate(pae_d)
+                ttnn.deallocate(plog_d)
             zij_conf = (torch.Tensor(ttnn.to_torch(z_d)).float().reshape(N, N, _C_Z)
                         if return_pair else None)
             ttnn.deallocate(z_d)
