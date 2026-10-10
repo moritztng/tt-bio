@@ -27,7 +27,8 @@ import torch
 
 from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_parent_death_guard
 from tt_bio.host_controller import (HEARTBEAT_PER_LEASE, LEASE_S, ControllerClient,
-                                    HttpProgressQueue, run_config_hash)
+                                    HttpProgressQueue, diffusion_precision,
+                                    run_config_hash)
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
 from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
@@ -908,8 +909,10 @@ class _WorkerState:
             if cfg.get("trace"):
                 get_device(trace="protenix")
 
+            prec = diffusion_precision(cfg)
             self.model = OpenDDE.load_from_checkpoint(
-                cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))
+                cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"),
+                diffusion_fp32=None if prec is None else prec == "fp32")
         elif model_id == "af2ig":
             from tt_bio.af2 import load_af2_device_model
             from tt_bio.af2_weights import load_af2_state_dict

@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **Guided OpenDDE folds run the diffusion module in fp32**, in normal and `--fast` mode, as upstream does.
+  In bf16 constraint guidance compressed the movable antibody chains in 9 of 90 samples against upstream's
+  1 of 90; fp32 gives 2 of 90. Guided folds take about 20 % longer; unguided folds are unchanged.
+  [`docs/constraint-guidance.md`](docs/constraint-guidance.md).
 - **OpenDDE seeds now give different trunks, as upstream's do.** Each recycling cycle reads its own 1280
   random alignment rows and every reference conformer is centred and turned by a seeded rotation, both
   drawn from the seed. Before, every seed of a target shared one trunk, so five seeds were one trunk with
