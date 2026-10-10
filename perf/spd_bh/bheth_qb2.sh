@@ -22,7 +22,7 @@ d = T.get_device(); g = d.compute_with_storage_grid_size()
 print(\"RESULT ttbio eth_dispatch=%s device_grid=%dx%d main_grid=%s\" % (T.bh_eth_dispatch(), g.x, g.y, T.COMPUTE_GRID_MAIN))
 T.cleanup()" > $R/probe_ttbio.log 2>&1; say "probe ttbio rc=$? $(grep RESULT $R/probe_ttbio.log)"
 grep -q "mode=eth .*matmul_finite=True" $R/probe_eth.log || { say "ETH dispatch not usable, stopping"; exit 3; }
-ARMS="tensix:TT_BIO_BH_ETH_DISPATCH=0 eth"; [ "${MODES:-}" = both ] && ARMS="$ARMS fasttensix:TT_BIO_BH_ETH_DISPATCH=0:fast fasteth:fast"
+ARMS="tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1"; [ "${MODES:-}" = both ] && ARMS="$ARMS fasttensix:TT_BIO_BH_ETH_DISPATCH=0:fast fasteth:TT_BIO_BH_ETH_DISPATCH=1:fast"
 for ARM in $ARMS; do A=${ARM%%:*}
   timeout -s INT 1500 $PY perf/spd/bench.py --out $R/$A --chip $CHIP --arm "$ARM" --inputs c730 --warm 3 > $R/$A.log 2>&1
   say "arm $A rc=$? $(grep -c "\"ev\": \"rep\"" $R/$A.log) reps"

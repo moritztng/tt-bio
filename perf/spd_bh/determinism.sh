@@ -12,7 +12,7 @@ say "engine $(git rev-parse --short HEAD), ttnn $($PY -c "import importlib.metad
 exec 9>$LOCK; flock -w ${WAIT:-43200} 9 || { say "flock busy"; exit 3; }
 export TT_VISIBLE_DEVICES=$CHIP; say "lock held: chip $CHIP, load $(cut -d" " -f1-3 /proc/loadavg)"
 for i in $(seq ${REPS:-3}); do for m in ${ARMS:-tensix eth}; do
-  A=${m}$i; ARM=eth; [ $m = tensix ] && ARM=tensix:TT_BIO_BH_ETH_DISPATCH=0
+  A=${m}$i; ARM=eth:TT_BIO_BH_ETH_DISPATCH=1; [ $m = tensix ] && ARM=tensix:TT_BIO_BH_ETH_DISPATCH=0
   TT_BIO_TRUNK_TAP=$R/$A.tap timeout -s INT 900 $PY perf/spd_bh/steptap.py --out $R/$A --chip $CHIP --arm "$ARM" \
     --inputs c730 --seed 103 --warm 0 > $R/$A.log 2>&1
   say "$A rc=$? $(grep -o "\"digest\": \"[0-9a-f]*\"" $R/$A/bench.jsonl)"
