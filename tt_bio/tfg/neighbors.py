@@ -84,12 +84,13 @@ def pairs_within(Q, P, r, query_order=False):
     npr = npc.repeat_interleave(blk)
     q = qo[qstart.repeat_interleave(27)[live].repeat_interleave(blk) + idx // npr]
     jpos = g.start[cid.reshape(-1)[live]].repeat_interleave(blk) + idx % npr
-    j = g.order[jpos] % g.N
-    s, i = q // M, q % M
-    keep = (Q[s, i] - P[s, j]).square().sum(-1) < r * r
+    pf = g.order[jpos]                                  # flat index s * N + j into P
+    # flat gathers, then s, i, j for the kept pairs only (same values as Q[s, i] - P[s, j])
+    keep = torch.nonzero((Q.reshape(-1, 3)[q] - P.reshape(-1, 3)[pf]).square().sum(-1) < r * r).squeeze(1)
+    q = q[keep]
     if not query_order:
-        return s[keep], i[keep], j[keep]
-    q, jpos = q[keep], jpos[keep]
+        return q // M, q % M, pf[keep] % g.N
+    jpos = jpos[keep]
     o = torch.argsort(q * g.order.numel() + jpos)
     q = q[o]
     return q // M, q % M, g.order[jpos[o]] % g.N
