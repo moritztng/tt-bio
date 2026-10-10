@@ -46,7 +46,9 @@ def install(T):
 
     def reference(self, x, mask, n_msa, residual, rows):
         """float64 output at token `rows` only: the full one is (I, J, C*D) doubles, ~5 GB at 778 tokens."""
-        w = {k: v.double() for k, v in self.weights.items()}
+        keys = ("norm.weight", "norm.bias", "proj_a.weight", "proj_b.weight", "proj_o.weight", "proj_o.bias",
+                "proj_a.bias", "proj_b.bias")
+        w = {k: self.weights[k].double() for k in keys if k in self.weights}
         z = 0
         for s in range(0, x.shape[0], 1024):
             m = torch.nn.functional.layer_norm(x[s:s + 1024].double(), x.shape[-1:], w["norm.weight"],
