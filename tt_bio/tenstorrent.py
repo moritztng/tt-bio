@@ -591,13 +591,15 @@ _FAST_MODE = False
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
+#   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
+#                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample")
+          "swiglu_fc12g", "msa_sample", "dit_chunk")
 # Named but in no mode until their fold grade puts them in one.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod", "dit_chunk"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2049,6 +2051,31 @@ def _dividing_sdpa_chunk_size(seq_len: int) -> int:
         if padded % c == 0:
             return c
     return cap
+
+
+@lru_cache(maxsize=None)
+def _dit_sdpa_chunk(seq_len: int) -> int:
+    """q and k chunk for the token DiT's fused SDPA under `dit_chunk`: the largest 32-aligned
+    divisor of the padded length in [96, 320], else the capped 256.
+
+    The capped 256 pads every length it does not divide, and the kernel pays for the padding far
+    beyond its share. MEASURED on a Galaxy Wormhole chip at 1000 MHz, q/k/v [5, 16, N, 64] (head dim
+    48 padded) against a [1, 16, N, N] bias, us per call, 256 -> this pick
+    (perf/wh-opendde/ditsdpa.py, .114 ds2):
+
+        N     480 -> 160   576 -> 288   640 -> 320   800 -> 160   960 -> 320   1440 -> 288
+        us    500 -> 431  2567 -> 509  1548 -> 605  3123 -> 1028 1825 -> 1212 3906 -> 2484
+
+    512 and 1024 keep 256, which divides them. 736 (23 tiles) has no divisor in range and keeps it
+    too. k_chunk sets the online-softmax reduction order, so this is not bit-exact; error against a
+    float64 softmax attention is lower than the shipped 256 at every length above (rel_rms 0.0273 ->
+    0.0271 at 1440), and the wider the chunk the lower it reads. q = k = 480 or 512 does not fit L1.
+    """
+    padded = _padded_sdpa_len(seq_len)
+    for c in range(320, 95, -SDPA_CHUNK_TILE):
+        if padded % c == 0:
+            return c
+    return _capped_sdpa_chunk_size(seq_len)
 
 
 @lru_cache(maxsize=None)
@@ -11332,9 +11359,13 @@ class AttentionPairBias(Module):
                         q_, k_, v_,
                         attn_mask=b_,
                         scale=self.head_dim**-0.5,
-                        program_config=_sdpa_program_config_for_lengths(
-                            q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
-                            site="token_dit", d=q_.shape[3]),
+                        program_config=(
+                            _sdpa_program_config(q_chunk_size=_dit_sdpa_chunk(q_.shape[2]),
+                                                 k_chunk_size=_dit_sdpa_chunk(k_.shape[2]))
+                            if lever("dit_chunk") else
+                            _sdpa_program_config_for_lengths(
+                                q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
+                                site="token_dit", d=q_.shape[3])),
                     ),
                     q, k, v, z, site="token_dit",
                 )
