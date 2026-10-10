@@ -197,6 +197,7 @@ def test_capacity_size_guard_refusal_passes_only_when_the_baseline_records_it():
 def test_a_dropped_ssh_connection_is_not_a_leg_result():
     assert gf.SSH_LOST.search("# leg\nssh: connect to host 192.168.178.70 port 22: No route to host\n")
     assert gf.SSH_LOST.search("Timeout, server 192.168.178.70 not responding.\n")
+    assert gf.SSH_LOST.search("ssh_dispatch_run_fatal: Connection to 192.168.178.70 port 22: Broken pipe\n")
     assert not gf.SSH_LOST.search("FAILED tests/test_x.py::test_ssh_connect_to_host\n")
 
 

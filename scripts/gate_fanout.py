@@ -125,7 +125,7 @@ LOAD_RETRY_S, LOAD_WAIT_MAX_S = 300, 8 * 3600
 #: minutes on 2026-10-09 and five BH legs were recorded FAIL without running.
 SSH_LOST = re.compile(r"^(ssh: connect to host .*|Timeout, server .* not responding\.|"
                       r"client_loop: send disconnect: .*|Connection to .* closed by remote host\.|"
-                      r"kex_exchange_identification: .*)$", re.M)
+                      r"kex_exchange_identification: .*|ssh_dispatch_run_fatal: Connection to .*)$", re.M)
 SSH_LOST_RETRY_S, SSH_LOST_TRIES = 120, 30
 QUEUED: dict = {}         # pool job file -> host, taken back if the runner is stopped
 CARD_FREE = ("check", "packaging_smoke", "pytest_cpu")
@@ -812,8 +812,9 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     r = host.ssh(f"mkdir -p {q(rdir)} && rm -f {q(rdir)}/rc && cat > {q(job)}.tmp && mv {q(job)}.tmp {q(job)}",
                  input=pool_job(host, leg, rdir, name), capture_output=True, timeout=120)
     if r.returncode:
-        f.write(f"cannot queue {job}: {r.stderr.strip()}\n")
-        return 1
+        # ssh's own message on its own line, so a lost connection reads as one and is retried.
+        f.write(f"cannot queue {job}:\n{r.stderr.strip()}\n")
+        return r.returncode if r.returncode == 255 else 1
     f.write(f"# queued {host.name}:{job}\n")
     f.flush()
     QUEUED[job] = host
