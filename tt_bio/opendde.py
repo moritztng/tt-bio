@@ -17,11 +17,11 @@ device.
 import torch
 import ttnn
 
-from .protenix import _KeyedWeights, _under_levers
+from .protenix import _KeyedWeights
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
-from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device
+from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device, under_levers
 
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
@@ -436,7 +436,7 @@ class OpenDDE:
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=True)
         return cls(load_opendde_checkpoint(path, abag=abag), ckc, dev, levers=levers)
 
-    @_under_levers
+    @under_levers
     def expand_and_refine(self, ifd, s_inputs_res, s_res, z_res, *,
                           extra_attn_bias=True, return_attn_bias=False):
         """The novel seam (opendde/model/opendde.py forward): residue-trunk (s_inputs, s, z)
@@ -476,7 +476,7 @@ class OpenDDE:
             return (*result, attn_bias)
         return result
 
-    @_under_levers
+    @under_levers
     def fold(self, feats, *, n_step=20, n_cycles=2, seed=None, n_sample=1,
              return_confidence=False, progress_fn=None, trace=False, dump_fn=None,
              max_parallel_samples=None, distogram=False):
