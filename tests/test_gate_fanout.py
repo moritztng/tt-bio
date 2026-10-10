@@ -224,6 +224,13 @@ def test_a_record_leg_returns_the_entry_it_recorded_not_the_staged_copy():
     assert gf.record_fragment(json.dumps(staged), json.dumps(written), "p150a", "m") is None
 
 
+def test_a_contended_card_is_not_a_leg_result():
+    assert gf.CONTENDED.search("[pxdesign] measurement error: design [pxdesign] rep 2/3 exited 75 after 123s: "
+                               "device contention, nothing ran: physical card 3 on tt-quietbox is in use\n")
+    assert gf.CONTENDED.search("waited 120s. Refusing to open it concurrently (would wedge)\n")
+    assert not gf.CONTENDED.search("GATE FAIL — regressed beyond ±15%: boltzgen\n")
+
+
 def _host(name, arch, tmp_path):
     return gf.Host(name, {"arch": arch, "card_type": arch, "root": str(tmp_path)}, "f" * 40)
 
