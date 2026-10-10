@@ -2,7 +2,10 @@
 # spd-bheth on qb1, after bheth_chain_qb1.sh proved the 12x10 grid on c730: does Ethernet dispatch fold every size and
 # model a Blackhole user runs today, and with what digests? Same venv (ttnn 0.68.0+bh.eth2), one p150a card by flock.
 # Protenix-v2 l256..l1536 1 cold + 1 warm, then OpenDDE, OpenFold3, Boltz-2 on c730 cold only; Tensix vs ETH each.
-#   [QB1_CARD=N] bheth_ladder_qb1.sh ENGINE_SHA
+#   [QB1_CARDS="1 0 2 3"] bheth_ladder_qb1.sh ENGINE_SHA
+# Takes the first listed card that is free and has no release-gate leg (flock_first.sh) waiting on it, so it never
+# jumps a release leg. It polls instead of blocking in flock: a blocked waiter gets SIGSTOPped by flock_first.sh and
+# its -w timer fires the moment it is continued (10-10, 12 h lost that way).
 set -u
 SHA=${1:?engine sha}
 B=~/spd-bheth; R=$B/runs/ladder-$(date -u +%m%dT%H%M); mkdir -p $R
@@ -14,8 +17,18 @@ cd $B/tree; export PYTHONPATH=$PWD TT_BIO_LEASE_HOLDER=spd-bheth
 $PY -c "from tt_bio import metal_overlay as M; assert M.bh_eth_dispatch_supported()" || { say "capability check failed"; exit 1; }
 say "engine $(git rev-parse --short HEAD), ttnn $($PY -c 'import importlib.metadata as m; print(m.version("ttnn"))')"
 
-CARD=${QB1_CARD:-0}; exec 9>~/spd_qb1_card$CARD.lock
-flock -w 43200 9 || { say "no qb1 card $CARD in 12 h"; exit 1; }
+take(){  # poll the cards for up to 12 h; on success fd 9 holds card $CARD
+  local end=$(( $(date +%s) + 43200 )) c
+  while [ "$(date +%s)" -lt $end ]; do
+    for c in ${QB1_CARDS:-1 0 2 3}; do
+      pgrep -f "flock_first.sh $HOME/spd_qb1_card$c.lock " >/dev/null && continue
+      exec 9>>~/spd_qb1_card$c.lock; flock -n 9 && { CARD=$c; return 0; }; exec 9>&-
+    done
+    sleep 30
+  done
+  return 1
+}
+take || { say "no qb1 card in 12 h"; exit 1; }
 N=$(node_of $CARD); export TT_VISIBLE_DEVICES=$CARD
 dead(){ [ "$(cat /sys/class/tenstorrent/tenstorrent!$N/tt_heartbeat 2>/dev/null)" = 4294967295 ]; }
 say "lock held: qb1 card $CARD (node $N), load $(cut -d' ' -f1-3 /proc/loadavg)"
@@ -26,8 +39,8 @@ run(){  # name model inputs warm arm
   say "$1 rc=$? $(grep -c '"ev": "rep"' $R/$1.log) reps, $(grep -c '"err": null' $R/$1.log) clean"
   dead && { say "node $N ARC dead after $1, stopping"; exit 2; }
 }
-for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth; do run pv2_${m%%:*} protenix-v2 l256,l512,l1024,l1536 1 $m; done
+for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1; do run pv2_${m%%:*} protenix-v2 l256,l512,l1024,l1536 1 $m; done
 for model in opendde openfold3 boltz2; do
-  for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth; do run ${model}_${m%%:*} $model c730 0 $m; done
+  for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1; do run ${model}_${m%%:*} $model c730 0 $m; done
 done
 say "end"
