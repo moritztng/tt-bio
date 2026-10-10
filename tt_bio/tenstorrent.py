@@ -11799,6 +11799,21 @@ class Transition(Module):
         # it declines is cut back to the interleaved path's own height, `safe_h`.
         shard_rows = safe_h = 0
 
+        def _rows(x, s, e):
+            # transition_shard's blocks are 3 rows at W=1536, and a 4-D DRAM slice of 3 rows shares a
+            # ttnn 0.68.0 program-cache entry with a 3-D 64-row slice that ends on the same index (the
+            # triangle attention's chunks): every 64th block came back with the wrong rows (max err
+            # 5.9-7.5 standalone) and collapsed l1536 fast. Cut into L1 the block is exact; it goes
+            # straight back to DRAM because a block left in L1 clashes with the interleaved fallback's
+            # static circular buffers. tests/test_slice_cache_hw.py pins the bug.
+            if shard_rows:
+                b = ttnn.slice(x, [0, s, 0, 0], [x.shape[0], e, x.shape[2], x.shape[3]],
+                               memory_config=ttnn.L1_MEMORY_CONFIG)
+                out = ttnn.to_memory_config(b, ttnn.DRAM_MEMORY_CONFIG)
+                ttnn.deallocate(b)
+                return out
+            return x[:, s:e]
+
         def swiglu(x):
             if shard_rows:
                 dtype = self.dtype if self.dtype is not None else _dtype()
@@ -12121,7 +12136,7 @@ class Transition(Module):
             # A ttnn slice over a whole axis is its input, buffer and all, so freeing it would
             # free x (or c); only a real sub-range is ours to free.
             for s in range(0, H, transition_h_chunk_size):
-                c = x if transition_h_chunk_size >= H else x[:, s:min(s + transition_h_chunk_size, H)]
+                c = x if transition_h_chunk_size >= H else _rows(x, s, min(s + transition_h_chunk_size, H))
                 if not w_chunked:
                     y = swiglu(c)
                     if add_to_input:
@@ -12168,7 +12183,7 @@ class Transition(Module):
             # update depends on x[I] alone and x[I] can take the sum once the block is done. Same
             # heights, same blocks, and `pair_add` adds the way ttnn.add does: the same bytes.
             for s in range(0, H, transition_h_chunk_size):
-                c = x if transition_h_chunk_size >= H else x[:, s:min(s + transition_h_chunk_size, H)]
+                c = x if transition_h_chunk_size >= H else _rows(x, s, min(s + transition_h_chunk_size, H))
                 y = swiglu(c)
                 if c is not x:
                     ttnn.deallocate(c)
