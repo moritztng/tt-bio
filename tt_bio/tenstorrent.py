@@ -588,7 +588,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g")
+          "swiglu_fc12g", "msa_sample")
 # Named but in no mode until their fold grade puts them in one.
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "transition_bw", "atom_mm16", "adaln_mod"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
@@ -639,8 +639,15 @@ FAST_LEVERS = frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8"} - UNGR
 # folds, PASS: CA-lDDT -0.0007 [-0.0023, +0.0010], iRMSD -0.29 [-0.78, -0.01], ipTM +0.019 [+0.0004, +0.049],
 # same-seed top pose median 0.172 A against the 0.60 A bar (A/A floor 0.776 A), docking 33 -> 33 of 44
 # (spd-difflin g3). Saves 8.18 s of the Wormhole c730 sampler at `_sdpa32`'s k chunk 256 (62.19 -> 54.01 s, 1000 MHz).
+# msa_sample: Protenix-v2 reads its own random alignment rows every recycling cycle, upstream v2.0.0's
+# inference rule (protenix.msa_cycle_rows_random), drawn from the fold seed. Not a precision lever: it is
+# faithfulness, and it changes which rows the MSA module reads, so it was graded like one. Wormhole 11-set,
+# 44 paired folds each, 39462b9f6: normal vs stack top pose median 0.588 A against the 0.60 A bar (A/A floor
+# 0.809 A), docking 32 -> 35 of 44; fast vs fast 0.424 A (floor 0.957 A), docking 33 -> 35 of 44; every
+# paired CI covers 0. c730 at AICLK 1000: normal 250.3 -> 247.7 s, fast 201.3 -> 196.1 s; deep alignments
+# gain most (9DBP 556 -> 419 s, 9PCQ 427 -> 310 s) (state/spd-msasample.md, 2026-10-10).
 NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
-                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16"})
+                           "transition_shard", "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample"})
 _LEVERS = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
@@ -7005,6 +7012,26 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
             return m
     dram_peak(f"trunk m embedded to the host in depth chunks [{tuple(m.shape)} torch]")
     return m
+
+
+def msa_row_bucket(depth, n_rows, step=1024):
+    """The rows a recycling cycle that reads `depth` rows of an `n_rows` alignment is padded to:
+    the next multiple of `step`, never past `n_rows` rounded up to a tile. A depth drawn afresh
+    every cycle then reaches the MSA module in at most ceil(n_rows / step) shapes, so nothing
+    compiles per cycle, and every per-row op runs once on one tensor as the full-depth path does."""
+    return min(-(-depth // step) * step, -(-n_rows // 32) * 32)
+
+
+def msa_rows_host(feat, rows, bucket):
+    """The host feature [1, bucket, tokens, c] holding alignment rows `rows` of `feat`, zero rows
+    after them, and the [bucket, 1, 1] mask of the real rows. PairWeightedAveraging and the
+    transition are per row, so the zero rows change no real row; OuterProductMean takes the mask
+    and the real row count and adds nothing for them."""
+    x = feat.new_zeros((1, bucket, *feat.shape[2:]))
+    x[:, :len(rows)] = feat[:, rows]
+    mask = torch.zeros(bucket, 1, 1)
+    mask[:len(rows)] = 1.0
+    return x, mask
 
 
 def _join_depth_chunks(chunks, group=8):
@@ -14288,16 +14315,16 @@ class OuterProductMean(Module):
 
         depth_parts = dims = None
         if x_chunks is not None:
-            if msa_mask is not None:
-                raise NotImplementedError(
-                    "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
-                    "trunk that uses the list path passes mask=None.")
             def device_chunks():
                 # A chunk parked on the host (msa_update_chunks(park=True)) is uploaded for
-                # its projection and that copy freed once the projection has it.
+                # its projection and that copy freed once the projection has it. The mask is
+                # cut to each chunk's rows.
+                r = 0
                 for c in x_chunks:
                     d = host_unpark(c)
-                    yield ttnn.reshape(d, tuple(d.shape)[1:]), None
+                    n = d.shape[1]
+                    yield ttnn.reshape(d, tuple(d.shape)[1:]), None if msa_mask is None else msa_mask[r:r + n]
+                    r += n
                     if d is not c:
                         ttnn.deallocate(d)
             # The join runs on the raw (rows, I, C) projections along the OUTER axis and lays
