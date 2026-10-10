@@ -6365,23 +6365,24 @@
       "host_threads": null
     },
     "p300c": {
-      "recorded": "2026-09-27",
+      "recorded": "2026-10-10",
       "host": "tt-quietbox2",
-      "commit": "dfc54d613",
+      "commit": "92d5924f5",
+      "host_threads": 5,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-09-27",
+          "recorded": "2026-10-10",
           "host": "tt-quietbox2",
-          "commit": "dfc54d613",
-          "host_threads": null,
+          "commit": "92d5924f5",
+          "host_threads": 5,
           "runtime_s": {
-            "256": 27.0,
-            "512": 56.1,
-            "640": 100.7,
-            "768": 128.3,
-            "896": 187.6,
-            "1024": 237.9
+            "256": 23.5,
+            "512": 61.6,
+            "640": 97.3,
+            "768": 140.5,
+            "896": 191.8,
+            "1024": 244.9
           },
           "levers": {
             "256": {
@@ -6572,6 +6573,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6867,6 +6876,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -7159,6 +7176,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -7450,6 +7475,14 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -7746,6 +7779,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -8041,6 +8082,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -8166,43 +8215,43 @@
           },
           "runtime_reps_s": {
             "256": [
-              27.9,
-              22.6,
-              20.8,
-              29.0,
-              27.0
+              24.2,
+              23.2,
+              23.5,
+              23.4,
+              23.9
             ],
             "512": [
-              60.8,
-              59.3,
-              55.5,
-              56.1,
-              55.5
+              62.0,
+              61.6,
+              61.0,
+              61.2,
+              62.9
             ],
             "640": [
-              97.1,
-              100.7,
-              101.7
+              96.1,
+              98.2,
+              97.3
             ],
             "768": [
-              128.5,
-              127.6,
-              128.3
+              140.0,
+              143.1,
+              140.5
             ],
             "896": [
-              180.7,
-              187.6,
-              189.8
+              191.8,
+              187.9,
+              193.5
             ],
             "1024": [
-              243.2,
-              237.9,
-              225.5
+              247.5,
+              244.9,
+              242.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -8212,10 +8261,10 @@
                 1350,
                 1350
               ],
-              "n": 49
+              "n": 46
             },
             "512": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -8225,10 +8274,10 @@
                 1350,
                 1350
               ],
-              "n": 77
+              "n": 82
             },
             "640": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -8236,10 +8285,10 @@
                 1350,
                 1350
               ],
-              "n": 71
+              "n": 70
             },
             "768": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -8247,10 +8296,10 @@
                 1350,
                 1350
               ],
-              "n": 87
+              "n": 95
             },
             "896": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -8258,10 +8307,10 @@
                 1350,
                 1350
               ],
-              "n": 121
+              "n": 123
             },
             "1024": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -8269,60 +8318,60 @@
                 1350,
                 1350
               ],
-              "n": 148
+              "n": 154
             }
           },
           "load": {
             "256": {
-              "max": 0.58,
+              "max": 0.44,
               "rep_median": [
-                0.3,
-                0.31,
-                0.21,
-                0.23,
-                0.48
+                0.39,
+                0.37,
+                0.27,
+                0.26,
+                0.26
               ]
             },
             "512": {
-              "max": 0.39,
+              "max": 0.43,
               "rep_median": [
-                0.27,
-                0.32,
-                0.24,
-                0.21,
-                0.19
+                0.34,
+                0.28,
+                0.25,
+                0.26,
+                0.25
               ]
             },
             "640": {
-              "max": 0.71,
+              "max": 0.49,
               "rep_median": [
-                0.42,
-                0.44,
-                0.4
+                0.28,
+                0.27,
+                0.3
               ]
             },
             "768": {
-              "max": 0.21,
+              "max": 0.39,
               "rep_median": [
-                0.11,
-                0.1,
-                0.13
+                0.33,
+                0.33,
+                0.32
               ]
             },
             "896": {
-              "max": 0.63,
+              "max": 0.44,
               "rep_median": [
-                0.14,
                 0.33,
-                0.35
+                0.26,
+                0.28
               ]
             },
             "1024": {
-              "max": 0.44,
+              "max": 0.4,
               "rep_median": [
+                0.35,
                 0.32,
-                0.29,
-                0.18
+                0.32
               ]
             }
           },
@@ -8333,30 +8382,29 @@
               "n_ca": 256,
               "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.5861,
-              "radius_of_gyration_A": 68.122,
-              "plddt_mean": 0.276057,
+              "ca_ca_median_A": 81.2089,
+              "radius_of_gyration_A": 68.246,
+              "plddt_mean": 0.276022,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.586 A outside [3.6, 4.0]",
+                "median CA-CA 81.209 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.1 A outside [9.0, 45.2]"
+                "radius of gyration 68.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0273,
+              "clash_frac": 0.0195,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.0687,
-              "radius_of_gyration_A": 75.718,
-              "plddt_mean": 0.262783,
+              "ca_ca_median_A": 78.4007,
+              "radius_of_gyration_A": 75.737,
+              "plddt_mean": 0.262577,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.069 A outside [3.6, 4.0]",
+                "median CA-CA 78.401 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 75.7 A outside [11.8, 58.9]"
               ]
             },
@@ -8364,33 +8412,33 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0328,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5042,
-              "radius_of_gyration_A": 78.185,
-              "plddt_mean": 0.274572,
+              "ca_ca_median_A": 79.6441,
+              "radius_of_gyration_A": 78.256,
+              "plddt_mean": 0.274869,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.504 A outside [3.6, 4.0]",
+                "median CA-CA 79.644 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.2 A outside [12.8, 64.1]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0495,
+              "clash_frac": 0.0339,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.9888,
-              "radius_of_gyration_A": 73.827,
-              "plddt_mean": 0.257835,
+              "ca_ca_median_A": 81.2509,
+              "radius_of_gyration_A": 73.767,
+              "plddt_mean": 0.2578,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.989 A outside [3.6, 4.0]",
+                "median CA-CA 81.251 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.4% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 73.8 A outside [13.7, 68.7]"
               ]
             },
@@ -8398,63 +8446,62 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0379,
+              "clash_frac": 0.0446,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.2515,
-              "radius_of_gyration_A": 79.97,
-              "plddt_mean": 0.263733,
+              "ca_ca_median_A": 79.3749,
+              "radius_of_gyration_A": 79.837,
+              "plddt_mean": 0.263801,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.252 A outside [3.6, 4.0]",
+                "median CA-CA 79.375 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.0 A outside [14.6, 72.8]"
+                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 79.8 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0557,
+              "clash_frac": 0.0596,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.3132,
-              "radius_of_gyration_A": 77.438,
-              "plddt_mean": 0.257459,
+              "ca_ca_median_A": 80.1138,
+              "radius_of_gyration_A": 77.367,
+              "plddt_mean": 0.257262,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.313 A outside [3.6, 4.0]",
+                "median CA-CA 80.114 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "6.0% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             }
           },
-          "reps": 3,
-          "sigma_runtime_512": 0.0427,
+          "reps": 1,
+          "sigma_runtime_512": 0.0122,
           "exponents": {
             "256->512": {
-              "k": 1.055,
+              "k": 1.39,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.04,
+              "k": 2.034,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.1399,
-            "512": 0.0427
+            "256": 0.0171,
+            "512": 0.0122
           },
           "exponents_measured": {
-            "256->512": 1.055,
-            "512->640": 2.622,
-            "640->768": 1.329,
-            "768->896": 2.465,
-            "896->1024": 1.779
+            "256->512": 1.39,
+            "512->640": 2.049,
+            "640->768": 2.015,
+            "768->896": 2.019,
+            "896->1024": 1.83
           }
         }
-      },
-      "host_threads": null
+      }
     }
   },
   "what": "size-ladder baseline rows for esmfold2, one file per model so parallel per-model recordings do not collide in one json",

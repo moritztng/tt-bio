@@ -3401,23 +3401,24 @@
       "host_threads": null
     },
     "p300c": {
-      "recorded": "2026-09-27",
+      "recorded": "2026-10-10",
       "host": "tt-quietbox2",
-      "commit": "8e5654e21",
+      "commit": "92d5924f5",
+      "host_threads": 5,
       "models": {
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-09-27",
+          "recorded": "2026-10-10",
           "host": "tt-quietbox2",
-          "commit": "8e5654e21",
-          "host_threads": null,
+          "commit": "92d5924f5",
+          "host_threads": 5,
           "runtime_s": {
-            "256": 4.09,
-            "512": 6.32,
-            "640": 7.04,
-            "768": 9.06,
-            "896": 12.88,
-            "1024": 20.27
+            "256": 3.89,
+            "512": 5.56,
+            "640": 6.74,
+            "768": 8.64,
+            "896": 10.28,
+            "1024": 13.46
           },
           "levers": {
             "256": {
@@ -3508,14 +3509,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 288,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:288x288x128": 96,
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:288x288x128": 48,
+                  "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:288x288x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:288x288x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3606,6 +3607,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -3682,7 +3691,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 576,
+                "served": 288,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3810,14 +3819,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 288,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:544x544x128": 96,
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:544x544x128": 48,
+                  "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:544x544x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:544x544x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3888,19 +3897,19 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 480,
-                "declined": 193,
-                "frac": 0.7132243684992571,
+                "served": 576,
+                "declined": 96,
+                "frac": 0.8571428571428571,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "fill_preconditions": 192
+                  "pm_over_l1": 95
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l]"
@@ -3912,6 +3921,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3989,7 +4005,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 576,
+                "served": 288,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4117,14 +4133,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 288,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:672x672x128": 96,
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:672x672x128": 48,
+                  "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:672x672x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:672x672x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4223,6 +4239,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -4299,7 +4323,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 576,
+                "served": 288,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4426,12 +4450,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -4531,6 +4555,14 @@
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -4607,8 +4639,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
@@ -4734,12 +4766,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -4814,19 +4846,19 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 480,
-                "declined": 98,
-                "frac": 0.8304498269896193,
+                "served": 576,
+                "declined": 96,
+                "frac": 0.8571428571428571,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
-                  "fill_preconditions": 97
+                  "pm_over_l1": 95
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l]"
@@ -4838,6 +4870,13 @@
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4915,18 +4954,17 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take"
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -5043,12 +5081,12 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 96,
-                "declined": 480,
+                "served": 48,
+                "declined": 240,
                 "frac": 0.16666666666666666,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:256x256x128": 480
+                  "l1_dest_is_faster:256x256x128": 240
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -5142,6 +5180,14 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
                 "served": null,
@@ -5218,8 +5264,8 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 480,
-                "declined": 96,
+                "served": 240,
+                "declined": 48,
                 "frac": 0.8333333333333334,
                 "how": "wrap"
               },
@@ -5262,35 +5308,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              3.9,
-              4.09,
-              4.13,
-              3.79,
-              4.1
+              3.89,
+              3.81,
+              3.89,
+              3.95,
+              3.78
             ],
             "512": [
-              6.32,
-              6.3,
-              6.24,
-              6.45,
-              6.35
+              5.55,
+              5.57,
+              5.56,
+              5.79,
+              5.52
             ],
             "640": [
-              7.04
+              6.74
             ],
             "768": [
-              9.06
+              8.64
             ],
             "896": [
-              12.88
+              10.28
             ],
             "1024": [
-              20.27
+              13.46
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5300,41 +5346,23 @@
                 800,
                 800
               ],
-              "n": 20
+              "n": 26
             },
             "512": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1312,
-                1350,
-                1343,
-                1331,
-                1350
+                800,
+                800,
+                800,
+                800,
+                800
               ],
-              "n": 20
+              "n": 29
             },
             "640": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                800
-              ],
-              "n": 5
-            },
-            "768": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                800
-              ],
-              "n": 5
-            },
-            "896": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5342,88 +5370,105 @@
               ],
               "n": 6
             },
-            "1024": {
-              "card": "0",
+            "768": {
+              "card": "1",
+              "min": 800,
+              "max": 1325,
+              "rep_median": [
+                800
+              ],
+              "n": 6
+            },
+            "896": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 800
               ],
-              "n": 11
+              "n": 7
+            },
+            "1024": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 8
             }
           },
           "load": {
             "256": {
-              "max": 0.48,
+              "max": 0.3,
               "rep_median": [
-                0.45,
-                0.33,
                 0.28,
+                0.26,
+                0.25,
                 0.29,
-                0.25
+                0.26
               ]
             },
             "512": {
-              "max": 0.32,
+              "max": 0.5,
               "rep_median": [
-                0.23,
-                0.27,
-                0.27,
-                0.23,
-                0.25
+                0.3,
+                0.3,
+                0.34,
+                0.39,
+                0.47
               ]
             },
             "640": {
-              "max": 0.31,
+              "max": 0.4,
               "rep_median": [
-                0.29
+                0.38
               ]
             },
             "768": {
-              "max": 0.31,
+              "max": 0.37,
               "rep_median": [
-                0.24
+                0.34
               ]
             },
             "896": {
-              "max": 0.23,
+              "max": 0.39,
               "rep_median": [
-                0.2
+                0.37
               ]
             },
             "1024": {
-              "max": 0.96,
+              "max": 0.32,
               "rep_median": [
-                0.83
+                0.31
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0124,
+          "sigma_runtime_512": 0.0197,
           "exponents": {
             "256->512": {
-              "k": 0.628,
+              "k": 0.515,
               "tol": 0.5
             },
             "512->768": {
-              "k": 0.888,
+              "k": 1.087,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0371,
-            "512": 0.0124
+            "256": 0.0176,
+            "512": 0.0197
           },
           "exponents_measured": {
-            "256->512": 0.628,
-            "512->640": 0.483,
-            "640->768": 1.384,
-            "768->896": 2.282,
-            "896->1024": 3.396
+            "256->512": 0.515,
+            "512->640": 0.863,
+            "640->768": 1.362,
+            "768->896": 1.127,
+            "896->1024": 2.018
           }
         }
-      },
-      "host_threads": null
+      }
     },
     "tt-galaxy-wh-l": {
       "recorded": "2026-09-24",
