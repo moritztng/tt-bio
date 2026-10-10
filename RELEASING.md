@@ -44,7 +44,9 @@ differ (a PyPI release between two preps once gave .107 and .114 different panda
 leg is in the ledger.
 
 A leg whose ssh connection drops (exit 255 with ssh's own error) is run again once the host
-answers; it is never recorded as a failure. A capacity leg passes when every cell it fails is a
+answers; it is never recorded as a failure. The rerun first ends the attempt it replaces, which
+the host may still be running, so a leg never runs twice. A result fetch that times out is
+retried the same way. A capacity leg passes when every cell it fails is a
 size-guard refusal that `docs/capacity_gate_baseline.json` records for that card type
 (OpenDDE on Blackhole is capped at 1024 tokens, so its 1536 cell is refused every run); any
 other failing cell fails the leg.
@@ -59,7 +61,10 @@ card-free legs always run, and `pytest_cpu` is where a stale recording fails. Th
 key only the legs that compare against them, so re-recording the size ladder reruns the ladder
 legs and nothing else. Likewise a `tests/test_*.py` file that no Python file outside `tests/` loads keys
 only the pytest legs, so a test fix does not rerun the folds; a test a gate script loads (such as
-`tests/test_structure.py`) stays in the code key. So a docs-only commit, or the release commit's version bump and
+`tests/test_structure.py`) stays in the code key. The gate's own runner (`gate_fanout.py`,
+`release_next.py`, `flock_first.sh`, `gate_host_prep.sh`, `splice_ladder_fragments.py` and
+their tests) decides where and when a leg runs, not what it computes, so a fix to it is not
+part of the key either. So a docs-only commit, or the release commit's version bump and
 re-recordings, costs nothing, and a grade-time crossmodel or suite run done through
 `gate_fanout.py --legs 'rg:*'` on the same wheel venv counts for the release. Any change to code,
 tests, data, fixtures, packages or card type is a new key and runs fresh. `--legs` also takes
