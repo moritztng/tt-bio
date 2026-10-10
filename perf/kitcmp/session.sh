@@ -4,10 +4,10 @@
 # sets up and times every kit in MODELS one after another, pulls results every model, destroys the box and confirms
 # it is gone. CAP_H hard-caps the billed time. Refuses to start if credit - CAP_H x max $/h would cross the $20 floor.
 #   usage: session.sh <label> <cap_h> <minW> '<vastai search query>' [max_attempts]
-#   e.g.   session.sh a 3.0 390 'gpu_name=A100_SXM4 num_gpus=1 gpu_ram<=41 cuda_max_good>=13.0 inet_down>=200 reliability>=0.98 dph<=1.2'
+#   e.g.   session.sh a 5.0 390 'gpu_name=A100_SXM4 num_gpus=1 gpu_ram>=79 cuda_max_good>=13.0 inet_down>=200 reliability>=0.98 dph<=1.2'
 # Status: stdout (redirect it); results perf/kitcmp/results/<label>/<model>/...
 set -u
-L=$1 CAP_H=$2 MINW=$3 Q=$4 NMAX=${5:-8}; TRIED=" "; MODELS=${MODELS:-boltz2 openfold3 opendde colabdesign}
+L=$1 CAP_H=$2 MINW=$3 Q=$4 NMAX=${5:-8}; TRIED=" "; MODELS=${MODELS:-protenix_v2 boltz2 openfold3 opendde}
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
 K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=20
 KIT=${KIT:-/home/moritz/scratch/kitsrc/uplifting-biomolecular-modeling}
@@ -61,7 +61,7 @@ print(x.get("public_ipaddr","").strip(), p[0]["HostPort"] if p else "") if x.get
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$IP
   $S 'mkdir -p /root/kit /root/kc/in /root/kc/results' && R $OUT/kit.tgz $H:/root/ && $S 'tar -xzf /root/kit.tgz -C /root/kit' &&
-    R $OUT/in/ $H:/root/kc/in/ && R $P/box_setup.sh $P/box_arms.sh $P/burn_gate.py $H:/root/kc/ || { destroy $I "push failed"; continue; }
+    R $OUT/in/ $H:/root/kc/in/ && R $P/box_setup.sh $P/box_arms.sh $P/burn_gate.py $P/kctime.py $H:/root/kc/ || { destroy $I "push failed"; continue; }
   $S "cd /root/kc && cat > chain.sh <<'X'
 for m in $MODELS; do
   bash box_setup.sh \$m > setup-\$m.log 2>&1 || { echo \$m setup-failed >> CHAIN-PROGRESS; continue; }
