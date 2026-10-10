@@ -12,6 +12,7 @@ export CUDA_HOME=/usr/local/cuda${CV:+-$CV} PYTHONHASHSEED=0 OPENFOLD3_CKPT=/wei
   OPENFOLD3_OB0_CKPT=/weights/openfold3_ob0/of3-ob-2025-06-30-174k.pt \
   OPENDDE_ROOT_DIR=/weights/opendde BOLTZ_CACHE=/weights/boltz2 PROTENIX_ROOT_DIR=/weights/protenix \
   ROSETTAFOLD3_OPT_STOCK_PYTHON=$K/venv/bin/python ROSETTAFOLD3_OPT_CKPT=/weights/rosettafold3/rf3_foundry_01_24_latest_remapped.ckpt \
+  RFDIFFUSION3_STOCK_PYTHON=/opt/rfd3-stock/bin/python RFD3_CKPT=/weights/rfd3/rfd3_latest.ckpt \
   HF_HOME=/weights/esmfold2 NVTE_FRAMEWORK=pytorch XFORMERS_IGNORE_FLASH_VERSION_CHECK=1
 sha256sum -c $I/SHA256SUMS > $R/fixture-sha.txt 2>&1 || { echo FIXTURE-SHA-MISMATCH > $R/ARMS-DONE; exit 5; }
 case $M in
@@ -41,6 +42,10 @@ run(){ # <mode>
     rosettafold3)  # no MSA and no early stop, as the published cell (perf/rf3/gpu_rf3_run.py)
                bash run.sh pred --config a100 --mode $1 --input $I/rf3.json --out_dir $d/pred --seeds 0 \
                  n_recycles=10 num_steps=50 diffusion_batch_size=1 early_stopping_plddt_threshold=0;;
+    rfdiffusion3)  # the published cell: 585-residue target + 100 designed, seed 7, batch 1, 200 timesteps, 4 batches in
+                   # one process; timed by the engine's own "Finished inference batch in X s" (every mode prints it)
+               ( cd $I/rfd3 && bash $K/run.sh design --config a100 --mode $1 inputs=rfd3_R4_gpu.json out_dir=$d/pred \
+                 inference_sampler.num_timesteps=200 diffusion_batch_size=1 n_batches=4 seed=7 skip_existing=False );;
     esmfold2)  # single sequence, as the published cells (the MSA is dropped by design); off on the fused backend exact reproduces
                [ $1 = off ] && B="--backend fused" || B=""
                bash run.sh pred --config a100 --variant $VAR --mode $1 $B --input $I/esmfold2.json --out_dir $d/pred --seeds 0 \

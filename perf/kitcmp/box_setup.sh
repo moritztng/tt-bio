@@ -15,7 +15,7 @@ case $M in
   esmfold2) PY=/opt/py3.12.10; py $PY "$G/20250409/cpython-3.12.10+20250409-x86_64-unknown-linux-gnu-install_only.tar.gz" \
               e9cf6f7da499a4400ba30ae1da8f7ef25ce97827bd8c1084717aa05438035186
             command -v git >/dev/null || { apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q git; };;
-  rosettafold3) PY=/opt/py3.12.1; py $PY "$G/20240107/cpython-3.12.1+20240107-x86_64_v3-unknown-linux-gnu-install_only.tar.gz" \
+  rosettafold3|rfdiffusion3) PY=/opt/py3.12.1; py $PY "$G/20240107/cpython-3.12.1+20240107-x86_64_v3-unknown-linux-gnu-install_only.tar.gz" \
               a7bcc6c9f66dbd47ea99615f30f101c5d2dd0084ca333d2f7336e64050951338;;
   *) PY=/usr/local; py $PY "$G/20230826/cpython-3.11.5+20230826-x86_64-unknown-linux-gnu-install_only.tar.gz" \
               fbed6f7694b2faae5d7c401a856219c945397f772eea5ca50c6eb825cbc9d1e1;;
@@ -37,6 +37,7 @@ case $M in
   protenix_v2) X='protenix';;
   esmfold2)    X='flash_attn|transformer_engine|xformers';;
   rosettafold3) X='-';;
+  rfdiffusion3) X='apex|rc-foundry';;
 esac
 grep -v -E "^(#|pip==|wheel==|($X)==)" $L > /tmp/stack-$M.txt
 [ $M = rosettafold3 ] && printf 'hatchling==1.31.0\nhatch-vcs==0.4.0\n' > /tmp/bp.txt && export PIP_CONSTRAINT=/tmp/bp.txt
@@ -55,11 +56,32 @@ case $M in
   rosettafold3)  # the stock interpreter is this venv; install --make-venv builds the kit's opt/venv from it
     pip install -q --no-deps --force-reinstall nvidia-cudnn-cu13==9.20.0.48 nvidia-nccl-cu13==2.29.7
     export ROSETTAFOLD3_OPT_STOCK_PYTHON=$K/venv/bin/python; W=/weights/rosettafold3;;
+  rfdiffusion3)  # two interpreters from one lock (pristine stock + the kit's patched one), foundry at the pin and apex
+    # built here from its pinned commit for sm 8.0 with the image's nvcc 13.0, installed into both (environment/Dockerfile)
+    SV=/opt/rfd3-stock; [ -d $SV ] || $PY/bin/python3 -m venv $SV
+    $SV/bin/pip install -q --no-deps $(grep -E '^pip==' $L); $SV/bin/pip install -q --no-deps -r /tmp/stack-$M.txt
+    printf 'hatchling==1.32.0\nhatch-vcs==0.4.0\nsetuptools-scm==10.2.1\nvcs-versioning==2.3.1\n' > /tmp/bp.txt
+    for v in $K/venv $SV; do SETUPTOOLS_SCM_PRETEND_VERSION=0.2.1.dev13+g4010e3e2e PIP_CONSTRAINT=/tmp/bp.txt \
+      $v/bin/pip install -q --no-deps stock/foundry-4010e3e.tar.gz; done
+    AC=a1d527a857e8da64c4e7237ca89ec699fb4d9eaf
+    if ! ls /tmp/apexw/apex-0.1-*.whl >/dev/null 2>&1; then
+      curl -fsSL -o /tmp/apex.tar.gz https://github.com/NVIDIA/apex/archive/$AC.tar.gz
+      echo "f3cc6e36d357f5c47e39fe6f7ab7282ec7fc19af0b4a8425758ec2f2c6cc038e  /tmp/apex.tar.gz" | sha256sum -c -
+      mkdir -p /tmp/src && tar -xzf /tmp/apex.tar.gz -C /tmp/src && $SV/bin/pip install -q ninja==1.13.0
+      ( cd /tmp/src/apex-$AC && PATH=$SV/bin:$PATH APEX_CPP_EXT=1 APEX_CUDA_EXT=1 APEX_PARALLEL_BUILD=8 MAX_JOBS=4 \
+          NVCC_APPEND_FLAGS="--threads 4" TORCH_CUDA_ARCH_LIST=8.0 $SV/bin/python -m pip wheel --no-deps --no-build-isolation -w /tmp/apexw . )
+    fi
+    for v in $K/venv $SV; do $v/bin/pip install -q --no-deps /tmp/apexw/apex-0.1-*.whl
+      $v/bin/python -c "import rfd3, apex, importlib; importlib.import_module('apex.normalization.fused_layer_norm'); import fused_layer_norm_cuda"; done
+    PATH=$SV/bin:$PATH bash run.sh install
+    S3=$($SV/bin/python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $S3/
+    export RFDIFFUSION3_STOCK_PYTHON=$SV/bin/python RFD3_CKPT=/weights/rfd3/rfd3_latest.ckpt; W=/weights/rfd3;;
   protenix_v2) pip install -q --no-deps stock/protenix-2.0.0-py3-none-any.whl; export PROTENIX_ROOT_DIR=/weights/protenix; W=$PROTENIX_ROOT_DIR;;
 esac
 SP=$(python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $SP/ && echo "import kctime" > $SP/kctime.pth
 mkdir -p $W
 bash run.sh install $([ $M = rosettafold3 ] && echo --make-venv) --weights $W
+[ $M = rfdiffusion3 ] && python -m rfdiffusion3_opt.install apply && python -m rfdiffusion3_opt.install check-only
 [ -d opt/venv ] && { S2=$(opt/venv/bin/python -c 'import site; print(site.getsitepackages()[0])'); cp /root/kc/kctime.py $S2/ && echo 'import kctime' > $S2/kctime.pth; }
 bash run.sh check --config a100 --mode fast $([ $M = esmfold2 ] && echo --variant fast)
 echo SETUP-OK > /root/kc/SETUP-OK-$M

@@ -1,5 +1,6 @@
 """Table of one kitcmp session: per model x mode, warm median s/fold, n, min-max, cold, rc, the kit's ACTIVE line,
-the wrapped function (RoseTTAFold3: the gaps between consecutive structure dumps), and the SM clock / power / memory nvidia-smi read during the arm.
+the wrapped function (RoseTTAFold3: the gaps between consecutive structure dumps;
+RFdiffusion3: the engine's own per-batch line), and the SM clock / power / memory nvidia-smi read during the arm.
 
     python3 perf/kitcmp/parse.py perf/kitcmp/results/<label>/results
 """
@@ -34,6 +35,10 @@ for m in sorted(p for p in root.iterdir() if p.is_dir()):
         if m.name == "rosettafold3" and rows:  # wrapped RF3Output.dump inside one engine.run: fold i = dump end t[i] - t[i-1]
             t = [r["t"] for r in rows]
             s = [round(t[0] - ts(d / "t_start"), 3)] + [round(b - a, 4) for a, b in zip(t, t[1:])]
+        if m.name == "rfdiffusion3":  # the engine's own per-batch line, wrapping the sampler loop (perf/dsfix/gpu_rfd3_prod.py)
+            import re
+            log = "".join(f.read_text(errors="replace") for f in (d / "stderr.log", d / "stdout.log") if f.exists())
+            s = [float(x) for x in re.findall(r"Finished inference batch in ([\d.]+) seconds", log)]
         warm = s[1:]
         rc = (d / "rc").read_text().strip() if (d / "rc").exists() else "running"
         err = "".join(f.read_text(errors="replace") for f in (d / "stderr.log", d / "stdout.log") if f.exists())
@@ -49,5 +54,5 @@ for m in sorted(p for p in root.iterdir() if p.is_dir()):
                 mem = f"{max(x[3] for x in w):.1f}"
         med = f"{statistics.median(warm):.3f}" if warm else "-"
         rng = f"{min(warm):.3f}-{max(warm):.3f}" if warm else "-"
-        fn = rows[0]["fn"].rsplit(".", 2)[-2:] if rows else ["-"]
+        fn = rows[0]["fn"].rsplit(".", 2)[-2:] if rows else (["engine-log"] if m.name == "rfdiffusion3" else ["-"])
         print(f"| {m.name} | {mode} | {med} | {len(warm)} | {rng} | {s[0] if s else '-'} | {rc} | {'.'.join(fn)} | {clk} | {pw} | {mem} | {act} |")
