@@ -45,3 +45,48 @@ def test_a_failed_reference_run_fails_the_gate(tmp_path):
         assert "exited 3" in str(e)
     else:
         raise AssertionError("a failed reference run must fail the gate")
+
+
+class _Clock:
+    def __init__(self, median):
+        self.median = median
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def summary(self):
+        return {0: {"min": self.median, "max": self.median, "median": self.median, "n": 3}}
+
+
+def _fake_child(row):
+    class Popen:
+        def __init__(self, cmd, **kw):
+            Path(cmd[cmd.index("--out") + 1]).write_text(json.dumps(row))
+            self.pid = 0
+
+        def wait(self, timeout=None):
+            return 0
+    return Popen
+
+
+def test_a_measurement_carries_the_clock_and_a_clamped_one_cannot_seed(monkeypatch, tmp_path):
+    m = _module()
+    row = {"model": "boltz2", "hardware": "blackhole", "throughput": 0.8}
+    monkeypatch.setattr(m.subprocess, "Popen", _fake_child(row))
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(1350))
+    fast = m._run_measure("boltz2")
+    assert fast["aiclk_mhz"]["median"] == 1350 and not fast.get("clock_low")
+    monkeypatch.setattr(m, "clock_during", lambda: _Clock(800))
+    slow = m._run_measure("boltz2")
+    assert slow["clock_low"]
+    monkeypatch.setattr(m, "BASELINE_FILE", tmp_path / "b.json")
+    try:
+        m._update_baselines([slow], Namespace(note="x", allow_contended=False))
+    except SystemExit as e:
+        assert "AICLK below 1200" in str(e)
+    else:
+        raise AssertionError("a baseline was seeded from an 800 MHz measurement")
+    assert not (tmp_path / "b.json").exists()

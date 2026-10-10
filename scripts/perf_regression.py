@@ -674,6 +674,25 @@ def sample_host_load() -> dict:
 #: seeded cell misreads every future one.
 CONTENDED_RATIO = 1.0
 
+# Below this a Blackhole chip is clamped or latched (an in-place firmware upgrade once held
+# the arbiter at 800 MHz), and a timing taken there is an artifact of the clock.
+BH_MIN_AICLK = 1200
+
+
+def clock_during():
+    """perf/clocksample.py's sampler, or a no-op one where the tree has no perf/."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from perf.clocksample import during
+        return during()
+    except ImportError:
+        import contextlib
+
+        class _None(contextlib.nullcontext):
+            def summary(self):
+                return {}
+        return _None()
+
 
 def detect_stack() -> dict:
     """Driver and card-firmware identity for the boards this host has. Opens no device.
@@ -1455,8 +1474,10 @@ def _run_measure(model: str) -> dict | None:
     timeout = per_rep * reps + 300
     load_before = sample_host_load()
     proc = subprocess.Popen(cmd, env=env, start_new_session=True)
+    clk = clock_during()
     try:
-        rc = proc.wait(timeout=timeout)
+        with clk:
+            rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         try:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
@@ -1483,6 +1504,16 @@ def _run_measure(model: str) -> dict | None:
     ratios = [x for x in (load_before.get("ratio"), load_after.get("ratio")) if x is not None]
     row["host_load"] = {"before": load_before, "after": load_after,
                         "peak_ratio": max(ratios) if ratios else None}
+    # The clock is sampled in this parent for the whole child, so it covers the timed
+    # region; tt-smi reports the granted chip as index 0 under TT_VISIBLE_DEVICES.
+    row["aiclk_mhz"] = clk.summary().get(0)
+    median = (row["aiclk_mhz"] or {}).get("median")
+    if row.get("hardware") == "blackhole" and median is not None and median < BH_MIN_AICLK:
+        row["clock_low"] = True
+        print(f"[{model}] WARNING: AICLK median {median} MHz during this measurement "
+              f"(< {BH_MIN_AICLK}). On Blackhole the clock sets the fold time, so this "
+              f"number describes the clock arbiter, not the tree. Do not seed a "
+              f"baseline from it.", file=sys.stderr)
     peak = row["host_load"]["peak_ratio"]
     if peak is not None and peak > CONTENDED_RATIO:
         row["contended"] = True
@@ -1542,7 +1573,7 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
              f"| threshold ±{threshold:.0f}%  | {warm_desc}")
     print(f"\n{'#' * 78}\n{title}\n{'#' * 78}")
     hdr = (f"{'model':<16}{'metric':<16}{'baseline':>11}{'current':>11}"
-           f"{'delta':>10}{'verdict':>10}")
+           f"{'delta':>10}{'verdict':>10}{'aiclk MHz':>11}")
     print(hdr)
     print("-" * len(hdr))
     unbacked: list[str] = []
@@ -1575,8 +1606,9 @@ def _print_table(rows: list[dict], baselines: dict, card_type: str, machine_id: 
         if not ok:
             regressed.append(r["model"])
         verdict = "PASS" if ok else "FAIL"
+        clk = (r.get("aiclk_mhz") or {}).get("median", "unclocked")
         print(f"{r['model']:<16}{unit:<16}{base:>11.4g}{r['throughput']:>11.4g}"
-              f"{delta:>10}{verdict:>10}")
+              f"{delta:>10}{verdict:>10}{clk:>11}")
     print("-" * len(hdr))
     # card/machine/hardware/tt-bio really are table-wide (one host, one install), but the
     # input is not: folds read trpcage, esmc/saprot read batched ubiquitin, and boltzgen /
@@ -1658,6 +1690,12 @@ def _update_baselines(rows: list[dict], args) -> int:
     models = m_entry.setdefault("models", {})
     any_ok = False
     measured: set[str] = set()
+    slow = [f"{r['model']} {r['aiclk_mhz']['median']} MHz" for r in rows
+            if not r.get("failed") and r.get("clock_low")]
+    if slow and not getattr(args, "allow_contended", False):
+        sys.exit(f"REFUSING to seed a baseline: AICLK below {BH_MIN_AICLK} MHz during "
+                 f"{', '.join(slow)}. Reset the chip or wait for it to unclamp, or pass "
+                 f"--allow-contended and say so in --note.")
     contended = [r["model"] for r in rows
                  if not r.get("failed") and r.get("contended")]
     if contended and not getattr(args, "allow_contended", False):
@@ -1691,7 +1729,7 @@ def _update_baselines(rows: list[dict], args) -> int:
             num_designs=r.get("num_designs"),
             warmup=r["warmup"], repeat=r["repeat"],
             hardware=r["hardware"], card_type=r.get("card_type", card_type),
-            machine_id=machine_id, host_load=r.get("host_load"),
+            machine_id=machine_id, host_load=r.get("host_load"), aiclk_mhz=r.get("aiclk_mhz"),
             tt_bio_version=r["tt_bio_version"], date=r["date"], note=args.note,
         )
     # The machine block's own date/tt_bio_version/note describe the whole block, so
