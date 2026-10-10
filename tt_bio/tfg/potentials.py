@@ -913,19 +913,33 @@ class VinaStericPotential(Potential):
         # rebuild once an atom may have moved by half the skin (1e-3 A short of it, so rounding cannot matter)
         if st["X"] is None or float(square_length(X - st["X"]).max()) >= (0.5 * st["skin"] - 1e-3) ** 2:
             # inter-chain pairs that may pair only (chain i < chain j): no intra-chain or mirrored candidates
-            s, i, j = interchain_pairs(X, st["chain"], st["allowed"], st["cut"] + st["skin"])
-            ci, cj = st["chain"][i], st["chain"][j]
-            n, nc, pos = X.shape[1], st["n_chains"], st["pos"]
-            rank = (((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j]
-            o = torch.argsort(rank)
-            s, i, j = s[o], i[o], j[o]
-            eq = st["r"][i] + st["r"][j]
-            st["pairs"], st["X"] = (s, i, j, s * n + i, s * n + j, eq, eq * (1.0 - buf)), X.clone()
+            st["raw"], st["X"], st["pairs"] = interchain_pairs(X, st["chain"], st["allowed"], st["cut"] + st["skin"]), X.clone(), None
         return st
+
+    @staticmethod
+    def _listed(st, buf, ordered):
+        """The listed pairs (s, i, j, flat i, flat j, r_eq, active cutoff); `ordered` puts them in the dense candidate
+        order (equal fp32 sums to the dense path), which only the torch evaluation needs."""
+        if not ordered:
+            s, i, j = st["raw"]
+        elif st["pairs"] is not None:
+            return st["pairs"]
+        else:
+            s, i, j = st["raw"]
+            ci, cj = st["chain"][i], st["chain"][j]
+            n, nc, pos = st["X"].shape[1], st["n_chains"], st["pos"]
+            o = torch.argsort((((s * nc + ci) * nc + cj) * n + pos[i]) * n + pos[j])
+            s, i, j = s[o], i[o], j[o]
+        n = st["X"].shape[1]
+        eq = st["r"][i] + st["r"][j]
+        out = (s, i, j, s * n + i, s * n + j, eq, eq * (1.0 - buf))
+        if ordered:
+            st["pairs"] = out
+        return out
 
     def _active_sparse(self, coords_b, feats, buf):
         """The same active pairs as _active_dense, from the pair list."""
-        s, i, j, fi, fj, eq, lim = self._pair_list(coords_b, feats, buf)["pairs"]
+        s, i, j, fi, fj, eq, lim = self._listed(self._pair_list(coords_b, feats, buf), buf, True)
         X = coords_b.reshape(-1, 3)
         r = X[fi] - X[fj]
         v = torch.linalg.norm(r, dim=-1).clamp_min(1e-8)
@@ -999,7 +1013,7 @@ class VinaStericPotential(Potential):
         done = 0
         while done < steps:
             st = self._pair_list(coords_b, feats, buf)
-            s, i, j, fi, fj, eq, lim = st["pairs"]
+            s, i, j, fi, fj, eq, lim = self._listed(st, buf, False)
             atoms, local = torch.unique(torch.cat((fi, fj)), return_inverse=True)
             li, lj = local[: fi.numel()], local[fi.numel():]
             flat = coords_b.reshape(-1, 3)
