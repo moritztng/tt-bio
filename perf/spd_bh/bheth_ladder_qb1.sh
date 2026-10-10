@@ -3,7 +3,7 @@
 # model a Blackhole user runs today, and with what digests? Same venv (ttnn 0.68.0+bh.eth2), one p150a card by flock.
 # Protenix-v2 l256..l1536 1 cold + 1 warm, then OpenDDE, OpenFold3, Boltz-2 on c730 cold only; Tensix vs ETH each.
 #   [QB1_CARDS="1 0 2 3"] [AFTER_PID=N] bheth_ladder_qb1.sh ENGINE_SHA [repeat|rest]
-# rest: what the 10-10 ladder lost when qb1's disk filled at pv2_eth l1536 (ETH l1536, the other models), then repeat.
+# rest: the repeat first, then what the 10-10 ladder lost when qb1's disk filled (ETH l1536, the other models).
 # Every plan waits for 20 GiB free on / before it takes a card: a full disk turns each fold into rc=120 in a second.
 # repeat: Protenix-v2 l256 + l1024 again in both arms, same seeds, to tell a run-to-run flip from a grid-numerics change
 # (the first ladder's ETH digests differed from Tensix at l256 and l1024, matched at l512).
@@ -45,15 +45,15 @@ run(){  # name model inputs warm arm
   say "$1 rc=$? $(grep -c '"ev": "rep"' $R/$1.log) reps, $(grep -c '"err": null' $R/$1.log) clean"
   dead && { say "node $N ARC dead after $1, stopping"; exit 2; }
 }
-if [ $PLAN = rest ]; then
+if [ $PLAN = rest ] || [ $PLAN = repeat ]; then   # the repeat decides the p150a default, so it runs first
+  for m in eth:TT_BIO_BH_ETH_DISPATCH=1 tensix:TT_BIO_BH_ETH_DISPATCH=0; do
+    run repeat_pv2_${m%%:*} protenix-v2 l256,l1024 1 $m
+  done
+  [ $PLAN = repeat ] && { say "end"; exit 0; }
   run pv2_eth protenix-v2 l1536 1 eth:TT_BIO_BH_ETH_DISPATCH=1
   for model in opendde openfold3 boltz2; do
     for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1; do run ${model}_${m%%:*} $model c730 0 $m; done
   done
-  PLAN=repeat; R=$R/repeat; mkdir -p $R
-fi
-if [ $PLAN = repeat ]; then
-  for m in eth:TT_BIO_BH_ETH_DISPATCH=1 tensix:TT_BIO_BH_ETH_DISPATCH=0; do run pv2_${m%%:*} protenix-v2 l256,l1024 1 $m; done
   say "end"; exit 0
 fi
 for m in tensix:TT_BIO_BH_ETH_DISPATCH=0 eth:TT_BIO_BH_ETH_DISPATCH=1; do run pv2_${m%%:*} protenix-v2 l256,l512,l1024,l1536 1 $m; done
