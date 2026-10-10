@@ -590,7 +590,17 @@ class Host:
             lock = "bash scripts/flock_first.sh" if c.get("first") else "flock"
             run = f"{lock} {shlex.quote(c['lock'].format(card=card))} {run}"
         setup = f"{fill(leg.setup)} && " if leg.setup else ""
-        return f"mkdir -p {shlex.quote(out)} && cd {self.tree} && {setup}{run}"
+        # Each attempt is its own session, its pid in attempt.pid and its marker in the environment
+        # (which survives bash's exec of the last command). When the runner's connection drops the
+        # remote side keeps waiting on the card, so a rerun first ends the attempt it replaces;
+        # otherwise both run the leg into one directory (qb1, 10-10: five BH legs queued twice).
+        pidf = shlex.quote(f"{out}/attempt.pid")
+        mark = shlex.quote(f"GATE_ATTEMPT={out}")
+        prior = (f"{{ p=$(cat {pidf} 2>/dev/null) && tr '\\0' '\\n' < /proc/$p/environ 2>/dev/null "
+                 f"| grep -qxF -- {mark} && pkill -TERM -s $p; true; }}")   # -s: timeout moves the leg to its own group
+        attempt = shlex.quote(f"echo $$ > {pidf}; {run}")
+        return (f"mkdir -p {shlex.quote(out)} && {prior} && cd {self.tree} && {setup}"
+                f"exec env {mark} setsid -w bash -c {attempt}")
 
 
 # ---------------------------------------------------------------------------------------------

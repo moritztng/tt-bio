@@ -1,6 +1,7 @@
 """gate_fanout.py: leg split, result keys, reuse, scheduling and verdict, all card-free."""
 import importlib.util
 import json
+import shlex
 import subprocess
 import sys
 import threading
@@ -336,11 +337,42 @@ def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path
     assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd
     assert "RELEASE_GATE_SIZE_WORKDIR=/t/out/x/sizegate-work" in cmd
     assert "/r/venv-aaaaaaaaaaaa/bin/python scripts/full_parity_gate.py" in cmd
-    free = h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y")
+    free = shlex.split(h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y"))[-1]
     assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
     assert "/r/venv312-aaaaaaaaaaaa/bin/python -m pytest" in free
     bc2 = h.command(next(lg for lg in _legs() if lg.family == "bc2"), 1, "/t/out/z")
     assert "PYTHONPATH=/bc2 " in bc2 and "/r/trees" not in bc2.split("&&")[-1].split("bash -c")[0]
+
+
+def test_a_rerun_ends_the_attempt_it_replaces(tmp_path):
+    """A dropped connection leaves the remote attempt waiting on the card; the rerun must end
+    it, leg and all, or the leg runs twice into one directory."""
+    tree = tmp_path / "trees" / ("a" * 12)
+    (tree / "scripts").mkdir(parents=True)
+    (tree / "scripts" / "flock_first.sh").write_text((REPO / "scripts" / "flock_first.sh").read_text())
+    h = gf.Host("h", {"arch": "bh", "card_type": "p", "root": str(tmp_path), "first": True,
+                      "lock": str(tmp_path / "card{card}.lock")}, "a" * 40)
+    out = tmp_path / "out"
+    cmd = h.command(gf.Leg("x", ["sleep", "57"], "parity"), 0, str(out))
+    first = subprocess.Popen(["bash", "-c", cmd])
+    pidf = out / "attempt.pid"
+    deadline = time.time() + 20
+    while not (pidf.exists() and subprocess.run(["pgrep", "-s", pidf.read_text().strip(), "-x", "sleep"],
+                                                 capture_output=True).returncode == 0):
+        assert time.time() < deadline
+        time.sleep(0.1)
+    sid1 = pidf.read_text().strip()
+    second = subprocess.Popen(["bash", "-c", cmd])
+    try:
+        assert first.wait(timeout=20) != 0
+        assert subprocess.run(["pgrep", "-s", sid1], capture_output=True).returncode == 1
+        while pidf.read_text().strip() == sid1:
+            assert time.time() < deadline + 20
+            time.sleep(0.1)
+        assert second.poll() is None
+    finally:
+        subprocess.run(["pkill", "-TERM", "-s", pidf.read_text().strip()])
+        second.wait(timeout=20)
 
 
 def test_a_seeding_host_adds_its_flags_to_the_key_and_reports_seeded_not_pass(tmp_path):
