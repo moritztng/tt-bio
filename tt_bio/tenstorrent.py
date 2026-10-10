@@ -833,9 +833,11 @@ def under_lever_scope(method):
 # Blackhole dispatch on Ethernet cores instead of a Tensix column. Stock p150a firmware reports 12 Tensix
 # columns; Tensix dispatch takes one, so tt-bio computes on 11x10. Ethernet dispatch leaves all 12: 120 cores,
 # +9.1 %. It needs a ttnn built with scripts/ttnn_bh_eth (stock 0.68.0 cannot fit the dispatch kernels on an
-# Ethernet core), so it is on only where metal_overlay.bh_eth_dispatch_supported() finds one.
-# TT_BIO_BH_ETH_DISPATCH=0 keeps Tensix dispatch.
-_BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", True)
+# Ethernet core), so it is on only where metal_overlay.bh_eth_dispatch_supported() finds one, and by default only on
+# single-chip boards (p150a): on a p300c chip a c730 fold under Ethernet dispatch came out in one of three digests
+# run to run (2 of 6 folds, one diffusion sample each, 0.14 A), where Tensix dispatch on the same chip was stable 8/8.
+# TT_BIO_BH_ETH_DISPATCH=1 turns it on for p300c as well, =0 keeps Tensix dispatch everywhere.
+_BH_ETH_DISPATCH = env_flag("TT_BIO_BH_ETH_DISPATCH", True) if os.environ.get("TT_BIO_BH_ETH_DISPATCH", "").strip() else None
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
 # Release-gated (DEFAULT OFF): run the attention/triangle-attention SOFTMAX in fp32
@@ -7999,7 +8001,11 @@ def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
 def bh_eth_dispatch() -> bool:
     """Whether a Blackhole chip opens with Ethernet dispatch (the 12x10 grid) in this process."""
     from .metal_overlay import bh_eth_dispatch_supported
-    return _BH_ETH_DISPATCH and bh_eth_dispatch_supported()
+    if _BH_ETH_DISPATCH is None:   # unset: single-chip boards only
+        from .main import _detect_p300_devices, _visible_tt_devices
+        if set(_visible_tt_devices()) & set(_detect_p300_devices()):
+            return False
+    return _BH_ETH_DISPATCH is not False and bh_eth_dispatch_supported()
 
 
 def _open_and_init_device(trace_region_size):

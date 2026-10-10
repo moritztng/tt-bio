@@ -83,7 +83,7 @@ Drop the `[tenstorrent]` extra on a host without a Tenstorrent card.
 ### Optional: Build TT-Metal / TT-NN from Source
 If you need to build from source, follow the [Tenstorrent Installation Guide](https://github.com/tenstorrent/tt-metal/blob/main/INSTALLING.md).
 
-On Blackhole, a ttnn built with `scripts/ttnn_bh_eth/build_wheel.sh` lets tt-bio compute on all 120 cores instead of 110 (about 4 % faster folds, same output). tt-bio detects it and uses it automatically; see [`TT_BIO_BH_ETH_DISPATCH`](docs/tuning-flags.md#tt_bio_bh_eth_dispatch).
+On a Blackhole p150a, a ttnn built with `scripts/ttnn_bh_eth/build_wheel.sh` lets tt-bio compute on all 120 cores instead of 110 (about 4 % faster folds, same output). tt-bio detects it and uses it automatically (not on p300c, where it is not yet run-to-run deterministic); see [`TT_BIO_BH_ETH_DISPATCH`](docs/tuning-flags.md#tt_bio_bh_eth_dispatch).
 
 ### Verify Installation
 ```bash
